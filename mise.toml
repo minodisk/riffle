@@ -1,0 +1,26 @@
+[tools]
+rust = "1.97"
+
+[tasks."git:main"]
+description = "Fetch the latest origin/main and point at it via detached HEAD"
+shell = "bash -c"
+run = """
+set -euo pipefail
+git fetch origin main
+git checkout --detach origin/main
+"""
+
+[tasks.fmt]
+description = "Format the whole repository"
+shell = "bash -c"
+run = "cargo fmt --all"
+
+[tasks.ci]
+description = "Run the same checks CI runs, locally"
+shell = "bash -c"
+run = """
+set -euo pipefail
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+"""
