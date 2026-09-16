@@ -1,6 +1,6 @@
 [tools]
 actionlint = "1.7.12"
-rust = "1.97"
+rust = { version = "1.97", components = "rustfmt,clippy" }
 shellcheck = "0.11.0"
 
 [tasks."git:main"]
