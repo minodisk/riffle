@@ -19,6 +19,12 @@ target="${script_dir}/check-merge-approval.sh"
 failures=0
 cases=0
 
+# Indent a multi-line block for the failure output.
+function indent() {
+	local text="$1"
+	printf '  %s\n' "${text//$'\n'/$'\n'  }"
+}
+
 # expect <expected exit> <expected verdict: approval|unclassified|safe> <path>...
 # Feeds the paths on stdin and checks the exit code, plus that each path's
 # verdict line is present (or absent, for safe).
@@ -37,7 +43,7 @@ function expect() {
 	if [[ "${status}" -ne "${expected_status}" ]]; then
 		echo "FAIL: ${paths[*]}" >&2
 		echo "  expected exit ${expected_status}, got ${status}" >&2
-		echo "${output}" | sed 's/^/  /' >&2
+		indent "${output}" >&2
 		failures=$((failures + 1))
 		return
 	fi
@@ -48,21 +54,21 @@ function expect() {
 		approval)
 			if ! grep -q "^approval ${path}: " <<<"${output}"; then
 				echo "FAIL: ${path} was not classified as approval" >&2
-				echo "${output}" | sed 's/^/  /' >&2
+				indent "${output}" >&2
 				failures=$((failures + 1))
 			fi
 			;;
 		unclassified)
 			if ! grep -qx "unclassified ${path}" <<<"${output}"; then
 				echo "FAIL: ${path} was not classified as unclassified" >&2
-				echo "${output}" | sed 's/^/  /' >&2
+				indent "${output}" >&2
 				failures=$((failures + 1))
 			fi
 			;;
 		safe)
 			if grep -q "^approval ${path}: \|^unclassified ${path}\$" <<<"${output}"; then
 				echo "FAIL: ${path} was not classified as safe" >&2
-				echo "${output}" | sed 's/^/  /' >&2
+				indent "${output}" >&2
 				failures=$((failures + 1))
 			fi
 			;;
@@ -107,7 +113,7 @@ if [[ "${mixed_status}" -ne 1 ]] ||
 	! grep -q '^approval Cargo.lock: ' <<<"${mixed_output}" ||
 	! grep -qx 'TOTAL=3 APPROVAL=1 UNCLASSIFIED=0 SAFE=2' <<<"${mixed_output}"; then
 	echo "FAIL: one approval path among safe ones should require approval" >&2
-	echo "${mixed_output}" | sed 's/^/  /' >&2
+	indent "${mixed_output}" >&2
 	failures=$((failures + 1))
 fi
 
@@ -130,7 +136,7 @@ zero_status=0
 zero_output=$(printf '' | CHECK_MERGE_APPROVAL_STDIN=1 bash "${target}" --paths-from-stdin 1) || zero_status=$?
 if [[ "${zero_status}" -ne 1 ]] || ! grep -q '^unclassified (no files): ' <<<"${zero_output}"; then
 	echo "FAIL: zero changed files should be approval required" >&2
-	echo "${zero_output}" | sed 's/^/  /' >&2
+	indent "${zero_output}" >&2
 	failures=$((failures + 1))
 fi
 

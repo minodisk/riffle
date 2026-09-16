@@ -1,0 +1,5 @@
+external-sources=true
+source-path=SCRIPTDIR
+
+# Not followed correctly by the editor extension, so it is disabled here.
+disable=SC1091

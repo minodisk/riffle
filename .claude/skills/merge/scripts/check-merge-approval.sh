@@ -151,8 +151,9 @@ function classify() {
 		echo "can swap out the process-launch settings VS Code auto-applies in a trusted workspace"
 		return 0
 		;;
-	# Docs, plans, and the todo list. Nothing executes them.
-	docs/* | todo.md) return 1 ;;
+	# Docs and plans. Nothing executes them (todo.md is already covered by the
+	# *.md pattern above).
+	docs/*) return 1 ;;
 	# Lint / format / local development settings. Only the check workflows and
 	# local tooling read them, and no deploy path executes them.
 	_typos.toml | .shellcheckrc | .gitattributes | .gitignore | .editorconfig | scratch/*)

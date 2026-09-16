@@ -1,5 +1,7 @@
 [tools]
+actionlint = "1.7.12"
 rust = "1.97"
+shellcheck = "0.11.0"
 
 [tasks."git:main"]
 description = "Fetch the latest origin/main and point at it via detached HEAD"
@@ -23,5 +25,7 @@ set -euo pipefail
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
+shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
+actionlint
 bash .claude/skills/merge/scripts/check-merge-approval.test.sh
 """

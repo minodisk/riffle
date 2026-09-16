@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on a PR, but never on main: merger waits for the run
+# tied to the merge commit, and cancelling it there would leave nothing to wait
+# for.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # mozjpeg-sys builds libjpeg-turbo from source and needs nasm for SIMD on
+      # x86 (on ARM it uses gas, which is already present).
+      - name: Install nasm
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      # Resolve the toolchain from mise.toml so CI and local use the same
+      # compiler. A drifting version shows up as clippy lints that fail only
+      # here.
+      - uses: jdx/mise-action@v2
+        with:
+          version: 2026.9.0
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # The single definition of what CI checks lives in mise.toml, so this is
+      # the same command the agents run locally before pushing.
+      - name: Run checks
+        run: mise run ci
