@@ -51,10 +51,11 @@ let inFlight = false;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
-// Bumped at the start of every `openFolder`, so that when two overlapping
-// `openFolder` calls race, the `list_arw` result of the one that is no
-// longer current (e.g. A resolves after B was opened) is dropped instead of
-// overwriting `files` with a stale folder's contents.
+// Reserved by the picker before its dialog opens, and minted by a drop only
+// once its dropped path has resolved (see `newFolderToken` and `dropCounter`
+// below). When two folder opens race, the `list_arw` result of the one whose
+// token is no longer current (e.g. A resolves after B was opened) is dropped
+// instead of overwriting `files` with a stale folder's contents.
 let folderToken = 0;
 // The indexed rows of the open folder, keyed by the path `list_arw` returned.
 // Fills in as the scan progresses; the focus box needs nothing else from it.
@@ -275,10 +276,12 @@ strip.init((selected) => {
   show();
 });
 
-// Reserve the right to be the folder the UI shows. Every way of opening a
-// folder — the picker and a drop — takes a token first, so the async work of
-// the one that lost the race is dropped instead of writing into the other's
-// UI.
+// Reserve the right to be the folder the UI shows. The picker reserves its
+// token before its dialog opens; a drop mints its token only after
+// `dropped_folder` resolves, so an ignored drop cannot cancel an open picker
+// dialog. That asymmetry leaves drops unordered among themselves, which
+// `dropCounter` (below) orders separately. Either way, the async work of the
+// side that lost the race is dropped instead of writing into the other's UI.
 function newFolderToken(): number {
   folderToken += 1;
   return folderToken;
