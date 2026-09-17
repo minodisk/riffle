@@ -24,11 +24,15 @@ cargo build --release
 ./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
 ```
 
-**Not confirmed at runtime.** Phase 2 passed `mise run ci`, `tsc --noEmit` and
-code review, but the window could never be driven or captured on the machine it
-was written on (assistive access denied), so "a 5000-file folder pages end to
-end, each page shows the right file, a portrait file comes out upright" is
-unverified by eye.
+**Confirmed by hand on macOS**: the folder picker opens and returns, cancelling
+is a no-op, the arrow keys page, and a portrait file comes out upright.
+
+The first run found a bug nothing else had: `pick_folder` was a synchronous
+`#[tauri::command]`, which tauri runs inline on the main thread, and
+`blocking_pick_folder` then parked that thread — so the dialog appeared and
+froze. It is an `async` command awaiting a channel now. Passing `mise run ci`,
+`tsc --noEmit` and three rounds of review had not caught it, because it only
+goes wrong once the app is actually running.
 
 ### Phase 4 baseline
 
