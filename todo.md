@@ -137,14 +137,6 @@ The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-i
 - [ ] Take the common parent folder of a multi-file drop instead of rejecting it.
 - [ ] Indicate during drag-hover whether the drop will be accepted.
 
-### App: README's "Awaiting the user's confirmation" list has to be updated by hand
-
-`README.md` lists what still needs the user's manual confirmation (the filmstrip, the progress line, the focus box's placement, the drop gestures, responsiveness during a scan). Nothing in CI can catch that list going stale once the user has actually run the app.
-
-#### TODO
-
-- [ ] After the user confirms the Phase 3 UI by hand, rewrite the README's confirmation list accordingly.
-
 ### App: paging keys follow `event.key`, not the physical layout
 
 The paging key handler in `crates/app/ui/src/main.ts` matches on `event.key`, so on a non-QWERTY layout (Dvorak, AZERTY) WASD and HJKL land on scattered physical keys.
