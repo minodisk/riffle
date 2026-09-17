@@ -218,7 +218,7 @@ repeated here.
       in-file XMP; sidecars do not need it). UTF-8, no BOM
     - Core stays free of SQLite and Tauri; nothing here knows about the index
 
-- [ ] Step 3: App: ratings in the index, the `set_rating` command, and the coalesced sidecar writer
+- [x] Step 3: App: ratings in the index, the `set_rating` command, and the coalesced sidecar writer
   - Done when:
     - `crates/app/src/index.rs`: `SCHEMA_VERSION` becomes 2 (the cache is
       rebuilt; nothing in it is lost that a scan cannot redo — the last
@@ -445,3 +445,4 @@ items.
 
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
+- (2026-09-18) Step 3 complete

@@ -2,10 +2,19 @@
 
 mod commands;
 mod index;
+mod sidecar;
 
 use std::sync::{Arc, Mutex};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager, RunEvent};
+
+/// The payload of the `sidecar-error` event: a sidecar that could not be
+/// written. The judgement stays in the index and is retried on the next open.
+#[derive(Clone, serde::Serialize)]
+struct SidecarError {
+    path: String,
+    message: String,
+}
 
 #[tauri::command]
 fn ping() -> String {
@@ -27,6 +36,21 @@ fn main() {
                     None
                 }
             };
+            let writer = index.as_ref().map(|index| {
+                let handle = app.handle().clone();
+                // `Emitter` is safe from any thread, as `run_scan` already
+                // relies on, so the writer thread reports its own failures.
+                sidecar::Writer::spawn(index.clone(), move |path, message| {
+                    let _ = handle.emit(
+                        "sidecar-error",
+                        SidecarError {
+                            path: path.to_string_lossy().into_owned(),
+                            message: message.to_string(),
+                        },
+                    );
+                })
+            });
+            app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
             app.manage(commands::Scans::default());
             Ok(())
@@ -42,8 +66,20 @@ fn main() {
             commands::folder_entries,
             commands::thumbnail,
             commands::metadata,
-            commands::focus_crop
+            commands::focus_crop,
+            commands::set_rating
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // A judgement may still be inside the writer's debounce window
+            // when the user quits, so the exit waits on an explicit drain
+            // rather than on the writer's `Drop`, which is not guaranteed to
+            // run during teardown.
+            if let RunEvent::ExitRequested { .. } = event {
+                if let Some(writer) = &app.state::<commands::AppWriter>().0 {
+                    writer.flush(sidecar::DRAIN_TIMEOUT);
+                }
+            }
+        });
 }

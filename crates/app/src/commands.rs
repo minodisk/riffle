@@ -11,6 +11,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::index::{self, FileStat, Index, IndexedFile};
+use crate::sidecar::Writer;
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
@@ -552,6 +553,46 @@ pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, 
         orientation,
         &jpeg,
     )))
+}
+
+/// The sidecar writer, shared between `set_rating` and the quit-time drain.
+/// `None` when there is no index to record judgements in, in which case
+/// `set_rating` is an error rather than a silent no-op.
+pub struct AppWriter(pub Option<Writer>);
+
+/// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
+/// stars.
+///
+/// The `ratings` row is written before the writer is told, so a crash between
+/// the two still leaves the row dirty and the sidecar is written on the next
+/// open of that folder. The command is `async` because it touches SQLite; the
+/// frontend redraws without awaiting it.
+#[tauri::command]
+pub async fn set_rating(app: tauri::AppHandle, path: String, rating: i8) -> Result<(), String> {
+    if !(-1..=5).contains(&rating) {
+        return Err(format!("rating {rating} is outside -1..=5"));
+    }
+    // 0 and "unrated" are the same state; the row keeps NULL and the sidecar
+    // gets a `0` only when one already exists.
+    let rating = Some(rating).filter(|r| *r != 0);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Err("no index cache available".to_string());
+    };
+    let dir = Path::new(&path)
+        .parent()
+        .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
+    {
+        let path = path.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            index::lock(&index).set_rating(&dir, &path, rating)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+    }
+    match &app.state::<AppWriter>().0 {
+        Some(writer) => writer.set(PathBuf::from(path), rating),
+        None => Err("the sidecar writer is not running".to_string()),
+    }
 }
 
 /// Resolve symlinks and normalize a folder path so the same folder reached
