@@ -37,6 +37,12 @@ Rules:
 - An `async` command doing blocking IO wraps it in
   `tauri::async_runtime::spawn_blocking`, as `preview` does. Why: blocking
   inside the future stalls an async runtime worker instead.
+- Confirmed again in Phase 3, with a related trap: HTML5 drag-and-drop never
+  reaches the frontend. Tauri intercepts it, so `dataTransfer.files` carries no
+  usable path and paths arrive only through the `tauri://drag-drop` (and
+  `drag-enter` / `drag-over` / `drag-leave`) webview events, listened to via
+  `event:listen` under `core:event`'s default `allow-listen`. Those events and
+  `window.__TAURI__` are main-thread only; neither exists inside a worker.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
@@ -49,6 +55,25 @@ the sibling `ui/` is `"frontendDist": "ui"`.
   `tauri::generate_context!()` failed the build because the path did not exist.
 
 ## Frontend (`crates/app/ui`, `tsc` only, no bundler)
+
+### Give the current folder one token, not one counter per feature (Hit, repeatedly)
+
+Every async path that can outlive the folder it started for — a preview load, a
+thumbnail fetch, a background scan, an open by drop — has to ask, when its
+result comes back, whether that folder is still the current one. This repo
+re-derived the same guard four times under four names (`seq`, `generation`,
+`folderToken` / `openDir`, `dropCounter`), and every one was caught in review
+rather than by a test.
+
+- Why: any `await` or callback across the IPC boundary can resolve after the
+  user has picked, dropped or paged to something else, and the frontend has no
+  other signal that the result is now stale.
+- When you add an async path that depends on "the current folder", check the
+  existing token for the current open operation instead of minting a new
+  counter, and check it before applying the result, not before starting.
+- The four instances:
+  `docs/plans/_archived/20260918-thumbnail-cache-filmstrip/learnings.md`
+  (Steps 2, 5, 6, 7).
 
 ### `tsc` rejects `outDir` equal to `rootDir` (Hit)
 
@@ -91,6 +116,21 @@ Cache the output of `pnpm store path --silent` (see `.github/workflows/`).
 - Why: the store location differs per OS.
 
 ## Verification
+
+### Write a performance number with its measurement conditions (Hit, twice)
+
+Two performance claims here had to be walked back in review because they read
+as general when they were not: a 30-second target that rested on warm `cp`
+reads, and a batch of README numbers measured on folders of symlinks to a
+single file.
+
+- Why: a number without its conditions — page cache state, and whether the
+  files were distinct or 5000 symlinks to one inode — is read as a general
+  claim and copied forward as one.
+- State what was actually measured next to the number, and say plainly what
+  still needs a real-folder measurement. `README.md` separates "confirmed",
+  "verified without a GUI" and "awaiting the user's confirmation" for the same
+  reason; keep new claims inside that split.
 
 ### GUI automation does not work on this Mac (Hit)
 
