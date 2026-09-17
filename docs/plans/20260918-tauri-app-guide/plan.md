@@ -104,4 +104,9 @@ guide, with every claim checked against the archived learnings, commit
 
 ## Progress
 
-- (none yet)
+- 2026-09-18: Step 1 done. Reviewed the draft from `a377d0f` and corrected two
+  points: retagged point 7 (`pnpm store path --silent` caching) from Hit to
+  Inferred, since the sources describe a deliberate choice rather than an
+  observed failure; removed the "three review rounds" count for point 6 since
+  the step-3 review records show only two rounds (NEEDS_FIX, APPROVED), and
+  the wording now says "local review" without a number. `mise run ci` passed.
