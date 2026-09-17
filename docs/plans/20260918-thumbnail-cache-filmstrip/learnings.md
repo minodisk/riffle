@@ -295,6 +295,27 @@ guaranteed cold:
   checked is `mise run ci` (tsc, clippy, `cargo test` including the new
   `dropped_dir` test) and the ACL manifest reading above.
 
+## Step 8: documentation and status update
+
+- The key list in `README.md` was checked against the `pagingKeys` map and the
+  `keydown` handler in `crates/app/ui/src/main.ts` rather than against the
+  plan: previous is `ArrowLeft`/`ArrowUp`/`w`/`a`/`h`/`k`, next is
+  `ArrowRight`/`ArrowDown`/`s`/`d`/`j`/`l`, plus `o` and `f`, with
+  `metaKey`/`ctrlKey`/`altKey` returning early.
+- The README now separates three categories instead of one "confirmed" line:
+  what the user confirmed by hand in Phase 2, what was verified without a GUI
+  in Phase 3 (the focus box transform against `riffle-cli focusbox`), and what
+  is **awaiting the user's confirmation** (the whole Phase 3 UI - filmstrip,
+  progress line, focus box placement, drop gestures, responsiveness during a
+  scan). Blurring the last two together is exactly the mistake the earlier
+  "30 seconds holds" table made.
+- Both Phase 3 numbers that went into the README (5.55s first scan, 34.4ms
+  second open) come from the 5000-symlink folder with a warm page cache, and
+  the README says so; the real 5000-distinct-file number is still unmeasured.
+- The 104,177,664-byte database and the fact that deleting rows needs `VACUUM`
+  to shrink the file are stated in the new "The index" section, alongside where
+  the database lives per OS and the `size`/`mtime_ns` validity rule.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -353,3 +374,6 @@ guaranteed cold:
   during the hover: the overlay in `crates/app/ui/style.css` (`body.dragging`)
   is the same whether the payload is acceptable or not. Tauri's drag events
   do carry the paths on `drag-enter`, so this could be made precise later.
+- The README's "Awaiting the user's confirmation" list (from this step) has to
+  be turned into confirmed text once the user runs the app; nothing in CI can
+  do that, and the list will go stale silently otherwise (`README.md`).
