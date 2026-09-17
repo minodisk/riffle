@@ -129,3 +129,51 @@ impl Arw {
         &buf[e.offset..e.offset + e.length]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a minimal little-endian TIFF whose IFD0 carries the given entries.
+    fn tiff(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        buf.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+        for (tag, typ, count, value) in entries {
+            buf.extend_from_slice(&tag.to_le_bytes());
+            buf.extend_from_slice(&typ.to_le_bytes());
+            buf.extend_from_slice(&count.to_le_bytes());
+            buf.extend_from_slice(&value.to_le_bytes());
+        }
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        buf
+    }
+
+    #[test]
+    fn parses_ifd0_preview_and_orientation() {
+        let buf = tiff(&[
+            (TAG_ORIENTATION, 3, 1, 8),
+            (TAG_JPEG_OFFSET, 4, 1, 1024),
+            (TAG_JPEG_LENGTH, 4, 1, 2048),
+        ]);
+        let a = parse(&buf).unwrap();
+        assert_eq!(a.orientation, 8);
+        let p = a.preview.unwrap();
+        assert_eq!((p.offset, p.length), (1024, 2048));
+        assert!(a.full.is_none());
+    }
+
+    #[test]
+    fn defaults_orientation_when_absent() {
+        let buf = tiff(&[(TAG_JPEG_OFFSET, 4, 1, 16), (TAG_JPEG_LENGTH, 4, 1, 32)]);
+        assert_eq!(parse(&buf).unwrap().orientation, 1);
+    }
+
+    #[test]
+    fn rejects_big_endian_header() {
+        let mut buf = tiff(&[(TAG_ORIENTATION, 3, 1, 1)]);
+        buf[0..2].copy_from_slice(b"MM");
+        assert!(parse(&buf).is_err());
+    }
+}

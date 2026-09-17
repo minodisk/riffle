@@ -263,6 +263,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "image",
+ "riffle-core",
+]
+
+[[package]]
+name = "riffle-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "mozjpeg",
  "mozjpeg-sys",
 ]

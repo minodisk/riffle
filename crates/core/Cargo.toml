@@ -1,0 +1,9 @@
+[package]
+name = "riffle-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mozjpeg = "0.10"
+mozjpeg-sys = "2.2"
+anyhow = "1"
