@@ -2,6 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use riffle_core::arw;
 use riffle_core::decode::{apply_orientation, decode_rgb};
 use riffle_core::partial;
+use riffle_core::reader;
 use riffle_core::scan;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -14,10 +15,14 @@ fn main() -> Result<()> {
         Some("info") => info(Path::new(&args[1])),
         Some("focusbox") => focusbox(Path::new(&args[1]), Path::new(&args[2])),
         Some("bench") => bench(&args[1..]),
-        Some("crop") => crop(Path::new(&args[1]), Path::new(&args[2])),
+        Some("crop") => crop(
+            Path::new(&args[1]),
+            Path::new(&args[2]),
+            args.get(3).map(|s| s.parse()).transpose()?,
+        ),
         Some("scan") => scan_dir(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?),
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|crop|bench> <file.ARW> [out.png]\n       riffle-cli scan <dir> [threads]"
+            "usage: riffle-cli <info|focusbox|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]"
         ),
     }
 }
@@ -229,28 +234,37 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
 }
 
 /// Write out the partial decode so it can be checked by eye.
-fn crop(path: &Path, out: &Path) -> Result<()> {
-    let buf = std::fs::read(path)?;
-    let a = arw::parse(&buf)?;
-    let e = a.full.ok_or_else(|| anyhow!("no JpgFromRaw in {path:?}"))?;
-    let f = a
-        .shot
-        .focus
-        .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
-
+fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
+    let size = size.unwrap_or(CROP_SIZE);
     let t = Instant::now();
-    let c = partial::decode_crop(a.slice(&buf, e), f.x as usize, f.y as usize, CROP_SIZE)?;
+    let (a, jpeg) = reader::read_full(path)?;
     println!(
-        "crop {}x{} at ({},{}) in {:?}",
-        c.width,
-        c.height,
-        c.x,
-        c.y,
+        "read JpgFromRaw ({} bytes) in {:?}",
+        jpeg.len(),
         t.elapsed()
     );
 
-    let (rgb, w, h) = apply_orientation(&c.rgb, c.width, c.height, a.orientation);
+    let t = Instant::now();
+    let c = partial::decode_focus_crop(&jpeg, a.shot.focus, size, size)?;
+    println!(
+        "crop {}x{} at ({},{}) point ({},{}) in {:?}",
+        c.crop.width,
+        c.crop.height,
+        c.crop.x,
+        c.crop.y,
+        c.point_x,
+        c.point_y,
+        t.elapsed()
+    );
+
+    let rgb: Vec<u8> = c
+        .crop
+        .pixels
+        .chunks_exact(4)
+        .flat_map(|p| p[..3].to_vec())
+        .collect();
+    let (rgb, w, h) = apply_orientation(&rgb, c.crop.width, c.crop.height, a.orientation);
     image::save_buffer(out, &rgb, w as u32, h as u32, image::ColorType::Rgb8)?;
-    println!("wrote {out:?}");
+    println!("wrote {out:?} ({w}x{h})");
     Ok(())
 }
