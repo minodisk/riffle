@@ -431,3 +431,4 @@ running app. CI and the CLI `scan` benchmark cover everything else.
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete
