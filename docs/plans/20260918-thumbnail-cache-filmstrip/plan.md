@@ -301,7 +301,7 @@ Settled with the user; do not reopen.
       focused element
     - Assumes Step 4 is merged
 
-- [ ] Step 6: Frontend: draw the focus box on the preview
+- [x] Step 6: Frontend: draw the focus box on the preview
   - Done when:
     - When the index has a `FocusLocation` for the current file, the preview
       canvas draws a rectangle at the focus point over the image; when it does
@@ -499,3 +499,4 @@ running app. CI and the CLI `scan` benchmark cover everything else.
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
 - (2026-09-18) Step 5 complete
+- (2026-09-18) Step 6 complete

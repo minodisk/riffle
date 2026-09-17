@@ -4,6 +4,20 @@ import * as strip from "./strip.js";
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
 
+interface Focus {
+  sensor_w: number;
+  sensor_h: number;
+  x: number;
+  y: number;
+}
+
+interface IndexedFile {
+  path: string;
+  orientation: number;
+  focus: Focus | null;
+  has_thumb: boolean;
+}
+
 interface DecodeResponse {
   seq: number;
   bitmap?: ImageBitmap;
@@ -42,6 +56,27 @@ let scanning: string | null = null;
 // longer current (e.g. A resolves after B was opened) is dropped instead of
 // overwriting `files` with a stale folder's contents.
 let folderToken = 0;
+// The indexed rows of the open folder, keyed by the path `list_arw` returned.
+// Fills in as the scan progresses; the focus box needs nothing else from it.
+const entries = new Map<string, IndexedFile>();
+// The folder the entries belong to, so `scan-progress` can ask for them again.
+let openDir: string | null = null;
+// True while a `folder_entries` invoke is outstanding. Keeps at most one
+// request in flight, so a 10/s `scan-progress` stream while the user is
+// paged ahead of the scan does not queue up a full re-read on every tick,
+// and two overlapping reads cannot land out of order and clobber `entries`
+// with a stale snapshot.
+let entriesInFlight = false;
+// True when a refresh was requested while one was already in flight. Re-run
+// once the in-flight one settles, so the authoritative `scan-done` refresh
+// is never silently dropped just because a `scan-progress` refresh happened
+// to be outstanding at that moment.
+let entriesPending = false;
+let showFocus = true;
+
+// Side of the focus box as a fraction of the image's short side, so it reads
+// the same on portrait and landscape.
+const FOCUS_BOX_FRACTION = 0.05;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -88,6 +123,8 @@ function draw(): void {
     context.rotate(Math.PI / 2);
   } else if (orientation === 8) {
     context.rotate(-Math.PI / 2);
+  } else if (orientation === 3) {
+    context.rotate(Math.PI);
   }
   context.drawImage(
     bitmap,
@@ -96,7 +133,68 @@ function draw(): void {
     drawWidth,
     drawHeight,
   );
+  drawFocusBox(drawWidth, drawHeight);
   context.restore();
+}
+
+function refreshEntries(): void {
+  if (openDir === null) {
+    return;
+  }
+  if (entriesInFlight) {
+    entriesPending = true;
+    return;
+  }
+  const dir = openDir;
+  entriesInFlight = true;
+  void window.__TAURI__.core
+    .invoke<IndexedFile[]>("folder_entries", { dir })
+    .then((rows) => {
+      entriesInFlight = false;
+      if (entriesPending) {
+        entriesPending = false;
+        refreshEntries();
+      }
+      if (dir !== openDir) {
+        return;
+      }
+      entries.clear();
+      for (const row of rows) {
+        entries.set(row.path, row);
+      }
+      draw();
+    })
+    .catch(() => {
+      entriesInFlight = false;
+      if (entriesPending) {
+        entriesPending = false;
+        refreshEntries();
+      }
+      // A folder with no index cache simply has no focus boxes.
+    });
+}
+
+// FocusLocation is in unrotated sensor coordinates, so the point is scaled
+// onto the unrotated preview and drawn inside the same transform the image
+// got; drawing it after the rotation would put it on the wrong edge. Mirrors
+// the arithmetic in `riffle-cli focusbox`.
+function drawFocusBox(drawWidth: number, drawHeight: number): void {
+  if (!showFocus || files.length === 0) {
+    return;
+  }
+  const focus = entries.get(files[index])?.focus;
+  if (focus === undefined || focus === null) {
+    return;
+  }
+  const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
+  const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
+  const side = Math.min(drawWidth, drawHeight) * FOCUS_BOX_FRACTION;
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.lineWidth = 6;
+  context.strokeRect(x - side / 2, y - side / 2, side, side);
+  context.strokeStyle = "rgba(255, 255, 255, 0.95)";
+  context.lineWidth = 2;
+  context.strokeRect(x - side / 2, y - side / 2, side, side);
 }
 
 function requestPreview(): void {
@@ -194,6 +292,9 @@ function openFolder(): void {
           }
           files = found;
           index = 0;
+          openDir = folder;
+          entries.clear();
+          refreshEntries();
           strip.setFiles(files);
           seq += 1;
           shown?.bitmap.close();
@@ -237,6 +338,12 @@ void window.__TAURI__.event.listen<{
   scanning = `scanning ${payload.done} / ${payload.total}`;
   setStatus();
   strip.refresh();
+  // Only when the row the focus box needs is still missing; `entriesInFlight`
+  // in `refreshEntries` keeps a 10/s progress stream from queuing up a
+  // full re-read on every tick while it stays missing.
+  if (files.length > 0 && !entries.has(files[index])) {
+    refreshEntries();
+  }
 });
 
 void window.__TAURI__.event.listen<{
@@ -251,6 +358,7 @@ void window.__TAURI__.event.listen<{
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   setStatus();
   strip.refresh();
+  refreshEntries();
 });
 
 openEl.addEventListener("click", openFolder);
@@ -279,6 +387,9 @@ window.addEventListener("keydown", (event) => {
   const delta = pagingKeys.get(key);
   if (delta !== undefined) {
     move(delta);
+  } else if (key === "f") {
+    showFocus = !showFocus;
+    draw();
   } else if (key === "o") {
     openFolder();
   } else {
