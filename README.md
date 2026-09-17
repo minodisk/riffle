@@ -39,17 +39,28 @@ goes wrong once the app is actually running.
 
 ### Phase 4 baseline
 
-The per-page cost of the current implementation, measured on the Rust side only
-(`std::fs::read` of the whole ARW plus `arw::parse`) on an Apple Silicon Mac.
-**It excludes the IPC hop and `createImageBitmap`**, which could not be measured:
+The per-page cost on the Rust side only, on an Apple Silicon Mac.
+**It excludes the IPC hop and `createImageBitmap`**, which could not be
+measured. Phase 2 read the whole 48MB ARW (`std::fs::read` plus `arw::parse`);
+`preview` now reads a bounded 1MiB prefix instead (`reader::read_preview`),
+which is where the metadata and the embedded preview live, so both numbers are
+given:
 
-| Folder | n | mean | p95 |
-|--------|---|------|-----|
-| 5000 symlinks to one ARW, warm page cache | 300 | 7.3ms | 8.8ms |
-| 20 distinct 48MB copies, first read | 20 | 19.3ms | 26.6ms |
+| Folder | n | whole file (before) | bounded prefix (after) |
+|--------|---|---------------------|------------------------|
+| 5000 symlinks to one ARW, warm page cache | 300 | mean 6.6ms / p95 7.7ms | mean 0.06ms / p95 0.13ms |
+| 20 distinct 48MB copies, first read | 20 | mean 16.0ms / p95 30.0ms | mean 5.1ms / p95 7.8ms |
 
-The whole-file read dominates, which is what Phase 4's seek-based reader is
-meant to address.
+Both columns were re-measured together in Phase 3 Step 2, so they compare
+like with like; the whole-file numbers match the ones Phase 2 recorded
+(7.3ms / 19.3ms mean). The symlink folder is 5000 symlinks to the same file and
+the copy folder is 20 `cp` copies in a scratch directory, read in file-name
+order by a fresh process. `purge` needs root on this machine, so the "first
+read" column cannot be guaranteed cold; it is the same procedure the Phase 2
+baseline used.
+
+The whole-file read dominated, which is what the bounded read removes. Phase 4
+still owns prefetching, but it now starts from this cheaper read.
 
 ## Running the app
 

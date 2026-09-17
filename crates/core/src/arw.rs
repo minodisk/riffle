@@ -1,17 +1,35 @@
 //! Minimal parser that locates the embedded JPEGs in an ARW (a TIFF variant).
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 
 const TAG_ORIENTATION: u16 = 0x0112;
 const TAG_JPEG_OFFSET: u16 = 0x0201;
 const TAG_JPEG_LENGTH: u16 = 0x0202;
 const TAG_SUB_IFDS: u16 = 0x014a;
+const TAG_EXIF_IFD: u16 = 0x8769;
+const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
+const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
+const TAG_MAKER_NOTE: u16 = 0x927c;
+const TAG_FOCUS_LOCATION: u16 = 0x2027;
+
+const TYPE_ASCII: u16 = 2;
+const TYPE_SHORT: u16 = 3;
 
 /// Location of one embedded JPEG inside an ARW.
 #[derive(Debug, Clone, Copy)]
 pub struct Embedded {
     pub offset: usize,
     pub length: usize,
+}
+
+/// Sony `FocusLocation`: the focus point in unrotated sensor coordinates,
+/// together with the sensor size those coordinates are in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FocusLocation {
+    pub sensor_w: u16,
+    pub sensor_h: u16,
+    pub x: u16,
+    pub y: u16,
 }
 
 #[derive(Debug)]
@@ -21,6 +39,11 @@ pub struct Arw {
     /// The full-resolution JPEG (JpgFromRaw).
     pub full: Option<Embedded>,
     pub orientation: u16,
+    /// Raw `DateTimeOriginal`, `YYYY:MM:DD HH:MM:SS`.
+    pub capture_time: Option<String>,
+    /// Raw `SubSecTimeOriginal`.
+    pub subsec: Option<String>,
+    pub focus: Option<FocusLocation>,
 }
 
 /// One IFD entry: (tag, value-or-offset, type, count).
@@ -76,6 +99,112 @@ fn embedded(entries: &[Entry]) -> Option<Embedded> {
     })
 }
 
+/// Read an ASCII entry's value. Values of up to 4 bytes sit in the entry
+/// itself; longer ones live at the offset the entry carries.
+fn ascii(buf: &[u8], entry: &Entry) -> Result<Option<String>> {
+    let (_, value, typ, count) = *entry;
+    if typ != TYPE_ASCII {
+        return Ok(None);
+    }
+    let count = count as usize;
+    let inline = value.to_le_bytes();
+    let bytes: &[u8] = if count <= 4 {
+        &inline[..count]
+    } else {
+        let at = value as usize;
+        let end = at
+            .checked_add(count)
+            .filter(|&end| end <= buf.len())
+            .ok_or_else(|| anyhow!("ASCII value out of range"))?;
+        &buf[at..end]
+    };
+    let text = String::from_utf8_lossy(bytes);
+    Ok(Some(text.trim_end_matches('\0').to_string()))
+}
+
+/// Read a `SHORT[4]` entry. Eight bytes never fit in an entry, so the value is
+/// always at the offset.
+fn shorts4(buf: &[u8], entry: &Entry) -> Result<Option<[u16; 4]>> {
+    let (_, value, typ, count) = *entry;
+    if typ != TYPE_SHORT || count != 4 {
+        return Ok(None);
+    }
+    let at = value as usize;
+    if at.checked_add(8).is_none_or(|end| end > buf.len()) {
+        bail!("SHORT[4] value out of range");
+    }
+    let mut out = [0u16; 4];
+    for (i, v) in out.iter_mut().enumerate() {
+        *v = u16le(buf, at + i * 2);
+    }
+    Ok(Some(out))
+}
+
+/// Find the Sony MakerNote IFD behind tag 0x927c. Recent bodies (Sony5) start
+/// the IFD right at the tag's data offset; older ones prefix it with a 12-byte
+/// `SONY DSC \0\0\0` / `SONY CAM \0\0\0` header. Either way the value
+/// offsets inside it are absolute to the TIFF start, so the IFD can be read
+/// straight out of `buf`.
+fn maker_note_ifd(buf: &[u8], entries: &[Entry]) -> Result<Option<Vec<Entry>>> {
+    let Some(entry) = entries.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
+        return Ok(None);
+    };
+    let (at, count) = (entry.1 as usize, entry.3 as usize);
+    if count <= 4 {
+        // Too short to hold an IFD, and such a value is inline anyway.
+        return Ok(None);
+    }
+    let end = at
+        .checked_add(count)
+        .filter(|&end| end <= buf.len())
+        .ok_or_else(|| anyhow!("MakerNote out of range"))?;
+    let at = if buf[at..end].starts_with(b"SONY") {
+        at + 12
+    } else {
+        at
+    };
+    let (ifd, _) = read_ifd(buf, at)?;
+    Ok(Some(ifd))
+}
+
+/// Follow IFD0 -> ExifIFD (0x8769) -> MakerNote (0x927c) for the capture time
+/// and the focus point. Any of the three may be absent, which is not an error;
+/// an offset pointing outside `buf` is.
+fn exif(
+    buf: &[u8],
+    ifd0: &[Entry],
+) -> Result<(Option<String>, Option<String>, Option<FocusLocation>)> {
+    let Some((at, _)) = find(ifd0, TAG_EXIF_IFD) else {
+        return Ok((None, None, None));
+    };
+    let (exif_ifd, _) = read_ifd(buf, at as usize)?;
+
+    let mut capture_time = None;
+    let mut subsec = None;
+    for e in &exif_ifd {
+        match e.0 {
+            TAG_DATE_TIME_ORIGINAL => capture_time = ascii(buf, e)?,
+            TAG_SUB_SEC_TIME_ORIGINAL => subsec = ascii(buf, e)?,
+            _ => {}
+        }
+    }
+
+    let focus = match maker_note_ifd(buf, &exif_ifd)? {
+        Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
+            Some(e) => shorts4(buf, e)?.map(|v| FocusLocation {
+                sensor_w: v[0],
+                sensor_h: v[1],
+                x: v[2],
+                y: v[3],
+            }),
+            None => None,
+        },
+        None => None,
+    };
+
+    Ok((capture_time, subsec, focus))
+}
+
 pub fn parse(buf: &[u8]) -> Result<Arw> {
     if buf.len() < 8 || &buf[0..2] != b"II" {
         bail!("not a little-endian TIFF/ARW");
@@ -86,6 +215,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         .map(|(v, _)| v as u16)
         .unwrap_or(1);
     let preview = embedded(&ifd0);
+    let (capture_time, subsec, focus) = exif(buf, &ifd0)?;
 
     // Walk the IFD chain (IFD1, IFD2, ...) and the SubIFDs, and take the
     // largest JPEG as the full-resolution one (JpgFromRaw).
@@ -128,6 +258,9 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         preview,
         full,
         orientation,
+        capture_time,
+        subsec,
+        focus,
     })
 }
 
@@ -141,11 +274,9 @@ impl Arw {
 mod tests {
     use super::*;
 
-    /// Build a minimal little-endian TIFF whose IFD0 carries the given entries.
-    fn tiff(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+    /// Serialise one IFD: entry count, the entries, and a null next-IFD link.
+    fn ifd(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"II\x2a\x00");
-        buf.extend_from_slice(&8u32.to_le_bytes());
         buf.extend_from_slice(&(entries.len() as u16).to_le_bytes());
         for (tag, typ, count, value) in entries {
             buf.extend_from_slice(&tag.to_le_bytes());
@@ -154,6 +285,82 @@ mod tests {
             buf.extend_from_slice(&value.to_le_bytes());
         }
         buf.extend_from_slice(&0u32.to_le_bytes());
+        buf
+    }
+
+    fn ifd_len(entries: usize) -> usize {
+        2 + entries * 12 + 4
+    }
+
+    /// Build a minimal little-endian TIFF whose IFD0 carries the given entries.
+    fn tiff(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        buf.extend_from_slice(&ifd(entries));
+        buf
+    }
+
+    const DATE: &[u8] = b"2026:09:13 09:23:33\0";
+    /// Four bytes, so it rides inside the entry instead of at an offset.
+    const SUBSEC: &[u8; 4] = b"122\0";
+
+    /// Build a TIFF whose IFD0 points at an ExifIFD holding DateTimeOriginal
+    /// and SubSecTimeOriginal, optionally followed by a Sony MakerNote IFD
+    /// that optionally holds FocusLocation.
+    fn tiff_with_exif(maker: bool, focus: Option<[u16; 4]>, sony_header: bool) -> Vec<u8> {
+        let exif_at = 8 + ifd_len(1);
+        let exif_entries = if maker { 3 } else { 2 };
+        let maker_at = exif_at + ifd_len(exif_entries);
+        let header_len = if sony_header { 12 } else { 0 };
+        let maker_entries = usize::from(focus.is_some());
+        let maker_len = if maker {
+            header_len + ifd_len(maker_entries)
+        } else {
+            0
+        };
+        let date_at = maker_at + maker_len;
+        let focus_at = date_at + DATE.len();
+
+        let mut exif = vec![
+            (
+                TAG_DATE_TIME_ORIGINAL,
+                TYPE_ASCII,
+                DATE.len() as u32,
+                date_at as u32,
+            ),
+            (
+                TAG_SUB_SEC_TIME_ORIGINAL,
+                TYPE_ASCII,
+                4,
+                u32::from_le_bytes(*SUBSEC),
+            ),
+        ];
+        if maker {
+            exif.push((TAG_MAKER_NOTE, 7, maker_len as u32, maker_at as u32));
+        }
+
+        let mut buf = tiff(&[(TAG_EXIF_IFD, 4, 1, exif_at as u32)]);
+        assert_eq!(buf.len(), exif_at);
+        buf.extend_from_slice(&ifd(&exif));
+        assert_eq!(buf.len(), maker_at);
+        if maker {
+            if sony_header {
+                buf.extend_from_slice(b"SONY DSC \0\0\0");
+            }
+            let entries: Vec<_> = focus
+                .map(|_| (TAG_FOCUS_LOCATION, TYPE_SHORT, 4, focus_at as u32))
+                .into_iter()
+                .collect();
+            buf.extend_from_slice(&ifd(&entries));
+        }
+        assert_eq!(buf.len(), date_at);
+        buf.extend_from_slice(DATE);
+        if let Some(f) = focus {
+            for v in f {
+                buf.extend_from_slice(&v.to_le_bytes());
+            }
+        }
         buf
     }
 
@@ -181,6 +388,65 @@ mod tests {
     fn rejects_big_endian_header() {
         let mut buf = tiff(&[(TAG_ORIENTATION, 3, 1, 1)]);
         buf[0..2].copy_from_slice(b"MM");
+        assert!(parse(&buf).is_err());
+    }
+
+    #[test]
+    fn reads_capture_time_subsec_and_focus_location() {
+        let buf = tiff_with_exif(true, Some([7008, 4672, 3613, 1732]), false);
+        let a = parse(&buf).unwrap();
+        assert_eq!(a.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+        assert_eq!(a.subsec.as_deref(), Some("122"));
+        assert_eq!(
+            a.focus,
+            Some(FocusLocation {
+                sensor_w: 7008,
+                sensor_h: 4672,
+                x: 3613,
+                y: 1732,
+            })
+        );
+    }
+
+    #[test]
+    fn skips_the_older_sony_maker_note_header() {
+        let buf = tiff_with_exif(true, Some([6000, 4000, 100, 200]), true);
+        let a = parse(&buf).unwrap();
+        assert_eq!(a.focus.unwrap().x, 100);
+    }
+
+    #[test]
+    fn a_maker_note_without_focus_location_is_none() {
+        let a = parse(&tiff_with_exif(true, None, false)).unwrap();
+        assert!(a.focus.is_none());
+        assert_eq!(a.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+    }
+
+    #[test]
+    fn no_maker_note_is_none() {
+        let a = parse(&tiff_with_exif(false, None, false)).unwrap();
+        assert!(a.focus.is_none());
+        assert_eq!(a.subsec.as_deref(), Some("122"));
+    }
+
+    #[test]
+    fn no_exif_ifd_leaves_every_field_none() {
+        let a = parse(&tiff(&[(TAG_ORIENTATION, 3, 1, 1)])).unwrap();
+        assert!(a.capture_time.is_none() && a.subsec.is_none() && a.focus.is_none());
+    }
+
+    /// A prefix too short for what the offsets point at must be an error, not a
+    /// silently missing value.
+    #[test]
+    fn offsets_past_the_buffer_are_errors() {
+        assert!(parse(&tiff(&[(TAG_EXIF_IFD, 4, 1, 0xffff)])).is_err());
+
+        let mut buf = tiff_with_exif(true, Some([1, 2, 3, 4]), false);
+        buf.truncate(buf.len() - 4);
+        assert!(parse(&buf).is_err());
+
+        let mut buf = tiff_with_exif(true, Some([1, 2, 3, 4]), false);
+        buf.truncate(buf.len() - DATE.len() - 8);
         assert!(parse(&buf).is_err());
     }
 }

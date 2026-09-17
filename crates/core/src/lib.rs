@@ -3,3 +3,4 @@
 pub mod arw;
 pub mod decode;
 pub mod partial;
+pub mod reader;

@@ -89,7 +89,7 @@ Settled with the user; do not reopen.
       `x` sits between `s` and `d` on the keyboard, so a mistyped reject is
       one key away from paging; not a reason to change anything now
 
-- [ ] Step 2: Core: bounded ARW read, capture time + FocusLocation parsing, thumbnail encoding, and `preview` on the bounded read
+- [x] Step 2: Core: bounded ARW read, capture time + FocusLocation parsing, thumbnail encoding, and `preview` on the bounded read
   - Done when:
     - `riffle_core::arw::Arw` gains `capture_time: Option<String>` (the raw
       `DateTimeOriginal` string, `YYYY:MM:DD HH:MM:SS`),

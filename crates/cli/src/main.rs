@@ -22,24 +22,13 @@ fn info(path: &Path) -> Result<()> {
     println!("orientation: {}", a.orientation);
     println!("preview: {:?}", a.preview);
     println!("full:    {:?}", a.full);
-    Ok(())
-}
-
-/// Leave the Sony MakerNote to exiftool while we are still validating.
-fn focus_location(path: &Path) -> Result<(u32, u32, u32, u32)> {
-    let out = std::process::Command::new("exiftool")
-        .args(["-s3", "-FocusLocation"])
-        .arg(path)
-        .output()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let v: Vec<u32> = text
-        .split_whitespace()
-        .filter_map(|s| s.parse().ok())
-        .collect();
-    if v.len() != 4 {
-        bail!("FocusLocation not found: {text:?}");
+    println!("capture_time: {}", a.capture_time.as_deref().unwrap_or("-"));
+    println!("subsec: {}", a.subsec.as_deref().unwrap_or("-"));
+    match a.focus {
+        Some(f) => println!("focus: {} {} {} {}", f.sensor_w, f.sensor_h, f.x, f.y),
+        None => println!("focus: -"),
     }
-    Ok((v[0], v[1], v[2], v[3]))
+    Ok(())
 }
 
 fn draw_rect(rgb: &mut [u8], w: usize, h: usize, x0: i64, y0: i64, bw: i64, bh: i64) {
@@ -72,7 +61,10 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     let (rgb, w, h) = decode_rgb(a.slice(&buf, e))?;
     println!("preview {w}x{h} decoded in {:?}", t.elapsed());
 
-    let (fw, fh, fx, fy) = focus_location(path)?;
+    let f = a
+        .focus
+        .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
+    let (fw, fh, fx, fy) = (f.sensor_w, f.sensor_h, f.x, f.y);
     let frame: u32 = 219;
     println!("focus: sensor {fw}x{fh} at ({fx},{fy}) frame {frame}");
 
@@ -136,19 +128,14 @@ fn bench(paths: &[String]) -> Result<()> {
             decode_rgb(jpeg)?;
             t_full.push(t.elapsed().as_secs_f64() * 1000.0);
 
-            let (fw, _fh, fx, fy) = focus_location(path)?;
-            // FocusLocation is in sensor coordinates; convert using the full JPEG width.
-            let scale = 1.0; // JpgFromRaw is the same 7008 width FocusLocation reports
-            let _ = fw;
-            let t = Instant::now();
-            let c = partial::decode_crop(
-                jpeg,
-                (fx as f64 * scale) as usize,
-                (fy as f64 * scale) as usize,
-                CROP_SIZE,
-            )?;
-            t_crop.push(t.elapsed().as_secs_f64() * 1000.0);
-            let _ = c;
+            if let Some(f) = a.focus {
+                // FocusLocation is in sensor coordinates, and JpgFromRaw has
+                // the same 7008 width it reports, so they need no scaling.
+                let t = Instant::now();
+                let c = partial::decode_crop(jpeg, f.x as usize, f.y as usize, CROP_SIZE)?;
+                t_crop.push(t.elapsed().as_secs_f64() * 1000.0);
+                let _ = c;
+            }
         }
     }
 
@@ -170,10 +157,12 @@ fn crop(path: &Path, out: &Path) -> Result<()> {
     let buf = std::fs::read(path)?;
     let a = arw::parse(&buf)?;
     let e = a.full.ok_or_else(|| anyhow!("no JpgFromRaw in {path:?}"))?;
-    let (_fw, _fh, fx, fy) = focus_location(path)?;
+    let f = a
+        .focus
+        .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
 
     let t = Instant::now();
-    let c = partial::decode_crop(a.slice(&buf, e), fx as usize, fy as usize, CROP_SIZE)?;
+    let c = partial::decode_crop(a.slice(&buf, e), f.x as usize, f.y as usize, CROP_SIZE)?;
     println!(
         "crop {}x{} at ({},{}) in {:?}",
         c.width,
