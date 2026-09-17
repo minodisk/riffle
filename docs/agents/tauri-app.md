@@ -24,7 +24,7 @@ A `#[tauri::command]` without `async` runs **inline on the main thread**.
   calling thread on a `sync_channel(0)` `recv`. The main thread stopped pumping
   the run loop, so the native dialog appeared but its buttons did nothing and
   the app hung.
-- This passed `mise run ci`, `tsc --noEmit`, and three rounds of local review.
+- This passed `mise run ci`, `tsc --noEmit`, and local review.
   It surfaced the first time the user launched the app. An earlier learnings
   note claimed sync commands run off the main thread; that note was wrong.
 
@@ -84,7 +84,7 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 
 ## CI
 
-### Do not hard-code the pnpm store path (Hit)
+### Do not hard-code the pnpm store path (Inferred)
 
 Cache the output of `pnpm store path --silent` (see `.github/workflows/`).
 
