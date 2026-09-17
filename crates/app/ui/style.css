@@ -122,3 +122,10 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* Drop feedback. The webview's own drag events drive this class, since Tauri
+   intercepts HTML5 drag-and-drop and no DOM `drop` event reaches the page. */
+body.dragging #main {
+  outline: 3px solid #4a9eff;
+  outline-offset: -3px;
+}

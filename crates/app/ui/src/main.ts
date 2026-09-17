@@ -51,10 +51,11 @@ let inFlight = false;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
-// Bumped at the start of every `openFolder`, so that when two overlapping
-// `openFolder` calls race, the `list_arw` result of the one that is no
-// longer current (e.g. A resolves after B was opened) is dropped instead of
-// overwriting `files` with a stale folder's contents.
+// Reserved by the picker before its dialog opens, and minted by a drop only
+// once its dropped path has resolved (see `newFolderToken` and `dropCounter`
+// below). When two folder opens race, the `list_arw` result of the one whose
+// token is no longer current (e.g. A resolves after B was opened) is dropped
+// instead of overwriting `files` with a stale folder's contents.
 let folderToken = 0;
 // The indexed rows of the open folder, keyed by the path `list_arw` returned.
 // Fills in as the scan progresses; the focus box needs nothing else from it.
@@ -275,56 +276,124 @@ strip.init((selected) => {
   show();
 });
 
-function openFolder(): void {
+// Reserve the right to be the folder the UI shows. The picker reserves its
+// token before its dialog opens; a drop mints its token only after
+// `dropped_folder` resolves, so an ignored drop cannot cancel an open picker
+// dialog. That asymmetry leaves drops unordered among themselves, which
+// `dropCounter` (below) orders separately. Either way, the async work of the
+// side that lost the race is dropped instead of writing into the other's UI.
+function newFolderToken(): number {
   folderToken += 1;
-  const token = folderToken;
-  window.__TAURI__.core
-    .invoke<string | null>("pick_folder")
-    .then((folder) => {
-      if (folder === null) {
+  return folderToken;
+}
+
+function openDirectory(folder: string, token: number): Promise<void> {
+  return window.__TAURI__.core
+    .invoke<string[]>("list_arw", { dir: folder })
+    .then((found) => {
+      if (token !== folderToken) {
         return;
       }
-      return window.__TAURI__.core
-        .invoke<string[]>("list_arw", { dir: folder })
-        .then((found) => {
+      files = found;
+      index = 0;
+      openDir = folder;
+      entries.clear();
+      refreshEntries();
+      strip.setFiles(files);
+      seq += 1;
+      shown?.bitmap.close();
+      shown = null;
+      draw();
+      scanning = null;
+      scanId = null;
+      void window.__TAURI__.core
+        .invoke<{ total: number; scan_id: number }>("scan_folder", {
+          dir: folder,
+        })
+        .then(({ scan_id }) => {
           if (token !== folderToken) {
             return;
           }
-          files = found;
-          index = 0;
-          openDir = folder;
-          entries.clear();
-          refreshEntries();
-          strip.setFiles(files);
-          seq += 1;
-          shown?.bitmap.close();
-          shown = null;
-          draw();
-          scanning = null;
-          scanId = null;
-          void window.__TAURI__.core
-            .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
-            .then(({ scan_id }) => {
-              if (token !== folderToken) {
-                return;
-              }
-              scanId = scan_id;
-              return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
-            })
-            .catch((err: unknown) => {
-              setStatus(String(err));
-            });
-          if (files.length === 0) {
-            setStatus();
-            return;
-          }
-          show();
+          scanId = scan_id;
+          return window.__TAURI__.core.invoke("start_scan", {
+            scanId: scan_id,
+          });
+        })
+        .catch((err: unknown) => {
+          setStatus(String(err));
         });
+      if (files.length === 0) {
+        setStatus();
+        return;
+      }
+      show();
+    });
+}
+
+function openFolder(): void {
+  const token = newFolderToken();
+  window.__TAURI__.core
+    .invoke<string | null>("pick_folder")
+    .then((folder) => {
+      if (folder === null || token !== folderToken) {
+        return;
+      }
+      return openDirectory(folder, token);
     })
     .catch((err: unknown) => {
       setStatus(String(err));
     });
 }
+
+// Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
+// usable path; the paths arrive only through these webview events.
+function setDragging(dragging: boolean): void {
+  document.body.classList.toggle("dragging", dragging);
+}
+
+for (const event of ["tauri://drag-enter", "tauri://drag-over"]) {
+  void window.__TAURI__.event.listen(event, () => {
+    setDragging(true);
+  });
+}
+
+void window.__TAURI__.event.listen("tauri://drag-leave", () => {
+  setDragging(false);
+});
+
+// Orders drops among themselves: a later drop's `dropped_folder` call may
+// resolve before an earlier one's, so each handler checks it is still the
+// most recent drop before minting a folder token (which would otherwise let
+// a stale, slow-resolving drop overwrite a newer one).
+let dropCounter = 0;
+
+void window.__TAURI__.event.listen<{ paths: string[] }>(
+  "tauri://drag-drop",
+  ({ payload }) => {
+    setDragging(false);
+    const [path] = payload.paths;
+    if (path === undefined || payload.paths.length > 1) {
+      setStatus("Drop a single folder or ARW file.");
+      return;
+    }
+    const drop = ++dropCounter;
+    window.__TAURI__.core
+      .invoke<string | null>("dropped_folder", { path })
+      .then((folder) => {
+        if (drop !== dropCounter) {
+          return;
+        }
+        if (folder === null) {
+          setStatus("Drop a single folder or ARW file.");
+          return;
+        }
+        return openDirectory(folder, newFolderToken());
+      })
+      .catch((err: unknown) => {
+        setStatus(String(err));
+      });
+  },
+);
 
 void window.__TAURI__.event.listen<{
   dir: string;

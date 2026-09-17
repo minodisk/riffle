@@ -36,6 +36,7 @@ fn main() {
             commands::pick_folder,
             commands::list_arw,
             commands::preview,
+            commands::dropped_folder,
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,
