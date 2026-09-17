@@ -28,9 +28,12 @@ fn info(path: &Path) -> Result<()> {
     println!("orientation: {}", a.orientation);
     println!("preview: {:?}", a.preview);
     println!("full:    {:?}", a.full);
-    println!("capture_time: {}", a.capture_time.as_deref().unwrap_or("-"));
-    println!("subsec: {}", a.subsec.as_deref().unwrap_or("-"));
-    match a.focus {
+    println!(
+        "capture_time: {}",
+        a.shot.capture_time.as_deref().unwrap_or("-")
+    );
+    println!("subsec: {}", a.shot.subsec.as_deref().unwrap_or("-"));
+    match a.shot.focus {
         Some(f) => println!("focus: {} {} {} {}", f.sensor_w, f.sensor_h, f.x, f.y),
         None => println!("focus: -"),
     }
@@ -68,6 +71,7 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     println!("preview {w}x{h} decoded in {:?}", t.elapsed());
 
     let f = a
+        .shot
         .focus
         .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
     let (fw, fh, fx, fy) = (f.sensor_w, f.sensor_h, f.x, f.y);
@@ -134,7 +138,7 @@ fn bench(paths: &[String]) -> Result<()> {
             decode_rgb(jpeg)?;
             t_full.push(t.elapsed().as_secs_f64() * 1000.0);
 
-            if let Some(f) = a.focus {
+            if let Some(f) = a.shot.focus {
                 // FocusLocation is in sensor coordinates, and JpgFromRaw has
                 // the same 7008 width it reports, so they need no scaling.
                 let t = Instant::now();
@@ -230,6 +234,7 @@ fn crop(path: &Path, out: &Path) -> Result<()> {
     let a = arw::parse(&buf)?;
     let e = a.full.ok_or_else(|| anyhow!("no JpgFromRaw in {path:?}"))?;
     let f = a
+        .shot
         .focus
         .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
 

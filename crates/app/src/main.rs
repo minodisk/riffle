@@ -40,7 +40,8 @@ fn main() {
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,
-            commands::thumbnail
+            commands::thumbnail,
+            commands::metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

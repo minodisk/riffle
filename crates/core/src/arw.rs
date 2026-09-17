@@ -2,11 +2,19 @@
 
 use anyhow::{anyhow, bail, Result};
 
+const TAG_MAKE: u16 = 0x010f;
+const TAG_MODEL: u16 = 0x0110;
 const TAG_ORIENTATION: u16 = 0x0112;
 const TAG_JPEG_OFFSET: u16 = 0x0201;
 const TAG_JPEG_LENGTH: u16 = 0x0202;
 const TAG_SUB_IFDS: u16 = 0x014a;
 const TAG_EXIF_IFD: u16 = 0x8769;
+const TAG_EXPOSURE_TIME: u16 = 0x829a;
+const TAG_F_NUMBER: u16 = 0x829d;
+const TAG_ISO: u16 = 0x8827;
+const TAG_EXPOSURE_BIAS: u16 = 0x9204;
+const TAG_FOCAL_LENGTH: u16 = 0x920a;
+const TAG_LENS_MODEL: u16 = 0xa434;
 const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
 const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
 const TAG_MAKER_NOTE: u16 = 0x927c;
@@ -14,6 +22,9 @@ const TAG_FOCUS_LOCATION: u16 = 0x2027;
 
 const TYPE_ASCII: u16 = 2;
 const TYPE_SHORT: u16 = 3;
+const TYPE_LONG: u16 = 4;
+const TYPE_RATIONAL: u16 = 5;
+const TYPE_SRATIONAL: u16 = 10;
 
 /// Location of one embedded JPEG inside an ARW.
 #[derive(Debug, Clone, Copy)]
@@ -32,6 +43,39 @@ pub struct FocusLocation {
     pub y: u16,
 }
 
+/// A TIFF RATIONAL or SRATIONAL: numerator over denominator, kept unreduced
+/// so the shutter speed can be shown the way the camera wrote it (1/250).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rational {
+    pub num: i64,
+    pub den: i64,
+}
+
+impl Rational {
+    pub fn value(self) -> Option<f64> {
+        (self.den != 0).then(|| self.num as f64 / self.den as f64)
+    }
+}
+
+/// The shooting settings read out of IFD0 and the ExifIFD. Every field is
+/// optional: a body that does not write a tag is not an error.
+#[derive(Debug, Default)]
+pub struct Shot {
+    /// Raw `DateTimeOriginal`, `YYYY:MM:DD HH:MM:SS`.
+    pub capture_time: Option<String>,
+    /// Raw `SubSecTimeOriginal`.
+    pub subsec: Option<String>,
+    pub focus: Option<FocusLocation>,
+    pub make: Option<String>,
+    pub model: Option<String>,
+    pub lens_model: Option<String>,
+    pub exposure_time: Option<Rational>,
+    pub f_number: Option<Rational>,
+    pub focal_length: Option<Rational>,
+    pub exposure_bias: Option<Rational>,
+    pub iso: Option<u32>,
+}
+
 #[derive(Debug)]
 pub struct Arw {
     /// The small preview in IFD0 (Sony 1616x1080).
@@ -39,11 +83,7 @@ pub struct Arw {
     /// The full-resolution JPEG (JpgFromRaw).
     pub full: Option<Embedded>,
     pub orientation: u16,
-    /// Raw `DateTimeOriginal`, `YYYY:MM:DD HH:MM:SS`.
-    pub capture_time: Option<String>,
-    /// Raw `SubSecTimeOriginal`.
-    pub subsec: Option<String>,
-    pub focus: Option<FocusLocation>,
+    pub shot: Shot,
 }
 
 /// One IFD entry: (tag, value-or-offset, type, count).
@@ -166,29 +206,71 @@ fn maker_note_ifd(buf: &[u8], entries: &[Entry]) -> Result<Option<Vec<Entry>>> {
     Ok(Some(ifd))
 }
 
-/// Follow IFD0 -> ExifIFD (0x8769) -> MakerNote (0x927c) for the capture time
-/// and the focus point. Any of the three may be absent, which is not an error;
-/// an offset pointing outside `buf` is.
-fn exif(
-    buf: &[u8],
-    ifd0: &[Entry],
-) -> Result<(Option<String>, Option<String>, Option<FocusLocation>)> {
-    let Some((at, _)) = find(ifd0, TAG_EXIF_IFD) else {
-        return Ok((None, None, None));
-    };
-    let (exif_ifd, _) = read_ifd(buf, at as usize)?;
+/// Read a RATIONAL/SRATIONAL entry. Eight bytes never fit in an entry, so the
+/// value is always at the offset.
+fn rational(buf: &[u8], entry: &Entry) -> Result<Option<Rational>> {
+    let (_, value, typ, count) = *entry;
+    if (typ != TYPE_RATIONAL && typ != TYPE_SRATIONAL) || count != 1 {
+        return Ok(None);
+    }
+    let at = value as usize;
+    if at.checked_add(8).is_none_or(|end| end > buf.len()) {
+        bail!("RATIONAL value out of range");
+    }
+    let (num, den) = (u32le(buf, at), u32le(buf, at + 4));
+    Ok(Some(if typ == TYPE_SRATIONAL {
+        Rational {
+            num: i64::from(num as i32),
+            den: i64::from(den as i32),
+        }
+    } else {
+        Rational {
+            num: i64::from(num),
+            den: i64::from(den),
+        }
+    }))
+}
 
-    let mut capture_time = None;
-    let mut subsec = None;
-    for e in &exif_ifd {
+/// Read a single SHORT or LONG entry, whose value always rides inside the
+/// entry itself.
+fn integer(entry: &Entry) -> Option<u32> {
+    let (_, value, typ, count) = *entry;
+    ((typ == TYPE_SHORT || typ == TYPE_LONG) && count == 1).then_some(value)
+}
+
+/// Follow IFD0 -> ExifIFD (0x8769) -> MakerNote (0x927c) for the shooting
+/// settings and the focus point. Any of the three may be absent, which is not
+/// an error; an offset pointing outside `buf` is.
+fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
+    let mut shot = Shot::default();
+    for e in ifd0 {
         match e.0 {
-            TAG_DATE_TIME_ORIGINAL => capture_time = ascii(buf, e)?,
-            TAG_SUB_SEC_TIME_ORIGINAL => subsec = ascii(buf, e)?,
+            TAG_MAKE => shot.make = ascii(buf, e)?,
+            TAG_MODEL => shot.model = ascii(buf, e)?,
             _ => {}
         }
     }
 
-    let focus = match maker_note_ifd(buf, &exif_ifd)? {
+    let Some((at, _)) = find(ifd0, TAG_EXIF_IFD) else {
+        return Ok(shot);
+    };
+    let (exif_ifd, _) = read_ifd(buf, at as usize)?;
+
+    for e in &exif_ifd {
+        match e.0 {
+            TAG_DATE_TIME_ORIGINAL => shot.capture_time = ascii(buf, e)?,
+            TAG_SUB_SEC_TIME_ORIGINAL => shot.subsec = ascii(buf, e)?,
+            TAG_LENS_MODEL => shot.lens_model = ascii(buf, e)?,
+            TAG_EXPOSURE_TIME => shot.exposure_time = rational(buf, e)?,
+            TAG_F_NUMBER => shot.f_number = rational(buf, e)?,
+            TAG_FOCAL_LENGTH => shot.focal_length = rational(buf, e)?,
+            TAG_EXPOSURE_BIAS => shot.exposure_bias = rational(buf, e)?,
+            TAG_ISO => shot.iso = integer(e),
+            _ => {}
+        }
+    }
+
+    shot.focus = match maker_note_ifd(buf, &exif_ifd)? {
         Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
             Some(e) => shorts4(buf, e)?.map(|v| FocusLocation {
                 sensor_w: v[0],
@@ -201,7 +283,7 @@ fn exif(
         None => None,
     };
 
-    Ok((capture_time, subsec, focus))
+    Ok(shot)
 }
 
 pub fn parse(buf: &[u8]) -> Result<Arw> {
@@ -214,7 +296,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         .map(|(v, _)| v as u16)
         .unwrap_or(1);
     let preview = embedded(&ifd0);
-    let (capture_time, subsec, focus) = exif(buf, &ifd0)?;
+    let shot = exif(buf, &ifd0)?;
 
     // Walk the IFD chain (IFD1, IFD2, ...) and the SubIFDs, and take the
     // largest JPEG as the full-resolution one (JpgFromRaw).
@@ -257,9 +339,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         preview,
         full,
         orientation,
-        capture_time,
-        subsec,
-        focus,
+        shot,
     })
 }
 
@@ -394,10 +474,10 @@ mod tests {
     fn reads_capture_time_subsec_and_focus_location() {
         let buf = tiff_with_exif(true, Some([7008, 4672, 3613, 1732]), false);
         let a = parse(&buf).unwrap();
-        assert_eq!(a.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
-        assert_eq!(a.subsec.as_deref(), Some("122"));
+        assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+        assert_eq!(a.shot.subsec.as_deref(), Some("122"));
         assert_eq!(
-            a.focus,
+            a.shot.focus,
             Some(FocusLocation {
                 sensor_w: 7008,
                 sensor_h: 4672,
@@ -411,27 +491,50 @@ mod tests {
     fn skips_the_older_sony_maker_note_header() {
         let buf = tiff_with_exif(true, Some([6000, 4000, 100, 200]), true);
         let a = parse(&buf).unwrap();
-        assert_eq!(a.focus.unwrap().x, 100);
+        assert_eq!(a.shot.focus.unwrap().x, 100);
     }
 
     #[test]
     fn a_maker_note_without_focus_location_is_none() {
         let a = parse(&tiff_with_exif(true, None, false)).unwrap();
-        assert!(a.focus.is_none());
-        assert_eq!(a.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+        assert!(a.shot.focus.is_none());
+        assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
     }
 
     #[test]
     fn no_maker_note_is_none() {
         let a = parse(&tiff_with_exif(false, None, false)).unwrap();
-        assert!(a.focus.is_none());
-        assert_eq!(a.subsec.as_deref(), Some("122"));
+        assert!(a.shot.focus.is_none());
+        assert_eq!(a.shot.subsec.as_deref(), Some("122"));
+    }
+
+    #[test]
+    fn reads_the_shooting_settings_out_of_the_exif_ifd() {
+        let exif_at = 8 + ifd_len(1);
+        let rationals_at = exif_at + ifd_len(3);
+        let mut buf = tiff(&[(TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32)]);
+        buf.extend_from_slice(&ifd(&[
+            (TAG_EXPOSURE_TIME, TYPE_RATIONAL, 1, rationals_at as u32),
+            (TAG_F_NUMBER, TYPE_RATIONAL, 1, (rationals_at + 8) as u32),
+            (TAG_ISO, TYPE_SHORT, 1, 6400),
+        ]));
+        assert_eq!(buf.len(), rationals_at);
+        for v in [1u32, 250, 28, 10] {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+
+        let shot = parse(&buf).unwrap().shot;
+        assert_eq!(shot.exposure_time, Some(Rational { num: 1, den: 250 }));
+        assert_eq!(shot.f_number, Some(Rational { num: 28, den: 10 }));
+        assert_eq!(shot.f_number.unwrap().value(), Some(2.8));
+        assert_eq!(shot.iso, Some(6400));
+        assert_eq!(shot.focal_length, None);
     }
 
     #[test]
     fn no_exif_ifd_leaves_every_field_none() {
         let a = parse(&tiff(&[(TAG_ORIENTATION, 3, 1, 1)])).unwrap();
-        assert!(a.capture_time.is_none() && a.subsec.is_none() && a.focus.is_none());
+        assert!(a.shot.capture_time.is_none() && a.shot.subsec.is_none() && a.shot.focus.is_none());
     }
 
     /// A prefix too short for what the offsets point at must be an error, not a
