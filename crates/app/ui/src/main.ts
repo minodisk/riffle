@@ -358,6 +358,12 @@ void window.__TAURI__.event.listen("tauri://drag-leave", () => {
   setDragging(false);
 });
 
+// Orders drops among themselves: a later drop's `dropped_folder` call may
+// resolve before an earlier one's, so each handler checks it is still the
+// most recent drop before minting a folder token (which would otherwise let
+// a stale, slow-resolving drop overwrite a newer one).
+let dropCounter = 0;
+
 void window.__TAURI__.event.listen<{ paths: string[] }>(
   "tauri://drag-drop",
   ({ payload }) => {
@@ -367,11 +373,15 @@ void window.__TAURI__.event.listen<{ paths: string[] }>(
       setStatus("Drop a single folder or ARW file.");
       return;
     }
+    const drop = ++dropCounter;
     window.__TAURI__.core
       .invoke<string | null>("dropped_folder", { path })
       .then((folder) => {
         if (folder === null) {
           setStatus("Drop a single folder or ARW file.");
+          return;
+        }
+        if (drop !== dropCounter) {
           return;
         }
         return openDirectory(folder, newFolderToken());

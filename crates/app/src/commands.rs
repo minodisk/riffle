@@ -98,8 +98,10 @@ pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
 
 /// The folder a dropped path stands for: a directory is taken as it is, a
 /// file is taken by its parent directory (dragging one ARW is the obvious
-/// gesture), and anything else — a path that is gone by the time it lands, or
-/// a file at a filesystem root — is `None`.
+/// gesture; a file at a filesystem root resolves to that root, since
+/// `Path::parent` only yields `None` for the root itself). Anything else — a
+/// path that is neither a directory nor a regular file, such as one gone by
+/// the time it lands, or a broken symlink or socket — is `None`.
 fn dropped_dir(path: &Path) -> Option<PathBuf> {
     if path.is_dir() {
         return Some(path.to_path_buf());
@@ -114,13 +116,12 @@ fn dropped_dir(path: &Path) -> Option<PathBuf> {
 /// path is a directory can only be answered by a `stat`, so the frontend asks
 /// instead of guessing from the string.
 #[tauri::command]
-pub async fn dropped_folder(path: String) -> Option<String> {
+pub async fn dropped_folder(path: String) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         dropped_dir(Path::new(&path)).map(|p| p.to_string_lossy().into_owned())
     })
     .await
-    .ok()
-    .flatten()
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -460,6 +461,16 @@ mod tests {
         assert_eq!(dropped_dir(&dir.join("gone.arw")), None);
 
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_files_parent_at_the_filesystem_root_is_the_root_not_none() {
+        // The boundary the `dropped_dir` doc comment describes: `parent()`
+        // only yields `None` for the root itself, so a file directly under
+        // it resolves to the root. There is no writable file directly under
+        // `/` to exercise `dropped_dir` itself against, so this pins the
+        // `Path::parent` behaviour the function relies on instead.
+        assert_eq!(Path::new("/a.arw").parent(), Some(Path::new("/")));
     }
 
     #[test]
