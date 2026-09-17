@@ -127,7 +127,7 @@ than quietly switching.
       `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`;
       keep it
 
-- [ ] Step 3: Rust commands: pick a folder, enumerate ARW files, hand the embedded preview to the frontend
+- [x] Step 3: Rust commands: pick a folder, enumerate ARW files, hand the embedded preview to the frontend
   - Done when:
     - `pick_folder() -> Option<String>` opens the native directory picker via
       `tauri-plugin-dialog` (Rust side `blocking_pick_folder`) and returns the
@@ -265,3 +265,4 @@ it starts causing bugs, revisit it when Phase 5 lands rather than now.
 
 - (2026-09-17) Step 1 complete
 - (2026-09-17) Step 2 complete
+- (2026-09-17) Step 3 complete
