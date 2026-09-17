@@ -201,7 +201,7 @@ than quietly switching.
       bitmap); do not add zoom, pan, or any UI beyond the button, canvas and
       status line
 
-- [ ] Step 5: Documentation and status update
+- [x] Step 5: Documentation and status update
   - Done when:
     - `README.md` "Status" says Phase 2 is done and describes the app's current
       capability (folder → preview → arrow keys), links the run instructions
@@ -267,3 +267,4 @@ it starts causing bugs, revisit it when Phase 5 lands rather than now.
 - (2026-09-17) Step 2 complete
 - (2026-09-17) Step 3 complete
 - (2026-09-17) Step 4 complete
+- (2026-09-17) Step 5 complete
