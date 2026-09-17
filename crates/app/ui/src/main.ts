@@ -79,7 +79,7 @@ function draw(): void {
 }
 
 function requestPreview(): void {
-  if (inFlight) {
+  if (inFlight || files.length === 0) {
     return;
   }
   inFlight = true;
