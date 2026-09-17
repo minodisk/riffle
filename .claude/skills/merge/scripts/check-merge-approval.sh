@@ -96,18 +96,21 @@ function classify() {
 		echo "a cargo build script runs arbitrary code at build time, unreviewed, on developer machines and CI alike"
 		return 0
 		;;
-	# A manifest can add a dependency, and a dependency's build.rs runs
-	# arbitrary code at build time. The same hole as build.rs, one level up.
-	Cargo.toml | crates/*/Cargo.toml)
-		echo "can add a dependency, and a dependency's build.rs then runs arbitrary code at build time"
-		return 0
-		;;
+	# A manifest is safe on its own: what actually decides where dependency code
+	# comes from is Cargo.lock, which is approval-required below, and adding a
+	# dependency always moves the lock. Treating the manifests as
+	# approval-required too stopped every ordinary Rust change (a version
+	# constraint, a feature flag, a new workspace member) for no added signal.
+	# The build-time code execution risk is still covered: build.rs is caught
+	# above, and a new dependency that ships one cannot arrive without Cargo.lock
+	# moving.
+	Cargo.toml) return 1 ;;
 	# Markdown is safe whatever the directory (paths under .claude / .agents /
 	# .codex / .github never reach this line: the patterns above are evaluated
 	# first and make them approval required).
 	*.md) return 1 ;;
-	# Rust source. Merging rebuilds it, but if it is broken a revert takes the
-	# same path back. Cargo.toml and build.rs are the exceptions and are
+	# Rust source, and the per-crate manifests. Merging rebuilds it, but if it is
+	# broken a revert takes the same path back. build.rs is the exception and is
 	# evaluated above.
 	crates/*) return 1 ;;
 	# The dependency supply chain itself. A rewrite changes where dependencies

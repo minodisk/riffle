@@ -91,7 +91,10 @@ expect 1 approval .claude/skills/develop/SKILL.md .github/copilot-instructions.m
 
 # --- approval: build-time code execution ---------------------------------
 expect 1 approval build.rs crates/cli/build.rs
-expect 1 approval Cargo.toml crates/cli/Cargo.toml
+
+# A manifest on its own is safe; Cargo.lock below is what gates a dependency
+# actually arriving. Pinned so the two never drift back together.
+expect 0 safe Cargo.toml crates/cli/Cargo.toml
 
 # --- approval: toolchain and supply chain --------------------------------
 expect 1 approval Cargo.lock .cargo/config.toml
