@@ -263,6 +263,38 @@ guaranteed cold:
   subject's face in both orientations. GUI automation is denied on this machine.
   What was checked is the arithmetic above plus `mise run ci`.
 
+## Step 7: open a folder by drag-and-drop
+
+- The capability was already sufficient: `tauri://drag-enter` / `drag-over` /
+  `drag-leave` / `drag-drop` are webview events delivered through the same
+  `event:listen` command as `scan-progress`, and
+  `crates/app/gen/schemas/acl-manifests.json` shows `core:event`'s default
+  permission granting `allow-listen`, which `core:default` in
+  `crates/app/capabilities/default.json` pulls in. Nothing was added there.
+- `dragDropEnabled` was left at its default (true) in
+  `crates/app/tauri.conf.json`; it is not written out at all. Turning it off
+  would restore DOM drag-and-drop but lose the paths, which is the whole point.
+- The picker path and the drop path were unified rather than duplicated:
+  `openFolder` in `crates/app/ui/src/main.ts` now only picks, and both callers
+  hand a folder plus a freshly minted `folderToken` to a common
+  `openDirectory(folder, token)`. Everything Steps 4-6 built —
+  `list_arw`, the entries map, the strip, the first preview, `scan_folder` +
+  `start_scan` (which cancels the previous scan in Rust) — therefore runs once,
+  for both ways in.
+- Token discipline detail: the picker reserves its token *before* the dialog
+  opens (a pick started earlier must not win over a folder opened later), while
+  a drop mints its token only *after* `dropped_folder` answers, so an ignored
+  drop cannot cancel a picker dialog that is still open.
+- Directory-ness is decided in Rust (`dropped_dir` / the `dropped_folder`
+  command in `crates/app/src/commands.rs`): a directory is taken as is, a file
+  by its parent, and a path that no longer exists yields `None`. A string-only
+  guess in TypeScript cannot tell an extensionless file from a directory.
+- Not verified here: the three **(manual)** criteria (dropping a folder,
+  dropping one ARW, dragging over and away again) need the GUI, and
+  `osascript` is denied assistive access on this machine. What was actually
+  checked is `mise run ci` (tsc, clippy, `cargo test` including the new
+  `dropped_dir` test) and the ACL manifest reading above.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -311,3 +343,13 @@ guaranteed cold:
   would mean keeping the whole entries map fresh during a scan for the strip's
   sake, which is exactly the 10/s full re-read Step 6 avoided, so the existing
   todo item from Step 5 stands.
+- Multiple items dropped at once are rejected wholesale with a status-line
+  message (`crates/app/ui/src/main.ts` `tauri://drag-drop` handler), even when
+  every one of them sits in the same folder. Taking the common parent of a
+  multi-file drop would be friendlier, but the plan's criterion only asks for
+  "anything else is ignored with a status-line message".
+- A drop is ignored while the window is not focused-but-visible in any special
+  way, and there is no feedback distinguishing "this drop will be refused"
+  during the hover: the overlay in `crates/app/ui/style.css` (`body.dragging`)
+  is the same whether the payload is acceptable or not. Tauri's drag events
+  do carry the paths on `drag-enter`, so this could be made precise later.

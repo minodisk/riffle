@@ -96,6 +96,33 @@ pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
     list_arw_in(Path::new(&canonicalize(&dir)))
 }
 
+/// The folder a dropped path stands for: a directory is taken as it is, a
+/// file is taken by its parent directory (dragging one ARW is the obvious
+/// gesture), and anything else — a path that is gone by the time it lands, or
+/// a file at a filesystem root — is `None`.
+fn dropped_dir(path: &Path) -> Option<PathBuf> {
+    if path.is_dir() {
+        return Some(path.to_path_buf());
+    }
+    if path.is_file() {
+        return path.parent().map(Path::to_path_buf);
+    }
+    None
+}
+
+/// Resolve a path dropped on the window to the folder to open. Whether the
+/// path is a directory can only be answered by a `stat`, so the frontend asks
+/// instead of guessing from the string.
+#[tauri::command]
+pub async fn dropped_folder(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        dropped_dir(Path::new(&path)).map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 #[tauri::command]
 pub async fn preview(path: String) -> Result<Response, String> {
     let bytes = tauri::async_runtime::spawn_blocking(move || read_preview(Path::new(&path)))
@@ -420,6 +447,19 @@ mod tests {
         assert_eq!(u16::from_le_bytes([out[0], out[1]]), THUMBNAIL_KIND_JPEG_V1);
         assert_eq!(u16::from_le_bytes([out[2], out[3]]), 6);
         assert_eq!(&out[PREVIEW_HEADER_LEN..], &jpeg);
+    }
+
+    #[test]
+    fn dropped_directory_is_taken_as_is_and_a_file_by_its_parent() {
+        let dir = temp_dir("dropped");
+        let file = dir.join("a.arw");
+        std::fs::write(&file, b"x").unwrap();
+
+        assert_eq!(dropped_dir(&dir), Some(dir.clone()));
+        assert_eq!(dropped_dir(&file), Some(dir.clone()));
+        assert_eq!(dropped_dir(&dir.join("gone.arw")), None);
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

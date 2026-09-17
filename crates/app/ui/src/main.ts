@@ -275,56 +275,112 @@ strip.init((selected) => {
   show();
 });
 
-function openFolder(): void {
+// Reserve the right to be the folder the UI shows. Every way of opening a
+// folder — the picker and a drop — takes a token first, so the async work of
+// the one that lost the race is dropped instead of writing into the other's
+// UI.
+function newFolderToken(): number {
   folderToken += 1;
-  const token = folderToken;
-  window.__TAURI__.core
-    .invoke<string | null>("pick_folder")
-    .then((folder) => {
-      if (folder === null) {
+  return folderToken;
+}
+
+function openDirectory(folder: string, token: number): Promise<void> {
+  return window.__TAURI__.core
+    .invoke<string[]>("list_arw", { dir: folder })
+    .then((found) => {
+      if (token !== folderToken) {
         return;
       }
-      return window.__TAURI__.core
-        .invoke<string[]>("list_arw", { dir: folder })
-        .then((found) => {
+      files = found;
+      index = 0;
+      openDir = folder;
+      entries.clear();
+      refreshEntries();
+      strip.setFiles(files);
+      seq += 1;
+      shown?.bitmap.close();
+      shown = null;
+      draw();
+      scanning = null;
+      scanId = null;
+      void window.__TAURI__.core
+        .invoke<{ total: number; scan_id: number }>("scan_folder", {
+          dir: folder,
+        })
+        .then(({ scan_id }) => {
           if (token !== folderToken) {
             return;
           }
-          files = found;
-          index = 0;
-          openDir = folder;
-          entries.clear();
-          refreshEntries();
-          strip.setFiles(files);
-          seq += 1;
-          shown?.bitmap.close();
-          shown = null;
-          draw();
-          scanning = null;
-          scanId = null;
-          void window.__TAURI__.core
-            .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
-            .then(({ scan_id }) => {
-              if (token !== folderToken) {
-                return;
-              }
-              scanId = scan_id;
-              return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
-            })
-            .catch((err: unknown) => {
-              setStatus(String(err));
-            });
-          if (files.length === 0) {
-            setStatus();
-            return;
-          }
-          show();
+          scanId = scan_id;
+          return window.__TAURI__.core.invoke("start_scan", {
+            scanId: scan_id,
+          });
+        })
+        .catch((err: unknown) => {
+          setStatus(String(err));
         });
+      if (files.length === 0) {
+        setStatus();
+        return;
+      }
+      show();
+    });
+}
+
+function openFolder(): void {
+  const token = newFolderToken();
+  window.__TAURI__.core
+    .invoke<string | null>("pick_folder")
+    .then((folder) => {
+      if (folder === null || token !== folderToken) {
+        return;
+      }
+      return openDirectory(folder, token);
     })
     .catch((err: unknown) => {
       setStatus(String(err));
     });
 }
+
+// Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
+// usable path; the paths arrive only through these webview events.
+function setDragging(dragging: boolean): void {
+  document.body.classList.toggle("dragging", dragging);
+}
+
+for (const event of ["tauri://drag-enter", "tauri://drag-over"]) {
+  void window.__TAURI__.event.listen(event, () => {
+    setDragging(true);
+  });
+}
+
+void window.__TAURI__.event.listen("tauri://drag-leave", () => {
+  setDragging(false);
+});
+
+void window.__TAURI__.event.listen<{ paths: string[] }>(
+  "tauri://drag-drop",
+  ({ payload }) => {
+    setDragging(false);
+    const [path] = payload.paths;
+    if (path === undefined || payload.paths.length > 1) {
+      setStatus("Drop a single folder or ARW file.");
+      return;
+    }
+    window.__TAURI__.core
+      .invoke<string | null>("dropped_folder", { path })
+      .then((folder) => {
+        if (folder === null) {
+          setStatus("Drop a single folder or ARW file.");
+          return;
+        }
+        return openDirectory(folder, newFolderToken());
+      })
+      .catch((err: unknown) => {
+        setStatus(String(err));
+      });
+  },
+);
 
 void window.__TAURI__.event.listen<{
   dir: string;

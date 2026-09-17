@@ -336,7 +336,7 @@ Settled with the user; do not reopen.
       scan has advanced past it
     - Assumes Step 5 is merged (the entries map is shared with the strip)
 
-- [ ] Step 7: Open a folder by drag-and-drop
+- [x] Step 7: Open a folder by drag-and-drop
   - Done when:
     - Dropping a folder onto the window opens it exactly as the picker does
       (same path through `list_arw` / `scan_folder` / first preview), and a
