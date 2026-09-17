@@ -113,6 +113,7 @@ fn locate(text: &str) -> Result<Location, String> {
     let mut reader = NsReader::from_str(text);
     let mut pos = 0usize;
     let mut insert: Option<Location> = None;
+    let mut first_description_seen = false;
     let mut in_rating = false;
     loop {
         let event = reader
@@ -124,11 +125,7 @@ fn locate(text: &str) -> Result<Location, String> {
             Event::Eof => break,
             Event::Start(e) | Event::Empty(e) => {
                 let (ns, local) = reader.resolver().resolve_element(e.name());
-                if insert.is_none() {
-                    if !(bound_to(&ns, RDF_NS) && local.as_ref() == "Description") {
-                        pos = end;
-                        continue;
-                    }
+                if bound_to(&ns, RDF_NS) && local.as_ref() == "Description" {
                     for attr in e.attributes() {
                         let attr = attr.map_err(|e| format!("XMP parse error: {e}"))?;
                         let (ans, alocal) = reader.resolver().resolve_attribute(attr.key);
@@ -141,16 +138,15 @@ fn locate(text: &str) -> Result<Location, String> {
                             }
                         }
                     }
-                    let (prefix, declare) = xmp_prefix(&reader);
-                    let candidate = Location::Insert {
-                        at: pos + insert_offset(span),
-                        prefix,
-                        declare,
-                    };
-                    if matches!(event, Event::Empty(_)) {
-                        return Ok(candidate);
+                    if !first_description_seen {
+                        first_description_seen = true;
+                        let (prefix, declare) = xmp_prefix(&reader);
+                        insert = Some(Location::Insert {
+                            at: pos + insert_offset(span),
+                            prefix,
+                            declare,
+                        });
                     }
-                    insert = Some(candidate);
                 } else if bound_to(&ns, XMP_NS) && local.as_ref() == "Rating" {
                     in_rating = matches!(event, Event::Start(_));
                 }
@@ -160,10 +156,14 @@ fn locate(text: &str) -> Result<Location, String> {
             }
             Event::End(e) => {
                 let (ns, local) = reader.resolver().resolve_element(e.name());
-                if bound_to(&ns, RDF_NS) && local.as_ref() == "Description" {
-                    if let Some(candidate) = insert {
-                        return Ok(candidate);
-                    }
+                if bound_to(&ns, XMP_NS) && local.as_ref() == "Rating" && in_rating {
+                    // An empty element-form property, `<xmp:Rating></xmp:Rating>`,
+                    // never produces a `Text` event: splice the empty range
+                    // between the tags instead of falling through to `insert`.
+                    return Ok(Location::Value {
+                        start: pos,
+                        end: pos,
+                    });
                 }
                 in_rating = false;
             }
@@ -410,6 +410,43 @@ mod tests {
     #[test]
     fn a_sidecar_without_a_rating_reads_as_none() {
         assert_eq!(read_rating(NO_RATING.as_bytes()).unwrap(), None);
+    }
+
+    #[test]
+    fn finds_a_rating_on_a_sibling_description() {
+        let source = concat!(
+            "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+            " <rdf:Description rdf:about=\"\"\n",
+            "   xmlns:tiff=\"http://ns.adobe.com/tiff/1.0/\"\n",
+            "   tiff:Make=\"SONY\"/>\n",
+            " <rdf:Description rdf:about=\"\"\n",
+            "   xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n",
+            "   xmp:Rating=\"4\"/>\n",
+            "</rdf:RDF>\n",
+        );
+        assert_eq!(read_rating(source.as_bytes()).unwrap(), Some(4));
+        assert_eq!(
+            patched(source, Some(2)),
+            source.replace("xmp:Rating=\"4\"", "xmp:Rating=\"2\"")
+        );
+    }
+
+    #[test]
+    fn splices_an_empty_element_rating_in_place() {
+        let source = concat!(
+            "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+            " <rdf:Description rdf:about=\"\"\n",
+            "   xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\">\n",
+            "  <xmp:Rating></xmp:Rating>\n",
+            " </rdf:Description>\n",
+            "</rdf:RDF>\n",
+        );
+        let out = patched(source, Some(2));
+        assert_eq!(
+            out,
+            source.replace("<xmp:Rating></xmp:Rating>", "<xmp:Rating>2</xmp:Rating>")
+        );
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(2));
     }
 
     #[test]
