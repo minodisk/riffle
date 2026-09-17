@@ -136,6 +136,14 @@ struct PendingScan {
 /// the same folder is reopened while a scan is still running.
 static NEXT_SCAN_ID: AtomicU64 = AtomicU64::new(1);
 
+/// The id `scan_folder` most recently handed out. `start_scan` checks against
+/// this (not just presence in `Pending`) so an id that `scan_folder` has
+/// already superseded is refused even if its `start_scan` call arrives after
+/// the superseding `scan_folder` call but before that call's own `start_scan`
+/// — the two `scan_folder` futures are independent IPC tasks with no ordering
+/// guarantee between them.
+static LATEST_SCAN_ID: AtomicU64 = AtomicU64::new(0);
+
 /// The index, shared between the commands and the scan thread. It is a cache:
 /// `None` when the cache directory could not be opened (see `main.rs`), in
 /// which case the commands below degrade to "no thumbnails" instead of the
@@ -171,6 +179,7 @@ pub struct ScanStarted {
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scan_id = NEXT_SCAN_ID.fetch_add(1, Ordering::Relaxed);
+    LATEST_SCAN_ID.store(scan_id, Ordering::Relaxed);
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
@@ -205,7 +214,14 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let total = todo.len();
-    index::lock(&app.state::<Pending>().0).insert(scan_id, PendingScan { dir, todo, cancel });
+    let pending_state = app.state::<Pending>();
+    let mut pending = index::lock(&pending_state.0);
+    // Any entry still here belongs to a scan this one has already superseded
+    // (only one `scan_folder`/`start_scan` pair is ever live at a time); it
+    // never started, so there is nothing to cancel or join, just drop it.
+    pending.clear();
+    pending.insert(scan_id, PendingScan { dir, todo, cancel });
+    drop(pending);
     Ok(ScanStarted { total, scan_id })
 }
 
@@ -214,6 +230,14 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
 /// unavailable, or this scan has since been superseded).
 #[tauri::command]
 pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
+    if LATEST_SCAN_ID.load(Ordering::Relaxed) != scan_id {
+        // A later `scan_folder` has already superseded this id; its own
+        // `start_scan` (or none at all, if the frontend never got that far)
+        // owns `Running` now, so spawning here would leak a scan nobody can
+        // cancel or join.
+        index::lock(&app.state::<Pending>().0).remove(&scan_id);
+        return Ok(());
+    }
     let Some(pending) = index::lock(&app.state::<Pending>().0).remove(&scan_id) else {
         return Ok(());
     };
