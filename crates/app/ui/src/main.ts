@@ -111,6 +111,12 @@ let crop: {
   pointY: number;
   cropSeq: number;
   orientation: number;
+  // The device-pixel viewport size (`canvas.client*` × dpr) at request time,
+  // so a resize that lands while a request is already in flight (silently
+  // dropped, since `requestCrop` no-ops on `cropInFlight`) is still noticed
+  // once this crop settles and can be re-requested.
+  requestedWidth: number;
+  requestedHeight: number;
 } | null = null;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`.
 let cropInFlight = false;
@@ -328,6 +334,19 @@ function drawZoom(): void {
   context.restore();
 }
 
+// True when the held crop was cut for a viewport size that no longer
+// matches the canvas (a resize while zoomed).
+function cropViewportStale(): boolean {
+  if (crop === null) {
+    return false;
+  }
+  const dpr = window.devicePixelRatio;
+  return (
+    crop.requestedWidth !== Math.round(canvas.clientWidth * dpr) ||
+    crop.requestedHeight !== Math.round(canvas.clientHeight * dpr)
+  );
+}
+
 function requestCrop(): void {
   if (cropInFlight || files.length === 0) {
     return;
@@ -335,11 +354,13 @@ function requestCrop(): void {
   cropInFlight = true;
   const current = seq;
   const dpr = window.devicePixelRatio;
+  const requestedWidth = Math.round(canvas.clientWidth * dpr);
+  const requestedHeight = Math.round(canvas.clientHeight * dpr);
   window.__TAURI__.core
     .invoke<ArrayBuffer>("focus_crop", {
       path: files[index],
-      width: Math.round(canvas.clientWidth * dpr),
-      height: Math.round(canvas.clientHeight * dpr),
+      width: requestedWidth,
+      height: requestedHeight,
     })
     .then(async (payload) => {
       cropInFlight = false;
@@ -385,8 +406,16 @@ function requestCrop(): void {
         pointY: header.getUint32(16, true),
         cropSeq: current,
         orientation,
+        requestedWidth,
+        requestedHeight,
       };
       draw();
+      // The viewport may have been resized while this request was in
+      // flight; `requestCrop` silently no-ops on `cropInFlight` during that
+      // window, so check here and re-fire if the settled crop is stale.
+      if (zoomed && cropViewportStale()) {
+        requestCrop();
+      }
     })
     .catch((err: unknown) => {
       cropInFlight = false;
@@ -412,7 +441,7 @@ function toggleZoom(): void {
     if (ZOOM_TIMING) {
       console.debug("zoom keypress", zoomStartedAt);
     }
-    if (crop === null || crop.cropSeq !== seq) {
+    if (crop === null || crop.cropSeq !== seq || cropViewportStale()) {
       requestCrop();
     }
   }
