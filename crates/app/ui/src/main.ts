@@ -204,6 +204,9 @@ function openFolder(): void {
           void window.__TAURI__.core
             .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
             .then(({ scan_id }) => {
+              if (token !== folderToken) {
+                return;
+              }
               scanId = scan_id;
               return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
             })

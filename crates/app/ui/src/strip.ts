@@ -133,12 +133,21 @@ function request(index: number): void {
       const blob = new Blob([payload.slice(THUMBNAIL_HEADER_LEN)], {
         type: "image/jpeg",
       });
+      if (cell.url !== null) {
+        URL.revokeObjectURL(cell.url);
+      }
       cell.url = URL.createObjectURL(blob);
       cell.img.src = cell.url;
       cell.img.className =
         orientation === 6 ? "cw" : orientation === 8 ? "ccw" : "";
     })
     .catch((err: unknown) => {
+      // A response for a folder that is no longer open: bookkeeping below
+      // belongs to the new folder's `setFiles` reset (or to a re-request
+      // that has already replaced this entry), so leave it alone.
+      if (currentGeneration !== generation) {
+        return;
+      }
       requested.delete(index);
       // The index row exists but its `thumb` column is NULL only once the
       // file has actually been processed and failed (see
@@ -154,8 +163,10 @@ function request(index: number): void {
     })
     .finally(() => {
       inFlight -= 1;
-      inFlightIndices.delete(index);
-      highlight();
+      if (currentGeneration === generation) {
+        inFlightIndices.delete(index);
+        highlight();
+      }
       pump();
     });
 }
