@@ -173,7 +173,7 @@ repeated here.
       three-way split (confirmed / verified without a GUI / awaiting) that
       `docs/agents/tauri-app.md` asks for
 
-- [ ] Step 2: Core: XMP sidecar read, write and patch (`riffle_core::xmp`)
+- [x] Step 2: Core: XMP sidecar read, write and patch (`riffle_core::xmp`)
   - Done when:
     - `crates/core/src/xmp.rs` exposes: `sidecar_path(arw: &Path) ->
       PathBuf` (replace the extension with `xmp`; when the directory already

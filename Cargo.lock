@@ -2743,6 +2743,7 @@ dependencies = [
  "anyhow",
  "mozjpeg",
  "mozjpeg-sys",
+ "quick-xml",
  "rayon",
 ]
 
