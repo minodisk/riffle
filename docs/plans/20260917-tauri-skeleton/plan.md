@@ -263,4 +263,4 @@ it starts causing bugs, revisit it when Phase 5 lands rather than now.
 
 ## Progress
 
-- (none yet)
+- (2026-09-17) Step 1 complete
