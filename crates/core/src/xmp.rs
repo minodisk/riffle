@@ -28,7 +28,8 @@ pub fn sidecar_path(arw: &Path) -> PathBuf {
     path
 }
 
-/// The `xmp:Rating` of the first `rdf:Description`, clamped to `-1..=5`.
+/// The `xmp:Rating` of the first `rdf:Description` that has one, clamped to
+/// `-1..=5`.
 ///
 /// `None` when the property is absent or its value is outside the range;
 /// `Err` when the bytes are not parseable XMP.
@@ -47,8 +48,9 @@ pub fn read_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
 /// The sidecar bytes carrying `rating`.
 ///
 /// With `existing` `None` this is a fresh template; otherwise the existing
-/// bytes with only the `Rating` value replaced, or one attribute inserted
-/// into the first `rdf:Description` when the property is absent.
+/// bytes with only the `Rating` value replaced in the first `rdf:Description`
+/// that has one, or one attribute inserted into the first `rdf:Description`
+/// when the property is absent from all of them.
 ///
 /// `rating` `None` means unrated and writes `0`. On a file that has no
 /// sidecar yet the caller must not write anything at all rather than call
