@@ -28,8 +28,7 @@ fn main() {
                 }
             };
             app.manage(commands::AppIndex(index));
-            app.manage(commands::Running::default());
-            app.manage(commands::Pending::default());
+            app.manage(commands::Scans::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

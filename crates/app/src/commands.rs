@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Response;
@@ -108,41 +108,41 @@ pub async fn preview(path: String) -> Result<Response, String> {
     )))
 }
 
-/// The cancel flag and join handle of the one scan that may be running, so
-/// that opening another folder cancels it and the next `scan_folder` can wait
-/// for its last write to land before reconciling (otherwise that write can
-/// land after the new reconcile and resurrect a row it just invalidated).
+/// The id handed out to each `scan_folder` call, the cancel flag and join
+/// handle of the one scan that may be running, and the work queued for
+/// `start_scan` to actually spawn — all behind one lock so that minting an
+/// id, taking `running`, checking the latest id and storing into `running`
+/// or `pending` are never interleaved between two concurrent `scan_folder`/
+/// `start_scan` calls (the two `scan_folder` futures are independent IPC
+/// tasks with no ordering guarantee between them, and likewise for
+/// `start_scan`).
 #[derive(Default)]
-pub struct Running(Mutex<Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>>);
+pub struct Scans(Mutex<ScansState>);
 
-/// Work queued by `scan_folder`, waiting for `start_scan` to actually spawn
-/// the scan thread. Split into two commands (rather than spawning from
-/// `scan_folder`) so the frontend has stored `scan_id` *before* the scan's
-/// first `scan-progress`/`scan-done` event can possibly be emitted; spawning
-/// eagerly let a fast scan's events race the id back to the frontend and be
-/// dropped by the `scan_id` filter.
 #[derive(Default)]
-pub struct Pending(Mutex<HashMap<u64, PendingScan>>);
+struct ScansState {
+    next_id: u64,
+    /// The id `scan_folder` most recently handed out. Both `scan_folder`
+    /// (before inserting into `pending`) and `start_scan` (before storing
+    /// into `running`) re-check against this so an id that has since been
+    /// superseded is refused rather than acted on late.
+    latest_id: u64,
+    running: Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
+    pending: HashMap<u64, PendingScan>,
+}
+
+impl ScansState {
+    fn next_id(&mut self) -> u64 {
+        self.next_id += 1;
+        self.next_id
+    }
+}
 
 struct PendingScan {
     dir: String,
     todo: Vec<FileStat>,
     cancel: Arc<AtomicBool>,
 }
-
-/// Monotonic id handed out to each `scan_folder` call. `scan-progress` and
-/// `scan-done` carry it so the frontend can tell a cancelled scan's stragglers
-/// (same `dir`, older id) from the scan it is actually waiting on, even when
-/// the same folder is reopened while a scan is still running.
-static NEXT_SCAN_ID: AtomicU64 = AtomicU64::new(1);
-
-/// The id `scan_folder` most recently handed out. `start_scan` checks against
-/// this (not just presence in `Pending`) so an id that `scan_folder` has
-/// already superseded is refused even if its `start_scan` call arrives after
-/// the superseding `scan_folder` call but before that call's own `start_scan`
-/// — the two `scan_folder` futures are independent IPC tasks with no ordering
-/// guarantee between them.
-static LATEST_SCAN_ID: AtomicU64 = AtomicU64::new(0);
 
 /// The index, shared between the commands and the scan thread. It is a cache:
 /// `None` when the cache directory could not be opened (see `main.rs`), in
@@ -178,12 +178,16 @@ pub struct ScanStarted {
 /// unavailable.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
-    let scan_id = NEXT_SCAN_ID.fetch_add(1, Ordering::Relaxed);
-    LATEST_SCAN_ID.store(scan_id, Ordering::Relaxed);
+    let scans = app.state::<Scans>();
+    let (scan_id, previous) = {
+        let mut state = index::lock(&scans.0);
+        let scan_id = state.next_id();
+        state.latest_id = scan_id;
+        (scan_id, state.running.take())
+    };
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
-    let previous = index::lock(&app.state::<Running>().0).take();
     if let Some((previous_cancel, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
@@ -214,31 +218,45 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let total = todo.len();
-    let pending_state = app.state::<Pending>();
-    let mut pending = index::lock(&pending_state.0);
+    let mut state = index::lock(&scans.0);
+    if state.latest_id != scan_id {
+        // A later `scan_folder` has superseded this one while it was
+        // listing/reconciling; its own `start_scan` (or none at all) owns
+        // `pending`/`running` now, so queuing this work would either be
+        // overwritten or, worse, race the id check below in `start_scan`.
+        return Ok(ScanStarted { total, scan_id });
+    }
     // Any entry still here belongs to a scan this one has already superseded
     // (only one `scan_folder`/`start_scan` pair is ever live at a time); it
     // never started, so there is nothing to cancel or join, just drop it.
-    pending.clear();
-    pending.insert(scan_id, PendingScan { dir, todo, cancel });
-    drop(pending);
+    state.pending.clear();
+    state
+        .pending
+        .insert(scan_id, PendingScan { dir, todo, cancel });
+    drop(state);
     Ok(ScanStarted { total, scan_id })
 }
 
 /// Start the scan `scan_folder` prepared for `scan_id`, in the background.
 /// A no-op if there is no pending work under that id (the index cache was
 /// unavailable, or this scan has since been superseded).
+///
+/// The latest-id check and the store into `running` happen under the same
+/// lock as `scan_folder`'s own id-minting and `running`-taking, so a
+/// `scan_folder` that supersedes this id can never interleave between the
+/// check and the store: either it runs first, in which case this call sees
+/// its own id is stale and does not spawn at all, or it runs after, in which
+/// case it takes the handle this call just stored and joins it before
+/// reconciling.
 #[tauri::command]
 pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
-    if LATEST_SCAN_ID.load(Ordering::Relaxed) != scan_id {
-        // A later `scan_folder` has already superseded this id; its own
-        // `start_scan` (or none at all, if the frontend never got that far)
-        // owns `Running` now, so spawning here would leak a scan nobody can
-        // cancel or join.
-        index::lock(&app.state::<Pending>().0).remove(&scan_id);
+    let scans = app.state::<Scans>();
+    let mut state = index::lock(&scans.0);
+    if state.latest_id != scan_id {
+        state.pending.remove(&scan_id);
         return Ok(());
     }
-    let Some(pending) = index::lock(&app.state::<Pending>().0).remove(&scan_id) else {
+    let Some(pending) = state.pending.remove(&scan_id) else {
         return Ok(());
     };
     let Some(index) = app.state::<AppIndex>().0.clone() else {
@@ -279,7 +297,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             );
         }
     });
-    *index::lock(&app.state::<Running>().0) = Some((cancel, handle));
+    state.running = Some((cancel, handle));
     Ok(())
 }
 
