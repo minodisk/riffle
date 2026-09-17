@@ -326,3 +326,4 @@ later wants to cache crop parameters, that is a Phase 4 question.
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete
