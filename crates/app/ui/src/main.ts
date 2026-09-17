@@ -18,6 +18,20 @@ interface IndexedFile {
   has_thumb: boolean;
 }
 
+// Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
+// display, so a field is either a string to show or null to leave out.
+interface Metadata {
+  name: string;
+  camera: string | null;
+  lens: string | null;
+  aperture: string | null;
+  shutter: string | null;
+  iso: string | null;
+  focal_length: string | null;
+  exposure_bias: string | null;
+  captured_at: string | null;
+}
+
 interface DecodeResponse {
   seq: number;
   bitmap?: ImageBitmap;
@@ -26,7 +40,7 @@ interface DecodeResponse {
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const context = canvas.getContext("2d") as CanvasRenderingContext2D;
-const statusEl = document.getElementById("status") as HTMLSpanElement;
+const metaEl = document.getElementById("meta") as HTMLDivElement;
 const openEl = document.getElementById("open") as HTMLButtonElement;
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), {
@@ -44,6 +58,13 @@ let shown: { bitmap: ImageBitmap; orientation: number } | null = null;
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
 let inFlight = false;
+// The metadata of the current file, or null while it is still being read.
+let meta: Metadata | null = null;
+// The same one-in-flight, re-request-if-stale pattern as `inFlight`, so
+// holding a paging key down does not queue up a read per file passed.
+let metaInFlight = false;
+// A transient line under the metadata: an error, or the opening hint.
+let note: string | undefined = "Press \u201co\u201d or click \u201cOpen folder\u201d.";
 // How far the current scan got, or null when nothing is scanning. Events
 // carry the id of the scan that emitted them; only events whose id matches
 // `scanId` are applied, so the stragglers of a cancelled scan (including one
@@ -84,20 +105,57 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function setStatus(extra?: string): void {
-  const parts: string[] = [];
-  if (files.length === 0) {
-    parts.push(extra ?? "No ARW files in that folder.");
-  } else {
-    parts.push(`${index + 1} / ${files.length}  ${baseName(files[index])}`);
-    if (extra !== undefined) {
-      parts.push(extra);
+function row(list: HTMLDListElement, label: string, value: string | null): void {
+  if (value === null) {
+    return;
+  }
+  const dt = document.createElement("dt");
+  dt.textContent = label;
+  const dd = document.createElement("dd");
+  dd.textContent = value;
+  list.append(dt, dd);
+}
+
+function line(className: string, text: string): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+// Redraw the right pane: the current file's name, its position in the
+// folder, its shooting settings, and any note (an error, the scan's
+// progress, the opening hint).
+function renderMeta(): void {
+  metaEl.replaceChildren();
+  if (files.length > 0) {
+    metaEl.append(line("name", meta?.name ?? baseName(files[index])));
+    metaEl.append(line("position", `${index + 1} / ${files.length}`));
+    if (meta !== null) {
+      const list = document.createElement("dl");
+      row(list, "Aperture", meta.aperture);
+      row(list, "Shutter", meta.shutter);
+      row(list, "ISO", meta.iso);
+      row(list, "Focal length", meta.focal_length);
+      row(list, "Exposure", meta.exposure_bias);
+      row(list, "Camera", meta.camera);
+      row(list, "Lens", meta.lens);
+      row(list, "Captured", meta.captured_at);
+      metaEl.append(list);
     }
   }
-  if (scanning !== null) {
-    parts.push(scanning);
+  if (note !== undefined) {
+    metaEl.append(line("note", note));
   }
-  statusEl.textContent = parts.join("  —  ");
+  if (scanning !== null) {
+    metaEl.append(line("note", scanning));
+  }
+}
+
+// Set the transient note, or clear it when called with no argument.
+function setStatus(extra?: string): void {
+  note = extra;
+  renderMeta();
 }
 
 function draw(): void {
@@ -231,11 +289,42 @@ function requestPreview(): void {
     });
 }
 
+function requestMetadata(): void {
+  if (metaInFlight || files.length === 0) {
+    return;
+  }
+  metaInFlight = true;
+  const current = seq;
+  window.__TAURI__.core
+    .invoke<Metadata>("metadata", { path: files[index] })
+    .then((found) => {
+      metaInFlight = false;
+      if (current !== seq) {
+        requestMetadata();
+        return;
+      }
+      meta = found;
+      renderMeta();
+    })
+    .catch(() => {
+      metaInFlight = false;
+      if (current !== seq) {
+        requestMetadata();
+        return;
+      }
+      // A file whose metadata cannot be read keeps its name and position;
+      // the preview request reports the error itself.
+      renderMeta();
+    });
+}
+
 function show(): void {
   seq += 1;
+  meta = null;
   strip.setCurrent(index);
   setStatus();
   requestPreview();
+  requestMetadata();
 }
 
 worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
@@ -323,7 +412,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
           setStatus(String(err));
         });
       if (files.length === 0) {
-        setStatus();
+        meta = null;
+        setStatus("No ARW files in that folder.");
         return;
       }
       show();
@@ -405,7 +495,7 @@ void window.__TAURI__.event.listen<{
     return;
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
-  setStatus();
+  renderMeta();
   strip.refresh();
   // Only when the row the focus box needs is still missing; `entriesInFlight`
   // in `refreshEntries` keeps a 10/s progress stream from queuing up a
@@ -425,7 +515,7 @@ void window.__TAURI__.event.listen<{
     return;
   }
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
-  setStatus();
+  renderMeta();
   strip.refresh();
   refreshEntries();
 });
@@ -469,6 +559,7 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("resize", draw);
 
+renderMeta();
 draw();
 
 export {};

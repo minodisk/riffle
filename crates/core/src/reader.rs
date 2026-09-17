@@ -53,6 +53,19 @@ pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
     }
 }
 
+/// Parse just a file's metadata, reading the same bounded prefix as
+/// `read_preview` and falling back to the whole file when that prefix is too
+/// short to parse.
+pub fn read_metadata(path: &Path) -> Result<Arw> {
+    let head = read_head(path, HEAD_LIMIT)?;
+    let bounded = head.len() == HEAD_LIMIT;
+    match arw::parse(&head) {
+        Ok(arw) => Ok(arw),
+        Err(e) if bounded => arw::parse(&std::fs::read(path)?).map_err(|_| e),
+        Err(e) => Err(e),
+    }
+}
+
 fn preview_from(buf: &[u8], file: &mut File, bounded: bool) -> Result<(Arw, Vec<u8>)> {
     let arw = arw::parse(buf)?;
     let e = arw.preview.ok_or_else(|| anyhow!("no embedded preview"))?;

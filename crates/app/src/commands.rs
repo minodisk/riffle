@@ -124,6 +124,92 @@ pub async fn dropped_folder(path: String) -> Result<Option<String>, String> {
     .map_err(|e| e.to_string())
 }
 
+/// The metadata shown in the right pane: the file name plus the shooting
+/// settings, already formatted for display so the frontend only lays them out.
+/// Fields the file does not carry are `None` and are left out of the pane.
+#[derive(serde::Serialize)]
+pub struct Metadata {
+    name: String,
+    camera: Option<String>,
+    lens: Option<String>,
+    aperture: Option<String>,
+    shutter: Option<String>,
+    iso: Option<String>,
+    focal_length: Option<String>,
+    exposure_bias: Option<String>,
+    captured_at: Option<String>,
+}
+
+/// Format a rational as a decimal with at most `places` digits, with trailing
+/// zeros dropped (2.80 -> "2.8", 50.0 -> "50").
+fn decimal(r: riffle_core::arw::Rational, places: usize) -> Option<String> {
+    let v = r.value()?;
+    let text = format!("{v:.places$}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    Some(text.to_string())
+}
+
+/// Shutter speed the way a camera shows it: `1/250` below a second, `1.3"`
+/// at or above one.
+fn shutter(r: riffle_core::arw::Rational) -> Option<String> {
+    let v = r.value()?;
+    if v <= 0.0 {
+        return None;
+    }
+    if v >= 1.0 {
+        return decimal(r, 1).map(|t| format!("{t}\""));
+    }
+    Some(format!("1/{}", (1.0 / v).round()))
+}
+
+fn read_metadata(path: &Path) -> Result<Metadata, String> {
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    let arw =
+        riffle_core::reader::read_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let shot = arw.shot;
+    // The model usually already starts with the make ("SONY" / "ILCE-7M5"),
+    // so the two are joined rather than one being dropped.
+    let camera = match (shot.make.as_deref(), shot.model.as_deref()) {
+        (Some(make), Some(model)) => Some(format!("{make} {model}")),
+        (make, model) => make.or(model).map(str::to_string),
+    };
+    Ok(Metadata {
+        name,
+        camera,
+        lens: shot.lens_model,
+        aperture: shot
+            .f_number
+            .and_then(|r| decimal(r, 1))
+            .map(|t| format!("f/{t}")),
+        shutter: shot.exposure_time.and_then(shutter),
+        iso: shot.iso.map(|v| v.to_string()),
+        focal_length: shot
+            .focal_length
+            .and_then(|r| decimal(r, 1))
+            .map(|t| format!("{t} mm")),
+        exposure_bias: shot.exposure_bias.and_then(|r| {
+            let v = r.value()?;
+            let text = decimal(r, 1)?;
+            Some(if v > 0.0 {
+                format!("+{text} EV")
+            } else {
+                format!("{text} EV")
+            })
+        }),
+        captured_at: shot.capture_time,
+    })
+}
+
+/// The metadata of one file, read from the same bounded prefix as `preview`.
+#[tauri::command]
+pub async fn metadata(path: String) -> Result<Metadata, String> {
+    tauri::async_runtime::spawn_blocking(move || read_metadata(Path::new(&path)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn preview(path: String) -> Result<Response, String> {
     let bytes = tauri::async_runtime::spawn_blocking(move || read_preview(Path::new(&path)))
@@ -471,6 +557,36 @@ mod tests {
         // `/` to exercise `dropped_dir` itself against, so this pins the
         // `Path::parent` behaviour the function relies on instead.
         assert_eq!(Path::new("/a.arw").parent(), Some(Path::new("/")));
+    }
+
+    #[test]
+    fn shutter_reads_as_a_fraction_below_a_second_and_seconds_above() {
+        use riffle_core::arw::Rational;
+        assert_eq!(
+            shutter(Rational { num: 1, den: 250 }).as_deref(),
+            Some("1/250")
+        );
+        assert_eq!(
+            shutter(Rational { num: 13, den: 10 }).as_deref(),
+            Some("1.3\"")
+        );
+        assert_eq!(shutter(Rational { num: 4, den: 1 }).as_deref(), Some("4\""));
+        assert_eq!(shutter(Rational { num: 0, den: 1 }), None);
+        assert_eq!(shutter(Rational { num: 1, den: 0 }), None);
+    }
+
+    #[test]
+    fn decimals_drop_their_trailing_zeros() {
+        use riffle_core::arw::Rational;
+        assert_eq!(
+            decimal(Rational { num: 28, den: 10 }, 1).as_deref(),
+            Some("2.8")
+        );
+        assert_eq!(
+            decimal(Rational { num: 500, den: 10 }, 1).as_deref(),
+            Some("50")
+        );
+        assert_eq!(decimal(Rational { num: 1, den: 0 }, 1), None);
     }
 
     #[test]

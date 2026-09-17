@@ -39,9 +39,9 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|e| e.to_string())?;
     Ok(Entry {
         orientation: arw.orientation,
-        capture_time: arw.capture_time,
-        subsec: arw.subsec,
-        focus: arw.focus,
+        capture_time: arw.shot.capture_time,
+        subsec: arw.shot.subsec,
+        focus: arw.shot.focus,
         thumbnail,
     })
 }
