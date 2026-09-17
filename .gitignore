@@ -4,3 +4,4 @@ node_modules
 
 crates/app/ui/**/*.js
 crates/app/gen/
+/tmp
