@@ -377,11 +377,11 @@ void window.__TAURI__.event.listen<{ paths: string[] }>(
     window.__TAURI__.core
       .invoke<string | null>("dropped_folder", { path })
       .then((folder) => {
-        if (folder === null) {
-          setStatus("Drop a single folder or ARW file.");
+        if (drop !== dropCounter) {
           return;
         }
-        if (drop !== dropCounter) {
+        if (folder === null) {
+          setStatus("Drop a single folder or ARW file.");
           return;
         }
         return openDirectory(folder, newFolderToken());
