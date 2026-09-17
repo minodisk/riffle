@@ -21,6 +21,17 @@ pub const PREVIEW_KIND_JPEG_V1: u16 = 1;
 /// Tag for the other payload kind: a cached thumbnail JPEG, v1.
 pub const THUMBNAIL_KIND_JPEG_V1: u16 = 2;
 
+/// Size of the header that precedes the pixels in a `focus_crop` payload.
+pub const CROP_HEADER_LEN: usize = 24;
+
+/// Tag for the third payload kind: a raw RGBA focus crop, v1.
+pub const CROP_KIND_RGBA_V1: u16 = 3;
+
+/// The largest crop produced per axis, in JPEG pixels. The payload is raw
+/// RGBA, so this caps it at 4 MB; the decode itself barely depends on the
+/// size.
+pub const CROP_MAX: usize = 1024;
+
 /// Build a `preview` payload: a fixed-size little-endian header followed by the
 /// embedded JPEG bytes, copied verbatim.
 ///
@@ -42,6 +53,69 @@ fn payload(kind: u16, orientation: u16, jpeg: &[u8]) -> Vec<u8> {
     out.extend_from_slice(&0u32.to_le_bytes());
     out.extend_from_slice(jpeg);
     out
+}
+
+/// Build a `focus_crop` payload: a fixed-size little-endian header followed by
+/// the crop's RGBA bytes.
+///
+/// Header layout (24 bytes, little-endian):
+///
+/// | offset | size | field                                     |
+/// |--------|------|-------------------------------------------|
+/// | 0      | 2    | kind/version tag (`CROP_KIND_RGBA_V1`)    |
+/// | 2      | 2    | EXIF Orientation (1..8)                   |
+/// | 4      | 4    | crop width in pixels                      |
+/// | 8      | 4    | crop height in pixels                     |
+/// | 12     | 4    | point of interest x, in crop pixels       |
+/// | 16     | 4    | point of interest y, in crop pixels       |
+/// | 20     | 4    | reserved, zero                            |
+///
+/// The crop is cut in unrotated JPEG coordinates; the Orientation is the one
+/// the frontend already applies to the preview.
+fn crop_payload(orientation: u16, crop: &riffle_core::partial::FocusCrop) -> Vec<u8> {
+    let mut out = Vec::with_capacity(CROP_HEADER_LEN + crop.crop.pixels.len());
+    out.extend_from_slice(&CROP_KIND_RGBA_V1.to_le_bytes());
+    out.extend_from_slice(&orientation.to_le_bytes());
+    for value in [
+        crop.crop.width,
+        crop.crop.height,
+        crop.point_x,
+        crop.point_y,
+    ] {
+        out.extend_from_slice(&(value as u32).to_le_bytes());
+    }
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&crop.crop.pixels);
+    out
+}
+
+/// The crop size in unrotated JPEG pixels for a viewport of `width` x `height`
+/// device pixels: each axis is capped, and the two are swapped for the
+/// quarter-turn orientations, where the viewport's width runs along the
+/// unrotated JPEG's height.
+fn crop_size(orientation: u16, width: usize, height: usize) -> (usize, usize) {
+    let w = width.clamp(1, CROP_MAX);
+    let h = height.clamp(1, CROP_MAX);
+    if matches!(orientation, 6 | 8) {
+        (h, w)
+    } else {
+        (w, h)
+    }
+}
+
+/// Cut the 1:1 crop around the focus point out of a file's full-resolution
+/// JpgFromRaw, reading it by range rather than loading the whole ARW.
+fn read_focus_crop(
+    path: &Path,
+    width: usize,
+    height: usize,
+) -> Result<(u16, riffle_core::partial::FocusCrop), String> {
+    let (arw, jpeg) =
+        riffle_core::reader::read_full(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let (w, h) = crop_size(arw.orientation, width, height);
+    let crop = riffle_core::partial::decode_focus_crop(&jpeg, arw.shot.focus, w, h)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok((arw.orientation, crop))
 }
 
 fn is_arw(path: &Path) -> bool {
@@ -224,6 +298,18 @@ pub async fn preview(path: String) -> Result<Response, String> {
         bytes.0,
         &bytes.1,
     )))
+}
+
+/// The 1:1 crop of one file around its focus point, as raw RGBA. `width` and
+/// `height` are the viewport in device pixels.
+#[tauri::command]
+pub async fn focus_crop(path: String, width: u32, height: u32) -> Result<Response, String> {
+    let (orientation, crop) = tauri::async_runtime::spawn_blocking(move || {
+        read_focus_crop(Path::new(&path), width as usize, height as usize)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(Response::new(crop_payload(orientation, &crop)))
 }
 
 /// The id handed out to each `scan_folder` call, the cancel flag and join
@@ -595,6 +681,106 @@ mod tests {
             decimal(Rational { num: 100, den: 1 }, 0).as_deref(),
             Some("100")
         );
+    }
+
+    /// Encode a synthetic gradient so the test needs no image file.
+    fn gradient_jpeg(w: usize, h: usize) -> Vec<u8> {
+        let mut rgb = Vec::with_capacity(w * h * 3);
+        for y in 0..h {
+            for x in 0..w {
+                rgb.extend_from_slice(&[(x * 255 / w) as u8, (y * 255 / h) as u8, 128]);
+            }
+        }
+        let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+        c.set_size(w, h);
+        c.set_quality(90.0);
+        let mut c = c.start_compress(Vec::new()).unwrap();
+        c.write_scanlines(&rgb).unwrap();
+        c.finish().unwrap()
+    }
+
+    /// A TIFF whose IFD0 holds a tiny preview and whose IFD1 points at the
+    /// JpgFromRaw, mirroring the builder in `riffle_core::reader`'s tests.
+    fn arw_with_full(jpeg: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        let ifd1_at = 8 + 2 + 2 * 12 + 4;
+        let at = 256;
+        for (entries, next) in [
+            ([(0x0201u16, 8u32), (0x0202, 1)], ifd1_at as u32),
+            ([(0x0201, at as u32), (0x0202, jpeg.len() as u32)], 0),
+        ] {
+            buf.extend_from_slice(&2u16.to_le_bytes());
+            for (tag, value) in entries {
+                buf.extend_from_slice(&tag.to_le_bytes());
+                buf.extend_from_slice(&4u16.to_le_bytes());
+                buf.extend_from_slice(&1u32.to_le_bytes());
+                buf.extend_from_slice(&value.to_le_bytes());
+            }
+            buf.extend_from_slice(&next.to_le_bytes());
+        }
+        buf.resize(at, 0);
+        buf.extend_from_slice(jpeg);
+        buf
+    }
+
+    #[test]
+    fn crop_payload_header_encodes_every_field() {
+        let crop = riffle_core::partial::FocusCrop {
+            crop: riffle_core::partial::Crop {
+                pixels: vec![1, 2, 3, 4, 5, 6, 7, 8],
+                width: 2,
+                height: 1,
+                x: 16,
+                y: 32,
+            },
+            point_x: 7,
+            point_y: 9,
+        };
+        let out = crop_payload(8, &crop);
+        assert_eq!(out.len(), CROP_HEADER_LEN + crop.crop.pixels.len());
+        let u16at = |at: usize| u16::from_le_bytes([out[at], out[at + 1]]);
+        let u32at =
+            |at: usize| u32::from_le_bytes([out[at], out[at + 1], out[at + 2], out[at + 3]]);
+        assert_eq!(u16at(0), CROP_KIND_RGBA_V1);
+        assert_eq!(u16at(2), 8);
+        assert_eq!(u32at(4), 2);
+        assert_eq!(u32at(8), 1);
+        assert_eq!(u32at(12), 7);
+        assert_eq!(u32at(16), 9);
+        assert_eq!(u32at(20), 0);
+        assert_eq!(&out[CROP_HEADER_LEN..], &crop.crop.pixels);
+    }
+
+    #[test]
+    fn a_quarter_turn_swaps_the_viewport_and_the_cap_bounds_each_axis() {
+        assert_eq!(crop_size(1, 300, 200), (300, 200));
+        assert_eq!(crop_size(6, 300, 200), (200, 300));
+        assert_eq!(crop_size(8, 300, 200), (200, 300));
+        assert_eq!(crop_size(8, 4000, 2000), (CROP_MAX, CROP_MAX));
+        assert_eq!(crop_size(1, 0, 0), (1, 1));
+    }
+
+    #[test]
+    fn a_synthetic_arw_crops_around_the_centre_without_a_focus_point() {
+        let dir = temp_dir("crop");
+        let path = dir.join("a.arw");
+        std::fs::write(&path, arw_with_full(&gradient_jpeg(400, 300))).unwrap();
+
+        let (orientation, crop) = read_focus_crop(&path, 64, 48).unwrap();
+        assert_eq!(orientation, 1);
+        // The crop snaps to an MCU boundary horizontally, so it can come back
+        // wider than asked for, never narrower.
+        assert!((64..64 + 16).contains(&crop.crop.width));
+        assert_eq!(crop.crop.height, 48);
+        assert_eq!(crop.crop.pixels.len(), crop.crop.width * 48 * 4);
+        // Centre of a 400x300 image, minus the crop's own snapped origin.
+        assert_eq!(crop.point_x, 200 - crop.crop.x);
+        assert_eq!(crop.crop.x % 16, 0);
+        assert_eq!(crop.point_y, 24);
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
