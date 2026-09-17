@@ -103,7 +103,14 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         if count == 1 {
             targets.push(val as usize);
         } else {
-            targets.extend((0..count as usize).map(|i| u32le(buf, val as usize + i * 4) as usize));
+            let count = count as usize;
+            let end = (val as usize)
+                .checked_add(count * 4)
+                .filter(|&end| end <= buf.len());
+            if end.is_none() {
+                bail!("SubIFD offset array out of range");
+            }
+            targets.extend((0..count).map(|i| u32le(buf, val as usize + i * 4) as usize));
         }
     }
 
