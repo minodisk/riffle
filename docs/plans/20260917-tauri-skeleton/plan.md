@@ -73,7 +73,7 @@ than quietly switching.
       shell-out) and `draw_rect` stay in the CLI
     - Module docs (`//!`) stay in English as they are
 
-- [ ] Step 2: Scaffold the Tauri 2 app crate, wire Node/pnpm into `mise.toml`, and move CI to macOS
+- [x] Step 2: Scaffold the Tauri 2 app crate, wire Node/pnpm into `mise.toml`, and move CI to macOS
   - Done when:
     - `crates/app` (package `riffle-app`, a Tauri 2 binary crate with
       `build.rs`, `tauri.conf.json`, `capabilities/default.json`, `icons/`) is

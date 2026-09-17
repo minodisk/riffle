@@ -17,6 +17,22 @@ cargo build --release
 ./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
 ```
 
+## Running the app
+
+Prerequisites:
+
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`). Tauri needs no
+  other system dependency there.
+- **Windows**: MSVC Build Tools, the WebView2 runtime, and `nasm` (`mozjpeg-sys`
+  builds libjpeg-turbo from source and needs it for SIMD on x86).
+
+The Rust toolchain, Node and pnpm all come from `mise install`.
+
+```sh
+pnpm install
+pnpm tauri dev
+```
+
 ## Measurements (Apple Silicon Mac, α7 V ARW, n=20)
 
 | Step | Target | Measured (median) |

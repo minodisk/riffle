@@ -1,5 +1,7 @@
 [tools]
 actionlint = "1.7.12"
+node = "20.19.2"
+pnpm = "10.17.1"
 rust = { version = "1.97", components = "rustfmt,clippy" }
 shellcheck = "0.11.0"
 
@@ -22,6 +24,8 @@ description = "Run the same checks CI runs, locally"
 shell = "bash -c"
 run = """
 set -euo pipefail
+pnpm install --frozen-lockfile
+pnpm exec tsc --noEmit -p crates/app/ui/tsconfig.json
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
