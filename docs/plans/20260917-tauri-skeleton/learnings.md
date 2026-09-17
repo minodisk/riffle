@@ -151,6 +151,22 @@ Not verified:
 - The "5000 ARW files open and page end to end" criterion is therefore
   **not demonstrated**; only the Rust-side cost of 5000 entries was measured.
 
+## Step 5: Documentation and status update
+
+- The README "Status" section now carries three distinct things that were easy
+  to conflate: what the app can do, what is **not** verified (the UI was never
+  driven on this machine), and the Phase 4 baseline. The baseline table is a
+  separate `### Phase 4 baseline` subsection so it cannot be mistaken for the
+  existing "Measurements (Apple Silicon Mac, α7 V ARW, n=20)" table, which is
+  the Phase 1 CLI decode timing and still valid.
+- Both baseline rows are stated with their conditions (symlinks with a warm page
+  cache vs. distinct 48 MB copies) and with the explicit note that the IPC hop
+  and `createImageBitmap` are excluded.
+- The Phase 1 CLI usage block was moved above the "not confirmed at runtime"
+  note; otherwise inserting the Phase 2 text left it stranded under the
+  Phase 4 baseline heading.
+- `CLAUDE.md` gained a short `## Layout` section ahead of `## Language`.
+
 ## Deferred issues (todo candidates)
 
 - `tmp/` (scratch space used by the PR tooling) is untracked and shows up in
@@ -170,3 +186,6 @@ Not verified:
   now has no caller. Basis: noticed while replacing the placeholder frontend in
   Step 4; removing it is out of this step's scope. Path:
   `crates/app/src/main.rs`.
+- `README.md`'s anchor link to `#running-the-app` is not checked by anything;
+  there is no Markdown link checker in `mise run ci`. Basis: noticed while
+  adding the link in Step 5. Paths: `mise.toml`, `README.md`.
