@@ -201,6 +201,43 @@ guaranteed cold:
   counts up, that paging stays responsive during a scan, and that the second
   open of a real folder is fast.
 
+## Step 5: the left filmstrip
+
+- The layout gained a `#main` flex row (`#strip` + `#canvas`) inside the
+  existing column, so `draw()` needed no change: it already fits to
+  `canvas.clientWidth`, which now excludes the 160px column. `#canvas` needed
+  `min-width: 0` next to its existing `min-height: 0`, otherwise the canvas'
+  intrinsic width keeps the flex row from shrinking it.
+- Orientation is applied with a CSS `transform: rotate()` on the `<img>`, not
+  by re-encoding. Every cached thumbnail is 404x270 (DCT scale 2/8 of the
+  1616x1080 preview), so one fixed 144x96 image box with `object-fit: contain`
+  holds both a flat thumbnail (144x96) and a quarter-turned one (96x144)
+  without changing the cell height the virtual list depends on. The empty box
+  doubles as the placeholder: an `<img>` with no `src` but a fixed height still
+  paints its background.
+- Virtualisation is a spacer div (`#strip-inner`, height =
+  `files.length * 176`) plus absolutely positioned cells, so `scrollTop ->
+  index` is arithmetic. Releasing a cell revokes its object URL **and** clears
+  its entry in `requested`, since the bytes are gone with the URL and a cell
+  scrolled back in has to ask again.
+- A `thumbnail` invoke for a file the scan has not reached is a plain `Err`
+  (`no cached thumbnail`), not an empty success, so the strip has to treat a
+  rejection as "not yet" rather than a failure: those indices go into
+  `missing`, which `scan-progress` clears so the visible placeholders are
+  re-requested. That is also why the catch is silent — one status-line error
+  per not-yet-scanned file would be 5000 of them.
+- Requests are capped at 4 in flight and picked nearest-to-viewport-centre, so
+  scrolling fast fills what the user stopped on rather than everything it flew
+  past. Responses for cells that scrolled out (or for a folder that was closed,
+  via a `generation` counter mirroring `seq` in `requestPreview`) are dropped.
+- Not verified here: everything behind the plan's **(manual)** criteria. GUI
+  automation is denied on this machine, so thumbnails filling in during a scan,
+  portrait cells being upright, the highlight following auto-repeat, click-to-
+  page and 5000-file scroll smoothness are all for the user to confirm. What
+  was checked statically: `tsc --noEmit` passes, the module is imported as
+  `./strip.js`, no `window.__TAURI__` use moved into a worker, and the cell
+  arithmetic (176px pitch, 168px cell) matches the CSS.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -229,3 +266,17 @@ guaranteed cold:
   or an LRU eviction has no phase that owns it yet.
 - `ping` in `crates/app/src/main.rs` is still orphaned; this step did not need
   to touch it, so it was left for its existing todo item.
+- The strip re-requests every visible placeholder on each `scan-progress`
+  event (~10/s) rather than using the `done` counter to ask only for indices
+  the scan has passed (`crates/app/ui/src/strip.ts` `refresh`, driven from
+  `crates/app/ui/src/main.ts`). Bounded by the 4-in-flight cap and by the
+  visible range, but it is avoidable IPC; revisit if the strip turns out to be
+  IPC-bound.
+- The strip does not use the `folder_entries` rows at all (from this step): it
+  discovers "has a thumbnail" by invoking `thumbnail` and seeing it fail.
+  Step 6 introduces the entries map for the focus box, and the strip could then
+  skip the doomed invokes for files with `has_thumb: false`.
+- Cell geometry assumes every thumbnail is 3:2 (`crates/app/ui/style.css`
+  `.cell img`). True for the current 404x270 pipeline; a body with a
+  differently shaped IFD0 preview would letterbox inside the box (harmless,
+  thanks to `object-fit: contain`) but waste cell space.

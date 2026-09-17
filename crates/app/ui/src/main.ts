@@ -1,3 +1,5 @@
+import * as strip from "./strip.js";
+
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
@@ -35,6 +37,11 @@ let inFlight = false;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
+// Bumped at the start of every `openFolder`, so that when two overlapping
+// `openFolder` calls race, the `list_arw` result of the one that is no
+// longer current (e.g. A resolves after B was opened) is dropped instead of
+// overwriting `files` with a stale folder's contents.
+let folderToken = 0;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -127,6 +134,7 @@ function requestPreview(): void {
 
 function show(): void {
   seq += 1;
+  strip.setCurrent(index);
   setStatus();
   requestPreview();
 }
@@ -161,7 +169,17 @@ function move(delta: number): void {
   show();
 }
 
+strip.init((selected) => {
+  if (selected === index) {
+    return;
+  }
+  index = selected;
+  show();
+});
+
 function openFolder(): void {
+  folderToken += 1;
+  const token = folderToken;
   window.__TAURI__.core
     .invoke<string | null>("pick_folder")
     .then((folder) => {
@@ -171,8 +189,12 @@ function openFolder(): void {
       return window.__TAURI__.core
         .invoke<string[]>("list_arw", { dir: folder })
         .then((found) => {
+          if (token !== folderToken) {
+            return;
+          }
           files = found;
           index = 0;
+          strip.setFiles(files);
           seq += 1;
           shown?.bitmap.close();
           shown = null;
@@ -182,6 +204,9 @@ function openFolder(): void {
           void window.__TAURI__.core
             .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
             .then(({ scan_id }) => {
+              if (token !== folderToken) {
+                return;
+              }
               scanId = scan_id;
               return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
             })
@@ -211,6 +236,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
   setStatus();
+  strip.refresh();
 });
 
 void window.__TAURI__.event.listen<{
@@ -224,6 +250,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   setStatus();
+  strip.refresh();
 });
 
 openEl.addEventListener("click", openFolder);

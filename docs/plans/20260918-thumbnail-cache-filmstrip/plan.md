@@ -256,7 +256,7 @@ Settled with the user; do not reopen.
     - Delete the orphaned `ping` command only if it is in the way; otherwise
       leave it for its todo item
 
-- [ ] Step 5: Frontend: left thumbnail filmstrip with current-file highlight and auto-scroll
+- [x] Step 5: Frontend: left thumbnail filmstrip with current-file highlight and auto-scroll
   - Done when:
     - The layout becomes a 160px-wide scrollable column on the left (`#strip`)
       next to the existing canvas; the canvas' fit calculation uses its own
@@ -498,3 +498,4 @@ running app. CI and the CLI `scan` benchmark cover everything else.
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
+- (2026-09-18) Step 5 complete

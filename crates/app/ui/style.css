@@ -13,10 +13,95 @@ body {
   flex-direction: column;
 }
 
-#canvas {
+#main {
+  display: flex;
   flex: 1;
   min-height: 0;
+}
+
+/* The strip is on the left rather than the bottom: most shots are portrait,
+   and on a 16:10 display both orientations are height-constrained, so the
+   spare space is at the sides. */
+#strip {
+  flex: 0 0 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #151515;
+}
+
+#strip-inner {
+  position: relative;
+  /* The single source of truth for cell placement: `strip.ts` reads
+     `--cell-height` once at startup instead of hard-coding it, so this is
+     the only place that needs to change to resize a cell. */
+  --cell-height: 176px;
+  --cell-gap: 8px;
+}
+
+.cell {
+  position: absolute;
+  left: 8px;
+  width: 144px;
+  height: calc(var(--cell-height) - var(--cell-gap));
+  border: 1px solid transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cell.current {
+  border-color: #f0f0f0;
+  background: #333;
+}
+
+/* A permanent failure (the file errored during the scan), as opposed to a
+   placeholder still waiting for the scan to reach it. */
+.cell.failed {
+  background: #402020;
+}
+
+/* The image box is 144x96 (a 404x270 thumbnail laid out flat) or, after a
+   quarter turn, 96x144 upright. Both fit within this 144px square footprint
+   without changing the cell height the virtual list depends on. */
+.cell img {
+  position: absolute;
+  top: 72px;
+  left: 72px;
+  width: 144px;
+  height: 96px;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  background: #2a2a2a;
+}
+
+.cell img.cw {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.cell img.ccw {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.cell span {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
   width: 100%;
+  padding: 0 2px;
+  box-sizing: border-box;
+  font-size: 0.65rem;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#canvas {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 #bar {
