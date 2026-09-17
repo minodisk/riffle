@@ -10,8 +10,9 @@ embedded in the ARW.
 Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton) and Phase 3
 (the folder index, the filmstrip and the focus box) are done.
 
-The app opens a folder — through the picker or by dropping a folder, or a single
-ARW, onto the window — lists the ARW files in it, shows one embedded preview on
+The app opens a folder — through the picker or by dropping a folder, or a
+single file (any existing file resolves to its parent folder), onto the
+window — lists the ARW files in it, shows one embedded preview on
 a `<canvas>` (decoded in a worker, rotated by the ARW's Orientation), and pages
 through them. A thumbnail filmstrip runs down the left edge: it is virtualised,
 highlights the current file, scrolls to follow paging, and a click on a cell
@@ -48,8 +49,11 @@ metadata above and the thumbnail as a JPEG BLOB. A row is valid for a file iff
 its stored `size` and `mtime_ns` still match the file's current `stat`;
 anything else is re-extracted. Since the path is the key, renaming a folder
 re-scans it and leaves the old rows behind — and deleting rows does not shrink
-the database file without `VACUUM`, which nothing runs yet. A 5000-file folder
-came to 104,177,664 bytes (~20.8KB per row, mostly thumbnail). It is a cache:
+the database file without `VACUUM`, which nothing runs yet. On the 5000-symlink
+folder used for the measurements below, the database came to 104,177,664 bytes
+(~20.8KB per row, mostly thumbnail); since every row there is a byte-identical
+thumbnail of the same file, a real folder of distinct frames will not be
+exactly this. It is a cache:
 deleting the file costs one more scan.
 
 The CLI from Phase 1:
@@ -87,12 +91,14 @@ sections.
 **Awaiting the user's confirmation (Phase 3)**: nobody has seen this phase's UI
 running. `pnpm tauri dev` needs the GUI and `osascript` assistive access is
 denied on the development machine, so the following are unconfirmed rather than
-confirmed: the filmstrip (thumbnails filling in during a scan, portrait cells
-upright, the highlight following every paging key and key auto-repeat,
-click-to-page, scrolling a 5000-file strip), the `scanning N / M` progress
-line, the focus box landing on the subject's face, the drag-and-drop gestures
-(a folder, a single ARW, a drag that leaves without dropping), and that the app
-stays responsive while a real folder scans.
+confirmed: the Phase 3 keys (`w`/`a`/`s`/`d`/`h`/`j`/`k`/`l` paging and `f`
+toggling the focus box) actually working in the running app, the filmstrip
+(thumbnails filling in during a scan, portrait cells upright, the highlight
+following every paging key and key auto-repeat, click-to-page, scrolling a
+5000-file strip), the `scanning N / M` progress line, the focus box landing on
+the subject's face, the drag-and-drop gestures (a folder, a single ARW, a drag
+that leaves without dropping), that the app stays responsive while a real
+folder scans, and that the second open of a real folder is under 3s.
 
 ### Phase 4 baseline
 
@@ -158,19 +164,21 @@ file, reconciles the rows and queries them. On the 5000-file folder:
 | Step | Target | Measured |
 |------|--------|----------|
 | First open, full scan (5000 files, 10 threads, 0 errors) | 30s | 5.55s |
-| Second open (stat + reconcile + query, fully indexed) | 3s | 34.4ms |
+| Second open (stat + reconcile + query, fully indexed) [^1] | 3s | 34.4ms |
 
 Both rows were measured on **5000 symlinks pointing at one real ARW, with a
 warm page cache**, so they carry the same caveat as the tables above. The
 second open is a stat-and-query number, which the symlinks flatter less than
 they flatter a read benchmark, but 5000 lookups of one cached inode's metadata
 is still cheaper than 5000 distinct 48MB files' metadata on a card. The first
-scan is the same number as the symlink row of the scan throughput table, and
-the real number on a real folder of 5000 distinct files has never been
-measured by anyone; on a card reader or a slow external disk the first scan is
-disk-bound regardless. The second open was measured with a temporary
-`#[ignore]`d test that was removed before committing, so it is not reproducible
-as written.
+scan is the same folder and procedure as the scan throughput table above, at
+10 threads, a thread count that table does not have a row for; and the real
+number on a real folder of 5000 distinct files has never been measured by
+anyone; on a card reader or a slow external disk the first scan is disk-bound
+regardless.
+
+[^1]: Measured with a temporary `#[ignore]`d test that was removed before
+committing, so this number is not reproducible from the committed tree.
 
 ## Running the app
 
