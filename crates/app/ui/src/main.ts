@@ -61,6 +61,12 @@ let folderToken = 0;
 const entries = new Map<string, IndexedFile>();
 // The folder the entries belong to, so `scan-progress` can ask for them again.
 let openDir: string | null = null;
+// True while a `folder_entries` invoke is outstanding. Keeps at most one
+// request in flight, so a 10/s `scan-progress` stream while the user is
+// paged ahead of the scan does not queue up a full re-read on every tick,
+// and two overlapping reads cannot land out of order and clobber `entries`
+// with a stale snapshot.
+let entriesInFlight = false;
 let showFocus = true;
 
 // Side of the focus box as a fraction of the image's short side, so it reads
@@ -112,6 +118,8 @@ function draw(): void {
     context.rotate(Math.PI / 2);
   } else if (orientation === 8) {
     context.rotate(-Math.PI / 2);
+  } else if (orientation === 3) {
+    context.rotate(Math.PI);
   }
   context.drawImage(
     bitmap,
@@ -125,15 +133,16 @@ function draw(): void {
 }
 
 function refreshEntries(): void {
-  if (openDir === null) {
+  if (openDir === null || entriesInFlight) {
     return;
   }
   const dir = openDir;
-  const token = folderToken;
+  entriesInFlight = true;
   void window.__TAURI__.core
     .invoke<IndexedFile[]>("folder_entries", { dir })
     .then((rows) => {
-      if (token !== folderToken) {
+      entriesInFlight = false;
+      if (dir !== openDir) {
         return;
       }
       entries.clear();
@@ -143,6 +152,7 @@ function refreshEntries(): void {
       draw();
     })
     .catch(() => {
+      entriesInFlight = false;
       // A folder with no index cache simply has no focus boxes.
     });
 }
@@ -162,9 +172,8 @@ function drawFocusBox(drawWidth: number, drawHeight: number): void {
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
   const side = Math.min(drawWidth, drawHeight) * FOCUS_BOX_FRACTION;
-  context.lineJoin = "miter";
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
-  context.lineWidth = 4;
+  context.lineWidth = 6;
   context.strokeRect(x - side / 2, y - side / 2, side, side);
   context.strokeStyle = "rgba(255, 255, 255, 0.95)";
   context.lineWidth = 2;
@@ -312,8 +321,9 @@ void window.__TAURI__.event.listen<{
   scanning = `scanning ${payload.done} / ${payload.total}`;
   setStatus();
   strip.refresh();
-  // Only when the row the focus box needs is still missing, so a 10/s
-  // progress stream does not re-read the whole folder every time.
+  // Only when the row the focus box needs is still missing; `entriesInFlight`
+  // in `refreshEntries` keeps a 10/s progress stream from queuing up a
+  // full re-read on every tick while it stays missing.
   if (files.length > 0 && !entries.has(files[index])) {
     refreshEntries();
   }
