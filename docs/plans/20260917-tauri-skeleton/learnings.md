@@ -74,6 +74,78 @@
 - `is_file()` in the listing filter matters: a *directory* named `sub.arw` is
   otherwise listed as a file. That case is covered by the test.
 
+## Step 4: Frontend (button, canvas, worker, paging)
+
+- **Relative imports: there are none.** `main.ts` and `worker.ts` share no
+  module, so the only cross-file reference is the worker URL
+  (`new Worker(new URL("./worker.js", import.meta.url), { type: "module" })`),
+  which is a runtime string and already carries `.js`. `moduleResolution` was
+  therefore left at `"bundler"`: the extensionless-import hazard has no way to
+  bite while the frontend stays at two independent files, and switching to
+  `node16` would also force `module: "node16"`, whose emit depends on the root
+  `package.json` `type` field. **If a shared module is ever added, write the
+  import as `./foo.js`** — nothing enforces it today.
+- `DedicatedWorkerGlobalScope` is not in the `dom` lib, and adding `webworker`
+  next to `dom` clashes on the shared globals. `worker.ts` declares the two
+  members it uses (`addEventListener("message", ...)`, `postMessage`) as a
+  local `WorkerScope` interface and casts `self` to it, so one tsconfig still
+  covers both files.
+- The sequence counter is bumped in `show()` and in `openFolder()`, and it is
+  checked twice: once when `invoke` resolves (stop before posting to the
+  worker) and once when the worker answers (close the stale `ImageBitmap` and
+  drop it). The orientation travels in a `Map` keyed by that same sequence,
+  because only the JPEG bytes can be transferred to the worker.
+- Drawing: the canvas backing store is `clientWidth/Height * devicePixelRatio`,
+  the context is translated to the centre and scaled by `dpr`, then rotated by
+  ±90° for Orientation 6 / 8. The fit scale is computed against the **upright**
+  dimensions (width/height swapped for a quarter turn) while `drawImage` uses
+  the bitmap's own dimensions, so a portrait frame fits the window height.
+
+### Phase 4 baseline latency (partial, Rust side only)
+
+Per-page cost is dominated by `std::fs::read` of the whole ~48 MB ARW plus
+`arw::parse`, measured with a throwaway binary against `riffle-core` (not
+committed) on Apple Silicon:
+
+| folder                              | n   | mean   | p50    | p95    | max    |
+|-------------------------------------|-----|--------|--------|--------|--------|
+| 5000 symlinks to one ARW (warm page cache) | 300 | 7.3 ms | 7.1 ms | 8.8 ms | 14.0 ms |
+| 20 distinct 48 MB copies (first read)      | 20  | 19.3 ms | 19.2 ms | 26.6 ms | 26.6 ms |
+
+How the folders were built: `~/Downloads/_DSC6978.ARW` (the only real ARW on
+this machine, portrait, Orientation 8) symlinked 5000 times as
+`IMG_0001.ARW`..`IMG_5000.ARW` into a scratch directory outside the repository,
+plus 20 real `cp` copies for a read that cannot hit the page cache for the same
+inode. Nothing derived from that ARW was committed.
+
+**Caveat: this is not the end-to-end per-page latency.** The IPC hop and
+`createImageBitmap` in the worker are not included, because they could not be
+measured (see below). Treat ~20 ms as the floor set by reading the file, which
+is the number Phase 4's seek-based reader has to beat.
+
+### Verification status
+
+Verified:
+
+- `mise run ci` passes, `tsc --noEmit` passes, and the emitted `main.js` /
+  `worker.js` parse as ES modules (`node --input-type=module --check`).
+- The app binary launches and stays up with no stderr output.
+
+Not verified:
+
+- **The UI itself is unverified by eye.** `screencapture` now works on this
+  machine, but `osascript` UI scripting is still denied assistive access:
+  `System Events` returns an empty window list for `riffle-app` and injected
+  keystrokes are silently dropped, so the window could not be brought forward
+  or driven. Concretely, **the user still has to check by hand**: that the
+  "Open folder" button and the `o` key open the picker, that the status line
+  shows `n / total` and the file name, that the preview appears, that
+  `ArrowRight` / `ArrowLeft` page and clamp at the ends, that holding an arrow
+  key down leaves the right file on screen, and that the portrait
+  (Orientation 8) file is drawn upright.
+- The "5000 ARW files open and page end to end" criterion is therefore
+  **not demonstrated**; only the Rust-side cost of 5000 entries was measured.
+
 ## Deferred issues (todo candidates)
 
 - `tmp/` (scratch space used by the PR tooling) is untracked and shows up in
@@ -84,3 +156,12 @@
   only formats Rust while `crates/app/ui/**` is unchecked. Basis: the plan's
   "Open point" under "Frontend build step: `tsc` only, no bundler". Paths:
   `mise.toml`, `crates/app/ui/`.
+- End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since
+  the GUI cannot be driven from this machine. Consider a timing readout in the
+  status line, or a Rust-side benchmark that includes the IPC hop, before
+  Phase 4 tunes anything. Basis: Step 4's "Phase 4 baseline" acceptance item,
+  only partially satisfiable. Paths: `crates/app/ui/src/main.ts`.
+- The `ping` command in `crates/app/src/main.rs` is left over from Step 2 and
+  now has no caller. Basis: noticed while replacing the placeholder frontend in
+  Step 4; removing it is out of this step's scope. Path:
+  `crates/app/src/main.rs`.

@@ -1,7 +1,35 @@
+html,
 body {
   margin: 0;
-  padding: 2rem;
+  height: 100%;
+  overflow: hidden;
   font-family: system-ui, sans-serif;
   background: #1c1c1c;
   color: #f0f0f0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+#bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #111;
+  font-size: 0.85rem;
+}
+
+#status {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
