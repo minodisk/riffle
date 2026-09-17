@@ -154,7 +154,7 @@ Settled with the user; do not reopen.
       `set_optimize_scans` / progressive
     - `riffle_core::partial` and `apply_orientation` are unchanged
 
-- [ ] Step 3: Core: parallel extraction with rayon, and a CLI `scan` benchmark
+- [x] Step 3: Core: parallel extraction with rayon, and a CLI `scan` benchmark
   - Done when:
     - `riffle_core::scan` exposes a pure per-file function
       `extract(path) -> Result<Entry, String>` returning

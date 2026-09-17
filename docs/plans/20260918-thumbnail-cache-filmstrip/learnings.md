@@ -67,6 +67,82 @@
   format, the error strings and the frontend untouched, and CI passes; the user
   confirms by hand.
 
+## Step 3: parallel extraction and the CLI `scan` benchmark
+
+- The `mozjpeg` panic deferred from Step 2 is real and is handled in `extract`
+  with one `catch_unwind(AssertUnwindSafe(...))` around `thumbnail_jpeg`
+  (which owns the decode as well as the encode), turning it into a per-file
+  `Err` delivered through `on_item`. `AssertUnwindSafe` is honest here: the
+  closure borrows only the preview bytes and the path, and nothing it touches
+  is observed after the unwind.
+- Which inputs panic and which return `Err` is not obvious, which is why an SOI
+  check would only give false confidence: 512 zero bytes **panics**, while
+  `ff d8` followed by garbage returns a normal `Err`. The test fixture is
+  therefore an ARW shell whose preview is zeros, and it does exercise the
+  `catch_unwind` path (verified by probing both inputs directly before writing
+  the test).
+- **No panic hook is installed.** mozjpeg's panic carries no message and prints
+  nothing to stderr on this platform (checked with `--nocapture`), so there is
+  nothing to suppress; and a process-wide hook to silence one crate's panics
+  would hide unrelated bugs. The scan counts errors instead.
+- `extract_all` builds its own `rayon::ThreadPoolBuilder` and `install`s on it,
+  so the size is the caller's and nothing else in the process shares the pool.
+  Cancellation is a check at the top of each item, so files already running
+  finish; that is what the test asserts (some items delivered, not all).
+- Per-file timing in the CLI: `on_item` cannot see when a file *started*, so
+  the benchmark takes the gap between two completions on the same worker
+  (`rayon::current_thread_index()`), seeded with the scan start. That is the
+  per-file wall time on a busy worker, which is why it rises with the thread
+  count while throughput still improves.
+
+### Measurements (Apple Silicon, 12 cores, release build)
+
+(a) 5000 symlinks to `~/Downloads/_DSC6978.ARW`, warm page cache - the
+CPU-bound number:
+
+| threads | total | files/s | per file mean / p95 |
+|---------|-------|---------|---------------------|
+| 1  | 34.9s | 143  | 7.0ms / 7.3ms   |
+| 4  | 9.19s | 544  | 7.3ms / 7.6ms   |
+| 8  | 5.35s | 935  | 8.6ms / 12.1ms  |
+| 10 | 5.08s | 984  | 10.2ms / 14.8ms |
+| 12 | 4.46s | 1121 | 10.6ms / 16.9ms |
+| 16 | 4.51s | 1108 | 14.4ms / 29.6ms |
+
+(b) 100 distinct `cp` copies (4.5GB) per thread count, each folder scanned
+once on its first read - the disk-bound number:
+
+| threads | total | files/s | per file mean / p95 | extrapolated to 5000 |
+|---------|-------|---------|---------------------|----------------------|
+| 4  | 0.44s | 230 | 17.4ms / 22.2ms | 21.7s |
+| 8  | 0.25s | 406 | 19.0ms / 30.7ms | 12.3s |
+| 12 | 0.19s | 529 | 21.2ms / 36.4ms | 9.5s  |
+| 16 | 0.17s | 601 | 25.3ms / 34.4ms | 8.3s  |
+
+- **The 30s target holds on the internal SSD**: the worst extrapolation here
+  (4 threads, first read) is 21.7s and every realistic thread count is 8-12s,
+  against a 4.5s floor from pure CPU. The single-threaded 34.9s shows the
+  target is unreachable without the pool.
+- Caveats, stated rather than smoothed over: each (b) folder was scanned once,
+  in the order the folders were written, so the later (higher-thread-count)
+  folders had a better chance of still being in the page cache - the
+  thread-count trend in (b) is weaker evidence than it looks. `purge` needs
+  root here, so nothing can be guaranteed cold. And a real 5000-distinct-file
+  folder is 240GB of files touched at ~550KB each; **only the user can measure
+  that on a real folder**, on the real disk, with real directory layout.
+- Expectation from Step 2 confirmed: the work is CPU-bound. 7.0ms per file
+  single-threaded matches Step 2's 7.6ms `thumbnail_jpeg` mean almost exactly,
+  and the bounded read adds ~0.06ms warm; even on first read the disk adds
+  ~10ms per file, not the seconds a whole-file read would.
+- Thumbnail size: 19232 bytes mean, i.e. **96MB of BLOBs for 5000 files** - the
+  number Step 4's database has to carry.
+- More threads than cores does **not** help: 16 threads was flat against 12
+  warm (4.51s vs 4.46s) and doubled the per-file p95 (29.6ms vs 16.9ms). For
+  Step 4 the recommendation is **cores - 2 (10 here)**: it costs 10% of scan
+  throughput (5.08s vs 4.46s) and keeps two cores free so paging is not
+  starved while the scan runs. Nothing beyond `available_parallelism()` should
+  ever be used.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -75,12 +151,12 @@
   AZERTY user gets scattered physical keys. Revisit only if a user asks; the
   fix would be a `event.code` fallback or a key-config layer, both out of scope
   now.
-- `mozjpeg` panics instead of returning `Err` on malformed JPEG input (found
-  while writing the `thumbnail_jpeg` test in `crates/core/src/decode.rs`; the
-  same applies to the pre-existing `decode_rgb`). One corrupt file would take
-  down a whole parallel scan. Step 3's `extract` should wrap the decode in
-  `catch_unwind` or validate the SOI/EOI markers first; filed here so it is
-  decided there rather than rediscovered.
+- `mozjpeg` panics instead of returning `Err` on malformed JPEG input. Handled
+  for the scan in Step 3 (`catch_unwind` in `riffle_core::scan::extract`), but
+  **`decode::decode_rgb` is still unguarded** for its other callers
+  (`riffle-cli focusbox` / `bench` / `crop` in `crates/cli/src/main.rs`): a
+  corrupt file aborts the CLI instead of reporting it. Out of scope for Step 3,
+  which only owns the scan path.
 - `riffle-cli` still reads the whole file in `info` / `focusbox` / `crop` /
   `bench` (`crates/cli/src/main.rs`). Those subcommands need the full-size
   `JpgFromRaw`, which is past the 1 MiB prefix, so moving them to

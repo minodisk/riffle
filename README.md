@@ -25,6 +25,7 @@ cargo build --release
 ./target/release/riffle-cli focusbox <file.ARW> <out.png>  # draw the focus box on the preview
 ./target/release/riffle-cli crop     <file.ARW> <out.png>  # partially decode the focus point at 1:1
 ./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
+./target/release/riffle-cli scan     <dir> [threads]       # extract a whole folder in parallel
 ```
 
 **Confirmed by hand on macOS**: the folder picker opens and returns, cancelling
@@ -61,6 +62,33 @@ baseline used.
 
 The whole-file read dominated, which is what the bounded read removes. Phase 4
 still owns prefetching, but it now starts from this cheaper read.
+
+### Folder scan throughput
+
+`riffle-cli scan` runs the Phase 3 extraction (bounded read, metadata parse,
+404x270 thumbnail) over a folder on a dedicated rayon pool, with no database.
+On an Apple Silicon Mac with 12 cores:
+
+| Folder | threads | total | files/s |
+|--------|---------|-------|---------|
+| 5000 symlinks to one ARW, warm page cache | 1 | 34.9s | 143 |
+| 5000 symlinks to one ARW, warm page cache | 8 | 5.35s | 935 |
+| 5000 symlinks to one ARW, warm page cache | 12 | 4.46s | 1121 |
+| 100 distinct 48MB copies, first read | 4 | 0.44s | 230 |
+| 100 distinct 48MB copies, first read | 12 | 0.19s | 529 |
+
+The thumbnails come to 19232 bytes each, i.e. ~96MB for 5000 files.
+Extrapolating the first-read column to 5000 files gives 9.5s at 12 threads and
+21.7s at 4, so **the 30-second target holds on the internal SSD**; a single
+thread would not make it (34.9s). More threads than cores does not help: 16
+threads was flat against 12 and doubled the per-file p95.
+
+What this cannot measure: a real 5000-distinct-file folder. Each first-read
+folder here is 100 `cp` copies scanned once, `purge` needs root on this
+machine so nothing is guaranteed cold, and the folders were scanned in the
+order they were written, which flatters the higher thread counts. The real
+number can only be measured by the user on a real folder, and on a card reader
+or slow external disk the scan is disk-bound regardless.
 
 ## Running the app
 

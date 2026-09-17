@@ -7,3 +7,4 @@ edition = "2021"
 riffle-core = { path = "../core" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 anyhow = "1"
+rayon = "1"
