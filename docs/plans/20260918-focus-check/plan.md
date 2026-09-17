@@ -216,7 +216,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
     - Resize while zoomed: redraw with what is held; re-requesting is not
       required in this phase
 
-- [ ] Step 4: Documentation, status and measurements
+- [x] Step 4: Documentation, status and measurements
   - Done when:
     - `README.md` "Status": Phase 5 done, `Space` in the key table, a
       paragraph on the 1:1 tier (crop from `JpgFromRaw`, centred on the focus

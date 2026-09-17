@@ -7,8 +7,9 @@ embedded in the ARW.
 
 ## Status
 
-Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton) and Phase 3
-(the folder index, the filmstrip and the focus box) are done.
+Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton), Phase 3
+(the folder index, the filmstrip and the focus box) and Phase 5 (the 1:1 focus
+check) are done.
 
 The app opens a folder — through the picker or by dropping a folder, or a
 single file (any existing file resolves to its parent folder), onto the
@@ -18,8 +19,8 @@ through them. A thumbnail filmstrip runs down the left edge: it is virtualised,
 highlights the current file, scrolls to follow paging, and a click on a cell
 shows that file. When the index has a `FocusLocation` for the current file, a
 focus box is drawn over the preview; it is placed in unrotated sensor
-coordinates and rotated with the image. Still missing: no prefetch, no 1:1
-focus check, no rating. See [Running the app](#running-the-app).
+coordinates and rotated with the image. `Space` toggles a 1:1 focus check.
+Still missing: no prefetch, no rating. See [Running the app](#running-the-app).
 
 Keys:
 
@@ -29,6 +30,22 @@ Keys:
 | `ArrowRight`, `ArrowDown`, `s`, `d`, `j`, `l` | next file |
 | `o` | open a folder |
 | `f` | toggle the focus box |
+| `Space` | toggle the 1:1 focus check |
+
+### The 1:1 focus check
+
+`Space` toggles a third tier on top of the 400px thumbnails and the 1616x1080
+preview: a crop of the full-resolution `JpgFromRaw`, partially decoded out of
+the ARW with a ranged read, drawn at one JPEG pixel per device pixel. The crop
+is centred on the camera's `FocusLocation` (mapped from sensor coordinates onto
+the full JPEG), and on a file without one — manual focus — on the centre of the
+frame. It is cut in unrotated coordinates and carried by the same canvas
+rotation as the preview, so a portrait file comes out upright. Around the crop,
+the preview bitmap is drawn at the same scale, so the frame stays in context
+while the crop is decoded. Paging while zoomed stays zoomed and moves to the
+next file's focus point. There is no panning and no free zoom level; the crop
+is capped at 1024 device pixels per axis and travels over the IPC boundary as
+raw RGBA.
 
 Keys held with Cmd/Ctrl/Alt are left to the system. Letter keys are matched
 lower-cased, so Shift+J pages like `j`.
@@ -63,7 +80,7 @@ The CLI from Phase 1:
 cargo build --release
 ./target/release/riffle-cli info     <file.ARW>            # where the embedded JPEGs are
 ./target/release/riffle-cli focusbox <file.ARW> <out.png>  # draw the focus box on the preview
-./target/release/riffle-cli crop     <file.ARW> <out.png>  # partially decode the focus point at 1:1
+./target/release/riffle-cli crop     <file.ARW> <out.png> [size]  # partially decode the focus point at 1:1
 ./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
 ./target/release/riffle-cli scan     <dir> [threads]       # extract a whole folder in parallel
 ```
@@ -103,6 +120,25 @@ sections below).
 has been looked at yet. Still unconfirmed: the filmstrip highlight following
 every paging key and key auto-repeat, click-to-page, scrolling a 5000-file
 strip, and a drag that leaves the window without dropping.
+
+**Verified without a GUI (Phase 5)**: the focus-point arithmetic of the 1:1
+check is verified numerically only, on the Rust side that the CLI and the app
+share — `riffle-cli crop` on the real Orientation 8 test file prints
+`crop 525x512 at (3344,1476) point (269,256)`, and unit tests cover the
+sensor→JPEG scaling, the MCU snap, the edge clamping and the centre fallback.
+The `focus_crop` payload header and the Orientation 6/8 width/height swap are
+covered by unit tests. The frontend's placement is right by construction (the
+same `rotate()` branches as the preview, cropping in unrotated coordinates) but
+that is an argument, not a check.
+
+**Awaiting the user's confirmation (Phase 5)**: nothing in the 1:1 check has
+been looked at in a running window. Unconfirmed: `Space` showing the eye at 1:1
+and upright, `Space` again returning to the preview, paging while zoomed
+following the next file's focus point without the old crop flashing, the
+manual-focus centre fallback, and — the important one — the end-to-end time
+from keypress to pixels. **The 50ms budget is not claimed to be met**: see the
+measurements below, where a 1024 crop costs 11ms at the top of the frame and
+44ms at the bottom, before the IPC hop and `createImageBitmap`.
 
 ### Phase 4 baseline
 
@@ -183,6 +219,31 @@ regardless.
 
 [^1]: Measured with a temporary `#[ignore]`d test that was removed before
 committing, so this number is not reproducible from the committed tree.
+
+### The 1:1 focus check path
+
+The Rust side of one `Space` keypress, on `~/Downloads/_DSC6978.ARW` (α7 V,
+Orientation 8, `FocusLocation` 7008 4672 3613 1732, `JpgFromRaw` 7008x4672
+baseline 4:2:2, 5,761,112 bytes) on an Apple Silicon Mac. **One real file, warm
+page cache, in-process, release build, n=20, medians.** Re-measured against the
+Step 1 functions the CLI and the app both call, not copied from planning.
+**The IPC hop and `createImageBitmap` are excluded** — they could not be
+measured headlessly, and the user has not reported end-to-end timings yet, so
+no keypress-to-pixels number exists.
+
+| Step | Median |
+|------|--------|
+| Ranged read of the 5.76MB `JpgFromRaw` (`reader::read_full`) | 0.7ms |
+| Crop at the focus point, 512 / 1024 / 2048 per axis | 18.4 / 21.5 / 29.8ms |
+| 1024 crop at row 300 / 2336 / 4400 of the 4672-row JPEG | 10.8 / 27.3 / 44.1ms |
+
+Crop size barely matters; the crop's **row** dominates. `jpeg_skip_scanlines`
+on a baseline JPEG still entropy-decodes every skipped row, so a focus point
+low in the frame costs four times one at the top, and 44ms leaves nothing of
+the 50ms budget for the IPC hop and the bitmap. The payload is raw RGBA (4.2MB
+at the 1024 cap) rather than a re-encoded JPEG because re-encoding that crop
+with `mozjpeg::Compress`'s defaults measured 49ms at q85 during planning — more
+than the decode it follows.
 
 ## Running the app
 
