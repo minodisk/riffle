@@ -137,6 +137,18 @@ Follow the shared contract in
 [`references/pr-merge-lifecycle.md`](references/pr-merge-lifecycle.md). On
 `MERGED`, move to the next Phase / Step without stopping to ask the user.
 
+Two things from that contract you will use every time:
+
+- **Merges are never held for approval here.** Run
+  `bash .claude/skills/merge/scripts/check-merge-approval.sh {number}` yourself
+  (read-only), then start `merger` with the approved flag whatever it returned.
+  Put everything it flagged into the step's progress report — merging without
+  asking is not merging without looking
+- **Do not create the next branch until `merger` has returned `MERGED`.** Its
+  branch cleanup deletes local branches already merged into `origin/main`, and a
+  branch you just created with no commits yet counts as one (measured: a branch
+  was deleted mid-edit this way)
+
 ## Phase 0: Planning
 
 ### 0.1 Making the plan
@@ -482,10 +494,11 @@ Start it per § Starting `pr-runner`. What to pass:
 Start `merger` per § Merge. On `MERGED`, go back to 2.1 if there is another
 step, or to Phase 3 if not.
 
-A step PR may need approval depending on what it implements (a step touching
-paths a revert cannot undo, such as `.claude/**`, stops to wait for approval;
-report the reason and wait for the user's direction. A step that is only `.md`,
-or only ordinary code changes, does not stop).
+A step PR never stops for approval — § Merge has you pass the approved flag
+every time — but it does get reported. Run the read-only check before starting
+`merger` and put whatever it flagged into that step's progress report, calling
+out any change that lets third-party code run on a machine (a new dependency in
+`Cargo.lock` or `pnpm-lock.yaml`, and friends).
 
 ## Phase 3: Wrap-up (after every PR is merged)
 
@@ -643,11 +656,10 @@ archive-only PR passes review immediately, so it costs nothing).
 Start `merger` per § Merge.
 
 On runs where the 3.4 settings promotion put a diff into
-`.claude/settings.json`, the chore PR falls under `.claude/**` and **always
-becomes `NEEDS_APPROVAL`**. The runs that merge automatically are the ones with
-nothing to promote, touching only `docs/` and `todo.md`. A run that adds
-permissions is meant to be looked at by a human, so an approval request is not
-an anomaly (the same reasoning as not skipping automated review in 3.6).
+`.claude/settings.json`, the chore PR falls under `.claude/**` and the read-only
+check flags it. It still merges (§ Merge), but **say in the progress report
+which permissions were promoted** — that is the only place a human sees what the
+agents are now allowed to do without asking.
 
 **The path by which a human checks that the deletions and additions were right
 is the enumeration in the 3.6 PR body (after the fact)**, so do not let what was
@@ -771,11 +783,11 @@ Start it per § Starting `pr-runner`. What to pass:
 Start `merger` per § Merge. `MERGED` completes develop.
 
 This PR carries the implementation, plan.md, learnings, `todo.md`, and
-`.claude/settings.json` together, so a run touching `.claude/**` becomes
-`NEEDS_APPROVAL`. As in 3.7, the rightness of the `todo.md` deletions and the
-learnings additions is checked through **the enumeration in the S.6 PR body
-(after the fact)**. Unlike 3.7 the implementation itself stops too, but since
-approval happens once, it is no more approval overall.
+`.claude/settings.json` together, so the read-only check flags `.claude/**` on
+any run that promoted settings. As in 3.7 it merges anyway, with the promoted
+permissions named in the progress report. The rightness of the `todo.md`
+deletions and the learnings additions is checked through **the enumeration in
+the S.6 PR body (after the fact)**.
 
 ### Recovering from an interruption or failure in S.6 / S.7
 
@@ -842,13 +854,14 @@ At the end of each phase, report briefly in this format:
 - The main agent never runs `git add` / `git commit` / `git push` /
   `gh pr merge` (those belong to `pr-runner` / `merger` / `settings-promoter` /
   `archive-plan.sh` / `local-review-runner`)
-- Apart from the 0.2 approval and `merger`'s `NEEDS_APPROVAL`, there is no user
-  confirmation between steps or during wrap-up (Phase 3 / S.5–S.7) — the plan
-  was agreed in advance. The only dialogue points left in wrap-up are `merger`'s
-  `NEEDS_APPROVAL` and the abnormal cases (`settings-promoter`'s `FAILED`, or
-  Step 1 not being `[x]` when S.5 starts). Learnings additions and `todo.md`
-  deletions and additions are applied without consent, and their content is
-  checked after the fact through the enumeration in the PR body
+- Apart from the 0.2 approval, there is no user confirmation between steps or
+  during wrap-up (Phase 3 / S.5–S.7) — the plan was agreed in advance, and
+  merges carry a standing approval (§ Merge). The only dialogue points left are
+  the abnormal cases (`settings-promoter`'s `FAILED`, Step 1 not being `[x]`
+  when S.5 starts, and the `aborted` / `FAILED` states below). Learnings
+  additions and `todo.md` deletions and additions are applied without consent,
+  and their content is checked after the fact through the enumeration in the PR
+  body
 - When a subagent returns `aborted` / `closed` / `needs_discussion` /
   `LOCAL_CHECK_FAILED` / `MAX_ROUNDS_REACHED` / `FAILED` / `POST_MERGE_FAILED` /
   `POST_MERGE_TIMEOUT`, do not move on by yourself: ask the user for direction.
