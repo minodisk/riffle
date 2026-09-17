@@ -148,7 +148,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
       directly. The index's `FocusLocation` is not needed here because the
       bounded prefix already yields it in the same read
 
-- [ ] Step 3: Frontend: `Space` toggles the 1:1 view, drawn centred on the focus point under the preview's rotation
+- [x] Step 3: Frontend: `Space` toggles the 1:1 view, drawn centred on the focus point under the preview's rotation
   - Done when:
     - `Space` toggles a `zoomed` flag. While zoomed, `draw()` hands off to a
       new `drawZoom()` at its top and returns; nothing else in `draw()`,
@@ -327,3 +327,4 @@ later wants to cache crop parameters, that is a Phase 4 question.
 
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
+- (2026-09-18) Step 3 complete (the (manual) checks await the user's confirmation)

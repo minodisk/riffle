@@ -58,6 +58,32 @@
   encoder used by `index.rs`'s tests could be mirrored in `commands.rs`
   without touching `Cargo.toml`.
 
+## Step 3: the frontend's 1:1 view
+
+- The crop header carries no full-JPEG size, so `drawZoom()` cannot get the
+  placeholder's scale from it. It uses the index row's `sensor_w` as the full
+  JPEG's width (`scale = focus.sensor_w / bitmap.width`), which is exact on
+  the test file (JPEG 7008x4672 = sensor) but is an approximation on a body
+  whose JpgFromRaw is smaller than the sensor: the placeholder around the
+  crop would then be slightly off-scale. The crop itself is unaffected (it is
+  placed by its own point of interest). Adding the JPEG size to the header's
+  reserved word would remove the approximation.
+- With no index row (scan not there yet) or no `FocusLocation`, no placeholder
+  is drawn; only the crop, centred by its point of interest.
+- `draw()` applies `context.scale(dpr, dpr)`; `drawZoom()` deliberately does
+  not, so everything in it is device pixels and the crop is 1:1 by
+  construction.
+- `putImageData` ignores the transform, so the RGBA bytes go through
+  `createImageBitmap(new ImageData(...))`. No worker is involved because
+  nothing has to be JPEG-decoded.
+- `ZOOM_TIMING` is left in the code set to `false`. Flip it to `true` in
+  `crates/app/ui/src/main.ts` to get the three `console.debug` marks
+  (keypress, invoke resolved, bitmap ready).
+- The (manual) checks of Step 3 are **awaiting the user's confirmation**: GUI
+  automation does not work on this machine, so `Space` toggling, the upright
+  Orientation 8 placement, paging while zoomed, the manual-focus centre
+  fallback and the three timings are all unverified.
+
 ## Deferred issues (todo candidates)
 
 - `riffle-cli bench`'s crop row still feeds `FocusLocation` coordinates
@@ -67,3 +93,13 @@
   scaling; Step 1 fixes `crop`"), so `bench` was left as is. It is correct on
   the test file (sensor and JPEG are both 7008 wide) but wrong on any body
   where they differ.
+- The `focus_crop` header has a reserved 4-byte word but no full-JPEG size,
+  so the frontend's placeholder scale in `drawZoom()`
+  (`crates/app/ui/src/main.ts`) falls back to `FocusLocation`'s sensor width.
+  Carrying the JPEG width/height in the header (`crates/app/src/commands.rs`,
+  `crop_payload`) would make it exact. Out of scope for Step 3, which is
+  scoped to the frontend.
+- The crop bitmap held for a file is only `close()`d when a new crop replaces
+  it, so paging with the 1:1 view off leaves one stale bitmap alive until the
+  next `Space` (`crates/app/ui/src/main.ts`). Dropping it in `show()` would
+  need more than the one line Step 3 allows there.
