@@ -164,7 +164,7 @@ than quietly switching.
     - Errors: commands return `Result<_, String>`; the frontend shows the
       string. No retry logic
 
-- [ ] Step 4: Frontend: folder button, canvas, decode worker, arrow-key paging
+- [x] Step 4: Frontend: folder button, canvas, decode worker, arrow-key paging
   - Done when:
     - Clicking "Open folder" (or pressing `o`) runs `pick_folder` then
       `list_arw`, shows `n / total` and the current file name in a status line,
@@ -266,3 +266,4 @@ it starts causing bugs, revisit it when Phase 5 lands rather than now.
 - (2026-09-17) Step 1 complete
 - (2026-09-17) Step 2 complete
 - (2026-09-17) Step 3 complete
+- (2026-09-17) Step 4 complete
