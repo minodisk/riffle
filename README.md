@@ -11,7 +11,10 @@ Phase 0.5, Phase 1 (the CLI benchmark) and Phase 2 (the app skeleton) are done.
 
 The app opens a folder, lists the ARW files in it, shows one embedded preview on
 a `<canvas>` (decoded in a worker, rotated by the ARW's Orientation), and pages
-through them with the left/right arrow keys. Nothing else yet: no prefetch, no
+through them. Paging is bound to the arrow keys (left/up for the previous file,
+right/down for the next), to WASD (`w`/`a` previous, `s`/`d` next) and to HJKL
+(`h`/`k` previous, `j`/`l` next); `o` opens a folder. Keys held with
+Cmd/Ctrl/Alt are left to the system. Nothing else yet: no prefetch, no
 cache, no thumbnail grid, no rating. See [Running the app](#running-the-app).
 
 The CLI from Phase 1:
