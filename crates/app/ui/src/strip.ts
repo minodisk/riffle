@@ -124,6 +124,7 @@ function request(index: number): void {
       if (currentGeneration !== generation || cell === undefined) {
         return;
       }
+      requested.add(index);
       const header = new DataView(payload, 0, THUMBNAIL_HEADER_LEN);
       const kind = header.getUint16(0, true);
       if (kind !== THUMBNAIL_KIND_JPEG_V1) {
