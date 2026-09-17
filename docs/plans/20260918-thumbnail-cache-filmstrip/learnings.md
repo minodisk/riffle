@@ -110,7 +110,8 @@ CPU-bound number:
 | 16 | 4.51s | 1108 | 14.4ms / 29.6ms |
 
 (b) 100 distinct `cp` copies (4.5GB) per thread count, each folder scanned
-once on its first read - the disk-bound number:
+once right after being written - freshly written copies, page cache not
+guaranteed cold:
 
 | threads | total | files/s | per file mean / p95 | extrapolated to 5000 |
 |---------|-------|---------|---------------------|----------------------|
@@ -119,10 +120,14 @@ once on its first read - the disk-bound number:
 | 12 | 0.19s | 529 | 21.2ms / 36.4ms | 9.5s  |
 | 16 | 0.17s | 601 | 25.3ms / 34.4ms | 8.3s  |
 
-- **The 30s target holds on the internal SSD**: the worst extrapolation here
-  (4 threads, first read) is 21.7s and every realistic thread count is 8-12s,
-  against a 4.5s floor from pure CPU. The single-threaded 34.9s shows the
-  target is unreachable without the pool.
+- **The CPU cost leaves ~25s of headroom against the 30s target**: the worst
+  extrapolation here (4 threads, freshly written copies) is 21.7s and every
+  realistic thread count is 8-12s, against a 4.5s floor from pure CPU. Whether
+  that headroom holds depends on the disk, and these numbers do not establish
+  that - each (b) folder is a `cp` copy scanned right after being written, so
+  the page cache is likely still warm from the write, closer to a warm-head
+  read with some write-back cost than to a genuinely cold read. The
+  single-threaded 34.9s shows the target is unreachable without the pool.
 - Caveats, stated rather than smoothed over: each (b) folder was scanned once,
   in the order the folders were written, so the later (higher-thread-count)
   folders had a better chance of still being in the page cache - the
@@ -132,8 +137,9 @@ once on its first read - the disk-bound number:
   that on a real folder**, on the real disk, with real directory layout.
 - Expectation from Step 2 confirmed: the work is CPU-bound. 7.0ms per file
   single-threaded matches Step 2's 7.6ms `thumbnail_jpeg` mean almost exactly,
-  and the bounded read adds ~0.06ms warm; even on first read the disk adds
-  ~10ms per file, not the seconds a whole-file read would.
+  and the bounded read adds ~0.06ms warm; even in (b) the disk adds ~10ms per
+  file, not the seconds a whole-file read would, though (b) cannot be trusted
+  as a cold-read number.
 - Thumbnail size: 19232 bytes mean, i.e. **96MB of BLOBs for 5000 files** - the
   number Step 4's database has to carry.
 - More threads than cores does **not** help: 16 threads was flat against 12

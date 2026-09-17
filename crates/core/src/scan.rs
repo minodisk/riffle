@@ -49,9 +49,17 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
 /// Run `extract` over `paths` on a pool of `threads` threads, handing each
 /// result to `on_item` from the worker thread that produced it. Once `cancel`
 /// is set no further file is started; files already running finish.
+/// `threads` must be at least 1; `0` is rejected rather than silently falling
+/// back to rayon's default pool size.
 ///
 /// The pool is built here rather than taken from rayon's global one, so the
 /// caller sizes it and nothing else in the process shares it.
+///
+/// `on_item` must not panic: a panic inside it unwinds out of the worker's
+/// `for_each`, aborts the scan, and propagates out of `extract_all` as a
+/// panic rather than an `Err`, leaving an arbitrary subset of indices
+/// delivered. Callers that share state behind a mutex (as Step 4's Tauri
+/// command does) must keep `on_item` panic-free or wrap it themselves.
 pub fn extract_all<F>(
     paths: &[PathBuf],
     threads: usize,
@@ -61,6 +69,9 @@ pub fn extract_all<F>(
 where
     F: Fn(usize, Result<Entry, String>) + Send + Sync,
 {
+    if threads == 0 {
+        return Err("threads must be at least 1".to_string());
+    }
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()

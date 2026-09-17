@@ -163,6 +163,9 @@ fn bench(paths: &[String]) -> Result<()> {
 fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
     let threads =
         threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
     let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)?
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("arw")))
