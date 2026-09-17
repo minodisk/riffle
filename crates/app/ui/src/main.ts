@@ -3,6 +3,11 @@ import * as strip from "./strip.js";
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
+// Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
+const CROP_HEADER_LEN = 24;
+const CROP_KIND_RGBA_V1 = 3;
+// Flip to log the keypress → invoke → bitmap timings of the 1:1 view.
+const ZOOM_TIMING = false;
 
 interface Focus {
   sensor_w: number;
@@ -95,6 +100,22 @@ let entriesInFlight = false;
 // to be outstanding at that moment.
 let entriesPending = false;
 let showFocus = true;
+// True while the 1:1 focus check is showing instead of the fitted preview.
+let zoomed = false;
+// The crop of the file that `cropSeq` identifies, at one JPEG pixel per
+// device pixel, with its point of interest in crop pixels. Kept while the
+// view is toggled off so toggling back on redraws without a round trip.
+let crop: {
+  bitmap: ImageBitmap;
+  pointX: number;
+  pointY: number;
+  cropSeq: number;
+} | null = null;
+// The same one-in-flight, re-request-if-stale pattern as `inFlight`.
+let cropInFlight = false;
+// `performance.now()` at the keypress that asked for the crop, for the
+// `ZOOM_TIMING` marks.
+let zoomStartedAt = 0;
 
 // Side of the focus box as a fraction of the image's short side, so it reads
 // the same on portrait and landscape.
@@ -159,6 +180,10 @@ function setStatus(extra?: string): void {
 }
 
 function draw(): void {
+  if (zoomed) {
+    drawZoom();
+    return;
+  }
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const dpr = window.devicePixelRatio;
@@ -256,6 +281,123 @@ function drawFocusBox(drawWidth: number, drawHeight: number): void {
   context.strokeRect(x - side / 2, y - side / 2, side, side);
 }
 
+// The 1:1 view: the same rotation `draw()` applies, with the focus point at
+// the canvas centre. Everything here is in device pixels, so the `scale(dpr,
+// dpr)` of `draw()` is deliberately not applied. The crop is cut in unrotated
+// JPEG coordinates, exactly like the focus box, so the rotation carries it.
+function drawZoom(): void {
+  const dpr = window.devicePixelRatio;
+  canvas.width = Math.round(canvas.clientWidth * dpr);
+  canvas.height = Math.round(canvas.clientHeight * dpr);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  context.translate(canvas.width / 2, canvas.height / 2);
+  const orientation = shown?.orientation ?? 1;
+  if (orientation === 6) {
+    context.rotate(Math.PI / 2);
+  } else if (orientation === 8) {
+    context.rotate(-Math.PI / 2);
+  } else if (orientation === 3) {
+    context.rotate(Math.PI);
+  }
+  const focus = files.length > 0 ? entries.get(files[index])?.focus : undefined;
+  if (shown !== null && focus !== undefined && focus !== null) {
+    // The full JPEG is taken to be the sensor size, which is what the crop
+    // was scaled onto; one preview pixel is then `scale` JPEG pixels.
+    const scale = focus.sensor_w / shown.bitmap.width;
+    const width = shown.bitmap.width * scale;
+    const height = shown.bitmap.height * scale;
+    const x = (focus.x * width) / focus.sensor_w;
+    const y = (focus.y * height) / focus.sensor_h;
+    context.drawImage(shown.bitmap, -x, -y, width, height);
+  }
+  if (crop !== null && crop.cropSeq === seq) {
+    context.drawImage(crop.bitmap, -crop.pointX, -crop.pointY);
+  }
+  context.restore();
+}
+
+function requestCrop(): void {
+  if (cropInFlight || files.length === 0) {
+    return;
+  }
+  cropInFlight = true;
+  const current = seq;
+  const dpr = window.devicePixelRatio;
+  window.__TAURI__.core
+    .invoke<ArrayBuffer>("focus_crop", {
+      path: files[index],
+      width: Math.round(canvas.clientWidth * dpr),
+      height: Math.round(canvas.clientHeight * dpr),
+    })
+    .then(async (payload) => {
+      cropInFlight = false;
+      if (ZOOM_TIMING) {
+        console.debug("zoom invoke", performance.now() - zoomStartedAt);
+      }
+      if (current !== seq) {
+        requestCrop();
+        return;
+      }
+      const header = new DataView(payload, 0, CROP_HEADER_LEN);
+      const kind = header.getUint16(0, true);
+      if (kind !== CROP_KIND_RGBA_V1) {
+        throw new Error(`unknown crop payload kind ${kind}`);
+      }
+      const width = header.getUint32(4, true);
+      const height = header.getUint32(8, true);
+      // `putImageData` ignores the rotation transform, so the pixels go
+      // through a bitmap; no JPEG is involved, so no worker is needed.
+      const pixels = new ImageData(
+        new Uint8ClampedArray(payload, CROP_HEADER_LEN),
+        width,
+        height,
+      );
+      const bitmap = await createImageBitmap(pixels);
+      if (ZOOM_TIMING) {
+        console.debug("zoom bitmap", performance.now() - zoomStartedAt);
+      }
+      if (current !== seq) {
+        bitmap.close();
+        requestCrop();
+        return;
+      }
+      crop?.bitmap.close();
+      crop = {
+        bitmap,
+        pointX: header.getUint32(12, true),
+        pointY: header.getUint32(16, true),
+        cropSeq: current,
+      };
+      draw();
+    })
+    .catch((err: unknown) => {
+      cropInFlight = false;
+      if (current !== seq) {
+        requestCrop();
+        return;
+      }
+      setStatus(String(err));
+    });
+}
+
+// `Space` toggles the 1:1 view. The crop already held for this file is
+// reused; otherwise one is requested and the scaled preview stands in.
+function toggleZoom(): void {
+  zoomed = !zoomed;
+  if (zoomed) {
+    zoomStartedAt = performance.now();
+    if (ZOOM_TIMING) {
+      console.debug("zoom keypress", zoomStartedAt);
+    }
+    if (crop === null || crop.cropSeq !== seq) {
+      requestCrop();
+    }
+  }
+  setStatus(zoomed ? "1:1" : undefined);
+  draw();
+}
+
 function requestPreview(): void {
   if (inFlight || files.length === 0) {
     return;
@@ -325,6 +467,7 @@ function show(): void {
   setStatus();
   requestPreview();
   requestMetadata();
+  if (zoomed) requestCrop();
 }
 
 worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
@@ -549,6 +692,8 @@ window.addEventListener("keydown", (event) => {
   } else if (key === "f") {
     showFocus = !showFocus;
     draw();
+  } else if (key === " ") {
+    toggleZoom();
   } else if (key === "o") {
     openFolder();
   } else {
