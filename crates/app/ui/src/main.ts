@@ -28,6 +28,13 @@ let shown: { bitmap: ImageBitmap; orientation: number } | null = null;
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
 let inFlight = false;
+// How far the current scan got, or null when nothing is scanning. Events
+// carry the id of the scan that emitted them; only events whose id matches
+// `scanId` are applied, so the stragglers of a cancelled scan (including one
+// cancelled by reopening the very same folder) are ignored even though they
+// carry the same `dir`.
+let scanId: number | null = null;
+let scanning: string | null = null;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -35,12 +42,19 @@ function baseName(path: string): string {
 }
 
 function setStatus(extra?: string): void {
+  const parts: string[] = [];
   if (files.length === 0) {
-    statusEl.textContent = extra ?? "No ARW files in that folder.";
-    return;
+    parts.push(extra ?? "No ARW files in that folder.");
+  } else {
+    parts.push(`${index + 1} / ${files.length}  ${baseName(files[index])}`);
+    if (extra !== undefined) {
+      parts.push(extra);
+    }
   }
-  const head = `${index + 1} / ${files.length}  ${baseName(files[index])}`;
-  statusEl.textContent = extra === undefined ? head : `${head}  —  ${extra}`;
+  if (scanning !== null) {
+    parts.push(scanning);
+  }
+  statusEl.textContent = parts.join("  —  ");
 }
 
 function draw(): void {
@@ -150,12 +164,12 @@ function move(delta: number): void {
 function openFolder(): void {
   window.__TAURI__.core
     .invoke<string | null>("pick_folder")
-    .then((dir) => {
-      if (dir === null) {
+    .then((folder) => {
+      if (folder === null) {
         return;
       }
       return window.__TAURI__.core
-        .invoke<string[]>("list_arw", { dir })
+        .invoke<string[]>("list_arw", { dir: folder })
         .then((found) => {
           files = found;
           index = 0;
@@ -163,6 +177,17 @@ function openFolder(): void {
           shown?.bitmap.close();
           shown = null;
           draw();
+          scanning = null;
+          scanId = null;
+          void window.__TAURI__.core
+            .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
+            .then(({ scan_id }) => {
+              scanId = scan_id;
+              return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
+            })
+            .catch((err: unknown) => {
+              setStatus(String(err));
+            });
           if (files.length === 0) {
             setStatus();
             return;
@@ -174,6 +199,32 @@ function openFolder(): void {
       setStatus(String(err));
     });
 }
+
+void window.__TAURI__.event.listen<{
+  dir: string;
+  scan_id: number;
+  done: number;
+  total: number;
+}>("scan-progress", ({ payload }) => {
+  if (payload.scan_id !== scanId) {
+    return;
+  }
+  scanning = `scanning ${payload.done} / ${payload.total}`;
+  setStatus();
+});
+
+void window.__TAURI__.event.listen<{
+  dir: string;
+  scan_id: number;
+  total: number;
+  errors: number;
+}>("scan-done", ({ payload }) => {
+  if (payload.scan_id !== scanId) {
+    return;
+  }
+  scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
+  setStatus();
+});
 
 openEl.addEventListener("click", openFolder);
 

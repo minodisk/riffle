@@ -8,5 +8,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 riffle-core = { path = "../core" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+mozjpeg = "0.10"

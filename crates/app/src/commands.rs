@@ -1,16 +1,25 @@
 //! The commands the frontend invokes: folder picking, ARW enumeration and
 //! preview extraction.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Response;
+use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+
+use crate::index::{self, FileStat, Index, IndexedFile};
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
 
 /// Tag identifying the payload kind and version: an IFD0 preview JPEG, v1.
 pub const PREVIEW_KIND_JPEG_V1: u16 = 1;
+
+/// Tag for the other payload kind: a cached thumbnail JPEG, v1.
+pub const THUMBNAIL_KIND_JPEG_V1: u16 = 2;
 
 /// Build a `preview` payload: a fixed-size little-endian header followed by the
 /// embedded JPEG bytes, copied verbatim.
@@ -19,15 +28,16 @@ pub const PREVIEW_KIND_JPEG_V1: u16 = 1;
 ///
 /// | offset | size | field                                       |
 /// |--------|------|---------------------------------------------|
-/// | 0      | 2    | kind/version tag (`PREVIEW_KIND_JPEG_V1`)   |
+/// | 0      | 2    | kind/version tag (`PREVIEW_KIND_JPEG_V1` or |
+/// |        |      | `THUMBNAIL_KIND_JPEG_V1`)                   |
 /// | 2      | 2    | EXIF Orientation (1..8)                     |
 /// | 4      | 4    | reserved, zero                              |
 ///
 /// Width and height are not carried: the JPEG itself has them and
 /// `createImageBitmap` reports them.
-fn payload(orientation: u16, jpeg: &[u8]) -> Vec<u8> {
+fn payload(kind: u16, orientation: u16, jpeg: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(PREVIEW_HEADER_LEN + jpeg.len());
-    out.extend_from_slice(&PREVIEW_KIND_JPEG_V1.to_le_bytes());
+    out.extend_from_slice(&kind.to_le_bytes());
     out.extend_from_slice(&orientation.to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
     out.extend_from_slice(jpeg);
@@ -83,7 +93,7 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
-    list_arw_in(Path::new(&dir))
+    list_arw_in(Path::new(&canonicalize(&dir)))
 }
 
 #[tauri::command]
@@ -91,7 +101,263 @@ pub async fn preview(path: String) -> Result<Response, String> {
     let bytes = tauri::async_runtime::spawn_blocking(move || read_preview(Path::new(&path)))
         .await
         .map_err(|e| e.to_string())??;
-    Ok(Response::new(payload(bytes.0, &bytes.1)))
+    Ok(Response::new(payload(
+        PREVIEW_KIND_JPEG_V1,
+        bytes.0,
+        &bytes.1,
+    )))
+}
+
+/// The id handed out to each `scan_folder` call, the cancel flag and join
+/// handle of the one scan that may be running, and the work queued for
+/// `start_scan` to actually spawn — all behind one lock so that minting an
+/// id, taking `running`, checking the latest id and storing into `running`
+/// or `pending` are never interleaved between two concurrent `scan_folder`/
+/// `start_scan` calls (the two `scan_folder` futures are independent IPC
+/// tasks with no ordering guarantee between them, and likewise for
+/// `start_scan`).
+#[derive(Default)]
+pub struct Scans(Mutex<ScansState>);
+
+#[derive(Default)]
+struct ScansState {
+    next_id: u64,
+    /// The id `scan_folder` most recently handed out. Both `scan_folder`
+    /// (before inserting into `pending`) and `start_scan` (before storing
+    /// into `running`) re-check against this so an id that has since been
+    /// superseded is refused rather than acted on late.
+    latest_id: u64,
+    running: Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
+    pending: HashMap<u64, PendingScan>,
+}
+
+impl ScansState {
+    fn next_id(&mut self) -> u64 {
+        self.next_id += 1;
+        self.next_id
+    }
+}
+
+struct PendingScan {
+    dir: String,
+    todo: Vec<FileStat>,
+    cancel: Arc<AtomicBool>,
+}
+
+/// The index, shared between the commands and the scan thread. It is a cache:
+/// `None` when the cache directory could not be opened (see `main.rs`), in
+/// which case the commands below degrade to "no thumbnails" instead of the
+/// app failing to launch.
+pub struct AppIndex(pub Option<Arc<Mutex<Index>>>);
+
+/// Threads the scan runs on: two fewer than the cores. Step 3 measured that
+/// this costs ~10% of scan throughput against using every core, and leaves two
+/// cores for the paging path so the app stays responsive while scanning; more
+/// threads than cores did not help and doubled the per-file p95.
+fn scan_threads() -> usize {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    cores.saturating_sub(2).max(1)
+}
+
+/// What `scan_folder` returns: the number of files that need scanning and the
+/// id the caller must match against `scan-progress`/`scan-done` events to tell
+/// this scan's events apart from an older, still-draining one for the same
+/// folder.
+#[derive(serde::Serialize)]
+pub struct ScanStarted {
+    total: usize,
+    scan_id: u64,
+}
+
+/// Bring the index of `dir` up to date: wait for a previous scan's last write
+/// to land, then drop the rows of files that are gone or changed and report
+/// how many have no valid row. The actual scan does not start until the
+/// frontend calls `start_scan` with the returned `scan_id`, so this only
+/// prepares the work; call `start_scan` right after storing the id. A no-op
+/// (nothing to scan, no `scan-done` either) when the index cache is
+/// unavailable.
+#[tauri::command]
+pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
+    let scans = app.state::<Scans>();
+    let (scan_id, previous) = {
+        let mut state = index::lock(&scans.0);
+        let scan_id = state.next_id();
+        state.latest_id = scan_id;
+        (scan_id, state.running.take())
+    };
+    let dir = canonicalize(&dir);
+    let cancel = Arc::new(AtomicBool::new(false));
+
+    if let Some((previous_cancel, previous_handle)) = previous {
+        previous_cancel.store(true, Ordering::Relaxed);
+        let _ = previous_handle.await;
+    }
+
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(ScanStarted { total: 0, scan_id });
+    };
+
+    let listed = {
+        let dir = dir.clone();
+        tauri::async_runtime::spawn_blocking(move || list_arw_in(Path::new(&dir)))
+            .await
+            .map_err(|e| e.to_string())??
+    };
+
+    let todo = {
+        let (dir, index) = (dir.clone(), index);
+        tauri::async_runtime::spawn_blocking(move || {
+            let files: Vec<_> = listed
+                .iter()
+                .filter_map(|p| index::stat(Path::new(p)).ok())
+                .collect();
+            index::lock(&index).reconcile(&dir, &files)
+        })
+        .await
+        .map_err(|e| e.to_string())??
+    };
+
+    let total = todo.len();
+    let mut state = index::lock(&scans.0);
+    if state.latest_id != scan_id {
+        // A later `scan_folder` has superseded this one while it was
+        // listing/reconciling; its own `start_scan` (or none at all) owns
+        // `pending`/`running` now, so queuing this work would either be
+        // overwritten or, worse, race the id check below in `start_scan`.
+        return Ok(ScanStarted { total, scan_id });
+    }
+    // Any entry still here belongs to a scan this one has already superseded
+    // (only one `scan_folder`/`start_scan` pair is ever live at a time); it
+    // never started, so there is nothing to cancel or join, just drop it.
+    state.pending.clear();
+    state
+        .pending
+        .insert(scan_id, PendingScan { dir, todo, cancel });
+    drop(state);
+    Ok(ScanStarted { total, scan_id })
+}
+
+/// Start the scan `scan_folder` prepared for `scan_id`, in the background.
+/// A no-op if there is no pending work under that id (the index cache was
+/// unavailable, or this scan has since been superseded).
+///
+/// The latest-id check and the store into `running` happen under the same
+/// lock as `scan_folder`'s own id-minting and `running`-taking, so a
+/// `scan_folder` that supersedes this id can never interleave between the
+/// check and the store: either it runs first, in which case this call sees
+/// its own id is stale and does not spawn at all, or it runs after, in which
+/// case it takes the handle this call just stored and joins it before
+/// reconciling.
+#[tauri::command]
+pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
+    let scans = app.state::<Scans>();
+    let mut state = index::lock(&scans.0);
+    if state.latest_id != scan_id {
+        state.pending.remove(&scan_id);
+        return Ok(());
+    }
+    let Some(pending) = state.pending.remove(&scan_id) else {
+        return Ok(());
+    };
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(());
+    };
+    let PendingScan { dir, todo, cancel } = pending;
+
+    let handle = tauri::async_runtime::spawn_blocking({
+        let cancel = cancel.clone();
+        let app = app.clone();
+        move || {
+            let summary = index::run_scan(
+                &index,
+                &dir,
+                &todo,
+                scan_threads(),
+                &cancel,
+                |done, total| {
+                    let _ = app.emit(
+                        "scan-progress",
+                        Progress {
+                            dir: &dir,
+                            scan_id,
+                            done,
+                            total,
+                        },
+                    );
+                },
+            );
+            let _ = app.emit(
+                "scan-done",
+                Done {
+                    dir: &dir,
+                    scan_id,
+                    total: summary.total,
+                    errors: summary.errors,
+                },
+            );
+        }
+    });
+    state.running = Some((cancel, handle));
+    Ok(())
+}
+
+#[derive(serde::Serialize, Clone)]
+struct Progress<'a> {
+    dir: &'a str,
+    scan_id: u64,
+    done: usize,
+    total: usize,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct Done<'a> {
+    dir: &'a str,
+    scan_id: u64,
+    total: usize,
+    errors: usize,
+}
+
+/// The indexed rows of `dir`, in the same order as `list_arw`. Empty when the
+/// index cache is unavailable.
+#[tauri::command]
+pub async fn folder_entries(
+    app: tauri::AppHandle,
+    dir: String,
+) -> Result<Vec<IndexedFile>, String> {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(Vec::new());
+    };
+    tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The cached thumbnail of one file, in the same envelope as `preview`.
+#[tauri::command]
+pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Err("no index cache available".to_string());
+    };
+    let (orientation, jpeg) =
+        tauri::async_runtime::spawn_blocking(move || index::lock(&index).thumbnail(&path))
+            .await
+            .map_err(|e| e.to_string())??;
+    Ok(Response::new(payload(
+        THUMBNAIL_KIND_JPEG_V1,
+        orientation,
+        &jpeg,
+    )))
+}
+
+/// Resolve symlinks and normalize a folder path so the same folder reached
+/// through different spellings (a trailing separator, a symlinked parent,
+/// `/tmp` vs `/private/tmp` on macOS) shares one row set in the index. Falls
+/// back to the original string when canonicalization fails (e.g. the folder
+/// was removed between picking and scanning).
+fn canonicalize(dir: &str) -> String {
+    std::fs::canonicalize(dir)
+        .map_or_else(|_| dir.to_string(), |p| p.to_string_lossy().into_owned())
 }
 
 #[cfg(test)]
@@ -139,11 +405,20 @@ mod tests {
     #[test]
     fn payload_header_encodes_kind_and_orientation() {
         let jpeg = [0xff, 0xd8, 0xff, 0xd9];
-        let out = payload(8, &jpeg);
+        let out = payload(PREVIEW_KIND_JPEG_V1, 8, &jpeg);
         assert_eq!(out.len(), PREVIEW_HEADER_LEN + jpeg.len());
         assert_eq!(u16::from_le_bytes([out[0], out[1]]), PREVIEW_KIND_JPEG_V1);
         assert_eq!(u16::from_le_bytes([out[2], out[3]]), 8);
         assert_eq!(u32::from_le_bytes([out[4], out[5], out[6], out[7]]), 0);
+        assert_eq!(&out[PREVIEW_HEADER_LEN..], &jpeg);
+    }
+
+    #[test]
+    fn thumbnail_payload_header_encodes_kind_two_and_orientation() {
+        let jpeg = [0xff, 0xd8, 0xff, 0xd9];
+        let out = payload(THUMBNAIL_KIND_JPEG_V1, 6, &jpeg);
+        assert_eq!(u16::from_le_bytes([out[0], out[1]]), THUMBNAIL_KIND_JPEG_V1);
+        assert_eq!(u16::from_le_bytes([out[2], out[3]]), 6);
         assert_eq!(&out[PREVIEW_HEADER_LEN..], &jpeg);
     }
 

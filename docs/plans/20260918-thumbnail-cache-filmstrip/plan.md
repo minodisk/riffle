@@ -186,7 +186,7 @@ Settled with the user; do not reopen.
       or just adds contention with paging
     - Assumes Step 2 is merged
 
-- [ ] Step 4: App: SQLite index, background scan on folder open, progress in the status line
+- [x] Step 4: App: SQLite index, background scan on folder open, progress in the status line
   - Done when:
     - `crates/app/src/index.rs` opens (creating on first use)
       `<app_cache_dir>/index.sqlite` via
@@ -301,12 +301,76 @@ Settled with the user; do not reopen.
       focused element
     - Assumes Step 4 is merged
 
-- [ ] Step 6: Documentation and status update
+- [ ] Step 6: Frontend: draw the focus box on the preview
+  - Done when:
+    - When the index has a `FocusLocation` for the current file, the preview
+      canvas draws a rectangle at the focus point over the image; when it does
+      not (a manual-focus shot, or the file is not indexed yet), nothing is
+      drawn and no error is shown
+    - The box is placed in **unrotated sensor coordinates and rotated with the
+      image**, not drawn after rotation: scale `(x, y)` from
+      `(sensor_w, sensor_h)` to the unrotated preview's pixel size, then apply
+      the same Orientation transform the image gets. Verified against the real
+      portrait file (Orientation 8), where a box drawn the naive way lands on
+      the wrong edge
+    - The box size is a fixed fraction of the image's short side (so it reads
+      the same on portrait and landscape), stroked in a colour that survives
+      both a white jersey and a dark background (e.g. a 2px stroke with a
+      contrasting 1px outline). It is drawn on every `show()`, including during
+      key auto-repeat, and costs no extra IPC round trip — the coordinates come
+      from the `folder_entries` rows Step 4 already returns
+    - The box can be toggled off with a key (`f`), defaulting to on; the
+      setting is not persisted (no settings store exists yet). Collision check
+      against keys claimed by later phases (`1`-`5`, `x`, `Space`, `o`, and the
+      paging keys from Step 1): `f` is free — record that in the PR description
+    - `mise run ci` passes. **(manual)** The user confirms on a real folder
+      that the box sits on the subject's face for both portrait and landscape
+      shots
+  - Implementation approach:
+    - `crates/app/ui/src/main.ts` only; no Rust change. `riffle-cli focusbox`
+      already does this transform for its PNG output — port that arithmetic
+      rather than re-deriving it, and keep the two in step
+    - The frontend needs the focus values per file: hold the `folder_entries`
+      rows in a `Map<path, entry>` populated after `list_arw`, and refresh the
+      entry for the current file when a `scan-progress` event indicates the
+      scan has advanced past it
+    - Assumes Step 5 is merged (the entries map is shared with the strip)
+
+- [ ] Step 7: Open a folder by drag-and-drop
+  - Done when:
+    - Dropping a folder onto the window opens it exactly as the picker does
+      (same path through `list_arw` / `scan_folder` / first preview), and a
+      scan already running for another folder is cancelled the same way
+    - Dropping something that is not a directory, or several items at once,
+      does not open a wrong folder: a single directory is taken; a single
+      **file** is accepted by taking its parent directory (dragging one ARW is
+      the obvious gesture); anything else is ignored with a status-line message
+    - There is visible drop feedback while a drag is over the window (a border
+      or overlay), cleared on both drop and leave, including when the drag
+      leaves without dropping
+    - `mise run ci` passes. **(manual)** The user confirms dropping a folder,
+      dropping one ARW, and dragging over and away again
+  - Implementation approach:
+    - **Tauri intercepts HTML5 drag-and-drop, so `event.dataTransfer.files`
+      never carries a usable path.** The paths arrive only through Tauri's own
+      `tauri://drag-drop` event (with `tauri://drag-enter` / `drag-over` /
+      `drag-leave` for the feedback), listened to the same way the
+      `scan-progress` listener is wired in Step 4. Do not spend time on the
+      DOM `drop` event
+    - Whether the dropped path is a directory is decided in Rust (a new small
+      command, or an argument to the existing open path), not by guessing from
+      the string in TypeScript
+    - `dragDropEnabled` must stay at its default (true) in `tauri.conf.json`;
+      note in the PR if it has to be touched
+    - Assumes Step 4 is merged; independent of Steps 5 and 6
+
+- [ ] Step 8: Documentation and status update
   - Done when:
     - `README.md` "Status" says Phase 3 is done, describes the index (where
       the database lives per OS, what is in it, how invalidation works), the
-      strip, and the full key list; it carries the Step 3 scan measurements
-      and the Step 4 second-open measurement in a table next to the existing
+      strip, the focus box and folder drag-and-drop, and the full key list;
+      it carries the Step 3 scan measurements and the Step 4 second-open
+      measurement in a table next to the existing
       ones, with the same "what could not be measured here" honesty as the
       Phase 4 baseline; the manual confirmations the user made are recorded as
       such
@@ -433,3 +497,4 @@ running app. CI and the CLI `scan` benchmark cover everything else.
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
+- (2026-09-18) Step 4 complete
