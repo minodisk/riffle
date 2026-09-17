@@ -50,7 +50,7 @@ than quietly switching.
 
 ## Steps
 
-- [ ] Step 1: Extract the reusable ARW / JPEG code into a library crate `crates/core`
+- [x] Step 1: Extract the reusable ARW / JPEG code into a library crate `crates/core`
   - Done when:
     - `crates/core` (package `riffle-core`, `lib.rs`) exists in the workspace and
       exports `arw` (moved verbatim from `crates/cli/src/arw.rs`), `partial`
