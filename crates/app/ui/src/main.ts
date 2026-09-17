@@ -58,7 +58,7 @@ let index = 0;
 // belongs to a file that is no longer current and is dropped.
 let seq = 0;
 const orientations = new Map<number, number>();
-let shown: { bitmap: ImageBitmap; orientation: number } | null = null;
+let shown: { bitmap: ImageBitmap; orientation: number; seq: number } | null = null;
 // True while a `preview` invoke is outstanding. Keeps at most one request in
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
@@ -110,6 +110,7 @@ let crop: {
   pointX: number;
   pointY: number;
   cropSeq: number;
+  orientation: number;
 } | null = null;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`.
 let cropInFlight = false;
@@ -170,6 +171,11 @@ function renderMeta(): void {
   }
   if (scanning !== null) {
     metaEl.append(line("note", scanning));
+  }
+  // Driven by `zoomed` rather than `note`, so paging or an error does not
+  // erase the mode indicator while the 1:1 view is still showing.
+  if (zoomed) {
+    metaEl.append(line("note", "1:1"));
   }
 }
 
@@ -292,7 +298,12 @@ function drawZoom(): void {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.translate(canvas.width / 2, canvas.height / 2);
-  const orientation = shown?.orientation ?? 1;
+  // The placeholder (the scaled preview) is only drawn while `shown` belongs
+  // to the current file; otherwise it would position the previous file's
+  // bitmap with the new file's focus point.
+  const placeholderShown = shown !== null && shown.seq === seq ? shown : null;
+  const orientation =
+    crop !== null && crop.cropSeq === seq ? crop.orientation : (placeholderShown?.orientation ?? 1);
   if (orientation === 6) {
     context.rotate(Math.PI / 2);
   } else if (orientation === 8) {
@@ -301,15 +312,15 @@ function drawZoom(): void {
     context.rotate(Math.PI);
   }
   const focus = files.length > 0 ? entries.get(files[index])?.focus : undefined;
-  if (shown !== null && focus !== undefined && focus !== null) {
+  if (placeholderShown !== null && focus !== undefined && focus !== null) {
     // The full JPEG is taken to be the sensor size, which is what the crop
     // was scaled onto; one preview pixel is then `scale` JPEG pixels.
-    const scale = focus.sensor_w / shown.bitmap.width;
-    const width = shown.bitmap.width * scale;
-    const height = shown.bitmap.height * scale;
+    const scale = focus.sensor_w / placeholderShown.bitmap.width;
+    const width = placeholderShown.bitmap.width * scale;
+    const height = placeholderShown.bitmap.height * scale;
     const x = (focus.x * width) / focus.sensor_w;
     const y = (focus.y * height) / focus.sensor_h;
-    context.drawImage(shown.bitmap, -x, -y, width, height);
+    context.drawImage(placeholderShown.bitmap, -x, -y, width, height);
   }
   if (crop !== null && crop.cropSeq === seq) {
     context.drawImage(crop.bitmap, -crop.pointX, -crop.pointY);
@@ -336,7 +347,9 @@ function requestCrop(): void {
         console.debug("zoom invoke", performance.now() - zoomStartedAt);
       }
       if (current !== seq) {
-        requestCrop();
+        if (zoomed) {
+          requestCrop();
+        }
         return;
       }
       const header = new DataView(payload, 0, CROP_HEADER_LEN);
@@ -344,6 +357,7 @@ function requestCrop(): void {
       if (kind !== CROP_KIND_RGBA_V1) {
         throw new Error(`unknown crop payload kind ${kind}`);
       }
+      const orientation = header.getUint16(2, true);
       const width = header.getUint32(4, true);
       const height = header.getUint32(8, true);
       // `putImageData` ignores the rotation transform, so the pixels go
@@ -359,7 +373,9 @@ function requestCrop(): void {
       }
       if (current !== seq) {
         bitmap.close();
-        requestCrop();
+        if (zoomed) {
+          requestCrop();
+        }
         return;
       }
       crop?.bitmap.close();
@@ -368,13 +384,16 @@ function requestCrop(): void {
         pointX: header.getUint32(12, true),
         pointY: header.getUint32(16, true),
         cropSeq: current,
+        orientation,
       };
       draw();
     })
     .catch((err: unknown) => {
       cropInFlight = false;
       if (current !== seq) {
-        requestCrop();
+        if (zoomed) {
+          requestCrop();
+        }
         return;
       }
       setStatus(String(err));
@@ -384,6 +403,9 @@ function requestCrop(): void {
 // `Space` toggles the 1:1 view. The crop already held for this file is
 // reused; otherwise one is requested and the scaled preview stands in.
 function toggleZoom(): void {
+  if (files.length === 0) {
+    return;
+  }
   zoomed = !zoomed;
   if (zoomed) {
     zoomStartedAt = performance.now();
@@ -394,7 +416,7 @@ function toggleZoom(): void {
       requestCrop();
     }
   }
-  setStatus(zoomed ? "1:1" : undefined);
+  renderMeta();
   draw();
 }
 
@@ -467,7 +489,9 @@ function show(): void {
   setStatus();
   requestPreview();
   requestMetadata();
-  if (zoomed) requestCrop();
+  if (zoomed) {
+    requestCrop();
+  }
 }
 
 worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
@@ -483,7 +507,7 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
     return;
   }
   shown?.bitmap.close();
-  shown = { bitmap, orientation };
+  shown = { bitmap, orientation, seq: responseSeq };
   setStatus();
   draw();
 });
@@ -702,7 +726,12 @@ window.addEventListener("keydown", (event) => {
   event.preventDefault();
 });
 
-window.addEventListener("resize", draw);
+window.addEventListener("resize", () => {
+  draw();
+  if (zoomed) {
+    requestCrop();
+  }
+});
 
 renderMeta();
 draw();
