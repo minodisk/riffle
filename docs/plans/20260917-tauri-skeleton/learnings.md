@@ -54,6 +54,26 @@
   `window.__TAURI__.core`" is unverified beyond the code path compiling and
   type-checking.
 
+## Step 3
+
+- The commands live in `crates/app/src/commands.rs`; `main.rs` only registers
+  them and the dialog plugin. File reading (`std::fs::read`) is kept in
+  `read_preview`, separate from `riffle_core::arw::parse`, so Phase 4 can swap
+  in a seek-based reader without touching the parser.
+- The preview payload header is 8 bytes little-endian: kind/version tag (u16,
+  `PREVIEW_KIND_JPEG_V1` = 1), Orientation (u16), 4 reserved zero bytes. The
+  reserved bytes keep the JPEG 8-byte aligned in the `ArrayBuffer`, which makes
+  the Step 4 `subarray` in the worker cheap to reason about.
+- `blocking_pick_folder` is fine in a **synchronous** `#[tauri::command]`:
+  Tauri already runs sync commands off the main thread. `preview` is `async`
+  and hands the read to `tauri::async_runtime::spawn_blocking` instead, so the
+  webview never waits on file IO.
+- `tempfile` turned out to be unnecessary: `std::env::temp_dir()` plus the
+  process id is enough for the listing tests, so no extra dependency was added
+  (only `tauri-plugin-dialog` moves `Cargo.lock`).
+- `is_file()` in the listing filter matters: a *directory* named `sub.arw` is
+  otherwise listed as a file. That case is covered by the test.
+
 ## Deferred issues (todo candidates)
 
 - `tmp/` (scratch space used by the PR tooling) is untracked and shows up in

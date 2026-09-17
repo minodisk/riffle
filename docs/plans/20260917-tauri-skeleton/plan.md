@@ -127,7 +127,7 @@ than quietly switching.
       `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`;
       keep it
 
-- [ ] Step 3: Rust commands: pick a folder, enumerate ARW files, hand the embedded preview to the frontend
+- [x] Step 3: Rust commands: pick a folder, enumerate ARW files, hand the embedded preview to the frontend
   - Done when:
     - `pick_folder() -> Option<String>` opens the native directory picker via
       `tauri-plugin-dialog` (Rust side `blocking_pick_folder`) and returns the
