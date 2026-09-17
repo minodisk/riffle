@@ -98,6 +98,7 @@ expect 0 safe Cargo.toml crates/cli/Cargo.toml
 
 # --- approval: toolchain and supply chain --------------------------------
 expect 1 approval Cargo.lock .cargo/config.toml
+expect 1 approval package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
 expect 1 approval mise.toml mise.lock rust-toolchain.toml
 expect 1 approval tools/git/delete_merged_branches.sh
 expect 1 approval lefthook.yml .vscode/settings.json
