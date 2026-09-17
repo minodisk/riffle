@@ -178,10 +178,12 @@ function openFolder(): void {
           shown = null;
           draw();
           scanning = null;
+          scanId = null;
           void window.__TAURI__.core
             .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
             .then(({ scan_id }) => {
               scanId = scan_id;
+              return window.__TAURI__.core.invoke("start_scan", { scanId: scan_id });
             })
             .catch((err: unknown) => {
               setStatus(String(err));

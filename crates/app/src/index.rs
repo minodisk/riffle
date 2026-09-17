@@ -103,7 +103,8 @@ impl Index {
         }
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
         let mut index = Self { conn };
-        if index.prepare().is_err() {
+        if let Err(e) = index.prepare() {
+            eprintln!("discarding the index cache at {}: {e}", path.display());
             drop(index);
             let _ = std::fs::remove_file(path);
             let _ = std::fs::remove_file(with_suffix(path, "-wal"));

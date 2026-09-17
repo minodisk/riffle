@@ -1,6 +1,7 @@
 //! The commands the frontend invokes: folder picking, ARW enumeration and
 //! preview extraction.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -9,7 +10,7 @@ use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::index::{self, Index, IndexedFile};
+use crate::index::{self, FileStat, Index, IndexedFile};
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
@@ -92,7 +93,7 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
-    list_arw_in(Path::new(&dir))
+    list_arw_in(Path::new(&canonicalize(&dir)))
 }
 
 #[tauri::command]
@@ -107,10 +108,27 @@ pub async fn preview(path: String) -> Result<Response, String> {
     )))
 }
 
-/// The cancel flag of the one scan that may be running, so that opening
-/// another folder cancels it.
+/// The cancel flag and join handle of the one scan that may be running, so
+/// that opening another folder cancels it and the next `scan_folder` can wait
+/// for its last write to land before reconciling (otherwise that write can
+/// land after the new reconcile and resurrect a row it just invalidated).
 #[derive(Default)]
-pub struct Scans(pub Mutex<Option<Arc<AtomicBool>>>);
+pub struct Running(Mutex<Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>>);
+
+/// Work queued by `scan_folder`, waiting for `start_scan` to actually spawn
+/// the scan thread. Split into two commands (rather than spawning from
+/// `scan_folder`) so the frontend has stored `scan_id` *before* the scan's
+/// first `scan-progress`/`scan-done` event can possibly be emitted; spawning
+/// eagerly let a fast scan's events race the id back to the frontend and be
+/// dropped by the `scan_id` filter.
+#[derive(Default)]
+pub struct Pending(Mutex<HashMap<u64, PendingScan>>);
+
+struct PendingScan {
+    dir: String,
+    todo: Vec<FileStat>,
+    cancel: Arc<AtomicBool>,
+}
 
 /// Monotonic id handed out to each `scan_folder` call. `scan-progress` and
 /// `scan-done` carry it so the frontend can tell a cancelled scan's stragglers
@@ -143,18 +161,23 @@ pub struct ScanStarted {
     scan_id: u64,
 }
 
-/// Bring the index of `dir` up to date: drop the rows of files that are gone
-/// or changed, then scan whatever has no valid row in the background. Returns
-/// at once with the number of files that need scanning; progress arrives as
-/// `scan-progress` events and the end as `scan-done`. A no-op (nothing to
-/// scan, no `scan-done` either) when the index cache is unavailable.
+/// Bring the index of `dir` up to date: wait for a previous scan's last write
+/// to land, then drop the rows of files that are gone or changed and report
+/// how many have no valid row. The actual scan does not start until the
+/// frontend calls `start_scan` with the returned `scan_id`, so this only
+/// prepares the work; call `start_scan` right after storing the id. A no-op
+/// (nothing to scan, no `scan-done` either) when the index cache is
+/// unavailable.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scan_id = NEXT_SCAN_ID.fetch_add(1, Ordering::Relaxed);
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
-    if let Some(previous) = index::lock(&app.state::<Scans>().0).replace(cancel.clone()) {
-        previous.store(true, Ordering::Relaxed);
+
+    let previous = index::lock(&app.state::<Running>().0).take();
+    if let Some((previous_cancel, previous_handle)) = previous {
+        previous_cancel.store(true, Ordering::Relaxed);
+        let _ = previous_handle.await;
     }
 
     let Some(index) = app.state::<AppIndex>().0.clone() else {
@@ -169,7 +192,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let todo = {
-        let (dir, index) = (dir.clone(), index.clone());
+        let (dir, index) = (dir.clone(), index);
         tauri::async_runtime::spawn_blocking(move || {
             let files: Vec<_> = listed
                 .iter()
@@ -182,36 +205,58 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let total = todo.len();
-    tauri::async_runtime::spawn_blocking(move || {
-        let summary = index::run_scan(
-            &index,
-            &dir,
-            &todo,
-            scan_threads(),
-            &cancel,
-            |done, total| {
-                let _ = app.emit(
-                    "scan-progress",
-                    Progress {
-                        dir: &dir,
-                        scan_id,
-                        done,
-                        total,
-                    },
-                );
-            },
-        );
-        let _ = app.emit(
-            "scan-done",
-            Done {
-                dir: &dir,
-                scan_id,
-                total: summary.total,
-                errors: summary.errors,
-            },
-        );
-    });
+    index::lock(&app.state::<Pending>().0).insert(scan_id, PendingScan { dir, todo, cancel });
     Ok(ScanStarted { total, scan_id })
+}
+
+/// Start the scan `scan_folder` prepared for `scan_id`, in the background.
+/// A no-op if there is no pending work under that id (the index cache was
+/// unavailable, or this scan has since been superseded).
+#[tauri::command]
+pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
+    let Some(pending) = index::lock(&app.state::<Pending>().0).remove(&scan_id) else {
+        return Ok(());
+    };
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(());
+    };
+    let PendingScan { dir, todo, cancel } = pending;
+
+    let handle = tauri::async_runtime::spawn_blocking({
+        let cancel = cancel.clone();
+        let app = app.clone();
+        move || {
+            let summary = index::run_scan(
+                &index,
+                &dir,
+                &todo,
+                scan_threads(),
+                &cancel,
+                |done, total| {
+                    let _ = app.emit(
+                        "scan-progress",
+                        Progress {
+                            dir: &dir,
+                            scan_id,
+                            done,
+                            total,
+                        },
+                    );
+                },
+            );
+            let _ = app.emit(
+                "scan-done",
+                Done {
+                    dir: &dir,
+                    scan_id,
+                    total: summary.total,
+                    errors: summary.errors,
+                },
+            );
+        }
+    });
+    *index::lock(&app.state::<Running>().0) = Some((cancel, handle));
+    Ok(())
 }
 
 #[derive(serde::Serialize, Clone)]

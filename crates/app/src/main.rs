@@ -28,7 +28,8 @@ fn main() {
                 }
             };
             app.manage(commands::AppIndex(index));
-            app.manage(commands::Scans::default());
+            app.manage(commands::Running::default());
+            app.manage(commands::Pending::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -37,6 +38,7 @@ fn main() {
             commands::list_arw,
             commands::preview,
             commands::scan_folder,
+            commands::start_scan,
             commands::folder_entries,
             commands::thumbnail
         ])
