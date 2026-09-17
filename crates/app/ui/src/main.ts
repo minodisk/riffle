@@ -24,6 +24,10 @@ let index = 0;
 let seq = 0;
 const orientations = new Map<number, number>();
 let shown: { bitmap: ImageBitmap; orientation: number } | null = null;
+// True while a `preview` invoke is outstanding. Keeps at most one request in
+// flight; when it settles, if `index` moved on in the meantime, exactly one
+// follow-up request is issued for the latest index.
+let inFlight = false;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -74,14 +78,18 @@ function draw(): void {
   context.restore();
 }
 
-function show(): void {
-  seq += 1;
+function requestPreview(): void {
+  if (inFlight) {
+    return;
+  }
+  inFlight = true;
   const current = seq;
-  setStatus();
   window.__TAURI__.core
     .invoke<ArrayBuffer>("preview", { path: files[index] })
     .then((payload) => {
+      inFlight = false;
       if (current !== seq) {
+        requestPreview();
         return;
       }
       const header = new DataView(payload, 0, PREVIEW_HEADER_LEN);
@@ -94,10 +102,19 @@ function show(): void {
       worker.postMessage({ seq: current, jpeg }, [jpeg]);
     })
     .catch((err: unknown) => {
-      if (current === seq) {
-        setStatus(String(err));
+      inFlight = false;
+      if (current !== seq) {
+        requestPreview();
+        return;
       }
+      setStatus(String(err));
     });
+}
+
+function show(): void {
+  seq += 1;
+  setStatus();
+  requestPreview();
 }
 
 worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {

@@ -94,7 +94,12 @@
   checked twice: once when `invoke` resolves (stop before posting to the
   worker) and once when the worker answers (close the stale `ImageBitmap` and
   drop it). The orientation travels in a `Map` keyed by that same sequence,
-  because only the JPEG bytes can be transferred to the worker.
+  because only the JPEG bytes can be transferred to the worker. An `inFlight`
+  flag caps `preview` `invoke` calls at one outstanding request: `show()` only
+  bumps the sequence, and `requestPreview()` is a no-op while a call is
+  already pending. When that call settles, if the sequence moved on in the
+  meantime it immediately issues exactly one follow-up for the latest index,
+  so holding an arrow key never queues more than one request in flight.
 - Drawing: the canvas backing store is `clientWidth/Height * devicePixelRatio`,
   the context is translated to the centre and scaled by `dpr`, then rotated by
   ±90° for Orientation 6 / 8. The fit scale is computed against the **upright**
