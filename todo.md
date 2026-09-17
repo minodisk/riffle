@@ -51,6 +51,17 @@ This repository has no `.claude/settings.json` and no `.claude/settings.local.js
 - [ ] Decide whether to check in a `.claude/settings.json` carrying the allowlist the skills assume.
 - [ ] If not, correct the skill text in `.claude/skills/develop/SKILL.md` and `.claude/skills/pr/SKILL.md` that claims an allowlist exists.
 
+### Tooling: `mise run git:main` leaves the local `main` branch stale
+
+The `git:main` task runs `git fetch origin main` then `git checkout --detach origin/main`. It never moves the local `main` branch ref. A whole `develop` run happens on a detached HEAD, so nothing surfaces the drift — until someone runs `git checkout main` and silently gets the tree from before the run. After the Phase 2 run, local `main` was 9 commits behind `origin/main` and checking it out reverted the working tree.
+
+`merger` compounds this by reporting "local main now at `<sha>`" after calling the task, which is the detached HEAD's position, not the branch's.
+
+#### TODO
+
+- [ ] Have `mise run git:main` fast-forward the local `main` branch as well as pointing HEAD at `origin/main` (or stop implying it updates `main`).
+- [ ] Correct `merger`'s post-merge report so it does not claim the local `main` branch moved when only HEAD did. Path: `.claude/agents/merger.md`.
+
 ## Cross-cutting / other
 
 ### App: unmeasured end-to-end per-page latency
