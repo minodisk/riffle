@@ -68,7 +68,7 @@ Settled with the user; do not reopen.
 
 ## Steps
 
-- [ ] Step 1: Add ArrowUp/ArrowDown, WASD and HJKL paging keys
+- [x] Step 1: Add ArrowUp/ArrowDown, WASD and HJKL paging keys
   - Done when:
     - `ArrowUp`, `w`, `a`, `h`, `k` move to the previous file; `ArrowDown`,
       `s`, `d`, `j`, `l` move to the next; `ArrowLeft` / `ArrowRight` / `o`

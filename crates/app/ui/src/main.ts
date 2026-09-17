@@ -177,12 +177,31 @@ function openFolder(): void {
 
 openEl.addEventListener("click", openFolder);
 
+// Letter keys are matched lower-cased, so Shift+J pages like j does.
+const pagingKeys = new Map<string, number>([
+  ["arrowright", 1],
+  ["arrowdown", 1],
+  ["s", 1],
+  ["d", 1],
+  ["j", 1],
+  ["l", 1],
+  ["arrowleft", -1],
+  ["arrowup", -1],
+  ["w", -1],
+  ["a", -1],
+  ["h", -1],
+  ["k", -1],
+]);
+
 window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowRight") {
-    move(1);
-  } else if (event.key === "ArrowLeft") {
-    move(-1);
-  } else if (event.key === "o") {
+  if (event.metaKey || event.ctrlKey || event.altKey) {
+    return;
+  }
+  const key = event.key.toLowerCase();
+  const delta = pagingKeys.get(key);
+  if (delta !== undefined) {
+    move(delta);
+  } else if (key === "o") {
     openFolder();
   } else {
     return;
