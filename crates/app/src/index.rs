@@ -15,7 +15,12 @@ use riffle_core::scan::{extract_all, Entry};
 
 /// Schema version stored in `PRAGMA user_version`. Bump it when the layout
 /// below changes; the old database is then dropped and rebuilt.
-const SCHEMA_VERSION: i64 = 1;
+///
+/// From v2 on the database is no longer purely derivable: a `ratings` row with
+/// `dirty = 1` is a judgement that has not reached its sidecar yet, so
+/// discarding the database loses it. A future bump must migrate `ratings` or
+/// flush every dirty row to its sidecar first.
+const SCHEMA_VERSION: i64 = 2;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
 /// loses at most a second of work, large enough that the per-transaction fsync
@@ -42,6 +47,7 @@ pub struct IndexedFile {
     pub subsec: Option<String>,
     pub focus: Option<Focus>,
     pub has_thumb: bool,
+    pub rating: Option<i8>,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
@@ -120,6 +126,11 @@ impl Index {
         self.conn
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
+        // A commit is then a WAL append with no fsync, which is what keeps the
+        // `set_rating` write off the critical path of a keypress.
+        self.conn
+            .pragma_update(None, "synchronous", "NORMAL")
+            .map_err(|e| e.to_string())?;
         let version: i64 = self
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
@@ -145,7 +156,16 @@ impl Index {
                      error TEXT
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
-                 CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);",
+                 CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
+                 CREATE TABLE IF NOT EXISTS ratings (
+                     path TEXT PRIMARY KEY,
+                     dir TEXT NOT NULL,
+                     rating INTEGER,
+                     xmp_size INTEGER,
+                     xmp_mtime_ns INTEGER,
+                     dirty INTEGER NOT NULL DEFAULT 0
+                 );
+                 CREATE INDEX IF NOT EXISTS ratings_dir ON ratings (dir);",
             )
             .map_err(|e| e.to_string())?;
         self.conn
@@ -253,8 +273,9 @@ impl Index {
             .conn
             .prepare(
                 "SELECT path, orientation, capture_time, subsec,
-                        focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL
-                 FROM files WHERE dir = ?1",
+                        focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
+                        ratings.rating
+                 FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
@@ -275,6 +296,7 @@ impl Index {
                     subsec: r.get(3)?,
                     focus,
                     has_thumb: r.get(8)?,
+                    rating: r.get(9)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -302,6 +324,61 @@ impl Index {
                 Some(thumb) => Ok((orientation.unwrap_or(1), thumb)),
                 None => Err(format!("{path}: no cached thumbnail")),
             })
+    }
+
+    /// Record a judgement for one file, pending a sidecar write.
+    ///
+    /// The row is independent of `files`, so a rescan or a failed extraction
+    /// never drops a rating. `dirty = 1` until the writer has landed exactly
+    /// this value in the sidecar.
+    pub fn set_rating(&mut self, dir: &str, path: &str, rating: Option<i8>) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO ratings (path, dir, rating, dirty) VALUES (?1, ?2, ?3, 1)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, dirty = 1",
+                params![path, dir, rating],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("{path}: {e}"))
+    }
+
+    /// Clear `dirty` and store the sidecar's stat, but only while the row
+    /// still holds the value that was written: a keypress during the write
+    /// leaves the row dirty so the newer value is written in turn.
+    ///
+    /// `stat` is `None` when no sidecar exists (clearing a rating on a file
+    /// that never had one writes nothing).
+    pub fn mark_written(
+        &mut self,
+        path: &str,
+        rating: Option<i8>,
+        stat: Option<(i64, i64)>,
+    ) -> Result<bool, String> {
+        let (size, mtime_ns) = (stat.map(|s| s.0), stat.map(|s| s.1));
+        self.conn
+            .execute(
+                "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
+                 WHERE path = ?1 AND rating IS ?4",
+                params![path, size, mtime_ns, rating],
+            )
+            .map(|n| n > 0)
+            .map_err(|e| format!("{path}: {e}"))
+    }
+
+    /// The rows of `dir` whose judgement has not reached its sidecar yet.
+    // Read by the tests here; the folder-open path that hands these to the
+    // writer is Step 4 of the ratings plan.
+    #[allow(dead_code)]
+    pub fn dirty_rows(&self, dir: &str) -> Result<Vec<(String, Option<i8>)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, rating FROM ratings WHERE dir = ?1 AND dirty = 1")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -489,6 +566,59 @@ mod tests {
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].path, a.path.to_string_lossy());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_rating_survives_a_rescan_and_shows_up_on_the_entry() {
+        let dir = temp_dir("rating");
+        let a = file(&dir, "a.ARW", b"a");
+        let path = a.path.to_string_lossy().into_owned();
+        let mut index = open(&dir);
+        index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+        index.set_rating("d", &path, Some(-1)).unwrap();
+        assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
+
+        // A reconcile that drops the `files` row must leave `ratings` alone:
+        // the sidecar, not the scan, is what a rating belongs to.
+        assert!(index.reconcile("d", &[]).unwrap().is_empty());
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(index.dirty_rows("d").unwrap(), [(path.clone(), Some(-1))]);
+
+        index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
+        assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn mark_written_only_clears_a_row_that_still_holds_the_written_value() {
+        let dir = temp_dir("written");
+        let mut index = open(&dir);
+        index.set_rating("d", "/a.ARW", Some(3)).unwrap();
+
+        assert!(index
+            .mark_written("/a.ARW", Some(3), Some((42, 7)))
+            .unwrap());
+        assert!(index.dirty_rows("d").unwrap().is_empty());
+
+        index.set_rating("d", "/a.ARW", Some(5)).unwrap();
+        assert!(
+            !index
+                .mark_written("/a.ARW", Some(3), Some((42, 7)))
+                .unwrap(),
+            "a keypress during the write keeps the row dirty"
+        );
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/a.ARW".to_string(), Some(5))]
+        );
+
+        // An unrated row is matched by NULL, not skipped.
+        index.set_rating("d", "/a.ARW", None).unwrap();
+        assert!(index.mark_written("/a.ARW", None, None).unwrap());
+        assert!(index.dirty_rows("d").unwrap().is_empty());
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

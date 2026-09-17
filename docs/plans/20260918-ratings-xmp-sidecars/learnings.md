@@ -42,3 +42,40 @@
   anyway, which rebinds the prefix for the other attributes on that tag. No
   real-world producer does this and handling it would need a generated
   prefix; noted while implementing Step 2.
+
+## Step 3
+
+- `RunEvent::ExitRequested` needs `Builder::build(...)` + `App::run(|app, event| ...)`
+  instead of `Builder::run(...)`: the one-argument `run` takes the context and
+  gives no place to hook the event. The closure's first argument is an
+  `&AppHandle`, so `app.state::<AppWriter>()` works there and the drain is a
+  plain synchronous `flush(DRAIN_TIMEOUT)` on the main thread. Blocking there is
+  fine (and necessary) precisely because the run loop is on its way out; this is
+  the one place the "never block the main thread" rule in
+  `docs/agents/tauri-app.md` does not apply.
+- The writer's `Drop` is deliberately not relied on for the drain. During
+  process teardown a managed state's `Drop` is not guaranteed to run, and even
+  if it did, the channel disconnect would race the process exit rather than
+  being waited on.
+- The writer thread is a plain `std::thread` blocking on `recv_timeout` against
+  the earliest pending deadline. `recv_timeout(Duration::ZERO)` is a valid
+  "flush now" and `saturating_duration_since` keeps an already-elapsed deadline
+  at zero rather than panicking, so the debounce loop needs no special case.
+- `mark_written` compares the rating with SQL `IS`, not `=`: the unrated state
+  is NULL and `rating = NULL` is never true, which would have left every
+  cleared rating dirty forever.
+- `0` and "unrated" are collapsed in `set_rating` (the row stores NULL). The
+  distinction only exists in the sidecar, where `write_rating(existing, None)`
+  writes `0` into an existing sidecar and nothing at all when there is none.
+- `dirty_rows` is `#[allow(dead_code)]` for now: only the tests call it until
+  Step 4 wires the folder-open flush.
+
+## Deferred issues (todo candidates)
+
+- The `sidecar-error` event is emitted but nothing displays it yet; the status
+  line handling is Step 5 of this plan (`crates/app/ui/src/main.ts`). Not an
+  out-of-plan issue, just noted so it is not mistaken for a gap.
+- A failed sidecar write is retried only on the next open of that folder: the
+  writer does not schedule a retry of its own. Basis: Step 3's error path in
+  `crates/app/src/sidecar.rs` leaves the row dirty and reports. Acceptable per
+  decision 3, but worth a todo if a locked SD card turns out to be common.
