@@ -89,17 +89,20 @@ from the canvas centre against the CLI's (-140, -25). Everything else below is `
 (`cargo test`, clippy, `tsc --noEmit`) plus the measurements in the next
 sections.
 
-**Awaiting the user's confirmation (Phase 3)**: nobody has seen this phase's UI
-running. `pnpm tauri dev` needs the GUI and `osascript` assistive access is
-denied on the development machine, so the following are unconfirmed rather than
-confirmed: the Phase 3 keys (`w`/`a`/`s`/`d`/`h`/`j`/`k`/`l` paging and `f`
-toggling the focus box) actually working in the running app, the filmstrip
-(thumbnails filling in during a scan, portrait cells upright, the highlight
-following every paging key and key auto-repeat, click-to-page, scrolling a
-5000-file strip), the `scanning N / M` progress line, the focus box landing on
-the subject's face, the drag-and-drop gestures (a folder, a single ARW, a drag
-that leaves without dropping), that the app stays responsive while a real
-folder scans, and that the second open of a real folder is under 3s.
+**Confirmed by hand on macOS (Phase 3)**: the user ran the app on a real
+folder and confirmed the `scanning N / M` progress line, that the app stays
+responsive while a real folder scans, thumbnails filling in during that scan
+with portrait cells upright, the focus box landing on the subject, a fast
+second open, and both drag-and-drop gestures (a folder and a single ARW). The
+Phase 3 paging keys (`w`/`a`/`s`/`d`/`h`/`j`/`k`/`l`) and `f` toggling the
+focus box are implied by those. "Fast" is the user's impression, not a
+measurement; the real-folder numbers are still missing (see the Phase 3
+sections below).
+
+**Awaiting the user's confirmation (Phase 3)**: not everything in this phase
+has been looked at yet. Still unconfirmed: the filmstrip highlight following
+every paging key and key auto-repeat, click-to-page, scrolling a 5000-file
+strip, and a drag that leaves the window without dropping.
 
 ### Phase 4 baseline
 

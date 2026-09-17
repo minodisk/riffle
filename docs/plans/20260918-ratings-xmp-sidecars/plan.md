@@ -152,7 +152,7 @@ repeated here.
 
 ## Steps
 
-- [ ] Step 1: Record the user's Phase 3 confirmations in the README
+- [x] Step 1: Record the user's Phase 3 confirmations in the README
   - Done when:
     - `README.md` "What has been confirmed, and by what" moves the five
       items the user has now confirmed by hand — the `scanning N / M`
@@ -443,4 +443,4 @@ items.
 
 ## Progress
 
-- (none yet)
+- (2026-09-18) Step 1 complete
