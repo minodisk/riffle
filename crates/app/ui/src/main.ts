@@ -1,3 +1,5 @@
+import * as strip from "./strip.js";
+
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
@@ -127,6 +129,7 @@ function requestPreview(): void {
 
 function show(): void {
   seq += 1;
+  strip.setCurrent(index);
   setStatus();
   requestPreview();
 }
@@ -161,6 +164,14 @@ function move(delta: number): void {
   show();
 }
 
+strip.init((selected) => {
+  if (selected === index) {
+    return;
+  }
+  index = selected;
+  show();
+});
+
 function openFolder(): void {
   window.__TAURI__.core
     .invoke<string | null>("pick_folder")
@@ -173,6 +184,7 @@ function openFolder(): void {
         .then((found) => {
           files = found;
           index = 0;
+          strip.setFiles(files);
           seq += 1;
           shown?.bitmap.close();
           shown = null;
@@ -211,6 +223,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
   setStatus();
+  strip.refresh();
 });
 
 void window.__TAURI__.event.listen<{
@@ -224,6 +237,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   setStatus();
+  strip.refresh();
 });
 
 openEl.addEventListener("click", openFolder);
