@@ -35,19 +35,52 @@ fn head_of(file: &mut File, limit: usize) -> Result<Vec<u8>> {
 /// A prefix too short to parse is an error rather than a wrong answer, so in
 /// that case the whole file is read and parsed instead.
 pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
+    read_embedded(path, Kind::Preview)
+}
+
+/// The same bounded read for the full-resolution JPEG (JpgFromRaw). Its
+/// metadata is in the prefix but the JPEG itself is several MB long, so the
+/// ranged read is the normal path here rather than a fallback.
+pub fn read_full(path: &Path) -> Result<(Arw, Vec<u8>)> {
+    read_embedded(path, Kind::Full)
+}
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Preview,
+    Full,
+}
+
+impl Kind {
+    fn pick(self, arw: &Arw) -> Option<arw::Embedded> {
+        match self {
+            Kind::Preview => arw.preview,
+            Kind::Full => arw.full,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Kind::Preview => "preview",
+            Kind::Full => "JpgFromRaw",
+        }
+    }
+}
+
+fn read_embedded(path: &Path, kind: Kind) -> Result<(Arw, Vec<u8>)> {
     let mut file = File::open(path)?;
     let head = head_of(&mut file, HEAD_LIMIT)?;
     // Anything past the prefix exists only if the file is longer than it.
     let bounded = head.len() == HEAD_LIMIT;
 
-    match preview_from(&head, &mut file, bounded) {
+    match embedded_from(&head, &mut file, bounded, kind) {
         Ok(found) => Ok(found),
         Err(_) if bounded => {
             let buf = std::fs::read(path)?;
             // The prefix error only explains a truncated read; once the whole
             // file is in memory, an error there describes what is actually
             // wrong with the file, so surface that one instead.
-            preview_from(&buf, &mut file, false)
+            embedded_from(&buf, &mut file, false, kind)
         }
         Err(e) => Err(e),
     }
@@ -66,22 +99,24 @@ pub fn read_metadata(path: &Path) -> Result<Arw> {
     }
 }
 
-fn preview_from(buf: &[u8], file: &mut File, bounded: bool) -> Result<(Arw, Vec<u8>)> {
+fn embedded_from(buf: &[u8], file: &mut File, bounded: bool, kind: Kind) -> Result<(Arw, Vec<u8>)> {
     let arw = arw::parse(buf)?;
-    let e = arw.preview.ok_or_else(|| anyhow!("no embedded preview"))?;
+    let e = kind
+        .pick(&arw)
+        .ok_or_else(|| anyhow!("no embedded {}", kind.name()))?;
     let end = e
         .offset
         .checked_add(e.length)
-        .ok_or_else(|| anyhow!("preview out of range"))?;
+        .ok_or_else(|| anyhow!("{} out of range", kind.name()))?;
     if end <= buf.len() {
         let jpeg = arw.slice(buf, e).to_vec();
         return Ok((arw, jpeg));
     }
     if !bounded {
-        return Err(anyhow!("preview out of range"));
+        return Err(anyhow!("{} out of range", kind.name()));
     }
     if end as u64 > file.metadata()?.len() {
-        return Err(anyhow!("preview out of range"));
+        return Err(anyhow!("{} out of range", kind.name()));
     }
     let mut jpeg = vec![0u8; e.length];
     file.seek(SeekFrom::Start(e.offset as u64))?;
@@ -141,6 +176,56 @@ mod tests {
         let path = temp_file("far", &arw_with_preview(HEAD_LIMIT + 4096, &jpeg));
         let (_, out) = read_preview(&path).unwrap();
         assert_eq!(out, jpeg);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// A TIFF whose IFD0 holds a tiny preview and whose IFD1 points at a
+    /// larger JPEG, i.e. the JpgFromRaw, starting after `at`.
+    fn arw_with_full(at: usize, jpeg: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        let ifd1_at = 8 + 2 + 2 * 12 + 4;
+        for (entries, next) in [
+            ([(0x0201u16, 8u32), (0x0202, 1)], ifd1_at as u32),
+            ([(0x0201, at as u32), (0x0202, jpeg.len() as u32)], 0),
+        ] {
+            buf.extend_from_slice(&2u16.to_le_bytes());
+            for (tag, value) in entries {
+                buf.extend_from_slice(&tag.to_le_bytes());
+                buf.extend_from_slice(&4u16.to_le_bytes());
+                buf.extend_from_slice(&1u32.to_le_bytes());
+                buf.extend_from_slice(&value.to_le_bytes());
+            }
+            buf.extend_from_slice(&next.to_le_bytes());
+        }
+        buf.resize(at, 0);
+        buf.extend_from_slice(jpeg);
+        buf
+    }
+
+    #[test]
+    fn the_full_jpeg_inside_the_prefix_is_sliced() {
+        let jpeg = [3u8; 64];
+        let path = temp_file("full-near", &arw_with_full(128, &jpeg));
+        let (_, out) = read_full(&path).unwrap();
+        assert_eq!(out, jpeg);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn the_full_jpeg_past_the_prefix_is_read_by_range() {
+        let jpeg = [4u8; 4096];
+        let path = temp_file("full-far", &arw_with_full(HEAD_LIMIT - 1024, &jpeg));
+        let (_, out) = read_full(&path).unwrap();
+        assert_eq!(out, jpeg);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_file_without_a_full_jpeg_is_an_error() {
+        let path = temp_file("full-none", &arw_with_preview(64, &[1u8, 2, 3, 4]));
+        assert!(read_full(&path).is_err());
         std::fs::remove_file(&path).unwrap();
     }
 

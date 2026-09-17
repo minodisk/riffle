@@ -72,7 +72,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
 
 ## Steps
 
-- [ ] Step 1: Core: ranged read of `JpgFromRaw`, focus-point mapping, rectangular RGBA crop; `riffle-cli crop` uses them
+- [x] Step 1: Core: ranged read of `JpgFromRaw`, focus-point mapping, rectangular RGBA crop; `riffle-cli crop` uses them
   - Done when:
     - `riffle_core::reader` has a function that parses the metadata from the
       bounded prefix and returns the `Arw` plus the full-resolution JPEG bytes
