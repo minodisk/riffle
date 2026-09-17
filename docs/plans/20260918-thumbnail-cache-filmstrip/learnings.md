@@ -151,12 +151,17 @@ guaranteed cold:
 
 ## Step 4: SQLite index, background scan, progress in the status line
 
-- **Second open is 34ms, not seconds.** Measured on 5000 symlinks to the real
-  ARW with a temporary `#[ignore]`d test (removed before committing): `stat` of
-  5000 files 42ms, reconciliation 1.3ms, and the full second open
+- **Second open is 34ms, not seconds, but that number is a lower bound.**
+  Measured on 5000 **symlinks to one real ARW** (a single inode, warm page
+  cache) with a temporary `#[ignore]`d test that was removed before
+  committing, so the run is not reproducible as written: `stat` of 5000 files
+  42ms, reconciliation 1.3ms, and the full second open
   (stat + reconcile + `entries`) **34.4ms** against a fully populated index.
-  The 3s criterion has two orders of magnitude of headroom. The first scan of
-  the same folder took 5.55s on 10 threads with 0 errors, matching Step 3.
+  5000 lookups of one cached inode's metadata is cheaper than 5000 distinct
+  ~48MB files' metadata in a real card folder, so this is not directly
+  comparable to a real second-open number; re-running against a real, varied
+  folder is needed for that. The first scan of the same folder took 5.55s on
+  10 threads with 0 errors, matching Step 3.
 - **The database is 104,177,664 bytes for 5000 rows** (~20.8KB per row), right
   on Step 3's 19232-byte thumbnail mean plus SQLite overhead. Worth repeating
   in the README: deleting rows does not shrink the file without `VACUUM`.

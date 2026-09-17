@@ -70,6 +70,14 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Append a suffix to a path's file name, for the `-wal`/`-shm` sidecars SQLite
+/// keeps next to the main database file.
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(suffix);
+    path.with_file_name(name)
+}
+
 /// `stat` a file for validity checking. Times before the epoch, which no real
 /// photo has, collapse to 0 rather than failing the scan.
 pub fn stat(path: &Path) -> Result<FileStat, String> {
@@ -96,7 +104,10 @@ impl Index {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
         let mut index = Self { conn };
         if index.prepare().is_err() {
+            drop(index);
             let _ = std::fs::remove_file(path);
+            let _ = std::fs::remove_file(with_suffix(path, "-wal"));
+            let _ = std::fs::remove_file(with_suffix(path, "-shm"));
             let conn = Connection::open(path).map_err(|e| e.to_string())?;
             index = Self { conn };
             index.prepare()?;
@@ -142,8 +153,11 @@ impl Index {
         Ok(())
     }
 
-    /// Drop the rows under `dir` whose file is gone and return the files that
-    /// have no valid row, in the order given.
+    /// Drop the rows under `dir` whose file is gone or whose `size`/`mtime_ns`
+    /// no longer match, and return the files that have no valid row, in the
+    /// order given. Paths are compared with the same lossy conversion
+    /// `write_batch` uses to key rows, so a non-UTF-8 path matches the row it
+    /// wrote instead of being rescanned on every open.
     pub fn reconcile(&mut self, dir: &str, files: &[FileStat]) -> Result<Vec<FileStat>, String> {
         let known: Vec<(String, i64, i64)> = {
             let mut stmt = self
@@ -156,31 +170,30 @@ impl Index {
             rows.collect::<rusqlite::Result<_>>()
                 .map_err(|e| e.to_string())?
         };
-        let listed: std::collections::HashSet<&str> = files
+        let listed: std::collections::HashMap<String, (i64, i64)> = files
             .iter()
-            .filter_map(|f| f.path.to_str())
-            .collect::<std::collections::HashSet<_>>();
+            .map(|f| (f.path.to_string_lossy().into_owned(), (f.size, f.mtime_ns)))
+            .collect();
 
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for (path, _, _) in known
+        for (path, ..) in known
             .iter()
-            .filter(|(p, _, _)| !listed.contains(p.as_str()))
+            .filter(|(p, s, m)| listed.get(p.as_str()) != Some(&(*s, *m)))
         {
             tx.execute("DELETE FROM files WHERE path = ?1", params![path])
                 .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())?;
 
-        let valid: std::collections::HashMap<&str, (i64, i64)> = known
+        let known: std::collections::HashMap<&str, (i64, i64)> = known
             .iter()
             .map(|(p, s, m)| (p.as_str(), (*s, *m)))
             .collect();
         Ok(files
             .iter()
             .filter(|f| {
-                f.path
-                    .to_str()
-                    .is_none_or(|p| valid.get(p) != Some(&(f.size, f.mtime_ns)))
+                let path = f.path.to_string_lossy();
+                known.get(path.as_ref()) != Some(&(f.size, f.mtime_ns))
             })
             .cloned()
             .collect())
@@ -320,8 +333,13 @@ where
         if batch.is_empty() {
             return;
         }
-        if lock(index).write_batch(dir, &batch).is_err() {
-            errors.fetch_add(batch.len(), Ordering::Relaxed);
+        if let Err(e) = lock(index).write_batch(dir, &batch) {
+            eprintln!("failed to write a batch for {dir}: {e}");
+            // Files that failed extraction are already counted in `on_item`;
+            // only the ones that would otherwise have landed as a success are
+            // newly lost here.
+            let newly_failed = batch.iter().filter(|(_, r)| r.is_ok()).count();
+            errors.fetch_add(newly_failed, Ordering::Relaxed);
         }
     };
 
@@ -440,9 +458,14 @@ mod tests {
             ..a.clone()
         };
         assert_eq!(index.reconcile("d", &[changed]).unwrap().len(), 1);
+        // The stale row must be gone too, not just reported as "to scan":
+        // otherwise `entries` would keep serving it until the rescan finishes.
+        assert!(index.entries("d").unwrap().is_empty());
 
+        index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
         let bigger = FileStat { size: 99, ..a };
         assert_eq!(index.reconcile("d", &[bigger]).unwrap().len(), 1);
+        assert!(index.entries("d").unwrap().is_empty());
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

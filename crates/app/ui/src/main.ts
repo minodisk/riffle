@@ -28,10 +28,12 @@ let shown: { bitmap: ImageBitmap; orientation: number } | null = null;
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
 let inFlight = false;
-// The folder being scanned and how far it got, or null when nothing is
-// scanning. Events carry their own folder, so the stragglers of a scan
-// cancelled by opening another folder are ignored.
-let dir: string | null = null;
+// How far the current scan got, or null when nothing is scanning. Events
+// carry the id of the scan that emitted them; only events whose id matches
+// `scanId` are applied, so the stragglers of a cancelled scan (including one
+// cancelled by reopening the very same folder) are ignored even though they
+// carry the same `dir`.
+let scanId: number | null = null;
 let scanning: string | null = null;
 
 function baseName(path: string): string {
@@ -175,10 +177,12 @@ function openFolder(): void {
           shown?.bitmap.close();
           shown = null;
           draw();
-          dir = folder;
           scanning = null;
           void window.__TAURI__.core
-            .invoke<number>("scan_folder", { dir: folder })
+            .invoke<{ total: number; scan_id: number }>("scan_folder", { dir: folder })
+            .then(({ scan_id }) => {
+              scanId = scan_id;
+            })
             .catch((err: unknown) => {
               setStatus(String(err));
             });
@@ -196,10 +200,11 @@ function openFolder(): void {
 
 void window.__TAURI__.event.listen<{
   dir: string;
+  scan_id: number;
   done: number;
   total: number;
 }>("scan-progress", ({ payload }) => {
-  if (payload.dir !== dir) {
+  if (payload.scan_id !== scanId) {
     return;
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
@@ -208,10 +213,11 @@ void window.__TAURI__.event.listen<{
 
 void window.__TAURI__.event.listen<{
   dir: string;
+  scan_id: number;
   total: number;
   errors: number;
 }>("scan-done", ({ payload }) => {
-  if (payload.dir !== dir) {
+  if (payload.scan_id !== scanId) {
     return;
   }
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;

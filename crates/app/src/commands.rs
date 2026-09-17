@@ -2,7 +2,7 @@
 //! preview extraction.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Response;
@@ -112,8 +112,17 @@ pub async fn preview(path: String) -> Result<Response, String> {
 #[derive(Default)]
 pub struct Scans(pub Mutex<Option<Arc<AtomicBool>>>);
 
-/// The index, shared between the commands and the scan thread.
-pub struct AppIndex(pub Arc<Mutex<Index>>);
+/// Monotonic id handed out to each `scan_folder` call. `scan-progress` and
+/// `scan-done` carry it so the frontend can tell a cancelled scan's stragglers
+/// (same `dir`, older id) from the scan it is actually waiting on, even when
+/// the same folder is reopened while a scan is still running.
+static NEXT_SCAN_ID: AtomicU64 = AtomicU64::new(1);
+
+/// The index, shared between the commands and the scan thread. It is a cache:
+/// `None` when the cache directory could not be opened (see `main.rs`), in
+/// which case the commands below degrade to "no thumbnails" instead of the
+/// app failing to launch.
+pub struct AppIndex(pub Option<Arc<Mutex<Index>>>);
 
 /// Threads the scan runs on: two fewer than the cores. Step 3 measured that
 /// this costs ~10% of scan throughput against using every core, and leaves two
@@ -124,17 +133,33 @@ fn scan_threads() -> usize {
     cores.saturating_sub(2).max(1)
 }
 
-/// Bring the index of `dir` up to date: drop the rows of files that are gone,
-/// then scan whatever has no valid row in the background. Returns at once with
-/// the number of files that need scanning; progress arrives as `scan-progress`
-/// events and the end as `scan-done`.
+/// What `scan_folder` returns: the number of files that need scanning and the
+/// id the caller must match against `scan-progress`/`scan-done` events to tell
+/// this scan's events apart from an older, still-draining one for the same
+/// folder.
+#[derive(serde::Serialize)]
+pub struct ScanStarted {
+    total: usize,
+    scan_id: u64,
+}
+
+/// Bring the index of `dir` up to date: drop the rows of files that are gone
+/// or changed, then scan whatever has no valid row in the background. Returns
+/// at once with the number of files that need scanning; progress arrives as
+/// `scan-progress` events and the end as `scan-done`. A no-op (nothing to
+/// scan, no `scan-done` either) when the index cache is unavailable.
 #[tauri::command]
-pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<usize, String> {
-    let index = app.state::<AppIndex>().0.clone();
+pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
+    let scan_id = NEXT_SCAN_ID.fetch_add(1, Ordering::Relaxed);
+    let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
     if let Some(previous) = index::lock(&app.state::<Scans>().0).replace(cancel.clone()) {
         previous.store(true, Ordering::Relaxed);
     }
+
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(ScanStarted { total: 0, scan_id });
+    };
 
     let listed = {
         let dir = dir.clone();
@@ -169,6 +194,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<usize, St
                     "scan-progress",
                     Progress {
                         dir: &dir,
+                        scan_id,
                         done,
                         total,
                     },
@@ -179,17 +205,19 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<usize, St
             "scan-done",
             Done {
                 dir: &dir,
+                scan_id,
                 total: summary.total,
                 errors: summary.errors,
             },
         );
     });
-    Ok(total)
+    Ok(ScanStarted { total, scan_id })
 }
 
 #[derive(serde::Serialize, Clone)]
 struct Progress<'a> {
     dir: &'a str,
+    scan_id: u64,
     done: usize,
     total: usize,
 }
@@ -197,17 +225,22 @@ struct Progress<'a> {
 #[derive(serde::Serialize, Clone)]
 struct Done<'a> {
     dir: &'a str,
+    scan_id: u64,
     total: usize,
     errors: usize,
 }
 
-/// The indexed rows of `dir`, in the same order as `list_arw`.
+/// The indexed rows of `dir`, in the same order as `list_arw`. Empty when the
+/// index cache is unavailable.
 #[tauri::command]
 pub async fn folder_entries(
     app: tauri::AppHandle,
     dir: String,
 ) -> Result<Vec<IndexedFile>, String> {
-    let index = app.state::<AppIndex>().0.clone();
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(Vec::new());
+    };
     tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
         .await
         .map_err(|e| e.to_string())?
@@ -216,7 +249,9 @@ pub async fn folder_entries(
 /// The cached thumbnail of one file, in the same envelope as `preview`.
 #[tauri::command]
 pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {
-    let index = app.state::<AppIndex>().0.clone();
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Err("no index cache available".to_string());
+    };
     let (orientation, jpeg) =
         tauri::async_runtime::spawn_blocking(move || index::lock(&index).thumbnail(&path))
             .await
@@ -226,6 +261,16 @@ pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, 
         orientation,
         &jpeg,
     )))
+}
+
+/// Resolve symlinks and normalize a folder path so the same folder reached
+/// through different spellings (a trailing separator, a symlinked parent,
+/// `/tmp` vs `/private/tmp` on macOS) shares one row set in the index. Falls
+/// back to the original string when canonicalization fails (e.g. the folder
+/// was removed between picking and scanning).
+fn canonicalize(dir: &str) -> String {
+    std::fs::canonicalize(dir)
+        .map_or_else(|_| dir.to_string(), |p| p.to_string_lossy().into_owned())
 }
 
 #[cfg(test)]
