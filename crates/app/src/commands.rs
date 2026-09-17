@@ -2,15 +2,23 @@
 //! preview extraction.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Response;
+use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+
+use crate::index::{self, Index, IndexedFile};
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
 
 /// Tag identifying the payload kind and version: an IFD0 preview JPEG, v1.
 pub const PREVIEW_KIND_JPEG_V1: u16 = 1;
+
+/// Tag for the other payload kind: a cached thumbnail JPEG, v1.
+pub const THUMBNAIL_KIND_JPEG_V1: u16 = 2;
 
 /// Build a `preview` payload: a fixed-size little-endian header followed by the
 /// embedded JPEG bytes, copied verbatim.
@@ -19,15 +27,16 @@ pub const PREVIEW_KIND_JPEG_V1: u16 = 1;
 ///
 /// | offset | size | field                                       |
 /// |--------|------|---------------------------------------------|
-/// | 0      | 2    | kind/version tag (`PREVIEW_KIND_JPEG_V1`)   |
+/// | 0      | 2    | kind/version tag (`PREVIEW_KIND_JPEG_V1` or |
+/// |        |      | `THUMBNAIL_KIND_JPEG_V1`)                   |
 /// | 2      | 2    | EXIF Orientation (1..8)                     |
 /// | 4      | 4    | reserved, zero                              |
 ///
 /// Width and height are not carried: the JPEG itself has them and
 /// `createImageBitmap` reports them.
-fn payload(orientation: u16, jpeg: &[u8]) -> Vec<u8> {
+fn payload(kind: u16, orientation: u16, jpeg: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(PREVIEW_HEADER_LEN + jpeg.len());
-    out.extend_from_slice(&PREVIEW_KIND_JPEG_V1.to_le_bytes());
+    out.extend_from_slice(&kind.to_le_bytes());
     out.extend_from_slice(&orientation.to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
     out.extend_from_slice(jpeg);
@@ -91,7 +100,132 @@ pub async fn preview(path: String) -> Result<Response, String> {
     let bytes = tauri::async_runtime::spawn_blocking(move || read_preview(Path::new(&path)))
         .await
         .map_err(|e| e.to_string())??;
-    Ok(Response::new(payload(bytes.0, &bytes.1)))
+    Ok(Response::new(payload(
+        PREVIEW_KIND_JPEG_V1,
+        bytes.0,
+        &bytes.1,
+    )))
+}
+
+/// The cancel flag of the one scan that may be running, so that opening
+/// another folder cancels it.
+#[derive(Default)]
+pub struct Scans(pub Mutex<Option<Arc<AtomicBool>>>);
+
+/// The index, shared between the commands and the scan thread.
+pub struct AppIndex(pub Arc<Mutex<Index>>);
+
+/// Threads the scan runs on: two fewer than the cores. Step 3 measured that
+/// this costs ~10% of scan throughput against using every core, and leaves two
+/// cores for the paging path so the app stays responsive while scanning; more
+/// threads than cores did not help and doubled the per-file p95.
+fn scan_threads() -> usize {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    cores.saturating_sub(2).max(1)
+}
+
+/// Bring the index of `dir` up to date: drop the rows of files that are gone,
+/// then scan whatever has no valid row in the background. Returns at once with
+/// the number of files that need scanning; progress arrives as `scan-progress`
+/// events and the end as `scan-done`.
+#[tauri::command]
+pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<usize, String> {
+    let index = app.state::<AppIndex>().0.clone();
+    let cancel = Arc::new(AtomicBool::new(false));
+    if let Some(previous) = index::lock(&app.state::<Scans>().0).replace(cancel.clone()) {
+        previous.store(true, Ordering::Relaxed);
+    }
+
+    let listed = {
+        let dir = dir.clone();
+        tauri::async_runtime::spawn_blocking(move || list_arw_in(Path::new(&dir)))
+            .await
+            .map_err(|e| e.to_string())??
+    };
+
+    let todo = {
+        let (dir, index) = (dir.clone(), index.clone());
+        tauri::async_runtime::spawn_blocking(move || {
+            let files: Vec<_> = listed
+                .iter()
+                .filter_map(|p| index::stat(Path::new(p)).ok())
+                .collect();
+            index::lock(&index).reconcile(&dir, &files)
+        })
+        .await
+        .map_err(|e| e.to_string())??
+    };
+
+    let total = todo.len();
+    tauri::async_runtime::spawn_blocking(move || {
+        let summary = index::run_scan(
+            &index,
+            &dir,
+            &todo,
+            scan_threads(),
+            &cancel,
+            |done, total| {
+                let _ = app.emit(
+                    "scan-progress",
+                    Progress {
+                        dir: &dir,
+                        done,
+                        total,
+                    },
+                );
+            },
+        );
+        let _ = app.emit(
+            "scan-done",
+            Done {
+                dir: &dir,
+                total: summary.total,
+                errors: summary.errors,
+            },
+        );
+    });
+    Ok(total)
+}
+
+#[derive(serde::Serialize, Clone)]
+struct Progress<'a> {
+    dir: &'a str,
+    done: usize,
+    total: usize,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct Done<'a> {
+    dir: &'a str,
+    total: usize,
+    errors: usize,
+}
+
+/// The indexed rows of `dir`, in the same order as `list_arw`.
+#[tauri::command]
+pub async fn folder_entries(
+    app: tauri::AppHandle,
+    dir: String,
+) -> Result<Vec<IndexedFile>, String> {
+    let index = app.state::<AppIndex>().0.clone();
+    tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The cached thumbnail of one file, in the same envelope as `preview`.
+#[tauri::command]
+pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {
+    let index = app.state::<AppIndex>().0.clone();
+    let (orientation, jpeg) =
+        tauri::async_runtime::spawn_blocking(move || index::lock(&index).thumbnail(&path))
+            .await
+            .map_err(|e| e.to_string())??;
+    Ok(Response::new(payload(
+        THUMBNAIL_KIND_JPEG_V1,
+        orientation,
+        &jpeg,
+    )))
 }
 
 #[cfg(test)]
@@ -139,11 +273,20 @@ mod tests {
     #[test]
     fn payload_header_encodes_kind_and_orientation() {
         let jpeg = [0xff, 0xd8, 0xff, 0xd9];
-        let out = payload(8, &jpeg);
+        let out = payload(PREVIEW_KIND_JPEG_V1, 8, &jpeg);
         assert_eq!(out.len(), PREVIEW_HEADER_LEN + jpeg.len());
         assert_eq!(u16::from_le_bytes([out[0], out[1]]), PREVIEW_KIND_JPEG_V1);
         assert_eq!(u16::from_le_bytes([out[2], out[3]]), 8);
         assert_eq!(u32::from_le_bytes([out[4], out[5], out[6], out[7]]), 0);
+        assert_eq!(&out[PREVIEW_HEADER_LEN..], &jpeg);
+    }
+
+    #[test]
+    fn thumbnail_payload_header_encodes_kind_two_and_orientation() {
+        let jpeg = [0xff, 0xd8, 0xff, 0xd9];
+        let out = payload(THUMBNAIL_KIND_JPEG_V1, 6, &jpeg);
+        assert_eq!(u16::from_le_bytes([out[0], out[1]]), THUMBNAIL_KIND_JPEG_V1);
+        assert_eq!(u16::from_le_bytes([out[2], out[3]]), 6);
         assert_eq!(&out[PREVIEW_HEADER_LEN..], &jpeg);
     }
 

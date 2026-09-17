@@ -186,7 +186,7 @@ Settled with the user; do not reopen.
       or just adds contention with paging
     - Assumes Step 2 is merged
 
-- [ ] Step 4: App: SQLite index, background scan on folder open, progress in the status line
+- [x] Step 4: App: SQLite index, background scan on folder open, progress in the status line
   - Done when:
     - `crates/app/src/index.rs` opens (creating on first use)
       `<app_cache_dir>/index.sqlite` via

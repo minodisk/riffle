@@ -149,6 +149,53 @@ guaranteed cold:
   starved while the scan runs. Nothing beyond `available_parallelism()` should
   ever be used.
 
+## Step 4: SQLite index, background scan, progress in the status line
+
+- **Second open is 34ms, not seconds.** Measured on 5000 symlinks to the real
+  ARW with a temporary `#[ignore]`d test (removed before committing): `stat` of
+  5000 files 42ms, reconciliation 1.3ms, and the full second open
+  (stat + reconcile + `entries`) **34.4ms** against a fully populated index.
+  The 3s criterion has two orders of magnitude of headroom. The first scan of
+  the same folder took 5.55s on 10 threads with 0 errors, matching Step 3.
+- **The database is 104,177,664 bytes for 5000 rows** (~20.8KB per row), right
+  on Step 3's 19232-byte thumbnail mean plus SQLite overhead. Worth repeating
+  in the README: deleting rows does not shrink the file without `VACUUM`.
+- **Thread count: `available_parallelism() - 2` (10 here)**, per Step 3's
+  measurement; the reason (10% slower than all cores, two cores left for the
+  paging path) is in a comment on `scan_threads` in `crates/app/src/commands.rs`.
+- **`rusqlite` with `bundled` is cheap to build here, not "a few minutes".**
+  After `cargo clean -p libsqlite3-sys`, rebuilding `libsqlite3-sys` +
+  `rusqlite` + `riffle-app` took **6.6s** on this machine. `timeout-minutes: 30`
+  in `.github/workflows/ci.yml` was left alone; nothing suggests it is close.
+- **`on_item` runs on rayon workers, so nothing in it may panic or poison.**
+  `index::lock` takes every mutex with `unwrap_or_else(|e| e.into_inner())`, a
+  failed batch write is counted into `errors` instead of unwrapping, and the
+  scan's progress throttle is a `Mutex<Option<Instant>>` handled the same way.
+  This is the contract Step 3's review wrote down, and it is why the scan code
+  has no `unwrap` outside tests.
+- **The cancel test could not drive the cancel flag from the progress
+  callback**: progress is throttled to ~10/s, so a 200-file scan reports twice.
+  The test spawns a watcher thread (`std::thread::scope`) that polls the row
+  count and cancels once a batch has landed, then asserts that what was
+  persisted equals what was scanned - which is the property the batching
+  exists for.
+- Design note: `Index::open` **discards a database written by a different
+  `user_version`** rather than migrating. It is a cache; rebuilding it costs one
+  scan, and migrations would be code nothing has yet needed.
+- `payload` in `commands.rs` grew a `kind` parameter so `preview` and
+  `thumbnail` share one envelope; `THUMBNAIL_KIND_JPEG_V1 = 2`.
+
+### Not verified here
+
+- **The progress line has not been seen running.** `pnpm tauri dev` needs the
+  GUI and `osascript` assistive access is denied on this machine, so nothing
+  drove the window. What *is* established is static: the generated
+  `crates/app/gen/schemas/acl-manifests.json` shows `core:default` ->
+  `core:event:default` -> `allow-listen`, so the capability is present. **The
+  user must confirm in the running app** that `scanning 1234 / 5000` appears and
+  counts up, that paging stays responsive during a scan, and that the second
+  open of a real folder is fast.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -167,3 +214,13 @@ guaranteed cold:
   `bench` (`crates/cli/src/main.rs`). Those subcommands need the full-size
   `JpgFromRaw`, which is past the 1 MiB prefix, so moving them to
   `reader::read_head` was left out of this step deliberately.
+- The scan does not re-run when files appear in a folder that is already open
+  (from this step's `scan_folder` in `crates/app/src/commands.rs`): the index is
+  reconciled only when a folder is opened. A watcher, or a rescan on refocus, is
+  out of scope for Phase 3.
+- The index file is never pruned or `VACUUM`ed (this step's
+  `crates/app/src/index.rs`): rows of folders never opened again keep their
+  ~20KB thumbnail forever, and deleted rows do not shrink the file. A size cap
+  or an LRU eviction has no phase that owns it yet.
+- `ping` in `crates/app/src/main.rs` is still orphaned; this step did not need
+  to touch it, so it was left for its existing todo item.
