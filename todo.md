@@ -79,11 +79,3 @@ The `ping` command in `crates/app/src/main.rs` is left over from Step 2 and now 
 #### TODO
 
 - [ ] Remove the unused `ping` command from `crates/app/src/main.rs` (and its registration).
-
-### Docs: write `docs/agents/tauri-app.md`
-
-`docs/agents/` is empty today, so the Step 2-4 Tauri/frontend gotchas have nowhere to be consolidated and would otherwise be rediscovered by the next task touching `crates/app/` (Tauri commands, `tauri.conf.json`, or `crates/app/ui/`).
-
-#### TODO
-
-- [ ] Write `docs/agents/tauri-app.md` covering: `frontendDist` resolves relative to the directory holding `tauri.conf.json` (so a sibling `ui/` is `"ui"`, not `"../ui"`); `tsc` refuses `outDir` equal to `rootDir` (TS18003), so emitting in place means omitting both; a `.ts` file with no import/export is a global script whose top-level names can collide with `lib.dom` globals; `DedicatedWorkerGlobalScope` is absent from the `dom` lib and `webworker` conflicts with it, so a worker needs a locally declared interface and a cast; relative frontend imports need an explicit `.js` extension because `moduleResolution: "bundler"` won't enforce it; synchronous `#[tauri::command]`s already run off the main thread while async ones doing blocking IO need `spawn_blocking`; CI must take the pnpm store path from `pnpm store path --silent` rather than hard-coding it; and that `osascript` assistive access may be denied on macOS dev machines, so GUI verification needs a manual-confirmation fallback.
