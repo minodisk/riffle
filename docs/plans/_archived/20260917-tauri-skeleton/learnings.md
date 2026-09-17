@@ -189,3 +189,47 @@ Not verified:
 - `README.md`'s anchor link to `#running-the-app` is not checked by anything;
   there is no Markdown link checker in `mise run ci`. Basis: noticed while
   adding the link in Step 5. Paths: `mise.toml`, `README.md`.
+- Write a guide at `docs/agents/tauri-app.md`, to be read by any task touching
+  `crates/app/` (Tauri commands, `tauri.conf.json`, or the `crates/app/ui/`
+  frontend). `docs/agents/` is empty today, so the Phase 2 gotchas have nowhere
+  to be consolidated and would otherwise be rediscovered. It should carry, from
+  the Step 2–4 sections above: that `frontendDist` resolves relative to the
+  directory holding `tauri.conf.json` (so a sibling `ui/` is `"ui"`, not
+  `"../ui"`, and a wrong value fails `generate_context!()`); that `tsc` refuses
+  `outDir` equal to `rootDir` (TS18003), so emitting in place means omitting
+  both; that a `.ts` file with no import/export is a global script whose
+  top-level names can collide with `lib.dom` globals; that
+  `DedicatedWorkerGlobalScope` is absent from the `dom` lib and the `webworker`
+  lib conflicts with it, so a worker needs a locally declared interface and a
+  cast; that relative frontend imports need an explicit `.js` extension because
+  `moduleResolution: "bundler"` will not enforce it; that synchronous
+  `#[tauri::command]`s already run off the main thread while async ones doing
+  blocking IO need `spawn_blocking`; that CI must take the pnpm store path from
+  `pnpm store path --silent` rather than hard-coding it; and that on this macOS
+  machine `osascript` assistive access is denied, so a task needing GUI
+  verification should plan for manual confirmation instead of assuming
+  automation. Done when that file exists and the points are in it. Basis: the
+  learnings-extractor's record-only proposal, sourced from Steps 2–4 of this
+  file. Paths: `docs/agents/tauri-app.md`.
+- This repository has no `.claude/settings.json` and no
+  `.claude/settings.local.json` at all, so the wrap-up's `settings-promoter`
+  step had nothing to promote and returned `FAILED` (its `NO_CHANGES` state
+  covers "no diff", not "no file"). Two separate things follow. First, the
+  ported skills repeatedly assume a permission allowlist exists — for instance
+  the local-review step says `Bash(date *)` is "already on the
+  `.claude/settings.json` allowlist", and several scripts insist on relative
+  paths so they match allow rules that are not there. Those claims are
+  currently false here. Second, nothing records which permissions this workflow
+  actually needs, so a fresh clone re-approves everything by hand. Decide
+  whether to create a checked-in `.claude/settings.json` with the allowlist the
+  skills assume, and if not, correct the skill text that claims one exists.
+  Basis: observed at wrap-up step 3.4 of this plan. Paths:
+  `.claude/settings.json`, `.claude/skills/develop/SKILL.md`,
+  `.claude/skills/pr/SKILL.md`.
+- Deferred judgement, not yet worth filing on its own: the fixture trick from
+  Step 1 — a hand-built TIFF for `arw::parse` tests needs only the 8-byte header
+  plus IFD0, because `next_ifd = 0` stops the chain walk and no SubIFD has to be
+  faked. It is one narrow fact about one parser's tests rather than a general
+  pattern, so it stays here for now. Revisit when `crates/core`'s ARW parsing
+  tests are next touched: if it still holds and is still needed, decide then
+  whether it belongs in a guide. Paths: `crates/core/src/arw.rs`.
