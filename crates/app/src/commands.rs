@@ -68,12 +68,21 @@ fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
     Ok((arw.orientation, arw.slice(&buf, embedded).to_vec()))
 }
 
+/// Open the native folder picker and resolve once the user answers, or `None`
+/// if they cancel.
+///
+/// The dialog is driven by the main thread's run loop, so the blocking variant
+/// must not be used: a synchronous command runs on the main thread, and waiting
+/// there freezes the very loop that delivers the dialog's button events. The
+/// callback form hands the answer back over a channel this async command awaits
+/// instead.
 #[tauri::command]
-pub fn pick_folder(app: tauri::AppHandle) -> Option<String> {
-    app.dialog()
-        .file()
-        .blocking_pick_folder()
-        .map(|p| p.to_string())
+pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    app.dialog().file().pick_folder(move |path| {
+        let _ = tx.try_send(path);
+    });
+    rx.recv().await.flatten().map(|p| p.to_string())
 }
 
 #[tauri::command]
