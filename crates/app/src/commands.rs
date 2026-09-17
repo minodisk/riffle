@@ -55,17 +55,13 @@ fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
         .collect())
 }
 
-/// Read a file and extract its IFD0 preview JPEG along with the Orientation.
+/// Extract a file's IFD0 preview JPEG along with the Orientation, reading only
+/// the bounded prefix the metadata and the preview need rather than the whole
+/// 48 MB file.
 fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
-    let buf = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let arw = riffle_core::arw::parse(&buf).map_err(|e| format!("{}: {e}", path.display()))?;
-    let embedded = arw
-        .preview
-        .ok_or_else(|| format!("{}: no embedded preview", path.display()))?;
-    if embedded.offset + embedded.length > buf.len() {
-        return Err(format!("{}: preview out of range", path.display()));
-    }
-    Ok((arw.orientation, arw.slice(&buf, embedded).to_vec()))
+    let (arw, jpeg) =
+        riffle_core::reader::read_preview(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok((arw.orientation, jpeg))
 }
 
 /// Open the native folder picker and resolve once the user answers, or `None`

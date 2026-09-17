@@ -45,3 +45,59 @@ pub fn apply_orientation(
         _ => (rgb.to_vec(), w, h),
     }
 }
+
+/// Decode a preview JPEG at 2/8 scale (1616x1080 -> 404x270) and re-encode it
+/// as a baseline JPEG for the thumbnail cache.
+///
+/// The output keeps the preview's orientation, i.e. it is **unrotated**: the
+/// caller carries the Orientation alongside it, as the preview tier does.
+pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
+    let mut d = mozjpeg::Decompress::new_mem(preview_jpeg)?;
+    d.scale(2);
+    let mut d = d.rgb()?;
+    let (w, h) = (d.width(), d.height());
+    let pixels: Vec<[u8; 3]> = d.read_scanlines()?;
+    d.finish()?;
+    let rgb: Vec<u8> = pixels.into_iter().flatten().collect();
+
+    let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+    c.set_size(w, h);
+    c.set_quality(quality);
+    // Baseline, not progressive: the strip decodes these one by one on the UI
+    // thread, and mozjpeg's scan optimisation costs more time than the few
+    // kilobytes it saves at this size.
+    c.set_optimize_scans(false);
+    let mut c = c.start_compress(Vec::new())?;
+    c.write_scanlines(&rgb)?;
+    Ok(c.finish()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Encode a synthetic gradient so the test needs no image file.
+    fn jpeg(w: usize, h: usize) -> Vec<u8> {
+        let mut rgb = Vec::with_capacity(w * h * 3);
+        for y in 0..h {
+            for x in 0..w {
+                rgb.extend_from_slice(&[(x * 255 / w) as u8, (y * 255 / h) as u8, 128]);
+            }
+        }
+        let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+        c.set_size(w, h);
+        c.set_quality(90.0);
+        let mut c = c.start_compress(Vec::new()).unwrap();
+        c.write_scanlines(&rgb).unwrap();
+        c.finish().unwrap()
+    }
+
+    #[test]
+    fn thumbnail_is_a_quarter_size_jpeg() {
+        let out = thumbnail_jpeg(&jpeg(1616, 1080), 80.0).unwrap();
+        assert_eq!(&out[..2], &[0xff, 0xd8]);
+        let (rgb, w, h) = decode_rgb(&out).unwrap();
+        assert_eq!((w, h), (404, 270));
+        assert_eq!(rgb.len(), w * h * 3);
+    }
+}
