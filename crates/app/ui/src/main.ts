@@ -37,6 +37,11 @@ let inFlight = false;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
+// Bumped at the start of every `openFolder`, so that when two overlapping
+// `openFolder` calls race, the `list_arw` result of the one that is no
+// longer current (e.g. A resolves after B was opened) is dropped instead of
+// overwriting `files` with a stale folder's contents.
+let folderToken = 0;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -173,6 +178,8 @@ strip.init((selected) => {
 });
 
 function openFolder(): void {
+  folderToken += 1;
+  const token = folderToken;
   window.__TAURI__.core
     .invoke<string | null>("pick_folder")
     .then((folder) => {
@@ -182,6 +189,9 @@ function openFolder(): void {
       return window.__TAURI__.core
         .invoke<string[]>("list_arw", { dir: folder })
         .then((found) => {
+          if (token !== folderToken) {
+            return;
+          }
           files = found;
           index = 0;
           strip.setFiles(files);

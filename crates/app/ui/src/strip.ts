@@ -5,11 +5,17 @@
 const THUMBNAIL_HEADER_LEN = 8;
 const THUMBNAIL_KIND_JPEG_V1 = 2;
 
-// Cell geometry. The strip column is 160px wide; a cell is a 144x144 image box
-// plus the file name. Both orientations fit that box: the thumbnail is
-// 404x270, so a quarter turn is 144x96 upright. A fixed height keeps
+const strip = document.getElementById("strip") as HTMLDivElement;
+const inner = document.getElementById("strip-inner") as HTMLDivElement;
+
+// Cell geometry. The strip column is 160px wide; a cell is a 144x96 image box
+// plus the file name, and 96x144 upright after a quarter turn. Read from the
+// `--cell-height` custom property in `style.css` (the single source of truth
+// for cell placement) rather than duplicated here. A fixed height keeps
 // `scrollTop -> index` arithmetic, which is what makes virtualisation cheap.
-const CELL_HEIGHT = 176;
+const CELL_HEIGHT = Number.parseFloat(
+  getComputedStyle(inner).getPropertyValue("--cell-height"),
+);
 // Cells kept beyond the visible range, so a short scroll shows an image that
 // is already decoded.
 const RANGE_MARGIN = 4;
@@ -22,9 +28,6 @@ interface Cell {
   url: string | null;
 }
 
-const strip = document.getElementById("strip") as HTMLDivElement;
-const inner = document.getElementById("strip-inner") as HTMLDivElement;
-
 let files: string[] = [];
 let current = 0;
 // Bumped on every `setFiles`; a response tagged with an older generation
@@ -34,10 +37,18 @@ const cells = new Map<number, Cell>();
 // Indices with a request in flight or already answered, so a cell scrolling
 // back into view does not ask again.
 const requested = new Set<number>();
+// Indices with an `invoke` currently in flight. Unlike `requested`, `render`
+// never clears this, so a cell that scrolls out and back in while its
+// request is still pending does not issue a second `invoke`.
+const inFlightIndices = new Set<number>();
 // Indices the index has no thumbnail for yet (the scan has not reached them,
 // or the file errored). Cleared on `refresh` so a `scan-progress` event
 // re-requests them.
 const missing = new Set<number>();
+// Indices whose request failed for a reason other than "not yet scanned".
+// Kept separate from `missing` so a real failure is shown once instead of
+// being retried forever like a not-yet-scanned file.
+const failed = new Set<number>();
 let inFlight = 0;
 let select: (index: number) => void = () => {};
 
@@ -73,6 +84,7 @@ function createCell(index: number): Cell {
 function highlight(): void {
   for (const [index, cell] of cells) {
     cell.el.classList.toggle("current", index === current);
+    cell.el.classList.toggle("failed", failed.has(index));
   }
 }
 
@@ -83,7 +95,12 @@ function pickNext(): number | null {
   let best: number | null = null;
   let bestDistance = Infinity;
   for (const index of cells.keys()) {
-    if (requested.has(index) || missing.has(index)) {
+    if (
+      requested.has(index) ||
+      inFlightIndices.has(index) ||
+      missing.has(index) ||
+      failed.has(index)
+    ) {
       continue;
     }
     const distance = Math.abs(index - centre);
@@ -97,15 +114,14 @@ function pickNext(): number | null {
 
 function request(index: number): void {
   requested.add(index);
+  inFlightIndices.add(index);
   inFlight += 1;
   const currentGeneration = generation;
   window.__TAURI__.core
     .invoke<ArrayBuffer>("thumbnail", { path: files[index] })
     .then((payload) => {
-      inFlight -= 1;
       const cell = cells.get(index);
       if (currentGeneration !== generation || cell === undefined) {
-        pump();
         return;
       }
       const header = new DataView(payload, 0, THUMBNAIL_HEADER_LEN);
@@ -121,14 +137,25 @@ function request(index: number): void {
       cell.img.src = cell.url;
       cell.img.className =
         orientation === 6 ? "cw" : orientation === 8 ? "ccw" : "";
-      pump();
     })
-    .catch(() => {
-      // No row yet, or the file errored during the scan: leave the
-      // placeholder and let the next `refresh` ask again.
-      inFlight -= 1;
+    .catch((err: unknown) => {
       requested.delete(index);
-      missing.add(index);
+      // The index row exists but its `thumb` column is NULL only once the
+      // file has actually been processed and failed (see
+      // `Index::thumbnail` in `crates/app/src/index.rs`), so this message
+      // means a permanent failure rather than "not yet scanned". Record it
+      // separately so it is shown once instead of retried on every
+      // `refresh`.
+      if (String(err).includes("no cached thumbnail")) {
+        failed.add(index);
+      } else {
+        missing.add(index);
+      }
+    })
+    .finally(() => {
+      inFlight -= 1;
+      inFlightIndices.delete(index);
+      highlight();
       pump();
     });
 }
@@ -179,7 +206,9 @@ export function setFiles(paths: string[]): void {
   }
   cells.clear();
   requested.clear();
+  inFlightIndices.clear();
   missing.clear();
+  failed.clear();
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;
