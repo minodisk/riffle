@@ -61,7 +61,7 @@ pub fn read_metadata(path: &Path) -> Result<Arw> {
     let bounded = head.len() == HEAD_LIMIT;
     match arw::parse(&head) {
         Ok(arw) => Ok(arw),
-        Err(e) if bounded => arw::parse(&std::fs::read(path)?).map_err(|_| e),
+        Err(_) if bounded => arw::parse(&std::fs::read(path)?),
         Err(e) => Err(e),
     }
 }

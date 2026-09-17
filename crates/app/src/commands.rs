@@ -145,7 +145,11 @@ pub struct Metadata {
 fn decimal(r: riffle_core::arw::Rational, places: usize) -> Option<String> {
     let v = r.value()?;
     let text = format!("{v:.places$}");
-    let text = text.trim_end_matches('0').trim_end_matches('.');
+    let text = if text.contains('.') {
+        text.trim_end_matches('0').trim_end_matches('.')
+    } else {
+        text.as_str()
+    };
     Some(text.to_string())
 }
 
@@ -587,6 +591,10 @@ mod tests {
             Some("50")
         );
         assert_eq!(decimal(Rational { num: 1, den: 0 }, 1), None);
+        assert_eq!(
+            decimal(Rational { num: 100, den: 1 }, 0).as_deref(),
+            Some("100")
+        );
     }
 
     #[test]
