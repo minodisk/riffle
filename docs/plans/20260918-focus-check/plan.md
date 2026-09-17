@@ -116,7 +116,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
     - Port the scaling from `focusbox()` in `crates/cli/src/main.rs`
       (`sx = w / sensor_w`, `sy = h / sensor_h`); do not re-derive it
 
-- [ ] Step 2: App: an async `focus_crop` command returning the crop as a raw RGBA payload
+- [x] Step 2: App: an async `focus_crop` command returning the crop as a raw RGBA payload
   - Done when:
     - `crates/app/src/commands.rs` has `#[tauri::command] pub async fn
       focus_crop(path, width, height)` that runs the Step 1 read and decode in
@@ -326,3 +326,4 @@ later wants to cache crop parameters, that is a Phase 4 question.
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete

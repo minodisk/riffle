@@ -41,7 +41,8 @@ fn main() {
             commands::start_scan,
             commands::folder_entries,
             commands::thumbnail,
-            commands::metadata
+            commands::metadata,
+            commands::focus_crop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

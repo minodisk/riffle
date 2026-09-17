@@ -37,6 +37,27 @@
   CLI drops the alpha channel before rotating. Not worth generalising
   `apply_orientation` for one caller.
 
+## Step 2: the app's `focus_crop` command
+
+- The payload header is 24 bytes: kind, orientation, crop width, crop height,
+  point x, point y, and 4 reserved bytes. The existing 8-byte `payload()`
+  header and kinds 1/2 are untouched; kind 3 is a separate builder
+  (`crop_payload`) because the field set has nothing in common with them.
+- `crop_size()` holds both the cap (`CROP_MAX = 1024`) and the Orientation 6/8
+  swap, so it is unit-testable without a file. The synthetic TIFF the
+  round-trip test builds has no Orientation tag (so orientation 1), which is
+  why the swap is covered through `crop_size` rather than through the ARW.
+- The crop's origin snaps **down** to the MCU boundary and the returned width
+  is not necessarily widened: for a 64px-wide request centred at x=200 on a
+  400x300 gradient, `jpeg_crop_scanline` gave width 64 at x=160, so the point
+  of interest landed at 40, not 32. The test asserts
+  `point_x == centre - crop.x` rather than a fixed number; an earlier guess
+  that the width grows to absorb the snap was wrong (it does on the 4:2:2 test
+  file, not here).
+- `mozjpeg` was already a dev-dependency of `crates/app`, so the gradient
+  encoder used by `index.rs`'s tests could be mirrored in `commands.rs`
+  without touching `Cargo.toml`.
+
 ## Deferred issues (todo candidates)
 
 - `riffle-cli bench`'s crop row still feeds `FocusLocation` coordinates
