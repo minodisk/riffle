@@ -364,7 +364,7 @@ Settled with the user; do not reopen.
       note in the PR if it has to be touched
     - Assumes Step 4 is merged; independent of Steps 5 and 6
 
-- [ ] Step 8: Documentation and status update
+- [x] Step 8: Documentation and status update
   - Done when:
     - `README.md` "Status" says Phase 3 is done, describes the index (where
       the database lives per OS, what is in it, how invalidation works), the
