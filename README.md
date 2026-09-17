@@ -19,7 +19,7 @@ highlights the current file, scrolls to follow paging, and a click on a cell
 shows that file. When the index has a `FocusLocation` for the current file, a
 focus box is drawn over the preview; it is placed in unrotated sensor
 coordinates and rotated with the image. Still missing: no prefetch, no 1:1
-focus check, no rating.
+focus check, no rating. See [Running the app](#running-the-app).
 
 Keys:
 
@@ -37,7 +37,8 @@ lower-cased, so Shift+J pages like `j`.
 
 On the first open of a folder, every ARW in it is extracted in parallel
 (capture time, `SubSecTimeOriginal`, `FocusLocation`, Orientation and a 404x270
-thumbnail, all from a bounded 1MiB read) into a SQLite database. The status
+thumbnail, from a bounded 1MiB prefix plus a ranged read of the preview
+itself) into a SQLite database. The status
 line shows `scanning N / M` while that runs; the first preview does not wait
 for it. The database lives in the app cache directory:
 
