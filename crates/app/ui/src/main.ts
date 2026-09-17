@@ -67,6 +67,11 @@ let openDir: string | null = null;
 // and two overlapping reads cannot land out of order and clobber `entries`
 // with a stale snapshot.
 let entriesInFlight = false;
+// True when a refresh was requested while one was already in flight. Re-run
+// once the in-flight one settles, so the authoritative `scan-done` refresh
+// is never silently dropped just because a `scan-progress` refresh happened
+// to be outstanding at that moment.
+let entriesPending = false;
 let showFocus = true;
 
 // Side of the focus box as a fraction of the image's short side, so it reads
@@ -133,7 +138,11 @@ function draw(): void {
 }
 
 function refreshEntries(): void {
-  if (openDir === null || entriesInFlight) {
+  if (openDir === null) {
+    return;
+  }
+  if (entriesInFlight) {
+    entriesPending = true;
     return;
   }
   const dir = openDir;
@@ -142,6 +151,10 @@ function refreshEntries(): void {
     .invoke<IndexedFile[]>("folder_entries", { dir })
     .then((rows) => {
       entriesInFlight = false;
+      if (entriesPending) {
+        entriesPending = false;
+        refreshEntries();
+      }
       if (dir !== openDir) {
         return;
       }
@@ -153,6 +166,10 @@ function refreshEntries(): void {
     })
     .catch(() => {
       entriesInFlight = false;
+      if (entriesPending) {
+        entriesPending = false;
+        refreshEntries();
+      }
       // A folder with no index cache simply has no focus boxes.
     });
 }

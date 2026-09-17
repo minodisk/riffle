@@ -140,7 +140,13 @@ function request(index: number): void {
       cell.url = URL.createObjectURL(blob);
       cell.img.src = cell.url;
       cell.img.className =
-        orientation === 6 ? "cw" : orientation === 8 ? "ccw" : "";
+        orientation === 6
+          ? "cw"
+          : orientation === 8
+            ? "ccw"
+            : orientation === 3
+              ? "half"
+              : "";
     })
     .catch((err: unknown) => {
       // A response for a folder that is no longer open: bookkeeping below

@@ -83,6 +83,10 @@ body {
   transform: translate(-50%, -50%) rotate(-90deg);
 }
 
+.cell img.half {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
 .cell span {
   position: absolute;
   bottom: 2px;
