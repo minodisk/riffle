@@ -245,7 +245,7 @@ fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
     );
 
     let t = Instant::now();
-    let c = partial::decode_focus_crop(&jpeg, a.focus, size, size)?;
+    let c = partial::decode_focus_crop(&jpeg, a.shot.focus, size, size)?;
     println!(
         "crop {}x{} at ({},{}) point ({},{}) in {:?}",
         c.crop.width,
