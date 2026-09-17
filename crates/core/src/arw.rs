@@ -78,11 +78,10 @@ fn read_ifd(buf: &[u8], at: usize) -> Result<(Vec<Entry>, usize)> {
         ));
     }
     let next = at + 2 + count * 12;
-    let next_ifd = if next + 4 <= buf.len() {
-        u32le(buf, next) as usize
-    } else {
-        0
-    };
+    if next + 4 > buf.len() {
+        bail!("next IFD offset out of range");
+    }
+    let next_ifd = u32le(buf, next) as usize;
     Ok((entries, next_ifd))
 }
 
@@ -158,7 +157,7 @@ fn maker_note_ifd(buf: &[u8], entries: &[Entry]) -> Result<Option<Vec<Entry>>> {
         .checked_add(count)
         .filter(|&end| end <= buf.len())
         .ok_or_else(|| anyhow!("MakerNote out of range"))?;
-    let at = if buf[at..end].starts_with(b"SONY") {
+    let at = if count >= 14 && buf[at..end].starts_with(b"SONY") {
         at + 12
     } else {
         at

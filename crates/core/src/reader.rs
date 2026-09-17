@@ -42,9 +42,12 @@ pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
 
     match preview_from(&head, &mut file, bounded) {
         Ok(found) => Ok(found),
-        Err(e) if bounded => {
+        Err(_) if bounded => {
             let buf = std::fs::read(path)?;
-            preview_from(&buf, &mut file, false).map_err(|_| e)
+            // The prefix error only explains a truncated read; once the whole
+            // file is in memory, an error there describes what is actually
+            // wrong with the file, so surface that one instead.
+            preview_from(&buf, &mut file, false)
         }
         Err(e) => Err(e),
     }

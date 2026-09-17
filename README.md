@@ -52,8 +52,8 @@ given:
 | 20 distinct 48MB copies, first read | 20 | mean 16.0ms / p95 30.0ms | mean 5.1ms / p95 7.8ms |
 
 Both columns were re-measured together in Phase 3 Step 2, so they compare
-like with like; the whole-file numbers match the ones Phase 2 recorded
-(7.3ms / 19.3ms mean). The symlink folder is 5000 symlinks to the same file and
+like with like; the whole-file numbers are in the same range as the ones
+Phase 2 recorded (7.3ms / 19.3ms mean). The symlink folder is 5000 symlinks to the same file and
 the copy folder is 20 `cp` copies in a scratch directory, read in file-name
 order by a fresh process. `purge` needs root on this machine, so the "first
 read" column cannot be guaranteed cold; it is the same procedure the Phase 2
