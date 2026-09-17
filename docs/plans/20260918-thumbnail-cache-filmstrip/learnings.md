@@ -238,6 +238,31 @@ guaranteed cold:
   `./strip.js`, no `window.__TAURI__` use moved into a worker, and the cell
   arithmetic (176px pitch, 168px cell) matches the CSS.
 
+- Step 6: the focus box transform was verified without a GUI by comparing the
+  canvas arithmetic against `riffle-cli focusbox` on the real portrait file
+  (Orientation 8). The CLI drew its box centred at (400, 782) in the rotated
+  1080x1616 PNG; scaling `FocusLocation` (3613, 1732) of the 7008x4672 sensor
+  onto the unrotated 1616x1080 preview gives (833.2, 400.4), i.e. (+25, -140)
+  from the image centre, and `context.rotate(-PI/2)` maps a local `(u, v)` to
+  `(v, -u)` = (-140, -25) from the canvas centre — the same offset the PNG
+  shows. So scaling first and letting the existing rotation carry the box is
+  correct, and the two implementations are in step.
+- Canvas `rotate(theta)` maps `(u, v)` to `(u cos - v sin, u sin + v cos)`; for
+  the Orientation 8 case (`theta = -PI/2`) that is `(v, -u)`, a 90 degree CCW
+  turn, which is what `apply_orientation` does to the pixel buffer in the CLI.
+- The box is drawn inside the same `save`/`translate`/`scale(dpr)`/`rotate`
+  block as `drawImage`, in the unrotated image's CSS-pixel space, so its stroke
+  widths are DPR-correct for free.
+- `folder_entries` was re-read on `scan-done` and, during a scan, only when the
+  current file's row is still missing. Re-reading every row on each
+  `scan-progress` event (~10/s) would be all 5000 rows ten times a second for
+  one file's focus point.
+- `f` does not collide with any key the phases claim (`1`-`5`, `x`, `Space`,
+  `o`, and the paging keys `Arrow*`/WASD/HJKL).
+- Not verified here: the plan's **(manual)** criterion, that the box sits on the
+  subject's face in both orientations. GUI automation is denied on this machine.
+  What was checked is the arithmetic above plus `mise run ci`.
+
 ## Deferred issues (todo candidates)
 
 - Keyboard layout dependence of the WASD/HJKL bindings (from this step's
@@ -280,3 +305,9 @@ guaranteed cold:
   `.cell img`). True for the current 404x270 pipeline; a body with a
   differently shaped IFD0 preview would letterbox inside the box (harmless,
   thanks to `object-fit: contain`) but waste cell space.
+- The strip still discovers missing thumbnails by a failing `thumbnail` invoke
+  rather than reading `has_thumb` from the entries map Step 6 introduced
+  (`crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`). Taking it now
+  would mean keeping the whole entries map fresh during a scan for the strip's
+  sake, which is exactly the 10/s full re-read Step 6 avoided, so the existing
+  todo item from Step 5 stands.
