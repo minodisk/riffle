@@ -79,3 +79,84 @@ The `ping` command in `crates/app/src/main.rs` is left over from Step 2 and now 
 #### TODO
 
 - [ ] Remove the unused `ping` command from `crates/app/src/main.rs` (and its registration).
+
+### App: `decode::decode_rgb`'s CLI callers are unguarded against mozjpeg panics
+
+`mozjpeg` panics rather than returning `Err` on malformed JPEG input. Phase 3 wrapped only the scan path's call in `catch_unwind` (`crates/core/src/scan.rs`); `focusbox` / `bench` / `crop` in `crates/cli/src/main.rs` call `decode_rgb` directly, so a corrupt file aborts the CLI process instead of reporting an error.
+
+#### TODO
+
+- [ ] Wrap the CLI's `decode_rgb` call sites in `catch_unwind`, or move the guard into `decode_rgb` itself.
+
+### App: `riffle-cli` subcommands read whole files instead of the bounded prefix
+
+`info` / `focusbox` / `crop` / `bench` in `crates/cli/src/main.rs` still call `std::fs::read(path)` for the whole file rather than `reader::read_head`'s bounded prefix, unlike the scan path. This may be inherent: these subcommands need the full-size `JpgFromRaw`, which sits past the 1 MiB prefix.
+
+#### TODO
+
+- [ ] Decide whether these subcommands can move to `reader::read_head` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
+
+### App: no rescan when new files appear in an already-open folder
+
+`scan_folder` in `crates/app/src/commands.rs` reconciles the index only when a folder is opened, so a file added to an already-open folder is not picked up until the folder is reopened.
+
+#### TODO
+
+- [ ] Add a folder watcher, or a rescan on window refocus, to catch new files without a reopen.
+
+### App: the SQLite index is never pruned or `VACUUM`ed
+
+The database in `crates/app/src/index.rs` never evicts rows for folders that are not reopened, and deleting rows does not shrink the file without `VACUUM`. Measured at ~20.8KB per row (104,177,664 bytes for 5000 rows), so it grows without bound.
+
+#### TODO
+
+- [ ] Add a size cap or LRU eviction for the index, with a `VACUUM` step.
+
+### App: the filmstrip re-requests every visible placeholder on each `scan-progress` event
+
+`refresh` in `crates/app/ui/src/strip.ts`, driven from the `scan-progress` handler at ~10/s, re-requests every visible placeholder rather than only the indices the scan has newly passed. It is bounded by the 4-in-flight cap and the visible range, but it is avoidable IPC. Relatedly, the strip discovers whether a file has a thumbnail by invoking `thumbnail` and treating an `Err` as "not yet", rather than reading `has_thumb` from the `folder_entries` map, because keeping that map fresh during a scan would mean the same 10/s full re-read.
+
+#### TODO
+
+- [ ] Use the `done` counter or per-file `has_thumb` state to request only newly available thumbnails, if the strip turns out to be IPC-bound.
+
+### App: filmstrip cell geometry assumes 3:2 thumbnails
+
+`.cell img` in `crates/app/ui/style.css` is a fixed 144x96 box, matching the current 404x270 pipeline. A body with a differently shaped IFD0 preview would letterbox harmlessly (`object-fit: contain`) but waste cell space.
+
+#### TODO
+
+- [ ] Revisit if a camera body with a non-3:2 preview turns up.
+
+### App: a multi-file drop is rejected wholesale, and drag-hover gives no early feedback
+
+The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-item drop outright, even when every item shares one parent folder. Separately, the `body.dragging` overlay in `crates/app/ui/style.css` looks the same whether or not the payload will be accepted, although Tauri's `drag-enter` event already carries the paths.
+
+#### TODO
+
+- [ ] Take the common parent folder of a multi-file drop instead of rejecting it.
+- [ ] Indicate during drag-hover whether the drop will be accepted.
+
+### App: README's "Awaiting the user's confirmation" list has to be updated by hand
+
+`README.md` lists what still needs the user's manual confirmation (the filmstrip, the progress line, the focus box's placement, the drop gestures, responsiveness during a scan). Nothing in CI can catch that list going stale once the user has actually run the app.
+
+#### TODO
+
+- [ ] After the user confirms the Phase 3 UI by hand, rewrite the README's confirmation list accordingly.
+
+### App: paging keys follow `event.key`, not the physical layout
+
+The paging key handler in `crates/app/ui/src/main.ts` matches on `event.key`, so on a non-QWERTY layout (Dvorak, AZERTY) WASD and HJKL land on scattered physical keys.
+
+#### TODO
+
+- [ ] Revisit only if a user asks; a fix would be an `event.code` fallback or a key-config layer.
+
+### App: real-folder scan and second-open numbers are still missing
+
+Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
+
+#### TODO
+
+- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers.
