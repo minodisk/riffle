@@ -1,0 +1,64 @@
+Sidecar = {
+Date = "2026-09-18T10:21:52.2415388Z",
+Software = "DxO PhotoLab 10.0.1",
+Source = {
+CafId = "C125732a",
+Items = {
+{
+Albums = "",
+CreationDate = "2026-09-18T10:19:27.2825649Z",
+IPTC = {
+}
+,
+Keywords = {
+}
+,
+ModificationDate = "2026-09-18T10:21:52.2405327Z",
+Name = "_DSC0003.ARW",
+Orientation = 8,
+OutputItems = {
+}
+,
+ProcessingStatus = 1,
+Rating = 3,
+Settings = {
+AppliedPresetDisplayName = "6 - 補正なし",
+AppliedPresetUniqueName = "6 - No correction",
+Base = {
+AnalogFilmActive = false,
+HSLHueSlices = {
+{
+FadeInStart = 325.07,
+FadeInEnd = 343.759,
+FadeOutStart = 15.623,
+FadeOutEnd = 31.137,
+Hue = 0,
+Saturation = 0,
+Luminance = 0,
+Uniformity = 0,
+Label = "Red",
+}
+,
+}
+,
+}
+,
+Overrides = {
+}
+,
+Version = "21.0",
+}
+,
+ShotDate = "2026-09-13T16:03:40.7100000+09:00",
+ShouldProcess = 2,
+Uuid = "B638CACC-6B37-4480-8A40-9377C1C2783A",
+}
+,
+}
+,
+Uuid = "0D8181BE-E2E4-4A4B-8F95-5687FB05B359",
+}
+,
+Version = "21.0",
+}
+

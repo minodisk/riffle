@@ -63,7 +63,7 @@ Model mapping (Riffle has no pick or colour label):
 
 ## Steps
 
-- [ ] Step 1: Core: `.dop` read, patch and template (`crates/core/src/dop.rs`)
+- [x] Step 1: Core: `.dop` read, patch and template (`crates/core/src/dop.rs`)
   - Done when:
     - `riffle_core::dop` exposes the same surface as `riffle_core::xmp`:
       `sidecar_path(&Path) -> PathBuf` (appends `.dop` to the **full** file
