@@ -586,6 +586,14 @@ mod tests {
         dir
     }
 
+    // Best effort, like the removal in temp_dir above: on Windows a directory
+    // holding an open SQLite database cannot be removed, and several of these
+    // tests still hold the Index when they finish. The next run's temp_dir
+    // clears whatever is left over.
+    fn remove_temp_dir(dir: &Path) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     fn open(dir: &Path) -> Index {
         Index::open(&dir.join("index.sqlite")).unwrap()
     }
@@ -632,7 +640,7 @@ mod tests {
         assert!(entries[0].has_thumb);
         assert_eq!(index.thumbnail(&entries[0].path).unwrap().0, 6);
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -656,7 +664,7 @@ mod tests {
         assert_eq!(index.reconcile("d", &[bigger]).unwrap().len(), 1);
         assert!(index.entries("d").unwrap().is_empty());
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -678,7 +686,7 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].path, a.path.to_string_lossy());
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -700,7 +708,7 @@ mod tests {
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
         assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -731,7 +739,7 @@ mod tests {
         assert!(index.mark_written("/a.ARW", None, None).unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -748,7 +756,7 @@ mod tests {
         assert!(index.thumbnail(&entries[0].path).is_err());
         assert!(index.reconcile("d", &[a]).unwrap().is_empty());
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     /// A TIFF shell whose IFD0 carries an Orientation and a preview of `body`,
@@ -811,7 +819,7 @@ mod tests {
         let progress = progress.into_inner().unwrap();
         assert_eq!(progress.last(), Some(&(8, 8)), "the last file is reported");
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -847,6 +855,6 @@ mod tests {
         let written = lock(&index).entries("d").unwrap().len();
         assert_eq!(written, summary.total, "everything scanned is persisted");
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 }

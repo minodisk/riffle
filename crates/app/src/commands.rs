@@ -727,6 +727,14 @@ mod tests {
         dir
     }
 
+    // Best effort, like the removal in temp_dir above: on Windows a directory
+    // holding an open SQLite database cannot be removed, and several of these
+    // tests still hold the Index when they finish. The next run's temp_dir
+    // clears whatever is left over.
+    fn remove_temp_dir(dir: &Path) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// A foreign sidecar, shaped like the one Bridge writes.
     fn sidecar(dir: &Path, name: &str, rating: i32) -> PathBuf {
         let path = dir.join(name);
@@ -794,7 +802,7 @@ mod tests {
             .unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
 
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 
     #[test]
@@ -837,7 +845,7 @@ mod tests {
             .unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(3));
 
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 
     #[test]
@@ -873,7 +881,7 @@ mod tests {
         assert_eq!(rating_of(&index, &dir, &listed[0]), None);
         assert_eq!(rating_of(&index, &dir, &listed[2]), None);
 
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 
     #[test]
@@ -894,7 +902,7 @@ mod tests {
             .unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
 
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 
     #[test]
@@ -919,7 +927,7 @@ mod tests {
         assert_eq!(names, ["a.arw", "b.ARW", "c.Arw"]);
         assert!(files.iter().all(|p| Path::new(p).is_absolute()));
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -958,7 +966,7 @@ mod tests {
         assert_eq!(dropped_dir(&file), Some(dir.clone()));
         assert_eq!(dropped_dir(&dir.join("gone.arw")), None);
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -1102,7 +1110,7 @@ mod tests {
         assert_eq!(crop.crop.x % 16, 0);
         assert_eq!(crop.point_y, 24);
 
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -1111,6 +1119,6 @@ mod tests {
         let path = dir.join("broken.arw");
         std::fs::write(&path, b"II\x2a\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00").unwrap();
         assert!(read_preview(&path).is_err());
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 }

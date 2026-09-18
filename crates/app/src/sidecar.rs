@@ -235,6 +235,14 @@ mod tests {
         dir
     }
 
+    // Best effort, like the removal in temp_dir above: on Windows a directory
+    // holding an open SQLite database cannot be removed, and several of these
+    // tests still hold the Index when they finish. The next run's temp_dir
+    // clears whatever is left over.
+    fn remove_temp_dir(dir: &Path) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     fn index(dir: &Path) -> Arc<Mutex<Index>> {
         Arc::new(Mutex::new(Index::open(&dir.join("index.sqlite")).unwrap()))
     }
@@ -318,7 +326,7 @@ mod tests {
         );
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -340,7 +348,7 @@ mod tests {
         ));
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -365,7 +373,7 @@ mod tests {
         assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(-1));
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -385,7 +393,7 @@ mod tests {
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -413,6 +421,6 @@ mod tests {
 
         drop(writer);
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 }
