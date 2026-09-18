@@ -157,6 +157,19 @@ with "could not find `serde_json` in the list of imported crates".
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Step 1.
 
+### A menu that reads a plugin's state is built in `setup`, not `Builder::menu` (Hit)
+
+The `Sidecar` menu's check items reflect the persisted `sidecarFormat`, which
+lives in `tauri-plugin-store`. The whole menu (default items, `Sidecar`, the
+dev-only `Debug`) is built in `setup` and installed with `app.set_menu`, with
+one `on_menu_event` dispatching to every submenu.
+
+- Why: `Builder::menu` runs before the plugins are initialised, so the store
+  cannot be read there.
+- Also: a relative store path resolves against the app **data** dir; the
+  settings file is opened with an absolute `app_config_dir()` path.
+- Source: `docs/plans/20260918-photolab-dop-sidecar/learnings.md`, Steps 2-3.
+
 ## Frontend (`crates/app/ui`, `tsc` only, no bundler)
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)

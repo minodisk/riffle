@@ -19,17 +19,18 @@ already embedded in the ARW or DNG.
 
 ### Developing software
 
-Which tools read the XMP sidecars Riffle writes; see
-[Ratings and XMP sidecars](#ratings-and-xmp-sidecars).
+Which tools read the sidecars Riffle writes; see
+[Ratings and sidecars](#ratings-and-sidecars).
 
-- [ ] Lightroom
-- [ ] DxO PhotoLab
+- [ ] Lightroom (XMP)
+- [x] DxO PhotoLab 10 (`.dop`)
 
 ## Status
 
 Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton), Phase 3
 (the folder index, the filmstrip and the focus mark), Phase 5 (the 1:1 focus
-check) and Phase 6 (ratings, the reject flag and XMP sidecars) are done.
+check) and Phase 6 (ratings, the reject flag and XMP sidecars) are done, as
+are DxO PhotoLab `.dop` sidecars (with the pick flag) as an alternative to XMP.
 
 The app opens a folder — through the picker or by dropping a folder, or a
 single file (any existing file resolves to its parent folder), onto the
@@ -43,7 +44,8 @@ point rather than an AF rectangle. It is hidden by default, `f` toggles it, and
 it is placed in unrotated sensor coordinates and rotated with the
 image. `Space` toggles a 1:1 focus check. `1`-`5`, `x`, `u` and `0` record a
 judgement, shown on the strip cell and in the meta pane's sidecar section and
-written to an XMP sidecar next to the RAW. The canvas shows only the image; the
+written to a sidecar next to the RAW — XMP by default, or PhotoLab's `.dop`
+(`p` then also picks). The canvas shows only the image; the
 `N / M` counter sits in the strip pane, under the filmstrip. The meta pane
 shows the EXIF rows (camera, lens, shutter, aperture, ISO, focal length); on a
 file with no `FNumber` but an `ApertureValue` (the M11-P with an M-mount lens)
@@ -134,7 +136,7 @@ cargo build --release
 ./target/release/riffle-cli scan     <dir> [threads]                # extract a whole folder in parallel
 ```
 
-### Ratings and XMP sidecars
+### Ratings and sidecars
 
 `1`-`5` set a star rating, `x` marks a reject, `u` un-rejects and `0` clears
 either. The RAW file is never written. The judgement goes into a standard XMP
@@ -243,7 +245,52 @@ neither.** Whether DxO PhotoLab reads `-1` at all could not be checked here
 (the web sources returned 403). If it turns out to ignore it, adding a colour
 label alongside is a one-line change in `write_rating`.
 
+#### The sidecar format setting and `.dop`
+
+The `Sidecar` menu in the menu bar has two check items, `XMP (.xmp)` (the
+default) and `DxO PhotoLab (.dop)`; the choice is saved as `sidecarFormat` in
+the app's settings store. One format is read and written at a time; the other
+format's files are neither read nor touched. Switching first drains the writer
+(pending writes land in the old format), then resets the index's sidecar
+cache: clean rows are dropped so the new format's sidecars are read on the
+next open, and judgements not yet written (dirty rows) are kept and written in
+the new format. The open folder is then reloaded.
+
+`FOO.ARW` gets `FOO.ARW.dop` (the full file name plus `.dop`, as PhotoLab
+names it), likewise for a DNG. The judgement lives in two keys of
+`Sidecar.Source.Items[0]`: `ShouldProcess` (`0` pick, `1` reject, `2`
+unflagged) and `Rating` (`0`-`5`). A reject writes `ShouldProcess = 1` and
+leaves `Rating` as it is, so PhotoLab's stars survive a reject; stars or a
+clear write `Rating` and set `ShouldProcess` to `0` when the file is picked
+and `2` otherwise, so a pick and stars coexist. `p` picks (a no-op with XMP,
+which has no pick), `u` un-rejects or un-picks. `ColorLabel` is never touched.
+A write also updates the two timestamps, `Sidecar.Date` and
+`Items[0].ModificationDate`, so PhotoLab sees the sidecar as newer than its
+database. As with XMP, an existing `.dop` is patched in place (only those
+values are spliced, everything else stays byte-for-byte) and never
+regenerated.
+
+A file with no `.dop` gets a minimal template: the `Sidecar` table with
+`Date`, `Name`, fresh UUIDs, `Rating` and `ShouldProcess`, and **no develop
+`Settings` block**. PhotoLab 10 accepts this shape (confirmed by the user, see
+below), so the fallback of shipping a template with a sample `Settings` block
+was not needed.
+
 ### What has been confirmed, and by what
+
+**Confirmed by hand on macOS (DxO PhotoLab 10, `.dop`)**: on 2026-09-18, with
+the format set to `.dop`, the user confirmed that (a) the folder opens in
+PhotoLab without a sidecar error; (b) ratings and rejects set in Riffle on
+files that already had a PhotoLab `.dop` show in PhotoLab; (c) the minimal
+template Riffle creates for a file with no `.dop` is accepted and its rating
+shows; (d) a rating changed in PhotoLab shows in Riffle after reopening the
+folder; (e) the pick round-trips both ways (`p` in Riffle shows as a pick in
+PhotoLab, a pick in PhotoLab shows as `⚑` in Riffle); and (f) switching the
+`Sidecar` menu back to XMP shows the XMP judgements. PhotoLab preferring its
+database over the sidecar was not hit. **Verified without a GUI**: the `.dop`
+read, patch and template, byte identity outside the spliced values, and the
+index reset on a switch are covered by unit tests. Lightroom (XMP) remains
+unconfirmed.
 
 **Confirmed by hand on macOS (Leica M11-P DNG)**: the user opened a folder of
 32 real M11-P DNGs in the release build and confirmed all 32 listed, the scan

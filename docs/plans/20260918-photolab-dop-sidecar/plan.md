@@ -253,9 +253,9 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
     - `mise run ci` passes.
     - The PhotoLab manual check for pick is in Step 5.
 
-- [ ] Step 5: Documentation and the user's confirmations
+- [x] Step 5: Documentation and the user's confirmations
   - Done when:
-    - **(manual)** With `sidecarFormat` set to `dop` in the store: the user rates and
+    - [x] **(manual)** With `sidecarFormat` set to `dop` in the store: the user rates and
       rejects files in Riffle, then opens the folder in PhotoLab 10 and
       confirms (a) the folder opens without a sidecar error, (b) a rating and
       a reject set in Riffle on a file that already had a PhotoLab `.dop`
@@ -269,7 +269,7 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
       (PhotoLab preferring its database over the sidecar), that is a PhotoLab
       preference ("sidecar: load settings automatically") and is documented,
       not fixed here.
-    - **(manual)** A pick set in Riffle shows as a pick in PhotoLab, and a
+    - [x] **(manual)** A pick set in Riffle shows as a pick in PhotoLab, and a
       pick set in PhotoLab shows in Riffle.
     - `README.md`: the "Ratings and XMP sidecars" section is renamed to cover
       both formats and documents the setting (menu, default XMP, one format
@@ -375,3 +375,4 @@ PhotoLab agrees.
 - (2026-09-18) Step 2 complete (PhotoLab manual check deferred to Step 5)
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
+- (2026-09-18) Step 5 complete
