@@ -30,9 +30,12 @@ const TEMP_SUFFIX: &str = ".riffle-tmp";
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 
 enum Message {
-    /// Queue a judgement, to be written `DEBOUNCE` after the last update of
-    /// that path.
-    Set { path: PathBuf, rating: Option<i8> },
+    /// Queue a judgement, to be written once `deadline` has passed.
+    Set {
+        path: PathBuf,
+        rating: Option<i8>,
+        deadline: Instant,
+    },
     /// Write everything pending now and answer on the channel.
     Flush(Sender<()>),
 }
@@ -56,10 +59,26 @@ impl Writer {
         Self { tx: Mutex::new(tx) }
     }
 
-    /// Queue one judgement. Fails only once the thread is gone.
+    /// Queue one judgement, to be written `DEBOUNCE` after the last update of
+    /// that path. Fails only once the thread is gone.
     pub fn set(&self, path: PathBuf, rating: Option<i8>) -> Result<(), String> {
+        self.send(path, rating, Instant::now() + DEBOUNCE)
+    }
+
+    /// Queue one judgement with no debounce, for the dirty rows a folder open
+    /// finds: they were queued in an earlier session and have waited long
+    /// enough already.
+    pub fn set_now(&self, path: PathBuf, rating: Option<i8>) -> Result<(), String> {
+        self.send(path, rating, Instant::now())
+    }
+
+    fn send(&self, path: PathBuf, rating: Option<i8>, deadline: Instant) -> Result<(), String> {
         lock(&self.tx)
-            .send(Message::Set { path, rating })
+            .send(Message::Set {
+                path,
+                rating,
+                deadline,
+            })
             .map_err(|_| "the sidecar writer is not running".to_string())
     }
 
@@ -78,20 +97,23 @@ fn run<F>(rx: Receiver<Message>, index: Arc<Mutex<Index>>, on_error: F)
 where
     F: Fn(&Path, &str),
 {
-    let mut pending: std::collections::HashMap<PathBuf, (Option<i8>, Instant)> =
-        std::collections::HashMap::new();
+    let mut pending: Pending = std::collections::HashMap::new();
     loop {
         let wait = pending
             .values()
-            .map(|(_, at)| (*at + DEBOUNCE).saturating_duration_since(Instant::now()))
+            .map(|(_, deadline)| deadline.saturating_duration_since(Instant::now()))
             .min();
         let message = match wait {
             Some(wait) => rx.recv_timeout(wait),
             None => rx.recv().map_err(|_| RecvTimeoutError::Disconnected),
         };
         match message {
-            Ok(Message::Set { path, rating }) => {
-                pending.insert(path, (rating, Instant::now()));
+            Ok(Message::Set {
+                path,
+                rating,
+                deadline,
+            }) => {
+                pending.insert(path, (rating, deadline));
             }
             Ok(Message::Flush(reply)) => {
                 flush(&mut pending, None, &index, &on_error);
@@ -108,19 +130,18 @@ where
     }
 }
 
-/// Write the entries whose debounce has elapsed by `now`, or all of them when
+/// The judgement queued per path, each with the instant its sidecar is due.
+type Pending = std::collections::HashMap<PathBuf, (Option<i8>, Instant)>;
+
+/// Write the entries whose deadline has passed by `now`, or all of them when
 /// `now` is `None`.
-fn flush<F>(
-    pending: &mut std::collections::HashMap<PathBuf, (Option<i8>, Instant)>,
-    now: Option<Instant>,
-    index: &Arc<Mutex<Index>>,
-    on_error: &F,
-) where
+fn flush<F>(pending: &mut Pending, now: Option<Instant>, index: &Arc<Mutex<Index>>, on_error: &F)
+where
     F: Fn(&Path, &str),
 {
     let due: Vec<PathBuf> = pending
         .iter()
-        .filter(|(_, (_, at))| now.is_none_or(|now| now.duration_since(*at) >= DEBOUNCE))
+        .filter(|(_, (_, deadline))| now.is_none_or(|now| now >= *deadline))
         .map(|(path, _)| path.clone())
         .collect();
     for path in due {

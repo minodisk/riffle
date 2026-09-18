@@ -10,7 +10,7 @@ use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::index::{self, FileStat, Index, IndexedFile};
+use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
 use crate::sidecar::Writer;
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
@@ -138,6 +138,76 @@ fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
         .into_iter()
         .map(|p| p.to_string_lossy().into_owned())
         .collect())
+}
+
+/// Largest sidecar the folder-open pass reads. A Lightroom sidecar is tens of
+/// KB; anything past this is not a sidecar this app should be parsing, and is
+/// left alone rather than failing the open.
+const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
+
+/// The XMP sidecars directly in `dir`, keyed by lower-cased file name so that
+/// a `FOO.XMP` written by another tool is found for `FOO.ARW`.
+///
+/// One listing of the directory, rather than a `stat` of 5000 guessed names:
+/// the second open of a folder is meant to cost no more than the listing the
+/// ARWs already pay for.
+fn list_sidecars_in(dir: &Path) -> HashMap<String, SidecarStat> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return HashMap::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| {
+            e.path()
+                .extension()
+                .is_some_and(|x| x.eq_ignore_ascii_case("xmp"))
+        })
+        .filter_map(|e| {
+            let stat = index::stat(&e.path()).ok()?;
+            let name = e.file_name().to_string_lossy().to_lowercase();
+            Some((name, (stat.path, stat.size, stat.mtime_ns)))
+        })
+        .collect()
+}
+
+/// Bring the `ratings` rows of `dir` in line with the sidecars on disk and
+/// return the judgements that still have to be written.
+///
+/// The sidecar is the source of truth, so anything whose stat changed since
+/// the app last saw it is read back here; a sidecar that cannot be read or
+/// parsed leaves its row as it was rather than erroring the open.
+fn reconcile_sidecars_of(
+    dir: &str,
+    listed: &[String],
+    index: &Arc<Mutex<Index>>,
+) -> Result<Vec<(String, Option<i8>)>, String> {
+    let sidecars = list_sidecars_in(Path::new(dir));
+    let pairs: Vec<(String, Option<SidecarStat>)> = listed
+        .iter()
+        .map(|path| {
+            let name = riffle_core::xmp::sidecar_path(Path::new(path))
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase());
+            let stat = name.and_then(|n| sidecars.get(&n)).cloned();
+            (path.clone(), stat)
+        })
+        .collect();
+
+    let to_parse = index::lock(index).reconcile_sidecars(dir, &pairs)?;
+    let parsed: Vec<(String, Option<i8>, i64, i64)> = to_parse
+        .iter()
+        .filter(|(_, (_, size, _))| *size <= MAX_SIDECAR_BYTES)
+        .filter_map(|(path, (sidecar, size, mtime_ns))| {
+            let bytes = std::fs::read(sidecar).ok()?;
+            let rating = riffle_core::xmp::read_rating(&bytes).ok()?;
+            Some((path.clone(), rating, *size, *mtime_ns))
+        })
+        .collect();
+    let mut index = index::lock(index);
+    index.store_sidecar_ratings(dir, &parsed)?;
+    // After storing, so a row the sidecar just won stays out of this: only
+    // what still has nowhere to be read back from is written out.
+    index.dirty_rows(dir)
 }
 
 /// Extract a file's IFD0 preview JPEG along with the Orientation, reading only
@@ -410,7 +480,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let todo = {
-        let (dir, index) = (dir.clone(), index);
+        let (dir, index, listed) = (dir.clone(), index.clone(), listed.clone());
         tauri::async_runtime::spawn_blocking(move || {
             let files: Vec<_> = listed
                 .iter()
@@ -421,6 +491,29 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .await
         .map_err(|e| e.to_string())??
     };
+
+    let dirty = {
+        let (dir, index) = (dir.clone(), index);
+        tauri::async_runtime::spawn_blocking(move || reconcile_sidecars_of(&dir, &listed, &index))
+            .await
+            .map_err(|e| e.to_string())?
+    };
+    match dirty {
+        // A dirty row waited out its debounce in an earlier session already,
+        // so it goes to the writer with none.
+        Ok(dirty) => {
+            if let Some(writer) = &app.state::<AppWriter>().0 {
+                for (path, rating) in dirty {
+                    if let Err(e) = writer.set_now(PathBuf::from(path), rating) {
+                        eprintln!("failed to queue a pending sidecar: {e}");
+                    }
+                }
+            }
+        }
+        // The sidecars are a cache layer over the folder; failing to read them
+        // must not stop the folder from opening.
+        Err(e) => eprintln!("failed to reconcile the sidecars of {dir}: {e}"),
+    }
 
     let total = todo.len();
     let mut state = index::lock(&scans.0);
@@ -607,6 +700,8 @@ fn canonicalize(dir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -614,6 +709,176 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// A foreign sidecar, shaped like the one Bridge writes.
+    fn sidecar(dir: &Path, name: &str, rating: i32) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(
+            &path,
+            format!(
+                r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="{rating}"/>
+ </rdf:RDF>
+</x:xmpmeta>"#
+            ),
+        )
+        .unwrap();
+        path
+    }
+
+    fn sidecar_index(dir: &Path) -> Arc<Mutex<Index>> {
+        Arc::new(Mutex::new(Index::open(&dir.join("index.sqlite")).unwrap()))
+    }
+
+    fn rating_of(index: &Arc<Mutex<Index>>, dir: &str, path: &str) -> Option<i8> {
+        index::lock(index)
+            .entries(dir)
+            .unwrap()
+            .into_iter()
+            .find(|e| e.path == path)
+            .unwrap()
+            .rating
+    }
+
+    /// Give a file the `(size, mtime)` it had before it was rewritten, so a
+    /// content change that the reconciliation is meant to miss really is
+    /// invisible to it.
+    fn restore_mtime(path: &Path, mtime_ns: i64) {
+        let time = std::time::UNIX_EPOCH + Duration::from_nanos(mtime_ns as u64);
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
+    #[test]
+    fn a_foreign_sidecar_is_read_on_the_first_open_without_any_files_row() {
+        let root = temp_dir("sidecar-first-open");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        sidecar(&root, "a.xmp", 4);
+        let index = sidecar_index(&root);
+
+        let listed = list_arw_in(&root).unwrap();
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+
+        assert!(dirty.is_empty());
+        // No `files` row exists yet, so `entries` cannot show it; the row is
+        // there all the same, which is what the next scan will join against.
+        assert!(index::lock(&index).entries(&dir).unwrap().is_empty());
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&listed[0])).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_external_edit_wins_over_a_dirty_row_and_an_unchanged_stat_parses_nothing() {
+        let root = temp_dir("sidecar-external");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let file = sidecar(&root, "a.xmp", 2);
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        // An app edit that never reached disk, then someone else's edit.
+        index::lock(&index)
+            .set_rating(&dir, &listed[0], Some(5))
+            .unwrap();
+        sidecar(&root, "a.xmp", 3);
+
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        assert!(dirty.is_empty(), "the sidecar won, so nothing is written");
+        assert_eq!(
+            index::lock(&index).dirty_rows(&dir).unwrap(),
+            Vec::new(),
+            "and the row is no longer dirty"
+        );
+
+        // The same stat parses nothing: the content is changed underneath
+        // without touching size or mtime, and the stored rating does not move.
+        let stat = index::stat(&file).unwrap();
+        sidecar(&root, "a.xmp", 1);
+        restore_mtime(&file, stat.mtime_ns);
+        assert!(reconcile_sidecars_of(&dir, &listed, &index)
+            .unwrap()
+            .is_empty());
+
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&listed[0])).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(3));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_deleted_sidecar_clears_the_rating_and_a_dirty_row_survives_it() {
+        let root = temp_dir("sidecar-deleted");
+        let dir = root.to_string_lossy().into_owned();
+        for name in ["a.ARW", "b.ARW", "c.ARW"] {
+            std::fs::write(root.join(name), b"x").unwrap();
+        }
+        let file = sidecar(&root, "a.xmp", 1);
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+        assert!(reconcile_sidecars_of(&dir, &listed, &index)
+            .unwrap()
+            .is_empty());
+
+        // `a` had a sidecar and lost it: the truth is gone with it. `b` has a
+        // judgement that never reached a sidecar, and must be written instead.
+        // `c` has neither a sidecar nor a row, and is not a case at all.
+        std::fs::remove_file(&file).unwrap();
+        index::lock(&index)
+            .set_rating(&dir, &listed[1], Some(-1))
+            .unwrap();
+
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        assert_eq!(dirty, [(listed[1].clone(), Some(-1))]);
+
+        let files: Vec<_> = listed
+            .iter()
+            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".to_string())))
+            .collect();
+        index::lock(&index).write_batch(&dir, &files).unwrap();
+        assert_eq!(rating_of(&index, &dir, &listed[0]), None);
+        assert_eq!(rating_of(&index, &dir, &listed[2]), None);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_sidecar_differing_only_in_case_is_the_one_that_is_read() {
+        let root = temp_dir("sidecar-case");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        sidecar(&root, "A.XMP", 5);
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&listed[0])).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
+
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

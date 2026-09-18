@@ -108,6 +108,12 @@ from the canvas centre against the CLI's (-140, -25). Everything else below is `
 (`cargo test`, clippy, `tsc --noEmit`) plus the measurements in the next
 sections.
 
+**Verified without a GUI (Phase 6)**: the six sidecar reconciliation rules are
+covered by tests against a temp folder, and the cost the sidecar pass adds to
+a folder open was measured on the Rust side (see "What the sidecar pass adds
+to a folder open" below, with its conditions). Nothing about how a rating
+looks or feels in the running app has been verified here.
+
 **Confirmed by hand on macOS (Phase 3)**: the user ran the app on a real
 folder and confirmed the `scanning N / M` progress line, that the app stays
 responsive while a real folder scans, thumbnails filling in during that scan
@@ -246,6 +252,31 @@ the 50ms budget for the IPC hop and the bitmap. The payload is raw RGBA (4.2MB
 at the 1024 cap) rather than a re-encoded JPEG because re-encoding that crop
 with `mozjpeg::Compress`'s defaults measured 49ms at q85 during planning — more
 than the decode it follows.
+
+### What the sidecar pass adds to a folder open (Phase 6)
+
+Opening a folder also reconciles the XMP sidecars: one listing of the
+directory, a `stat` per sidecar found, and a parse of only those whose
+`(size, mtime)` changed since the app last saw them.
+
+| Second open of a 5000-file folder | Measured (median) |
+|-----------------------------------|-------------------|
+| No sidecars in the folder | 31.3ms |
+| 5000 sidecars, all with an unchanged stat | 67.4ms |
+
+**These two numbers are not comparable to the 34.4ms above and do not replace
+it.** They were measured on a different folder: 5000 one-KB regular files
+named `*.ARW`, not symlinks and not real ARWs, on the local APFS disk with a
+warm page cache, on an Apple Silicon Mac. The work timed is the same
+sequence a folder open does on the Rust side — list, `stat` every file,
+`reconcile`, reconcile the sidecars, `entries` — in a temporary `#[ignore]`d
+test (release profile, median of 7 runs after 3 warm-up runs) that was
+removed before committing, so neither number is reproducible from the
+committed tree. What they do establish is the shape of the cost: on this
+machine the sidecar pass roughly doubles a second open, adding about 36ms
+for 5000 sidecars, and that cost is a listing plus a `stat` each, not a
+parse, because an unchanged stat parses nothing. A first open of a folder
+full of foreign sidecars pays the parse as well and was not measured.
 
 ## Running the app
 

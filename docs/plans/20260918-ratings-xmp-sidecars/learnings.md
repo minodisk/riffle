@@ -34,6 +34,58 @@
 - `read_rating` returns `Some(0)` for `xmp:Rating="0"`: `0` is a legal value
   (unrated), not an absence. Absence is the property not being there at all.
 
+## Step 4: App: reconcile sidecars on folder open, and flush dirty rows
+
+- The note carried in from Step 3 checks out: `set_rating` derives `dir` from
+  `Path::new(&path).parent()`, and every path the frontend can hand it comes
+  from `list_arw` / `folder_entries`, both of which list a **canonicalized**
+  directory, so the parent of such a path is exactly the `dir` string
+  `files.dir` holds. `dirty_rows(dir)` therefore finds the rows this step
+  needs. Nothing was changed for it.
+- `dirty_rows` is read **after** the parsed sidecars have been stored, not
+  during `reconcile_sidecars`. That ordering is what makes the sidecar win
+  over a dirty row: `store_sidecar_ratings` clears `dirty`, so the row is gone
+  from the list by the time the writer is told. It also keeps the six rules in
+  one place instead of splitting the dirty set across two queries.
+- A sidecar that cannot be read or parsed leaves its row untouched and is not
+  an error. It then stays dirty if it was, and the writer's own
+  `xmp::write_rating` refuses to patch unparseable XML, so such a file is
+  never overwritten from either side.
+- `Writer::set_now` was added rather than a second debounce constant: the
+  pending map now stores a deadline per path instead of "the instant of the
+  last update", which makes a zero debounce one call site rather than a flag
+  threaded through `flush`.
+- Tripped on it while writing a test: the fixture sidecar's
+  `22-rdf-syntax-ns#` contains the digit the test was replacing to simulate an
+  external edit, so a `replace('2', "3")` quietly broke the RDF namespace and
+  the parse failed rather than winning. Rewriting the whole fixture is the
+  only safe way to fake an external edit.
+
+### Measurement
+
+Second open of a 5000-file folder, Rust side only (list, `stat` every file,
+`reconcile`, reconcile the sidecars, `entries`):
+
+| | Median |
+|---|---|
+| No sidecars | 31.3ms |
+| 5000 sidecars, unchanged stat | 67.4ms |
+
+Conditions, stated because they matter: **5000 one-KB regular files named
+`*.ARW`, not symlinks and not real ARWs**, in a temp folder on the local APFS
+disk, warm page cache, Apple Silicon Mac, `cargo test --release`, median of 7
+runs after 3 warm-up runs, from a temporary `#[ignore]`d test in
+`crates/app/src/commands.rs` that was deleted before committing.
+
+**These numbers are not comparable to Phase 3's 34.4ms** and must not be read
+as replacing it: that one was 5000 symlinks to one real ARW. The two folders
+differ, so only the *delta* here is meaningful — the sidecar pass costs about
+36ms for 5000 sidecars on this machine, and that is a directory listing plus
+one `stat` per sidecar, not a parse, since an unchanged stat parses nothing. A
+first open of a folder full of foreign sidecars pays 5000 parses on top and
+was **not measured**. Nothing here was measured on a real folder of distinct
+ARWs, and nothing here says anything about how the app feels.
+
 ## Deferred issues (todo candidates)
 
 - Core: if a sidecar binds the `xmp` prefix to some *other* namespace and
@@ -70,6 +122,58 @@
 - `dirty_rows` is `#[allow(dead_code)]` for now: only the tests call it until
   Step 4 wires the folder-open flush.
 
+## Step 4: App: reconcile sidecars on folder open, and flush dirty rows
+
+- The note carried in from Step 3 checks out: `set_rating` derives `dir` from
+  `Path::new(&path).parent()`, and every path the frontend can hand it comes
+  from `list_arw` / `folder_entries`, both of which list a **canonicalized**
+  directory, so the parent of such a path is exactly the `dir` string
+  `files.dir` holds. `dirty_rows(dir)` therefore finds the rows this step
+  needs. Nothing was changed for it.
+- `dirty_rows` is read **after** the parsed sidecars have been stored, not
+  during `reconcile_sidecars`. That ordering is what makes the sidecar win
+  over a dirty row: `store_sidecar_ratings` clears `dirty`, so the row is gone
+  from the list by the time the writer is told. It also keeps the six rules in
+  one place instead of splitting the dirty set across two queries.
+- A sidecar that cannot be read or parsed leaves its row untouched and is not
+  an error. It then stays dirty if it was, and the writer's own
+  `xmp::write_rating` refuses to patch unparseable XML, so such a file is
+  never overwritten from either side.
+- `Writer::set_now` was added rather than a second debounce constant: the
+  pending map now stores a deadline per path instead of "the instant of the
+  last update", which makes a zero debounce one call site rather than a flag
+  threaded through `flush`.
+- Tripped on it while writing a test: the fixture sidecar's
+  `22-rdf-syntax-ns#` contains the digit the test was replacing to simulate an
+  external edit, so a `replace('2', "3")` quietly broke the RDF namespace and
+  the parse failed rather than winning. Rewriting the whole fixture is the
+  only safe way to fake an external edit.
+
+### Measurement
+
+Second open of a 5000-file folder, Rust side only (list, `stat` every file,
+`reconcile`, reconcile the sidecars, `entries`):
+
+| | Median |
+|---|---|
+| No sidecars | 31.3ms |
+| 5000 sidecars, unchanged stat | 67.4ms |
+
+Conditions, stated because they matter: **5000 one-KB regular files named
+`*.ARW`, not symlinks and not real ARWs**, in a temp folder on the local APFS
+disk, warm page cache, Apple Silicon Mac, `cargo test --release`, median of 7
+runs after 3 warm-up runs, from a temporary `#[ignore]`d test in
+`crates/app/src/commands.rs` that was deleted before committing.
+
+**These numbers are not comparable to Phase 3's 34.4ms** and must not be read
+as replacing it: that one was 5000 symlinks to one real ARW. The two folders
+differ, so only the *delta* here is meaningful — the sidecar pass costs about
+36ms for 5000 sidecars on this machine, and that is a directory listing plus
+one `stat` per sidecar, not a parse, since an unchanged stat parses nothing. A
+first open of a folder full of foreign sidecars pays 5000 parses on top and
+was **not measured**. Nothing here was measured on a real folder of distinct
+ARWs, and nothing here says anything about how the app feels.
+
 ## Deferred issues (todo candidates)
 
 - The `sidecar-error` event is emitted but nothing displays it yet; the status
@@ -79,3 +183,14 @@
   writer does not schedule a retry of its own. Basis: Step 3's error path in
   `crates/app/src/sidecar.rs` leaves the row dirty and reports. Acceptable per
   decision 3, but worth a todo if a locked SD card turns out to be common.
+- App: an unparseable or oversize sidecar is skipped silently on a folder
+  open (`reconcile_sidecars_of` in `crates/app/src/commands.rs` drops the
+  `Err`), so a file whose sidecar another tool corrupted shows no rating and
+  no reason. Reporting it to the status line needs a count or an event the
+  frontend can show; out of scope for Step 4, which was told not to touch
+  `main.ts`.
+- App: the sidecar pass reads the directory a second time (`list_arw_in` then
+  `list_sidecars_in`). One listing that returns both would halve that part of
+  a folder open; noted while implementing Step 4, not done because
+  `list_arw_in` is also `list_arw`'s implementation and shared with paths that
+  do not want sidecars.
