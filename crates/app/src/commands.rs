@@ -13,6 +13,7 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 
 use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
+use crate::shortcuts::{Binding, Keymap};
 use crate::sidecar::{SidecarFormat, Writer};
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
@@ -294,12 +295,12 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
 /// be read is logged and falls back to the defaults.
-pub fn load_settings(app: &tauri::AppHandle) -> SidecarFormat {
+pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
             eprintln!("failed to open the settings: {e}");
-            return SidecarFormat::default();
+            return (SidecarFormat::default(), Keymap::default());
         }
     };
     if !store.has("lastFolder") {
@@ -315,7 +316,10 @@ pub fn load_settings(app: &tauri::AppHandle) -> SidecarFormat {
             }
         }
     }
-    SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()))
+    let format =
+        SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()));
+    let keymap = Keymap::from_overrides(store.get("shortcuts").as_ref());
+    (format, keymap)
 }
 
 /// Switch the sidecar format to `format`: apply the new format first so any
@@ -839,6 +843,9 @@ pub struct AppWriter(pub Option<Writer>);
 /// The sidecar format selected in the settings, read once at launch.
 pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
 
+/// The culling keymap resolved from the defaults and the `shortcuts` setting.
+pub struct AppKeymap(pub Mutex<Keymap>);
+
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
 /// concurrent switches whose drain, save, state write and reset would
 /// otherwise interleave.
@@ -849,6 +856,13 @@ pub struct AppSwitchLock(pub Mutex<()>);
 #[tauri::command]
 pub fn sidecar_format(app: tauri::AppHandle) -> &'static str {
     index::lock(&app.state::<AppSidecarFormat>().0).setting()
+}
+
+/// The resolved keymap, one binding per action in the order the shortcuts
+/// panel shows them.
+#[tauri::command]
+pub fn shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
+    index::lock(&app.state::<AppKeymap>().0).bindings()
 }
 
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
