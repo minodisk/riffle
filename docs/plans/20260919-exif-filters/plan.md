@@ -85,7 +85,7 @@ folder (for focal length, only the ranges that contain a frame).
       aperture's is the f-number (the estimated one when `f_number` is
       absent, matching the pane), ISO is the integer, focal length is mm.
 
-- [ ] Step 2: Store the settings in the index and return them from `folder_entries`
+- [x] Step 2: Store the settings in the index and return them from `folder_entries`
   - Done when:
     - `files` gains columns for camera, lens, f-number (plus whether it is
       estimated), exposure time as an unreduced numerator/denominator (so
@@ -240,3 +240,4 @@ rebase.
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
