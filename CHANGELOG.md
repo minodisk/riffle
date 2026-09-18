@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.4](https://github.com/minodisk/riffle/compare/v0.1.3...v0.1.4) (2026-09-18)
+
+
+### Features
+
+* **app:** add EXIF groups to the filter menu ([#101](https://github.com/minodisk/riffle/issues/101)) ([30b8062](https://github.com/minodisk/riffle/commit/30b806213d96b052aa192a2abbbae0e2d68e3fbb))
+* **app:** add shortcut rebind, reset and persistence commands ([#98](https://github.com/minodisk/riffle/issues/98)) ([0ece6f6](https://github.com/minodisk/riffle/commit/0ece6f68f2143906b4d8083fd7f071480eb1c6c1))
+* **app:** add the Keyboard Shortcuts menu item and panel ([#102](https://github.com/minodisk/riffle/issues/102)) ([fb2d5aa](https://github.com/minodisk/riffle/commit/fb2d5aaf12defc9e6e1a94ec5c842f3a1592db0f))
+* **app:** store the shooting settings in the index ([#100](https://github.com/minodisk/riffle/issues/100)) ([4d39c36](https://github.com/minodisk/riffle/commit/4d39c363b03e8e04629fe51ceb0b3ede17007df1))
+
 ## [0.1.3](https://github.com/minodisk/riffle/compare/v0.1.2...v0.1.3) (2026-09-18)
 
 
