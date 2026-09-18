@@ -40,10 +40,12 @@ the ARW with a ranged read, drawn at one JPEG pixel per device pixel. The crop
 is centred on the camera's `FocusLocation` (mapped from sensor coordinates onto
 the full JPEG), and on a file without one — manual focus — on the centre of the
 frame. It is cut in unrotated coordinates and carried by the same canvas
-rotation as the preview, so a portrait file comes out upright. Around the crop,
-the preview bitmap is drawn at the same scale, so the frame stays in context
-while the crop is decoded. Paging while zoomed stays zoomed and moves to the
-next file's focus point. There is no panning and no free zoom level; the crop
+rotation as the preview, so a portrait file comes out upright. On a file with a
+`FocusLocation`, the preview bitmap is drawn around the crop at the same scale,
+so the frame stays in context while the crop is decoded; on a file without one,
+the canvas stays blank until the crop arrives. Paging while zoomed stays zoomed
+and moves to the next file's focus point. There is no panning and no free zoom
+level; the crop
 is capped at 1024 device pixels per axis and travels over the IPC boundary as
 raw RGBA.
 
@@ -234,8 +236,8 @@ no keypress-to-pixels number exists.
 | Step | Median |
 |------|--------|
 | Ranged read of the 5.76MB `JpgFromRaw` (`reader::read_full`) | 0.7ms |
-| Crop at the focus point, 512 / 1024 / 2048 per axis | 18.4 / 21.5 / 29.8ms |
-| 1024 crop at row 300 / 2336 / 4400 of the 4672-row JPEG | 10.8 / 27.3 / 44.1ms |
+| Crop at the focus point, 512 / 1024 / 2048 per axis (`partial::decode_focus_crop`, RGBA) | 18.4 / 21.5 / 29.8ms |
+| 1024 crop at row 300 / 2336 / 4400 of the 4672-row JPEG (`partial::decode_crop`, RGB) | 10.8 / 27.3 / 44.1ms |
 
 Crop size barely matters; the crop's **row** dominates. `jpeg_skip_scanlines`
 on a baseline JPEG still entropy-decodes every skipped row, so a focus point

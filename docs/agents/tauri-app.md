@@ -7,6 +7,8 @@ hit, each with the reason it happens.
 Each item is tagged:
 
 - **Hit**: actually broke something here.
+- **Measured**: measured in this repo and steered a design decision; nothing
+  broke, but the naive choice would have missed a stated budget or cost more.
 - **Inferred**: taken from the sources or docs; nothing has broken on it yet.
 
 Source: `docs/plans/_archived/20260917-tauri-skeleton/learnings.md` and the fix
@@ -44,7 +46,7 @@ Rules:
   `event:listen` under `core:event`'s default `allow-listen`. Those events and
   `window.__TAURI__` are main-thread only; neither exists inside a worker.
 
-### Measure before choosing a JPEG payload over raw pixels (Hit)
+### Measure before choosing a JPEG payload over raw pixels (Measured)
 
 `mozjpeg::Compress`'s defaults turn on trellis quantisation and optimised
 Huffman tables, so re-encoding a crop costs more than the partial decode that
@@ -56,7 +58,7 @@ produced it: 49ms at q85 for a 1037x1024 crop, against 21.5ms to decode it.
   measurement before trading back, and measure with the optimisations off, not
   with the defaults.
 
-### A partial decode's cost is set by its row, not its size (Hit)
+### A partial decode's cost is set by its row, not its size (Measured)
 
 `jpeg_skip_scanlines` on a baseline JPEG still entropy-decodes the rows it
 skips; it only skips the IDCT and colour conversion.
