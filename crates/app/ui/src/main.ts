@@ -207,12 +207,7 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function row(
-  list: HTMLDListElement,
-  label: string,
-  value: string | null,
-  className?: string,
-): void {
+function row(list: HTMLDListElement, label: string, value: string | null): void {
   if (value === null) {
     return;
   }
@@ -220,9 +215,6 @@ function row(
   dt.textContent = label;
   const dd = document.createElement("dd");
   dd.textContent = value;
-  if (className !== undefined) {
-    dd.className = className;
-  }
   list.append(dt, dd);
 }
 
@@ -234,7 +226,8 @@ function line(className: string, text: string): HTMLDivElement {
 }
 
 // Redraw the right pane: the current file's name, its shooting settings,
-// and any note (an error, the scan's progress, the opening hint). Also refreshes the strip pane's `N / M` counter.
+// and any note (an error, the scan's progress, the opening hint). Also
+// refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
   positionEl.textContent =
     files.length > 0 ? `${index + 1} / ${files.length}` : "";
