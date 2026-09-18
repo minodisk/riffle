@@ -87,6 +87,19 @@
   guard is now the general idempotence check. The pick shows as a green `⚑`
   in the strip cell's top-left and as a `Pick` row in the meta pane.
 
+## Step 5: Documentation and the manual PhotoLab check
+
+- The user ran the PhotoLab 10 check on 2026-09-18 and reported all of it OK:
+  folder opens without a sidecar error, ratings and rejects on files with an
+  existing `.dop` show, pick round-trips both ways, PhotoLab edits show in
+  Riffle after reopening, and switching back to XMP shows the XMP judgements.
+- **The minimal template (no `Settings` block) was accepted by PhotoLab 10**
+  and its rating showed, so the fallback template carrying the sample's
+  `Settings` block was not needed.
+- PhotoLab preferring its database over the sidecar was not hit.
+- The README anchor `#ratings-and-xmp-sidecars` became `#ratings-and-sidecars`
+  with the section rename; its one in-README link was updated.
+
 ## Deferred issues (todo candidates)
 
 - Review feedback (photolab-dop-sidecar-step-3, Round 1, item 1) asked for a

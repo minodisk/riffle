@@ -6,10 +6,13 @@ for what it is and the current status.
 ## Layout
 
 A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle-core`,
-whose `src/xmp.rs` parses and patches XMP sidecar bytes), `crates/cli` (the
+whose `src/xmp.rs` parses and patches XMP sidecar bytes and `src/dop.rs` DxO
+PhotoLab `.dop` sidecar bytes), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index and
-`src/sidecar.rs` the coalescing sidecar writer thread).
+`src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
+XMP-or-`.dop` setting chosen from the `Sidecar` menu and persisted in the
+`sidecarFormat` key of the settings store).
 
 The frontend lives under `crates/app/ui` (TypeScript compiled by `tsc` only, no
 bundler) and is type-checked by `mise run ci`.
