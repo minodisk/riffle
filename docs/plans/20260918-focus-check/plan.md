@@ -328,3 +328,4 @@ later wants to cache crop parameters, that is a Phase 4 question.
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete (the (manual) checks await the user's confirmation)
+- (2026-09-18) Step 4 complete
