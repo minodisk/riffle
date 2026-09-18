@@ -19,7 +19,7 @@ description = "Format the whole repository"
 shell = "bash -c"
 run = "cargo fmt --all"
 
-[tasks.app]
+[tasks."tauri:dev"]
 description = "Run the desktop app (debug build; fast to compile, slow at runtime)"
 shell = "bash -c"
 run = """
@@ -28,13 +28,22 @@ pnpm install --frozen-lockfile
 pnpm tauri dev
 """
 
-[tasks."app:release"]
+[tasks."tauri:release:devtools"]
 description = "Run the desktop app with an optimised Rust build (use this for any timing measurement)"
 shell = "bash -c"
 run = """
 set -euo pipefail
 pnpm install --frozen-lockfile
 pnpm tauri dev --release --features devtools
+"""
+
+[tasks."tauri:release"]
+description = "Bundle the desktop app as CI does, minus the updater artifacts that need the signing key"
+shell = "bash -c"
+run = """
+set -euo pipefail
+pnpm install --frozen-lockfile
+pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 """
 
 [tasks.lint]

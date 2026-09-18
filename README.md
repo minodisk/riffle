@@ -466,7 +466,7 @@ Prerequisites:
 The Rust toolchain, Node and pnpm all come from `mise install`.
 
 ```sh
-mise run app
+mise run tauri:dev
 ```
 
 That is a debug build of the Rust side: quick to compile, slow at runtime. **Any
@@ -475,10 +475,10 @@ numbers under "Measurements" below are all optimised ones and a debug build is
 not comparable to them:
 
 ```sh
-mise run app:release
+mise run tauri:release:devtools
 ```
 
-Both tasks run `pnpm install` first. `app:release` also passes
+Both tasks run `pnpm install` first. `tauri:release:devtools` also passes
 `--features devtools`: Tauri only wires the webview's devtools up automatically
 in a debug build, so without it there is no console to read the timings from. A
 distributable build leaves the feature off.
@@ -491,6 +491,16 @@ the build fails without them.
 Both tasks also get a **Debug** menu, which a distributable build does not have.
 Its `Timing logs` item turns on the 1:1 view's keypress → invoke → bitmap
 timings, logged to the console; it starts unchecked on every launch.
+
+To try the distributable build itself, bundle it the way the release workflow
+does:
+
+```sh
+mise run tauri:release
+```
+
+The bundles land under `target/release/bundle/`. It skips the updater
+artifacts, which need the release signing key.
 
 ## Measurements (Apple Silicon Mac, α7 V ARW, n=20)
 
