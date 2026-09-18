@@ -114,7 +114,7 @@ available / install it", no crates.io publishing of `riffle-core` /
       `TAURI_SIGNING_PRIVATE_KEY` is set; `mise run app` / `app:release` use
       `tauri dev` and are unaffected (README note in Step 5)
 
-- [ ] Step 2: Add the release build workflow, runnable by hand
+- [x] Step 2: Add the release build workflow, runnable by hand
   - Done when:
     - `.github/workflows/release.yml` exists with `on: workflow_dispatch` and a
       `build` job matrix of `ubuntu-latest`, `macos-latest`, `macos-15-intel`,
@@ -256,3 +256,4 @@ available / install it", no crates.io publishing of `riffle-core` /
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete
