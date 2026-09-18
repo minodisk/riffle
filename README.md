@@ -5,7 +5,7 @@ ratings, and mark picks and rejects. Nothing else — no developing, no editing.
 It never runs a RAW decoder (LibRaw / rawler); everything comes from the JPEGs
 already embedded in the ARW or DNG.
 
-## Supported products
+## Compatibility
 
 ### Cameras
 
@@ -17,7 +17,7 @@ already embedded in the ARW or DNG.
 
 - [x] M11-P
 
-## Developing software
+### Developing software
 
 Which tools read the XMP sidecars Riffle writes; see
 [Ratings and XMP sidecars](#ratings-and-xmp-sidecars).
