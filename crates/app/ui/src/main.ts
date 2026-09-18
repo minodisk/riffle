@@ -166,7 +166,10 @@ function scheduleCropForResize(): void {
   }
   cropResizeTimer = window.setTimeout(() => {
     cropResizeTimer = null;
-    if (!zoomed || current !== seq || !cropViewportStale()) {
+    if (!zoomed || current !== seq) {
+      return;
+    }
+    if (crop !== null && !cropViewportStale()) {
       return;
     }
     requestCrop();
@@ -509,6 +512,7 @@ function cropViewportStale(): boolean {
 
 function requestCrop(): void {
   if (cropInFlight || files.length === 0) {
+    zoomKeypressAt = null;
     return;
   }
   cropInFlight = true;
@@ -615,9 +619,9 @@ function toggleZoom(): void {
   }
   zoomed = !zoomed;
   if (zoomed) {
-    zoomKeypressAt = performance.now();
-    debugLog("zoom keypress", zoomKeypressAt);
     if (crop === null || crop.cropSeq !== seq || cropViewportStale()) {
+      zoomKeypressAt = performance.now();
+      debugLog("zoom keypress", zoomKeypressAt);
       requestCrop();
     }
   }
