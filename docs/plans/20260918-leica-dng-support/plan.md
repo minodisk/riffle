@@ -186,7 +186,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
     - Keep the estimated flag in the data (not just the formatting) so the UI
       can mark it.
 
-- [ ] Step 4: CLI benchmark on the DNG folder and the measured numbers
+- [x] Step 4: CLI benchmark on the DNG folder and the measured numbers
   - Done when:
     - `riffle-cli bench` times the 1:1 crop on a file without `FocusLocation`
       too, by using `partial::decode_focus_crop(jpeg, a.shot.focus, ...)` (the
@@ -249,3 +249,4 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete (GUI checks 1-8 confirmed by the user on the 32-file sample folder)
 - (2026-09-18) Step 3 complete (user confirmed on screen: L1005206.DNG shows f/9.5 (est.) and 5.42 m, and the focus distances match the scenes, so millimetres holds; the α7 V ARW meta pane was not re-checked, not verified)
+- (2026-09-18) Step 4 complete
