@@ -143,11 +143,11 @@ let cropInFlight = false;
 let zoomStartedAt = 0;
 
 // The crosshair's arm length and the gap left open around the point itself,
-// both as a fraction of the image's short side so the mark reads the same on
-// portrait and landscape. The gap keeps the lines off the focus point, which
-// is the one pixel the mark exists to show.
-const FOCUS_MARK_ARM_FRACTION = 0.025;
-const FOCUS_MARK_GAP_FRACTION = 0.008;
+// in CSS pixels. The mark only points, so it keeps one size like a cursor
+// instead of growing over the subject with the window. The gap keeps the
+// lines off the focus point, which is the one pixel the mark exists to show.
+const FOCUS_MARK_ARM = 8;
+const FOCUS_MARK_GAP = 4;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -393,15 +393,14 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   }
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
-  const short = Math.min(drawWidth, drawHeight);
-  const arm = short * FOCUS_MARK_ARM_FRACTION;
-  const gap = short * FOCUS_MARK_GAP_FRACTION;
-  // `difference` against white inverts whatever is under the line, so the mark
-  // stays visible on a bright background as well as a dark one.
+  const arm = FOCUS_MARK_ARM;
+  const gap = FOCUS_MARK_GAP;
+  // A fixed colour over a dark outline: the colour carries the mark on most
+  // photos, and the outline still draws its edge where the subject shares the
+  // colour. The same path is stroked twice, the outline first and wider, and
+  // square caps give the arm ends the same 1px outline as their sides.
   context.save();
-  context.globalCompositeOperation = "difference";
-  context.strokeStyle = "#fff";
-  context.lineWidth = 1;
+  context.lineCap = "square";
   context.beginPath();
   context.moveTo(x - gap - arm, y);
   context.lineTo(x - gap, y);
@@ -411,6 +410,11 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.lineTo(x, y - gap);
   context.moveTo(x, y + gap);
   context.lineTo(x, y + gap + arm);
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.lineWidth = 4;
+  context.stroke();
+  context.strokeStyle = "#3f3";
+  context.lineWidth = 2;
   context.stroke();
   context.restore();
 }
