@@ -4,8 +4,8 @@ import * as strip from "./strip.js";
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
-const CROP_HEADER_LEN = 24;
-const CROP_KIND_RGBA_V1 = 3;
+const CROP_HEADER_LEN = 32;
+const CROP_KIND_RGBA_V2 = 4;
 // Turned on by the Debug menu's `Timing logs` item. That menu only exists in a
 // development build, so elsewhere the event never fires and this stays off.
 let debugLogging = false;
@@ -517,7 +517,7 @@ function requestCrop(): void {
     })
     .then(async (payload) => {
       cropInFlight = false;
-      debugLog("zoom invoke", performance.now() - zoomStartedAt);
+      const invokeAt = performance.now() - zoomStartedAt;
       if (current !== seq) {
         if (zoomed) {
           requestCrop();
@@ -526,7 +526,7 @@ function requestCrop(): void {
       }
       const header = new DataView(payload, 0, CROP_HEADER_LEN);
       const kind = header.getUint16(0, true);
-      if (kind !== CROP_KIND_RGBA_V1) {
+      if (kind !== CROP_KIND_RGBA_V2) {
         throw new Error(`unknown crop payload kind ${kind}`);
       }
       const orientation = header.getUint16(2, true);
@@ -540,7 +540,16 @@ function requestCrop(): void {
         height,
       );
       const bitmap = await createImageBitmap(pixels);
-      debugLog("zoom bitmap", performance.now() - zoomStartedAt);
+      const bitmapAt = performance.now() - zoomStartedAt;
+      const readMs = header.getUint32(20, true) / 1000;
+      const decodeMs = header.getUint32(24, true) / 1000;
+      debugLog(
+        `zoom total=${bitmapAt.toFixed(1)}ms` +
+          ` read=${readMs.toFixed(1)}ms` +
+          ` decode=${decodeMs.toFixed(1)}ms` +
+          ` ipc=${(invokeAt - readMs - decodeMs).toFixed(1)}ms` +
+          ` bitmap=${(bitmapAt - invokeAt).toFixed(1)}ms`,
+      );
       if (current !== seq) {
         bitmap.close();
         if (zoomed) {
