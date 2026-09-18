@@ -23,10 +23,14 @@ use riffle_core::scan::{extract_all, Entry};
 const SCHEMA_VERSION: i64 = 2;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
-/// loses at most a second of work and that the single index mutex, which every
-/// `thumbnail` / `folder_entries` / `set_rating` also takes, is not held for a
-/// long transaction, large enough that the per-transaction fsync is not paid
-/// per file.
+/// loses at most a fifth of a second of work and that the single index mutex,
+/// which every `thumbnail` / `folder_entries` / `set_rating` also takes, is not
+/// held for a long transaction, large enough that the commit (a WAL append
+/// under `synchronous = NORMAL`, not an fsync) and the mutex re-acquisition are
+/// not paid per file. Dropping this from 50 to 10 is a 5x increase in
+/// transactions; that throughput cost has not been measured against the
+/// `scan` benchmark in `crates/cli`, and was judged acceptable because it is
+/// still one transaction per UI progress tick, not per file.
 const BATCH: usize = 10;
 
 /// Shortest interval between two progress notifications.
