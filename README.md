@@ -8,7 +8,7 @@ embedded in the ARW.
 ## Status
 
 Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton), Phase 3
-(the folder index, the filmstrip and the focus box) and Phase 5 (the 1:1 focus
+(the folder index, the filmstrip and the focus mark) and Phase 5 (the 1:1 focus
 check) are done.
 
 The app opens a folder — through the picker or by dropping a folder, or a
@@ -18,8 +18,9 @@ a `<canvas>` (decoded in a worker, rotated by the ARW's Orientation), and pages
 through them. A thumbnail filmstrip runs down the left edge: it is virtualised,
 highlights the current file, scrolls to follow paging, and a click on a cell
 shows that file. When the index has a `FocusLocation` for the current file, a
-focus box can be drawn over the preview; it is hidden by default, `f` toggles
-it, and it is placed in unrotated sensor coordinates and rotated with the
+focus mark can be drawn over the preview: a crosshair, since the tag records a
+point rather than an AF rectangle. It is hidden by default, `f` toggles it, and
+it is placed in unrotated sensor coordinates and rotated with the
 image. `Space` toggles a 1:1 focus check.
 Still missing: no prefetch, no rating. See [Running the app](#running-the-app).
 
@@ -30,7 +31,7 @@ Keys:
 | `ArrowLeft`, `ArrowUp`, `w`, `a`, `h`, `k` | previous file |
 | `ArrowRight`, `ArrowDown`, `s`, `d`, `j`, `l` | next file |
 | `o` | open a folder |
-| `f` | toggle the focus box |
+| `f` | toggle the focus mark |
 | `Space` | toggle the 1:1 focus check |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (sticky, not a toggle) |
@@ -122,12 +123,14 @@ looks or feels in the running app has been verified here.
 **Confirmed by hand on macOS (Phase 3)**: the user ran the app on a real
 folder and confirmed the `scanning N / M` progress line, that the app stays
 responsive while a real folder scans, thumbnails filling in during that scan
-with portrait cells upright, the focus box landing on the subject, a fast
-second open, and both drag-and-drop gestures (a folder and a single ARW). The
-Phase 3 paging keys (`w`/`a`/`s`/`d`/`h`/`j`/`k`/`l`) and `f` toggling the
-focus box are implied by those. "Fast" is the user's impression, not a
-measurement; the real-folder numbers are still missing (see the Phase 3
-sections below).
+with portrait cells upright, the focus box (the shape drawn at the time)
+landing on the subject, a fast second open, and both drag-and-drop gestures
+(a folder and a single ARW). The Phase 3 paging keys
+(`w`/`a`/`s`/`d`/`h`/`j`/`k`/`l`) and `f` toggling the focus mark are implied
+by those, but this confirmation predates the switch to a crosshair — the
+crosshair rendering itself has not been confirmed by hand. "Fast" is the
+user's impression, not a measurement; the real-folder numbers are still
+missing (see the Phase 3 sections below).
 
 **Awaiting the user's confirmation (Phase 3)**: not everything in this phase
 has been looked at yet. Still unconfirmed: the filmstrip highlight following
