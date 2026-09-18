@@ -866,7 +866,11 @@ mod tests {
     fn cancelling_after_the_first_batch_keeps_what_was_written() {
         let dir = temp_dir("cancel");
         let body = jpeg(64, 48);
-        let files: Vec<FileStat> = (0..(BATCH * 4))
+        // Enough files that, however fast the machine, the run cannot finish
+        // before the watcher below has a chance to see the first batch land
+        // and fire the cancel; too small a margin here made this test flaky
+        // on quieter/faster CI runners.
+        let files: Vec<FileStat> = (0..(BATCH * 40))
             .map(|i| file(&dir, &format!("{i:03}.ARW"), &fixture(1, &body)))
             .collect();
 

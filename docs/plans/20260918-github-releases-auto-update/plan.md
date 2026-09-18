@@ -233,6 +233,26 @@ available / install it", no crates.io publishing of `riffle-core` /
       user's confirmation" for the update-path claim
     - If the first release surfaces a defect, fix it in this step's PR or a
       follow-up and note it in `learnings.md`
+    - **First release is 0.1.0** (decided by the user after Step 4 merged,
+      when release-please opened no PR: the only commit after
+      `bootstrap-sha` f1ba56d was the non-releasable `ci(release)` #55).
+      `.release-please-manifest.json` is set to `0.0.0`, `bootstrap-sha` is
+      removed so the whole history (27 `feat`/`fix` commits) feeds the first
+      changelog, and `"release-as": "0.1.0"` is set in
+      `release-please-config.json`. A `Release-As: 0.1.0` footer was rejected:
+      in the dry run of the real squash-commit shape it was ignored (see
+      `learnings.md`). `bump-minor-pre-major` /
+      `bump-patch-for-minor-pre-major` are unchanged
+    - **Follow-up after the 0.1.0 release:** remove `"release-as"` from
+      `release-please-config.json`, or every later release PR stays pinned to
+      0.1.0
+  - Status: the pre-merge part (README, release-please config for 0.1.0,
+    dry run) is done in this step's PR. **Pending after merge, the user's to
+    do:** merging the `chore(main): release 0.1.0` PR, confirming the run
+    uploads installers for all three OSes plus `latest.json` with the four
+    platform entries and signatures, the update-path check (needs a second
+    release), and removing `release-as`. Those are recorded in `learnings.md`
+    as they happen; the checkbox stays unchecked until then
 
 ## Trade-offs and risks
 

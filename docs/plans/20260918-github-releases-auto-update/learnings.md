@@ -97,3 +97,73 @@
 - Not verifiable pre-merge: the release PR opening with `ci` running on it,
   and a dispatch run showing the four artifacts.
 
+
+## Step 5
+
+- After Step 4 merged, release-please ran and opened no PR, as expected:
+  `bootstrap-sha` was f1ba56d and the only later commit was `ci(release)`
+  (#55). The user decided the first release is 0.1.0.
+- Dry-run method (same as Step 4): a GitHub clone of `main` (58256f3) in the
+  scratchpad, a local bare repo made from it set as the clone's `origin` (the
+  `--local` mode runs `git fetch origin` + `git reset --hard origin/main`, so
+  with the GitHub `origin` the local commit is wiped and the remote manifest is
+  read), then a commit shaped like this repo's squash merge
+  (`squash_merge_commit_message: COMMIT_MESSAGES`: a title with `(#56)`, a body
+  of `* type: ...` entries, `---------`, `Co-authored-by:`) pushed into the
+  bare repo, and
+  `npx release-please@17 release-pr --dry-run --token "$(gh auth token)" --repo-url minodisk/riffle --local --local-path <clone>`.
+  `gh auth token` has to run outside the clone: the clone's untrusted
+  `mise.toml` makes it print a mise error instead of a token (401).
+- Results:
+  - `Release-As: 0.1.0` footer inside the squash body, `bootstrap-sha` kept:
+    release-please splits the body into 4 commits and still reports "No user
+    facing commits found" — 0 PRs.
+  - `"release-as": "0.1.0"` in the config, `bootstrap-sha` kept: "Setting
+    version for . from release-as configuration", then still "No user facing
+    commits" — the release-as override does not bypass the empty-changelog
+    check, and nothing after f1ba56d is `feat`/`fix`. So `bootstrap-sha` has to
+    go (or point earlier).
+  - Footer, `bootstrap-sha` removed: a PR opens, but as
+    `chore(main): release 1.0.0` — the footer is ignored in the squash shape.
+  - `"release-as": "0.1.0"` in the config, `bootstrap-sha` removed, manifest
+    `0.0.0` (chosen):
+
+    ```
+    Would open 1 pull requests
+    title: chore(main): release 0.1.0
+    branch: release-please--branches--main
+    ## 0.1.0 (2026-09-18)
+    ### Features   (25 entries, #4 .. #51)
+    ### Bug Fixes  (#11, #54)
+    updates: 9
+    file version.txt did not exist
+      CHANGELOG.md:  [class Changelog extends DefaultUpdater]
+      version.txt:  [class DefaultUpdater]
+      crates/app/Cargo.toml:  [class GenericToml]
+      crates/core/Cargo.toml:  [class GenericToml]
+      crates/cli/Cargo.toml:  [class GenericToml]
+      Cargo.lock:  [class GenericToml]
+      package.json:  [class GenericJson]
+      crates/app/tauri.conf.json:  [class GenericJson]
+      .release-please-manifest.json:  [class ReleasePleaseManifest extends DefaultUpdater]
+    ```
+
+    The six versioned files already say 0.1.0, so their content does not
+    change; `CHANGELOG.md` is created and the manifest goes to 0.1.0. The
+    pre-Conventional-Commits first commit (e3fe091) is logged as "could not be
+    parsed" and skipped, which is harmless.
+- Pending after this PR merges (the user's): merge the release PR; confirm
+  installers for all three OSes plus `latest.json` with `darwin-aarch64`,
+  `darwin-x86_64`, `windows-x86_64`, `linux-x86_64` and signatures; the
+  update-path check needs a second release. Not verified yet.
+- The README's installer file names follow Tauri's default bundle naming
+  (`Riffle_<version>_aarch64.dmg` etc.); they are not verified against an
+  actual release yet.
+
+## Deferred issues (todo candidates)
+
+- Remove `"release-as": "0.1.0"` from `release-please-config.json` once 0.1.0
+  is released; otherwise every later release PR is pinned to 0.1.0. Basis:
+  Step 5 chose the config pin because a `Release-As` footer is ignored in this
+  repo's squash-commit shape (dry run above). File:
+  `release-please-config.json`.

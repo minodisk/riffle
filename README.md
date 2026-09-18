@@ -28,6 +28,12 @@ written to an XMP sidecar next to the RAW. The canvas shows only the image; the
 Still missing: no prefetch, no filtering by rating.
 See [Running the app](#running-the-app).
 
+Releases are published on the
+[Releases page](https://github.com/minodisk/riffle/releases); see
+[Installing](#installing). The release pipeline is in place, but no release
+has been published and installed yet, so the install and update paths below
+are **awaiting the user's confirmation**.
+
 Keys:
 
 | Key | Action |
@@ -421,6 +427,33 @@ for 5000 sidecars, and that cost is a listing plus a `stat` each, not a
 parse, because an unchanged stat parses nothing. A first open of a folder
 full of foreign sidecars pays the parse as well and was not measured.
 
+## Installing
+
+Download the installer for your OS from the latest release on the
+[Releases page](https://github.com/minodisk/riffle/releases):
+
+| OS | File |
+|----|------|
+| macOS, Apple Silicon | `Riffle_<version>_aarch64.dmg` |
+| macOS, Intel | `Riffle_<version>_x64.dmg` |
+| Windows | `Riffle_<version>_x64-setup.exe` (or the `.msi`) |
+| Linux | `Riffle_<version>_amd64.AppImage` (or the `.deb` / `.rpm`) |
+
+The builds are not OS-signed (no Apple notarization, no Authenticode), so the
+first launch needs one extra step:
+
+- **macOS**: Gatekeeper blocks the first launch. Right-click `Riffle.app` →
+  Open, or System Settings → Privacy & Security → Open Anyway, or run
+  `xattr -d com.apple.quarantine /Applications/Riffle.app`.
+- **Windows**: SmartScreen warns. More info → Run anyway.
+- **Linux**: nothing extra.
+
+Updating: the app checks for a newer release on launch and, when there is one,
+shows a line offering to install it. The update itself is signed with the
+project's updater key and verified before it is installed. On Linux only the
+AppImage updates itself; a `.deb` / `.rpm` install is updated by installing the
+newer package.
+
 ## Running the app
 
 Prerequisites:
@@ -449,6 +482,11 @@ Both tasks run `pnpm install` first. `app:release` also passes
 `--features devtools`: Tauri only wires the webview's devtools up automatically
 in a debug build, so without it there is no console to read the timings from. A
 distributable build leaves the feature off.
+
+`mise run app` and `mise run app:release` need no signing key. A
+`pnpm tauri build` does: it creates the updater artifacts, which are signed
+with `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), so
+the build fails without them.
 
 Both tasks also get a **Debug** menu, which a distributable build does not have.
 Its `Timing logs` item turns on the 1:1 view's keypress → invoke → bitmap
