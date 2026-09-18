@@ -64,7 +64,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
 
 ## Steps
 
-- [ ] Step 1: Rust keymap: defaults, override merge, resolved map command
+- [x] Step 1: Rust keymap: defaults, override merge, resolved map command
   - Done when:
     - `crates/app/src/shortcuts.rs` defines the actions (`previous`, `next`,
       `open`, `focus`, `zoom`, `rate1`..`rate5`, `reject`, `pick`, `unflag`,

@@ -2,6 +2,7 @@
 
 mod commands;
 mod index;
+mod shortcuts;
 mod sidecar;
 
 // The Debug menu exists only in a development build; a distributable build
@@ -221,9 +222,10 @@ fn main() {
                     );
                 })
             });
-            let format = commands::load_settings(app.handle());
+            let (format, keymap) = commands::load_settings(app.handle());
             app.set_menu(build_menu(app.handle(), format)?)?;
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
+            app.manage(commands::AppKeymap(Mutex::new(keymap)));
             app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
@@ -246,6 +248,7 @@ fn main() {
             commands::focus_crop,
             commands::set_rating,
             commands::sidecar_format,
+            commands::shortcuts,
             commands::open_in_photolab
         ])
         .build(tauri::generate_context!())
