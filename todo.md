@@ -88,13 +88,37 @@ The `ping` command in `crates/app/src/main.rs` is left over from Step 2 and now 
 
 - [ ] Wrap the CLI's `decode_rgb` call sites in `catch_unwind`, or move the guard into `decode_rgb` itself.
 
-### App: `riffle-cli` subcommands read whole files instead of the bounded prefix
+### App: `riffle-cli info`/`focusbox`/`bench` read whole files instead of the bounded prefix
 
-`info` / `focusbox` / `crop` / `bench` in `crates/cli/src/main.rs` still call `std::fs::read(path)` for the whole file rather than `reader::read_head`'s bounded prefix, unlike the scan path. This may be inherent: these subcommands need the full-size `JpgFromRaw`, which sits past the 1 MiB prefix.
+`info` / `focusbox` / `bench` in `crates/cli/src/main.rs` still call `std::fs::read(path)` for the whole file rather than `reader::read_head`'s bounded prefix, unlike the scan path and unlike `crop` (which moved to `reader::read_full`, a ranged read, in Phase 5 Step 1). This may be inherent: these subcommands need the full-size `JpgFromRaw`, which sits past the 1 MiB prefix.
 
 #### TODO
 
-- [ ] Decide whether these subcommands can move to `reader::read_head` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
+- [ ] Decide whether these subcommands can move to `reader::read_head`/`reader::read_full` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
+
+### App: `riffle-cli bench`'s crop row skips sensor→JPEG scaling
+
+`bench()` in `crates/cli/src/main.rs` still feeds `FocusLocation` coordinates straight into `decode_crop` without the sensor→JPEG scaling that Phase 5 Step 1 added to `crop`. It happens to be correct on the current test file (sensor and JPEG are both 7008 wide) but wrong on any body where they differ.
+
+#### TODO
+
+- [ ] Apply the same sensor→JPEG scaling in `bench()`'s crop row that `crop()` uses.
+
+### App: `focus_crop`'s header has no full-JPEG size, so the zoom placeholder's scale is approximate
+
+The `focus_crop` payload header (`crates/app/src/commands.rs`, `crop_payload`) has a reserved 4-byte word but does not carry the full JPEG's width/height. The frontend's placeholder scale in `drawZoom()` (`crates/app/ui/src/main.ts`) falls back to the index row's `FocusLocation` sensor width, which is exact only when the JpgFromRaw size equals the sensor size.
+
+#### TODO
+
+- [ ] Carry the full JPEG width/height in the `focus_crop` header's reserved word and use it in `drawZoom()` instead of the sensor-width approximation.
+
+### App: the held crop bitmap is not released when paging with the 1:1 view off
+
+`crates/app/ui/src/main.ts` only `close()`s the previous crop bitmap when a new crop replaces it. Paging to a new file with the zoom view off leaves one stale crop bitmap alive until the next `Space` press.
+
+#### TODO
+
+- [ ] Release the held crop bitmap in `show()` when paging with zoom off, not only when a new crop arrives.
 
 ### App: no rescan when new files appear in an already-open folder
 

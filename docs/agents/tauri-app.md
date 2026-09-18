@@ -71,6 +71,31 @@ skips; it only skips the IDCT and colour conversion.
 - So a budget for a crop has to be stated for the worst row, not an average
   one, and shrinking the crop is not a way to make it fit.
 
+### A crop's origin snaps to an MCU boundary; don't assume centred or bit-identical (Hit, twice)
+
+`jpeg_crop_scanline` snaps the requested crop origin **down** to an MCU
+boundary (16px in the tested files) and does not necessarily widen the crop to
+compensate.
+
+- Why: baseline JPEG DCT blocks (MCUs) are the smallest unit libjpeg can crop
+  to; it never crops mid-MCU.
+- What broke: two independent guesses were wrong. `FocusCrop`'s `point_x`/
+  `point_y` are not the crop's centre (measured 269 vs a centre of 262 on one
+  file). `crop_size()`'s width does not grow to keep the point centred (a
+  64px-wide request at x=200 came back as width 64 at x=160, landing the point
+  at 40, not 32) — that behaviour also isn't consistent across files (it does
+  widen on a 4:2:2 test file). Always derive the point of interest as
+  `centre - crop.origin` from the actual returned crop, never assume a fixed
+  offset or that width grows.
+- A crop decoded via `jpeg_crop_scanline` is also **not bit-identical** to the
+  same region of a full `decode_rgb` near its left/right edges (chroma
+  upsampling has one fewer neighbour there; differences up to 2 in the first
+  columns, 1 in the last, on the tested file). Equality tests against a crop
+  must exclude ~8px from each edge or use a tolerance there, not assert exact
+  equality everywhere.
+- Source: `docs/plans/_archived/20260918-focus-check/learnings.md`, Steps 1
+  and 2.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so
