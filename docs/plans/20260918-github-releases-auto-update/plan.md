@@ -38,18 +38,20 @@ available / install it", no crates.io publishing of `riffle-core` /
 
 ## Decisions taken at planning time
 
-1. **Versions.** release-please runs the `rust` strategy at the repository root
-   (`"."`), because that strategy updates every workspace member's `Cargo.toml`
-   *and* the root `Cargo.lock` (a strategy at `crates/app` would look for
-   `crates/app/Cargo.lock`, which does not exist, and leave the root lock
-   stale). Consequence: `crates/core` and `crates/cli` are bumped in lockstep
-   with the app. They are not shipped or published, so their version number
-   carries no meaning of its own. `package.json` and
-   `crates/app/tauri.conf.json` are bumped through `extra-files` (`json` type,
-   `$.version`). Tag format is `vX.Y.Z` (`include-component-in-tag: false`).
-   **Step 4 verifies this with a release-please dry run before relying on
-   it**; the fallback is `release-type: simple` with `toml` extra-files for the
-   three `Cargo.toml` and accepting a stale `Cargo.lock` (see Trade-offs).
+1. **Versions.** release-please runs the `simple` strategy at the repository
+   root (`"."`). Step 4's dry run showed the `rust` strategy cannot handle a
+   virtual workspace root: it always updates the root `Cargo.toml` with its
+   `CargoToml` updater, which throws "is not a package manifest (might be a
+   cargo workspace)". So every versioned file is an `extra-files` entry: the
+   three `Cargo.toml` (`toml`, `$.package.version`), `Cargo.lock` (`toml`,
+   `$.package[?(@.source === undefined)].version`, which matches exactly the
+   workspace members because only they have no `source`), and `package.json`
+   and `crates/app/tauri.conf.json` (`json`, `$.version`). `package.json` gains
+   a `version` field for this. Consequence: `crates/core` and `crates/cli` are
+   bumped in lockstep with the app. They are not shipped or published, so their
+   version number carries no meaning of its own. No `package-name` is set, so
+   the release branch is `release-please--branches--main`. Tag format is
+   `vX.Y.Z` (`include-component-in-tag: false`).
 2. **macOS architectures: two native builds, no universal binary.** `aarch64`
    on `macos-latest` and `x86_64` on `macos-15-intel`. tauri-action merges the
    platform entries of parallel runners into one `latest.json`.
@@ -172,7 +174,7 @@ available / install it", no crates.io publishing of `riffle-core` /
     - `merger.md` is not changed
     - This step is `.claude/**` so it is itself approval-flagged; report it
 
-- [ ] Step 4: Wire release-please and gate the build on `release_created`
+- [x] Step 4: Wire release-please and gate the build on `release_created`
   - Done when:
     - `release-please-config.json` and `.release-please-manifest.json` exist at
       the repo root per Decision 1
@@ -258,3 +260,4 @@ available / install it", no crates.io publishing of `riffle-core` /
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
+- (2026-09-18) Step 4 complete

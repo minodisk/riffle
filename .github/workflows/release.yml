@@ -1,16 +1,42 @@
 name: Release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Opens or updates the release PR, and creates the tag and GitHub release when
+  # that PR is merged. The PAT makes the release PR trigger ci.yml, which
+  # GITHUB_TOKEN-authored PRs do not.
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
   # Builds the installers and their updater signatures on every platform Riffle
-  # ships to. Without tagName / releaseId tauri-action only builds and uploads
-  # workflow artifacts; attaching them to a release comes with release-please.
+  # ships to. On a release they are attached to it with latest.json; on a manual
+  # dispatch they are only uploaded as workflow artifacts.
   build:
+    needs: release-please
+    if: >-
+      always() && (github.event_name == 'workflow_dispatch' ||
+      needs.release-please.outputs.release_created == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -73,4 +99,11 @@ jobs:
           projectPath: crates/app
           tauriScript: pnpm tauri
           updaterJsonPreferNsis: true
-          uploadWorkflowArtifacts: true
+          tagName: ${{ needs.release-please.outputs.tag_name }}
+
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.os }}
+          path: target/release/bundle/**
+          if-no-files-found: error
