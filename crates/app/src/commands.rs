@@ -199,7 +199,7 @@ fn reconcile_sidecars_of(
     listed: &[String],
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
-) -> Result<Vec<(String, Option<i8>)>, String> {
+) -> Result<Vec<(String, Option<i8>, bool)>, String> {
     let sidecars = list_sidecars_in(Path::new(dir), format);
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
@@ -224,13 +224,14 @@ fn reconcile_sidecars_of(
         .filter(|(_, (_, size, _), _)| *size > MAX_SIDECAR_BYTES)
         .map(|(path, _, _)| path.as_str())
         .collect();
-    let parsed: Vec<(String, Option<i8>, i64, i64, bool)> = to_parse
+    let parsed: Vec<index::ParsedSidecar> = to_parse
         .iter()
         .filter(|(path, _, _)| !oversize.contains(path.as_str()))
         .filter_map(|(path, (sidecar, size, mtime_ns), dirty)| {
             let bytes = std::fs::read(sidecar).ok()?;
             let rating = format.read_rating(&bytes).ok()?;
-            Some((path.clone(), rating, *size, *mtime_ns, *dirty))
+            let pick = format.read_pick(&bytes).ok()?;
+            Some((path.clone(), rating, pick, *size, *mtime_ns, *dirty))
         })
         .collect();
     let mut index = index::lock(index);
@@ -242,7 +243,7 @@ fn reconcile_sidecars_of(
     let dirty = index.dirty_rows(dir)?;
     Ok(dirty
         .into_iter()
-        .filter(|(path, _)| !oversize.contains(path.as_str()))
+        .filter(|(path, _, _)| !oversize.contains(path.as_str()))
         .collect())
 }
 
@@ -685,8 +686,8 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // so it goes to the writer with none.
         Ok(dirty) => {
             if let Some(writer) = &app.state::<AppWriter>().0 {
-                for (path, rating) in dirty {
-                    if let Err(e) = writer.set_now(PathBuf::from(path), rating, format) {
+                for (path, rating, pick) in dirty {
+                    if let Err(e) = writer.set_now(PathBuf::from(path), rating, pick, format) {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
                 }
@@ -843,21 +844,36 @@ pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
 /// otherwise interleave.
 pub struct AppSwitchLock(pub Mutex<()>);
 
+/// The sidecar format currently selected, as stored under `sidecarFormat`
+/// (`"xmp"` or `"dop"`), so the frontend knows whether a pick can be kept.
+#[tauri::command]
+pub fn sidecar_format(app: tauri::AppHandle) -> &'static str {
+    index::lock(&app.state::<AppSidecarFormat>().0).setting()
+}
+
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
-/// stars.
+/// stars, plus PhotoLab's pick flag beside them. A pick is only kept while
+/// `.dop` is selected; with XMP it is dropped, as XMP has nowhere to put it.
 ///
 /// The `ratings` row is written before the writer is told, so a crash between
 /// the two still leaves the row dirty and the sidecar is written on the next
 /// open of that folder. The command is `async` because it touches SQLite; the
 /// frontend redraws without awaiting it.
 #[tauri::command]
-pub async fn set_rating(app: tauri::AppHandle, path: String, rating: i8) -> Result<(), String> {
+pub async fn set_rating(
+    app: tauri::AppHandle,
+    path: String,
+    rating: i8,
+    pick: bool,
+) -> Result<(), String> {
     if !(-1..=5).contains(&rating) {
         return Err(format!("rating {rating} is outside -1..=5"));
     }
     // 0 and "unrated" are the same state; the row keeps NULL and the sidecar
     // gets a `0` only when one already exists.
     let rating = Some(rating).filter(|r| *r != 0);
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let pick = pick && rating != Some(-1) && format == SidecarFormat::Dop;
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
     };
@@ -867,14 +883,13 @@ pub async fn set_rating(app: tauri::AppHandle, path: String, rating: i8) -> Resu
     {
         let path = path.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            index::lock(&index).set_rating(&dir, &path, rating)
+            index::lock(&index).set_rating(&dir, &path, rating, pick)
         })
         .await
         .map_err(|e| e.to_string())??;
     }
-    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     match &app.state::<AppWriter>().0 {
-        Some(writer) => writer.set(PathBuf::from(path), rating, format),
+        Some(writer) => writer.set(PathBuf::from(path), rating, pick, format),
         None => Err("the sidecar writer is not running".to_string()),
     }
 }
@@ -1007,7 +1022,7 @@ mod tests {
 
         // An app edit that never reached disk, then someone else's edit.
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5))
+            .set_rating(&dir, &listed[0], Some(5), false)
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
@@ -1062,11 +1077,11 @@ mod tests {
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[1], Some(-1))
+            .set_rating(&dir, &listed[1], Some(-1), false)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
-        assert_eq!(dirty, [(listed[1].clone(), Some(-1))]);
+        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false)]);
 
         let files: Vec<_> = listed
             .iter()
@@ -1100,6 +1115,7 @@ mod tests {
         remove_temp_dir(&root);
     }
 
+    const PHOTOLAB_PICK: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0001.ARW.dop");
     const PHOTOLAB_REJECT: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0002.ARW.dop");
     const PHOTOLAB_THREE: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0003.ARW.dop");
 
@@ -1137,6 +1153,38 @@ mod tests {
     }
 
     #[test]
+    fn a_photolab_pick_is_read_with_dop_and_ignored_with_xmp() {
+        let root = temp_dir("dop-pick");
+        let dir = root.to_string_lossy().into_owned();
+        for name in ["a.ARW", "b.ARW"] {
+            std::fs::write(root.join(name), b"x").unwrap();
+        }
+        std::fs::write(root.join("a.ARW.dop"), PHOTOLAB_PICK).unwrap();
+        std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_THREE).unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+        let picks = |index: &Arc<Mutex<Index>>| -> Vec<bool> {
+            index::lock(index)
+                .entries(&dir)
+                .unwrap()
+                .into_iter()
+                .map(|e| e.pick)
+                .collect()
+        };
+
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        index_files(&index, &dir, &listed);
+        assert_eq!(picks(&index), [true, false]);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(0));
+
+        index::lock(&index).reset_sidecars().unwrap();
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        assert_eq!(picks(&index), [false, false]);
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
     fn a_dop_differing_only_in_case_is_the_one_that_is_read() {
         let root = temp_dir("dop-case");
         let dir = root.to_string_lossy().into_owned();
@@ -1163,7 +1211,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5))
+            .set_rating(&dir, &listed[0], Some(5), false)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();

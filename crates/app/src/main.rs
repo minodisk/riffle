@@ -245,6 +245,7 @@ fn main() {
             commands::metadata,
             commands::focus_crop,
             commands::set_rating,
+            commands::sidecar_format,
             commands::open_in_photolab
         ])
         .build(tauri::generate_context!())

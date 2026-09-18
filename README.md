@@ -69,9 +69,10 @@ Keys:
 | `f` | toggle the focus mark |
 | `Space` | toggle the 1:1 focus check |
 | `1`-`5` | rate the current file that many stars |
-| `x` | reject the current file (sticky, not a toggle) |
-| `u` | un-reject the current file (does nothing unless it is rejected) |
-| `0` | clear the rating or the reject |
+| `x` | reject the current file (sticky, not a toggle; replaces a pick) |
+| `p` | pick the current file (`.dop` only, a no-op with XMP; sticky; replaces a reject, keeps the stars) |
+| `u` | un-reject or un-pick the current file (does nothing unless it is rejected or picked) |
+| `0` | clear the rating or the reject (a pick stays) |
 
 Folder > Open in DxO PhotoLab in the menu bar hands the open folder to the
 newest `DXOPhotoLab<N>.app` under `/Applications`.

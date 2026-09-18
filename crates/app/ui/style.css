@@ -1,8 +1,9 @@
 :root {
-  /* One colour each for stars and a reject, shared by the strip cell and the
-     meta pane's sidecar section. */
+  /* One colour each for stars, a reject and a pick, shared by the strip cell
+     and the meta pane's sidecar section. */
   --stars-color: #ffd050;
   --reject-color: #ff6b6b;
+  --pick-color: #6bdc8a;
 }
 
 html,
@@ -153,6 +154,16 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
+/* The pick flag, in the cell's top-left corner. */
+.cell span.pick {
+  top: 2px;
+  bottom: auto;
+  width: auto;
+  font-size: 0.7rem;
+  color: var(--pick-color);
+  text-shadow: 0 0 2px #000;
+}
+
 .cell.rejected {
   opacity: 0.45;
 }
@@ -207,6 +218,10 @@ body {
 
 #meta dd.rejected {
   color: var(--reject-color);
+}
+
+#meta dd.picked {
+  color: var(--pick-color);
 }
 
 #meta dl {

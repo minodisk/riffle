@@ -60,6 +60,33 @@
   unit-tested with `L1000001.DNG.dop` and a `.jpg.dop` negative.
 - No meta-pane change (the optional sidecar name) was made.
 
+## Step 4: Pick flag
+
+- The pick is a `bool` carried beside `rating` everywhere (`Writer::set` /
+  `set_now`, the `Pending` map, `Index::set_rating` / `mark_written` /
+  `dirty_rows` / `store_sidecar_ratings`, `IndexedFile.pick`), not a new
+  struct: the smallest change to the existing tuple-shaped signatures.
+- `dop::write_rating` gained a `pick: bool` (after `rating`) and no longer
+  preserves an existing `ShouldProcess = 0` on its own: the caller passes the
+  full judgement, which the index got from the same file on the folder open.
+  "Never clears a pick it did not mean to" therefore rests on the index
+  mirroring the sidecar; an unknown `.dop` found after a format switch has a
+  NULL stat, so it is parsed and wins over a dirty row before anything writes.
+  `dop::read_pick` is the new read side; `SidecarFormat::read_pick` is always
+  `false` for XMP, and the writer forces `pick = false` for XMP, so a pick
+  alone never mints an `.xmp`.
+- Schema v3 adds `ratings.pick`; a v2 database is migrated with
+  `ALTER TABLE ... ADD COLUMN` (tested with a hand-built v2 file holding a
+  dirty row), so no dirty row is dropped. `reset_sidecars` also sets
+  `pick = 0` on the dirty rows it keeps.
+- `set_rating` takes `pick`; the command drops it unless `.dop` is selected.
+  A new `sidecar_format` command gives the frontend the format at launch
+  (then the `sidecar-format` event's payload), so `p` is a no-op with XMP.
+- Frontend: `rate` became `judge(next)`, which maps the current
+  `(rating, pick)` to the new one per key; `u`'s old "only when rejected"
+  guard is now the general idempotence check. The pick shows as a green `⚑`
+  in the strip cell's top-left and as a `Pick` row in the meta pane.
+
 ## Deferred issues (todo candidates)
 
 - Review feedback (photolab-dop-sidecar-step-3, Round 1, item 1) asked for a

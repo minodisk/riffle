@@ -229,7 +229,7 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
       pane's sidecar section if that is where the user would look; do not
       add a settings dialog.
 
-- [ ] Step 4: Pick flag (`.dop` only)
+- [x] Step 4: Pick flag (`.dop` only)
   - User decisions (2026-09-18): `p` picks the current file; a reject is
     replaced by the pick and vice versa (`x` on a picked file rejects it);
     `u` clears a pick as well as a reject; `0` clears the rating and, as
@@ -374,3 +374,4 @@ PhotoLab agrees.
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete (PhotoLab manual check deferred to Step 5)
 - (2026-09-18) Step 3 complete
+- (2026-09-18) Step 4 complete
