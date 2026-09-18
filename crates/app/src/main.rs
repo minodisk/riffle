@@ -250,6 +250,9 @@ fn main() {
             commands::set_rating,
             commands::sidecar_format,
             commands::shortcuts,
+            commands::set_shortcut,
+            commands::reset_shortcut,
+            commands::reset_shortcuts,
             commands::open_in_photolab
         ])
         .build(tauri::generate_context!())

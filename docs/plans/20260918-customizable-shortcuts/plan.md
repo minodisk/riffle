@@ -124,7 +124,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
     - Add `applyKeymap(bindings)` so Steps 3-4 can swap the map without a
       restart.
 
-- [ ] Step 3: Rust rebind, reset and persistence commands
+- [x] Step 3: Rust rebind, reset and persistence commands
   - Done when:
     - `Keymap::rebind(action, key) -> Result<(), String>` replaces the
       action's keys with `[key]`, and fails with a message naming the cause:
@@ -248,3 +248,4 @@ reserved `p` and persistence round-trips.
 
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
+- (2026-09-19) Step 3 complete
