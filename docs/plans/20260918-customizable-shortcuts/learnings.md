@@ -39,3 +39,10 @@
   rebinds (`updateShortcuts` handles every command).
 - The `Settings` submenu is added in `app_menu::build` right after `Folder`,
   so `Sidecar` (appended later in `build_menu`) now sits after `Settings`.
+
+## Step 5
+
+- The manual GUI checks of Steps 2 and 4 are recorded in `README.md` as
+  awaiting the user's confirmation, not confirmed. The only pitfall added to
+  `docs/agents/tauri-app.md` is the submenu order (`Folder`, `Settings`,
+  `Sidecar`) that follows from where each submenu is appended.
