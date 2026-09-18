@@ -304,9 +304,22 @@ Prerequisites:
 The Rust toolchain, Node and pnpm all come from `mise install`.
 
 ```sh
-pnpm install
-pnpm tauri dev
+mise run app
 ```
+
+That is a debug build of the Rust side: quick to compile, slow at runtime. **Any
+timing measurement has to come from the optimised build instead**, because the
+numbers under "Measurements" below are all optimised ones and a debug build is
+not comparable to them:
+
+```sh
+mise run app:release
+```
+
+Both tasks run `pnpm install` first. `app:release` also passes
+`--features devtools`: Tauri only wires the webview's devtools up automatically
+in a debug build, so without it there is no console to read the timings from. A
+distributable build leaves the feature off.
 
 ## Measurements (Apple Silicon Mac, α7 V ARW, n=20)
 

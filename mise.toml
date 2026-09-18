@@ -19,6 +19,24 @@ description = "Format the whole repository"
 shell = "bash -c"
 run = "cargo fmt --all"
 
+[tasks.app]
+description = "Run the desktop app (debug build; fast to compile, slow at runtime)"
+shell = "bash -c"
+run = """
+set -euo pipefail
+pnpm install --frozen-lockfile
+pnpm tauri dev
+"""
+
+[tasks."app:release"]
+description = "Run the desktop app with an optimised Rust build (use this for any timing measurement)"
+shell = "bash -c"
+run = """
+set -euo pipefail
+pnpm install --frozen-lockfile
+pnpm tauri dev --release --features devtools
+"""
+
 [tasks.ci]
 description = "Run the same checks CI runs, locally"
 shell = "bash -c"
