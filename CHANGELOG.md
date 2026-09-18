@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.3](https://github.com/minodisk/riffle/compare/v0.1.2...v0.1.3) (2026-09-18)
+
+
+### Features
+
+* **app:** dispatch culling keys through the resolved keymap ([#96](https://github.com/minodisk/riffle/issues/96)) ([9235a9f](https://github.com/minodisk/riffle/commit/9235a9ffee72b507cfce518f304cf416338b50f8))
+* **app:** resolve the culling keymap from defaults and shortcut overrides ([#91](https://github.com/minodisk/riffle/issues/91)) ([c3fd55b](https://github.com/minodisk/riffle/commit/c3fd55b8f8a148c15cc31127ab714c96388b11f1))
+* **app:** show update download progress and install errors ([#95](https://github.com/minodisk/riffle/issues/95)) ([8670401](https://github.com/minodisk/riffle/commit/867040145353d8b89c18327728b3182b0d1f2226))
+
 ## [0.1.2](https://github.com/minodisk/riffle/compare/v0.1.1...v0.1.2) (2026-09-18)
 
 
