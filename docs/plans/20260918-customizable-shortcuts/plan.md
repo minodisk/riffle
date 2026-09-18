@@ -101,7 +101,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
       plugin is initialised) rather than `eprintln!`.
     - Keep defaults in Rust only; the frontend gets them through the command.
 
-- [ ] Step 2: Frontend dispatches through the resolved map
+- [x] Step 2: Frontend dispatches through the resolved map
   - Done when:
     - At launch `main.ts` invokes `shortcuts` (as it does `sidecar_format`)
       and builds a `Map<key, action>` from the result; the `keydown` handler

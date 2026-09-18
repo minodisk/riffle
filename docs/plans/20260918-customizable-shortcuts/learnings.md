@@ -10,3 +10,10 @@
   them.
 - A partially valid list (e.g. `["r", 1]`) rejects the whole override rather
   than keeping the valid keys.
+
+## Step 2
+
+- `keyName(event)` maps `" "` to `"space"` and lower-cases everything else,
+  matching the Rust key names. `applyKeymap` rebuilds the whole
+  `Map<key, action>` from a `Binding[]` so Steps 3-4 can pass command results
+  straight in. `applyKeymap` and `keyName` have one caller each until Step 4.
