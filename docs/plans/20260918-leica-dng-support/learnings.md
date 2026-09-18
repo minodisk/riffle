@@ -59,3 +59,9 @@
   2112 wide.
 - Centre crop on the 9504x6320 JPEG: ~16.5ms median, well under 50ms, despite
   skipping ~2900 rows. Thumbnails average 30.2KB versus ~19KB on ARW.
+
+## Step 5
+
+- README had no dedicated meta pane section; the aperture `(est.)` and Leica
+  focus distance rows are described in the Status paragraph, and the DNG
+  confirmations get their own paragraph under "What has been confirmed".

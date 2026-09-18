@@ -1,9 +1,9 @@
 # Riffle
 
-A culling app for Sony ARW files: look through them fast, apply ratings, and
-mark picks and rejects. Nothing else — no developing, no editing. It never runs
-a RAW decoder (LibRaw / rawler); everything comes from the JPEGs already
-embedded in the ARW.
+A culling app for Sony ARW and Leica DNG files: look through them fast, apply
+ratings, and mark picks and rejects. Nothing else — no developing, no editing.
+It never runs a RAW decoder (LibRaw / rawler); everything comes from the JPEGs
+already embedded in the ARW or DNG.
 
 ## Supported products
 
@@ -15,7 +15,7 @@ embedded in the ARW.
 
 #### Leica
 
-- [ ] M11-P
+- [x] M11-P
 
 ## Developing software
 
@@ -33,8 +33,8 @@ check) and Phase 6 (ratings, the reject flag and XMP sidecars) are done.
 
 The app opens a folder — through the picker or by dropping a folder, or a
 single file (any existing file resolves to its parent folder), onto the
-window — lists the ARW files in it, shows one embedded preview on
-a `<canvas>` (decoded in a worker, rotated by the ARW's Orientation), and pages
+window — lists the ARW and DNG files in it, shows one embedded preview on
+a `<canvas>` (decoded in a worker, rotated by the file's Orientation), and pages
 through them. A thumbnail filmstrip runs down the left edge: it is virtualised,
 highlights the current file, scrolls to follow paging, and a click on a cell
 shows that file. When the index has a `FocusLocation` for the current file, a
@@ -44,7 +44,11 @@ it is placed in unrotated sensor coordinates and rotated with the
 image. `Space` toggles a 1:1 focus check. `1`-`5`, `x`, `u` and `0` record a
 judgement, shown on the strip cell and in the meta pane's sidecar section and
 written to an XMP sidecar next to the RAW. The canvas shows only the image; the
-`N / M` counter sits in the strip pane, under the filmstrip.
+`N / M` counter sits in the strip pane, under the filmstrip. The meta pane
+shows the EXIF rows (camera, lens, shutter, aperture, ISO, focal length); on a
+file with no `FNumber` but an `ApertureValue` (the M11-P with an M-mount lens)
+the aperture is the camera's estimate, marked `(est.)` (e.g. `f/9.5 (est.)`),
+and a Leica file adds a focus distance row from its MakerNote (e.g. `5.42 m`).
 Still missing: no prefetch, no filtering by rating.
 See [Running the app](#running-the-app).
 
@@ -72,8 +76,9 @@ Keys:
 ### The 1:1 focus check
 
 `Space` toggles a third tier on top of the 400px thumbnails and the 1616x1080
-preview: a crop of the full-resolution `JpgFromRaw`, partially decoded out of
-the ARW with a ranged read, drawn at one JPEG pixel per device pixel. The crop
+preview (on the M11-P DNG, 528px thumbnails and the 2112x1408 preview): a crop
+of the full-resolution `JpgFromRaw` (the DNG's 9504x6320 JPEG), partially
+decoded out of the file with a ranged read, drawn at one JPEG pixel per device pixel. The crop
 is centred on the camera's `FocusLocation` (mapped from sensor coordinates onto
 the full JPEG), and on a file without one — manual focus — on the centre of the
 frame. It is cut in unrotated coordinates and carried by the same canvas
@@ -91,9 +96,10 @@ lower-cased, so Shift+J pages like `j`.
 
 ### The index
 
-On the first open of a folder, every ARW in it is extracted in parallel
+On the first open of a folder, every ARW and DNG in it is extracted in parallel
 (capture time, `SubSecTimeOriginal`, `FocusLocation`, Orientation and a 404x270
-thumbnail, from a bounded 1MiB prefix plus a ranged read of the preview
+thumbnail — 528x352 from the M11-P DNG's 2112x1408 preview, which has no
+`FocusLocation` — from a bounded 1MiB prefix plus a ranged read of the preview
 itself) into a SQLite database. The status
 line shows `scanning N / M` while that runs; the first preview does not wait
 for it. The database lives in the app cache directory:
@@ -117,18 +123,18 @@ The CLI from Phase 1:
 
 ```sh
 cargo build --release
-./target/release/riffle-cli info     <file.ARW>            # where the embedded JPEGs are
-./target/release/riffle-cli focusbox <file.ARW> <out.png>  # draw the focus box on the preview
-./target/release/riffle-cli crop     <file.ARW> <out.png> [size]  # partially decode the focus point at 1:1
-./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
-./target/release/riffle-cli scan     <dir> [threads]       # extract a whole folder in parallel
+./target/release/riffle-cli info     <file.ARW|file.DNG>            # where the embedded JPEGs are
+./target/release/riffle-cli focusbox <file.ARW|file.DNG> <out.png>  # draw the focus box on the preview
+./target/release/riffle-cli crop     <file.ARW|file.DNG> <out.png> [size]  # partially decode the focus point at 1:1
+./target/release/riffle-cli bench    <file.ARW|file.DNG>...         # measure decode speed
+./target/release/riffle-cli scan     <dir> [threads]                # extract a whole folder in parallel
 ```
 
 ### Ratings and XMP sidecars
 
 `1`-`5` set a star rating, `x` marks a reject, `u` un-rejects and `0` clears
 either. The RAW file is never written. The judgement goes into a standard XMP
-sidecar next to it — `FOO.ARW` gets `FOO.xmp` (an existing sidecar differing
+sidecar next to it — `FOO.ARW` gets `FOO.xmp`, as does `FOO.DNG` (an existing sidecar differing
 only in case, say `FOO.XMP`, is used instead of a second file being created) —
 as a single property, `xmp:Rating`, holding `0`-`5` or `-1` for a reject.
 Nothing else is written: no colour label, no pick flag, no private namespace.
@@ -234,6 +240,17 @@ neither.** Whether DxO PhotoLab reads `-1` at all could not be checked here
 label alongside is a one-line change in `write_rating`.
 
 ### What has been confirmed, and by what
+
+**Confirmed by hand on macOS (Leica M11-P DNG)**: the user opened a folder of
+32 real M11-P DNGs in the release build and confirmed all 32 listed, the scan
+completing with no errors, filmstrip thumbnails, the preview, `Space` showing a
+centred 1:1 crop, an Orientation 6 file upright in the strip, preview and crop,
+the meta pane (camera, lens, shutter, ISO, focal length), and the rating keys
+writing `L100xxxx.xmp` next to the DNG with other files untouched. The user
+also confirmed `L1005206.DNG` showing `f/9.5 (est.)` and `5.42 m`, and focus
+distances matching the scenes. **Not verified**: the α7 V ARW meta pane was not
+re-checked after the aperture and focus distance change. The app-side 1:1 cost
+on a DNG (keypress to pixels) is **awaiting the user's confirmation**.
 
 **Confirmed by hand on macOS (Phase 2)**: the folder picker opens and returns,
 cancelling is a no-op, the arrow keys page, and a portrait file comes out
