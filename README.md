@@ -22,8 +22,9 @@ focus mark can be drawn over the preview: a crosshair, since the tag records a
 point rather than an AF rectangle. It is hidden by default, `f` toggles it, and
 it is placed in unrotated sensor coordinates and rotated with the
 image. `Space` toggles a 1:1 focus check. `1`-`5`, `x`, `u` and `0` record a
-judgement, shown as a badge on the preview and on the strip cell and written to
-an XMP sidecar next to the RAW.
+judgement, shown on the strip cell and in the meta pane's sidecar section and
+written to an XMP sidecar next to the RAW. The canvas shows only the image; the
+`N / M` counter sits in the strip pane, under the filmstrip.
 Still missing: no prefetch, no filtering by rating.
 See [Running the app](#running-the-app).
 
@@ -104,6 +105,16 @@ sidecar next to it — `FOO.ARW` gets `FOO.xmp` (an existing sidecar differing
 only in case, say `FOO.XMP`, is used instead of a second file being created) —
 as a single property, `xmp:Rating`, holding `0`-`5` or `-1` for a reject.
 Nothing else is written: no colour label, no pick flag, no private namespace.
+
+The judgement is shown in two places, with the same glyphs and colours: the
+strip cell's badge (yellow stars, or a red `✕` on a dimmed cell for a reject)
+and the last section of the meta pane, set apart from the EXIF rows by a rule.
+That section is headed by the sidecar's name, with `(not created)` when the
+file is known to have none, and holds a `Rating` row (stars, `✕`, or `–` when
+unrated). The header shows the name the app would write, so a foreign
+`FOO.XMP` reads as `FOO.xmp`; the writer still patches `FOO.XMP`. Whether a
+sidecar exists is as the app last read or wrote it, not a live stat; a rating
+key marks it as existing at once.
 
 A sidecar the app created is a small RDF/XML template. A sidecar another
 tool wrote is **patched in place, never regenerated**: the `xmp:Rating` value
@@ -260,13 +271,25 @@ measurements below, where a 1024 crop costs 11ms at the top of the frame and
 
 **Awaiting the user's confirmation (Phase 6)**: nothing about the rating keys
 has been looked at in a running window. Unconfirmed: a rating key changing the
-badge and the status line with no perceptible delay, holding `3` down doing
+strip badge and the meta pane with no perceptible delay, holding `3` down doing
 nothing beyond the first press, `x` then `u` then `4` ending at four stars,
-mashing keys while paging never badging the wrong file, the strip badge
-matching the main view, and one `.xmp` per rated file appearing in the folder
+mashing keys while paging never marking the wrong file, and one `.xmp` per
+rated file appearing in the folder
 within about half a second. Which tools read `xmp:Rating="-1"` back as a
 reject is likewise the user's to confirm: **no reader has been confirmed by
 the user**, and DxO PhotoLab's behaviour could not be checked here at all.
+
+**Awaiting the user's confirmation (rating display tidy-up)**: none of it has
+been looked at in a running window. Unconfirmed: no rating or reject drawn on
+the canvas in the fitted or the 1:1 view; `N / M` between the filmstrip and
+"Open folder", updating on every page turn and empty with no folder open, with
+the strip still scrolling and virtualising as before; the meta pane showing no
+position or rating line under the file name and ending with the rule-separated
+sidecar section (name, `(not created)` when known absent, and the `Rating`
+row); a rating key on a sidecar-less file removing `(not created)` at once
+while `0` does not; and the strip cell and the `Rating` row using the same
+glyphs and colours. `has_sidecar` itself is covered by a unit test in
+`index.rs`.
 
 ### Phase 4 baseline
 

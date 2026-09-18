@@ -1,3 +1,10 @@
+:root {
+  /* One colour each for stars and a reject, shared by the strip cell and the
+     meta pane's sidecar section. */
+  --stars-color: #ffd050;
+  --reject-color: #ff6b6b;
+}
+
 html,
 body {
   margin: 0;
@@ -34,6 +41,14 @@ body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+#position {
+  flex: none;
+  padding: 0.25rem 0.5rem 0;
+  font-size: 0.8rem;
+  text-align: center;
+  color: #999;
 }
 
 #open {
@@ -134,7 +149,7 @@ body {
   right: 2px;
   width: auto;
   font-size: 0.7rem;
-  color: #ffd050;
+  color: var(--stars-color);
   text-shadow: 0 0 2px #000;
 }
 
@@ -143,7 +158,7 @@ body {
 }
 
 .cell.rejected span.rating {
-  color: #ff6b6b;
+  color: var(--reject-color);
 }
 
 #canvas {
@@ -168,13 +183,37 @@ body {
   font-weight: 600;
 }
 
-#meta .position,
 #meta .note {
   color: #999;
 }
 
-#meta .rating {
-  color: #ffd050;
+/* The sidecar's contents, set apart from the EXIF rows the app never
+   writes. */
+#meta .sidecar {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #3a3a3a;
+}
+
+#meta .sidecar .header {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+#meta .sidecar .header .note {
+  font-weight: normal;
+}
+
+#meta .sidecar dl {
+  margin-top: 0.25rem;
+}
+
+#meta dd.stars {
+  color: var(--stars-color);
+}
+
+#meta dd.rejected {
+  color: var(--reject-color);
 }
 
 #meta dl {
