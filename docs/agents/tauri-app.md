@@ -168,7 +168,24 @@ one `on_menu_event` dispatching to every submenu.
   cannot be read there.
 - Also: a relative store path resolves against the app **data** dir; the
   settings file is opened with an absolute `app_config_dir()` path.
-- Source: `docs/plans/20260918-photolab-dop-sidecar/learnings.md`, Steps 2-3.
+- Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
+  Steps 2-3.
+
+### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
+
+On macOS APFS, `sidecar_path(arw).exists()` is true for `H.ARW.DOP` even when
+the code built the path as `h.arw.dop` (or vice versa), because the file
+system does case-insensitive but case-preserving lookups.
+
+- Why: the OS resolves the path regardless of case, so an existence/rename
+  check can silently hit a sidecar with different case than the one just
+  built.
+- Any code that renames or writes a sidecar based on `exists()` needs to
+  tolerate landing on the other case's file rather than assuming its own
+  spelling was used; do not assert on the exact resulting name in tests, only
+  that exactly one sidecar exists.
+- Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
+  Step 2.
 
 ## Frontend (`crates/app/ui`, `tsc` only, no bundler)
 
