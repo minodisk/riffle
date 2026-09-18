@@ -8,8 +8,8 @@ embedded in the ARW.
 ## Status
 
 Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton), Phase 3
-(the folder index, the filmstrip and the focus mark) and Phase 5 (the 1:1 focus
-check) are done.
+(the folder index, the filmstrip and the focus mark), Phase 5 (the 1:1 focus
+check) and Phase 6 (ratings, the reject flag and XMP sidecars) are done.
 
 The app opens a folder — through the picker or by dropping a folder, or a
 single file (any existing file resolves to its parent folder), onto the
@@ -21,8 +21,11 @@ shows that file. When the index has a `FocusLocation` for the current file, a
 focus mark can be drawn over the preview: a crosshair, since the tag records a
 point rather than an AF rectangle. It is hidden by default, `f` toggles it, and
 it is placed in unrotated sensor coordinates and rotated with the
-image. `Space` toggles a 1:1 focus check.
-Still missing: no prefetch, no rating. See [Running the app](#running-the-app).
+image. `Space` toggles a 1:1 focus check. `1`-`5`, `x`, `u` and `0` record a
+judgement, shown as a badge on the preview and on the strip cell and written to
+an XMP sidecar next to the RAW.
+Still missing: no prefetch, no filtering by rating.
+See [Running the app](#running-the-app).
 
 Keys:
 
@@ -92,6 +95,89 @@ cargo build --release
 ./target/release/riffle-cli bench    <file.ARW>...         # measure decode speed
 ./target/release/riffle-cli scan     <dir> [threads]       # extract a whole folder in parallel
 ```
+
+### Ratings and XMP sidecars
+
+`1`-`5` set a star rating, `x` marks a reject, `u` un-rejects and `0` clears
+either. The RAW file is never written. The judgement goes into a standard XMP
+sidecar next to it — `FOO.ARW` gets `FOO.xmp` (an existing sidecar differing
+only in case, say `FOO.XMP`, is used instead of a second file being created) —
+as a single property, `xmp:Rating`, holding `0`-`5` or `-1` for a reject.
+Nothing else is written: no colour label, no pick flag, no private namespace.
+
+A sidecar the app created is a ten-line RDF/XML template. A sidecar another
+tool wrote is **patched in place, never regenerated**: the `xmp:Rating` value
+is replaced byte for byte (in either legal shape, the attribute
+`xmp:Rating="3"` or the element `<xmp:Rating>3</xmp:Rating>`, under whichever
+prefix is bound to the XMP namespace), or one attribute is inserted into the
+first `rdf:Description` when the property is absent. Everything else in the
+file — a Lightroom sidecar's kilobytes of `crs:` develop settings, keywords,
+history — stays byte-identical, which a test asserts. A sidecar that is not
+parseable XML, or that has no `rdf:Description`, is left alone and reported
+rather than overwritten.
+
+Clearing on a file that has no sidecar writes nothing rather than creating an
+empty one, so a folder is not littered with 5000 sidecars for files that were
+never rated. Clearing on a file that does have one writes `xmp:Rating="0"`, so
+a foreign sidecar's stars are actually cleared.
+
+**The sidecar is the source of truth; the index is a cache with a write-ahead
+role.** The rating lives in the sidecar for other tools to read; the SQLite
+index keeps a copy so a folder opens without parsing 5000 files, plus a
+`dirty` flag marking a judgement that has not reached its sidecar yet. Each
+row also stores the `(size, mtime)` of the sidecar as the app last read or
+wrote it. On every folder open, each file is reconciled by six rules:
+
+1. sidecar present, its `(size, mtime)` differs from the stored pair, the row
+   is not dirty — parse it and take its rating (an external edit wins; this is
+   also the first open of a folder Lightroom has rated, where there is no row
+   at all);
+2. sidecar present, differs, and the row **is** dirty — the sidecar still
+   wins and `dirty` is cleared. A sidecar that changed under us is read, never
+   silently overwritten; the cost is one unwritten keypress, on one file, and
+   it is visible on screen;
+3. sidecar present, `(size, mtime)` unchanged — nothing is parsed (the fast
+   path for 5000 files);
+4. sidecar absent and the row is dirty — write it now (the crash-recovery
+   path);
+5. sidecar absent, the row is not dirty, but a stat was stored — the sidecar
+   was deleted outside the app, so the rating is cleared too (the truth is
+   gone);
+6. sidecar absent and nothing was ever stored — nothing.
+
+An external edit made while the folder is open is not noticed; there is no
+watcher, so it is picked up on the next open.
+
+Writing is asynchronous and coalesced. A keypress updates the screen first,
+then records the rating in the index with `dirty = 1` and hands the file to a
+single writer thread, which waits **300 ms after the last change to that
+file** before writing — mashing `1`, `2`, `3` on one file produces one write,
+containing `3`. The write goes to `FOO.xmp.riffle-tmp` in the same directory,
+is `fsync`ed and then renamed over `FOO.xmp`, which is atomic on APFS and
+NTFS; a crash mid-write therefore leaves the previous, well-formed sidecar
+plus a stray temp file, never a truncated one. On quit, the writer is drained
+synchronously (bounded at about two seconds), so a normal Cmd+Q loses nothing.
+
+What a kill during the debounce window costs: `kill -9` or a crash in those
+300 ms loses the sidecar write but **not** the judgement — the row is dirty,
+so rule 4 writes the sidecar the next time that folder is opened. Only a death
+between the keypress and the index write (a few milliseconds) loses the
+judgement itself. A sidecar directory that cannot be written (a locked card, a
+read-only share) fails the rename, leaves the row dirty, shows one message in
+the status line, and is retried on the next open of that folder. Discarding
+the index loses only the dirty rows not yet written; everything else is in the
+sidecars.
+
+Which tools read `-1` back is a claim about those tools, and this repository
+has verified none of it. What is *reported*: exiftool's XMP tag reference
+documents `xmp:Rating` as a value from 0 to 5, or -1 for "rejected"; Adobe
+Bridge writes `-1` for a rejected file and darktable reads and writes it;
+Lightroom Classic does not write pick/reject flags to XMP at all (they are
+catalog-only) but is reported to read `-1` as a reject on import. **The user's
+downstream tools are Lightroom and DxO PhotoLab, and the user has confirmed
+neither.** Whether DxO PhotoLab reads `-1` at all could not be checked here
+(the web sources returned 403). If it turns out to ignore it, adding a colour
+label alongside is a one-line change in `write_rating`.
 
 ### What has been confirmed, and by what
 
@@ -163,7 +249,8 @@ nothing beyond the first press, `x` then `u` then `4` ending at four stars,
 mashing keys while paging never badging the wrong file, the strip badge
 matching the main view, and one `.xmp` per rated file appearing in the folder
 within about half a second. Which tools read `xmp:Rating="-1"` back as a
-reject is likewise the user's to confirm.
+reject is likewise the user's to confirm: **no reader has been confirmed by
+the user**, and DxO PhotoLab's behaviour could not be checked here at all.
 
 ### Phase 4 baseline
 

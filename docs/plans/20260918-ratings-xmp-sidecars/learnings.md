@@ -190,3 +190,29 @@ ARWs, and nothing here says anything about how the app feels.
   status line" is met literally, but `note` is a single transient slot
   (`crates/app/ui/src/main.ts`, `setStatus`). A dedicated, sticky error area
   would be a UI change beyond this step.
+
+## Step 6: Documentation and status update
+
+- The Step 4 measurement was already in `README.md` ("What the sidecar pass
+  adds to a folder open (Phase 6)") with its conditions intact and correctly
+  placed next to the other measurement sections; it was left untouched rather
+  than restated, so the numbers exist in exactly one place.
+- The README's three-way split already had Phase 6 paragraphs from Steps 4 and
+  5. Step 6 only sharpened the honesty of the tool-compatibility sentence:
+  **no** reader has been confirmed by the user, and DxO PhotoLab could not be
+  checked here at all (the web sources returned 403 during planning). The new
+  "Ratings and XMP sidecars" section says which claims are *reported* by
+  exiftool's tag reference and by Bridge/darktable/Lightroom documentation and
+  which are verified here (none of them).
+- The six reconciliation rules are now prose in the README as well as the
+  plan; they were written from decision 2 rather than re-derived from the
+  code, then checked against `reconcile_sidecars` for agreement.
+- `docs/agents/tauri-app.md` gained the `RunEvent::ExitRequested` drain on the
+  Rust side (`Builder::build` + `App::run`, and why `Drop` is not the drain,
+  including that this is the one exemption from "never block the main thread"),
+  and two corollaries on the folder-token section: a same-folder reopen is a
+  new open with the same `dir`, so the token is what catches it, and a
+  once-registered event listener needs a payload guard of its own — which is
+  what `sidecar-error`'s `fileIndex.has(payload.path)` check is.
+- Documentation only; nothing under `crates/` was changed, and the parallel
+  session's Phase 5 README sections were left alone.

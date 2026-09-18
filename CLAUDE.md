@@ -5,10 +5,11 @@ the current status.
 
 ## Layout
 
-A Cargo workspace: `crates/core` (ARW parsing and JPEG decoding, `riffle-core`),
-`crates/cli` (the benchmark CLI, including the `scan` folder-extraction
-benchmark), `crates/app` (the Tauri 2 desktop app, whose `src/index.rs` is the
-SQLite folder index).
+A Cargo workspace: `crates/core` (ARW parsing and JPEG decoding, `riffle-core`,
+whose `src/xmp.rs` reads, writes and patches XMP sidecars), `crates/cli` (the
+benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
+(the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index and
+`src/sidecar.rs` the coalescing sidecar writer thread).
 
 The frontend lives under `crates/app/ui` (TypeScript compiled by `tsc` only, no
 bundler) and is type-checked by `mise run ci`.

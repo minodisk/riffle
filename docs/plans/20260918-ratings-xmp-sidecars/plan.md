@@ -344,7 +344,7 @@ repeated here.
     - Assumes Step 4 is merged (for the initial values); the key handling
       itself only needs Step 3
 
-- [ ] Step 6: Documentation and status update
+- [x] Step 6: Documentation and status update
   - Done when:
     - `README.md` "Status" says Phase 6 is done, documents the sidecar
       (`FOO.xmp`, `xmp:Rating` with `-1` for a reject, that foreign
