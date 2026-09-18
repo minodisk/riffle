@@ -96,6 +96,27 @@ compensate.
 - Source: `docs/plans/_archived/20260918-focus-check/learnings.md`, Steps 1
   and 2.
 
+### Draining background work at quit needs `build()` + `run()` (Hit)
+
+Work that must finish before the process ends — Phase 6's sidecar writer has a
+300ms debounce, so a quit inside that window would otherwise leave the write
+for the next folder open — is drained in `tauri::RunEvent::ExitRequested`.
+
+- Why: `tauri::Builder::run(context)` takes only the context and gives no place
+  to hook the run event. Use `Builder::build(context)?` and then
+  `App::run(|app, event| ...)`; the closure's first argument is an `&AppHandle`,
+  so `app.state::<...>()` works there.
+- The writer's `Drop` is deliberately **not** the drain: a managed state's
+  `Drop` is not guaranteed to run during process teardown, and even when it
+  does, the channel disconnect races the exit instead of being waited on. Send
+  an explicit flush message and block on a reply channel with a bounded wait
+  (~2s) instead.
+- This is the one place the "never block the main thread" rule above does not
+  apply: the run loop is on its way out, and blocking there is what makes the
+  drain a drain. Keep the wait bounded anyway.
+- Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
+  Step 3.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so
@@ -126,6 +147,15 @@ rather than by a test.
 - The four instances:
   `docs/plans/_archived/20260918-thumbnail-cache-filmstrip/learnings.md`
   (Steps 2, 5, 6, 7).
+- Two corollaries from Phase 6's review (Step 5): comparing the directory
+  string is **not** enough, because reopening the same folder is a new open
+  with the same `dir` — `refreshEntries` checks `dir !== openDir ||
+  token !== folderToken` for that reason. And a backend **event** listener,
+  which is registered once and outlives every folder, needs the same kind of
+  guard on its payload before it touches the UI; the `sidecar-error` listener
+  drops a payload whose path is not in the current folder's index.
+- Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
+  Step 5.
 
 ### `tsc` rejects `outDir` equal to `rootDir` (Hit)
 
