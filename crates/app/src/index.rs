@@ -167,6 +167,8 @@ impl Index {
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
+                 -- `xmp_size` / `xmp_mtime_ns` are the stat of the sidecar of
+                 -- the selected format (XMP or `.dop`), whatever its name says.
                  CREATE TABLE IF NOT EXISTS ratings (
                      path TEXT PRIMARY KEY,
                      dir TEXT NOT NULL,

@@ -23,3 +23,21 @@
 - A missing key is inserted at the start of the line holding the table's
   closing `}`; if that `}` shares its line with other content the write is an
   `Err` rather than guessing a layout.
+
+## Step 2: App writes and reconciles the selected format
+
+- `SidecarFormat` (in `crates/app/src/sidecar.rs`) is the only place that
+  knows both formats; `write_rating` takes the ARW path so the `.dop` branch
+  can pass the file name and `dop::timestamp(SystemTime::now())`.
+- `tauri-plugin-store` resolves a relative store path against the app
+  **data** dir (`resolve_store_path` uses `BaseDirectory::AppData`), so the
+  settings file is opened with an absolute `app_config_dir()/settings.json`
+  path to keep it where `last_folder` lived.
+- There were no `last_folder` tests to port; the migration's file half
+  (`take_legacy_last_folder`) got its own test, the store half is not
+  unit-testable without a Tauri app.
+- No capability was added: the store is only touched from Rust.
+- On a case-insensitive file system (macOS APFS) `sidecar_path(arw).exists()`
+  is true for `H.ARW.DOP`, so the rename may land on the other spelling; the
+  case test asserts "still exactly one `.dop`" rather than a name.
+- Step 2's checkbox stays unchecked: only the manual PhotoLab check remains.

@@ -9,9 +9,10 @@ use std::sync::{Arc, Mutex};
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_store::StoreExt;
 
 use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
-use crate::sidecar::Writer;
+use crate::sidecar::{SidecarFormat, Writer};
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
@@ -165,23 +166,19 @@ fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
 /// left alone rather than failing the open.
 const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
 
-/// The XMP sidecars directly in `dir`, keyed by lower-cased file name so that
-/// a `FOO.XMP` written by another tool is found for `FOO.ARW`.
+/// The sidecars of `format` directly in `dir`, keyed by lower-cased file name
+/// so that a `FOO.XMP` written by another tool is found for `FOO.ARW`.
 ///
 /// One listing of the directory, rather than a `stat` of 5000 guessed names:
 /// the second open of a folder is meant to cost no more than the listing the
 /// ARWs already pay for.
-fn list_sidecars_in(dir: &Path) -> HashMap<String, SidecarStat> {
+fn list_sidecars_in(dir: &Path, format: SidecarFormat) -> HashMap<String, SidecarStat> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return HashMap::new();
     };
     entries
         .flatten()
-        .filter(|e| {
-            e.path()
-                .extension()
-                .is_some_and(|x| x.eq_ignore_ascii_case("xmp"))
-        })
+        .filter(|e| format.matches(&e.file_name().to_string_lossy()))
         .filter_map(|e| {
             let stat = index::stat(&e.path()).ok()?;
             let name = e.file_name().to_string_lossy().to_lowercase();
@@ -200,12 +197,14 @@ fn reconcile_sidecars_of(
     dir: &str,
     listed: &[String],
     index: &Arc<Mutex<Index>>,
+    format: SidecarFormat,
 ) -> Result<Vec<(String, Option<i8>)>, String> {
-    let sidecars = list_sidecars_in(Path::new(dir));
+    let sidecars = list_sidecars_in(Path::new(dir), format);
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
         .map(|path| {
-            let name = riffle_core::xmp::sidecar_path(Path::new(path))
+            let name = format
+                .sidecar_path(Path::new(path))
                 .file_name()
                 .map(|n| n.to_string_lossy().to_lowercase());
             let stat = name.and_then(|n| sidecars.get(&n)).cloned();
@@ -229,7 +228,7 @@ fn reconcile_sidecars_of(
         .filter(|(path, _, _)| !oversize.contains(path.as_str()))
         .filter_map(|(path, (sidecar, size, mtime_ns), dirty)| {
             let bytes = std::fs::read(sidecar).ok()?;
-            let rating = riffle_core::xmp::read_rating(&bytes).ok()?;
+            let rating = format.read_rating(&bytes).ok()?;
             Some((path.clone(), rating, *size, *mtime_ns, *dirty))
         })
         .collect();
@@ -272,28 +271,61 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     rx.recv().await.flatten().map(|p| p.to_string())
 }
 
-/// Where the last opened folder is kept between launches. It is a preference,
-/// not a cache, so it lives in the config dir rather than beside the index.
-fn last_folder_file(app: &tauri::AppHandle) -> Option<PathBuf> {
-    app.path()
-        .app_config_dir()
-        .ok()
-        .map(|dir| dir.join("last_folder"))
+/// The settings store. Settings are preferences, not a cache, so the file
+/// lives in the config dir rather than beside the index.
+fn settings(app: &tauri::AppHandle) -> Result<Arc<tauri_plugin_store::Store<tauri::Wry>>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    app.store(dir.join("settings.json"))
+        .map_err(|e| e.to_string())
+}
+
+/// Read and remove the plain file the last folder was kept in before the
+/// settings store existed. `None` when there is none.
+fn take_legacy_last_folder(file: &Path) -> Option<String> {
+    let dir = std::fs::read_to_string(file).ok()?;
+    if let Err(e) = std::fs::remove_file(file) {
+        eprintln!("failed to remove {}: {e}", file.display());
+    }
+    Some(dir)
+}
+
+/// Load the settings at launch: move a legacy `last_folder` file into the
+/// store once, then return the selected sidecar format. A store that cannot
+/// be read is logged and falls back to the defaults.
+pub fn load_settings(app: &tauri::AppHandle) -> SidecarFormat {
+    let store = match settings(app) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("failed to open the settings: {e}");
+            return SidecarFormat::default();
+        }
+    };
+    if !store.has("lastFolder") {
+        let legacy = app
+            .path()
+            .app_config_dir()
+            .ok()
+            .and_then(|dir| take_legacy_last_folder(&dir.join("last_folder")));
+        if let Some(dir) = legacy {
+            store.set("lastFolder", dir);
+            if let Err(e) = store.save() {
+                eprintln!("failed to save the settings: {e}");
+            }
+        }
+    }
+    SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()))
 }
 
 /// Remember `dir` as the folder to reopen on the next launch. Failing to write
 /// it only means starting with nothing open, so it is logged, not returned.
 #[tauri::command]
 pub fn remember_folder(app: tauri::AppHandle, dir: String) {
-    let Some(file) = last_folder_file(&app) else {
-        return;
-    };
-    let written = file
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| std::fs::write(&file, dir));
-    if let Err(e) = written {
-        log::error!("failed to remember the folder at {}: {e}", file.display());
+    let saved = settings(&app).and_then(|store| {
+        store.set("lastFolder", dir);
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        eprintln!("failed to remember the folder: {e}");
     }
 }
 
@@ -301,7 +333,11 @@ pub fn remember_folder(app: tauri::AppHandle, dir: String) {
 /// it is no longer a directory.
 #[tauri::command]
 pub fn last_folder(app: tauri::AppHandle) -> Option<String> {
-    let dir = std::fs::read_to_string(last_folder_file(&app)?).ok()?;
+    let dir = settings(&app)
+        .ok()?
+        .get("lastFolder")?
+        .as_str()?
+        .to_string();
     Path::new(&dir).is_dir().then_some(dir)
 }
 
@@ -573,11 +609,14 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .map_err(|e| e.to_string())??
     };
 
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     let dirty = {
         let (dir, index) = (dir.clone(), index);
-        tauri::async_runtime::spawn_blocking(move || reconcile_sidecars_of(&dir, &listed, &index))
-            .await
-            .map_err(|e| e.to_string())?
+        tauri::async_runtime::spawn_blocking(move || {
+            reconcile_sidecars_of(&dir, &listed, &index, format)
+        })
+        .await
+        .map_err(|e| e.to_string())?
     };
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
@@ -585,7 +624,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         Ok(dirty) => {
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating) in dirty {
-                    if let Err(e) = writer.set_now(PathBuf::from(path), rating) {
+                    if let Err(e) = writer.set_now(PathBuf::from(path), rating, format) {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
                 }
@@ -734,6 +773,9 @@ pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, 
 /// `set_rating` is an error rather than a silent no-op.
 pub struct AppWriter(pub Option<Writer>);
 
+/// The sidecar format selected in the settings, read once at launch.
+pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
+
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
 /// stars.
 ///
@@ -763,8 +805,9 @@ pub async fn set_rating(app: tauri::AppHandle, path: String, rating: i8) -> Resu
         .await
         .map_err(|e| e.to_string())??;
     }
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     match &app.state::<AppWriter>().0 {
-        Some(writer) => writer.set(PathBuf::from(path), rating),
+        Some(writer) => writer.set(PathBuf::from(path), rating, format),
         None => Err("the sidecar writer is not running".to_string()),
     }
 }
@@ -853,7 +896,7 @@ mod tests {
         let index = sidecar_index(&root);
 
         let listed = list_arw_in(&root).unwrap();
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
 
         assert!(dirty.is_empty());
         // No `files` row exists yet, so `entries` cannot show it; the row is
@@ -885,7 +928,7 @@ mod tests {
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert!(dirty.is_empty(), "the sidecar won, so nothing is written");
         assert_eq!(
             index::lock(&index).dirty_rows(&dir).unwrap(),
@@ -898,9 +941,11 @@ mod tests {
         let stat = index::stat(&file).unwrap();
         sidecar(&root, "a.xmp", 1);
         restore_mtime(&file, stat.mtime_ns);
-        assert!(reconcile_sidecars_of(&dir, &listed, &index)
-            .unwrap()
-            .is_empty());
+        assert!(
+            reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp)
+                .unwrap()
+                .is_empty()
+        );
 
         index::lock(&index)
             .write_batch(
@@ -923,9 +968,11 @@ mod tests {
         let file = sidecar(&root, "a.xmp", 1);
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
-        assert!(reconcile_sidecars_of(&dir, &listed, &index)
-            .unwrap()
-            .is_empty());
+        assert!(
+            reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp)
+                .unwrap()
+                .is_empty()
+        );
 
         // `a` had a sidecar and lost it: the truth is gone with it. `b` has a
         // judgement that never reached a sidecar, and must be written instead.
@@ -935,7 +982,7 @@ mod tests {
             .set_rating(&dir, &listed[1], Some(-1))
             .unwrap();
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert_eq!(dirty, [(listed[1].clone(), Some(-1))]);
 
         let files: Vec<_> = listed
@@ -958,7 +1005,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        reconcile_sidecars_of(&dir, &listed, &index).unwrap();
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         index::lock(&index)
             .write_batch(
                 &dir,
@@ -966,6 +1013,98 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
+
+        remove_temp_dir(&root);
+    }
+
+    const PHOTOLAB_REJECT: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0002.ARW.dop");
+    const PHOTOLAB_THREE: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0003.ARW.dop");
+
+    /// Store the `files` rows of `listed` so `entries` can show their ratings.
+    fn index_files(index: &Arc<Mutex<Index>>, dir: &str, listed: &[String]) {
+        let files: Vec<_> = listed
+            .iter()
+            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".to_string())))
+            .collect();
+        index::lock(index).write_batch(dir, &files).unwrap();
+    }
+
+    #[test]
+    fn photolab_ratings_and_rejects_are_read_on_the_first_open_and_xmps_ignored() {
+        let root = temp_dir("dop-first-open");
+        let dir = root.to_string_lossy().into_owned();
+        for name in ["a.ARW", "b.ARW", "c.ARW"] {
+            std::fs::write(root.join(name), b"x").unwrap();
+        }
+        std::fs::write(root.join("a.ARW.dop"), PHOTOLAB_REJECT).unwrap();
+        std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_THREE).unwrap();
+        sidecar(&root, "c.xmp", 4);
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+
+        assert!(dirty.is_empty());
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(-1));
+        assert_eq!(rating_of(&index, &dir, &listed[1]), Some(3));
+        assert_eq!(rating_of(&index, &dir, &listed[2]), None);
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn a_dop_differing_only_in_case_is_the_one_that_is_read() {
+        let root = temp_dir("dop-case");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        std::fs::write(root.join("A.ARW.DOP"), PHOTOLAB_THREE).unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(3));
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn an_oversize_dop_is_neither_read_nor_handed_to_the_writer() {
+        let root = temp_dir("dop-oversize");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let mut big = PHOTOLAB_THREE.to_vec();
+        big.resize(MAX_SIDECAR_BYTES as usize + 1, b'\n');
+        std::fs::write(root.join("a.ARW.dop"), big).unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+        index::lock(&index)
+            .set_rating(&dir, &listed[0], Some(5))
+            .unwrap();
+
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+
+        assert!(dirty.is_empty(), "the writer must not patch it unread");
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn the_legacy_last_folder_file_is_taken_once() {
+        let root = temp_dir("legacy-last-folder");
+        let file = root.join("last_folder");
+        assert_eq!(take_legacy_last_folder(&file), None);
+        std::fs::write(&file, "/some/folder").unwrap();
+
+        assert_eq!(
+            take_legacy_last_folder(&file).as_deref(),
+            Some("/some/folder")
+        );
+        assert!(!file.exists());
+        assert_eq!(take_legacy_last_folder(&file), None);
 
         remove_temp_dir(&root);
     }
