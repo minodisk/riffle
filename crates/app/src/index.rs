@@ -23,9 +23,11 @@ use riffle_core::scan::{extract_all, Entry};
 const SCHEMA_VERSION: i64 = 2;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
-/// loses at most a second of work, large enough that the per-transaction fsync
-/// is not paid per file.
-const BATCH: usize = 50;
+/// loses at most a second of work and that the single index mutex, which every
+/// `thumbnail` / `folder_entries` / `set_rating` also takes, is not held for a
+/// long transaction, large enough that the per-transaction fsync is not paid
+/// per file.
+const BATCH: usize = 10;
 
 /// Shortest interval between two progress notifications.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);

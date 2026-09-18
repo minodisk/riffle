@@ -21,6 +21,12 @@ const CELL_HEIGHT = Number.parseFloat(
 const RANGE_MARGIN = 4;
 // Concurrent `thumbnail` invokes. The IPC hop, not the decode, is the cost.
 const MAX_IN_FLIGHT = 4;
+// Shortest gap between two `refresh` runs. `scan-progress` arrives 10/s and
+// each run re-requests every visible cell the scan has not reached yet, which
+// kept `MAX_IN_FLIGHT` invokes outstanding for the whole scan and starved the
+// rest of the IPC channel. The event carries only `done`/`total`, not which
+// files became available, so the re-request cannot be narrowed; throttle it.
+const REFRESH_INTERVAL = 1000;
 
 interface Cell {
   el: HTMLDivElement;
@@ -46,6 +52,11 @@ const inFlightIndices = new Set<number>();
 // or the file errored). Cleared on `refresh` so a `scan-progress` event
 // re-requests them.
 const missing = new Set<number>();
+// When the last `refresh` ran, and the trailing timer for a `refresh` that
+// arrived inside `REFRESH_INTERVAL` of it. The trailing run is what keeps the
+// authoritative `scan-done` refresh from being dropped.
+let lastRefresh = 0;
+let refreshTimer: number | null = null;
 // Indices whose request failed for a reason other than "not yet scanned".
 // Kept separate from `missing` so a real failure is shown once instead of
 // being retried forever like a not-yet-scanned file.
@@ -260,6 +271,11 @@ export function setFiles(paths: string[]): void {
   inFlightIndices.clear();
   missing.clear();
   failed.clear();
+  if (refreshTimer !== null) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  lastRefresh = 0;
   ratings.clear();
   files = paths;
   current = 0;
@@ -282,10 +298,22 @@ export function setCurrent(index: number): void {
 }
 
 // Ask again for the visible cells the index had nothing for, after the scan
-// has made progress.
+// has made progress. Throttled to one run per `REFRESH_INTERVAL`, with a
+// trailing run so the last caller still takes effect.
 export function refresh(): void {
-  missing.clear();
-  pump();
+  const wait = lastRefresh + REFRESH_INTERVAL - Date.now();
+  if (wait <= 0) {
+    lastRefresh = Date.now();
+    missing.clear();
+    pump();
+    return;
+  }
+  if (refreshTimer === null) {
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      refresh();
+    }, wait);
+  }
 }
 
 export function init(onSelect: (index: number) => void): void {
