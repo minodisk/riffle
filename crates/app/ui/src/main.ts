@@ -29,6 +29,7 @@ interface IndexedFile {
   focus: Focus | null;
   has_thumb: boolean;
   rating: number | null;
+  pick: boolean;
   has_sidecar: boolean;
 }
 
@@ -117,6 +118,12 @@ let entriesPending = false;
 // and a missing entry is unrated. Filled from `folder_entries` and then owned
 // by the keyboard until the next folder open.
 const ratings = new Map<string, number>();
+// The picked paths, owned the same way as `ratings`. A pick is PhotoLab's
+// flag and coexists with stars; it exists only while `.dop` is selected.
+const picks = new Set<string>();
+// The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
+// launch and the `sidecar-format` event after a switch.
+let sidecarFormat = "xmp";
 // The paths judged through the keyboard in this session, so a refresh from
 // `folder_entries` (which may predate the pending sidecar write) does not
 // undo what the user just pressed.
@@ -275,6 +282,9 @@ function sidecarSection(path: string): HTMLElement {
     rating === undefined ? "\u2013" : ratingText(rating),
     rating === undefined ? undefined : rating === -1 ? "rejected" : "stars",
   );
+  if (picks.has(path)) {
+    row(list, "Pick", "\u2691", "picked");
+  }
   section.append(list);
   return section;
 }
@@ -337,47 +347,57 @@ function draw(): void {
   context.restore();
 }
 
-// Record a judgement locally: the `ratings` map and the strip cell. `null` is
-// unrated.
-function applyRating(path: string, rating: number | null): void {
+// Record a judgement locally: the `ratings` map, the `picks` set and the
+// strip cell. `null` is unrated.
+function applyRating(path: string, rating: number | null, pick: boolean): void {
   if (rating === null) {
     ratings.delete(path);
   } else {
     ratings.set(path, rating);
   }
+  if (pick) {
+    picks.add(path);
+  } else {
+    picks.delete(path);
+  }
   const at = fileIndex.get(path);
   if (at !== undefined) {
-    strip.setRating(at, rating);
+    strip.setRating(at, rating, pick);
   }
 }
 
-// A rating key: update the map and redraw first, then tell the backend. The
-// invoke is never awaited for anything visible; only its failure is, which
-// reverts the entry (if the folder is still the one it belongs to) and says
-// so in the status line.
-function rate(rating: number | null): void {
+// A judgement key, given the current file's judgement and returning the new
+// one: update the map and redraw first, then tell the backend. The invoke is
+// never awaited for anything visible; only its failure is, which reverts the
+// entry (if the folder is still the one it belongs to) and says so in the
+// status line.
+function judge(
+  next: (rating: number | null, pick: boolean) => [number | null, boolean],
+): void {
   if (files.length === 0) {
     return;
   }
   const path = files[index];
   const previous = ratings.get(path) ?? null;
+  const previousPick = picks.has(path);
+  const [rating, pick] = next(previous, previousPick);
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless.
-  if (previous === rating) {
+  if (previous === rating && previousPick === pick) {
     return;
   }
   touched.add(path);
-  applyRating(path, rating);
+  applyRating(path, rating, pick);
   renderMeta();
   const token = folderToken;
   void window.__TAURI__.core
-    .invoke("set_rating", { path, rating: rating ?? 0 })
+    .invoke("set_rating", { path, rating: rating ?? 0, pick })
     .catch((err: unknown) => {
       if (token !== folderToken) {
         return;
       }
       touched.delete(path);
-      applyRating(path, previous);
+      applyRating(path, previous, previousPick);
       setStatus(String(err));
     });
 }
@@ -408,7 +428,7 @@ function refreshEntries(): void {
       for (const row of rows) {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
-          applyRating(row.path, row.rating);
+          applyRating(row.path, row.rating, row.pick);
         }
       }
       renderMeta();
@@ -796,6 +816,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
       entries.clear();
       ratings.clear();
+      picks.clear();
       touched.clear();
       fileIndex.clear();
       files.forEach((path, at) => {
@@ -958,7 +979,8 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 // The Sidecar menu switched the format and the backend has reset the index:
 // reopen the folder so the strip and the meta pane show the newly selected
 // format's judgements. A fresh token drops any open still in flight.
-void window.__TAURI__.event.listen<string>("sidecar-format", () => {
+void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
+  sidecarFormat = payload;
   if (openDir === null) {
     return;
   }
@@ -966,6 +988,12 @@ void window.__TAURI__.event.listen<string>("sidecar-format", () => {
     setStatus(String(err));
   });
 });
+
+void window.__TAURI__.core
+  .invoke<string>("sidecar_format")
+  .then((format) => {
+    sidecarFormat = format;
+  });
 
 openEl.addEventListener("click", openFolder);
 reopenLastFolder();
@@ -1002,17 +1030,23 @@ window.addEventListener("keydown", (event) => {
   } else if (key === "o") {
     openFolder();
   } else if (key >= "1" && key <= "5") {
-    rate(Number(key));
+    judge((_, pick) => [Number(key), pick]);
   } else if (key === "x") {
-    // Sticky, not a toggle: `x` twice is still a reject. `u` undoes it.
-    rate(-1);
-  } else if (key === "u") {
-    if (files.length === 0 || (ratings.get(files[index]) ?? null) !== -1) {
+    // Sticky, not a toggle: `x` twice is still a reject, and it replaces a
+    // pick. `u` undoes it.
+    judge(() => [-1, false]);
+  } else if (key === "p") {
+    // Sticky like `x`, replacing a reject; XMP has no pick, so a no-op there.
+    if (sidecarFormat !== "dop") {
       return;
     }
-    rate(null);
+    judge((rating) => [rating === -1 ? null : rating, true]);
+  } else if (key === "u") {
+    // Clears a reject or a pick; does nothing to a file with neither.
+    judge((rating) => [rating === -1 ? null : rating, false]);
   } else if (key === "0") {
-    rate(null);
+    // Clears the stars or the reject and leaves a pick alone.
+    judge((_, pick) => [null, pick]);
   } else {
     return;
   }

@@ -32,6 +32,7 @@ interface Cell {
   el: HTMLDivElement;
   img: HTMLImageElement;
   badge: HTMLSpanElement;
+  pickBadge: HTMLSpanElement;
   url: string | null;
 }
 
@@ -64,17 +65,20 @@ const failed = new Set<number>();
 // The judgement per index, mirroring the `ratings` map in `main.ts`: `-1` is
 // a reject, `1`-`5` stars, and a missing entry is unrated.
 const ratings = new Map<number, number>();
+// The picked indices, mirroring the `picks` set in `main.ts`.
+const picks = new Set<number>();
 let inFlight = 0;
 let select: (index: number) => void = () => {};
 
 // A rejected cell is dimmed and badged `\u2715`; a rated one carries its
 // stars. The same text as the meta pane's `Rating` row (`ratingText` in
-// `main.ts`).
+// `main.ts`). A picked cell also carries a flag in the other corner.
 function paintRating(index: number, cell: Cell): void {
   const rating = ratings.get(index);
   cell.badge.textContent =
     rating === undefined ? "" : rating === -1 ? "\u2715" : "\u2605".repeat(rating);
   cell.el.classList.toggle("rejected", rating === -1);
+  cell.pickBadge.textContent = picks.has(index) ? "\u2691" : "";
 }
 
 function baseName(path: string): string {
@@ -102,11 +106,14 @@ function createCell(index: number): Cell {
   const badge = document.createElement("span");
   badge.className = "rating";
   el.append(badge);
+  const pickBadge = document.createElement("span");
+  pickBadge.className = "pick";
+  el.append(pickBadge);
   el.addEventListener("click", () => {
     select(index);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, url: null };
+  const cell: Cell = { el, img, badge, pickBadge, url: null };
   paintRating(index, cell);
   return cell;
 }
@@ -248,11 +255,16 @@ function render(): void {
 
 // Record the judgement of one file, repainting its cell when it is on screen.
 // `null` is unrated.
-export function setRating(index: number, rating: number | null): void {
+export function setRating(index: number, rating: number | null, pick: boolean): void {
   if (rating === null) {
     ratings.delete(index);
   } else {
     ratings.set(index, rating);
+  }
+  if (pick) {
+    picks.add(index);
+  } else {
+    picks.delete(index);
   }
   const cell = cells.get(index);
   if (cell !== undefined) {
@@ -277,6 +289,7 @@ export function setFiles(paths: string[]): void {
   }
   lastRefresh = 0;
   ratings.clear();
+  picks.clear();
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;
