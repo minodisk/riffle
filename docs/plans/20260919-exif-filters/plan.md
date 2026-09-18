@@ -54,7 +54,7 @@ folder (for focal length, only the ranges that contain a frame).
 
 ## Steps
 
-- [ ] Step 1: Carry the shooting settings through `scan::Entry` and share the display formatting
+- [x] Step 1: Carry the shooting settings through `scan::Entry` and share the display formatting
   - Done when:
     - `riffle_core::scan::Entry` carries the whole `Shot` (either as a
       `shot: Shot` field replacing the three copied fields, or as the
@@ -239,4 +239,4 @@ rebase.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete

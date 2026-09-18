@@ -258,7 +258,7 @@ impl Index {
             let path = file.path.to_string_lossy();
             match result {
                 Ok(entry) => {
-                    let focus = entry.focus;
+                    let focus = entry.shot.focus;
                     tx.execute(
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error)
@@ -269,8 +269,8 @@ impl Index {
                             file.size,
                             file.mtime_ns,
                             entry.orientation,
-                            entry.capture_time,
-                            entry.subsec,
+                            entry.shot.capture_time,
+                            entry.shot.subsec,
                             focus.map(|f| f.sensor_w),
                             focus.map(|f| f.sensor_h),
                             focus.map(|f| f.x),
@@ -637,7 +637,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riffle_core::arw::FocusLocation;
+    use riffle_core::arw::{FocusLocation, Shot};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("riffle-index-{name}-{}", std::process::id()));
@@ -667,14 +667,17 @@ mod tests {
     fn entry() -> Entry {
         Entry {
             orientation: 6,
-            capture_time: Some("2026:09:13 09:23:33".to_string()),
-            subsec: Some("122".to_string()),
-            focus: Some(FocusLocation {
-                sensor_w: 7008,
-                sensor_h: 4672,
-                x: 3613,
-                y: 1732,
-            }),
+            shot: Shot {
+                capture_time: Some("2026:09:13 09:23:33".to_string()),
+                subsec: Some("122".to_string()),
+                focus: Some(FocusLocation {
+                    sensor_w: 7008,
+                    sensor_h: 4672,
+                    x: 3613,
+                    y: 1732,
+                }),
+                ..Shot::default()
+            },
             thumbnail: vec![0xff, 0xd8, 0xff, 0xd9],
         }
     }

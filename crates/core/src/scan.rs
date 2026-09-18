@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use rayon::prelude::*;
 
-use crate::arw::FocusLocation;
+use crate::arw::Shot;
 use crate::decode::thumbnail_jpeg;
 use crate::reader::read_preview;
 
@@ -24,9 +24,7 @@ pub fn is_raw_file(path: &Path) -> bool {
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub orientation: u16,
-    pub capture_time: Option<String>,
-    pub subsec: Option<String>,
-    pub focus: Option<FocusLocation>,
+    pub shot: Shot,
     /// Unrotated thumbnail JPEG; the caller carries the Orientation.
     pub thumbnail: Vec<u8>,
 }
@@ -46,9 +44,7 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|e| e.to_string())?;
     Ok(Entry {
         orientation: arw.orientation,
-        capture_time: arw.shot.capture_time,
-        subsec: arw.shot.subsec,
-        focus: arw.shot.focus,
+        shot: arw.shot,
         thumbnail,
     })
 }
