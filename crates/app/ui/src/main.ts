@@ -1115,8 +1115,121 @@ function keyName(event: KeyboardEvent): string {
   return event.key === " " ? "space" : event.key.toLowerCase();
 }
 
+const shortcutLabels: Record<string, string> = {
+  previous: "Previous",
+  next: "Next",
+  open: "Open in DxO PhotoLab",
+  focus: "Focus mark",
+  zoom: "1:1 zoom",
+  rate1: "1 star",
+  rate2: "2 stars",
+  rate3: "3 stars",
+  rate4: "4 stars",
+  rate5: "5 stars",
+  reject: "Reject",
+  pick: "Pick",
+  unflag: "Un-reject / un-pick",
+  clear: "Clear",
+};
+
+const shortcutsEl = document.getElementById("shortcuts") as HTMLDivElement;
+const shortcutsRows = document.getElementById("shortcuts-rows") as HTMLTableElement;
+const shortcutsStatus = document.getElementById("shortcuts-status") as HTMLDivElement;
+let shortcutBindings: Binding[] = [];
+// The action whose row waits for a key, while the panel is open.
+let capturing: string | null = null;
+
+function renderShortcuts(): void {
+  shortcutsRows.replaceChildren(
+    ...shortcutBindings.map(({ action, keys }) => {
+      const row = document.createElement("tr");
+      const label = document.createElement("td");
+      label.textContent = shortcutLabels[action] ?? action;
+      const keysCell = document.createElement("td");
+      keysCell.className = "keys";
+      keysCell.textContent =
+        capturing === action
+          ? "Press a key..."
+          : keys.map((key) => (key === "space" ? "Space" : key)).join(", ");
+      const resetCell = document.createElement("td");
+      row.append(label, keysCell, resetCell);
+      if (action !== "pick") {
+        row.className = "editable";
+        keysCell.addEventListener("click", () => {
+          capturing = action;
+          shortcutsStatus.textContent = "";
+          renderShortcuts();
+        });
+        const reset = document.createElement("button");
+        reset.type = "button";
+        reset.textContent = "Reset";
+        reset.addEventListener("click", () => {
+          void updateShortcuts("reset_shortcut", { action });
+        });
+        resetCell.append(reset);
+      }
+      return row;
+    }),
+  );
+}
+
+async function updateShortcuts(command: string, args?: Record<string, unknown>): Promise<void> {
+  capturing = null;
+  try {
+    shortcutBindings = await window.__TAURI__.core.invoke<Binding[]>(command, args);
+    applyKeymap(shortcutBindings);
+    shortcutsStatus.textContent = "";
+  } catch (error) {
+    shortcutsStatus.textContent = String(error);
+  }
+  renderShortcuts();
+}
+
+function closeShortcuts(): void {
+  capturing = null;
+  shortcutsEl.hidden = true;
+}
+
+void window.__TAURI__.event.listen("open-shortcuts", async () => {
+  shortcutBindings = await window.__TAURI__.core.invoke<Binding[]>("shortcuts");
+  capturing = null;
+  shortcutsStatus.textContent = "";
+  renderShortcuts();
+  shortcutsEl.hidden = false;
+});
+
+(document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener("click", () => {
+  void updateShortcuts("reset_shortcuts");
+});
+(document.getElementById("shortcuts-close") as HTMLButtonElement).addEventListener("click", closeShortcuts);
+
+// While the panel is open, keys rebind the capturing row instead of culling.
+function shortcutsKeydown(event: KeyboardEvent): void {
+  const key = keyName(event);
+  if (["shift", "meta", "control", "alt"].includes(key)) {
+    return;
+  }
+  event.preventDefault();
+  if (key === "escape") {
+    if (capturing === null) {
+      closeShortcuts();
+    } else {
+      capturing = null;
+      renderShortcuts();
+    }
+    return;
+  }
+  if (capturing !== null) {
+    void updateShortcuts("set_shortcut", { action: capturing, key });
+  }
+}
+
 window.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) {
+    return;
+  }
+  if (!shortcutsEl.hidden) {
+    shortcutsKeydown(event);
     return;
   }
   const key = keyName(event);
