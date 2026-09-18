@@ -458,32 +458,6 @@ pub struct Metadata {
     captured_at: Option<String>,
 }
 
-/// Format a rational as a decimal with at most `places` digits, with trailing
-/// zeros dropped (2.80 -> "2.8", 50.0 -> "50").
-fn decimal(r: riffle_core::arw::Rational, places: usize) -> Option<String> {
-    let v = r.value()?;
-    let text = format!("{v:.places$}");
-    let text = if text.contains('.') {
-        text.trim_end_matches('0').trim_end_matches('.')
-    } else {
-        text.as_str()
-    };
-    Some(text.to_string())
-}
-
-/// Shutter speed the way a camera shows it: `1/250` below a second, `1.3"`
-/// at or above one.
-fn shutter(r: riffle_core::arw::Rational) -> Option<String> {
-    let v = r.value()?;
-    if v <= 0.0 {
-        return None;
-    }
-    if v >= 1.0 {
-        return decimal(r, 1).map(|t| format!("{t}\""));
-    }
-    Some(format!("1/{}", (1.0 / v).round()))
-}
-
 fn read_metadata(path: &Path) -> Result<Metadata, String> {
     let name = path
         .file_name()
@@ -491,37 +465,19 @@ fn read_metadata(path: &Path) -> Result<Metadata, String> {
     let arw =
         riffle_core::reader::read_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let shot = arw.shot;
-    // The model usually already starts with the make ("SONY" / "ILCE-7M5"),
-    // so the two are joined rather than one being dropped.
-    let camera = match (shot.make.as_deref(), shot.model.as_deref()) {
-        (Some(make), Some(model)) => Some(format!("{make} {model}")),
-        (make, model) => make.or(model).map(str::to_string),
-    };
+    let exif = crate::exif::exif(&shot);
+    let label = |l: Option<crate::exif::Labelled>| l.map(|l| l.label);
     Ok(Metadata {
         name,
-        camera,
-        lens: shot.lens_model,
-        aperture: match (shot.f_number, shot.estimated_f_number) {
-            (Some(r), _) => decimal(r, 1).map(|t| format!("f/{t}")),
-            (None, Some(f)) => decimal(
-                riffle_core::arw::Rational {
-                    num: (f * 10.0).round() as i64,
-                    den: 10,
-                },
-                1,
-            )
-            .map(|t| format!("f/{t} (est.)")),
-            (None, None) => None,
-        },
-        shutter: shot.exposure_time.and_then(shutter),
-        iso: shot.iso.map(|v| v.to_string()),
-        focal_length: shot
-            .focal_length
-            .and_then(|r| decimal(r, 1))
-            .map(|t| format!("{t} mm")),
+        camera: exif.camera,
+        lens: exif.lens,
+        aperture: label(exif.aperture),
+        shutter: label(exif.shutter),
+        iso: label(exif.iso),
+        focal_length: label(exif.focal_length),
         exposure_bias: shot.exposure_bias.and_then(|r| {
             let v = r.value()?;
-            let text = decimal(r, 1)?;
+            let text = crate::exif::decimal(r, 1)?;
             Some(if v > 0.0 {
                 format!("+{text} EV")
             } else {
@@ -1360,40 +1316,6 @@ mod tests {
         // `/` to exercise `dropped_dir` itself against, so this pins the
         // `Path::parent` behaviour the function relies on instead.
         assert_eq!(Path::new("/a.arw").parent(), Some(Path::new("/")));
-    }
-
-    #[test]
-    fn shutter_reads_as_a_fraction_below_a_second_and_seconds_above() {
-        use riffle_core::arw::Rational;
-        assert_eq!(
-            shutter(Rational { num: 1, den: 250 }).as_deref(),
-            Some("1/250")
-        );
-        assert_eq!(
-            shutter(Rational { num: 13, den: 10 }).as_deref(),
-            Some("1.3\"")
-        );
-        assert_eq!(shutter(Rational { num: 4, den: 1 }).as_deref(), Some("4\""));
-        assert_eq!(shutter(Rational { num: 0, den: 1 }), None);
-        assert_eq!(shutter(Rational { num: 1, den: 0 }), None);
-    }
-
-    #[test]
-    fn decimals_drop_their_trailing_zeros() {
-        use riffle_core::arw::Rational;
-        assert_eq!(
-            decimal(Rational { num: 28, den: 10 }, 1).as_deref(),
-            Some("2.8")
-        );
-        assert_eq!(
-            decimal(Rational { num: 500, den: 10 }, 1).as_deref(),
-            Some("50")
-        );
-        assert_eq!(decimal(Rational { num: 1, den: 0 }, 1), None);
-        assert_eq!(
-            decimal(Rational { num: 100, den: 1 }, 0).as_deref(),
-            Some("100")
-        );
     }
 
     /// Encode a synthetic gradient so the test needs no image file.

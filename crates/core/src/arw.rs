@@ -77,7 +77,7 @@ impl Rational {
 
 /// The shooting settings read out of IFD0 and the ExifIFD. Every field is
 /// optional: a body that does not write a tag is not an error.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Shot {
     /// Raw `DateTimeOriginal`, `YYYY:MM:DD HH:MM:SS`.
     pub capture_time: Option<String>,
