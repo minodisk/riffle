@@ -60,7 +60,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 
 ## Steps
 
-- [ ] Step 1: Core: find the embedded JPEGs of a DNG in `arw::parse` and gate the Sony MakerNote
+- [x] Step 1: Core: find the embedded JPEGs of a DNG in `arw::parse` and gate the Sony MakerNote
   - Done when:
     - `riffle_core::arw::parse` on any of the 31 sample DNGs returns a
       `preview` of the 2112x1408 JPEG and a `full` of the 9504x6320 JPEG,
@@ -213,4 +213,4 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 
 ## Progress
 
-- (none yet)
+- (2026-09-18) Step 1 complete
