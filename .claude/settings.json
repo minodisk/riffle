@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Bash(bash .claude/skills/develop/scripts/*)",
+      "Bash(bash .claude/skills/merge/scripts/*)",
+      "Bash(bash .claude/skills/pr/scripts/*)",
       "Bash(date *)",
+      "Bash(mise run *)",
       "Bash(bash .claude/skills/*)"
     ]
   }
