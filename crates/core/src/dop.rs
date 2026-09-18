@@ -74,8 +74,9 @@ pub fn read_pick(bytes: &[u8]) -> Result<bool, String> {
 /// pick and `2` otherwise, so the caller passes the pick it wants kept.
 ///
 /// `rating` `None` means unrated and writes `Rating = 0`. On a file that has
-/// no sidecar yet the caller must not write anything at all rather than call
-/// this with `None`, as with [`crate::xmp::write_rating`].
+/// no sidecar yet, the caller must not write anything at all for a judgement
+/// that is both unrated (`rating` `None`) and unpicked (`pick` `false`), as
+/// with [`crate::xmp::write_rating`].
 pub fn write_rating(
     existing: Option<&[u8]>,
     rating: Option<i8>,

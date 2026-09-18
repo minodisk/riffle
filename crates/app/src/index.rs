@@ -113,8 +113,9 @@ pub fn stat(path: &Path) -> Result<FileStat, String> {
 }
 
 impl Index {
-    /// Open, creating the file and the schema on first use. A database written
-    /// by a different schema version is discarded: it is a cache.
+    /// Open, creating the file and the schema on first use. `v2` is migrated
+    /// to the current schema in place; a database written by any other
+    /// unrecognized schema version is discarded, since it is a cache.
     pub fn open(path: &Path) -> Result<Self, String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
@@ -186,13 +187,17 @@ impl Index {
             )
             .map_err(|e| e.to_string())?;
         if version == 2 {
+            let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+            tx.execute_batch("ALTER TABLE ratings ADD COLUMN pick INTEGER NOT NULL DEFAULT 0;")
+                .map_err(|e| e.to_string())?;
+            tx.pragma_update(None, "user_version", SCHEMA_VERSION)
+                .map_err(|e| e.to_string())?;
+            tx.commit().map_err(|e| e.to_string())?;
+        } else {
             self.conn
-                .execute_batch("ALTER TABLE ratings ADD COLUMN pick INTEGER NOT NULL DEFAULT 0;")
+                .pragma_update(None, "user_version", SCHEMA_VERSION)
                 .map_err(|e| e.to_string())?;
         }
-        self.conn
-            .pragma_update(None, "user_version", SCHEMA_VERSION)
-            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
