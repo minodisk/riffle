@@ -143,20 +143,16 @@ fn bench(paths: &[String]) -> Result<()> {
             decode_rgb(jpeg)?;
             t_full.push(t.elapsed().as_secs_f64() * 1000.0);
 
-            if let Some(f) = a.shot.focus {
-                // FocusLocation is in sensor coordinates, and JpgFromRaw has
-                // the same 7008 width it reports, so they need no scaling.
-                let t = Instant::now();
-                let c = partial::decode_crop(jpeg, f.x as usize, f.y as usize, CROP_SIZE)?;
-                t_crop.push(t.elapsed().as_secs_f64() * 1000.0);
-                let _ = c;
-            }
+            // The centre fallback the app uses when there is no FocusLocation.
+            let t = Instant::now();
+            partial::decode_focus_crop(jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE)?;
+            t_crop.push(t.elapsed().as_secs_f64() * 1000.0);
         }
     }
 
     println!();
     if !t_preview.is_empty() {
-        stats("1. preview 1616px decode", t_preview);
+        stats("1. preview decode", t_preview);
     }
     if !t_full.is_empty() {
         stats("2. JpgFromRaw full decode", t_full);

@@ -186,7 +186,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
     - Keep the estimated flag in the data (not just the formatting) so the UI
       can mark it.
 
-- [ ] Step 4: CLI benchmark on the DNG folder and the measured numbers
+- [x] Step 4: CLI benchmark on the DNG folder and the measured numbers
   - Done when:
     - `riffle-cli bench` times the 1:1 crop on a file without `FocusLocation`
       too, by using `partial::decode_focus_crop(jpeg, a.shot.focus, ...)` (the

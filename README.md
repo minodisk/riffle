@@ -587,6 +587,38 @@ artifacts, which need the release signing key.
 | JpgFromRaw full decode | 300ms | 84ms |
 | 512px partial decode at the focus point | 50ms | 17.5ms |
 
+### Leica M11-P DNG (Apple Silicon Mac, M3 Pro 12 cores, n=32)
+
+Measured on 2026-09-18 with release builds over 32 distinct real M11-P DNGs
+(60.8MB to 78.0MB, 72.0MB mean), with the page cache warm (the files had been
+read just before). Each DNG embeds a 2112x1408 preview and a 9504x6320 1:1
+JPEG. The M11-P writes no `FocusLocation`, so the 512px crop is taken at the
+image centre (row ~3160), the fallback the app uses.
+
+`riffle-cli bench` (two runs, medians):
+
+| Step | Target | Measured (median) |
+|------|--------|-------------------|
+| 2112x1408 preview decode | 10ms | 7.5-8.0ms (α7 V 1616x1080: 4.4ms) |
+| 9504x6320 1:1 JPEG full decode | 300ms | 105ms (p95 125-130ms) |
+| 512px partial decode at the centre | 50ms | 16.4-16.5ms (p95 ~20ms, max 22.7ms) |
+
+The centre crop sits well inside the 50ms budget on its own; this is the CLI
+decode only, not keypress to pixels.
+
+`riffle-cli scan` over the folder:
+
+| Threads | Total | Throughput | Per file on a worker (mean / p95) |
+|---------|-------|------------|-----------------------------------|
+| 1 | 0.39s | 83 files/s | 12.1ms / 14.1ms |
+| 12 | 0.05s | 596 files/s | 17.3ms / 24.2ms |
+
+Thumbnails (528x352): 30,231 bytes per file on average (967,419 bytes over
+32 files), against ~19KB on the α7 V.
+
+The app-side 1:1 cost on a DNG (keypress to pixels) is awaiting the user's
+confirmation.
+
 ## The FocusLocation coordinate system
 
 `FocusLocation` is in **unrotated sensor coordinates**. It maps onto both the
