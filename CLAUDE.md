@@ -1,11 +1,11 @@
 # Riffle
 
-A culling app for Sony ARW files. See [README.md](./README.md) for what it is and
-the current status.
+A culling app for Sony ARW and Leica DNG files. See [README.md](./README.md)
+for what it is and the current status.
 
 ## Layout
 
-A Cargo workspace: `crates/core` (ARW parsing and JPEG decoding, `riffle-core`,
+A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle-core`,
 whose `src/xmp.rs` parses and patches XMP sidecar bytes), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index and

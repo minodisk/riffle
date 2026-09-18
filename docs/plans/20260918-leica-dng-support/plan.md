@@ -207,7 +207,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       budget plainly, rather than as a pass.
     - Preview cost: a 2112x1408 decode versus 1616x1080; record it.
 
-- [ ] Step 5: README: supported products and the "Sony ARW only" wording
+- [x] Step 5: README: supported products and the "Sony ARW only" wording
   - Done when:
     - `README.md` ticks `- [x] M11-P` under Supported products > Cameras >
       Leica.
