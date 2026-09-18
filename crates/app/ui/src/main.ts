@@ -29,6 +29,7 @@ interface IndexedFile {
   focus: Focus | null;
   has_thumb: boolean;
   rating: number | null;
+  has_sidecar: boolean;
 }
 
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
@@ -55,6 +56,7 @@ const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 const metaEl = document.getElementById("meta") as HTMLDivElement;
 const openEl = document.getElementById("open") as HTMLButtonElement;
+const positionEl = document.getElementById("position") as HTMLDivElement;
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), {
   type: "module",
@@ -115,6 +117,10 @@ const ratings = new Map<string, number>();
 // `folder_entries` (which may predate the pending sidecar write) does not
 // undo what the user just pressed.
 const touched = new Set<string>();
+// The paths known to have a sidecar: from `folder_entries` for untouched
+// files, and set at once by a rating key (the writer creates one). Never
+// cleared by the app except on a folder open.
+const sidecars = new Set<string>();
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
 let showFocus = false;
@@ -154,7 +160,24 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function row(list: HTMLDListElement, label: string, value: string | null): void {
+// Mirrors `riffle_core::xmp::sidecar_path`: the name the app would write. A
+// case variant already on disk (`FOO.XMP`) is not known here.
+function sidecarName(path: string): string {
+  return baseName(path).replace(/\.[^.]*$/, "") + ".xmp";
+}
+
+// The reject mark and stars, the same text as the strip cell's badge in
+// `strip.ts` (`paintRating`).
+function ratingText(rating: number): string {
+  return rating === -1 ? "\u2715" : "\u2605".repeat(rating);
+}
+
+function row(
+  list: HTMLDListElement,
+  label: string,
+  value: string | null,
+  className?: string,
+): void {
   if (value === null) {
     return;
   }
@@ -162,6 +185,9 @@ function row(list: HTMLDListElement, label: string, value: string | null): void 
   dt.textContent = label;
   const dd = document.createElement("dd");
   dd.textContent = value;
+  if (className !== undefined) {
+    dd.className = className;
+  }
   list.append(dt, dd);
 }
 
@@ -172,20 +198,15 @@ function line(className: string, text: string): HTMLDivElement {
   return el;
 }
 
-// Redraw the right pane: the current file's name, its position in the
-// folder, its shooting settings, and any note (an error, the scan's
-// progress, the opening hint).
+// Redraw the right pane: the current file's name, its shooting settings,
+// any note (an error, the scan's progress, the opening hint), and last its
+// sidecar section. Also refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
+  positionEl.textContent =
+    files.length > 0 ? `${index + 1} / ${files.length}` : "";
   metaEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta?.name ?? baseName(files[index])));
-    metaEl.append(line("position", `${index + 1} / ${files.length}`));
-    const rating = ratings.get(files[index]);
-    if (rating !== undefined) {
-      metaEl.append(
-        line("rating", rating === -1 ? "rejected" : "\u2605".repeat(rating)),
-      );
-    }
     if (meta !== null) {
       const list = document.createElement("dl");
       row(list, "Aperture", meta.aperture);
@@ -210,6 +231,32 @@ function renderMeta(): void {
   if (zoomed) {
     metaEl.append(line("note", "1:1"));
   }
+  if (files.length > 0) {
+    metaEl.append(sidecarSection(files[index]));
+  }
+}
+
+// What the XMP sidecar holds, apart from the EXIF rows above (which the app
+// never writes). A file whose entry has not arrived yet shows the name with
+// no note, since the app does not know yet whether a sidecar exists.
+function sidecarSection(path: string): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "sidecar";
+  const known = entries.has(path) || touched.has(path);
+  const header = line("header", sidecarName(path));
+  if (known && !sidecars.has(path)) {
+    header.append(line("note", "(not created)"));
+  }
+  const list = document.createElement("dl");
+  const rating = ratings.get(path);
+  row(
+    list,
+    "Rating",
+    rating === undefined ? "\u2013" : ratingText(rating),
+    rating === undefined ? undefined : rating === -1 ? "rejected" : "stars",
+  );
+  section.append(header, list);
+  return section;
 }
 
 // Set the transient note, or clear it when called with no argument.
@@ -230,7 +277,6 @@ function draw(): void {
   canvas.height = Math.round(height * dpr);
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (shown === null) {
-    drawRatingBadge();
     return;
   }
   const { bitmap, orientation } = shown;
@@ -259,35 +305,10 @@ function draw(): void {
   );
   drawFocusMark(drawWidth, drawHeight);
   context.restore();
-  drawRatingBadge();
 }
 
-// The current file's judgement, in the canvas's top-left corner. Drawn in
-// `draw()` rather than written into the DOM once, so it survives a resize and
-// is repainted on every redraw during key auto-repeat.
-function drawRatingBadge(): void {
-  if (files.length === 0) {
-    return;
-  }
-  const rating = ratings.get(files[index]);
-  if (rating === undefined) {
-    return;
-  }
-  const dpr = window.devicePixelRatio;
-  const text = rating === -1 ? "REJECTED" : "\u2605".repeat(rating);
-  context.save();
-  context.font = `${Math.round(20 * dpr)}px system-ui, sans-serif`;
-  context.textBaseline = "top";
-  context.lineWidth = 4 * dpr;
-  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
-  context.strokeText(text, 12 * dpr, 10 * dpr);
-  context.fillStyle = rating === -1 ? "#ff6b6b" : "#ffd050";
-  context.fillText(text, 12 * dpr, 10 * dpr);
-  context.restore();
-}
-
-// Record a judgement locally: the `ratings` map, the strip cell and, through
-// the caller's redraw, the canvas badge. `null` is unrated.
+// Record a judgement locally: the `ratings` map and the strip cell. `null` is
+// unrated.
 function applyRating(path: string, rating: number | null): void {
   if (rating === null) {
     ratings.delete(path);
@@ -317,8 +338,10 @@ function rate(rating: number | null): void {
   }
   touched.add(path);
   applyRating(path, rating);
+  if (rating !== null) {
+    sidecars.add(path);
+  }
   renderMeta();
-  draw();
   const token = folderToken;
   void window.__TAURI__.core
     .invoke("set_rating", { path, rating: rating ?? 0 })
@@ -329,7 +352,6 @@ function rate(rating: number | null): void {
       touched.delete(path);
       applyRating(path, previous);
       setStatus(String(err));
-      draw();
     });
 }
 
@@ -360,6 +382,11 @@ function refreshEntries(): void {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
           applyRating(row.path, row.rating);
+          if (row.has_sidecar) {
+            sidecars.add(row.path);
+          } else {
+            sidecars.delete(row.path);
+          }
         }
       }
       renderMeta();
@@ -458,7 +485,6 @@ function drawZoom(): void {
     context.drawImage(crop.bitmap, -crop.pointX, -crop.pointY);
   }
   context.restore();
-  drawRatingBadge();
 }
 
 // True when the held crop was cut for a viewport size that no longer
@@ -723,6 +749,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       entries.clear();
       ratings.clear();
       touched.clear();
+      sidecars.clear();
       fileIndex.clear();
       files.forEach((path, at) => {
         fileIndex.set(path, at);

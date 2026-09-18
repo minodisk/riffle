@@ -56,11 +56,13 @@ const ratings = new Map<number, number>();
 let inFlight = 0;
 let select: (index: number) => void = () => {};
 
-// A rejected cell is dimmed and badged `X`; a rated one carries its stars.
+// A rejected cell is dimmed and badged `\u2715`; a rated one carries its
+// stars. The same text as the meta pane's `Rating` row (`ratingText` in
+// `main.ts`).
 function paintRating(index: number, cell: Cell): void {
   const rating = ratings.get(index);
   cell.badge.textContent =
-    rating === undefined ? "" : rating === -1 ? "X" : "\u2605".repeat(rating);
+    rating === undefined ? "" : rating === -1 ? "\u2715" : "\u2605".repeat(rating);
   cell.el.classList.toggle("rejected", rating === -1);
 }
 

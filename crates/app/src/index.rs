@@ -39,6 +39,9 @@ pub struct FileStat {
 }
 
 /// One indexed file, as the frontend sees it.
+///
+/// `has_sidecar` is whether a sidecar was on disk the last time the app read
+/// or wrote one (`ratings.xmp_size` is set), not a live stat.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct IndexedFile {
     pub path: String,
@@ -48,6 +51,7 @@ pub struct IndexedFile {
     pub focus: Option<Focus>,
     pub has_thumb: bool,
     pub rating: Option<i8>,
+    pub has_sidecar: bool,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
@@ -274,7 +278,7 @@ impl Index {
             .prepare(
                 "SELECT path, orientation, capture_time, subsec,
                         focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
-                        ratings.rating
+                        ratings.rating, ratings.xmp_size IS NOT NULL
                  FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -297,6 +301,7 @@ impl Index {
                     focus,
                     has_thumb: r.get(8)?,
                     rating: r.get(9)?,
+                    has_sidecar: r.get(10)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -738,6 +743,35 @@ mod tests {
         index.set_rating("d", "/a.ARW", None).unwrap();
         assert!(index.mark_written("/a.ARW", None, None).unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn has_sidecar_follows_the_stored_sidecar_stat() {
+        let dir = temp_dir("has-sidecar");
+        let a = file(&dir, "a.ARW", b"a");
+        let path = a.path.to_string_lossy().into_owned();
+        let mut index = open(&dir);
+        index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
+        let has_sidecar = |index: &Index| index.entries("d").unwrap()[0].has_sidecar;
+
+        assert!(!has_sidecar(&index), "no ratings row");
+
+        index.set_rating("d", &path, Some(3)).unwrap();
+        assert!(!has_sidecar(&index), "dirty row, nothing written yet");
+
+        assert!(index.mark_written(&path, Some(3), Some((42, 7))).unwrap());
+        assert!(has_sidecar(&index));
+
+        index.set_rating("d", &path, None).unwrap();
+        assert!(index.mark_written(&path, None, None).unwrap());
+        assert!(!has_sidecar(&index));
+
+        index
+            .store_sidecar_ratings("d", &[(path.clone(), Some(-1), 10, 20, false)])
+            .unwrap();
+        assert!(has_sidecar(&index));
 
         remove_temp_dir(&dir);
     }
