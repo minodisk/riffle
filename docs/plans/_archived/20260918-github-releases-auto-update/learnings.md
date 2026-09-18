@@ -10,9 +10,9 @@
   temp dir, then deleted) produced `target/release/bundle/macos/Riffle.app.tar.gz`
   and `Riffle.app.tar.gz.sig`. Tauri warns that the key does not match the
   committed pubkey, which is expected for a throwaway key.
-- Manual check awaiting the user's confirmation: in `mise run tauri:dev`,
+- Manual check confirmed by the user (2026-09-18): in `mise run tauri:dev`,
   `typeof window.__TAURI__.updater.check === "function"` in the devtools
-  console.
+  console is `true`, so the plugin's IIFE is injected without a bundler.
 
 ## Step 2
 
