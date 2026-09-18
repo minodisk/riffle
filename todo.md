@@ -341,3 +341,21 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 #### TODO
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
+
+### App: no test harness for `tauri::AppHandle`-taking commands
+
+Review feedback (photolab-dop-sidecar Step 3, Round 1, item 1) asked for a test
+that sets a rating between the format swap and `reset_sidecars` in
+`switch_sidecar_format`. This was dismissed for that round: the function takes
+a real `tauri::AppHandle` backed by `tauri_plugin_store`, and the codebase has
+no `tauri::test` mock-app harness. Building one (mock runtime, store plugin
+wiring) would let this and other `AppHandle`-taking commands in
+`crates/app/src/commands.rs` (e.g. `switch_sidecar_format`, `set_rating`,
+`scan_folder`) be unit-tested.
+
+#### TODO
+
+- [ ] Build a `tauri::test` mock-app harness (mock runtime, `tauri_plugin_store`
+  wiring) so `AppHandle`-taking commands in `crates/app/src/commands.rs` can be
+  unit-tested, then add the deferred `switch_sidecar_format` race test (rating
+  set between the format swap and `reset_sidecars`).
