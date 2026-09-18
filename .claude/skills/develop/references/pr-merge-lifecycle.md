@@ -12,9 +12,11 @@ only changes `main`; nothing reaches users until a release PR is merged, so a
 bad merge costs a revert and nothing else. The user has granted a standing
 approval for merges on that basis, with two exceptions:
 
-- **The release PR is the human gate.** No agent merges it. It is identified by
-  its branch, `release-please--branches--main`; when `pr-runner` hands you that
-  PR, stop and leave the merge to the user.
+- **The release PR is the human gate.** No agent merges it on its own. It is
+  identified by its branch, `release-please--branches--main`; when `pr-runner`
+  hands you that PR, stop and leave the merge to the user. It ships only when
+  the user types `/release` ([`../../release/SKILL.md`](../../release/SKILL.md)),
+  whose invocation is the approval.
 - **Paths that change what a release is or how it is built are not covered.**
   `.github/**`, `release-please-config.json`, `.release-please-manifest.json`
   and `crates/app/tauri.conf.json` (it carries the updater public key and
