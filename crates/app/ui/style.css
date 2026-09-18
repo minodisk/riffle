@@ -195,17 +195,10 @@ body {
   border-top: 1px solid #3a3a3a;
 }
 
-#meta .sidecar .header {
-  overflow-wrap: anywhere;
-  font-weight: 600;
-}
-
-#meta .sidecar .header .note {
-  font-weight: normal;
-}
-
+/* The padding above is the whole gap under the divider, matching the gap
+   over it. */
 #meta .sidecar dl {
-  margin-top: 0.25rem;
+  margin-top: 0;
 }
 
 #meta dd.stars {

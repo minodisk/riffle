@@ -73,8 +73,11 @@ let shown: { bitmap: ImageBitmap; orientation: number; seq: number } | null = nu
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
 let inFlight = false;
-// The metadata of the current file, or null while it is still being read.
+// The metadata last read. While the current file's read is outstanding it
+// still holds the previous file's (`metaStale`), so the rows keep their place
+// instead of collapsing and reappearing on every step while paging quickly.
 let meta: Metadata | null = null;
+let metaStale = false;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`, so
 // holding a paging key down does not queue up a read per file passed.
 let metaInFlight = false;
@@ -117,10 +120,6 @@ const ratings = new Map<string, number>();
 // `folder_entries` (which may predate the pending sidecar write) does not
 // undo what the user just pressed.
 const touched = new Set<string>();
-// The paths known to have a sidecar: from `folder_entries` for untouched
-// files, and set at once by a rating key (the writer creates one). Never
-// cleared by the app except on a folder open.
-const sidecars = new Set<string>();
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
 let showFocus = false;
@@ -158,12 +157,6 @@ const FOCUS_MARK_GAP = 4;
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
-}
-
-// Mirrors `riffle_core::xmp::sidecar_path`: the name the app would write. A
-// case variant already on disk (`FOO.XMP`) is not known here.
-function sidecarName(path: string): string {
-  return baseName(path).replace(/\.[^.]*$/, "") + ".xmp";
 }
 
 // The reject mark and stars, the same text as the strip cell's badge in
@@ -206,7 +199,9 @@ function renderMeta(): void {
     files.length > 0 ? `${index + 1} / ${files.length}` : "";
   metaEl.replaceChildren();
   if (files.length > 0) {
-    metaEl.append(line("name", meta?.name ?? baseName(files[index])));
+    metaEl.append(
+      line("name", meta === null || metaStale ? baseName(files[index]) : meta.name),
+    );
     if (meta !== null) {
       const list = document.createElement("dl");
       row(list, "Aperture", meta.aperture);
@@ -237,16 +232,10 @@ function renderMeta(): void {
 }
 
 // What the XMP sidecar holds, apart from the EXIF rows above (which the app
-// never writes). A file whose entry has not arrived yet shows the name with
-// no note, since the app does not know yet whether a sidecar exists.
+// never writes).
 function sidecarSection(path: string): HTMLElement {
   const section = document.createElement("section");
   section.className = "sidecar";
-  const known = entries.has(path) || touched.has(path);
-  const header = line("header", sidecarName(path));
-  if (known && !sidecars.has(path)) {
-    header.append(line("note", "(not created)"));
-  }
   const list = document.createElement("dl");
   const rating = ratings.get(path);
   row(
@@ -255,7 +244,7 @@ function sidecarSection(path: string): HTMLElement {
     rating === undefined ? "\u2013" : ratingText(rating),
     rating === undefined ? undefined : rating === -1 ? "rejected" : "stars",
   );
-  section.append(header, list);
+  section.append(list);
   return section;
 }
 
@@ -338,9 +327,6 @@ function rate(rating: number | null): void {
   }
   touched.add(path);
   applyRating(path, rating);
-  if (rating !== null) {
-    sidecars.add(path);
-  }
   renderMeta();
   const token = folderToken;
   void window.__TAURI__.core
@@ -382,11 +368,6 @@ function refreshEntries(): void {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
           applyRating(row.path, row.rating);
-          if (row.has_sidecar) {
-            sidecars.add(row.path);
-          } else {
-            sidecars.delete(row.path);
-          }
         }
       }
       renderMeta();
@@ -653,6 +634,7 @@ function requestMetadata(): void {
         return;
       }
       meta = found;
+      metaStale = false;
       renderMeta();
     })
     .catch(() => {
@@ -663,13 +645,15 @@ function requestMetadata(): void {
       }
       // A file whose metadata cannot be read keeps its name and position;
       // the preview request reports the error itself.
+      meta = null;
+      metaStale = false;
       renderMeta();
     });
 }
 
 function show(): void {
   seq += 1;
-  meta = null;
+  metaStale = true;
   strip.setCurrent(index);
   setStatus();
   requestPreview();
@@ -758,7 +742,6 @@ function openDirectory(folder: string, token: number): Promise<void> {
       entries.clear();
       ratings.clear();
       touched.clear();
-      sidecars.clear();
       fileIndex.clear();
       files.forEach((path, at) => {
         fileIndex.set(path, at);
