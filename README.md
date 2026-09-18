@@ -105,7 +105,7 @@ only in case, say `FOO.XMP`, is used instead of a second file being created) —
 as a single property, `xmp:Rating`, holding `0`-`5` or `-1` for a reject.
 Nothing else is written: no colour label, no pick flag, no private namespace.
 
-A sidecar the app created is a ten-line RDF/XML template. A sidecar another
+A sidecar the app created is a small RDF/XML template. A sidecar another
 tool wrote is **patched in place, never regenerated**: the `xmp:Rating` value
 is replaced byte for byte (in either legal shape, the attribute
 `xmp:Rating="3"` or the element `<xmp:Rating>3</xmp:Rating>`, under whichever
@@ -113,8 +113,9 @@ prefix is bound to the XMP namespace), or one attribute is inserted into the
 first `rdf:Description` when the property is absent. Everything else in the
 file — a Lightroom sidecar's kilobytes of `crs:` develop settings, keywords,
 history — stays byte-identical, which a test asserts. A sidecar that is not
-parseable XML, or that has no `rdf:Description`, is left alone and reported
-rather than overwritten.
+parseable XML, or that has no `rdf:Description`, is left alone: writing to it
+fails and is reported through the `sidecar-error` event, but reading it on
+folder open fails silently (no event, no log), leaving its row as it was.
 
 Clearing on a file that has no sidecar writes nothing rather than creating an
 empty one, so a folder is not littered with 5000 sidecars for files that were
@@ -126,7 +127,9 @@ role.** The rating lives in the sidecar for other tools to read; the SQLite
 index keeps a copy so a folder opens without parsing 5000 files, plus a
 `dirty` flag marking a judgement that has not reached its sidecar yet. Each
 row also stores the `(size, mtime)` of the sidecar as the app last read or
-wrote it. On every folder open, each file is reconciled by six rules:
+wrote it. On every folder open, each file is reconciled by six rules, and then
+every row still dirty after that pass is handed to the writer as a separate
+step:
 
 1. sidecar present, its `(size, mtime)` differs from the stored pair, the row
    is not dirty — parse it and take its rating (an external edit wins; this is
@@ -145,6 +148,11 @@ wrote it. On every folder open, each file is reconciled by six rules:
    gone);
 6. sidecar absent and nothing was ever stored — nothing.
 
+A sidecar past `MAX_SIDECAR_BYTES` (4 MiB) is a seventh case outside these
+rules: it is neither parsed nor written, and is filtered out of the dirty rows
+handed to the writer, since a rating that was never read back cannot be
+patched in without clobbering unread content.
+
 An external edit made while the folder is open is not noticed; there is no
 watcher, so it is picked up on the next open.
 
@@ -153,20 +161,26 @@ then records the rating in the index with `dirty = 1` and hands the file to a
 single writer thread, which waits **300 ms after the last change to that
 file** before writing — mashing `1`, `2`, `3` on one file produces one write,
 containing `3`. The write goes to `FOO.xmp.riffle-tmp` in the same directory,
-is `fsync`ed and then renamed over `FOO.xmp`, which is atomic on APFS and
-NTFS; a crash mid-write therefore leaves the previous, well-formed sidecar
-plus a stray temp file, never a truncated one. On quit, the writer is drained
-synchronously (bounded at about two seconds), so a normal Cmd+Q loses nothing.
+is `fsync`ed and then renamed over `FOO.xmp`, which is atomic on APFS (the
+only filesystem this has been run on). Windows is unverified here, but
+`std::fs::rename` is reported to go through `MoveFileEx` with the replace
+flag, which offers the same guarantee on NTFS. A crash mid-write therefore
+leaves the previous, well-formed sidecar plus a stray temp file, never a
+truncated one. On quit, the writer is drained synchronously (bounded at about
+two seconds), so a normal Cmd+Q loses nothing.
 
 What a kill during the debounce window costs: `kill -9` or a crash in those
-300 ms loses the sidecar write but **not** the judgement — the row is dirty,
-so rule 4 writes the sidecar the next time that folder is opened. Only a death
-between the keypress and the index write (a few milliseconds) loses the
-judgement itself. A sidecar directory that cannot be written (a locked card, a
-read-only share) fails the rename, leaves the row dirty, shows one message in
-the status line, and is retried on the next open of that folder. Discarding
-the index loses only the dirty rows not yet written; everything else is in the
-sidecars.
+300 ms loses the sidecar write but **not** the judgement, unless the sidecar
+changed under us in the meantime, in which case rule 2 applies and the
+sidecar wins instead. Otherwise the row stays dirty, and the next time that
+folder is opened every dirty row is handed to the writer, which writes it.
+Only a death between the keypress and the index write (a few milliseconds)
+loses the judgement itself. A sidecar directory that cannot be written (a
+locked card, a read-only share) fails the write itself — `File::create` on
+the temp file errors before any rename is attempted — leaves the row dirty,
+shows one message in the status line, and is retried on the next open of that
+folder. Discarding the index loses only the dirty rows not yet written;
+everything else is in the sidecars.
 
 Which tools read `-1` back is a claim about those tools, and this repository
 has verified none of it. What is *reported*: exiftool's XMP tag reference
