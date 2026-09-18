@@ -32,7 +32,7 @@ interface Cell {
   el: HTMLDivElement;
   img: HTMLImageElement;
   badge: HTMLSpanElement;
-  pickBadge: HTMLSpanElement;
+  flag: HTMLSpanElement;
   url: string | null;
 }
 
@@ -70,15 +70,19 @@ const picks = new Set<number>();
 let inFlight = 0;
 let select: (index: number) => void = () => {};
 
-// A rejected cell is dimmed and badged `\u2715`; a rated one carries its
-// stars. The same text as the meta pane's `Rating` row (`ratingText` in
-// `main.ts`). A picked cell also carries a flag in the other corner.
+// A rated cell carries its stars in the top-right corner. A picked or
+// rejected cell carries a dot in the top-left corner, green or red (the two
+// never coexist), and a rejected cell is also dimmed.
 function paintRating(index: number, cell: Cell): void {
   const rating = ratings.get(index);
+  const rejected = rating === -1;
+  const picked = picks.has(index);
   cell.badge.textContent =
-    rating === undefined ? "" : rating === -1 ? "\u2715" : "\u2605".repeat(rating);
-  cell.el.classList.toggle("rejected", rating === -1);
-  cell.pickBadge.textContent = picks.has(index) ? "\u2691" : "";
+    rating === undefined || rejected ? "" : "\u2605".repeat(rating);
+  cell.el.classList.toggle("rejected", rejected);
+  cell.flag.textContent = picked || rejected ? "\u25CF" : "";
+  cell.flag.classList.toggle("pick", picked);
+  cell.flag.classList.toggle("reject", rejected);
 }
 
 function baseName(path: string): string {
@@ -106,14 +110,14 @@ function createCell(index: number): Cell {
   const badge = document.createElement("span");
   badge.className = "rating";
   el.append(badge);
-  const pickBadge = document.createElement("span");
-  pickBadge.className = "pick";
-  el.append(pickBadge);
+  const flag = document.createElement("span");
+  flag.className = "flag";
+  el.append(flag);
   el.addEventListener("click", () => {
     select(index);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, pickBadge, url: null };
+  const cell: Cell = { el, img, badge, flag, url: null };
   paintRating(index, cell);
   return cell;
 }
