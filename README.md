@@ -278,7 +278,7 @@ than the decode it follows.
 #### End to end, keypress to pixels
 
 Measured by hand in the running app. **Conditions**:
-optimised build (`mise run app:release`), `Debug > Timing logs` on, **DevTools
+optimised build (`mise run tauri:release:devtools`), `Debug > Timing logs` on, **DevTools
 open** (a webview can be slower with the inspector attached, so these may be
 upper bounds), warm page cache (the folder had been opened before), one real
 folder of Sony ARW files. `read` and `decode` come
