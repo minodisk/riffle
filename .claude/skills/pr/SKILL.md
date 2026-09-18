@@ -247,6 +247,6 @@ approval check is **run and reported, not used as a gate**. Run it yourself
 what it flagged — especially anything that lets third-party code run on a
 machine, such as a new dependency in `Cargo.lock` or `pnpm-lock.yaml`. The
 exceptions are in the reference: never merge the release PR
-(`release-please--branches--main`), and ask the user before merging when the
+(`release-please--branches--main`; it ships through the user's `/release`), and ask the user before merging when the
 check flags a release-shaping path (`.github/**`, `release-please-config.json`,
 `.release-please-manifest.json`, `crates/app/tauri.conf.json`).
