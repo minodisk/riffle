@@ -40,6 +40,14 @@ impl SidecarFormat {
         }
     }
 
+    /// The value stored under `sidecarFormat` for this format.
+    pub fn setting(self) -> &'static str {
+        match self {
+            Self::Xmp => "xmp",
+            Self::Dop => "dop",
+        }
+    }
+
     pub fn sidecar_path(self, arw: &Path) -> PathBuf {
         match self {
             Self::Xmp => xmp::sidecar_path(arw),
@@ -74,12 +82,15 @@ impl SidecarFormat {
     }
 
     /// Whether a directory entry named `name` is a sidecar of this format:
-    /// `*.xmp`, or `*.arw.dop`, both case-insensitive.
+    /// `*.xmp`, or a RAW file name plus `.dop` (`*.arw.dop`, `*.dng.dop`),
+    /// all case-insensitive.
     pub fn matches(self, name: &str) -> bool {
         let name = name.to_ascii_lowercase();
         match self {
             Self::Xmp => Path::new(&name).extension().is_some_and(|x| x == "xmp"),
-            Self::Dop => name.ends_with(".arw.dop"),
+            Self::Dop => name
+                .strip_suffix(".dop")
+                .is_some_and(|raw| riffle_core::scan::is_raw_file(Path::new(raw))),
         }
     }
 }
@@ -543,6 +554,16 @@ mod tests {
         assert!(SidecarFormat::Xmp.matches("A.XMP"));
         assert!(!SidecarFormat::Xmp.matches("a.ARW.dop"));
         assert!(SidecarFormat::Dop.matches("A.ARW.DOP"));
+        assert!(SidecarFormat::Dop.matches("L1000001.DNG.dop"));
+        assert!(!SidecarFormat::Dop.matches("a.jpg.dop"));
+        assert_eq!(
+            SidecarFormat::from_setting(Some(SidecarFormat::Dop.setting())),
+            SidecarFormat::Dop
+        );
+        assert_eq!(
+            SidecarFormat::from_setting(Some(SidecarFormat::Xmp.setting())),
+            SidecarFormat::Xmp
+        );
         assert!(!SidecarFormat::Dop.matches("a.dop"));
         assert!(!SidecarFormat::Dop.matches("a.xmp"));
     }

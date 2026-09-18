@@ -955,6 +955,18 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
   },
 );
 
+// The Sidecar menu switched the format and the backend has reset the index:
+// reopen the folder so the strip and the meta pane show the newly selected
+// format's judgements. A fresh token drops any open still in flight.
+void window.__TAURI__.event.listen<string>("sidecar-format", () => {
+  if (openDir === null) {
+    return;
+  }
+  openDirectory(openDir, newFolderToken()).catch((err: unknown) => {
+    setStatus(String(err));
+  });
+});
+
 openEl.addEventListener("click", openFolder);
 reopenLastFolder();
 

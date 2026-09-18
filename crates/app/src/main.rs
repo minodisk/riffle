@@ -71,7 +71,86 @@ mod app_menu {
 
 use std::sync::{Arc, Mutex};
 
-use tauri::{Emitter, Manager, RunEvent};
+use tauri::menu::{CheckMenuItem, Menu, MenuEvent, Submenu};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry};
+
+use sidecar::SidecarFormat;
+
+const XMP_ID: &str = "sidecar-xmp";
+const DOP_ID: &str = "sidecar-dop";
+
+/// The `Sidecar` submenu's items, kept so the handler can check the selected
+/// one and uncheck the other (the platform toggles only the clicked item).
+struct SidecarItems {
+    xmp: CheckMenuItem<Wry>,
+    dop: CheckMenuItem<Wry>,
+}
+
+impl SidecarItems {
+    fn show(&self, format: SidecarFormat) {
+        let _ = self.xmp.set_checked(format == SidecarFormat::Xmp);
+        let _ = self.dop.set_checked(format == SidecarFormat::Dop);
+    }
+}
+
+/// Built in `setup` rather than through `Builder::menu`, which runs before
+/// the plugins are initialised and so before the settings store can be read.
+fn build_menu(handle: &AppHandle, format: SidecarFormat) -> tauri::Result<Menu<Wry>> {
+    // Carries the Folder/PhotoLab item (and, in a development build, Debug)
+    // alongside the platform's standard items.
+    let menu = app_menu::build(handle)?;
+    let xmp = CheckMenuItem::with_id(
+        handle,
+        XMP_ID,
+        "XMP (.xmp)",
+        true,
+        format == SidecarFormat::Xmp,
+        None::<&str>,
+    )?;
+    let dop = CheckMenuItem::with_id(
+        handle,
+        DOP_ID,
+        "DxO PhotoLab (.dop)",
+        true,
+        format == SidecarFormat::Dop,
+        None::<&str>,
+    )?;
+    menu.append(&Submenu::with_items(
+        handle,
+        "Sidecar",
+        true,
+        &[&xmp, &dop],
+    )?)?;
+    handle.manage(SidecarItems { xmp, dop });
+    Ok(menu)
+}
+
+fn on_menu_event(app: &AppHandle, event: MenuEvent) {
+    let format = match event.id().as_ref() {
+        XMP_ID => SidecarFormat::Xmp,
+        DOP_ID => SidecarFormat::Dop,
+        _ => {
+            app_menu::on_event(app, event);
+            return;
+        }
+    };
+    app.state::<SidecarItems>().show(format);
+    let current = *index::lock(&app.state::<commands::AppSidecarFormat>().0);
+    if format == current {
+        return;
+    }
+    // The switch drains the writer and touches SQLite and the settings file,
+    // none of which may block the main thread this handler runs on.
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        match commands::switch_sidecar_format(&app, format) {
+            Ok(()) => {
+                let _ = app.emit("sidecar-format", format.setting());
+            }
+            Err(e) => eprintln!("failed to switch the sidecar format: {e}"),
+        }
+    });
+}
 
 /// The payload of the `sidecar-error` event: a sidecar that could not be
 /// written. The judgement stays in the index and is retried on the next open.
@@ -115,7 +194,7 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::new().build());
     builder
         .menu(app_menu::build)
-        .on_menu_event(app_menu::on_event)
+        .on_menu_event(on_menu_event)
         .setup(|app| {
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
@@ -143,7 +222,9 @@ fn main() {
                 })
             });
             let format = commands::load_settings(app.handle());
+            app.set_menu(build_menu(app.handle(), format)?)?;
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
+            app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
             app.manage(commands::Scans::default());
