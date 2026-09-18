@@ -303,8 +303,10 @@ not comparable to them:
 mise run app:release
 ```
 
-Both tasks run `pnpm install` first. The plain `pnpm tauri dev` /
-`pnpm tauri dev --release` still work if you prefer them.
+Both tasks run `pnpm install` first. `app:release` also passes
+`--features devtools`: Tauri only wires the webview's devtools up automatically
+in a debug build, so without it there is no console to read the timings from. A
+distributable build leaves the feature off.
 
 ## Measurements (Apple Silicon Mac, α7 V ARW, n=20)
 

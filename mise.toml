@@ -34,7 +34,7 @@ shell = "bash -c"
 run = """
 set -euo pipefail
 pnpm install --frozen-lockfile
-pnpm tauri dev --release
+pnpm tauri dev --release --features devtools
 """
 
 [tasks.ci]

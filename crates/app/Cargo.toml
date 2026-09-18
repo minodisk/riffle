@@ -3,6 +3,12 @@ name = "riffle-app"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Tauri only enables the webview's devtools automatically in a debug build, so
+# an optimised build needs this to opt back in. `mise run app:release` passes
+# it; a distributable build leaves it off.
+devtools = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
