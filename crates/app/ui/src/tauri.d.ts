@@ -3,6 +3,11 @@ interface TauriEvent<T> {
   payload: T;
 }
 
+interface TauriUpdate {
+  version: string;
+  downloadAndInstall(): Promise<void>;
+}
+
 interface TauriGlobal {
   core: {
     invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -12,6 +17,12 @@ interface TauriGlobal {
       event: string,
       handler: (event: TauriEvent<T>) => void,
     ): Promise<() => void>;
+  };
+  updater: {
+    check(): Promise<TauriUpdate | null>;
+  };
+  process: {
+    relaunch(): Promise<void>;
   };
 }
 
