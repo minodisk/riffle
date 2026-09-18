@@ -73,7 +73,7 @@ available / install it", no crates.io publishing of `riffle-core` /
 
 ## Steps
 
-- [ ] Step 1: Add tauri-plugin-updater and a minimal in-app update check
+- [x] Step 1: Add tauri-plugin-updater and a minimal in-app update check
   - Done when:
     - `crates/app` depends on `tauri-plugin-updater` and
       `tauri-plugin-process`, both registered in `main.rs`

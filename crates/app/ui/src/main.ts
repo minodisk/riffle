@@ -965,7 +965,36 @@ window.addEventListener("resize", () => {
   }
 });
 
+function checkForUpdate(): void {
+  window.__TAURI__.updater
+    .check()
+    .then((update) => {
+      if (!update) {
+        return;
+      }
+      const bar = document.getElementById("update") as HTMLDivElement;
+      const text = document.getElementById("update-text") as HTMLSpanElement;
+      const install = document.getElementById(
+        "update-install",
+      ) as HTMLButtonElement;
+      text.textContent = `Riffle v${update.version} is available`;
+      install.addEventListener("click", () => {
+        install.disabled = true;
+        update
+          .downloadAndInstall()
+          .then(() => window.__TAURI__.process.relaunch())
+          .catch((e: unknown) => {
+            console.debug("update install failed", e);
+            install.disabled = false;
+          });
+      });
+      bar.hidden = false;
+    })
+    .catch((e: unknown) => console.debug("update check failed", e));
+}
+
 renderMeta();
 draw();
+checkForUpdate();
 
 export {};
