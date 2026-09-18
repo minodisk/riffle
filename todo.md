@@ -333,3 +333,11 @@ The test in `crates/app/src/index.rs` races the scan-cancellation against the sc
 #### TODO
 
 - [ ] Make `cancelling_after_the_first_batch_keeps_what_was_written` in `crates/app/src/index.rs` cancel at a deterministic point (e.g. from the progress callback after the first batch) instead of relying on wall-clock ordering, and confirm it passes repeatedly on all three CI platforms.
+
+### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
+
+Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimetres); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count.
+
+#### TODO
+
+- [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
