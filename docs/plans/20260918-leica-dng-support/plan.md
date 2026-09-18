@@ -213,4 +213,4 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 
 ## Progress
 
-- (none yet)
+- (2026-09-18) Step 1 complete
