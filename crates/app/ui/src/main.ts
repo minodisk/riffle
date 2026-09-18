@@ -1181,11 +1181,34 @@ function checkForUpdate(): void {
       text.textContent = `Riffle v${update.version} is available`;
       install.addEventListener("click", () => {
         install.disabled = true;
+        let total = 0;
+        let downloaded = 0;
+        text.textContent = "Downloading…";
         update
-          .downloadAndInstall()
-          .then(() => window.__TAURI__.process.relaunch())
+          .downloadAndInstall((progress) => {
+            if (progress.event === "Started") {
+              total = progress.data.contentLength ?? 0;
+            } else if (progress.event === "Progress") {
+              downloaded += progress.data.chunkLength;
+              if (total > 0) {
+                const percent = Math.min(
+                  100,
+                  Math.floor((downloaded / total) * 100),
+                );
+                text.textContent = `Downloading ${percent}%`;
+              }
+            } else {
+              text.textContent = "Installing…";
+            }
+          })
+          .then(() => {
+            text.textContent = "Restarting…";
+            return window.__TAURI__.process.relaunch();
+          })
           .catch((e: unknown) => {
             console.debug("update install failed", e);
+            text.textContent = `Update failed: ${e instanceof Error ? e.message : String(e)}`;
+            install.textContent = "Retry";
             install.disabled = false;
           });
       });

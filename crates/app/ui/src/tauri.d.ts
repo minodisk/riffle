@@ -3,9 +3,16 @@ interface TauriEvent<T> {
   payload: T;
 }
 
+type TauriDownloadEvent =
+  | { event: "Started"; data: { contentLength?: number } }
+  | { event: "Progress"; data: { chunkLength: number } }
+  | { event: "Finished" };
+
 interface TauriUpdate {
   version: string;
-  downloadAndInstall(): Promise<void>;
+  downloadAndInstall(
+    onEvent?: (progress: TauriDownloadEvent) => void,
+  ): Promise<void>;
 }
 
 interface TauriGlobal {
