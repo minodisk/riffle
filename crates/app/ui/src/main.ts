@@ -43,6 +43,7 @@ interface Metadata {
   iso: string | null;
   focal_length: string | null;
   exposure_bias: string | null;
+  focus_distance: string | null;
   captured_at: string | null;
 }
 
@@ -238,6 +239,7 @@ function renderMeta(): void {
       row(list, "ISO", meta.iso);
       row(list, "Focal length", meta.focal_length);
       row(list, "Exposure", meta.exposure_bias);
+      row(list, "Focus distance", meta.focus_distance);
       row(list, "Camera", meta.camera);
       row(list, "Lens", meta.lens);
       row(list, "Captured", meta.captured_at);

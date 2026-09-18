@@ -351,6 +351,7 @@ pub struct Metadata {
     iso: Option<String>,
     focal_length: Option<String>,
     exposure_bias: Option<String>,
+    focus_distance: Option<String>,
     captured_at: Option<String>,
 }
 
@@ -397,10 +398,18 @@ fn read_metadata(path: &Path) -> Result<Metadata, String> {
         name,
         camera,
         lens: shot.lens_model,
-        aperture: shot
-            .f_number
-            .and_then(|r| decimal(r, 1))
-            .map(|t| format!("f/{t}")),
+        aperture: match (shot.f_number, shot.estimated_f_number) {
+            (Some(r), _) => decimal(r, 1).map(|t| format!("f/{t}")),
+            (None, Some(f)) => decimal(
+                riffle_core::arw::Rational {
+                    num: (f * 10.0).round() as i64,
+                    den: 10,
+                },
+                1,
+            )
+            .map(|t| format!("f/{t} (est.)")),
+            (None, None) => None,
+        },
         shutter: shot.exposure_time.and_then(shutter),
         iso: shot.iso.map(|v| v.to_string()),
         focal_length: shot
@@ -416,6 +425,9 @@ fn read_metadata(path: &Path) -> Result<Metadata, String> {
                 format!("{text} EV")
             })
         }),
+        focus_distance: shot
+            .focus_distance_mm
+            .map(|mm| format!("{:.2} m", f64::from(mm) / 1000.0)),
         captured_at: shot.capture_time,
     })
 }

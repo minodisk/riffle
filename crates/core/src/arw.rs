@@ -19,6 +19,7 @@ const TAG_EXIF_IFD: u16 = 0x8769;
 const TAG_EXPOSURE_TIME: u16 = 0x829a;
 const TAG_F_NUMBER: u16 = 0x829d;
 const TAG_ISO: u16 = 0x8827;
+const TAG_APERTURE_VALUE: u16 = 0x9202;
 const TAG_EXPOSURE_BIAS: u16 = 0x9204;
 const TAG_FOCAL_LENGTH: u16 = 0x920a;
 const TAG_LENS_MODEL: u16 = 0xa434;
@@ -26,6 +27,11 @@ const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
 const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
 const TAG_MAKER_NOTE: u16 = 0x927c;
 const TAG_FOCUS_LOCATION: u16 = 0x2027;
+/// Leica MakerNote `FocusDistance`, a LONG in millimetres.
+const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
+/// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
+const LEICA_HEADER: &[u8] = b"LEICA\0";
+const LEICA_HEADER_LEN: usize = 8;
 
 const COMPRESSION_JPEG: u32 = 7;
 const PHOTOMETRIC_YCBCR: u32 = 6;
@@ -83,6 +89,11 @@ pub struct Shot {
     pub lens_model: Option<String>,
     pub exposure_time: Option<Rational>,
     pub f_number: Option<Rational>,
+    /// `2^(AV/2)` from the APEX `ApertureValue`, only when `FNumber` is
+    /// absent (manual lenses without a lens contact): the camera's estimate.
+    pub estimated_f_number: Option<f64>,
+    /// Leica MakerNote focus distance, in millimetres.
+    pub focus_distance_mm: Option<u32>,
     pub focal_length: Option<Rational>,
     pub exposure_bias: Option<Rational>,
     pub iso: Option<u32>,
@@ -296,6 +307,11 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
             TAG_LENS_MODEL => shot.lens_model = ascii(buf, e)?,
             TAG_EXPOSURE_TIME => shot.exposure_time = rational(buf, e)?,
             TAG_F_NUMBER => shot.f_number = rational(buf, e)?,
+            TAG_APERTURE_VALUE => {
+                shot.estimated_f_number = rational(buf, e)?
+                    .and_then(Rational::value)
+                    .map(|av| 2f64.powf(av / 2.0))
+            }
             TAG_FOCAL_LENGTH => shot.focal_length = rational(buf, e)?,
             TAG_EXPOSURE_BIAS => shot.exposure_bias = rational(buf, e)?,
             TAG_ISO => shot.iso = integer(e),
@@ -316,7 +332,32 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         None => None,
     };
 
+    if shot.f_number.is_some() {
+        shot.estimated_f_number = None;
+    }
+    shot.focus_distance_mm = leica_focus_distance(buf, &exif_ifd)?;
+
     Ok(shot)
+}
+
+/// `FocusDistance` out of a Leica MakerNote. Only the one tag is read: the
+/// note's own `FNumber` is 1.0 on M-mount lenses and is not trusted.
+fn leica_focus_distance(buf: &[u8], exif_ifd: &[Entry]) -> Result<Option<u32>> {
+    let Some(entry) = exif_ifd.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
+        return Ok(None);
+    };
+    let (at, count) = (entry.1 as usize, entry.3 as usize);
+    if count <= LEICA_HEADER_LEN
+        || at.checked_add(count).is_none_or(|end| end > buf.len())
+        || !buf[at..].starts_with(LEICA_HEADER)
+    {
+        return Ok(None);
+    }
+    let (note, _) = read_ifd(buf, at + LEICA_HEADER_LEN)?;
+    Ok(note
+        .iter()
+        .find(|e| e.0 == TAG_LEICA_FOCUS_DISTANCE)
+        .and_then(integer))
 }
 
 pub fn parse(buf: &[u8]) -> Result<Arw> {
@@ -675,7 +716,7 @@ mod tests {
         let make = b"Leica Camera AG\0";
         let exif_at = 8 + ifd_len(2);
         let maker_at = exif_at + ifd_len(1);
-        let note = b"LEICA\0\0\0\xff\xff\xff\xff\xff\xff\xff\xff";
+        let note = leica_note(&[]);
         let make_at = maker_at + note.len();
         let mut buf = tiff(&[
             (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
@@ -687,10 +728,11 @@ mod tests {
             note.len() as u32,
             maker_at as u32,
         )]));
-        buf.extend_from_slice(note);
+        buf.extend_from_slice(&note);
         buf.extend_from_slice(make);
         let a = parse(&buf).unwrap();
         assert!(a.shot.focus.is_none());
+        assert!(a.shot.focus_distance_mm.is_none());
         assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));
     }
 
@@ -705,5 +747,95 @@ mod tests {
         );
         let a = parse(&buf).unwrap();
         assert!(a.preview.is_none() && a.full.is_none());
+    }
+
+    fn leica_note(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+        let mut note = b"LEICA\0\x02\0".to_vec();
+        note.extend_from_slice(&ifd(entries));
+        note
+    }
+
+    /// A Leica-made TIFF whose ExifIFD holds only a MakerNote with the given
+    /// bytes.
+    fn tiff_with_leica_maker_note(note: &[u8]) -> Vec<u8> {
+        let make = b"Leica Camera AG\0";
+        let exif_at = 8 + ifd_len(2);
+        let maker_at = exif_at + ifd_len(1);
+        let make_at = maker_at + note.len();
+        let mut buf = tiff(&[
+            (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
+            (TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32),
+        ]);
+        buf.extend_from_slice(&ifd(&[(
+            TAG_MAKER_NOTE,
+            7,
+            note.len() as u32,
+            maker_at as u32,
+        )]));
+        buf.extend_from_slice(note);
+        buf.extend_from_slice(make);
+        buf
+    }
+
+    #[test]
+    fn reads_the_leica_focus_distance() {
+        let note = leica_note(&[
+            (0x0310, 1, 4, 0),
+            (TAG_LEICA_FOCUS_DISTANCE, TYPE_LONG, 1, 921),
+        ]);
+        let shot = parse(&tiff_with_leica_maker_note(&note)).unwrap().shot;
+        assert_eq!(shot.focus_distance_mm, Some(921));
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn a_sony_maker_note_has_no_focus_distance() {
+        let shot = parse(&tiff_with_exif(true, Some([1, 2, 3, 4]), true))
+            .unwrap()
+            .shot;
+        assert!(shot.focus.is_some());
+        assert!(shot.focus_distance_mm.is_none());
+    }
+
+    /// ExifIFD holding `ApertureValue` and, optionally, `FNumber`.
+    fn tiff_with_aperture(av: (u32, u32), f_number: Option<(u32, u32)>) -> Vec<u8> {
+        let exif_at = 8 + ifd_len(1);
+        let entries = 1 + usize::from(f_number.is_some());
+        let rationals_at = exif_at + ifd_len(entries);
+        let mut exif = vec![(TAG_APERTURE_VALUE, TYPE_RATIONAL, 1, rationals_at as u32)];
+        if f_number.is_some() {
+            exif.push((TAG_F_NUMBER, TYPE_RATIONAL, 1, (rationals_at + 8) as u32));
+        }
+        let mut buf = tiff(&[(TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32)]);
+        buf.extend_from_slice(&ifd(&exif));
+        for v in [av.0, av.1] {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        if let Some((n, d)) = f_number {
+            buf.extend_from_slice(&n.to_le_bytes());
+            buf.extend_from_slice(&d.to_le_bytes());
+        }
+        buf
+    }
+
+    #[test]
+    fn estimates_the_f_number_from_the_apex_aperture_value() {
+        // The M11-P writes AV 297/100 for f/2.8.
+        let shot = parse(&tiff_with_aperture((297, 100), None)).unwrap().shot;
+        assert!(shot.f_number.is_none());
+        let f = shot.estimated_f_number.unwrap();
+        assert!((f - 2.8).abs() < 0.01, "{f}");
+
+        let shot = parse(&tiff_with_aperture((4, 1), None)).unwrap().shot;
+        assert_eq!(shot.estimated_f_number, Some(4.0));
+    }
+
+    #[test]
+    fn f_number_wins_over_aperture_value() {
+        let shot = parse(&tiff_with_aperture((4, 1), Some((28, 10))))
+            .unwrap()
+            .shot;
+        assert_eq!(shot.f_number, Some(Rational { num: 28, den: 10 }));
+        assert!(shot.estimated_f_number.is_none());
     }
 }

@@ -151,9 +151,42 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       beyond doc comments on lines the change actually touches.
     - Thumbnails: `decode::thumbnail_jpeg` scales by 2/8, so a DNG thumbnail
       is 528x352 instead of 404x270. Leave the scale alone unless the
-      measured thumbnail bytes in Step 3 are out of line.
+      measured thumbnail bytes in Step 4 are out of line.
 
-- [ ] Step 3: CLI benchmark on the DNG folder and the measured numbers
+- [ ] Step 3: Meta pane: estimated aperture and Leica focus distance
+  - Added on 2026-09-18 at the user's request, after Step 2: the user asked
+    that the meta pane show an aperture and the focus distance on the M11-P
+    files.
+  - Done when:
+    - When the ExifIFD has no `FNumber` (0x829d) but has `ApertureValue`
+      (0x9202, APEX), the parser derives an aperture `f = 2^(AV/2)` and the
+      meta pane shows it marked as an estimate (e.g. `f/2.8 (est.)`); on
+      `L1005200.DNG` this is f/2.8. ARWs with `FNumber` show exactly what
+      they show today, with no mark.
+    - The Leica MakerNote's `FocusDistance` (exiftool reports 921 on
+      `L1005200.DNG`) is parsed only when the MakerNote starts with `LEICA`,
+      its unit confirmed against exiftool on the sample files (record the tag
+      id, layout and unit in learnings.md), and the meta pane shows it as a
+      distance (e.g. `0.92 m`); the row is omitted when the value is absent,
+      so ARW meta panes are unchanged.
+    - The Leica MakerNote's own `FNumber` (1.0 on the samples, not
+      trustworthy) is not used.
+    - Unit tests: APEX → f-number conversion; `FNumber` wins over
+      `ApertureValue`; a synthetic Leica MakerNote yields the focus distance;
+      a Sony file yields none.
+    - Anything the meta pane change needs in the index (new columns or a
+      schema bump, if the meta pane reads from the index) follows the
+      existing migration pattern.
+    - The user confirms in the running app that `L1005200.DNG` shows the
+      estimated aperture and the focus distance, and an α7 V ARW's meta pane
+      is unchanged. Report anything not checked as "not verified".
+  - Implementation approach:
+    - Keep the Sony MakerNote gate from Step 1; add the Leica parse beside
+      it, gated on the `LEICA\0` header. Keep it to the one tag.
+    - Keep the estimated flag in the data (not just the formatting) so the UI
+      can mark it.
+
+- [ ] Step 4: CLI benchmark on the DNG folder and the measured numbers
   - Done when:
     - `riffle-cli bench` times the 1:1 crop on a file without `FocusLocation`
       too, by using `partial::decode_focus_crop(jpeg, a.shot.focus, ...)` (the
@@ -174,7 +207,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       budget plainly, rather than as a pass.
     - Preview cost: a 2112x1408 decode versus 1616x1080; record it.
 
-- [ ] Step 4: README: supported products and the "Sony ARW only" wording
+- [ ] Step 5: README: supported products and the "Sony ARW only" wording
   - Done when:
     - `README.md` ticks `- [x] M11-P` under Supported products > Cameras >
       Leica.
@@ -198,12 +231,12 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 - **Naming**: `arw` module, `Arw` type, `list_arw` command are kept. A rename
   would be its own chore PR.
 - **Thumbnail size**: 2/8 scaling gives 528x352 (vs 404x270); kept unless
-  Step 3's bytes-per-thumbnail is clearly out of line with the ~19KB ARW figure.
-- **1:1 cost on a 6320-row JPEG**: may exceed the 50ms budget; Step 3 measures
+  Step 4's bytes-per-thumbnail is clearly out of line with the ~19KB ARW figure.
+- **1:1 cost on a 6320-row JPEG**: may exceed the 50ms budget; Step 4 measures
   it and README reports it. No mitigation planned.
 - **Camera label**: "Leica Camera AG LEICA M11-P" in the meta pane; accepted.
-- **Aperture**: no Exif `FNumber` on M-mount lenses; the Leica MakerNote is not
-  parsed, so aperture is blank.
+- **Aperture**: no Exif `FNumber` on M-mount lenses; Step 3 shows the camera's estimated `ApertureValue` instead (the Leica MakerNote `FNumber` is not
+  trustworthy and not used).
 - **Scope of "DNG"**: only the M11-P layout (little-endian, strip-based SubIFD
   JPEGs, baseline previews). Other DNGs come back with `full`/`preview` `None`
   and show the existing "no embedded preview" error.
