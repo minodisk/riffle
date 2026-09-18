@@ -9,9 +9,9 @@ already embedded in the ARW or DNG.
 
 ### RAW formats
 
-- [x] ARW
+- ARW
   - [x] Sony α7 V
-- [x] DNG
+- DNG
   - [x] Leica M11-P
   - [ ] Sigma BF
   - [ ] Sigma fp L
@@ -21,10 +21,10 @@ already embedded in the ARW or DNG.
 Which tools read the sidecars Riffle writes; see
 [Ratings and sidecars](#ratings-and-sidecars).
 
-- [ ] `.xmp`
+- XMP
   - [ ] Adobe Lightroom Classic
   - [ ] Capture One
-- [x] `.dop`
+- DOP
   - [x] DxO PhotoLab 10
 
 ### Requesting support
