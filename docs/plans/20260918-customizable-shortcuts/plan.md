@@ -246,4 +246,4 @@ reserved `p` and persistence round-trips.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
