@@ -194,9 +194,19 @@ fn reconcile_sidecars_of(
         .collect();
 
     let to_parse = index::lock(index).reconcile_sidecars(dir, &pairs)?;
+    // An oversize sidecar is rejected outright (see `MAX_SIDECAR_BYTES`), so
+    // its row cannot be brought in line with it here. Its path is tracked
+    // separately so it can be kept out of what the writer is handed below:
+    // otherwise a dirty row for it would have the writer patch a sidecar
+    // whose external edit was never read, overwriting it unread.
+    let oversize: std::collections::HashSet<&str> = to_parse
+        .iter()
+        .filter(|(_, (_, size, _))| *size > MAX_SIDECAR_BYTES)
+        .map(|(path, _)| path.as_str())
+        .collect();
     let parsed: Vec<(String, Option<i8>, i64, i64)> = to_parse
         .iter()
-        .filter(|(_, (_, size, _))| *size <= MAX_SIDECAR_BYTES)
+        .filter(|(path, _)| !oversize.contains(path.as_str()))
         .filter_map(|(path, (sidecar, size, mtime_ns))| {
             let bytes = std::fs::read(sidecar).ok()?;
             let rating = riffle_core::xmp::read_rating(&bytes).ok()?;
@@ -206,8 +216,14 @@ fn reconcile_sidecars_of(
     let mut index = index::lock(index);
     index.store_sidecar_ratings(dir, &parsed)?;
     // After storing, so a row the sidecar just won stays out of this: only
-    // what still has nowhere to be read back from is written out.
-    index.dirty_rows(dir)
+    // what still has nowhere to be read back from is written out. An
+    // oversize sidecar's row is excluded too, even if still dirty, since the
+    // writer must not patch a sidecar whose contents were never read.
+    let dirty = index.dirty_rows(dir)?;
+    Ok(dirty
+        .into_iter()
+        .filter(|(path, _)| !oversize.contains(path.as_str()))
+        .collect())
 }
 
 /// Extract a file's IFD0 preview JPEG along with the Orientation, reading only

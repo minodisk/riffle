@@ -389,7 +389,7 @@ impl Index {
     /// an unchanged stat costs nothing, which is what keeps the second open of
     /// a 5000-file folder cheap; a sidecar that is gone while the row is
     /// clean clears the rating, because the truth is gone with it; and a row
-    /// row that is still dirty is left dirty, for `dirty_rows` to hand to the
+    /// that is still dirty is left dirty, for `dirty_rows` to hand to the
     /// writer once the parsed sidecars have been stored.
     ///
     /// Returns the sidecars to read and parse outside the lock; their result
