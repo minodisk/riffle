@@ -113,10 +113,6 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::new().build());
-    #[cfg(any(feature = "devtools", debug_assertions))]
-    let builder = builder
-        .menu(debug_menu::build)
-        .on_menu_event(debug_menu::on_event);
     builder
         .menu(app_menu::build)
         .on_menu_event(app_menu::on_event)
