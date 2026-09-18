@@ -57,6 +57,18 @@ fn ping() -> String {
 
 fn main() {
     let builder = tauri::Builder::default()
+        // Registered first, as the plugin requires: a second launch would
+        // contend with this one for the SQLite index and the sidecar writer,
+        // so it focuses the existing window and exits instead.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -74,7 +86,7 @@ fn main() {
             let index = match index::Index::open(&path) {
                 Ok(index) => Some(Arc::new(Mutex::new(index))),
                 Err(e) => {
-                    eprintln!("failed to open the index cache at {}: {e}", path.display());
+                    log::error!("failed to open the index cache at {}: {e}", path.display());
                     None
                 }
             };

@@ -120,7 +120,7 @@ impl Index {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
         let mut index = Self { conn };
         if let Err(e) = index.prepare() {
-            eprintln!("discarding the index cache at {}: {e}", path.display());
+            log::warn!("discarding the index cache at {}: {e}", path.display());
             drop(index);
             let _ = std::fs::remove_file(path);
             let _ = std::fs::remove_file(with_suffix(path, "-wal"));
@@ -534,7 +534,7 @@ where
             return;
         }
         if let Err(e) = lock(index).write_batch(dir, &batch) {
-            eprintln!("failed to write a batch for {dir}: {e}");
+            log::error!("failed to write a batch for {dir}: {e}");
             // Files that failed extraction are already counted in `on_item`;
             // only the ones that would otherwise have landed as a success are
             // newly lost here.
@@ -575,7 +575,7 @@ where
     };
 
     if let Err(e) = extract_all(&paths, threads, on_item, cancel) {
-        eprintln!("scan of {dir} failed: {e}");
+        log::error!("scan of {dir} failed: {e}");
     }
     flush(std::mem::take(&mut *lock(&pending)));
 

@@ -293,7 +293,7 @@ pub fn remember_folder(app: tauri::AppHandle, dir: String) {
         .map_or(Ok(()), std::fs::create_dir_all)
         .and_then(|()| std::fs::write(&file, dir));
     if let Err(e) = written {
-        eprintln!("failed to remember the folder at {}: {e}", file.display());
+        log::error!("failed to remember the folder at {}: {e}", file.display());
     }
 }
 
@@ -574,14 +574,14 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating) in dirty {
                     if let Err(e) = writer.set_now(PathBuf::from(path), rating) {
-                        eprintln!("failed to queue a pending sidecar: {e}");
+                        log::error!("failed to queue a pending sidecar: {e}");
                     }
                 }
             }
         }
         // The sidecars are a cache layer over the folder; failing to read them
         // must not stop the folder from opening.
-        Err(e) => eprintln!("failed to reconcile the sidecars of {dir}: {e}"),
+        Err(e) => log::error!("failed to reconcile the sidecars of {dir}: {e}"),
     }
 
     let total = todo.len();
