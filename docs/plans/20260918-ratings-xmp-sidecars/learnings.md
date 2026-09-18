@@ -74,6 +74,15 @@
   over a dirty row: `store_sidecar_ratings` clears `dirty`, so the row is gone
   from the list by the time the writer is told. It also keeps the six rules in
   one place instead of splitting the dirty set across two queries.
+- The lock is released between `reconcile_sidecars` (which decides what to
+  parse) and `store_sidecar_ratings` (which stores the parse and clears
+  `dirty`), so a `set_rating` landing in that window would otherwise be
+  silently discarded by the "sidecar wins" write. `reconcile_sidecars` now
+  hands back the `dirty` flag it observed for each path alongside the parse
+  job, and `store_sidecar_ratings` only applies its update when the row's
+  `dirty` still matches that snapshot, so a rating set during the window is
+  left in place instead of being overwritten by a sidecar read taken before
+  it.
 - A sidecar that cannot be read or parsed leaves its row untouched and is not
   an error. It then stays dirty if it was, and the writer's own
   `xmp::write_rating` refuses to patch unparseable XML, so such a file is

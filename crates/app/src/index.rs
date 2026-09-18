@@ -392,13 +392,16 @@ impl Index {
     /// that is still dirty is left dirty, for `dirty_rows` to hand to the
     /// writer once the parsed sidecars have been stored.
     ///
-    /// Returns the sidecars to read and parse outside the lock; their result
-    /// goes back through `store_sidecar_ratings`.
+    /// Returns the sidecars to read and parse outside the lock, each paired
+    /// with the `dirty` flag observed here; their result goes back through
+    /// `store_sidecar_ratings`, which must only apply the "sidecar wins over
+    /// a dirty row" rule to the dirtiness this snapshot actually saw, not to
+    /// a `set_rating` that lands while the lock is released for the parse.
     pub fn reconcile_sidecars(
         &mut self,
         dir: &str,
         sidecars: &[(String, Option<SidecarStat>)],
-    ) -> Result<Vec<(String, SidecarStat)>, String> {
+    ) -> Result<Vec<(String, SidecarStat, bool)>, String> {
         let known: std::collections::HashMap<String, RatingRow> = {
             let mut stmt = self
                 .conn
@@ -427,7 +430,7 @@ impl Index {
             match stat {
                 Some((sidecar, size, mtime_ns)) => {
                     if row.map(|r| r.stat) != Some((Some(*size), Some(*mtime_ns))) {
-                        to_parse.push((path.clone(), (sidecar.clone(), *size, *mtime_ns)));
+                        to_parse.push((path.clone(), (sidecar.clone(), *size, *mtime_ns), dirty));
                     }
                 }
                 None => {
@@ -449,19 +452,28 @@ impl Index {
     /// Store what parsing the sidecars of `dir` found: the rating becomes the
     /// sidecar's and `dirty` is cleared, since the sidecar wins over an app
     /// edit that never reached disk.
+    ///
+    /// `rows` carries the `dirty` flag `reconcile_sidecars` observed for each
+    /// path before the lock was released for the parse. The update is
+    /// conditioned on the row's `dirty` still matching that snapshot: a
+    /// `set_rating` landing in that window makes the row dirty when the
+    /// snapshot was not, and such a row is left untouched here rather than
+    /// having its fresh rating and `dirty` flag overwritten by a sidecar read
+    /// taken before the edit.
     pub fn store_sidecar_ratings(
         &mut self,
         dir: &str,
-        rows: &[(String, Option<i8>, i64, i64)],
+        rows: &[(String, Option<i8>, i64, i64, bool)],
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for (path, rating, size, mtime_ns) in rows {
+        for (path, rating, size, mtime_ns, dirty) in rows {
             tx.execute(
                 "INSERT INTO ratings (path, dir, rating, xmp_size, xmp_mtime_ns, dirty)
                  VALUES (?1, ?2, ?3, ?4, ?5, 0)
                  ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, xmp_size = ?4,
-                     xmp_mtime_ns = ?5, dirty = 0",
-                params![path, dir, rating, size, mtime_ns],
+                     xmp_mtime_ns = ?5, dirty = 0
+                 WHERE dirty = ?6",
+                params![path, dir, rating, size, mtime_ns, *dirty as i64],
             )
             .map_err(|e| format!("{path}: {e}"))?;
         }

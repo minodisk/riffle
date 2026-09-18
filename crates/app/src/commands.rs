@@ -201,16 +201,16 @@ fn reconcile_sidecars_of(
     // whose external edit was never read, overwriting it unread.
     let oversize: std::collections::HashSet<&str> = to_parse
         .iter()
-        .filter(|(_, (_, size, _))| *size > MAX_SIDECAR_BYTES)
-        .map(|(path, _)| path.as_str())
+        .filter(|(_, (_, size, _), _)| *size > MAX_SIDECAR_BYTES)
+        .map(|(path, _, _)| path.as_str())
         .collect();
-    let parsed: Vec<(String, Option<i8>, i64, i64)> = to_parse
+    let parsed: Vec<(String, Option<i8>, i64, i64, bool)> = to_parse
         .iter()
-        .filter(|(path, _)| !oversize.contains(path.as_str()))
-        .filter_map(|(path, (sidecar, size, mtime_ns))| {
+        .filter(|(path, _, _)| !oversize.contains(path.as_str()))
+        .filter_map(|(path, (sidecar, size, mtime_ns), dirty)| {
             let bytes = std::fs::read(sidecar).ok()?;
             let rating = riffle_core::xmp::read_rating(&bytes).ok()?;
-            Some((path.clone(), rating, *size, *mtime_ns))
+            Some((path.clone(), rating, *size, *mtime_ns, *dirty))
         })
         .collect();
     let mut index = index::lock(index);
