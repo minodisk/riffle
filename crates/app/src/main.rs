@@ -224,6 +224,7 @@ fn main() {
             let format = commands::load_settings(app.handle());
             app.set_menu(build_menu(app.handle(), format)?)?;
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
+            app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
             app.manage(commands::Scans::default());

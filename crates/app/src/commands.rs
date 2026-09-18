@@ -317,11 +317,22 @@ pub fn load_settings(app: &tauri::AppHandle) -> SidecarFormat {
     SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()))
 }
 
-/// Switch the sidecar format to `format`: drain what the writer holds in the
-/// old format, persist and apply the new one, and reset the index so the
-/// next folder open reads the new format's sidecars. Blocks on the drain and
-/// SQLite, so it must not run on the main thread.
+/// Switch the sidecar format to `format`: apply the new format first so any
+/// rating set while this runs is queued in it, drain what the writer still
+/// holds queued in the old format, persist the new format, and reset the
+/// index so the next folder open reads the new format's sidecars. Blocks on
+/// the drain and SQLite, so it must not run on the main thread.
+///
+/// Holds `AppSwitchLock` for its whole body and re-checks the current format
+/// once inside it, so two switches started back to back cannot interleave
+/// and the second one is a no-op when it already matches.
 pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> Result<(), String> {
+    let switch_lock = app.state::<AppSwitchLock>();
+    let _guard = index::lock(&switch_lock.0);
+    if *index::lock(&app.state::<AppSidecarFormat>().0) == format {
+        return Ok(());
+    }
+    *index::lock(&app.state::<AppSidecarFormat>().0) = format;
     if let Some(writer) = &app.state::<AppWriter>().0 {
         writer.flush(crate::sidecar::DRAIN_TIMEOUT);
     }
@@ -332,7 +343,6 @@ pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> R
     if let Err(e) = saved {
         eprintln!("failed to save the sidecar format: {e}");
     }
-    *index::lock(&app.state::<AppSidecarFormat>().0) = format;
     match &app.state::<AppIndex>().0 {
         Some(index) => index::lock(index).reset_sidecars(),
         None => Ok(()),
@@ -827,6 +837,11 @@ pub struct AppWriter(pub Option<Writer>);
 
 /// The sidecar format selected in the settings, read once at launch.
 pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
+
+/// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
+/// concurrent switches whose drain, save, state write and reset would
+/// otherwise interleave.
+pub struct AppSwitchLock(pub Mutex<()>);
 
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
 /// stars.

@@ -59,3 +59,15 @@
   `matches` now strips `.dop` and applies `scan::is_raw_file` to the rest;
   unit-tested with `L1000001.DNG.dop` and a `.jpg.dop` negative.
 - No meta-pane change (the optional sidecar name) was made.
+
+## Deferred issues (todo candidates)
+
+- Review feedback (photolab-dop-sidecar-step-3, Round 1, item 1) asked for a
+  test that sets a rating between the format swap and `reset_sidecars` in
+  `switch_sidecar_format`. This was dismissed for this round: the function
+  takes a real `tauri::AppHandle` backed by `tauri_plugin_store`, and the
+  codebase has no `tauri::test` mock-app harness. Building one (mock runtime,
+  store plugin wiring) would let this and other `AppHandle`-taking commands
+  in `crates/app/src/commands.rs` (e.g. `switch_sidecar_format`, `set_rating`,
+  `scan_folder`) be unit-tested. Related files: `crates/app/src/commands.rs`,
+  `crates/app/src/main.rs`.
