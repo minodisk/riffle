@@ -99,7 +99,7 @@ let entriesInFlight = false;
 // is never silently dropped just because a `scan-progress` refresh happened
 // to be outstanding at that moment.
 let entriesPending = false;
-let showFocus = true;
+let showFocus = false;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
 // The crop of the file that `cropSeq` identifies, at one JPEG pixel per
@@ -285,12 +285,14 @@ function drawFocusBox(drawWidth: number, drawHeight: number): void {
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
   const side = Math.min(drawWidth, drawHeight) * FOCUS_BOX_FRACTION;
-  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
-  context.lineWidth = 6;
+  // `difference` against white inverts whatever is under the line, so the box
+  // stays visible on a bright background as well as a dark one.
+  context.save();
+  context.globalCompositeOperation = "difference";
+  context.strokeStyle = "#fff";
+  context.lineWidth = 1;
   context.strokeRect(x - side / 2, y - side / 2, side, side);
-  context.strokeStyle = "rgba(255, 255, 255, 0.95)";
-  context.lineWidth = 2;
-  context.strokeRect(x - side / 2, y - side / 2, side, side);
+  context.restore();
 }
 
 // The 1:1 view: the same rotation `draw()` applies, with the focus point at

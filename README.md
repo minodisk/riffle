@@ -18,8 +18,9 @@ a `<canvas>` (decoded in a worker, rotated by the ARW's Orientation), and pages
 through them. A thumbnail filmstrip runs down the left edge: it is virtualised,
 highlights the current file, scrolls to follow paging, and a click on a cell
 shows that file. When the index has a `FocusLocation` for the current file, a
-focus box is drawn over the preview; it is placed in unrotated sensor
-coordinates and rotated with the image. `Space` toggles a 1:1 focus check.
+focus box can be drawn over the preview; it is hidden by default, `f` toggles
+it, and it is placed in unrotated sensor coordinates and rotated with the
+image. `Space` toggles a 1:1 focus check.
 Still missing: no prefetch, no rating. See [Running the app](#running-the-app).
 
 Keys:
