@@ -65,3 +65,22 @@
 - README had no dedicated meta pane section; the aperture `(est.)` and Leica
   focus distance rows are described in the Status paragraph, and the DNG
   confirmations get their own paragraph under "What has been confirmed".
+
+## Deferred issues (todo candidates)
+
+### Write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
+
+- **Change**: create `docs/agents/raw-metadata-parsing.md` covering the
+  MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs`. Read it when
+  touching the Sony/Leica MakerNote gate, adding another maker's MakerNote
+  parser, or writing a synthetic-TIFF test fixture.
+- **Points**: the Sony gate skips only when the note lacks `SONY` *and* `Make`
+  is present and non-Sony, so non-Sony fixtures must set `Make`; `SubIFDs` with
+  `count == 1` stores the IFD offset inline; the Leica note is `LEICA\0` +
+  `02 00` then an IFD at note offset 8, `FocusDistance` = tag 0x0304 LONG in mm;
+  `ApertureValue` (APEX) → `2^(AV/2)`; a "non-Sony note is skipped" test needs a
+  valid IFD in the fixture, not a `0xffff` sentinel count.
+- **Rationale**: these are non-obvious and cost time in Steps 1 and 3 (see the
+  Step 1 and Step 3 sections above).
+- **Done when**: the guide exists with the points above and links this archived
+  `learnings.md` for the measurements instead of duplicating them.
