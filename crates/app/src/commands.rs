@@ -821,6 +821,58 @@ pub fn shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
     index::lock(&app.state::<AppKeymap>().0).bindings()
 }
 
+/// Bind `action` to `key` alone and persist the overrides. The error names
+/// why the key was refused.
+#[tauri::command]
+pub fn set_shortcut(
+    app: tauri::AppHandle,
+    action: String,
+    key: String,
+) -> Result<Vec<Binding>, String> {
+    update_keymap(&app, |keymap| keymap.rebind(&action, &key))
+}
+
+/// Restore `action`'s default keys and persist the overrides.
+#[tauri::command]
+pub fn reset_shortcut(app: tauri::AppHandle, action: String) -> Result<Vec<Binding>, String> {
+    update_keymap(&app, |keymap| keymap.reset(&action))
+}
+
+/// Restore every default key and drop the `shortcuts` setting.
+#[tauri::command]
+pub fn reset_shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
+    update_keymap(&app, |keymap| {
+        keymap.reset_all();
+        Ok(())
+    })
+    .unwrap_or_default()
+}
+
+/// Apply `change` to the keymap and save its overrides under `shortcuts`,
+/// removing the key when there are none. A save failure is logged and the
+/// in-memory change stands, as in `remember_folder`.
+fn update_keymap(
+    app: &tauri::AppHandle,
+    change: impl FnOnce(&mut Keymap) -> Result<(), String>,
+) -> Result<Vec<Binding>, String> {
+    let state = app.state::<AppKeymap>();
+    let mut keymap = index::lock(&state.0);
+    change(&mut keymap)?;
+    let overrides = keymap.overrides();
+    let saved = settings(app).and_then(|store| {
+        if overrides.as_object().is_some_and(|o| o.is_empty()) {
+            store.delete("shortcuts");
+        } else {
+            store.set("shortcuts", overrides);
+        }
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        log::warn!("failed to save the shortcuts: {e}");
+    }
+    Ok(keymap.bindings())
+}
+
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
 /// stars, plus PhotoLab's pick flag beside them. A pick is only kept while
 /// `.dop` is selected; with XMP it is dropped, as XMP has nowhere to put it.

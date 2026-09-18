@@ -104,6 +104,71 @@ impl Keymap {
     pub fn bindings(&self) -> Vec<Binding> {
         self.0.clone()
     }
+
+    /// Bind `action` to `key` alone, or explain why it cannot be: `pick` is
+    /// not editable, `p` is reserved for pick, and a key bound to another
+    /// action is refused rather than moved.
+    pub fn rebind(&mut self, action: &str, key: &str) -> Result<(), String> {
+        let i = self.index(action)?;
+        if action == "pick" {
+            return Err("pick is not editable".to_string());
+        }
+        if key == PICK_KEY {
+            return Err("\"p\" is reserved for pick".to_string());
+        }
+        if let Some(other) = self
+            .0
+            .iter()
+            .find(|b| b.action != action && b.keys.iter().any(|k| k == key))
+        {
+            return Err(format!("{key:?} is bound to {}", other.action));
+        }
+        self.0[i].keys = vec![key.to_string()];
+        Ok(())
+    }
+
+    /// Restore `action`'s default keys, or fail if one of them has since been
+    /// bound to another action.
+    pub fn reset(&mut self, action: &str) -> Result<(), String> {
+        let i = self.index(action)?;
+        let defaults = Keymap::default().0.swap_remove(i).keys;
+        if let Some((key, other)) = defaults.iter().find_map(|key| {
+            self.0
+                .iter()
+                .find(|b| b.action != action && b.keys.contains(key))
+                .map(|b| (key, b.action))
+        }) {
+            return Err(format!("{key:?} is bound to {other}"));
+        }
+        self.0[i].keys = defaults;
+        Ok(())
+    }
+
+    /// Restore every action's default keys.
+    pub fn reset_all(&mut self) {
+        *self = Keymap::default();
+    }
+
+    /// The actions whose keys differ from the default, as stored under the
+    /// `shortcuts` settings key.
+    pub fn overrides(&self) -> Value {
+        let defaults = Keymap::default();
+        Value::Object(
+            self.0
+                .iter()
+                .zip(&defaults.0)
+                .filter(|(b, d)| b.keys != d.keys)
+                .map(|(b, _)| (b.action.to_string(), Value::from(b.keys.clone())))
+                .collect(),
+        )
+    }
+
+    fn index(&self, action: &str) -> Result<usize, String> {
+        self.0
+            .iter()
+            .position(|b| b.action == action)
+            .ok_or_else(|| format!("unknown action {action:?}"))
+    }
 }
 
 fn parse_keys(value: &Value) -> Option<Vec<String>> {
@@ -205,5 +270,78 @@ mod tests {
         keys.sort();
         keys.dedup();
         assert_eq!(keys.len(), total);
+    }
+
+    #[test]
+    fn a_rebind_is_the_only_override() {
+        let mut keymap = Keymap::default();
+        keymap.rebind("reject", "r").unwrap();
+        assert_eq!(keys_of(&keymap, "reject"), vec!["r"]);
+        assert_eq!(keymap.overrides(), json!({"reject": ["r"]}));
+    }
+
+    #[test]
+    fn rebinding_back_to_the_default_removes_the_override() {
+        let mut keymap = Keymap::default();
+        keymap.rebind("reject", "r").unwrap();
+        keymap.rebind("reject", "x").unwrap();
+        assert_eq!(keymap.overrides(), json!({}));
+    }
+
+    #[test]
+    fn rebind_rejects_a_key_bound_to_another_action() {
+        let mut keymap = Keymap::default();
+        assert_eq!(
+            keymap.rebind("reject", "j"),
+            Err("\"j\" is bound to next".to_string())
+        );
+        assert_eq!(keymap, Keymap::default());
+    }
+
+    #[test]
+    fn rebind_rejects_p_and_pick() {
+        let mut keymap = Keymap::default();
+        assert_eq!(
+            keymap.rebind("unflag", "p"),
+            Err("\"p\" is reserved for pick".to_string())
+        );
+        assert_eq!(
+            keymap.rebind("pick", "q"),
+            Err("pick is not editable".to_string())
+        );
+        assert!(keymap.rebind("nope", "q").is_err());
+        assert_eq!(keymap, Keymap::default());
+    }
+
+    #[test]
+    fn reset_restores_the_defaults() {
+        let mut keymap = Keymap::default();
+        keymap.rebind("reject", "r").unwrap();
+        keymap.rebind("clear", "c").unwrap();
+        keymap.reset("reject").unwrap();
+        assert_eq!(keymap.overrides(), json!({"clear": ["c"]}));
+        keymap.reset_all();
+        assert_eq!(keymap.overrides(), json!({}));
+        assert_eq!(keymap, Keymap::default());
+    }
+
+    #[test]
+    fn reset_refuses_a_default_key_now_bound_elsewhere() {
+        let mut keymap = Keymap::default();
+        keymap.rebind("reject", "r").unwrap();
+        keymap.rebind("clear", "x").unwrap();
+        assert_eq!(
+            keymap.reset("reject"),
+            Err("\"x\" is bound to clear".to_string())
+        );
+    }
+
+    #[test]
+    fn overrides_round_trip() {
+        let mut keymap = Keymap::default();
+        keymap.rebind("previous", "q").unwrap();
+        keymap.rebind("reject", "r").unwrap();
+        keymap.rebind("zoom", "z").unwrap();
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
     }
 }

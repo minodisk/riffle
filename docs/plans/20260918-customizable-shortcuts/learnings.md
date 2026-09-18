@@ -17,3 +17,13 @@
   matching the Rust key names. `applyKeymap` rebuilds the whole
   `Map<key, action>` from a `Binding[]` so Steps 3-4 can pass command results
   straight in. `applyKeymap` and `keyName` have one caller each until Step 4.
+
+## Step 3
+
+- `reset(action)` returns `Result`: after rebinding `reject` to `r` and `clear`
+  to `x`, restoring `reject`'s default `x` would bind `x` twice, so the reset is
+  refused with the same `"x" is bound to clear` message `rebind` uses. The
+  plan's signature did not say; this keeps the no-duplicate invariant.
+- `reset_shortcuts` cannot fail, so it returns `Vec<Binding>` directly.
+- `update_keymap` holds the `AppKeymap` lock across the store write so two
+  quick rebinds cannot persist out of order.
