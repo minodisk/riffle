@@ -257,4 +257,4 @@ is the only automated check; no step claims a visual check was done.
 
 ## Progress
 
-- (none yet)
+- (2026-09-18) Step 1 complete

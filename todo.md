@@ -266,6 +266,9 @@ that step.
 
 - [ ] Give sidecar errors a sticky, dismissible display distinct from the
   transient status note.
+- [ ] When a `sidecar-error` fires after an optimistic rating keypress,
+  revert the "has sidecar" flag it set (`crates/app/ui/src/main.ts`) rather
+  than leaving it showing a sidecar that was never written.
 
 ### Docs: consider a `docs/agents/core.md` guide for `crates/core`
 
@@ -281,3 +284,20 @@ exists yet (compare `docs/agents/tauri-app.md`'s Hit/Measured/Inferred format).
 - [ ] When the next feature touches `crates/core`'s XML handling, create
   `docs/agents/core.md` capturing these facts, or judge it unnecessary and drop
   this item.
+
+### App: the meta pane's sidecar header shows the predicted name, not an on-disk case variant
+
+The header in `crates/app/ui/src/main.ts` (`sidecarName`) shows the name the
+app would write (e.g. `FOO.xmp`), not a foreign on-disk variant such as
+`FOO.XMP`, which `list_sidecars_in` (`crates/app/src/commands.rs`)
+discovers and the writer patches under its real name. Exposing the real
+name needs either a `read_dir` per `folder_entries` call or a new
+`xmp_name` column (a `SCHEMA_VERSION` bump). See
+`docs/plans/_archived/20260918-rating-display-tidy-up/plan.md`'s "Sidecar name:
+predicted versus actual" trade-off for the two alternatives considered.
+
+#### TODO
+
+- [ ] Decide whether the mismatch between the displayed and on-disk
+  sidecar name is worth a `read_dir` or a schema change, and implement
+  whichever is chosen.
