@@ -316,6 +316,7 @@ function rate(rating: number | null): void {
       if (token !== folderToken) {
         return;
       }
+      touched.delete(path);
       applyRating(path, previous);
       setStatus(String(err));
       draw();
@@ -331,6 +332,7 @@ function refreshEntries(): void {
     return;
   }
   const dir = openDir;
+  const token = folderToken;
   entriesInFlight = true;
   void window.__TAURI__.core
     .invoke<IndexedFile[]>("folder_entries", { dir })
@@ -340,7 +342,7 @@ function refreshEntries(): void {
         entriesPending = false;
         refreshEntries();
       }
-      if (dir !== openDir) {
+      if (dir !== openDir || token !== folderToken) {
         return;
       }
       entries.clear();
@@ -824,6 +826,9 @@ void window.__TAURI__.event.listen<{
 void window.__TAURI__.event.listen<{ path: string; message: string }>(
   "sidecar-error",
   ({ payload }) => {
+    if (!fileIndex.has(payload.path)) {
+      return;
+    }
     setStatus(`${baseName(payload.path)}: ${payload.message}`);
   },
 );
@@ -867,7 +872,7 @@ window.addEventListener("keydown", (event) => {
     // Sticky, not a toggle: `x` twice is still a reject. `u` undoes it.
     rate(-1);
   } else if (key === "u") {
-    if ((ratings.get(files[index]) ?? null) !== -1) {
+    if (files.length === 0 || (ratings.get(files[index]) ?? null) !== -1) {
       return;
     }
     rate(null);
