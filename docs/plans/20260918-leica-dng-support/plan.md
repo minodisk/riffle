@@ -118,7 +118,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       (e.g. a quick `riffle-cli info` loop; the fallback is silent, so check
       by timing or by a temporary `eprintln!` that is not committed).
 
-- [ ] Step 2: App and CLI list `.DNG` next to `.ARW`; end-to-end on the sample folder
+- [x] Step 2: App and CLI list `.DNG` next to `.ARW`; end-to-end on the sample folder
   - Done when:
     - `crates/app/src/commands.rs::is_arw` (rename to something like
       `is_raw`) accepts `arw` and `dng` case-insensitively; the
@@ -214,3 +214,4 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete (GUI checks 1-8 confirmed by the user on the 32-file sample folder)

@@ -13,6 +13,13 @@ use crate::reader::read_preview;
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
 
+/// Whether `path` has a RAW extension Riffle lists: `.ARW` or `.DNG`, in any
+/// case.
+pub fn is_raw_file(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("arw") || e.eq_ignore_ascii_case("dng"))
+}
+
 /// What one file contributes to the index.
 #[derive(Debug, Clone)]
 pub struct Entry {
