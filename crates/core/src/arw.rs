@@ -1,7 +1,14 @@
-//! Minimal parser that locates the embedded JPEGs in an ARW (a TIFF variant).
+//! Minimal parser that locates the embedded JPEGs in an ARW or a DNG (both
+//! little-endian TIFF variants).
 
 use anyhow::{anyhow, bail, Result};
 
+const TAG_IMAGE_WIDTH: u16 = 0x0100;
+const TAG_IMAGE_HEIGHT: u16 = 0x0101;
+const TAG_COMPRESSION: u16 = 0x0103;
+const TAG_PHOTOMETRIC: u16 = 0x0106;
+const TAG_STRIP_OFFSETS: u16 = 0x0111;
+const TAG_STRIP_BYTE_COUNTS: u16 = 0x0117;
 const TAG_MAKE: u16 = 0x010f;
 const TAG_MODEL: u16 = 0x0110;
 const TAG_ORIENTATION: u16 = 0x0112;
@@ -19,6 +26,11 @@ const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
 const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
 const TAG_MAKER_NOTE: u16 = 0x927c;
 const TAG_FOCUS_LOCATION: u16 = 0x2027;
+
+const COMPRESSION_JPEG: u32 = 7;
+const PHOTOMETRIC_YCBCR: u32 = 6;
+/// The preview tier takes the smallest strip JPEG at least this wide.
+const PREVIEW_MIN_WIDTH: u32 = 1600;
 
 const TYPE_ASCII: u16 = 2;
 const TYPE_SHORT: u16 = 3;
@@ -138,6 +150,20 @@ fn embedded(entries: &[Entry]) -> Option<Embedded> {
     })
 }
 
+/// A DNG-style embedded JPEG: an IFD whose single strip is a YCbCr JPEG. The
+/// photometric check keeps a lossless-JPEG CFA raw (also `Compression=7`) out.
+fn strip_jpeg(entries: &[Entry]) -> Option<(Embedded, u32, u32)> {
+    let int = |tag| entries.iter().find(|e| e.0 == tag).and_then(integer);
+    if int(TAG_COMPRESSION)? != COMPRESSION_JPEG || int(TAG_PHOTOMETRIC)? != PHOTOMETRIC_YCBCR {
+        return None;
+    }
+    let e = Embedded {
+        offset: int(TAG_STRIP_OFFSETS)? as usize,
+        length: int(TAG_STRIP_BYTE_COUNTS)? as usize,
+    };
+    Some((e, int(TAG_IMAGE_WIDTH)?, int(TAG_IMAGE_HEIGHT)?))
+}
+
 /// Read an ASCII entry's value. Values of up to 4 bytes sit in the entry
 /// itself; longer ones live at the offset the entry carries.
 fn ascii(buf: &[u8], entry: &Entry) -> Result<Option<String>> {
@@ -184,7 +210,7 @@ fn shorts4(buf: &[u8], entry: &Entry) -> Result<Option<[u16; 4]>> {
 /// `SONY DSC \0\0\0` / `SONY CAM \0\0\0` header. Either way the value
 /// offsets inside it are absolute to the TIFF start, so the IFD can be read
 /// straight out of `buf`.
-fn maker_note_ifd(buf: &[u8], entries: &[Entry]) -> Result<Option<Vec<Entry>>> {
+fn maker_note_ifd(buf: &[u8], entries: &[Entry], make: Option<&str>) -> Result<Option<Vec<Entry>>> {
     let Some(entry) = entries.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
         return Ok(None);
     };
@@ -197,7 +223,14 @@ fn maker_note_ifd(buf: &[u8], entries: &[Entry]) -> Result<Option<Vec<Entry>>> {
         .checked_add(count)
         .filter(|&end| end <= buf.len())
         .ok_or_else(|| anyhow!("MakerNote out of range"))?;
-    let at = if count >= 14 && buf[at..end].starts_with(b"SONY") {
+    let sony_header = buf[at..end].starts_with(b"SONY");
+    // Another maker's note (Leica's starts with `LEICA\0`) is not an IFD at
+    // this offset; reading it as one walks garbage. A missing Make is given
+    // the benefit of the doubt, as Sony5 notes carry no header.
+    if !sony_header && make.is_some_and(|m| !m.starts_with("SONY")) {
+        return Ok(None);
+    }
+    let at = if count >= 14 && sony_header {
         at + 12
     } else {
         at
@@ -270,7 +303,7 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         }
     }
 
-    shot.focus = match maker_note_ifd(buf, &exif_ifd)? {
+    shot.focus = match maker_note_ifd(buf, &exif_ifd, shot.make.as_deref())? {
         Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
             Some(e) => shorts4(buf, e)?.map(|v| FocusLocation {
                 sensor_w: v[0],
@@ -326,6 +359,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     }
 
     let mut full: Option<Embedded> = None;
+    let mut strips: Vec<(Embedded, u32, u32)> = strip_jpeg(&ifd0).into_iter().collect();
     for off in targets {
         let (ifd, _) = read_ifd(buf, off)?;
         if let Some(e) = embedded(&ifd) {
@@ -333,7 +367,25 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
                 full = Some(e);
             }
         }
+        strips.extend(strip_jpeg(&ifd));
     }
+
+    // A DNG carries its previews as strip JPEGs in no guaranteed order, so pick
+    // by size: the largest is the 1:1 tier, and the smallest one wide enough
+    // for the preview pane is the preview (skipping tiny thumbnails), falling
+    // back to the 1:1 JPEG when nothing else qualifies.
+    let (preview, full) = if preview.is_none() && full.is_none() && !strips.is_empty() {
+        let area = |s: &(Embedded, u32, u32)| u64::from(s.1) * u64::from(s.2);
+        let big = strips.iter().max_by_key(|s| area(s)).map(|s| s.0);
+        let small = strips
+            .iter()
+            .filter(|s| s.1 >= PREVIEW_MIN_WIDTH)
+            .min_by_key(|s| area(s))
+            .map(|s| s.0);
+        (small.or(big), big)
+    } else {
+        (preview, full)
+    };
 
     Ok(Arw {
         preview,
@@ -550,5 +602,108 @@ mod tests {
         let mut buf = tiff_with_exif(true, Some([1, 2, 3, 4]), false);
         buf.truncate(buf.len() - DATE.len() - 8);
         assert!(parse(&buf).is_err());
+    }
+
+    fn strip_entries(
+        w: u32,
+        h: u32,
+        photometric: u32,
+        offset: u32,
+        length: u32,
+    ) -> Vec<(u16, u16, u32, u32)> {
+        vec![
+            (TAG_IMAGE_WIDTH, TYPE_LONG, 1, w),
+            (TAG_IMAGE_HEIGHT, TYPE_LONG, 1, h),
+            (TAG_COMPRESSION, TYPE_SHORT, 1, COMPRESSION_JPEG),
+            (TAG_PHOTOMETRIC, TYPE_SHORT, 1, photometric),
+            (TAG_STRIP_OFFSETS, TYPE_LONG, 1, offset),
+            (TAG_STRIP_BYTE_COUNTS, TYPE_LONG, 1, length),
+        ]
+    }
+
+    /// A TIFF whose IFD0 carries `ifd0` plus a SubIFDs array pointing at one
+    /// IFD per element of `subs`.
+    fn tiff_with_sub_ifds(
+        ifd0: &[(u16, u16, u32, u32)],
+        subs: &[Vec<(u16, u16, u32, u32)>],
+    ) -> Vec<u8> {
+        let array_at = 8 + ifd_len(ifd0.len() + 1);
+        let mut at = array_at + subs.len() * 4;
+        let mut offsets = Vec::new();
+        for s in subs {
+            offsets.push(at as u32);
+            at += ifd_len(s.len());
+        }
+        let mut entries = ifd0.to_vec();
+        entries.push((TAG_SUB_IFDS, TYPE_LONG, subs.len() as u32, array_at as u32));
+        let mut buf = tiff(&entries);
+        for o in &offsets {
+            buf.extend_from_slice(&o.to_le_bytes());
+        }
+        for s in subs {
+            buf.extend_from_slice(&ifd(s));
+        }
+        buf
+    }
+
+    #[test]
+    fn picks_dng_strip_jpegs_by_size_not_by_index() {
+        let buf = tiff_with_sub_ifds(
+            &strip_entries(9536, 6336, 32803, 900_000, 5_000_000),
+            &[
+                strip_entries(160, 120, PHOTOMETRIC_YCBCR, 100, 10),
+                strip_entries(720, 480, PHOTOMETRIC_YCBCR, 200, 20),
+                strip_entries(9504, 6320, PHOTOMETRIC_YCBCR, 300, 30),
+                strip_entries(2112, 1408, PHOTOMETRIC_YCBCR, 400, 40),
+            ],
+        );
+        let a = parse(&buf).unwrap();
+        let (p, f) = (a.preview.unwrap(), a.full.unwrap());
+        assert_eq!((p.offset, p.length), (400, 40));
+        assert_eq!((f.offset, f.length), (300, 30));
+    }
+
+    #[test]
+    fn a_cfa_raw_in_ifd0_is_not_a_jpeg() {
+        let buf = tiff(&strip_entries(9536, 6336, 32803, 900_000, 5_000_000));
+        let a = parse(&buf).unwrap();
+        assert!(a.preview.is_none() && a.full.is_none());
+    }
+
+    #[test]
+    fn a_non_sony_maker_note_is_skipped() {
+        let make = b"Leica Camera AG\0";
+        let exif_at = 8 + ifd_len(2);
+        let maker_at = exif_at + ifd_len(1);
+        let note = b"LEICA\0\0\0\xff\xff\xff\xff\xff\xff\xff\xff";
+        let make_at = maker_at + note.len();
+        let mut buf = tiff(&[
+            (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
+            (TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32),
+        ]);
+        buf.extend_from_slice(&ifd(&[(
+            TAG_MAKER_NOTE,
+            7,
+            note.len() as u32,
+            maker_at as u32,
+        )]));
+        buf.extend_from_slice(note);
+        buf.extend_from_slice(make);
+        let a = parse(&buf).unwrap();
+        assert!(a.shot.focus.is_none());
+        assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));
+    }
+
+    #[test]
+    fn no_embedded_jpeg_at_all_parses_with_both_none() {
+        let buf = tiff_with_sub_ifds(
+            &[(TAG_ORIENTATION, TYPE_SHORT, 1, 1)],
+            &[
+                vec![(TAG_IMAGE_WIDTH, TYPE_LONG, 1, 100)],
+                vec![(TAG_IMAGE_WIDTH, TYPE_LONG, 1, 200)],
+            ],
+        );
+        let a = parse(&buf).unwrap();
+        assert!(a.preview.is_none() && a.full.is_none());
     }
 }
