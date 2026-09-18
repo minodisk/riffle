@@ -41,3 +41,21 @@
   is true for `H.ARW.DOP`, so the rename may land on the other spelling; the
   case test asserts "still exactly one `.dop`" rather than a name.
 - Step 2's checkbox stays unchecked: only the manual PhotoLab check remains.
+
+## Step 3: The Sidecar menu and the format switch
+
+- `Builder::menu` runs before the plugins are initialised, so a menu that
+  needs the settings store cannot be built there. The menu (default items,
+  `Sidecar`, and the dev-only `Debug`) is now built in `setup` with
+  `app.set_menu`, after `load_settings`; `debug_menu::build` became
+  `debug_menu::append`, and one `on_menu_event` dispatches to it.
+- The switch lives in `commands::switch_sidecar_format` (drain, persist,
+  update state, `Index::reset_sidecars`), run from the menu handler through
+  `spawn_blocking`; `sidecar-format` is emitted after it returns. A failed
+  store save is logged, not fatal: the switch still applies for the session.
+- DNG: `dop::sidecar_path` gives `<name>.DNG.dop`, but Step 2's
+  `SidecarFormat::matches` only accepted `.arw.dop`, so a DNG's `.dop` was
+  never listed (never read, and a dirty row would be re-written blindly).
+  `matches` now strips `.dop` and applies `scan::is_raw_file` to the rest;
+  unit-tested with `L1000001.DNG.dop` and a `.jpg.dop` negative.
+- No meta-pane change (the optional sidecar name) was made.

@@ -317,6 +317,28 @@ pub fn load_settings(app: &tauri::AppHandle) -> SidecarFormat {
     SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()))
 }
 
+/// Switch the sidecar format to `format`: drain what the writer holds in the
+/// old format, persist and apply the new one, and reset the index so the
+/// next folder open reads the new format's sidecars. Blocks on the drain and
+/// SQLite, so it must not run on the main thread.
+pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> Result<(), String> {
+    if let Some(writer) = &app.state::<AppWriter>().0 {
+        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+    }
+    let saved = settings(app).and_then(|store| {
+        store.set("sidecarFormat", format.setting());
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        eprintln!("failed to save the sidecar format: {e}");
+    }
+    *index::lock(&app.state::<AppSidecarFormat>().0) = format;
+    match &app.state::<AppIndex>().0 {
+        Some(index) => index::lock(index).reset_sidecars(),
+        None => Ok(()),
+    }
+}
+
 /// Remember `dir` as the folder to reopen on the next launch. Failing to write
 /// it only means starting with nothing open, so it is logged, not returned.
 #[tauri::command]
@@ -1134,6 +1156,31 @@ mod tests {
         assert!(dirty.is_empty(), "the writer must not patch it unread");
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn after_a_format_switch_only_the_selected_formats_ratings_are_read() {
+        let root = temp_dir("format-switch");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        std::fs::write(root.join("b.ARW"), b"x").unwrap();
+        sidecar(&root, "a.xmp", 4);
+        std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_THREE).unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
+        assert_eq!(rating_of(&index, &dir, &listed[1]), None);
+
+        index::lock(&index).reset_sidecars().unwrap();
+        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+
+        assert!(dirty.is_empty());
+        assert_eq!(rating_of(&index, &dir, &listed[0]), None);
+        assert_eq!(rating_of(&index, &dir, &listed[1]), Some(3));
 
         remove_temp_dir(&root);
     }

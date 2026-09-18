@@ -187,7 +187,7 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
       atomic).
     - Do not touch the frontend in this step.
 
-- [ ] Step 3: App: the setting itself (menu, command, index reset, reopen)
+- [x] Step 3: App: the setting itself (menu, command, index reset, reopen)
   - Done when:
     - A native `Sidecar` submenu exists in **all** builds with two check
       items, `XMP (.xmp)` and `DxO PhotoLab (.dop)`, exactly one checked,

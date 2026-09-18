@@ -378,6 +378,22 @@ impl Index {
             .map_err(|e| format!("{path}: {e}"))
     }
 
+    /// Forget every sidecar the index has seen, for a sidecar format switch:
+    /// clean rows are dropped so the next open reads the newly selected
+    /// format, and dirty rows keep their judgement but lose the old format's
+    /// stat, so the next open writes them into the new one.
+    pub fn reset_sidecars(&mut self) -> Result<(), String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        tx.execute("DELETE FROM ratings WHERE dirty = 0", [])
+            .map_err(|e| e.to_string())?;
+        tx.execute(
+            "UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL WHERE dirty = 1",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     /// The rows of `dir` whose judgement has not reached its sidecar yet.
     pub fn dirty_rows(&self, dir: &str) -> Result<Vec<(String, Option<i8>)>, String> {
         let mut stmt = self
@@ -751,6 +767,39 @@ mod tests {
         index.set_rating("d", "/a.ARW", None).unwrap();
         assert!(index.mark_written("/a.ARW", None, None).unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_sidecar_reset_drops_clean_rows_and_clears_the_stat_of_dirty_ones() {
+        let dir = temp_dir("reset-sidecars");
+        let mut index = open(&dir);
+        index.set_rating("d", "/a.ARW", Some(3)).unwrap();
+        assert!(index
+            .mark_written("/a.ARW", Some(3), Some((42, 7)))
+            .unwrap());
+        index.set_rating("d", "/b.ARW", Some(5)).unwrap();
+        index
+            .store_sidecar_ratings("d", &[("/b.ARW".to_string(), Some(5), 9, 9, true)])
+            .unwrap();
+        index.set_rating("d", "/b.ARW", Some(-1)).unwrap();
+
+        index.reset_sidecars().unwrap();
+
+        let rows: Vec<(String, bool)> = index
+            .conn
+            .prepare("SELECT path, xmp_size IS NULL AND xmp_mtime_ns IS NULL FROM ratings")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(rows, [("/b.ARW".to_string(), true)]);
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/b.ARW".to_string(), Some(-1))]
+        );
 
         remove_temp_dir(&dir);
     }
