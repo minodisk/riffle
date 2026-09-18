@@ -62,7 +62,16 @@ shows the EXIF rows (camera, lens, shutter, aperture, ISO, focal length); on a
 file with no `FNumber` but an `ApertureValue` (the M11-P with an M-mount lens)
 the aperture is the camera's estimate, marked `(est.)` (e.g. `f/9.5 (est.)`),
 and a Leica file adds a focus distance row from its MakerNote (e.g. `5.42 m`).
-Still missing: no prefetch, no filtering by rating.
+The strip pane's filter menu narrows the strip by pick flag, stars and the
+shooting settings: camera, lens, aperture, shutter speed, ISO and focal length.
+Each EXIF group lists only the values present in the open folder; focal length
+is grouped into the half-open ranges `<24 mm`, `24–35 mm`, `35–50 mm`,
+`50–85 mm`, `85–135 mm`, `135–200 mm` and `>200 mm`, listing only those that
+contain a frame. Checked items within a group are OR-ed, groups are AND-ed, a
+group with nothing checked lets everything through, and a file without the
+value fails a group that has a selection. `Reset` clears every group, and
+opening another folder clears the EXIF selections.
+Still missing: no prefetch.
 See [Running the app](#running-the-app).
 
 Releases are published on the
@@ -114,7 +123,9 @@ lower-cased, so Shift+J pages like `j`.
 ### The index
 
 On the first open of a folder, every ARW and DNG in it is extracted in parallel
-(capture time, `SubSecTimeOriginal`, `FocusLocation`, Orientation and a 404x270
+(capture time, `SubSecTimeOriginal`, `FocusLocation`, Orientation, the
+shooting settings — camera, lens, f-number, exposure time, ISO, focal
+length — and a 404x270
 thumbnail — 528x352 from the M11-P DNG's 2112x1408 preview, which has no
 `FocusLocation` — from a bounded 1MiB prefix plus a ranged read of the preview
 itself) into a SQLite database. The status
@@ -134,7 +145,10 @@ folder used for the measurements below, the database came to 104,177,664 bytes
 (~20.8KB per row, mostly thumbnail); since every row there is a byte-identical
 thumbnail of the same file, a real folder of distinct frames will not be
 exactly this. It is a cache:
-deleting the file costs one more scan.
+deleting the file costs one more scan. The schema is at version 4, which added
+the shooting settings: a pre-v4 database drops its `files` rows on the first
+launch, so each folder is re-scanned once on its next open, while the ratings
+table (and its unwritten judgements) is kept.
 
 The CLI from Phase 1:
 
@@ -405,6 +419,14 @@ row); a rating key on a sidecar-less file removing `(not created)` at once
 while `0` does not; and the strip cell and the `Rating` row using the same
 glyphs and colours. `has_sidecar` itself is covered by a unit test in
 `index.rs`.
+
+**Awaiting the user's confirmation (EXIF filters)**: nothing about the EXIF
+groups of the filter menu has been looked at in a running window. Unconfirmed,
+on an ARW folder and on the M11-P DNG folder: each group listing only the
+values (ranges) present, one check narrowing the strip, two checks in a group
+OR-ing, checks across groups AND-ing, `Reset` restoring everything, opening
+another folder clearing the EXIF selections, and the meta pane's values
+matching the checked item for the shown file.
 
 ### Phase 4 baseline
 

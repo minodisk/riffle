@@ -39,3 +39,11 @@
   so the first filtered list of a new folder is not narrowed by the old one.
 - The manual GUI confirmation (ARW folder and M11-P DNG folder) is pending the
   user; Step 4 records the result in the README.
+
+## Step 4
+
+- The README had no description of the filter menu at all (only the stale
+  "no filtering by rating" line), so the pick/stars/EXIF groups are described
+  together in the overview paragraph. The manual GUI check of Step 3 is
+  recorded as awaiting the user's confirmation.
+- No new pitfall for `docs/agents/tauri-app.md` came out of Steps 1-3.
