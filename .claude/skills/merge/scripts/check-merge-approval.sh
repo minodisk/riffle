@@ -105,6 +105,16 @@ function classify() {
 	# above, and a new dependency that ships one cannot arrive without Cargo.lock
 	# moving.
 	Cargo.toml) return 1 ;;
+	# Release-shaping files: a release built from them reaches installed copies,
+	# where a revert on main does not follow.
+	release-please-config.json | .release-please-manifest.json)
+		echo "decides what a release is (versions, changelog, which packages are bumped); a shipped release is not undone by a revert"
+		return 0
+		;;
+	crates/app/tauri.conf.json)
+		echo "carries the updater public key and endpoint; a wrong key shipped in a release leaves every installed copy unable to verify later updates, and a revert on main does not reach them"
+		return 0
+		;;
 	# Markdown is safe whatever the directory (paths under .claude / .agents /
 	# .codex / .github never reach this line: the patterns above are evaluated
 	# first and make them approval required).

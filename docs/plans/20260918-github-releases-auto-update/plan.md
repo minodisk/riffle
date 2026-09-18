@@ -141,7 +141,7 @@ available / install it", no crates.io publishing of `riffle-core` /
       `gh workflow run release.yml`. Record the run URL and any runner-specific
       fix in `learnings.md`
 
-- [ ] Step 3: Revise the merge-approval policy for a repository that releases
+- [x] Step 3: Revise the merge-approval policy for a repository that releases
   - Done when:
     - `.claude/skills/develop/references/pr-merge-lifecycle.md` no longer rests
       the standing approval on "nothing is released". It states: (a) merging
@@ -257,3 +257,4 @@ available / install it", no crates.io publishing of `riffle-core` /
 
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
+- (2026-09-18) Step 3 complete

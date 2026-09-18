@@ -7,9 +7,23 @@ leave it to `merger`'s frontmatter.
 
 ## The approval check reports; it does not gate
 
-**In this repository, a merge is never held for user approval.** Nothing this
-project builds is released to anyone, so a bad merge costs a revert and nothing
-else. The user has granted a standing approval for merges on that basis.
+**An ordinary merge is not held for user approval.** Merging an ordinary PR
+only changes `main`; nothing reaches users until a release PR is merged, so a
+bad merge costs a revert and nothing else. The user has granted a standing
+approval for merges on that basis, with two exceptions:
+
+- **The release PR is the human gate.** No agent merges it. It is identified by
+  its branch, `release-please--branches--main`; when `pr-runner` hands you that
+  PR, stop and leave the merge to the user.
+- **Paths that change what a release is or how it is built are not covered.**
+  `.github/**`, `release-please-config.json`, `.release-please-manifest.json`
+  and `crates/app/tauri.conf.json` (it carries the updater public key and
+  endpoint; a wrong key shipped in a release leaves every installed copy unable
+  to verify later updates, and a revert on `main` does not reach them). When the
+  check prints an `approval` line for one of these, stop and ask the user before
+  starting `merger` with the approved flag.
+
+Everything else keeps the report-only behaviour below.
 
 That does not mean the judgement is skipped. Run the check yourself first — it
 is read-only — so you know what it would have flagged:
@@ -18,14 +32,15 @@ is read-only — so you know what it would have flagged:
 bash .claude/skills/merge/scripts/check-merge-approval.sh {number}
 ```
 
-Then start `merger` **with the approved flag**, whatever the check returned:
+Then, outside the two exceptions above, start `merger` **with the approved flag**,
+whatever the check returned:
 
 ```
 Agent(
   subagent_type: "merger",
   run_in_background: false,
   prompt: "PR number: {number}
-Approved: yes (this repository grants a standing approval for merges; nothing is released, so a bad merge costs a revert)
+Approved: yes (this repository grants a standing approval for ordinary merges; they only change main, so a bad merge costs a revert)
 
 Skip the approval judgement and go from the merge through post-merge waiting, main sync, and branch cleanup.")
 ```
@@ -45,12 +60,10 @@ only findings whose risk does not wait for a release: a new dependency's build
 script or install script runs the moment someone builds. Name the new dependency
 in the report when the check flags one.
 
-`build.rs`, `.claude/**`, `.github/**` and `tools/**` stay approval-required in
-the check because they are worth seeing, but they are our own code; report them
-and move on.
-
-If a future release pipeline lands, revisit this section — the standing approval
-rests on there being nothing to release.
+`build.rs`, `.claude/**` and `tools/**` stay approval-required in the check
+because they are worth seeing, but they are our own code; report them and move
+on. (`.github/**` is not in this list: it shapes the release build, so it stops
+per the exceptions above.)
 
 ## What `merger` does
 
