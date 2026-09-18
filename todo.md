@@ -317,3 +317,19 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 #### TODO
 
 - [ ] Retake the deep-row measurement post-fix, then decide between crop prefetch and a DCT-scaled placeholder.
+
+### App: the update path is unverified until a second release ships
+
+`README.md`'s Status and Installing sections describe auto-update as "awaiting the user's confirmation": v0.1.0 shipped, but nothing has confirmed that an installed copy actually detects and installs a newer release.
+
+#### TODO
+
+- [ ] Verify the update path once the second release is out: install v0.1.0, publish the next release, then launch the installed build. Done when it shows the update line, installs the newer release after the signature check, and relaunches as the new version (on macOS, Windows NSIS/MSI, and Linux AppImage); then drop the "awaiting the user's confirmation" wording from README's Status and Installing sections.
+
+### App: `cancelling_after_the_first_batch_keeps_what_was_written` races on fast runners
+
+The test in `crates/app/src/index.rs` races the scan-cancellation against the scan itself instead of cancelling at a deterministic point. It already failed once on `macos-latest` (PR #58); the fix there (a700d67) only widened the file count from `BATCH * 4` to `BATCH * 40`, which a faster machine can outrun again.
+
+#### TODO
+
+- [ ] Make `cancelling_after_the_first_batch_keeps_what_was_written` in `crates/app/src/index.rs` cancel at a deterministic point (e.g. from the progress callback after the first batch) instead of relying on wall-clock ordering, and confirm it passes repeatedly on all three CI platforms.

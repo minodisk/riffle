@@ -191,3 +191,11 @@
   README's Status and Installing sections. Basis: Step 5 could not check it
   with only v0.1.0 released. Files: `README.md`,
   `docs/plans/20260918-github-releases-auto-update/learnings.md`.
+- Make `cancelling_after_the_first_batch_keeps_what_was_written` in
+  `crates/app/src/index.rs` independent of runner speed. It raced the
+  cancellation against the scan and failed on `macos-latest` in PR #58; the fix
+  there (a700d67) only widened the file count from `BATCH * 4` to `BATCH * 40`,
+  which a faster machine can outrun again. Done when the test cancels at a
+  deterministic point (e.g. from the progress callback after the first batch)
+  instead of relying on wall-clock ordering, and passes repeatedly on all three
+  CI platforms. Files: `crates/app/src/index.rs`.
