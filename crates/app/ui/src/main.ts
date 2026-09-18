@@ -85,7 +85,7 @@ let scanning: string | null = null;
 // instead of overwriting `files` with a stale folder's contents.
 let folderToken = 0;
 // The indexed rows of the open folder, keyed by the path `list_arw` returned.
-// Fills in as the scan progresses; the focus box needs nothing else from it.
+// Fills in as the scan progresses; the focus mark needs nothing else from it.
 const entries = new Map<string, IndexedFile>();
 // The folder the entries belong to, so `scan-progress` can ask for them again.
 let openDir: string | null = null;
@@ -135,9 +135,12 @@ let cropInFlight = false;
 // `ZOOM_TIMING` marks.
 let zoomStartedAt = 0;
 
-// Side of the focus box as a fraction of the image's short side, so it reads
-// the same on portrait and landscape.
-const FOCUS_BOX_FRACTION = 0.05;
+// The crosshair's arm length and the gap left open around the point itself,
+// both as a fraction of the image's short side so the mark reads the same on
+// portrait and landscape. The gap keeps the lines off the focus point, which
+// is the one pixel the mark exists to show.
+const FOCUS_MARK_ARM_FRACTION = 0.025;
+const FOCUS_MARK_GAP_FRACTION = 0.008;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -247,7 +250,7 @@ function draw(): void {
     drawWidth,
     drawHeight,
   );
-  drawFocusBox(drawWidth, drawHeight);
+  drawFocusMark(drawWidth, drawHeight);
   context.restore();
   drawRatingBadge();
 }
@@ -361,7 +364,7 @@ function refreshEntries(): void {
         entriesPending = false;
         refreshEntries();
       }
-      // A folder with no index cache simply has no focus boxes.
+      // A folder with no index cache simply has no focus marks.
     });
 }
 
@@ -369,7 +372,11 @@ function refreshEntries(): void {
 // onto the unrotated preview and drawn inside the same transform the image
 // got; drawing it after the rotation would put it on the wrong edge. Mirrors
 // the arithmetic in `riffle-cli focusbox`.
-function drawFocusBox(drawWidth: number, drawHeight: number): void {
+//
+// The tag records a point, not an area — there is no AF rectangle in it — so
+// the mark is a crosshair pointing at that point rather than a box implying a
+// size the file never stated.
+function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
   }
@@ -379,21 +386,32 @@ function drawFocusBox(drawWidth: number, drawHeight: number): void {
   }
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
-  const side = Math.min(drawWidth, drawHeight) * FOCUS_BOX_FRACTION;
-  // `difference` against white inverts whatever is under the line, so the box
+  const short = Math.min(drawWidth, drawHeight);
+  const arm = short * FOCUS_MARK_ARM_FRACTION;
+  const gap = short * FOCUS_MARK_GAP_FRACTION;
+  // `difference` against white inverts whatever is under the line, so the mark
   // stays visible on a bright background as well as a dark one.
   context.save();
   context.globalCompositeOperation = "difference";
   context.strokeStyle = "#fff";
   context.lineWidth = 1;
-  context.strokeRect(x - side / 2, y - side / 2, side, side);
+  context.beginPath();
+  context.moveTo(x - gap - arm, y);
+  context.lineTo(x - gap, y);
+  context.moveTo(x + gap, y);
+  context.lineTo(x + gap + arm, y);
+  context.moveTo(x, y - gap - arm);
+  context.lineTo(x, y - gap);
+  context.moveTo(x, y + gap);
+  context.lineTo(x, y + gap + arm);
+  context.stroke();
   context.restore();
 }
 
 // The 1:1 view: the same rotation `draw()` applies, with the focus point at
 // the canvas centre. Everything here is in device pixels, so the `scale(dpr,
 // dpr)` of `draw()` is deliberately not applied. The crop is cut in unrotated
-// JPEG coordinates, exactly like the focus box, so the rotation carries it.
+// JPEG coordinates, exactly like the focus mark, so the rotation carries it.
 function drawZoom(): void {
   const dpr = window.devicePixelRatio;
   canvas.width = Math.round(canvas.clientWidth * dpr);
@@ -797,7 +815,7 @@ void window.__TAURI__.event.listen<{
   scanning = `scanning ${payload.done} / ${payload.total}`;
   renderMeta();
   strip.refresh();
-  // Only when the row the focus box needs is still missing; `entriesInFlight`
+  // Only when the row the focus mark needs is still missing; `entriesInFlight`
   // in `refreshEntries` keeps a 10/s progress stream from queuing up a
   // full re-read on every tick while it stays missing.
   if (files.length > 0 && !entries.has(files[index])) {
