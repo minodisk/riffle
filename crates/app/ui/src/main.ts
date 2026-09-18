@@ -1099,62 +1099,81 @@ for (const item of filterItems) {
 openEl.addEventListener("click", openFolder);
 reopenLastFolder();
 
+type Binding = { action: string; keys: string[] };
+
+// Key -> action, from the `shortcuts` command. Empty until it resolves.
+let keymap = new Map<string, string>();
+
+function applyKeymap(bindings: Binding[]): void {
+  keymap = new Map(bindings.flatMap(({ action, keys }) => keys.map((key) => [key, action] as const)));
+}
+
+void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
+
 // Letter keys are matched lower-cased, so Shift+J pages like j does.
-const pagingKeys = new Map<string, number>([
-  ["arrowright", 1],
-  ["arrowdown", 1],
-  ["s", 1],
-  ["d", 1],
-  ["j", 1],
-  ["l", 1],
-  ["arrowleft", -1],
-  ["arrowup", -1],
-  ["w", -1],
-  ["a", -1],
-  ["h", -1],
-  ["k", -1],
-]);
+function keyName(event: KeyboardEvent): string {
+  return event.key === " " ? "space" : event.key.toLowerCase();
+}
 
 window.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) {
     return;
   }
-  const key = event.key.toLowerCase();
+  const key = keyName(event);
   if (key === "escape" && !filterMenu.hidden) {
     setFilterMenuOpen(false);
     event.preventDefault();
     return;
   }
-  const delta = pagingKeys.get(key);
-  if (delta !== undefined) {
-    move(delta);
-  } else if (key === "f") {
-    showFocus = !showFocus;
-    draw();
-  } else if (key === " ") {
-    toggleZoom();
-  } else if (key === "o") {
-    openFolder();
-  } else if (key >= "1" && key <= "5") {
-    judge((_, pick) => [Number(key), pick]);
-  } else if (key === "x") {
-    // Sticky, not a toggle: `x` twice is still a reject, and it replaces a
-    // pick. `u` undoes it.
-    judge(() => [-1, false]);
-  } else if (key === "p") {
-    // Sticky like `x`, replacing a reject; XMP has no pick, so a no-op there.
-    if (sidecarFormat !== "dop") {
-      return;
+  const action = keymap.get(key);
+  switch (action) {
+    case "previous":
+      move(-1);
+      break;
+    case "next":
+      move(1);
+      break;
+    case "focus":
+      showFocus = !showFocus;
+      draw();
+      break;
+    case "zoom":
+      toggleZoom();
+      break;
+    case "open":
+      openFolder();
+      break;
+    case "rate1":
+    case "rate2":
+    case "rate3":
+    case "rate4":
+    case "rate5": {
+      const stars = Number(action.slice(-1));
+      judge((_, pick) => [stars, pick]);
+      break;
     }
-    judge((rating) => [rating === -1 ? null : rating, true]);
-  } else if (key === "u") {
-    // Clears a reject or a pick; does nothing to a file with neither.
-    judge((rating) => [rating === -1 ? null : rating, false]);
-  } else if (key === "0") {
-    // Clears the stars or the reject and leaves a pick alone.
-    judge((_, pick) => [null, pick]);
-  } else {
-    return;
+    case "reject":
+      // Sticky, not a toggle: reject twice is still a reject, and it replaces
+      // a pick. Unflag undoes it.
+      judge(() => [-1, false]);
+      break;
+    case "pick":
+      // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
+      if (sidecarFormat !== "dop") {
+        return;
+      }
+      judge((rating) => [rating === -1 ? null : rating, true]);
+      break;
+    case "unflag":
+      // Clears a reject or a pick; does nothing to a file with neither.
+      judge((rating) => [rating === -1 ? null : rating, false]);
+      break;
+    case "clear":
+      // Clears the stars or the reject and leaves a pick alone.
+      judge((_, pick) => [null, pick]);
+      break;
+    default:
+      return;
   }
   event.preventDefault();
 });
