@@ -266,14 +266,25 @@ covered by unit tests. The frontend's placement is right by construction (the
 same `rotate()` branches as the preview, cropping in unrotated coordinates) but
 that is an argument, not a check.
 
-**Awaiting the user's confirmation (Phase 5)**: nothing in the 1:1 check has
-been looked at in a running window. Unconfirmed: `Space` showing the eye at 1:1
-and upright, `Space` again returning to the preview, paging while zoomed
-following the next file's focus point without the old crop flashing, the
-manual-focus centre fallback, and — the important one — the end-to-end time
-from keypress to pixels. **The 50ms budget is not claimed to be met**: see the
-measurements below, where a 1024 crop costs 11ms at the top of the frame and
-44ms at the bottom, before the IPC hop and `createImageBitmap`.
+**Confirmed by hand on macOS (Phase 5)**: the user ran the app on a real folder
+with `Debug > Timing logs` on and confirmed, from the log, that `Space` requests
+a crop and it arrives, that dragging the window edge no longer storms the crop
+path (one crop after the drag settles, against 30 during it before the fix), and
+that the timing instrumentation reads correctly — `keypressToPixels` appears
+only on the crop `Space` itself asked for. Those logs are the end-to-end numbers
+in "The 1:1 focus check path" below. **The 50ms budget is met for a focus point
+in a shallow row and missed for one in a deep row**: 39-45ms from keypress to
+pixels, against 58-65ms for a focus point at the right edge of an Orientation 8
+file. The deep-row case is not fixed.
+
+**Awaiting the user's confirmation (Phase 5)**: what the 1:1 view *looks like*
+has not been reported. Unconfirmed: the crop showing the subject's eye at 1:1
+and upright on an Orientation 8 file, `Space` again returning to the preview
+with the focus box, paging while zoomed staying zoomed and moving to the next
+file's focus point without the old crop appearing over the new file, and the
+centre fallback on a manual-focus file (tracked in `todo.md`). The logs confirm
+a crop is produced and how long it takes, not that it is the right pixels in the
+right place.
 
 **Awaiting the user's confirmation (Phase 6)**: nothing about the rating keys
 has been looked at in a running window. Unconfirmed: a rating key changing the
@@ -385,8 +396,8 @@ baseline 4:2:2, 5,761,112 bytes) on an Apple Silicon Mac. **One real file, warm
 page cache, in-process, release build, n=20, medians.** Re-measured against the
 Step 1 functions the CLI and the app both call, not copied from planning.
 **The IPC hop and `createImageBitmap` are excluded** — they could not be
-measured headlessly, and the user has not reported end-to-end timings yet, so
-no keypress-to-pixels number exists.
+measured headlessly; the end-to-end numbers the user measured by hand are in
+the next table.
 
 | Step | Median |
 |------|--------|
@@ -401,6 +412,51 @@ the 50ms budget for the IPC hop and the bitmap. The payload is raw RGBA (4.2MB
 at the 1024 cap) rather than a re-encoded JPEG because re-encoding that crop
 with `mozjpeg::Compress`'s defaults measured 49ms at q85 during planning — more
 than the decode it follows.
+
+#### End to end, keypress to pixels
+
+Measured by the user by hand in the running app, not here. **Conditions**:
+optimised build (`mise run app:release`), `Debug > Timing logs` on, **DevTools
+open** (a webview can be slower with the inspector attached, so these may be
+upper bounds), warm page cache (the folder had been opened before), one real
+folder of Sony ARW files, canvas 900x268 CSS pixels. `read` and `decode` come
+from the `focus_crop` payload header (`Instant` inside `spawn_blocking`), the
+rest from `performance.now()` on the frontend; **`ipc` is derived** as the
+invoke elapsed minus `read` minus `decode`, so it is everything else on the
+Rust side plus transport, not pure transport.
+
+After the two fixes in #56 (the thumbnail storm) and #60 (the resize debounce),
+n=8 crops across 3 `Space` presses:
+
+| Measurement | n | Measured |
+|-------------|---|----------|
+| Keypress → pixels, for the crop the `Space` itself asked for | 3 | 39 / 45 / 40ms |
+| `read` | 8 | 1.8-2.7ms |
+| `decode` | 8 | 21.9-38.7ms |
+| `ipc` (derived) | 8 | 2.3-3.7ms |
+| `bitmap` | 8 | 0-1ms |
+| Total per crop | 8 | 26-45ms |
+
+**Before those fixes**, a focus point at the right edge of the screen — which
+on an Orientation 8 file is a *deep row* of the unrotated JPEG, the worst case
+for `jpeg_skip_scanlines` — measured `decode` 51.0 and 55.2ms, total 58 and
+65ms (n=2). These two are pre-fix and n=2, so they are not equivalent to the
+post-fix set above; the deep-row cost itself is the `jpeg_skip_scanlines`
+behaviour documented in [docs/agents/tauri-app.md](./docs/agents/tauri-app.md)
+("A partial decode's cost is set by its row, not its size") and the fixes did
+not touch it.
+
+Two numbers that drove the fixes, also pre-fix: the first one or two `Space`
+presses after opening a folder cost 1624 and 2182ms, of which 1594.8 and
+2154.9ms fell in the derived `ipc` bucket while `read` and `decode` were
+normal (#56); and dragging the window edge produced 30 crop decodes in 1494ms
+(#60).
+
+`decode` dominates. `read`, `ipc` and `bitmap` are noise beside it, so the
+raw-RGBA-over-IPC decision (a 4MB payload at the 1024 cap) costs a few
+milliseconds rather than the tens the planning phase feared: **IPC is not the
+bottleneck**, and the planned fallback of measuring a JPEG payload instead is
+closed.
 
 ### What the sidecar pass adds to a folder open (Phase 6)
 
