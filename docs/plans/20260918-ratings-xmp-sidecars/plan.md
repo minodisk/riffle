@@ -304,7 +304,7 @@ repeated here.
       count it, do not error the open)
     - Assumes Step 3 is merged
 
-- [ ] Step 5: Frontend: rating keys, optimistic state, and rating badges in the main view and the strip
+- [x] Step 5: Frontend: rating keys, optimistic state, and rating badges in the main view and the strip
   - Done when:
     - `crates/app/ui/src/main.ts` `keydown`: `1`-`5` set that rating, `x`
       sets `-1`, `u` clears only if the current value is `-1`, `0` clears
@@ -447,3 +447,4 @@ items.
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
+- (2026-09-18) Step 5 complete

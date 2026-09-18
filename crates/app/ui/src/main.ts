@@ -21,6 +21,7 @@ interface IndexedFile {
   orientation: number;
   focus: Focus | null;
   has_thumb: boolean;
+  rating: number | null;
 }
 
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
@@ -99,6 +100,16 @@ let entriesInFlight = false;
 // is never silently dropped just because a `scan-progress` refresh happened
 // to be outstanding at that moment.
 let entriesPending = false;
+// The judgement of every file that has one: `-1` is a reject, `1`-`5` stars,
+// and a missing entry is unrated. Filled from `folder_entries` and then owned
+// by the keyboard until the next folder open.
+const ratings = new Map<string, number>();
+// The paths judged through the keyboard in this session, so a refresh from
+// `folder_entries` (which may predate the pending sidecar write) does not
+// undo what the user just pressed.
+const touched = new Set<string>();
+// The index of each path in `files`, for handing a rating to the strip.
+const fileIndex = new Map<string, number>();
 let showFocus = false;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
@@ -159,6 +170,12 @@ function renderMeta(): void {
   if (files.length > 0) {
     metaEl.append(line("name", meta?.name ?? baseName(files[index])));
     metaEl.append(line("position", `${index + 1} / ${files.length}`));
+    const rating = ratings.get(files[index]);
+    if (rating !== undefined) {
+      metaEl.append(
+        line("rating", rating === -1 ? "rejected" : "\u2605".repeat(rating)),
+      );
+    }
     if (meta !== null) {
       const list = document.createElement("dl");
       row(list, "Aperture", meta.aperture);
@@ -203,6 +220,7 @@ function draw(): void {
   canvas.height = Math.round(height * dpr);
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (shown === null) {
+    drawRatingBadge();
     return;
   }
   const { bitmap, orientation } = shown;
@@ -231,6 +249,78 @@ function draw(): void {
   );
   drawFocusBox(drawWidth, drawHeight);
   context.restore();
+  drawRatingBadge();
+}
+
+// The current file's judgement, in the canvas's top-left corner. Drawn in
+// `draw()` rather than written into the DOM once, so it survives a resize and
+// is repainted on every redraw during key auto-repeat.
+function drawRatingBadge(): void {
+  if (files.length === 0) {
+    return;
+  }
+  const rating = ratings.get(files[index]);
+  if (rating === undefined) {
+    return;
+  }
+  const dpr = window.devicePixelRatio;
+  const text = rating === -1 ? "REJECTED" : "\u2605".repeat(rating);
+  context.save();
+  context.font = `${Math.round(20 * dpr)}px system-ui, sans-serif`;
+  context.textBaseline = "top";
+  context.lineWidth = 4 * dpr;
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.strokeText(text, 12 * dpr, 10 * dpr);
+  context.fillStyle = rating === -1 ? "#ff6b6b" : "#ffd050";
+  context.fillText(text, 12 * dpr, 10 * dpr);
+  context.restore();
+}
+
+// Record a judgement locally: the `ratings` map, the strip cell and, through
+// the caller's redraw, the canvas badge. `null` is unrated.
+function applyRating(path: string, rating: number | null): void {
+  if (rating === null) {
+    ratings.delete(path);
+  } else {
+    ratings.set(path, rating);
+  }
+  const at = fileIndex.get(path);
+  if (at !== undefined) {
+    strip.setRating(at, rating);
+  }
+}
+
+// A rating key: update the map and redraw first, then tell the backend. The
+// invoke is never awaited for anything visible; only its failure is, which
+// reverts the entry (if the folder is still the one it belongs to) and says
+// so in the status line.
+function rate(rating: number | null): void {
+  if (files.length === 0) {
+    return;
+  }
+  const path = files[index];
+  const previous = ratings.get(path) ?? null;
+  // Idempotent: pressing the current value again does nothing at all, which
+  // is what makes key auto-repeat harmless.
+  if (previous === rating) {
+    return;
+  }
+  touched.add(path);
+  applyRating(path, rating);
+  renderMeta();
+  draw();
+  const token = folderToken;
+  void window.__TAURI__.core
+    .invoke("set_rating", { path, rating: rating ?? 0 })
+    .catch((err: unknown) => {
+      if (token !== folderToken) {
+        return;
+      }
+      touched.delete(path);
+      applyRating(path, previous);
+      setStatus(String(err));
+      draw();
+    });
 }
 
 function refreshEntries(): void {
@@ -242,6 +332,7 @@ function refreshEntries(): void {
     return;
   }
   const dir = openDir;
+  const token = folderToken;
   entriesInFlight = true;
   void window.__TAURI__.core
     .invoke<IndexedFile[]>("folder_entries", { dir })
@@ -251,13 +342,17 @@ function refreshEntries(): void {
         entriesPending = false;
         refreshEntries();
       }
-      if (dir !== openDir) {
+      if (dir !== openDir || token !== folderToken) {
         return;
       }
       entries.clear();
       for (const row of rows) {
         entries.set(row.path, row);
+        if (!touched.has(row.path)) {
+          applyRating(row.path, row.rating);
+        }
       }
+      renderMeta();
       draw();
     })
     .catch(() => {
@@ -334,6 +429,7 @@ function drawZoom(): void {
     context.drawImage(crop.bitmap, -crop.pointX, -crop.pointY);
   }
   context.restore();
+  drawRatingBadge();
 }
 
 // True when the held crop was cut for a viewport size that no longer
@@ -585,6 +681,12 @@ function openDirectory(folder: string, token: number): Promise<void> {
       index = 0;
       openDir = folder;
       entries.clear();
+      ratings.clear();
+      touched.clear();
+      fileIndex.clear();
+      files.forEach((path, at) => {
+        fileIndex.set(path, at);
+      });
       refreshEntries();
       strip.setFiles(files);
       seq += 1;
@@ -718,6 +820,19 @@ void window.__TAURI__.event.listen<{
   refreshEntries();
 });
 
+// A sidecar the writer could not write: the judgement is still in the index
+// and is retried on the next open of the folder, so this is a note, not a
+// revert.
+void window.__TAURI__.event.listen<{ path: string; message: string }>(
+  "sidecar-error",
+  ({ payload }) => {
+    if (!fileIndex.has(payload.path)) {
+      return;
+    }
+    setStatus(`${baseName(payload.path)}: ${payload.message}`);
+  },
+);
+
 openEl.addEventListener("click", openFolder);
 
 // Letter keys are matched lower-cased, so Shift+J pages like j does.
@@ -751,6 +866,18 @@ window.addEventListener("keydown", (event) => {
     toggleZoom();
   } else if (key === "o") {
     openFolder();
+  } else if (key >= "1" && key <= "5") {
+    rate(Number(key));
+  } else if (key === "x") {
+    // Sticky, not a toggle: `x` twice is still a reject. `u` undoes it.
+    rate(-1);
+  } else if (key === "u") {
+    if (files.length === 0 || (ratings.get(files[index]) ?? null) !== -1) {
+      return;
+    }
+    rate(null);
+  } else if (key === "0") {
+    rate(null);
   } else {
     return;
   }
