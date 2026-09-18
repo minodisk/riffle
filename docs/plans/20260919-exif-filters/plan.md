@@ -242,3 +242,4 @@ rebase.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete (manual GUI check carried to Step 4)
+- (2026-09-19) Step 4 complete
