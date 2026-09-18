@@ -84,6 +84,26 @@
   Orientation 8 placement, paging while zoomed, the manual-focus centre
   fallback and the three timings are all unverified.
 
+## Step 4: documentation and measurements
+
+- The measurements were re-taken, not copied from the plan: a temporary
+  `#[ignore]`d integration test under `crates/core/tests/` called
+  `reader::read_full`, `partial::decode_focus_crop` and `partial::decode_crop`
+  n=20 each in one release process, and was deleted before committing. The
+  numbers moved a little against the planning ones (read 0.7ms vs 1.7ms, crop
+  1024 at row 4400 44.1ms vs 42.7ms) but the shape is the same: the row
+  dominates, the size barely matters.
+- `riffle-cli crop` cannot produce the by-row column on its own (it always
+  crops at the focus point and prints one run), which is why the harness called
+  the core functions directly. The CLI's own output is quoted in the README's
+  "verified without a GUI" paragraph instead.
+- `CLAUDE.md`'s "Layout" section names crates and `src/index.rs` but does not
+  list commands, so per the step's own condition it is left unchanged.
+- Nothing about the 50ms budget is claimed as met: the README says so
+  explicitly and points at the 44.1ms bottom-of-frame row, with the IPC hop and
+  `createImageBitmap` still excluded. All Step 3 manual checks are listed under
+  "Awaiting the user's confirmation (Phase 5)".
+
 ## Deferred issues (todo candidates)
 
 - `riffle-cli bench`'s crop row still feeds `FocusLocation` coordinates

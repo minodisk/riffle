@@ -7,6 +7,8 @@ hit, each with the reason it happens.
 Each item is tagged:
 
 - **Hit**: actually broke something here.
+- **Measured**: measured in this repo and steered a design decision; nothing
+  broke, but the naive choice would have missed a stated budget or cost more.
 - **Inferred**: taken from the sources or docs; nothing has broken on it yet.
 
 Source: `docs/plans/_archived/20260917-tauri-skeleton/learnings.md` and the fix
@@ -43,6 +45,31 @@ Rules:
   `drag-enter` / `drag-over` / `drag-leave`) webview events, listened to via
   `event:listen` under `core:event`'s default `allow-listen`. Those events and
   `window.__TAURI__` are main-thread only; neither exists inside a worker.
+
+### Measure before choosing a JPEG payload over raw pixels (Measured)
+
+`mozjpeg::Compress`'s defaults turn on trellis quantisation and optimised
+Huffman tables, so re-encoding a crop costs more than the partial decode that
+produced it: 49ms at q85 for a 1037x1024 crop, against 21.5ms to decode it.
+
+- Why: the defaults optimise for file size, and both passes run over every MCU.
+- Phase 5's `focus_crop` therefore returns raw RGBA (4.2MB at the 1024 cap)
+  rather than a ~180KB JPEG. That trades IPC bytes for CPU; take the
+  measurement before trading back, and measure with the optimisations off, not
+  with the defaults.
+
+### A partial decode's cost is set by its row, not its size (Measured)
+
+`jpeg_skip_scanlines` on a baseline JPEG still entropy-decodes the rows it
+skips; it only skips the IDCT and colour conversion.
+
+- Why: baseline Huffman data is not randomly addressable, so libjpeg must walk
+  every MCU row from the start of the scan to reach the wanted one.
+- Measured on the 7008x4672 `JpgFromRaw`: a 1024 crop costs 10.8ms at row 300
+  and 44.1ms at row 4400, while growing the crop from 512 to 2048 at the same
+  row only moves 18.4ms to 29.8ms.
+- So a budget for a crop has to be stated for the worst row, not an average
+  one, and shrinking the crop is not a way to make it fit.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 

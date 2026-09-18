@@ -216,7 +216,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
     - Resize while zoomed: redraw with what is held; re-requesting is not
       required in this phase
 
-- [ ] Step 4: Documentation, status and measurements
+- [x] Step 4: Documentation, status and measurements
   - Done when:
     - `README.md` "Status": Phase 5 done, `Space` in the key table, a
       paragraph on the 1:1 tier (crop from `JpgFromRaw`, centred on the focus
@@ -328,3 +328,4 @@ later wants to cache crop parameters, that is a Phase 4 question.
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete (the (manual) checks await the user's confirmation)
+- (2026-09-18) Step 4 complete
