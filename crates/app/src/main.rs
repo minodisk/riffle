@@ -17,24 +17,55 @@ mod debug_menu {
     /// the platform toggled for us.
     struct TimingItem(CheckMenuItem<Wry>);
 
-    pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
-        // The default menu carries the platform's standard items (Quit, Copy,
-        // ...), which setting a menu at all would otherwise replace.
-        let menu = Menu::default(handle)?;
+    pub fn append(handle: &AppHandle, menu: &Menu<Wry>) -> tauri::Result<()> {
         let timing =
             CheckMenuItem::with_id(handle, TIMING_ID, "Timing logs", true, false, None::<&str>)?;
         let debug = Submenu::with_items(handle, "Debug", true, &[&timing])?;
         menu.append(&debug)?;
         handle.manage(TimingItem(timing));
-        Ok(menu)
+        Ok(())
     }
 
-    pub fn on_event(app: &AppHandle, event: MenuEvent) {
+    pub fn on_event(app: &AppHandle, event: &MenuEvent) {
         if event.id() != TIMING_ID {
             return;
         }
         let checked = app.state::<TimingItem>().0.is_checked().unwrap_or(false);
         let _ = app.emit("debug", checked);
+    }
+}
+
+mod app_menu {
+    use tauri::menu::{Menu, MenuEvent, MenuItem, Submenu};
+    use tauri::{AppHandle, Emitter, Wry};
+
+    const PHOTOLAB_ID: &str = "open-in-photolab";
+
+    pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
+        // The default menu carries the platform's standard items (Quit, Copy,
+        // ...), which setting a menu at all would otherwise replace.
+        let menu = Menu::default(handle)?;
+        let photolab = MenuItem::with_id(
+            handle,
+            PHOTOLAB_ID,
+            "Open in DxO PhotoLab",
+            true,
+            None::<&str>,
+        )?;
+        let folder = Submenu::with_items(handle, "Folder", true, &[&photolab])?;
+        menu.append(&folder)?;
+        #[cfg(any(feature = "devtools", debug_assertions))]
+        super::debug_menu::append(handle, &menu)?;
+        Ok(menu)
+    }
+
+    pub fn on_event(app: &AppHandle, event: MenuEvent) {
+        // The frontend owns which folder is open, so it does the invoking.
+        if event.id() == PHOTOLAB_ID {
+            let _ = app.emit("open-in-photolab", ());
+        }
+        #[cfg(any(feature = "devtools", debug_assertions))]
+        super::debug_menu::on_event(app, &event);
     }
 }
 
@@ -87,6 +118,8 @@ fn main() {
         .menu(debug_menu::build)
         .on_menu_event(debug_menu::on_event);
     builder
+        .menu(app_menu::build)
+        .on_menu_event(app_menu::on_event)
         .setup(|app| {
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
@@ -134,7 +167,8 @@ fn main() {
             commands::thumbnail,
             commands::metadata,
             commands::focus_crop,
-            commands::set_rating
+            commands::set_rating,
+            commands::open_in_photolab
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
