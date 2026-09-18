@@ -3207,7 +3207,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-app"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "log",
  "mozjpeg",
@@ -3229,7 +3229,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "image",
@@ -3239,7 +3239,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "mozjpeg",
