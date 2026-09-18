@@ -32,6 +32,10 @@ Keys:
 | `o` | open a folder |
 | `f` | toggle the focus box |
 | `Space` | toggle the 1:1 focus check |
+| `1`-`5` | rate the current file that many stars |
+| `x` | reject the current file (sticky, not a toggle) |
+| `u` | un-reject the current file (does nothing unless it is rejected) |
+| `0` | clear the rating or the reject |
 
 ### The 1:1 focus check
 
@@ -148,6 +152,15 @@ manual-focus centre fallback, and — the important one — the end-to-end time
 from keypress to pixels. **The 50ms budget is not claimed to be met**: see the
 measurements below, where a 1024 crop costs 11ms at the top of the frame and
 44ms at the bottom, before the IPC hop and `createImageBitmap`.
+
+**Awaiting the user's confirmation (Phase 6)**: nothing about the rating keys
+has been looked at in a running window. Unconfirmed: a rating key changing the
+badge and the status line with no perceptible delay, holding `3` down doing
+nothing beyond the first press, `x` then `u` then `4` ending at four stars,
+mashing keys while paging never badging the wrong file, the strip badge
+matching the main view, and one `.xmp` per rated file appearing in the folder
+within about half a second. Which tools read `xmp:Rating="-1"` back as a
+reject is likewise the user's to confirm.
 
 ### Phase 4 baseline
 

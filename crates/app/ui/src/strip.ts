@@ -25,6 +25,7 @@ const MAX_IN_FLIGHT = 4;
 interface Cell {
   el: HTMLDivElement;
   img: HTMLImageElement;
+  badge: HTMLSpanElement;
   url: string | null;
 }
 
@@ -49,8 +50,19 @@ const missing = new Set<number>();
 // Kept separate from `missing` so a real failure is shown once instead of
 // being retried forever like a not-yet-scanned file.
 const failed = new Set<number>();
+// The judgement per index, mirroring the `ratings` map in `main.ts`: `-1` is
+// a reject, `1`-`5` stars, and a missing entry is unrated.
+const ratings = new Map<number, number>();
 let inFlight = 0;
 let select: (index: number) => void = () => {};
+
+// A rejected cell is dimmed and badged `X`; a rated one carries its stars.
+function paintRating(index: number, cell: Cell): void {
+  const rating = ratings.get(index);
+  cell.badge.textContent =
+    rating === undefined ? "" : rating === -1 ? "X" : "\u2605".repeat(rating);
+  cell.el.classList.toggle("rejected", rating === -1);
+}
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -74,11 +86,16 @@ function createCell(index: number): Cell {
   const name = document.createElement("span");
   name.textContent = baseName(files[index]);
   el.append(name);
+  const badge = document.createElement("span");
+  badge.className = "rating";
+  el.append(badge);
   el.addEventListener("click", () => {
     select(index);
   });
   inner.append(el);
-  return { el, img, url: null };
+  const cell: Cell = { el, img, badge, url: null };
+  paintRating(index, cell);
+  return cell;
 }
 
 function highlight(): void {
@@ -216,6 +233,20 @@ function render(): void {
   pump();
 }
 
+// Record the judgement of one file, repainting its cell when it is on screen.
+// `null` is unrated.
+export function setRating(index: number, rating: number | null): void {
+  if (rating === null) {
+    ratings.delete(index);
+  } else {
+    ratings.set(index, rating);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintRating(index, cell);
+  }
+}
+
 // Show one cell per file, in `list_arw` order, all of them placeholders.
 export function setFiles(paths: string[]): void {
   generation += 1;
@@ -227,6 +258,7 @@ export function setFiles(paths: string[]): void {
   inFlightIndices.clear();
   missing.clear();
   failed.clear();
+  ratings.clear();
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;

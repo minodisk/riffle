@@ -152,3 +152,41 @@ ARWs, and nothing here says anything about how the app feels.
   a folder open; noted while implementing Step 4, not done because
   `list_arw_in` is also `list_arw`'s implementation and shared with paths that
   do not want sidecars.
+
+## Step 5
+
+- Key collision check against the current `crates/app/ui/src/main.ts` (which
+  now carries Phase 5's `Space`): the handled keys are the paging set
+  (arrows, `w`, `a`, `s`, `d`, `h`, `j`, `k`, `l`), `f`, `Space` and `o`.
+  `0`, `1`-`5`, `u` and `x` are all free, so this step adds them without
+  touching a reserved key.
+- The frontend keeps two maps rather than one: `ratings` (path -> value) is
+  what the canvas badge and the status line read, and `touched` records the
+  paths judged through the keyboard in this session so a `folder_entries`
+  refresh (which can predate the pending sidecar write, and fires on every
+  `scan-done`) cannot undo a keypress. Both are cleared in `openDirectory`,
+  which is where the plan's "authoritative until the next folder open" lands.
+- The strip's API is index-based (`setRating(index, rating)`), but everything
+  else in `main.ts` is path-keyed, so `openDirectory` builds a `fileIndex`
+  path -> index map once instead of an `indexOf` per update.
+- The canvas badge is drawn inside `draw()` (and `drawZoom()`), not written
+  into the DOM, so it survives a resize and is repainted during key auto-
+  repeat, as the step asked.
+- `.cell span` in `style.css` already positioned the file name; the badge is
+  a second `<span>`, so its rule has to reset `bottom`/`left`/`width`
+  explicitly rather than only setting `top`/`right`.
+- The revert path checks `folderToken`, per `docs/agents/tauri-app.md`: no new
+  counter was minted. Reverting only matters for the folder the rating
+  belongs to; after a folder change the map has already been cleared.
+- Not verified here: everything in this step that needs a running window.
+  GUI automation is denied on this machine, so the README lists the Phase 6
+  behaviours under "Awaiting the user's confirmation".
+
+## Deferred issues (todo candidates)
+
+- App: a `sidecar-error` event overwrites whatever note is in the status line
+  and is cleared by the next page turn, so an error raised while the user is
+  mashing keys can be missed. Basis: Step 5's "shows its message once in the
+  status line" is met literally, but `note` is a single transient slot
+  (`crates/app/ui/src/main.ts`, `setStatus`). A dedicated, sticky error area
+  would be a UI change beyond this step.

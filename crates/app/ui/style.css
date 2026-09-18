@@ -125,6 +125,27 @@ body {
   text-overflow: ellipsis;
 }
 
+/* The judgement badge, in the cell's top-right corner; overrides the name
+   span's placement above. */
+.cell span.rating {
+  top: 2px;
+  bottom: auto;
+  left: auto;
+  right: 2px;
+  width: auto;
+  font-size: 0.7rem;
+  color: #ffd050;
+  text-shadow: 0 0 2px #000;
+}
+
+.cell.rejected {
+  opacity: 0.45;
+}
+
+.cell.rejected span.rating {
+  color: #ff6b6b;
+}
+
 #canvas {
   flex: 1;
   height: 100%;
@@ -150,6 +171,10 @@ body {
 #meta .position,
 #meta .note {
   color: #999;
+}
+
+#meta .rating {
+  color: #ffd050;
 }
 
 #meta dl {
