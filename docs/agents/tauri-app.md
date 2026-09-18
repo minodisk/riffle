@@ -314,9 +314,7 @@ single file.
   files were distinct or 5000 symlinks to one inode — is read as a general
   claim and copied forward as one.
 - State what was actually measured next to the number, and say plainly what
-  still needs a real-folder measurement. `README.md` separates "confirmed",
-  "verified without a GUI" and "awaiting the user's confirmation" for the same
-  reason; keep new claims inside that split.
+  still needs a real-folder measurement.
 
 ### GUI automation does not work on this Mac (Hit)
 
