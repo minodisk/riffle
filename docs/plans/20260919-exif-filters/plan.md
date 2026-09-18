@@ -119,7 +119,7 @@ folder (for focal length, only the ranges that contain a frame).
       the size/mtime mismatch; the migration's `DELETE` is what forces the
       one-time rescan.
 
-- [ ] Step 3: EXIF groups in the filter menu
+- [x] Step 3: EXIF groups in the filter menu (manual GUI confirmation pending, carried to Step 4)
   - Done when:
     - `IndexedFile` in `main.ts` declares `exif` mirroring the Rust struct.
     - Six sets beside `shownFlags` / `shownStars` hold the checked items

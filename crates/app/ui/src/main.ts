@@ -31,6 +31,22 @@ interface IndexedFile {
   rating: number | null;
   pick: boolean;
   has_sidecar: boolean;
+  exif: Exif | null;
+}
+
+// Mirrors `Exif` in `crates/app/src/exif.rs`: `value` sorts, `label` shows.
+interface Labelled {
+  value: number;
+  label: string;
+}
+
+interface Exif {
+  camera: string | null;
+  lens: string | null;
+  aperture: Labelled | null;
+  shutter: Labelled | null;
+  iso: Labelled | null;
+  focal_length: Labelled | null;
 }
 
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
@@ -141,6 +157,59 @@ const fileIndex = new Map<string, number>();
 type Flag = "picked" | "untagged" | "rejected";
 const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
+// The EXIF groups, keyed by label (two estimated apertures with one label can
+// differ in value). Focal length is keyed by the range's label instead.
+type ExifGroup = "camera" | "lens" | "aperture" | "shutter" | "iso" | "focal";
+const exifGroups: { group: ExifGroup; heading: string }[] = [
+  { group: "camera", heading: "Camera" },
+  { group: "lens", heading: "Lens" },
+  { group: "aperture", heading: "Aperture" },
+  { group: "shutter", heading: "Shutter speed" },
+  { group: "iso", heading: "ISO" },
+  { group: "focal", heading: "Focal length" },
+];
+const shownExif = new Map<ExifGroup, Set<string>>(
+  exifGroups.map(({ group }) => [group, new Set<string>()]),
+);
+// Half-open `[lower, upper)`, so a frame falls in exactly one.
+const focalRanges: { upper: number; label: string }[] = [
+  { upper: 24, label: "<24 mm" },
+  { upper: 35, label: "24–35 mm" },
+  { upper: 50, label: "35–50 mm" },
+  { upper: 85, label: "50–85 mm" },
+  { upper: 135, label: "85–135 mm" },
+  { upper: 200, label: "135–200 mm" },
+  { upper: Infinity, label: ">200 mm" },
+];
+
+function focalRange(mm: number): number {
+  return focalRanges.findIndex(({ upper }) => mm < upper);
+}
+
+// The label and sort key of `group` for one file, or null if it has none.
+function exifKey(exif: Exif | null | undefined, group: ExifGroup): { label: string; order: number | string } | null {
+  if (!exif) {
+    return null;
+  }
+  switch (group) {
+    case "camera":
+    case "lens": {
+      const text = exif[group];
+      return text === null ? null : { label: text, order: text };
+    }
+    case "focal": {
+      if (exif.focal_length === null) {
+        return null;
+      }
+      const at = focalRange(exif.focal_length.value);
+      return { label: focalRanges[at].label, order: at };
+    }
+    default: {
+      const labelled = exif[group];
+      return labelled === null ? null : { label: labelled.label, order: labelled.value };
+    }
+  }
+}
 let showFocus = false;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
@@ -350,7 +419,15 @@ function passes(path: string): boolean {
   const stars = rating === undefined || rating === -1 ? 0 : rating;
   return (
     (shownFlags.size === 0 || shownFlags.has(flag)) &&
-    (shownStars.size === 0 || shownStars.has(stars))
+    (shownStars.size === 0 || shownStars.has(stars)) &&
+    exifGroups.every(({ group }) => {
+      const set = shownExif.get(group)!;
+      if (set.size === 0) {
+        return true;
+      }
+      const key = exifKey(entries.get(path)?.exif, group);
+      return key !== null && set.has(key.label);
+    })
   );
 }
 
@@ -466,6 +543,7 @@ function refreshEntries(): void {
           applyRating(row.path, row.rating, row.pick);
         }
       }
+      rebuildExifMenu();
       renderMeta();
       draw();
       refilter();
@@ -846,12 +924,16 @@ function openDirectory(folder: string, token: number): Promise<void> {
       if (token !== folderToken) {
         return;
       }
+      for (const set of shownExif.values()) {
+        set.clear();
+      }
       allFiles = found;
       files = found.filter(passes);
       index = 0;
       openDir = folder;
       void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
       entries.clear();
+      rebuildExifMenu();
       ratings.clear();
       picks.clear();
       touched.clear();
@@ -1037,6 +1119,59 @@ void window.__TAURI__.core
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>("[data-flag], [data-stars]");
+const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
+
+function exifSelected(): boolean {
+  return [...shownExif.values()].some((set) => set.size > 0);
+}
+
+// Rebuild the EXIF sections from `entries`: one item per label present in the
+// folder. A checked label no longer present is dropped, so a stale selection
+// cannot hide everything.
+function rebuildExifMenu(): void {
+  filterExif.replaceChildren();
+  for (const { group, heading } of exifGroups) {
+    const found = new Map<string, number | string>();
+    for (const row of entries.values()) {
+      const key = exifKey(row.exif, group);
+      if (key !== null) {
+        found.set(key.label, key.order);
+      }
+    }
+    const set = shownExif.get(group)!;
+    for (const label of set) {
+      if (!found.has(label)) {
+        set.delete(label);
+      }
+    }
+    if (found.size === 0) {
+      continue;
+    }
+    const sorted = [...found].sort(([a, x], [b, y]) =>
+      typeof x === "number" && typeof y === "number"
+        ? x - y || a.localeCompare(b)
+        : String(x).localeCompare(String(y)),
+    );
+    const title = document.createElement("div");
+    title.className = "heading";
+    title.textContent = heading;
+    filterExif.append(document.createElement("hr"), title);
+    for (const [label] of sorted) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.setAttribute("role", "menuitemcheckbox");
+      item.setAttribute("aria-checked", String(set.has(label)));
+      item.dataset.group = group;
+      item.dataset.value = label;
+      item.textContent = label;
+      filterExif.append(item);
+    }
+  }
+  filterToggle.classList.toggle(
+    "active",
+    shownFlags.size + shownStars.size > 0 || exifSelected(),
+  );
+}
 
 function setFilterMenuOpen(open: boolean): void {
   filterMenu.hidden = !open;
@@ -1052,7 +1187,14 @@ function filterChanged(): void {
       flag !== undefined ? shownFlags.has(flag as Flag) : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
-  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0);
+  for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
+    const { group, value } = item.dataset;
+    item.setAttribute("aria-checked", String(shownExif.get(group as ExifGroup)!.has(value!)));
+  }
+  filterToggle.classList.toggle(
+    "active",
+    shownFlags.size + shownStars.size > 0 || exifSelected(),
+  );
   refilter();
 }
 
@@ -1086,12 +1228,31 @@ for (const item of filterItems) {
   });
 }
 
+filterExif.addEventListener("click", (event) => {
+  const item = (event.target as Element).closest<HTMLButtonElement>("[data-group]");
+  if (item === null) {
+    return;
+  }
+  item.blur();
+  const set = shownExif.get(item.dataset.group as ExifGroup)!;
+  const value = item.dataset.value!;
+  if (set.has(value)) {
+    set.delete(value);
+  } else {
+    set.add(value);
+  }
+  filterChanged();
+});
+
 (document.getElementById("filter-reset") as HTMLButtonElement).addEventListener(
   "click",
   (event) => {
     (event.currentTarget as HTMLButtonElement).blur();
     shownFlags.clear();
     shownStars.clear();
+    for (const set of shownExif.values()) {
+      set.clear();
+    }
     filterChanged();
   },
 );

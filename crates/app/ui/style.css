@@ -77,6 +77,8 @@ body {
   border: 1px solid #444;
   border-radius: 6px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 #filter-menu[hidden] {
@@ -111,6 +113,12 @@ body {
 #filter-menu button[aria-checked="true"] {
   color: #fff;
   background: #2f4a6a;
+}
+
+#filter-menu .heading {
+  padding: 0.2rem 0.75rem;
+  font-size: 0.7rem;
+  color: #888;
 }
 
 #filter-menu .dot {
