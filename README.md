@@ -7,23 +7,34 @@ already embedded in the ARW or DNG.
 
 ## Compatibility
 
-### Cameras
+### RAW formats
 
-#### Sony
+- [x] ARW
+  - [x] Sony α7 V
+- [x] DNG
+  - [x] Leica M11-P
+  - [ ] Sigma BF
+  - [ ] Sigma fp L
 
-- [x] α7 V
-
-#### Leica
-
-- [x] M11-P
-
-### Developing software
+### Sidecar formats
 
 Which tools read the sidecars Riffle writes; see
 [Ratings and sidecars](#ratings-and-sidecars).
 
-- [ ] Lightroom (XMP)
-- [x] DxO PhotoLab 10 (`.dop`)
+- [ ] `.xmp`
+  - [ ] Adobe Lightroom Classic
+  - [ ] Capture One
+- [x] `.dop`
+  - [x] DxO PhotoLab 10
+
+### Requesting support
+
+Requests for any camera, RAW format or developing software are welcome;
+[open an issue](https://github.com/minodisk/riffle/issues). Since Riffle only
+reads the JPEGs embedded in a RAW, attach a sample file from the camera (or
+link to one) so they can be checked. One file is enough to start; a landscape
+and a portrait shot together also let the rotation and the focus mark be
+checked.
 
 ## Status
 
