@@ -64,6 +64,10 @@ const worker = new Worker(new URL("./worker.js", import.meta.url), {
   type: "module",
 });
 
+// Every RAW file in the open folder, in `list_arw` order.
+let allFiles: string[] = [];
+// The files that pass the filter, in the same order. `index`, the strip and
+// paging all work on this view.
 let files: string[] = [];
 let index = 0;
 // Incremented on every page turn; a response tagged with an older sequence
@@ -130,6 +134,13 @@ let sidecarFormat = "xmp";
 const touched = new Set<string>();
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
+// The filter menu in the strip pane, after PhotoLab's: the checked items of
+// one group are OR-ed, the groups AND-ed, and a group with nothing checked
+// lets everything through. `0` stars is unrated, which a reject also counts
+// as, since it carries no stars here.
+type Flag = "picked" | "untagged" | "rejected";
+const shownFlags = new Set<Flag>();
+const shownStars = new Set<number>();
 let showFocus = false;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
@@ -366,6 +377,65 @@ function applyRating(path: string, rating: number | null, pick: boolean): void {
   }
 }
 
+function passes(path: string): boolean {
+  const rating = ratings.get(path);
+  const flag: Flag = picks.has(path)
+    ? "picked"
+    : rating === -1
+      ? "rejected"
+      : "untagged";
+  const stars = rating === undefined || rating === -1 ? 0 : rating;
+  return (
+    (shownFlags.size === 0 || shownFlags.has(flag)) &&
+    (shownStars.size === 0 || shownStars.has(stars))
+  );
+}
+
+// Rebuild `files` from `allFiles` after a filter change or a judgement. The
+// current file stays current if it still passes; otherwise the next passing
+// file after it (in `allFiles` order) takes over, or the last one before it.
+function refilter(anchor: string | undefined = files[index]): void {
+  const next = allFiles.filter(passes);
+  if (next.length === files.length && next.every((path, at) => path === files[at])) {
+    return;
+  }
+  files = next;
+  fileIndex.clear();
+  files.forEach((path, at) => {
+    fileIndex.set(path, at);
+  });
+  strip.setFiles(files);
+  files.forEach((path, at) => {
+    strip.setRating(at, ratings.get(path) ?? null, picks.has(path));
+  });
+  if (files.length === 0) {
+    index = 0;
+    seq += 1;
+    shown?.bitmap.close();
+    shown = null;
+    meta = null;
+    zoomed = false;
+    draw();
+    renderMeta();
+    return;
+  }
+  let at = anchor === undefined ? undefined : fileIndex.get(anchor);
+  if (at === undefined && anchor !== undefined) {
+    const from = allFiles.indexOf(anchor);
+    const after = allFiles.slice(from + 1).find(passes);
+    const before = allFiles.slice(0, from).reverse().find(passes);
+    const target = after ?? before;
+    at = target === undefined ? undefined : fileIndex.get(target);
+  }
+  index = at ?? 0;
+  if (files[index] === anchor) {
+    strip.setCurrent(index);
+    renderMeta();
+  } else {
+    show();
+  }
+}
+
 // A judgement key, given the current file's judgement and returning the new
 // one: update the map and redraw first, then tell the backend. The invoke is
 // never awaited for anything visible; only its failure is, which reverts the
@@ -389,6 +459,7 @@ function judge(
   touched.add(path);
   applyRating(path, rating, pick);
   renderMeta();
+  refilter(path);
   const token = folderToken;
   void window.__TAURI__.core
     .invoke("set_rating", { path, rating: rating ?? 0, pick })
@@ -398,6 +469,7 @@ function judge(
       }
       touched.delete(path);
       applyRating(path, previous, previousPick);
+      refilter();
       setStatus(String(err));
     });
 }
@@ -433,6 +505,7 @@ function refreshEntries(): void {
       }
       renderMeta();
       draw();
+      refilter();
     })
     .catch(() => {
       entriesInFlight = false;
@@ -810,7 +883,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
       if (token !== folderToken) {
         return;
       }
-      files = found;
+      allFiles = found;
+      files = found.filter(passes);
       index = 0;
       openDir = folder;
       void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
@@ -848,7 +922,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
         });
       if (files.length === 0) {
         meta = null;
-        setStatus("No RAW (ARW/DNG) files in that folder.");
+        setStatus(
+          allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined,
+        );
         return;
       }
       show();
@@ -969,7 +1045,7 @@ void window.__TAURI__.event.listen<boolean>("debug", ({ payload }) => {
 void window.__TAURI__.event.listen<{ path: string; message: string }>(
   "sidecar-error",
   ({ payload }) => {
-    if (!fileIndex.has(payload.path)) {
+    if (!allFiles.includes(payload.path)) {
       return;
     }
     setStatus(`${baseName(payload.path)}: ${payload.message}`);
@@ -995,6 +1071,68 @@ void window.__TAURI__.core
     sidecarFormat = format;
   });
 
+const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
+const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
+const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>("[data-flag], [data-stars]");
+
+function setFilterMenuOpen(open: boolean): void {
+  filterMenu.hidden = !open;
+  filterToggle.setAttribute("aria-expanded", String(open));
+}
+
+// Mirror the two sets onto the menu's check marks and the button's lit state,
+// then rebuild the view.
+function filterChanged(): void {
+  for (const item of filterItems) {
+    const { flag, stars } = item.dataset;
+    const checked =
+      flag !== undefined ? shownFlags.has(flag as Flag) : shownStars.has(Number(stars));
+    item.setAttribute("aria-checked", String(checked));
+  }
+  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0);
+  refilter();
+}
+
+filterToggle.addEventListener("click", () => {
+  // Drop the focus, or `Space` (the 1:1 toggle) would press it again.
+  filterToggle.blur();
+  setFilterMenuOpen(filterMenu.hidden);
+});
+
+// The menu stays open while items are toggled, so several can be checked in
+// one go; a click anywhere else closes it.
+document.addEventListener("mousedown", (event) => {
+  if (!filterMenu.hidden && !(event.target as Element).closest("#filter")) {
+    setFilterMenuOpen(false);
+  }
+});
+
+for (const item of filterItems) {
+  item.addEventListener("click", () => {
+    item.blur();
+    const { flag, stars } = item.dataset;
+    const set: Set<string | number> =
+      flag !== undefined ? shownFlags : shownStars;
+    const value = flag ?? Number(stars);
+    if (set.has(value)) {
+      set.delete(value);
+    } else {
+      set.add(value);
+    }
+    filterChanged();
+  });
+}
+
+(document.getElementById("filter-reset") as HTMLButtonElement).addEventListener(
+  "click",
+  (event) => {
+    (event.currentTarget as HTMLButtonElement).blur();
+    shownFlags.clear();
+    shownStars.clear();
+    filterChanged();
+  },
+);
+
 openEl.addEventListener("click", openFolder);
 reopenLastFolder();
 
@@ -1019,6 +1157,11 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   const key = event.key.toLowerCase();
+  if (key === "escape" && !filterMenu.hidden) {
+    setFilterMenuOpen(false);
+    event.preventDefault();
+    return;
+  }
   const delta = pagingKeys.get(key);
   if (delta !== undefined) {
     move(delta);
