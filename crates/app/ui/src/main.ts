@@ -689,6 +689,22 @@ function newFolderToken(): number {
   return folderToken;
 }
 
+// Reopen the folder the last session had open, if it still exists.
+function reopenLastFolder(): void {
+  const token = newFolderToken();
+  window.__TAURI__.core
+    .invoke<string | null>("last_folder")
+    .then((folder) => {
+      if (folder === null || token !== folderToken) {
+        return;
+      }
+      return openDirectory(folder, token);
+    })
+    .catch(() => {
+      // The folder went away after the check; keep the opening hint.
+    });
+}
+
 function openDirectory(folder: string, token: number): Promise<void> {
   return window.__TAURI__.core
     .invoke<string[]>("list_arw", { dir: folder })
@@ -699,6 +715,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       files = found;
       index = 0;
       openDir = folder;
+      void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
       entries.clear();
       ratings.clear();
       touched.clear();
@@ -859,6 +876,7 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 );
 
 openEl.addEventListener("click", openFolder);
+reopenLastFolder();
 
 // Letter keys are matched lower-cased, so Shift+J pages like j does.
 const pagingKeys = new Map<string, number>([

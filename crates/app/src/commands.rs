@@ -252,6 +252,39 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     rx.recv().await.flatten().map(|p| p.to_string())
 }
 
+/// Where the last opened folder is kept between launches. It is a preference,
+/// not a cache, so it lives in the config dir rather than beside the index.
+fn last_folder_file(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("last_folder"))
+}
+
+/// Remember `dir` as the folder to reopen on the next launch. Failing to write
+/// it only means starting with nothing open, so it is logged, not returned.
+#[tauri::command]
+pub fn remember_folder(app: tauri::AppHandle, dir: String) {
+    let Some(file) = last_folder_file(&app) else {
+        return;
+    };
+    let written = file
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::write(&file, dir));
+    if let Err(e) = written {
+        eprintln!("failed to remember the folder at {}: {e}", file.display());
+    }
+}
+
+/// The folder remembered by `remember_folder`, or `None` if there is none or
+/// it is no longer a directory.
+#[tauri::command]
+pub fn last_folder(app: tauri::AppHandle) -> Option<String> {
+    let dir = std::fs::read_to_string(last_folder_file(&app)?).ok()?;
+    Path::new(&dir).is_dir().then_some(dir)
+}
+
 #[tauri::command]
 pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
     list_arw_in(Path::new(&canonicalize(&dir)))

@@ -97,6 +97,8 @@ fn main() {
             ping,
             commands::pick_folder,
             commands::list_arw,
+            commands::remember_folder,
+            commands::last_folder,
             commands::preview,
             commands::dropped_folder,
             commands::scan_folder,
