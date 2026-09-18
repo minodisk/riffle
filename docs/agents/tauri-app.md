@@ -117,6 +117,24 @@ for the next folder open — is drained in `tauri::RunEvent::ExitRequested`.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 3.
 
+### Snapshot the state you decided on, not just the lock, across a release (Hit)
+
+`reconcile_sidecars` (decides what to parse) and `store_sidecar_ratings`
+(stores the parse and clears `dirty`) run with the lock released in between,
+so a `set_rating` landing in that window was silently discarded by the
+"sidecar wins" write.
+
+- Why: releasing a lock between "decide" and "act" always opens a window for
+  the state to change underneath the decision; re-checking "is the lock still
+  free" is not enough, the *value* the decision was based on has to be
+  re-checked too.
+- Fix pattern: `reconcile_sidecars` hands back the `dirty` flag it observed
+  for each path alongside the parse job, and `store_sidecar_ratings` only
+  applies its update when the row's `dirty` still matches that snapshot —
+  otherwise the newer write is left in place.
+- Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
+  Step 4.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so

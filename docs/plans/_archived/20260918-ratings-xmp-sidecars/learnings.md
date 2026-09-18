@@ -190,6 +190,27 @@ ARWs, and nothing here says anything about how the app feels.
   status line" is met literally, but `note` is a single transient slot
   (`crates/app/ui/src/main.ts`, `setStatus`). A dedicated, sticky error area
   would be a UI change beyond this step.
+- Develop workflow: `merger`'s branch cleanup can still delete the next
+  step's freshly cut, commitless branch when a `MERGED` notification arrives
+  twice. In Step 4 the caller waited for `MERGED` as `SKILL.md` requires,
+  but the second arrival of the previous step's notification came after the
+  next branch was cut, and `tools/git/delete_merged_branches.sh` deleted
+  `ratings-xmp-sidecars-step-4` out from under a running implementer (the
+  commit survived on a detached HEAD and the branch was recreated). From
+  Step 4 on, the caller told `merger` to skip cleanup. Change needed: either
+  de-duplicate the repeated notification / make cleanup not re-run on a
+  repeat, or have `.claude/skills/develop/SKILL.md`'s merge section tell the
+  caller to skip cleanup for step branches within a plan by default. Done
+  when one of the two lands and this stops being a per-feature workaround.
+- Docs: whether `crates/core` warrants its own `docs/agents/core.md`. Step 2
+  found non-obvious quick-xml 0.42 facts specific to `crates/core/src/xmp.rs`
+  (only per-event byte offsets, no attribute-level offset, so the attribute
+  form is patched by scanning the start tag's own range; prefix choice goes
+  through `reader.resolver()`; `xmp:Rating="0"` is a legal value, not
+  absence). Only this feature has touched that code so far. Done when either
+  the next feature touching `crates/core`'s XML handling creates the guide
+  (Hit/Measured/Inferred format, as in `tauri-app.md`), or this is judged
+  unnecessary and dropped.
 
 ## Step 6: Documentation and status update
 
