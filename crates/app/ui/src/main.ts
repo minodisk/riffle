@@ -6,8 +6,15 @@ const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
 const CROP_HEADER_LEN = 24;
 const CROP_KIND_RGBA_V1 = 3;
-// Flip to log the keypress → invoke → bitmap timings of the 1:1 view.
-const ZOOM_TIMING = false;
+// Turned on by the Debug menu's `Timing logs` item. That menu only exists in a
+// development build, so elsewhere the event never fires and this stays off.
+let debugLogging = false;
+
+function debugLog(...args: unknown[]): void {
+  if (debugLogging) {
+    console.debug(...args);
+  }
+}
 
 interface Focus {
   sensor_w: number;
@@ -132,7 +139,7 @@ let crop: {
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`.
 let cropInFlight = false;
 // `performance.now()` at the keypress that asked for the crop, for the
-// `ZOOM_TIMING` marks.
+// `debugLog` marks.
 let zoomStartedAt = 0;
 
 // The crosshair's arm length and the gap left open around the point itself,
@@ -480,9 +487,7 @@ function requestCrop(): void {
     })
     .then(async (payload) => {
       cropInFlight = false;
-      if (ZOOM_TIMING) {
-        console.debug("zoom invoke", performance.now() - zoomStartedAt);
-      }
+      debugLog("zoom invoke", performance.now() - zoomStartedAt);
       if (current !== seq) {
         if (zoomed) {
           requestCrop();
@@ -505,9 +510,7 @@ function requestCrop(): void {
         height,
       );
       const bitmap = await createImageBitmap(pixels);
-      if (ZOOM_TIMING) {
-        console.debug("zoom bitmap", performance.now() - zoomStartedAt);
-      }
+      debugLog("zoom bitmap", performance.now() - zoomStartedAt);
       if (current !== seq) {
         bitmap.close();
         if (zoomed) {
@@ -554,9 +557,7 @@ function toggleZoom(): void {
   zoomed = !zoomed;
   if (zoomed) {
     zoomStartedAt = performance.now();
-    if (ZOOM_TIMING) {
-      console.debug("zoom keypress", zoomStartedAt);
-    }
+    debugLog("zoom keypress", zoomStartedAt);
     if (crop === null || crop.cropSeq !== seq || cropViewportStale()) {
       requestCrop();
     }
@@ -836,6 +837,12 @@ void window.__TAURI__.event.listen<{
   renderMeta();
   strip.refresh();
   refreshEntries();
+});
+
+// The Debug menu's `Timing logs` item; absent from a distributable build, so
+// the listener simply never fires there.
+void window.__TAURI__.event.listen<boolean>("debug", ({ payload }) => {
+  debugLogging = payload;
 });
 
 // A sidecar the writer could not write: the judgement is still in the index
