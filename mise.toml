@@ -37,17 +37,33 @@ pnpm install --frozen-lockfile
 pnpm tauri dev --release --features devtools
 """
 
-[tasks.ci]
-description = "Run the same checks CI runs, locally"
+[tasks.lint]
+description = "Run the OS-independent checks"
 shell = "bash -c"
 run = """
 set -euo pipefail
 pnpm install --frozen-lockfile
 pnpm exec tsc --noEmit -p crates/app/ui/tsconfig.json
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test
 shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
 actionlint
 bash .claude/skills/merge/scripts/check-merge-approval.test.sh
+"""
+
+[tasks.test]
+description = "Build and test the workspace, per platform"
+shell = "bash -c"
+run = """
+set -euo pipefail
+cargo clippy --all-targets -- -D warnings
+cargo test
+"""
+
+[tasks.ci]
+description = "Run the same checks CI runs, locally"
+shell = "bash -c"
+run = """
+set -euo pipefail
+mise run lint
+mise run test
 """

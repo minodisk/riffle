@@ -235,6 +235,14 @@ mod tests {
         dir
     }
 
+    // Best effort, like the removal in temp_dir above: on Windows a directory
+    // holding an open SQLite database cannot be removed, and several of these
+    // tests still hold the Index when they finish. The next run's temp_dir
+    // clears whatever is left over.
+    fn remove_temp_dir(dir: &Path) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     fn index(dir: &Path) -> Arc<Mutex<Index>> {
         Arc::new(Mutex::new(Index::open(&dir.join("index.sqlite")).unwrap()))
     }
@@ -245,10 +253,12 @@ mod tests {
         })
     }
 
-    /// Wait for `check` for up to a second, so the tests do not depend on how
-    /// long the writer thread takes to be scheduled.
+    /// Wait for `check`, so the tests do not depend on how long the writer
+    /// thread takes to be scheduled. The budget is far longer than the work
+    /// needs because it only costs time when the assertion is failing anyway,
+    /// and a loaded CI runner is much slower than a developer's machine.
     fn eventually(check: impl Fn() -> bool) -> bool {
-        let deadline = Instant::now() + Duration::from_secs(1);
+        let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
             if check() {
                 return true;
@@ -318,7 +328,7 @@ mod tests {
         );
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -340,7 +350,7 @@ mod tests {
         ));
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -353,19 +363,24 @@ mod tests {
         lock(&index)
             .set_rating("d", &path.to_string_lossy(), Some(-1))
             .unwrap();
-        writer.set(path.clone(), Some(-1)).unwrap();
+        // A deadline far enough out that a slow machine cannot blur the
+        // difference between flushing now and waiting for it. Measuring
+        // against DEBOUNCE itself made this fail on CI, where the write alone
+        // can take longer than 300ms.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        writer.send(path.clone(), Some(-1), deadline).unwrap();
         let started = Instant::now();
         writer.flush(DRAIN_TIMEOUT);
 
         assert!(
-            started.elapsed() < DEBOUNCE,
+            started.elapsed() < Duration::from_secs(15),
             "the flush did not wait it out"
         );
         let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
         assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(-1));
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -385,7 +400,7 @@ mod tests {
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
         drop(writer);
-        std::fs::remove_dir_all(&dir).unwrap();
+        remove_temp_dir(&dir);
     }
 
     #[test]
@@ -413,6 +428,6 @@ mod tests {
 
         drop(writer);
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        remove_temp_dir(&root);
     }
 }
