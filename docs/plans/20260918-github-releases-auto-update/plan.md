@@ -288,3 +288,4 @@ available / install it", no crates.io publishing of `riffle-core` /
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
+- (2026-09-18) Step 5 complete
