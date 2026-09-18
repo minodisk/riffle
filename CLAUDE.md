@@ -9,7 +9,9 @@ A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle
 whose `src/xmp.rs` parses and patches XMP sidecar bytes and `src/dop.rs` DxO
 PhotoLab `.dop` sidecar bytes), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
-(the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index and
+(the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
+`src/exif.rs` the shooting-settings display formatting shared by the meta pane
+and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP-or-`.dop` setting chosen from the `Sidecar` menu and persisted in the
 `sidecarFormat` key of the settings store).

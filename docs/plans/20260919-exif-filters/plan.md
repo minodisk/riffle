@@ -173,7 +173,7 @@ folder (for focal length, only the ranges that contain a frame).
     - The `customizable-shortcuts` plan edits the `keydown` handler in the
       same file; rebase carefully, the regions do not overlap.
 
-- [ ] Step 4: Documentation and the user's confirmations
+- [x] Step 4: Documentation and the user's confirmations
   - Done when:
     - `README.md` "The index" lists the shooting settings among what the
       scan stores and states the v4 rule (a pre-v4 database re-scans each
@@ -242,3 +242,4 @@ rebase.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete (manual GUI check carried to Step 4)
+- (2026-09-19) Step 4 complete
