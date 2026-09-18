@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.1](https://github.com/minodisk/riffle/compare/v0.1.0...v0.1.1) (2026-09-18)
+
+
+### Features
+
+* **app:** add single-instance, opener, and log plugins ([#75](https://github.com/minodisk/riffle/issues/75)) ([51c91ce](https://github.com/minodisk/riffle/commit/51c91ce6c15ef401ccc1a3d32120cb47a92dfccf))
+* **app:** add the sidecar format setting (menu, switch, index reset) ([#83](https://github.com/minodisk/riffle/issues/83)) ([2e3ad90](https://github.com/minodisk/riffle/commit/2e3ad9027dcc32e43780397f4d41ed11e3c964ba))
+* **app:** list DNG files next to ARW in app and CLI ([#73](https://github.com/minodisk/riffle/issues/73)) ([65cfc39](https://github.com/minodisk/riffle/commit/65cfc397ba05fd532dadaed6fd8dc4aea3bc7b35))
+* **app:** open the folder in DxO PhotoLab from the menu ([#80](https://github.com/minodisk/riffle/issues/80)) ([87ebc4f](https://github.com/minodisk/riffle/commit/87ebc4f2f49a4910ede1b7f23f3f42f4dfbd817b))
+* **app:** restore the window position and size across launches ([#74](https://github.com/minodisk/riffle/issues/74)) ([32b66c9](https://github.com/minodisk/riffle/commit/32b66c966252f70d3756c8ed435583e65c61b8ce))
+* **app:** show an estimated aperture and the Leica focus distance ([#76](https://github.com/minodisk/riffle/issues/76)) ([0e92e29](https://github.com/minodisk/riffle/commit/0e92e296f35a2ec5557a3eaed95e579771c1b64c))
+* **app:** write and reconcile the sidecar format selected in settings ([#78](https://github.com/minodisk/riffle/issues/78)) ([89bb2a4](https://github.com/minodisk/riffle/commit/89bb2a489d7ebe40eb3ed20c8568a8609229ecfc))
+* **cli:** bench the 1:1 crop without FocusLocation and record DNG numbers ([#77](https://github.com/minodisk/riffle/issues/77)) ([95b313b](https://github.com/minodisk/riffle/commit/95b313b74da2a944064b70105ecf87f1b3bd5cc6))
+* **core:** find the embedded JPEGs of a Leica DNG and gate the Sony MakerNote ([#69](https://github.com/minodisk/riffle/issues/69)) ([698fec9](https://github.com/minodisk/riffle/commit/698fec97622d83125e4fcaf41bc8ec733401be6d))
+* **core:** read and patch DxO PhotoLab .dop sidecars ([#72](https://github.com/minodisk/riffle/issues/72)) ([57c50a2](https://github.com/minodisk/riffle/commit/57c50a2c5da13a8ebf476fc11df46a5afb282158))
+
 ## 0.1.0 (2026-09-18)
 
 
