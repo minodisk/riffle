@@ -171,6 +171,15 @@ one `on_menu_event` dispatching to every submenu.
 - Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
   Steps 2-3.
 
+### A submenu's position follows the order it is appended (Hit)
+
+`Settings` is added in `app_menu::build` right after `Folder`, while `Sidecar`
+is appended later in `build_menu`, so the menu bar reads `Folder`, `Settings`,
+`Sidecar`. Where a new submenu is appended decides where it shows; check the
+order when adding one.
+
+- Source: `docs/plans/20260918-customizable-shortcuts/learnings.md`, Step 4.
+
 ### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
 
 On macOS APFS, `sidecar_path(arw).exists()` is true for `H.ARW.DOP` even when

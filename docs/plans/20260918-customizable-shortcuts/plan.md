@@ -181,7 +181,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
     - Conflict feedback is a text line in the panel, matching the
       status-line style already used.
 
-- [ ] Step 5: Documentation and the user's confirmations
+- [x] Step 5: Documentation and the user's confirmations
   - Done when:
     - `README.md`'s key table is titled as the defaults, and a short
       paragraph documents `Settings > Keyboard Shortcuts...`, the
@@ -250,3 +250,4 @@ reserved `p` and persistence round-trips.
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete
 - (2026-09-19) Step 4 complete (GUI confirmation pending the user)
+- (2026-09-19) Step 5 complete

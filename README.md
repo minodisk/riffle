@@ -81,7 +81,7 @@ Releases are published on the
 installed build to a newer release is **awaiting the user's confirmation**: it
 needs a second release to check.
 
-Keys:
+Default keys:
 
 | Key | Action |
 |-----|--------|
@@ -95,6 +95,37 @@ Keys:
 | `p` | pick the current file (`.dop` only, a no-op with XMP; sticky; replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file (does nothing unless it is rejected or picked) |
 | `0` | clear the rating or the reject (a pick stays) |
+
+The keys can be changed from `Settings > Keyboard Shortcuts...`
+(`CmdOrCtrl+,`); the menu bar reads `Folder`, `Settings`, `Sidecar`. Click a
+row, press the new key (`Escape` cancels), and it works as soon as the panel
+closes. Rebinding replaces the action's whole key list with the one key, so
+rebinding `next` drops its other aliases until reset. A key already bound to
+another action is refused with a message naming that action, and so is a
+per-row `Reset` whose default key is now bound elsewhere; `Reset all` always
+restores every default. `p` is reserved for pick: the pick row is not editable
+and `p` cannot be bound to anything else. Modifier combinations (Cmd, Ctrl,
+Alt) are not bindable.
+
+Only the overrides are saved, under the `shortcuts` key of `settings.json`
+(next to `lastFolder` and `sidecarFormat`), as action name to a list of key
+names, e.g. `"shortcuts": {"reject": ["r"]}`. Action names are `previous`,
+`next`, `open`, `focus`, `zoom`, `rate1`-`rate5`, `reject`, `pick`, `unflag`
+and `clear`; key names are `event.key` lower-cased, with the space bar as
+`space`. An entry that cannot be used (an unknown action, a value that is not
+a non-empty list of non-empty strings, `p` on anything but pick, or a key
+already bound to another action) is logged as a warning and ignored, and that
+action keeps its default.
+
+**Awaiting the user's confirmation (keyboard shortcuts)**: none of it has been
+looked at in a running window. Unconfirmed: every key behaving as before with
+no `shortcuts` key; a hand-written `"shortcuts": {"reject": ["r"]}` making `r`
+reject and `x` do nothing after a relaunch; and, from the panel, opening it
+from the menu, rebinding `reject` to `r`, the conflict message on `r` for
+`clear`, the reserved message on `p` for `unflag`, one row's reset, reset all,
+closing, the keys behaving accordingly, and `settings.json` holding only the
+overrides. The merge, conflict, reserved-`p` and persistence round-trip rules
+are covered by unit tests in `crates/app/src/shortcuts.rs`.
 
 Folder > Open in DxO PhotoLab in the menu bar hands the open folder to the
 newest `DXOPhotoLab<N>.app` under `/Applications`.

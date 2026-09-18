@@ -14,7 +14,8 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP-or-`.dop` setting chosen from the `Sidecar` menu and persisted in the
-`sidecarFormat` key of the settings store).
+`sidecarFormat` key of the settings store, and `src/shortcuts.rs` the keymap:
+the default keys and the user's overrides, persisted in the `shortcuts` key).
 
 The frontend lives under `crates/app/ui` (TypeScript compiled by `tsc` only, no
 bundler) and is type-checked by `mise run ci`.
