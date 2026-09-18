@@ -278,14 +278,12 @@ in a shallow row and missed for one in a deep row**: 39-45ms from keypress to
 pixels, against 58-65ms for a focus point at the right edge of an Orientation 8
 file. The deep-row case is not fixed.
 
-**Awaiting the user's confirmation (Phase 5)**: what the 1:1 view *looks like*
-has not been reported. Unconfirmed: the crop showing the subject's eye at 1:1
-and upright on an Orientation 8 file, `Space` again returning to the preview
-with the focus box, paging while zoomed staying zoomed and moving to the next
-file's focus point without the old crop appearing over the new file, and the
-centre fallback on a manual-focus file (tracked in `todo.md`). The logs confirm
-a crop is produced and how long it takes, not that it is the right pixels in the
-right place.
+The user has also confirmed what the view looks like: the crop shows the
+subject's eye at 1:1 and upright on an Orientation 8 file, `Space` again returns
+to the preview with the focus mark, paging while zoomed stays zoomed and moves
+to the next file's focus point without the old crop appearing over the new file,
+and a manual-focus file (no `FocusLocation`) zooms to the centre of the frame.
+That last one closes the `todo.md` item tracking it.
 
 **Awaiting the user's confirmation (Phase 6)**: nothing about the rating keys
 has been looked at in a running window. Unconfirmed: a rating key changing the
