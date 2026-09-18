@@ -143,9 +143,35 @@ let crop: {
 } | null = null;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`.
 let cropInFlight = false;
-// `performance.now()` at the keypress that asked for the crop, for the
-// `debugLog` marks.
-let zoomStartedAt = 0;
+// `performance.now()` at the `Space` that asked for a crop, cleared by the
+// crop that keypress produced. Only that one crop can be timed from the
+// keypress; a resize or a page turn starts its own request.
+let zoomKeypressAt: number | null = null;
+// A resize fires continuously while the window edge is dragged, and each
+// crop costs a partial decode plus a multi-megabyte IPC payload, so the
+// re-request waits for the drag to settle. 150ms is long enough to swallow a
+// drag's stream of events and short enough to feel immediate once released;
+// until it fires, the held crop keeps being drawn into the new viewport.
+const CROP_RESIZE_DEBOUNCE_MS = 150;
+let cropResizeTimer: number | null = null;
+
+// Re-requests the crop once the viewport has stopped changing. The `seq` of
+// the file the resize was seen for is captured here rather than re-read in
+// the callback, so a timer that outlives a page turn or a folder change is
+// dropped instead of applied.
+function scheduleCropForResize(): void {
+  const current = seq;
+  if (cropResizeTimer !== null) {
+    window.clearTimeout(cropResizeTimer);
+  }
+  cropResizeTimer = window.setTimeout(() => {
+    cropResizeTimer = null;
+    if (!zoomed || current !== seq || !cropViewportStale()) {
+      return;
+    }
+    requestCrop();
+  }, CROP_RESIZE_DEBOUNCE_MS);
+}
 
 // The crosshair's arm length and the gap left open around the point itself,
 // in CSS pixels. The mark only points, so it keeps one size like a cursor
@@ -487,6 +513,12 @@ function requestCrop(): void {
   }
   cropInFlight = true;
   const current = seq;
+  // Every mark below is measured from this request, not from the last
+  // keypress: a crop asked for by a resize or a page turn has nothing to do
+  // with a `Space` pressed minutes ago.
+  const requestStartedAt = performance.now();
+  const keypressAt = zoomKeypressAt;
+  zoomKeypressAt = null;
   const dpr = window.devicePixelRatio;
   const requestedWidth = Math.round(canvas.clientWidth * dpr);
   const requestedHeight = Math.round(canvas.clientHeight * dpr);
@@ -498,7 +530,7 @@ function requestCrop(): void {
     })
     .then(async (payload) => {
       cropInFlight = false;
-      const invokeAt = performance.now() - zoomStartedAt;
+      const invokeAt = performance.now() - requestStartedAt;
       if (current !== seq) {
         if (zoomed) {
           requestCrop();
@@ -521,15 +553,20 @@ function requestCrop(): void {
         height,
       );
       const bitmap = await createImageBitmap(pixels);
-      const bitmapAt = performance.now() - zoomStartedAt;
+      const bitmapAt = performance.now() - requestStartedAt;
       const readMs = header.getUint32(20, true) / 1000;
       const decodeMs = header.getUint32(24, true) / 1000;
+      const sinceKeypress =
+        keypressAt === null
+          ? ""
+          : ` keypressToPixels=${(performance.now() - keypressAt).toFixed(1)}ms`;
       debugLog(
-        `zoom total=${bitmapAt.toFixed(1)}ms` +
+        `zoom crop=${bitmapAt.toFixed(1)}ms` +
           ` read=${readMs.toFixed(1)}ms` +
           ` decode=${decodeMs.toFixed(1)}ms` +
           ` ipc=${(invokeAt - readMs - decodeMs).toFixed(1)}ms` +
-          ` bitmap=${(bitmapAt - invokeAt).toFixed(1)}ms`,
+          ` bitmap=${(bitmapAt - invokeAt).toFixed(1)}ms` +
+          sinceKeypress,
       );
       if (current !== seq) {
         bitmap.close();
@@ -551,9 +588,11 @@ function requestCrop(): void {
       draw();
       // The viewport may have been resized while this request was in
       // flight; `requestCrop` silently no-ops on `cropInFlight` during that
-      // window, so check here and re-fire if the settled crop is stale.
+      // window, so check here and re-fire if the settled crop is stale. The
+      // re-fire goes through the debounce too, or a drag would simply chain
+      // one crop into the next.
       if (zoomed && cropViewportStale()) {
-        requestCrop();
+        scheduleCropForResize();
       }
     })
     .catch((err: unknown) => {
@@ -576,8 +615,8 @@ function toggleZoom(): void {
   }
   zoomed = !zoomed;
   if (zoomed) {
-    zoomStartedAt = performance.now();
-    debugLog("zoom keypress", zoomStartedAt);
+    zoomKeypressAt = performance.now();
+    debugLog("zoom keypress", zoomKeypressAt);
     if (crop === null || crop.cropSeq !== seq || cropViewportStale()) {
       requestCrop();
     }
@@ -953,7 +992,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("resize", () => {
   draw();
   if (zoomed) {
-    requestCrop();
+    scheduleCropForResize();
   }
 });
 
