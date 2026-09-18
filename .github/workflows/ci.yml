@@ -90,3 +90,17 @@ jobs:
 
       - name: Build and test
         run: mise run test
+
+  # Branch protection requires a single check named `ci`. This job stands in for
+  # the whole run, so the lint job and the matrix can change shape without the
+  # required check going missing. always() makes it report a failure rather
+  # than being skipped when something it needs fails.
+  ci:
+    needs: [lint, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to have passed
+        run: |
+          [ "${{ needs.lint.result }}" = success ]
+          [ "${{ needs.test.result }}" = success ]
