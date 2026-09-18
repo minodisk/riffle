@@ -149,9 +149,11 @@ step:
 6. sidecar absent and nothing was ever stored — nothing.
 
 A sidecar past `MAX_SIDECAR_BYTES` (4 MiB) is a seventh case outside these
-rules: it is neither parsed nor written, and is filtered out of the dirty rows
-handed to the writer, since a rating that was never read back cannot be
-patched in without clobbering unread content.
+rules, but only on the folder-open pass: it is neither parsed nor handed to
+the writer as a dirty row, since a rating that was never read back cannot be
+patched in without clobbering unread content. A rating set while the folder
+is already open still goes straight through `sidecar::write`, which reads and
+patches the sidecar regardless of its size.
 
 An external edit made while the folder is open is not noticed; there is no
 watcher, so it is picked up on the next open.
