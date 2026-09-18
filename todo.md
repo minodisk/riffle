@@ -137,14 +137,6 @@ The `focus_crop` payload header (`crates/app/src/commands.rs`, `crop_payload`) h
 
 - [ ] Release the held crop bitmap in `show()` when paging with zoom off, not only when a new crop arrives.
 
-### App: the 1:1 view's centre fallback on a manual-focus file is unconfirmed
-
-Phase 5 falls back to the centre of the full JPEG when a file carries no `FocusLocation` (`partial::focus_point`), so `Space` still works on a manual-focus shot. GUI automation does not work on this machine, so this was never seen on screen — it is verified only by the unit test of the fallback in `crates/core/src/partial.rs`. Note that in this case `drawZoom()` draws no preview behind the crop, so the canvas is blank until the crop arrives.
-
-#### TODO
-
-- [ ] Open a manual-focus file (no `FocusLocation`) in the app, press `Space`, and confirm the 1:1 view lands on the centre of the frame.
-
 ### App: no rescan when new files appear in an already-open folder
 
 `scan_folder` in `crates/app/src/commands.rs` reconciles the index only when a folder is opened, so a file added to an already-open folder is not picked up until the folder is reopened.
