@@ -73,6 +73,9 @@ Keys:
 | `u` | un-reject the current file (does nothing unless it is rejected) |
 | `0` | clear the rating or the reject |
 
+Folder > Open in DxO PhotoLab in the menu bar hands the open folder to the
+newest `DXOPhotoLab<N>.app` under `/Applications`.
+
 ### The 1:1 focus check
 
 `Space` toggles a third tier on top of the 400px thumbnails and the 1616x1080

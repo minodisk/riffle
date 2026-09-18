@@ -279,6 +279,16 @@ function sidecarSection(path: string): HTMLElement {
   return section;
 }
 
+// Hand the open folder to DxO PhotoLab for developing.
+function openInPhotoLab(): void {
+  if (openDir === null) {
+    return;
+  }
+  window.__TAURI__.core
+    .invoke("open_in_photolab", { dir: openDir })
+    .catch((e: unknown) => setStatus(`Could not open PhotoLab: ${String(e)}`));
+}
+
 // Set the transient note, or clear it when called with no argument.
 function setStatus(extra?: string): void {
   note = extra;
@@ -838,6 +848,8 @@ function openFolder(): void {
       setStatus(String(err));
     });
 }
+
+void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 
 // Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
 // usable path; the paths arrive only through these webview events.
