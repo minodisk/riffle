@@ -177,11 +177,11 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
     }
     let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)?
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("arw")))
+        .filter(|p| riffle_core::scan::is_raw_file(p))
         .collect();
     paths.sort();
     if paths.is_empty() {
-        bail!("no ARW files in {dir:?}");
+        bail!("no RAW (ARW/DNG) files in {dir:?}");
     }
 
     let start = Instant::now();

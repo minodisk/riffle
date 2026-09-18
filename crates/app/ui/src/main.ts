@@ -815,7 +815,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
         });
       if (files.length === 0) {
         meta = null;
-        setStatus("No ARW files in that folder.");
+        setStatus("No RAW (ARW/DNG) files in that folder.");
         return;
       }
       show();
@@ -865,7 +865,7 @@ void window.__TAURI__.event.listen<{ paths: string[] }>(
     setDragging(false);
     const [path] = payload.paths;
     if (path === undefined || payload.paths.length > 1) {
-      setStatus("Drop a single folder or ARW file.");
+      setStatus("Drop a single folder or RAW file.");
       return;
     }
     const drop = ++dropCounter;
@@ -876,7 +876,7 @@ void window.__TAURI__.event.listen<{ paths: string[] }>(
           return;
         }
         if (folder === null) {
-          setStatus("Drop a single folder or ARW file.");
+          setStatus("Drop a single folder or RAW file.");
           return;
         }
         return openDirectory(folder, newFolderToken());

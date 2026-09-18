@@ -144,19 +144,14 @@ fn read_focus_crop(
     Ok((arw.orientation, crop, timing))
 }
 
-fn is_arw(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("arw"))
-}
-
-/// List the ARW files directly in `dir`, sorted by file name. Entries that
+/// List the RAW (ARW and DNG) files directly in `dir`, sorted by file name. Entries that
 /// cannot be read are skipped; a directory that cannot be read is an error.
 fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let mut files: Vec<PathBuf> = entries
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_file() && is_arw(p))
+        .filter(|p| p.is_file() && riffle_core::scan::is_raw_file(p))
         .collect();
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     Ok(files
@@ -966,7 +961,16 @@ mod tests {
     #[test]
     fn lists_only_arw_files_sorted_by_name() {
         let dir = temp_dir("list");
-        for name in ["b.ARW", "a.arw", "c.Arw", "d.jpg", "e.arw.txt"] {
+        for name in [
+            "b.ARW",
+            "a.arw",
+            "c.Arw",
+            "d.jpg",
+            "e.arw.txt",
+            "f.DNG",
+            "g.dng",
+            "f.dop",
+        ] {
             std::fs::write(dir.join(name), b"x").unwrap();
         }
         std::fs::create_dir(dir.join("sub.arw")).unwrap();
@@ -982,7 +986,7 @@ mod tests {
                     .into_owned()
             })
             .collect();
-        assert_eq!(names, ["a.arw", "b.ARW", "c.Arw"]);
+        assert_eq!(names, ["a.arw", "b.ARW", "c.Arw", "f.DNG", "g.dng"]);
         assert!(files.iter().all(|p| Path::new(p).is_absolute()));
 
         remove_temp_dir(&dir);

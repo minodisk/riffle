@@ -17,3 +17,9 @@
   hit the fallback. The scan saw 32 files, 0 errors, thumbnails ~30KB mean.
 - `riffle-cli info` on `_DSC6978.ARW` still prints preview 204962/337198, full
   544768/5761112, focus 7008 4672 3613 1732.
+
+## Step 2
+
+- `riffle_core::scan::is_raw_file` is the one shared extension predicate (ARW/DNG, case-insensitive); the app's `list_arw_in` and `riffle-cli scan` both use it.
+- The sample folder holds 32 DNGs, not 31 as the plan says. `riffle-cli scan` on it (release): 32 files, 0 errors, 0.09s, mean 30.5ms/file, thumbnails 30231 bytes mean (967419 total).
+- The GUI checks of Step 2 need the user's confirmation; the step stays unchecked until then.
