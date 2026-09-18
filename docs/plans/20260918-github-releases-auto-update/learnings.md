@@ -10,7 +10,7 @@
   temp dir, then deleted) produced `target/release/bundle/macos/Riffle.app.tar.gz`
   and `Riffle.app.tar.gz.sig`. Tauri warns that the key does not match the
   committed pubkey, which is expected for a throwaway key.
-- Manual check awaiting the user's confirmation: in `mise run app`,
+- Manual check awaiting the user's confirmation: in `mise run tauri:dev`,
   `typeof window.__TAURI__.updater.check === "function"` in the devtools
   console.
 
@@ -158,12 +158,36 @@
   update-path check needs a second release. Not verified yet.
 - The README's installer file names follow Tauri's default bundle naming
   (`Riffle_<version>_aarch64.dmg` etc.); they are not verified against an
-  actual release yet.
+  actual release yet. (Superseded below: verified against v0.1.0.)
+- First release: https://github.com/minodisk/riffle/releases/tag/v0.1.0
+  (release PR #57, merge commit c1ed0fc, merged by the user). Assets:
+  `latest.json` (version 0.1.0); `Riffle_0.1.0_aarch64.dmg`,
+  `Riffle_0.1.0_x64.dmg`; `Riffle_aarch64.app.tar.gz` and
+  `Riffle_x64.app.tar.gz` (each with `.sig`); `Riffle_0.1.0_x64-setup.exe`,
+  `Riffle_0.1.0_x64_en-US.msi`, `Riffle_0.1.0_amd64.deb`,
+  `Riffle-0.1.0-1.x86_64.rpm`, `Riffle_0.1.0_amd64.AppImage` (each with
+  `.sig`). README's table now uses these exact names (the Windows MSI carries
+  `_en-US`, the RPM uses `-` and `-1.x86_64`).
+- `latest.json` platforms, each with a signature: `darwin-aarch64`,
+  `darwin-aarch64-app`, `darwin-x86_64`, `darwin-x86_64-app`, `linux-x86_64`
+  (AppImage), `linux-x86_64-appimage`, `linux-x86_64-deb`, `linux-x86_64-rpm`,
+  `windows-x86_64` (the NSIS `setup.exe`), `windows-x86_64-msi`,
+  `windows-x86_64-nsis`. The four planned entries are all there.
+- Removed `"release-as": "0.1.0"` from `release-please-config.json` after the
+  release, so later release PRs follow the commits again.
+- The `mise run app` / `app:release` tasks were renamed on `main` to
+  `mise run tauri:dev` / `tauri:release:devtools` (plus a new `tauri:release`);
+  README's signing-key note now uses the new names.
+- Not verified — needs the second release: an installed older build detecting
+  and installing a newer release.
 
 ## Deferred issues (todo candidates)
 
-- Remove `"release-as": "0.1.0"` from `release-please-config.json` once 0.1.0
-  is released; otherwise every later release PR is pinned to 0.1.0. Basis:
-  Step 5 chose the config pin because a `Release-As` footer is ignored in this
-  repo's squash-commit shape (dry run above). File:
-  `release-please-config.json`.
+- Verify the update path once the second release is out: install v0.1.0, publish
+  the next release, then launch the installed build. Done when it shows the
+  update line, installs the newer release after the signature check, and
+  relaunches as the new version (on macOS, Windows NSIS/MSI, and Linux
+  AppImage); then drop the "awaiting the user's confirmation" wording from
+  README's Status and Installing sections. Basis: Step 5 could not check it
+  with only v0.1.0 released. Files: `README.md`,
+  `docs/plans/20260918-github-releases-auto-update/learnings.md`.
