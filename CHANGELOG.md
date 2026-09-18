@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2](https://github.com/minodisk/riffle/compare/v0.1.1...v0.1.2) (2026-09-18)
+
+
+### Features
+
+* **app:** add a pick and rating filter menu to the strip pane ([#88](https://github.com/minodisk/riffle/issues/88)) ([6d085e8](https://github.com/minodisk/riffle/commit/6d085e8c990241dc273d6f349d0152c042c5c58a))
+* **app:** add the pick flag for .dop sidecars ([#84](https://github.com/minodisk/riffle/issues/84)) ([3307979](https://github.com/minodisk/riffle/commit/330797940447782bce9b0acd7066337122456c55))
+* **app:** show pick/reject as a single dot in the strip cell ([#90](https://github.com/minodisk/riffle/issues/90)) ([6eaff32](https://github.com/minodisk/riffle/commit/6eaff321e63bdf8353e343b8d63942b0952b5cc3))
+
 ## [0.1.1](https://github.com/minodisk/riffle/compare/v0.1.0...v0.1.1) (2026-09-18)
 
 
