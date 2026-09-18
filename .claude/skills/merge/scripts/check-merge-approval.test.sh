@@ -96,6 +96,11 @@ expect 1 approval build.rs crates/cli/build.rs
 # actually arriving. Pinned so the two never drift back together.
 expect 0 safe Cargo.toml crates/cli/Cargo.toml
 
+# --- approval: release-shaping ------------------------------------------
+# Evaluated before the crates/* safe rule; the rest of crates/app stays safe.
+expect 1 approval release-please-config.json .release-please-manifest.json crates/app/tauri.conf.json
+expect 0 safe crates/app/Cargo.toml crates/app/src/main.rs
+
 # --- approval: toolchain and supply chain --------------------------------
 expect 1 approval Cargo.lock .cargo/config.toml
 expect 1 approval package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc

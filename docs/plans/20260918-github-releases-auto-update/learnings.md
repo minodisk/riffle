@@ -27,3 +27,10 @@
   otherwise restore each other's `target`.
 - tauri-action does not install JS dependencies itself, so the workflow runs
   `pnpm install --frozen-lockfile` before it.
+
+## Step 3
+
+- The release-shaping rules sit before `*.md` and `crates/*` in `classify()`,
+  because the `case` is first-match; `crates/app/tauri.conf.json` would otherwise
+  fall to the `crates/*` safe rule.
+- This step's own PR touches `.claude/**`, so the check flags it as approval.
