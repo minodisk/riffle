@@ -16,15 +16,64 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    runs-on: macos-latest
-    timeout-minutes: 30
+  # The checks that cannot differ between platforms — formatting, the UI types,
+  # the workflow and shell linters. Running them once keeps the matrix below to
+  # what it is actually there for.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       # Resolve the toolchain from mise.toml so CI and local use the same
       # compiler. A drifting version shows up as clippy lints that fail only
       # here.
+      - uses: jdx/mise-action@v2
+        with:
+          version: 2026.9.0
+
+      # pnpm's store lives in a different place per OS, so ask pnpm rather than
+      # hard-coding a path that would silently cache nothing.
+      - name: Resolve the pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Run the lints
+        run: mise run lint
+
+  # Riffle ships on all three desktop platforms, so the build and the tests run
+  # on all three. fail-fast stays off: when something is platform-specific we
+  # want to see every platform's verdict in one run, not just the first to fail.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri links against the system WebView, which on Linux means webkit2gtk
+      # and its companions. Without these the app crate does not even compile,
+      # so this has to come before the toolchain does any building.
+      - name: Install the Linux WebView dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            patchelf
+
       - uses: jdx/mise-action@v2
         with:
           version: 2026.9.0
@@ -39,19 +88,5 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
 
-      # pnpm's store lives in a different place per OS, so ask pnpm rather than
-      # hard-coding a path that would silently cache nothing.
-      - name: Resolve the pnpm store path
-        id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-
-      # The single definition of what CI checks lives in mise.toml, so this is
-      # the same command the agents run locally before pushing.
-      - name: Run checks
-        run: mise run ci
+      - name: Build and test
+        run: mise run test
