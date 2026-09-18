@@ -273,7 +273,7 @@ repeated here.
       `ratings` row alone
     - Assumes Step 2 is merged
 
-- [ ] Step 4: App: reconcile sidecars on folder open, and flush dirty rows
+- [x] Step 4: App: reconcile sidecars on folder open, and flush dirty rows
   - Done when:
     - `Index::reconcile_sidecars(dir, files)` applies the six rules of
       decision 2 in one transaction, returning the paths whose sidecar has to
@@ -446,3 +446,4 @@ items.
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
+- (2026-09-18) Step 4 complete

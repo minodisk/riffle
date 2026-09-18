@@ -366,9 +366,6 @@ impl Index {
     }
 
     /// The rows of `dir` whose judgement has not reached its sidecar yet.
-    // Read by the tests here; the folder-open path that hands these to the
-    // writer is Step 4 of the ratings plan.
-    #[allow(dead_code)]
     pub fn dirty_rows(&self, dir: &str) -> Result<Vec<(String, Option<i8>)>, String> {
         let mut stmt = self
             .conn
@@ -380,7 +377,121 @@ impl Index {
         rows.collect::<rusqlite::Result<_>>()
             .map_err(|e| e.to_string())
     }
+
+    /// Apply the reconciliation rules for the sidecars of `dir` on a folder
+    /// open. `sidecars` pairs each listed file with its sidecar's stat, or
+    /// `None` when the folder listing found none.
+    ///
+    /// The sidecar is the source of truth: a sidecar that changed under us is
+    /// read back, never silently overwritten, even when the row is dirty. The
+    /// rules are, per file: a sidecar whose stat differs from the stored one
+    /// is parsed (which is also the first open of a folder Lightroom wrote);
+    /// an unchanged stat costs nothing, which is what keeps the second open of
+    /// a 5000-file folder cheap; a sidecar that is gone while the row is
+    /// clean clears the rating, because the truth is gone with it; and a row
+    /// that is still dirty is left dirty, for `dirty_rows` to hand to the
+    /// writer once the parsed sidecars have been stored.
+    ///
+    /// Returns the sidecars to read and parse outside the lock, each paired
+    /// with the `dirty` flag observed here; their result goes back through
+    /// `store_sidecar_ratings`, which must only apply the "sidecar wins over
+    /// a dirty row" rule to the dirtiness this snapshot actually saw, not to
+    /// a `set_rating` that lands while the lock is released for the parse.
+    pub fn reconcile_sidecars(
+        &mut self,
+        dir: &str,
+        sidecars: &[(String, Option<SidecarStat>)],
+    ) -> Result<Vec<(String, SidecarStat, bool)>, String> {
+        let known: std::collections::HashMap<String, RatingRow> = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT path, xmp_size, xmp_mtime_ns, dirty FROM ratings WHERE dir = ?1")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map(params![dir], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        RatingRow {
+                            stat: (r.get(1)?, r.get(2)?),
+                            dirty: r.get::<_, i64>(3)? != 0,
+                        },
+                    ))
+                })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<rusqlite::Result<_>>()
+                .map_err(|e| e.to_string())?
+        };
+
+        let mut to_parse = Vec::new();
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        for (path, stat) in sidecars {
+            let row = known.get(path);
+            let dirty = row.is_some_and(|r| r.dirty);
+            match stat {
+                Some((sidecar, size, mtime_ns)) => {
+                    if row.map(|r| r.stat) != Some((Some(*size), Some(*mtime_ns))) {
+                        to_parse.push((path.clone(), (sidecar.clone(), *size, *mtime_ns), dirty));
+                    }
+                }
+                None => {
+                    if !dirty && row.is_some_and(|r| r.stat.0.is_some() || r.stat.1.is_some()) {
+                        tx.execute(
+                            "UPDATE ratings SET rating = NULL, xmp_size = NULL,
+                                 xmp_mtime_ns = NULL WHERE path = ?1",
+                            params![path],
+                        )
+                        .map_err(|e| e.to_string())?;
+                    }
+                }
+            }
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(to_parse)
+    }
+
+    /// Store what parsing the sidecars of `dir` found: the rating becomes the
+    /// sidecar's and `dirty` is cleared, since the sidecar wins over an app
+    /// edit that never reached disk.
+    ///
+    /// `rows` carries the `dirty` flag `reconcile_sidecars` observed for each
+    /// path before the lock was released for the parse. The update is
+    /// conditioned on the row's `dirty` still matching that snapshot: a
+    /// `set_rating` landing in that window makes the row dirty when the
+    /// snapshot was not, and such a row is left untouched here rather than
+    /// having its fresh rating and `dirty` flag overwritten by a sidecar read
+    /// taken before the edit.
+    pub fn store_sidecar_ratings(
+        &mut self,
+        dir: &str,
+        rows: &[(String, Option<i8>, i64, i64, bool)],
+    ) -> Result<(), String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        for (path, rating, size, mtime_ns, dirty) in rows {
+            tx.execute(
+                "INSERT INTO ratings (path, dir, rating, xmp_size, xmp_mtime_ns, dirty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 0)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, xmp_size = ?4,
+                     xmp_mtime_ns = ?5, dirty = 0
+                 WHERE dirty = ?6",
+                params![path, dir, rating, size, mtime_ns, *dirty as i64],
+            )
+            .map_err(|e| format!("{path}: {e}"))?;
+        }
+        tx.commit().map_err(|e| e.to_string())
+    }
 }
+
+/// The part of a `ratings` row the folder-open reconciliation looks at: the
+/// stat of the sidecar as the app last saw it, and whether a judgement is
+/// still waiting to be written.
+struct RatingRow {
+    stat: (Option<i64>, Option<i64>),
+    dirty: bool,
+}
+
+/// What one file's sidecar looks like on disk, as seen by the single
+/// directory listing a folder open does.
+pub type SidecarStat = (PathBuf, i64, i64);
 
 /// Extract `files` and write them into `index` in batched transactions,
 /// reporting `(done, total)` through `progress` at most every 100ms and always
