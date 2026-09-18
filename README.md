@@ -5,6 +5,26 @@ mark picks and rejects. Nothing else — no developing, no editing. It never run
 a RAW decoder (LibRaw / rawler); everything comes from the JPEGs already
 embedded in the ARW.
 
+## Supported products
+
+### Cameras
+
+#### Sony
+
+- [x] α7 V
+
+#### Leica
+
+- [ ] M11-P
+
+## Developing software
+
+Which tools read the XMP sidecars Riffle writes; see
+[Ratings and XMP sidecars](#ratings-and-xmp-sidecars).
+
+- [ ] Lightroom
+- [ ] DxO PhotoLab
+
 ## Status
 
 Phase 0.5, Phase 1 (the CLI benchmark), Phase 2 (the app skeleton), Phase 3
