@@ -1,6 +1,5 @@
 :root {
-  /* One colour each for stars, a reject and a pick, shared by the strip cell
-     and the meta pane's sidecar section. */
+  /* One colour each for stars, a reject and a pick in the strip cell. */
   --stars-color: #ffd050;
   --reject-color: #ff6b6b;
   --pick-color: #6bdc8a;
@@ -245,7 +244,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* The judgement badge, in the cell's top-right corner; overrides the name
+/* The stars badge, in the cell's top-right corner; overrides the name
    span's placement above. */
 .cell span.rating {
   top: 2px;
@@ -258,22 +257,25 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
-/* The pick flag, in the cell's top-left corner. */
-.cell span.pick {
+/* The pick or reject dot, in the cell's top-left corner. */
+.cell span.flag {
   top: 2px;
   bottom: auto;
   width: auto;
   font-size: 0.7rem;
-  color: var(--pick-color);
   text-shadow: 0 0 2px #000;
+}
+
+.cell span.flag.pick {
+  color: var(--pick-color);
+}
+
+.cell span.flag.reject {
+  color: var(--reject-color);
 }
 
 .cell.rejected {
   opacity: 0.45;
-}
-
-.cell.rejected span.rating {
-  color: var(--reject-color);
 }
 
 #canvas {
@@ -300,32 +302,6 @@ body {
 
 #meta .note {
   color: #999;
-}
-
-/* The sidecar's contents, set apart from the EXIF rows the app never
-   writes. */
-#meta .sidecar {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #3a3a3a;
-}
-
-/* The padding above is the whole gap under the divider, matching the gap
-   over it. */
-#meta .sidecar dl {
-  margin-top: 0;
-}
-
-#meta dd.stars {
-  color: var(--stars-color);
-}
-
-#meta dd.rejected {
-  color: var(--reject-color);
-}
-
-#meta dd.picked {
-  color: var(--pick-color);
 }
 
 #meta dl {

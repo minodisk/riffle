@@ -207,12 +207,6 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-// The reject mark and stars, the same text as the strip cell's badge in
-// `strip.ts` (`paintRating`).
-function ratingText(rating: number): string {
-  return rating === -1 ? "\u2715" : "\u2605".repeat(rating);
-}
-
 function row(
   list: HTMLDListElement,
   label: string,
@@ -240,8 +234,7 @@ function line(className: string, text: string): HTMLDivElement {
 }
 
 // Redraw the right pane: the current file's name, its shooting settings,
-// any note (an error, the scan's progress, the opening hint), and last its
-// sidecar section. Also refreshes the strip pane's `N / M` counter.
+// and any note (an error, the scan's progress, the opening hint). Also refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
   positionEl.textContent =
     files.length > 0 ? `${index + 1} / ${files.length}` : "";
@@ -275,29 +268,6 @@ function renderMeta(): void {
   if (zoomed) {
     metaEl.append(line("note", "1:1"));
   }
-  if (files.length > 0) {
-    metaEl.append(sidecarSection(files[index]));
-  }
-}
-
-// What the XMP sidecar holds, apart from the EXIF rows above (which the app
-// never writes).
-function sidecarSection(path: string): HTMLElement {
-  const section = document.createElement("section");
-  section.className = "sidecar";
-  const list = document.createElement("dl");
-  const rating = ratings.get(path);
-  row(
-    list,
-    "Rating",
-    rating === undefined ? "\u2013" : ratingText(rating),
-    rating === undefined ? undefined : rating === -1 ? "rejected" : "stars",
-  );
-  if (picks.has(path)) {
-    row(list, "Pick", "\u2691", "picked");
-  }
-  section.append(list);
-  return section;
 }
 
 // Hand the open folder to DxO PhotoLab for developing.
