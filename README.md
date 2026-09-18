@@ -321,6 +321,10 @@ Both tasks run `pnpm install` first. `app:release` also passes
 in a debug build, so without it there is no console to read the timings from. A
 distributable build leaves the feature off.
 
+Both tasks also get a **Debug** menu, which a distributable build does not have.
+Its `Timing logs` item turns on the 1:1 view's keypress → invoke → bitmap
+timings, logged to the console; it starts unchecked on every launch.
+
 ## Measurements (Apple Silicon Mac, α7 V ARW, n=20)
 
 | Step | Target | Measured (median) |

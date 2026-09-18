@@ -4,6 +4,40 @@ mod commands;
 mod index;
 mod sidecar;
 
+// The Debug menu exists only in a development build; a distributable build
+// leaves the `devtools` feature off and drops it entirely.
+#[cfg(any(feature = "devtools", debug_assertions))]
+mod debug_menu {
+    use tauri::menu::{CheckMenuItem, Menu, MenuEvent, Submenu};
+    use tauri::{AppHandle, Emitter, Manager, Wry};
+
+    const TIMING_ID: &str = "debug-timing";
+
+    /// Holds the item so the event handler can read back the checked state
+    /// the platform toggled for us.
+    struct TimingItem(CheckMenuItem<Wry>);
+
+    pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
+        // The default menu carries the platform's standard items (Quit, Copy,
+        // ...), which setting a menu at all would otherwise replace.
+        let menu = Menu::default(handle)?;
+        let timing =
+            CheckMenuItem::with_id(handle, TIMING_ID, "Timing logs", true, false, None::<&str>)?;
+        let debug = Submenu::with_items(handle, "Debug", true, &[&timing])?;
+        menu.append(&debug)?;
+        handle.manage(TimingItem(timing));
+        Ok(menu)
+    }
+
+    pub fn on_event(app: &AppHandle, event: MenuEvent) {
+        if event.id() != TIMING_ID {
+            return;
+        }
+        let checked = app.state::<TimingItem>().0.is_checked().unwrap_or(false);
+        let _ = app.emit("debug", checked);
+    }
+}
+
 use std::sync::{Arc, Mutex};
 
 use tauri::{Emitter, Manager, RunEvent};
@@ -22,8 +56,12 @@ fn ping() -> String {
 }
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    #[cfg(any(feature = "devtools", debug_assertions))]
+    let builder = builder
+        .menu(debug_menu::build)
+        .on_menu_event(debug_menu::on_event);
+    builder
         .setup(|app| {
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
