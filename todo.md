@@ -62,6 +62,23 @@ The `git:main` task runs `git fetch origin main` then `git checkout --detach ori
 - [ ] Have `mise run git:main` fast-forward the local `main` branch as well as pointing HEAD at `origin/main` (or stop implying it updates `main`).
 - [ ] Correct `merger`'s post-merge report so it does not claim the local `main` branch moved when only HEAD did. Path: `.claude/agents/merger.md`.
 
+### Tooling: `merger`'s branch cleanup can delete the next step's freshly cut branch
+
+A duplicate `MERGED` notification for a step can arrive after the next step's
+branch has already been cut. `tools/git/delete_merged_branches.sh`, re-run on the
+second arrival, then deletes that next branch out from under a running
+`implementer` (seen during `ratings-xmp-sidecars` Step 4; the commit survived on
+a detached HEAD and the branch was recreated by hand). The caller worked around
+it from Step 4 on by telling `merger` to skip cleanup for step branches within a
+plan.
+
+#### TODO
+
+- [ ] De-duplicate the repeated `MERGED` notification, or make
+  `delete_merged_branches.sh` idempotent against a repeat, or have
+  `.claude/skills/develop/SKILL.md`'s merge section default to skipping cleanup
+  for in-plan step branches.
+
 ## Cross-cutting / other
 
 ### App: unmeasured end-to-end per-page latency
@@ -184,3 +201,83 @@ Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second 
 #### TODO
 
 - [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers.
+
+### Core: `xmp_prefix` can rebind a namespace prefix already used for something else
+
+In `crates/core/src/xmp.rs`, if a sidecar binds the `xmp` prefix to some namespace
+other than `http://ns.adobe.com/xap/1.0/` and binds no prefix at all to that XMP
+namespace, `xmp_prefix` declares `xmlns:xmp` on the `rdf:Description` anyway, which
+rebinds the prefix for the tag's other attributes. No real-world producer does this;
+handling it would need a generated prefix. Noted while implementing Phase 6 Step 2.
+
+#### TODO
+
+- [ ] Detect a colliding `xmp:` binding and fall back to a generated prefix (or the
+  `xap:` alternative) instead of overwriting it.
+
+### App: a failed sidecar write is never retried until the folder is reopened
+
+`crates/app/src/sidecar.rs`'s writer leaves a row `dirty` and reports a
+`sidecar-error` event on a failed write (e.g. a read-only directory), but
+schedules no retry of its own; the write is only attempted again the next time
+the folder is opened (Phase 6 decision 3). Acceptable for now, but worth
+revisiting if a locked/read-only sidecar target (an SD card, a locked share)
+turns out to be common.
+
+#### TODO
+
+- [ ] Consider a bounded retry (e.g. on a timer, or on the next `set_rating`
+  for that path) rather than requiring a folder reopen.
+
+### App: an unparseable or oversize sidecar fails silently on folder open
+
+`reconcile_sidecars_of` in `crates/app/src/commands.rs` drops the `Err` for a
+sidecar another tool corrupted or that exceeds the read bound, so the file shows
+no rating and no reason. Reporting it needs a count or event the frontend can
+show (`crates/app/ui/src/main.ts`); out of scope for Phase 6 Step 4.
+
+#### TODO
+
+- [ ] Surface unparseable/oversize sidecars to the status line, e.g. via a count
+  in the `scan-done` payload or a dedicated event.
+
+### App: folder open lists the directory twice (ARWs, then sidecars)
+
+`scan_folder` calls `list_arw_in` and then a separate `list_sidecars_in` pass over
+the same directory (`crates/app/src/commands.rs`). One listing that returns both
+ARW and sidecar entries would halve that part of a folder open. Not done in Phase
+6 Step 4 because `list_arw_in` is shared with callers that do not want sidecars.
+
+#### TODO
+
+- [ ] Fold sidecar discovery into a single directory listing shared with ARW
+  discovery, without changing behaviour for callers that only want ARWs.
+
+### App: a `sidecar-error` event can be missed under key-mashing
+
+A `sidecar-error` event (`crates/app/ui/src/main.ts`) overwrites whatever note is
+in the status line and is cleared by the next page turn. Phase 6 Step 5's "shows
+its message once in the status line" is met literally, but `note`/`setStatus` is a
+single transient slot, so an error raised while the user is mashing rating/paging
+keys can go unseen. A dedicated, sticky error area would be a UI change beyond
+that step.
+
+#### TODO
+
+- [ ] Give sidecar errors a sticky, dismissible display distinct from the
+  transient status note.
+
+### Docs: consider a `docs/agents/core.md` guide for `crates/core`
+
+Phase 6 Step 2 found several non-obvious `quick-xml` 0.42 facts specific to
+`crates/core/src/xmp.rs` (only per-event byte offsets, no attribute-level offset,
+so the attribute form of `xmp:Rating` is patched by scanning the start tag's own
+range; prefix choice goes through `reader.resolver()`; `xmp:Rating="0"` is a legal
+value, not absence). Only this feature has touched that code so far, so no guide
+exists yet (compare `docs/agents/tauri-app.md`'s Hit/Measured/Inferred format).
+
+#### TODO
+
+- [ ] When the next feature touches `crates/core`'s XML handling, create
+  `docs/agents/core.md` capturing these facts, or judge it unnecessary and drop
+  this item.
