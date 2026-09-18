@@ -145,6 +145,18 @@ the sibling `ui/` is `"frontendDist": "ui"`.
 - What broke: the plan's `"../ui"` pointed at `crates/ui`, and
   `tauri::generate_context!()` failed the build because the path did not exist.
 
+### Enabling the updater plugin pulls in `serde_json` at compile time (Hit)
+
+Adding a `plugins.updater` block to `tauri.conf.json` makes
+`tauri::generate_context!()` expand to code that references `serde_json`
+directly, so `crates/app` needs it as a direct dependency or the build fails
+with "could not find `serde_json` in the list of imported crates".
+
+- Why: the generated context code assumes the crate already depends on
+  `serde_json`; Tauri's own transitive dependency does not satisfy that.
+- Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
+  Step 1.
+
 ## Frontend (`crates/app/ui`, `tsc` only, no bundler)
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
@@ -214,6 +226,41 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 Cache the output of `pnpm store path --silent` (see `.github/workflows/`).
 
 - Why: the store location differs per OS.
+
+### `tauri-action@v0` has no `uploadWorkflowArtifacts` input (Hit)
+
+Setting it silently produces zero build artifacts (the run logs "Unexpected
+input(s) 'uploadWorkflowArtifacts'" and continues). Upload bundles explicitly
+with a separate `actions/upload-artifact@v4` step over
+`target/release/bundle/**` instead of relying on the action to do it.
+
+- Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
+  Steps 2 and 4.
+
+### Cache Rust builds by `matrix.os`, not `runner.os` (Hit)
+
+`macos-latest` (arm64) and `macos-15-intel` (x86_64) both report
+`runner.os == macOS`; a cache key built from `runner.os` would let them
+restore each other's `target`, which is wrong across architectures. Key on
+`matrix.os` instead.
+
+### release-please: the `rust` strategy fails on a workspace root with no `[package]` (Hit)
+
+`release-please release-pr --dry-run --release-type rust` (v17.9.0) aborts
+with `is not a package manifest (might be a cargo workspace)`, because
+`CargoToml.updateContent` tries to update the root `Cargo.toml` as a package
+even when it only declares `[workspace]`. Use `simple` with `extra-files`
+pointing at each crate's `Cargo.toml` instead.
+
+- For a `Cargo.lock` extra-file, `$.package[?(@.source === undefined)].version`
+  is the working JSONPath discriminator for "this workspace's own crates" —
+  equality on `@.name` matches nothing, and `startsWith`/`match` are rejected
+  by jsonpath-plus's safe evaluator.
+- `release-pr --dry-run` reads `release-please-config.json` from the **remote**
+  branch, not the local working tree, so testing a not-yet-merged config needs
+  a scratch clone/bare-repo setup with the config pushed to its `main`.
+- Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
+  Step 4.
 
 ## Verification
 
