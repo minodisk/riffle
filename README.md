@@ -30,9 +30,10 @@ See [Running the app](#running-the-app).
 
 Releases are published on the
 [Releases page](https://github.com/minodisk/riffle/releases); see
-[Installing](#installing). The release pipeline is in place, but no release
-has been published and installed yet, so the install and update paths below
-are **awaiting the user's confirmation**.
+[Installing](#installing); the first one is
+[v0.1.0](https://github.com/minodisk/riffle/releases/tag/v0.1.0). Updating an
+installed build to a newer release is **awaiting the user's confirmation**: it
+needs a second release to check.
 
 Keys:
 
@@ -492,8 +493,8 @@ Download the installer for your OS from the latest release on the
 |----|------|
 | macOS, Apple Silicon | `Riffle_<version>_aarch64.dmg` |
 | macOS, Intel | `Riffle_<version>_x64.dmg` |
-| Windows | `Riffle_<version>_x64-setup.exe` (or the `.msi`) |
-| Linux | `Riffle_<version>_amd64.AppImage` (or the `.deb` / `.rpm`) |
+| Windows | `Riffle_<version>_x64-setup.exe` (or `Riffle_<version>_x64_en-US.msi`) |
+| Linux | `Riffle_<version>_amd64.AppImage` (or `Riffle_<version>_amd64.deb` / `Riffle-<version>-1.x86_64.rpm`) |
 
 The builds are not OS-signed (no Apple notarization, no Authenticode), so the
 first launch needs one extra step:
@@ -508,7 +509,9 @@ Updating: the app checks for a newer release on launch and, when there is one,
 shows a line offering to install it. The update itself is signed with the
 project's updater key and verified before it is installed. On Linux only the
 AppImage updates itself; a `.deb` / `.rpm` install is updated by installing the
-newer package.
+newer package. **Awaiting the user's confirmation**: an installed build
+detecting and installing a newer release has not been checked yet; it needs a
+second release.
 
 ## Running the app
 
@@ -539,7 +542,7 @@ Both tasks run `pnpm install` first. `tauri:release:devtools` also passes
 in a debug build, so without it there is no console to read the timings from. A
 distributable build leaves the feature off.
 
-`mise run app` and `mise run app:release` need no signing key. A
+`mise run tauri:dev` and `mise run tauri:release:devtools` need no signing key. A
 `pnpm tauri build` does: it creates the updater artifacts, which are signed
 with `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), so
 the build fails without them.

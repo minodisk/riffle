@@ -209,7 +209,7 @@ available / install it", no crates.io publishing of `riffle-core` /
     - Only verifiable after merge: the release PR opening; the upload of four
       installers plus `latest.json` (Step 5)
 
-- [ ] Step 5: Document installing, updating and the unsigned-build consequences; verify the first release
+- [x] Step 5: Document installing, updating and the unsigned-build consequences; verify the first release
   - Done when:
     - `README.md` gains an "Installing" section: where the installers are
       (Releases page), which file per OS, and the consequences of unsigned
@@ -252,7 +252,14 @@ available / install it", no crates.io publishing of `riffle-core` /
     uploads installers for all three OSes plus `latest.json` with the four
     platform entries and signatures, the update-path check (needs a second
     release), and removing `release-as`. Those are recorded in `learnings.md`
-    as they happen; the checkbox stays unchecked until then
+    as they happen
+  - Status (after v0.1.0): done except the update-path check. The user merged
+    the release PR (#57, c1ed0fc); v0.1.0 has installers for all three OSes
+    plus `latest.json` with signed entries (see `learnings.md`); `release-as`
+    is removed from `release-please-config.json`; README file names match the
+    release. **Not verified — needs the second release:** an installed older
+    build showing the update line and installing the newer release (tracked
+    in `learnings.md` deferred issues)
 
 ## Trade-offs and risks
 
@@ -281,3 +288,4 @@ available / install it", no crates.io publishing of `riffle-core` /
 - (2026-09-18) Step 2 complete
 - (2026-09-18) Step 3 complete
 - (2026-09-18) Step 4 complete
+- (2026-09-18) Step 5 complete
