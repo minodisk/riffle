@@ -27,3 +27,15 @@
 - `reset_shortcuts` cannot fail, so it returns `Vec<Binding>` directly.
 - `update_keymap` holds the `AppKeymap` lock across the store write so two
   quick rebinds cannot persist out of order.
+
+## Step 4
+
+- The panel logic lives in `main.ts` next to `applyKeymap`; the global
+  `keydown` handler hands every key to `shortcutsKeydown` while the panel is
+  open. Bare modifier keys (`shift`, `meta`, ...) are ignored during capture so
+  pressing Shift does not bind `shift`. `Escape` cancels a capture, or closes
+  the panel when nothing is capturing.
+- `reset_shortcut` rejections go through the same status line as rejected
+  rebinds (`updateShortcuts` handles every command).
+- The `Settings` submenu is added in `app_menu::build` right after `Folder`,
+  so `Sidecar` (appended later in `build_menu`) now sits after `Settings`.

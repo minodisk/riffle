@@ -150,7 +150,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
       `remember_folder` makes synchronously; follow it unless review asks
       for `async`.
 
-- [ ] Step 4: Menu item and the Keyboard Shortcuts panel
+- [x] Step 4: Menu item and the Keyboard Shortcuts panel
   - Done when:
     - A `Settings` submenu with a `Keyboard Shortcuts...` item (accelerator
       `CmdOrCtrl+,`) exists in all builds, built in `app_menu::build` like
@@ -249,3 +249,4 @@ reserved `p` and persistence round-trips.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete
+- (2026-09-19) Step 4 complete (GUI confirmation pending the user)

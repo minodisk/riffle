@@ -42,6 +42,7 @@ mod app_menu {
     use tauri::{AppHandle, Emitter, Wry};
 
     const PHOTOLAB_ID: &str = "open-in-photolab";
+    const SHORTCUTS_ID: &str = "open-shortcuts";
 
     pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
         // The default menu carries the platform's standard items (Quit, Copy,
@@ -56,6 +57,15 @@ mod app_menu {
         )?;
         let folder = Submenu::with_items(handle, "Folder", true, &[&photolab])?;
         menu.append(&folder)?;
+        let shortcuts = MenuItem::with_id(
+            handle,
+            SHORTCUTS_ID,
+            "Keyboard Shortcuts...",
+            true,
+            Some("CmdOrCtrl+,"),
+        )?;
+        let settings = Submenu::with_items(handle, "Settings", true, &[&shortcuts])?;
+        menu.append(&settings)?;
         #[cfg(any(feature = "devtools", debug_assertions))]
         super::debug_menu::append(handle, &menu)?;
         Ok(menu)
@@ -65,6 +75,9 @@ mod app_menu {
         // The frontend owns which folder is open, so it does the invoking.
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
+        }
+        if event.id() == SHORTCUTS_ID {
+            let _ = app.emit("open-shortcuts", ());
         }
         #[cfg(any(feature = "devtools", debug_assertions))]
         super::debug_menu::on_event(app, &event);
