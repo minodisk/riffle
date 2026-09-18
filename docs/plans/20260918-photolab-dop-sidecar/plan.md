@@ -46,7 +46,7 @@ reject, 0003 three stars, 0004 red colour label, 0005 three stars then back to
 `ColorLabel = "Red"` (absent when there is no label). Line endings are LF with
 a single CRLF on the last line.
 
-Model mapping (Riffle has no pick or colour label):
+Model mapping (Riffle has no colour label; pick is added in Step 4):
 
 - Read: `ShouldProcess = 1` reads as a reject (`-1`), regardless of `Rating`;
   otherwise `Rating` `1`-`5` reads as stars and `Rating = 0` as `Some(0)`
@@ -138,17 +138,25 @@ Model mapping (Riffle has no pick or colour label):
       trimmed ones. Strip nothing else from the full copy; the UUIDs and
       dates in it are not sensitive.
 
-- [ ] Step 2: App: write and reconcile the selected format
+- [x] Step 2: App: write and reconcile the selected format
   - Done when:
     - A `SidecarFormat { Xmp, Dop }` enum in `crates/app/src/sidecar.rs`
       dispatches `sidecar_path`, `read_rating`, `write_rating` and the file
       name match used by the folder listing (`.xmp` by extension; `.dop` by
       the `.arw.dop` suffix, both case-insensitive).
-    - The format is read at startup from `app_config_dir()/sidecar_format`
-      (contents `xmp` or `dop`; missing or unknown means `Xmp`), held in
-      managed state, and used by `sidecar::write` and by
-      `reconcile_sidecars_of`. There is no UI yet; the file is edited by hand
-      to test. A format is carried with each `Writer::set` / `set_now` (in
+    - Settings move to `tauri-plugin-store` (user decision, 2026-09-18: more
+      settings are coming, including a configurable keymap later). One store
+      file (e.g. `settings.json` in the app config dir) holds
+      `sidecarFormat` (`"xmp"` or `"dop"`; missing or unknown means `Xmp`)
+      and `lastFolder`. The existing `last_folder` plain file is migrated
+      once: if the store has no `lastFolder` and the old file exists, its
+      value is copied in and the old file removed; existing `last_folder`
+      tests are ported. The plugin is registered in `main.rs`, and the
+      capability grants only what the app uses (the frontend does not need
+      store access in this step). The format is read at startup from the
+      store, held in managed state, and used by `sidecar::write` and by
+      `reconcile_sidecars_of`. There is no UI yet; the store file is edited
+      by hand to test. A format is carried with each `Writer::set` / `set_now` (in
       `Message::Set` and the `Pending` map) rather than read by the thread,
       so a judgement is written in the format selected when it was made.
     - Every existing sidecar test in `sidecar.rs` and `commands.rs` still
@@ -159,20 +167,8 @@ Model mapping (Riffle has no pick or colour label):
       reading a PhotoLab-made reject and rating on the first open, a
       `.DOP`/`.ARW.DOP` differing only in case being the one that is read and
       patched, and the oversize (`MAX_SIDECAR_BYTES`) rule.
-    - **(manual)** With `sidecar_format` set to `dop`: the user rates and
-      rejects files in Riffle, then opens the folder in PhotoLab 10 and
-      confirms (a) the folder opens without a sidecar error, (b) a rating and
-      a reject set in Riffle on a file that already had a PhotoLab `.dop`
-      show in PhotoLab, (c) a rating set in Riffle on a file that had **no**
-      `.dop` (the minimal template) shows in PhotoLab, and (d) after PhotoLab
-      changes a rating, reopening the folder in Riffle shows PhotoLab's
-      value. If (c) fails, the fallback is a template that also carries the
-      sample's `Settings` block (the `_DSC0004` fixture minus the per-file
-      keys) as a constant; record which shape PhotoLab accepted in
-      `learnings.md`. If (b) fails only for files PhotoLab already knew
-      (PhotoLab preferring its database over the sidecar), that is a PhotoLab
-      preference ("sidecar: load settings automatically") and is documented,
-      not fixed here.
+    - The PhotoLab manual check moved to Step 5 (user decision, 2026-09-18:
+      check everything once, after pick lands).
     - `mise run ci` passes.
   - Implementation approach:
     - Keep `list_sidecars_in` as one directory listing; it takes the format
@@ -184,9 +180,9 @@ Model mapping (Riffle has no pick or colour label):
       "the selected format's sidecar", say so in the `ratings` table comment
       in `index.rs`; renaming would need a `SCHEMA_VERSION` bump that drops
       dirty rows.
-    - Reading the preference: a function next to `last_folder_file` in
-      `commands.rs`, same style (config dir, plain file, a failure logs and
-      falls back to `Xmp`). The state type lives with `AppWriter` /
+    - Reading the preference: through the store (`StoreExt::store`), replacing
+      the plain-file helpers around `last_folder_file` in `commands.rs`; a
+      read failure logs and falls back to `Xmp`. The state type lives with `AppWriter` /
       `AppIndex` (`pub struct AppSidecarFormat(Mutex<SidecarFormat>)` or an
       atomic).
     - Do not touch the frontend in this step.
@@ -198,7 +194,7 @@ Model mapping (Riffle has no pick or colour label):
       reflecting the persisted value at launch. Choosing the other item
       switches the format.
     - Switching: drains the writer (`flush(DRAIN_TIMEOUT)`), persists the new
-      value to `sidecar_format`, updates the managed state, resets the index
+      value to the store's `sidecarFormat`, updates the managed state, resets the index
       (`DELETE FROM ratings WHERE dirty = 0`; `UPDATE ratings SET xmp_size =
       NULL, xmp_mtime_ns = NULL WHERE dirty = 1`), then emits a
       `sidecar-format` event with the new value. Dirty rows survive on
@@ -233,8 +229,48 @@ Model mapping (Riffle has no pick or colour label):
       pane's sidecar section if that is where the user would look; do not
       add a settings dialog.
 
-- [ ] Step 4: Documentation and the user's confirmations
+- [ ] Step 4: Pick flag (`.dop` only)
+  - User decisions (2026-09-18): `p` picks the current file; a reject is
+    replaced by the pick and vice versa (`x` on a picked file rejects it);
+    `u` clears a pick as well as a reject; `0` clears the rating and, as
+    today, the reject, and leaves a pick alone. Pick exists only while `.dop`
+    is selected: XMP has no standard pick field, so with XMP selected `p`
+    does nothing (no custom XMP property, no index-only pick).
   - Done when:
+    - Riffle's judgement model carries the pick separately from the stars
+      (pick and stars coexist, as `ShouldProcess = 0` and `Rating` do in
+      `.dop`); the index stores it (schema change handled per the existing
+      `SCHEMA_VERSION` rules, without dropping dirty rows silently).
+    - `dop::read_*` reports `ShouldProcess = 0` as a pick and `dop` writing
+      sets `ShouldProcess` 0/1/2 from pick/reject/neither; a Riffle write
+      never clears a pick it did not mean to clear.
+    - The frontend: `p` key, a pick badge on the strip cell and in the meta
+      pane's sidecar section, and the README key table. With XMP selected,
+      `p` is a no-op.
+    - Unit tests: pick round trip on the fixtures (0001 reads as picked),
+      pick replacing a reject and back, `u` clearing a pick, `0` keeping it,
+      and XMP ignoring pick.
+    - `mise run ci` passes.
+    - The PhotoLab manual check for pick is in Step 5.
+
+- [ ] Step 5: Documentation and the user's confirmations
+  - Done when:
+    - **(manual)** With `sidecarFormat` set to `dop` in the store: the user rates and
+      rejects files in Riffle, then opens the folder in PhotoLab 10 and
+      confirms (a) the folder opens without a sidecar error, (b) a rating and
+      a reject set in Riffle on a file that already had a PhotoLab `.dop`
+      show in PhotoLab, (c) a rating set in Riffle on a file that had **no**
+      `.dop` (the minimal template) shows in PhotoLab, and (d) after PhotoLab
+      changes a rating, reopening the folder in Riffle shows PhotoLab's
+      value. If (c) fails, the fallback is a template that also carries the
+      sample's `Settings` block (the `_DSC0004` fixture minus the per-file
+      keys) as a constant; record which shape PhotoLab accepted in
+      `learnings.md`. If (b) fails only for files PhotoLab already knew
+      (PhotoLab preferring its database over the sidecar), that is a PhotoLab
+      preference ("sidecar: load settings automatically") and is documented,
+      not fixed here.
+    - **(manual)** A pick set in Riffle shows as a pick in PhotoLab, and a
+      pick set in PhotoLab shows in Riffle.
     - `README.md`: the "Ratings and XMP sidecars" section is renamed to cover
       both formats and documents the setting (menu, default XMP, one format
       at a time, what a switch does to the index and to unwritten
@@ -242,7 +278,7 @@ Model mapping (Riffle has no pick or colour label):
       pick preserved, `ColorLabel` untouched, the two timestamps updated),
       the minimal template and which shape PhotoLab accepted, and the
       "confirmed / verified without a GUI / awaiting confirmation" split
-      records the Step 2 manual results, including the PhotoLab
+      records the manual results, including the PhotoLab
       database-versus-sidecar caveat if hit. The "Status" paragraph mentions
       `.dop`.
     - `CLAUDE.md` "Layout" mentions `crates/core/src/dop.rs` and the setting.
@@ -336,3 +372,4 @@ PhotoLab agrees.
 ## Progress
 
 - (2026-09-18) Step 1 complete
+- (2026-09-18) Step 2 complete (PhotoLab manual check deferred to Step 5)

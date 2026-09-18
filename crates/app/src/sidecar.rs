@@ -1,4 +1,5 @@
-//! The single writer thread that turns judgements into XMP sidecars.
+//! The single writer thread that turns judgements into sidecars, in the
+//! format selected by the `sidecarFormat` setting (XMP or DxO PhotoLab `.dop`).
 //!
 //! A keypress must never wait on disk, so `set_rating` only writes the
 //! `ratings` row and hands the judgement to this thread. Entries are
@@ -14,11 +15,74 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use riffle_core::xmp;
+use riffle_core::{dop, xmp};
 
 use crate::index::{lock, Index};
+
+/// Which sidecar Riffle reads and writes. One format at a time: the other
+/// one's files are neither read nor written.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SidecarFormat {
+    #[default]
+    Xmp,
+    Dop,
+}
+
+impl SidecarFormat {
+    /// The format a stored `sidecarFormat` value names; anything but `"dop"`
+    /// (missing, unknown) is `Xmp`.
+    pub fn from_setting(value: Option<&str>) -> Self {
+        match value {
+            Some("dop") => Self::Dop,
+            _ => Self::Xmp,
+        }
+    }
+
+    pub fn sidecar_path(self, arw: &Path) -> PathBuf {
+        match self {
+            Self::Xmp => xmp::sidecar_path(arw),
+            Self::Dop => dop::sidecar_path(arw),
+        }
+    }
+
+    pub fn read_rating(self, bytes: &[u8]) -> Result<Option<i8>, String> {
+        match self {
+            Self::Xmp => xmp::read_rating(bytes),
+            Self::Dop => dop::read_rating(bytes),
+        }
+    }
+
+    /// The sidecar bytes of `arw` carrying `rating`, patched from `existing`
+    /// or freshly minted.
+    pub fn write_rating(
+        self,
+        arw: &Path,
+        existing: Option<&[u8]>,
+        rating: Option<i8>,
+    ) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Xmp => xmp::write_rating(existing, rating),
+            Self::Dop => {
+                let name = arw
+                    .file_name()
+                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                dop::write_rating(existing, rating, &name, &dop::timestamp(SystemTime::now()))
+            }
+        }
+    }
+
+    /// Whether a directory entry named `name` is a sidecar of this format:
+    /// `*.xmp`, or `*.arw.dop`, both case-insensitive.
+    pub fn matches(self, name: &str) -> bool {
+        let name = name.to_ascii_lowercase();
+        match self {
+            Self::Xmp => Path::new(&name).extension().is_some_and(|x| x == "xmp"),
+            Self::Dop => name.ends_with(".arw.dop"),
+        }
+    }
+}
 
 /// How long a path's last update is held before its sidecar is written.
 pub const DEBOUNCE: Duration = Duration::from_millis(300);
@@ -34,6 +98,7 @@ enum Message {
     Set {
         path: PathBuf,
         rating: Option<i8>,
+        format: SidecarFormat,
         deadline: Instant,
     },
     /// Write everything pending now and answer on the channel.
@@ -61,22 +126,39 @@ impl Writer {
 
     /// Queue one judgement, to be written `DEBOUNCE` after the last update of
     /// that path. Fails only once the thread is gone.
-    pub fn set(&self, path: PathBuf, rating: Option<i8>) -> Result<(), String> {
-        self.send(path, rating, Instant::now() + DEBOUNCE)
+    pub fn set(
+        &self,
+        path: PathBuf,
+        rating: Option<i8>,
+        format: SidecarFormat,
+    ) -> Result<(), String> {
+        self.send(path, rating, format, Instant::now() + DEBOUNCE)
     }
 
     /// Queue one judgement with no debounce, for the dirty rows a folder open
     /// finds: they were queued in an earlier session and have waited long
     /// enough already.
-    pub fn set_now(&self, path: PathBuf, rating: Option<i8>) -> Result<(), String> {
-        self.send(path, rating, Instant::now())
+    pub fn set_now(
+        &self,
+        path: PathBuf,
+        rating: Option<i8>,
+        format: SidecarFormat,
+    ) -> Result<(), String> {
+        self.send(path, rating, format, Instant::now())
     }
 
-    fn send(&self, path: PathBuf, rating: Option<i8>, deadline: Instant) -> Result<(), String> {
+    fn send(
+        &self,
+        path: PathBuf,
+        rating: Option<i8>,
+        format: SidecarFormat,
+        deadline: Instant,
+    ) -> Result<(), String> {
         lock(&self.tx)
             .send(Message::Set {
                 path,
                 rating,
+                format,
                 deadline,
             })
             .map_err(|_| "the sidecar writer is not running".to_string())
@@ -101,7 +183,7 @@ where
     loop {
         let wait = pending
             .values()
-            .map(|(_, deadline)| deadline.saturating_duration_since(Instant::now()))
+            .map(|(_, _, deadline)| deadline.saturating_duration_since(Instant::now()))
             .min();
         let message = match wait {
             Some(wait) => rx.recv_timeout(wait),
@@ -111,9 +193,10 @@ where
             Ok(Message::Set {
                 path,
                 rating,
+                format,
                 deadline,
             }) => {
-                pending.insert(path, (rating, deadline));
+                pending.insert(path, (rating, format, deadline));
             }
             Ok(Message::Flush(reply)) => {
                 flush(&mut pending, None, &index, &on_error);
@@ -130,8 +213,9 @@ where
     }
 }
 
-/// The judgement queued per path, each with the instant its sidecar is due.
-type Pending = std::collections::HashMap<PathBuf, (Option<i8>, Instant)>;
+/// The judgement queued per path, each with the format selected when it was
+/// made and the instant its sidecar is due.
+type Pending = std::collections::HashMap<PathBuf, (Option<i8>, SidecarFormat, Instant)>;
 
 /// Write the entries whose deadline has passed by `now`, or all of them when
 /// `now` is `None`.
@@ -141,12 +225,12 @@ where
 {
     let due: Vec<PathBuf> = pending
         .iter()
-        .filter(|(_, (_, deadline))| now.is_none_or(|now| now >= *deadline))
+        .filter(|(_, (_, _, deadline))| now.is_none_or(|now| now >= *deadline))
         .map(|(path, _)| path.clone())
         .collect();
     for path in due {
-        let (rating, _) = pending.remove(&path).expect("just listed");
-        match write(&path, rating) {
+        let (rating, format, _) = pending.remove(&path).expect("just listed");
+        match write(&path, rating, format) {
             Ok(stat) => {
                 if let Err(e) = lock(index).mark_written(&path.to_string_lossy(), rating, stat) {
                     on_error(&path, &e);
@@ -159,8 +243,8 @@ where
 
 /// The sidecar of `arw` as it exists on disk, preferring a name that differs
 /// only in case (`FOO.XMP`) over the one `sidecar_path` would mint.
-fn existing_sidecar(arw: &Path) -> Option<PathBuf> {
-    let wanted = xmp::sidecar_path(arw);
+fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<PathBuf> {
+    let wanted = format.sidecar_path(arw);
     if wanted.exists() {
         return Some(wanted);
     }
@@ -179,19 +263,26 @@ fn existing_sidecar(arw: &Path) -> Option<PathBuf> {
 /// Write one file's sidecar, returning its `(size, mtime_ns)`, or `None` when
 /// there is nothing to write: clearing a rating on a file that has no sidecar
 /// must not litter the folder with an empty one.
-fn write(arw: &Path, rating: Option<i8>) -> Result<Option<(i64, i64)>, String> {
-    let existing = existing_sidecar(arw);
+fn write(
+    arw: &Path,
+    rating: Option<i8>,
+    format: SidecarFormat,
+) -> Result<Option<(i64, i64)>, String> {
+    let existing = existing_sidecar(arw, format);
     let (target, bytes) = match existing {
         None => {
             if rating.is_none() {
                 return Ok(None);
             }
-            (xmp::sidecar_path(arw), xmp::write_rating(None, rating)?)
+            (
+                format.sidecar_path(arw),
+                format.write_rating(arw, None, rating)?,
+            )
         }
         Some(target) => {
             let current =
                 std::fs::read(&target).map_err(|e| format!("{}: {e}", target.display()))?;
-            let bytes = xmp::write_rating(Some(&current), rating)?;
+            let bytes = format.write_rating(arw, Some(&current), rating)?;
             (target, bytes)
         }
     };
@@ -305,7 +396,9 @@ mod tests {
             lock(&index)
                 .set_rating("d", &path.to_string_lossy(), Some(rating))
                 .unwrap();
-            writer.set(path.clone(), Some(rating)).unwrap();
+            writer
+                .set(path.clone(), Some(rating), SidecarFormat::Xmp)
+                .unwrap();
         }
 
         let sidecar = xmp::sidecar_path(&path);
@@ -343,7 +436,9 @@ mod tests {
         lock(&index)
             .set_rating("d", &path.to_string_lossy(), Some(5))
             .unwrap();
-        writer.set(path.clone(), Some(5)).unwrap();
+        writer
+            .set(path.clone(), Some(5), SidecarFormat::Xmp)
+            .unwrap();
 
         assert!(eventually(
             || std::fs::read_to_string(&sidecar).unwrap() == lightroom_sidecar(5)
@@ -368,7 +463,9 @@ mod tests {
         // against DEBOUNCE itself made this fail on CI, where the write alone
         // can take longer than 300ms.
         let deadline = Instant::now() + Duration::from_secs(30);
-        writer.send(path.clone(), Some(-1), deadline).unwrap();
+        writer
+            .send(path.clone(), Some(-1), SidecarFormat::Xmp, deadline)
+            .unwrap();
         let started = Instant::now();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -393,7 +490,7 @@ mod tests {
         lock(&index)
             .set_rating("d", &path.to_string_lossy(), None)
             .unwrap();
-        writer.set(path.clone(), None).unwrap();
+        writer.set(path.clone(), None, SidecarFormat::Xmp).unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
         assert!(!xmp::sidecar_path(&path).exists());
@@ -419,7 +516,9 @@ mod tests {
         lock(&index)
             .set_rating("d", &path.to_string_lossy(), Some(4))
             .unwrap();
-        writer.set(path.clone(), Some(4)).unwrap();
+        writer
+            .set(path.clone(), Some(4), SidecarFormat::Xmp)
+            .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
         let dirty = lock(&index).dirty_rows("d").unwrap();
@@ -429,5 +528,129 @@ mod tests {
         drop(writer);
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
         remove_temp_dir(&root);
+    }
+
+    const PHOTOLAB_0003: &[u8] = include_bytes!("../../core/src/fixtures/dop/_DSC0003.ARW.dop");
+
+    #[test]
+    fn the_format_setting_defaults_to_xmp_and_matches_names_case_insensitively() {
+        assert_eq!(SidecarFormat::from_setting(None), SidecarFormat::Xmp);
+        assert_eq!(
+            SidecarFormat::from_setting(Some("tiff")),
+            SidecarFormat::Xmp
+        );
+        assert_eq!(SidecarFormat::from_setting(Some("dop")), SidecarFormat::Dop);
+        assert!(SidecarFormat::Xmp.matches("A.XMP"));
+        assert!(!SidecarFormat::Xmp.matches("a.ARW.dop"));
+        assert!(SidecarFormat::Dop.matches("A.ARW.DOP"));
+        assert!(!SidecarFormat::Dop.matches("a.dop"));
+        assert!(!SidecarFormat::Dop.matches("a.xmp"));
+    }
+
+    #[test]
+    fn a_photolab_sidecar_is_patched_in_place() {
+        let dir = temp_dir("dop-patch");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "_DSC0003.ARW");
+        let sidecar = dop::sidecar_path(&path);
+        std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(-1))
+            .unwrap();
+        writer
+            .set(path.clone(), Some(-1), SidecarFormat::Dop)
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(-1));
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(text.contains("\nRating = 3,"), "the stars are kept");
+        assert!(text.ends_with("}\n\r\n"), "the trailing CRLF survives");
+        assert!(!xmp::sidecar_path(&path).exists(), "no XMP is written");
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_file_with_no_dop_gets_the_minimal_template() {
+        let dir = temp_dir("dop-fresh");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "f.ARW");
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(2))
+            .unwrap();
+        writer
+            .set(path.clone(), Some(2), SidecarFormat::Dop)
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(2));
+        assert!(String::from_utf8(bytes)
+            .unwrap()
+            .contains("Name = \"f.ARW\""));
+        assert!(!xmp::sidecar_path(&path).exists());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_a_rating_writes_no_dop_when_there_is_none() {
+        let dir = temp_dir("dop-clear");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "g.ARW");
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), None)
+            .unwrap();
+        writer.set(path.clone(), None, SidecarFormat::Dop).unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        assert!(!dop::sidecar_path(&path).exists());
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_dop_differing_only_in_case_is_the_one_patched() {
+        let dir = temp_dir("dop-case");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "h.ARW");
+        let sidecar = dir.join("H.ARW.DOP");
+        std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(5))
+            .unwrap();
+        writer
+            .set(path.clone(), Some(5), SidecarFormat::Dop)
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        // On a case-insensitive file system the rename may take either
+        // spelling; what matters is that there is still one sidecar.
+        let dops: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| SidecarFormat::Dop.matches(&p.file_name().unwrap().to_string_lossy()))
+            .collect();
+        assert_eq!(dops.len(), 1, "no second sidecar is minted: {dops:?}");
+        let bytes = std::fs::read(&dops[0]).unwrap();
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(5));
+
+        drop(writer);
+        remove_temp_dir(&dir);
     }
 }
