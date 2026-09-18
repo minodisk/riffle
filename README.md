@@ -266,14 +266,25 @@ covered by unit tests. The frontend's placement is right by construction (the
 same `rotate()` branches as the preview, cropping in unrotated coordinates) but
 that is an argument, not a check.
 
-**Confirmed by hand on macOS (Phase 5)**: the user ran the app on a real
-folder and confirmed the 1:1 view on screen, that dragging the window edge no
-longer storms the crop path, and the timing instrumentation
-(`Debug > Timing logs`) that produced the end-to-end numbers in "The 1:1 focus
-check path" below. **The 50ms budget is met for a focus point in a shallow row
-and missed for one in a deep row**: 39-45ms from keypress to pixels, against
-58-65ms for a focus point at the right edge of an Orientation 8 file. The
-deep-row case is not fixed.
+**Confirmed by hand on macOS (Phase 5)**: the user ran the app on a real folder
+with `Debug > Timing logs` on and confirmed, from the log, that `Space` requests
+a crop and it arrives, that dragging the window edge no longer storms the crop
+path (one crop after the drag settles, against 30 during it before the fix), and
+that the timing instrumentation reads correctly — `keypressToPixels` appears
+only on the crop `Space` itself asked for. Those logs are the end-to-end numbers
+in "The 1:1 focus check path" below. **The 50ms budget is met for a focus point
+in a shallow row and missed for one in a deep row**: 39-45ms from keypress to
+pixels, against 58-65ms for a focus point at the right edge of an Orientation 8
+file. The deep-row case is not fixed.
+
+**Awaiting the user's confirmation (Phase 5)**: what the 1:1 view *looks like*
+has not been reported. Unconfirmed: the crop showing the subject's eye at 1:1
+and upright on an Orientation 8 file, `Space` again returning to the preview
+with the focus box, paging while zoomed staying zoomed and moving to the next
+file's focus point without the old crop appearing over the new file, and the
+centre fallback on a manual-focus file (tracked in `todo.md`). The logs confirm
+a crop is produced and how long it takes, not that it is the right pixels in the
+right place.
 
 **Awaiting the user's confirmation (Phase 6)**: nothing about the rating keys
 has been looked at in a running window. Unconfirmed: a rating key changing the
