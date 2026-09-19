@@ -154,44 +154,56 @@ fn read_focus_crop(
 /// List the RAW (ARW and DNG) files directly in `dir`, sorted by file name. Entries that
 /// cannot be read are skipped; a directory that cannot be read is an error.
 fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
+    list_dir(dir, None).map(|(files, _)| files)
+}
+
+/// The RAW files of `dir` as `list_arw_in` lists them, plus the sidecars of
+/// `format` keyed by lower-cased file name so that a `FOO.XMP` written by
+/// another tool is found for `FOO.ARW`.
+///
+/// One listing of the directory for both, rather than a second `read_dir` or
+/// a `stat` of 5000 guessed names: the second open of a folder is meant to
+/// cost no more than the listing the RAWs already pay for.
+fn list_folder_in(
+    dir: &Path,
+    format: SidecarFormat,
+) -> Result<(Vec<String>, HashMap<String, SidecarStat>), String> {
+    list_dir(dir, Some(format))
+}
+
+fn list_dir(
+    dir: &Path,
+    format: Option<SidecarFormat>,
+) -> Result<(Vec<String>, HashMap<String, SidecarStat>), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let mut files: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.is_file() && riffle_core::scan::is_raw_file(p))
-        .collect();
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut sidecars = HashMap::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && riffle_core::scan::is_raw_file(&path) {
+            files.push(path);
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !format.is_some_and(|f| f.matches(&name)) {
+            continue;
+        }
+        if let Ok(stat) = index::stat(&path) {
+            sidecars.insert(name.to_lowercase(), (stat.path, stat.size, stat.mtime_ns));
+        }
+    }
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-    Ok(files
+    let files = files
         .into_iter()
         .map(|p| p.to_string_lossy().into_owned())
-        .collect())
+        .collect();
+    Ok((files, sidecars))
 }
 
 /// Largest sidecar the folder-open pass reads. A Lightroom sidecar is tens of
 /// KB; anything past this is not a sidecar this app should be parsing, and is
 /// left alone rather than failing the open.
 const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
-
-/// The sidecars of `format` directly in `dir`, keyed by lower-cased file name
-/// so that a `FOO.XMP` written by another tool is found for `FOO.ARW`.
-///
-/// One listing of the directory, rather than a `stat` of 5000 guessed names:
-/// the second open of a folder is meant to cost no more than the listing the
-/// ARWs already pay for.
-fn list_sidecars_in(dir: &Path, format: SidecarFormat) -> HashMap<String, SidecarStat> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return HashMap::new();
-    };
-    entries
-        .flatten()
-        .filter(|e| format.matches(&e.file_name().to_string_lossy()))
-        .filter_map(|e| {
-            let stat = index::stat(&e.path()).ok()?;
-            let name = e.file_name().to_string_lossy().to_lowercase();
-            Some((name, (stat.path, stat.size, stat.mtime_ns)))
-        })
-        .collect()
-}
 
 /// Bring the `ratings` rows of `dir` in line with the sidecars on disk and
 /// return the judgements that still have to be written.
@@ -202,10 +214,10 @@ fn list_sidecars_in(dir: &Path, format: SidecarFormat) -> HashMap<String, Sideca
 fn reconcile_sidecars_of(
     dir: &str,
     listed: &[String],
+    sidecars: &HashMap<String, SidecarStat>,
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
 ) -> Result<Vec<index::DirtyRow>, String> {
-    let sidecars = list_sidecars_in(Path::new(dir), format);
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
         .map(|path| {
@@ -677,9 +689,10 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         return Ok(ScanStarted { total: 0, scan_id });
     };
 
-    let listed = {
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let (listed, sidecars) = {
         let dir = dir.clone();
-        tauri::async_runtime::spawn_blocking(move || list_arw_in(Path::new(&dir)))
+        tauri::async_runtime::spawn_blocking(move || list_folder_in(Path::new(&dir), format))
             .await
             .map_err(|e| e.to_string())??
     };
@@ -697,11 +710,10 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .map_err(|e| e.to_string())??
     };
 
-    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     let dirty = {
         let (dir, index) = (dir.clone(), index);
         tauri::async_runtime::spawn_blocking(move || {
-            reconcile_sidecars_of(&dir, &listed, &index, format)
+            reconcile_sidecars_of(&dir, &listed, &sidecars, &index, format)
         })
         .await
         .map_err(|e| e.to_string())?
@@ -1097,6 +1109,18 @@ mod tests {
 
     use super::*;
 
+    /// `reconcile_sidecars_of` over a fresh listing of `dir`, as `scan_folder`
+    /// hands it the sidecars of its own single listing.
+    fn reconcile_listed(
+        dir: &str,
+        listed: &[String],
+        index: &Arc<Mutex<Index>>,
+        format: SidecarFormat,
+    ) -> Result<Vec<index::DirtyRow>, String> {
+        let (_, sidecars) = list_folder_in(Path::new(dir), format)?;
+        reconcile_sidecars_of(dir, listed, &sidecars, index, format)
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("riffle-app-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1165,7 +1189,7 @@ mod tests {
         let index = sidecar_index(&root);
 
         let listed = list_arw_in(&root).unwrap();
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
 
         assert!(dirty.is_empty());
         // No `files` row exists yet, so `entries` cannot show it; the row is
@@ -1197,7 +1221,7 @@ mod tests {
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert!(dirty.is_empty(), "the sidecar won, so nothing is written");
         assert_eq!(
             index::lock(&index).dirty_rows(&dir).unwrap(),
@@ -1210,11 +1234,9 @@ mod tests {
         let stat = index::stat(&file).unwrap();
         sidecar(&root, "a.xmp", 1);
         restore_mtime(&file, stat.mtime_ns);
-        assert!(
-            reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp)
+            .unwrap()
+            .is_empty());
 
         index::lock(&index)
             .write_batch(
@@ -1237,11 +1259,9 @@ mod tests {
         let file = sidecar(&root, "a.xmp", 1);
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
-        assert!(
-            reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp)
+            .unwrap()
+            .is_empty());
 
         // `a` had a sidecar and lost it: the truth is gone with it. `b` has a
         // judgement that never reached a sidecar, and must be written instead.
@@ -1251,7 +1271,7 @@ mod tests {
             .set_rating(&dir, &listed[1], Some(-1), false, None, true)
             .unwrap();
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert_eq!(dirty, [(listed[1].clone(), Some(-1), false, None, true)]);
 
         let files: Vec<_> = listed
@@ -1274,7 +1294,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         index::lock(&index)
             .write_batch(
                 &dir,
@@ -1312,7 +1332,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
 
         assert!(dirty.is_empty());
         index_files(&index, &dir, &listed);
@@ -1374,7 +1394,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
         index_files(&index, &dir, &listed);
 
         for (i, (_, label)) in fixtures.iter().enumerate() {
@@ -1408,12 +1428,12 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         index_files(&index, &dir, &listed);
         assert_eq!(label_of(&index, &dir, &listed[0]).as_deref(), Some("Blue"));
 
         std::fs::remove_file(&file).unwrap();
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert_eq!(label_of(&index, &dir, &listed[0]), None);
 
         remove_temp_dir(&root);
@@ -1439,13 +1459,13 @@ mod tests {
                 .collect()
         };
 
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
         index_files(&index, &dir, &listed);
         assert_eq!(picks(&index), [true, false]);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(0));
 
         index::lock(&index).reset_sidecars().unwrap();
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         assert_eq!(picks(&index), [false, false]);
 
         remove_temp_dir(&root);
@@ -1460,7 +1480,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
 
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(3));
 
@@ -1481,7 +1501,7 @@ mod tests {
             .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
 
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
 
         assert!(dirty.is_empty(), "the writer must not patch it unread");
         index_files(&index, &dir, &listed);
@@ -1500,13 +1520,13 @@ mod tests {
         std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_THREE).unwrap();
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
-        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
         assert_eq!(rating_of(&index, &dir, &listed[1]), None);
 
         index::lock(&index).reset_sidecars().unwrap();
-        let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
 
         assert!(dirty.is_empty());
         assert_eq!(rating_of(&index, &dir, &listed[0]), None);
@@ -1570,6 +1590,49 @@ mod tests {
             .collect();
         assert_eq!(names, ["a.arw", "b.ARW", "c.Arw", "f.DNG", "g.dng"]);
         assert!(files.iter().all(|p| Path::new(p).is_absolute()));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn one_listing_finds_the_raw_files_and_the_sidecars_of_each_format() {
+        let dir = temp_dir("list-folder");
+        for name in [
+            "b.ARW",
+            "a.arw",
+            "c.DNG",
+            "a.xmp",
+            "B.XMP",
+            "a.arw.dop",
+            "C.DNG.DOP",
+            "d.jpg",
+        ] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        std::fs::create_dir(dir.join("sub.arw")).unwrap();
+
+        for format in [SidecarFormat::Xmp, SidecarFormat::Dop] {
+            let (files, sidecars) = list_folder_in(&dir, format).unwrap();
+            assert_eq!(files, list_arw_in(&dir).unwrap());
+
+            let expected: HashMap<String, SidecarStat> = std::fs::read_dir(&dir)
+                .unwrap()
+                .flatten()
+                .filter(|e| format.matches(&e.file_name().to_string_lossy()))
+                .map(|e| {
+                    let stat = index::stat(&e.path()).unwrap();
+                    let name = e.file_name().to_string_lossy().to_lowercase();
+                    (name, (stat.path, stat.size, stat.mtime_ns))
+                })
+                .collect();
+            let mut names: Vec<&String> = sidecars.keys().collect();
+            names.sort();
+            match format {
+                SidecarFormat::Xmp => assert_eq!(names, ["a.xmp", "b.xmp"]),
+                SidecarFormat::Dop => assert_eq!(names, ["a.arw.dop", "c.dng.dop"]),
+            }
+            assert_eq!(sidecars, expected);
+        }
 
         remove_temp_dir(&dir);
     }

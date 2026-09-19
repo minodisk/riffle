@@ -79,7 +79,7 @@ step.
       flicker turns out visible.
     - `docs/agents/tauri-app.md` needs no change unless a new pitfall is hit.
 
-- [ ] Step 2: List the folder once for both RAW files and sidecars in `scan_folder`
+- [x] Step 2: List the folder once for both RAW files and sidecars in `scan_folder`
   - Done when:
     - `scan_folder` performs exactly one `std::fs::read_dir` on the folder for
       RAW discovery and sidecar discovery combined; `list_sidecars_in` is
@@ -208,3 +208,4 @@ step.
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete
