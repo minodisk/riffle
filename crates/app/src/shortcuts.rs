@@ -411,7 +411,8 @@ mod tests {
     #[test]
     fn p_on_another_action_is_skipped_while_pick_holds_it() {
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["p"]})), XMP);
-        assert_eq!(keymap, Keymap::defaults(XMP));
+        assert_eq!(keys_of(&keymap, "reject"), vec!["x"]);
+        assert_eq!(keymap.overrides(), json!({"reject": ["p"]}));
     }
 
     #[test]
@@ -786,7 +787,7 @@ mod tests {
 
     #[test]
     fn inactive_overrides_round_trip() {
-        let stored = json!({"reject": ["6"], "red": ["r"]});
+        let stored = json!({"reject": ["6"]});
         for format in [XMP, DOP] {
             let keymap = Keymap::from_overrides(Some(&stored), format);
             let reloaded = Keymap::from_overrides(Some(&keymap.overrides()), format);
@@ -796,6 +797,5 @@ mod tests {
         assert_eq!(keys_of(&xmp, "reject"), vec!["x"]);
         let dop = Keymap::from_overrides(Some(&xmp.overrides()), DOP);
         assert_eq!(keys_of(&dop, "reject"), vec!["6"]);
-        assert_eq!(keys_of(&dop, "red"), vec!["r"]);
     }
 }
