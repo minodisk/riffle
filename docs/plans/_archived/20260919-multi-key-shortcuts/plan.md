@@ -59,4 +59,4 @@ same way as today.
 
 ## Progress
 
-- (not started)
+- (2026-09-19) Step 1 complete
