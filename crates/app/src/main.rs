@@ -231,9 +231,10 @@ fn main() {
                     );
                 })
             });
-            let (format, overrides, keymap) = commands::load_settings(app.handle());
+            let (format, overrides, keymap, auto_advance) = commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
+            app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
             app.manage(commands::AppKeymap(Mutex::new(keymap)));
             app.manage(commands::AppShortcutOverrides(Mutex::new(overrides)));
             app.manage(commands::AppSwitchLock(Mutex::new(())));
@@ -263,6 +264,8 @@ fn main() {
             commands::reset_shortcut,
             commands::reset_shortcuts,
             commands::open_in_photolab,
+            commands::auto_advance,
+            commands::set_auto_advance,
             set_sidecar_format,
             debug_build,
             timing_logs,
