@@ -153,4 +153,4 @@ Edit menu does not advertise a redo that does nothing.
 
 ## Progress
 
-- (none yet)
+- 2026-09-19: Step 1 done (Edit > Undo, undo.ts history)
