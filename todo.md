@@ -32,14 +32,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Decide whether these subcommands can move to `reader::read_head`/`reader::read_full` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
 
-### App: `focus_crop`'s header has no full-JPEG size, so the zoom placeholder's scale is approximate
-
-The `focus_crop` payload header (`crates/app/src/commands.rs`, `crop_payload`) has a reserved 4-byte word but does not carry the full JPEG's width/height. The frontend's placeholder scale in `drawZoom()` (`crates/app/ui/src/main.ts`) falls back to the index row's `FocusLocation` sensor width, which is exact only when the JpgFromRaw size equals the sensor size.
-
-#### TODO
-
-- [ ] Carry the full JPEG width/height in the `focus_crop` header's reserved word and use it in `drawZoom()` instead of the sensor-width approximation.
-
 ### App: no rescan when new files appear in an already-open folder
 
 `scan_folder` in `crates/app/src/commands.rs` reconciles the index only when a folder is opened, so a file added to an already-open folder is not picked up until the folder is reopened.
@@ -47,14 +39,6 @@ The `focus_crop` payload header (`crates/app/src/commands.rs`, `crop_payload`) h
 #### TODO
 
 - [ ] Add a folder watcher, or a rescan on window refocus, to catch new files without a reopen.
-
-### App: the SQLite index is never pruned or `VACUUM`ed
-
-The database in `crates/app/src/index.rs` never evicts rows for folders that are not reopened, and deleting rows does not shrink the file without `VACUUM`. Measured at ~20.8KB per row (104,177,664 bytes for 5000 rows), so it grows without bound.
-
-#### TODO
-
-- [ ] Add a size cap or LRU eviction for the index, with a `VACUUM` step.
 
 ### App: the filmstrip re-requests every visible placeholder on each `scan-progress` event
 
@@ -135,18 +119,6 @@ show (`crates/app/ui/src/main.ts`); out of scope for Phase 6 Step 4.
 
 - [ ] Surface unparseable/oversize sidecars to the status line, e.g. via a count
   in the `scan-done` payload or a dedicated event.
-
-### App: folder open lists the directory twice (ARWs, then sidecars)
-
-`scan_folder` calls `list_arw_in` and then a separate `list_sidecars_in` pass over
-the same directory (`crates/app/src/commands.rs`). One listing that returns both
-ARW and sidecar entries would halve that part of a folder open. Not done in Phase
-6 Step 4 because `list_arw_in` is shared with callers that do not want sidecars.
-
-#### TODO
-
-- [ ] Fold sidecar discovery into a single directory listing shared with ARW
-  discovery, without changing behaviour for callers that only want ARWs.
 
 ### App: a `sidecar-error` event can be missed under key-mashing
 
