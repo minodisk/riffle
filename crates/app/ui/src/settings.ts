@@ -28,6 +28,7 @@ const shortcutLabels: Record<string, string> = {
 const shortcutsRows = document.getElementById("shortcuts-rows") as HTMLTableElement;
 const status = document.getElementById("status") as HTMLDivElement;
 const sidecarRadios = document.querySelectorAll<HTMLInputElement>('input[name="sidecar-format"]');
+const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
 let shortcutBindings: Binding[] = [];
 // The action whose row waits for a key.
@@ -100,6 +101,12 @@ void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
     }
   });
 });
+void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
+  autoAdvance.checked = enabled;
+});
+void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
+  autoAdvance.checked = payload;
+});
 void window.__TAURI__.core.invoke<boolean>("debug_build").then((debug) => {
   (document.getElementById("debug") as HTMLElement).hidden = !debug;
 });
@@ -117,6 +124,15 @@ for (const radio of sidecarRadios) {
       });
   });
 }
+
+autoAdvance.addEventListener("change", () => {
+  status.textContent = "";
+  window.__TAURI__.core
+    .invoke("set_auto_advance", { enabled: autoAdvance.checked })
+    .catch((error: unknown) => {
+      status.textContent = String(error);
+    });
+});
 
 debugTiming.addEventListener("change", () => {
   void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
