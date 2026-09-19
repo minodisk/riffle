@@ -55,25 +55,18 @@ delete_merged_branches() {
 	# The basis for the judgement is the latest remote tip (origin/<default>).
 	targetRef="origin/${targetBranch}"
 
-	# Detach HEAD at origin/<default>. This aligns the basis on which the later
-	# `git branch -d` decides "is it merged into HEAD" with targetRef, avoiding
-	# the case where a branch is merged yet -d bails out. Attaching to the local
-	# <default> branch (`git checkout <default>`) would conflict when another
-	# worktree holds it, but detaching to a commit is not subject to that.
-	git checkout -q --detach "$targetRef"
-
 	# Delete merged branches. The worktreepath field is non-empty when the
 	# branch is checked out in any worktree (including the current one), so
-	# skipping those also skips the target/current branch. for-each-ref lists
-	# only refs/heads/, so (unlike `git branch`) the detached-HEAD pseudo-entry
-	# never appears even when HEAD is detached at origin/main.
+	# skipping those also skips the current branch. HEAD is left untouched, so
+	# `-D` is used: `--merged="$targetRef"` already established containment in
+	# the remote tip, which `-d` would only re-check against the local HEAD.
 	git for-each-ref --merged="$targetRef" refs/heads/ "--format=%(refname:short)%09%(worktreepath)" |
 		while IFS=$'\t' read -r branch worktreepath; do
 			if [[ "$branch" == "$targetBranch" || -n "$worktreepath" ]]; then
 				continue
 			fi
 			echo "  Deleting: $branch"
-			git branch -d "$branch"
+			git branch -D "$branch"
 			cleanup_branch_section "$branch"
 		done
 

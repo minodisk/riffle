@@ -89,7 +89,7 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
     - No `.github/workflows/ci.yml` change should be needed because the lint
       job runs `mise run lint`; confirm on the PR's CI run.
 
-- [ ] Step 3: Make `delete_merged_branches.sh` safe against the next step's freshly cut branch
+- [x] Step 3: Make `delete_merged_branches.sh` safe against the next step's freshly cut branch
   - Done when:
     - `tools/git/delete_merged_branches.sh` no longer changes the current
       worktree's checkout (no `git checkout --detach`), so a branch checked out

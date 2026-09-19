@@ -77,9 +77,10 @@ is the read-only one you ran yourself. It does not bypass protections with
 `--admin`, and branch deletion is left to `merger`'s existing cleanup.
 
 **Its branch cleanup deletes every local branch already merged into
-`origin/main`, and a branch you just created with no commits on it yet counts as
-merged.** Do not create the next branch while a `merger` is still running, or it
-will be deleted out from under you (measured). Wait for `MERGED` first.
+`origin/main` that is not checked out in any worktree, and a branch you just
+created with no commits on it yet counts as merged.** It leaves every worktree's
+checkout alone, so a checked-out branch survives, but do not create the next
+branch while a `merger` is still running anyway. Wait for `MERGED` first.
 
 All that comes back is a count summary and the URLs of failed runs — no run tables, no wait logs. Main
 does not take on root-cause investigation: do not go fetch details that were not
