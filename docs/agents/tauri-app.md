@@ -26,7 +26,7 @@ A `#[tauri::command]` without `async` runs **inline on the main thread**.
   calling thread on a `sync_channel(0)` `recv`. The main thread stopped pumping
   the run loop, so the native dialog appeared but its buttons did nothing and
   the app hung.
-- This passed `mise run ci`, `tsc --noEmit`, and local review.
+- This passed `mise run ci`, the type check, and local review.
   It surfaced the first time the user launched the app. An earlier learnings
   note claimed sync commands run off the main thread; that note was wrong.
 
@@ -138,7 +138,7 @@ so a `set_rating` landing in that window was silently discarded by the
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so
-the sibling `ui/` is `"frontendDist": "ui"`.
+the Vite output under the sibling `ui/` is `"frontendDist": "ui/dist"`.
 
 - Why: Tauri resolves the path relative to the directory holding
   `tauri.conf.json`.
@@ -220,7 +220,7 @@ removal.
   new use of this splice path.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
 
-## Frontend (`crates/app/ui`, `tsc` only, no bundler)
+## Frontend (`crates/app/ui`, Vite+)
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
 
@@ -275,17 +275,12 @@ the sidecar's label on the replay.
 
 - Source: `docs/plans/20260919-color-labels/learnings.md`, Steps 4 and 6.
 
-### `tsc` rejects `outDir` equal to `rootDir` (Hit)
-
-To emit `.js` next to the `.ts` sources, omit both options.
-
-- Why: the `outDir` is auto-excluded from inputs, which leaves none (TS18003).
-
 ### A `.ts` file with no `import`/`export` is a global script (Hit)
 
 Its top-level `const`/`let` share scope with `lib.dom` globals; `const status`
-collided with `window.status`. Add an `import` or `export` (`main.ts` ends with
-`export {};`).
+collided with `window.status`. Every file under `src/` imports or exports
+something today; keep it that way rather than adding `export {};` (Oxlint flags
+that as `no-useless-empty-export`).
 
 - Why: TypeScript only treats a file as a module when it has a top-level
   `import` or `export`.
@@ -298,14 +293,46 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 - Why: `DedicatedWorkerGlobalScope` is only in the `webworker` lib, and adding
   `webworker` next to `dom` clashes on the globals both declare.
 
-### Write relative imports with `.js` (Inferred)
+### Write relative imports with `.js` (Measured)
 
-`import { x } from "./foo.js"`, never `"./foo"`.
+`import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
+source in dev and build, and it matches what the type check expects.
 
-- Why: `moduleResolution: "bundler"` type-checks extensionless imports, but no
-  bundler rewrites them, so the webview requests `./foo` and gets a 404 at
-  runtime, after type-checking has passed.
-- Nothing enforces this; today the frontend has no relative imports at all.
+### `vp check` type-checks with TypeScript-Go and covers `vite.config.ts` (Hit)
+
+- Its newer DOM lib types `HTMLElement.hidden` as `boolean | "until-found"`, so
+  passing it where a `boolean` is expected fails (TS2345); `tsc` 5 accepted it.
+  Coerce with `!!`.
+- The root `vite.config.ts` is type-checked too, so `process` / `node:path`
+  need `@types/node` as a devDependency.
+- `vitest` has to be a direct devDependency even though `vite-plus` brings it
+  at runtime: pnpm does not hoist it, and `import ... from "vitest"` in a test
+  fails the type check with TS2307.
+- Source: `docs/plans/20260919-vite-plus/learnings.md`, Steps 1 and 5.
+
+### Vite+ config facts (Measured)
+
+- `settings.html` is a second entry in `build.rollupOptions.input`; both HTML
+  files land at the root of `ui/dist`, so `WebviewUrl::App("settings.html")`
+  is unchanged.
+- `test.include` is relative to the Vite `root` (`crates/app/ui`), so it reads
+  `src/**/*.test.ts`.
+- `vp fmt` honours `.gitignore`. Its scope (and `lint.ignorePatterns`) is the
+  frontend plus the root JS tooling files; Markdown, the release-please JSON
+  and `.claude/**` are excluded.
+- Adding `vp fmt` to `mise run fmt` before the reformat commit would have made
+  every pre-commit `mise run fmt` reformat the frontend; land the reformat
+  together with (or before) the task change.
+- Source: `docs/plans/20260919-vite-plus/learnings.md`, Steps 1-4.
+
+### On Windows, run `vp` through `node`, not `pnpm exec`, in mise tasks (Hit)
+
+The `test` task calls `node ./node_modules/vite-plus/bin/vp test`.
+
+- Why: the mise task shell is bash; `pnpm exec vp` there resolves to the `.cmd`
+  shim, which runs under cmd.exe with bash's POSIX-style `PATH` and cannot find
+  `node`.
+- Source: `docs/plans/20260919-vite-plus/learnings.md`, Step 5.
 
 ## CI
 

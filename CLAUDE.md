@@ -19,8 +19,9 @@ XMP-or-`.dop` setting chosen in the settings window and persisted in the
 the default keys, whose colour label keys differ per sidecar format, and the
 user's overrides, persisted in the `shortcuts` key).
 
-The frontend lives under `crates/app/ui` (TypeScript compiled by `tsc` only, no
-bundler) and is type-checked by `mise run ci`.
+The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
+in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
+formatted, linted, type-checked and tested by `mise run ci`.
 
 ## Language
 

@@ -224,7 +224,7 @@ in Step 1.
       `*.test.ts`; the production build does not pull tests in because
       nothing imports them from `main.ts`.
 
-- [ ] Step 6: Update the documentation
+- [x] Step 6: Update the documentation
   - Done when: `docs/agents/tauri-app.md`, `CONTRIBUTING.md` and the
     `CLAUDE.md` layout section describe the Vite+ setup; `mise run ci` passes.
   - Implementation approach:

@@ -24,7 +24,8 @@ not comparable to them:
 mise run tauri:release:devtools
 ```
 
-Both tasks run `pnpm install` first. `tauri:release:devtools` also passes
+Both tasks run `pnpm install` first. `tauri:dev` starts the Vite dev server on
+`localhost:1420` through `beforeDevCommand` (the frontend reloads on save). `tauri:release:devtools` also passes
 `--features devtools`: Tauri only wires the webview's devtools up automatically
 in a debug build, so without it there is no console to read the timings from. A
 distributable build leaves the feature off.
@@ -47,6 +48,15 @@ mise run tauri:release
 
 The bundles land under `target/release/bundle/`. It skips the updater
 artifacts, which need the release signing key.
+
+## Checks
+
+- `mise run fmt` formats both Rust (`cargo fmt`) and the frontend (`vp fmt`).
+- `mise run lint` runs `pnpm exec vp check` (format, lint, types) plus the other
+  OS-independent checks (`cargo fmt --check`, shellcheck, actionlint).
+- Frontend tests run with `pnpm exec vp test` (`pnpm exec vp test watch` while
+  developing); `mise run test` runs them once.
+- `mise run ci` runs both, as CI does. Node 24 comes from `mise install`.
 
 ## The index
 
