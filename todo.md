@@ -81,6 +81,20 @@ plan.
 
 ## Cross-cutting / other
 
+### App: a shortcut override skipped under the current format is dropped on the next rebind
+
+`update_keymap` (`crates/app/src/commands.rs`) saves `Keymap::overrides()` of
+the resolved keymap, so an override skipped because it collides with the
+current sidecar format's default (e.g. `reject: ["6"]` under XMP, which
+collides with the `red` label default) is dropped from the stored `shortcuts`
+value the next time the user rebinds anything, even though it would apply
+under `.dop`.
+
+#### TODO
+
+- [ ] Persist an override that is only inactive under the current format,
+      rather than round-tripping through the resolved keymap.
+
 ### App: unmeasured end-to-end per-page latency
 
 End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see the Phase 4 baseline table in the README.

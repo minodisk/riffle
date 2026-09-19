@@ -196,6 +196,33 @@ system does case-insensitive but case-preserving lookups.
 - Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
   Step 2.
 
+### `.dop` indentation follows the table, and keys are not stable across versions (Hit)
+
+PhotoLab indents an anonymous item's `{`/`}` at the same depth as its fields,
+but a keyed table's closing `}` at the key's own depth. "Copy the closing
+line's indentation" is correct for inserts into `Items[0]` but under-indents
+an insert into a keyed table such as `Sidecar`.
+
+- Key names change across PhotoLab versions (`CafId` became `CafID` in
+  10.0.2); do not treat the sidecar's key set as stable.
+- `dop::write_label` with `None` on a sidecar that has no label still updates
+  the two timestamps. A caller that wants a true no-op must not call it.
+- Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 2.
+
+### Removing an XMP element needs its end tag (Hit)
+
+`xmp.rs`'s `locate` takes the property's local name (`LocalName` compares
+against `&str`). For an element-form property it cannot return on the `Text`
+event: it waits for the end tag so it can report the whole element's range for
+removal.
+
+- Clearing an element-form label removes its whole line only when nothing but
+  whitespace shares that line; otherwise it removes just the element.
+- Values are spliced raw with no escaping, so a value containing `"` or `<`
+  would break the XMP. Fine for the label vocabularies; check it again for any
+  new use of this splice path.
+- Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
+
 ## Frontend (`crates/app/ui`, `tsc` only, no bundler)
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
