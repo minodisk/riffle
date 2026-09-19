@@ -135,7 +135,7 @@ in Step 1.
       is expected and acceptable: the module has top-level side effects) and
       anything Node 24 changed.
 
-- [ ] Step 2: Configure Oxlint (`lint` block) and fix the one existing finding
+- [x] Step 2: Configure Oxlint (`lint` block) and fix the one existing finding
   - Done when: the `lint` block in `vite.config.ts` has `ignorePatterns:
     ["crates/app/ui/dist/**"]` alongside the type-check options from Step 1;
     `pnpm exec vp check --no-fmt` exits 0 with no warnings on the current

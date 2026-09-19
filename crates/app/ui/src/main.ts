@@ -1448,5 +1448,3 @@ function checkForUpdate(): void {
 renderMeta();
 draw();
 checkForUpdate();
-
-export {};
