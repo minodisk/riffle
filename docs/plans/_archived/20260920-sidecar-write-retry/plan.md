@@ -123,3 +123,4 @@ Removing the resolved `todo.md` heading happens in wrap-up, not in the step.
 - 2026-09-20: Step 1 done. Requeue a failed sidecar write in the writer thread
   with a bounded backoff (`retry_delay`), preserving coalescing/latest-state-
   wins and leaving the drain path single-attempt. Commit `6a369f3`.
+- (2026-09-20) Step 1 complete

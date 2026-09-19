@@ -110,20 +110,6 @@ handling it would need a generated prefix. Noted while implementing Phase 6 Step
 - [ ] Detect a colliding `xmp:` binding and fall back to a generated prefix (or the
   `xap:` alternative) instead of overwriting it.
 
-### App: a failed sidecar write is never retried until the folder is reopened
-
-`crates/app/src/sidecar.rs`'s writer leaves a row `dirty` and reports a
-`sidecar-error` event on a failed write (e.g. a read-only directory), but
-schedules no retry of its own; the write is only attempted again the next time
-the folder is opened (Phase 6 decision 3). Acceptable for now, but worth
-revisiting if a locked/read-only sidecar target (an SD card, a locked share)
-turns out to be common.
-
-#### TODO
-
-- [ ] Consider a bounded retry (e.g. on a timer, or on the next `set_rating`
-  for that path) rather than requiring a folder reopen.
-
 ### App: an unparseable or oversize sidecar fails silently on folder open
 
 `reconcile_sidecars_of` in `crates/app/src/commands.rs` drops the `Err` for a
