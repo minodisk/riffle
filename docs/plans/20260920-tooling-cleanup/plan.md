@@ -155,4 +155,4 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
 
 ## Progress
 
-- (not started)
+- (2026-09-20) Step 1 complete
