@@ -240,14 +240,6 @@ predicted versus actual" trade-off for the two alternatives considered.
 
 - [ ] Extend the `scan-progress` payload so the filmstrip can request only the newly available cells (`crates/app/src/commands.rs`'s `scan-progress` emit, `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`).
 
-### App: read-only index commands share one `Mutex<Index>` with the scan writer
-
-Read-only index commands still take the same `Mutex<Index>` the scan writer holds; #56 only shortened the critical section (`BATCH` 50 → 10, a 5x increase in transaction count whose throughput cost is unmeasured). A separate read connection would remove the serialisation entirely — WAL is already on.
-
-#### TODO
-
-- [ ] Give the read-only commands their own SQLite read connection in `crates/app/src/index.rs`, and measure what the smaller `BATCH` costs the scan.
-
 ### App: a deep-row focus point still exceeds the 50ms budget
 
 A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in the README. Options are prefetching the neighbouring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
