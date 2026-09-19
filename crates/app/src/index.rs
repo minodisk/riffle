@@ -818,6 +818,7 @@ mod tests {
                 ..Shot::default()
             },
             thumbnail: vec![0xff, 0xd8, 0xff, 0xd9],
+            sharpness: None,
         }
     }
 

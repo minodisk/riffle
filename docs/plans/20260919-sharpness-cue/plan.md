@@ -66,7 +66,7 @@ the alternatives are in "Trade-offs and risks".
 
 ## Steps
 
-- [ ] Step 1: Core: `riffle_core::sharpness`, and `scan::Entry` carries the score
+- [x] Step 1: Core: `riffle_core::sharpness`, and `scan::Entry` carries the score
   - Done when:
     - `crates/core/src/sharpness.rs` (registered in `lib.rs`) has a pure
       function that, given a grayscale `&[u8]`, its width/height and a
@@ -274,4 +274,4 @@ conditions, per the same guide.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
