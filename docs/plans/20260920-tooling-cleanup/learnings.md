@@ -15,3 +15,17 @@
   (`#running-the-app`) as it existed at review time. That directory is excluded
   with `--exclude-path` since those records are historical and should not be
   rewritten.
+
+## Step 3
+
+- The `origin/HEAD` guard from `20260919-todo-cleanup` Step 2 was already in
+  the script on `origin/main` (landed with #146), so nothing had to be
+  sequenced or rebased.
+- Verified in a throwaway clone under the scratchpad: a merged branch, a
+  squash-merged branch and a commit-less branch that is not checked out are
+  deleted; a commit-less branch checked out in the running worktree survives
+  and HEAD stays attached to it; a second run is a no-op.
+- Belt-and-braces skip (tip equals `$targetRef`) was not added: the
+  `worktreepath` skip already protects the branch an implementer is on, and a
+  commit-less branch that is not checked out carries nothing to lose. The docs
+  still say to wait for `MERGED` before cutting the next branch.

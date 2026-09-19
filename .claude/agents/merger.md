@@ -247,9 +247,9 @@ Then clean up the merged local branches.
 ```
 
 **Run it by its relative path.** Expanded to an absolute path it does not match
-the allow rules and a consent prompt appears. The script detaches HEAD at
-`origin/<default>` before judging, so it does not conflict even when another
-worktree holds `main`.
+the allow rules and a consent prompt appears. The script judges against
+`origin/<default>` without touching any worktree's checkout, and never deletes
+a branch checked out in any worktree.
 
 **Always pass `dangerouslyDisableSandbox: true` for this command too.** It is
 needed for a different reason than `mise run git:main`: it deletes the

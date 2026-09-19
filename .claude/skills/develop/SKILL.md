@@ -150,8 +150,9 @@ Two things from that contract you will use every time:
   asking is not merging without looking
 - **Do not create the next branch until `merger` has returned `MERGED`.** Its
   branch cleanup deletes local branches already merged into `origin/main`, and a
-  branch you just created with no commits yet counts as one (measured: a branch
-  was deleted mid-edit this way)
+  branch you just created with no commits yet counts as one. A branch checked
+  out in any worktree is skipped, but one created and not yet checked out is
+  still deleted
 
 ## Phase 0: Planning
 
