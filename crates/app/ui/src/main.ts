@@ -41,6 +41,7 @@ interface IndexedFile {
   pick: boolean;
   label: string | null;
   has_sidecar: boolean;
+  sharpness: number | null;
   exif: Exif | null;
 }
 

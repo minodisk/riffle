@@ -30,8 +30,11 @@ use crate::exif::{exif, Exif};
 /// v2, v3 or v4 database gains it in place with an `ALTER TABLE`. v6 added
 /// `ratings.label_known`, persisting whether `label` reflects a judgement the
 /// app actually asserted (see `set_rating`); older databases gain it in
-/// place, defaulting to `1` since every label they hold was asserted.
-const SCHEMA_VERSION: i64 = 6;
+/// place, defaulting to `1` since every label they hold was asserted. v7
+/// added `files.sharpness`, the preview's focus-window score; a v2 to v6
+/// database has its `files` table dropped and recreated, so every folder is
+/// rescanned once, and keeps `ratings`.
+const SCHEMA_VERSION: i64 = 7;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
 /// loses at most a fifth of a second of work and that the single index mutex,
@@ -71,6 +74,7 @@ pub struct IndexedFile {
     pub pick: bool,
     pub label: Option<String>,
     pub has_sidecar: bool,
+    pub sharpness: Option<f64>,
     /// `None` for a file whose extraction failed.
     pub exif: Option<Exif>,
 }
@@ -161,11 +165,11 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        if version == 2 || version == 3 {
+        if version != 0 && version != SCHEMA_VERSION {
             tx.execute_batch("DROP TABLE IF EXISTS files;")
                 .map_err(|e| e.to_string())?;
         }
@@ -194,7 +198,8 @@ impl Index {
                      exposure_den INTEGER,
                      iso INTEGER,
                      focal_num INTEGER,
-                     focal_den INTEGER
+                     focal_den INTEGER,
+                     sharpness REAL
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
@@ -224,7 +229,7 @@ impl Index {
             tx.execute_batch("ALTER TABLE ratings ADD COLUMN label TEXT;")
                 .map_err(|e| e.to_string())?;
         }
-        if version != 0 && version != SCHEMA_VERSION {
+        if version != 0 && version != SCHEMA_VERSION && version < 6 {
             tx.execute_batch(
                 "ALTER TABLE ratings ADD COLUMN label_known INTEGER NOT NULL DEFAULT 1;",
             )
@@ -298,9 +303,9 @@ impl Index {
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
                              make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                             exposure_den, iso, focal_num, focal_den)
+                             exposure_den, iso, focal_num, focal_den, sharpness)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
                         params![
                             path,
                             dir,
@@ -325,6 +330,7 @@ impl Index {
                             shot.iso,
                             shot.focal_length.map(|r| r.num),
                             shot.focal_length.map(|r| r.den),
+                            entry.sharpness,
                         ],
                     )
                     .map_err(|e| e.to_string())?;
@@ -332,8 +338,10 @@ impl Index {
                 Err(message) => {
                     tx.execute(
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
-                             capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error)
-                         VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?5)",
+                             capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
+                             sharpness)
+                         VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?5,
+                             NULL)",
                         params![path, dir, file.size, file.mtime_ns, message],
                     )
                     .map_err(|e| e.to_string())?;
@@ -353,7 +361,8 @@ impl Index {
                         ratings.rating, ratings.xmp_size IS NOT NULL,
                         COALESCE(ratings.pick, 0), error IS NOT NULL,
                         make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                        exposure_den, iso, focal_num, focal_den, ratings.label
+                        exposure_den, iso, focal_num, focal_den, ratings.label,
+                        sharpness
                  FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -399,6 +408,7 @@ impl Index {
                     pick: r.get(11)?,
                     label: r.get(24)?,
                     has_sidecar: r.get(10)?,
+                    sharpness: r.get(25)?,
                     exif,
                 })
             })
@@ -924,8 +934,100 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 6);
+        assert_eq!(version, 7);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v6_database_drops_its_files_rows_and_keeps_its_ratings() {
+        let dir = temp_dir("migrate-v6");
+        let db = dir.join("index.sqlite");
+        {
+            let conn = Connection::open(&db).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE files (
+                     path TEXT PRIMARY KEY,
+                     dir TEXT NOT NULL,
+                     size INTEGER NOT NULL,
+                     mtime_ns INTEGER NOT NULL,
+                     orientation INTEGER,
+                     capture_time TEXT,
+                     subsec TEXT,
+                     focus_w INTEGER,
+                     focus_h INTEGER,
+                     focus_x INTEGER,
+                     focus_y INTEGER,
+                     thumb BLOB,
+                     error TEXT,
+                     make TEXT,
+                     model TEXT,
+                     lens TEXT,
+                     f_num INTEGER,
+                     f_den INTEGER,
+                     f_estimated REAL,
+                     exposure_num INTEGER,
+                     exposure_den INTEGER,
+                     iso INTEGER,
+                     focal_num INTEGER,
+                     focal_den INTEGER
+                 );
+                 INSERT INTO files (path, dir, size, mtime_ns, thumb)
+                     VALUES ('/a.ARW', 'd', 1, 1, x'ffd8ffd9');
+                 CREATE TABLE ratings (
+                     path TEXT PRIMARY KEY,
+                     dir TEXT NOT NULL,
+                     rating INTEGER,
+                     pick INTEGER NOT NULL DEFAULT 0,
+                     label TEXT,
+                     label_known INTEGER NOT NULL DEFAULT 1,
+                     xmp_size INTEGER,
+                     xmp_mtime_ns INTEGER,
+                     dirty INTEGER NOT NULL DEFAULT 0
+                 );
+                 INSERT INTO ratings (path, dir, rating, pick, label, dirty)
+                     VALUES ('/a.ARW', 'd', 4, 1, 'Red', 1);
+                 PRAGMA user_version = 6;",
+            )
+            .unwrap();
+        }
+
+        let index = Index::open(&db).unwrap();
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [(
+                "/a.ARW".to_string(),
+                Some(4),
+                true,
+                Some("Red".to_string()),
+                true
+            )]
+        );
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 7);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_sharpness_score_round_trips() {
+        let dir = temp_dir("sharpness");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        let mut scored = entry();
+        scored.sharpness = Some(123.5);
+        index
+            .write_batch("d", &[(a, Ok(scored)), (b, Ok(entry()))])
+            .unwrap();
+        let entries = index.entries("d").unwrap();
+        assert_eq!(entries[0].sharpness, Some(123.5));
+        assert_eq!(entries[1].sharpness, None);
 
         remove_temp_dir(&dir);
     }
@@ -1305,7 +1407,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 6);
+        assert_eq!(version, 7);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
