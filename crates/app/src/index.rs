@@ -88,7 +88,7 @@ pub fn now_secs() -> i64 {
 }
 
 /// Shortest interval between two progress notifications.
-const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+pub const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 
 /// What `stat` says about one listed file.
 #[derive(Debug, Clone)]
@@ -837,8 +837,9 @@ pub type ParsedSidecar = (String, Option<i8>, bool, Option<String>, i64, i64, bo
 pub type DirtyRow = (String, Option<i8>, bool, Option<String>, bool);
 
 /// Extract `files` and write them into `index` in batched transactions,
-/// reporting `(done, total)` through `progress` at most every 100ms and always
-/// on the last file.
+/// reporting `(done, total)` through `progress` at most every
+/// `progress_interval` (`PROGRESS_INTERVAL` in the app) and always on the first
+/// and last file.
 ///
 /// `on_item` runs on rayon worker threads and a panic there would abort the
 /// whole scan, so nothing inside it unwraps: locks are taken with `lock` (which
@@ -849,6 +850,7 @@ pub fn run_scan<P>(
     files: &[FileStat],
     threads: usize,
     cancel: &AtomicBool,
+    progress_interval: Duration,
     progress: P,
 ) -> ScanSummary
 where
@@ -894,7 +896,7 @@ where
         let now = Instant::now();
         let due = {
             let mut last = lock(&last);
-            if done == total || last.is_none_or(|t| now.duration_since(t) >= PROGRESS_INTERVAL) {
+            if done == total || last.is_none_or(|t| now.duration_since(t) >= progress_interval) {
                 *last = Some(now);
                 true
             } else {
@@ -1691,6 +1693,7 @@ mod tests {
             &files,
             2,
             &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
             |done, total| progress.lock().unwrap().push((done, total)),
         );
 
@@ -1709,33 +1712,30 @@ mod tests {
     fn cancelling_after_the_first_batch_keeps_what_was_written() {
         let dir = temp_dir("cancel");
         let body = jpeg(64, 48);
-        // Enough files that, however fast the machine, the run cannot finish
-        // before the watcher below has a chance to see the first batch land
-        // and fire the cancel; too small a margin here made this test flaky
-        // on quieter/faster CI runners.
-        let files: Vec<FileStat> = (0..(BATCH * 40))
+        // The cancel fires from `progress` once `done >= BATCH`, so the count
+        // only has to leave room for the items already in flight on the
+        // worker threads when it does; it no longer races the machine speed.
+        let files: Vec<FileStat> = (0..(BATCH * 4))
             .map(|i| file(&dir, &format!("{i:03}.ARW"), &fixture(1, &body)))
             .collect();
 
         let index = Mutex::new(open(&dir));
         let cancel = AtomicBool::new(false);
-        let finished = AtomicBool::new(false);
-        // Progress is throttled to ~10/s, so the cancel cannot be driven from
-        // it; a watcher polls the rows instead and fires once a batch landed.
-        let summary = std::thread::scope(|scope| {
-            scope.spawn(|| {
-                while !finished.load(Ordering::Relaxed) {
-                    if lock(&index).entries("d").map_or(0, |e| e.len()) >= BATCH {
-                        cancel.store(true, Ordering::Relaxed);
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_millis(1));
+        // A full batch is flushed before `done` counts its last item, so
+        // `done >= BATCH` means the first batch has been written.
+        let summary = run_scan(
+            &index,
+            "d",
+            &files,
+            2,
+            &cancel,
+            Duration::ZERO,
+            |done, _| {
+                if done >= BATCH {
+                    cancel.store(true, Ordering::Relaxed);
                 }
-            });
-            let summary = run_scan(&index, "d", &files, 2, &cancel, |_, _| {});
-            finished.store(true, Ordering::Relaxed);
-            summary
-        });
+            },
+        );
 
         assert!(summary.total >= BATCH, "the first batch ran");
         assert!(summary.total < files.len(), "the rest did not");
