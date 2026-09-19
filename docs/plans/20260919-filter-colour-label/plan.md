@@ -171,4 +171,4 @@ Current state the plan is based on:
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
