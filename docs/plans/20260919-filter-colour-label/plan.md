@@ -136,7 +136,7 @@ Current state the plan is based on:
       background: var(--label-red); }` etc., next to the existing
       `[data-flag]` dot rules.
 
-- [ ] Step 3: Document and test the drop-out behaviour (option A)
+- [x] Step 3: Document and test the drop-out behaviour (option A)
   - Done when:
     - The rule (the judged file vanishes at once; the cursor goes to the
       next passing file after it, else the last before, else the empty
@@ -173,3 +173,4 @@ Current state the plan is based on:
 
 - (2026-09-19) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete

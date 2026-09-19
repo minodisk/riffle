@@ -62,7 +62,9 @@ embedded previews, rotated by each file's Orientation.
   as `24–35 mm`). The colour label group lists the seven colours and `No label`;
   a label outside those seven colours matches no colour item (nor `No label`).
   The EXIF groups list only values present in the folder. Checks within a group
-  are OR-ed, groups are AND-ed, and `Reset` clears them all.
+  are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgement that drops
+  the current file out of the filter hides it at once and moves to the next
+  passing file after it, else the last one before it, else the empty view.
 - **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
   folder to the newest PhotoLab in `/Applications`.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour

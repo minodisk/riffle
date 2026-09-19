@@ -16,3 +16,11 @@
   colour and `none` without a dedicated "Other" item (user decision).
 - The "No label" dot is an outlined circle (`border` + `background: none`) so
   it does not read as the grey `--label-other`.
+
+## Step 3
+
+- todo.md had no auto-advance section (auto-advance already landed and README's
+  Auto-advance entry already notes the drop-out hand-off), so only the colour
+  label section was removed.
+- The drop-out tests drive `anchorAfterFilter` with a predicate built from
+  `passes`, where only the judged file carries the new judgement.
