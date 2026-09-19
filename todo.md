@@ -1,40 +1,5 @@
 # todo
 
-## Tooling / CI
-
-### Tooling: no Markdown link checker in CI
-
-`README.md`'s anchor link to `#running-the-app` is not checked by anything; `mise run ci` has no Markdown link checker.
-
-#### TODO
-
-- [ ] Add a Markdown link checker to `mise run ci` (or otherwise verify README anchors) covering `mise.toml` and `README.md`.
-
-### Tooling: `create-pr.sh` hard-codes a label that doesn't exist in this repo
-
-`.claude/skills/pr/scripts/create-pr.sh` hard-codes `--label ai-coauthored`. That label does not exist in this repository (it's a convention carried over from the repo these skills were ported from), so the first PR creation in a fresh clone fails with `could not add label: 'ai-coauthored' not found` until something creates the label and retries.
-
-#### TODO
-
-- [ ] Either create the `ai-coauthored` label deliberately as part of repo setup, or remove the hard-coded `--label` flag from `.claude/skills/pr/scripts/create-pr.sh`.
-
-### Tooling: `merger`'s branch cleanup can delete the next step's freshly cut branch
-
-A duplicate `MERGED` notification for a step can arrive after the next step's
-branch has already been cut. `tools/git/delete_merged_branches.sh`, re-run on the
-second arrival, then deletes that next branch out from under a running
-`implementer` (seen during `ratings-xmp-sidecars` Step 4; the commit survived on
-a detached HEAD and the branch was recreated by hand). The caller worked around
-it from Step 4 on by telling `merger` to skip cleanup for step branches within a
-plan.
-
-#### TODO
-
-- [ ] De-duplicate the repeated `MERGED` notification, or make
-  `delete_merged_branches.sh` idempotent against a repeat, or have
-  `.claude/skills/develop/SKILL.md`'s merge section default to skipping cleanup
-  for in-plan step branches.
-
 ## Cross-cutting / other
 
 ### App: a shortcut override skipped under the current format is dropped on the next rebind
