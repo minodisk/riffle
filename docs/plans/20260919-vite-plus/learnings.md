@@ -60,3 +60,9 @@ None.
 - Adding `pnpm exec vp fmt` to the `fmt` mise task in this step would make
   pr-runner's pre-commit `mise run fmt` reformat those 6 files, so the task
   change moved to Step 4 (plan updated).
+
+## Step 4
+
+- `pnpm exec vp fmt` touched 6 files (164+/174-): `index.html`, `main.ts`,
+  `settings.ts`, `strip.ts`, `tauri.d.ts`, `worker.ts`. `settings.ts` was not in
+  the planning-time estimate (it landed on main after the measurement).
