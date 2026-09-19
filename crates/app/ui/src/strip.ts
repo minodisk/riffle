@@ -1,6 +1,8 @@
 // The thumbnail filmstrip down the left edge: a hand-rolled virtual list over
 // the cached thumbnails the `thumbnail` command serves.
 
+import type { RelativeSharpness } from "./sharpness.js";
+
 // Header layout of a `thumbnail` payload, see `crates/app/src/commands.rs`.
 const THUMBNAIL_HEADER_LEN = 8;
 const THUMBNAIL_KIND_JPEG_V1 = 2;
@@ -31,6 +33,7 @@ interface Cell {
   img: HTMLImageElement;
   badge: HTMLSpanElement;
   flag: HTMLSpanElement;
+  sharpness: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
 }
@@ -68,6 +71,9 @@ const ratings = new Map<number, number>();
 const picks = new Set<number>();
 // The colour label per index, mirroring the `labels` map in `main.ts`.
 const labels = new Map<number, string>();
+// The relative sharpness per index, from `relativeSharpness` in
+// `sharpness.ts`; a missing entry has no score.
+const sharpness = new Map<number, RelativeSharpness>();
 const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink", "purple"]);
 let inFlight = 0;
 let select: (index: number) => void = () => {};
@@ -100,6 +106,15 @@ function paintRating(index: number, cell: Cell): void {
   cell.name.title = label ?? "";
 }
 
+// A bar up the image box's left edge, as long as the file's sharpness
+// relative to its neighbours, in the accent colour on the sharpest of its run.
+function paintSharpness(index: number, cell: Cell): void {
+  const value = sharpness.get(index);
+  cell.sharpness.hidden = value === undefined;
+  cell.sharpness.style.setProperty("--ratio", String(value?.ratio ?? 0));
+  cell.sharpness.classList.toggle("best", value?.best === true);
+}
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
@@ -129,12 +144,16 @@ function createCell(index: number): Cell {
   const flag = document.createElement("span");
   flag.className = "flag";
   el.append(flag);
+  const sharp = document.createElement("span");
+  sharp.className = "sharpness";
+  el.append(sharp);
   el.addEventListener("click", () => {
     select(index);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, flag, name, url: null };
+  const cell: Cell = { el, img, badge, flag, sharpness: sharp, name, url: null };
   paintRating(index, cell);
+  paintSharpness(index, cell);
   return cell;
 }
 
@@ -292,6 +311,20 @@ export function setRating(
   }
 }
 
+// Record the relative sharpness of one file, repainting its cell when it is
+// on screen. `null` is no score.
+export function setSharpness(index: number, value: RelativeSharpness | null): void {
+  if (value === null) {
+    sharpness.delete(index);
+  } else {
+    sharpness.set(index, value);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintSharpness(index, cell);
+  }
+}
+
 // Show one cell per file, in `list_arw` order, all of them placeholders.
 export function setFiles(paths: string[]): void {
   generation += 1;
@@ -311,6 +344,7 @@ export function setFiles(paths: string[]): void {
   ratings.clear();
   picks.clear();
   labels.clear();
+  sharpness.clear();
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;

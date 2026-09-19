@@ -5,6 +5,7 @@ import { advancesAfter } from "./advance.js";
 import { History } from "./undo.js";
 import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
+import { relativeSharpness } from "./sharpness.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -142,6 +143,9 @@ const picks = new Set<string>();
 // The colour label of every file that has one, owned the same way as
 // `ratings`.
 const labels = new Map<string, string>();
+// The sharpness score of every file the index has one for, from
+// `folder_entries`; cleared with `labels`.
+const sharpness = new Map<string, number>();
 // The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
 // launch and the `sidecar-format` event after a switch.
 let sidecarFormat = "xmp";
@@ -275,6 +279,7 @@ function renderMeta(): void {
       row(list, "Camera", meta.camera);
       row(list, "Lens", meta.lens);
       row(list, "Captured", meta.captured_at);
+      row(list, "Sharpness", sharpness.get(files[index])?.toFixed(1) ?? null);
       metaEl.append(list);
     }
   }
@@ -431,6 +436,7 @@ function refilter(anchor: string | undefined = files[index]): void {
   files.forEach((path, at) => {
     strip.setRating(at, ratings.get(path) ?? null, picks.has(path), labels.get(path) ?? null);
   });
+  applySharpness();
   if (files.length === 0) {
     index = 0;
     seq += 1;
@@ -559,6 +565,15 @@ function undo(): void {
   setStatus(`Undid ${name}`);
 }
 
+// Hand the strip each visible file's score relative to its neighbours. The
+// window runs over `files` (the filtered, sorted view), not `allFiles`, so a
+// filter changes which frames a file is compared with.
+function applySharpness(): void {
+  relativeSharpness(files.map((path) => sharpness.get(path) ?? null)).forEach((value, at) => {
+    strip.setSharpness(at, value);
+  });
+}
+
 function refreshEntries(): void {
   if (openDir === null) {
     return;
@@ -582,8 +597,12 @@ function refreshEntries(): void {
         return;
       }
       entries.clear();
+      sharpness.clear();
       for (const row of rows) {
         entries.set(row.path, row);
+        if (row.sharpness !== null) {
+          sharpness.set(row.path, row.sharpness);
+        }
         if (!touched.has(row.path)) {
           applyRating(row.path, row.rating, row.pick, row.label);
         }
@@ -591,6 +610,7 @@ function refreshEntries(): void {
       rebuildExifMenu();
       renderMeta();
       draw();
+      applySharpness();
       refilter();
     })
     .catch(() => {
@@ -979,6 +999,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     rebuildExifMenu();
     picks.clear();
     labels.clear();
+    sharpness.clear();
     touched.clear();
     history.clear();
     fileIndex.clear();

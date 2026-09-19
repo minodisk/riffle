@@ -349,6 +349,29 @@ body {
   color: var(--reject-color);
 }
 
+/* The sharpness cue, a bar up the image box's left edge whose length is the
+   file's score over the sharpest of its neighbours; overrides the name span's
+   placement above. */
+.cell span.sharpness {
+  top: 24px;
+  bottom: auto;
+  left: 2px;
+  width: 3px;
+  height: 96px;
+  padding: 0;
+  background: #888;
+  transform: scaleY(var(--ratio));
+  transform-origin: bottom;
+}
+
+.cell span.sharpness.best {
+  background: var(--pick-color);
+}
+
+.cell span.sharpness[hidden] {
+  display: none;
+}
+
 .cell.rejected {
   opacity: 0.45;
 }

@@ -136,7 +136,7 @@ the alternatives are in "Trade-offs and risks".
       `entries()` for the column plumbing; the error-row `INSERT` writes NULL
     - Do not touch `ratings`, `reconcile`, or the sidecar paths
 
-- [ ] Step 3: Frontend: the strip shows each cell's sharpness relative to its neighbours
+- [x] Step 3: Frontend: the strip shows each cell's sharpness relative to its neighbours
   - Done when:
     - A new `crates/app/ui/src/sharpness.ts` exports a pure function that
       takes the scores of the visible files in strip order
@@ -276,3 +276,4 @@ conditions, per the same guide.
 
 - (2026-09-19) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete
