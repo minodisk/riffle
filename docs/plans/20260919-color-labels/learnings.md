@@ -56,3 +56,15 @@
   folder open) and passes the file's current label to every `set_rating`, so
   a star or flag keypress does not clear a label before Step 6 wires the
   label keys.
+- Round 3 of local review: "the label is unknown" needs to be a state that
+  survives past the write that resolves it, not just a hint used once.
+  `ratings` gained a `label_known` column (schema v6) instead of leaving
+  `label_known` a call-time-only argument: `Index::mark_written`'s
+  `label_known == false` branch now also stores the resolved label (the one
+  the writer actually kept, read from the sidecar) and sets `label_known = 1`,
+  and `dirty_rows` returns each row's own `label_known` (a `DirtyRow`
+  5-tuple now) instead of the caller assuming every dirty row's label is
+  known. `scan_folder`'s dirty-row replay passes that stored flag to the
+  writer instead of hard-coding `true`, which is what makes a row created
+  right before a crash or quit (label still unknown, never written) replay
+  correctly on the next open instead of stripping the sidecar's label.

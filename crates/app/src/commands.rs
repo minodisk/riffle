@@ -245,7 +245,7 @@ fn reconcile_sidecars_of(
     let dirty = index.dirty_rows(dir)?;
     Ok(dirty
         .into_iter()
-        .filter(|(path, _, _, _)| !oversize.contains(path.as_str()))
+        .filter(|(path, _, _, _, _)| !oversize.contains(path.as_str()))
         .collect())
 }
 
@@ -644,13 +644,22 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
-        // so it goes to the writer with none.
+        // so it goes to the writer with none. Its own `label_known` (see
+        // `Index::set_rating`/`mark_written`) travels with it: a row created
+        // before the app learned the label, and never written before this
+        // open (e.g. a crash), must still reach the writer as unknown, or an
+        // existing sidecar label would be stripped.
         Ok(dirty) => {
             if let Some(writer) = &app.state::<AppWriter>().0 {
-                for (path, rating, pick, label) in dirty {
-                    if let Err(e) =
-                        writer.set_now(PathBuf::from(path), rating, pick, label, true, format)
-                    {
+                for (path, rating, pick, label, label_known) in dirty {
+                    if let Err(e) = writer.set_now(
+                        PathBuf::from(path),
+                        rating,
+                        pick,
+                        label,
+                        label_known,
+                        format,
+                    ) {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
                 }
@@ -1126,7 +1135,7 @@ mod tests {
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
-        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false, None)]);
+        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false, None, true)]);
 
         let files: Vec<_> = listed
             .iter()

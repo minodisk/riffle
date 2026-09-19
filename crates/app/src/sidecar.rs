@@ -1077,6 +1077,53 @@ mod tests {
         assert_eq!(dop::read_rating(&bytes).unwrap(), Some(4));
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
+        // The resolved label the write actually kept ("Red") is now stored
+        // and marked known in `ratings`, not left `NULL`: a following-up
+        // judgement that keeps the same label, this time with `label_known:
+        // true`, must still keep it, and a folder-open replay of a dirty row
+        // (see `dirty_rows`) must never again send "no label" for this path.
+        let stored_label: Option<String> = lock(&index)
+            .conn
+            .query_row(
+                "SELECT label FROM ratings WHERE path = ?1",
+                [path.to_string_lossy()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            stored_label.as_deref(),
+            Some("Red"),
+            "mark_written must persist the resolved label, not leave it NULL"
+        );
+        lock(&index)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(5),
+                false,
+                Some("Red"),
+                true,
+            )
+            .unwrap();
+        writer
+            .set(
+                path.clone(),
+                Some(5),
+                false,
+                Some("Red".to_string()),
+                true,
+                SidecarFormat::Dop,
+            )
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(
+            dop::read_label(&bytes).unwrap().as_deref(),
+            Some("Red"),
+            "a follow-up known judgement using the now-stored label keeps it"
+        );
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
         drop(writer);
         remove_temp_dir(&dir);
     }

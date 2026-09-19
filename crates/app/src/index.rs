@@ -27,8 +27,11 @@ use crate::exif::{exif, Exif};
 /// shooting settings to `files`; a v2 or v3 database has its `files` table
 /// dropped and recreated, so every folder is rescanned once, and keeps
 /// `ratings`. v5 added `ratings.label`, the colour label (`NULL` = none); a
-/// v2, v3 or v4 database gains it in place with an `ALTER TABLE`.
-const SCHEMA_VERSION: i64 = 5;
+/// v2, v3 or v4 database gains it in place with an `ALTER TABLE`. v6 added
+/// `ratings.label_known`, persisting whether `label` reflects a judgement the
+/// app actually asserted (see `set_rating`); older databases gain it in
+/// place, defaulting to `1` since every label they hold was asserted.
+const SCHEMA_VERSION: i64 = 6;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
 /// loses at most a fifth of a second of work and that the single index mutex,
@@ -88,7 +91,7 @@ pub struct ScanSummary {
 }
 
 pub struct Index {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 /// Take a lock without caring whether a previous holder panicked. The scan
@@ -158,7 +161,7 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -205,6 +208,7 @@ impl Index {
                      rating INTEGER,
                      pick INTEGER NOT NULL DEFAULT 0,
                      label TEXT,
+                     label_known INTEGER NOT NULL DEFAULT 1,
                      xmp_size INTEGER,
                      xmp_mtime_ns INTEGER,
                      dirty INTEGER NOT NULL DEFAULT 0
@@ -216,9 +220,15 @@ impl Index {
             tx.execute_batch("ALTER TABLE ratings ADD COLUMN pick INTEGER NOT NULL DEFAULT 0;")
                 .map_err(|e| e.to_string())?;
         }
-        if version != 0 && version != SCHEMA_VERSION {
+        if version != 0 && version != SCHEMA_VERSION && version < 5 {
             tx.execute_batch("ALTER TABLE ratings ADD COLUMN label TEXT;")
                 .map_err(|e| e.to_string())?;
+        }
+        if version != 0 && version != SCHEMA_VERSION {
+            tx.execute_batch(
+                "ALTER TABLE ratings ADD COLUMN label_known INTEGER NOT NULL DEFAULT 1;",
+            )
+            .map_err(|e| e.to_string())?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
@@ -431,7 +441,10 @@ impl Index {
     /// column is then left untouched rather than being set to `label`
     /// (typically `None`), so a later sidecar parse or read is still free to
     /// fill it in and the app-side row never asserts a label it does not
-    /// actually know.
+    /// actually know. A fresh row instead records `label_known = 0`, so that
+    /// state survives a crash before the writer drains it and a replayed
+    /// `dirty` row (see `dirty_rows`) does not wrongly assert "no label" to
+    /// the writer.
     pub fn set_rating(
         &mut self,
         dir: &str,
@@ -443,16 +456,16 @@ impl Index {
     ) -> Result<(), String> {
         let result = if label_known {
             self.conn.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, label, dirty)
-                 VALUES (?1, ?2, ?3, ?4, ?5, 1)
+                "INSERT INTO ratings (path, dir, rating, pick, label, label_known, dirty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1, 1)
                  ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
-                     dirty = 1",
+                     label_known = 1, dirty = 1",
                 params![path, dir, rating, pick, label],
             )
         } else {
             self.conn.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, dirty)
-                 VALUES (?1, ?2, ?3, ?4, 1)
+                "INSERT INTO ratings (path, dir, rating, pick, label_known, dirty)
+                 VALUES (?1, ?2, ?3, ?4, 0, 1)
                  ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4,
                      dirty = 1",
                 params![path, dir, rating, pick],
@@ -468,10 +481,15 @@ impl Index {
     /// `stat` is `None` when no sidecar exists (clearing a rating on a file
     /// that never had one writes nothing).
     ///
-    /// `label_known` is false when the label the writer put in the sidecar
-    /// was not asserted by the app (it kept the sidecar's own label because
-    /// `set_rating` had not learned it yet); the guard then skips the label
-    /// entirely, since `ratings.label` was never set to it.
+    /// `label_known` is false when the label `set_rating` was given for this
+    /// judgement was not asserted by the app: the writer instead kept the
+    /// sidecar's own current label, passed here as `label` (the label
+    /// actually resolved and written, see `sidecar::write`). That resolved
+    /// label is now known to match the sidecar, so it and `label_known = 1`
+    /// are stored regardless, which is what lets a later folder open (or a
+    /// crash before this write even lands) treat the label as known instead
+    /// of replaying it as "no label" and stripping the sidecar's own label
+    /// (see `dirty_rows` and its caller).
     pub fn mark_written(
         &mut self,
         path: &str,
@@ -490,9 +508,10 @@ impl Index {
             )
         } else {
             self.conn.execute(
-                "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
+                "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3,
+                     label = ?6, label_known = 1
                  WHERE path = ?1 AND rating IS ?4 AND pick = ?5",
-                params![path, size, mtime_ns, rating, pick],
+                params![path, size, mtime_ns, rating, pick, label],
             )
         }
         .map_err(|e| format!("{path}: {e}"))?;
@@ -518,15 +537,22 @@ impl Index {
         tx.commit().map_err(|e| e.to_string())
     }
 
-    /// The rows of `dir` whose judgement has not reached its sidecar yet.
+    /// The rows of `dir` whose judgement has not reached its sidecar yet,
+    /// with each row's own `label_known` (see `set_rating`) rather than a
+    /// blanket "known": a row created before the label was learned must
+    /// still be replayed as unknown, or the writer would strip whatever
+    /// label the sidecar already holds.
     pub fn dirty_rows(&self, dir: &str) -> Result<Vec<DirtyRow>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT path, rating, pick, label FROM ratings WHERE dir = ?1 AND dirty = 1")
+            .prepare(
+                "SELECT path, rating, pick, label, label_known FROM ratings
+                 WHERE dir = ?1 AND dirty = 1",
+            )
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(params![dir], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
             })
             .map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<_>>()
@@ -591,8 +617,9 @@ impl Index {
                 None => {
                     if !dirty && row.is_some_and(|r| r.stat.0.is_some() || r.stat.1.is_some()) {
                         tx.execute(
-                            "UPDATE ratings SET rating = NULL, pick = 0, label = NULL, xmp_size = NULL,
-                                 xmp_mtime_ns = NULL WHERE path = ?1",
+                            "UPDATE ratings SET rating = NULL, pick = 0, label = NULL,
+                                 label_known = 1, xmp_size = NULL, xmp_mtime_ns = NULL
+                                 WHERE path = ?1",
                             params![path],
                         )
                         .map_err(|e| e.to_string())?;
@@ -623,10 +650,10 @@ impl Index {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         for (path, rating, pick, label, size, mtime_ns, dirty) in rows {
             tx.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, label, xmp_size, xmp_mtime_ns, dirty)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+                "INSERT INTO ratings (path, dir, rating, pick, label, label_known, xmp_size, xmp_mtime_ns, dirty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, 0)
                  ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
-                     xmp_size = ?6, xmp_mtime_ns = ?7, dirty = 0
+                     label_known = 1, xmp_size = ?6, xmp_mtime_ns = ?7, dirty = 0
                  WHERE dirty = ?8",
                 params![path, dir, rating, pick, label, size, mtime_ns, *dirty as i64],
             )
@@ -653,8 +680,9 @@ pub type SidecarStat = (PathBuf, i64, i64);
 /// `dirty` flag `reconcile_sidecars` observed.
 pub type ParsedSidecar = (String, Option<i8>, bool, Option<String>, i64, i64, bool);
 
-/// A row `dirty_rows` hands to the writer: `(path, rating, pick, label)`.
-pub type DirtyRow = (String, Option<i8>, bool, Option<String>);
+/// A row `dirty_rows` hands to the writer: `(path, rating, pick, label,
+/// label_known)`.
+pub type DirtyRow = (String, Option<i8>, bool, Option<String>, bool);
 
 /// Extract `files` and write them into `index` in batched transactions,
 /// reporting `(done, total)` through `progress` at most every 100ms and always
@@ -886,7 +914,7 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), true, None)]
+            [("/a.ARW".to_string(), Some(4), true, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
@@ -894,7 +922,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 5);
+        assert_eq!(version, 6);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -964,7 +992,7 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [(path.clone(), Some(-1), false, None)]
+            [(path.clone(), Some(-1), false, None, true)]
         );
 
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
@@ -997,7 +1025,7 @@ mod tests {
         );
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(5), false, None)]
+            [("/a.ARW".to_string(), Some(5), false, None, true)]
         );
 
         // An unrated row is matched by NULL, not skipped.
@@ -1048,7 +1076,7 @@ mod tests {
         assert_eq!(rows, [("/b.ARW".to_string(), true)]);
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/b.ARW".to_string(), Some(-1), false, None)]
+            [("/b.ARW".to_string(), Some(-1), false, None, true)]
         );
 
         remove_temp_dir(&dir);
@@ -1150,10 +1178,32 @@ mod tests {
         assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
 
         // `mark_written` for the same unknown-label judgement must not check
-        // `label` at all, since `ratings.label` was never set to it.
+        // `label` at all, since `ratings.label` was never set to it, but the
+        // resolved label the writer actually put in the sidecar ("Red", the
+        // one already there) is stored and marked known regardless, so a
+        // later replay of a still-dirty row (see `dirty_rows`) never sends
+        // "no label" and strips it.
         assert!(index
-            .mark_written(&path, Some(3), false, None, false, None)
+            .mark_written(&path, Some(3), false, Some("Red"), false, None)
             .unwrap());
+        assert_eq!(
+            index.entries("d").unwrap()[0].label.as_deref(),
+            Some("Red"),
+            "the resolved label is now stored and marked known"
+        );
+
+        // A later judgement that again does not know the label yet leaves
+        // that now-known label untouched, and a replay of the resulting
+        // dirty row carries it as known.
+        index
+            .set_rating("d", &path, Some(4), false, None, false)
+            .unwrap();
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [(path.clone(), Some(4), false, Some("Red".to_string()), true)],
+            "the row survives a crash before the writer drains it: a replay must \
+             not treat the label as unknown and strip it from the sidecar"
+        );
 
         remove_temp_dir(&dir);
     }
@@ -1174,7 +1224,8 @@ mod tests {
                 "/a.ARW".to_string(),
                 Some(2),
                 false,
-                Some("Green".to_string())
+                Some("Green".to_string()),
+                true
             )]
         );
 
@@ -1207,7 +1258,7 @@ mod tests {
         let index = Index::open(&db).unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), true, None)]
+            [("/a.ARW".to_string(), Some(4), true, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
@@ -1215,7 +1266,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 5);
+        assert_eq!(version, 6);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1245,11 +1296,11 @@ mod tests {
         let index = Index::open(&db).unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), false, None)]
+            [("/a.ARW".to_string(), Some(4), false, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
-        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v5");
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v6");
 
         remove_temp_dir(&dir);
     }

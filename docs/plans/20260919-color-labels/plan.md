@@ -237,8 +237,22 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
     `label_known` is false, `sidecar::write` reads the sidecar's current
     label from disk in that case instead of trusting the (possibly stale)
     `ratings` row, and `Index::mark_written` skips the label guard when the
-    label was never asserted. Re-verify against the "Done when" list below
-    before re-checking this step.
+    label was never asserted. Round 3 of local review found the label was
+    still lost on the *next* write: `mark_written` never saved the resolved
+    label into `ratings.label` when `label_known` was false, so a later
+    folder open would replay the row's still-`NULL` label as "no label" and
+    strip the sidecar's own label; and a dirty row created with
+    `label_known: false` was replayed on the next folder open with
+    `label_known` hard-coded to `true`, which had the same effect after a
+    crash or quit before the writer drained. Addressed in the round-3 fix
+    commit: `ratings` gained a `label_known` column (schema v6) so the
+    "label not yet asserted" state survives independently of `label` itself;
+    `Index::mark_written`'s `label_known == false` branch now also writes the
+    resolved label and sets `label_known = 1`, since the writer has by then
+    read the sidecar's current value; and `dirty_rows` / `scan_folder`'s
+    replay pass each row's own stored `label_known` to the writer instead of
+    a hard-coded `true`. Re-verify against the "Done when" list below before
+    re-checking this step.
   - Done when:
     - `SidecarFormat::read_label` / `write_label` dispatch to Steps 1-2.
       `sidecar::write` composes `write_rating` then `write_label` on the
