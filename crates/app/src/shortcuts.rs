@@ -3,7 +3,7 @@
 //! colour label actions' defaults follow the selected sidecar format.
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::sidecar::SidecarFormat;
 
@@ -144,6 +144,9 @@ pub struct Binding {
 pub struct Keymap {
     format: SidecarFormat,
     bindings: Vec<Binding>,
+    /// Stored overrides skipped for a key conflict under `format`, kept so
+    /// saving does not drop them and another format can still apply them.
+    inactive: Map<String, Value>,
 }
 
 impl Keymap {
@@ -157,6 +160,7 @@ impl Keymap {
                     keys: keys.iter().map(|k| k.to_string()).collect(),
                 })
                 .collect(),
+            inactive: Map::new(),
         }
     }
 
@@ -164,7 +168,8 @@ impl Keymap {
     /// cannot be used is logged and the action keeps its default; an override
     /// whose key is already bound to another action is skipped, so the
     /// earlier action wins. Conflicts are checked against `format`'s
-    /// defaults, so one override can apply under one format only.
+    /// defaults, so one override can apply under one format only; a
+    /// conflicting override is kept in the stored value (`overrides`).
     pub fn from_overrides(overrides: Option<&Value>, format: SidecarFormat) -> Keymap {
         let mut keymap = Keymap::defaults(format);
         let Some(overrides) = overrides else {
@@ -208,6 +213,7 @@ impl Keymap {
             });
             if let Some((key, other)) = conflict {
                 log::warn!("ignoring the shortcut for {action}: {key:?} is bound to {other}");
+                keymap.inactive.insert(action.to_string(), value.clone());
                 continue;
             }
             keymap.bindings[i].keys = keys;
@@ -229,6 +235,7 @@ impl Keymap {
             return Err(format!("{key:?} is already bound to {action}"));
         }
         self.bindings[i].keys.push(key.to_string());
+        self.inactive.remove(action);
         Ok(())
     }
 
@@ -247,6 +254,7 @@ impl Keymap {
             return Err(format!("{key:?} is the only key for {action}; use Reset"));
         }
         keys.remove(at);
+        self.inactive.remove(action);
         Ok(())
     }
 
@@ -285,6 +293,7 @@ impl Keymap {
             return Err(format!("{key:?} is bound to {other}"));
         }
         self.bindings[i].keys = defaults;
+        self.inactive.remove(action);
         Ok(())
     }
 
@@ -294,17 +303,19 @@ impl Keymap {
     }
 
     /// The actions whose keys differ from the default, as stored under the
-    /// `shortcuts` settings key. Compared with the current format's defaults.
+    /// `shortcuts` settings key. Compared with the current format's defaults;
+    /// a stored override skipped for a key conflict is kept as it was.
     pub fn overrides(&self) -> Value {
         let defaults = Keymap::defaults(self.format);
-        Value::Object(
+        let mut overrides = self.inactive.clone();
+        overrides.extend(
             self.bindings
                 .iter()
                 .zip(&defaults.bindings)
                 .filter(|(b, d)| b.keys != d.keys)
-                .map(|(b, _)| (b.action.to_string(), Value::from(b.keys.clone())))
-                .collect(),
-        )
+                .map(|(b, _)| (b.action.to_string(), Value::from(b.keys.clone()))),
+        );
+        Value::Object(overrides)
     }
 
     fn index(&self, action: &str) -> Result<usize, String> {
@@ -400,7 +411,7 @@ mod tests {
     #[test]
     fn a_collision_with_another_default_is_skipped() {
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["j"]})), XMP);
-        assert_eq!(keymap, Keymap::defaults(XMP));
+        assert_eq!(keymap.bindings(), Keymap::defaults(XMP).bindings());
     }
 
     #[test]
@@ -475,8 +486,8 @@ mod tests {
     fn a_collision_is_checked_against_the_current_formats_defaults() {
         let overrides = json!({"reject": ["6"]});
         assert_eq!(
-            Keymap::from_overrides(Some(&overrides), XMP),
-            Keymap::defaults(XMP)
+            Keymap::from_overrides(Some(&overrides), XMP).bindings(),
+            Keymap::defaults(XMP).bindings()
         );
         assert_eq!(
             keys_of(&Keymap::from_overrides(Some(&overrides), DOP), "reject"),
@@ -489,7 +500,7 @@ mod tests {
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["ctrl+alt+1"]})), XMP);
         assert_eq!(keys_of(&keymap, "reject"), vec!["ctrl+alt+1"]);
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["ctrl+alt+1"]})), DOP);
-        assert_eq!(keymap, Keymap::defaults(DOP));
+        assert_eq!(keymap.bindings(), Keymap::defaults(DOP).bindings());
     }
 
     #[test]
@@ -713,5 +724,61 @@ mod tests {
         }
         let expected: Vec<String> = std::iter::once("x").chain(keys).map(String::from).collect();
         assert_eq!(keys_of(&keymap, "reject"), expected);
+    }
+
+    #[test]
+    fn an_inactive_override_survives_unrelated_edits() {
+        let stored = json!({"reject": ["6"]});
+        let mut keymap = Keymap::from_overrides(Some(&stored), XMP);
+        assert_eq!(keymap.overrides(), stored);
+        keymap.add("zoom", "z").unwrap();
+        assert_eq!(
+            keymap.overrides(),
+            json!({"reject": ["6"], "zoom": ["space", "z"]})
+        );
+        keymap.remove("zoom", "space").unwrap();
+        keymap.reset("zoom").unwrap();
+        assert_eq!(keymap.overrides(), stored);
+        let saved = keymap.overrides();
+        assert_eq!(
+            keys_of(&Keymap::from_overrides(Some(&saved), DOP), "reject"),
+            vec!["6"]
+        );
+    }
+
+    #[test]
+    fn editing_or_resetting_an_action_drops_its_inactive_override() {
+        let stored = json!({"reject": ["6"], "clear": ["j"]});
+        let mut keymap = Keymap::from_overrides(Some(&stored), XMP);
+        keymap.add("reject", "r").unwrap();
+        assert_eq!(
+            keymap.overrides(),
+            json!({"reject": ["x", "r"], "clear": ["j"]})
+        );
+        let mut keymap = Keymap::from_overrides(Some(&stored), XMP);
+        keymap.add("reject", "r").unwrap();
+        keymap.remove("reject", "r").unwrap();
+        assert_eq!(keymap.overrides(), json!({"clear": ["j"]}));
+        let mut keymap = Keymap::from_overrides(Some(&stored), XMP);
+        keymap.reset("reject").unwrap();
+        assert_eq!(keymap.overrides(), json!({"clear": ["j"]}));
+        keymap.reset_all();
+        assert_eq!(keymap.overrides(), json!({}));
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn inactive_overrides_round_trip() {
+        let stored = json!({"reject": ["6"], "red": ["r"]});
+        for format in [XMP, DOP] {
+            let keymap = Keymap::from_overrides(Some(&stored), format);
+            let reloaded = Keymap::from_overrides(Some(&keymap.overrides()), format);
+            assert_eq!(reloaded.bindings(), keymap.bindings(), "{format:?}");
+        }
+        let xmp = Keymap::from_overrides(Some(&stored), XMP);
+        assert_eq!(keys_of(&xmp, "reject"), vec!["x"]);
+        let dop = Keymap::from_overrides(Some(&xmp.overrides()), DOP);
+        assert_eq!(keys_of(&dop, "reject"), vec!["6"]);
+        assert_eq!(keys_of(&dop, "red"), vec!["r"]);
     }
 }
