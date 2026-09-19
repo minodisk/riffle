@@ -225,7 +225,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       bool, label: Option<String> }` in `index.rs`; pick whichever keeps
       the diff readable and use it consistently in Step 4.
 
-- [ ] Step 4: Writer, reconcile and the `set_rating` command carry the label
+- [x] Step 4: Writer, reconcile and the `set_rating` command carry the label
   - Done when:
     - `SidecarFormat::read_label` / `write_label` dispatch to Steps 1-2.
       `sidecar::write` composes `write_rating` then `write_label` on the

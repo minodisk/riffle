@@ -30,6 +30,7 @@ interface IndexedFile {
   has_thumb: boolean;
   rating: number | null;
   pick: boolean;
+  label: string | null;
   has_sidecar: boolean;
   exif: Exif | null;
 }
@@ -141,6 +142,9 @@ const ratings = new Map<string, number>();
 // The picked paths, owned the same way as `ratings`. A pick is PhotoLab's
 // flag and coexists with stars; it exists only while `.dop` is selected.
 const picks = new Set<string>();
+// The colour label of every file that has one, owned the same way as
+// `ratings`. Only carried through to `set_rating` so a judgement keeps it.
+const labels = new Map<string, string>();
 // The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
 // launch and the `sidecar-format` event after a switch.
 let sidecarFormat = "xmp";
@@ -502,7 +506,12 @@ function judge(
   refilter(path);
   const token = folderToken;
   void window.__TAURI__.core
-    .invoke("set_rating", { path, rating: rating ?? 0, pick })
+    .invoke("set_rating", {
+      path,
+      rating: rating ?? 0,
+      pick,
+      label: labels.get(path) ?? null,
+    })
     .catch((err: unknown) => {
       if (token !== folderToken) {
         return;
@@ -541,6 +550,11 @@ function refreshEntries(): void {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
           applyRating(row.path, row.rating, row.pick);
+          if (row.label === null) {
+            labels.delete(row.path);
+          } else {
+            labels.set(row.path, row.label);
+          }
         }
       }
       rebuildExifMenu();
@@ -936,6 +950,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       rebuildExifMenu();
       ratings.clear();
       picks.clear();
+      labels.clear();
       touched.clear();
       fileIndex.clear();
       files.forEach((path, at) => {
