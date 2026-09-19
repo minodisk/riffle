@@ -15,6 +15,9 @@ pub struct Crop {
     /// Top-left actually produced. Cropping snaps to MCU boundaries, so it shifts.
     pub x: usize,
     pub y: usize,
+    /// The whole decoded JPEG's size, which the crop was cut out of.
+    pub image_width: usize,
+    pub image_height: usize,
 }
 
 /// A crop centred on the focus point, together with that point's position
@@ -134,6 +137,8 @@ fn decode_region(
             height: read,
             x: xoff as usize,
             y: y0,
+            image_width: iw,
+            image_height: ih,
         })
     }
 }
