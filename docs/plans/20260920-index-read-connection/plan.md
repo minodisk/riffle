@@ -66,4 +66,7 @@ removed at wrap-up, not in the step).
 
 ## Progress
 
-- (not started)
+- Step 1 done: added a dedicated read-only reader connection for
+  `folder_entries` / `thumbnail`, a concurrency test proving reads never wait
+  on the writer, and a timing test measuring `write_batch` cost. `BATCH`
+  stays 10 (see `learnings.md` for the measured numbers and arithmetic).
