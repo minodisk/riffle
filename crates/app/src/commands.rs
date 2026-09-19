@@ -205,8 +205,16 @@ fn list_dir(
 /// left alone rather than failing the open.
 const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
 
+/// A sidecar the folder-open pass could not use, reported to the frontend.
+#[derive(Debug, serde::Serialize)]
+pub struct SidecarError {
+    path: String,
+    message: String,
+}
+
 /// Bring the `ratings` rows of `dir` in line with the sidecars on disk and
-/// return the judgements that still have to be written.
+/// return the judgements that still have to be written, along with the
+/// sidecars that could not be used.
 ///
 /// The sidecar is the source of truth, so anything whose stat changed since
 /// the app last saw it is read back here; a sidecar that cannot be read or
@@ -217,7 +225,7 @@ fn reconcile_sidecars_of(
     sidecars: &HashMap<String, SidecarStat>,
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
-) -> Result<Vec<index::DirtyRow>, String> {
+) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
         .map(|path| {
@@ -241,17 +249,36 @@ fn reconcile_sidecars_of(
         .filter(|(_, (_, size, _), _)| *size > MAX_SIDECAR_BYTES)
         .map(|(path, _, _)| path.as_str())
         .collect();
-    let parsed: Vec<index::ParsedSidecar> = to_parse
-        .iter()
-        .filter(|(path, _, _)| !oversize.contains(path.as_str()))
-        .filter_map(|(path, (sidecar, size, mtime_ns), dirty)| {
-            let bytes = std::fs::read(sidecar).ok()?;
-            let rating = format.read_rating(&bytes).ok()?;
-            let pick = format.read_pick(&bytes).ok()?;
-            let label = format.read_label(&bytes).ok()?;
-            Some((path.clone(), rating, pick, label, *size, *mtime_ns, *dirty))
-        })
-        .collect();
+    let mut parsed: Vec<index::ParsedSidecar> = Vec::new();
+    let mut problems: Vec<SidecarError> = Vec::new();
+    for (path, (sidecar, size, mtime_ns), dirty) in &to_parse {
+        let problem = |message: String| SidecarError {
+            path: sidecar.to_string_lossy().into_owned(),
+            message,
+        };
+        if oversize.contains(path.as_str()) {
+            problems.push(problem(format!(
+                "larger than {} MiB, not read",
+                MAX_SIDECAR_BYTES / 1024 / 1024
+            )));
+            continue;
+        }
+        let read = std::fs::read(sidecar)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| {
+                Ok((
+                    format.read_rating(&bytes)?,
+                    format.read_pick(&bytes)?,
+                    format.read_label(&bytes)?,
+                ))
+            });
+        match read {
+            Ok((rating, pick, label)) => {
+                parsed.push((path.clone(), rating, pick, label, *size, *mtime_ns, *dirty))
+            }
+            Err(e) => problems.push(problem(e)),
+        }
+    }
     let mut index = index::lock(index);
     index.store_sidecar_ratings(dir, &parsed)?;
     // After storing, so a row the sidecar just won stays out of this: only
@@ -259,10 +286,11 @@ fn reconcile_sidecars_of(
     // oversize sidecar's row is excluded too, even if still dirty, since the
     // writer must not patch a sidecar whose contents were never read.
     let dirty = index.dirty_rows(dir)?;
-    Ok(dirty
+    let dirty = dirty
         .into_iter()
         .filter(|(path, _, _, _, _)| !oversize.contains(path.as_str()))
-        .collect())
+        .collect();
+    Ok((dirty, problems))
 }
 
 /// Extract a file's IFD0 preview JPEG along with the Orientation, reading only
@@ -676,11 +704,12 @@ fn scan_threads() -> usize {
 /// What `scan_folder` returns: the number of files that need scanning and the
 /// id the caller must match against `scan-progress`/`scan-done` events to tell
 /// this scan's events apart from an older, still-draining one for the same
-/// folder.
+/// folder. `sidecar_errors` lists the sidecars the open could not read.
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,
     scan_id: u64,
+    sidecar_errors: Vec<SidecarError>,
 }
 
 /// Bring the index of `dir` up to date: wait for a previous scan's last write
@@ -708,7 +737,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     }
 
     let Some(index) = app.state::<AppIndex>().0.clone() else {
-        return Ok(ScanStarted { total: 0, scan_id });
+        return Ok(ScanStarted {
+            total: 0,
+            scan_id,
+            sidecar_errors: Vec::new(),
+        });
     };
 
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
@@ -740,6 +773,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .await
         .map_err(|e| e.to_string())?
     };
+    let mut sidecar_errors = Vec::new();
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
         // so it goes to the writer with none. Its own `label_known` (see
@@ -747,7 +781,8 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // before the app learned the label, and never written before this
         // open (e.g. a crash), must still reach the writer as unknown, or an
         // existing sidecar label would be stripped.
-        Ok(dirty) => {
+        Ok((dirty, problems)) => {
+            sidecar_errors = problems;
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating, pick, label, label_known) in dirty {
                     if let Err(e) = writer.set_now(
@@ -775,7 +810,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // listing/reconciling; its own `start_scan` (or none at all) owns
         // `pending`/`running` now, so queuing this work would either be
         // overwritten or, worse, race the id check below in `start_scan`.
-        return Ok(ScanStarted { total, scan_id });
+        return Ok(ScanStarted {
+            total,
+            scan_id,
+            sidecar_errors,
+        });
     }
     // Any entry still here belongs to a scan this one has already superseded
     // (only one `scan_folder`/`start_scan` pair is ever live at a time); it
@@ -785,7 +824,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .pending
         .insert(scan_id, PendingScan { dir, todo, cancel });
     drop(state);
-    Ok(ScanStarted { total, scan_id })
+    Ok(ScanStarted {
+        total,
+        scan_id,
+        sidecar_errors,
+    })
 }
 
 /// Start the scan `scan_folder` prepared for `scan_id`, in the background.
@@ -1139,6 +1182,15 @@ mod tests {
         index: &Arc<Mutex<Index>>,
         format: SidecarFormat,
     ) -> Result<Vec<index::DirtyRow>, String> {
+        reconcile_listed_with_errors(dir, listed, index, format).map(|(dirty, _)| dirty)
+    }
+
+    fn reconcile_listed_with_errors(
+        dir: &str,
+        listed: &[String],
+        index: &Arc<Mutex<Index>>,
+        format: SidecarFormat,
+    ) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
         let (_, sidecars) = list_folder_in(Path::new(dir), format)?;
         reconcile_sidecars_of(dir, listed, &sidecars, index, format)
     }
@@ -1523,13 +1575,72 @@ mod tests {
             .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
 
-        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        let (dirty, problems) =
+            reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
 
         assert!(dirty.is_empty(), "the writer must not patch it unread");
+        assert_eq!(problems.len(), 1);
+        assert_eq!(
+            problems[0].path,
+            root.join("a.ARW.dop").to_string_lossy().into_owned()
+        );
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
 
         remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn an_unparseable_sidecar_is_reported_on_every_open_and_leaves_the_rating() {
+        let root = temp_dir("sidecar-unparseable");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+        index::lock(&index)
+            .set_rating(&dir, &listed[0], Some(2), false, None, true)
+            .unwrap();
+        let xmp = root.join("a.xmp");
+        std::fs::write(
+            &xmp,
+            r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="4"#,
+        )
+        .unwrap();
+        let expected = xmp.to_string_lossy().into_owned();
+
+        for _ in 0..2 {
+            let (_, problems) =
+                reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+            assert_eq!(problems.len(), 1);
+            assert_eq!(problems[0].path, expected);
+            assert!(!problems[0].message.is_empty());
+        }
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(2));
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn scan_started_serialises_the_fields_the_frontend_reads() {
+        let started = ScanStarted {
+            total: 3,
+            scan_id: 7,
+            sidecar_errors: vec![SidecarError {
+                path: "/d/a.xmp".into(),
+                message: "bad".into(),
+            }],
+        };
+        assert_eq!(
+            serde_json::to_value(&started).unwrap(),
+            serde_json::json!({
+                "total": 3,
+                "scan_id": 7,
+                "sidecar_errors": [{ "path": "/d/a.xmp", "message": "bad" }],
+            })
+        );
     }
 
     #[test]
