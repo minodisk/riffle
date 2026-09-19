@@ -373,3 +373,76 @@ wiring) would let this and other `AppHandle`-taking commands in
   wiring) so `AppHandle`-taking commands in `crates/app/src/commands.rs` can be
   unit-tested, then add the deferred `switch_sidecar_format` race test (rating
   set between the format swap and `reset_sidecars`).
+
+### App: auto-advance after a judgement
+
+Culling a folder takes two keypresses per file: a judgement, then a paging key.
+Advancing to the next file automatically after a star, reject or pick would
+halve that.
+
+#### TODO
+
+- [ ] Add an auto-advance setting (on / off, in `Riffle > Settings...`) that
+  moves to the next file after a star rating, a reject or a pick is applied.
+
+### App: no undo for judgements
+
+A mistaken star, flag or colour label can only be fixed by navigating back and
+re-keying it; with auto-advance that mistake is already off screen.
+
+#### TODO
+
+- [ ] Add undo (`CmdOrCtrl+Z`) for judgements, restoring the previous rating,
+  flag and label of the affected file (and returning to it) and writing the
+  restored state to the sidecar.
+
+### App: no colour label group in the filter menu
+
+The filter menu (`crates/app/ui/src/main.ts`) narrows by pick flag and stars
+but not by colour label, so "only unjudged files" cannot be expressed: flag
+`untagged` AND `0` stars still lets through a file that has only a label.
+
+#### TODO
+
+- [ ] Add a colour label group to the filter menu, including a "no label"
+  entry, so flag `untagged` AND `0` stars AND no label selects exactly the
+  unjudged files.
+- [ ] Decide what happens when judging a file makes it drop out of the active
+  filter (it vanishing from the strip moves the cursor); consider this
+  together with auto-advance.
+
+### App: no sharpness cue to catch missed focus without the 1:1 view
+
+Spotting a missed focus or camera shake needs `Space` on every file. A relative
+sharpness score is most useful for picking the sharpest frame of a burst;
+absolute thresholds are unreliable because edge content varies by subject.
+
+#### TODO
+
+- [ ] Compute a sharpness score around the focus point (the frame centre when
+  none is recorded), e.g. the variance of the Laplacian, and show it relative
+  to neighbouring frames (a strip badge, a sort or a filter).
+- [ ] Decide between the embedded preview (cheap, catches only gross misses)
+  and a JpgFromRaw crop (20-40ms per file, which a scan-time pass would add to
+  the folder open).
+
+### App: rejected files cannot be cleared out from the app
+
+Culling ends with the rejects still in the folder; removing them means going to
+another tool.
+
+#### TODO
+
+- [ ] Add a menu item that moves every rejected file of the open folder, with
+  its sidecars, to the OS trash (or a chosen folder), after a confirmation
+  showing the count.
+
+### App: the strip is always in file-name order
+
+`list_arw_in` (`crates/app/src/commands.rs`) sorts by file name, which breaks
+capture order across a counter rollover or when two bodies share a folder.
+
+#### TODO
+
+- [ ] Add a sort choice (capture time, file name, rating) to the strip, with
+  paging following the chosen order.
