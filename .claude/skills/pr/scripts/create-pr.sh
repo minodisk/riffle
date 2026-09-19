@@ -18,7 +18,7 @@ function usage() {
 	cat <<EOF
 Usage: $0 <title> <body-file>
 
-Create a PR labeled ai-coauthored with gh pr create, and print the PR URL to stdout.
+Create a PR with gh pr create, and print the PR URL to stdout.
 
 Arguments:
   title        PR title (English, Conventional Commits)
@@ -50,4 +50,4 @@ if [[ ! -f "$body_file" ]]; then
 	exit 1
 fi
 
-gh pr create --title "$title" --body-file "$body_file" --label ai-coauthored
+gh pr create --title "$title" --body-file "$body_file"

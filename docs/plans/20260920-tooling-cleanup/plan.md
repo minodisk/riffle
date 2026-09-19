@@ -40,7 +40,7 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
 
 ## Steps
 
-- [ ] Step 1: Remove the `ai-coauthored` label from the PR tooling and from GitHub
+- [x] Step 1: Remove the `ai-coauthored` label from the PR tooling and from GitHub
   - Done when:
     - `.claude/skills/pr/scripts/create-pr.sh` no longer passes
       `--label ai-coauthored`, and its usage text no longer mentions the label.
@@ -155,4 +155,4 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
 
 ## Progress
 
-- (not started)
+- (2026-09-20) Step 1 complete
