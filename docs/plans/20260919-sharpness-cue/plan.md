@@ -110,7 +110,7 @@ the alternatives are in "Trade-offs and risks".
       accumulators; use `f64` only for the mean/variance. No new crates
     - Leave `bench`, `crop`, `focusbox` in `crates/cli` untouched
 
-- [ ] Step 2: App: index schema v7 stores the score and `folder_entries` returns it
+- [x] Step 2: App: index schema v7 stores the score and `folder_entries` returns it
   - Done when:
     - `crates/app/src/index.rs`: `SCHEMA_VERSION = 7`; `files` gains
       `sharpness REAL`; `prepare` treats a v2-v6 database like v4 did for

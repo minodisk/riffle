@@ -29,3 +29,11 @@
 - `crates/app/src/index.rs`'s test `entry()` builds an `Entry` literally and
   needed `sharpness: None`; `write_batch` ignores the field until Step 2.
 - clippy's `manual_is_multiple_of` rejects `% 2 == 0` in test helpers too; use `.is_multiple_of(2)`.
+
+## Step 2
+
+- `SCHEMA_VERSION` on main was still 6, so v7 was used as planned.
+- Accepting v6 in `prepare` meant the `label_known` `ALTER TABLE` (previously
+  guarded by `version != SCHEMA_VERSION`) needed a `version < 6` guard, since a
+  v6 `ratings` table already has the column. The two existing migration tests
+  asserting `user_version == 6` were bumped to 7.
