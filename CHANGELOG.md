@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.5](https://github.com/minodisk/riffle/compare/v0.1.4...v0.1.5) (2026-09-19)
+
+
+### Features
+
+* **app:** add per-format label shortcuts and Ctrl+Alt keys ([#116](https://github.com/minodisk/riffle/issues/116)) ([980d7a8](https://github.com/minodisk/riffle/commit/980d7a84443bb7379bc204a1ffb0e7b65a8e40df))
+* **app:** carry the colour label through the writer and set_rating ([#115](https://github.com/minodisk/riffle/issues/115)) ([1b95a4a](https://github.com/minodisk/riffle/commit/1b95a4a971da0b941311b63156fe5bd9925cd503))
+* **app:** move settings into a separate settings window ([#120](https://github.com/minodisk/riffle/issues/120)) ([1662f0e](https://github.com/minodisk/riffle/commit/1662f0efe0c452783e1abc9c3f4a67baaa4687fa))
+* **app:** show the colour label and set it from the keymap ([#117](https://github.com/minodisk/riffle/issues/117)) ([8674546](https://github.com/minodisk/riffle/commit/8674546019165f115a8c74aa16f8920cc1ff8f4f))
+* **app:** store the colour label beside the rating in the index ([#114](https://github.com/minodisk/riffle/issues/114)) ([f3cfeea](https://github.com/minodisk/riffle/commit/f3cfeea65439efa34697ac0eb377d94cff49b22f))
+* **core:** read and patch the .dop ColorLabel ([#113](https://github.com/minodisk/riffle/issues/113)) ([e9b77ec](https://github.com/minodisk/riffle/commit/e9b77ecbcf2c715a4ab8a18ae97490d73a6a319f))
+* **core:** read and patch xmp:Label ([#111](https://github.com/minodisk/riffle/issues/111)) ([5834a22](https://github.com/minodisk/riffle/commit/5834a224271195e3b1368f745c41267560fecff3))
+
 ## [0.1.4](https://github.com/minodisk/riffle/compare/v0.1.3...v0.1.4) (2026-09-18)
 
 
