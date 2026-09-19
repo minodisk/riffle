@@ -374,17 +374,6 @@ wiring) would let this and other `AppHandle`-taking commands in
   unit-tested, then add the deferred `switch_sidecar_format` race test (rating
   set between the format swap and `reset_sidecars`).
 
-### App: auto-advance after a judgement
-
-Culling a folder takes two keypresses per file: a judgement, then a paging key.
-Advancing to the next file automatically after a star, reject or pick would
-halve that.
-
-#### TODO
-
-- [ ] Add an auto-advance setting (on / off, in `Riffle > Settings...`) that
-  moves to the next file after a star rating, a reject or a pick is applied.
-
 ### App: no colour label group in the filter menu
 
 The filter menu (`crates/app/ui/src/main.ts`) narrows by pick flag and stars
@@ -396,9 +385,6 @@ but not by colour label, so "only unjudged files" cannot be expressed: flag
 - [ ] Add a colour label group to the filter menu, including a "no label"
   entry, so flag `untagged` AND `0` stars AND no label selects exactly the
   unjudged files.
-- [ ] Decide what happens when judging a file makes it drop out of the active
-  filter (it vanishing from the strip moves the cursor); consider this
-  together with auto-advance.
 
 ### App: no sharpness cue to catch missed focus without the 1:1 view
 

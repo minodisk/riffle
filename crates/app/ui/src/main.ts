@@ -1,6 +1,7 @@
 import { type Binding, isUnboundModifier, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
+import { advancesAfter } from "./advance.js";
 import { History } from "./undo.js";
 import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
 
@@ -441,9 +442,9 @@ function judge(
     pick: boolean,
     label: string | null,
   ) => [number | null, boolean, string | null],
-): void {
+): boolean {
   if (files.length === 0) {
-    return;
+    return false;
   }
   const path = files[index];
   const previous = ratings.get(path) ?? null;
@@ -453,11 +454,12 @@ function judge(
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless.
   if (previous === rating && previousPick === pick && previousLabel === label) {
-    return;
+    return false;
   }
   const entry = { path, rating: previous, pick: previousPick, label: previousLabel };
   history.push(entry);
   commit(entry, rating, pick, label, () => history.remove(entry));
+  return true;
 }
 
 // Apply `path`'s new judgement locally, then tell the backend; `before` is its
@@ -1139,6 +1141,15 @@ void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
   debugLogging = enabled;
 });
 
+// The settings window's Auto-advance checkbox, followed the same way.
+let autoAdvance = false;
+void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
+  autoAdvance = payload;
+});
+void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
+  autoAdvance = enabled;
+});
+
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>("[data-flag], [data-stars]");
@@ -1303,6 +1314,8 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   const action = keymap.get(key);
+  const current = files[index];
+  let judged = false;
   switch (action) {
     case "previous":
       move(-1);
@@ -1326,20 +1339,20 @@ window.addEventListener("keydown", (event) => {
     case "rate4":
     case "rate5": {
       const stars = Number(action.slice(-1));
-      judge((_, pick, label) => [stars, pick, label]);
+      judged = judge((_, pick, label) => [stars, pick, label]);
       break;
     }
     case "reject":
       // Sticky, not a toggle: reject twice is still a reject, and it replaces
       // a pick. Unflag undoes it.
-      judge((_rating, _pick, label) => [-1, false, label]);
+      judged = judge((_rating, _pick, label) => [-1, false, label]);
       break;
     case "pick":
       // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
       if (sidecarFormat !== "dop") {
         return;
       }
-      judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
+      judged = judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
       break;
     case "unflag":
       // Clears a reject or a pick; does nothing to a file with neither.
@@ -1366,6 +1379,10 @@ window.addEventListener("keydown", (event) => {
       break;
     default:
       return;
+  }
+  // A file that dropped out of the filter already moved the cursor on.
+  if (judged && autoAdvance && advancesAfter(action) && files[index] === current) {
+    move(1);
   }
   event.preventDefault();
 });
