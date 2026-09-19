@@ -98,7 +98,7 @@ Current state the plan is based on:
       takes them as arguments. Do not introduce a class or a store.
     - `exifKey` from `exif.ts` is already pure; `filter.ts` may import it.
 
-- [ ] Step 2: Colour label group in the filter menu
+- [x] Step 2: Colour label group in the filter menu
   - Done when:
     - `index.html` gains, after the stars items and before
       `#filter-exif`, an `<hr />` and eight `menuitemcheckbox` buttons with

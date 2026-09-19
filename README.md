@@ -57,10 +57,12 @@ embedded previews, rotated by each file's Orientation.
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
   camera's estimate, marked `(est.)`; Leica files add the focus distance.
-- **Filter menu**: narrows the strip by pick flag, stars, camera, lens,
-  aperture, shutter speed, ISO and focal length (grouped into ranges such as
-  `24–35 mm`). Each group lists only values present in the folder. Checks
-  within a group are OR-ed, groups are AND-ed, and `Reset` clears them all.
+- **Filter menu**: narrows the strip by pick flag, stars, colour label, camera,
+  lens, aperture, shutter speed, ISO and focal length (grouped into ranges such
+  as `24–35 mm`). The colour label group lists the seven colours and `No label`;
+  a label outside those seven colours matches no colour item (nor `No label`).
+  The EXIF groups list only values present in the folder. Checks within a group
+  are OR-ed, groups are AND-ed, and `Reset` clears them all.
 - **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
   folder to the newest PhotoLab in `/Applications`.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour

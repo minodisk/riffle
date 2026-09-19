@@ -3,12 +3,14 @@ import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 // The filter menu in the strip pane, after PhotoLab's: the checked items of
 // one group are OR-ed, the groups AND-ed, and a group with nothing checked
 // lets everything through. `0` stars is unrated, which a reject also counts
-// as, since it carries no stars here.
+// as, since it carries no stars here. A label is keyed lowercased, or `none`
+// when there is none; a label outside the menu's colours matches no item.
 export type Flag = "picked" | "untagged" | "rejected";
 
 export interface FilterState {
   flags: Set<Flag>;
   stars: Set<number>;
+  labels: Set<string>;
   exif: Map<ExifGroup, Set<string>>;
 }
 
@@ -20,14 +22,16 @@ export interface Judgement {
 
 export function passes(
   state: FilterState,
-  { rating, pick }: Judgement,
+  { rating, pick, label }: Judgement,
   exif: Exif | null | undefined,
 ): boolean {
   const flag: Flag = pick ? "picked" : rating === -1 ? "rejected" : "untagged";
   const stars = rating === null || rating === -1 ? 0 : rating;
+  const labelKey = label === null ? "none" : label.toLowerCase();
   return (
     (state.flags.size === 0 || state.flags.has(flag)) &&
     (state.stars.size === 0 || state.stars.has(stars)) &&
+    (state.labels.size === 0 || state.labels.has(labelKey)) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {
         return true;

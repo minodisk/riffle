@@ -155,6 +155,7 @@ type Judgement = { path: string; rating: number | null; pick: boolean; label: st
 const history = new History<Judgement>(100);
 const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
+const shownLabels = new Set<string>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -391,7 +392,7 @@ function applyRating(
 
 function passes(path: string): boolean {
   return filterPasses(
-    { flags: shownFlags, stars: shownStars, exif: shownExif },
+    { flags: shownFlags, stars: shownStars, labels: shownLabels, exif: shownExif },
     { rating: ratings.get(path) ?? null, pick: picks.has(path), label: labels.get(path) ?? null },
     entries.get(path)?.exif,
   );
@@ -1158,7 +1159,9 @@ void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
 
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
-const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>("[data-flag], [data-stars]");
+const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
+  "[data-flag], [data-stars], [data-label]",
+);
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 
 function exifSelected(): boolean {
@@ -1207,7 +1210,10 @@ function rebuildExifMenu(): void {
       filterExif.append(item);
     }
   }
-  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0 || exifSelected());
+  filterToggle.classList.toggle(
+    "active",
+    shownFlags.size + shownStars.size + shownLabels.size > 0 || exifSelected(),
+  );
 }
 
 function setFilterMenuOpen(open: boolean): void {
@@ -1215,20 +1221,27 @@ function setFilterMenuOpen(open: boolean): void {
   filterToggle.setAttribute("aria-expanded", String(open));
 }
 
-// Mirror the two sets onto the menu's check marks and the button's lit state,
+// Mirror the sets onto the menu's check marks and the button's lit state,
 // then rebuild the view.
 function filterChanged(): void {
   for (const item of filterItems) {
-    const { flag, stars } = item.dataset;
+    const { flag, stars, label } = item.dataset;
     const checked =
-      flag !== undefined ? shownFlags.has(flag as Flag) : shownStars.has(Number(stars));
+      flag !== undefined
+        ? shownFlags.has(flag as Flag)
+        : label !== undefined
+          ? shownLabels.has(label)
+          : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
   for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
     const { group, value } = item.dataset;
     item.setAttribute("aria-checked", String(shownExif.get(group as ExifGroup)!.has(value!)));
   }
-  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0 || exifSelected());
+  filterToggle.classList.toggle(
+    "active",
+    shownFlags.size + shownStars.size + shownLabels.size > 0 || exifSelected(),
+  );
   refilter();
 }
 
@@ -1249,9 +1262,10 @@ document.addEventListener("mousedown", (event) => {
 for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
-    const { flag, stars } = item.dataset;
-    const set: Set<string | number> = flag !== undefined ? shownFlags : shownStars;
-    const value = flag ?? Number(stars);
+    const { flag, stars, label } = item.dataset;
+    const set: Set<string | number> =
+      flag !== undefined ? shownFlags : label !== undefined ? shownLabels : shownStars;
+    const value = flag ?? label ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
     } else {
@@ -1283,6 +1297,7 @@ filterExif.addEventListener("click", (event) => {
     (event.currentTarget as HTMLButtonElement).blur();
     shownFlags.clear();
     shownStars.clear();
+    shownLabels.clear();
     for (const set of shownExif.values()) {
       set.clear();
     }

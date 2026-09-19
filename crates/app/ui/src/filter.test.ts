@@ -6,10 +6,12 @@ function state(
   flags: Flag[] = [],
   stars: number[] = [],
   exif: [ExifGroup, string[]][] = [],
+  labels: string[] = [],
 ): FilterState {
   return {
     flags: new Set(flags),
     stars: new Set(stars),
+    labels: new Set(labels),
     exif: new Map(exif.map(([group, values]) => [group, new Set(values)])),
   };
 }
@@ -73,6 +75,50 @@ describe("passes", () => {
     expect(passes(state([], [], [["camera", ["Other"]]]), unjudged, exif)).toBe(false);
     expect(passes(s, unjudged, undefined)).toBe(false);
     expect(passes(s, unjudged, null)).toBe(false);
+  });
+});
+
+describe("passes: colour label", () => {
+  const red = { rating: null, pick: false, label: "Red" };
+  const blue = { rating: null, pick: false, label: "Blue" };
+  const foreign = { rating: null, pick: false, label: "Approved" };
+  const colours = ["red", "orange", "yellow", "green", "blue", "pink", "purple"];
+
+  test("a labelled file fails none", () => {
+    expect(passes(state([], [], [], ["none"]), red, undefined)).toBe(false);
+    expect(passes(state([], [], [], ["none"]), unjudged, undefined)).toBe(true);
+  });
+
+  test("a Red file passes red and fails blue", () => {
+    expect(passes(state([], [], [], ["red"]), red, undefined)).toBe(true);
+    expect(passes(state([], [], [], ["blue"]), red, undefined)).toBe(false);
+  });
+
+  test("ORs the checked colours", () => {
+    const s = state([], [], [], ["red", "blue"]);
+    expect(passes(s, red, undefined)).toBe(true);
+    expect(passes(s, blue, undefined)).toBe(true);
+    expect(passes(s, unjudged, undefined)).toBe(false);
+  });
+
+  test("matches case-insensitively", () => {
+    expect(passes(state([], [], [], ["red"]), { ...red, label: "RED" }, undefined)).toBe(true);
+  });
+
+  test("a foreign label fails every colour and none", () => {
+    for (const key of [...colours, "none"]) {
+      expect(passes(state([], [], [], [key]), foreign, undefined)).toBe(false);
+    }
+    expect(passes(state(), foreign, undefined)).toBe(true);
+  });
+
+  test("untagged + 0 + none selects exactly the unjudged files", () => {
+    const s = state(["untagged"], [0], [], ["none"]);
+    expect(passes(s, unjudged, undefined)).toBe(true);
+    expect(passes(s, red, undefined)).toBe(false);
+    expect(passes(s, threeStars, undefined)).toBe(false);
+    expect(passes(s, { rating: null, pick: true, label: null }, undefined)).toBe(false);
+    expect(passes(s, rejected, undefined)).toBe(false);
   });
 });
 

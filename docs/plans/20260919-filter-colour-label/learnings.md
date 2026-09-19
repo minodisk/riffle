@@ -8,3 +8,11 @@
 - `anchorAfterFilter` returns `undefined` for an undefined anchor; `refilter`
   keeps its `?? 0` fallback, so the no-anchor case still lands on the first
   file.
+
+## Step 2
+
+- `FilterState` gained `labels: Set<string>`; the label key (`none` or the
+  lowercased label) is computed inside `passes`, so foreign labels fail every
+  colour and `none` without a dedicated "Other" item (user decision).
+- The "No label" dot is an outlined circle (`border` + `background: none`) so
+  it does not read as the grey `--label-other`.
