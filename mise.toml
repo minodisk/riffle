@@ -68,6 +68,8 @@ description = "Build and test the workspace, per platform"
 shell = "bash -c"
 run = """
 set -euo pipefail
+pnpm install --frozen-lockfile
+pnpm exec vp test
 cargo clippy --all-targets -- -D warnings
 cargo test
 """

@@ -66,3 +66,16 @@ None.
 - `pnpm exec vp fmt` touched 6 files (164+/174-): `index.html`, `main.ts`,
   `settings.ts`, `strip.ts`, `tauri.d.ts`, `worker.ts`. `settings.ts` was not in
   the planning-time estimate (it landed on main after the measurement).
+
+## Step 5: Vitest via `vp test`
+
+- `vp test` runs once (no watch) under `mise run test`. At runtime Vitest
+  4.1.11 comes through `vite-plus`, but the `vp check` type check failed with
+  TS2307 on `import ... from "vitest"` (pnpm does not hoist it), so `vitest`
+  was added as an explicit devDependency pinned to 4.1.11, as the plan
+  anticipated.
+- Extracting `focalRange` + `exifKey` also required moving the `Labelled`,
+  `Exif` and `ExifGroup` types and the `focalRanges` table into `exif.ts`
+  (the functions depend on them); `main.ts` imports `Exif`, `ExifGroup` and
+  `exifKey` back. So the `main.ts` edit is the import plus the removals, not
+  the import alone.

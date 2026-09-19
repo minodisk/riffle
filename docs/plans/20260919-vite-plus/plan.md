@@ -195,7 +195,7 @@ in Step 1.
     - Other in-flight UI branches will conflict with this reformat; they
       rebase and run `mise run fmt` afterwards.
 
-- [ ] Step 5: Run Vitest via `vp test` with a real test on pure logic
+- [x] Step 5: Run Vitest via `vp test` with a real test on pure logic
   - Done when: at least one `*.test.ts` under `crates/app/ui/src` exercises a
     pure function and passes; `pnpm exec vp test` runs once (not watch) and
     exits 0; `mise run test` runs it; CI's `test` job is green on all three
