@@ -883,15 +883,24 @@ pub fn shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
     index::lock(&app.state::<AppKeymap>().0).bindings()
 }
 
-/// Bind `action` to `key` alone and persist the overrides. The error names
-/// why the key was refused.
+/// Add `key` to `action`'s keys and persist the overrides.
 #[tauri::command]
-pub fn set_shortcut(
+pub fn add_shortcut_key(
     app: tauri::AppHandle,
     action: String,
     key: String,
 ) -> Result<Vec<Binding>, String> {
-    update_keymap(&app, |keymap| keymap.rebind(&action, &key))
+    update_keymap(&app, |keymap| keymap.add(&action, &key))
+}
+
+/// Remove `key` from `action`'s keys and persist the overrides.
+#[tauri::command]
+pub fn remove_shortcut_key(
+    app: tauri::AppHandle,
+    action: String,
+    key: String,
+) -> Result<Vec<Binding>, String> {
+    update_keymap(&app, |keymap| keymap.remove(&action, &key))
 }
 
 /// Restore `action`'s default keys and persist the overrides.

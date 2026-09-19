@@ -41,19 +41,44 @@ function renderShortcuts(): void {
       label.textContent = shortcutLabels[action] ?? action;
       const keysCell = document.createElement("td");
       keysCell.className = "keys";
-      keysCell.textContent =
-        capturing === action
-          ? "Press a key..."
-          : keys.map((key) => (key === "space" ? "Space" : key)).join(", ");
+      const display = (key: string) => (key === "space" ? "Space" : key);
       const resetCell = document.createElement("td");
       row.append(label, keysCell, resetCell);
-      if (action !== "pick") {
-        row.className = "editable";
-        keysCell.addEventListener("click", () => {
-          capturing = action;
-          status.textContent = "";
-          renderShortcuts();
-        });
+      if (action === "pick") {
+        keysCell.textContent = keys.map(display).join(", ");
+      } else {
+        for (const key of keys) {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = display(key);
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "×";
+          remove.setAttribute("aria-label", `Remove ${display(key)}`);
+          remove.addEventListener("click", () => {
+            void updateShortcuts("remove_shortcut_key", { action, key });
+          });
+          chip.append(remove);
+          keysCell.append(chip);
+        }
+        if (capturing === action) {
+          const prompt = document.createElement("span");
+          prompt.className = "capturing";
+          prompt.textContent = "Press a key...";
+          keysCell.append(prompt);
+        } else {
+          const add = document.createElement("button");
+          add.type = "button";
+          add.className = "add";
+          add.textContent = "+";
+          add.setAttribute("aria-label", "Add a key");
+          add.addEventListener("click", () => {
+            capturing = action;
+            status.textContent = "";
+            renderShortcuts();
+          });
+          keysCell.append(add);
+        }
         const reset = document.createElement("button");
         reset.type = "button";
         reset.textContent = "Reset";
@@ -129,7 +154,7 @@ debugTiming.addEventListener("change", () => {
   },
 );
 
-// While a row captures, the next key rebinds it; Escape cancels.
+// While a row captures, the next key is added to it; Escape cancels.
 window.addEventListener("keydown", (event) => {
   if (capturing === null || ["Shift", "Meta", "Control", "Alt"].includes(event.key)) {
     return;
@@ -144,5 +169,5 @@ window.addEventListener("keydown", (event) => {
     renderShortcuts();
     return;
   }
-  void updateShortcuts("set_shortcut", { action: capturing, key });
+  void updateShortcuts("add_shortcut_key", { action: capturing, key });
 });
