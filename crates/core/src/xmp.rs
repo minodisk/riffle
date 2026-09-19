@@ -1,11 +1,13 @@
-//! XMP sidecar reading and writing for ratings.
+//! XMP sidecar reading and writing for ratings and colour labels.
 //!
 //! A rating is a single signed integer in `-1..=5`: `0` is unrated, `1`-`5`
 //! are stars and `-1` is a reject, which is the convention Adobe Bridge
-//! writes and darktable reads. Nothing but `xmp:Rating` is ever written.
+//! writes and darktable reads. A label is the raw string of `xmp:Label`,
+//! kept as-is so any vocabulary round-trips. Nothing but `xmp:Rating` and
+//! `xmp:Label` is ever written.
 //!
-//! An existing sidecar is patched by splicing the bytes of the `Rating`
-//! value, so a Lightroom sidecar keeps its `crs:` develop settings
+//! An existing sidecar is patched by splicing the bytes of the `Rating` or
+//! `Label` value (or removing the `Label` property), so a Lightroom sidecar keeps its `crs:` develop settings
 //! byte-for-byte; a sidecar is never regenerated from a parse.
 
 use std::path::{Path, PathBuf};
@@ -35,8 +37,8 @@ pub fn sidecar_path(arw: &Path) -> PathBuf {
 /// `Err` when the bytes are not parseable XMP.
 pub fn read_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
-    match locate(text)? {
-        Location::Value { start, end } => Ok(text[start..end]
+    match locate(text, "Rating")? {
+        Location::Value { start, end, .. } => Ok(text[start..end]
             .trim()
             .parse::<i8>()
             .ok()
@@ -62,14 +64,58 @@ pub fn write_rating(existing: Option<&[u8]>, rating: Option<i8>) -> Result<Vec<u
         return Err(format!("rating {value} is outside -1..=5"));
     }
     let Some(existing) = existing else {
-        return Ok(template(value).into_bytes());
+        return Ok(template("Rating", &value.to_string()).into_bytes());
     };
+    set(existing, "Rating", &value.to_string())
+}
+
+/// The `xmp:Label` of the first `rdf:Description` that has one, as the raw
+/// string the sidecar holds.
+///
+/// `None` when the property is absent or empty; `Err` when the bytes are not
+/// parseable XMP.
+pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
+    let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
+    match locate(text, "Label")? {
+        Location::Value { start, end, .. } if !text[start..end].trim().is_empty() => {
+            Ok(Some(text[start..end].to_string()))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// The sidecar bytes carrying `label`.
+///
+/// `Some` splices the value in place or inserts one attribute, as
+/// [`write_rating`] does; `None` removes the property and leaves a sidecar
+/// without one byte-identical. With `existing` `None`, `Some` is a fresh
+/// template and `None` is an error: no sidecar is minted for "no label".
+pub fn write_label(existing: Option<&[u8]>, label: Option<&str>) -> Result<Vec<u8>, String> {
+    let Some(existing) = existing else {
+        return match label {
+            Some(label) => Ok(template("Label", label).into_bytes()),
+            None => Err("no sidecar to clear a label from".to_string()),
+        };
+    };
+    let Some(label) = label else {
+        let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
+        return Ok(match locate(text, "Label")? {
+            Location::Value { remove, .. } => {
+                format!("{}{}", &text[..remove.0], &text[remove.1..]).into_bytes()
+            }
+            Location::Insert { .. } => existing.to_vec(),
+        });
+    };
+    set(existing, "Label", label)
+}
+
+fn set(existing: &[u8], name: &str, value: &str) -> Result<Vec<u8>, String> {
     let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
     let mut out = String::with_capacity(text.len() + 32);
-    match locate(text)? {
-        Location::Value { start, end } => {
+    match locate(text, name)? {
+        Location::Value { start, end, .. } => {
             out.push_str(&text[..start]);
-            out.push_str(&value.to_string());
+            out.push_str(value);
             out.push_str(&text[end..]);
         }
         Location::Insert {
@@ -81,19 +127,19 @@ pub fn write_rating(existing: Option<&[u8]>, rating: Option<i8>) -> Result<Vec<u
             if declare {
                 out.push_str(&format!(" xmlns:{prefix}=\"{XMP_NS}\""));
             }
-            out.push_str(&format!(" {prefix}:Rating=\"{value}\""));
+            out.push_str(&format!(" {prefix}:{name}=\"{value}\""));
             out.push_str(&text[at..]);
         }
     }
     Ok(out.into_bytes())
 }
 
-fn template(value: i8) -> String {
+fn template(name: &str, value: &str) -> String {
     format!(
         "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n\
          <x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"riffle\">\n\
          \x20<rdf:RDF xmlns:rdf=\"{RDF_NS}\">\n\
-         \x20 <rdf:Description rdf:about=\"\" xmlns:xmp=\"{XMP_NS}\" xmp:Rating=\"{value}\"/>\n\
+         \x20 <rdf:Description rdf:about=\"\" xmlns:xmp=\"{XMP_NS}\" xmp:{name}=\"{value}\"/>\n\
          \x20</rdf:RDF>\n\
          </x:xmpmeta>\n\
          <?xpacket end=\"w\"?>\n"
@@ -101,8 +147,14 @@ fn template(value: i8) -> String {
 }
 
 enum Location {
-    /// The byte range of the `Rating` value, attribute or element text.
-    Value { start: usize, end: usize },
+    /// The byte range of the property's value, attribute or element text,
+    /// and the range removing the whole property: the attribute with the
+    /// whitespace before it, or the element (with its line when alone on it).
+    Value {
+        start: usize,
+        end: usize,
+        remove: (usize, usize),
+    },
     /// Where to insert an attribute in the first `rdf:Description` start tag.
     Insert {
         at: usize,
@@ -111,12 +163,12 @@ enum Location {
     },
 }
 
-fn locate(text: &str) -> Result<Location, String> {
+fn locate(text: &str, name: &str) -> Result<Location, String> {
     let mut reader = NsReader::from_str(text);
     let mut pos = 0usize;
     let mut insert: Option<Location> = None;
     let mut first_description_seen = false;
-    let mut in_rating = false;
+    let mut element: Option<(usize, Option<(usize, usize)>)> = None;
     loop {
         let event = reader
             .read_event()
@@ -131,11 +183,13 @@ fn locate(text: &str) -> Result<Location, String> {
                     for attr in e.attributes() {
                         let attr = attr.map_err(|e| format!("XMP parse error: {e}"))?;
                         let (ans, alocal) = reader.resolver().resolve_attribute(attr.key);
-                        if bound_to(&ans, XMP_NS) && alocal.as_ref() == "Rating" {
-                            if let Some((s, e)) = attr_value_range(span, attr.key.as_ref()) {
+                        if bound_to(&ans, XMP_NS) && alocal.as_ref() == name {
+                            if let Some((k, s, e)) = attr_value_range(span, attr.key.as_ref()) {
+                                let lead = span[..k].trim_end().len();
                                 return Ok(Location::Value {
                                     start: pos + s,
                                     end: pos + e,
+                                    remove: (pos + lead, pos + e + 1),
                                 });
                             }
                         }
@@ -149,25 +203,31 @@ fn locate(text: &str) -> Result<Location, String> {
                             declare,
                         });
                     }
-                } else if bound_to(&ns, XMP_NS) && local.as_ref() == "Rating" {
-                    in_rating = matches!(event, Event::Start(_));
+                } else if bound_to(&ns, XMP_NS) && local.as_ref() == name {
+                    element = matches!(event, Event::Start(_)).then_some((pos, None));
                 }
             }
-            Event::Text(_) if in_rating => {
-                return Ok(Location::Value { start: pos, end });
+            Event::Text(_) => {
+                if let Some((_, value @ None)) = &mut element {
+                    *value = Some((pos, end));
+                }
             }
             Event::End(e) => {
                 let (ns, local) = reader.resolver().resolve_element(e.name());
-                if bound_to(&ns, XMP_NS) && local.as_ref() == "Rating" && in_rating {
-                    // An empty element-form property, `<xmp:Rating></xmp:Rating>`,
-                    // never produces a `Text` event: splice the empty range
-                    // between the tags instead of falling through to `insert`.
-                    return Ok(Location::Value {
-                        start: pos,
-                        end: pos,
-                    });
+                if bound_to(&ns, XMP_NS) && local.as_ref() == name {
+                    if let Some((open, value)) = element {
+                        // An empty element-form property, `<xmp:Rating></xmp:Rating>`,
+                        // never produces a `Text` event: splice the empty range
+                        // between the tags instead of falling through to `insert`.
+                        let (start, end_value) = value.unwrap_or((pos, pos));
+                        return Ok(Location::Value {
+                            start,
+                            end: end_value,
+                            remove: line_or_element(text, open, end),
+                        });
+                    }
                 }
-                in_rating = false;
+                element = None;
             }
             _ => {}
         }
@@ -180,7 +240,21 @@ fn bound_to(ns: &ResolveResult<'_>, expected: &str) -> bool {
     matches!(ns, ResolveResult::Bound(n) if n.as_ref() == expected)
 }
 
-/// The prefix to write `Rating` with, and whether it has to be declared.
+/// The whole line when the element `open..close` sits alone on it, otherwise
+/// just the element.
+fn line_or_element(text: &str, open: usize, close: usize) -> (usize, usize) {
+    let line_start = text[..open].rfind('\n').map_or(0, |i| i + 1);
+    let Some(nl) = text[close..].find('\n') else {
+        return (open, close);
+    };
+    if text[line_start..open].trim().is_empty() && text[close..close + nl].trim().is_empty() {
+        (line_start, close + nl + 1)
+    } else {
+        (open, close)
+    }
+}
+
+/// The prefix to write a property with, and whether it has to be declared.
 fn xmp_prefix(reader: &NsReader<&[u8]>) -> (String, bool) {
     for candidate in ["xmp", "xap"] {
         let name = format!("{candidate}:Rating");
@@ -194,11 +268,12 @@ fn xmp_prefix(reader: &NsReader<&[u8]>) -> (String, bool) {
     ("xmp".to_string(), true)
 }
 
-/// The byte range of `key`'s value inside a start tag, quotes excluded.
+/// The offset of `key` and the byte range of its value inside a start tag,
+/// quotes excluded.
 ///
 /// quick-xml reports positions per event, not per attribute, so the value is
 /// located by scanning the start tag's own range, which is exact.
-fn attr_value_range(tag: &str, key: &str) -> Option<(usize, usize)> {
+fn attr_value_range(tag: &str, key: &str) -> Option<(usize, usize, usize)> {
     let mut from = 0usize;
     while let Some(rel) = tag[from..].find(key) {
         let start = from + rel;
@@ -223,7 +298,7 @@ fn attr_value_range(tag: &str, key: &str) -> Option<(usize, usize)> {
         }
         let value_start = tag.len() - after_eq.len() + 1;
         let value_end = value_start + tag[value_start..].find(quote)?;
-        return Some((value_start, value_end));
+        return Some((start, value_start, value_end));
     }
     None
 }
@@ -491,5 +566,153 @@ mod tests {
     fn a_rating_outside_the_range_is_an_error() {
         assert!(write_rating(None, Some(6)).is_err());
         assert!(write_rating(None, Some(-2)).is_err());
+    }
+    fn labelled(source: &str, label: Option<&str>) -> String {
+        String::from_utf8(write_label(Some(source.as_bytes()), label).unwrap()).unwrap()
+    }
+
+    fn with_attribute_label(label: &str) -> String {
+        BRIDGE.replace(
+            "   xmp:Rating=\"3\"\n",
+            &format!("   xmp:Rating=\"3\"\n   xmp:Label=\"{label}\"\n"),
+        )
+    }
+
+    fn with_element_label(label: &str) -> String {
+        LIGHTROOM.replace(
+            "   <xmp:Rating>2</xmp:Rating>\n",
+            &format!("   <xmp:Rating>2</xmp:Rating>\n   <xmp:Label>{label}</xmp:Label>\n"),
+        )
+    }
+
+    #[test]
+    fn reads_an_attribute_label() {
+        assert_eq!(
+            read_label(with_attribute_label("Red").as_bytes()).unwrap(),
+            Some("Red".to_string())
+        );
+    }
+
+    #[test]
+    fn reads_an_element_label() {
+        assert_eq!(
+            read_label(with_element_label("Blue").as_bytes()).unwrap(),
+            Some("Blue".to_string())
+        );
+    }
+
+    #[test]
+    fn an_absent_or_empty_label_reads_as_none() {
+        assert_eq!(read_label(BRIDGE.as_bytes()).unwrap(), None);
+        assert_eq!(
+            read_label(with_attribute_label("").as_bytes()).unwrap(),
+            None
+        );
+        assert_eq!(read_label(with_element_label("").as_bytes()).unwrap(), None);
+    }
+
+    #[test]
+    fn a_truncated_document_is_a_label_error() {
+        let source = &BRIDGE[..BRIDGE.len() / 2];
+        assert!(read_label(source.as_bytes()).is_err());
+        assert!(write_label(Some(source.as_bytes()), Some("Red")).is_err());
+    }
+
+    #[test]
+    fn sets_only_the_label_value() {
+        let source = with_attribute_label("Red");
+        assert_eq!(
+            labelled(&source, Some("Green")),
+            with_attribute_label("Green")
+        );
+        let source = with_element_label("Red");
+        assert_eq!(
+            labelled(&source, Some("Purple")),
+            with_element_label("Purple")
+        );
+    }
+
+    #[test]
+    fn inserts_a_label_attribute_when_absent() {
+        let out = labelled(NO_RATING, Some("Yellow"));
+        assert_eq!(
+            out,
+            NO_RATING.replace(
+                "xmp:CreatorTool=\"darktable\"/>",
+                "xmp:CreatorTool=\"darktable\" xmp:Label=\"Yellow\"/>"
+            )
+        );
+        assert_eq!(
+            read_label(out.as_bytes()).unwrap(),
+            Some("Yellow".to_string())
+        );
+    }
+
+    #[test]
+    fn clearing_removes_the_attribute() {
+        assert_eq!(labelled(&with_attribute_label("Red"), None), BRIDGE);
+        let inline = NO_RATING.replace(
+            "xmp:CreatorTool=\"darktable\"/>",
+            "xmp:CreatorTool=\"darktable\" xmp:Label=\"Red\"/>",
+        );
+        assert_eq!(labelled(&inline, None), NO_RATING);
+    }
+
+    #[test]
+    fn clearing_removes_the_element_and_its_line() {
+        assert_eq!(labelled(&with_element_label("Red"), None), LIGHTROOM);
+        let shared = LIGHTROOM.replace(
+            "<xmp:Rating>2</xmp:Rating>",
+            "<xmp:Rating>2</xmp:Rating><xmp:Label>Red</xmp:Label>",
+        );
+        assert_eq!(labelled(&shared, None), LIGHTROOM);
+    }
+
+    #[test]
+    fn clearing_without_a_label_is_a_no_op() {
+        assert_eq!(labelled(BRIDGE, None), BRIDGE);
+        assert_eq!(labelled(LIGHTROOM, None), LIGHTROOM);
+    }
+
+    #[test]
+    fn a_fresh_label_template_and_no_sidecar_to_clear() {
+        let bytes = write_label(None, Some("Red")).unwrap();
+        assert_eq!(read_label(&bytes).unwrap(), Some("Red".to_string()));
+        assert_eq!(read_rating(&bytes).unwrap(), None);
+        assert!(write_label(None, None).is_err());
+    }
+
+    #[test]
+    fn rating_and_label_keep_each_other() {
+        let rated = patched(&with_element_label("Red"), Some(5));
+        assert_eq!(
+            read_label(rated.as_bytes()).unwrap(),
+            Some("Red".to_string())
+        );
+        let both = labelled(&rated, Some("Blue"));
+        assert_eq!(read_rating(both.as_bytes()).unwrap(), Some(5));
+        assert_eq!(
+            read_label(both.as_bytes()).unwrap(),
+            Some("Blue".to_string())
+        );
+
+        let labelled_fresh = labelled(NO_RATING, Some("Green"));
+        let rated = patched(&labelled_fresh, Some(2));
+        assert_eq!(
+            read_label(rated.as_bytes()).unwrap(),
+            Some("Green".to_string())
+        );
+        assert_eq!(read_rating(rated.as_bytes()).unwrap(), Some(2));
+    }
+
+    #[test]
+    fn foreign_label_names_round_trip() {
+        for label in ["Orange", "Rouge vif", "赤"] {
+            let out = labelled(BRIDGE, Some(label));
+            assert_eq!(read_label(out.as_bytes()).unwrap(), Some(label.to_string()));
+            assert_eq!(labelled(&out, None), BRIDGE);
+            let out = labelled(&with_element_label("Red"), Some(label));
+            assert_eq!(out, with_element_label(label));
+        }
     }
 }
