@@ -3,6 +3,7 @@ import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { History } from "./undo.js";
 import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
+import { type SortKey, orderFiles } from "./sort.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -31,6 +32,8 @@ interface Focus {
 interface IndexedFile {
   path: string;
   orientation: number;
+  capture_time: string | null;
+  subsec: string | null;
   focus: Focus | null;
   has_thumb: boolean;
   rating: number | null;
@@ -73,7 +76,9 @@ const worker = new Worker(new URL("./worker.js", import.meta.url), {
 
 // Every RAW file in the open folder, in `list_arw` order.
 let allFiles: string[] = [];
-// The files that pass the filter, in the same order. `index`, the strip and
+// The strip order, kept across folder opens within the session.
+let sortKey: SortKey = "name";
+// The files that pass the filter, in `sortKey` order. `index`, the strip and
 // paging all work on this view.
 let files: string[] = [];
 let index = 0;
@@ -392,11 +397,23 @@ function passes(path: string): boolean {
   );
 }
 
-// Rebuild `files` from `allFiles` after a filter change or a judgement. The
-// current file stays current if it still passes; otherwise the next passing
-// file after it (in `allFiles` order) takes over, or the last one before it.
+function ordered(): string[] {
+  return orderFiles(sortKey, allFiles, (path) => {
+    const entry = entries.get(path);
+    return {
+      captureTime: entry?.capture_time ?? undefined,
+      subsec: entry?.subsec ?? undefined,
+      rating: ratings.get(path),
+    };
+  });
+}
+
+// Rebuild `files` from `allFiles` after a filter, sort or judgement change.
+// The current file stays current if it still passes; otherwise the next
+// passing file after it (in sort order) takes over, or the last one before it.
 function refilter(anchor: string | undefined = files[index]): void {
-  const next = allFiles.filter(passes);
+  const order = ordered();
+  const next = order.filter(passes);
   if (next.length === files.length && next.every((path, at) => path === files[at])) {
     return;
   }
@@ -420,7 +437,7 @@ function refilter(anchor: string | undefined = files[index]): void {
     renderMeta();
     return;
   }
-  const target = anchorAfterFilter(allFiles, passes, anchor);
+  const target = anchorAfterFilter(order, passes, anchor);
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
   if (files[index] === anchor) {
     strip.setCurrent(index);
@@ -947,13 +964,13 @@ function openDirectory(folder: string, token: number): Promise<void> {
       set.clear();
     }
     allFiles = found;
-    files = found.filter(passes);
+    entries.clear();
+    ratings.clear();
+    files = ordered().filter(passes);
     index = 0;
     openDir = folder;
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
-    entries.clear();
     rebuildExifMenu();
-    ratings.clear();
     picks.clear();
     labels.clear();
     touched.clear();
@@ -1273,6 +1290,38 @@ filterExif.addEventListener("click", (event) => {
   },
 );
 
+const sortToggle = document.getElementById("sort-toggle") as HTMLButtonElement;
+const sortMenu = document.getElementById("sort-menu") as HTMLDivElement;
+const sortItems = sortMenu.querySelectorAll<HTMLButtonElement>("[data-sort]");
+
+function setSortMenuOpen(open: boolean): void {
+  sortMenu.hidden = !open;
+  sortToggle.setAttribute("aria-expanded", String(open));
+}
+
+sortToggle.addEventListener("click", () => {
+  sortToggle.blur();
+  setSortMenuOpen(!!sortMenu.hidden);
+});
+
+document.addEventListener("mousedown", (event) => {
+  if (!sortMenu.hidden && !(event.target as Element).closest("#sort")) {
+    setSortMenuOpen(false);
+  }
+});
+
+for (const item of sortItems) {
+  item.addEventListener("click", () => {
+    item.blur();
+    sortKey = item.dataset.sort as SortKey;
+    for (const other of sortItems) {
+      other.setAttribute("aria-checked", String(other === item));
+    }
+    setSortMenuOpen(false);
+    refilter();
+  });
+}
+
 openEl.addEventListener("click", openFolder);
 reopenLastFolder();
 
@@ -1299,6 +1348,11 @@ window.addEventListener("keydown", (event) => {
   const key = keyName(event);
   if (key === "escape" && !filterMenu.hidden) {
     setFilterMenuOpen(false);
+    event.preventDefault();
+    return;
+  }
+  if (key === "escape" && !sortMenu.hidden) {
+    setSortMenuOpen(false);
     event.preventDefault();
     return;
   }

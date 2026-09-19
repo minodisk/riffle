@@ -97,7 +97,7 @@ the native menu bar.
       comparator must still end in the file-name compare so the result does
       not depend on input order.
 
-- [ ] Step 2: Sort choice in the strip pane, applied to the strip, paging and the filter
+- [x] Step 2: Sort choice in the strip pane, applied to the strip, paging and the filter
   - Done when:
     - `main.ts` keeps a `sortKey: SortKey` (default `"name"`) and an ordered
       view of the folder: `refilter()` and `openDirectory()` build `files` as
@@ -234,3 +234,4 @@ where one writes no `subsec` fall back to file name within the same second.
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
