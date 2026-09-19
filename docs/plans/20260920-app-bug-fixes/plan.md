@@ -46,7 +46,7 @@ not touch `scan_folder`, `crop_payload`, or `run_scan`'s completion path.
 
 ## Steps
 
-- [ ] Step 1: Keep shortcut overrides that are inactive under the current sidecar format
+- [x] Step 1: Keep shortcut overrides that are inactive under the current sidecar format
   - Done when:
     - A stored `shortcuts` value such as `{"reject": ["6"]}` loaded under XMP
       (where the override is skipped) is still present in `Keymap::overrides()`
@@ -125,4 +125,4 @@ not touch `scan_folder`, `crop_payload`, or `run_scan`'s completion path.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
