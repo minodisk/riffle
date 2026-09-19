@@ -62,4 +62,4 @@ wrap-up, not in a step.
 
 ## Progress
 
-- (not started)
+- (2026-09-19) Step 1 complete
