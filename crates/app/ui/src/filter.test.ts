@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import type { Exif, ExifGroup } from "./exif.js";
-import { type FilterState, type Flag, anchorAfterFilter, passes } from "./filter.js";
+import {
+  type FilterState,
+  type Flag,
+  type Judgement,
+  anchorAfterFilter,
+  passes,
+} from "./filter.js";
 
 function state(
   flags: Flag[] = [],
@@ -142,4 +148,33 @@ describe("anchorAfterFilter", () => {
     expect(anchorAfterFilter(all, () => false, "b")).toBeUndefined();
     expect(anchorAfterFilter(all, () => true, undefined)).toBeUndefined();
   });
+});
+
+describe("a judgement under untagged + 0 + none", () => {
+  const s = state(["untagged"], [0], [], ["none"]);
+  const judgements = {
+    rating: { rating: 3, pick: false, label: null },
+    reject: { rating: -1, pick: false, label: null },
+    pick: { rating: null, pick: true, label: null },
+    label: { rating: null, pick: false, label: "Red" },
+  };
+
+  function after(all: string[], judged: string, judgement: Judgement) {
+    const pass = (path: string) => passes(s, path === judged ? judgement : unjudged, undefined);
+    return anchorAfterFilter(all, pass, judged);
+  }
+
+  for (const [name, judgement] of Object.entries(judgements)) {
+    test(`${name} moves to the next unjudged file after it`, () => {
+      expect(after(["a", "b", "c"], "b", judgement)).toBe("c");
+    });
+
+    test(`${name} falls back to the last unjudged file before it`, () => {
+      expect(after(["a", "b", "c"], "c", judgement)).toBe("b");
+    });
+
+    test(`${name} on the only file leaves the empty view`, () => {
+      expect(after(["a"], "a", judgement)).toBeUndefined();
+    });
+  }
 });

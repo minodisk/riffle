@@ -413,7 +413,9 @@ function ordered(): string[] {
 
 // Rebuild `files` from `allFiles` after a filter, sort or judgement change.
 // The current file stays current if it still passes; otherwise the next
-// passing file after it (in sort order) takes over, or the last one before it.
+// passing file after it (in sort order) takes over, or the last one before it,
+// or the empty view. A judgement that drops the current file out of the
+// filter therefore hides it at once and moves on to the next passing file.
 function refilter(anchor: string | undefined = files[index]): void {
   const order = ordered();
   const next = order.filter(passes);

@@ -306,18 +306,6 @@ wiring) would let this and other `AppHandle`-taking commands in
   unit-tested, then add the deferred `switch_sidecar_format` race test (rating
   set between the format swap and `reset_sidecars`).
 
-### App: no colour label group in the filter menu
-
-The filter menu (`crates/app/ui/src/main.ts`) narrows by pick flag and stars
-but not by colour label, so "only unjudged files" cannot be expressed: flag
-`untagged` AND `0` stars still lets through a file that has only a label.
-
-#### TODO
-
-- [ ] Add a colour label group to the filter menu, including a "no label"
-  entry, so flag `untagged` AND `0` stars AND no label selects exactly the
-  unjudged files.
-
 ### App: no sharpness cue to catch missed focus without the 1:1 view
 
 Spotting a missed focus or camera shake needs `Space` on every file. A relative
