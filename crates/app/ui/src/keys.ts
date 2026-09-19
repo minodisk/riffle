@@ -1,18 +1,41 @@
 export type Binding = { action: string; keys: string[] };
 
-// Letter keys are matched lower-cased, so Shift+J pages like j does. Ctrl+Alt
-// keys are named from `event.code`, as Option changes `event.key` on macOS.
-export function keyName(event: KeyboardEvent): string {
-  if (event.ctrlKey && event.altKey && !event.metaKey) {
-    const code = event.code.replace(/^(Digit|Key|Numpad)/, "");
-    const named: Record<string, string> = { Minus: "-", Equal: "=", Space: "space" };
-    return `ctrl+alt+${(named[code] ?? code).toLowerCase()}`;
-  }
-  return event.key === " " ? "space" : event.key.toLowerCase();
-}
+type KeyEvent = Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">;
 
-// Ctrl+Alt is the only modified form bound; Ctrl-only, Alt-only and Meta
-// combinations are left to the system.
-export function isUnboundModifier(event: KeyboardEvent): boolean {
-  return event.metaKey || event.ctrlKey !== event.altKey;
+const MODIFIER_KEYS = ["Control", "Alt", "Shift", "Meta"];
+
+const CODE_NAMES: Record<string, string> = {
+  Minus: "-",
+  Equal: "=",
+  Space: "space",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Semicolon: ";",
+  Quote: "'",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Backquote: "`",
+};
+
+// A plain key is `event.key` lower-cased. With a modifier held, the name is
+// `ctrl+alt+shift+meta+` (only those held) and the key named from
+// `event.code`, as Option and Shift change `event.key`. A lone modifier has
+// no name.
+export function keyName(event: KeyEvent): string | null {
+  if (MODIFIER_KEYS.includes(event.key)) {
+    return null;
+  }
+  const modifiers = [
+    event.ctrlKey && "ctrl",
+    event.altKey && "alt",
+    event.shiftKey && "shift",
+    event.metaKey && "meta",
+  ].filter((m): m is string => m !== false);
+  if (modifiers.length === 0) {
+    return event.key === " " ? "space" : event.key.toLowerCase();
+  }
+  const code = event.code.replace(/^(Digit|Key|Numpad)/, "");
+  return `${modifiers.join("+")}+${(CODE_NAMES[code] ?? code).toLowerCase()}`;
 }

@@ -128,10 +128,14 @@ Keys can be changed from `Riffle > Settings...` (`CmdOrCtrl+,`):
 click a row's `+` and press a key to add it (`Escape` cancels), or click the
 `×` on a key to remove it. The last key of an action cannot be removed (use
 Reset). A key already used by another action is refused, `p` is
-reserved for pick, and the only modifier combination that can be bound is
-Ctrl+Alt (stored as `ctrl+alt+` and the key, named from its physical key, so
-`ctrl+alt+1` stays `1` though Option changes the typed character on macOS);
-Cmd, a lone Ctrl or a lone Alt cannot. An override applies under both formats;
+reserved for pick, and a modifier pressed alone is ignored. Any combination of
+Ctrl, Alt (Option), Shift and Cmd (Windows / Super) can be bound; it is stored
+as `ctrl+alt+shift+meta+` with only the modifiers held, and the key named from
+its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
+character on macOS. Shift counts, so Shift+J is a different key from J.
+Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+Z`,
+`Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
+An override applies under both formats;
 only the label defaults change with the format, and an override that collides
 with one format's default is skipped under that format only. `Reset all`
 restores the current format's defaults.

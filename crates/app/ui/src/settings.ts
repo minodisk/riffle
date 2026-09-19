@@ -1,4 +1,4 @@
-import { type Binding, isUnboundModifier, keyName } from "./keys.js";
+import { type Binding, keyName } from "./keys.js";
 
 const shortcutLabels: Record<string, string> = {
   previous: "Previous",
@@ -172,13 +172,13 @@ debugTiming.addEventListener("change", () => {
 
 // While a row captures, the next key is added to it; Escape cancels.
 window.addEventListener("keydown", (event) => {
-  if (capturing === null || ["Shift", "Meta", "Control", "Alt"].includes(event.key)) {
-    return;
-  }
-  if (isUnboundModifier(event)) {
+  if (capturing === null) {
     return;
   }
   const key = keyName(event);
+  if (key === null) {
+    return;
+  }
   event.preventDefault();
   if (key === "escape") {
     capturing = null;

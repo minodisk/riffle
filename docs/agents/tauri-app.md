@@ -310,14 +310,15 @@ rather than by a test.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
-### Name a Ctrl+Alt key from `event.code`, not `event.key` (Hit)
+### Name a modified key from `event.code`, not `event.key` (Hit)
 
-On macOS, Option changes `event.key` (⌃⌥1 reports `¡`, not `1`), so a
-`ctrl+alt+` key is named from `event.code` (`Digit1` -> `1`); a plain key keeps
-the lower-cased `event.key`. The shortcuts panel's capture must use the same
-naming, and must skip a lone modifier by its `event.key` (`Control`, `Alt`, ...)
-rather than by the derived name, or holding Ctrl+Alt records
-`ctrl+alt+altleft`.
+On macOS, Option and Shift change `event.key` (⌃⌥1 reports `¡`, not `1`), so
+a key pressed with any modifier is named from `event.code` (`Digit1` -> `1`,
+`Comma` -> `,`) after the held modifiers in `ctrl+alt+shift+meta` order; a
+plain key keeps the lower-cased `event.key`. The shortcuts panel's capture must
+use the same naming, and a lone modifier must be skipped by its `event.key`
+(`Control`, `Alt`, ...) rather than by the derived name, or holding Ctrl+Alt
+records `ctrl+alt+altleft`.
 
 - Why: the keymap compares names; a name built one way on dispatch and another
   way on capture never matches.
