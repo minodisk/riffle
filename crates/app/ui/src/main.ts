@@ -505,12 +505,16 @@ function judge(
   renderMeta();
   refilter(path);
   const token = folderToken;
+  // `label` only carries a meaningful value once `folder_entries` has told us
+  // this path's label; before that, `labelKnown: false` tells the backend to
+  // keep whatever it already has instead of clearing it.
   void window.__TAURI__.core
     .invoke("set_rating", {
       path,
       rating: rating ?? 0,
       pick,
       label: labels.get(path) ?? null,
+      labelKnown: entries.has(path),
     })
     .catch((err: unknown) => {
       if (token !== folderToken) {
@@ -550,11 +554,14 @@ function refreshEntries(): void {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
           applyRating(row.path, row.rating, row.pick);
-          if (row.label === null) {
-            labels.delete(row.path);
-          } else {
-            labels.set(row.path, row.label);
-          }
+        }
+        // The frontend never changes a label on its own in this step, so the
+        // `touched` guard (which only protects an in-flight rating/pick edit
+        // from being clobbered by a stale row) does not need to cover it.
+        if (row.label === null) {
+          labels.delete(row.path);
+        } else {
+          labels.set(row.path, row.label);
         }
       }
       rebuildExifMenu();

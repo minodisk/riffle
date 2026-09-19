@@ -881,6 +881,11 @@ fn update_keymap(
 /// nowhere to put it. The label is any raw name, kept under both formats; an
 /// empty one is no label.
 ///
+/// `label_known` is false when the frontend has not yet learned this path's
+/// label from `folder_entries` (e.g. a judgement made before the first
+/// refresh lands): `label` is then ignored and the stored label, if any, is
+/// kept rather than clearing it.
+///
 /// The `ratings` row is written before the writer is told, so a crash between
 /// the two still leaves the row dirty and the sidecar is written on the next
 /// open of that folder. The command is `async` because it touches SQLite; the
@@ -892,6 +897,7 @@ pub async fn set_rating(
     rating: i8,
     pick: bool,
     label: Option<String>,
+    label_known: bool,
 ) -> Result<(), String> {
     if !(-1..=5).contains(&rating) {
         return Err(format!("rating {rating} is outside -1..=5"));
@@ -901,9 +907,16 @@ pub async fn set_rating(
     let rating = Some(rating).filter(|r| *r != 0);
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     let pick = pick && rating != Some(-1) && format == SidecarFormat::Dop;
-    let label = label.filter(|l| !l.is_empty());
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
+    };
+    let label = if label_known {
+        label.filter(|l| !l.is_empty())
+    } else {
+        let (index, path) = (index.clone(), path.clone());
+        tauri::async_runtime::spawn_blocking(move || index::lock(&index).label(&path))
+            .await
+            .map_err(|e| e.to_string())??
     };
     let dir = Path::new(&path)
         .parent()

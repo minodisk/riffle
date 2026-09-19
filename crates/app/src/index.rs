@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::scan::{extract_all, Entry};
@@ -417,6 +417,21 @@ impl Index {
                 Some(thumb) => Ok((orientation.unwrap_or(1), thumb)),
                 None => Err(format!("{path}: no cached thumbnail")),
             })
+    }
+
+    /// The colour label stored for one path, or `None` when there is no row
+    /// yet or the row has no label. Used to keep a path's label untouched
+    /// when the caller has not learned it yet, rather than clearing it.
+    pub fn label(&self, path: &str) -> Result<Option<String>, String> {
+        self.conn
+            .query_row(
+                "SELECT label FROM ratings WHERE path = ?1",
+                params![path],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map(|row| row.flatten())
+            .map_err(|e| format!("{path}: {e}"))
     }
 
     /// Record a judgement for one file, pending a sidecar write.
@@ -1077,6 +1092,29 @@ mod tests {
         assert!(index
             .mark_written(&path, Some(3), false, Some("Red"), None)
             .unwrap());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn label_reads_back_what_set_rating_stored_and_none_before_any_row() {
+        let dir = temp_dir("label-get");
+        let mut index = open(&dir);
+        assert_eq!(
+            index.label("/a.ARW").unwrap(),
+            None,
+            "no row yet: the caller must not treat this as a real absence of label"
+        );
+
+        index
+            .set_rating("d", "/a.ARW", Some(3), false, Some("Red"))
+            .unwrap();
+        assert_eq!(index.label("/a.ARW").unwrap().as_deref(), Some("Red"));
+
+        index
+            .set_rating("d", "/a.ARW", Some(3), false, None)
+            .unwrap();
+        assert_eq!(index.label("/a.ARW").unwrap(), None);
 
         remove_temp_dir(&dir);
     }
