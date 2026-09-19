@@ -102,6 +102,17 @@ compensate.
 - Source: `docs/plans/_archived/20260918-focus-check/learnings.md`, Steps 1
   and 2.
 
+### mozjpeg panics, rather than returning `Err`, on non-JPEG bytes (Hit)
+
+`Decompress::new_mem` and friends panic on bytes that are not a JPEG instead
+of returning a `Result::Err`.
+
+- Any code path that cannot guarantee its input is a real JPEG (e.g. scoring an
+  arbitrary embedded preview) must wrap its own call into mozjpeg in
+  `catch_unwind` and convert the panic to an `Err`; callers then just call
+  `.ok()` on it.
+- Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 1.
+
 ### Draining background work at quit needs `build()` + `run()` (Hit)
 
 Work that must finish before the process ends — Phase 6's sidecar writer has a
@@ -251,6 +262,18 @@ removal.
   new use of this splice path.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
 
+### Bumping `SCHEMA_VERSION` can strand an old per-version column guard (Hit)
+
+A migration guard that adds a column for "any version other than the current
+one" (e.g. `ratings.label_known` at v6) breaks once a later change bumps
+`SCHEMA_VERSION` again (v6 -> v7): the guard now also fires for v6 databases
+that already have the column, and the `ALTER TABLE` fails.
+
+- Key such a guard to the version that introduced the column (`version < 6`),
+  not to the ever-moving current version, and re-check the versions asserted by
+  the existing migration tests whenever `SCHEMA_VERSION` moves.
+- Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2.
+
 ## Frontend (`crates/app/ui`, Vite+)
 
 ### Undo must re-anchor conditionally, not unconditionally (Hit)
@@ -281,6 +304,17 @@ still the current file afterward — calls `move(1)` for auto-advance.
 - `move` already clamps at the last file, so the auto-advance call does not
   need its own bounds check.
 - Source: `docs/plans/_archived/20260919-auto-advance/learnings.md`, Step 3.
+
+### A derived-state refresh has to run even when `refilter` short-circuits (Hit)
+
+`refilter` returns early when the visible file list did not change, so per-file
+UI state derived from the list (e.g. the sharpness cue's `applySharpness()`)
+cannot rely on `refilter` alone to recompute it.
+
+- Call the derivation explicitly wherever the underlying data is refreshed
+  (`refreshEntries`), and also inside `refilter` after `setFiles`, which clears
+  the strip's per-index store.
+- Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 3.
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
 
