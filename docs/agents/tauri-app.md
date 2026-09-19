@@ -165,7 +165,9 @@ finds them in `Menu::default` by title and inserts into them: `Settings...`
 `Open in DxO PhotoLab` at the top of `File`. Linux's default has no `File`, so
 one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
 that owns `CmdOrCtrl+Z`; the app's `Undo` (emitting `undo` to the frontend)
-replaces that pair rather than being added next to it. Settings themselves (sidecar format, shortcuts, the
+replaces that pair rather than being added next to it. The replacement only
+fires when the item at position 0 is still `MenuItemKind::Predefined`, so a
+Tauri reordering cannot make it silently remove the wrong item. Settings themselves (sidecar format, shortcuts, the
 dev-only timing logs) live in a separate `settings` window
 (`ui/settings.html`), not in menu check items, so the menu reads no plugin
 state and is built in `Builder::menu`.
@@ -223,6 +225,20 @@ removal.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
 
 ## Frontend (`crates/app/ui`, Vite+)
+
+### Undo must re-anchor conditionally, not unconditionally (Hit)
+
+`refilter(anchor)` re-anchors the view on the given file when it is still
+visible under the current filter, but anchoring on a file the filter now
+hides moves the current file to a neighbour instead. So the shared
+apply-and-invoke `commit(...)` behind judge and undo applies the state first,
+then evaluates an optional anchor thunk against the new state: it anchors on
+the target file only when it still passes the filter, and otherwise leaves the
+current view alone.
+
+- Why: anchoring on the just-undone file after every undo silently jumps the
+  view when that file no longer passes the active filter.
+- Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
 
