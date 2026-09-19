@@ -124,3 +124,4 @@ Current state the plan is based on:
   finding (round 1): clicking a tab while a Shortcuts row was capturing left
   `capturing` set and the panel hidden, so the next keypress silently added a
   binding; `selectTab` now cancels any active capture.
+- (2026-09-20) Step 1 complete
