@@ -324,13 +324,21 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 
 - [ ] Retake the deep-row measurement post-fix, then decide between crop prefetch and a DCT-scaled placeholder.
 
-### App: the update path is unverified until a second release ships
+### App: the silent update path is unverified end-to-end
 
-`README.md`'s Status and Installing sections describe auto-update as "awaiting the user's confirmation": v0.1.0 shipped, but nothing has confirmed that an installed copy actually detects and installs a newer release.
+`README.md`'s Updating paragraph describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time.
 
 #### TODO
 
-- [ ] Verify the update path once the second release is out: install v0.1.0, publish the next release, then launch the installed build. Done when it shows the update line, installs the newer release after the signature check, and relaunches as the new version (on macOS, Windows NSIS/MSI, and Linux AppImage); then drop the "awaiting the user's confirmation" wording from README's Status and Installing sections.
+- [ ] Verify the update path once a newer release is out: install the current release, publish the next one, then launch the installed build (and separately, use **Check for Updates…**). Done when the background flow installs the newer release after the signature check and it is used on the next launch, and the menu item reports the up-to-date / installed / already-installed outcomes correctly, on macOS, Windows, and Linux AppImage.
+
+### App: Windows self-update exits the app mid-session
+
+On Windows, `tauri-plugin-updater`'s `install_inner` launches the installer and calls `std::process::exit(0)` because the running exe is locked, so the "installed, used on next launch" behaviour does not hold there: the app quits mid-session. See `crates/app/src/update.rs` and `docs/plans/_archived/20260919-silent-auto-update/learnings.md`.
+
+#### TODO
+
+- [ ] Download the update in the background and install it only on quit (`Update::download`, then `Update::install` from `ExitRequested`), so a running Windows session is never interrupted.
 
 ### App: `cancelling_after_the_first_batch_keeps_what_was_written` races on fast runners
 

@@ -1377,52 +1377,5 @@ window.addEventListener("resize", () => {
   }
 });
 
-function checkForUpdate(): void {
-  window.__TAURI__.updater
-    .check()
-    .then((update) => {
-      if (!update) {
-        return;
-      }
-      const bar = document.getElementById("update") as HTMLDivElement;
-      const text = document.getElementById("update-text") as HTMLSpanElement;
-      const install = document.getElementById("update-install") as HTMLButtonElement;
-      text.textContent = `Riffle v${update.version} is available`;
-      install.addEventListener("click", () => {
-        install.disabled = true;
-        let total = 0;
-        let downloaded = 0;
-        text.textContent = "Downloading…";
-        update
-          .downloadAndInstall((progress) => {
-            if (progress.event === "Started") {
-              total = progress.data.contentLength ?? 0;
-            } else if (progress.event === "Progress") {
-              downloaded += progress.data.chunkLength;
-              if (total > 0) {
-                const percent = Math.min(100, Math.floor((downloaded / total) * 100));
-                text.textContent = `Downloading ${percent}%`;
-              }
-            } else {
-              text.textContent = "Installing…";
-            }
-          })
-          .then(() => {
-            text.textContent = "Restarting…";
-            return window.__TAURI__.process.relaunch();
-          })
-          .catch((e: unknown) => {
-            console.debug("update install failed", e);
-            text.textContent = `Update failed: ${e instanceof Error ? e.message : String(e)}`;
-            install.textContent = "Retry";
-            install.disabled = false;
-          });
-      });
-      bar.hidden = false;
-    })
-    .catch((e: unknown) => console.debug("update check failed", e));
-}
-
 renderMeta();
 draw();
-checkForUpdate();
