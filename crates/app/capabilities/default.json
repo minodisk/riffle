@@ -5,6 +5,7 @@
   "windows": ["main", "settings"],
   "permissions": [
     "core:default",
+    "core:window:allow-set-title",
     "dialog:allow-open",
     "updater:default",
     "process:allow-restart"

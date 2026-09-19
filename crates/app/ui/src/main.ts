@@ -304,6 +304,7 @@ function line(className: string, text: string): HTMLDivElement {
 // and any note (an error, the scan's progress, the opening hint). Also
 // refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
+  renderTitle();
   positionEl.textContent =
     files.length > 0 ? `${index + 1} / ${files.length}` : "";
   metaEl.replaceChildren();
@@ -336,6 +337,26 @@ function renderMeta(): void {
   if (zoomed) {
     metaEl.append(line("note", "1:1"));
   }
+}
+
+// The window title last sent, so paging only crosses IPC when it changes.
+let shownTitle = "Riffle";
+
+// Show the open folder and the current file in the title bar.
+function renderTitle(): void {
+  const parts = ["Riffle"];
+  if (openDir !== null) {
+    parts.push(baseName(openDir));
+  }
+  if (files.length > 0) {
+    parts.push(baseName(files[index]));
+  }
+  const title = parts.join(" \u2014 ");
+  if (title === shownTitle) {
+    return;
+  }
+  shownTitle = title;
+  void window.__TAURI__.window.getCurrentWindow().setTitle(title);
 }
 
 // Hand the open folder to DxO PhotoLab for developing.
