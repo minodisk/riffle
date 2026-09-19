@@ -1141,6 +1141,16 @@ void window.__TAURI__.core
     sidecarFormat = format;
   });
 
+// The settings window's "Timing logs" item toggles this through the `debug`
+// event; read the initial state too, so a reloaded main window stays in sync
+// with the backend's `TimingLogs` state.
+void window.__TAURI__.event.listen<boolean>("debug", ({ payload }) => {
+  debugLogging = payload;
+});
+void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
+  debugLogging = enabled;
+});
+
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>("[data-flag], [data-stars]");

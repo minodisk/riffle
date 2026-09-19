@@ -125,6 +125,7 @@ fn set_timing_logs(app: AppHandle, enabled: bool) {
 #[tauri::command]
 async fn set_sidecar_format(app: AppHandle, format: String) -> Result<(), String> {
     let format = SidecarFormat::from_setting(Some(&format));
+    let unchanged = *index::lock(&app.state::<commands::AppSidecarFormat>().0) == format;
     // The switch drains the writer and touches SQLite and the settings file,
     // none of which may block the main thread.
     let switched = app.clone();
@@ -133,7 +134,9 @@ async fn set_sidecar_format(app: AppHandle, format: String) -> Result<(), String
     })
     .await
     .map_err(|e| e.to_string())??;
-    let _ = app.emit("sidecar-format", format.setting());
+    if !unchanged {
+        let _ = app.emit("sidecar-format", format.setting());
+    }
     Ok(())
 }
 
