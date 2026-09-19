@@ -377,17 +377,6 @@ halve that.
 - [ ] Add an auto-advance setting (on / off, in `Riffle > Settings...`) that
   moves to the next file after a star rating, a reject or a pick is applied.
 
-### App: no undo for judgements
-
-A mistaken star, flag or colour label can only be fixed by navigating back and
-re-keying it; with auto-advance that mistake is already off screen.
-
-#### TODO
-
-- [ ] Add undo (`CmdOrCtrl+Z`) for judgements, restoring the previous rating,
-  flag and label of the affected file (and returning to it) and writing the
-  restored state to the sidecar.
-
 ### App: no colour label group in the filter menu
 
 The filter menu (`crates/app/ui/src/main.ts`) narrows by pick flag and stars

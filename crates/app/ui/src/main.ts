@@ -1,6 +1,7 @@
 import { type Binding, isUnboundModifier, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
+import { History } from "./undo.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -142,6 +143,10 @@ let sidecarFormat = "xmp";
 const touched = new Set<string>();
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
+// A judgement's file and its state before it, for `Edit > Undo`. Per folder:
+// `openDirectory` clears it.
+type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
+const history = new History<Judgement>(100);
 // The filter menu in the strip pane, after PhotoLab's: the checked items of
 // one group are OR-ed, the groups AND-ed, and a group with nothing checked
 // lets everything through. `0` stars is unrated, which a reject also counts
@@ -471,10 +476,27 @@ function judge(
   if (previous === rating && previousPick === pick && previousLabel === label) {
     return;
   }
+  const entry = { path, rating: previous, pick: previousPick, label: previousLabel };
+  history.push(entry);
+  commit(entry, rating, pick, label, () => history.remove(entry));
+}
+
+// Apply `path`'s new judgement locally, then tell the backend; `before` is its
+// state to revert to when the invoke fails. `anchor` picks the file to keep
+// current once the new state is applied (`path` by default).
+function commit(
+  before: Judgement,
+  rating: number | null,
+  pick: boolean,
+  label: string | null,
+  onFail?: () => void,
+  anchor?: () => string | undefined,
+): void {
+  const { path } = before;
   touched.add(path);
   applyRating(path, rating, pick, label);
   renderMeta();
-  refilter(path);
+  refilter(anchor === undefined ? path : anchor());
   const token = folderToken;
   // `label` only carries a meaningful value once `folder_entries` has told us
   // this path's label; before that, `labelKnown: false` tells the backend to
@@ -486,17 +508,53 @@ function judge(
       rating: rating ?? 0,
       pick,
       label,
-      labelKnown: entries.has(path) || label !== previousLabel,
+      labelKnown: entries.has(path) || label !== before.label,
     })
     .catch((err: unknown) => {
       if (token !== folderToken) {
         return;
       }
+      onFail?.();
       touched.delete(path);
-      applyRating(path, previous, previousPick, previousLabel);
+      applyRating(path, before.rating, before.pick, before.label);
       refilter();
       setStatus(String(err));
     });
+}
+
+// `Edit > Undo`: restore the most recent judgement's file to its state before
+// it and make that file current, unless the filter now hides it.
+function undo(): void {
+  if (openDir === null) {
+    return;
+  }
+  const entry = history.pop();
+  if (entry === undefined || !allFiles.includes(entry.path)) {
+    return;
+  }
+  const { path } = entry;
+  const current = {
+    path,
+    rating: ratings.get(path) ?? null,
+    pick: picks.has(path),
+    label: labels.get(path) ?? null,
+  };
+  // A file the filter now hides leaves the current file where it is.
+  const shownPath = files[index];
+  commit(current, entry.rating, entry.pick, entry.label, undefined, () =>
+    passes(path) ? path : shownPath,
+  );
+  const at = fileIndex.get(path);
+  const name = path.split(/[\\/]/).pop();
+  if (at === undefined) {
+    setStatus(`Undid ${name} (hidden by the filter)`);
+    return;
+  }
+  if (at !== index) {
+    index = at;
+    show();
+  }
+  setStatus(`Undid ${name}`);
 }
 
 function refreshEntries(): void {
@@ -917,6 +975,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     picks.clear();
     labels.clear();
     touched.clear();
+    history.clear();
     fileIndex.clear();
     files.forEach((path, at) => {
       fileIndex.set(path, at);
@@ -970,6 +1029,7 @@ function openFolder(): void {
 }
 
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
+void window.__TAURI__.event.listen("undo", undo);
 
 // Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
 // usable path; the paths arrive only through these webview events.
