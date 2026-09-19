@@ -3,6 +3,12 @@
 use anyhow::Result;
 
 pub fn decode_rgb(jpeg: &[u8]) -> Result<(Vec<u8>, usize, usize)> {
+    // mozjpeg reports malformed input by panicking, not by returning an error.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decode_rgb_unguarded(jpeg)))
+        .map_err(|_| anyhow::anyhow!("panic while decoding the JPEG"))?
+}
+
+fn decode_rgb_unguarded(jpeg: &[u8]) -> Result<(Vec<u8>, usize, usize)> {
     let d = mozjpeg::Decompress::new_mem(jpeg)?.rgb()?;
     let (w, h) = (d.width(), d.height());
     let mut d = d;
@@ -99,5 +105,12 @@ mod tests {
         let (rgb, w, h) = decode_rgb(&out).unwrap();
         assert_eq!((w, h), (404, 270));
         assert_eq!(rgb.len(), w * h * 3);
+    }
+
+    #[test]
+    fn malformed_jpeg_is_an_error() {
+        assert!(decode_rgb(b"not a jpeg").is_err());
+        let truncated = jpeg(64, 64);
+        assert!(decode_rgb(&truncated[..truncated.len() / 2]).is_err());
     }
 }

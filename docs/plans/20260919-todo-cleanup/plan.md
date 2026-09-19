@@ -29,7 +29,7 @@ wrap-up, not in a step.
 
 ## Steps
 
-- [ ] Step 1: Fix the four app/CLI items (`ping`, bench crop scaling, crop bitmap release, mozjpeg panic guard)
+- [x] Step 1: Fix the four app/CLI items (`ping`, bench crop scaling, crop bitmap release, mozjpeg panic guard)
   - Done when:
     - `fn ping` and its `ping,` entry in `tauri::generate_handler!` are gone from `crates/app/src/main.rs` and the app crate still builds.
     - `bench()` in `crates/cli/src/main.rs` is confirmed to apply the same sensor→JPEG scaling as `crop()` (both already go through `partial::decode_focus_crop` → `focus_point`); a unit test in `crates/core/src/partial.rs` covers `focus_point` scaling when the JPEG size differs from the sensor size, unless one already exists.
@@ -62,4 +62,4 @@ wrap-up, not in a step.
 
 ## Progress
 
-- (not started)
+- (2026-09-19) Step 1 complete

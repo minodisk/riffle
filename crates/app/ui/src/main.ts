@@ -888,6 +888,9 @@ function show(): void {
   requestMetadata();
   if (zoomed) {
     requestCrop();
+  } else {
+    crop?.bitmap.close();
+    crop = null;
   }
 }
 

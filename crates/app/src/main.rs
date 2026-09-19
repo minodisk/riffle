@@ -170,11 +170,6 @@ struct SidecarError {
     message: String,
 }
 
-#[tauri::command]
-fn ping() -> String {
-    "pong".to_string()
-}
-
 fn main() {
     let builder = tauri::Builder::default()
         // Registered first, as the plugin requires: a second launch would
@@ -244,7 +239,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            ping,
             commands::pick_folder,
             commands::list_arw,
             commands::remember_folder,
