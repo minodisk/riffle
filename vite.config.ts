@@ -25,5 +25,8 @@ export default defineConfig({
       },
     },
   },
-  lint: { options: { typeAware: true, typeCheck: true } },
+  lint: {
+    ignorePatterns: ["crates/app/ui/dist/**", ".claude/**"],
+    options: { typeAware: true, typeCheck: true },
+  },
 });

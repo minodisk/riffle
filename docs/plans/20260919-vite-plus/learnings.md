@@ -33,9 +33,19 @@
   `main.ts` full reload expected), the feature walkthrough, and running the
   bundled app offline. Nothing Node 24 specific surfaced.
 
+## Step 2
+
+- Removed the trailing `export {};` (and the blank line before it) from
+  `main.ts`.
+- The `LOCAL_PATH` `no-unused-vars` warning in
+  `.claude/skills/merge-settings/scripts/merge.js` was resolved by adding
+  `.claude/**` to `lint.ignorePatterns` rather than editing the script: lint
+  scope follows the Oxfmt scope decision (frontend + JS tooling at the root),
+  and the agent skill scripts are outside it. The deferred item from Step 1 is
+  handled.
+- `pnpm exec vp check --no-fmt`: "Found no warnings, lint errors, or type
+  errors in 7 files".
+
 ## Deferred issues (todo candidates)
 
-- Oxlint `no-unused-vars` warning on `LOCAL_PATH` in
-  `.claude/skills/merge-settings/scripts/merge.js` (found by `vp check --no-fmt`
-  in Step 1). Step 2's "no warnings" criterion must handle it (fix, or ignore
-  `.claude/**`).
+None.
