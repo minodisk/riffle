@@ -145,7 +145,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       `write_rating` keeps splicing only the value.
     - Update the module doc ("Nothing but `xmp:Rating` is ever written").
 
-- [ ] Step 2: `.dop`: read and patch `ColorLabel`, with the PhotoLab 10.0.2 fixtures
+- [x] Step 2: `.dop`: read and patch `ColorLabel`, with the PhotoLab 10.0.2 fixtures
   - Done when:
     - `_DSC0009.ARW.dop`..`_DSC0015.ARW.dop` are copied verbatim into
       `crates/core/src/fixtures/dop/` (about 13 KB each).
@@ -421,3 +421,4 @@ the writer composition and the per-format keymap.
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
