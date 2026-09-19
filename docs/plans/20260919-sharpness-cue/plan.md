@@ -275,3 +275,4 @@ conditions, per the same guide.
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-20) Step 2 complete
