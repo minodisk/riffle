@@ -26,8 +26,9 @@ use crate::exif::{exif, Exif};
 /// v2 database is migrated in place with an `ALTER TABLE`. v4 added the
 /// shooting settings to `files`; a v2 or v3 database has its `files` table
 /// dropped and recreated, so every folder is rescanned once, and keeps
-/// `ratings`.
-const SCHEMA_VERSION: i64 = 4;
+/// `ratings`. v5 added `ratings.label`, the colour label (`NULL` = none); a
+/// v2, v3 or v4 database gains it in place with an `ALTER TABLE`.
+const SCHEMA_VERSION: i64 = 5;
 
 /// Files per transaction while scanning. Small enough that quitting mid-scan
 /// loses at most a fifth of a second of work and that the single index mutex,
@@ -65,6 +66,7 @@ pub struct IndexedFile {
     pub has_thumb: bool,
     pub rating: Option<i8>,
     pub pick: bool,
+    pub label: Option<String>,
     pub has_sidecar: bool,
     /// `None` for a file whose extraction failed.
     pub exif: Option<Exif>,
@@ -121,7 +123,7 @@ pub fn stat(path: &Path) -> Result<FileStat, String> {
 }
 
 impl Index {
-    /// Open, creating the file and the schema on first use. `v2` and `v3` are migrated
+    /// Open, creating the file and the schema on first use. `v2` to `v4` are migrated
     /// to the current schema in place; a database written by any other
     /// unrecognized schema version is discarded, since it is a cache.
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -156,7 +158,7 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -202,6 +204,7 @@ impl Index {
                      dir TEXT NOT NULL,
                      rating INTEGER,
                      pick INTEGER NOT NULL DEFAULT 0,
+                     label TEXT,
                      xmp_size INTEGER,
                      xmp_mtime_ns INTEGER,
                      dirty INTEGER NOT NULL DEFAULT 0
@@ -211,6 +214,10 @@ impl Index {
         .map_err(|e| e.to_string())?;
         if version == 2 {
             tx.execute_batch("ALTER TABLE ratings ADD COLUMN pick INTEGER NOT NULL DEFAULT 0;")
+                .map_err(|e| e.to_string())?;
+        }
+        if version != 0 && version != SCHEMA_VERSION {
+            tx.execute_batch("ALTER TABLE ratings ADD COLUMN label TEXT;")
                 .map_err(|e| e.to_string())?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
@@ -336,7 +343,7 @@ impl Index {
                         ratings.rating, ratings.xmp_size IS NOT NULL,
                         COALESCE(ratings.pick, 0), error IS NOT NULL,
                         make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                        exposure_den, iso, focal_num, focal_den
+                        exposure_den, iso, focal_num, focal_den, ratings.label
                  FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -380,6 +387,7 @@ impl Index {
                     has_thumb: r.get(8)?,
                     rating: r.get(9)?,
                     pick: r.get(11)?,
+                    label: r.get(24)?,
                     has_sidecar: r.get(10)?,
                     exif,
                 })
@@ -422,12 +430,15 @@ impl Index {
         path: &str,
         rating: Option<i8>,
         pick: bool,
+        label: Option<&str>,
     ) -> Result<(), String> {
         self.conn
             .execute(
-                "INSERT INTO ratings (path, dir, rating, pick, dirty) VALUES (?1, ?2, ?3, ?4, 1)
-                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, dirty = 1",
-                params![path, dir, rating, pick],
+                "INSERT INTO ratings (path, dir, rating, pick, label, dirty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
+                     dirty = 1",
+                params![path, dir, rating, pick, label],
             )
             .map(|_| ())
             .map_err(|e| format!("{path}: {e}"))
@@ -444,14 +455,15 @@ impl Index {
         path: &str,
         rating: Option<i8>,
         pick: bool,
+        label: Option<&str>,
         stat: Option<(i64, i64)>,
     ) -> Result<bool, String> {
         let (size, mtime_ns) = (stat.map(|s| s.0), stat.map(|s| s.1));
         self.conn
             .execute(
                 "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
-                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5",
-                params![path, size, mtime_ns, rating, pick],
+                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5 AND label IS ?6",
+                params![path, size, mtime_ns, rating, pick, label],
             )
             .map(|n| n > 0)
             .map_err(|e| format!("{path}: {e}"))
@@ -463,6 +475,7 @@ impl Index {
     /// stat, so the next open writes them into the new one. Their pick is
     /// dropped: it can only have come from `.dop`, and a switch away from it
     /// lands in XMP, which has none, while a switch to it starts from none.
+    /// Their label is kept, since both formats have one.
     pub fn reset_sidecars(&mut self) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM ratings WHERE dirty = 0", [])
@@ -476,13 +489,15 @@ impl Index {
     }
 
     /// The rows of `dir` whose judgement has not reached its sidecar yet.
-    pub fn dirty_rows(&self, dir: &str) -> Result<Vec<(String, Option<i8>, bool)>, String> {
+    pub fn dirty_rows(&self, dir: &str) -> Result<Vec<DirtyRow>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT path, rating, pick FROM ratings WHERE dir = ?1 AND dirty = 1")
+            .prepare("SELECT path, rating, pick, label FROM ratings WHERE dir = ?1 AND dirty = 1")
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(params![dir], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .query_map(params![dir], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })
             .map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<_>>()
             .map_err(|e| e.to_string())
@@ -498,7 +513,7 @@ impl Index {
     /// is parsed (which is also the first open of a folder Lightroom wrote);
     /// an unchanged stat costs nothing, which is what keeps the second open of
     /// a 5000-file folder cheap; a sidecar that is gone while the row is
-    /// clean clears the rating, because the truth is gone with it; and a row
+    /// clean clears the rating, pick and label, because the truth is gone with it; and a row
     /// that is still dirty is left dirty, for `dirty_rows` to hand to the
     /// writer once the parsed sidecars have been stored.
     ///
@@ -546,7 +561,7 @@ impl Index {
                 None => {
                     if !dirty && row.is_some_and(|r| r.stat.0.is_some() || r.stat.1.is_some()) {
                         tx.execute(
-                            "UPDATE ratings SET rating = NULL, pick = 0, xmp_size = NULL,
+                            "UPDATE ratings SET rating = NULL, pick = 0, label = NULL, xmp_size = NULL,
                                  xmp_mtime_ns = NULL WHERE path = ?1",
                             params![path],
                         )
@@ -559,7 +574,7 @@ impl Index {
         Ok(to_parse)
     }
 
-    /// Store what parsing the sidecars of `dir` found: the rating and the pick
+    /// Store what parsing the sidecars of `dir` found: the rating, pick and label
     /// become the sidecar's and `dirty` is cleared, since the sidecar wins over an app
     /// edit that never reached disk.
     ///
@@ -576,14 +591,14 @@ impl Index {
         rows: &[ParsedSidecar],
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for (path, rating, pick, size, mtime_ns, dirty) in rows {
+        for (path, rating, pick, label, size, mtime_ns, dirty) in rows {
             tx.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, xmp_size, xmp_mtime_ns, dirty)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)
-                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4,
-                     xmp_size = ?5, xmp_mtime_ns = ?6, dirty = 0
-                 WHERE dirty = ?7",
-                params![path, dir, rating, pick, size, mtime_ns, *dirty as i64],
+                "INSERT INTO ratings (path, dir, rating, pick, label, xmp_size, xmp_mtime_ns, dirty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
+                     xmp_size = ?6, xmp_mtime_ns = ?7, dirty = 0
+                 WHERE dirty = ?8",
+                params![path, dir, rating, pick, label, size, mtime_ns, *dirty as i64],
             )
             .map_err(|e| format!("{path}: {e}"))?;
         }
@@ -604,9 +619,12 @@ struct RatingRow {
 pub type SidecarStat = (PathBuf, i64, i64);
 
 /// What parsing one file's sidecar found, for `store_sidecar_ratings`:
-/// `(path, rating, pick, size, mtime_ns, dirty)`, the last being the `dirty`
-/// flag `reconcile_sidecars` observed.
-pub type ParsedSidecar = (String, Option<i8>, bool, i64, i64, bool);
+/// `(path, rating, pick, label, size, mtime_ns, dirty)`, the last being the
+/// `dirty` flag `reconcile_sidecars` observed.
+pub type ParsedSidecar = (String, Option<i8>, bool, Option<String>, i64, i64, bool);
+
+/// A row `dirty_rows` hands to the writer: `(path, rating, pick, label)`.
+pub type DirtyRow = (String, Option<i8>, bool, Option<String>);
 
 /// Extract `files` and write them into `index` in batched transactions,
 /// reporting `(done, total)` through `progress` at most every 100ms and always
@@ -838,7 +856,7 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), true)]
+            [("/a.ARW".to_string(), Some(4), true, None)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
@@ -846,7 +864,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -905,7 +923,7 @@ mod tests {
         let path = a.path.to_string_lossy().into_owned();
         let mut index = open(&dir);
         index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
-        index.set_rating("d", &path, Some(-1), false).unwrap();
+        index.set_rating("d", &path, Some(-1), false, None).unwrap();
         assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
 
         // A reconcile that drops the `files` row must leave `ratings` alone:
@@ -914,7 +932,7 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [(path.clone(), Some(-1), false)]
+            [(path.clone(), Some(-1), false, None)]
         );
 
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
@@ -927,28 +945,34 @@ mod tests {
     fn mark_written_only_clears_a_row_that_still_holds_the_written_value() {
         let dir = temp_dir("written");
         let mut index = open(&dir);
-        index.set_rating("d", "/a.ARW", Some(3), false).unwrap();
+        index
+            .set_rating("d", "/a.ARW", Some(3), false, None)
+            .unwrap();
 
         assert!(index
-            .mark_written("/a.ARW", Some(3), false, Some((42, 7)))
+            .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
-        index.set_rating("d", "/a.ARW", Some(5), false).unwrap();
+        index
+            .set_rating("d", "/a.ARW", Some(5), false, None)
+            .unwrap();
         assert!(
             !index
-                .mark_written("/a.ARW", Some(3), false, Some((42, 7)))
+                .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
                 .unwrap(),
             "a keypress during the write keeps the row dirty"
         );
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(5), false)]
+            [("/a.ARW".to_string(), Some(5), false, None)]
         );
 
         // An unrated row is matched by NULL, not skipped.
-        index.set_rating("d", "/a.ARW", None, false).unwrap();
-        assert!(index.mark_written("/a.ARW", None, false, None).unwrap());
+        index.set_rating("d", "/a.ARW", None, false, None).unwrap();
+        assert!(index
+            .mark_written("/a.ARW", None, false, None, None)
+            .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
         remove_temp_dir(&dir);
@@ -958,15 +982,24 @@ mod tests {
     fn a_sidecar_reset_drops_clean_rows_and_clears_the_stat_of_dirty_ones() {
         let dir = temp_dir("reset-sidecars");
         let mut index = open(&dir);
-        index.set_rating("d", "/a.ARW", Some(3), false).unwrap();
-        assert!(index
-            .mark_written("/a.ARW", Some(3), false, Some((42, 7)))
-            .unwrap());
-        index.set_rating("d", "/b.ARW", Some(5), false).unwrap();
         index
-            .store_sidecar_ratings("d", &[("/b.ARW".to_string(), Some(5), false, 9, 9, true)])
+            .set_rating("d", "/a.ARW", Some(3), false, None)
             .unwrap();
-        index.set_rating("d", "/b.ARW", Some(-1), false).unwrap();
+        assert!(index
+            .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
+            .unwrap());
+        index
+            .set_rating("d", "/b.ARW", Some(5), false, None)
+            .unwrap();
+        index
+            .store_sidecar_ratings(
+                "d",
+                &[("/b.ARW".to_string(), Some(5), false, None, 9, 9, true)],
+            )
+            .unwrap();
+        index
+            .set_rating("d", "/b.ARW", Some(-1), false, None)
+            .unwrap();
 
         index.reset_sidecars().unwrap();
 
@@ -981,7 +1014,7 @@ mod tests {
         assert_eq!(rows, [("/b.ARW".to_string(), true)]);
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/b.ARW".to_string(), Some(-1), false)]
+            [("/b.ARW".to_string(), Some(-1), false, None)]
         );
 
         remove_temp_dir(&dir);
@@ -996,20 +1029,117 @@ mod tests {
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
         assert!(!index.entries("d").unwrap()[0].pick, "no ratings row");
 
-        index.set_rating("d", &path, Some(3), true).unwrap();
+        index.set_rating("d", &path, Some(3), true, None).unwrap();
         let entry = &index.entries("d").unwrap()[0];
         assert_eq!((entry.rating, entry.pick), (Some(3), true));
 
         assert!(
-            !index.mark_written(&path, Some(3), false, None).unwrap(),
+            !index
+                .mark_written(&path, Some(3), false, None, None)
+                .unwrap(),
             "an unpick during the write keeps the row dirty"
         );
-        assert!(index.mark_written(&path, Some(3), true, None).unwrap());
+        assert!(index
+            .mark_written(&path, Some(3), true, None, None)
+            .unwrap());
 
         index
-            .store_sidecar_ratings("d", &[(path.clone(), Some(0), false, 1, 2, false)])
+            .store_sidecar_ratings("d", &[(path.clone(), Some(0), false, None, 1, 2, false)])
             .unwrap();
         assert!(!index.entries("d").unwrap()[0].pick, "the sidecar wins");
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_label_is_stored_beside_the_rating_and_guards_mark_written() {
+        let dir = temp_dir("label");
+        let a = file(&dir, "a.ARW", b"a");
+        let path = a.path.to_string_lossy().into_owned();
+        let mut index = open(&dir);
+        index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
+        assert_eq!(index.entries("d").unwrap()[0].label, None, "no ratings row");
+
+        index
+            .set_rating("d", &path, Some(3), false, Some("Red"))
+            .unwrap();
+        assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
+
+        assert!(
+            !index
+                .mark_written(&path, Some(3), false, Some("Blue"), None)
+                .unwrap(),
+            "a relabel during the write keeps the row dirty"
+        );
+        assert!(!index
+            .mark_written(&path, Some(3), false, None, None)
+            .unwrap());
+        assert!(index
+            .mark_written(&path, Some(3), false, Some("Red"), None)
+            .unwrap());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_sidecar_reset_keeps_the_label_of_a_dirty_row() {
+        let dir = temp_dir("reset-label");
+        let mut index = open(&dir);
+        index
+            .set_rating("d", "/a.ARW", Some(2), true, Some("Green"))
+            .unwrap();
+
+        index.reset_sidecars().unwrap();
+
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [(
+                "/a.ARW".to_string(),
+                Some(2),
+                false,
+                Some("Green".to_string())
+            )]
+        );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v4_database_gains_the_label_column_and_keeps_its_dirty_rows() {
+        let dir = temp_dir("migrate-v4");
+        let db = dir.join("index.sqlite");
+        {
+            let conn = Connection::open(&db).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE ratings (
+                     path TEXT PRIMARY KEY,
+                     dir TEXT NOT NULL,
+                     rating INTEGER,
+                     pick INTEGER NOT NULL DEFAULT 0,
+                     xmp_size INTEGER,
+                     xmp_mtime_ns INTEGER,
+                     dirty INTEGER NOT NULL DEFAULT 0
+                 );
+                 INSERT INTO ratings (path, dir, rating, pick, dirty)
+                     VALUES ('/a.ARW', 'd', 4, 1, 1);
+                 PRAGMA user_version = 4;",
+            )
+            .unwrap();
+        }
+
+        let index = Index::open(&db).unwrap();
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/a.ARW".to_string(), Some(4), true, None)]
+        );
+        drop(index);
+        let index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 5);
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
     }
@@ -1038,11 +1168,11 @@ mod tests {
         let index = Index::open(&db).unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), false)]
+            [("/a.ARW".to_string(), Some(4), false, None)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
-        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v4");
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v5");
 
         remove_temp_dir(&dir);
     }
@@ -1058,20 +1188,20 @@ mod tests {
 
         assert!(!has_sidecar(&index), "no ratings row");
 
-        index.set_rating("d", &path, Some(3), false).unwrap();
+        index.set_rating("d", &path, Some(3), false, None).unwrap();
         assert!(!has_sidecar(&index), "dirty row, nothing written yet");
 
         assert!(index
-            .mark_written(&path, Some(3), false, Some((42, 7)))
+            .mark_written(&path, Some(3), false, None, Some((42, 7)))
             .unwrap());
         assert!(has_sidecar(&index));
 
-        index.set_rating("d", &path, None, false).unwrap();
-        assert!(index.mark_written(&path, None, false, None).unwrap());
+        index.set_rating("d", &path, None, false, None).unwrap();
+        assert!(index.mark_written(&path, None, false, None, None).unwrap());
         assert!(!has_sidecar(&index));
 
         index
-            .store_sidecar_ratings("d", &[(path.clone(), Some(-1), false, 10, 20, false)])
+            .store_sidecar_ratings("d", &[(path.clone(), Some(-1), false, None, 10, 20, false)])
             .unwrap();
         assert!(has_sidecar(&index));
 

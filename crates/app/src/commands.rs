@@ -232,7 +232,7 @@ fn reconcile_sidecars_of(
             let bytes = std::fs::read(sidecar).ok()?;
             let rating = format.read_rating(&bytes).ok()?;
             let pick = format.read_pick(&bytes).ok()?;
-            Some((path.clone(), rating, pick, *size, *mtime_ns, *dirty))
+            Some((path.clone(), rating, pick, None, *size, *mtime_ns, *dirty))
         })
         .collect();
     let mut index = index::lock(index);
@@ -244,7 +244,8 @@ fn reconcile_sidecars_of(
     let dirty = index.dirty_rows(dir)?;
     Ok(dirty
         .into_iter()
-        .filter(|(path, _, _)| !oversize.contains(path.as_str()))
+        .filter(|(path, _, _, _)| !oversize.contains(path.as_str()))
+        .map(|(path, rating, pick, _)| (path, rating, pick))
         .collect())
 }
 
@@ -905,7 +906,7 @@ pub async fn set_rating(
     {
         let path = path.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            index::lock(&index).set_rating(&dir, &path, rating, pick)
+            index::lock(&index).set_rating(&dir, &path, rating, pick, None)
         })
         .await
         .map_err(|e| e.to_string())??;
@@ -1044,7 +1045,7 @@ mod tests {
 
         // An app edit that never reached disk, then someone else's edit.
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false)
+            .set_rating(&dir, &listed[0], Some(5), false, None)
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
@@ -1099,7 +1100,7 @@ mod tests {
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[1], Some(-1), false)
+            .set_rating(&dir, &listed[1], Some(-1), false, None)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
@@ -1233,7 +1234,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false)
+            .set_rating(&dir, &listed[0], Some(5), false, None)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();

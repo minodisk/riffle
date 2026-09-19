@@ -32,3 +32,12 @@
 - `write_label` with `None` on a sidecar without a label still updates the
   two timestamps (not a byte-identical no-op); the caller decides whether to
   write at all.
+
+## Step 3
+
+- `main` was already at `SCHEMA_VERSION = 4` (exif-filters), so labels took
+  v5. `CREATE TABLE IF NOT EXISTS ratings` never adds a column to an existing
+  table, so every non-fresh accepted version (2, 3, 4) runs
+  `ALTER TABLE ratings ADD COLUMN label TEXT`; v2 runs the `pick` ALTER first.
+- `dirty_rows` now returns a `DirtyRow` 4-tuple; `reconcile_sidecars_of`
+  strips the label again so the writer's input is unchanged until Step 4.

@@ -191,7 +191,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
     - Note in `learnings.md`: `CafId` became `CafID` in 10.0.2 (irrelevant
       to the scanner, but worth knowing the key set is not stable).
 
-- [ ] Step 3: Index: store the label beside the rating
+- [x] Step 3: Index: store the label beside the rating
   - Done when:
     - `ratings` gains `label TEXT` (NULL = none). `set_rating`,
       `mark_written` (the guard also matches `label IS ?`), `dirty_rows`,
