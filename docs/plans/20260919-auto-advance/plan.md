@@ -77,7 +77,7 @@ Default: **off** (decided by the user; see Trade-offs).
     - Copy the `debugTiming` checkbox wiring; no new CSS should be needed.
     - No UI framework; plain DOM as in the rest of `settings.ts`.
 
-- [ ] Step 3: Advance in the main window, with tests and docs
+- [x] Step 3: Advance in the main window, with tests and docs
   - Done when:
     - With the toggle on, pressing `1`-`5`, reject or pick on a file whose
       judgement changes moves the selection to the next file in the current
@@ -118,7 +118,8 @@ Default: **off** (decided by the user; see Trade-offs).
 ## Trade-offs and risks
 
 - **Default on vs off.** Off, chosen by the user: behaviour stays identical
-  for existing users, and there is no undo yet.
+  for existing users. Undo of judgements (`Edit > Undo`) has since landed, so a
+  mistaken advance is recoverable, but the default stays off.
 - **Which actions advance.** Stars, reject, pick. Colour labels are toggles
   and `unflag` / `clear` / `clearlabel` are corrections, so they do not
   advance.
@@ -135,3 +136,4 @@ Default: **off** (decided by the user; see Trade-offs).
 
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
+- (2026-09-20) Step 3 complete

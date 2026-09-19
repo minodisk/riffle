@@ -69,6 +69,12 @@ embedded previews, rotated by each file's Orientation.
   Repeated presses walk further back. The history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes. There
   is no redo.
+- **Auto-advance**: when `Auto-advance after a star, reject or pick` is on in
+  `Riffle > Settings...` (off by default), `1`-`5`, reject and pick move to the
+  next file once they change the current one; pressing the value the file
+  already has does not. The last file stays selected. A file the judgement
+  drops out of the active filter already hands the cursor to the next file, so
+  it is not skipped twice.
 
 ### Keys
 
