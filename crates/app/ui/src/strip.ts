@@ -33,6 +33,7 @@ interface Cell {
   img: HTMLImageElement;
   badge: HTMLSpanElement;
   flag: HTMLSpanElement;
+  name: HTMLSpanElement;
   url: string | null;
 }
 
@@ -67,6 +68,9 @@ const failed = new Set<number>();
 const ratings = new Map<number, number>();
 // The picked indices, mirroring the `picks` set in `main.ts`.
 const picks = new Set<number>();
+// The colour label per index, mirroring the `labels` map in `main.ts`.
+const labels = new Map<number, string>();
+const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink", "purple"]);
 let inFlight = 0;
 let select: (index: number) => void = () => {};
 
@@ -83,6 +87,16 @@ function paintRating(index: number, cell: Cell): void {
   cell.flag.textContent = picked || rejected ? "\u25CF" : "";
   cell.flag.classList.toggle("pick", picked);
   cell.flag.classList.toggle("reject", rejected);
+  // The label tints the file-name strip along the bottom edge, as Lightroom's
+  // cell does; a name outside the seven colours gets a neutral grey.
+  const label = labels.get(index);
+  const key = label?.toLowerCase();
+  cell.name.classList.toggle("labelled", label !== undefined);
+  cell.name.style.setProperty(
+    "--label",
+    label === undefined ? "" : LABEL_COLORS.has(key!) ? `var(--label-${key})` : "var(--label-other)",
+  );
+  cell.name.title = label ?? "";
 }
 
 function baseName(path: string): string {
@@ -105,6 +119,7 @@ function createCell(index: number): Cell {
   const img = document.createElement("img");
   el.append(img);
   const name = document.createElement("span");
+  name.className = "name";
   name.textContent = baseName(files[index]);
   el.append(name);
   const badge = document.createElement("span");
@@ -117,7 +132,7 @@ function createCell(index: number): Cell {
     select(index);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, flag, url: null };
+  const cell: Cell = { el, img, badge, flag, name, url: null };
   paintRating(index, cell);
   return cell;
 }
@@ -259,7 +274,12 @@ function render(): void {
 
 // Record the judgement of one file, repainting its cell when it is on screen.
 // `null` is unrated.
-export function setRating(index: number, rating: number | null, pick: boolean): void {
+export function setRating(
+  index: number,
+  rating: number | null,
+  pick: boolean,
+  label: string | null,
+): void {
   if (rating === null) {
     ratings.delete(index);
   } else {
@@ -269,6 +289,11 @@ export function setRating(index: number, rating: number | null, pick: boolean): 
     picks.add(index);
   } else {
     picks.delete(index);
+  }
+  if (label === null) {
+    labels.delete(index);
+  } else {
+    labels.set(index, label);
   }
   const cell = cells.get(index);
   if (cell !== undefined) {
@@ -294,6 +319,7 @@ export function setFiles(paths: string[]): void {
   lastRefresh = 0;
   ratings.clear();
   picks.clear();
+  labels.clear();
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;

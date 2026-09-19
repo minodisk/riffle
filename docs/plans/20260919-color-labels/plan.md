@@ -307,7 +307,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       `DEFAULTS` (`(action, xmp_keys, dop_keys)`) or as a `match` inside
       the resolver; keep the frontend free of defaults.
 
-- [ ] Step 6: Frontend: show the label and set it from the keymap
+- [x] Step 6: Frontend: show the label and set it from the keymap
   - Done when:
     - `IndexedFile.label: string | null` is declared; a `labels`
       `Map<string, string>` sits beside `ratings` / `picks` in `main.ts`
@@ -431,3 +431,4 @@ the writer composition and the per-format keymap.
 - (2026-09-19) Step 3 complete
 - (2026-09-19) Step 4 complete
 - (2026-09-19) Step 5 complete
+- (2026-09-19) Step 6 complete
