@@ -122,9 +122,12 @@ debugTiming.addEventListener("change", () => {
   void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
 });
 
-(document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener("click", () => {
-  void updateShortcuts("reset_shortcuts");
-});
+(document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    void updateShortcuts("reset_shortcuts");
+  },
+);
 
 // While a row captures, the next key rebinds it; Escape cancels.
 window.addEventListener("keydown", (event) => {

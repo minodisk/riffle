@@ -13,9 +13,7 @@ const inner = document.getElementById("strip-inner") as HTMLDivElement;
 // `--cell-height` custom property in `style.css` (the single source of truth
 // for cell placement) rather than duplicated here. A fixed height keeps
 // `scrollTop -> index` arithmetic, which is what makes virtualisation cheap.
-const CELL_HEIGHT = Number.parseFloat(
-  getComputedStyle(inner).getPropertyValue("--cell-height"),
-);
+const CELL_HEIGHT = Number.parseFloat(getComputedStyle(inner).getPropertyValue("--cell-height"));
 // Cells kept beyond the visible range, so a short scroll shows an image that
 // is already decoded.
 const RANGE_MARGIN = 4;
@@ -81,8 +79,7 @@ function paintRating(index: number, cell: Cell): void {
   const rating = ratings.get(index);
   const rejected = rating === -1;
   const picked = picks.has(index);
-  cell.badge.textContent =
-    rating === undefined || rejected ? "" : "\u2605".repeat(rating);
+  cell.badge.textContent = rating === undefined || rejected ? "" : "\u2605".repeat(rating);
   cell.el.classList.toggle("rejected", rejected);
   cell.flag.textContent = picked || rejected ? "\u25CF" : "";
   cell.flag.classList.toggle("pick", picked);
@@ -94,7 +91,11 @@ function paintRating(index: number, cell: Cell): void {
   cell.name.classList.toggle("labelled", label !== undefined);
   cell.name.style.setProperty(
     "--label",
-    label === undefined ? "" : LABEL_COLORS.has(key!) ? `var(--label-${key})` : "var(--label-other)",
+    label === undefined
+      ? ""
+      : LABEL_COLORS.has(key!)
+        ? `var(--label-${key})`
+        : "var(--label-other)",
   );
   cell.name.title = label ?? "";
 }
@@ -196,13 +197,7 @@ function request(index: number): void {
       cell.url = URL.createObjectURL(blob);
       cell.img.src = cell.url;
       cell.img.className =
-        orientation === 6
-          ? "cw"
-          : orientation === 8
-            ? "ccw"
-            : orientation === 3
-              ? "half"
-              : "";
+        orientation === 6 ? "cw" : orientation === 8 ? "ccw" : orientation === 3 ? "half" : "";
     })
     .catch((err: unknown) => {
       // A response for a folder that is no longer open: bookkeeping below
@@ -245,14 +240,10 @@ function pump(): void {
 }
 
 function render(): void {
-  const first = Math.max(
-    0,
-    Math.floor(strip.scrollTop / CELL_HEIGHT) - RANGE_MARGIN,
-  );
+  const first = Math.max(0, Math.floor(strip.scrollTop / CELL_HEIGHT) - RANGE_MARGIN);
   const last = Math.min(
     files.length - 1,
-    Math.ceil((strip.scrollTop + strip.clientHeight) / CELL_HEIGHT) +
-      RANGE_MARGIN,
+    Math.ceil((strip.scrollTop + strip.clientHeight) / CELL_HEIGHT) + RANGE_MARGIN,
   );
   for (const [index, cell] of cells) {
     if (index < first || index > last) {

@@ -10,9 +10,7 @@ type TauriDownloadEvent =
 
 interface TauriUpdate {
   version: string;
-  downloadAndInstall(
-    onEvent?: (progress: TauriDownloadEvent) => void,
-  ): Promise<void>;
+  downloadAndInstall(onEvent?: (progress: TauriDownloadEvent) => void): Promise<void>;
 }
 
 interface TauriGlobal {
@@ -20,10 +18,7 @@ interface TauriGlobal {
     invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   };
   event: {
-    listen<T>(
-      event: string,
-      handler: (event: TauriEvent<T>) => void,
-    ): Promise<() => void>;
+    listen<T>(event: string, handler: (event: TauriEvent<T>) => void): Promise<() => void>;
   };
   window: {
     getCurrentWindow(): { setTitle(title: string): Promise<void> };

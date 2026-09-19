@@ -175,7 +175,7 @@ in Step 1.
       would reformat the 6 frontend files and break "no reformat". The task
       change moves to Step 4.
 
-- [ ] Step 4: Reformat the frontend with Oxfmt and enforce the format check
+- [x] Step 4: Reformat the frontend with Oxfmt and enforce the format check
   - Done when: the PR contains **exactly two commits**: (a) a formatting-only
     commit produced by `pnpm exec vp fmt` with no hand edits
     (`style(ui): format with oxfmt`), and (b) a commit that makes the `fmt`
@@ -286,3 +286,4 @@ in Step 1.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete
+- (2026-09-19) Step 4 complete

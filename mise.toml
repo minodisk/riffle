@@ -17,7 +17,11 @@ git checkout --detach origin/main
 [tasks.fmt]
 description = "Format the whole repository"
 shell = "bash -c"
-run = "cargo fmt --all"
+run = """
+set -euo pipefail
+cargo fmt --all
+pnpm exec vp fmt
+"""
 
 [tasks."tauri:dev"]
 description = "Run the desktop app (debug build; fast to compile, slow at runtime)"
@@ -52,7 +56,7 @@ shell = "bash -c"
 run = """
 set -euo pipefail
 pnpm install --frozen-lockfile
-pnpm exec vp check --no-fmt
+pnpm exec vp check
 cargo fmt --all -- --check
 shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
 actionlint
