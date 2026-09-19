@@ -287,7 +287,45 @@ that already have the column, and the `ALTER TABLE` fails.
 - Key such a guard to the version that introduced the column (`version < 6`),
   not to the ever-moving current version, and re-check the versions asserted by
   the existing migration tests whenever `SCHEMA_VERSION` moves.
-- Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2.
+- The same trap applies to a table drop: `files` used to be dropped for any
+  `version != SCHEMA_VERSION`, which would have thrown away every thumbnail on
+  the v7 -> v8 upgrade. It is now keyed to `version < 7`, and v8 seeds the new
+  `folders` table from the surviving `files` rows.
+- Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
+  `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
+
+### Folder-index eviction: lock order and where it runs (Measured)
+
+Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
+`app.manage(Scans)`, on a plain `std::thread`. It holds the `Scans` lock and
+then the writer lock for the whole evict + `VACUUM`, and skips if
+`Scans.running` is already set, so a `scan_folder`/`start_scan` issued
+meanwhile just waits. Keep the order `Scans` then writer. The size cap counts
+pages in use (`page_count - freelist_count`), since a delete only moves pages
+to the freelist until `VACUUM` runs.
+
+- Measured (M3 Pro, release, ignored test `vacuum_cost_on_a_100_mb_index`):
+  evicting half of 5000 rows of 20.8KB thumbnails (106MB in use) and vacuuming
+  took ~220ms, leaving 53MB. That a WAL reader does not error during `VACUUM`
+  is reasoned, not covered by a dedicated concurrent test.
+- Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
+
+### `focus_crop`'s header carries the full JPEG size (Hit)
+
+`riffle_core::partial::Crop` carries the full JPEG's `image_width`/
+`image_height`. The `focus_crop` header encodes them as two `u16`s at offsets
+28/30 under kind tag 5 (`CROP_KIND_RGBA_V3`); the next header change takes tag
+6. The zoom placeholder (`crates/app/ui/src/zoom.ts`) falls back to the sensor
+size until the current file's crop arrives.
+
+- Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 1.
+
+### This crate is on Rust edition 2021: no `if ... && let` chains (Hit)
+
+`if let Some(x) = a && let Some(y) = b` does not compile here; nest the
+`if let`s.
+
+- Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 2.
 
 ## Frontend (`crates/app/ui`, Vite+)
 
