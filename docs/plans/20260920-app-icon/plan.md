@@ -88,4 +88,9 @@ Current state the plan is based on:
 
 ## Progress
 
-- (none yet)
+- 2026-09-20: Step 1 done. Generated `crates/app/icons/source.png` (1024x1024,
+  824x824 rounded-square body centred with a 100px margin and ~185px corner
+  radius) from the supplied artwork with a one-off Pillow script, regenerated
+  all bundled icons via `pnpm exec tauri icon`, and removed the generated
+  `ios/`/`android/` folders. PR: `fe43a45` (feat(app): set the Riffle app
+  icon).
