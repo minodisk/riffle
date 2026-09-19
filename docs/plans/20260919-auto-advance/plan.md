@@ -134,3 +134,4 @@ Default: **off** (decided by the user; see Trade-offs).
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
