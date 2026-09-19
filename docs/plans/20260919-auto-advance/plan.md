@@ -62,7 +62,7 @@ Default: **off** (decided by the user; see Trade-offs).
       it can be unit-tested without an `AppHandle`.
     - No capability changes expected.
 
-- [ ] Step 2: Add the Auto-advance toggle to the settings window
+- [x] Step 2: Add the Auto-advance toggle to the settings window
   - Done when:
     - `crates/app/ui/settings.html` has a new section (heading e.g.
       `Culling`) with a checkbox labelled `Auto-advance after a star, reject
@@ -134,3 +134,4 @@ Default: **off** (decided by the user; see Trade-offs).
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
