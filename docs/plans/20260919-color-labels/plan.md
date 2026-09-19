@@ -213,6 +213,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
     - Callers in `commands.rs` / `sidecar.rs` pass `None` for now (or this
       step merges with Step 4 if the intermediate is awkward). Behaviour
       unchanged. `mise run ci` passes.
+    - Note: Step 4 later bumped the schema again to v6 (`label_known`).
   - Implementation approach:
     - Coordinate with the in-flight `20260919-exif-filters` plan, whose
       Step 2 also bumps `SCHEMA_VERSION` to 4. Whichever merges first takes
@@ -225,34 +226,12 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       bool, label: Option<String> }` in `index.rs`; pick whichever keeps
       the diff readable and use it consistently in Step 4.
 
-- [ ] Step 4: Writer, reconcile and the `set_rating` command carry the label
-  - Reverted to unchecked by the review addresser: round 2 of local review
-    (`docs/plans/review-history/color-labels-step-4/review-20260919-1230.md`)
-    found that the round-1 fix still let a judgement made before the label
-    was known (`label_known: false`) fall back to `Index::label`, which reads
-    `None` before any row or sidecar parse exists, and that `None` was then
-    stored and handed to the writer as "no label", stripping an existing
-    sidecar label. Addressed in the round-2 fix commit: `Index::set_rating`
-    leaves the `label` column untouched (instead of writing `None`) when
-    `label_known` is false, `sidecar::write` reads the sidecar's current
-    label from disk in that case instead of trusting the (possibly stale)
-    `ratings` row, and `Index::mark_written` skips the label guard when the
-    label was never asserted. Round 3 of local review found the label was
-    still lost on the *next* write: `mark_written` never saved the resolved
-    label into `ratings.label` when `label_known` was false, so a later
-    folder open would replay the row's still-`NULL` label as "no label" and
-    strip the sidecar's own label; and a dirty row created with
-    `label_known: false` was replayed on the next folder open with
-    `label_known` hard-coded to `true`, which had the same effect after a
-    crash or quit before the writer drained. Addressed in the round-3 fix
-    commit: `ratings` gained a `label_known` column (schema v6) so the
-    "label not yet asserted" state survives independently of `label` itself;
-    `Index::mark_written`'s `label_known == false` branch now also writes the
-    resolved label and sets `label_known = 1`, since the writer has by then
-    read the sidecar's current value; and `dirty_rows` / `scan_folder`'s
-    replay pass each row's own stored `label_known` to the writer instead of
-    a hard-coded `true`. Re-verify against the "Done when" list below before
-    re-checking this step.
+- [x] Step 4: Writer, reconcile and the `set_rating` command carry the label
+  - Note: local review added a `label_known` flag to `set_rating` and a
+    `ratings.label_known` column (schema v6, migrated in place from v5), so
+    a judgement made before the sidecar's label is known never strips it;
+    the writer reads the sidecar's current label in that case and
+    `mark_written` stores it. Re-verified against "Done when" below.
   - Done when:
     - `SidecarFormat::read_label` / `write_label` dispatch to Steps 1-2.
       `sidecar::write` composes `write_rating` then `write_label` on the
