@@ -88,3 +88,14 @@
   the resolved keymap. It would otherwise have applied under `.dop`. Basis:
   Step 5 implementation. Files: `crates/app/src/commands.rs`
   (`update_keymap`), `crates/app/src/shortcuts.rs` (`overrides`).
+
+## Step 6
+
+- The label tints the file-name strip along the cell's bottom edge
+  (Lightroom-style), via a per-cell `--label` custom property pointing at
+  `--label-{name}` or `--label-other`; stars (top-right) and dot (top-left)
+  are untouched.
+- `labelKnown` is also true when the key changed the label itself, so a
+  label set before `folder_entries` arrives is not dropped by the backend.
+- `refreshEntries` now applies the label only for untouched paths (through
+  `applyRating`), since the frontend can now edit labels in flight.

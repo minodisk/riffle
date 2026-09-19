@@ -3,6 +3,15 @@
   --stars-color: #ffd050;
   --reject-color: #ff6b6b;
   --pick-color: #6bdc8a;
+  /* The colour label, tinting the file-name strip of the cell. */
+  --label-red: #d9453f;
+  --label-orange: #e8892c;
+  --label-yellow: #d8c032;
+  --label-green: #4fa84f;
+  --label-blue: #3f7fd9;
+  --label-pink: #d95fa8;
+  --label-purple: #8a5fd0;
+  --label-other: #808080;
 }
 
 html,
@@ -250,6 +259,13 @@ body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* A labelled cell's file name sits on a strip of the label's colour. */
+.cell span.name.labelled {
+  background: var(--label);
+  color: #fff;
+  text-shadow: 0 0 2px #000;
 }
 
 /* The stars badge, in the cell's top-right corner; overrides the name

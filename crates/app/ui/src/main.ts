@@ -143,7 +143,7 @@ const ratings = new Map<string, number>();
 // flag and coexists with stars; it exists only while `.dop` is selected.
 const picks = new Set<string>();
 // The colour label of every file that has one, owned the same way as
-// `ratings`. Only carried through to `set_rating` so a judgement keeps it.
+// `ratings`.
 const labels = new Map<string, string>();
 // The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
 // launch and the `sidecar-format` event after a switch.
@@ -396,7 +396,7 @@ function draw(): void {
 
 // Record a judgement locally: the `ratings` map, the `picks` set and the
 // strip cell. `null` is unrated.
-function applyRating(path: string, rating: number | null, pick: boolean): void {
+function applyRating(path: string, rating: number | null, pick: boolean, label: string | null): void {
   if (rating === null) {
     ratings.delete(path);
   } else {
@@ -407,9 +407,14 @@ function applyRating(path: string, rating: number | null, pick: boolean): void {
   } else {
     picks.delete(path);
   }
+  if (label === null) {
+    labels.delete(path);
+  } else {
+    labels.set(path, label);
+  }
   const at = fileIndex.get(path);
   if (at !== undefined) {
-    strip.setRating(at, rating, pick);
+    strip.setRating(at, rating, pick, label);
   }
 }
 
@@ -450,7 +455,7 @@ function refilter(anchor: string | undefined = files[index]): void {
   });
   strip.setFiles(files);
   files.forEach((path, at) => {
-    strip.setRating(at, ratings.get(path) ?? null, picks.has(path));
+    strip.setRating(at, ratings.get(path) ?? null, picks.has(path), labels.get(path) ?? null);
   });
   if (files.length === 0) {
     index = 0;
@@ -486,7 +491,11 @@ function refilter(anchor: string | undefined = files[index]): void {
 // entry (if the folder is still the one it belongs to) and says so in the
 // status line.
 function judge(
-  next: (rating: number | null, pick: boolean) => [number | null, boolean],
+  next: (
+    rating: number | null,
+    pick: boolean,
+    label: string | null,
+  ) => [number | null, boolean, string | null],
 ): void {
   if (files.length === 0) {
     return;
@@ -494,34 +503,36 @@ function judge(
   const path = files[index];
   const previous = ratings.get(path) ?? null;
   const previousPick = picks.has(path);
-  const [rating, pick] = next(previous, previousPick);
+  const previousLabel = labels.get(path) ?? null;
+  const [rating, pick, label] = next(previous, previousPick, previousLabel);
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless.
-  if (previous === rating && previousPick === pick) {
+  if (previous === rating && previousPick === pick && previousLabel === label) {
     return;
   }
   touched.add(path);
-  applyRating(path, rating, pick);
+  applyRating(path, rating, pick, label);
   renderMeta();
   refilter(path);
   const token = folderToken;
   // `label` only carries a meaningful value once `folder_entries` has told us
   // this path's label; before that, `labelKnown: false` tells the backend to
-  // keep whatever it already has instead of clearing it.
+  // keep whatever it already has instead of clearing it, unless this key
+  // set the label itself.
   void window.__TAURI__.core
     .invoke("set_rating", {
       path,
       rating: rating ?? 0,
       pick,
-      label: labels.get(path) ?? null,
-      labelKnown: entries.has(path),
+      label,
+      labelKnown: entries.has(path) || label !== previousLabel,
     })
     .catch((err: unknown) => {
       if (token !== folderToken) {
         return;
       }
       touched.delete(path);
-      applyRating(path, previous, previousPick);
+      applyRating(path, previous, previousPick, previousLabel);
       refilter();
       setStatus(String(err));
     });
@@ -553,15 +564,7 @@ function refreshEntries(): void {
       for (const row of rows) {
         entries.set(row.path, row);
         if (!touched.has(row.path)) {
-          applyRating(row.path, row.rating, row.pick);
-        }
-        // The frontend never changes a label on its own in this step, so the
-        // `touched` guard (which only protects an in-flight rating/pick edit
-        // from being clobbered by a stale row) does not need to cover it.
-        if (row.label === null) {
-          labels.delete(row.path);
-        } else {
-          labels.set(row.path, row.label);
+          applyRating(row.path, row.rating, row.pick, row.label);
         }
       }
       rebuildExifMenu();
@@ -1473,28 +1476,28 @@ window.addEventListener("keydown", (event) => {
     case "rate4":
     case "rate5": {
       const stars = Number(action.slice(-1));
-      judge((_, pick) => [stars, pick]);
+      judge((_, pick, label) => [stars, pick, label]);
       break;
     }
     case "reject":
       // Sticky, not a toggle: reject twice is still a reject, and it replaces
       // a pick. Unflag undoes it.
-      judge(() => [-1, false]);
+      judge((_rating, _pick, label) => [-1, false, label]);
       break;
     case "pick":
       // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
       if (sidecarFormat !== "dop") {
         return;
       }
-      judge((rating) => [rating === -1 ? null : rating, true]);
+      judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
       break;
     case "unflag":
       // Clears a reject or a pick; does nothing to a file with neither.
-      judge((rating) => [rating === -1 ? null : rating, false]);
+      judge((rating, _pick, label) => [rating === -1 ? null : rating, false, label]);
       break;
     case "clear":
       // Clears the stars or the reject and leaves a pick alone.
-      judge((_, pick) => [null, pick]);
+      judge((_, pick, label) => [null, pick, label]);
       break;
     case "red":
     case "orange":
@@ -1502,9 +1505,14 @@ window.addEventListener("keydown", (event) => {
     case "green":
     case "blue":
     case "pink":
-    case "purple":
+    case "purple": {
+      // Toggles: the same colour again clears it; another colour replaces it.
+      const name = action.charAt(0).toUpperCase() + action.slice(1);
+      judge((rating, pick, label) => [rating, pick, label === name ? null : name]);
+      break;
+    }
     case "clearlabel":
-      // Bound so the key is consumed; setting the label is not wired yet.
+      judge((rating, pick) => [rating, pick, null]);
       break;
     default:
       return;
