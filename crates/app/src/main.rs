@@ -270,6 +270,8 @@ fn main() {
             commands::list_arw,
             commands::remember_folder,
             commands::last_folder,
+            commands::sort_order,
+            commands::set_sort_order,
             commands::preview,
             commands::dropped_folder,
             commands::scan_folder,
