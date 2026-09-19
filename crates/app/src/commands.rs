@@ -297,14 +297,20 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
 /// be read is logged and falls back to the defaults. The stored `shortcuts`
-/// overrides are returned too, so a format switch can rebuild the keymap.
-pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Option<Value>, Keymap) {
+/// overrides are returned too, so a format switch can rebuild the keymap,
+/// followed by the `autoAdvance` setting.
+pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Option<Value>, Keymap, bool) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
             eprintln!("failed to open the settings: {e}");
             let format = SidecarFormat::default();
-            return (format, None, Keymap::defaults(format));
+            return (
+                format,
+                None,
+                Keymap::defaults(format),
+                auto_advance_setting(None),
+            );
         }
     };
     if !store.has("lastFolder") {
@@ -324,7 +330,13 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Option<Value>, K
         SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()));
     let overrides = store.get("shortcuts");
     let keymap = Keymap::from_overrides(overrides.as_ref(), format);
-    (format, overrides, keymap)
+    let auto_advance = auto_advance_setting(store.get("autoAdvance").as_ref());
+    (format, overrides, keymap, auto_advance)
+}
+
+/// The stored `autoAdvance` value; missing or non-boolean means off.
+fn auto_advance_setting(value: Option<&Value>) -> bool {
+    value.and_then(Value::as_bool).unwrap_or(false)
 }
 
 /// Switch the sidecar format to `format`: apply the new format first so any
@@ -826,6 +838,9 @@ pub struct AppKeymap(pub Mutex<Keymap>);
 /// resolve it against the new format's defaults.
 pub struct AppShortcutOverrides(pub Mutex<Option<Value>>);
 
+/// Whether the selection moves to the next file after a judgement.
+pub struct AppAutoAdvance(pub AtomicBool);
+
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
 /// concurrent switches whose drain, save, state write and reset would
 /// otherwise interleave.
@@ -836,6 +851,29 @@ pub struct AppSwitchLock(pub Mutex<()>);
 #[tauri::command]
 pub fn sidecar_format(app: tauri::AppHandle) -> &'static str {
     index::lock(&app.state::<AppSidecarFormat>().0).setting()
+}
+
+/// Whether auto-advance is on.
+#[tauri::command]
+pub fn auto_advance(app: tauri::AppHandle) -> bool {
+    app.state::<AppAutoAdvance>().0.load(Ordering::Relaxed)
+}
+
+/// Turn auto-advance on or off, persist it under `autoAdvance` and tell both
+/// windows. A save failure is logged and the in-memory change stands.
+#[tauri::command]
+pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
+    app.state::<AppAutoAdvance>()
+        .0
+        .store(enabled, Ordering::Relaxed);
+    let saved = settings(&app).and_then(|store| {
+        store.set("autoAdvance", enabled);
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        log::warn!("failed to save the auto-advance setting: {e}");
+    }
+    let _ = app.emit("auto-advance", enabled);
 }
 
 /// The resolved keymap, one binding per action in the order the shortcuts
@@ -977,6 +1015,15 @@ fn canonicalize(dir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn auto_advance_setting_reads_a_boolean_or_defaults_to_off() {
+        use serde_json::json;
+        assert!(!super::auto_advance_setting(None));
+        assert!(super::auto_advance_setting(Some(&json!(true))));
+        assert!(!super::auto_advance_setting(Some(&json!(false))));
+        assert!(!super::auto_advance_setting(Some(&json!("true"))));
+    }
+
     #[test]
     fn newest_photolab_picks_the_highest_major_version() {
         let names = [

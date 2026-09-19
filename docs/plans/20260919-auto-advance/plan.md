@@ -30,7 +30,7 @@ Default: **off** (decided by the user; see Trade-offs).
 
 ## Steps
 
-- [ ] Step 1: Add the `autoAdvance` setting to the backend
+- [x] Step 1: Add the `autoAdvance` setting to the backend
   - Done when:
     - `load_settings` in `crates/app/src/commands.rs` reads `autoAdvance` from
       the settings store (missing or non-boolean falls back to the default,
