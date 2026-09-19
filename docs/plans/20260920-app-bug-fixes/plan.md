@@ -125,4 +125,4 @@ not touch `scan_folder`, `crop_payload`, or `run_scan`'s completion path.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
