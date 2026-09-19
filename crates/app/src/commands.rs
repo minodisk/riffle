@@ -622,6 +622,11 @@ struct PendingScan {
 /// app failing to launch.
 pub struct AppIndex(pub Option<Arc<Mutex<Index>>>);
 
+/// A read-only connection on the same index for `folder_entries` and
+/// `thumbnail`, so they do not wait behind the scan's write transactions. It
+/// is the writer's `Arc` when the reader could not be opened.
+pub struct AppIndexReader(pub Option<Arc<Mutex<Index>>>);
+
 /// Threads the scan runs on: two fewer than the cores. Step 3 measured that
 /// this costs ~10% of scan throughput against using every core, and leaves two
 /// cores for the paging path so the app stays responsive while scanning; more
@@ -834,7 +839,7 @@ pub async fn folder_entries(
     dir: String,
 ) -> Result<Vec<IndexedFile>, String> {
     let dir = canonicalize(&dir);
-    let Some(index) = app.state::<AppIndex>().0.clone() else {
+    let Some(index) = app.state::<AppIndexReader>().0.clone() else {
         return Ok(Vec::new());
     };
     tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
@@ -845,7 +850,7 @@ pub async fn folder_entries(
 /// The cached thumbnail of one file, in the same envelope as `preview`.
 #[tauri::command]
 pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {
-    let Some(index) = app.state::<AppIndex>().0.clone() else {
+    let Some(index) = app.state::<AppIndexReader>().0.clone() else {
         return Err("no index cache available".to_string());
     };
     let (orientation, jpeg) =

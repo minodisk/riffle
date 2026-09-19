@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::scan::{extract_all, Entry};
@@ -36,15 +36,14 @@ use crate::exif::{exif, Exif};
 /// rescanned once, and keeps `ratings`.
 const SCHEMA_VERSION: i64 = 7;
 
-/// Files per transaction while scanning. Small enough that quitting mid-scan
-/// loses at most a fifth of a second of work and that the single index mutex,
-/// which every `thumbnail` / `folder_entries` / `set_rating` also takes, is not
-/// held for a long transaction, large enough that the commit (a WAL append
-/// under `synchronous = NORMAL`, not an fsync) and the mutex re-acquisition are
-/// not paid per file. Dropping this from 50 to 10 is a 5x increase in
-/// transactions; that throughput cost has not been measured against the
-/// `scan` benchmark in `crates/cli`, and was judged acceptable because it is
-/// still one transaction per UI progress tick, not per file.
+/// Files per transaction while scanning. `thumbnail` / `folder_entries` read
+/// through their own connection (`Index::open_reader`) and do not wait on
+/// these transactions, so the size is set by what still shares the writer:
+/// quitting mid-scan loses at most one small batch, and `set_rating` and the
+/// sidecar writer thread, which take the writer mutex, wait behind at most
+/// one. The per-commit cost is small: writing 5000 synthetic rows in batches of
+/// 10 instead of 50 measured ~15 ms more in total (M3 Pro, release), about
+/// 0.3% of a 5000-file first scan.
 const BATCH: usize = 10;
 
 /// Shortest interval between two progress notifications.
@@ -150,6 +149,20 @@ impl Index {
             index.prepare()?;
         }
         Ok(index)
+    }
+
+    /// Open a second, read-only connection on a database `open` has already
+    /// returned `Ok` for, so the schema and the WAL files exist. Under WAL it
+    /// reads a committed snapshot without waiting for the writer connection.
+    pub fn open_reader(path: &Path) -> Result<Self, String> {
+        let conn = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|e| e.to_string())?;
+        conn.busy_timeout(Duration::from_millis(300))
+            .map_err(|e| e.to_string())?;
+        Ok(Self { conn })
     }
 
     fn prepare(&mut self) -> Result<(), String> {
@@ -1602,5 +1615,76 @@ mod tests {
         assert_eq!(written, summary.total, "everything scanned is persisted");
 
         remove_temp_dir(&dir);
+    }
+
+    fn synthetic(dir: &Path, i: usize) -> FileStat {
+        FileStat {
+            path: dir.join(format!("{i:05}.ARW")),
+            size: 1,
+            mtime_ns: 1,
+        }
+    }
+
+    #[test]
+    fn the_reader_does_not_wait_on_an_open_write_transaction() {
+        let dir = temp_dir("reader");
+        let path = dir.join("index.sqlite");
+        let mut writer = Index::open(&path).unwrap();
+        let rows: Vec<_> = (0..3).map(|i| (synthetic(&dir, i), Ok(entry()))).collect();
+        writer.write_batch("d", &rows).unwrap();
+        let reader = Mutex::new(Index::open_reader(&path).unwrap());
+        let first = rows[0].0.path.to_string_lossy().into_owned();
+
+        let writer = Mutex::new(writer);
+        let hold = Duration::from_millis(300);
+        let elapsed = std::thread::scope(|scope| {
+            let guard = lock(&writer);
+            guard.conn.execute_batch("BEGIN IMMEDIATE").unwrap();
+            let read = scope.spawn(|| {
+                let start = Instant::now();
+                let reader = lock(&reader);
+                let entries = reader.entries("d").unwrap();
+                let thumb = reader.thumbnail(&first).unwrap();
+                (start.elapsed(), entries.len(), thumb.0)
+            });
+            std::thread::sleep(hold);
+            guard.conn.execute_batch("ROLLBACK").unwrap();
+            drop(guard);
+            read.join().unwrap()
+        });
+        assert_eq!((elapsed.1, elapsed.2), (3, 6));
+        assert!(elapsed.0 < Duration::from_millis(100), "{:?}", elapsed.0);
+
+        lock(&writer)
+            .write_batch("d", &[(synthetic(&dir, 3), Ok(entry()))])
+            .unwrap();
+        assert_eq!(lock(&reader).entries("d").unwrap().len(), 4);
+
+        remove_temp_dir(&dir);
+    }
+
+    /// Commit cost per chunk size. Run with
+    /// `cargo test -p riffle-app --release -- --ignored --nocapture write_batch_cost`.
+    #[test]
+    #[ignore]
+    fn write_batch_cost_per_chunk_size() {
+        const N: usize = 5000;
+        for chunk in [10, 50, 100] {
+            let dir = temp_dir(&format!("cost-{chunk}"));
+            let mut index = open(&dir);
+            let rows: Vec<_> = (0..N).map(|i| (synthetic(&dir, i), Ok(entry()))).collect();
+            let start = Instant::now();
+            for batch in rows.chunks(chunk) {
+                index.write_batch("d", batch).unwrap();
+            }
+            let total = start.elapsed();
+            let per_tx = total.as_secs_f64() * 1000.0 / N.div_ceil(chunk) as f64;
+            println!(
+                "chunk {chunk}: {:.1} ms total, {per_tx:.3} ms per transaction",
+                total.as_secs_f64() * 1000.0
+            );
+            drop(index);
+            remove_temp_dir(&dir);
+        }
     }
 }

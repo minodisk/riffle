@@ -237,6 +237,15 @@ fn main() {
                     None
                 }
             };
+            let reader = index
+                .as_ref()
+                .map(|index| match index::Index::open_reader(&path) {
+                    Ok(reader) => Arc::new(Mutex::new(reader)),
+                    Err(e) => {
+                        log::error!("failed to open the index reader at {}: {e}", path.display());
+                        index.clone()
+                    }
+                });
             let writer = index.as_ref().map(|index| {
                 let handle = app.handle().clone();
                 // `Emitter` is safe from any thread, as `run_scan` already
@@ -260,6 +269,7 @@ fn main() {
             app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
+            app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
