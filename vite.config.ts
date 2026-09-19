@@ -41,4 +41,8 @@ export default defineConfig({
     ignorePatterns: ["crates/app/ui/dist/**", ".claude/**"],
     options: { typeAware: true, typeCheck: true },
   },
+  test: {
+    include: ["src/**/*.test.ts"],
+    environment: "node",
+  },
 });

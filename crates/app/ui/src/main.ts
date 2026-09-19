@@ -1,5 +1,6 @@
 import { type Binding, isUnboundModifier, keyName } from "./keys.js";
 import * as strip from "./strip.js";
+import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -35,21 +36,6 @@ interface IndexedFile {
   label: string | null;
   has_sidecar: boolean;
   exif: Exif | null;
-}
-
-// Mirrors `Exif` in `crates/app/src/exif.rs`: `value` sorts, `label` shows.
-interface Labelled {
-  value: number;
-  label: string;
-}
-
-interface Exif {
-  camera: string | null;
-  lens: string | null;
-  aperture: Labelled | null;
-  shutter: Labelled | null;
-  iso: Labelled | null;
-  focal_length: Labelled | null;
 }
 
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
@@ -165,7 +151,6 @@ const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
-type ExifGroup = "camera" | "lens" | "aperture" | "shutter" | "iso" | "focal";
 const exifGroups: { group: ExifGroup; heading: string }[] = [
   { group: "camera", heading: "Camera" },
   { group: "lens", heading: "Lens" },
@@ -177,48 +162,6 @@ const exifGroups: { group: ExifGroup; heading: string }[] = [
 const shownExif = new Map<ExifGroup, Set<string>>(
   exifGroups.map(({ group }) => [group, new Set<string>()]),
 );
-// Half-open `[lower, upper)`, so a frame falls in exactly one.
-const focalRanges: { upper: number; label: string }[] = [
-  { upper: 24, label: "<24 mm" },
-  { upper: 35, label: "24–35 mm" },
-  { upper: 50, label: "35–50 mm" },
-  { upper: 85, label: "50–85 mm" },
-  { upper: 135, label: "85–135 mm" },
-  { upper: 200, label: "135–200 mm" },
-  { upper: Infinity, label: ">200 mm" },
-];
-
-function focalRange(mm: number): number {
-  return focalRanges.findIndex(({ upper }) => mm < upper);
-}
-
-// The label and sort key of `group` for one file, or null if it has none.
-function exifKey(
-  exif: Exif | null | undefined,
-  group: ExifGroup,
-): { label: string; order: number | string } | null {
-  if (!exif) {
-    return null;
-  }
-  switch (group) {
-    case "camera":
-    case "lens": {
-      const text = exif[group];
-      return text === null ? null : { label: text, order: text };
-    }
-    case "focal": {
-      if (exif.focal_length === null) {
-        return null;
-      }
-      const at = focalRange(exif.focal_length.value);
-      return { label: focalRanges[at].label, order: at };
-    }
-    default: {
-      const labelled = exif[group];
-      return labelled === null ? null : { label: labelled.label, order: labelled.value };
-    }
-  }
-}
 let showFocus = false;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
