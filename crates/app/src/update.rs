@@ -49,6 +49,9 @@ async fn run(app: AppHandle, interactive: bool) {
         return;
     }
     let result = check_and_install(&app).await;
+    if let Ok(Some(version)) = &result {
+        *index::lock(&state.installed) = Some(version.clone());
+    }
     state.running.store(false, Ordering::Release);
     match result {
         Ok(None) => {
@@ -61,7 +64,6 @@ async fn run(app: AppHandle, interactive: bool) {
             if interactive {
                 message(&app, &installed_text(&version), MessageDialogKind::Info);
             }
-            *index::lock(&state.installed) = Some(version);
         }
         Err(e) => {
             log::warn!("update failed: {e}");
