@@ -110,7 +110,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
 
 ## Steps
 
-- [ ] Step 1: XMP: read and patch `xmp:Label`
+- [x] Step 1: XMP: read and patch `xmp:Label`
   - Done when:
     - `xmp::read_label(bytes) -> Result<Option<String>, String>` returns the
       raw value of `xmp:Label` (attribute or element form, either prefix
@@ -420,4 +420,4 @@ the writer composition and the per-format keymap.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
