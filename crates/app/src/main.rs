@@ -189,7 +189,8 @@ fn debug_build() -> bool {
 }
 
 /// The payload of the `sidecar-error` event: a sidecar that could not be
-/// written. The judgement stays in the index and is retried on the next open.
+/// written. The writer retries it a few times with a growing delay, and the
+/// judgement stays in the index to be written on the next open if all fail.
 #[derive(Clone, serde::Serialize)]
 struct SidecarError {
     path: String,

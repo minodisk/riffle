@@ -1148,9 +1148,9 @@ void window.__TAURI__.event.listen<{
   refreshEntries();
 });
 
-// A sidecar the writer could not write: the judgement is still in the index
-// and is retried on the next open of the folder, so this is a note, not a
-// revert.
+// A sidecar the writer could not write: the writer retries it a few times,
+// and the judgement is still in the index to be written on the next open of
+// the folder, so this is a note, not a revert.
 void window.__TAURI__.event.listen<{ path: string; message: string }>(
   "sidecar-error",
   ({ payload }) => {

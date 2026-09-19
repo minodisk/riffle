@@ -141,6 +141,24 @@ fn raw_name(arw: &Path) -> String {
 /// How long a path's last update is held before its sidecar is written.
 pub const DEBOUNCE: Duration = Duration::from_millis(300);
 
+/// Delay before the first retry of a failed write; each further retry doubles
+/// it.
+const RETRY_BASE: Duration = Duration::from_secs(1);
+
+/// Retries of a failed write before it is given up on. Five retries (1 s, 2 s,
+/// 4 s, 8 s, 16 s, ~31 s in all) ride out a card reconnect or a transient
+/// lock, while a genuinely read-only folder stops reporting within a minute;
+/// the dirty row is then written on the next folder open.
+const RETRY_LIMIT: u32 = 5;
+
+/// The delay before retry number `attempts` (1-based) of a failed write, or
+/// `None` once `RETRY_LIMIT` retries have been made.
+fn retry_delay(attempts: u32) -> Option<Duration> {
+    (1..=RETRY_LIMIT)
+        .contains(&attempts)
+        .then(|| RETRY_BASE * 2u32.pow(attempts - 1))
+}
+
 /// Suffix of the temp file each write goes to before being renamed into place.
 const TEMP_SUFFIX: &str = ".riffle-tmp";
 
@@ -183,8 +201,10 @@ pub struct Writer {
 }
 
 impl Writer {
-    /// Start the thread. `on_error` reports a sidecar that could not be
-    /// written; the row stays dirty and is retried on the next folder open.
+    /// Start the thread. `on_error` reports every failed attempt at writing a
+    /// sidecar; the write is retried with a growing delay (see `retry_delay`),
+    /// and once the retries run out the row stays dirty and is written on the
+    /// next folder open.
     pub fn spawn<F>(index: Arc<Mutex<Index>>, on_error: F) -> Self
     where
         F: Fn(&Path, &str) + Send + 'static,
@@ -279,7 +299,7 @@ where
     loop {
         let wait = pending
             .values()
-            .map(|(_, _, deadline)| deadline.saturating_duration_since(Instant::now()))
+            .map(|entry| entry.deadline.saturating_duration_since(Instant::now()))
             .min();
         let message = match wait {
             Some(wait) => rx.recv_timeout(wait),
@@ -292,7 +312,15 @@ where
                 format,
                 deadline,
             }) => {
-                pending.insert(path, (judgement, format, deadline));
+                pending.insert(
+                    path,
+                    Entry {
+                        judgement,
+                        format,
+                        deadline,
+                        attempts: 0,
+                    },
+                );
             }
             Ok(Message::Flush(reply)) => {
                 flush(&mut pending, None, &index, &on_error);
@@ -309,24 +337,35 @@ where
     }
 }
 
-/// The judgement queued per path, each with the format selected when it was
-/// made and the instant its sidecar is due.
-type Pending = std::collections::HashMap<PathBuf, (Judgement, SidecarFormat, Instant)>;
+/// A queued judgement, with the format selected when it was made, the instant
+/// its sidecar is due and how many retries of it have already failed.
+struct Entry {
+    judgement: Judgement,
+    format: SidecarFormat,
+    deadline: Instant,
+    attempts: u32,
+}
+
+/// The entry queued per path.
+type Pending = std::collections::HashMap<PathBuf, Entry>;
 
 /// Write the entries whose deadline has passed by `now`, or all of them when
-/// `now` is `None`.
+/// `now` is `None`. A failed write is requeued for a retry, except in a drain
+/// (`now` is `None`), which makes one attempt so quitting never waits out a
+/// backoff.
 fn flush<F>(pending: &mut Pending, now: Option<Instant>, index: &Arc<Mutex<Index>>, on_error: &F)
 where
     F: Fn(&Path, &str),
 {
     let due: Vec<PathBuf> = pending
         .iter()
-        .filter(|(_, (_, _, deadline))| now.is_none_or(|now| now >= *deadline))
+        .filter(|(_, entry)| now.is_none_or(|now| now >= entry.deadline))
         .map(|(path, _)| path.clone())
         .collect();
     for path in due {
-        let (judgement, format, _) = pending.remove(&path).expect("just listed");
-        match write(&path, &judgement, format) {
+        let entry = pending.remove(&path).expect("just listed");
+        let judgement = &entry.judgement;
+        match write(&path, judgement, entry.format) {
             Ok((stat, resolved_label)) => {
                 if let Err(e) = lock(index).mark_written(
                     &path.to_string_lossy(),
@@ -339,7 +378,23 @@ where
                     on_error(&path, &e);
                 }
             }
-            Err(e) => on_error(&path, &e),
+            Err(e) => {
+                let attempts = entry.attempts + 1;
+                match retry_delay(attempts).filter(|_| now.is_some()) {
+                    Some(delay) => {
+                        on_error(&path, &format!("{e} (retrying in {}s)", delay.as_secs()));
+                        pending.insert(
+                            path,
+                            Entry {
+                                deadline: Instant::now() + delay,
+                                attempts,
+                                ..entry
+                            },
+                        );
+                    }
+                    None => on_error(&path, &e),
+                }
+            }
         }
     }
 }
@@ -457,6 +512,8 @@ fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResul
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir =
@@ -693,6 +750,93 @@ mod tests {
 
         drop(writer);
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn the_retry_delay_grows_and_stops_at_the_limit() {
+        let delays: Vec<_> = (1..=RETRY_LIMIT).map(|n| retry_delay(n).unwrap()).collect();
+        assert_eq!(delays[0], RETRY_BASE);
+        assert!(delays.windows(2).all(|w| w[1] > w[0]));
+        assert_eq!(retry_delay(RETRY_LIMIT + 1), None);
+    }
+
+    #[cfg(unix)]
+    fn counting_writer(index: Arc<Mutex<Index>>) -> (Writer, Arc<AtomicUsize>) {
+        let errors = Arc::new(AtomicUsize::new(0));
+        let count = errors.clone();
+        let writer = Writer::spawn(index, move |path, message| {
+            eprintln!("{}: {message}", path.display());
+            count.fetch_add(1, Ordering::SeqCst);
+        });
+        (writer, errors)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_write_is_retried_until_it_succeeds() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_dir("retry");
+        let dir = root.join("locked");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = arw(&dir, "r.ARW");
+        let index = index(&root);
+        let (writer, errors) = counting_writer(index.clone());
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(3), false, None, true)
+            .unwrap();
+        writer
+            .set(path.clone(), Some(3), false, None, true, SidecarFormat::Xmp)
+            .unwrap();
+        assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+        let sidecar = xmp::sidecar_path(&path);
+        assert!(eventually(|| std::fs::read(&sidecar)
+            .is_ok_and(|b| xmp::read_rating(&b) == Ok(Some(3)))
+            && lock(&index).dirty_rows("d").unwrap().is_empty()));
+
+        drop(writer);
+        remove_temp_dir(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_newer_judgement_replaces_one_waiting_for_a_retry() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_dir("retry-latest");
+        let dir = root.join("locked");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = arw(&dir, "l.ARW");
+        let index = index(&root);
+        let (writer, errors) = counting_writer(index.clone());
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(2), false, None, true)
+            .unwrap();
+        writer
+            .set(path.clone(), Some(2), false, None, true, SidecarFormat::Xmp)
+            .unwrap();
+        assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
+            .unwrap();
+        writer
+            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Xmp)
+            .unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+        let sidecar = xmp::sidecar_path(&path);
+        assert!(eventually(|| std::fs::read(&sidecar)
+            .is_ok_and(|b| xmp::read_rating(&b) == Ok(Some(5)))
+            && lock(&index).dirty_rows("d").unwrap().is_empty()));
+
+        drop(writer);
         remove_temp_dir(&root);
     }
 
