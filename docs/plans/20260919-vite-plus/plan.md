@@ -137,7 +137,9 @@ in Step 1.
 
 - [x] Step 2: Configure Oxlint (`lint` block) and fix the one existing finding
   - Done when: the `lint` block in `vite.config.ts` has `ignorePatterns:
-    ["crates/app/ui/dist/**"]` alongside the type-check options from Step 1;
+    ["crates/app/ui/dist/**", ".claude/**"]` (`.claude/**` excludes agent
+    skill scripts, which are outside the Oxfmt/lint scope of frontend + JS
+    tooling at the root) alongside the type-check options from Step 1;
     `pnpm exec vp check --no-fmt` exits 0 with no warnings on the current
     sources; `mise run ci` passes; CI's `lint` job is green.
   - Implementation approach:

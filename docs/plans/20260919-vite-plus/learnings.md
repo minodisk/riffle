@@ -48,7 +48,4 @@
 
 ## Deferred issues (todo candidates)
 
-- Oxlint `no-unused-vars` warning on `LOCAL_PATH` in
-  `.claude/skills/merge-settings/scripts/merge.js` (found by `vp check --no-fmt`
-  in Step 1). Step 2's "no warnings" criterion must handle it (fix, or ignore
-  `.claude/**`).
+None.
