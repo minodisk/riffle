@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::scan::{extract_all, Entry};
@@ -419,26 +419,19 @@ impl Index {
             })
     }
 
-    /// The colour label stored for one path, or `None` when there is no row
-    /// yet or the row has no label. Used to keep a path's label untouched
-    /// when the caller has not learned it yet, rather than clearing it.
-    pub fn label(&self, path: &str) -> Result<Option<String>, String> {
-        self.conn
-            .query_row(
-                "SELECT label FROM ratings WHERE path = ?1",
-                params![path],
-                |r| r.get::<_, Option<String>>(0),
-            )
-            .optional()
-            .map(|row| row.flatten())
-            .map_err(|e| format!("{path}: {e}"))
-    }
-
     /// Record a judgement for one file, pending a sidecar write.
     ///
     /// The row is independent of `files`, so a rescan or a failed extraction
     /// never drops a rating. `dirty = 1` until the writer has landed exactly
     /// this value in the sidecar.
+    ///
+    /// `label_known` is false when the caller has not yet learned this
+    /// path's label (e.g. a judgement made before the first `folder_entries`
+    /// refresh, or before the sidecar parse has stored it). The `label`
+    /// column is then left untouched rather than being set to `label`
+    /// (typically `None`), so a later sidecar parse or read is still free to
+    /// fill it in and the app-side row never asserts a label it does not
+    /// actually know.
     pub fn set_rating(
         &mut self,
         dir: &str,
@@ -446,17 +439,26 @@ impl Index {
         rating: Option<i8>,
         pick: bool,
         label: Option<&str>,
+        label_known: bool,
     ) -> Result<(), String> {
-        self.conn
-            .execute(
+        let result = if label_known {
+            self.conn.execute(
                 "INSERT INTO ratings (path, dir, rating, pick, label, dirty)
                  VALUES (?1, ?2, ?3, ?4, ?5, 1)
                  ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
                      dirty = 1",
                 params![path, dir, rating, pick, label],
             )
-            .map(|_| ())
-            .map_err(|e| format!("{path}: {e}"))
+        } else {
+            self.conn.execute(
+                "INSERT INTO ratings (path, dir, rating, pick, dirty)
+                 VALUES (?1, ?2, ?3, ?4, 1)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4,
+                     dirty = 1",
+                params![path, dir, rating, pick],
+            )
+        };
+        result.map(|_| ()).map_err(|e| format!("{path}: {e}"))
     }
 
     /// Clear `dirty` and store the sidecar's stat, but only while the row
@@ -465,23 +467,36 @@ impl Index {
     ///
     /// `stat` is `None` when no sidecar exists (clearing a rating on a file
     /// that never had one writes nothing).
+    ///
+    /// `label_known` is false when the label the writer put in the sidecar
+    /// was not asserted by the app (it kept the sidecar's own label because
+    /// `set_rating` had not learned it yet); the guard then skips the label
+    /// entirely, since `ratings.label` was never set to it.
     pub fn mark_written(
         &mut self,
         path: &str,
         rating: Option<i8>,
         pick: bool,
         label: Option<&str>,
+        label_known: bool,
         stat: Option<(i64, i64)>,
     ) -> Result<bool, String> {
         let (size, mtime_ns) = (stat.map(|s| s.0), stat.map(|s| s.1));
-        self.conn
-            .execute(
+        let n = if label_known {
+            self.conn.execute(
                 "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
                  WHERE path = ?1 AND rating IS ?4 AND pick = ?5 AND label IS ?6",
                 params![path, size, mtime_ns, rating, pick, label],
             )
-            .map(|n| n > 0)
-            .map_err(|e| format!("{path}: {e}"))
+        } else {
+            self.conn.execute(
+                "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
+                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5",
+                params![path, size, mtime_ns, rating, pick],
+            )
+        }
+        .map_err(|e| format!("{path}: {e}"))?;
+        Ok(n > 0)
     }
 
     /// Forget every sidecar the index has seen, for a sidecar format switch:
@@ -938,7 +953,9 @@ mod tests {
         let path = a.path.to_string_lossy().into_owned();
         let mut index = open(&dir);
         index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
-        index.set_rating("d", &path, Some(-1), false, None).unwrap();
+        index
+            .set_rating("d", &path, Some(-1), false, None, true)
+            .unwrap();
         assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
 
         // A reconcile that drops the `files` row must leave `ratings` alone:
@@ -961,20 +978,20 @@ mod tests {
         let dir = temp_dir("written");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(3), false, None)
+            .set_rating("d", "/a.ARW", Some(3), false, None, true)
             .unwrap();
 
         assert!(index
-            .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
+            .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
         index
-            .set_rating("d", "/a.ARW", Some(5), false, None)
+            .set_rating("d", "/a.ARW", Some(5), false, None, true)
             .unwrap();
         assert!(
             !index
-                .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
+                .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
                 .unwrap(),
             "a keypress during the write keeps the row dirty"
         );
@@ -984,9 +1001,11 @@ mod tests {
         );
 
         // An unrated row is matched by NULL, not skipped.
-        index.set_rating("d", "/a.ARW", None, false, None).unwrap();
+        index
+            .set_rating("d", "/a.ARW", None, false, None, true)
+            .unwrap();
         assert!(index
-            .mark_written("/a.ARW", None, false, None, None)
+            .mark_written("/a.ARW", None, false, None, true, None)
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
@@ -998,13 +1017,13 @@ mod tests {
         let dir = temp_dir("reset-sidecars");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(3), false, None)
+            .set_rating("d", "/a.ARW", Some(3), false, None, true)
             .unwrap();
         assert!(index
-            .mark_written("/a.ARW", Some(3), false, None, Some((42, 7)))
+            .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
             .unwrap());
         index
-            .set_rating("d", "/b.ARW", Some(5), false, None)
+            .set_rating("d", "/b.ARW", Some(5), false, None, true)
             .unwrap();
         index
             .store_sidecar_ratings(
@@ -1013,7 +1032,7 @@ mod tests {
             )
             .unwrap();
         index
-            .set_rating("d", "/b.ARW", Some(-1), false, None)
+            .set_rating("d", "/b.ARW", Some(-1), false, None, true)
             .unwrap();
 
         index.reset_sidecars().unwrap();
@@ -1044,18 +1063,20 @@ mod tests {
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
         assert!(!index.entries("d").unwrap()[0].pick, "no ratings row");
 
-        index.set_rating("d", &path, Some(3), true, None).unwrap();
+        index
+            .set_rating("d", &path, Some(3), true, None, true)
+            .unwrap();
         let entry = &index.entries("d").unwrap()[0];
         assert_eq!((entry.rating, entry.pick), (Some(3), true));
 
         assert!(
             !index
-                .mark_written(&path, Some(3), false, None, None)
+                .mark_written(&path, Some(3), false, None, true, None)
                 .unwrap(),
             "an unpick during the write keeps the row dirty"
         );
         assert!(index
-            .mark_written(&path, Some(3), true, None, None)
+            .mark_written(&path, Some(3), true, None, true, None)
             .unwrap());
 
         index
@@ -1076,45 +1097,63 @@ mod tests {
         assert_eq!(index.entries("d").unwrap()[0].label, None, "no ratings row");
 
         index
-            .set_rating("d", &path, Some(3), false, Some("Red"))
+            .set_rating("d", &path, Some(3), false, Some("Red"), true)
             .unwrap();
         assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
 
         assert!(
             !index
-                .mark_written(&path, Some(3), false, Some("Blue"), None)
+                .mark_written(&path, Some(3), false, Some("Blue"), true, None)
                 .unwrap(),
             "a relabel during the write keeps the row dirty"
         );
         assert!(!index
-            .mark_written(&path, Some(3), false, None, None)
+            .mark_written(&path, Some(3), false, None, true, None)
             .unwrap());
         assert!(index
-            .mark_written(&path, Some(3), false, Some("Red"), None)
+            .mark_written(&path, Some(3), false, Some("Red"), true, None)
             .unwrap());
 
         remove_temp_dir(&dir);
     }
 
     #[test]
-    fn label_reads_back_what_set_rating_stored_and_none_before_any_row() {
-        let dir = temp_dir("label-get");
+    fn an_unknown_label_leaves_the_ratings_label_untouched() {
+        let dir = temp_dir("label-unknown");
+        let a = file(&dir, "a.ARW", b"a");
+        let path = a.path.to_string_lossy().into_owned();
         let mut index = open(&dir);
+        index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
+
+        // A judgement before the row's label is known must not stamp `label`
+        // as `None`: a later sidecar parse still needs to be free to fill it
+        // in, and mark_written must not be guarded on a value never asserted.
+        index
+            .set_rating("d", &path, Some(3), false, None, false)
+            .unwrap();
         assert_eq!(
-            index.label("/a.ARW").unwrap(),
+            index.entries("d").unwrap()[0].label,
             None,
-            "no row yet: the caller must not treat this as a real absence of label"
+            "no label was ever asserted, so the row stays as the sidecar parse left it"
         );
 
+        // Simulate the sidecar parse landing afterwards: it is free to set
+        // the label, since `set_rating` above never touched the column. The
+        // row is still dirty from that judgement, so the snapshot passed
+        // here must say so too.
         index
-            .set_rating("d", "/a.ARW", Some(3), false, Some("Red"))
+            .store_sidecar_ratings(
+                "d",
+                &[(path.clone(), Some(3), false, Some("Red".into()), 1, 2, true)],
+            )
             .unwrap();
-        assert_eq!(index.label("/a.ARW").unwrap().as_deref(), Some("Red"));
+        assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
 
-        index
-            .set_rating("d", "/a.ARW", Some(3), false, None)
-            .unwrap();
-        assert_eq!(index.label("/a.ARW").unwrap(), None);
+        // `mark_written` for the same unknown-label judgement must not check
+        // `label` at all, since `ratings.label` was never set to it.
+        assert!(index
+            .mark_written(&path, Some(3), false, None, false, None)
+            .unwrap());
 
         remove_temp_dir(&dir);
     }
@@ -1124,7 +1163,7 @@ mod tests {
         let dir = temp_dir("reset-label");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(2), true, Some("Green"))
+            .set_rating("d", "/a.ARW", Some(2), true, Some("Green"), true)
             .unwrap();
 
         index.reset_sidecars().unwrap();
@@ -1226,16 +1265,22 @@ mod tests {
 
         assert!(!has_sidecar(&index), "no ratings row");
 
-        index.set_rating("d", &path, Some(3), false, None).unwrap();
+        index
+            .set_rating("d", &path, Some(3), false, None, true)
+            .unwrap();
         assert!(!has_sidecar(&index), "dirty row, nothing written yet");
 
         assert!(index
-            .mark_written(&path, Some(3), false, None, Some((42, 7)))
+            .mark_written(&path, Some(3), false, None, true, Some((42, 7)))
             .unwrap());
         assert!(has_sidecar(&index));
 
-        index.set_rating("d", &path, None, false, None).unwrap();
-        assert!(index.mark_written(&path, None, false, None, None).unwrap());
+        index
+            .set_rating("d", &path, None, false, None, true)
+            .unwrap();
+        assert!(index
+            .mark_written(&path, None, false, None, true, None)
+            .unwrap());
         assert!(!has_sidecar(&index));
 
         index

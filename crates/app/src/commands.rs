@@ -648,7 +648,8 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         Ok(dirty) => {
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating, pick, label) in dirty {
-                    if let Err(e) = writer.set_now(PathBuf::from(path), rating, pick, label, format)
+                    if let Err(e) =
+                        writer.set_now(PathBuf::from(path), rating, pick, label, true, format)
                     {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
@@ -883,8 +884,11 @@ fn update_keymap(
 ///
 /// `label_known` is false when the frontend has not yet learned this path's
 /// label from `folder_entries` (e.g. a judgement made before the first
-/// refresh lands): `label` is then ignored and the stored label, if any, is
-/// kept rather than clearing it.
+/// refresh lands, or before the sidecar has even been parsed): `label` is
+/// then ignored, the `ratings.label` column is left untouched rather than
+/// being cleared, and the writer keeps whatever label the sidecar itself
+/// currently holds instead of stripping it (see `Index::set_rating` and
+/// `sidecar::write`).
 ///
 /// The `ratings` row is written before the writer is told, so a crash between
 /// the two still leaves the row dirty and the sidecar is written on the next
@@ -910,27 +914,27 @@ pub async fn set_rating(
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
     };
-    let label = if label_known {
-        label.filter(|l| !l.is_empty())
-    } else {
-        let (index, path) = (index.clone(), path.clone());
-        tauri::async_runtime::spawn_blocking(move || index::lock(&index).label(&path))
-            .await
-            .map_err(|e| e.to_string())??
-    };
+    let label = label.filter(|l| !l.is_empty());
     let dir = Path::new(&path)
         .parent()
         .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
     {
         let (path, label) = (path.clone(), label.clone());
         tauri::async_runtime::spawn_blocking(move || {
-            index::lock(&index).set_rating(&dir, &path, rating, pick, label.as_deref())
+            index::lock(&index).set_rating(&dir, &path, rating, pick, label.as_deref(), label_known)
         })
         .await
         .map_err(|e| e.to_string())??;
     }
     match &app.state::<AppWriter>().0 {
-        Some(writer) => writer.set(PathBuf::from(path), rating, pick, label, format),
+        Some(writer) => writer.set(
+            PathBuf::from(path),
+            rating,
+            pick,
+            label,
+            label_known,
+            format,
+        ),
         None => Err("the sidecar writer is not running".to_string()),
     }
 }
@@ -1063,7 +1067,7 @@ mod tests {
 
         // An app edit that never reached disk, then someone else's edit.
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None)
+            .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
@@ -1118,7 +1122,7 @@ mod tests {
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[1], Some(-1), false, None)
+            .set_rating(&dir, &listed[1], Some(-1), false, None, true)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
@@ -1348,7 +1352,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None)
+            .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();

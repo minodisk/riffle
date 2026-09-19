@@ -225,7 +225,20 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       bool, label: Option<String> }` in `index.rs`; pick whichever keeps
       the diff readable and use it consistently in Step 4.
 
-- [x] Step 4: Writer, reconcile and the `set_rating` command carry the label
+- [ ] Step 4: Writer, reconcile and the `set_rating` command carry the label
+  - Reverted to unchecked by the review addresser: round 2 of local review
+    (`docs/plans/review-history/color-labels-step-4/review-20260919-1230.md`)
+    found that the round-1 fix still let a judgement made before the label
+    was known (`label_known: false`) fall back to `Index::label`, which reads
+    `None` before any row or sidecar parse exists, and that `None` was then
+    stored and handed to the writer as "no label", stripping an existing
+    sidecar label. Addressed in the round-2 fix commit: `Index::set_rating`
+    leaves the `label` column untouched (instead of writing `None`) when
+    `label_known` is false, `sidecar::write` reads the sidecar's current
+    label from disk in that case instead of trusting the (possibly stale)
+    `ratings` row, and `Index::mark_written` skips the label guard when the
+    label was never asserted. Re-verify against the "Done when" list below
+    before re-checking this step.
   - Done when:
     - `SidecarFormat::read_label` / `write_label` dispatch to Steps 1-2.
       `sidecar::write` composes `write_rating` then `write_label` on the
