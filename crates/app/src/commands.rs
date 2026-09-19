@@ -429,6 +429,42 @@ pub fn last_folder(app: tauri::AppHandle) -> Option<String> {
     Path::new(&dir).is_dir().then_some(dir)
 }
 
+/// The strip sort order a stored `sortOrder` value names; anything unknown or
+/// missing is the default, file name order.
+fn parse_sort_order(value: Option<&str>) -> &'static str {
+    match value {
+        Some("capture") => "capture",
+        Some("rating") => "rating",
+        _ => "name",
+    }
+}
+
+/// The strip sort order remembered by `set_sort_order`.
+#[tauri::command]
+pub fn sort_order(app: tauri::AppHandle) -> &'static str {
+    let store = settings(&app).ok();
+    parse_sort_order(
+        store
+            .as_ref()
+            .and_then(|s| s.get("sortOrder"))
+            .as_ref()
+            .and_then(|v| v.as_str()),
+    )
+}
+
+/// Remember the strip sort order. Failing to write it only means starting in
+/// file name order, so it is logged, not returned.
+#[tauri::command]
+pub fn set_sort_order(app: tauri::AppHandle, order: String) {
+    let saved = settings(&app).and_then(|store| {
+        store.set("sortOrder", parse_sort_order(Some(&order)));
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        eprintln!("failed to remember the sort order: {e}");
+    }
+}
+
 #[tauri::command]
 pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
     list_arw_in(Path::new(&canonicalize(&dir)))
@@ -1469,6 +1505,14 @@ mod tests {
         assert_eq!(rating_of(&index, &dir, &listed[1]), Some(3));
 
         remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn an_unknown_sort_order_falls_back_to_name() {
+        assert_eq!(parse_sort_order(Some("capture")), "capture");
+        assert_eq!(parse_sort_order(Some("rating")), "rating");
+        assert_eq!(parse_sort_order(Some("size")), "name");
+        assert_eq!(parse_sort_order(None), "name");
     }
 
     #[test]

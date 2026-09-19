@@ -29,3 +29,13 @@
 - Manual GUI confirmation (rollover / two-body folder, rating grouping,
   paging / click / `n / N` following the order, filter keeping the order,
   judging under `Rating` keeping the cursor) is left for the user.
+
+## Step 3
+
+- The stored value is parsed by `parse_sort_order` in `commands.rs` (unit
+  tested); `set_sort_order` normalises through it too, so the store never
+  holds an unknown value.
+- `main.ts` awaits `sort_order` (errors ignored) before `reopenLastFolder()`,
+  so the reopened folder is ordered once, with no re-sort flash.
+- The capability file does not list commands; only `main.rs` needed the two
+  new handlers.

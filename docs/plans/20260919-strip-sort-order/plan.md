@@ -147,7 +147,7 @@ the native menu bar.
       covers "nothing changed"; a pure re-order produces a different array
       and goes through `strip.setFiles` like a filter change does.
 
-- [ ] Step 3: Persist the chosen sort in the settings store
+- [x] Step 3: Persist the chosen sort in the settings store
   - Done when:
     - A `sortOrder` key in the settings store (`"name"` / `"capture"` /
       `"rating"`) is read at launch and written on every change, through a
@@ -235,3 +235,4 @@ where one writes no `subsec` fall back to file name within the same second.
 
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
+- (2026-09-20) Step 3 complete

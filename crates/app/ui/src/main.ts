@@ -1340,17 +1340,27 @@ document.addEventListener("mousedown", (event) => {
 for (const item of sortItems) {
   item.addEventListener("click", () => {
     item.blur();
-    sortKey = item.dataset.sort as SortKey;
-    for (const other of sortItems) {
-      other.setAttribute("aria-checked", String(other === item));
-    }
+    setSortKey(item.dataset.sort as SortKey);
+    void window.__TAURI__.core.invoke("set_sort_order", { order: sortKey });
     setSortMenuOpen(false);
     refilter();
   });
 }
 
+function setSortKey(key: SortKey): void {
+  sortKey = key;
+  for (const item of sortItems) {
+    item.setAttribute("aria-checked", String(item.dataset.sort === key));
+  }
+}
+
 openEl.addEventListener("click", openFolder);
-reopenLastFolder();
+// Apply the remembered sort before the last folder opens, so it comes up in
+// that order.
+void window.__TAURI__.core
+  .invoke<SortKey>("sort_order")
+  .then(setSortKey, () => {})
+  .finally(reopenLastFolder);
 
 // Key -> action, from the `shortcuts` command. Empty until it resolves.
 let keymap = new Map<string, string>();
