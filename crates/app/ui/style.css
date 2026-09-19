@@ -46,13 +46,24 @@ body {
   background: #151515;
 }
 
-#filter {
+#tools {
+  display: flex;
+  flex: none;
+}
+
+#filter,
+#sort {
   position: relative;
   flex: none;
   padding: 0.5rem 8px 0.25rem;
 }
 
-#filter-toggle {
+#sort {
+  padding-left: 0;
+}
+
+#filter-toggle,
+#sort-toggle {
   display: inline-flex;
   gap: 2px;
   align-items: center;
@@ -64,7 +75,8 @@ body {
   cursor: pointer;
 }
 
-#filter-toggle .caret {
+#filter-toggle .caret,
+#sort-toggle .caret {
   font-size: 0.6rem;
 }
 
@@ -75,7 +87,8 @@ body {
   border-color: #4a9eff;
 }
 
-#filter-menu {
+#filter-menu,
+#sort-menu {
   position: absolute;
   z-index: 10;
   top: calc(100% - 0.25rem + 2px);
@@ -90,7 +103,8 @@ body {
   overflow-y: auto;
 }
 
-#filter-menu[hidden] {
+#filter-menu[hidden],
+#sort-menu[hidden] {
   display: none;
 }
 
@@ -100,7 +114,8 @@ body {
   border-top: 1px solid #3a3a3a;
 }
 
-#filter-menu button {
+#filter-menu button,
+#sort-menu button {
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -115,11 +130,13 @@ body {
   cursor: pointer;
 }
 
-#filter-menu button:hover {
+#filter-menu button:hover,
+#sort-menu button:hover {
   background: #3a3a3a;
 }
 
-#filter-menu button[aria-checked="true"] {
+#filter-menu button[aria-checked="true"],
+#sort-menu button[aria-checked="true"] {
   color: #fff;
   background: #2f4a6a;
 }
