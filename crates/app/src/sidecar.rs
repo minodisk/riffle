@@ -266,7 +266,7 @@ where
         match write(&path, rating, pick, format) {
             Ok(stat) => {
                 if let Err(e) =
-                    lock(index).mark_written(&path.to_string_lossy(), rating, pick, stat)
+                    lock(index).mark_written(&path.to_string_lossy(), rating, pick, None, stat)
                 {
                     on_error(&path, &e);
                 }
@@ -431,7 +431,7 @@ mod tests {
 
         for rating in [1i8, 2, 3] {
             lock(&index)
-                .set_rating("d", &path.to_string_lossy(), Some(rating), false)
+                .set_rating("d", &path.to_string_lossy(), Some(rating), false, None)
                 .unwrap();
             writer
                 .set(path.clone(), Some(rating), false, SidecarFormat::Xmp)
@@ -471,7 +471,7 @@ mod tests {
         std::fs::write(&sidecar, lightroom_sidecar(2)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false)
+            .set_rating("d", &path.to_string_lossy(), Some(5), false, None)
             .unwrap();
         writer
             .set(path.clone(), Some(5), false, SidecarFormat::Xmp)
@@ -493,7 +493,7 @@ mod tests {
         let path = arw(&dir, "c.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false)
+            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None)
             .unwrap();
         // A deadline far enough out that a slow machine cannot blur the
         // difference between flushing now and waiting for it. Measuring
@@ -525,7 +525,7 @@ mod tests {
         let path = arw(&dir, "d.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false)
+            .set_rating("d", &path.to_string_lossy(), None, false, None)
             .unwrap();
         writer
             .set(path.clone(), None, false, SidecarFormat::Xmp)
@@ -553,7 +553,7 @@ mod tests {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(4), false)
+            .set_rating("d", &path.to_string_lossy(), Some(4), false, None)
             .unwrap();
         writer
             .set(path.clone(), Some(4), false, SidecarFormat::Xmp)
@@ -606,7 +606,7 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false)
+            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None)
             .unwrap();
         writer
             .set(path.clone(), Some(-1), false, SidecarFormat::Dop)
@@ -632,7 +632,7 @@ mod tests {
         let path = arw(&dir, "f.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(2), false)
+            .set_rating("d", &path.to_string_lossy(), Some(2), false, None)
             .unwrap();
         writer
             .set(path.clone(), Some(2), false, SidecarFormat::Dop)
@@ -658,7 +658,7 @@ mod tests {
         let path = arw(&dir, "g.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false)
+            .set_rating("d", &path.to_string_lossy(), None, false, None)
             .unwrap();
         writer
             .set(path.clone(), None, false, SidecarFormat::Dop)
@@ -680,7 +680,9 @@ mod tests {
         let path = arw(&dir, "p.ARW");
         let key = path.to_string_lossy().into_owned();
 
-        lock(&index).set_rating("d", &key, None, true).unwrap();
+        lock(&index)
+            .set_rating("d", &key, None, true, None)
+            .unwrap();
         writer
             .set(path.clone(), None, true, SidecarFormat::Dop)
             .unwrap();
@@ -688,7 +690,9 @@ mod tests {
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
         assert!(dop::read_pick(&bytes).unwrap(), "a pick alone mints a .dop");
 
-        lock(&index).set_rating("d", &key, Some(4), true).unwrap();
+        lock(&index)
+            .set_rating("d", &key, Some(4), true, None)
+            .unwrap();
         writer
             .set(path.clone(), Some(4), true, SidecarFormat::Dop)
             .unwrap();
@@ -710,7 +714,7 @@ mod tests {
         let path = arw(&dir, "q.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, true)
+            .set_rating("d", &path.to_string_lossy(), None, true, None)
             .unwrap();
         writer
             .set(path.clone(), None, true, SidecarFormat::Xmp)
@@ -738,7 +742,7 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false)
+            .set_rating("d", &path.to_string_lossy(), Some(5), false, None)
             .unwrap();
         writer
             .set(path.clone(), Some(5), false, SidecarFormat::Dop)
