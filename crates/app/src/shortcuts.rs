@@ -54,9 +54,6 @@ fn default_keys(
     ))
 }
 
-/// The key reserved for `pick`.
-const PICK_KEY: &str = "p";
-
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
 /// `Menu::default`).
 const MACOS_MENU: &[&str] = &[
@@ -184,6 +181,7 @@ impl Keymap {
                 log::warn!("ignoring the shortcut for an unknown action {name:?}");
             }
         }
+        let mut pending = Vec::new();
         for i in 0..keymap.bindings.len() {
             let action = keymap.bindings[i].action;
             let Some(value) = overrides.get(action) else {
@@ -193,10 +191,6 @@ impl Keymap {
                 log::warn!("ignoring the shortcut for {action}: not a non-empty list of keys");
                 continue;
             };
-            if action != "pick" && keys.iter().any(|k| k == PICK_KEY) {
-                log::warn!("ignoring the shortcut for {action}: \"p\" is reserved for pick");
-                continue;
-            }
             if let Some((key, reason)) = keys
                 .iter()
                 .find_map(|k| forbidden(k, MACOS).map(|r| (k, r)))
@@ -204,6 +198,31 @@ impl Keymap {
                 log::warn!("ignoring the shortcut for {action}: {key:?} {reason}");
                 continue;
             }
+            pending.push((i, keys, value));
+        }
+        // An override may need a key that a later override releases (`p` on
+        // reject once pick moves off it), so retry until nothing applies.
+        loop {
+            let before = pending.len();
+            pending.retain(|(i, keys, _)| {
+                let action = keymap.bindings[*i].action;
+                let free = keys.iter().all(|key| {
+                    !keymap
+                        .bindings
+                        .iter()
+                        .any(|b| b.action != action && b.keys.contains(key))
+                });
+                if free {
+                    keymap.bindings[*i].keys = keys.clone();
+                }
+                !free
+            });
+            if pending.len() == before {
+                break;
+            }
+        }
+        for (i, keys, value) in pending {
+            let action = keymap.bindings[i].action;
             let conflict = keys.iter().find_map(|key| {
                 keymap
                     .bindings
@@ -214,9 +233,7 @@ impl Keymap {
             if let Some((key, other)) = conflict {
                 log::warn!("ignoring the shortcut for {action}: {key:?} is bound to {other}");
                 keymap.inactive.insert(action.to_string(), value.clone());
-                continue;
             }
-            keymap.bindings[i].keys = keys;
         }
         keymap
     }
@@ -226,9 +243,8 @@ impl Keymap {
         self.bindings.clone()
     }
 
-    /// Add `key` to `action`'s keys, or explain why it cannot be: `pick` is
-    /// not editable, `p` is reserved for pick, a key bound to another action
-    /// is refused rather than moved, and a key the action holds is an error.
+    /// Add `key` to `action`'s keys, or explain why it cannot be: a key
+    /// bound to another action is refused rather than moved, and a key the action holds is an error.
     pub fn add(&mut self, action: &str, key: &str) -> Result<(), String> {
         let i = self.check_bindable(action, key)?;
         if self.bindings[i].keys.iter().any(|k| k == key) {
@@ -239,13 +255,9 @@ impl Keymap {
         Ok(())
     }
 
-    /// Remove `key` from `action`'s keys. `pick` is not editable, and the
-    /// last key cannot be removed, as an empty list does not load back.
+    /// Remove `key` from `action`'s keys. The last key cannot be removed, as an empty list does not load back.
     pub fn remove(&mut self, action: &str, key: &str) -> Result<(), String> {
         let i = self.index(action)?;
-        if action == "pick" {
-            return Err("pick is not editable".to_string());
-        }
         let keys = &mut self.bindings[i].keys;
         let Some(at) = keys.iter().position(|k| k == key) else {
             return Err(format!("{key:?} is not bound to {action}"));
@@ -260,12 +272,6 @@ impl Keymap {
 
     fn check_bindable(&self, action: &str, key: &str) -> Result<usize, String> {
         let i = self.index(action)?;
-        if action == "pick" {
-            return Err("pick is not editable".to_string());
-        }
-        if key == PICK_KEY {
-            return Err("\"p\" is reserved for pick".to_string());
-        }
         if let Some(reason) = forbidden(key, MACOS) {
             return Err(format!("{key:?} {reason}"));
         }
@@ -403,9 +409,18 @@ mod tests {
     }
 
     #[test]
-    fn p_on_another_action_is_skipped() {
+    fn p_on_another_action_is_skipped_while_pick_holds_it() {
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["p"]})), XMP);
         assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn a_pick_override_applies_and_releases_p() {
+        let keymap = Keymap::from_overrides(Some(&json!({"pick": ["q"]})), XMP);
+        assert_eq!(keys_of(&keymap, "pick"), vec!["q"]);
+        let keymap = Keymap::from_overrides(Some(&json!({"pick": ["q"], "reject": ["p"]})), XMP);
+        assert_eq!(keys_of(&keymap, "pick"), vec!["q"]);
+        assert_eq!(keys_of(&keymap, "reject"), vec!["p"]);
     }
 
     #[test]
@@ -504,16 +519,6 @@ mod tests {
     }
 
     #[test]
-    fn only_plain_p_is_reserved() {
-        let keymap = Keymap::from_overrides(Some(&json!({"reject": ["ctrl+alt+p"]})), XMP);
-        assert_eq!(keys_of(&keymap, "reject"), vec!["ctrl+alt+p"]);
-        let mut keymap = Keymap::defaults(DOP);
-        assert!(keymap.add("unflag", "p").is_err());
-        keymap.add("unflag", "ctrl+alt+p").unwrap();
-        assert_eq!(keymap.overrides(), json!({"unflag": ["u", "ctrl+alt+p"]}));
-    }
-
-    #[test]
     fn overrides_and_reset_use_the_current_formats_defaults() {
         let mut keymap = Keymap::defaults(DOP);
         keymap.add("red", "6").unwrap();
@@ -555,18 +560,28 @@ mod tests {
     }
 
     #[test]
-    fn add_rejects_p_and_pick() {
+    fn add_rejects_an_unknown_action() {
         let mut keymap = Keymap::defaults(XMP);
-        assert_eq!(
-            keymap.add("unflag", "p"),
-            Err("\"p\" is reserved for pick".to_string())
-        );
-        assert_eq!(
-            keymap.add("pick", "q"),
-            Err("pick is not editable".to_string())
-        );
         assert!(keymap.add("nope", "q").is_err());
         assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn pick_is_editable() {
+        let mut keymap = Keymap::defaults(XMP);
+        keymap.add("pick", "q").unwrap();
+        assert_eq!(keys_of(&keymap, "pick"), vec!["p", "q"]);
+        assert_eq!(keymap.overrides(), json!({"pick": ["p", "q"]}));
+        assert_eq!(
+            keymap.add("reject", "p"),
+            Err("\"p\" is bound to pick".to_string())
+        );
+        keymap.remove("pick", "p").unwrap();
+        keymap.add("reject", "p").unwrap();
+        assert_eq!(keys_of(&keymap, "reject"), vec!["x", "p"]);
+        keymap.remove("reject", "p").unwrap();
+        keymap.reset("pick").unwrap();
+        assert_eq!(keys_of(&keymap, "pick"), vec!["p"]);
     }
 
     #[test]
@@ -588,7 +603,7 @@ mod tests {
         );
         assert_eq!(
             keymap.remove("pick", "p"),
-            Err("pick is not editable".to_string())
+            Err("\"p\" is the only key for pick; use Reset".to_string())
         );
         assert_eq!(keymap, Keymap::defaults(XMP));
     }
@@ -649,6 +664,8 @@ mod tests {
             keymap.add("reject", "r").unwrap();
             keymap.remove("reject", "x").unwrap();
             keymap.add("zoom", "z").unwrap();
+            keymap.add("pick", "ctrl+alt+p").unwrap();
+            keymap.remove("pick", "p").unwrap();
             assert_eq!(
                 Keymap::from_overrides(Some(&keymap.overrides()), format),
                 keymap,
