@@ -193,7 +193,10 @@ function focalRange(mm: number): number {
 }
 
 // The label and sort key of `group` for one file, or null if it has none.
-function exifKey(exif: Exif | null | undefined, group: ExifGroup): { label: string; order: number | string } | null {
+function exifKey(
+  exif: Exif | null | undefined,
+  group: ExifGroup,
+): { label: string; order: number | string } | null {
   if (!exif) {
     return null;
   }
@@ -305,13 +308,10 @@ function line(className: string, text: string): HTMLDivElement {
 // refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
   renderTitle();
-  positionEl.textContent =
-    files.length > 0 ? `${index + 1} / ${files.length}` : "";
+  positionEl.textContent = files.length > 0 ? `${index + 1} / ${files.length}` : "";
   metaEl.replaceChildren();
   if (files.length > 0) {
-    metaEl.append(
-      line("name", meta === null || metaStale ? baseName(files[index]) : meta.name),
-    );
+    metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
     if (meta !== null) {
       const list = document.createElement("dl");
       row(list, "Aperture", meta.aperture);
@@ -406,20 +406,19 @@ function draw(): void {
   } else if (orientation === 3) {
     context.rotate(Math.PI);
   }
-  context.drawImage(
-    bitmap,
-    -drawWidth / 2,
-    -drawHeight / 2,
-    drawWidth,
-    drawHeight,
-  );
+  context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   drawFocusMark(drawWidth, drawHeight);
   context.restore();
 }
 
 // Record a judgement locally: the `ratings` map, the `picks` set and the
 // strip cell. `null` is unrated.
-function applyRating(path: string, rating: number | null, pick: boolean, label: string | null): void {
+function applyRating(
+  path: string,
+  rating: number | null,
+  pick: boolean,
+  label: string | null,
+): void {
   if (rating === null) {
     ratings.delete(path);
   } else {
@@ -443,11 +442,7 @@ function applyRating(path: string, rating: number | null, pick: boolean, label: 
 
 function passes(path: string): boolean {
   const rating = ratings.get(path);
-  const flag: Flag = picks.has(path)
-    ? "picked"
-    : rating === -1
-      ? "rejected"
-      : "untagged";
+  const flag: Flag = picks.has(path) ? "picked" : rating === -1 ? "rejected" : "untagged";
   const stars = rating === undefined || rating === -1 ? 0 : rating;
   return (
     (shownFlags.size === 0 || shownFlags.has(flag)) &&
@@ -744,11 +739,7 @@ function requestCrop(): void {
       const height = header.getUint32(8, true);
       // `putImageData` ignores the rotation transform, so the pixels go
       // through a bitmap; no JPEG is involved, so no worker is needed.
-      const pixels = new ImageData(
-        new Uint8ClampedArray(payload, CROP_HEADER_LEN),
-        width,
-        height,
-      );
+      const pixels = new ImageData(new Uint8ClampedArray(payload, CROP_HEADER_LEN), width, height);
       const bitmap = await createImageBitmap(pixels);
       const bitmapAt = performance.now() - requestStartedAt;
       const readMs = header.getUint32(20, true) / 1000;
@@ -965,63 +956,59 @@ function reopenLastFolder(): void {
 }
 
 function openDirectory(folder: string, token: number): Promise<void> {
-  return window.__TAURI__.core
-    .invoke<string[]>("list_arw", { dir: folder })
-    .then((found) => {
-      if (token !== folderToken) {
-        return;
-      }
-      for (const set of shownExif.values()) {
-        set.clear();
-      }
-      allFiles = found;
-      files = found.filter(passes);
-      index = 0;
-      openDir = folder;
-      void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
-      entries.clear();
-      rebuildExifMenu();
-      ratings.clear();
-      picks.clear();
-      labels.clear();
-      touched.clear();
-      fileIndex.clear();
-      files.forEach((path, at) => {
-        fileIndex.set(path, at);
-      });
-      refreshEntries();
-      strip.setFiles(files);
-      seq += 1;
-      shown?.bitmap.close();
-      shown = null;
-      draw();
-      scanning = null;
-      scanId = null;
-      void window.__TAURI__.core
-        .invoke<{ total: number; scan_id: number }>("scan_folder", {
-          dir: folder,
-        })
-        .then(({ scan_id }) => {
-          if (token !== folderToken) {
-            return;
-          }
-          scanId = scan_id;
-          return window.__TAURI__.core.invoke("start_scan", {
-            scanId: scan_id,
-          });
-        })
-        .catch((err: unknown) => {
-          setStatus(String(err));
-        });
-      if (files.length === 0) {
-        meta = null;
-        setStatus(
-          allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined,
-        );
-        return;
-      }
-      show();
+  return window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }).then((found) => {
+    if (token !== folderToken) {
+      return;
+    }
+    for (const set of shownExif.values()) {
+      set.clear();
+    }
+    allFiles = found;
+    files = found.filter(passes);
+    index = 0;
+    openDir = folder;
+    void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
+    entries.clear();
+    rebuildExifMenu();
+    ratings.clear();
+    picks.clear();
+    labels.clear();
+    touched.clear();
+    fileIndex.clear();
+    files.forEach((path, at) => {
+      fileIndex.set(path, at);
     });
+    refreshEntries();
+    strip.setFiles(files);
+    seq += 1;
+    shown?.bitmap.close();
+    shown = null;
+    draw();
+    scanning = null;
+    scanId = null;
+    void window.__TAURI__.core
+      .invoke<{ total: number; scan_id: number }>("scan_folder", {
+        dir: folder,
+      })
+      .then(({ scan_id }) => {
+        if (token !== folderToken) {
+          return;
+        }
+        scanId = scan_id;
+        return window.__TAURI__.core.invoke("start_scan", {
+          scanId: scan_id,
+        });
+      })
+      .catch((err: unknown) => {
+        setStatus(String(err));
+      });
+    if (files.length === 0) {
+      meta = null;
+      setStatus(allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined);
+      return;
+    }
+    show();
+  });
 }
 
 function openFolder(): void {
@@ -1063,33 +1050,30 @@ void window.__TAURI__.event.listen("tauri://drag-leave", () => {
 // a stale, slow-resolving drop overwrite a newer one).
 let dropCounter = 0;
 
-void window.__TAURI__.event.listen<{ paths: string[] }>(
-  "tauri://drag-drop",
-  ({ payload }) => {
-    setDragging(false);
-    const [path] = payload.paths;
-    if (path === undefined || payload.paths.length > 1) {
-      setStatus("Drop a single folder or RAW file.");
-      return;
-    }
-    const drop = ++dropCounter;
-    window.__TAURI__.core
-      .invoke<string | null>("dropped_folder", { path })
-      .then((folder) => {
-        if (drop !== dropCounter) {
-          return;
-        }
-        if (folder === null) {
-          setStatus("Drop a single folder or RAW file.");
-          return;
-        }
-        return openDirectory(folder, newFolderToken());
-      })
-      .catch((err: unknown) => {
-        setStatus(String(err));
-      });
-  },
-);
+void window.__TAURI__.event.listen<{ paths: string[] }>("tauri://drag-drop", ({ payload }) => {
+  setDragging(false);
+  const [path] = payload.paths;
+  if (path === undefined || payload.paths.length > 1) {
+    setStatus("Drop a single folder or RAW file.");
+    return;
+  }
+  const drop = ++dropCounter;
+  window.__TAURI__.core
+    .invoke<string | null>("dropped_folder", { path })
+    .then((folder) => {
+      if (drop !== dropCounter) {
+        return;
+      }
+      if (folder === null) {
+        setStatus("Drop a single folder or RAW file.");
+        return;
+      }
+      return openDirectory(folder, newFolderToken());
+    })
+    .catch((err: unknown) => {
+      setStatus(String(err));
+    });
+});
 
 void window.__TAURI__.event.listen<{
   dir: string;
@@ -1156,11 +1140,9 @@ void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   });
 });
 
-void window.__TAURI__.core
-  .invoke<string>("sidecar_format")
-  .then((format) => {
-    sidecarFormat = format;
-  });
+void window.__TAURI__.core.invoke<string>("sidecar_format").then((format) => {
+  sidecarFormat = format;
+});
 
 // The settings window's "Timing logs" item toggles this through the `debug`
 // event; read the initial state too, so a reloaded main window stays in sync
@@ -1223,10 +1205,7 @@ function rebuildExifMenu(): void {
       filterExif.append(item);
     }
   }
-  filterToggle.classList.toggle(
-    "active",
-    shownFlags.size + shownStars.size > 0 || exifSelected(),
-  );
+  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0 || exifSelected());
 }
 
 function setFilterMenuOpen(open: boolean): void {
@@ -1247,10 +1226,7 @@ function filterChanged(): void {
     const { group, value } = item.dataset;
     item.setAttribute("aria-checked", String(shownExif.get(group as ExifGroup)!.has(value!)));
   }
-  filterToggle.classList.toggle(
-    "active",
-    shownFlags.size + shownStars.size > 0 || exifSelected(),
-  );
+  filterToggle.classList.toggle("active", shownFlags.size + shownStars.size > 0 || exifSelected());
   refilter();
 }
 
@@ -1272,8 +1248,7 @@ for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
     const { flag, stars } = item.dataset;
-    const set: Set<string | number> =
-      flag !== undefined ? shownFlags : shownStars;
+    const set: Set<string | number> = flag !== undefined ? shownFlags : shownStars;
     const value = flag ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
@@ -1320,7 +1295,9 @@ reopenLastFolder();
 let keymap = new Map<string, string>();
 
 function applyKeymap(bindings: Binding[]): void {
-  keymap = new Map(bindings.flatMap(({ action, keys }) => keys.map((key) => [key, action] as const)));
+  keymap = new Map(
+    bindings.flatMap(({ action, keys }) => keys.map((key) => [key, action] as const)),
+  );
 }
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
@@ -1424,9 +1401,7 @@ function checkForUpdate(): void {
       }
       const bar = document.getElementById("update") as HTMLDivElement;
       const text = document.getElementById("update-text") as HTMLSpanElement;
-      const install = document.getElementById(
-        "update-install",
-      ) as HTMLButtonElement;
+      const install = document.getElementById("update-install") as HTMLButtonElement;
       text.textContent = `Riffle v${update.version} is available`;
       install.addEventListener("click", () => {
         install.disabled = true;
@@ -1440,10 +1415,7 @@ function checkForUpdate(): void {
             } else if (progress.event === "Progress") {
               downloaded += progress.data.chunkLength;
               if (total > 0) {
-                const percent = Math.min(
-                  100,
-                  Math.floor((downloaded / total) * 100),
-                );
+                const percent = Math.min(100, Math.floor((downloaded / total) * 100));
                 text.textContent = `Downloading ${percent}%`;
               }
             } else {

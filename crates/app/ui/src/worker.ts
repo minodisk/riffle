@@ -8,10 +8,7 @@ interface DecodeRequest {
 // The DOM lib has no worker global scope type, and pulling in the "webworker"
 // lib alongside "dom" clashes on the shared globals, so declare what is used.
 interface WorkerScope {
-  addEventListener(
-    type: "message",
-    listener: (event: MessageEvent<DecodeRequest>) => void,
-  ): void;
+  addEventListener(type: "message", listener: (event: MessageEvent<DecodeRequest>) => void): void;
   postMessage(message: unknown, transfer?: Transferable[]): void;
 }
 
