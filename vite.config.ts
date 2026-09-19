@@ -25,6 +25,18 @@ export default defineConfig({
       },
     },
   },
+  fmt: {
+    ignorePatterns: [
+      "**/*.md",
+      ".release-please-manifest.json",
+      "release-please-config.json",
+      "crates/app/capabilities/**",
+      "crates/app/tauri.conf.json",
+      "target/**",
+      "crates/app/ui/dist/**",
+      ".claude/**",
+    ],
+  },
   lint: {
     ignorePatterns: ["crates/app/ui/dist/**", ".claude/**"],
     options: { typeAware: true, typeCheck: true },
