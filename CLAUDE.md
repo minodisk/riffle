@@ -8,7 +8,8 @@ for what it is and the current status.
 A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle-core`,
 whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating` and the
 `xmp:Label` colour label) and `src/dop.rs` DxO PhotoLab `.dop` sidecar bytes
-(rating, pick / reject and `ColorLabel`)), `crates/cli` (the
+(rating, pick / reject and `ColorLabel`), and `src/sharpness.rs` the
+focus-point sharpness score of the embedded preview), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane

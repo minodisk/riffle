@@ -54,3 +54,10 @@
   sharpest frame in the `best` colour, a missed frame's shorter bar, the cue
   recomputing on filter, an older-index folder rescanned once and then showing
   cues). GUI automation does not work on this machine.
+
+## Step 4
+
+- The README scan-cost table is built from the Step 1 runs (2 alternated runs
+  per side at 1 thread, 3 at 8 threads), given as ranges across runs.
+- `docs/agents/tauri-app.md` left unchanged: no step hit something new worth a
+  rule.

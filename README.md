@@ -86,6 +86,12 @@ embedded previews, rotated by each file's Orientation.
   already has does not. The last file stays selected. A file the judgement
   drops out of the active filter already hands the cursor to the next file, so
   it is not skipped twice.
+- **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
+  sharp the frame is next to its neighbours on the strip; the sharpest frame of
+  a run is marked in the pick colour. The score is computed around the focus
+  point (or the centre) from the embedded preview, so it ranks a burst rather
+  than judging a frame on its own, and it does not replace the 1:1 focus check.
+  The meta pane shows the raw score.
 
 ### Keys
 
@@ -285,6 +291,21 @@ still likely warm in the page cache right after being written; the folders
 were also scanned in the order they were written, which flatters the higher
 thread counts. On a card reader or slow external disk the scan is disk-bound
 regardless.
+
+#### Sharpness scoring cost
+
+Scoring sharpness adds a grayscale decode of the embedded preview to each
+file's extraction. `riffle-cli scan`, release build, over 1000 symlinks to one
+α7 V ARW (1616x1080 preview), warm page cache, on a 12-core Apple Silicon Mac,
+runs alternated before and after:
+
+| Threads | Runs | Per file on a worker before (mean / p95) | After (mean / p95) |
+|---------|------|------------------------------------------|--------------------|
+| 1 | 2 | 7.2-7.5ms / 7.6-7.9ms | 10.4-10.7ms / 10.9-11.2ms |
+| 8 | 3 | 8.6-9.1ms / 12.1-13.3ms | 12.3-17.1ms / 15.7-22.0ms |
+
+About +3.2ms per file on one thread (~+45%). The symlinks repeat one file, so
+this is CPU cost with no IO variety.
 
 ### Opening an indexed folder again
 

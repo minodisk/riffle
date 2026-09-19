@@ -182,7 +182,7 @@ the alternatives are in "Trade-offs and risks".
     - The window is computed over `files` (the filtered view), not
       `allFiles`; say so in a comment where it is computed
 
-- [ ] Step 4: Documentation and measurements
+- [x] Step 4: Documentation and measurements
   - Done when:
     - `README.md` (user-facing only): a **Sharpness cue** bullet in
       "Features" saying what the bar means (relative to the neighbouring
@@ -277,3 +277,4 @@ conditions, per the same guide.
 - (2026-09-19) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
