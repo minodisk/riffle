@@ -102,8 +102,9 @@ already has clears it; the stars, the flag and `0` leave the label alone.
 | clear the label | — | `Ctrl+Alt+0` |
 
 Keys can be changed from `Riffle > Settings...` (`CmdOrCtrl+,`):
-click a row and press the new key (`Escape` cancels). The new key replaces all
-of that action's keys. A key already used by another action is refused, `p` is
+click a row's `+` and press a key to add it (`Escape` cancels), or click the
+`×` on a key to remove it. The last key of an action cannot be removed (use
+Reset). A key already used by another action is refused, `p` is
 reserved for pick, and the only modifier combination that can be bound is
 Ctrl+Alt (stored as `ctrl+alt+` and the key, named from its physical key, so
 `ctrl+alt+1` stays `1` though Option changes the typed character on macOS);

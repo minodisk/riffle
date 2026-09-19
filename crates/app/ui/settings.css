@@ -28,12 +28,28 @@ td {
   padding: 0.2rem 0.5rem;
 }
 
-tr.editable .keys {
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0.1rem 0.3rem 0.1rem 0;
+  padding: 0 0.1rem 0 0.4rem;
+  border-radius: 0.3rem;
+  background: #333;
+}
+
+.chip button,
+.keys .add {
+  padding: 0 0.3rem;
+  border: none;
+  background: none;
+  color: inherit;
   cursor: pointer;
 }
 
-tr.editable .keys:hover {
-  background: #333;
+.chip button:hover,
+.keys .add:hover {
+  background: #444;
 }
 
 #status {

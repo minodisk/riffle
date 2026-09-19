@@ -137,10 +137,37 @@ impl Keymap {
         self.bindings.clone()
     }
 
-    /// Bind `action` to `key` alone, or explain why it cannot be: `pick` is
-    /// not editable, `p` is reserved for pick, and a key bound to another
-    /// action is refused rather than moved.
-    pub fn rebind(&mut self, action: &str, key: &str) -> Result<(), String> {
+    /// Add `key` to `action`'s keys, or explain why it cannot be: `pick` is
+    /// not editable, `p` is reserved for pick, a key bound to another action
+    /// is refused rather than moved, and a key the action holds is an error.
+    pub fn add(&mut self, action: &str, key: &str) -> Result<(), String> {
+        let i = self.check_bindable(action, key)?;
+        if self.bindings[i].keys.iter().any(|k| k == key) {
+            return Err(format!("{key:?} is already bound to {action}"));
+        }
+        self.bindings[i].keys.push(key.to_string());
+        Ok(())
+    }
+
+    /// Remove `key` from `action`'s keys. `pick` is not editable, and the
+    /// last key cannot be removed, as an empty list does not load back.
+    pub fn remove(&mut self, action: &str, key: &str) -> Result<(), String> {
+        let i = self.index(action)?;
+        if action == "pick" {
+            return Err("pick is not editable".to_string());
+        }
+        let keys = &mut self.bindings[i].keys;
+        let Some(at) = keys.iter().position(|k| k == key) else {
+            return Err(format!("{key:?} is not bound to {action}"));
+        };
+        if keys.len() == 1 {
+            return Err(format!("{key:?} is the only key for {action}; use Reset"));
+        }
+        keys.remove(at);
+        Ok(())
+    }
+
+    fn check_bindable(&self, action: &str, key: &str) -> Result<usize, String> {
         let i = self.index(action)?;
         if action == "pick" {
             return Err("pick is not editable".to_string());
@@ -155,8 +182,7 @@ impl Keymap {
         {
             return Err(format!("{key:?} is bound to {}", other.action));
         }
-        self.bindings[i].keys = vec![key.to_string()];
-        Ok(())
+        Ok(i)
     }
 
     /// Restore `action`'s default keys, or fail if one of them has since been
@@ -385,70 +411,121 @@ mod tests {
         let keymap = Keymap::from_overrides(Some(&json!({"reject": ["ctrl+alt+p"]})), XMP);
         assert_eq!(keys_of(&keymap, "reject"), vec!["ctrl+alt+p"]);
         let mut keymap = Keymap::defaults(DOP);
-        assert!(keymap.rebind("unflag", "p").is_err());
-        keymap.rebind("unflag", "ctrl+alt+p").unwrap();
-        assert_eq!(keymap.overrides(), json!({"unflag": ["ctrl+alt+p"]}));
+        assert!(keymap.add("unflag", "p").is_err());
+        keymap.add("unflag", "ctrl+alt+p").unwrap();
+        assert_eq!(keymap.overrides(), json!({"unflag": ["u", "ctrl+alt+p"]}));
     }
 
     #[test]
     fn overrides_and_reset_use_the_current_formats_defaults() {
         let mut keymap = Keymap::defaults(DOP);
-        keymap.rebind("red", "6").unwrap();
-        assert_eq!(keymap.overrides(), json!({"red": ["6"]}));
+        keymap.add("red", "6").unwrap();
+        assert_eq!(keymap.overrides(), json!({"red": ["ctrl+alt+1", "6"]}));
         keymap.reset("red").unwrap();
         assert_eq!(keys_of(&keymap, "red"), vec!["ctrl+alt+1"]);
+        keymap.add("red", "6").unwrap();
+        keymap.remove("red", "ctrl+alt+1").unwrap();
         keymap.reset_all();
         assert_eq!(keymap, Keymap::defaults(DOP));
     }
 
     #[test]
-    fn a_rebind_is_the_only_override() {
+    fn add_keeps_the_existing_keys() {
         let mut keymap = Keymap::defaults(XMP);
-        keymap.rebind("reject", "r").unwrap();
-        assert_eq!(keys_of(&keymap, "reject"), vec!["r"]);
-        assert_eq!(keymap.overrides(), json!({"reject": ["r"]}));
+        keymap.add("reject", "r").unwrap();
+        assert_eq!(keys_of(&keymap, "reject"), vec!["x", "r"]);
+        assert_eq!(keymap.overrides(), json!({"reject": ["x", "r"]}));
     }
 
     #[test]
-    fn rebinding_back_to_the_default_removes_the_override() {
-        let mut keymap = Keymap::defaults(XMP);
-        keymap.rebind("reject", "r").unwrap();
-        keymap.rebind("reject", "x").unwrap();
-        assert_eq!(keymap.overrides(), json!({}));
-    }
-
-    #[test]
-    fn rebind_rejects_a_key_bound_to_another_action() {
+    fn add_rejects_a_key_the_action_holds() {
         let mut keymap = Keymap::defaults(XMP);
         assert_eq!(
-            keymap.rebind("reject", "j"),
+            keymap.add("reject", "x"),
+            Err("\"x\" is already bound to reject".to_string())
+        );
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn add_rejects_a_key_bound_to_another_action() {
+        let mut keymap = Keymap::defaults(XMP);
+        assert_eq!(
+            keymap.add("reject", "j"),
             Err("\"j\" is bound to next".to_string())
         );
         assert_eq!(keymap, Keymap::defaults(XMP));
     }
 
     #[test]
-    fn rebind_rejects_p_and_pick() {
+    fn add_rejects_p_and_pick() {
         let mut keymap = Keymap::defaults(XMP);
         assert_eq!(
-            keymap.rebind("unflag", "p"),
+            keymap.add("unflag", "p"),
             Err("\"p\" is reserved for pick".to_string())
         );
         assert_eq!(
-            keymap.rebind("pick", "q"),
+            keymap.add("pick", "q"),
             Err("pick is not editable".to_string())
         );
-        assert!(keymap.rebind("nope", "q").is_err());
+        assert!(keymap.add("nope", "q").is_err());
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn remove_drops_one_key() {
+        let mut keymap = Keymap::defaults(XMP);
+        keymap.remove("previous", "h").unwrap();
+        assert_eq!(
+            keys_of(&keymap, "previous"),
+            vec!["arrowleft", "arrowup", "w", "a", "k"]
+        );
+    }
+
+    #[test]
+    fn remove_refuses_the_last_key() {
+        let mut keymap = Keymap::defaults(XMP);
+        assert_eq!(
+            keymap.remove("reject", "x"),
+            Err("\"x\" is the only key for reject; use Reset".to_string())
+        );
+        assert_eq!(
+            keymap.remove("pick", "p"),
+            Err("pick is not editable".to_string())
+        );
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn remove_rejects_a_key_not_on_the_action() {
+        let mut keymap = Keymap::defaults(XMP);
+        assert_eq!(
+            keymap.remove("reject", "j"),
+            Err("\"j\" is not bound to reject".to_string())
+        );
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn adding_then_removing_returns_to_the_default() {
+        let mut keymap = Keymap::defaults(XMP);
+        keymap.add("reject", "r").unwrap();
+        keymap.remove("reject", "r").unwrap();
+        assert_eq!(keymap.overrides(), json!({}));
         assert_eq!(keymap, Keymap::defaults(XMP));
     }
 
     #[test]
     fn reset_restores_the_defaults() {
         let mut keymap = Keymap::defaults(XMP);
-        keymap.rebind("reject", "r").unwrap();
-        keymap.rebind("clear", "c").unwrap();
+        keymap.add("reject", "r").unwrap();
+        keymap.add("clear", "c").unwrap();
+        keymap.remove("previous", "h").unwrap();
         keymap.reset("reject").unwrap();
-        assert_eq!(keymap.overrides(), json!({"clear": ["c"]}));
+        assert_eq!(
+            keymap.overrides(),
+            json!({"clear": ["0", "c"], "previous": ["arrowleft", "arrowup", "w", "a", "k"]})
+        );
         keymap.reset_all();
         assert_eq!(keymap.overrides(), json!({}));
         assert_eq!(keymap, Keymap::defaults(XMP));
@@ -457,8 +534,9 @@ mod tests {
     #[test]
     fn reset_refuses_a_default_key_now_bound_elsewhere() {
         let mut keymap = Keymap::defaults(XMP);
-        keymap.rebind("reject", "r").unwrap();
-        keymap.rebind("clear", "x").unwrap();
+        keymap.add("reject", "r").unwrap();
+        keymap.remove("reject", "x").unwrap();
+        keymap.add("clear", "x").unwrap();
         assert_eq!(
             keymap.reset("reject"),
             Err("\"x\" is bound to clear".to_string())
@@ -467,13 +545,18 @@ mod tests {
 
     #[test]
     fn overrides_round_trip() {
-        let mut keymap = Keymap::defaults(XMP);
-        keymap.rebind("previous", "q").unwrap();
-        keymap.rebind("reject", "r").unwrap();
-        keymap.rebind("zoom", "z").unwrap();
-        assert_eq!(
-            Keymap::from_overrides(Some(&keymap.overrides()), XMP),
-            keymap
-        );
+        for format in [XMP, DOP] {
+            let mut keymap = Keymap::defaults(format);
+            keymap.add("previous", "q").unwrap();
+            keymap.remove("previous", "h").unwrap();
+            keymap.add("reject", "r").unwrap();
+            keymap.remove("reject", "x").unwrap();
+            keymap.add("zoom", "z").unwrap();
+            assert_eq!(
+                Keymap::from_overrides(Some(&keymap.overrides()), format),
+                keymap,
+                "{format:?}"
+            );
+        }
     }
 }
