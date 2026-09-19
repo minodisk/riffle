@@ -1,5 +1,6 @@
 [tools]
 actionlint = "1.7.12"
+lychee = "0.24.2"
 node = "24.21.0"
 pnpm = "10.17.1"
 rust = { version = "1.97", components = "rustfmt,clippy" }
@@ -64,6 +65,7 @@ pnpm exec vp check
 cargo fmt --all -- --check
 shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
 actionlint
+lychee --offline --include-fragments --no-progress --exclude-path docs/plans/review-history '*.md' 'docs/**/*.md' '.claude/**/*.md'
 bash .claude/skills/merge/scripts/check-merge-approval.test.sh
 """
 
