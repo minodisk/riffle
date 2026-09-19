@@ -42,7 +42,7 @@ wrap-up, not in a step.
     - Crop bitmap: in `show()` (`crates/app/ui/src/main.ts`), when `zoomed` is false, `crop?.bitmap.close(); crop = null;`. Keep the existing behaviour when zoomed. Check `draw()` / `cropViewportStale()` tolerate `crop === null`. Leave the "no files" reset paths alone unless trivially the same bug.
     - Panic guard: put the guard inside `decode_rgb` in `crates/core/src/decode.rs`, using `std::panic::catch_unwind(AssertUnwindSafe(..))` mapped to an `anyhow::Error`, mirroring `crates/core/src/scan.rs`'s pattern. CLI callers need no change. Add a test in `decode.rs`'s `mod tests` feeding garbage / truncated JPEG bytes and asserting `is_err()`; build the test against observed mozjpeg behaviour.
 
-- [ ] Step 2: Fix the tooling items (`delete_merged_branches.sh` without `origin/HEAD`, `git:main` fast-forwarding local `main`, merger report wording)
+- [x] Step 2: Fix the tooling items (`delete_merged_branches.sh` without `origin/HEAD`, `git:main` fast-forwarding local `main`, merger report wording)
   - Done when:
     - `tools/git/delete_merged_branches.sh` no longer dies with `fatal: ref refs/remotes/origin/HEAD is not a symbolic ref`; on a clone without the symbolic ref it resolves it via `git remote set-head origin -a`, or exits with a message naming that command.
     - `mise run git:main` fast-forwards the local `main` branch to `origin/main` in addition to detaching HEAD there, and does not fail when `main` is checked out in another worktree (it still detaches HEAD and says why `main` was not moved).

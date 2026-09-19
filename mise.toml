@@ -6,11 +6,15 @@ rust = { version = "1.97", components = "rustfmt,clippy" }
 shellcheck = "0.11.0"
 
 [tasks."git:main"]
-description = "Fetch the latest origin/main and point at it via detached HEAD"
+description = "Fetch origin/main, fast-forward local main unless another worktree holds it, and detach HEAD at origin/main"
 shell = "bash -c"
 run = """
 set -euo pipefail
 git fetch origin main
+if [ "$(git rev-parse --abbrev-ref HEAD)" = main ]; then
+  git checkout -q --detach
+fi
+git fetch origin main:main || echo "Notice: local main was not moved (checked out in another worktree or not a fast-forward)" >&2
 git checkout --detach origin/main
 """
 
