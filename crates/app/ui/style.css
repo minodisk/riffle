@@ -162,6 +162,40 @@ body {
   background: var(--reject-color);
 }
 
+#filter-menu [data-label="red"] .dot {
+  background: var(--label-red);
+}
+
+#filter-menu [data-label="orange"] .dot {
+  background: var(--label-orange);
+}
+
+#filter-menu [data-label="yellow"] .dot {
+  background: var(--label-yellow);
+}
+
+#filter-menu [data-label="green"] .dot {
+  background: var(--label-green);
+}
+
+#filter-menu [data-label="blue"] .dot {
+  background: var(--label-blue);
+}
+
+#filter-menu [data-label="pink"] .dot {
+  background: var(--label-pink);
+}
+
+#filter-menu [data-label="purple"] .dot {
+  background: var(--label-purple);
+}
+
+#filter-menu [data-label="none"] .dot {
+  box-sizing: border-box;
+  border: 1px solid #666;
+  background: none;
+}
+
 #filter-menu [data-stars] {
   gap: 0;
   letter-spacing: 1px;
