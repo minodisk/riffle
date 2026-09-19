@@ -5,6 +5,7 @@ mod exif;
 mod index;
 mod shortcuts;
 mod sidecar;
+mod update;
 
 mod app_menu {
     use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
@@ -13,6 +14,7 @@ mod app_menu {
     const PHOTOLAB_ID: &str = "open-in-photolab";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
+    const CHECK_UPDATES_ID: &str = "check-for-updates";
 
     /// The default menu's submenu titled `title`, if the platform has one.
     fn submenu(menu: &Menu<Wry>, title: &str) -> tauri::Result<Option<Submenu<Wry>>> {
@@ -44,6 +46,13 @@ mod app_menu {
             true,
             Some("CmdOrCtrl+,"),
         )?;
+        let check_updates = MenuItem::with_id(
+            handle,
+            CHECK_UPDATES_ID,
+            "Check for Updates…",
+            true,
+            None::<&str>,
+        )?;
         // Linux's default menu has no File submenu, so one is added there.
         let file = match submenu(&menu, "File")? {
             Some(file) => file,
@@ -58,10 +67,24 @@ mod app_menu {
         // goes at the end of File's own items, above Close Window and Quit.
         #[cfg(target_os = "macos")]
         if let Some(MenuItemKind::Submenu(app)) = menu.items()?.into_iter().next() {
-            app.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 2)?;
+            app.insert_items(
+                &[
+                    &settings,
+                    &check_updates,
+                    &PredefinedMenuItem::separator(handle)?,
+                ],
+                2,
+            )?;
         }
         #[cfg(not(target_os = "macos"))]
-        file.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 2)?;
+        file.insert_items(
+            &[
+                &settings,
+                &check_updates,
+                &PredefinedMenuItem::separator(handle)?,
+            ],
+            2,
+        )?;
         // `Edit` opens with the predefined Undo and Redo, which only act on
         // editable content (neither window has any) and would own Cmd+Z.
         if let Some(edit) = submenu(&menu, "Edit")? {
@@ -83,6 +106,9 @@ mod app_menu {
         }
         if event.id() == UNDO_ID {
             let _ = app.emit("undo", ());
+        }
+        if event.id() == CHECK_UPDATES_ID {
+            crate::update::spawn(app.clone(), true);
         }
         if event.id() == SETTINGS_ID {
             if let Err(e) = open_settings(app) {
@@ -199,7 +225,6 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::new().build());
     builder
@@ -240,6 +265,8 @@ fn main() {
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
             app.manage(commands::Scans::default());
+            app.manage(update::UpdateRun::default());
+            update::spawn(app.handle().clone(), false);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
