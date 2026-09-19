@@ -2,6 +2,7 @@ import { type Binding, isUnboundModifier, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { History } from "./undo.js";
+import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -147,11 +148,6 @@ const fileIndex = new Map<string, number>();
 // `openDirectory` clears it.
 type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
 const history = new History<Judgement>(100);
-// The filter menu in the strip pane, after PhotoLab's: the checked items of
-// one group are OR-ed, the groups AND-ed, and a group with nothing checked
-// lets everything through. `0` stars is unrated, which a reject also counts
-// as, since it carries no stars here.
-type Flag = "picked" | "untagged" | "rejected";
 const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
@@ -389,20 +385,10 @@ function applyRating(
 }
 
 function passes(path: string): boolean {
-  const rating = ratings.get(path);
-  const flag: Flag = picks.has(path) ? "picked" : rating === -1 ? "rejected" : "untagged";
-  const stars = rating === undefined || rating === -1 ? 0 : rating;
-  return (
-    (shownFlags.size === 0 || shownFlags.has(flag)) &&
-    (shownStars.size === 0 || shownStars.has(stars)) &&
-    exifGroups.every(({ group }) => {
-      const set = shownExif.get(group)!;
-      if (set.size === 0) {
-        return true;
-      }
-      const key = exifKey(entries.get(path)?.exif, group);
-      return key !== null && set.has(key.label);
-    })
+  return filterPasses(
+    { flags: shownFlags, stars: shownStars, exif: shownExif },
+    { rating: ratings.get(path) ?? null, pick: picks.has(path), label: labels.get(path) ?? null },
+    entries.get(path)?.exif,
   );
 }
 
@@ -434,15 +420,8 @@ function refilter(anchor: string | undefined = files[index]): void {
     renderMeta();
     return;
   }
-  let at = anchor === undefined ? undefined : fileIndex.get(anchor);
-  if (at === undefined && anchor !== undefined) {
-    const from = allFiles.indexOf(anchor);
-    const after = allFiles.slice(from + 1).find(passes);
-    const before = allFiles.slice(0, from).reverse().find(passes);
-    const target = after ?? before;
-    at = target === undefined ? undefined : fileIndex.get(target);
-  }
-  index = at ?? 0;
+  const target = anchorAfterFilter(allFiles, passes, anchor);
+  index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
   if (files[index] === anchor) {
     strip.setCurrent(index);
     renderMeta();
