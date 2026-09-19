@@ -236,3 +236,4 @@ where one writes no `subsec` fall back to file name within the same second.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
