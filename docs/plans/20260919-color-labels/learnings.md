@@ -99,3 +99,10 @@
   label set before `folder_entries` arrives is not dropped by the backend.
 - `refreshEntries` now applies the label only for untouched paths (through
   `applyRating`), since the frontend can now edit labels in flight.
+
+## Step 7
+
+- The meta pane has no rating row, so the README's "shown ... in the meta
+  pane" was the stale sentence to drop. The confirmed / awaiting split for
+  the manual checks of Steps 5-6 lives under Step 7 in `plan.md`: none of
+  them has been done yet.

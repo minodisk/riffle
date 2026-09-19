@@ -50,8 +50,9 @@ embedded previews, rotated by each file's Orientation.
   screen pixel, centred on the focus point (or the frame centre without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
-- **Judgements**: stars, reject and (with `.dop`) pick, shown on the strip cell
-  and in the meta pane, and written to a sidecar; see
+- **Judgements**: stars, reject, (with `.dop`) pick and a colour label, shown on
+  the strip cell (the label tints the file-name band along the cell's bottom
+  edge) and written to a sidecar; see
   [Ratings and sidecars](#ratings-and-sidecars).
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
@@ -78,11 +79,31 @@ embedded previews, rotated by each file's Orientation.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
 
+The colour label keys follow the format chosen in the `Sidecar` menu, and
+switch with it without a restart. Pressing the key of the label the file
+already has clears it; the stars, the flag and `0` leave the label alone.
+
+| Label | XMP (Lightroom's keys) | `.dop` (PhotoLab's keys) |
+|-------|------------------------|--------------------------|
+| red | `6` | `Ctrl+Alt+1` |
+| orange | — | `Ctrl+Alt+2` |
+| yellow | `7` | `Ctrl+Alt+3` |
+| green | `8` | `Ctrl+Alt+4` |
+| blue | `9` | `Ctrl+Alt+5` |
+| pink | — | `Ctrl+Alt+6` |
+| purple | `-` | `Ctrl+Alt+7` |
+| clear the label | — | `Ctrl+Alt+0` |
+
 Keys can be changed from `Settings > Keyboard Shortcuts...` (`CmdOrCtrl+,`):
 click a row and press the new key (`Escape` cancels). The new key replaces all
 of that action's keys. A key already used by another action is refused, `p` is
-reserved for pick, and modifier combinations (Cmd, Ctrl, Alt) cannot be bound.
-`Reset all` restores the defaults.
+reserved for pick, and the only modifier combination that can be bound is
+Ctrl+Alt (stored as `ctrl+alt+` and the key, named from its physical key, so
+`ctrl+alt+1` stays `1` though Option changes the typed character on macOS);
+Cmd, a lone Ctrl or a lone Alt cannot. An override applies under both formats;
+only the label defaults change with the format, and an override that collides
+with one format's default is skipped under that format only. `Reset all`
+restores the current format's defaults.
 
 ### Ratings and sidecars
 
@@ -90,13 +111,20 @@ The RAW file is never written. Judgements go into a sidecar next to it, in one
 of two formats chosen from the `Sidecar` menu:
 
 - **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` — `0`-`5`,
-  or `-1` for a reject. XMP has no pick.
-- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars and the
-  pick / reject flag, which PhotoLab 10 reads.
+  or `-1` for a reject — and `xmp:Label`, Lightroom's colour label (`Red`,
+  `Yellow`, `Green`, `Blue`, `Purple`). XMP has no pick.
+- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
+  pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
+  `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
 
-A sidecar written by another tool is edited in place: only the rating (and, for
-`.dop`, the flag) changes, and everything else — develop settings, keywords,
-colour labels — is kept byte for byte. Clearing a file that has no sidecar
+Clearing a label removes `xmp:Label` or the `ColorLabel` line; no label is the
+field being absent. The label is kept as the exact string the sidecar holds: a
+name from the other tool's vocabulary is written back unchanged and shown in
+its colour, and any other name (say, a custom Lightroom label) is shown grey.
+
+A sidecar written by another tool is edited in place: only the rating, the
+label (and, for `.dop`, the flag) change, and everything else — develop
+settings, keywords — is kept byte for byte. Clearing a file that has no sidecar
 creates none.
 
 Writes happen in the background and are atomic, so a crash never leaves a
@@ -106,6 +134,10 @@ the folder is opened. Sidecars edited by another tool are picked up the next
 time the folder is opened; when both changed, the other tool's edit wins.
 Switching the format keeps unwritten judgements and writes them in the new
 format; the other format's files are left alone.
+
+The folder index is a cache, but it also holds unwritten judgements, so a new
+index schema migrates the previous ones in place instead of discarding them;
+only a version it cannot migrate is dropped and rebuilt from the sidecars.
 
 Reading `-1` back is up to the other tool: exiftool documents it as
 "rejected", Adobe Bridge and darktable use it, and Lightroom Classic is

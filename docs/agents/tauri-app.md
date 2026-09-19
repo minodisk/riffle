@@ -226,6 +226,31 @@ rather than by a test.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
+### Name a Ctrl+Alt key from `event.code`, not `event.key` (Hit)
+
+On macOS, Option changes `event.key` (⌃⌥1 reports `¡`, not `1`), so a
+`ctrl+alt+` key is named from `event.code` (`Digit1` -> `1`); a plain key keeps
+the lower-cased `event.key`. The shortcuts panel's capture must use the same
+naming, and must skip a lone modifier by its `event.key` (`Control`, `Alt`, ...)
+rather than by the derived name, or holding Ctrl+Alt records
+`ctrl+alt+altleft`.
+
+- Why: the keymap compares names; a name built one way on dispatch and another
+  way on capture never matches.
+- Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5.
+
+### Carry every judgement field on every write (Hit)
+
+`set_rating` writes the whole judgement (stars, pick, label), so the frontend
+keeps a `labels` map from `folder_entries` and passes the current label with a
+star or flag keypress; otherwise a rating clears the label. Until the label is
+known (`folder_entries` not yet arrived), the backend is told `labelKnown:
+false` and keeps whatever the sidecar holds; that state is stored
+(`ratings.label_known`, schema v6) so a crash before the write does not strip
+the sidecar's label on the replay.
+
+- Source: `docs/plans/20260919-color-labels/learnings.md`, Steps 4 and 6.
+
 ### `tsc` rejects `outDir` equal to `rootDir` (Hit)
 
 To emit `.js` next to the `.ts` sources, omit both options.
