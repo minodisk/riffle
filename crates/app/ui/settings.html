@@ -6,20 +6,66 @@
     <link rel="stylesheet" href="./settings.css" />
   </head>
   <body>
-    <h2>Sidecar</h2>
-    <label><input type="radio" name="sidecar-format" value="xmp" /> XMP (.xmp)</label>
-    <label><input type="radio" name="sidecar-format" value="dop" /> DxO PhotoLab (.dop)</label>
-    <h2>Culling</h2>
-    <label
-      ><input id="auto-advance" type="checkbox" /> Auto-advance after a star, reject or pick</label
-    >
-    <h2>Keyboard Shortcuts</h2>
-    <table id="shortcuts-rows"></table>
-    <div class="actions">
-      <button id="shortcuts-reset-all" type="button">Reset all</button>
+    <div role="tablist" id="tabs" aria-label="Settings">
+      <button
+        id="tab-sidecar"
+        type="button"
+        role="tab"
+        aria-controls="sidecar"
+        aria-selected="true"
+        tabindex="0"
+      >
+        Sidecar
+      </button>
+      <button
+        id="tab-culling"
+        type="button"
+        role="tab"
+        aria-controls="culling"
+        aria-selected="false"
+        tabindex="-1"
+      >
+        Culling
+      </button>
+      <button
+        id="tab-shortcuts"
+        type="button"
+        role="tab"
+        aria-controls="shortcuts"
+        aria-selected="false"
+        tabindex="-1"
+      >
+        Keyboard Shortcuts
+      </button>
+      <button
+        id="tab-debug"
+        type="button"
+        role="tab"
+        aria-controls="debug"
+        aria-selected="false"
+        tabindex="-1"
+        hidden
+      >
+        Debug
+      </button>
     </div>
-    <section id="debug" hidden>
-      <h2>Debug</h2>
+    <section id="sidecar" role="tabpanel" aria-labelledby="tab-sidecar">
+      <label><input type="radio" name="sidecar-format" value="xmp" /> XMP (.xmp)</label>
+      <label><input type="radio" name="sidecar-format" value="dop" /> DxO PhotoLab (.dop)</label>
+    </section>
+    <section id="culling" role="tabpanel" aria-labelledby="tab-culling" hidden>
+      <label
+        ><input id="auto-advance" type="checkbox" /> Auto-advance after a star, reject or
+        pick</label
+      >
+    </section>
+    <section id="shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts" hidden>
+      <table id="shortcuts-rows"></table>
+      <div class="actions">
+        <button id="shortcuts-reset-all" type="button">Reset all</button>
+      </div>
+    </section>
+    <section id="debug" role="tabpanel" aria-labelledby="tab-debug" hidden>
       <label><input id="debug-timing" type="checkbox" /> Timing logs</label>
     </section>
     <div id="status"></div>

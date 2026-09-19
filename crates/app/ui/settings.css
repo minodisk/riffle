@@ -6,13 +6,28 @@ body {
   color: #eee;
 }
 
-h2 {
-  margin: 0.75rem 0 0.25rem;
-  font-size: 0.9rem;
+[role="tablist"] {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #444;
 }
 
-h2:first-child {
-  margin-top: 0;
+[role="tab"] {
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+[role="tab"]:hover {
+  background: #333;
+}
+
+[role="tab"][aria-selected="true"] {
+  background: #444;
 }
 
 label {
@@ -20,7 +35,7 @@ label {
   padding: 0.1rem 0.5rem;
 }
 
-#debug[hidden] {
+[hidden] {
   display: none;
 }
 

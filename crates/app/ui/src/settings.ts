@@ -1,4 +1,5 @@
 import { type Binding, keyName } from "./keys.js";
+import { nextTab } from "./tabs.js";
 
 const shortcutLabels: Record<string, string> = {
   previous: "Previous",
@@ -30,6 +31,8 @@ const status = document.getElementById("status") as HTMLDivElement;
 const sidecarRadios = document.querySelectorAll<HTMLInputElement>('input[name="sidecar-format"]');
 const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
+const tablist = document.getElementById("tabs") as HTMLDivElement;
+const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 let shortcutBindings: Binding[] = [];
 // The action whose row waits for a key.
 let capturing: string | null = null;
@@ -133,7 +136,7 @@ void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
   autoAdvance.checked = payload;
 });
 void window.__TAURI__.core.invoke<boolean>("debug_build").then((debug) => {
-  (document.getElementById("debug") as HTMLElement).hidden = !debug;
+  (document.getElementById("tab-debug") as HTMLButtonElement).hidden = !debug;
 });
 void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
   debugTiming.checked = enabled;
@@ -186,4 +189,38 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   void updateShortcuts("add_shortcut_key", { action: capturing, key });
+});
+
+function selectTab(panel: string): void {
+  for (const tab of tabs) {
+    const selected = tab.getAttribute("aria-controls") === panel;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    (document.getElementById(tab.getAttribute("aria-controls") ?? "") as HTMLElement).hidden =
+      !selected;
+    if (selected) {
+      tab.focus();
+    }
+  }
+}
+
+for (const tab of tabs) {
+  tab.addEventListener("click", () => {
+    selectTab(tab.getAttribute("aria-controls") ?? "");
+  });
+}
+
+tablist.addEventListener("keydown", (event) => {
+  const visible = tabs
+    .filter((tab) => !tab.hidden)
+    .map((tab) => tab.getAttribute("aria-controls") ?? "");
+  const current =
+    tabs
+      .find((tab) => tab.getAttribute("aria-selected") === "true")
+      ?.getAttribute("aria-controls") ?? "";
+  const target = nextTab(visible, current, event.key);
+  if (target !== current) {
+    event.preventDefault();
+    selectTab(target);
+  }
 });
