@@ -10,14 +10,6 @@
 
 - [ ] Add `tmp/` to `.gitignore`.
 
-### Tooling: no frontend formatter/linter
-
-`mise run fmt` only formats Rust; `crates/app/ui/**` (TypeScript) is unchecked by any formatter or linter.
-
-#### TODO
-
-- [ ] Add a frontend formatter/linter (Prettier or Biome) and wire it into `mise.toml` so `mise run fmt` covers `crates/app/ui/`.
-
 ### Tooling: no Markdown link checker in CI
 
 `README.md`'s anchor link to `#running-the-app` is not checked by anything; `mise run ci` has no Markdown link checker.
