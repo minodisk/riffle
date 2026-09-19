@@ -49,3 +49,14 @@
 ## Deferred issues (todo candidates)
 
 None.
+
+## Step 3
+
+- `vp fmt --check` with the `fmt.ignorePatterns` scope checks 21 files and flags 6:
+  `crates/app/ui/index.html`, `src/main.ts`, `src/settings.ts`, `src/strip.ts`,
+  `src/tauri.d.ts`, `src/worker.ts`. The JS tooling files (`package.json`,
+  `vite.config.ts`, the `tsconfig.json`s) are already clean. `settings.ts` was
+  not in the planning-time estimate for Step 4.
+- Adding `pnpm exec vp fmt` to the `fmt` mise task in this step would make
+  pr-runner's pre-commit `mise run fmt` reformat those 6 files, so the task
+  change moved to Step 4 (plan updated).

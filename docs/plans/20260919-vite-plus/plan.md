@@ -153,9 +153,8 @@ in Step 1.
     - `.github/workflows/ci.yml` needs no change: the `lint` job already runs
       `mise run lint` with pnpm installed and cached.
 
-- [ ] Step 3: Configure Oxfmt (`fmt` block) and the `fmt` task, no reformat
-  - Done when: `vite.config.ts` has a `fmt` block; `mise run fmt` runs
-    `cargo fmt --all` then `pnpm exec vp fmt`; `pnpm exec vp fmt --check`
+- [x] Step 3: Configure Oxfmt (`fmt` block), no reformat
+  - Done when: `vite.config.ts` has a `fmt` block; `pnpm exec vp fmt --check`
     lists only files under `crates/app/ui` plus the JS tooling files; nothing
     is reformatted in this step and `mise run ci` still passes (the `lint`
     task keeps `--no-fmt` until Step 4).
@@ -171,12 +170,16 @@ in Step 1.
       the `tsconfig.json`s. Confirm the list with `vp fmt --check` and record
       it in `learnings.md`.
     - `printWidth`: keep Oxfmt's default (100); no override in the config.
-    - `mise.toml` `fmt`: `cargo fmt --all` then `pnpm exec vp fmt`.
+    - `mise.toml` `fmt` stays `cargo fmt --all` in this step: pr-runner runs
+      `mise run fmt` before committing, so adding `pnpm exec vp fmt` here
+      would reformat the 6 frontend files and break "no reformat". The task
+      change moves to Step 4.
 
 - [ ] Step 4: Reformat the frontend with Oxfmt and enforce the format check
   - Done when: the PR contains **exactly two commits**: (a) a formatting-only
     commit produced by `pnpm exec vp fmt` with no hand edits
-    (`style(ui): format with oxfmt`), and (b) a commit that drops `--no-fmt`
+    (`style(ui): format with oxfmt`), and (b) a commit that makes the `fmt`
+    task run `cargo fmt --all` then `pnpm exec vp fmt` and drops `--no-fmt`
     from the `lint` task so `pnpm exec vp check` runs format, lint and type
     check together; `mise run ci` passes; `mise run tauri:dev` still runs.
   - Implementation approach:
@@ -282,3 +285,4 @@ in Step 1.
 
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
+- (2026-09-19) Step 3 complete
