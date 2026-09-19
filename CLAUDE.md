@@ -36,3 +36,8 @@ English.
 
 Conventional Commits, in English. Example:
 `feat(cli): add a partial decode benchmark`
+
+## Development
+
+Do all development through the `develop` skill (`/develop`), however small the
+change. Do not edit code and open a PR by hand or through `/pr` alone.
