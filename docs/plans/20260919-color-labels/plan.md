@@ -258,7 +258,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       the `mark_written` guard ("snapshot the state you decided on",
       `docs/agents/tauri-app.md`).
 
-- [ ] Step 5: Keymap: per-format defaults, the label actions, and Ctrl+Alt keys
+- [x] Step 5: Keymap: per-format defaults, the label actions, and Ctrl+Alt keys
   - Done when:
     - `shortcuts.rs`: `DEFAULTS` gains, after `clear`: `red`, `orange`,
       `yellow`, `green`, `blue`, `pink`, `purple`, `clearlabel`, each with a

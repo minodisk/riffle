@@ -68,3 +68,23 @@
   writer instead of hard-coding `true`, which is what makes a row created
   right before a crash or quit (label still unknown, never written) replay
   correctly on the next open instead of stripping the sidecar's label.
+
+## Step 5
+
+- The shortcuts plan's Steps 3-4 (`rebind` / `reset` / `overrides`, the
+  panel) were already on main, so `Keymap` now carries its format and every
+  one of them resolves against that format's defaults.
+- The raw `shortcuts` value is kept in `AppShortcutOverrides` so a format
+  switch re-resolves it; `update_keymap` replaces it with `overrides()`.
+- The panel's capture skips on `event.key` (`Control`, `Alt`, ...) rather
+  than on the key name, since a lone modifier under Ctrl+Alt would otherwise
+  be named `ctrl+alt+altleft`.
+
+## Deferred issues (todo candidates)
+
+- An override skipped under the current format (e.g. `reject: ["6"]` under
+  XMP) is dropped from the stored `shortcuts` value the next time the user
+  rebinds anything, because `update_keymap` saves `Keymap::overrides()` of
+  the resolved keymap. It would otherwise have applied under `.dop`. Basis:
+  Step 5 implementation. Files: `crates/app/src/commands.rs`
+  (`update_keymap`), `crates/app/src/shortcuts.rs` (`overrides`).

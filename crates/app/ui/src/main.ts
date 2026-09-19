@@ -1124,6 +1124,14 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 // format's judgements. A fresh token drops any open still in flight.
 void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   sidecarFormat = payload;
+  // The label keys' defaults follow the format.
+  void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
+    applyKeymap(bindings);
+    if (!shortcutsEl.hidden && capturing === null) {
+      shortcutBindings = bindings;
+      renderShortcuts();
+    }
+  });
   if (openDir === null) {
     return;
   }
@@ -1293,9 +1301,21 @@ function applyKeymap(bindings: Binding[]): void {
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
 
-// Letter keys are matched lower-cased, so Shift+J pages like j does.
+// Letter keys are matched lower-cased, so Shift+J pages like j does. Ctrl+Alt
+// keys are named from `event.code`, as Option changes `event.key` on macOS.
 function keyName(event: KeyboardEvent): string {
+  if (event.ctrlKey && event.altKey && !event.metaKey) {
+    const code = event.code.replace(/^(Digit|Key|Numpad)/, "");
+    const named: Record<string, string> = { Minus: "-", Equal: "=", Space: "space" };
+    return `ctrl+alt+${(named[code] ?? code).toLowerCase()}`;
+  }
   return event.key === " " ? "space" : event.key.toLowerCase();
+}
+
+// Ctrl+Alt is the only modified form bound; Ctrl-only, Alt-only and Meta
+// combinations are left to the system.
+function isUnboundModifier(event: KeyboardEvent): boolean {
+  return event.metaKey || event.ctrlKey !== event.altKey;
 }
 
 const shortcutLabels: Record<string, string> = {
@@ -1313,6 +1333,14 @@ const shortcutLabels: Record<string, string> = {
   pick: "Pick",
   unflag: "Un-reject / un-pick",
   clear: "Clear",
+  red: "Red label",
+  orange: "Orange label",
+  yellow: "Yellow label",
+  green: "Green label",
+  blue: "Blue label",
+  pink: "Pink label",
+  purple: "Purple label",
+  clearlabel: "Clear label",
 };
 
 const shortcutsEl = document.getElementById("shortcuts") as HTMLDivElement;
@@ -1388,10 +1416,10 @@ void window.__TAURI__.event.listen("open-shortcuts", async () => {
 
 // While the panel is open, keys rebind the capturing row instead of culling.
 function shortcutsKeydown(event: KeyboardEvent): void {
-  const key = keyName(event);
-  if (["shift", "meta", "control", "alt"].includes(key)) {
+  if (["Shift", "Meta", "Control", "Alt"].includes(event.key)) {
     return;
   }
+  const key = keyName(event);
   event.preventDefault();
   if (key === "escape") {
     if (capturing === null) {
@@ -1408,7 +1436,7 @@ function shortcutsKeydown(event: KeyboardEvent): void {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (event.metaKey || event.ctrlKey || event.altKey) {
+  if (isUnboundModifier(event)) {
     return;
   }
   if (!shortcutsEl.hidden) {
@@ -1467,6 +1495,16 @@ window.addEventListener("keydown", (event) => {
     case "clear":
       // Clears the stars or the reject and leaves a pick alone.
       judge((_, pick) => [null, pick]);
+      break;
+    case "red":
+    case "orange":
+    case "yellow":
+    case "green":
+    case "blue":
+    case "pink":
+    case "purple":
+    case "clearlabel":
+      // Bound so the key is consumed; setting the label is not wired yet.
       break;
     default:
       return;

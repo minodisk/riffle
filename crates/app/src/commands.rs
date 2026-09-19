@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use serde_json::Value;
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
@@ -295,13 +296,15 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
-/// be read is logged and falls back to the defaults.
-pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap) {
+/// be read is logged and falls back to the defaults. The stored `shortcuts`
+/// overrides are returned too, so a format switch can rebuild the keymap.
+pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Option<Value>, Keymap) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
             eprintln!("failed to open the settings: {e}");
-            return (SidecarFormat::default(), Keymap::default());
+            let format = SidecarFormat::default();
+            return (format, None, Keymap::defaults(format));
         }
     };
     if !store.has("lastFolder") {
@@ -319,8 +322,9 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap) {
     }
     let format =
         SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()));
-    let keymap = Keymap::from_overrides(store.get("shortcuts").as_ref());
-    (format, keymap)
+    let overrides = store.get("shortcuts");
+    let keymap = Keymap::from_overrides(overrides.as_ref(), format);
+    (format, overrides, keymap)
 }
 
 /// Switch the sidecar format to `format`: apply the new format first so any
@@ -339,6 +343,10 @@ pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> R
         return Ok(());
     }
     *index::lock(&app.state::<AppSidecarFormat>().0) = format;
+    *index::lock(&app.state::<AppKeymap>().0) = Keymap::from_overrides(
+        index::lock(&app.state::<AppShortcutOverrides>().0).as_ref(),
+        format,
+    );
     if let Some(writer) = &app.state::<AppWriter>().0 {
         writer.flush(crate::sidecar::DRAIN_TIMEOUT);
     }
@@ -814,6 +822,10 @@ pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
 /// The culling keymap resolved from the defaults and the `shortcuts` setting.
 pub struct AppKeymap(pub Mutex<Keymap>);
 
+/// The `shortcuts` setting as last loaded or saved, so a format switch can
+/// resolve it against the new format's defaults.
+pub struct AppShortcutOverrides(pub Mutex<Option<Value>>);
+
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
 /// concurrent switches whose drain, save, state write and reset would
 /// otherwise interleave.
@@ -871,6 +883,8 @@ fn update_keymap(
     let mut keymap = index::lock(&state.0);
     change(&mut keymap)?;
     let overrides = keymap.overrides();
+    *index::lock(&app.state::<AppShortcutOverrides>().0) =
+        Some(overrides.clone()).filter(|o| o.as_object().is_some_and(|o| !o.is_empty()));
     let saved = settings(app).and_then(|store| {
         if overrides.as_object().is_some_and(|o| o.is_empty()) {
             store.delete("shortcuts");
