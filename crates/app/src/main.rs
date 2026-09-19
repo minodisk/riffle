@@ -12,6 +12,7 @@ mod app_menu {
 
     const PHOTOLAB_ID: &str = "open-in-photolab";
     const SETTINGS_ID: &str = "open-settings";
+    const UNDO_ID: &str = "undo";
 
     /// The default menu's submenu titled `title`, if the platform has one.
     fn submenu(menu: &Menu<Wry>, title: &str) -> tauri::Result<Option<Submenu<Wry>>> {
@@ -61,6 +62,17 @@ mod app_menu {
         }
         #[cfg(not(target_os = "macos"))]
         file.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 2)?;
+        // `Edit` opens with the predefined Undo and Redo, which only act on
+        // editable content (neither window has any) and would own Cmd+Z.
+        if let Some(edit) = submenu(&menu, "Edit")? {
+            for _ in 0..2 {
+                if let Some(MenuItemKind::Predefined(_)) = edit.items()?.into_iter().next() {
+                    edit.remove_at(0)?;
+                }
+            }
+            let undo = MenuItem::with_id(handle, UNDO_ID, "Undo", true, Some("CmdOrCtrl+Z"))?;
+            edit.insert(&undo, 0)?;
+        }
         Ok(menu)
     }
 
@@ -68,6 +80,9 @@ mod app_menu {
         // The frontend owns which folder is open, so it does the invoking.
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
+        }
+        if event.id() == UNDO_ID {
+            let _ = app.emit("undo", ());
         }
         if event.id() == SETTINGS_ID {
             if let Err(e) = open_settings(app) {

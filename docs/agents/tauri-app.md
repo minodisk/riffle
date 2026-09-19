@@ -163,7 +163,9 @@ The menu bar keeps only the platform's default submenus. `app_menu::build`
 finds them in `Menu::default` by title and inserts into them: `Settings...`
 (`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
 `Open in DxO PhotoLab` at the top of `File`. Linux's default has no `File`, so
-one is prepended there. Settings themselves (sidecar format, shortcuts, the
+one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
+that owns `CmdOrCtrl+Z`; the app's `Undo` (emitting `undo` to the frontend)
+replaces that pair rather than being added next to it. Settings themselves (sidecar format, shortcuts, the
 dev-only timing logs) live in a separate `settings` window
 (`ui/settings.html`), not in menu check items, so the menu reads no plugin
 state and is built in `Builder::menu`.

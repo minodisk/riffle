@@ -63,6 +63,12 @@ embedded previews, rotated by each file's Orientation.
   within a group are OR-ed, groups are AND-ed, and `Reset` clears them all.
 - **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
   folder to the newest PhotoLab in `/Applications`.
+- **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
+  label the last judged file had before, writes that to its sidecar and returns
+  to the file (unless the filter now hides it, which the status line says).
+  Repeated presses walk further back. The history belongs to the open folder
+  and is cleared when another folder opens or the sidecar format changes. There
+  is no redo.
 
 ### Keys
 
@@ -78,6 +84,7 @@ embedded previews, rotated by each file's Orientation.
 | `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
+| `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
 
 The colour label keys follow the format chosen in `Riffle > Settings...`, and
 switch with it without a restart. Pressing the key of the label the file
