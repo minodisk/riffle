@@ -45,6 +45,12 @@ Rules:
   `drag-enter` / `drag-over` / `drag-leave`) webview events, listened to via
   `event:listen` under `core:event`'s default `allow-listen`. Those events and
   `window.__TAURI__` are main-thread only; neither exists inside a worker.
+- Exception: a synchronous command that only writes a small settings file
+  (store set + save on the calling thread, as `update_keymap` and
+  `set_auto_advance` do) does not need `spawn_blocking` — the write is a
+  tiny JSON file, so the blocking cost is negligible. Reach for
+  `spawn_blocking` when the IO is unbounded or can block on something other
+  than a small local file.
 
 ### Measure before choosing a JPEG payload over raw pixels (Measured)
 
@@ -260,6 +266,21 @@ current view alone.
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
 - Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
+
+### A judgement's own move must not double up with `refilter`'s move (Inferred)
+
+`judge` returns whether it changed anything. The keydown handler records the
+current path *before* the switch/commit runs, then — only if that path is
+still the current file afterward — calls `move(1)` for auto-advance.
+
+- Why: `commit`'s `refilter` step already moves the view off a file that
+  drops out of the active filter as a result of the judgement. If the
+  keydown handler also unconditionally called `move(1)`, a filtered-out file
+  would advance twice. Checking "is the just-judged file still current"
+  before moving is what prevents the double skip.
+- `move` already clamps at the last file, so the auto-advance call does not
+  need its own bounds check.
+- Source: `docs/plans/_archived/20260919-auto-advance/learnings.md`, Step 3.
 
 ### Give the current folder one token, not one counter per feature (Hit, repeatedly)
 
