@@ -330,6 +330,7 @@ fn main() {
                 if let Some(writer) = &app.state::<commands::AppWriter>().0 {
                     writer.flush(sidecar::DRAIN_TIMEOUT);
                 }
+                update::install_pending(app);
             }
         });
 }

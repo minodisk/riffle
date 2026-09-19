@@ -1,5 +1,6 @@
 //! The self-update flow: check, download and install in the background, with
-//! the new version used on the next launch. The app is never relaunched.
+//! the new version used on the next launch. The app is never relaunched. On
+//! Windows the install exits the process, so it is deferred to quit.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -8,16 +9,29 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
-use crate::{commands, index, sidecar};
+use crate::index;
 
 /// Guards against a startup check and a menu click running the updater at
-/// once, and remembers the version installed by this process: the updater
-/// compares against the running binary, so a later check would otherwise
-/// download the same update again.
+/// once, and remembers the version installed (or, on Windows, downloaded) by
+/// this process: the updater compares against the running binary, so a later
+/// check would otherwise download the same update again.
 #[derive(Default)]
 pub struct UpdateRun {
     running: AtomicBool,
     installed: Mutex<Option<String>>,
+    pending: Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>,
+}
+
+/// Install the update downloaded this session, if any. Called on quit after
+/// the sidecar flush; on Windows `install` launches the installer and calls
+/// `process::exit(0)` itself.
+pub fn install_pending(app: &AppHandle) {
+    let Some((update, bytes)) = index::lock(&app.state::<UpdateRun>().pending).take() else {
+        return;
+    };
+    if let Err(e) = update.install(bytes) {
+        log::warn!("installing the update failed: {e}");
+    }
 }
 
 /// Run the update flow in the background. `interactive` reports the outcome
@@ -48,7 +62,7 @@ async fn run(app: AppHandle, interactive: bool) {
         }
         return;
     }
-    let result = check_and_install(&app).await;
+    let result = check_and_update(&app).await;
     if let Ok(Some(version)) = &result {
         *index::lock(&state.installed) = Some(version.clone());
     }
@@ -60,7 +74,7 @@ async fn run(app: AppHandle, interactive: bool) {
             }
         }
         Ok(Some(version)) => {
-            log::info!("installed Riffle {version}; it is used on the next launch");
+            log::info!("{}", installed_log(&version));
             if interactive {
                 message(&app, &installed_text(&version), MessageDialogKind::Info);
             }
@@ -78,27 +92,39 @@ async fn run(app: AppHandle, interactive: bool) {
     }
 }
 
-async fn check_and_install(app: &AppHandle) -> Result<Option<String>, tauri_plugin_updater::Error> {
-    let flusher = app.clone();
-    // Windows runs the installer and exits the process, skipping the
-    // `ExitRequested` flush in `main`.
-    let updater = app
-        .updater_builder()
-        .on_before_exit(move || {
-            if let Some(writer) = &flusher.state::<commands::AppWriter>().0 {
-                writer.flush(sidecar::DRAIN_TIMEOUT);
-            }
-        })
-        .build()?;
+async fn check_and_update(app: &AppHandle) -> Result<Option<String>, tauri_plugin_updater::Error> {
+    let updater = app.updater_builder().restart_after_install(false).build()?;
     let Some(update) = updater.check().await? else {
         return Ok(None);
     };
+    #[cfg(windows)]
+    {
+        let bytes = update.download(|_, _| {}, || {}).await?;
+        *index::lock(&app.state::<UpdateRun>().pending) = Some((update.clone(), bytes));
+    }
+    #[cfg(not(windows))]
     update.download_and_install(|_, _| {}, || {}).await?;
     Ok(Some(update.version))
 }
 
+#[cfg(windows)]
+fn installed_text(version: &str) -> String {
+    format!("Riffle {version} was downloaded and will be installed when Riffle quits.")
+}
+
+#[cfg(not(windows))]
 fn installed_text(version: &str) -> String {
     format!("Riffle {version} was installed and will be used the next time Riffle launches.")
+}
+
+#[cfg(windows)]
+fn installed_log(version: &str) -> String {
+    format!("downloaded Riffle {version}; it is installed when Riffle quits")
+}
+
+#[cfg(not(windows))]
+fn installed_log(version: &str) -> String {
+    format!("installed Riffle {version}; it is used on the next launch")
 }
 
 fn message(app: &AppHandle, text: &str, kind: MessageDialogKind) {

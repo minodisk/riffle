@@ -201,7 +201,9 @@ first launch needs one extra step:
 
 Updating: the app checks for a newer release on launch and, when there is one,
 downloads and installs it quietly in the background; the new version is used the
-next time Riffle launches. **Check for Updates…** in the app menu (the File menu
+next time Riffle launches. On Windows the download still happens quietly in the
+background, and the installer runs when Riffle quits, so the next launch is the
+new version. **Check for Updates…** in the app menu (the File menu
 on Windows and Linux) runs the same check by hand and reports the outcome. The update itself is signed with the
 project's updater key and verified before it is installed. On Linux only the
 AppImage updates itself; a `.deb` / `.rpm` install is updated by installing the
