@@ -4,9 +4,10 @@
   "version": "0.1.5",
   "identifier": "com.minodisk.riffle",
   "build": {
-    "frontendDist": "ui",
-    "beforeDevCommand": "pnpm exec tsc --watch --preserveWatchOutput -p crates/app/ui/tsconfig.json",
-    "beforeBuildCommand": "pnpm exec tsc -p crates/app/ui/tsconfig.json"
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "ui/dist",
+    "beforeDevCommand": "pnpm vp dev",
+    "beforeBuildCommand": "pnpm vp build"
   },
   "app": {
     "withGlobalTauri": true,

@@ -63,7 +63,7 @@ in Step 1.
 
 ## Steps
 
-- [ ] Step 1: Build and serve the frontend through Vite, on Node 24
+- [x] Step 1: Build and serve the frontend through Vite, on Node 24
   - Done when:
     - `mise.toml` pins `node = "24.21.0"` (latest 24.x; satisfies
       `vite-plus`'s `>=24.11.0`). **CI-wide impact**: every job in `ci.yml`
@@ -278,4 +278,4 @@ in Step 1.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
