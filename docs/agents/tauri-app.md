@@ -343,6 +343,18 @@ current view alone.
   view when that file no longer passes the active filter.
 - Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
 
+### `ErrorList`'s `Map` keeps a superseded entry in its original position (Hit)
+
+Re-`set`ting an existing key on a `Map` used as `ErrorList`'s backing store
+does not move that entry to the end; a superseded error stays where it was
+first inserted, not where it was last updated.
+
+- Why: don't assume replacing a `Map` entry reorders it — display order
+  relying on "most recent first/last" needs an explicit ordering field, not
+  `Map` iteration order.
+- Source: `docs/plans/_archived/20260920-sidecar-error-display/learnings.md`,
+  Step 1 (pinned by `errors.test.ts`).
+
 ### A judgement's own move must not double up with `refilter`'s move (Inferred)
 
 `judge` returns whether it changed anything. The keydown handler records the
