@@ -43,7 +43,15 @@ cleanup_branch_section() {
 # shellcheck disable=SC2046,SC1083,SC2162
 delete_merged_branches() {
 	local targetBranch targetRef
-	targetBranch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's/refs\/remotes\/origin\/\([^\/]*\).*/\1/')
+	local headRef
+	if ! headRef=$(git symbolic-ref -q refs/remotes/origin/HEAD); then
+		git remote set-head origin -a >/dev/null 2>&1 || true
+		if ! headRef=$(git symbolic-ref -q refs/remotes/origin/HEAD); then
+			echo "Error: refs/remotes/origin/HEAD is not set. Run: git remote set-head origin -a" >&2
+			exit 1
+		fi
+	fi
+	targetBranch=${headRef#refs/remotes/origin/}
 	# The basis for the judgement is the latest remote tip (origin/<default>).
 	targetRef="origin/${targetBranch}"
 
