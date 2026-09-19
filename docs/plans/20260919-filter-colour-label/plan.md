@@ -69,7 +69,7 @@ Current state the plan is based on:
 
 ## Steps
 
-- [ ] Step 1: Extract the filter predicate and the drop-out cursor rule into a pure module with tests
+- [x] Step 1: Extract the filter predicate and the drop-out cursor rule into a pure module with tests
   - Done when:
     - A new `crates/app/ui/src/filter.ts` owns, with no DOM or Tauri
       access: the `Flag` type, the filter-state shape (the flag set, the
@@ -171,4 +171,4 @@ Current state the plan is based on:
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
