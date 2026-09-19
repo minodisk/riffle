@@ -164,7 +164,8 @@ creates none.
 
 Writes happen in the background and are atomic, so a crash never leaves a
 half-written sidecar, and quitting finishes any pending write. A judgement that
-could not be written (say, on a locked card) is kept and retried the next time
+could not be written (say, on a locked card) is retried a few times over the
+next half minute, and if it still fails it is kept and written the next time
 the folder is opened. Sidecars edited by another tool are picked up the next
 time the folder is opened; when both changed, the other tool's edit wins.
 Switching the format keeps unwritten judgements and writes them in the new
