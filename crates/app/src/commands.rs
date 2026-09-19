@@ -642,6 +642,28 @@ pub struct AppIndex(pub Option<Arc<Mutex<Index>>>);
 /// is the writer's `Arc` when the reader could not be opened.
 pub struct AppIndexReader(pub Option<Arc<Mutex<Index>>>);
 
+/// Evict stale folders from the index once, on a thread of its own. It holds
+/// the `Scans` lock throughout and skips if a scan has already been started,
+/// so no scan runs during the `VACUUM`: a `scan_folder`/`start_scan` issued
+/// meanwhile waits for it (~0.2 s on a ~100 MB index, M3 Pro).
+pub fn spawn_eviction(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let Some(index) = app.state::<AppIndex>().0.clone() else {
+            return;
+        };
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.running.is_some() {
+            return;
+        }
+        match index::lock(&index).evict(index::now_secs(), index::EVICT_POLICY) {
+            Ok(summary) => log::info!("index eviction: {summary:?}"),
+            Err(e) => log::error!("failed to evict stale folders from the index: {e}"),
+        }
+        drop(state);
+    });
+}
+
 /// Threads the scan runs on: two fewer than the cores. Step 3 measured that
 /// this costs ~10% of scan throughput against using every core, and leaves two
 /// cores for the paging path so the app stays responsive while scanning; more
