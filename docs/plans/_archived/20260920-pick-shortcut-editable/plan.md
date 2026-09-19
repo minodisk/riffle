@@ -112,4 +112,4 @@ main window.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete

@@ -52,6 +52,21 @@ Rules:
   `spawn_blocking` when the IO is unbounded or can block on something other
   than a small local file.
 
+### Resolve shortcut overrides order-independently, not in a single pass (Hit)
+
+`from_overrides` in `crates/app/src/shortcuts.rs` checks each stored override
+against the keymap built so far. A single pass in action order silently drops
+a valid override that wants a key another override in the same batch frees
+later: `{"pick": ["q"], "reject": ["p"]}` left `reject` on its default,
+because `reject` comes before `pick`, so `p` still looked taken.
+
+- Fix: apply the non-conflicting overrides first, then retry the conflicting
+  ones until no more apply.
+- When two overrides genuinely want the same key, the first in action order
+  still wins.
+- Source: `docs/plans/_archived/20260920-pick-shortcut-editable/learnings.md`,
+  Step 1.
+
 ### Measure before choosing a JPEG payload over raw pixels (Measured)
 
 `mozjpeg::Compress`'s defaults turn on trellis quantisation and optimised
