@@ -343,7 +343,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       label through unchanged (`(rating, pick, label) => [stars, pick,
       label]`).
 
-- [ ] Step 7: Documentation and the user's confirmations
+- [x] Step 7: Documentation and the user's confirmations
   - Done when:
     - `README.md`: the key table gains the label keys per format and the
       Ctrl+Alt rule; "Ratings and sidecars" describes `xmp:Label` and
@@ -359,6 +359,17 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
     - `docs/agents/tauri-app.md` gains any pitfall Steps 1-6 hit — at least
       the `event.key`-vs-`event.code` one if it bit.
     - `mise run ci` passes.
+  - Confirmed: nothing manual yet.
+  - Awaiting the user's confirmation (GUI automation is unavailable):
+    - Step 5: under `.dop`, ⌃⌥1 sets red and ⌃⌥0 clears; under XMP, ⌃⌥1
+      does nothing and `6` works; switching the `Sidecar` menu swaps them
+      without a restart.
+    - Step 6: with `.dop` on the PhotoLab folder and XMP on any folder, the
+      seven fixtures show their colours on open; the keys set, replace and
+      toggle; a rating after a label keeps it and PhotoLab / Lightroom show
+      the label; clearing in Riffle clears it there; a label from the other
+      vocabulary shows its colour; PhotoLab 10.0.2 re-reads a `.dop` after a
+      label-only change.
 
 ## Trade-offs and risks
 
