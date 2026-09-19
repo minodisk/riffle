@@ -157,6 +157,27 @@ with "could not find `serde_json` in the list of imported crates".
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Step 1.
 
+### Self-update's install step bypasses the sidecar flush on Windows only (Hit)
+
+`tauri-plugin-updater-2.11.0`'s macOS and Linux (AppImage) `install_inner`
+only extract and rename bundles (`std::fs::rename`, with an authorised
+fallback); they never exit or signal the process, so
+`RunEvent::ExitRequested` and the sidecar writer's flush still run normally on
+a later real quit. Windows is different: the running exe is locked, so its
+`install_inner` launches the installer and calls `std::process::exit(0)`
+directly, skipping `ExitRequested` — the "installed, used on next launch"
+promise does not hold there, since the app quits mid-session. `update.rs`
+registers an `on_before_exit` hook to flush the sidecar writer for this path
+(compiled, not exercised against a real install).
+
+- Why: only Windows needs the exe unlocked before it can overwrite itself;
+  macOS/Linux replace files the running process isn't holding open.
+- When touching the update or sidecar-flush paths, don't assume the
+  install-time flush behaves the same across platforms — Windows needs its own
+  explicit hook, and that hook itself is unverified end-to-end.
+- Source: `docs/plans/_archived/20260919-silent-auto-update/learnings.md`,
+  Step 1.
+
 ### App items go into the default menu's own submenus (Hit)
 
 The menu bar keeps only the platform's default submenus. `app_menu::build`

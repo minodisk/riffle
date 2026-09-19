@@ -132,3 +132,4 @@ update logic lives in one place, in Rust.
 
 - Step 1: Moved the update flow to Rust (`crates/app/src/update.rs`), dropped
   the in-window update bar, and added the "Check for Updates…" menu item.
+- (2026-09-19) Step 1 complete
