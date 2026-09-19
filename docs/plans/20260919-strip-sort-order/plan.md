@@ -61,7 +61,7 @@ the native menu bar.
 
 ## Steps
 
-- [ ] Step 1: A pure ordering module with tests
+- [x] Step 1: A pure ordering module with tests
   - Done when:
     - `crates/app/ui/src/sort.ts` exports `type SortKey = "name" | "capture" | "rating"`
       and one function that orders paths, e.g.
@@ -233,4 +233,4 @@ where one writes no `subsec` fall back to file name within the same second.
 
 ## Progress
 
-- (none yet)
+- (2026-09-19) Step 1 complete
