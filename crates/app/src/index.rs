@@ -33,8 +33,10 @@ use crate::exif::{exif, Exif};
 /// place, defaulting to `1` since every label they hold was asserted. v7
 /// added `files.sharpness`, the preview's focus-window score; a v2 to v6
 /// database has its `files` table dropped and recreated, so every folder is
-/// rescanned once, and keeps `ratings`.
-const SCHEMA_VERSION: i64 = 7;
+/// rescanned once, and keeps `ratings`. v8 added `folders`, when each folder
+/// was last opened, for `evict`; a v7 database gains it in place, seeded with
+/// every indexed folder opened "now", and keeps its `files` rows.
+const SCHEMA_VERSION: i64 = 8;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -45,6 +47,45 @@ const SCHEMA_VERSION: i64 = 7;
 /// 10 instead of 50 measured ~15 ms more in total (M3 Pro, release), about
 /// 0.3% of a 5000-file first scan.
 const BATCH: usize = 10;
+
+/// A folder not opened for this long loses its rows at the next launch
+/// (`evict`). Thumbnails are cheap to rebuild on the next open (a rescan) and a
+/// month covers returning to a recent shoot, so it errs on keeping the cache
+/// warm for what is actually in use.
+pub const MAX_AGE_SECS: i64 = 30 * 24 * 60 * 60;
+
+/// The size `evict` shrinks the database under, least-recently-opened folder
+/// first, once the aged folders are gone. At the measured ~20.8 KB per row it
+/// is ~50k files, a few seasons of shooting, while staying a small share of a
+/// laptop's disk.
+pub const MAX_BYTES: i64 = 1024 * 1024 * 1024;
+
+/// What `evict` removes.
+#[derive(Debug, Clone, Copy)]
+pub struct EvictPolicy {
+    pub max_age_secs: i64,
+    pub max_bytes: i64,
+}
+
+pub const EVICT_POLICY: EvictPolicy = EvictPolicy {
+    max_age_secs: MAX_AGE_SECS,
+    max_bytes: MAX_BYTES,
+};
+
+/// How an `evict` ended.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct EvictSummary {
+    pub folders: usize,
+    pub rows: usize,
+    pub vacuumed: bool,
+}
+
+/// Seconds since the epoch, 0 for a clock set before it.
+pub fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
 
 /// Shortest interval between two progress notifications.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
@@ -178,11 +219,11 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, 6, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        if version != 0 && version != SCHEMA_VERSION {
+        if version != 0 && version < 7 {
             tx.execute_batch("DROP TABLE IF EXISTS files;")
                 .map_err(|e| e.to_string())?;
         }
@@ -231,9 +272,22 @@ impl Index {
                      xmp_mtime_ns INTEGER,
                      dirty INTEGER NOT NULL DEFAULT 0
                  );
-                 CREATE INDEX IF NOT EXISTS ratings_dir ON ratings (dir);",
+                 CREATE INDEX IF NOT EXISTS ratings_dir ON ratings (dir);
+                 -- `opened_at` is seconds since the epoch, set by `reconcile`.
+                 CREATE TABLE IF NOT EXISTS folders (
+                     dir TEXT PRIMARY KEY,
+                     opened_at INTEGER NOT NULL
+                 );",
         )
         .map_err(|e| e.to_string())?;
+        if version == 7 {
+            tx.execute(
+                "INSERT OR IGNORE INTO folders (dir, opened_at)
+                 SELECT DISTINCT dir, ?1 FROM files",
+                params![now_secs()],
+            )
+            .map_err(|e| e.to_string())?;
+        }
         if version == 2 {
             tx.execute_batch("ALTER TABLE ratings ADD COLUMN pick INTEGER NOT NULL DEFAULT 0;")
                 .map_err(|e| e.to_string())?;
@@ -276,6 +330,12 @@ impl Index {
             .collect();
 
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        tx.execute(
+            "INSERT INTO folders (dir, opened_at) VALUES (?1, ?2)
+             ON CONFLICT (dir) DO UPDATE SET opened_at = excluded.opened_at",
+            params![dir, now_secs()],
+        )
+        .map_err(|e| e.to_string())?;
         for (path, ..) in known
             .iter()
             .filter(|(p, s, m)| listed.get(p.as_str()) != Some(&(*s, *m)))
@@ -297,6 +357,74 @@ impl Index {
             })
             .cloned()
             .collect())
+    }
+
+    /// Drop the `files` rows and clean `ratings` rows of folders last opened
+    /// more than `policy.max_age_secs` before `now`, then of the
+    /// least-recently-opened folders until the pages in use fit
+    /// `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
+    /// keeping a dirty rating keeps its `folders` row, so it is reconsidered
+    /// next time. `VACUUM` rewrites the whole file, so call this with no scan
+    /// running.
+    pub fn evict(&mut self, now: i64, policy: EvictPolicy) -> Result<EvictSummary, String> {
+        let folders: Vec<(String, i64)> = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT dir, opened_at FROM folders ORDER BY opened_at, dir")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .map_err(|e| e.to_string())?;
+            rows.collect::<rusqlite::Result<_>>()
+                .map_err(|e| e.to_string())?
+        };
+        let mut summary = EvictSummary::default();
+        for (dir, opened_at) in &folders {
+            if *opened_at >= now - policy.max_age_secs && self.used_bytes()? <= policy.max_bytes {
+                break;
+            }
+            summary.rows += self.evict_folder(dir)?;
+            summary.folders += 1;
+        }
+        if summary.rows > 0 {
+            self.conn
+                .execute_batch("VACUUM")
+                .map_err(|e| e.to_string())?;
+            summary.vacuumed = true;
+        }
+        Ok(summary)
+    }
+
+    /// The bytes of the pages holding data, which a delete lowers at once
+    /// while the file itself only shrinks at the `VACUUM`.
+    fn used_bytes(&self) -> Result<i64, String> {
+        let pragma = |name: &str| -> Result<i64, String> {
+            self.conn
+                .pragma_query_value(None, name, |r| r.get(0))
+                .map_err(|e| e.to_string())
+        };
+        Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)
+    }
+
+    fn evict_folder(&mut self, dir: &str) -> Result<usize, String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        let mut rows = tx
+            .execute("DELETE FROM files WHERE dir = ?1", params![dir])
+            .map_err(|e| e.to_string())?;
+        rows += tx
+            .execute(
+                "DELETE FROM ratings WHERE dir = ?1 AND dirty = 0",
+                params![dir],
+            )
+            .map_err(|e| e.to_string())?;
+        tx.execute(
+            "DELETE FROM folders WHERE dir = ?1
+                 AND NOT EXISTS (SELECT 1 FROM ratings WHERE dir = ?1)",
+            params![dir],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(rows)
     }
 
     /// Write one batch of results in a single transaction.
@@ -947,7 +1075,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1022,7 +1150,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
 
         remove_temp_dir(&dir);
     }
@@ -1420,7 +1548,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1660,6 +1788,242 @@ mod tests {
             .unwrap();
         assert_eq!(lock(&reader).entries("d").unwrap().len(), 4);
 
+        remove_temp_dir(&dir);
+    }
+
+    fn opened_at(index: &Index, dir: &str) -> Option<i64> {
+        index
+            .conn
+            .query_row(
+                "SELECT opened_at FROM folders WHERE dir = ?1",
+                params![dir],
+                |r| r.get(0),
+            )
+            .ok()
+    }
+
+    fn set_opened_at(index: &Index, dir: &str, at: i64) {
+        index
+            .conn
+            .execute(
+                "INSERT OR REPLACE INTO folders (dir, opened_at) VALUES (?1, ?2)",
+                params![dir, at],
+            )
+            .unwrap();
+    }
+
+    fn big_entry() -> Entry {
+        Entry {
+            thumbnail: vec![0x55; 200_000],
+            ..entry()
+        }
+    }
+
+    const DAY: i64 = 24 * 60 * 60;
+    const NOW: i64 = 100 * DAY;
+    const NO_CAP: EvictPolicy = EvictPolicy {
+        max_age_secs: MAX_AGE_SECS,
+        max_bytes: i64::MAX,
+    };
+
+    #[test]
+    fn reconcile_records_when_the_folder_was_opened() {
+        let dir = temp_dir("opened-at");
+        let mut index = open(&dir);
+        set_opened_at(&index, "d", 0);
+        let before = now_secs();
+        index.reconcile("d", &[]).unwrap();
+        assert!(opened_at(&index, "d").unwrap() >= before);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_old_folder_is_evicted_and_a_fresh_one_kept() {
+        let dir = temp_dir("evict-age");
+        let mut index = open(&dir);
+        index
+            .write_batch("old", &[(synthetic(&dir, 0), Ok(entry()))])
+            .unwrap();
+        index
+            .write_batch("new", &[(synthetic(&dir, 1), Ok(entry()))])
+            .unwrap();
+        index
+            .set_rating(
+                "old",
+                &synthetic(&dir, 0).path.to_string_lossy(),
+                Some(3),
+                false,
+                None,
+                true,
+            )
+            .unwrap();
+        index
+            .mark_written(
+                &synthetic(&dir, 0).path.to_string_lossy(),
+                Some(3),
+                false,
+                None,
+                true,
+                None,
+            )
+            .unwrap();
+        set_opened_at(&index, "old", NOW - 31 * DAY);
+        set_opened_at(&index, "new", NOW - 29 * DAY);
+
+        let summary = index.evict(NOW, NO_CAP).unwrap();
+        assert_eq!(summary.folders, 1);
+        assert!(summary.vacuumed);
+        assert!(index.entries("old").unwrap().is_empty());
+        assert_eq!(opened_at(&index, "old"), None);
+        assert_eq!(index.entries("new").unwrap().len(), 1);
+        let ratings: i64 = index
+            .conn
+            .query_row("SELECT COUNT(*) FROM ratings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ratings, 0);
+
+        assert_eq!(index.evict(NOW, NO_CAP).unwrap(), EvictSummary::default());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn the_size_cap_evicts_the_least_recently_opened_folders_first() {
+        let dir = temp_dir("evict-lru");
+        let mut index = open(&dir);
+        for (i, name) in ["a", "b", "c"].iter().enumerate() {
+            index
+                .write_batch(name, &[(synthetic(&dir, i), Ok(big_entry()))])
+                .unwrap();
+        }
+        set_opened_at(&index, "b", NOW - 3 * DAY);
+        set_opened_at(&index, "a", NOW - 2 * DAY);
+        set_opened_at(&index, "c", NOW - DAY);
+        let used = index.used_bytes().unwrap();
+        let policy = EvictPolicy {
+            max_age_secs: MAX_AGE_SECS,
+            max_bytes: used - 250_000,
+        };
+
+        let summary = index.evict(NOW, policy).unwrap();
+        assert_eq!((summary.folders, summary.rows), (2, 2));
+        assert!(index.entries("b").unwrap().is_empty());
+        assert!(index.entries("a").unwrap().is_empty());
+        assert_eq!(index.entries("c").unwrap().len(), 1);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_dirty_rating_survives_the_eviction_of_its_folder() {
+        let dir = temp_dir("evict-dirty");
+        let mut index = open(&dir);
+        let path = synthetic(&dir, 0).path.to_string_lossy().into_owned();
+        index
+            .write_batch("d", &[(synthetic(&dir, 0), Ok(entry()))])
+            .unwrap();
+        index
+            .set_rating("d", &path, Some(5), true, None, true)
+            .unwrap();
+        set_opened_at(&index, "d", 0);
+
+        let summary = index.evict(NOW, NO_CAP).unwrap();
+        assert_eq!(summary.rows, 1);
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
+        assert_eq!(opened_at(&index, "d"), Some(0));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_vacuum_after_eviction_shrinks_the_file() {
+        let dir = temp_dir("evict-vacuum");
+        let mut index = open(&dir);
+        let rows: Vec<_> = (0..10)
+            .map(|i| (synthetic(&dir, i), Ok(big_entry())))
+            .collect();
+        index.write_batch("d", &rows).unwrap();
+        set_opened_at(&index, "d", 0);
+        let pages = |index: &Index| -> i64 {
+            index
+                .conn
+                .pragma_query_value(None, "page_count", |r| r.get(0))
+                .unwrap()
+        };
+        let before = pages(&index);
+
+        assert!(index.evict(NOW, NO_CAP).unwrap().vacuumed);
+        assert!(
+            pages(&index) * 10 < before,
+            "{} -> {}",
+            before,
+            pages(&index)
+        );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v7_database_keeps_its_files_rows_and_seeds_folders() {
+        let dir = temp_dir("migrate-v7");
+        let db = dir.join("index.sqlite");
+        let a = synthetic(&dir, 0);
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index
+                .conn
+                .execute_batch("DROP TABLE folders; PRAGMA user_version = 7;")
+                .unwrap();
+        }
+
+        let before = now_secs();
+        let index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 8);
+        assert_eq!(index.entries("d").unwrap().len(), 1);
+        assert!(opened_at(&index, "d").unwrap() >= before);
+
+        remove_temp_dir(&dir);
+    }
+
+    /// `VACUUM` time after evicting half of a ~100 MB index. Run with
+    /// `cargo test -p riffle-app --release -- --ignored --nocapture vacuum_cost`.
+    #[test]
+    #[ignore]
+    fn vacuum_cost_on_a_100_mb_index() {
+        const N: usize = 5000;
+        let dir = temp_dir("vacuum-cost");
+        let mut index = open(&dir);
+        let thumb = Entry {
+            thumbnail: vec![0x55; 20_800],
+            ..entry()
+        };
+        for (i, chunk) in (0..N).collect::<Vec<_>>().chunks(100).enumerate() {
+            let name = format!("d{}", i % 2);
+            let rows: Vec<_> = chunk
+                .iter()
+                .map(|&i| (synthetic(&dir, i), Ok(thumb.clone())))
+                .collect();
+            index.write_batch(&name, &rows).unwrap();
+        }
+        set_opened_at(&index, "d0", 0);
+        set_opened_at(&index, "d1", NOW);
+        let size = |index: &Index| index.used_bytes().unwrap() / 1_000_000;
+        println!("before: {} MB in use", size(&index));
+        let start = Instant::now();
+        let summary = index.evict(NOW, NO_CAP).unwrap();
+        println!(
+            "evicted {} rows and vacuumed in {:.0} ms, {} MB left",
+            summary.rows,
+            start.elapsed().as_secs_f64() * 1000.0,
+            size(&index)
+        );
         remove_temp_dir(&dir);
     }
 

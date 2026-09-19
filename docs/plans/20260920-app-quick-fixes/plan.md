@@ -119,7 +119,7 @@ step.
       switch them to the new listing function with minimal edits (a shared
       helper in the test module is fine).
 
-- [ ] Step 3: Evict stale folders from the index and `VACUUM` afterwards
+- [x] Step 3: Evict stale folders from the index and `VACUUM` afterwards
   - Done when:
     - The index records when each folder was last opened (`folders(dir TEXT
       PRIMARY KEY, opened_at INTEGER NOT NULL)`, touched from `reconcile`),
@@ -209,3 +209,4 @@ step.
 
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete

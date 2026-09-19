@@ -271,6 +271,7 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
             Ok(())

@@ -22,3 +22,25 @@
 - Reading the sidecar format before the listing does not widen any race: the
   same `format` value is used for both the listing and the reconcile, exactly
   as the single later read did.
+
+## Step 3
+
+- Eviction runs from `setup` (`commands::spawn_eviction`, called right after
+  `app.manage(Scans)`) on a plain `std::thread`, not from `run_scan`'s
+  completion path. The thread holds the `Scans` lock and then the writer lock
+  for the whole evict + `VACUUM`, and skips if `Scans.running` is already set,
+  so no scan runs during it; a `scan_folder`/`start_scan` issued meanwhile
+  waits. Lock order is `Scans` then writer; nothing else holds the writer while
+  taking `Scans`.
+- Measured `VACUUM` (M3 Pro, release, ignored test
+  `vacuum_cost_on_a_100_mb_index`): 5000 rows of 20.8 KB thumbnails (106 MB in
+  use), evicting half and vacuuming took ~220 ms, leaving 53 MB.
+- The size cap is checked on pages in use (`page_count - freelist_count`),
+  since a delete only moves pages to the freelist until the `VACUUM`.
+- The reader connection was not observed erroring during `VACUUM`: under WAL
+  the vacuum writes through the WAL like any transaction, so readers keep their
+  snapshot. This is reasoning plus the passing reader test, not a dedicated
+  concurrent test.
+- The v7 -> v8 migration seeds `folders` from `files` with `opened_at = now`;
+  v2-v6 still drop `files` (condition is now `version < 7`), so they get no
+  seeded folders, which is fine since they have no `files` rows.
