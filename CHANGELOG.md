@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.6](https://github.com/minodisk/riffle/compare/v0.1.5...v0.1.6) (2026-09-19)
+
+
+### Features
+
+* **app:** add a colour label group to the filter menu ([#149](https://github.com/minodisk/riffle/issues/149)) ([931d42b](https://github.com/minodisk/riffle/commit/931d42be6882b5418ca4b9978c5da6817a4ae244))
+* **app:** add a pure strip ordering module ([#141](https://github.com/minodisk/riffle/issues/141)) ([f3b5bcd](https://github.com/minodisk/riffle/commit/f3b5bcd2f5d36c05f3e24a4efe14f7e1cf413a01))
+* **app:** add a sort choice to the strip pane ([#148](https://github.com/minodisk/riffle/issues/148)) ([7bee9db](https://github.com/minodisk/riffle/commit/7bee9db670305ccc2b098af354415d2a6f147bf3))
+* **app:** add and remove individual shortcut keys per action ([#147](https://github.com/minodisk/riffle/issues/147)) ([50eea6b](https://github.com/minodisk/riffle/commit/50eea6b81052d17ca1dca4792c0cacc69b1e5306))
+* **app:** add the Auto-advance toggle to the settings window ([#144](https://github.com/minodisk/riffle/issues/144)) ([5ef967d](https://github.com/minodisk/riffle/commit/5ef967d5ec10b2dc3ac34776a6c0c16c8bd1b4f2))
+* **app:** add the autoAdvance setting to the backend ([#139](https://github.com/minodisk/riffle/issues/139)) ([062a0d9](https://github.com/minodisk/riffle/commit/062a0d98ab3425544bd9bdb1cb9666c105be5907))
+* **app:** advance to the next file after a judgement when Auto-advance is on ([#150](https://github.com/minodisk/riffle/issues/150)) ([546dbb6](https://github.com/minodisk/riffle/commit/546dbb6ddf9f40cdb55a9db3f377d8b83eece982))
+* **app:** bind shortcuts with any modifier combination ([#166](https://github.com/minodisk/riffle/issues/166)) ([70580ca](https://github.com/minodisk/riffle/commit/70580ca4d7df691f8b188365f40831fdf10c9109))
+* **app:** install updates silently and add Check for Updates… ([#143](https://github.com/minodisk/riffle/issues/143)) ([d978438](https://github.com/minodisk/riffle/commit/d978438034ed4ffddc2d471fefa20669606da161))
+* **app:** persist the strip sort order in the settings store ([#153](https://github.com/minodisk/riffle/issues/153)) ([5b047e3](https://github.com/minodisk/riffle/commit/5b047e3ee0495cb4427d392a83cdc40e412c1f38))
+* **app:** read folder entries and thumbnails through a separate index connection ([#163](https://github.com/minodisk/riffle/issues/163)) ([7423537](https://github.com/minodisk/riffle/commit/74235373409a2caba63e3b3022dfb71338d17089))
+* **app:** set the Riffle app icon ([#165](https://github.com/minodisk/riffle/issues/165)) ([9bbe44b](https://github.com/minodisk/riffle/commit/9bbe44bf90d5143923b5272c86a4ee86768c55a3))
+* **app:** show each strip cell's sharpness relative to its neighbours ([#157](https://github.com/minodisk/riffle/issues/157)) ([b3b5fc7](https://github.com/minodisk/riffle/commit/b3b5fc7bffd9052897ae84ba663294f2827de2d9))
+* **app:** show the open folder and file in the window title ([#123](https://github.com/minodisk/riffle/issues/123)) ([a09f12f](https://github.com/minodisk/riffle/commit/a09f12f653a1ff1d5426a7ef212aa78b080ba271))
+* **app:** split the settings window into tabs ([#170](https://github.com/minodisk/riffle/issues/170)) ([b7a8af3](https://github.com/minodisk/riffle/commit/b7a8af3488f3cb5abe687e26e2d4fcc565f4840e))
+* **app:** store the sharpness score in index schema v7 ([#152](https://github.com/minodisk/riffle/issues/152)) ([bace8de](https://github.com/minodisk/riffle/commit/bace8debdd0129749f0fed99598a934015aafb85))
+* **app:** undo judgements with Edit &gt; Undo ([#136](https://github.com/minodisk/riffle/issues/136)) ([e463fd4](https://github.com/minodisk/riffle/commit/e463fd4b081c61c8d67fa4473bab0889cfc7464b))
+* **core:** score preview sharpness around the focus point at scan time ([#145](https://github.com/minodisk/riffle/issues/145)) ([a2074df](https://github.com/minodisk/riffle/commit/a2074df8025773c87d2bf5e2d53d7ef762c47fea))
+
+
+### Bug Fixes
+
+* **app,core:** drop ping, release the crop bitmap and guard decode_rgb panics ([#140](https://github.com/minodisk/riffle/issues/140)) ([6767c18](https://github.com/minodisk/riffle/commit/6767c18d21c914af2e3e833e4f4d4d79ba7d390a))
+* **app:** defer the Windows update install to quit ([#171](https://github.com/minodisk/riffle/issues/171)) ([c2bca4b](https://github.com/minodisk/riffle/commit/c2bca4bde58f3a20e673efa890c6710aff68aa44))
+* **tools:** keep delete_merged_branches.sh from detaching the current worktree ([#167](https://github.com/minodisk/riffle/issues/167)) ([78903ad](https://github.com/minodisk/riffle/commit/78903adb49c52319276f2640d105334e92e9e6aa))
+* **tools:** resolve origin/HEAD and fast-forward local main in git:main ([#146](https://github.com/minodisk/riffle/issues/146)) ([abbe752](https://github.com/minodisk/riffle/commit/abbe752ef8211b3ffa6e4628647211dea1650e95))
+
 ## [0.1.5](https://github.com/minodisk/riffle/compare/v0.1.4...v0.1.5) (2026-09-19)
 
 
