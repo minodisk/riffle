@@ -39,3 +39,8 @@
   so the reopened folder is ordered once, with no re-sort flash.
 - The capability file does not list commands; only `main.rs` needed the two
   new handlers.
+
+## Step 4
+
+- Closed todo sections are removed outright (as in the last wrap-up commit).
+- No new pitfalls for `docs/agents/tauri-app.md`; CLAUDE.md untouched (no new Rust file).
