@@ -331,13 +331,3 @@ another tool.
 - [ ] Add a menu item that moves every rejected file of the open folder, with
   its sidecars, to the OS trash (or a chosen folder), after a confirmation
   showing the count.
-
-### App: the strip is always in file-name order
-
-`list_arw_in` (`crates/app/src/commands.rs`) sorts by file name, which breaks
-capture order across a counter rollover or when two bodies share a folder.
-
-#### TODO
-
-- [ ] Add a sort choice (capture time, file name, rating) to the strip, with
-  paging following the chosen order.

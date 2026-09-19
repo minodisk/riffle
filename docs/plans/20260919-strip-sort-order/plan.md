@@ -169,7 +169,7 @@ the native menu bar.
     - Keep the value a plain string, not a settings-window control; the
       pane menu is the only UI.
 
-- [ ] Step 4: Documentation and todo close-out
+- [x] Step 4: Documentation and todo close-out
   - Done when:
     - `README.md`'s feature list gains a **Sort menu** entry beside the
       filter menu: the three orders, the tie-break rules in one line

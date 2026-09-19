@@ -65,6 +65,13 @@ embedded previews, rotated by each file's Orientation.
   are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgement that drops
   the current file out of the filter hides it at once and moves to the next
   passing file after it, else the last one before it, else the empty view.
+- **Sort menu**: orders the strip by file name, capture time or rating;
+  paging and `n / N` follow the chosen order. Capture time breaks ties by
+  sub-second then file name, and files without a capture time come last.
+  Rating puts higher stars first, then unrated files, then rejects, with file
+  name breaking ties.
+  The order settles while a folder is scanned for the first time, and the
+  choice is remembered across launches.
 - **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
   folder to the newest PhotoLab in `/Applications`.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
