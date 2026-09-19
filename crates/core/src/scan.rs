@@ -9,6 +9,7 @@ use rayon::prelude::*;
 use crate::arw::Shot;
 use crate::decode::thumbnail_jpeg;
 use crate::reader::read_preview;
+use crate::sharpness::score_preview;
 
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
@@ -27,6 +28,9 @@ pub struct Entry {
     pub shot: Shot,
     /// Unrotated thumbnail JPEG; the caller carries the Orientation.
     pub thumbnail: Vec<u8>,
+    /// `sharpness::score_preview` of the preview; `None` when it could not be
+    /// scored, which does not fail the file.
+    pub sharpness: Option<f64>,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
@@ -42,10 +46,14 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     }))
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
+    let sharpness = catch_unwind(AssertUnwindSafe(|| score_preview(&preview, arw.shot.focus)))
+        .ok()
+        .and_then(Result::ok);
     Ok(Entry {
         orientation: arw.orientation,
         shot: arw.shot,
         thumbnail,
+        sharpness,
     })
 }
 
@@ -195,6 +203,17 @@ mod tests {
         let done = done.into_inner().unwrap();
         assert!(done >= 4, "the files before the cancel are delivered");
         assert!(done < paths.len(), "the rest are not, got {done}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_preview_that_cannot_be_scored_still_yields_a_thumbnail() {
+        let dir = dir("unscored");
+        let ok = extract(&write(&dir, "ok.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
+        assert!(ok.sharpness.is_some());
+        let tiny = extract(&write(&dir, "tiny.ARW", &fixture(1, &jpeg(2, 2)))).unwrap();
+        assert_eq!(tiny.sharpness, None);
+        assert!(!tiny.thumbnail.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
