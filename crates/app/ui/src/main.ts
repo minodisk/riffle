@@ -6,13 +6,14 @@ import { History } from "./undo.js";
 import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
+import { placeholderRect } from "./zoom.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
 const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
 const CROP_HEADER_LEN = 32;
-const CROP_KIND_RGBA_V2 = 4;
+const CROP_KIND_RGBA_V3 = 5;
 // Turned on by the settings window's `Timing logs` item through the `debug`
 // event. That item only shows in a development build, so elsewhere this stays
 // off.
@@ -187,6 +188,9 @@ let crop: {
   pointY: number;
   cropSeq: number;
   orientation: number;
+  // The full JPEG size the crop was cut from, for placing the placeholder.
+  fullWidth: number;
+  fullHeight: number;
   // The device-pixel viewport size (`canvas.client*` × dpr) at request time,
   // so a resize that lands while a request is already in flight (silently
   // dropped, since `requestCrop` no-ops on `cropInFlight`) is still noticed
@@ -693,13 +697,16 @@ function drawZoom(): void {
   }
   const focus = files.length > 0 ? entries.get(files[index])?.focus : undefined;
   if (placeholderShown !== null && focus !== undefined && focus !== null) {
-    // The full JPEG is taken to be the sensor size, which is what the crop
-    // was scaled onto; one preview pixel is then `scale` JPEG pixels.
-    const scale = focus.sensor_w / placeholderShown.bitmap.width;
-    const width = placeholderShown.bitmap.width * scale;
-    const height = placeholderShown.bitmap.height * scale;
-    const x = (focus.x * width) / focus.sensor_w;
-    const y = (focus.y * height) / focus.sensor_h;
+    const full =
+      crop !== null && crop.cropSeq === seq
+        ? { width: crop.fullWidth, height: crop.fullHeight }
+        : null;
+    const { x, y, width, height } = placeholderRect(
+      placeholderShown.bitmap.width,
+      placeholderShown.bitmap.height,
+      focus,
+      full,
+    );
     context.drawImage(placeholderShown.bitmap, -x, -y, width, height);
   }
   if (crop !== null && crop.cropSeq === seq) {
@@ -754,7 +761,7 @@ function requestCrop(): void {
       }
       const header = new DataView(payload, 0, CROP_HEADER_LEN);
       const kind = header.getUint16(0, true);
-      if (kind !== CROP_KIND_RGBA_V2) {
+      if (kind !== CROP_KIND_RGBA_V3) {
         throw new Error(`unknown crop payload kind ${kind}`);
       }
       const orientation = header.getUint16(2, true);
@@ -793,6 +800,8 @@ function requestCrop(): void {
         pointY: header.getUint32(16, true),
         cropSeq: current,
         orientation,
+        fullWidth: header.getUint16(28, true),
+        fullHeight: header.getUint16(30, true),
         requestedWidth,
         requestedHeight,
       };

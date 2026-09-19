@@ -29,9 +29,10 @@ pub const THUMBNAIL_KIND_JPEG_V1: u16 = 2;
 /// Size of the header that precedes the pixels in a `focus_crop` payload.
 pub const CROP_HEADER_LEN: usize = 32;
 
-/// Tag for the third payload kind: a raw RGBA focus crop, v2. v1 was the same
-/// pixels behind a 24-byte header without the timings.
-pub const CROP_KIND_RGBA_V2: u16 = 4;
+/// Tag for the third payload kind: a raw RGBA focus crop, v3. v1 was the same
+/// pixels behind a 24-byte header without the timings; v2 left the last word
+/// reserved instead of carrying the full JPEG size.
+pub const CROP_KIND_RGBA_V3: u16 = 5;
 
 /// The largest crop produced per axis, in JPEG pixels. The payload is raw
 /// RGBA, so this caps it at 4 MB; the decode itself barely depends on the
@@ -68,7 +69,7 @@ fn payload(kind: u16, orientation: u16, jpeg: &[u8]) -> Vec<u8> {
 ///
 /// | offset | size | field                                     |
 /// |--------|------|-------------------------------------------|
-/// | 0      | 2    | kind/version tag (`CROP_KIND_RGBA_V2`)    |
+/// | 0      | 2    | kind/version tag (`CROP_KIND_RGBA_V3`)    |
 /// | 2      | 2    | EXIF Orientation (1..8)                   |
 /// | 4      | 4    | crop width in pixels                      |
 /// | 8      | 4    | crop height in pixels                     |
@@ -76,7 +77,8 @@ fn payload(kind: u16, orientation: u16, jpeg: &[u8]) -> Vec<u8> {
 /// | 16     | 4    | point of interest y, in crop pixels       |
 /// | 20     | 4    | ranged read of the JpgFromRaw, in us      |
 /// | 24     | 4    | partial decode, in us                     |
-/// | 28     | 4    | reserved, zero                            |
+/// | 28     | 2    | full JPEG width in pixels                 |
+/// | 30     | 2    | full JPEG height in pixels                |
 ///
 /// The crop is cut in unrotated JPEG coordinates; the Orientation is the one
 /// the frontend already applies to the preview.
@@ -86,7 +88,7 @@ fn crop_payload(
     timing: CropTiming,
 ) -> Vec<u8> {
     let mut out = Vec::with_capacity(CROP_HEADER_LEN + crop.crop.pixels.len());
-    out.extend_from_slice(&CROP_KIND_RGBA_V2.to_le_bytes());
+    out.extend_from_slice(&CROP_KIND_RGBA_V3.to_le_bytes());
     out.extend_from_slice(&orientation.to_le_bytes());
     for value in [
         crop.crop.width,
@@ -98,7 +100,8 @@ fn crop_payload(
     }
     out.extend_from_slice(&timing.read_us.to_le_bytes());
     out.extend_from_slice(&timing.decode_us.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&(crop.crop.image_width as u16).to_le_bytes());
+    out.extend_from_slice(&(crop.crop.image_height as u16).to_le_bytes());
     out.extend_from_slice(&crop.crop.pixels);
     out
 }
@@ -1671,6 +1674,8 @@ mod tests {
                 height: 1,
                 x: 16,
                 y: 32,
+                image_width: 6000,
+                image_height: 4000,
             },
             point_x: 7,
             point_y: 9,
@@ -1687,7 +1692,7 @@ mod tests {
         let u16at = |at: usize| u16::from_le_bytes([out[at], out[at + 1]]);
         let u32at =
             |at: usize| u32::from_le_bytes([out[at], out[at + 1], out[at + 2], out[at + 3]]);
-        assert_eq!(u16at(0), CROP_KIND_RGBA_V2);
+        assert_eq!(u16at(0), CROP_KIND_RGBA_V3);
         assert_eq!(u16at(2), 8);
         assert_eq!(u32at(4), 2);
         assert_eq!(u32at(8), 1);
@@ -1695,7 +1700,8 @@ mod tests {
         assert_eq!(u32at(16), 9);
         assert_eq!(u32at(20), 731);
         assert_eq!(u32at(24), 21_500);
-        assert_eq!(u32at(28), 0);
+        assert_eq!(u16at(28), 6000);
+        assert_eq!(u16at(30), 4000);
         assert_eq!(&out[CROP_HEADER_LEN..], &crop.crop.pixels);
     }
 
@@ -1725,6 +1731,7 @@ mod tests {
         assert_eq!(crop.point_x, 200 - crop.crop.x);
         assert_eq!(crop.crop.x % 16, 0);
         assert_eq!(crop.point_y, 24);
+        assert_eq!((crop.crop.image_width, crop.crop.image_height), (400, 300));
 
         remove_temp_dir(&dir);
     }

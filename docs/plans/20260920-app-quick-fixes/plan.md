@@ -41,7 +41,7 @@ step.
 
 ## Steps
 
-- [ ] Step 1: Carry the full JPEG size in the `focus_crop` header and use it for the zoom placeholder
+- [x] Step 1: Carry the full JPEG size in the `focus_crop` header and use it for the zoom placeholder
   - Done when:
     - `riffle_core::partial::FocusCrop` (or `Crop`) exposes the decoded JPEG's
       full width and height; `crates/cli` still compiles unchanged apart from
@@ -207,4 +207,4 @@ step.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
