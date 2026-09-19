@@ -184,26 +184,31 @@ with "could not find `serde_json` in the list of imported crates".
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Step 1.
 
-### Self-update's install step bypasses the sidecar flush on Windows only (Hit)
+### Self-update defers the install to quit on Windows only (Hit)
 
 `tauri-plugin-updater-2.11.0`'s macOS and Linux (AppImage) `install_inner`
 only extract and rename bundles (`std::fs::rename`, with an authorised
-fallback); they never exit or signal the process, so
-`RunEvent::ExitRequested` and the sidecar writer's flush still run normally on
-a later real quit. Windows is different: the running exe is locked, so its
+fallback); they never exit or signal the process, so `update.rs` keeps
+`download_and_install` there and `RunEvent::ExitRequested` runs normally on a
+later real quit. Windows is different: the running exe is locked, so its
 `install_inner` launches the installer and calls `std::process::exit(0)`
-directly, skipping `ExitRequested` — the "installed, used on next launch"
-promise does not hold there, since the app quits mid-session. `update.rs`
-registers an `on_before_exit` hook to flush the sidecar writer for this path
-(compiled, not exercised against a real install).
+directly. `update.rs` therefore only calls `Update::download` on Windows (in
+the background, signature-verified) and keeps `(Update, Vec<u8>)` in
+`UpdateRun`; `main.rs`'s `ExitRequested` arm calls `update::install_pending`
+right after the sidecar writer's flush, so the installer starts only once
+every pending write is on disk. The updater is built with
+`restart_after_install(false)` (the Windows default is `true`), so quitting
+means quitting. Compiled, not exercised against a real install.
 
 - Why: only Windows needs the exe unlocked before it can overwrite itself;
-  macOS/Linux replace files the running process isn't holding open.
-- When touching the update or sidecar-flush paths, don't assume the
-  install-time flush behaves the same across platforms — Windows needs its own
-  explicit hook, and that hook itself is unverified end-to-end.
+  macOS/Linux replace files the running process isn't holding open. Deferring
+  on macOS would run `install_inner`'s `run_on_main_thread` fallback from the
+  main-thread quit callback, a deadlock risk.
+- When touching the update or sidecar-flush paths, keep `install_pending`
+  after the flush in `ExitRequested`, and don't assume `install` returns on
+  Windows.
 - Source: `docs/plans/_archived/20260919-silent-auto-update/learnings.md`,
-  Step 1.
+  Step 1; `docs/plans/_archived/20260920-windows-deferred-update/`.
 
 ### App items go into the default menu's own submenus (Hit)
 

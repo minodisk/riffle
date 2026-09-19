@@ -221,14 +221,6 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 
 - [ ] Verify the update path once a newer release is out: install the current release, publish the next one, then launch the installed build (and separately, use **Check for Updates…**). Done when the background flow installs the newer release after the signature check and it is used on the next launch, and the menu item reports the up-to-date / installed / already-installed outcomes correctly, on macOS, Windows, and Linux AppImage.
 
-### App: Windows self-update exits the app mid-session
-
-On Windows, `tauri-plugin-updater`'s `install_inner` launches the installer and calls `std::process::exit(0)` because the running exe is locked, so the "installed, used on next launch" behaviour does not hold there: the app quits mid-session. See `crates/app/src/update.rs` and `docs/plans/_archived/20260919-silent-auto-update/learnings.md`.
-
-#### TODO
-
-- [ ] Download the update in the background and install it only on quit (`Update::download`, then `Update::install` from `ExitRequested`), so a running Windows session is never interrupted.
-
 ### App: `cancelling_after_the_first_batch_keeps_what_was_written` races on fast runners
 
 The test in `crates/app/src/index.rs` races the scan-cancellation against the scan itself instead of cancelling at a deterministic point. It already failed once on `macos-latest` (PR #58); the fix there (a700d67) only widened the file count from `BATCH * 4` to `BATCH * 40`, which a faster machine can outrun again.
