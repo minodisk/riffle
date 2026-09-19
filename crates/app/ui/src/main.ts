@@ -1236,7 +1236,7 @@ function filterChanged(): void {
 filterToggle.addEventListener("click", () => {
   // Drop the focus, or `Space` (the 1:1 toggle) would press it again.
   filterToggle.blur();
-  setFilterMenuOpen(filterMenu.hidden);
+  setFilterMenuOpen(!!filterMenu.hidden);
 });
 
 // The menu stays open while items are toggled, so several can be checked in

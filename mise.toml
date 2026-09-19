@@ -1,6 +1,6 @@
 [tools]
 actionlint = "1.7.12"
-node = "20.19.2"
+node = "24.21.0"
 pnpm = "10.17.1"
 rust = { version = "1.97", components = "rustfmt,clippy" }
 shellcheck = "0.11.0"
@@ -52,7 +52,7 @@ shell = "bash -c"
 run = """
 set -euo pipefail
 pnpm install --frozen-lockfile
-pnpm exec tsc --noEmit -p crates/app/ui/tsconfig.json
+pnpm exec vp check --no-fmt
 cargo fmt --all -- --check
 shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
 actionlint

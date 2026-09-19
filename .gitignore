@@ -2,6 +2,6 @@
 /out
 node_modules
 
-crates/app/ui/**/*.js
+crates/app/ui/dist
 crates/app/gen/
 /tmp
