@@ -263,21 +263,6 @@ wiring) would let this and other `AppHandle`-taking commands in
   unit-tested, then add the deferred `switch_sidecar_format` race test (rating
   set between the format swap and `reset_sidecars`).
 
-### App: no sharpness cue to catch missed focus without the 1:1 view
-
-Spotting a missed focus or camera shake needs `Space` on every file. A relative
-sharpness score is most useful for picking the sharpest frame of a burst;
-absolute thresholds are unreliable because edge content varies by subject.
-
-#### TODO
-
-- [ ] Compute a sharpness score around the focus point (the frame centre when
-  none is recorded), e.g. the variance of the Laplacian, and show it relative
-  to neighbouring frames (a strip badge, a sort or a filter).
-- [ ] Decide between the embedded preview (cheap, catches only gross misses)
-  and a JpgFromRaw crop (20-40ms per file, which a scan-time pass would add to
-  the folder open).
-
 ### App: rejected files cannot be cleared out from the app
 
 Culling ends with the rejects still in the folder; removing them means going to
