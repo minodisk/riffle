@@ -896,7 +896,10 @@ fn update_keymap(
     if let Err(e) = saved {
         log::warn!("failed to save the shortcuts: {e}");
     }
-    Ok(keymap.bindings())
+    let bindings = keymap.bindings();
+    // The settings window edits the keymap; the main window culls with it.
+    let _ = app.emit("shortcuts-changed", &bindings);
+    Ok(bindings)
 }
 
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`

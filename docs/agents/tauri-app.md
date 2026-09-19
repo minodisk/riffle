@@ -157,28 +157,25 @@ with "could not find `serde_json` in the list of imported crates".
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Step 1.
 
-### A menu that reads a plugin's state is built in `setup`, not `Builder::menu` (Hit)
+### App items go into the default menu's own submenus (Hit)
 
-The `Sidecar` menu's check items reflect the persisted `sidecarFormat`, which
-lives in `tauri-plugin-store`. The whole menu (default items, `Sidecar`, the
-dev-only `Debug`) is built in `setup` and installed with `app.set_menu`, with
-one `on_menu_event` dispatching to every submenu.
+The menu bar keeps only the platform's default submenus. `app_menu::build`
+finds them in `Menu::default` by title and inserts into them: `Settings...`
+(`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
+`Open in DxO PhotoLab` at the top of `File`. Linux's default has no `File`, so
+one is prepended there. Settings themselves (sidecar format, shortcuts, the
+dev-only timing logs) live in a separate `settings` window
+(`ui/settings.html`), not in menu check items, so the menu reads no plugin
+state and is built in `Builder::menu`.
 
-- Why: `Builder::menu` runs before the plugins are initialised, so the store
-  cannot be read there.
-- Also: a relative store path resolves against the app **data** dir; the
-  settings file is opened with an absolute `app_config_dir()` path.
-- Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
-  Steps 2-3.
+The settings window is its own JS context, so a change reaches the main window
+as a backend event (`shortcuts-changed`, `sidecar-format`, `debug`), and state
+both windows read (timing logs) lives in Rust. The window is listed in
+`capabilities/default.json` so it can invoke, and it is closed when `main` is
+destroyed so it never keeps the app running alone.
 
-### A submenu's position follows the order it is appended (Hit)
-
-`Settings` is added in `app_menu::build` right after `Folder`, while `Sidecar`
-is appended later in `build_menu`, so the menu bar reads `Folder`, `Settings`,
-`Sidecar`. Where a new submenu is appended decides where it shows; check the
-order when adding one.
-
-- Source: `docs/plans/20260918-customizable-shortcuts/learnings.md`, Step 4.
+- Why: a submenu per setting cluttered the menu bar; macOS apps put
+  `Settings...` in the app menu.
 
 ### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
 

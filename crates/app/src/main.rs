@@ -6,43 +6,24 @@ mod index;
 mod shortcuts;
 mod sidecar;
 
-// The Debug menu exists only in a development build; a distributable build
-// leaves the `devtools` feature off and drops it entirely.
-#[cfg(any(feature = "devtools", debug_assertions))]
-mod debug_menu {
-    use tauri::menu::{CheckMenuItem, Menu, MenuEvent, Submenu};
-    use tauri::{AppHandle, Emitter, Manager, Wry};
-
-    const TIMING_ID: &str = "debug-timing";
-
-    /// Holds the item so the event handler can read back the checked state
-    /// the platform toggled for us.
-    struct TimingItem(CheckMenuItem<Wry>);
-
-    pub fn append(handle: &AppHandle, menu: &Menu<Wry>) -> tauri::Result<()> {
-        let timing =
-            CheckMenuItem::with_id(handle, TIMING_ID, "Timing logs", true, false, None::<&str>)?;
-        let debug = Submenu::with_items(handle, "Debug", true, &[&timing])?;
-        menu.append(&debug)?;
-        handle.manage(TimingItem(timing));
-        Ok(())
-    }
-
-    pub fn on_event(app: &AppHandle, event: &MenuEvent) {
-        if event.id() != TIMING_ID {
-            return;
-        }
-        let checked = app.state::<TimingItem>().0.is_checked().unwrap_or(false);
-        let _ = app.emit("debug", checked);
-    }
-}
-
 mod app_menu {
-    use tauri::menu::{Menu, MenuEvent, MenuItem, Submenu};
-    use tauri::{AppHandle, Emitter, Wry};
+    use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
+    use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
 
     const PHOTOLAB_ID: &str = "open-in-photolab";
-    const SHORTCUTS_ID: &str = "open-shortcuts";
+    const SETTINGS_ID: &str = "open-settings";
+
+    /// The default menu's submenu titled `title`, if the platform has one.
+    fn submenu(menu: &Menu<Wry>, title: &str) -> tauri::Result<Option<Submenu<Wry>>> {
+        for item in menu.items()? {
+            if let MenuItemKind::Submenu(submenu) = item {
+                if submenu.text()? == title {
+                    return Ok(Some(submenu));
+                }
+            }
+        }
+        Ok(None)
+    }
 
     pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
         // The default menu carries the platform's standard items (Quit, Copy,
@@ -55,19 +36,31 @@ mod app_menu {
             true,
             None::<&str>,
         )?;
-        let folder = Submenu::with_items(handle, "Folder", true, &[&photolab])?;
-        menu.append(&folder)?;
-        let shortcuts = MenuItem::with_id(
+        let settings = MenuItem::with_id(
             handle,
-            SHORTCUTS_ID,
-            "Keyboard Shortcuts...",
+            SETTINGS_ID,
+            "Settings...",
             true,
             Some("CmdOrCtrl+,"),
         )?;
-        let settings = Submenu::with_items(handle, "Settings", true, &[&shortcuts])?;
-        menu.append(&settings)?;
-        #[cfg(any(feature = "devtools", debug_assertions))]
-        super::debug_menu::append(handle, &menu)?;
+        // Linux's default menu has no File submenu, so one is added there.
+        let file = match submenu(&menu, "File")? {
+            Some(file) => file,
+            None => {
+                let file = Submenu::new(handle, "File", true)?;
+                menu.prepend(&file)?;
+                file
+            }
+        };
+        file.prepend_items(&[&photolab, &PredefinedMenuItem::separator(handle)?])?;
+        // macOS puts Settings in the app menu, right after About; elsewhere it
+        // goes at the end of File's own items, above Close Window and Quit.
+        #[cfg(target_os = "macos")]
+        if let Some(MenuItemKind::Submenu(app)) = menu.items()?.into_iter().next() {
+            app.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 2)?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        file.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 2)?;
         Ok(menu)
     }
 
@@ -76,95 +69,82 @@ mod app_menu {
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
         }
-        if event.id() == SHORTCUTS_ID {
-            let _ = app.emit("open-shortcuts", ());
+        if event.id() == SETTINGS_ID {
+            if let Err(e) = open_settings(app) {
+                log::error!("failed to open the settings window: {e}");
+            }
         }
-        #[cfg(any(feature = "devtools", debug_assertions))]
-        super::debug_menu::on_event(app, &event);
+    }
+
+    /// Focus the settings window, or open it when it is not open yet.
+    fn open_settings(app: &AppHandle) -> tauri::Result<()> {
+        if let Some(window) = app.get_webview_window(super::SETTINGS_WINDOW) {
+            return window.set_focus();
+        }
+        WebviewWindowBuilder::new(
+            app,
+            super::SETTINGS_WINDOW,
+            WebviewUrl::App("settings.html".into()),
+        )
+        .title("Settings")
+        .inner_size(480.0, 640.0)
+        .build()?;
+        Ok(())
     }
 }
 
 use std::sync::{Arc, Mutex};
 
-use tauri::menu::{CheckMenuItem, Menu, MenuEvent, Submenu};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 use sidecar::SidecarFormat;
 
-const XMP_ID: &str = "sidecar-xmp";
-const DOP_ID: &str = "sidecar-dop";
+const SETTINGS_WINDOW: &str = "settings";
 
-/// The `Sidecar` submenu's items, kept so the handler can check the selected
-/// one and uncheck the other (the platform toggles only the clicked item).
-struct SidecarItems {
-    xmp: CheckMenuItem<Wry>,
-    dop: CheckMenuItem<Wry>,
+/// Whether timing logs are on; the settings window toggles it and the main
+/// window logs by it, so it is kept here where both can reach it.
+struct TimingLogs(AtomicBool);
+
+#[tauri::command]
+fn timing_logs(state: tauri::State<TimingLogs>) -> bool {
+    state.0.load(Ordering::Relaxed)
 }
 
-impl SidecarItems {
-    fn show(&self, format: SidecarFormat) {
-        let _ = self.xmp.set_checked(format == SidecarFormat::Xmp);
-        let _ = self.dop.set_checked(format == SidecarFormat::Dop);
-    }
+#[tauri::command]
+fn set_timing_logs(app: AppHandle, enabled: bool) {
+    app.state::<TimingLogs>()
+        .0
+        .store(enabled, Ordering::Relaxed);
+    let _ = app.emit("debug", enabled);
 }
 
-/// Built in `setup` rather than through `Builder::menu`, which runs before
-/// the plugins are initialised and so before the settings store can be read.
-fn build_menu(handle: &AppHandle, format: SidecarFormat) -> tauri::Result<Menu<Wry>> {
-    // Carries the Folder/PhotoLab item (and, in a development build, Debug)
-    // alongside the platform's standard items.
-    let menu = app_menu::build(handle)?;
-    let xmp = CheckMenuItem::with_id(
-        handle,
-        XMP_ID,
-        "XMP (.xmp)",
-        true,
-        format == SidecarFormat::Xmp,
-        None::<&str>,
-    )?;
-    let dop = CheckMenuItem::with_id(
-        handle,
-        DOP_ID,
-        "DxO PhotoLab (.dop)",
-        true,
-        format == SidecarFormat::Dop,
-        None::<&str>,
-    )?;
-    menu.append(&Submenu::with_items(
-        handle,
-        "Sidecar",
-        true,
-        &[&xmp, &dop],
-    )?)?;
-    handle.manage(SidecarItems { xmp, dop });
-    Ok(menu)
-}
-
-fn on_menu_event(app: &AppHandle, event: MenuEvent) {
-    let format = match event.id().as_ref() {
-        XMP_ID => SidecarFormat::Xmp,
-        DOP_ID => SidecarFormat::Dop,
-        _ => {
-            app_menu::on_event(app, event);
-            return;
-        }
-    };
-    app.state::<SidecarItems>().show(format);
-    let current = *index::lock(&app.state::<commands::AppSidecarFormat>().0);
-    if format == current {
-        return;
-    }
+/// Switch the sidecar format from the settings window. The backend then emits
+/// `sidecar-format` so the frontend reopens the folder in the new format.
+#[tauri::command]
+async fn set_sidecar_format(app: AppHandle, format: String) -> Result<(), String> {
+    let format = SidecarFormat::from_setting(Some(&format));
+    let unchanged = *index::lock(&app.state::<commands::AppSidecarFormat>().0) == format;
     // The switch drains the writer and touches SQLite and the settings file,
-    // none of which may block the main thread this handler runs on.
-    let app = app.clone();
+    // none of which may block the main thread.
+    let switched = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        match commands::switch_sidecar_format(&app, format) {
-            Ok(()) => {
-                let _ = app.emit("sidecar-format", format.setting());
-            }
-            Err(e) => eprintln!("failed to switch the sidecar format: {e}"),
-        }
-    });
+        commands::switch_sidecar_format(&switched, format)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    if !unchanged {
+        let _ = app.emit("sidecar-format", format.setting());
+    }
+    Ok(())
+}
+
+/// Whether this is a development build, which shows the settings window's
+/// Debug section; a distributable build leaves the `devtools` feature off.
+#[tauri::command]
+fn debug_build() -> bool {
+    cfg!(any(feature = "devtools", debug_assertions))
 }
 
 /// The payload of the `sidecar-error` event: a sidecar that could not be
@@ -209,7 +189,7 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::new().build());
     builder
         .menu(app_menu::build)
-        .on_menu_event(on_menu_event)
+        .on_menu_event(app_menu::on_event)
         .setup(|app| {
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
@@ -237,7 +217,7 @@ fn main() {
                 })
             });
             let (format, overrides, keymap) = commands::load_settings(app.handle());
-            app.set_menu(build_menu(app.handle(), format)?)?;
+            app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppKeymap(Mutex::new(keymap)));
             app.manage(commands::AppShortcutOverrides(Mutex::new(overrides)));
@@ -267,7 +247,11 @@ fn main() {
             commands::set_shortcut,
             commands::reset_shortcut,
             commands::reset_shortcuts,
-            commands::open_in_photolab
+            commands::open_in_photolab,
+            set_sidecar_format,
+            debug_build,
+            timing_logs,
+            set_timing_logs
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -276,6 +260,20 @@ fn main() {
             // when the user quits, so the exit waits on an explicit drain
             // rather than on the writer's `Drop`, which is not guaranteed to
             // run during teardown.
+            // The settings window serves the main one, so it closes with it
+            // rather than keeping the app running on its own.
+            if let RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::Destroyed,
+                ..
+            } = &event
+            {
+                if label == "main" {
+                    if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
+                        let _ = settings.close();
+                    }
+                }
+            }
             if let RunEvent::ExitRequested { .. } = event {
                 if let Some(writer) = &app.state::<commands::AppWriter>().0 {
                     writer.flush(sidecar::DRAIN_TIMEOUT);
