@@ -61,7 +61,7 @@ embedded previews, rotated by each file's Orientation.
   aperture, shutter speed, ISO and focal length (grouped into ranges such as
   `24–35 mm`). Each group lists only values present in the folder. Checks
   within a group are OR-ed, groups are AND-ed, and `Reset` clears them all.
-- **Open in DxO PhotoLab**: `Folder > Open in DxO PhotoLab` hands the open
+- **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
   folder to the newest PhotoLab in `/Applications`.
 
 ### Keys
@@ -79,7 +79,7 @@ embedded previews, rotated by each file's Orientation.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
 
-The colour label keys follow the format chosen in the `Sidecar` menu, and
+The colour label keys follow the format chosen in `Riffle > Settings...`, and
 switch with it without a restart. Pressing the key of the label the file
 already has clears it; the stars, the flag and `0` leave the label alone.
 
@@ -94,7 +94,7 @@ already has clears it; the stars, the flag and `0` leave the label alone.
 | purple | `-` | `Ctrl+Alt+7` |
 | clear the label | — | `Ctrl+Alt+0` |
 
-Keys can be changed from `Settings > Keyboard Shortcuts...` (`CmdOrCtrl+,`):
+Keys can be changed from `Riffle > Settings...` (`CmdOrCtrl+,`):
 click a row and press the new key (`Escape` cancels). The new key replaces all
 of that action's keys. A key already used by another action is refused, `p` is
 reserved for pick, and the only modifier combination that can be bound is
@@ -108,7 +108,7 @@ restores the current format's defaults.
 ### Ratings and sidecars
 
 The RAW file is never written. Judgements go into a sidecar next to it, in one
-of two formats chosen from the `Sidecar` menu:
+of two formats chosen in `Riffle > Settings...`:
 
 - **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` — `0`-`5`,
   or `-1` for a reject — and `xmp:Label`, Lightroom's colour label (`Red`,

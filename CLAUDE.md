@@ -14,7 +14,7 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
-XMP-or-`.dop` setting chosen from the `Sidecar` menu and persisted in the
+XMP-or-`.dop` setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, and `src/shortcuts.rs` the keymap:
 the default keys, whose colour label keys differ per sidecar format, and the
 user's overrides, persisted in the `shortcuts` key).
