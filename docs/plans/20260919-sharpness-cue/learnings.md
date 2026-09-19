@@ -37,3 +37,20 @@
   guarded by `version != SCHEMA_VERSION`) needed a `version < 6` guard, since a
   v6 `ratings` table already has the column. The two existing migration tests
   asserting `user_version == 6` were bumped to 7.
+
+## Step 3
+
+- The cue is a 3px bar up the left edge of the image box (`top: 24px`,
+  96px tall, `transform: scaleY(ratio)` from the bottom), grey, and in the
+  pick colour for the sharpest of its run. It sits below the top-left pick /
+  reject dot and never touches the top-right stars.
+- The meta pane's `Sharpness` row shows the raw score with one decimal
+  (`toFixed(1)`).
+- `refilter` returns early when the visible list did not change, so
+  `refreshEntries` calls `applySharpness()` itself before `refilter()`; when
+  `refilter` does rebuild, `setFiles` clears the strip's store and `refilter`
+  re-applies it.
+- Unverified (for the user): the manual on-screen checks (the burst's
+  sharpest frame in the `best` colour, a missed frame's shorter bar, the cue
+  recomputing on filter, an older-index folder rescanned once and then showing
+  cues). GUI automation does not work on this machine.
