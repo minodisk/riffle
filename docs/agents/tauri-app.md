@@ -576,3 +576,9 @@ forward, and injected keystrokes are dropped silently.
 - Plan any GUI check as a **manual confirmation by the user**, and list exactly
   what they should look at. Report unchecked behaviour as "not verified"; that
   is more useful than an implied pass.
+
+### `riffle-app` is bin-only: use `cargo test <name>`, not `--lib` (Hit)
+
+`cargo test --lib` fails because `crates/app` has no library target.
+
+- Run `cargo test <test_name>` (optionally scoped with `cd crates/app`) instead.

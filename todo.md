@@ -2,20 +2,6 @@
 
 ## Cross-cutting / other
 
-### App: a shortcut override skipped under the current format is dropped on the next rebind
-
-`update_keymap` (`crates/app/src/commands.rs`) saves `Keymap::overrides()` of
-the resolved keymap, so an override skipped because it collides with the
-current sidecar format's default (e.g. `reject: ["6"]` under XMP, which
-collides with the `red` label default) is dropped from the stored `shortcuts`
-value the next time the user rebinds anything, even though it would apply
-under `.dop`.
-
-#### TODO
-
-- [ ] Persist an override that is only inactive under the current format,
-      rather than round-tripping through the resolved keymap.
-
 ### App: unmeasured end-to-end per-page latency
 
 End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see the Phase 4 baseline table in the README.
@@ -119,9 +105,6 @@ that step.
 
 - [ ] Give sidecar errors a sticky, dismissible display distinct from the
   transient status note.
-- [ ] When a `sidecar-error` fires after an optimistic rating keypress,
-  revert the "has sidecar" flag it set (`crates/app/ui/src/main.ts`) rather
-  than leaving it showing a sidecar that was never written.
 
 ### App: folder open lists the directory twice (ARWs, then sidecars)
 
@@ -190,14 +173,6 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 #### TODO
 
 - [ ] Verify the update path once a newer release is out: install the current release, publish the next one, then launch the installed build (and separately, use **Check for Updates…**). Done when the background flow installs the newer release after the signature check and it is used on the next launch, and the menu item reports the up-to-date / installed / already-installed outcomes correctly, on macOS, Windows, and Linux AppImage.
-
-### App: `cancelling_after_the_first_batch_keeps_what_was_written` races on fast runners
-
-The test in `crates/app/src/index.rs` races the scan-cancellation against the scan itself instead of cancelling at a deterministic point. It already failed once on `macos-latest` (PR #58); the fix there (a700d67) only widened the file count from `BATCH * 4` to `BATCH * 40`, which a faster machine can outrun again.
-
-#### TODO
-
-- [ ] Make `cancelling_after_the_first_batch_keeps_what_was_written` in `crates/app/src/index.rs` cancel at a deterministic point (e.g. from the progress callback after the first batch) instead of relying on wall-clock ordering, and confirm it passes repeatedly on all three CI platforms.
 
 ### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
 
