@@ -192,6 +192,10 @@ window.addEventListener("keydown", (event) => {
 });
 
 function selectTab(panel: string): void {
+  if (capturing !== null) {
+    capturing = null;
+    renderShortcuts();
+  }
   for (const tab of tabs) {
     const selected = tab.getAttribute("aria-controls") === panel;
     tab.setAttribute("aria-selected", String(selected));

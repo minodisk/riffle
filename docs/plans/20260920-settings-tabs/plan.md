@@ -120,4 +120,7 @@ Current state the plan is based on:
 
 ## Progress
 
-- (none yet)
+- Step 1: Split the settings window into top tabs. Also fixed a review
+  finding (round 1): clicking a tab while a Shortcuts row was capturing left
+  `capturing` set and the panel hidden, so the next keypress silently added a
+  binding; `selectTab` now cancels any active capture.
