@@ -79,3 +79,9 @@ None.
   (the functions depend on them); `main.ts` imports `Exif`, `ExifGroup` and
   `exifKey` back. So the `main.ts` edit is the import plus the removals, not
   the import alone.
+
+## Step 6
+
+- The `tsc`-era frontend notes in `docs/agents/tauri-app.md` were rewritten:
+  the `outDir`/`rootDir` pitfall was dropped (nothing emits `.js` any more), and
+  the `export {};` advice was replaced since Oxlint now flags it.
