@@ -7,8 +7,9 @@
 //! `xmp:Label` is ever written.
 //!
 //! An existing sidecar is patched by splicing the bytes of the `Rating` or
-//! `Label` value (or removing the `Label` property), so a Lightroom sidecar keeps its `crs:` develop settings
-//! byte-for-byte; a sidecar is never regenerated from a parse.
+//! `Label` value (or removing the `Label` property), so a Lightroom sidecar
+//! keeps its `crs:` develop settings byte-for-byte; a sidecar is never
+//! regenerated from a parse.
 
 use std::path::{Path, PathBuf};
 
@@ -168,7 +169,7 @@ fn locate(text: &str, name: &str) -> Result<Location, String> {
     let mut pos = 0usize;
     let mut insert: Option<Location> = None;
     let mut first_description_seen = false;
-    let mut element: Option<(usize, Option<(usize, usize)>)> = None;
+    let mut element: Option<(usize, usize)> = None;
     loop {
         let event = reader
             .read_event()
@@ -204,25 +205,21 @@ fn locate(text: &str, name: &str) -> Result<Location, String> {
                         });
                     }
                 } else if bound_to(&ns, XMP_NS) && local.as_ref() == name {
-                    element = matches!(event, Event::Start(_)).then_some((pos, None));
-                }
-            }
-            Event::Text(_) => {
-                if let Some((_, value @ None)) = &mut element {
-                    *value = Some((pos, end));
+                    element = matches!(event, Event::Start(_)).then_some((pos, end));
                 }
             }
             Event::End(e) => {
                 let (ns, local) = reader.resolver().resolve_element(e.name());
                 if bound_to(&ns, XMP_NS) && local.as_ref() == name {
-                    if let Some((open, value)) = element {
-                        // An empty element-form property, `<xmp:Rating></xmp:Rating>`,
-                        // never produces a `Text` event: splice the empty range
-                        // between the tags instead of falling through to `insert`.
-                        let (start, end_value) = value.unwrap_or((pos, pos));
+                    if let Some((open, open_tag_end)) = element {
+                        // The value range spans everything between the open
+                        // and close tags, `open_tag_end..pos` (`pos` is the
+                        // start of this End event), so entity references such
+                        // as `&amp;` inside the text stay part of the value
+                        // instead of being cut at the first `Text` event.
                         return Ok(Location::Value {
-                            start,
-                            end: end_value,
+                            start: open_tag_end,
+                            end: pos,
                             remove: line_or_element(text, open, end),
                         });
                     }
@@ -703,6 +700,19 @@ mod tests {
             Some("Green".to_string())
         );
         assert_eq!(read_rating(rated.as_bytes()).unwrap(), Some(2));
+    }
+
+    #[test]
+    fn an_element_label_with_an_entity_reference_reads_and_sets_whole() {
+        let source = with_element_label("Red &amp; Blue");
+        assert_eq!(
+            read_label(source.as_bytes()).unwrap(),
+            Some("Red &amp; Blue".to_string())
+        );
+        assert_eq!(
+            labelled(&source, Some("Green")),
+            with_element_label("Green")
+        );
     }
 
     #[test]
