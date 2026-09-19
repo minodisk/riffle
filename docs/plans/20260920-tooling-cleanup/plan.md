@@ -61,7 +61,7 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
       it; per the develop skill the read-only result goes into the step's
       progress report.
 
-- [ ] Step 2: Add a Markdown link checker to `mise run lint`
+- [x] Step 2: Add a Markdown link checker to `mise run lint`
   - Done when:
     - `mise.toml` declares the checker under `[tools]` with a pinned version and
       the `lint` task runs it, so both `mise run ci` and the CI `lint` job (which
@@ -156,3 +156,4 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete

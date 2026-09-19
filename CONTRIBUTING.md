@@ -53,7 +53,8 @@ artifacts, which need the release signing key.
 
 - `mise run fmt` formats both Rust (`cargo fmt`) and the frontend (`vp fmt`).
 - `mise run lint` runs `pnpm exec vp check` (format, lint, types) plus the other
-  OS-independent checks (`cargo fmt --check`, shellcheck, actionlint).
+  OS-independent checks (`cargo fmt --check`, shellcheck, actionlint, and an offline
+  `lychee` check of Markdown links and `#heading` anchors).
 - Frontend tests run with `pnpm exec vp test` (`pnpm exec vp test watch` while
   developing); `mise run test` runs them once.
 - `mise run ci` runs both, as CI does. Node 24 comes from `mise install`.
