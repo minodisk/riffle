@@ -70,3 +70,4 @@ removed at wrap-up, not in the step).
   `folder_entries` / `thumbnail`, a concurrency test proving reads never wait
   on the writer, and a timing test measuring `write_batch` cost. `BATCH`
   stays 10 (see `learnings.md` for the measured numbers and arithmetic).
+- (2026-09-20) Step 1 complete
