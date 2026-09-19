@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.7](https://github.com/minodisk/riffle/compare/v0.1.6...v0.1.7) (2026-09-19)
+
+
+### Features
+
+* **app:** carry the full JPEG size in the focus_crop header for the zoom placeholder ([#173](https://github.com/minodisk/riffle/issues/173)) ([3a0cfbc](https://github.com/minodisk/riffle/commit/3a0cfbc86c1124b66be91b9a0e906fc7ccda9e34))
+* **app:** evict stale folders from the index and VACUUM afterwards ([#176](https://github.com/minodisk/riffle/issues/176)) ([cd87f38](https://github.com/minodisk/riffle/commit/cd87f38c75da4ef15136654a9b79a7be8a4d4604))
+
+
+### Bug Fixes
+
+* **app:** cancel the first-batch scan test deterministically ([#183](https://github.com/minodisk/riffle/issues/183)) ([76a6ea8](https://github.com/minodisk/riffle/commit/76a6ea861960c747cb8fa45029ffc9c9eb03ccc1))
+* **app:** keep shortcut overrides that are inactive under the current sidecar format ([#179](https://github.com/minodisk/riffle/issues/179)) ([69ee8fd](https://github.com/minodisk/riffle/commit/69ee8fd0b84e1a0420800ebf6915d2970f55a034))
+* **app:** make the pick shortcut editable like any other action ([#180](https://github.com/minodisk/riffle/issues/180)) ([be8b3a3](https://github.com/minodisk/riffle/commit/be8b3a3c0412de0a268f57eca6adea93907f0133))
+* **app:** retry a failed sidecar write with a bounded backoff ([#181](https://github.com/minodisk/riffle/issues/181)) ([1c23475](https://github.com/minodisk/riffle/commit/1c23475d1794c0d588099356e1ad2c1f89ef36b7))
+* **app:** show sidecar problems in a sticky, dismissible error area ([#182](https://github.com/minodisk/riffle/issues/182)) ([e74a7ac](https://github.com/minodisk/riffle/commit/e74a7acc43faa11d318c81ba24192ab6756c1573))
+
+
+### Performance Improvements
+
+* **app:** list the folder once for both RAW files and sidecars in scan_folder ([#175](https://github.com/minodisk/riffle/issues/175)) ([9253c1c](https://github.com/minodisk/riffle/commit/9253c1c3b4564dd266e2ed1b03e4b8916bc6d881))
+
 ## [0.1.6](https://github.com/minodisk/riffle/compare/v0.1.5...v0.1.6) (2026-09-19)
 
 
