@@ -825,6 +825,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                 &todo,
                 scan_threads(),
                 &cancel,
+                index::PROGRESS_INTERVAL,
                 |done, total| {
                     let _ = app.emit(
                         "scan-progress",

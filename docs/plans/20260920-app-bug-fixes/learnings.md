@@ -8,3 +8,11 @@
   which also checks those entries are not kept.
 - `add`/`remove`/`reset(action)` drop the action's inactive entry only on
   success; a failed edit leaves the stored value untouched.
+
+## Step 2
+
+- `riffle-app` is a bin-only crate, so `cargo test --lib` fails; run
+  `cargo test <name>` inside `crates/app`. The rewritten cancel test passed
+  25/25 in a local loop.
+- `PROGRESS_INTERVAL` had to become `pub` so the `start_scan` call site in
+  `commands.rs` can pass it to `run_scan`.

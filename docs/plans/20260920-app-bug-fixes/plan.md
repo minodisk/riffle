@@ -83,7 +83,7 @@ not touch `scan_folder`, `crop_payload`, or `run_scan`'s completion path.
     - Update the doc comments on `overrides()` and `from_overrides` to say a
       conflicting override is kept in the stored value.
 
-- [ ] Step 2: Cancel `cancelling_after_the_first_batch_keeps_what_was_written` from a deterministic point
+- [x] Step 2: Cancel `cancelling_after_the_first_batch_keeps_what_was_written` from a deterministic point
   - Done when:
     - The test in `crates/app/src/index.rs` no longer spawns a polling watcher
       thread nor depends on `BATCH * 40` files: it sets `cancel` from the
