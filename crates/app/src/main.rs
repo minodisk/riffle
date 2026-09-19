@@ -236,10 +236,11 @@ fn main() {
                     );
                 })
             });
-            let (format, keymap) = commands::load_settings(app.handle());
+            let (format, overrides, keymap) = commands::load_settings(app.handle());
             app.set_menu(build_menu(app.handle(), format)?)?;
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppKeymap(Mutex::new(keymap)));
+            app.manage(commands::AppShortcutOverrides(Mutex::new(overrides)));
             app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));
