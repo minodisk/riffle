@@ -164,8 +164,10 @@ creates none.
 Writes happen in the background and are atomic, so a crash never leaves a
 half-written sidecar, and quitting finishes any pending write. A judgement that
 could not be written (say, on a locked card) is retried a few times over the
-next half minute, and if it still fails it is kept and written the next time
-the folder is opened. Sidecars edited by another tool are picked up the next
+next half minute, and if it still fails it is kept and retried the next time
+the folder is opened; the error is shown at the bottom of the right pane until
+you dismiss it, and so is any sidecar the app cannot read when a folder opens
+(damaged, or larger than 4 MiB). Sidecars edited by another tool are picked up the next
 time the folder is opened; when both changed, the other tool's edit wins.
 Switching the format keeps unwritten judgements and writes them in the new
 format; the other format's files are left alone.

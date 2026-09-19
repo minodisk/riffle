@@ -123,6 +123,18 @@ that step.
   revert the "has sidecar" flag it set (`crates/app/ui/src/main.ts`) rather
   than leaving it showing a sidecar that was never written.
 
+### App: folder open lists the directory twice (ARWs, then sidecars)
+
+`scan_folder` calls `list_arw_in` and then a separate `list_sidecars_in` pass over
+the same directory (`crates/app/src/commands.rs`). One listing that returns both
+ARW and sidecar entries would halve that part of a folder open. Not done in Phase
+6 Step 4 because `list_arw_in` is shared with callers that do not want sidecars.
+
+#### TODO
+
+- [ ] Fold sidecar discovery into a single directory listing shared with ARW
+  discovery, without changing behaviour for callers that only want ARWs.
+
 ### Docs: consider a `docs/agents/core.md` guide for `crates/core`
 
 Phase 6 Step 2 found several non-obvious `quick-xml` 0.42 facts specific to
@@ -223,3 +235,17 @@ another tool.
 - [ ] Add a menu item that moves every rejected file of the open folder, with
   its sidecars, to the OS trash (or a chosen folder), after a confirmation
   showing the count.
+
+### App: sidecar read and write errors for the same file show as two separate entries
+
+The sticky error area added for sidecar problems
+(`crates/app/ui/src/errors.ts`, `crates/app/ui/src/main.ts`) keys a read
+error (from `reconcile_sidecars_of`/`scan_folder`) by the sidecar path and a
+write error (from the `sidecar-error` event) by the RAW path, so a single
+file that fails both to read on open and to write afterward shows two
+entries in the pane instead of one being superseded by the other.
+
+#### TODO
+
+- [ ] Decide on a shared key (e.g. the RAW path) for sidecar read and write
+  errors so the two can supersede each other instead of coexisting.

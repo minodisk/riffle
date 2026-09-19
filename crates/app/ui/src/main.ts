@@ -3,6 +3,7 @@ import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
 import { History } from "./undo.js";
+import { ErrorList } from "./errors.js";
 import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
@@ -160,6 +161,8 @@ const fileIndex = new Map<string, number>();
 // `openDirectory` clears it.
 type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
 const history = new History<Judgement>(100);
+// Sidecar problems, kept until dismissed rather than in the transient `note`.
+const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 const shownLabels = new Set<string>();
@@ -297,6 +300,18 @@ function renderMeta(): void {
   // erase the mode indicator while the 1:1 view is still showing.
   if (zoomed) {
     metaEl.append(line("note", "1:1"));
+  }
+  for (const { key, message } of errors.list()) {
+    const el = line("error", message);
+    const dismiss = document.createElement("button");
+    dismiss.textContent = "\u00d7";
+    dismiss.title = "Dismiss";
+    dismiss.addEventListener("click", () => {
+      errors.dismiss(key);
+      renderMeta();
+    });
+    el.append(dismiss);
+    metaEl.append(el);
   }
 }
 
@@ -1011,6 +1026,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     sharpness.clear();
     touched.clear();
     history.clear();
+    errors.clear();
     fileIndex.clear();
     files.forEach((path, at) => {
       fileIndex.set(path, at);
@@ -1024,12 +1040,22 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanning = null;
     scanId = null;
     void window.__TAURI__.core
-      .invoke<{ total: number; scan_id: number }>("scan_folder", {
+      .invoke<{
+        total: number;
+        scan_id: number;
+        sidecar_errors: { path: string; message: string }[];
+      }>("scan_folder", {
         dir: folder,
       })
-      .then(({ scan_id }) => {
+      .then(({ scan_id, sidecar_errors }) => {
         if (token !== folderToken) {
           return;
+        }
+        if (sidecar_errors.length > 0) {
+          for (const { path, message } of sidecar_errors) {
+            errors.add(path, `${baseName(path)}: ${message}`);
+          }
+          renderMeta();
         }
         scanId = scan_id;
         return window.__TAURI__.core.invoke("start_scan", {
@@ -1149,15 +1175,16 @@ void window.__TAURI__.event.listen<{
 });
 
 // A sidecar the writer could not write: the writer retries it a few times,
-// and the judgement is still in the index to be written on the next open of
-// the folder, so this is a note, not a revert.
+// and if it still fails the judgement is still in the index and is retried
+// on the next open of the folder, so this is a sticky error, not a revert.
 void window.__TAURI__.event.listen<{ path: string; message: string }>(
   "sidecar-error",
   ({ payload }) => {
     if (!allFiles.includes(payload.path)) {
       return;
     }
-    setStatus(`${baseName(payload.path)}: ${payload.message}`);
+    errors.add(payload.path, `${baseName(payload.path)}: ${payload.message}`);
+    renderMeta();
   },
 );
 
