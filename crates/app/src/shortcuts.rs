@@ -8,9 +8,11 @@ use serde_json::Value;
 use crate::sidecar::SidecarFormat;
 
 /// Every action in the order the shortcuts panel shows them, with its
-/// default keys under either format. Key names are `event.key` lower-cased,
-/// with `" "` as `"space"`, or `ctrl+alt+` and the key named from
-/// `event.code` (`Digit1` -> `1`), as Option changes `event.key` on macOS.
+/// default keys under either format. A plain key is `event.key` lower-cased,
+/// with `" "` as `"space"`. With a modifier held, the name is
+/// `ctrl+alt+shift+meta+` (only the modifiers held, in that order) and the key
+/// named from `event.code` (`Digit1` -> `1`, `Comma` -> `,`), as Option and
+/// Shift change `event.key`.
 const DEFAULTS: &[(&str, &[&str])] = &[
     ("previous", &["arrowleft", "arrowup", "w", "a", "h", "k"]),
     ("next", &["arrowright", "arrowdown", "s", "d", "j", "l"]),
@@ -54,6 +56,80 @@ fn default_keys(
 
 /// The key reserved for `pick`.
 const PICK_KEY: &str = "p";
+
+/// macOS combinations owned by the app's menu (`app_menu::build` on top of
+/// `Menu::default`).
+const MACOS_MENU: &[&str] = &[
+    "meta+,",
+    "meta+z",
+    "meta+q",
+    "meta+h",
+    "alt+meta+h",
+    "meta+w",
+    "meta+m",
+    "ctrl+meta+f",
+    "meta+x",
+    "meta+c",
+    "meta+v",
+    "meta+a",
+];
+
+/// macOS combinations owned by the OS: app switcher, Spotlight, input
+/// sources, window cycling, Force Quit, lock and log out, screenshots, Dock
+/// and Mission Control.
+const MACOS_SYSTEM: &[&str] = &[
+    "meta+tab",
+    "shift+meta+tab",
+    "meta+space",
+    "alt+meta+space",
+    "ctrl+space",
+    "meta+`",
+    "shift+meta+`",
+    "alt+meta+escape",
+    "ctrl+meta+q",
+    "shift+meta+q",
+    "shift+meta+3",
+    "shift+meta+4",
+    "shift+meta+5",
+    "alt+meta+d",
+    "ctrl+meta+space",
+    "ctrl+arrowleft",
+    "ctrl+arrowright",
+    "ctrl+arrowup",
+    "ctrl+arrowdown",
+];
+
+/// Windows / Linux combinations owned by the app's menu.
+const OTHER_MENU: &[&str] = &[
+    "ctrl+,", "ctrl+z", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+a", "ctrl+m", "alt+f4",
+];
+
+/// Windows / Linux combinations owned by the OS; every `meta+` name is too,
+/// as the shell owns the Windows / Super key.
+const OTHER_SYSTEM: &[&str] = &[
+    "alt+tab",
+    "shift+alt+tab",
+    "ctrl+escape",
+    "ctrl+shift+escape",
+];
+
+/// Why `key` cannot be bound on macOS or elsewhere, if it cannot.
+fn forbidden(key: &str, macos: bool) -> Option<&'static str> {
+    let (menu, system) = if macos {
+        (MACOS_MENU, MACOS_SYSTEM)
+    } else {
+        (OTHER_MENU, OTHER_SYSTEM)
+    };
+    if menu.contains(&key) {
+        Some("is a menu accelerator")
+    } else if system.contains(&key) || (!macos && key.contains("meta+")) {
+        Some("is reserved by the system")
+    } else {
+        None
+    }
+}
+
+const MACOS: bool = cfg!(target_os = "macos");
 
 /// One action and the keys bound to it, as the `shortcuts` command returns.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -116,6 +192,13 @@ impl Keymap {
                 log::warn!("ignoring the shortcut for {action}: \"p\" is reserved for pick");
                 continue;
             }
+            if let Some((key, reason)) = keys
+                .iter()
+                .find_map(|k| forbidden(k, MACOS).map(|r| (k, r)))
+            {
+                log::warn!("ignoring the shortcut for {action}: {key:?} {reason}");
+                continue;
+            }
             let conflict = keys.iter().find_map(|key| {
                 keymap
                     .bindings
@@ -174,6 +257,9 @@ impl Keymap {
         }
         if key == PICK_KEY {
             return Err("\"p\" is reserved for pick".to_string());
+        }
+        if let Some(reason) = forbidden(key, MACOS) {
+            return Err(format!("{key:?} {reason}"));
         }
         if let Some(other) = self
             .bindings
@@ -558,5 +644,74 @@ mod tests {
                 "{format:?}"
             );
         }
+    }
+
+    #[test]
+    fn forbidden_follows_the_platform() {
+        assert_eq!(forbidden("meta+q", true), Some("is a menu accelerator"));
+        assert_eq!(forbidden("meta+,", true), Some("is a menu accelerator"));
+        assert_eq!(
+            forbidden("shift+meta+4", true),
+            Some("is reserved by the system")
+        );
+        assert_eq!(forbidden("meta+k", true), None);
+        assert_eq!(forbidden("meta+arrowleft", true), None);
+        assert_eq!(forbidden("shift+meta+z", true), None);
+        assert_eq!(forbidden("ctrl+z", true), None);
+        assert_eq!(forbidden("ctrl+z", false), Some("is a menu accelerator"));
+        assert_eq!(forbidden("alt+f4", false), Some("is a menu accelerator"));
+        assert_eq!(
+            forbidden("alt+tab", false),
+            Some("is reserved by the system")
+        );
+        assert_eq!(
+            forbidden("meta+k", false),
+            Some("is reserved by the system")
+        );
+        assert_eq!(
+            forbidden("ctrl+alt+shift+meta+k", false),
+            Some("is reserved by the system")
+        );
+        for key in ["shift+j", "ctrl+j", "alt+j", "ctrl+alt+1"] {
+            assert_eq!(forbidden(key, true), None, "{key}");
+            assert_eq!(forbidden(key, false), None, "{key}");
+        }
+    }
+
+    #[test]
+    fn add_refuses_a_forbidden_key() {
+        let key = if MACOS { "meta+z" } else { "ctrl+z" };
+        let mut keymap = Keymap::defaults(XMP);
+        assert_eq!(
+            keymap.add("reject", key),
+            Err(format!("{key:?} is a menu accelerator"))
+        );
+        let key = if MACOS { "meta+tab" } else { "alt+tab" };
+        assert_eq!(
+            keymap.add("reject", key),
+            Err(format!("{key:?} is reserved by the system"))
+        );
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn a_forbidden_override_is_skipped() {
+        let key = if MACOS { "meta+q" } else { "ctrl+c" };
+        let keymap = Keymap::from_overrides(Some(&json!({"reject": [key]})), XMP);
+        assert_eq!(keymap, Keymap::defaults(XMP));
+    }
+
+    #[test]
+    fn modified_keys_are_bindable() {
+        let mut keymap = Keymap::defaults(XMP);
+        let mut keys = vec!["shift+j", "ctrl+j", "alt+j", "ctrl+alt+1"];
+        if MACOS {
+            keys.push("meta+k");
+        }
+        for key in &keys {
+            keymap.add("reject", key).unwrap();
+        }
+        let expected: Vec<String> = std::iter::once("x").chain(keys).map(String::from).collect();
+        assert_eq!(keys_of(&keymap, "reject"), expected);
     }
 }

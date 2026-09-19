@@ -1,4 +1,4 @@
-import { type Binding, isUnboundModifier, keyName } from "./keys.js";
+import { type Binding, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
@@ -1402,10 +1402,10 @@ void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload })
 });
 
 window.addEventListener("keydown", (event) => {
-  if (isUnboundModifier(event)) {
+  const key = keyName(event);
+  if (key === null) {
     return;
   }
-  const key = keyName(event);
   if (key === "escape" && !filterMenu.hidden) {
     setFilterMenuOpen(false);
     event.preventDefault();
