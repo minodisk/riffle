@@ -421,3 +421,4 @@ the writer composition and the per-format keymap.
 ## Progress
 
 - (2026-09-19) Step 1 complete
+- (2026-09-19) Step 2 complete
