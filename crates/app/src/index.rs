@@ -510,7 +510,8 @@ impl Index {
             self.conn.execute(
                 "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3,
                      label = ?6, label_known = 1
-                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5",
+                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5
+                     AND (label_known = 0 OR label IS ?6)",
                 params![path, size, mtime_ns, rating, pick, label],
             )
         }
@@ -1036,6 +1037,43 @@ mod tests {
             .mark_written("/a.ARW", None, false, None, true, None)
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn mark_written_for_an_unknown_label_leaves_a_row_dirty_once_it_asserts_a_different_label() {
+        let dir = temp_dir("written-unknown-label-superseded");
+        let mut index = open(&dir);
+        // An unknown-label write for "Red" is in flight...
+        index
+            .set_rating("d", "/a.ARW", Some(3), false, None, false)
+            .unwrap();
+
+        // ...but a newer judgement with the same rating/pick asserts "Blue"
+        // before that write lands.
+        index
+            .set_rating("d", "/a.ARW", Some(3), false, Some("Blue"), true)
+            .unwrap();
+
+        // The stale unknown-label write must not overwrite the newer,
+        // known label, and must leave the row dirty so it is retried.
+        assert!(
+            !index
+                .mark_written("/a.ARW", Some(3), false, Some("Red"), false, Some((42, 7)))
+                .unwrap(),
+            "a row that has since asserted a different label is left dirty"
+        );
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [(
+                "/a.ARW".to_string(),
+                Some(3),
+                false,
+                Some("Blue".to_string()),
+                true
+            )]
+        );
 
         remove_temp_dir(&dir);
     }
