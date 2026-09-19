@@ -71,6 +71,33 @@ impl SidecarFormat {
         }
     }
 
+    /// The raw colour label the sidecar holds, `None` when it has none.
+    pub fn read_label(self, bytes: &[u8]) -> Result<Option<String>, String> {
+        match self {
+            Self::Xmp => xmp::read_label(bytes),
+            Self::Dop => dop::read_label(bytes),
+        }
+    }
+
+    /// `existing` (or a fresh sidecar of `arw`) with its colour label set to
+    /// `label`, or removed when `None`.
+    pub fn write_label(
+        self,
+        arw: &Path,
+        existing: Option<&[u8]>,
+        label: Option<&str>,
+    ) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Xmp => xmp::write_label(existing, label),
+            Self::Dop => dop::write_label(
+                existing,
+                label,
+                &raw_name(arw),
+                &dop::timestamp(SystemTime::now()),
+            ),
+        }
+    }
+
     /// The sidecar bytes of `arw` carrying `rating` and `pick`, patched from
     /// `existing` or freshly minted. XMP ignores `pick`.
     pub fn write_rating(
@@ -82,18 +109,13 @@ impl SidecarFormat {
     ) -> Result<Vec<u8>, String> {
         match self {
             Self::Xmp => xmp::write_rating(existing, rating),
-            Self::Dop => {
-                let name = arw
-                    .file_name()
-                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-                dop::write_rating(
-                    existing,
-                    rating,
-                    pick,
-                    &name,
-                    &dop::timestamp(SystemTime::now()),
-                )
-            }
+            Self::Dop => dop::write_rating(
+                existing,
+                rating,
+                pick,
+                &raw_name(arw),
+                &dop::timestamp(SystemTime::now()),
+            ),
         }
     }
 
@@ -111,6 +133,11 @@ impl SidecarFormat {
     }
 }
 
+fn raw_name(arw: &Path) -> String {
+    arw.file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
+}
+
 /// How long a path's last update is held before its sidecar is written.
 pub const DEBOUNCE: Duration = Duration::from_millis(300);
 
@@ -120,12 +147,27 @@ const TEMP_SUFFIX: &str = ".riffle-tmp";
 /// Longest the quit path waits for the writer to drain.
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// One file's rating, pick and colour label, bundled so the writer's queue
+/// and channel do not need one argument per field.
+///
+/// `label_known` is false when the caller has not learned this path's label
+/// yet (e.g. a judgement made before the first `folder_entries` refresh, or
+/// before a sidecar parse has landed); `label` is then ignored and the
+/// sidecar's own current label, read from disk, is kept instead of being
+/// cleared.
+#[derive(Clone)]
+struct Judgement {
+    rating: Option<i8>,
+    pick: bool,
+    label: Option<String>,
+    label_known: bool,
+}
+
 enum Message {
     /// Queue a judgement, to be written once `deadline` has passed.
     Set {
         path: PathBuf,
-        rating: Option<i8>,
-        pick: bool,
+        judgement: Judgement,
         format: SidecarFormat,
         deadline: Instant,
     },
@@ -159,9 +201,21 @@ impl Writer {
         path: PathBuf,
         rating: Option<i8>,
         pick: bool,
+        label: Option<String>,
+        label_known: bool,
         format: SidecarFormat,
     ) -> Result<(), String> {
-        self.send(path, rating, pick, format, Instant::now() + DEBOUNCE)
+        self.send(
+            path,
+            Judgement {
+                rating,
+                pick,
+                label,
+                label_known,
+            },
+            format,
+            Instant::now() + DEBOUNCE,
+        )
     }
 
     /// Queue one judgement with no debounce, for the dirty rows a folder open
@@ -172,24 +226,34 @@ impl Writer {
         path: PathBuf,
         rating: Option<i8>,
         pick: bool,
+        label: Option<String>,
+        label_known: bool,
         format: SidecarFormat,
     ) -> Result<(), String> {
-        self.send(path, rating, pick, format, Instant::now())
+        self.send(
+            path,
+            Judgement {
+                rating,
+                pick,
+                label,
+                label_known,
+            },
+            format,
+            Instant::now(),
+        )
     }
 
     fn send(
         &self,
         path: PathBuf,
-        rating: Option<i8>,
-        pick: bool,
+        judgement: Judgement,
         format: SidecarFormat,
         deadline: Instant,
     ) -> Result<(), String> {
         lock(&self.tx)
             .send(Message::Set {
                 path,
-                rating,
-                pick,
+                judgement,
                 format,
                 deadline,
             })
@@ -215,7 +279,7 @@ where
     loop {
         let wait = pending
             .values()
-            .map(|(_, _, _, deadline)| deadline.saturating_duration_since(Instant::now()))
+            .map(|(_, _, deadline)| deadline.saturating_duration_since(Instant::now()))
             .min();
         let message = match wait {
             Some(wait) => rx.recv_timeout(wait),
@@ -224,12 +288,11 @@ where
         match message {
             Ok(Message::Set {
                 path,
-                rating,
-                pick,
+                judgement,
                 format,
                 deadline,
             }) => {
-                pending.insert(path, (rating, pick, format, deadline));
+                pending.insert(path, (judgement, format, deadline));
             }
             Ok(Message::Flush(reply)) => {
                 flush(&mut pending, None, &index, &on_error);
@@ -248,7 +311,7 @@ where
 
 /// The judgement queued per path, each with the format selected when it was
 /// made and the instant its sidecar is due.
-type Pending = std::collections::HashMap<PathBuf, (Option<i8>, bool, SidecarFormat, Instant)>;
+type Pending = std::collections::HashMap<PathBuf, (Judgement, SidecarFormat, Instant)>;
 
 /// Write the entries whose deadline has passed by `now`, or all of them when
 /// `now` is `None`.
@@ -258,16 +321,21 @@ where
 {
     let due: Vec<PathBuf> = pending
         .iter()
-        .filter(|(_, (_, _, _, deadline))| now.is_none_or(|now| now >= *deadline))
+        .filter(|(_, (_, _, deadline))| now.is_none_or(|now| now >= *deadline))
         .map(|(path, _)| path.clone())
         .collect();
     for path in due {
-        let (rating, pick, format, _) = pending.remove(&path).expect("just listed");
-        match write(&path, rating, pick, format) {
-            Ok(stat) => {
-                if let Err(e) =
-                    lock(index).mark_written(&path.to_string_lossy(), rating, pick, None, stat)
-                {
+        let (judgement, format, _) = pending.remove(&path).expect("just listed");
+        match write(&path, &judgement, format) {
+            Ok((stat, resolved_label)) => {
+                if let Err(e) = lock(index).mark_written(
+                    &path.to_string_lossy(),
+                    judgement.rating,
+                    judgement.pick,
+                    resolved_label.as_deref(),
+                    judgement.label_known,
+                    stat,
+                ) {
                     on_error(&path, &e);
                 }
             }
@@ -295,32 +363,67 @@ fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<PathBuf> {
         })
 }
 
-/// Write one file's sidecar, returning its `(size, mtime_ns)`, or `None` when
-/// there is nothing to write: clearing a rating on a file that has no sidecar
-/// must not litter the folder with an empty one.
-fn write(
-    arw: &Path,
-    rating: Option<i8>,
-    pick: bool,
-    format: SidecarFormat,
-) -> Result<Option<(i64, i64)>, String> {
-    let pick = pick && format == SidecarFormat::Dop;
+/// What `write` produces: the sidecar's `(size, mtime_ns)` (or `None` when
+/// there is nothing to write: clearing a rating on a file that has no
+/// sidecar must not litter the folder with an empty one), alongside the
+/// label actually written.
+type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
+
+/// Write one file's sidecar.
+///
+/// `judgement.label_known` is false when `judgement.label` was never learned
+/// by the caller (see `Writer::set`); the label is then ignored and the
+/// sidecar's own current label, read from disk, is kept and returned instead,
+/// so an unknown label can never clear one PhotoLab or Lightroom already
+/// wrote.
+fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResult {
+    let Judgement {
+        rating,
+        pick,
+        label,
+        label_known,
+    } = judgement;
+    let (rating, label_known) = (*rating, *label_known);
+    let pick = *pick && format == SidecarFormat::Dop;
     let existing = existing_sidecar(arw, format);
-    let (target, bytes) = match existing {
+    let current = existing
+        .as_ref()
+        .map(|target| std::fs::read(target).map_err(|e| format!("{}: {e}", target.display())))
+        .transpose()?;
+    let resolved_label = if label_known {
+        label.clone()
+    } else {
+        current
+            .as_deref()
+            .map(|bytes| format.read_label(bytes))
+            .transpose()?
+            .flatten()
+    };
+    let label = resolved_label.as_deref();
+    let (target, bytes) = match &existing {
         None => {
-            if rating.is_none() && !pick {
-                return Ok(None);
+            if rating.is_none() && !pick && label.is_none() {
+                return Ok((None, resolved_label));
             }
-            (
-                format.sidecar_path(arw),
-                format.write_rating(arw, None, rating, pick)?,
-            )
+            let bytes = if rating.is_none() && !pick {
+                format.write_label(arw, None, label)?
+            } else {
+                let rated = format.write_rating(arw, None, rating, pick)?;
+                format.write_label(arw, Some(&rated), label)?
+            };
+            (format.sidecar_path(arw), bytes)
         }
         Some(target) => {
-            let current =
-                std::fs::read(&target).map_err(|e| format!("{}: {e}", target.display()))?;
-            let bytes = format.write_rating(arw, Some(&current), rating, pick)?;
-            (target, bytes)
+            let current = current.as_deref().expect("existing sidecar was read above");
+            let rated = format.write_rating(arw, Some(current), rating, pick)?;
+            // Clearing a label that is not there would still bump the `.dop`
+            // timestamps, so it is skipped.
+            let bytes = if label.is_none() && format.read_label(&rated)?.is_none() {
+                rated
+            } else {
+                format.write_label(arw, Some(&rated), label)?
+            };
+            (target.clone(), bytes)
         }
     };
 
@@ -348,7 +451,7 @@ fn write(
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map_or(0, |d| d.as_nanos() as i64);
-    Ok(Some((meta.len() as i64, mtime_ns)))
+    Ok((Some((meta.len() as i64, mtime_ns)), resolved_label))
 }
 
 #[cfg(test)]
@@ -431,10 +534,24 @@ mod tests {
 
         for rating in [1i8, 2, 3] {
             lock(&index)
-                .set_rating("d", &path.to_string_lossy(), Some(rating), false, None)
+                .set_rating(
+                    "d",
+                    &path.to_string_lossy(),
+                    Some(rating),
+                    false,
+                    None,
+                    true,
+                )
                 .unwrap();
             writer
-                .set(path.clone(), Some(rating), false, SidecarFormat::Xmp)
+                .set(
+                    path.clone(),
+                    Some(rating),
+                    false,
+                    None,
+                    true,
+                    SidecarFormat::Xmp,
+                )
                 .unwrap();
         }
 
@@ -471,10 +588,10 @@ mod tests {
         std::fs::write(&sidecar, lightroom_sidecar(2)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(5), false, SidecarFormat::Xmp)
+            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Xmp)
             .unwrap();
 
         assert!(eventually(
@@ -493,7 +610,7 @@ mod tests {
         let path = arw(&dir, "c.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None, true)
             .unwrap();
         // A deadline far enough out that a slow machine cannot blur the
         // difference between flushing now and waiting for it. Measuring
@@ -501,7 +618,17 @@ mod tests {
         // can take longer than 300ms.
         let deadline = Instant::now() + Duration::from_secs(30);
         writer
-            .send(path.clone(), Some(-1), false, SidecarFormat::Xmp, deadline)
+            .send(
+                path.clone(),
+                Judgement {
+                    rating: Some(-1),
+                    pick: false,
+                    label: None,
+                    label_known: true,
+                },
+                SidecarFormat::Xmp,
+                deadline,
+            )
             .unwrap();
         let started = Instant::now();
         writer.flush(DRAIN_TIMEOUT);
@@ -525,10 +652,10 @@ mod tests {
         let path = arw(&dir, "d.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false, None)
+            .set_rating("d", &path.to_string_lossy(), None, false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, false, SidecarFormat::Xmp)
+            .set(path.clone(), None, false, None, true, SidecarFormat::Xmp)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -553,10 +680,10 @@ mod tests {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(4), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(4), false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(4), false, SidecarFormat::Xmp)
+            .set(path.clone(), Some(4), false, None, true, SidecarFormat::Xmp)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -606,10 +733,17 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(-1), false, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                Some(-1),
+                false,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -632,10 +766,10 @@ mod tests {
         let path = arw(&dir, "f.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(2), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(2), false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(2), false, SidecarFormat::Dop)
+            .set(path.clone(), Some(2), false, None, true, SidecarFormat::Dop)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -658,10 +792,10 @@ mod tests {
         let path = arw(&dir, "g.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false, None)
+            .set_rating("d", &path.to_string_lossy(), None, false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, false, SidecarFormat::Dop)
+            .set(path.clone(), None, false, None, true, SidecarFormat::Dop)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -681,20 +815,20 @@ mod tests {
         let key = path.to_string_lossy().into_owned();
 
         lock(&index)
-            .set_rating("d", &key, None, true, None)
+            .set_rating("d", &key, None, true, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, true, SidecarFormat::Dop)
+            .set(path.clone(), None, true, None, true, SidecarFormat::Dop)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
         assert!(dop::read_pick(&bytes).unwrap(), "a pick alone mints a .dop");
 
         lock(&index)
-            .set_rating("d", &key, Some(4), true, None)
+            .set_rating("d", &key, Some(4), true, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(4), true, SidecarFormat::Dop)
+            .set(path.clone(), Some(4), true, None, true, SidecarFormat::Dop)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
@@ -714,10 +848,10 @@ mod tests {
         let path = arw(&dir, "q.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, true, None)
+            .set_rating("d", &path.to_string_lossy(), None, true, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, true, SidecarFormat::Xmp)
+            .set(path.clone(), None, true, None, true, SidecarFormat::Xmp)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -742,10 +876,10 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false, None)
+            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(5), false, SidecarFormat::Dop)
+            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Dop)
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -760,6 +894,253 @@ mod tests {
         assert_eq!(dops.len(), 1, "no second sidecar is minted: {dops:?}");
         let bytes = std::fs::read(&dops[0]).unwrap();
         assert_eq!(dop::read_rating(&bytes).unwrap(), Some(5));
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+    /// Record and queue one full judgement, then wait for the write.
+    fn judge(
+        index: &Arc<Mutex<Index>>,
+        writer: &Writer,
+        path: &Path,
+        rating: Option<i8>,
+        label: Option<&str>,
+        format: SidecarFormat,
+    ) {
+        lock(index)
+            .set_rating("d", &path.to_string_lossy(), rating, false, label, true)
+            .unwrap();
+        writer
+            .set(
+                path.to_path_buf(),
+                rating,
+                false,
+                label.map(str::to_string),
+                true,
+                format,
+            )
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+    }
+
+    #[test]
+    fn a_label_alone_mints_an_xmp_and_a_dop() {
+        let dir = temp_dir("label-mint");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let a = arw(&dir, "a.ARW");
+        judge(&index, &writer, &a, None, Some("Green"), SidecarFormat::Xmp);
+        let bytes = std::fs::read(xmp::sidecar_path(&a)).unwrap();
+        assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Green"));
+
+        let b = arw(&dir, "b.ARW");
+        judge(
+            &index,
+            &writer,
+            &b,
+            None,
+            Some("Orange"),
+            SidecarFormat::Dop,
+        );
+        let bytes = std::fs::read(dop::sidecar_path(&b)).unwrap();
+        assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Orange"));
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_label_patches_a_lightroom_sidecar_and_survives_a_later_rating() {
+        let dir = temp_dir("label-lightroom");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "a.ARW");
+        let sidecar = xmp::sidecar_path(&path);
+        std::fs::write(&sidecar, lightroom_sidecar(2)).unwrap();
+
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(2),
+            Some("Red"),
+            SidecarFormat::Xmp,
+        );
+        let text = std::fs::read_to_string(&sidecar).unwrap();
+        assert_eq!(
+            text.replace(r#" xmp:Label="Red""#, ""),
+            lightroom_sidecar(2),
+            "only the label is added"
+        );
+
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(4),
+            Some("Red"),
+            SidecarFormat::Xmp,
+        );
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
+        assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Red"));
+
+        judge(&index, &writer, &path, Some(4), None, SidecarFormat::Xmp);
+        let text = std::fs::read_to_string(&sidecar).unwrap();
+        assert_eq!(text, lightroom_sidecar(4), "clearing removes the property");
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_a_label_on_a_dop_keeps_the_rating() {
+        let dir = temp_dir("label-dop-clear");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "_DSC0003.ARW");
+        let sidecar = dop::sidecar_path(&path);
+        std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
+
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(3),
+            Some("Blue"),
+            SidecarFormat::Dop,
+        );
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Blue"));
+
+        judge(&index, &writer, &path, Some(3), None, SidecarFormat::Dop);
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(dop::read_label(&bytes).unwrap(), None);
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(3));
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_judgement_before_the_label_is_known_keeps_the_sidecars_existing_label() {
+        // Reproduces "judge before the row or a sidecar parse is known":
+        // the writer must not treat an unknown label as "no label" and strip
+        // the one PhotoLab already wrote.
+        let dir = temp_dir("label-unknown-keeps");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "_DSC0003.ARW");
+        let sidecar = dop::sidecar_path(&path);
+        std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
+
+        // PhotoLab already labelled the file, as if a prior session (or a
+        // parse this session has not caught up with yet) put it there.
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(3),
+            Some("Red"),
+            SidecarFormat::Dop,
+        );
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Red"));
+
+        // A judgement lands with the label unknown, mirroring `set_rating`
+        // called before `folder_entries` (or a sidecar parse) has learned it.
+        // There is no row for this path in a fresh index, but the guard must
+        // hold even when one already exists.
+        lock(&index)
+            .set_rating("d", &path.to_string_lossy(), Some(4), false, None, false)
+            .unwrap();
+        writer
+            .set(
+                path.clone(),
+                Some(4),
+                false,
+                None,
+                false,
+                SidecarFormat::Dop,
+            )
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(
+            dop::read_label(&bytes).unwrap().as_deref(),
+            Some("Red"),
+            "the existing label survives a judgement with an unknown label"
+        );
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(4));
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        // The resolved label the write actually kept ("Red") is now stored
+        // and marked known in `ratings`, not left `NULL`: a following-up
+        // judgement that keeps the same label, this time with `label_known:
+        // true`, must still keep it, and a folder-open replay of a dirty row
+        // (see `dirty_rows`) must never again send "no label" for this path.
+        let stored_label: Option<String> = lock(&index)
+            .conn
+            .query_row(
+                "SELECT label FROM ratings WHERE path = ?1",
+                [path.to_string_lossy()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            stored_label.as_deref(),
+            Some("Red"),
+            "mark_written must persist the resolved label, not leave it NULL"
+        );
+        lock(&index)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(5),
+                false,
+                Some("Red"),
+                true,
+            )
+            .unwrap();
+        writer
+            .set(
+                path.clone(),
+                Some(5),
+                false,
+                Some("Red".to_string()),
+                true,
+                SidecarFormat::Dop,
+            )
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(
+            dop::read_label(&bytes).unwrap().as_deref(),
+            Some("Red"),
+            "a follow-up known judgement using the now-stored label keeps it"
+        );
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_a_label_writes_no_sidecar_when_there_is_none() {
+        let dir = temp_dir("label-none");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "a.ARW");
+
+        judge(&index, &writer, &path, None, None, SidecarFormat::Xmp);
+        judge(&index, &writer, &path, None, None, SidecarFormat::Dop);
+
+        assert!(!xmp::sidecar_path(&path).exists());
+        assert!(!dop::sidecar_path(&path).exists());
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
         drop(writer);
         remove_temp_dir(&dir);

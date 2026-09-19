@@ -213,6 +213,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
     - Callers in `commands.rs` / `sidecar.rs` pass `None` for now (or this
       step merges with Step 4 if the intermediate is awkward). Behaviour
       unchanged. `mise run ci` passes.
+    - Note: Step 4 later bumped the schema again to v6 (`label_known`).
   - Implementation approach:
     - Coordinate with the in-flight `20260919-exif-filters` plan, whose
       Step 2 also bumps `SCHEMA_VERSION` to 4. Whichever merges first takes
@@ -225,7 +226,12 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       bool, label: Option<String> }` in `index.rs`; pick whichever keeps
       the diff readable and use it consistently in Step 4.
 
-- [ ] Step 4: Writer, reconcile and the `set_rating` command carry the label
+- [x] Step 4: Writer, reconcile and the `set_rating` command carry the label
+  - Note: local review added a `label_known` flag to `set_rating` and a
+    `ratings.label_known` column (schema v6, migrated in place from v5), so
+    a judgement made before the sidecar's label is known never strips it;
+    the writer reads the sidecar's current label in that case and
+    `mark_written` stores it. Re-verified against "Done when" below.
   - Done when:
     - `SidecarFormat::read_label` / `write_label` dispatch to Steps 1-2.
       `sidecar::write` composes `write_rating` then `write_label` on the
@@ -423,3 +429,4 @@ the writer composition and the per-format keymap.
 - (2026-09-19) Step 1 complete
 - (2026-09-19) Step 2 complete
 - (2026-09-19) Step 3 complete
+- (2026-09-19) Step 4 complete

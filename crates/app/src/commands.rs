@@ -200,7 +200,7 @@ fn reconcile_sidecars_of(
     listed: &[String],
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
-) -> Result<Vec<(String, Option<i8>, bool)>, String> {
+) -> Result<Vec<index::DirtyRow>, String> {
     let sidecars = list_sidecars_in(Path::new(dir), format);
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
@@ -232,7 +232,8 @@ fn reconcile_sidecars_of(
             let bytes = std::fs::read(sidecar).ok()?;
             let rating = format.read_rating(&bytes).ok()?;
             let pick = format.read_pick(&bytes).ok()?;
-            Some((path.clone(), rating, pick, None, *size, *mtime_ns, *dirty))
+            let label = format.read_label(&bytes).ok()?;
+            Some((path.clone(), rating, pick, label, *size, *mtime_ns, *dirty))
         })
         .collect();
     let mut index = index::lock(index);
@@ -244,8 +245,7 @@ fn reconcile_sidecars_of(
     let dirty = index.dirty_rows(dir)?;
     Ok(dirty
         .into_iter()
-        .filter(|(path, _, _, _)| !oversize.contains(path.as_str()))
-        .map(|(path, rating, pick, _)| (path, rating, pick))
+        .filter(|(path, _, _, _, _)| !oversize.contains(path.as_str()))
         .collect())
 }
 
@@ -644,11 +644,22 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
-        // so it goes to the writer with none.
+        // so it goes to the writer with none. Its own `label_known` (see
+        // `Index::set_rating`/`mark_written`) travels with it: a row created
+        // before the app learned the label, and never written before this
+        // open (e.g. a crash), must still reach the writer as unknown, or an
+        // existing sidecar label would be stripped.
         Ok(dirty) => {
             if let Some(writer) = &app.state::<AppWriter>().0 {
-                for (path, rating, pick) in dirty {
-                    if let Err(e) = writer.set_now(PathBuf::from(path), rating, pick, format) {
+                for (path, rating, pick, label, label_known) in dirty {
+                    if let Err(e) = writer.set_now(
+                        PathBuf::from(path),
+                        rating,
+                        pick,
+                        label,
+                        label_known,
+                        format,
+                    ) {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
                 }
@@ -875,8 +886,18 @@ fn update_keymap(
 }
 
 /// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
-/// stars, plus PhotoLab's pick flag beside them. A pick is only kept while
-/// `.dop` is selected; with XMP it is dropped, as XMP has nowhere to put it.
+/// stars, plus PhotoLab's pick flag and the colour label beside them. A pick
+/// is only kept while `.dop` is selected; with XMP it is dropped, as XMP has
+/// nowhere to put it. The label is any raw name, kept under both formats; an
+/// empty one is no label.
+///
+/// `label_known` is false when the frontend has not yet learned this path's
+/// label from `folder_entries` (e.g. a judgement made before the first
+/// refresh lands, or before the sidecar has even been parsed): `label` is
+/// then ignored, the `ratings.label` column is left untouched rather than
+/// being cleared, and the writer keeps whatever label the sidecar itself
+/// currently holds instead of stripping it (see `Index::set_rating` and
+/// `sidecar::write`).
 ///
 /// The `ratings` row is written before the writer is told, so a crash between
 /// the two still leaves the row dirty and the sidecar is written on the next
@@ -888,6 +909,8 @@ pub async fn set_rating(
     path: String,
     rating: i8,
     pick: bool,
+    label: Option<String>,
+    label_known: bool,
 ) -> Result<(), String> {
     if !(-1..=5).contains(&rating) {
         return Err(format!("rating {rating} is outside -1..=5"));
@@ -900,19 +923,27 @@ pub async fn set_rating(
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
     };
+    let label = label.filter(|l| !l.is_empty());
     let dir = Path::new(&path)
         .parent()
         .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
     {
-        let path = path.clone();
+        let (path, label) = (path.clone(), label.clone());
         tauri::async_runtime::spawn_blocking(move || {
-            index::lock(&index).set_rating(&dir, &path, rating, pick, None)
+            index::lock(&index).set_rating(&dir, &path, rating, pick, label.as_deref(), label_known)
         })
         .await
         .map_err(|e| e.to_string())??;
     }
     match &app.state::<AppWriter>().0 {
-        Some(writer) => writer.set(PathBuf::from(path), rating, pick, format),
+        Some(writer) => writer.set(
+            PathBuf::from(path),
+            rating,
+            pick,
+            label,
+            label_known,
+            format,
+        ),
         None => Err("the sidecar writer is not running".to_string()),
     }
 }
@@ -1045,7 +1076,7 @@ mod tests {
 
         // An app edit that never reached disk, then someone else's edit.
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None)
+            .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
@@ -1100,11 +1131,11 @@ mod tests {
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[1], Some(-1), false, None)
+            .set_rating(&dir, &listed[1], Some(-1), false, None, true)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
-        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false)]);
+        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false, None, true)]);
 
         let files: Vec<_> = listed
             .iter()
@@ -1175,6 +1206,102 @@ mod tests {
         remove_temp_dir(&root);
     }
 
+    fn label_of(index: &Arc<Mutex<Index>>, dir: &str, path: &str) -> Option<String> {
+        index::lock(index)
+            .entries(dir)
+            .unwrap()
+            .into_iter()
+            .find(|e| e.path == path)
+            .unwrap()
+            .label
+    }
+
+    #[test]
+    fn photolab_labels_are_read_on_the_first_open() {
+        let root = temp_dir("dop-labels");
+        let dir = root.to_string_lossy().into_owned();
+        let fixtures: [(&[u8], &str); 7] = [
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0009.ARW.dop"),
+                "Red",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0010.ARW.dop"),
+                "Orange",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0011.ARW.dop"),
+                "Yellow",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0012.ARW.dop"),
+                "Green",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0013.ARW.dop"),
+                "Blue",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0014.ARW.dop"),
+                "Pink",
+            ),
+            (
+                include_bytes!("../../core/src/fixtures/dop/_DSC0015.ARW.dop"),
+                "Purple",
+            ),
+        ];
+        for (i, (bytes, _)) in fixtures.iter().enumerate() {
+            std::fs::write(root.join(format!("_DSC00{}.ARW", 9 + i)), b"x").unwrap();
+            std::fs::write(root.join(format!("_DSC00{}.ARW.dop", 9 + i)), bytes).unwrap();
+        }
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
+        index_files(&index, &dir, &listed);
+
+        for (i, (_, label)) in fixtures.iter().enumerate() {
+            let path = root.join(format!("_DSC00{}.ARW", 9 + i));
+            let path = listed
+                .iter()
+                .find(|p| Path::new(p).file_name() == path.file_name())
+                .unwrap();
+            assert_eq!(label_of(&index, &dir, path).as_deref(), Some(*label));
+        }
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn an_xmp_label_is_read_and_a_deleted_sidecar_clears_it() {
+        let root = temp_dir("xmp-label");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let file = root.join("a.xmp");
+        std::fs::write(
+            &file,
+            r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+   xmp:Rating="2" xmp:Label="Blue"/>
+ </rdf:RDF>
+</x:xmpmeta>"#,
+        )
+        .unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        index_files(&index, &dir, &listed);
+        assert_eq!(label_of(&index, &dir, &listed[0]).as_deref(), Some("Blue"));
+
+        std::fs::remove_file(&file).unwrap();
+        reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        assert_eq!(label_of(&index, &dir, &listed[0]), None);
+
+        remove_temp_dir(&root);
+    }
+
     #[test]
     fn a_photolab_pick_is_read_with_dop_and_ignored_with_xmp() {
         let root = temp_dir("dop-pick");
@@ -1234,7 +1361,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None)
+            .set_rating(&dir, &listed[0], Some(5), false, None, true)
             .unwrap();
 
         let dirty = reconcile_sidecars_of(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
