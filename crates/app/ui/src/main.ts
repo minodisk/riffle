@@ -310,8 +310,8 @@ emptyEl.addEventListener("click", () => {
 });
 
 // Redraw the right pane: the current file's name, its shooting settings,
-// and any note (an error, the scan's progress, the opening hint). Also
-// refreshes the strip pane's `N / M` counter.
+// and any note (an error or the scan's progress). Also refreshes the strip
+// pane's `N / M` counter.
 function renderMeta(): void {
   renderTitle();
   renderEmpty();
