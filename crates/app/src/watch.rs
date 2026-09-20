@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -34,6 +34,11 @@ struct State {
     dir: Option<String>,
     watcher: Option<RecommendedWatcher>,
     tx: Sender<String>,
+    /// The caller's string for the watched folder, shared with the running
+    /// watcher's event handler so that updating it (the "same folder,
+    /// different caller string" case in `set`) does not require dropping and
+    /// re-creating the watcher.
+    owner: Arc<Mutex<String>>,
 }
 
 impl Watch {
@@ -56,6 +61,7 @@ impl Watch {
             dir: None,
             watcher: None,
             tx,
+            owner: Arc::new(Mutex::new(String::new())),
         }))
     }
 }
@@ -76,9 +82,18 @@ struct Changed {
 /// comparison. Failing to watch (a network volume, say) is logged and
 /// ignored: the rescan on focus and `File > Reload Folder` is the fallback,
 /// and the folder must still open.
+///
+/// `owner` is refreshed even on the "same folder" early return: the same
+/// canonical `dir` can be reopened under a different caller string (a
+/// trailing slash, `/tmp/x` vs `/private/tmp/x`, a stale recent-folders
+/// entry), and the watcher must keep emitting the *current* string rather
+/// than the one it started with. The refresh goes through a shared cell so
+/// it does not require dropping and re-creating the watcher (and, on
+/// Windows, the directory handle that would cost).
 pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
     let state = app.state::<Watch>();
     let mut state = crate::index::lock(&state.0);
+    *crate::index::lock(&state.owner) = owner.to_string();
     if state.dir.as_deref() == Some(dir) {
         return;
     }
@@ -86,10 +101,10 @@ pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
     // `ReadDirectoryChangesW` holds on Windows.
     state.watcher = None;
     state.dir = None;
-    let (tx, owner) = (state.tx.clone(), owner.to_string());
+    let (tx, owner) = (state.tx.clone(), state.owner.clone());
     let handler = move |event: notify::Result<notify::Event>| {
         if event.is_ok_and(|event| triggers(&event.paths)) {
-            let _ = tx.send(owner.clone());
+            let _ = tx.send(crate::index::lock(&owner).clone());
         }
     };
     match notify::recommended_watcher(handler).and_then(|mut watcher| {
