@@ -1353,13 +1353,14 @@ void window.__TAURI__.event.listen<{
   scan_id: number;
   done: number;
   total: number;
+  ready: string[];
 }>("scan-progress", ({ payload }) => {
   if (payload.scan_id !== scanId) {
     return;
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
   renderMeta();
-  strip.refresh();
+  strip.markReady(payload.ready);
   // Only when the row the focus mark needs is still missing; `entriesInFlight`
   // in `refreshEntries` keeps a 10/s progress stream from queuing up a
   // full re-read on every tick while it stays missing.

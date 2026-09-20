@@ -1037,7 +1037,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                 scan_threads(),
                 &cancel,
                 index::PROGRESS_INTERVAL,
-                |done, total, _ready| {
+                |done, total, ready| {
                     let _ = app.emit(
                         "scan-progress",
                         Progress {
@@ -1045,6 +1045,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                             scan_id,
                             done,
                             total,
+                            ready,
                         },
                     );
                 },
@@ -1090,6 +1091,10 @@ struct Progress<'a> {
     scan_id: u64,
     done: usize,
     total: usize,
+    /// The paths the index committed since the previous event, so the
+    /// frontend can request exactly those thumbnails instead of every cell
+    /// it has nothing for yet.
+    ready: Vec<String>,
 }
 
 #[derive(serde::Serialize, Clone)]

@@ -102,7 +102,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Commit as `feat(app): report the flushed paths from run_scan` or
       similar.
 
-- [ ] Step 2: Carry `ready` in `scan-progress` and request only those cells
+- [x] Step 2: Carry `ready` in `scan-progress` and request only those cells
   - Done when:
     - The `scan-progress` payload is `{dir, scan_id, done, total, ready: string[]}`
       where `ready` is the list Step 1's callback handed over (full paths).
