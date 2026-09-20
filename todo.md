@@ -75,6 +75,26 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
 
+### Docs: consider a guide for verifying Pillow pixel edits
+
+`app-icon-enlarge-marks` hit two Pillow pitfalls while verifying an in-place
+pixel edit to `crates/app/icons/source.png`: (1) `Image.getbbox()` defaults to
+`alpha_only=True` on RGBA images (Pillow >= 9.5), so a "no difference" check
+built on `ImageChops.difference(...).getbbox()` can silently pass while the
+RGB channels differ — use `getbbox(alpha_only=False)` or a per-pixel scan;
+(2) measuring a resized/pasted mark inside the padded crop box that produced
+it clips the bbox and understates the mark's size — the measurement window
+must be wider than the source crop.
+
+#### TODO
+
+- [ ] The next time a plan does Pillow-based pixel verification, check whether
+      it hits the same two pitfalls. If it does, write
+      `docs/agents/verifying-pixel-edits.md` (or a section in an existing
+      `tauri-app.md`-style guide) covering both, linking
+      `docs/plans/_archived/20260921-app-icon-enlarge-marks/learnings.md` for
+      the concrete numbers. If it does not recur, drop this item.
+
 ### App: the manual GUI checks for Move Rejected to Trash are still open
 
 From `trash-rejected`'s implementation: GUI automation is unavailable on this
