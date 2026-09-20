@@ -116,6 +116,11 @@ let scanning: string | null = null;
 // True between `start_scan` and its `scan-done`. A rescan asked for while it
 // is true is deferred (`resyncPending`) rather than cancelling the scan.
 let scanRunning = false;
+// Mints a per-call id for `startScan` so its `.then`/`.catch` can tell
+// whether a later call (a re-open of the same folder included) has already
+// superseded it, since `folder !== openDir` can't detect that case.
+let scanSeq = 0;
+let currentScan = 0;
 // True while a rescan's `list_arw` is outstanding, and true when a trigger
 // arrived while one was, the way `refreshEntries` keeps one read in flight.
 let resyncInFlight = false;
@@ -1024,6 +1029,9 @@ function startScan(folder: string): Promise<void> {
   // not just during `start_scan` — otherwise it starts a second
   // `scan_folder` that stampedes this one's `scanId`.
   scanRunning = true;
+  scanSeq += 1;
+  const seq = scanSeq;
+  currentScan = seq;
   return window.__TAURI__.core
     .invoke<{
       total: number;
@@ -1033,14 +1041,10 @@ function startScan(folder: string): Promise<void> {
       dir: folder,
     })
     .then(({ scan_id, sidecar_errors }) => {
-      if (folder !== openDir) {
-        // A different folder is now open; that folder's own `startScan` owns
-        // `scanRunning` / `resyncPending` now, so leave them alone. Keying
-        // this off `openDir` rather than `token` matters because `token` is
-        // bumped by `openFolder` / `reopenLastFolder` as soon as the picker
-        // opens, before its dialog resolves — a cancelled dialog never calls
-        // `openDirectory`, so the token alone would go stale with no new
-        // owner while `openDir` still points at this folder.
+      if (seq !== currentScan) {
+        // A later `startScan` call (a different folder, or a deliberate
+        // re-open of this same one) now owns `scanRunning` / `resyncPending`,
+        // so leave them alone.
         return;
       }
       if (sidecar_errors.length > 0) {
@@ -1055,7 +1059,7 @@ function startScan(folder: string): Promise<void> {
       });
     })
     .catch((err: unknown) => {
-      if (folder !== openDir) {
+      if (seq !== currentScan) {
         return;
       }
       scanRunning = false;

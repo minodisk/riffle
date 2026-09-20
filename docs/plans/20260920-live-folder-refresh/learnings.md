@@ -4,7 +4,7 @@
 
 - No backend index or scan change was needed: `scan_folder` + `start_scan`
   already are the diff, so `resync()` is the same invoke chain
-  `openDirectory` runs, factored out into `startScan(folder, token)`.
+  `openDirectory` runs, factored out into `startScan(folder)`.
 - `refilter` gained a second parameter (`keepScroll`) rather than a separate
   list-replacement function, and `strip.setFiles` a matching optional
   argument; it is the only place that touches `strip.scrollTop`, and the
