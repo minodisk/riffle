@@ -125,8 +125,9 @@ mod app_menu {
             ],
             2,
         )?;
-        // `Help` exists on every platform: empty on macOS, holding About
-        // elsewhere, where the separator keeps the two apart.
+        // `Help` may be missing from the default menu (Linux), in which case
+        // it's created here; empty on macOS; holding About elsewhere, where
+        // the separator keeps the two apart.
         let help = match submenu(&menu, "Help")? {
             Some(help) => help,
             None => {
