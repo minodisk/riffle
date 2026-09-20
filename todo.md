@@ -227,3 +227,24 @@ icon. File: `crates/app/src/main.rs` (`app_menu`).
 
 - [ ] Verify whether `NativeIcon::Folder` renders as a proper template
       image on macOS and, if so, add it to the `Open Folder…` menu item.
+
+### App: the Clear Cache button's manual GUI verification is still open
+
+From `clear-index-cache`'s implementation: the size shown on window open, the
+confirmation dialog, cancel leaving the index untouched, confirm dropping the
+figure and the main window rescanning via `index-cleared`, and the mid-scan
+refusal appearing in `#status` were never run, because GUI automation is
+unavailable on this Mac and a native confirm dialog cannot be driven by an
+agent. It needs a human run of `mise run tauri:release:devtools`. Files:
+`crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
+`crates/app/ui/settings.html`, `crates/app/ui/src/settings.ts`.
+
+#### TODO
+
+- [ ] Run `mise run tauri:release:devtools`, open Settings > Cache, and
+      verify: the size shown on window open; the confirmation dialog
+      appearing on Clear Cache; Cancel leaving the index and figure
+      untouched; Confirm dropping the figure and the main window
+      re-scanning the open folder via the `index-cleared` event; and
+      pressing the button while a scan is running shows the refusal in
+      `#status` instead of a dialog.

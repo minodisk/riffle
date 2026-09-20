@@ -408,6 +408,10 @@ A running scan is refused, never cancelled.
   *grew*, though `page_count` dropped by more than 10x. Ending with
   `PRAGMA wal_checkpoint(TRUNCATE)` took it to 40,960 B. Any eviction path
   that is meant to shrink the file needs that checkpoint after the `VACUUM`.
+- `rusqlite`'s `pragma_query(None, "wal_checkpoint(TRUNCATE)", ..)` compiles
+  but silently does nothing (it quotes the argument, so `TRUNCATE` is lost);
+  use `query_row("PRAGMA wal_checkpoint(TRUNCATE)", ..)` instead. A
+  `SQLITE_BUSY` from it is fine to just log and continue.
 - Measured (M3 Pro, release, ignored test `vacuum_cost_on_a_100_mb_index`):
   evicting half of 5000 rows of 20.8KB thumbnails (106MB in use) and vacuuming
   took ~220ms, leaving 53MB. That a WAL reader does not error during `VACUUM`
