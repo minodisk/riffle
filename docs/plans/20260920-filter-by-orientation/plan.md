@@ -113,7 +113,7 @@ with the rest, and `Reset` clears it.
     - Match the existing ternary chains in `filterChanged` and the click
       handler rather than restructuring them.
 
-- [ ] Step 2: Document the orientation group in the README
+- [x] Step 2: Document the orientation group in the README
   - Done when:
     - The **Filter menu** bullet in `README.md` lists orientation
       (`Portrait` / `Landscape`) among the groups, and states in one clause

@@ -58,10 +58,13 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
   camera's estimate, marked `(est.)`; Leica files add the focus distance.
-- **Filter menu**: narrows the strip by pick flag, stars, colour label, camera,
-  lens, aperture, shutter speed, ISO and focal length (grouped into ranges such
-  as `24–35 mm`). The colour label group lists the seven colours and `No label`;
-  a label outside those seven colours matches no colour item (nor `No label`).
+- **Filter menu**: narrows the strip by pick flag, stars, colour label,
+  orientation (`Portrait` / `Landscape`), camera, lens, aperture, shutter speed,
+  ISO and focal length (grouped into ranges such as `24–35 mm`). The colour
+  label group lists the seven colours and `No label`; a label outside those
+  seven colours matches no colour item (nor `No label`). The orientation is
+  decided by the file's EXIF Orientation — a quarter turn is portrait, so a
+  frame the camera did not tag as rotated counts as landscape.
   The EXIF groups list only values present in the folder. Checks within a group
   are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgement that drops
   the current file out of the filter hides it at once and moves to the next

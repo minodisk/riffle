@@ -18,3 +18,8 @@
 ## Deferred issues (todo candidates)
 
 - (none)
+
+## Step 2
+
+- README's Filter menu bullet now lists the orientation group and the one
+  clause about the EXIF Orientation tag. Documentation-only change.
