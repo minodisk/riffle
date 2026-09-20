@@ -182,6 +182,9 @@ const fileIndex = new Map<string, number>();
 // `openDirectory` clears it.
 type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
 const history = new History<Judgement>(100);
+// The pre-undo state of each undone judgement, for `Edit > Redo`. A new
+// judgement forgets it, as every editor does.
+const redoable = new History<Judgement>(100);
 // Sidecar problems, kept until dismissed rather than in the transient `note`.
 const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
@@ -435,6 +438,7 @@ function trashRejected(): void {
       // An undo of a trashed file would `set_rating` a path that is gone and
       // mint an orphan sidecar.
       history.removeWhere((entry) => !failed.has(entry.path) && paths.includes(entry.path));
+      redoable.removeWhere((entry) => !failed.has(entry.path) && paths.includes(entry.path));
       for (const { path, message } of summary.failed) {
         errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
       }
@@ -618,6 +622,7 @@ function judge(
   }
   const entry = { path, rating: previous, pick: previousPick, label: previousLabel };
   history.push(entry);
+  redoable.clear();
   commit(entry, rating, pick, label, () => history.remove(entry));
   return true;
 }
@@ -663,13 +668,14 @@ function commit(
     });
 }
 
-// `Edit > Undo`: restore the most recent judgement's file to its state before
-// it and make that file current, unless the filter now hides it.
-function undo(): void {
+// `Edit > Undo` and `Edit > Redo`: pop the most recent entry off `from`, push
+// the file's current state onto `to`, restore the popped state and make that
+// file current, unless the filter now hides it.
+function step(from: History<Judgement>, to: History<Judgement>, verb: string): void {
   if (openDir === null) {
     return;
   }
-  const entry = history.pop();
+  const entry = from.pop();
   if (entry === undefined || !allFiles.includes(entry.path)) {
     return;
   }
@@ -680,6 +686,7 @@ function undo(): void {
     pick: picks.has(path),
     label: labels.get(path) ?? null,
   };
+  to.push(current);
   // A file the filter now hides leaves the current file where it is.
   const shownPath = files[index];
   commit(current, entry.rating, entry.pick, entry.label, undefined, () =>
@@ -688,14 +695,22 @@ function undo(): void {
   const at = fileIndex.get(path);
   const name = path.split(/[\\/]/).pop();
   if (at === undefined) {
-    setStatus(`Undid ${name} (hidden by the filter)`);
+    setStatus(`${verb} ${name} (hidden by the filter)`);
     return;
   }
   if (at !== index) {
     index = at;
     show();
   }
-  setStatus(`Undid ${name}`);
+  setStatus(`${verb} ${name}`);
+}
+
+function undo(): void {
+  step(history, redoable, "Undid");
+}
+
+function redo(): void {
+  step(redoable, history, "Redid");
 }
 
 // Hand the strip each visible file's score relative to its neighbours. The
@@ -1243,6 +1258,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     sharpness.clear();
     touched.clear();
     history.clear();
+    redoable.clear();
     errors.clear();
     fileIndex.clear();
     files.forEach((path, at) => {
@@ -1300,6 +1316,7 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 void window.__TAURI__.event.listen("trash-rejected", trashRejected);
 void window.__TAURI__.event.listen("undo", undo);
+void window.__TAURI__.event.listen("redo", redo);
 
 // Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
 // usable path; the paths arrive only through these webview events.
