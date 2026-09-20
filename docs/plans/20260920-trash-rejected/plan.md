@@ -55,7 +55,7 @@ Facts the design rests on (from reading the code):
 
 ## Steps
 
-- [ ] Step 1: `trash_rejected` command with the `trash` crate, unit-tested
+- [x] Step 1: `trash_rejected` command with the `trash` crate, unit-tested
   - Done when:
     - `crates/app/Cargo.toml` depends on `trash` (latest 5.x) and
       `Cargo.lock` is updated.

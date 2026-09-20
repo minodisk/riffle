@@ -16,6 +16,7 @@ use tauri_plugin_store::StoreExt;
 use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
 use crate::shortcuts::{Binding, Keymap};
 use crate::sidecar::{SidecarFormat, Writer};
+use crate::trash;
 
 /// Size of the header that precedes the JPEG bytes in a `preview` payload.
 pub const PREVIEW_HEADER_LEN: usize = 8;
@@ -1483,6 +1484,93 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     .map_err(|e| e.to_string())??;
     let _ = app.emit("index-cleared", ());
     Ok(true)
+}
+
+/// Move the rejected files of `dir` to the OS trash after a native
+/// confirmation, together with the `.xmp` and `.dop` sidecars that exist on
+/// disk for them; `None` when the user cancelled. `paths` is the frontend's
+/// list of rejects and every path is validated against `dir` before anything
+/// is moved.
+///
+/// A running scan is refused before the dialog and again under the `Scans`
+/// lock, and the sidecar writer is drained first, as in `clear_index`: a
+/// judgement still inside its debounce window would otherwise mint a sidecar
+/// for a file that is already gone.
+#[tauri::command]
+pub async fn trash_rejected(
+    app: tauri::AppHandle,
+    dir: String,
+    paths: Vec<String>,
+) -> Result<Option<trash::Summary>, String> {
+    {
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+    }
+    if paths.is_empty() {
+        return Err("no rejected files to move".to_string());
+    }
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    let message = if paths.len() == 1 {
+        "Move 1 rejected file to the Trash?".to_string()
+    } else {
+        format!("Move {} rejected files to the Trash?", paths.len())
+    };
+    let mut dialog = app
+        .dialog()
+        .message(message)
+        .title("Move Rejected to Trash")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Move to Trash".to_string(),
+            "Cancel".to_string(),
+        ));
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.parent(&window);
+    }
+    dialog.show(move |confirmed| {
+        let _ = tx.try_send(confirmed);
+    });
+    if !rx.recv().await.unwrap_or(false) {
+        return Ok(None);
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<Option<trash::Summary>, String> {
+        if let Some(writer) = &handle.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let scans = handle.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let groups = trash::plan(Path::new(&dir), &paths)?;
+        let context = trash_context();
+        let summary = trash::run(groups, |path| {
+            context.delete(path).map_err(|e| e.to_string())
+        });
+        log::info!("moved rejected files to the trash: {summary:?}");
+        drop(state);
+        Ok(Some(summary))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The trash context the mover uses. On macOS the crate defaults to driving
+/// the Finder through AppleScript, which needs Automation permission; the
+/// `NSFileManager` route needs none.
+fn trash_context() -> ::trash::TrashContext {
+    #[allow(unused_mut)]
+    let mut context = ::trash::TrashContext::default();
+    #[cfg(target_os = "macos")]
+    {
+        use ::trash::macos::{DeleteMethod, TrashContextExtMacos};
+        context.set_delete_method(DeleteMethod::NsFileManager);
+    }
+    context
 }
 
 /// Resolve symlinks and normalize a folder path so the same folder reached

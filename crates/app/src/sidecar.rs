@@ -401,7 +401,7 @@ where
 
 /// The sidecar of `arw` as it exists on disk, preferring a name that differs
 /// only in case (`FOO.XMP`) over the one `sidecar_path` would mint.
-fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<PathBuf> {
+pub(crate) fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<PathBuf> {
     let wanted = format.sidecar_path(arw);
     if wanted.exists() {
         return Some(wanted);
