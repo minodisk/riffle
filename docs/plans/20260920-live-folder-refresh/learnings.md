@@ -12,10 +12,12 @@
 - `entries` is not pruned by `resync`: the `folder_entries` read on
   `scan-done` clears and refills the map, so rows of files that are gone drop
   out there. Kept it that way instead of adding a prune pass.
-- Deferral state is two flags: `scanRunning` (set when `start_scan` is
-  invoked, cleared in the `scan-done` listener) and `resyncPending`, drained
-  from `scan-done` via `drainResync()`. `resyncInFlight` keeps one `list_arw`
-  outstanding, the way `refreshEntries` does for `folder_entries`.
+- Deferral state is two flags: `scanRunning` (set at the top of `startScan`,
+  before `scan_folder` is invoked, so the prepare phase is covered too;
+  cleared in the `scan-done` listener, and on `startScan`'s own stale-token
+  and `catch` exits) and `resyncPending`, drained from `scan-done` via
+  `drainResync()`. `resyncInFlight` keeps one `list_arw` outstanding, the way
+  `refreshEntries` does for `folder_entries`.
 - `tauri://focus` was used as decided (decision 2); it was **not** verified at
   runtime here, since GUI automation does not work on this Mac. If it turns
   out not to reach the global `event.listen`, the fallback is

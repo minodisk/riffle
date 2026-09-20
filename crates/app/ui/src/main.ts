@@ -1019,6 +1019,11 @@ function reopenLastFolder(): void {
 // Shared by `openDirectory` (the reset path) and `resync` (the keep-state
 // path).
 function startScan(folder: string, token: number): Promise<void> {
+  // Set before `scan_folder` resolves so a `resync()` during the prepare
+  // phase (folder listing plus index and sidecar reconcile) is deferred too,
+  // not just during `start_scan` — otherwise it starts a second
+  // `scan_folder` that stampedes this one's `scanId`.
+  scanRunning = true;
   return window.__TAURI__.core
     .invoke<{
       total: number;
@@ -1029,6 +1034,7 @@ function startScan(folder: string, token: number): Promise<void> {
     })
     .then(({ scan_id, sidecar_errors }) => {
       if (token !== folderToken) {
+        scanRunning = false;
         drainResync();
         return;
       }
@@ -1039,7 +1045,6 @@ function startScan(folder: string, token: number): Promise<void> {
         renderMeta();
       }
       scanId = scan_id;
-      scanRunning = true;
       return window.__TAURI__.core.invoke<void>("start_scan", {
         scanId: scan_id,
       });
