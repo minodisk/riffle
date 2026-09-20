@@ -402,12 +402,13 @@ that already have the column, and the `ALTER TABLE` fails.
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
 `app.manage(Scans)`, on a plain `std::thread`. It holds the `Scans` lock and
 then the writer lock for the whole evict + `VACUUM`, and skips if
-`Scans.running` is already set — which at that point in `setup` can only mean
-a scan was started, since nothing else has run yet; it is not a general test
-for "a scan is running" (use `ScansState::scanning()` for that, see below).
-A `scan_folder`/`start_scan` issued meanwhile just waits. Keep the order `Scans` then writer. The size cap counts
-pages in use (`page_count - freelist_count`), since a delete only moves pages
-to the freelist until `VACUUM` runs.
+`Scans.running` is already set — `running` is only ever set by `start_scan`
+and never cleared, so `is_some()` there means "a scan has been started"; it is
+not a general test for "a scan is running" (use `ScansState::scanning()` for
+that, see below). A `scan_folder`/`start_scan` issued meanwhile just waits.
+Keep the order `Scans` then writer. The size cap counts pages in use
+(`page_count - freelist_count`), since a delete only moves pages to the
+freelist until `VACUUM` runs.
 
 `Index::clear` (behind the settings window's Clear Cache button, via
 `commands::clear_index`) is the second caller of `evict_folder` and keeps the
@@ -454,8 +455,9 @@ have is more machinery than it's worth).
 `running.is_some()` stayed true from the first folder open until the app quit.
 It never meant "a scan is running" — it meant "a scan was started and not yet
 superseded", which was fine for its original two consumers (`scan_folder`,
-which joins the handle, and `spawn_eviction`, which runs once before any scan
-can exist) but wrong as a guard. `clear_index` used it as one and refused
+which joins the handle, and `spawn_eviction`, which only needs to know
+whether a scan has been started at all, and skips if so) but wrong as a
+guard. `clear_index` used it as one and refused
 every press of `Clear Cache` after the first folder open.
 
 - `ScansState::scanning()` (`preparing > 0 || running.is_some() ||
