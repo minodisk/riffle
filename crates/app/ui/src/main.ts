@@ -1034,8 +1034,8 @@ function startScan(folder: string, token: number): Promise<void> {
     })
     .then(({ scan_id, sidecar_errors }) => {
       if (token !== folderToken) {
-        scanRunning = false;
-        drainResync();
+        // A newer folder is already open; that folder's own `startScan` owns
+        // `scanRunning` / `resyncPending` now, so leave them alone.
         return;
       }
       if (sidecar_errors.length > 0) {
@@ -1050,6 +1050,9 @@ function startScan(folder: string, token: number): Promise<void> {
       });
     })
     .catch((err: unknown) => {
+      if (token !== folderToken) {
+        return;
+      }
       scanRunning = false;
       drainResync();
       setStatus(String(err));
