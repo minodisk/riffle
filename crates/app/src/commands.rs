@@ -668,18 +668,20 @@ struct PendingScan {
 /// `running` and spends this whole phase with no lock held and `running ==
 /// None`, so without this, a `clear_index` issued while a folder is opening
 /// would pass both of its checks and run against the folder's
-/// soon-to-be-reconciled rows. Decrements under the same lock on drop, which
-/// covers every early return of `scan_folder` as well as its normal one.
+/// soon-to-be-reconciled rows. `start` increments under the very guard that
+/// mints the id and takes `running`, so `preparing` is never zero while that
+/// guard is released and the previous scan's task is still alive; the
+/// decrement on drop covers every early return of `scan_folder` as well as
+/// its normal one.
 struct Preparing {
     app: tauri::AppHandle,
 }
 
 impl Preparing {
-    fn new(app: tauri::AppHandle) -> Self {
-        {
-            let scans = app.state::<Scans>();
-            index::lock(&scans.0).preparing += 1;
-        }
+    /// Increments `preparing` under `state`, the same guard the caller used
+    /// to mint the scan id and take `running`.
+    fn start(app: tauri::AppHandle, state: &mut ScansState) -> Self {
+        state.preparing += 1;
         Self { app }
     }
 }
@@ -754,13 +756,14 @@ pub struct ScanStarted {
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
-    let (scan_id, previous) = {
+    let (scan_id, previous, _preparing) = {
         let mut state = index::lock(&scans.0);
         let scan_id = state.next_id();
         state.latest_id = scan_id;
-        (scan_id, state.running.take())
+        let previous = state.running.take();
+        let preparing = Preparing::start(app.clone(), &mut state);
+        (scan_id, previous, preparing)
     };
-    let _preparing = Preparing::new(app.clone());
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
@@ -1224,19 +1227,24 @@ const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
 const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
 
 /// Format `bytes` for display with plain `B`/`KB`/`MB`/`GB` labels: whole
-/// bytes below `base`, one decimal above it.
+/// bytes below `base`, one decimal above it. Steps up a unit once the
+/// *rounded* value would reach `base` (e.g. 999_999_999 rounds to 1000.0 MB
+/// at base 1000, so it must show as 1.0 GB, not 1000.0 MB), not just the raw
+/// one, or a value one rounding step below a power of the base prints a
+/// figure equal to the base.
 fn format_bytes(bytes: u64, base: u64) -> String {
     if bytes < base {
         return format!("{bytes} B");
     }
     let base = base as f64;
+    let round1 = |v: f64| (v * 10.0).round() / 10.0;
     let kb = bytes as f64 / base;
-    if kb < base {
-        return format!("{kb:.1} KB");
+    if round1(kb) < base {
+        return format!("{:.1} KB", kb);
     }
     let mb = kb / base;
-    if mb < base {
-        return format!("{mb:.1} MB");
+    if round1(mb) < base {
+        return format!("{:.1} MB", mb);
     }
     format!("{:.1} GB", mb / base)
 }
@@ -1377,6 +1385,15 @@ mod tests {
         assert_eq!(format_bytes(1_200_000_000, 1000), "1.2 GB");
         assert_eq!(format_bytes(1288490189, 1024), "1.2 GB");
         assert_eq!(format_bytes(312_000, 1000), "312.0 KB");
+    }
+
+    #[test]
+    fn format_bytes_steps_up_when_rounding_would_reach_the_base() {
+        // Each of these divides to a rounded X.0 at the current unit, so it
+        // must already step up rather than print e.g. "1000.0 MB".
+        assert_eq!(format_bytes(999_999_999, 1000), "1.0 GB");
+        assert_eq!(format_bytes(1_073_741_823, 1024), "1.0 GB");
+        assert_eq!(format_bytes(999_999, 1000), "1.0 MB");
     }
 
     #[test]
