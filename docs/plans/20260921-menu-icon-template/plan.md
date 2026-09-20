@@ -69,7 +69,7 @@ clear exit condition.
 
 ## Steps
 
-- [ ] Step 1: Patch muda to the template-image fork, drop the grey fill from the icon export, regenerate the PNGs, update the guide
+- [x] Step 1: Patch muda to the template-image fork, drop the grey fill from the icon export, regenerate the PNGs, update the guide
   - Done when:
     - The workspace `Cargo.toml` has a `[patch.crates-io]` entry pointing
       `muda` at `https://github.com/minodisk/muda` with a comment stating what
@@ -178,3 +178,9 @@ clear exit condition.
   or remove it cleanly.
 
 ## Progress
+
+- Step 1: Patched muda to the `minodisk/muda` template-image fork via
+  `[patch.crates-io]`, removed the `#8E8E93` grey fill from
+  `tools/macos/export-menu-icons.swift`, regenerated the three PNGs under
+  `crates/app/icons/menu/`, and updated `docs/agents/tauri-app.md`'s "Menu
+  icons" section to describe the fork patch and its exit condition.
