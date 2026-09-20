@@ -691,13 +691,6 @@ impl ScansState {
     }
 }
 
-/// Broadcast the current value of `ScansState::scanning` to every window, so
-/// the settings window can follow it without polling. Call it with the lock
-/// already dropped: emitting runs listeners on the main thread.
-fn publish_scan_state(app: &tauri::AppHandle, scanning: bool) {
-    let _ = app.emit("scan-state", scanning);
-}
-
 struct PendingScan {
     dir: String,
     todo: Vec<FileStat>,
@@ -731,12 +724,19 @@ impl Preparing {
 impl Drop for Preparing {
     fn drop(&mut self) {
         let scans = self.app.state::<Scans>();
-        let scanning = {
-            let mut state = index::lock(&scans.0);
-            state.preparing -= 1;
-            state.scanning()
-        };
-        publish_scan_state(&self.app, scanning);
+        let mut state = index::lock(&scans.0);
+        state.preparing -= 1;
+        let scanning = state.scanning();
+        // Every `scan-state` emit in this file happens under the `Scans`
+        // lock, at the moment the state changes, so the mutex serialises
+        // them in the order the state actually changed; releasing the lock
+        // first (or emitting a value read earlier) would let two emits from
+        // different threads interleave with no ordering guarantee, which is
+        // the bug both Round 1 and Round 2 of review found. Holding the lock
+        // across `emit` is safe here: no Rust-side `listen` handler in this
+        // codebase takes the `Scans` lock, and `emit` only queues the event
+        // to the webviews rather than running their listeners synchronously.
+        let _ = self.app.emit("scan-state", scanning);
     }
 }
 
@@ -809,9 +809,15 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         state.latest_id = scan_id;
         let previous = state.running.take();
         let preparing = Preparing::start(app.clone(), &mut state);
+        let scanning = state.scanning();
+        // Emit while still holding the lock, for the same reason as
+        // `Preparing::drop` and `start_scan` (see the comment in
+        // `Preparing::drop`): whichever of this and a concurrent
+        // `Preparing::drop` runs second is guaranteed to emit after the
+        // other's `app.emit` call has returned.
+        let _ = app.emit("scan-state", scanning);
         (scan_id, previous, preparing)
     };
-    publish_scan_state(&app, true);
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
@@ -1003,8 +1009,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             // whichever of the two critical sections runs second (this one,
             // if the scan finishes fast enough to race the store below) is
             // guaranteed to emit after the other's `app.emit` call has
-            // returned. Emitting with the lock dropped, as
-            // `publish_scan_state`'s usual contract asks, would let these two
+            // returned. Emitting with the lock dropped would let these two
             // `app.emit` calls interleave freely on separate threads with no
             // ordering guarantee, which is exactly the race that used to let
             // a stale `true` land after this correct `false` and leave the
