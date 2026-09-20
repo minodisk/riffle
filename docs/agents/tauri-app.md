@@ -528,6 +528,20 @@ rather than by a test.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
+### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
+
+`createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`
+and sets `src` only once the thumbnail payload arrives; cells are recreated
+rather than reused on refresh, so `src` is never stale. That makes
+`.cell img:not([src])` exactly "placeholder or failed load". Put the grey
+placeholder background there, not on `.cell img` itself: the image box is the
+144px square footprint and `object-fit: contain` letterboxes anything that is
+not square, so a background on `.cell img` shows as grey bands around every
+loaded thumbnail (24px above and below a 3:2 one).
+
+- Source: `docs/plans/_archived/20260920-aspect-independent-strip-cells/learnings.md`,
+  Step 1.
+
 ### Name a modified key from `event.code`, not `event.key` (Hit)
 
 On macOS, Option and Shift change `event.key` (⌃⌥1 reports `¡`, not `1`), so
