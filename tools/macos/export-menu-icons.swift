@@ -27,7 +27,7 @@ import AppKit
 let canvasSize: CGFloat = 18
 let pointSize: CGFloat = 12
 let scale: CGFloat = 2
-let symbols = ["gear", "arrow.uturn.backward", "folder", "trash"]
+let symbols = ["gear", "arrow.uturn.backward", "folder", "trash", "arrow.clockwise"]
 
 let root = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()

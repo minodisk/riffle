@@ -91,3 +91,32 @@ lists `"gear"` and `crates/app/icons/menu/gearshape.png` is gone.
   Symbol it actually passes to `NSImage(systemSymbolName:)` rather than
   assuming from the name. Near-synonyms like `gear` / `gearshape` (and their
   `.fill` / `.circle` variants) render very differently at menu size.
+
+### Scope addition: `Reload Folder` was the last item without an icon
+
+With `Move Rejected to Trash…` and `Settings...` settled, `Reload Folder` was
+the only menu item Riffle owns that still had no icon at all. Added
+`"arrow.clockwise"` to the export script's `symbols` and switched the item to
+the `IconMenuItem::with_id` / `MenuItem::with_id` `cfg` pair its neighbours
+use; its id, label, enabled state and `CmdOrCtrl+R` accelerator are unchanged.
+
+- Symbol choice: `arrow.clockwise`, the plain circular-refresh symbol. Ghostty
+  uses `arrow.trianglehead.2.clockwise.rotate.90` for its Reload Configuration
+  item, but that is a macOS 26-era symbol; `arrow.clockwise` has been available
+  far longer and reads the same at menu size. Rendered at 12pt it also measures
+  21x26 against the trianglehead variant's 29x25, which would have been the
+  widest glyph in the menu.
+- Confusability check against `arrow.uturn.backward` (Undo): not an issue.
+  Rendered side by side as alpha art at `pointSize: 12`, `arrow.clockwise` is a
+  closed ring with a gap and an arrowhead at the top, while
+  `arrow.uturn.backward` is an open U with a long horizontal bar and an
+  arrowhead pointing left. The silhouettes differ at a glance.
+- Bounding boxes (36x36 canvas, alpha-only, no canvas-edge contact): `gear`
+  27x26, `arrow.uturn.backward` 21x23, `folder` 25x22, `trash` 24x27,
+  `arrow.clockwise` 21x26. In line with its neighbours; no `pointSize` change.
+  The other four PNGs came out byte-identical (unchanged in `git status`).
+- **CI failure**: moving the last macOS-side `MenuItem::with_id` to
+  `IconMenuItem` left `use tauri::menu::MenuItem;` unused on macOS
+  (`-D unused-imports`). The import now carries
+  `#[cfg(not(target_os = "macos"))]`, mirroring the `Image` / `IconMenuItem`
+  imports above it.

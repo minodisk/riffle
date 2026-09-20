@@ -12,6 +12,7 @@ mod watch;
 mod app_menu {
     #[cfg(target_os = "macos")]
     use tauri::image::Image;
+    #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     #[cfg(target_os = "macos")]
     use tauri::menu::{IconMenuItem, NativeIcon};
@@ -105,6 +106,18 @@ mod app_menu {
         )?;
         // A fixed accelerator, like Settings and Undo: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
+        #[cfg(target_os = "macos")]
+        let reload_folder = IconMenuItem::with_id(
+            handle,
+            RELOAD_FOLDER_ID,
+            "Reload Folder",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/arrow.clockwise.png"
+            ))?),
+            Some("CmdOrCtrl+R"),
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let reload_folder = MenuItem::with_id(
             handle,
             RELOAD_FOLDER_ID,
