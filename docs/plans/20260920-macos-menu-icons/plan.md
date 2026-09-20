@@ -100,7 +100,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
       Unsupported" (silently no icon), which is why the non-macOS branch keeps
       `MenuItem` rather than relying on that.
     - Take a screenshot of both menus in light and dark mode for the PR.
-- [ ] Step 2: Bundle SF Symbol renderings for `Settings...` and `Undo`, with a reproducible export script
+- [x] Step 2: Bundle SF Symbol renderings for `Settings...` and `Undo`, with a reproducible export script
   - Done when:
     - `Settings...` shows `gearshape` and `Undo` shows
       `arrow.uturn.backward` on macOS, sized to match the Step 1 native icons
@@ -177,3 +177,11 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
   unchanged from the previously compiling code, so it was verified by
   inspection instead. See `learnings.md` for details.
 - (2026-09-20) Step 1 complete
+- Step 2 (`a50a077`): `Settings...` and `Undo` now use `IconMenuItem` with the
+  bundled `gearshape` / `arrow.uturn.backward` PNGs (SF Symbols rendered at
+  18 pt 2x in `#8E8E93`), exported by the developer-run
+  `tools/macos/export-menu-icons.swift`; the `image-png` tauri feature was
+  added, and `docs/agents/tauri-app.md` gained a "Menu icons" entry. With all
+  four items on the macOS icon path, `MenuItem` moved to a
+  `#[cfg(not(target_os = "macos"))]` import.
+- (2026-09-20) Step 2 complete

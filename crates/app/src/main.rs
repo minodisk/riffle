@@ -9,8 +9,12 @@ mod update;
 
 mod app_menu {
     #[cfg(target_os = "macos")]
+    use tauri::image::Image;
+    #[cfg(not(target_os = "macos"))]
+    use tauri::menu::MenuItem;
+    #[cfg(target_os = "macos")]
     use tauri::menu::{IconMenuItem, NativeIcon};
-    use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
+    use tauri::menu::{Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
 
     const PHOTOLAB_ID: &str = "open-in-photolab";
@@ -51,6 +55,18 @@ mod app_menu {
             true,
             None::<&str>,
         )?;
+        #[cfg(target_os = "macos")]
+        let settings = IconMenuItem::with_id(
+            handle,
+            SETTINGS_ID,
+            "Settings...",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/gearshape.png"
+            ))?),
+            Some("CmdOrCtrl+,"),
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let settings = MenuItem::with_id(
             handle,
             SETTINGS_ID,
@@ -115,6 +131,18 @@ mod app_menu {
                     edit.remove_at(0)?;
                 }
             }
+            #[cfg(target_os = "macos")]
+            let undo = IconMenuItem::with_id(
+                handle,
+                UNDO_ID,
+                "Undo",
+                true,
+                Some(Image::from_bytes(include_bytes!(
+                    "../icons/menu/arrow.uturn.backward.png"
+                ))?),
+                Some("CmdOrCtrl+Z"),
+            )?;
+            #[cfg(not(target_os = "macos"))]
             let undo = MenuItem::with_id(handle, UNDO_ID, "Undo", true, Some("CmdOrCtrl+Z"))?;
             edit.insert(&undo, 0)?;
         }
