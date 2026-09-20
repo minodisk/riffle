@@ -169,7 +169,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Commit as `feat(app): request only the thumbnails scan-progress reports ready`
       or similar.
 
-- [ ] Step 3: Drop the `refresh` throttle now that progress no longer drives it
+- [x] Step 3: Drop the `refresh` throttle now that progress no longer drives it
   - Done when:
     - `REFRESH_INTERVAL`, `lastRefresh` and `refreshTimer` are removed from
       `strip.ts` and `refresh()` runs immediately (clear `missing`, `pump()`).

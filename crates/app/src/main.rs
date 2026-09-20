@@ -401,11 +401,12 @@ fn main() {
                     log::LevelFilter::Info
                 })
                 // The plugin's default cap is 40 KB, which a single ~30s
-                // scan can fill on its own: `folder_entries` is refreshed on
-                // every `scan-progress` event (up to 10/s), so its `open
-                // entries` line alone runs to ~300 lines of ~120 bytes. The
-                // timing lines are the whole point of the file, so the cap is
-                // raised rather than the lines thinned out.
+                // scan can fill on its own: `folder_entries` is re-read
+                // while a `scan-progress` stream leaves the focused row
+                // missing, so its `open entries` line alone runs to ~300
+                // lines of ~120 bytes. The timing lines are the whole point
+                // of the file, so the cap is raised rather than the lines
+                // thinned out.
                 .max_file_size(1_000_000)
                 .build(),
         )
