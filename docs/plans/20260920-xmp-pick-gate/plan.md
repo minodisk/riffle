@@ -33,7 +33,7 @@ render gate (see Trade-offs).
 
 ## Steps
 
-- [ ] Step 1: Gate the pick on `sidecarFormat` in the frontend, with a tested pure helper
+- [x] Step 1: Gate the pick on `sidecarFormat` in the frontend, with a tested pure helper
   - Done when:
     - With `sidecarFormat === "xmp"`, a row that arrives from `folder_entries`
       with `pick: true` renders no flag dot, is not matched by the "picked"
@@ -135,4 +135,4 @@ render gate (see Trade-offs).
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
