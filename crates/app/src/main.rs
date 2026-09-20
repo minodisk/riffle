@@ -5,6 +5,7 @@ mod exif;
 mod index;
 mod shortcuts;
 mod sidecar;
+mod trash;
 mod update;
 mod watch;
 
@@ -459,6 +460,7 @@ fn main() {
             commands::scan_running,
             commands::index_size,
             commands::clear_index,
+            commands::trash_rejected,
             set_sidecar_format,
             debug_build,
             timing_logs,

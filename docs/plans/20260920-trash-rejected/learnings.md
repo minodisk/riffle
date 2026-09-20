@@ -1,0 +1,29 @@
+# Learnings
+
+## Step 1
+
+- `trash` 5.2.9's macOS default delete method is `DeleteMethod::Finder`
+  (`osascript` driving the Finder), which needs Automation permission and
+  plays the Finder delete sound. `commands::trash_context` therefore pins
+  `DeleteMethod::NsFileManager` through `trash::macos::TrashContextExtMacos`.
+  The crate's own docs note the trade-off: `NsFileManager` needs no extra
+  permission and is faster, but on some systems the Trash's "Put Back" entry
+  is missing for files it moved (a macOS bug, trash-rs#14); the file can still
+  be dragged out of the Trash, which restores the sidecar and so the
+  judgement.
+- `mod trash;` in `main.rs` shadows the `trash` crate inside `main.rs`, so the
+  external crate is reached as `::trash::` (`commands.rs` uses
+  `use crate::trash;` for the module and `::trash::TrashContext` for the
+  crate).
+- The case-insensitive-`exists()` pitfall (`docs/agents/tauri-app.md`) shows
+  up in the test for it: on macOS `existing_sidecar` returns the minted
+  `a.ARW.dop` for a file actually named `A.ARW.DOP`, because `exists()`
+  already matches. The test therefore compares the sidecar name
+  case-insensitively rather than expecting the on-disk spelling.
+
+## Deferred issues (todo candidates)
+
+- The "Put Back" promise in the plan's Purpose may not hold on macOS with
+  `DeleteMethod::NsFileManager` (see above). Worth checking by hand during
+  Step 3's manual verification, and wording `README.md` accordingly
+  (`crates/app/src/commands.rs` `trash_context`, `README.md`).
