@@ -96,6 +96,30 @@ app nobody can drive. The code paths are exercised only by `mise run ci`
 (Rust unit tests for `format_bytes`/`Index::clear`, the frontend type check).
 The manual verification therefore stays open — see the deferred item below.
 
+## Step 4: Documentation
+
+### What the docs had to be checked against, not the plan
+
+The shipped label is `Clear Cache` in a `Cache` tab, the panel line reads
+`Index cache: <size>`, and `format_bytes` keeps one decimal from KB up
+(`312.0 KB`, not the plan's `312 KB`) — read out of
+`crates/app/ui/settings.html`, `crates/app/ui/src/settings.ts` and
+`crates/app/src/commands.rs`.
+
+### The measurement paragraph lost the cache paths
+
+`README.md`'s "Measuring on your own folder" now says to clear the cache from
+the settings window and reopen the folder; the per-platform cache paths went
+with the old instruction, since nothing user-facing needs them any more (the
+log folder paths, which `Help > Open Log Folder` complements, stay).
+
+### The guide note
+
+`docs/agents/tauri-app.md` already named `Index::clear` as the second
+`evict_folder` caller and its lock order (added in Step 3); Step 4 added the
+Step 1 WAL measurement (2,121,808 B -> 2,212,448 B with `VACUUM` alone,
+40,960 B with `PRAGMA wal_checkpoint(TRUNCATE)`) as its own Measured bullet.
+
 ## Deferred issues (todo candidates)
 
 - Manual GUI verification of the Clear Cache button (the size shown on open,

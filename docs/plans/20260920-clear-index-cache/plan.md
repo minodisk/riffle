@@ -221,7 +221,7 @@ turns the "measuring on your own folder" procedure in `README.md` into
     - The tab is a plain visible tab; `nextTab` needs no change.
     - Do not put anything in the `Debug` section.
 
-- [ ] Step 4: Documentation
+- [x] Step 4: Documentation
   - Done when:
     - `README.md`'s feature list gains a `Clear Cache` entry next to the
       other settings-window items (auto-advance, sidecar format) saying
@@ -342,3 +342,4 @@ the Cache panel's one-line explanation ("judgements are kept").
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
