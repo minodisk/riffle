@@ -190,7 +190,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       `status.textContent = ""`.
     - Assumes Step 2 is merged.
 
-- [ ] Step 4: Documentation and the human verification list
+- [x] Step 4: Documentation and the human verification list
   - Done when:
     - `docs/agents/tauri-app.md` gets a `(Hit)` entry recording that
       `Scans.running` was never cleared at scan end, that `is_some()` is not
@@ -290,3 +290,4 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete

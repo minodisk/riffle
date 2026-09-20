@@ -84,6 +84,55 @@
   sensitive and this step touches no Rust, so it is a flake, not a
   regression.
 
+## Step 4: Documentation and the human verification list
+
+- `docs/agents/tauri-app.md` gained
+  `### \`Scans.running.is_some()\` is not "a scan is running" (Hit)`, which
+  records the never-cleared `running`, what `is_some()` actually meant and why
+  its two original consumers were unaffected, `ScansState::scanning()` as the
+  one definition of "in progress", the tests that now pin the post-scan state,
+  and the Step 2 finding that a `scan-state` emit must happen while holding
+  the `Scans` lock.
+- The existing "Folder-index eviction" paragraph now spells out that
+  `spawn_eviction`'s `Scans.running` check means "a spawned scan task is in
+  flight" (set by `start_scan`, cleared by `finish`), that it deliberately
+  misses the `preparing`/`pending` phases, and points at `scanning()` for the
+  general test.
+- `README.md`'s `Clear Cache` bullet already said a scan has to finish first;
+  it now also says the button is unavailable while one runs, with a note, and
+  re-enables by itself.
+
+### Human verification list (to be run by the user)
+
+Run `mise run tauri:release:devtools` and check, in order:
+
+1. Open a folder, wait until the meta pane no longer shows `scanning N / M`.
+   Open Settings > Cache: the button is enabled and the note is hidden.
+2. Press `Clear Cache` once: the confirmation dialog appears immediately.
+   Press `Cancel`: the size figure is unchanged, `#status` stays empty, the
+   button is enabled again.
+3. Press `Clear Cache`, press `Clear`: the size line reads
+   `Clearing the index cache…` until it drops to a few tens of KB; the main
+   window reopens the folder and rescans.
+4. While that rescan is running (or open a large folder with the settings
+   window already open on the Cache tab): the button is disabled and the note
+   is visible, without any press. When the scan ends, the button re-enables
+   and the note hides with the window left open.
+5. Open a large folder, then open Settings while the meta pane still shows
+   nothing (the prepare phase, before the first `scanning` line): the button
+   is already disabled.
+6. Force an error path if reachable (e.g. confirm the dialog while a scan
+   starts from a drag-drop in the main window): the red `#status` line shows
+   the refusal and stays until the next press.
+7. Note whether the very first press after opening the settings window ever
+   does nothing (the original symptom). If it does, record the window focus
+   state at that moment.
+
+#### Results
+
+Not yet run. Record the outcome of each numbered check here, including
+whether check 7's symptom reproduces after the fix.
+
 ## Deferred issues (todo candidates)
 
 - `index::tests::the_reader_does_not_wait_on_an_open_write_transaction` is
