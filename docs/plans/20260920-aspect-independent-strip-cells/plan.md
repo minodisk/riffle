@@ -67,4 +67,11 @@ height instead. The virtual list (`--cell-height`, `strip.ts`) is untouched.
 
 ## Progress
 
-- (none yet)
+- Step 1: Changed `.cell img` in `crates/app/ui/style.css` to a 144x144 box
+  with `object-fit: contain`, and moved the placeholder grey background to a
+  new `.cell img:not([src])` rule so a loaded thumbnail no longer shows grey
+  bands. Updated the comment above `.cell img` to describe the new rule.
+  Removed the "App: filmstrip cell geometry assumes 3:2 thumbnails" section
+  from `todo.md`. The by-eye acceptance checks (3:2 thumbnail unchanged,
+  non-3:2 thumbnail fills width/height, placeholder still grey) are left to
+  the user, per `learnings.md`.
