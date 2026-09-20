@@ -177,18 +177,15 @@ mod app_menu {
             &photolab,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
-        // macOS puts Settings in the app menu, right after About; elsewhere it
-        // goes at the end of File's own items, above Close Window and Quit.
+        // On macOS both go in the app menu: Check for Updates joins About above
+        // the default menu's first separator, since both are app-identity
+        // items, and Settings gets a section of its own below it, as the
+        // platform convention has it. Elsewhere they go at the end of File's
+        // own items, above Close Window and Quit.
         #[cfg(target_os = "macos")]
         if let Some(MenuItemKind::Submenu(app)) = menu.items()?.into_iter().next() {
-            app.insert_items(
-                &[
-                    &settings,
-                    &check_updates,
-                    &PredefinedMenuItem::separator(handle)?,
-                ],
-                2,
-            )?;
+            app.insert_items(&[&check_updates], 1)?;
+            app.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 3)?;
         }
         #[cfg(not(target_os = "macos"))]
         file.insert_items(

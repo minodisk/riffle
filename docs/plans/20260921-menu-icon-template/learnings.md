@@ -143,3 +143,26 @@ Ghostty uses the same symbol for its Check for Updates item.
   came out byte-identical.
 - `NativeIcon` stays imported: `FollowLinkFreestanding` on the PhotoLab item is
   now its only use, so `-D unused-imports` is satisfied without a `cfg` change.
+
+### Scope addition: `Check for Updates…` and `Settings...` sat in the wrong sections
+
+With the icons settled, the grouping was the remaining oddity: `Settings...`
+and `Check for Updates…` shared one section below the first separator. They
+are unrelated — checking for updates is an app-identity action, like About,
+while Settings is its own thing and every macOS app gives it a section of its
+own. `Check for Updates…` now goes in at index 1, directly after About and
+above the default menu's separator, and `Settings...` plus a fresh separator at
+index 3, just below it.
+
+- The indices come from `Menu::default` in `tauri/src/menu/menu.rs`, whose
+  macOS app submenu is About, separator, Services, separator, Hide, Hide
+  Others, separator, Quit. Inserting at 1 lands before the first separator;
+  the second insert is at 3 because the first one shifted everything down by
+  one. Worth reading that constructor rather than guessing — the old single
+  insert at 2 only looked right because it happened to land after the
+  separator.
+- The non-macOS branch is untouched: there is no app menu there, and both
+  items stay in File.
+- `About riffle-app` has no icon, unlike everything below it: it is a
+  `PredefinedMenuItem`, and neither muda nor Tauri exposes an icon setter for
+  those (`set_icon` exists only on `IconMenuItem`).
