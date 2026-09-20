@@ -397,21 +397,46 @@ fn auto_advance_setting(value: Option<&Value>) -> bool {
 pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> Result<(), String> {
     let switch_lock = app.state::<AppSwitchLock>();
     let _guard = index::lock(&switch_lock.0);
-    if *index::lock(&app.state::<AppSidecarFormat>().0) == format {
+    let current = app.state::<AppSidecarFormat>();
+    let writer = app.state::<AppWriter>();
+    let index = app.state::<AppIndex>();
+    switch_format(
+        &current.0,
+        writer.0.as_ref(),
+        index.0.as_ref(),
+        format,
+        |format| {
+            settings(app).and_then(|store| {
+                store.set("sidecarFormat", format.setting());
+                store.save().map_err(|e| e.to_string())
+            })
+        },
+    )
+}
+
+/// The body of `switch_sidecar_format`, without the `AppHandle`: the state
+/// write, the drain, `persist` (a save failure is logged, not returned) and
+/// the index reset. The caller serialises switches (the command does it with
+/// `AppSwitchLock`); this function does no locking of its own beyond the
+/// state and index mutexes.
+fn switch_format(
+    current: &Mutex<SidecarFormat>,
+    writer: Option<&Writer>,
+    index: Option<&Arc<Mutex<Index>>>,
+    format: SidecarFormat,
+    persist: impl FnOnce(SidecarFormat) -> Result<(), String>,
+) -> Result<(), String> {
+    if *index::lock(current) == format {
         return Ok(());
     }
-    *index::lock(&app.state::<AppSidecarFormat>().0) = format;
-    if let Some(writer) = &app.state::<AppWriter>().0 {
+    *index::lock(current) = format;
+    if let Some(writer) = writer {
         writer.flush(crate::sidecar::DRAIN_TIMEOUT);
     }
-    let saved = settings(app).and_then(|store| {
-        store.set("sidecarFormat", format.setting());
-        store.save().map_err(|e| e.to_string())
-    });
-    if let Err(e) = saved {
+    if let Err(e) = persist(format) {
         eprintln!("failed to save the sidecar format: {e}");
     }
-    match &app.state::<AppIndex>().0 {
+    match index {
         Some(index) => index::lock(index).reset_sidecars(),
         None => Ok(()),
     }
@@ -2335,5 +2360,64 @@ mod tests {
         std::fs::write(&path, b"II\x2a\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00").unwrap();
         assert!(read_preview(&path).is_err());
         remove_temp_dir(&dir);
+    }
+
+    fn switch_writer(index: Arc<Mutex<Index>>) -> Writer {
+        Writer::spawn(index, |path, message| {
+            eprintln!("{}: {message}", path.display())
+        })
+    }
+
+    /// A judgement made in the window between the format swap and
+    /// `reset_sidecars` must land in the newly selected format and leave the
+    /// row clean, not be replayed on the next open.
+    #[test]
+    fn a_rating_set_during_a_switch_lands_in_the_new_format_and_leaves_no_dirty_row() {
+        let root = temp_dir("switch-race-rating");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let index = sidecar_index(&root);
+        let writer = switch_writer(index.clone());
+        let listed = list_arw_in(&root).unwrap();
+        let path = listed[0].clone();
+        let current = Mutex::new(SidecarFormat::Xmp);
+        let observed = Mutex::new(None);
+
+        switch_format(
+            &current,
+            Some(&writer),
+            Some(&index),
+            SidecarFormat::Dop,
+            |_| {
+                let format = *index::lock(&current);
+                *index::lock(&observed) = Some(format);
+                index::lock(&index)
+                    .set_rating(&dir, &path, Some(4), false, None, true)
+                    .unwrap();
+                writer
+                    .set(PathBuf::from(&path), Some(4), false, None, true, format)
+                    .unwrap();
+                Ok(())
+            },
+        )
+        .unwrap();
+        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+
+        assert_eq!(*index::lock(&observed), Some(SidecarFormat::Dop));
+        let dop = SidecarFormat::Dop.sidecar_path(Path::new(&path));
+        let bytes = std::fs::read(&dop).unwrap();
+        assert_eq!(SidecarFormat::Dop.read_rating(&bytes).unwrap(), Some(4));
+        assert!(!SidecarFormat::Xmp.sidecar_path(Path::new(&path)).exists());
+        // `entries` joins `files`, which only a scan fills in.
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&path)).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        assert_eq!(rating_of(&index, &dir, &path), Some(4));
+        assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
+
+        remove_temp_dir(&root);
     }
 }
