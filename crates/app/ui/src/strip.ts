@@ -21,13 +21,6 @@ const CELL_HEIGHT = Number.parseFloat(getComputedStyle(inner).getPropertyValue("
 const RANGE_MARGIN = 4;
 // Concurrent `thumbnail` invokes. The IPC hop, not the decode, is the cost.
 const MAX_IN_FLIGHT = 4;
-// Shortest gap between two `refresh` runs. `refresh` re-requests every
-// visible cell the index had nothing for, so running it repeatedly kept
-// `MAX_IN_FLIGHT` invokes outstanding and starved the rest of the IPC
-// channel. `scan-progress` now goes through `ready` instead, which names the
-// files that became available, and only `scan-done` refreshes; the throttle
-// stays until that is the sole caller.
-const REFRESH_INTERVAL = 1000;
 
 interface Cell {
   el: HTMLDivElement;
@@ -64,11 +57,6 @@ const missing = new Set<number>();
 // its path was reported comes back `Err` from a query that ran before the
 // commit, and must not be left `missing` until `scan-done`.
 const ready = new Set<number>();
-// When the last `refresh` ran, and the trailing timer for a `refresh` that
-// arrived inside `REFRESH_INTERVAL` of it. The trailing run is what keeps the
-// authoritative `scan-done` refresh from being dropped.
-let lastRefresh = 0;
-let refreshTimer: number | null = null;
 // Indices whose request failed for a reason other than "not yet scanned".
 // Kept separate from `missing` so a real failure is shown once instead of
 // being retried forever like a not-yet-scanned file.
@@ -350,11 +338,6 @@ export function setFiles(paths: string[], keepScroll = false): void {
   missing.clear();
   ready.clear();
   failed.clear();
-  if (refreshTimer !== null) {
-    clearTimeout(refreshTimer);
-    refreshTimer = null;
-  }
-  lastRefresh = 0;
   ratings.clear();
   picks.clear();
   labels.clear();
@@ -382,23 +365,11 @@ export function setCurrent(index: number): void {
   render();
 }
 
-// Ask again for the visible cells the index had nothing for, after the scan
-// has made progress. Throttled to one run per `REFRESH_INTERVAL`, with a
-// trailing run so the last caller still takes effect.
+// Ask again for the visible cells the index had nothing for, once the scan
+// is done.
 export function refresh(): void {
-  const wait = lastRefresh + REFRESH_INTERVAL - Date.now();
-  if (wait <= 0) {
-    lastRefresh = Date.now();
-    missing.clear();
-    pump();
-    return;
-  }
-  if (refreshTimer === null) {
-    refreshTimer = setTimeout(() => {
-      refreshTimer = null;
-      refresh();
-    }, wait);
-  }
+  missing.clear();
+  pump();
 }
 
 // The scan has committed these paths, so the index can answer for them now.

@@ -169,7 +169,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Commit as `feat(app): request only the thumbnails scan-progress reports ready`
       or similar.
 
-- [ ] Step 3: Drop the `refresh` throttle now that progress no longer drives it
+- [x] Step 3: Drop the `refresh` throttle now that progress no longer drives it
   - Done when:
     - `REFRESH_INTERVAL`, `lastRefresh` and `refreshTimer` are removed from
       `strip.ts` and `refresh()` runs immediately (clear `missing`, `pump()`).
@@ -275,3 +275,12 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
   one-shot per reported path, and a second failure falls through to
   `failed`. The `mise run tauri:dev` check is still outstanding and is
   recorded in `learnings.md` as a deferred manual check.
+- (2026-09-21) Step 3 complete
+- Step 3 (`34fefbf`): `REFRESH_INTERVAL`, `lastRefresh` and `refreshTimer`
+  are gone; `refresh()` is now `missing.clear(); pump();`. A grep confirmed
+  its only caller is the `scan-done` listener, so the un-throttled run
+  happens once per scan and stays bounded by `MAX_IN_FLIGHT`. The
+  `max_file_size` comment in `crates/app/src/main.rs` turned out to be wrong
+  and was corrected: `refreshEntries` runs only while the focused row is
+  missing from `entries`, coalesced by `entriesInFlight`, not on every
+  `scan-progress` event.

@@ -30,6 +30,21 @@
   cannot be narrowed") were rewritten; `REFRESH_INTERVAL` itself is untouched,
   it goes in Step 3.
 
+## Step 3
+
+- `REFRESH_INTERVAL`, `lastRefresh` and `refreshTimer` are gone; `refresh()` is
+  now `missing.clear(); pump();`. The `setFiles` reset lost the timer
+  bookkeeping with them.
+- Grep across `crates/app/ui/src` confirms the sole caller is the `scan-done`
+  listener (`crates/app/ui/src/main.ts:1384`), so no throttle is needed: it
+  fires once per scan and issues at most `MAX_IN_FLIGHT` invokes.
+- The `max_file_size` comment in `crates/app/src/main.rs` was wrong: it said
+  `folder_entries` is refreshed "on every `scan-progress` event", but
+  `refreshEntries` is called from the progress listener only while the focused
+  row is still missing from `entries`, and it coalesces through
+  `entriesInFlight`. Reworded to "re-read while a `scan-progress` stream leaves
+  the focused row missing"; the ~300-line estimate is left as is.
+
 ## Deferred issues (todo candidates)
 
 - Manual GUI check of this step is outstanding: `mise run tauri:dev` on a
@@ -39,3 +54,8 @@
   payload sizes. Basis: Step 2's "Done when" hand check; this session has no
   GUI access. Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`,
   `crates/app/src/commands.rs`.
+- Also outstanding for Step 3: confirm in `mise run tauri:dev` that the
+  un-throttled `scan-done` `refresh()` on a large folder does not visibly
+  starve the IPC channel. Same GUI-access basis as the item above; fold into
+  the same hand check. Files: `crates/app/ui/src/strip.ts`,
+  `crates/app/ui/src/main.ts`.
