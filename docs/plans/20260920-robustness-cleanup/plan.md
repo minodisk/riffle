@@ -259,3 +259,4 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 
 - Step 1: Sidecar read errors are now keyed by the RAW path in `crates/app/src/commands.rs`, so they supersede write errors for the same file (commit `a26aa38`, PR TBD).
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete
