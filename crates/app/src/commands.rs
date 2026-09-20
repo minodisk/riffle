@@ -641,6 +641,12 @@ struct ScansState {
     latest_id: u64,
     running: Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
     pending: HashMap<u64, PendingScan>,
+    /// The number of `scan_folder` calls currently past minting their id but
+    /// not yet done (listing, `reconcile`, `reconcile_sidecars_of`), i.e.
+    /// past the point where `running` is invisible for them. `clear_index`
+    /// refuses while this is nonzero, or it could run against a folder that
+    /// is mid-open with no scan indicated by `running`. See `Preparing`.
+    preparing: u32,
 }
 
 impl ScansState {
@@ -654,6 +660,35 @@ struct PendingScan {
     dir: String,
     todo: Vec<FileStat>,
     cancel: Arc<AtomicBool>,
+}
+
+/// Marks one `scan_folder` call as being in its prepare phase (listing,
+/// `reconcile`, `reconcile_sidecars_of`) by holding `ScansState::preparing`
+/// above zero for as long as it is alive. `scan_folder` mints its id, takes
+/// `running` and spends this whole phase with no lock held and `running ==
+/// None`, so without this, a `clear_index` issued while a folder is opening
+/// would pass both of its checks and run against the folder's
+/// soon-to-be-reconciled rows. Decrements under the same lock on drop, which
+/// covers every early return of `scan_folder` as well as its normal one.
+struct Preparing {
+    app: tauri::AppHandle,
+}
+
+impl Preparing {
+    fn new(app: tauri::AppHandle) -> Self {
+        {
+            let scans = app.state::<Scans>();
+            index::lock(&scans.0).preparing += 1;
+        }
+        Self { app }
+    }
+}
+
+impl Drop for Preparing {
+    fn drop(&mut self) {
+        let scans = self.app.state::<Scans>();
+        index::lock(&scans.0).preparing -= 1;
+    }
 }
 
 /// The index, shared between the commands and the scan thread. It is a cache:
@@ -725,6 +760,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         state.latest_id = scan_id;
         (scan_id, state.running.take())
     };
+    let _preparing = Preparing::new(app.clone());
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
@@ -1254,7 +1290,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     {
         let scans = app.state::<Scans>();
         let state = index::lock(&scans.0);
-        if state.running.is_some() {
+        if state.running.is_some() || state.preparing > 0 || !state.pending.is_empty() {
             return Err(SCAN_RUNNING.to_string());
         }
     }
@@ -1290,7 +1326,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
         };
         let scans = handle.state::<Scans>();
         let state = index::lock(&scans.0);
-        if state.running.is_some() {
+        if state.running.is_some() || state.preparing > 0 || !state.pending.is_empty() {
             return Err(SCAN_RUNNING.to_string());
         }
         let summary = index::lock(&index).clear()?;
@@ -1345,11 +1381,15 @@ mod tests {
 
     #[test]
     fn the_size_base_follows_the_platforms_file_manager() {
-        if cfg!(target_os = "macos") {
-            assert_eq!(SIZE_BASE, 1000);
+        // macOS Finder reports sizes in decimal units (1 GB = 1000^3 bytes);
+        // Windows Explorer and most Linux file managers report binary units
+        // (1 GB = 1024^3 bytes).
+        let expected = if cfg!(target_os = "macos") {
+            "1.1 GB"
         } else {
-            assert_eq!(SIZE_BASE, 1024);
-        }
+            "1.0 GB"
+        };
+        assert_eq!(format_bytes(1_073_741_824, SIZE_BASE), expected);
     }
 
     #[test]
