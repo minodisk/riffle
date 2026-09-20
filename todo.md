@@ -34,14 +34,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Use the `done` counter or per-file `has_thumb` state to request only newly available thumbnails, if the strip turns out to be IPC-bound.
 
-### App: filmstrip cell geometry assumes 3:2 thumbnails
-
-`.cell img` in `crates/app/ui/style.css` is a fixed 144x96 box, matching the current 404x270 pipeline. A body with a differently shaped IFD0 preview would letterbox harmlessly (`object-fit: contain`) but waste cell space.
-
-#### TODO
-
-- [ ] Revisit if a camera body with a non-3:2 preview turns up.
-
 ### App: a multi-file drop is rejected wholesale, and drag-hover gives no early feedback
 
 The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-item drop outright, even when every item shares one parent folder. Separately, the `body.dragging` overlay in `crates/app/ui/style.css` looks the same whether or not the payload will be accepted, although Tauri's `drag-enter` event already carries the paths.
