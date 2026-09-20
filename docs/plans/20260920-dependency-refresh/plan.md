@@ -162,3 +162,9 @@ later, the swap is a single PR:
   the project does not run). Listed above as exclusions.
 
 ## Progress
+
+- (2026-09-20) Step 1: `cargo update` and `pnpm update @tauri-apps/cli`
+  landed (`a41b0db`); `mise run ci` passes. The manual sanity check
+  (`mise run tauri:dev` on macOS) could not be run in this environment
+  (port 1420 conflict with a concurrent worktree) and is still outstanding
+  — see `learnings.md`. Step left unchecked until that check is done.
