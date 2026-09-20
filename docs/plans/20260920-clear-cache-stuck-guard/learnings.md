@@ -24,3 +24,25 @@
   take the entry out of `running` and would make the assertion vacuous.
 - `riffle-app` is a bin crate: `cargo test -p riffle-app <name>` takes only one
   filter argument, so the two tests had to be run separately.
+
+## Step 2: Backend signals for the settings window
+
+- `publish_scan_state(&AppHandle, bool)` emits `scan-state`; the four call
+  sites each compute `scanning()` under the `Scans` lock, drop it, then emit.
+  `scan_folder` and `start_scan` emit a constant `true` (both have just made
+  `scanning()` true), `Preparing::drop` and the scan task's `finish` emit the
+  recomputed value.
+- `start_scan` is a synchronous command holding the guard until it returns, so
+  the store into `running` is now followed by an explicit `drop(state)` before
+  the emit.
+- `index::lock(&app.state::<Scans>().0)` inside the scan task no longer
+  compiles once the guard is held across more than one statement (E0716: the
+  `State` temporary is freed at the end of the statement), so the task binds
+  `let scans = app.state::<Scans>();` first.
+- Capability check (the constraint said to verify rather than assume):
+  `crates/app/capabilities/default.json` grants `core:default`, which
+  `crates/app/gen/schemas/desktop-schema.json` documents as including
+  `core:event:default`, which includes `allow-listen`. No capability change is
+  needed for the settings window to listen to `scan-state` / `index-clearing`.
+- `scan_running` is `async` even though it only takes a mutex briefly, to match
+  `index_size`/`clear_index` and keep it off the main thread.

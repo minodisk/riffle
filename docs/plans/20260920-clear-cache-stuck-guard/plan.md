@@ -101,7 +101,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       at setup before any scan can have been started, so it is not affected,
       and touching it is outside this fix.
 
-- [ ] Step 2: Backend signals for the settings window: `scan_running` command, `scan-state` event, `index-clearing` event
+- [x] Step 2: Backend signals for the settings window: `scan_running` command, `scan-state` event, `index-clearing` event
   - Done when:
     - A new async command `scan_running(app) -> bool` returns
       `ScansState::scanning()`, registered in `main.rs`'s handler list next

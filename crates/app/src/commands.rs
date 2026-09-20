@@ -691,6 +691,13 @@ impl ScansState {
     }
 }
 
+/// Broadcast the current value of `ScansState::scanning` to every window, so
+/// the settings window can follow it without polling. Call it with the lock
+/// already dropped: emitting runs listeners on the main thread.
+fn publish_scan_state(app: &tauri::AppHandle, scanning: bool) {
+    let _ = app.emit("scan-state", scanning);
+}
+
 struct PendingScan {
     dir: String,
     todo: Vec<FileStat>,
@@ -724,7 +731,12 @@ impl Preparing {
 impl Drop for Preparing {
     fn drop(&mut self) {
         let scans = self.app.state::<Scans>();
-        index::lock(&scans.0).preparing -= 1;
+        let scanning = {
+            let mut state = index::lock(&scans.0);
+            state.preparing -= 1;
+            state.scanning()
+        };
+        publish_scan_state(&self.app, scanning);
     }
 }
 
@@ -799,6 +811,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         let preparing = Preparing::start(app.clone(), &mut state);
         (scan_id, previous, preparing)
     };
+    publish_scan_state(&app, true);
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
@@ -985,10 +998,18 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                     errors: summary.errors,
                 },
             );
-            index::lock(&app.state::<Scans>().0).finish(scan_id);
+            let scanning = {
+                let scans = app.state::<Scans>();
+                let mut state = index::lock(&scans.0);
+                state.finish(scan_id);
+                state.scanning()
+            };
+            publish_scan_state(&app, scanning);
         }
     });
     state.running = Some((scan_id, cancel, handle));
+    drop(state);
+    publish_scan_state(&app, true);
     Ok(())
 }
 
@@ -1298,6 +1319,15 @@ fn on_disk_bytes(path: &Path) -> u64 {
     .sum()
 }
 
+/// Whether a scan is in progress right now, for a settings window that opened
+/// mid-scan; `scan-state` carries every change from then on.
+#[tauri::command]
+pub async fn scan_running(app: tauri::AppHandle) -> bool {
+    let scans = app.state::<Scans>();
+    let scanning = index::lock(&scans.0).scanning();
+    scanning
+}
+
 /// The path the index is opened from, recomputed as `main.rs` does; the path
 /// itself is not kept in any managed state.
 fn index_path(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -1360,6 +1390,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     if !rx.recv().await.unwrap_or(false) {
         return Ok(false);
     }
+    let _ = app.emit("index-clearing", ());
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         if let Some(writer) = &handle.state::<AppWriter>().0 {
