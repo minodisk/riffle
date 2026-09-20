@@ -27,14 +27,22 @@
 
 ## Step 2: Backend signals for the settings window
 
-- `publish_scan_state(&AppHandle, bool)` emits `scan-state`; the four call
-  sites each compute `scanning()` under the `Scans` lock, drop it, then emit.
-  `scan_folder` and `start_scan` emit a constant `true` (both have just made
-  `scanning()` true), `Preparing::drop` and the scan task's `finish` emit the
-  recomputed value.
-- `start_scan` is a synchronous command holding the guard until it returns, so
-  the store into `running` is now followed by an explicit `drop(state)` before
-  the emit.
+- `publish_scan_state(&AppHandle, bool)` emits `scan-state`. `scan_folder`
+  computes `scanning()` under the `Scans` lock, drops it, then emits; so do
+  `Preparing::drop` and the scan task's `finish`, with the recomputed value.
+- `start_scan` and the scan task it spawns race for the same lock: on a fast
+  or empty scan, the spawned task can reach `finish`/`scanning`/emit before
+  `start_scan` reaches its own trailing emit, and since the two `app.emit`
+  calls run on separate threads with the lock already dropped, nothing
+  orders them — a stale `true` can land after the task's correct `false` and
+  leave the settings window stuck showing "scanning" forever. `start_scan`
+  and the task's closure now emit `scan-state` directly (not through
+  `publish_scan_state`) while still holding the `Scans` lock, so the mutex
+  itself serialises the two `app.emit` calls: the task cannot take the lock
+  to emit until `start_scan` has stored `running` and emitted `true` under
+  it, and vice versa if the task gets there first. `start_scan` never drops
+  its guard mid-function, so `running` is always stored while the task is
+  still blocked on the same lock, before either one can emit.
 - `index::lock(&app.state::<Scans>().0)` inside the scan task no longer
   compiles once the guard is held across more than one statement (E0716: the
   `State` temporary is freed at the end of the statement), so the task binds

@@ -131,9 +131,16 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       a settings window opened mid-scan.
     - Compute the bool under the `Scans` lock, drop the lock, then emit; do
       not emit while holding it. A helper like
-      `fn publish_scan_state(app: &AppHandle, scanning: bool)` keeps the
-      four call sites to one line each. `Preparing` already owns an
-      `AppHandle`, so its `Drop` can emit after decrementing.
+      `fn publish_scan_state(app: &AppHandle, scanning: bool)` keeps
+      `scan_folder` and `Preparing::drop` to one line each. `Preparing`
+      already owns an `AppHandle`, so its `Drop` can emit after
+      decrementing. `start_scan` and the scan task it spawns are the
+      exception: on a fast or empty scan they race for the same lock, and
+      with both emits issued after the lock is dropped, nothing orders the
+      two `app.emit` calls, so a stale `true` can land after the task's
+      correct `false` and leave the button stuck disabled. Those two sites
+      emit `scan-state` directly while still holding the `Scans` lock, so
+      the mutex itself serialises the two emits.
     - Assumes Step 1 is merged (needs `scanning()` and `finish`).
 
 - [ ] Step 3: Settings window: disable the button while a scan runs with the reason shown, show in-flight feedback, keep errors visible

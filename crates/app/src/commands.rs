@@ -998,18 +998,30 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                     errors: summary.errors,
                 },
             );
-            let scanning = {
-                let scans = app.state::<Scans>();
-                let mut state = index::lock(&scans.0);
-                state.finish(scan_id);
-                state.scanning()
-            };
-            publish_scan_state(&app, scanning);
+            // Emit while still holding the lock: `start_scan` below emits its
+            // own `true` under the same lock, before ever releasing it, so
+            // whichever of the two critical sections runs second (this one,
+            // if the scan finishes fast enough to race the store below) is
+            // guaranteed to emit after the other's `app.emit` call has
+            // returned. Emitting with the lock dropped, as
+            // `publish_scan_state`'s usual contract asks, would let these two
+            // `app.emit` calls interleave freely on separate threads with no
+            // ordering guarantee, which is exactly the race that used to let
+            // a stale `true` land after this correct `false` and leave the
+            // settings window stuck showing "scanning" forever.
+            let scans = app.state::<Scans>();
+            let mut state = index::lock(&scans.0);
+            state.finish(scan_id);
+            let scanning = state.scanning();
+            let _ = app.emit("scan-state", scanning);
         }
     });
     state.running = Some((scan_id, cancel, handle));
-    drop(state);
-    publish_scan_state(&app, true);
+    // See the comment above the task's own emit: kept under the same lock
+    // for the same reason. `state` has been held continuously since the top
+    // of this function, so the task cannot have taken the lock (and hence
+    // cannot have emitted) before this call.
+    let _ = app.emit("scan-state", true);
     Ok(())
 }
 
