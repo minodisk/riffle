@@ -285,15 +285,19 @@ the existing item does not clear it.
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
-On macOS several app items carry an icon. `Open in DxO PhotoLab`, `Check for
+On macOS seven app items carry an icon. `Open in DxO PhotoLab`, `Check for
 Updates…` and `Move Rejected to Trash` use
 `IconMenuItem::with_id_and_native_icon` with
 `NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh` /
-`NativeIcon::TrashFull`, which are template images and tint with the menu. `NativeIcon` has neither an undo nor a
-modern gear, so `Settings...` and `Undo` use `IconMenuItem::with_id` with an
+`NativeIcon::TrashFull`, which are template images and tint with the menu.
+`NativeIcon` has neither an undo nor a modern gear, and `NativeIcon::Folder`
+is a colour bitmap rather than a template image, so `Settings...`, `Undo`,
+`Open Folder…` and `Open Log Folder` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's
-`image-png` feature). Other platforms keep the plain `MenuItem` behind `cfg`.
+`image-png` feature). `folder.png` is deliberately shared by `Open Folder…`
+and `Open Log Folder`: they live in different menus, which are never open at
+the same time. Other platforms keep the plain `MenuItem` behind `cfg`.
 
 Regenerate those PNGs with `swift tools/macos/export-menu-icons.swift`, and
 only when a symbol, its size, weight or colour changes; AppKit's rasterisation
@@ -304,19 +308,36 @@ truth. The script never runs at build or run time.
   Tauri exposes no template flag for menu items, so the bundled PNGs do not
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
-- **Hit**: the three PNG-backed items (`Settings...`, `Undo`, `Open Log
-  Folder`) render visibly larger than the two `NativeIcon` items (`Open in
-  DxO PhotoLab`, `Check for Updates…`). Cause, found in muda's
-  `src/platform_impl/macos/mod.rs`: any custom `Image`-backed item goes
-  through `icon.inner.to_nsimage(Some(18.))`, which **hardcodes 18pt**
-  regardless of the PNG's own pixel size (the export script already emits
-  36×36 = 18pt@2x); `NativeIcon` takes a different path
-  (`NSImage::imageNamed`) and keeps its natural ~14–16pt. There is no muda/
-  Tauri flag to change this. Fix without an upstream change: draw the glyph
-  smaller inside the same canvas in `tools/macos/export-menu-icons.swift` so
-  the transparent padding absorbs muda's stretch to 18pt. See
+- The fix is a one-line gap, confirmed by a throwaway spike: adding
+  `nsimage.setTemplate(true)` to `menuitem_set_icon` in muda's
+  `src/platform_impl/macos/mod.rs` makes every bundled PNG tint with the menu
+  (white in dark mode, black in light mode) exactly like the OS-provided
+  items, since a template image contributes only its alpha channel — the
+  grey fill becomes dead weight once adopted. Patching requires a `path`/`git`
+  source (crates.io-to-crates.io patches are rejected) pinned to a version
+  satisfying `tauri`'s `muda = "^0.19"` (so 0.19.3, not 0.20). No upstream
+  muda or Tauri issue tracks this yet. See
+  `docs/plans/_archived/20260920-menu-icon-glyph-size/learnings.md`,
+  "Side experiment: muda's missing `setTemplate` is a one-line gap".
+- **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Open Folder…`,
+  `Open Log Folder`) rendered visibly larger than the rest of the menu. The cause is the
+  glyph's padding, not the canvas: the export script drew the SF Symbol at
+  `pointSize: 18` into an 18pt canvas — filling it edge to edge and in fact
+  overflowing it, so the committed PNGs were clipped. muda does resize every
+  custom `Image`-backed item to 18pt (`icon.inner.to_nsimage(Some(18.))` in
+  `src/platform_impl/macos/mod.rs`), which is why the PNG's own pixel size has
+  no effect on the rendered size, but that resize is not what made the icons
+  look bigger. Fixed in `tools/macos/export-menu-icons.swift` by separating
+  the canvas size (still 18pt) from the glyph `pointSize` (now 12, shared by
+  all three symbols) and regenerating the PNGs. Match the **OS-provided** menu
+  items (`Cut` / `Copy` / `Paste` in the Edit menu), not the `NativeIcon`
+  templates: those pad their glyph to ~16pt of ink inside a 19–20pt canvas and
+  themselves read larger than the rest of the menu, so a size tuned against
+  them (14) still looked too big. Verify any future change with an alpha
+  bounding box that also checks for edge contact. See
   `docs/plans/_archived/20260920-dependency-refresh/learnings.md` for the
-  observation.
+  original observation, whose muda-based explanation is superseded by this
+  bullet.
 
 ### Adding a macOS menu item needs the same `cfg` split as its siblings (Hit)
 

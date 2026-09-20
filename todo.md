@@ -109,36 +109,42 @@ Trash still restores them. Files: `crates/app/src/main.rs` (`app_menu`),
 
 muda never calls `setTemplate` on a custom menu `NSImage`, and Tauri exposes no
 template flag for menu items (only for the tray icon), so a bundled PNG
-(`Settings...` / `Undo`, `crates/app/icons/menu/`) cannot tint with the menu
-appearance the way native icons do. The current PNGs are rendered in a neutral
-grey (`#8E8E93`) as a legible-in-both-modes compromise. Upstreaming template
-support in muda / Tauri is the proper fix.
+(`Settings...` / `Undo` / `Open Folder…` / `Open Log Folder`,
+`crates/app/icons/menu/`) cannot tint with the menu appearance the way native
+icons do. The current PNGs are rendered in a neutral grey (`#8E8E93`) as a
+legible-in-both-modes compromise.
+
+A spike (menu-icon-glyph-size plan, reverted, not committed) confirmed the fix
+is a one-line change in muda 0.19.3's `menuitem_set_icon`
+(`src/platform_impl/macos/mod.rs`): adding `nsimage.setTemplate(true)` makes
+every bundled PNG icon tint with the menu appearance exactly like the
+OS-provided `Cut` / `Copy` / `Paste` items, and the baked `#8E8E93` grey
+becomes irrelevant (a template image contributes only its alpha channel). No
+upstream muda issue exists for this (all 92 issues, open and closed, checked;
+nearest are #262, #240, #97, none of them this). Tauri's tray icon already
+has `set_icon_as_template`; the concept was simply never extended to menu
+items.
+
+Patching requires a `path`/`git`-sourced fork (a crates.io-to-crates.io patch
+via `[patch.crates-io]` is rejected outright) that still satisfies Tauri's
+`muda = "^0.19"`, so a fork must stay on muda 0.19.3 rather than move to
+0.20.
 
 #### TODO
 
-- [ ] Investigate and, if feasible, upstream `setTemplate` support for custom
-      menu item images in muda / Tauri, then switch `crates/app/src/main.rs`
-      (`app_menu`) to a template image instead of the fixed-grey PNG fallback.
+- [ ] Open an upstream PR against `tauri-apps/muda` adding
+      `nsimage.setTemplate(true)` to `menuitem_set_icon`.
+- [ ] Until it lands, adopt a `path`/`git`-patched fork of muda 0.19.3 via
+      `[patch.crates-io]` in `Cargo.toml`, pinned to 0.19.3 to satisfy
+      Tauri's `muda = "^0.19"`.
+- [ ] Once menu-item images are templates, drop the now-dead `#8E8E93` fill
+      step from `tools/macos/export-menu-icons.swift`.
+- [ ] Done when `Settings...`, `Undo`, `Open Folder…` and `Open Log Folder`
+      tint white in dark mode and black in light mode in the running app, and
+      the grey fill step is gone from the export script.
 
-### App: PNG-backed menu icons render larger than native ones
-
-muda hardcodes an 18pt height for every `Image`-backed menu item
-(`to_nsimage(Some(18.))` in muda's macOS backend), while `NativeIcon` items are
-used at their natural ~14–16pt size. As a result `Settings...`, `Undo` and
-`Open Log Folder` (all PNG-backed) sit visibly larger than `Open in DxO
-PhotoLab` and `Check for Updates…` (both `NativeIcon`-backed) in the macOS
-menu. Confirmed by manual inspection during the dependency-refresh sanity
-check (2026-09-20). Fixable without an upstream change: shrink the drawn
-glyph inside the canvas in `tools/macos/export-menu-icons.swift` so the
-transparent padding absorbs muda's stretch to 18pt. Related:
-`tools/macos/export-menu-icons.swift`, `crates/app/icons/menu/*.png`,
-`crates/app/src/main.rs`.
-
-#### TODO
-
-- [ ] Shrink the glyph drawn by `tools/macos/export-menu-icons.swift` so the
-      exported PNGs read at ~14pt once muda stretches them to 18pt, and
-      confirm all five menu icons look the same size.
+Related: `tools/macos/export-menu-icons.swift`, `Cargo.toml`,
+`crates/app/icons/menu/*.png`.
 
 ### App: the real-device checks for the File menu accelerators are still open
 
@@ -162,25 +168,6 @@ and Windows / Linux are unconfirmed entirely. Files: `crates/app/src/main.rs`
       via mouse click.
 - [ ] Verify the `Some`/`None` accelerator behaviour on Windows and Linux
       (only reasoned from muda 0.19.3's sources so far, never run).
-
-### App: `Open Folder…` has no macOS menu icon
-
-From `menu-accelerators`'s trade-offs: `NativeIcon::Folder` exists, but the
-macos-menu-icons work found several `NativeIcon`s to be legacy colour
-bitmaps rather than template images, and only verified ones were used
-elsewhere, so `File > Open Folder…` ships as a plain `MenuItem` with no
-icon. Confirmed directly (dependency-refresh, 2026-09-20, AppKit script on
-macOS 26.6): `NSImage(named: "NSFolder")` (what `NativeIcon::Folder`
-resolves to) has `isTemplate == false` — a colour Finder folder that would
-clash with the template icons around it. File: `crates/app/src/main.rs`
-(`app_menu`).
-
-#### TODO
-
-- [ ] Export an SF Symbol (e.g. `folder`) as a PNG via
-      `tools/macos/export-menu-icons.swift`, the same way `Open Log Folder`
-      is done, and assign it to `Open Folder…` instead of
-      `NativeIcon::Folder`.
 
 ### App: the Clear Cache button's manual GUI verification is still open
 
