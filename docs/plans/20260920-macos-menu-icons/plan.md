@@ -100,7 +100,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
       Unsupported" (silently no icon), which is why the non-macOS branch keeps
       `MenuItem` rather than relying on that.
     - Take a screenshot of both menus in light and dark mode for the PR.
-- [ ] Step 2: Bundle SF Symbol renderings for `Settings...` and `Undo`, with a reproducible export script
+- [x] Step 2: Bundle SF Symbol renderings for `Settings...` and `Undo`, with a reproducible export script
   - Done when:
     - `Settings...` shows `gearshape` and `Undo` shows
       `arrow.uturn.backward` on macOS, sized to match the Step 1 native icons

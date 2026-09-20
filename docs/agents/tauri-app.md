@@ -249,6 +249,27 @@ destroyed so it never keeps the app running alone.
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
 
+### Menu icons: native where one exists, a bundled SF Symbol otherwise (Inferred)
+
+On macOS the four app items carry an icon. `Open in DxO PhotoLab` and
+`Check for Updates…` use `IconMenuItem::with_id_and_native_icon` with
+`NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh`, which are
+template images and tint with the menu. `NativeIcon` has neither an undo nor a
+modern gear, so `Settings...` and `Undo` use `IconMenuItem::with_id` with an
+`Image::from_bytes(include_bytes!(...))` of a PNG committed under
+`crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's
+`image-png` feature). Other platforms keep the plain `MenuItem` behind `cfg`.
+
+Regenerate those PNGs with `swift tools/macos/export-menu-icons.swift`, and
+only when a symbol, its size, weight or colour changes; AppKit's rasterisation
+can differ between macOS releases, so the committed files are the source of
+truth. The script never runs at build or run time.
+
+- Limitation: muda does not call `setTemplate` on a custom menu image and
+  Tauri exposes no template flag for menu items, so the bundled PNGs do not
+  tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
+  that stays legible in both appearances.
+
 ### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
 
 On macOS APFS, `sidecar_path(arw).exists()` is true for `H.ARW.DOP` even when
