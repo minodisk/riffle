@@ -15,9 +15,11 @@
 - Deferral state is two flags: `scanRunning` (set at the top of `startScan`,
   before `scan_folder` is invoked, so the prepare phase is covered too;
   cleared in the `scan-done` listener; `startScan`'s own `.then` and `catch`
-  exits key their ownership check off `folder !== openDir` rather than the
-  token, and leave `scanRunning` alone when it fires, since a new `openDir`
-  owner is expected to run its own `startScan`) and `resyncPending`, drained
+  exits key their ownership check off a per-call monotonic `scanSeq` captured
+  at the top of `startScan` against the module-level `currentScan`, so a
+  later call — a different folder or a deliberate re-open of the same one —
+  supersedes this one; the superseded exit leaves `scanRunning` alone because
+  the newer `startScan` already owns it) and `resyncPending`, drained
   from `scan-done` via
   `drainResync()`. `resyncInFlight` keeps one `list_arw` outstanding, the way
   `refreshEntries` does for `folder_entries`.
