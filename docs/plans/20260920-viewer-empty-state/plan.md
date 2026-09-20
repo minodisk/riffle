@@ -146,4 +146,7 @@ Decisions already taken (do not revisit):
 
 ## Progress
 
-- (none yet)
+- Step 1 (`a19b1ed`): added `crates/app/ui/src/empty.ts`
+  (`emptyState`, `openHint`, `displayKey`) and its unit tests in
+  `crates/app/ui/src/empty.test.ts`, covering the four states, the default
+  `o` key, multiple keys, a rebound key, and the no-key case.
