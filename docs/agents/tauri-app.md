@@ -653,6 +653,21 @@ that as `no-useless-empty-export`).
 - Why: TypeScript only treats a file as a module when it has a top-level
   `import` or `export`.
 
+### A `let` used only inside a function still needs to be declared above that function's first call, not just above its definition (Hit)
+
+`main.ts`'s top-level code calls `renderMeta` on its last line as part of
+module evaluation. A `let keyBindings` declared near the bottom of the file
+(next to `applyKeymap`, its other user) sat in the temporal dead zone at that
+call and threw. Declaring it next to `renderEmpty`, above `renderMeta`, fixed
+it.
+
+- Why: this file's top level runs functions immediately as part of module
+  evaluation, unlike a file that only registers callbacks; a `let`/`const`
+  used by such a function must be declared before that top-level call, which
+  can be earlier in the file than where the variable "belongs" next to its
+  other use.
+- Source: `docs/plans/_archived/20260920-viewer-empty-state/learnings.md`, Step 2.
+
 ### Workers: declare the scope locally (Hit)
 
 `worker.ts` declares the members it uses as a local `WorkerScope` interface and

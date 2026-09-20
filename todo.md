@@ -192,3 +192,36 @@ The folder watcher (`crates/app/src/watch.rs`, `crates/app/src/commands.rs`) can
 #### TODO
 
 - [ ] Verify by hand (copy a large ARW/DNG into an open, watched folder) whether a partial mid-copy read ever produces a visibly wrong thumbnail/rating before the follow-up event corrects it, and whether any guard is warranted.
+
+### App: the key formatter is duplicated between `empty.ts` and `settings.ts`
+
+`crates/app/ui/src/empty.ts` (`displayKey`) and `crates/app/ui/src/settings.ts`
+(the local `display`) each format keymap keys for display (e.g. `space` ->
+`Space`) independently. Sharing one implementation via `keys.ts` was left out
+of the `viewer-empty-state` feature as out of scope.
+
+#### TODO
+
+- [ ] Extract a single key-display formatter into `crates/app/ui/src/keys.ts`
+      and have both `empty.ts` and `settings.ts` use it.
+
+### App: the viewer empty-state manual checklist is still open
+
+`viewer-empty-state`'s step 2 (overlay element, click-to-open, keymap-driven
+re-render) could not be verified by running the app: `mise run tauri:dev`
+needs an interactive session, unavailable in the implementation environment.
+The behaviour was checked by reading the code paths only. Files:
+`crates/app/ui/index.html`, `crates/app/ui/style.css`,
+`crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] Run `mise run tauri:dev` and verify: first launch with no remembered
+      folder shows the clickable "no folder" prompt with the real `open` key;
+      clicking it opens the native picker; reopening with a remembered folder
+      hides it without a lingering flash; opening an empty folder shows the
+      "no files" message; applying a filter that hides everything shows the
+      "filtered" message and resetting the filter restores the view;
+      rebinding the `open` key in Settings updates the shown key without
+      restart; resizing the window and 1:1 zoom still render the canvas
+      correctly now that `#viewer` (not `#canvas`) carries the flex sizing.
