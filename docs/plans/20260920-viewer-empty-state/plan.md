@@ -79,7 +79,7 @@ Decisions already taken (do not revisit):
     - The hint string is what the DOM will show, so the test pins the exact
       wording; keep the sentence composition in one place.
 
-- [ ] Step 2: Overlay element, click-to-open, keymap-driven re-render
+- [x] Step 2: Overlay element, click-to-open, keymap-driven re-render
   - Done when: with no folder open the message from step 1 is centred over the
     viewer and clicking it opens the native picker (same `openFolder()` as
     menu/key/button); opening any folder (picker, drop, `last_folder` reopen)

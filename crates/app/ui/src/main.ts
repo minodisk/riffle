@@ -8,6 +8,7 @@ import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.j
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { placeholderRect } from "./zoom.js";
+import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -74,6 +75,7 @@ const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 const metaEl = document.getElementById("meta") as HTMLDivElement;
 const openEl = document.getElementById("open") as HTMLButtonElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
+const emptyEl = document.getElementById("empty") as HTMLDivElement;
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), {
   type: "module",
@@ -104,8 +106,8 @@ let metaStale = false;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`, so
 // holding a paging key down does not queue up a read per file passed.
 let metaInFlight = false;
-// A transient line under the metadata: an error, or the opening hint.
-let note: string | undefined = "Press \u201co\u201d or click \u201cOpen folder\u201d.";
+// A transient line under the metadata: an error.
+let note: string | undefined;
 // How far the current scan got, or null when nothing is scanning. Events
 // carry the id of the scan that emitted them; only events whose id matches
 // `scanId` are applied, so the stragglers of a cancelled scan (including one
@@ -278,11 +280,41 @@ function line(className: string, text: string): HTMLDivElement {
   return el;
 }
 
+// The keymap last applied, so the empty state can name the `open` key.
+// Empty until the `shortcuts` invoke resolves.
+let keyBindings: Binding[] = [];
+
+// The centred message over the viewer: the clickable opening hint when no
+// folder is open, or why an open folder shows nothing.
+function renderEmpty(): void {
+  const state = emptyState(openDir, allFiles.length, files.length);
+  emptyEl.hidden = state === "none";
+  if (state === "none") {
+    emptyEl.removeAttribute("data-state");
+    emptyEl.textContent = "";
+    return;
+  }
+  emptyEl.dataset.state = state;
+  emptyEl.textContent =
+    state === "no-folder"
+      ? openHint(keyBindings)
+      : state === "no-files"
+        ? NO_FILES_TEXT
+        : FILTERED_TEXT;
+}
+
+emptyEl.addEventListener("click", () => {
+  if (emptyEl.dataset.state === "no-folder") {
+    openFolder();
+  }
+});
+
 // Redraw the right pane: the current file's name, its shooting settings,
 // and any note (an error, the scan's progress, the opening hint). Also
 // refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
   renderTitle();
+  renderEmpty();
   positionEl.textContent = files.length > 0 ? `${index + 1} / ${files.length}` : "";
   metaEl.replaceChildren();
   if (files.length > 0) {
@@ -1014,7 +1046,7 @@ function reopenLastFolder(): void {
       return openDirectory(folder, token);
     })
     .catch(() => {
-      // The folder went away after the check; keep the opening hint.
+      // The folder went away after the check; the opening hint stays up.
     });
 }
 
@@ -1159,7 +1191,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     void startScan(folder);
     if (files.length === 0) {
       meta = null;
-      setStatus(allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined);
+      setStatus();
       return;
     }
     show();
@@ -1536,6 +1568,8 @@ function applyKeymap(bindings: Binding[]): void {
   keymap = new Map(
     bindings.flatMap(({ action, keys }) => keys.map((key) => [key, action] as const)),
   );
+  keyBindings = bindings;
+  renderEmpty();
 }
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
