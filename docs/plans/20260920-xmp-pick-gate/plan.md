@@ -135,4 +135,4 @@ render gate (see Trade-offs).
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
