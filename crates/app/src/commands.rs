@@ -746,7 +746,6 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
 
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     let scan_started = std::time::Instant::now();
-    let list_started = std::time::Instant::now();
     let (listed, sidecars) = {
         let dir = dir.clone();
         tauri::async_runtime::spawn_blocking(move || list_folder_in(Path::new(&dir), format))
@@ -757,7 +756,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         "scan list: dir={dir} scan_id={scan_id} raws={} sidecars={} in {}ms",
         listed.len(),
         sidecars.len(),
-        list_started.elapsed().as_millis()
+        scan_started.elapsed().as_millis()
     );
 
     let reconcile_started = std::time::Instant::now();
