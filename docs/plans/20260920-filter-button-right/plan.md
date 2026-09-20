@@ -44,7 +44,11 @@ sort toggle stays on the left and keeps its drop-down.
 
 ## Steps
 
-- [x] Step 1: Move the filter toggle to the right end of `#tools` with CSS only
+- [ ] Step 1: Move the filter toggle to the right end of `#tools` with CSS only
+  (reopened: round-1 review found `margin-left: auto` alone did not move
+  `#filter` to the right end, since `#filter` is the first child of `#tools`;
+  fixed by adding `order: 1` to `#filter`. Remaining: manual visual
+  verification of the row layout still needs to happen.)
   - Done when:
     - The filter toggle is the right-most item in the tools row, 8px from the
       sidebar's right edge, and the sort toggle is the left-most item, 8px
