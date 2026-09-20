@@ -193,7 +193,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Commit as `refactor(app): drop the filmstrip refresh throttle` or
       similar.
 
-- [ ] Step 4: Close the todos and record the design
+- [x] Step 4: Close the todos and record the design
   - Done when:
     - The two headings and their TODO lists are removed from `todo.md`:
       "App: the filmstrip re-requests every visible placeholder on each

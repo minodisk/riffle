@@ -18,14 +18,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Decide whether these subcommands can move to `reader::read_head`/`reader::read_full` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
 
-### App: the filmstrip re-requests every visible placeholder on each `scan-progress` event
-
-`refresh` in `crates/app/ui/src/strip.ts`, driven from the `scan-progress` handler at ~10/s, re-requests every visible placeholder rather than only the indices the scan has newly passed. It is bounded by the 4-in-flight cap and the visible range, but it is avoidable IPC. Relatedly, the strip discovers whether a file has a thumbnail by invoking `thumbnail` and treating an `Err` as "not yet", rather than reading `has_thumb` from the `folder_entries` map, because keeping that map fresh during a scan would mean the same 10/s full re-read.
-
-#### TODO
-
-- [ ] Use the `done` counter or per-file `has_thumb` state to request only newly available thumbnails, if the strip turns out to be IPC-bound.
-
 ### App: a multi-file drop is rejected wholesale, and drag-hover gives no early feedback
 
 The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-item drop outright, even when every item shares one parent folder. Separately, the `body.dragging` overlay in `crates/app/ui/style.css` looks the same whether or not the payload will be accepted, although Tauri's `drag-enter` event already carries the paths.
@@ -42,14 +34,6 @@ Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second 
 #### TODO
 
 - [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
-
-### App: `scan-progress` carries no way to tell what became available
-
-`scan-progress` carries only `{dir, scan_id, done, total}`, so #56 had to throttle the filmstrip refresh to ~1/s rather than re-request only the thumbnails that became available. Carrying the newly-written paths, or a done-index high-water mark, would let the strip ask for exactly what is ready.
-
-#### TODO
-
-- [ ] Extend the `scan-progress` payload so the filmstrip can request only the newly available cells (`crates/app/src/commands.rs`'s `scan-progress` emit, `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`).
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 

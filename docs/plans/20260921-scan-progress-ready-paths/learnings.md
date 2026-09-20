@@ -45,6 +45,29 @@
   `entriesInFlight`. Reworded to "re-read while a `scan-progress` stream leaves
   the focused row missing"; the ~300-line estimate is left as is.
 
+## Step 4
+
+- Payload size: a path is reported exactly once per scan, so the bytes are
+  bounded by the sum of the folder's path lengths, not by the emit rate. At
+  the README's measured 5000 files in 5.55 s and ~10 emits/s, that is ~90
+  paths per event; with a typical absolute path of ~80-120 bytes that is
+  ~7-11 KB of JSON per `scan-progress` and ~0.5 MB over the whole scan. That
+  is why no cap and no `ready: null` fallback was added. Reasoned from the
+  existing benchmark numbers, not re-measured (no GUI access this session).
+- The `todo.md` item "the filmstrip re-requests every visible placeholder on
+  each `scan-progress` event" also carried a residual remark: that the strip
+  learns whether a file has a thumbnail by invoking `thumbnail` and treating
+  `Err` as "not yet", rather than reading `has_thumb` from the
+  `folder_entries` map. Steps 1-3 made that moot rather than merely narrower:
+  `refresh` no longer runs per progress event at all, so the "keeping the map
+  fresh would mean a 10/s full re-read" cost it traded against is gone, and
+  `ready` already names exactly the cells worth requesting. Reading
+  `has_thumb` would now only save the single invoke for an error row, which
+  still has to be asked to reach the definitive `failed` state. Dropped
+  instead of being kept as a residual note.
+- Both removed headings' TODOs are covered by the shipped code, so `todo.md`
+  loses them entirely; only the two manual GUI checks below are outstanding.
+
 ## Deferred issues (todo candidates)
 
 - Manual GUI check of this step is outstanding: `mise run tauri:dev` on a

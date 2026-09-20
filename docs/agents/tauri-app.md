@@ -514,6 +514,22 @@ have is more machinery than it's worth).
 
 - Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`, Step 2.
 
+### `scan-progress` carries flushed paths, not a done-index high-water mark (Inferred)
+
+`done` cannot tell the frontend what became readable: `run_scan`
+(`crates/app/src/index.rs`) drives `extract_all` on rayon workers that finish
+in no particular order, `done` is an unordered `AtomicUsize`, and rows reach
+the index in `BATCH`-sized transactions, so a file counted in `done` is not
+necessarily answerable by `Index::thumbnail` yet. The only promise the backend
+can make is "these paths have been committed since the previous emit", which
+is what the payload's `ready: Vec<String>` carries. A path is pushed onto that
+list only after its batch's `write_batch` returned `Ok`, which is why the
+trailing flush after `extract_all` (the last partial batch, on a normal finish
+and on cancel alike) needs a final unconditional `progress` callback —
+otherwise those paths would never be reported.
+
+- Source: `docs/plans/20260921-scan-progress-ready-paths/`, Steps 1-2.
+
 ### `Scans.running.is_some()` is not "a scan is running" (Hit)
 
 `Scans.running` was set by `start_scan` and only ever taken by the *next*
