@@ -719,16 +719,16 @@ impl Index {
     /// Forget every sidecar the index has seen, for a sidecar format switch:
     /// clean rows are dropped so the next open reads the newly selected
     /// format, and dirty rows keep their judgement but lose the old format's
-    /// stat, so the next open writes them into the new one. Their pick is
-    /// dropped: it can only have come from `.dop`, and a switch away from it
-    /// lands in XMP, which has none, while a switch to it starts from none.
-    /// Their label is kept, since both formats have one.
+    /// stat, so the next open writes them into the new one. Their whole
+    /// judgement is kept, including the pick: a pick is only ever set while
+    /// `.dop` is current, and an XMP write ignores it, so rewriting it here
+    /// would only make `mark_written` miss a row judged during the switch.
     pub fn reset_sidecars(&mut self) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM ratings WHERE dirty = 0", [])
             .map_err(|e| e.to_string())?;
         tx.execute(
-            "UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL, pick = 0 WHERE dirty = 1",
+            "UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL WHERE dirty = 1",
             [],
         )
         .map_err(|e| e.to_string())?;
@@ -1548,7 +1548,7 @@ mod tests {
     }
 
     #[test]
-    fn a_sidecar_reset_keeps_the_label_of_a_dirty_row() {
+    fn a_sidecar_reset_keeps_the_judgement_of_a_dirty_row() {
         let dir = temp_dir("reset-label");
         let mut index = open(&dir);
         index
@@ -1562,7 +1562,7 @@ mod tests {
             [(
                 "/a.ARW".to_string(),
                 Some(2),
-                false,
+                true,
                 Some("Green".to_string()),
                 true
             )]

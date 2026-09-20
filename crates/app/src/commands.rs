@@ -2469,4 +2469,62 @@ mod tests {
 
         remove_temp_dir(&root);
     }
+
+    /// The same race with a pick: `reset_sidecars` must not zero the pick of
+    /// the row the writer is about to confirm, or `mark_written`'s `pick`
+    /// guard misses it and the next open replays it over the `.dop`.
+    #[test]
+    fn a_pick_set_during_a_switch_lands_in_the_dop_and_leaves_no_dirty_row() {
+        let root = temp_dir("switch-race-pick");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let index = sidecar_index(&root);
+        let writer = switch_writer(index.clone());
+        let listed = list_arw_in(&root).unwrap();
+        let path = listed[0].clone();
+        let current = Mutex::new(SidecarFormat::Xmp);
+
+        switch_format(
+            &current,
+            Some(&writer),
+            Some(&index),
+            SidecarFormat::Dop,
+            |_| {
+                let format = *index::lock(&current);
+                index::lock(&index)
+                    .set_rating(&dir, &path, Some(4), true, None, true)
+                    .unwrap();
+                writer
+                    .set(PathBuf::from(&path), Some(4), true, None, true, format)
+                    .unwrap();
+                Ok(())
+            },
+        )
+        .unwrap();
+        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+
+        let dop = SidecarFormat::Dop.sidecar_path(Path::new(&path));
+        let bytes = std::fs::read(&dop).unwrap();
+        assert_eq!(SidecarFormat::Dop.read_rating(&bytes).unwrap(), Some(4));
+        assert!(SidecarFormat::Dop.read_pick(&bytes).unwrap());
+        assert!(!SidecarFormat::Xmp.sidecar_path(Path::new(&path)).exists());
+        // `entries` joins `files`, which only a scan fills in.
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&path)).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        let entry = index::lock(&index)
+            .entries(&dir)
+            .unwrap()
+            .into_iter()
+            .find(|e| e.path == path)
+            .unwrap();
+        assert_eq!(entry.rating, Some(4));
+        assert!(entry.pick);
+        assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
+
+        remove_temp_dir(&root);
+    }
 }
