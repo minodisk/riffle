@@ -1203,6 +1203,18 @@ void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   });
 });
 
+// The settings window cleared the index cache: the open folder's thumbnails
+// and cached metadata are gone, so reopen it and let the scan fill them in
+// again. A fresh token drops any open still in flight.
+void window.__TAURI__.event.listen("index-cleared", () => {
+  if (openDir === null) {
+    return;
+  }
+  openDirectory(openDir, newFolderToken()).catch((err: unknown) => {
+    setStatus(String(err));
+  });
+});
+
 void window.__TAURI__.core.invoke<string>("sidecar_format").then((format) => {
   sidecarFormat = format;
 });

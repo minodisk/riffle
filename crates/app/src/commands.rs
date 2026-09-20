@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::Value;
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 
@@ -1173,6 +1173,137 @@ pub async fn set_rating(
     }
 }
 
+/// The base the size figure is divided by. The label mirrors what the user's
+/// file manager shows next to the same file: Finder counts 1 GB as 1000^3,
+/// Explorer (and the Linux file managers) as 1024^3, so the base follows the
+/// platform rather than the labels changing to `GiB`.
+const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
+    1000
+} else {
+    1024
+};
+
+/// The message shown when the button is pressed while a scan is running. The
+/// clear is refused rather than cancelling the scan.
+const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
+
+/// Format `bytes` for display with plain `B`/`KB`/`MB`/`GB` labels: whole
+/// bytes below `base`, one decimal above it.
+fn format_bytes(bytes: u64, base: u64) -> String {
+    if bytes < base {
+        return format!("{bytes} B");
+    }
+    let base = base as f64;
+    let kb = bytes as f64 / base;
+    if kb < base {
+        return format!("{kb:.1} KB");
+    }
+    let mb = kb / base;
+    if mb < base {
+        return format!("{mb:.1} MB");
+    }
+    format!("{:.1} GB", mb / base)
+}
+
+/// The index's footprint on disk: the database file plus the `-wal` and
+/// `-shm` files SQLite keeps beside it. A missing file counts as zero.
+fn on_disk_bytes(path: &Path) -> u64 {
+    [
+        path.to_path_buf(),
+        index::with_suffix(path, "-wal"),
+        index::with_suffix(path, "-shm"),
+    ]
+    .iter()
+    .map(|p| std::fs::metadata(p).map_or(0, |m| m.len()))
+    .sum()
+}
+
+/// The path the index is opened from, recomputed as `main.rs` does; the path
+/// itself is not kept in any managed state.
+fn index_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_cache_dir()
+        .ok()
+        .map(|dir| dir.join("index.sqlite"))
+}
+
+/// The index cache's size on disk, already formatted for display. No index
+/// cache (or no file yet) is `"0 B"`, not an error: there is nothing to
+/// report and nothing to clear.
+#[tauri::command]
+pub async fn index_size(app: tauri::AppHandle) -> Result<String, String> {
+    let path = index_path(&app).filter(|_| app.state::<AppIndex>().0.is_some());
+    let Some(path) = path else {
+        return Ok(format_bytes(0, SIZE_BASE));
+    };
+    let bytes = tauri::async_runtime::spawn_blocking(move || on_disk_bytes(&path))
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(format_bytes(bytes, SIZE_BASE))
+}
+
+/// Empty the index cache after a native confirmation; `false` when the user
+/// cancelled. A running scan is refused before the dialog is shown, and again
+/// under the `Scans` lock in case one started while the dialog was up.
+///
+/// Lock order is `Scans` then the writer, as in `spawn_eviction`, and the
+/// clear runs in `spawn_blocking`: the drain, the `VACUUM` and the WAL
+/// checkpoint all block.
+#[tauri::command]
+pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
+    {
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.running.is_some() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+    }
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    let mut dialog = app
+        .dialog()
+        .message(
+            "Every cached thumbnail and the cached metadata of every folder are removed. \
+             Judgements are kept. The next open of a folder scans it again.",
+        )
+        .title("Clear the index cache?")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Clear".to_string(),
+            "Cancel".to_string(),
+        ));
+    if let Some(window) = app.get_webview_window("settings") {
+        dialog = dialog.parent(&window);
+    }
+    dialog.show(move |confirmed| {
+        let _ = tx.try_send(confirmed);
+    });
+    if !rx.recv().await.unwrap_or(false) {
+        return Ok(false);
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        if let Some(writer) = &handle.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let Some(index) = handle.state::<AppIndex>().0.clone() else {
+            return Ok(());
+        };
+        let scans = handle.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.running.is_some() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let summary = index::lock(&index).clear()?;
+        log::info!("index cleared: {summary:?}");
+        drop(state);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let _ = app.emit("index-cleared", ());
+    Ok(true)
+}
+
 /// Resolve symlinks and normalize a folder path so the same folder reached
 /// through different spellings (a trailing separator, a symlinked parent,
 /// `/tmp` vs `/private/tmp` on macOS) shares one row set in the index. Falls
@@ -1185,6 +1316,42 @@ fn canonicalize(dir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::{format_bytes, SIZE_BASE};
+
+    #[test]
+    fn format_bytes_uses_whole_bytes_below_the_base() {
+        assert_eq!(format_bytes(0, 1000), "0 B");
+        assert_eq!(format_bytes(0, 1024), "0 B");
+        assert_eq!(format_bytes(999, 1000), "999 B");
+        assert_eq!(format_bytes(1023, 1024), "1023 B");
+    }
+
+    #[test]
+    fn format_bytes_steps_up_a_unit_at_each_power_of_the_base() {
+        assert_eq!(format_bytes(1000, 1000), "1.0 KB");
+        assert_eq!(format_bytes(1024, 1024), "1.0 KB");
+        assert_eq!(format_bytes(1000 * 1000, 1000), "1.0 MB");
+        assert_eq!(format_bytes(1024 * 1024, 1024), "1.0 MB");
+        assert_eq!(format_bytes(1000 * 1000 * 1000, 1000), "1.0 GB");
+        assert_eq!(format_bytes(1024 * 1024 * 1024, 1024), "1.0 GB");
+    }
+
+    #[test]
+    fn format_bytes_shows_one_decimal_from_kb_up() {
+        assert_eq!(format_bytes(1_200_000_000, 1000), "1.2 GB");
+        assert_eq!(format_bytes(1288490189, 1024), "1.2 GB");
+        assert_eq!(format_bytes(312_000, 1000), "312.0 KB");
+    }
+
+    #[test]
+    fn the_size_base_follows_the_platforms_file_manager() {
+        if cfg!(target_os = "macos") {
+            assert_eq!(SIZE_BASE, 1000);
+        } else {
+            assert_eq!(SIZE_BASE, 1024);
+        }
+    }
+
     #[test]
     fn auto_advance_setting_reads_a_boolean_or_defaults_to_off() {
         use serde_json::json;

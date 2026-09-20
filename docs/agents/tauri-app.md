@@ -395,6 +395,12 @@ meanwhile just waits. Keep the order `Scans` then writer. The size cap counts
 pages in use (`page_count - freelist_count`), since a delete only moves pages
 to the freelist until `VACUUM` runs.
 
+`Index::clear` (behind the settings window's Clear Cache button, via
+`commands::clear_index`) is the second caller of `evict_folder` and keeps the
+same order: `Scans` lock first (re-checked under it after the confirmation
+dialog, since the dialog is awaited with no lock held), then the writer lock.
+A running scan is refused, never cancelled.
+
 - Measured (M3 Pro, release, ignored test `vacuum_cost_on_a_100_mb_index`):
   evicting half of 5000 rows of 20.8KB thumbnails (106MB in use) and vacuuming
   took ~220ms, leaving 53MB. That a WAL reader does not error during `VACUUM`
