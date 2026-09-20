@@ -123,7 +123,7 @@ Decisions already taken (do not revisit):
       disappears); open an empty folder; apply a filter that hides everything
       and reset it; rebind `open` in Settings.
 
-- [ ] Step 3: Document the empty state in the README
+- [x] Step 3: Document the empty state in the README
   - Done when: the "Features" paragraph in `README.md` (around line 41,
     "Open a folder from the picker, or drop...") mentions that with no folder
     open the viewer shows a prompt that can be clicked to open the picker;

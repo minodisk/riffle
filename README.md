@@ -40,7 +40,8 @@ checked.
 
 Open a folder from the picker, or drop a folder or any file in it onto the
 window. Riffle lists the ARW and DNG files in it and pages through their
-embedded previews, rotated by each file's Orientation.
+embedded previews, rotated by each file's Orientation. With no folder open the
+viewer shows a prompt in its centre; click it to open the folder picker.
 
 - **Filmstrip**: thumbnails run down the left edge, follow paging and show the
   file you click. The `N / M` counter sits under it.
