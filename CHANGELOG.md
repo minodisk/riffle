@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.1.8](https://github.com/minodisk/riffle/compare/v0.1.7...v0.1.8) (2026-09-20)
+
+
+### Features
+
+* **app:** add Index::clear to empty the folder index and reclaim the space ([#201](https://github.com/minodisk/riffle/issues/201)) ([ff28ab8](https://github.com/minodisk/riffle/commit/ff28ab89cc6986aca2668907851103c1d2e02953))
+* **app:** add the index_size and clear_index commands ([#203](https://github.com/minodisk/riffle/issues/203)) ([91b2bce](https://github.com/minodisk/riffle/commit/91b2bce120e70f1d87cbf3e456d15251b2e2280b))
+* **app:** add the Move Rejected to Trash menu item and frontend flow ([#240](https://github.com/minodisk/riffle/issues/240)) ([792aa1a](https://github.com/minodisk/riffle/commit/792aa1a6b3052647455ec6b5a1aa2ab0d5d2fdcf))
+* **app:** add the settings window's Cache tab ([#204](https://github.com/minodisk/riffle/issues/204)) ([7137943](https://github.com/minodisk/riffle/commit/71379438d31a04366580992fce14bbafb6cdb960))
+* **app:** add the trash_rejected command ([#237](https://github.com/minodisk/riffle/issues/237)) ([0ce13d9](https://github.com/minodisk/riffle/commit/0ce13d944dece437fa3b54f4f5172a406cccf4d6))
+* **app:** add the viewer empty-state logic ([#217](https://github.com/minodisk/riffle/issues/217)) ([229896e](https://github.com/minodisk/riffle/commit/229896e807f77449dca1e89eb0a817048697e964))
+* **app:** disable Clear Cache while a scan runs and show its progress ([#224](https://github.com/minodisk/riffle/issues/224)) ([c067a1a](https://github.com/minodisk/riffle/commit/c067a1a37a9b5e144cb5b3f0e827517b6f4f94ed))
+* **app:** emit scan-state and index-clearing signals for settings ([#219](https://github.com/minodisk/riffle/issues/219)) ([b94c49c](https://github.com/minodisk/riffle/commit/b94c49c56bdba94d2ec2d9abdcfd586fd431aacf))
+* **app:** filter the strip by portrait or landscape ([#239](https://github.com/minodisk/riffle/issues/239)) ([04b0d55](https://github.com/minodisk/riffle/commit/04b0d554a2fa5731084b0e334c2a98eb73acae98))
+* **app:** rescan the open folder on focus and Reload Folder ([#216](https://github.com/minodisk/riffle/issues/216)) ([ecc50a1](https://github.com/minodisk/riffle/commit/ecc50a122d7b8ac6c2b766b1e66b5eef52a870f7))
+* **app:** show a clickable empty state over the viewer ([#221](https://github.com/minodisk/riffle/issues/221)) ([26a9817](https://github.com/minodisk/riffle/commit/26a981775fa96d0611840352cf9e97823abfa109))
+* **app:** watch the open folder and rescan on change (step 2) ([#220](https://github.com/minodisk/riffle/issues/220)) ([cc5168a](https://github.com/minodisk/riffle/commit/cc5168adb011b1ed36c0252406b4c78a46bf5323))
+
+
+### Bug Fixes
+
+* **app:** clear the scan entry when the scan task ends ([#212](https://github.com/minodisk/riffle/issues/212)) ([a39e8cc](https://github.com/minodisk/riffle/commit/a39e8cc48d27e19653e2abf3dd8c5322ea5654ae))
+* **app:** drop modifier-only keys when the shortcuts setting is read ([#215](https://github.com/minodisk/riffle/issues/215)) ([21e418d](https://github.com/minodisk/riffle/commit/21e418d122ac34c70b1020a0dbe66889e7fbc282))
+* **app:** hide a kept pick while XMP is the sidecar format ([#245](https://github.com/minodisk/riffle/issues/245)) ([a86c3e2](https://github.com/minodisk/riffle/commit/a86c3e2bad6207099f49f324972764eeac443d3d))
+* **app:** keep the pick of a dirty row across a sidecar format switch ([#232](https://github.com/minodisk/riffle/issues/232)) ([491e5e6](https://github.com/minodisk/riffle/commit/491e5e6f799f55f2815659657f690fab218aa850))
+* **app:** key sidecar read errors by the RAW path ([#211](https://github.com/minodisk/riffle/issues/211)) ([81907f3](https://github.com/minodisk/riffle/commit/81907f302b79733f803192d9c80ed5ea44fad6ac))
+* **app:** make the filmstrip cell image box aspect-independent ([#207](https://github.com/minodisk/riffle/issues/207)) ([e95df70](https://github.com/minodisk/riffle/commit/e95df702a07f43f56045b52e89bdf60ecf21ae6c))
+* **app:** open the filter menu as a fly-out beside the sidebar ([#238](https://github.com/minodisk/riffle/issues/238)) ([099b8fa](https://github.com/minodisk/riffle/commit/099b8fabd92faec06c9b165103ec288e9f8f115e))
+* **app:** right-align the filter toggle in the tools row ([#249](https://github.com/minodisk/riffle/issues/249)) ([1194797](https://github.com/minodisk/riffle/commit/1194797cd6bcc091b9a968e024af8ca104ec2507))
+* **core:** never rebind an xmp prefix bound to another namespace ([#213](https://github.com/minodisk/riffle/issues/213)) ([5210d6f](https://github.com/minodisk/riffle/commit/5210d6f71d9cc64d36b5da02099f28cfb04a0b66))
+
 ## [0.1.7](https://github.com/minodisk/riffle/compare/v0.1.6...v0.1.7) (2026-09-20)
 
 
