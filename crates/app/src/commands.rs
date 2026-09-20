@@ -1546,6 +1546,7 @@ pub async fn trash_rejected(
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
+        let dir = canonicalize(&dir);
         let groups = trash::plan(Path::new(&dir), &paths)?;
         let context = trash_context();
         let summary = trash::run(groups, |path| {

@@ -138,7 +138,8 @@ mod tests {
     #[test]
     fn a_path_outside_the_folder_or_not_a_raw_is_refused() {
         let dir = temp_dir("refuse");
-        let outside = dir.parent().unwrap().join("b.ARW");
+        let outside_dir = temp_dir("refuse-outside");
+        let outside = outside_dir.join("b.ARW");
         write(&outside);
         write(&dir.join("c.jpg"));
         assert!(plan(&dir, &[outside.to_string_lossy().into_owned()]).is_err());
