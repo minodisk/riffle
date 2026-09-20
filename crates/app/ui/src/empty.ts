@@ -1,4 +1,4 @@
-import type { Binding } from "./keys.js";
+import { type Binding, displayKey } from "./keys.js";
 
 export type EmptyState = "none" | "no-folder" | "no-files" | "filtered";
 
@@ -18,10 +18,6 @@ export function emptyState(openDir: string | null, total: number, shown: number)
     return "filtered";
   }
   return "none";
-}
-
-export function displayKey(key: string): string {
-  return key === "space" ? "Space" : key;
 }
 
 // Before the keymap resolves `bindings` is empty, so the key clause is left

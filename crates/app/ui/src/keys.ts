@@ -53,3 +53,7 @@ export function keyName(event: KeyEvent): string | null {
   const code = event.code.replace(/^(Digit|Key|Numpad)/, "");
   return `${modifiers.join("+")}+${(CODE_NAMES[code] ?? code).toLowerCase()}`;
 }
+
+export function displayKey(key: string): string {
+  return key === "space" ? "Space" : key;
+}
