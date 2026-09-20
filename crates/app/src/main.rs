@@ -136,6 +136,18 @@ mod app_menu {
                 help
             }
         };
+        #[cfg(target_os = "macos")]
+        let open_log_folder = IconMenuItem::with_id(
+            handle,
+            OPEN_LOG_FOLDER_ID,
+            "Open Log Folder",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/folder.png"
+            ))?),
+            None::<&str>,
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let open_log_folder = MenuItem::with_id(
             handle,
             OPEN_LOG_FOLDER_ID,
