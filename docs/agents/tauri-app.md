@@ -270,6 +270,27 @@ truth. The script never runs at build or run time.
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
 
+### Adding a macOS menu item needs the same `cfg` split as its siblings (Hit)
+
+Every macOS menu item in `app_menu` is behind `#[cfg(target_os = "macos")]`
+(using `IconMenuItem`) with a `#[cfg(not(target_os = "macos"))]` twin (plain
+`MenuItem`), because `MenuItem` is only imported under the latter cfg. A new
+item added as a plain, un-cfg'd `MenuItem::with_id(...)` merges *textually*
+clean with unrelated concurrent menu-icon changes but breaks macOS
+compilation (`MenuItem` no longer in scope there).
+
+- A branch-only CI pass does not catch this: the branch's own copy of the
+  import still has `MenuItem` in scope, and the break only exists in the
+  merge result. If a failure is isolated to one OS's CI job right after a
+  merge/rebase and looks like a runner flake, re-run it once to rule out
+  flakiness, then check out the actual merge ref (not the branch head) —
+  GitHub builds the PR's merge commit, so line numbers and blame on the
+  branch head alone can point at unrelated code.
+- Give any new platform-specific menu item the existing `cfg` split up
+  front, following the bundled-icon pattern above.
+- Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`,
+  "Merge conflict with concurrently-landed macOS menu icon work".
+
 ### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
 
 On macOS APFS, `sidecar_path(arw).exists()` is true for `H.ARW.DOP` even when
@@ -345,6 +366,20 @@ to the freelist until `VACUUM` runs.
   took ~220ms, leaving 53MB. That a WAL reader does not error during `VACUUM`
   is reasoned, not covered by a dedicated concurrent test.
 - Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
+
+### A per-tick log line can rotate other lines out of the 40 KB default (Measured)
+
+`tauri-plugin-log`'s `DEFAULT_MAX_FILE_SIZE` is 40 KB. A line logged once per
+progress tick (e.g. one per `scan-progress` event, capped at 100 ms) at
+~120 bytes each can reach ~300 lines (~36 KB) for a single ~30s/5000-file
+operation — nearly filling the budget on its own and rotating out other
+commands' timing lines from the same run. Before adding a log line inside a
+polling/progress loop, check its expected line count × size against the
+plugin's cap; raise `max_file_size` on the log plugin builder in `main.rs`
+rather than trying to suppress the log (gating on state the command doesn't
+have is more machinery than it's worth).
+
+- Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`, Step 2.
 
 ### `focus_crop`'s header carries the full JPEG size (Hit)
 
@@ -578,6 +613,15 @@ pointing at each crate's `Cargo.toml` instead.
   a scratch clone/bare-repo setup with the config pushed to its `main`.
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Step 4.
+
+### A green branch-only CI run does not prove the merge result compiles (Hit)
+
+See "Adding a macOS menu item needs the same `cfg` split as its siblings"
+above: two branches can each pass CI alone and still break when merged,
+because each branch's own copy of an import/cfg is still in scope on that
+branch. Only building the actual merge/rebase result (not the branch tip)
+catches it; a single-OS failure right after a merge that looks like a
+runner flake is a signal to check the merge ref before assuming flakiness.
 
 ## Verification
 
