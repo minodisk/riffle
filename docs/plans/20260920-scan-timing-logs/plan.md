@@ -76,7 +76,7 @@ the time of a subsequent open of the same folder can all be read off.
 
 ## Steps
 
-- [ ] Step 1: Log the phases of the first scan with their counts
+- [x] Step 1: Log the phases of the first scan with their counts
   - Done when:
     - `index::run_scan` emits one `log::info!` line when `extract_all` has
       returned and the last batch is flushed, carrying: the directory, the
@@ -295,4 +295,4 @@ explicitly.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete

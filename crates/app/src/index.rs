@@ -908,15 +908,24 @@ where
         }
     };
 
+    let started = Instant::now();
     if let Err(e) = extract_all(&paths, threads, on_item, cancel) {
         log::error!("scan of {dir} failed: {e}");
     }
     flush(std::mem::take(&mut *lock(&pending)));
 
-    ScanSummary {
+    let summary = ScanSummary {
         total: done.load(Ordering::Relaxed),
         errors: errors.load(Ordering::Relaxed),
-    }
+    };
+    log::info!(
+        "scan extract: dir={dir} files={total} done={} errors={} threads={threads} cancelled={} in {}ms",
+        summary.total,
+        summary.errors,
+        cancel.load(Ordering::Relaxed),
+        started.elapsed().as_millis()
+    );
+    summary
 }
 
 #[cfg(test)]
