@@ -532,6 +532,28 @@ rather than by a test.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
+### Two folder paths: `openDirectory` resets, `resync` keeps state (Inferred)
+
+`main.ts` has two ways to point the UI at what is on disk, and a new "the
+folder changed" event has to pick the right one.
+
+- `openDirectory(folder, token)` is the **reset** path: it mints a folder
+  token, clears `entries`, `ratings`, `picks`, `labels`, `sharpness`,
+  `touched`, `history` and `errors`, sets `index = 0` and scrolls the strip
+  back to the top. Use it when the *judgements* are no longer valid — the
+  `sidecar-format` and `index-cleared` listeners, which run after the backend
+  reset the index.
+- `resync()` is the **keep-state** path: the same open, so no new token; it
+  re-lists the folder, runs the same `scan_folder` -> `start_scan` diff
+  through the shared `startScan` helper, and re-anchors with
+  `refilter(currentPath, true)`, which keeps the strip's scroll offset. Use it
+  when only the *files* may have changed — the window focus and
+  `File > Reload Folder` triggers.
+- `resync` defers to `scan-done` while a scan runs (`scanRunning`), because
+  `scan_folder` cancels and joins the running scan first; a focus change
+  during a 5000-file first scan would otherwise restart it. Repeat triggers
+  collapse into the single `resyncPending` flag.
+
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 
 `createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`

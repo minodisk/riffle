@@ -113,6 +113,18 @@ let note: string | undefined = "Press \u201co\u201d or click \u201cOpen folder\u
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
+// True between `start_scan` and its `scan-done`. A rescan asked for while it
+// is true is deferred (`resyncPending`) rather than cancelling the scan.
+let scanRunning = false;
+// Mints a per-call id for `startScan` so its `.then`/`.catch` can tell
+// whether a later call (a re-open of the same folder included) has already
+// superseded it, since `folder !== openDir` can't detect that case.
+let scanSeq = 0;
+let currentScan = 0;
+// True while a rescan's `list_arw` is outstanding, and true when a trigger
+// arrived while one was, the way `refreshEntries` keeps one read in flight.
+let resyncInFlight = false;
+let resyncPending = false;
 // Reserved by the picker before its dialog opens, and minted by a drop only
 // once its dropped path has resolved (see `newFolderToken` and `dropCounter`
 // below). When two folder opens race, the `list_arw` result of the one whose
@@ -440,7 +452,7 @@ function ordered(): string[] {
 // passing file after it (in sort order) takes over, or the last one before it,
 // or the empty view. A judgement that drops the current file out of the
 // filter therefore hides it at once and moves on to the next passing file.
-function refilter(anchor: string | undefined = files[index]): void {
+function refilter(anchor: string | undefined = files[index], keepScroll = false): void {
   const order = ordered();
   const next = order.filter(passes);
   if (next.length === files.length && next.every((path, at) => path === files[at])) {
@@ -451,7 +463,7 @@ function refilter(anchor: string | undefined = files[index]): void {
   files.forEach((path, at) => {
     fileIndex.set(path, at);
   });
-  strip.setFiles(files);
+  strip.setFiles(files, keepScroll);
   files.forEach((path, at) => {
     strip.setRating(at, ratings.get(path) ?? null, picks.has(path), labels.get(path) ?? null);
   });
@@ -1006,6 +1018,108 @@ function reopenLastFolder(): void {
     });
 }
 
+// The diff-and-scan chain both folder paths share: `scan_folder` reconciles
+// the index against the disk (deleting the rows of files that are gone or
+// changed) and returns the ids of the work left, which `start_scan` runs.
+// Shared by `openDirectory` (the reset path) and `resync` (the keep-state
+// path).
+function startScan(folder: string): Promise<void> {
+  // Set before `scan_folder` resolves so a `resync()` during the prepare
+  // phase (folder listing plus index and sidecar reconcile) is deferred too,
+  // not just during `start_scan` — otherwise it starts a second
+  // `scan_folder` that stampedes this one's `scanId`.
+  scanRunning = true;
+  scanSeq += 1;
+  const seq = scanSeq;
+  currentScan = seq;
+  return window.__TAURI__.core
+    .invoke<{
+      total: number;
+      scan_id: number;
+      sidecar_errors: { path: string; message: string }[];
+    }>("scan_folder", {
+      dir: folder,
+    })
+    .then(({ scan_id, sidecar_errors }) => {
+      if (seq !== currentScan) {
+        // A later `startScan` call (a different folder, or a deliberate
+        // re-open of this same one) now owns `scanRunning` / `resyncPending`,
+        // so leave them alone.
+        return;
+      }
+      if (sidecar_errors.length > 0) {
+        for (const { path, message } of sidecar_errors) {
+          errors.add(path, `${baseName(path)}: ${message}`);
+        }
+        renderMeta();
+      }
+      scanId = scan_id;
+      return window.__TAURI__.core.invoke<void>("start_scan", {
+        scanId: scan_id,
+      });
+    })
+    .catch((err: unknown) => {
+      if (seq !== currentScan) {
+        return;
+      }
+      scanRunning = false;
+      drainResync();
+      setStatus(String(err));
+    });
+}
+
+// Bring the open folder in line with the disk without losing anything the
+// session holds: ratings, picks, labels, sharpness, `touched`, the undo
+// history, the errors and the preview all stay, and the current file stays
+// current (or, when it was deleted, gives way to the neighbour
+// `anchorAfterFilter` picks). `entries` is left alone here; the
+// `folder_entries` read on `scan-done` replaces the map wholesale, so rows of
+// files that are gone drop out there.
+//
+// The same open, so no new folder token is minted: a listing that lands after
+// another folder was opened is dropped by the guard below.
+function resync(): void {
+  if (openDir === null) {
+    return;
+  }
+  // A rescan while a scan runs would cancel and restart it (`scan_folder`
+  // joins the running scan first), so it waits for `scan-done` instead. A
+  // burst of triggers collapses into the one pending rescan.
+  if (scanRunning || resyncInFlight) {
+    resyncPending = true;
+    return;
+  }
+  const dir = openDir;
+  const token = folderToken;
+  const anchor = files[index];
+  resyncInFlight = true;
+  window.__TAURI__.core
+    .invoke<string[]>("list_arw", { dir })
+    .then((found) => {
+      resyncInFlight = false;
+      if (dir !== openDir || token !== folderToken) {
+        drainResync();
+        return;
+      }
+      allFiles = found;
+      refilter(anchor, true);
+      return startScan(dir);
+    })
+    .catch((err: unknown) => {
+      resyncInFlight = false;
+      drainResync();
+      setStatus(String(err));
+    });
+}
+
+function drainResync(): void {
+  if (!resyncPending) {
+    return;
+  }
+  resyncPending = false;
+  resync();
+}
+
 function openDirectory(folder: string, token: number): Promise<void> {
   return window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }).then((found) => {
     if (token !== folderToken) {
@@ -1040,32 +1154,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
     draw();
     scanning = null;
     scanId = null;
-    void window.__TAURI__.core
-      .invoke<{
-        total: number;
-        scan_id: number;
-        sidecar_errors: { path: string; message: string }[];
-      }>("scan_folder", {
-        dir: folder,
-      })
-      .then(({ scan_id, sidecar_errors }) => {
-        if (token !== folderToken) {
-          return;
-        }
-        if (sidecar_errors.length > 0) {
-          for (const { path, message } of sidecar_errors) {
-            errors.add(path, `${baseName(path)}: ${message}`);
-          }
-          renderMeta();
-        }
-        scanId = scan_id;
-        return window.__TAURI__.core.invoke("start_scan", {
-          scanId: scan_id,
-        });
-      })
-      .catch((err: unknown) => {
-        setStatus(String(err));
-      });
+    scanRunning = false;
+    resyncPending = false;
+    void startScan(folder);
     if (files.length === 0) {
       meta = null;
       setStatus(allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined);
@@ -1091,6 +1182,11 @@ function openFolder(): void {
 }
 
 void window.__TAURI__.event.listen("open-folder", openFolder);
+// `File > Reload Folder`, and the main window regaining focus: both rescan
+// the open folder in place. The focus that follows launch finds no folder
+// open yet, or a scan running, so it costs nothing.
+void window.__TAURI__.event.listen("reload-folder", resync);
+void window.__TAURI__.event.listen("tauri://focus", resync);
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 void window.__TAURI__.event.listen("undo", undo);
 
@@ -1170,10 +1266,12 @@ void window.__TAURI__.event.listen<{
   if (payload.scan_id !== scanId) {
     return;
   }
+  scanRunning = false;
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   renderMeta();
   strip.refresh();
   refreshEntries();
+  drainResync();
 });
 
 // A sidecar the writer could not write: the writer retries it a few times,

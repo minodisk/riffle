@@ -326,7 +326,11 @@ export function setSharpness(index: number, value: RelativeSharpness | null): vo
 }
 
 // Show one cell per file, in `list_arw` order, all of them placeholders.
-export function setFiles(paths: string[]): void {
+// `keepScroll` is for a rescan of the folder already shown: the offset is
+// kept (clamped to the new list's height) instead of jumping back to the top,
+// so files appearing or disappearing elsewhere do not move the view.
+export function setFiles(paths: string[], keepScroll = false): void {
+  const offset = strip.scrollTop;
   generation += 1;
   for (const cell of cells.values()) {
     releaseCell(cell);
@@ -348,7 +352,9 @@ export function setFiles(paths: string[]): void {
   files = paths;
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;
-  strip.scrollTop = 0;
+  strip.scrollTop = keepScroll
+    ? Math.max(0, Math.min(offset, files.length * CELL_HEIGHT - strip.clientHeight))
+    : 0;
   render();
 }
 

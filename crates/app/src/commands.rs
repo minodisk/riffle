@@ -786,8 +786,8 @@ pub struct ScanStarted {
 /// how many have no valid row. The actual scan does not start until the
 /// frontend calls `start_scan` with the returned `scan_id`, so this only
 /// prepares the work; call `start_scan` right after storing the id. A no-op
-/// (nothing to scan, no `scan-done` either) when the index cache is
-/// unavailable.
+/// (nothing to scan) when the index cache is unavailable; `start_scan` still
+/// emits `scan-done` for this `scan_id` in that case.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
@@ -926,9 +926,26 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     })
 }
 
+/// Emit a `scan-done` with no work done, for a `scan_id` `start_scan` is not
+/// going to spawn a real scan for. The frontend keys its `scanRunning` flag
+/// off `scan-done` alone, so every `scan_id` it hands a scan for must
+/// eventually get one, even the ids that turn out to be no-ops here.
+fn emit_empty_scan_done(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
+    let _ = app.emit(
+        "scan-done",
+        Done {
+            dir,
+            scan_id,
+            total: 0,
+            errors: 0,
+        },
+    );
+}
+
 /// Start the scan `scan_folder` prepared for `scan_id`, in the background.
-/// A no-op if there is no pending work under that id (the index cache was
-/// unavailable, or this scan has since been superseded).
+/// Still emits `scan-done` (with no work done) when there is no pending work
+/// under that id (the index cache was unavailable, or this scan has since
+/// been superseded), so the frontend's `scanRunning` flag always clears.
 ///
 /// The latest-id check and the store into `running` happen under the same
 /// lock as `scan_folder`'s own id-minting and `running`-taking, so a
@@ -942,13 +959,23 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
     let scans = app.state::<Scans>();
     let mut state = index::lock(&scans.0);
     if state.latest_id != scan_id {
-        state.pending.remove(&scan_id);
+        let dir = state
+            .pending
+            .remove(&scan_id)
+            .map(|pending| pending.dir)
+            .unwrap_or_default();
+        drop(state);
+        emit_empty_scan_done(&app, &dir, scan_id);
         return Ok(());
     }
     let Some(pending) = state.pending.remove(&scan_id) else {
+        drop(state);
+        emit_empty_scan_done(&app, "", scan_id);
         return Ok(());
     };
     let Some(index) = app.state::<AppIndex>().0.clone() else {
+        drop(state);
+        emit_empty_scan_done(&app, &pending.dir, scan_id);
         return Ok(());
     };
     let PendingScan { dir, todo, cancel } = pending;
