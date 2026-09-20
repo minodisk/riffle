@@ -283,7 +283,7 @@ the existing item does not clear it.
 - Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
   Step 1 (unverified on a real device).
 
-### Menu icons: native where one exists, a bundled SF Symbol otherwise (Inferred)
+### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
 On macOS the four app items carry an icon. `Open in DxO PhotoLab` and
 `Check for Updates…` use `IconMenuItem::with_id_and_native_icon` with
@@ -303,6 +303,19 @@ truth. The script never runs at build or run time.
   Tauri exposes no template flag for menu items, so the bundled PNGs do not
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
+- **Hit**: the three PNG-backed items (`Settings...`, `Undo`, `Open Log
+  Folder`) render visibly larger than the two `NativeIcon` items (`Open in
+  DxO PhotoLab`, `Check for Updates…`). Cause, found in muda's
+  `src/platform_impl/macos/mod.rs`: any custom `Image`-backed item goes
+  through `icon.inner.to_nsimage(Some(18.))`, which **hardcodes 18pt**
+  regardless of the PNG's own pixel size (the export script already emits
+  36×36 = 18pt@2x); `NativeIcon` takes a different path
+  (`NSImage::imageNamed`) and keeps its natural ~14–16pt. There is no muda/
+  Tauri flag to change this. Fix without an upstream change: draw the glyph
+  smaller inside the same canvas in `tools/macos/export-menu-icons.swift` so
+  the transparent padding absorbs muda's stretch to 18pt. See
+  `docs/plans/_archived/20260920-dependency-refresh/learnings.md` for the
+  observation.
 
 ### Adding a macOS menu item needs the same `cfg` split as its siblings (Hit)
 

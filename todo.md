@@ -184,6 +184,26 @@ support in muda / Tauri is the proper fix.
       menu item images in muda / Tauri, then switch `crates/app/src/main.rs`
       (`app_menu`) to a template image instead of the fixed-grey PNG fallback.
 
+### App: PNG-backed menu icons render larger than native ones
+
+muda hardcodes an 18pt height for every `Image`-backed menu item
+(`to_nsimage(Some(18.))` in muda's macOS backend), while `NativeIcon` items are
+used at their natural ~14–16pt size. As a result `Settings...`, `Undo` and
+`Open Log Folder` (all PNG-backed) sit visibly larger than `Open in DxO
+PhotoLab` and `Check for Updates…` (both `NativeIcon`-backed) in the macOS
+menu. Confirmed by manual inspection during the dependency-refresh sanity
+check (2026-09-20). Fixable without an upstream change: shrink the drawn
+glyph inside the canvas in `tools/macos/export-menu-icons.swift` so the
+transparent padding absorbs muda's stretch to 18pt. Related:
+`tools/macos/export-menu-icons.swift`, `crates/app/icons/menu/*.png`,
+`crates/app/src/main.rs`.
+
+#### TODO
+
+- [ ] Shrink the glyph drawn by `tools/macos/export-menu-icons.swift` so the
+      exported PNGs read at ~14pt once muda stretches them to 18pt, and
+      confirm all five menu icons look the same size.
+
 ### App: the real-device checks for the File menu accelerators are still open
 
 From `menu-accelerators`'s implementation: the GUI could not be driven from
@@ -213,12 +233,18 @@ From `menu-accelerators`'s trade-offs: `NativeIcon::Folder` exists, but the
 macos-menu-icons work found several `NativeIcon`s to be legacy colour
 bitmaps rather than template images, and only verified ones were used
 elsewhere, so `File > Open Folder…` ships as a plain `MenuItem` with no
-icon. File: `crates/app/src/main.rs` (`app_menu`).
+icon. Confirmed directly (dependency-refresh, 2026-09-20, AppKit script on
+macOS 26.6): `NSImage(named: "NSFolder")` (what `NativeIcon::Folder`
+resolves to) has `isTemplate == false` — a colour Finder folder that would
+clash with the template icons around it. File: `crates/app/src/main.rs`
+(`app_menu`).
 
 #### TODO
 
-- [ ] Verify whether `NativeIcon::Folder` renders as a proper template
-      image on macOS and, if so, add it to the `Open Folder…` menu item.
+- [ ] Export an SF Symbol (e.g. `folder`) as a PNG via
+      `tools/macos/export-menu-icons.swift`, the same way `Open Log Folder`
+      is done, and assign it to `Open Folder…` instead of
+      `NativeIcon::Folder`.
 
 ### App: the Clear Cache button's manual GUI verification is still open
 

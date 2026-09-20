@@ -45,7 +45,7 @@ up-to-date baseline.
 
 ## Steps
 
-- [ ] Step 1: Refresh the Rust and frontend lockfiles to the newest
+- [x] Step 1: Refresh the Rust and frontend lockfiles to the newest
       compatible versions (patch / minor only; no manifest changes)
   - Done when:
     - `Cargo.lock` has `tauri 2.11.6`, `tauri-plugin-log 2.9.2`,
@@ -163,8 +163,13 @@ later, the swap is a single PR:
 
 ## Progress
 
-- (2026-09-20) Step 1: `cargo update` and `pnpm update @tauri-apps/cli`
-  landed (`a41b0db`); `mise run ci` passes. The manual sanity check
-  (`mise run tauri:dev` on macOS) could not be run in this environment
-  (port 1420 conflict with a concurrent worktree) and is still outstanding
-  — see `learnings.md`. Step left unchecked until that check is done.
+- (2026-09-20) Step 1 complete: `cargo update` and
+  `pnpm update @tauri-apps/cli` landed (`a41b0db`); `mise run ci` passes.
+  The manual sanity check was blocked at first by a port-1420 conflict, then
+  run successfully once the stale dev server (this worktree's own) was
+  cleared: the app launches, the menu builds, `Check for Updates…` completes
+  under `tauri-plugin-updater 2.12.0`, and all five menu icons render. That
+  look at the menu also surfaced two pre-existing icon issues (PNG-backed
+  icons render at muda's hardcoded 18pt while native ones sit at ~14–16pt,
+  and `Open Folder…` has no icon); both are recorded in `learnings.md` as
+  follow-ups rather than fixed here.
