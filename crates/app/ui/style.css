@@ -272,17 +272,23 @@ body {
   background: #402020;
 }
 
-/* The image box is 144x96 (a 404x270 thumbnail laid out flat) or, after a
-   quarter turn, 96x144 upright. Both fit within this 144px square footprint
-   without changing the cell height the virtual list depends on. */
+/* The image box is the 144px square footprint of a cell, and object-fit
+   scales a thumbnail of any aspect into it: a 3:2 thumbnail lands at 144x96
+   laid out flat, or 96x144 after a quarter turn. Every rotation stays within
+   the square, so the cell height the virtual list depends on does not change. */
 .cell img {
   position: absolute;
   top: 72px;
   left: 72px;
   width: 144px;
-  height: 96px;
+  height: 144px;
   object-fit: contain;
   transform: translate(-50%, -50%);
+}
+
+/* A cell whose thumbnail has not arrived yet has no src, and shows the grey
+   of the box itself as a placeholder. */
+.cell img:not([src]) {
   background: #2a2a2a;
 }
 
