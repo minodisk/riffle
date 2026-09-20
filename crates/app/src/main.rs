@@ -6,6 +6,7 @@ mod index;
 mod shortcuts;
 mod sidecar;
 mod update;
+mod watch;
 
 mod app_menu {
     #[cfg(target_os = "macos")]
@@ -424,6 +425,7 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            app.manage(watch::Watch::spawn(app.handle().clone()));
             commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
@@ -482,6 +484,8 @@ fn main() {
                     }
                 }
             }
+            // The folder watcher needs nothing here: it holds nothing
+            // pending on disk, and its thread ends with the app.
             if let RunEvent::ExitRequested { .. } = event {
                 if let Some(writer) = &app.state::<commands::AppWriter>().0 {
                     writer.flush(sidecar::DRAIN_TIMEOUT);

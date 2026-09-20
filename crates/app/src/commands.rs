@@ -800,6 +800,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         (scan_id, previous, preparing)
     };
     let dir = canonicalize(&dir);
+    crate::watch::set(&app, &dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
     if let Some((_, previous_cancel, previous_handle)) = previous {

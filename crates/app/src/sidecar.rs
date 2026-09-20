@@ -160,7 +160,7 @@ fn retry_delay(attempts: u32) -> Option<Duration> {
 }
 
 /// Suffix of the temp file each write goes to before being renamed into place.
-const TEMP_SUFFIX: &str = ".riffle-tmp";
+pub(crate) const TEMP_SUFFIX: &str = ".riffle-tmp";
 
 /// Longest the quit path waits for the writer to drain.
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(2);

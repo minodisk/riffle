@@ -78,11 +78,13 @@ embedded previews, rotated by each file's Orientation.
   folder to the newest PhotoLab in `/Applications`. Both File menu items are
   rebindable: each shows the first key of its action that can be an
   accelerator, and none when the action holds no such key.
-- **Reload Folder**: `File > Reload Folder` (`CmdOrCtrl+R`) picks up files
-  added to or removed from the open folder, and so does bringing the window
-  back to the front. Only what changed is read again; the stars, flags and
-  colour labels already given, the current file and the strip's position all
-  stay as they were.
+- **Reload Folder**: the open folder keeps up with the disk on its own: a file
+  copied in or deleted outside Riffle shows up in the strip about a second
+  later. On volumes that send no change notifications, such as network shares,
+  bring the window back to the front or choose `File > Reload Folder`
+  (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
+  flags and colour labels already given, the current file and the strip's
+  position all stay as they were.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).

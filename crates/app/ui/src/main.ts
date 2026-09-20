@@ -1187,6 +1187,14 @@ void window.__TAURI__.event.listen("open-folder", openFolder);
 // open yet, or a scan running, so it costs nothing.
 void window.__TAURI__.event.listen("reload-folder", resync);
 void window.__TAURI__.event.listen("tauri://focus", resync);
+// The folder watcher's trigger, debounced in Rust. The listener outlives every
+// folder, so an event for a folder that is no longer open is dropped.
+void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload }) => {
+  if (payload.dir !== openDir) {
+    return;
+  }
+  resync();
+});
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 void window.__TAURI__.event.listen("undo", undo);
 

@@ -221,7 +221,7 @@ volumes).
     - The menu item follows `Open Folder…` (`MenuItem::with_id`, inserted
       via `file.prepend_items`) and `app_menu::on_event`'s emit pattern.
 
-- [ ] Step 2: Watch the open folder with `notify` and trigger the Step 1 rescan, debounced, without looping on sidecar writes
+- [x] Step 2: Watch the open folder with `notify` and trigger the Step 1 rescan, debounced, without looping on sidecar writes
   - Done when:
     - `crates/app/Cargo.toml` adds `notify` (current major). A new
       `crates/app/src/watch.rs` owns: a managed state holding the watched
