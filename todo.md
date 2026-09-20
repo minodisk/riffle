@@ -18,15 +18,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Decide whether these subcommands can move to `reader::read_head`/`reader::read_full` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
 
-### App: a multi-file drop is rejected wholesale, and drag-hover gives no early feedback
-
-The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-item drop outright, even when every item shares one parent folder. Separately, the `body.dragging` overlay in `crates/app/ui/style.css` looks the same whether or not the payload will be accepted, although Tauri's `drag-enter` event already carries the paths.
-
-#### TODO
-
-- [ ] Take the common parent folder of a multi-file drop instead of rejecting it.
-- [ ] Indicate during drag-hover whether the drop will be accepted.
-
 ### App: real-folder scan and second-open numbers are still missing
 
 Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
@@ -251,17 +242,19 @@ idle machine) and passed on immediate re-run. File:
       scheduling noise, so an unrelated CI run does not intermittently fail
       on it.
 
-### App: the filter menu closes when a thumbnail is clicked
+### App: the manual GUI check of `scan-progress` `ready` is outstanding
 
-Now that the filter menu opens as a fly-out beside the sidebar (leaving the
-filmstrip visible), a user may want to click a thumbnail to inspect it while
-keeping the filter menu open. Today the outside-`mousedown` handler in
-`crates/app/ui/src/main.ts` (~line 1475) closes the menu on any click outside
-`#filter`, including a strip click. Left out of the fly-out change as a
-behaviour change; noted in
-`docs/plans/_archived/20260920-filter-menu-flyout/plan.md`'s trade-offs.
+Steps 2 and 3 of `docs/plans/_archived/20260921-scan-progress-ready-paths/plan.md`
+each specified a check in `mise run tauri:dev` that no agent session could run,
+since the GUI cannot be driven from one. Files: `crates/app/ui/src/strip.ts`,
+`crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`.
 
 #### TODO
 
-- [ ] Decide whether a thumbnail click while the filter menu is open should
-      keep the menu open, and implement if so.
+- [ ] On a folder with a cold index, confirm thumbnails fill in while the scan
+      runs rather than only at `scan-done`, and that devtools shows no burst of
+      `thumbnail` invokes per `scan-progress` beyond the newly ready cells.
+      Note the observed payload sizes, which were reasoned rather than measured.
+- [ ] On a large folder, confirm the un-throttled `scan-done` `refresh()` does
+      not visibly starve the IPC channel: at most `MAX_IN_FLIGHT` invokes for
+      the still-missing visible cells, issued once.
