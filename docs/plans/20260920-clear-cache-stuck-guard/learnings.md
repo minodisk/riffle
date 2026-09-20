@@ -57,3 +57,37 @@
   needed for the settings window to listen to `scan-state` / `index-clearing`.
 - `scan_running` is `async` even though it only takes a mutex briefly, to match
   `index_size`/`clear_index` and keep it off the main thread.
+
+## Step 3: Settings window state
+
+- No new frontend module: the `(scanRunning, clearInFlight)` decision is two
+  assignments (`clearIndex.disabled`, `clearIndexNote.hidden`) in
+  `updateClearButton()`, which is not worth a vitest of its own, so
+  `settings.ts` keeps it inline. `tabs.ts` stayed the only extraction.
+- The initial `scan_running` invoke is applied only while `scanStateSeen` is
+  false, so an early `scan-state` event is never overwritten by the stale
+  answer (the frontend mirror of Step 2's ordering bug).
+- `clear_index` emits `index-clearing` *before* the blocking task, which
+  re-checks `scanning()` and can still fail. Without a fix the `#index-size`
+  line would stay `Clearing the index cache…` forever on that path, so the
+  `.catch` refetches `index_size` after writing the error to `#status`. The
+  error itself stays in `#status`; nothing new clears it.
+- `#clear-index-note` is styled grey (`#aaa`) in `settings.css`, deliberately
+  not the red `#status` colour, because a running scan is a normal state.
+- Verified: `pnpm exec vp check`, `vp test`, `mise run fmt`, `mise run ci`.
+  Not verified: the GUI behaviour (disabled button, note, in-flight line, the
+  native dialog), which needs the human run listed in Step 4.
+- `mise run ci` failed once on
+  `index::tests::the_reader_does_not_wait_on_an_open_write_transaction`
+  (`crates/app/src/index.rs:1839`, `assert!(elapsed.0 < 100ms)`, measured
+  161ms) and passed on the immediate re-run. The test is wall-clock
+  sensitive and this step touches no Rust, so it is a flake, not a
+  regression.
+
+## Deferred issues (todo candidates)
+
+- `index::tests::the_reader_does_not_wait_on_an_open_write_transaction` is
+  flaky: it asserts a wall-clock budget of 100 ms for a read taken while a
+  write transaction is open, and failed once at 161 ms on an otherwise idle
+  machine during Step 3's local `mise run ci`. Basis: the Step 3 CI run
+  above. File: `crates/app/src/index.rs:1839`.
