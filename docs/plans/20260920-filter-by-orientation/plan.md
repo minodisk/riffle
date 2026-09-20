@@ -160,4 +160,7 @@ with the rest, and `Reset` clears it.
 
 ## Progress
 
-- (none yet)
+- Step 1: Added the `Portrait` / `Landscape` orientation group to
+  `crates/app/ui/src/filter.ts` (`Orientation`, `orientationOf`, `passes`),
+  `crates/app/ui/index.html` and `crates/app/ui/src/main.ts`
+  (`b822a1237e35be18f57bd49ef1aa4ac1201c0699`).
