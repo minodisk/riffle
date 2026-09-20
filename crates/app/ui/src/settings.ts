@@ -1,4 +1,4 @@
-import { type Binding, keyName } from "./keys.js";
+import { type Binding, displayKey, keyName } from "./keys.js";
 import { nextTab } from "./tabs.js";
 
 const shortcutLabels: Record<string, string> = {
@@ -54,17 +54,16 @@ function renderShortcuts(): void {
       label.textContent = shortcutLabels[action] ?? action;
       const keysCell = document.createElement("td");
       keysCell.className = "keys";
-      const display = (key: string) => (key === "space" ? "Space" : key);
       const resetCell = document.createElement("td");
       row.append(label, keysCell, resetCell);
       for (const key of keys) {
         const chip = document.createElement("span");
         chip.className = "chip";
-        chip.textContent = display(key);
+        chip.textContent = displayKey(key);
         const remove = document.createElement("button");
         remove.type = "button";
         remove.textContent = "×";
-        remove.setAttribute("aria-label", `Remove ${display(key)}`);
+        remove.setAttribute("aria-label", `Remove ${displayKey(key)}`);
         remove.addEventListener("click", () => {
           void updateShortcuts("remove_shortcut_key", { action, key });
         });

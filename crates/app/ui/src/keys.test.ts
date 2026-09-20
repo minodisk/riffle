@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { keyName } from "./keys.js";
+import { displayKey, keyName } from "./keys.js";
 
 function press(
   key: string,
@@ -68,5 +68,15 @@ describe("keyName", () => {
     expect(press("OS", "OSLeft", { meta: true })).toBeNull();
     expect(press("OS", "OSRight", { meta: true })).toBeNull();
     expect(press("Unidentified", "MetaLeft")).toBeNull();
+  });
+});
+
+describe("displayKey", () => {
+  test("space is shown as Space", () => {
+    expect(displayKey("space")).toBe("Space");
+  });
+
+  test("other keys pass through unchanged", () => {
+    expect(displayKey("j")).toBe("j");
   });
 });
