@@ -176,3 +176,4 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
   only `aarch64-apple-darwin` is installed locally; the non-macOS path is
   unchanged from the previously compiling code, so it was verified by
   inspection instead. See `learnings.md` for details.
+- (2026-09-20) Step 1 complete
