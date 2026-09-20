@@ -224,3 +224,18 @@ entries in the pane instead of one being superseded by the other.
 
 - [ ] Decide on a shared key (e.g. the RAW path) for sidecar read and write
   errors so the two can supersede each other instead of coexisting.
+
+### App: clean up bogus modifier-only shortcut entries left in the store
+
+Before this fix, pressing a modifier key alone while a shortcut row captured
+could register a chip named `control`, `shift`, `alt`, or `meta`. The fix
+(`crates/app/ui/src/keys.ts`) stops new ones from being created, but any
+already persisted in a user's `shortcuts` store are not migrated away. They
+are harmless post-fix (they can never match a real keypress again), but stay
+in the store until the user manually removes them.
+
+#### TODO
+
+- [ ] Consider a one-time migration in `crates/app/src/shortcuts.rs` to drop
+      shortcut entries whose key is exactly `control`, `shift`, `alt`, or
+      `meta`.
