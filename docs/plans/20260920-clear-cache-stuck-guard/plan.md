@@ -290,3 +290,4 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
