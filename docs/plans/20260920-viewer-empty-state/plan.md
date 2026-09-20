@@ -55,7 +55,7 @@ Decisions already taken (do not revisit):
 
 ## Steps
 
-- [ ] Step 1: Pure empty-state logic with unit tests
+- [x] Step 1: Pure empty-state logic with unit tests
   - Done when: `crates/app/ui/src/empty.ts` exports (names indicative)
     `emptyState(openDir: string | null, total: number, shown: number)` returning
     `"none" | "no-folder" | "no-files" | "filtered"`, and
@@ -146,4 +146,8 @@ Decisions already taken (do not revisit):
 
 ## Progress
 
-- (none yet)
+- Step 1 (`a19b1ed`): added `crates/app/ui/src/empty.ts`
+  (`emptyState`, `openHint`, `displayKey`) and its unit tests in
+  `crates/app/ui/src/empty.test.ts`, covering the four states, the default
+  `o` key, multiple keys, a rebound key, and the no-key case.
+- (2026-09-20) Step 1 complete
