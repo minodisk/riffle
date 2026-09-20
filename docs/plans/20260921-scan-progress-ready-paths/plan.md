@@ -284,3 +284,10 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
   and was corrected: `refreshEntries` runs only while the focused row is
   missing from `entries`, coalesced by `entriesInFlight`, not on every
   `scan-progress` event.
+- (2026-09-21) Step 4 complete
+- Step 4 (`7a73473`): both todo headings removed. The first one's `has_thumb`
+  remark was judged moot rather than kept as a residual note: `refresh` no
+  longer runs per `scan-progress` event, so the 10/s full re-read it traded
+  against is gone, and `ready` already names the cells worth requesting.
+  `docs/agents/tauri-app.md` gained an Inferred entry on why the payload
+  carries flushed paths rather than a done-index high-water mark.
