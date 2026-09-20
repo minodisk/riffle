@@ -164,3 +164,5 @@ with the rest, and `Reset` clears it.
   `crates/app/ui/src/filter.ts` (`Orientation`, `orientationOf`, `passes`),
   `crates/app/ui/index.html` and `crates/app/ui/src/main.ts`
   (`b822a1237e35be18f57bd49ef1aa4ac1201c0699`).
+- (2026-09-20) Step 2 complete: Documented the orientation group in the
+  **Filter menu** bullet of `README.md`.
