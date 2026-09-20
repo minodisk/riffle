@@ -731,9 +731,8 @@ impl Drop for Preparing {
         // lock, at the moment the state changes, so the mutex serialises
         // them in the order the state actually changed; releasing the lock
         // first (or emitting a value read earlier) would let two emits from
-        // different threads interleave with no ordering guarantee, which is
-        // the bug both Round 1 and Round 2 of review found. Holding the lock
-        // across `emit` is safe here: no Rust-side `listen` handler in this
+        // different threads interleave with no ordering guarantee. Holding
+        // the lock across `emit` is safe here: no Rust-side `listen` handler in this
         // codebase takes the `Scans` lock, and `emit` only queues the event
         // to the webviews rather than running their listeners synchronously.
         let _ = self.app.emit("scan-state", scanning);
