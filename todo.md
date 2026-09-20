@@ -139,24 +139,30 @@ icon. File: `crates/app/src/main.rs` (`app_menu`).
 
 ### App: the Clear Cache button's manual GUI verification is still open
 
-From `clear-index-cache`'s implementation: the size shown on window open, the
-confirmation dialog, cancel leaving the index untouched, confirm dropping the
-figure and the main window rescanning via `index-cleared`, and the mid-scan
-refusal appearing in `#status` were never run, because GUI automation is
-unavailable on this Mac and a native confirm dialog cannot be driven by an
-agent. It needs a human run of `mise run tauri:release:devtools`. Files:
-`crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
-`crates/app/ui/settings.html`, `crates/app/ui/src/settings.ts`.
+From `clear-cache-stuck-guard`'s implementation: the button's guard used to
+get stuck (never re-enabling after the first scan), so none of its GUI
+behaviour has been run by a human. GUI automation is unavailable on this
+Mac and a native confirm dialog cannot be driven by an agent. Files:
+`crates/app/src/commands.rs`, `crates/app/ui/settings.html`,
+`crates/app/ui/src/settings.ts`.
 
 #### TODO
 
-- [ ] Run `mise run tauri:release:devtools`, open Settings > Cache, and
-      verify: the size shown on window open; the confirmation dialog
-      appearing on Clear Cache; Cancel leaving the index and figure
-      untouched; Confirm dropping the figure and the main window
-      re-scanning the open folder via the `index-cleared` event; and
-      pressing the button while a scan is running shows the refusal in
-      `#status` instead of a dialog.
+- [ ] Run `mise run tauri:release:devtools` and check, in order: (1) after
+      a folder's scan finishes, Settings > Cache shows the button enabled
+      and the note hidden; (2) pressing Clear Cache shows the confirmation
+      dialog immediately, and Cancel leaves the size and `#status`
+      unchanged with the button re-enabled; (3) Clear Cache then Clear
+      shows `Clearing the index cache…` until the size drops and the main
+      window rescans; (4) while a scan is running (or opening a large
+      folder with Settings already open), the button is disabled and the
+      note visible without any press, and both clear when the scan ends;
+      (5) opening Settings during a large folder's prepare phase (before
+      the first `scanning N / M` line) shows the button already disabled;
+      (6) an error path, if reachable, writes the refusal to `#status` and
+      it stays until the next press; (7) note whether the very first press
+      after opening the settings window ever does nothing, and if so
+      record the window focus state at that moment.
 
 ### App: a pick made during a sidecar format switch is lost on the next open
 
@@ -225,3 +231,17 @@ The behaviour was checked by reading the code paths only. Files:
       rebinding the `open` key in Settings updates the shown key without
       restart; resizing the window and 1:1 zoom still render the canvas
       correctly now that `#viewer` (not `#canvas`) carries the flex sizing.
+
+### App: a Rust test is flaky under load — `index::tests::the_reader_does_not_wait_on_an_open_write_transaction`
+
+The test asserts a wall-clock budget of 100 ms for a read taken while a
+write transaction is open; it failed once at 161 ms during
+`clear-cache-stuck-guard`'s Step 3 local `mise run ci` run (an otherwise
+idle machine) and passed on immediate re-run. File:
+`crates/app/src/index.rs`.
+
+#### TODO
+
+- [ ] Loosen the timing bound, or otherwise make the assertion robust to
+      scheduling noise, so an unrelated CI run does not intermittently fail
+      on it.
