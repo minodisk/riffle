@@ -7,10 +7,19 @@ import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 // when there is none; a label outside the menu's colours matches no item.
 export type Flag = "picked" | "untagged" | "rejected";
 
+// The displayed shape, decided by the EXIF Orientation tag alone: every
+// sensor Riffle reads is landscape, so a quarter turn (6 or 8) is portrait.
+export type Orientation = "portrait" | "landscape";
+
+export function orientationOf(tag: number): Orientation {
+  return tag === 6 || tag === 8 ? "portrait" : "landscape";
+}
+
 export interface FilterState {
   flags: Set<Flag>;
   stars: Set<number>;
   labels: Set<string>;
+  orientations: Set<Orientation>;
   exif: Map<ExifGroup, Set<string>>;
 }
 
@@ -24,6 +33,7 @@ export function passes(
   state: FilterState,
   { rating, pick, label }: Judgement,
   exif: Exif | null | undefined,
+  orientation: number | undefined,
 ): boolean {
   const flag: Flag = pick ? "picked" : rating === -1 ? "rejected" : "untagged";
   const stars = rating === null || rating === -1 ? 0 : rating;
@@ -32,6 +42,8 @@ export function passes(
     (state.flags.size === 0 || state.flags.has(flag)) &&
     (state.stars.size === 0 || state.stars.has(stars)) &&
     (state.labels.size === 0 || state.labels.has(labelKey)) &&
+    (state.orientations.size === 0 ||
+      (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {
         return true;

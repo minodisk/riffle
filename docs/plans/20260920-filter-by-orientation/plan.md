@@ -63,7 +63,7 @@ with the rest, and `Reset` clears it.
 
 ## Steps
 
-- [ ] Step 1: Add the orientation group to the filter logic and the filter menu
+- [x] Step 1: Add the orientation group to the filter logic and the filter menu
   - Done when:
     - `crates/app/ui/src/filter.ts` exports `type Orientation = "portrait" | "landscape"`
       and a pure `orientationOf(tag: number): Orientation` (6 and 8 ->

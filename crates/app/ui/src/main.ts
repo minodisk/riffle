@@ -4,7 +4,12 @@ import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
 import { History } from "./undo.js";
 import { ErrorList } from "./errors.js";
-import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.js";
+import {
+  type Flag,
+  type Orientation,
+  anchorAfterFilter,
+  passes as filterPasses,
+} from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { placeholderRect } from "./zoom.js";
@@ -180,6 +185,7 @@ const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 const shownLabels = new Set<string>();
+const shownOrientations = new Set<Orientation>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -462,9 +468,16 @@ function applyRating(
 
 function passes(path: string): boolean {
   return filterPasses(
-    { flags: shownFlags, stars: shownStars, labels: shownLabels, exif: shownExif },
+    {
+      flags: shownFlags,
+      stars: shownStars,
+      labels: shownLabels,
+      orientations: shownOrientations,
+      exif: shownExif,
+    },
     { rating: ratings.get(path) ?? null, pick: picks.has(path), label: labels.get(path) ?? null },
     entries.get(path)?.exif,
+    entries.get(path)?.orientation,
   );
 }
 
@@ -1379,7 +1392,7 @@ void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
-  "[data-flag], [data-stars], [data-label]",
+  "[data-flag], [data-stars], [data-label], [data-orientation]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 
@@ -1431,7 +1444,8 @@ function rebuildExifMenu(): void {
   }
   filterToggle.classList.toggle(
     "active",
-    shownFlags.size + shownStars.size + shownLabels.size > 0 || exifSelected(),
+    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
+      exifSelected(),
   );
 }
 
@@ -1444,13 +1458,15 @@ function setFilterMenuOpen(open: boolean): void {
 // then rebuild the view.
 function filterChanged(): void {
   for (const item of filterItems) {
-    const { flag, stars, label } = item.dataset;
+    const { flag, stars, label, orientation } = item.dataset;
     const checked =
       flag !== undefined
         ? shownFlags.has(flag as Flag)
         : label !== undefined
           ? shownLabels.has(label)
-          : shownStars.has(Number(stars));
+          : orientation !== undefined
+            ? shownOrientations.has(orientation as Orientation)
+            : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
   for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
@@ -1459,7 +1475,8 @@ function filterChanged(): void {
   }
   filterToggle.classList.toggle(
     "active",
-    shownFlags.size + shownStars.size + shownLabels.size > 0 || exifSelected(),
+    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
+      exifSelected(),
   );
   refilter();
 }
@@ -1481,10 +1498,16 @@ document.addEventListener("mousedown", (event) => {
 for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
-    const { flag, stars, label } = item.dataset;
+    const { flag, stars, label, orientation } = item.dataset;
     const set: Set<string | number> =
-      flag !== undefined ? shownFlags : label !== undefined ? shownLabels : shownStars;
-    const value = flag ?? label ?? Number(stars);
+      flag !== undefined
+        ? shownFlags
+        : label !== undefined
+          ? shownLabels
+          : orientation !== undefined
+            ? shownOrientations
+            : shownStars;
+    const value = flag ?? label ?? orientation ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
     } else {
@@ -1517,6 +1540,7 @@ filterExif.addEventListener("click", (event) => {
     shownFlags.clear();
     shownStars.clear();
     shownLabels.clear();
+    shownOrientations.clear();
     for (const set of shownExif.values()) {
       set.clear();
     }
