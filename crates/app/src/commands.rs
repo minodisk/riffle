@@ -1068,6 +1068,14 @@ pub fn reset_shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
     .unwrap_or_default()
 }
 
+/// The menu accelerators the keymap gives the two menu-backed actions.
+fn accelerators(keymap: &Keymap) -> (Option<String>, Option<String>) {
+    (
+        keymap.accelerator_for("open"),
+        keymap.accelerator_for("photolab"),
+    )
+}
+
 /// Apply `change` to the keymap and save its overrides under `shortcuts`,
 /// removing the key when there are none. A save failure is logged and the
 /// in-memory change stands, as in `remember_folder`.
@@ -1077,7 +1085,13 @@ fn update_keymap(
 ) -> Result<Vec<Binding>, String> {
     let state = app.state::<AppKeymap>();
     let mut keymap = index::lock(&state.0);
+    let before = accelerators(&keymap);
     change(&mut keymap)?;
+    if accelerators(&keymap) != before {
+        if let Err(e) = crate::app_menu::refresh(app, &keymap) {
+            log::warn!("failed to refresh the app menu: {e}");
+        }
+    }
     let overrides = keymap.overrides();
     let saved = settings(app).and_then(|store| {
         if overrides.as_object().is_some_and(|o| o.is_empty()) {

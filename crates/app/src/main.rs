@@ -10,7 +10,6 @@ mod update;
 mod app_menu {
     #[cfg(target_os = "macos")]
     use tauri::image::Image;
-    #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     #[cfg(target_os = "macos")]
     use tauri::menu::{IconMenuItem, NativeIcon};
@@ -18,6 +17,7 @@ mod app_menu {
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
     use tauri_plugin_opener::OpenerExt;
 
+    const OPEN_FOLDER_ID: &str = "open-folder";
     const PHOTOLAB_ID: &str = "open-in-photolab";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
@@ -36,7 +36,13 @@ mod app_menu {
         Ok(None)
     }
 
-    pub fn build(handle: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    /// The app menu, with the `Open Folder…` and `Open in DxO PhotoLab`
+    /// accelerators the keymap currently gives those actions.
+    pub fn build(
+        handle: &AppHandle,
+        open: Option<&str>,
+        photolab_key: Option<&str>,
+    ) -> tauri::Result<Menu<Wry>> {
         // The default menu carries the platform's standard items (Quit, Copy,
         // ...), which setting a menu at all would otherwise replace.
         let menu = Menu::default(handle)?;
@@ -47,7 +53,7 @@ mod app_menu {
             "Open in DxO PhotoLab",
             true,
             Some(NativeIcon::FollowLinkFreestanding),
-            None::<&str>,
+            photolab_key,
         )?;
         #[cfg(not(target_os = "macos"))]
         let photolab = MenuItem::with_id(
@@ -55,8 +61,9 @@ mod app_menu {
             PHOTOLAB_ID,
             "Open in DxO PhotoLab",
             true,
-            None::<&str>,
+            photolab_key,
         )?;
+        let open_folder = MenuItem::with_id(handle, OPEN_FOLDER_ID, "Open Folder…", true, open)?;
         #[cfg(target_os = "macos")]
         let settings = IconMenuItem::with_id(
             handle,
@@ -102,7 +109,11 @@ mod app_menu {
                 file
             }
         };
-        file.prepend_items(&[&photolab, &PredefinedMenuItem::separator(handle)?])?;
+        file.prepend_items(&[
+            &open_folder,
+            &photolab,
+            &PredefinedMenuItem::separator(handle)?,
+        ])?;
         // macOS puts Settings in the app menu, right after About; elsewhere it
         // goes at the end of File's own items, above Close Window and Quit.
         #[cfg(target_os = "macos")]
@@ -186,8 +197,24 @@ mod app_menu {
         Ok(menu)
     }
 
+    /// Rebuild and set the menu so both accelerators match the keymap.
+    /// muda's macOS `set_accelerator(None)` does not clear a key equivalent,
+    /// so the whole menu is replaced rather than patched.
+    pub fn refresh(app: &AppHandle, keymap: &crate::shortcuts::Keymap) -> tauri::Result<()> {
+        let menu = build(
+            app,
+            keymap.accelerator_for("open").as_deref(),
+            keymap.accelerator_for("photolab").as_deref(),
+        )?;
+        app.set_menu(menu)?;
+        Ok(())
+    }
+
     pub fn on_event(app: &AppHandle, event: MenuEvent) {
         // The frontend owns which folder is open, so it does the invoking.
+        if event.id() == OPEN_FOLDER_ID {
+            let _ = app.emit("open-folder", ());
+        }
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
         }
@@ -334,7 +361,6 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::new().build());
     builder
-        .menu(app_menu::build)
         .on_menu_event(app_menu::on_event)
         .setup(|app| {
             let path = app.path().app_cache_dir()?.join("index.sqlite");
@@ -375,6 +401,9 @@ fn main() {
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
+            if let Err(e) = app_menu::refresh(app.handle(), &keymap) {
+                log::error!("failed to set the app menu: {e}");
+            }
             app.manage(commands::AppKeymap(Mutex::new(keymap)));
             app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));

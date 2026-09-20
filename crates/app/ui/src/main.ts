@@ -1090,6 +1090,7 @@ function openFolder(): void {
     });
 }
 
+void window.__TAURI__.event.listen("open-folder", openFolder);
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 void window.__TAURI__.event.listen("undo", undo);
 
@@ -1468,6 +1469,9 @@ window.addEventListener("keydown", (event) => {
       break;
     case "open":
       openFolder();
+      break;
+    case "photolab":
+      openInPhotoLab();
       break;
     case "rate1":
     case "rate2":

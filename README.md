@@ -72,8 +72,12 @@ embedded previews, rotated by each file's Orientation.
   name breaking ties.
   The order settles while a folder is scanned for the first time, and the
   choice is remembered across launches.
+- **Open Folder…**: `File > Open Folder…` opens the folder picker, the same as
+  the `open` key.
 - **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
-  folder to the newest PhotoLab in `/Applications`.
+  folder to the newest PhotoLab in `/Applications`. Both File menu items are
+  rebindable: each shows the first key of its action that can be an
+  accelerator, and none when the action holds no such key.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
@@ -106,7 +110,8 @@ embedded previews, rotated by each file's Orientation.
 |-----|--------|
 | `ArrowUp` | previous file |
 | `ArrowDown` | next file |
-| `o` | open a folder |
+| `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
+| `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
 | `1`-`5` | rate the current file that many stars |
@@ -140,6 +145,9 @@ its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
 Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+Z`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
+The two File menu accelerators are the exception: they follow their own
+action's keys, so unlike `Cmd+Z` and `Cmd+,` they can be rebound, and the
+combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.
 
 ### Ratings and sidecars
