@@ -2,7 +2,20 @@ export type Binding = { action: string; keys: string[] };
 
 type KeyEvent = Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">;
 
-const MODIFIER_KEYS = ["Control", "Alt", "Shift", "Meta"];
+const MODIFIER_KEYS = ["control", "alt", "shift", "meta"];
+
+const MODIFIER_CODES = [
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "ShiftLeft",
+  "ShiftRight",
+  "MetaLeft",
+  "MetaRight",
+  "OSLeft",
+  "OSRight",
+];
 
 const CODE_NAMES: Record<string, string> = {
   Minus: "-",
@@ -22,9 +35,10 @@ const CODE_NAMES: Record<string, string> = {
 // A plain key is `event.key` lower-cased. With a modifier held, the name is
 // `ctrl+alt+shift+meta+` (only those held) and the key named from
 // `event.code`, as Option and Shift change `event.key`. A lone modifier has
-// no name.
+// no name: it is rejected by its `event.code`, or by `event.key` in any
+// casing, whether or not its own modifier flag is set.
 export function keyName(event: KeyEvent): string | null {
-  if (MODIFIER_KEYS.includes(event.key)) {
+  if (MODIFIER_CODES.includes(event.code) || MODIFIER_KEYS.includes(event.key.toLowerCase())) {
     return null;
   }
   const modifiers = [

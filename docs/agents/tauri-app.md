@@ -430,13 +430,19 @@ On macOS, Option and Shift change `event.key` (⌃⌥1 reports `¡`, not `1`), s
 a key pressed with any modifier is named from `event.code` (`Digit1` -> `1`,
 `Comma` -> `,`) after the held modifiers in `ctrl+alt+shift+meta` order; a
 plain key keeps the lower-cased `event.key`. The shortcuts panel's capture must
-use the same naming, and a lone modifier must be skipped by its `event.key`
-(`Control`, `Alt`, ...) rather than by the derived name, or holding Ctrl+Alt
-records `ctrl+alt+altleft`.
+use the same naming, and a lone modifier must be skipped before the derived
+name is built, or holding Ctrl+Alt records `ctrl+alt+altleft`. Checking
+`event.key` alone is not enough: it can arrive in an unexpected case
+(`control`, not `Control`) or be unrecognizable while `event.code` still names
+the modifier (`ControlLeft`/`Right`, `AltLeft`/`Right`, `ShiftLeft`/`Right`,
+`MetaLeft`/`Right`, and the legacy `OSLeft`/`OSRight`). Reject a lone modifier
+by checking both: `event.code` against that list, and a lower-cased `event.key`
+against `control`/`alt`/`shift`/`meta`.
 
 - Why: the keymap compares names; a name built one way on dispatch and another
   way on capture never matches.
-- Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5.
+- Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5, and
+  `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`.
 
 ### Carry every judgement field on every write (Hit)
 
