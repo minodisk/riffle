@@ -8,6 +8,8 @@ mod sidecar;
 mod update;
 
 mod app_menu {
+    #[cfg(target_os = "macos")]
+    use tauri::menu::{IconMenuItem, NativeIcon};
     use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
 
@@ -32,6 +34,16 @@ mod app_menu {
         // The default menu carries the platform's standard items (Quit, Copy,
         // ...), which setting a menu at all would otherwise replace.
         let menu = Menu::default(handle)?;
+        #[cfg(target_os = "macos")]
+        let photolab = IconMenuItem::with_id_and_native_icon(
+            handle,
+            PHOTOLAB_ID,
+            "Open in DxO PhotoLab",
+            true,
+            Some(NativeIcon::FollowLinkFreestanding),
+            None::<&str>,
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let photolab = MenuItem::with_id(
             handle,
             PHOTOLAB_ID,
@@ -46,6 +58,16 @@ mod app_menu {
             true,
             Some("CmdOrCtrl+,"),
         )?;
+        #[cfg(target_os = "macos")]
+        let check_updates = IconMenuItem::with_id_and_native_icon(
+            handle,
+            CHECK_UPDATES_ID,
+            "Check for Updates…",
+            true,
+            Some(NativeIcon::Refresh),
+            None::<&str>,
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let check_updates = MenuItem::with_id(
             handle,
             CHECK_UPDATES_ID,
