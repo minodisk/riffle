@@ -256,4 +256,11 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
 
 ## Progress
 
-- (none yet)
+- Step 1 (`5252fa7`): `run_scan`'s `progress` callback gained a third
+  argument, `ready: Vec<String>`, alongside the existing `(done, total)`;
+  chosen over a struct since the callback's two call sites (`start_scan` and
+  the tests) only needed one more positional value. `flush` pushes a
+  successfully written batch's paths into a `Mutex<Vec<String>>` that
+  `on_item` takes under lock and hands to `progress` on each due emit and
+  once more after the trailing flush, so every committed path (including
+  error rows) is reported exactly once.
