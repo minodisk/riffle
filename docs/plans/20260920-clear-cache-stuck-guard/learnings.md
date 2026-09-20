@@ -27,9 +27,12 @@
 
 ## Step 2: Backend signals for the settings window
 
-- `publish_scan_state(&AppHandle, bool)` emits `scan-state`. `scan_folder`
-  computes `scanning()` under the `Scans` lock, drops it, then emits; so do
-  `Preparing::drop` and the scan task's `finish`, with the recomputed value.
+- All four `scan-state` emit sites (`scan_folder`, `Preparing::drop`,
+  `start_scan`, and the scan task's `finish`) compute `scanning()` under the
+  `Scans` lock and emit while still holding it, so the mutex itself
+  serialises every emit in the order the state actually changed. There is no
+  `publish_scan_state` helper; it was dropped once all sites converged on
+  emitting under the lock.
 - `start_scan` and the scan task it spawns race for the same lock: on a fast
   or empty scan, the spawned task can reach `finish`/`scanning`/emit before
   `start_scan` reaches its own trailing emit, and since the two `app.emit`
