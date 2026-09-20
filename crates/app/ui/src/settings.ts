@@ -32,6 +32,8 @@ const status = document.getElementById("status") as HTMLDivElement;
 const sidecarRadios = document.querySelectorAll<HTMLInputElement>('input[name="sidecar-format"]');
 const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
+const indexSize = document.getElementById("index-size") as HTMLParagraphElement;
+const clearIndex = document.getElementById("clear-index") as HTMLButtonElement;
 const tablist = document.getElementById("tabs") as HTMLDivElement;
 const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 let shortcutBindings: Binding[] = [];
@@ -132,6 +134,13 @@ void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
   debugTiming.checked = enabled;
 });
 
+// The backend formats the size in the units of the platform's file manager.
+function showIndexSize(size: string): void {
+  indexSize.textContent = `Index cache: ${size}`;
+}
+
+void window.__TAURI__.core.invoke<string>("index_size").then(showIndexSize);
+
 for (const radio of sidecarRadios) {
   radio.addEventListener("change", () => {
     status.textContent = "";
@@ -154,6 +163,24 @@ autoAdvance.addEventListener("change", () => {
 
 debugTiming.addEventListener("change", () => {
   void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
+});
+
+clearIndex.addEventListener("click", () => {
+  status.textContent = "";
+  clearIndex.disabled = true;
+  window.__TAURI__.core
+    .invoke<boolean>("clear_index")
+    .then(async (cleared) => {
+      if (cleared) {
+        showIndexSize(await window.__TAURI__.core.invoke<string>("index_size"));
+      }
+    })
+    .catch((error: unknown) => {
+      status.textContent = String(error);
+    })
+    .finally(() => {
+      clearIndex.disabled = false;
+    });
 });
 
 (document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener(

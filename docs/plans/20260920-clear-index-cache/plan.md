@@ -196,7 +196,7 @@ turns the "measuring on your own folder" procedure in `README.md` into
       `docs/agents/tauri-app.md`.
     - No new capability entry and no new dependency.
 
-- [ ] Step 3: The settings window's Cache tab
+- [x] Step 3: The settings window's Cache tab
   - Done when:
     - `settings.html` gains a `Cache` tab and panel (after `Keyboard
       Shortcuts`, before the hidden `Debug` tab) showing a line such as
