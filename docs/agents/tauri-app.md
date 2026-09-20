@@ -285,14 +285,14 @@ the existing item does not clear it.
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
-On macOS eight app items carry an icon. `Open in DxO PhotoLab` alone uses
+On macOS nine app items carry an icon. `Open in DxO PhotoLab` alone uses
 `IconMenuItem::with_id_and_native_icon`, with
 `NativeIcon::FollowLinkFreestanding`, which is a template image and tints with
 the menu. `NativeIcon` has neither an undo nor a
 modern gear, and `NativeIcon::Folder` and `NativeIcon::TrashFull` are colour
 Finder bitmaps rather than template images (`isTemplate == false`), so they
 keep their colour while every icon around them tints, so `Settings...`,
-`Undo`, `Open Folder…`, `Open Log Folder`, `Move Rejected to Trash`,
+`Undo`, `Redo`, `Open Folder…`, `Open Log Folder`, `Move Rejected to Trash`,
 `Reload Folder` and `Check for Updates…` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's
@@ -322,7 +322,7 @@ truth. The script never runs at build or run time.
   template flag for menu items; until both hold, the fork stays. See
   `docs/plans/_archived/20260920-menu-icon-glyph-size/learnings.md`,
   "Side experiment: muda's missing `setTemplate` is a one-line gap".
-- **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Open Folder…`,
+- **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Redo`, `Open Folder…`,
   `Open Log Folder`) rendered visibly larger than the rest of the menu. The cause is the
   glyph's padding, not the canvas: the export script drew the SF Symbol at
   `pointSize: 18` into an 18pt canvas — filling it edge to edge and in fact
