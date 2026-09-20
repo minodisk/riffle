@@ -256,6 +256,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
 
 ## Progress
 
+- (2026-09-21) Step 1 complete
 - Step 1 (`5252fa7`): `run_scan`'s `progress` callback gained a third
   argument, `ready: Vec<String>`, alongside the existing `(done, total)`;
   chosen over a struct since the callback's two call sites (`start_scan` and
