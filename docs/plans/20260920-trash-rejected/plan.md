@@ -107,7 +107,7 @@ Facts the design rests on (from reading the code):
       then restores the judgement with the file.
     - Non-UTF-8 paths: compare with the same lossy conversion the index uses.
 
-- [ ] Step 2: Menu item and frontend flow
+- [x] Step 2: Menu item and frontend flow
   - Done when:
     - `app_menu::build` in `crates/app/src/main.rs` adds `Move Rejected to
       Trash…` (id `trash-rejected`) to `File` after `Reload Folder`, with the

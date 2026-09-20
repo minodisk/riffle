@@ -22,6 +22,7 @@ mod app_menu {
     const OPEN_FOLDER_ID: &str = "open-folder";
     const RELOAD_FOLDER_ID: &str = "reload-folder";
     const PHOTOLAB_ID: &str = "open-in-photolab";
+    const TRASH_REJECTED_ID: &str = "trash-rejected";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
@@ -67,6 +68,25 @@ mod app_menu {
             photolab_key,
         )?;
         let open_folder = MenuItem::with_id(handle, OPEN_FOLDER_ID, "Open Folder…", true, open)?;
+        // No accelerator: a destructive action, reached deliberately through
+        // the menu and its confirmation.
+        #[cfg(target_os = "macos")]
+        let trash_rejected = IconMenuItem::with_id_and_native_icon(
+            handle,
+            TRASH_REJECTED_ID,
+            "Move Rejected to Trash…",
+            true,
+            Some(NativeIcon::TrashFull),
+            None::<&str>,
+        )?;
+        #[cfg(not(target_os = "macos"))]
+        let trash_rejected = MenuItem::with_id(
+            handle,
+            TRASH_REJECTED_ID,
+            "Move Rejected to Trash…",
+            true,
+            None::<&str>,
+        )?;
         // A fixed accelerator, like Settings and Undo: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
         let reload_folder = MenuItem::with_id(
@@ -124,6 +144,7 @@ mod app_menu {
         file.prepend_items(&[
             &open_folder,
             &reload_folder,
+            &trash_rejected,
             &photolab,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
@@ -233,6 +254,9 @@ mod app_menu {
         }
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
+        }
+        if event.id() == TRASH_REJECTED_ID {
+            let _ = app.emit("trash-rejected", ());
         }
         if event.id() == UNDO_ID {
             let _ = app.emit("undo", ());

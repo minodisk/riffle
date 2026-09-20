@@ -33,6 +33,16 @@ describe("History", () => {
     expect(history.pop()).toBeUndefined();
   });
 
+  test("removeWhere drops every matching entry", () => {
+    const history = new History<{ path: string }>(10);
+    history.push({ path: "a" });
+    history.push({ path: "b" });
+    history.push({ path: "a" });
+    history.removeWhere((entry) => entry.path === "a");
+    expect(history.pop()).toEqual({ path: "b" });
+    expect(history.pop()).toBeUndefined();
+  });
+
   test("clear empties it", () => {
     const history = new History<number>(10);
     history.push(1);

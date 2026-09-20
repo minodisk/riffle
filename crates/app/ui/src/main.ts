@@ -8,6 +8,7 @@ import { type Flag, anchorAfterFilter, passes as filterPasses } from "./filter.j
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { placeholderRect } from "./zoom.js";
+import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
@@ -387,6 +388,58 @@ function openInPhotoLab(): void {
   window.__TAURI__.core
     .invoke("open_in_photolab", { dir: openDir })
     .catch((e: unknown) => setStatus(`Could not open PhotoLab: ${String(e)}`));
+}
+
+// `File > Move Rejected to Trash…`: hand the rejects of the open folder to the
+// backend, which confirms before moving anything.
+function trashRejected(): void {
+  if (openDir === null) {
+    setStatus("No folder is open");
+    return;
+  }
+  if (scanRunning) {
+    setStatus("a scan is running; wait for it to finish");
+    return;
+  }
+  const paths = rejectedPaths(allFiles, ratings);
+  if (paths.length === 0) {
+    setStatus("No rejected files in this folder");
+    return;
+  }
+  const dir = openDir;
+  const token = folderToken;
+  window.__TAURI__.core
+    .invoke<TrashSummary | null>("trash_rejected", { dir, paths })
+    .then((summary) => {
+      if (dir !== openDir || token !== folderToken || summary === null) {
+        return;
+      }
+      const failed = new Set(summary.failed.map(({ path }) => path));
+      for (const path of paths) {
+        if (failed.has(path)) {
+          continue;
+        }
+        ratings.delete(path);
+        picks.delete(path);
+        labels.delete(path);
+        sharpness.delete(path);
+        touched.delete(path);
+      }
+      // An undo of a trashed file would `set_rating` a path that is gone and
+      // mint an orphan sidecar.
+      history.removeWhere((entry) => !failed.has(entry.path) && paths.includes(entry.path));
+      for (const { path, message } of summary.failed) {
+        errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
+      }
+      setStatus(trashedStatus(summary));
+      resync();
+    })
+    .catch((err: unknown) => {
+      if (dir !== openDir || token !== folderToken) {
+        return;
+      }
+      setStatus(String(err));
+    });
 }
 
 // Set the transient note, or clear it when called with no argument.
@@ -1228,6 +1281,7 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   resync();
 });
 void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
+void window.__TAURI__.event.listen("trash-rejected", trashRejected);
 void window.__TAURI__.event.listen("undo", undo);
 
 // Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
