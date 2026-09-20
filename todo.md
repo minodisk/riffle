@@ -51,34 +51,6 @@ Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second 
 
 - [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
 
-### Core: `xmp_prefix` can rebind a namespace prefix already used for something else
-
-In `crates/core/src/xmp.rs`, if a sidecar binds the `xmp` prefix to some namespace
-other than `http://ns.adobe.com/xap/1.0/` and binds no prefix at all to that XMP
-namespace, `xmp_prefix` declares `xmlns:xmp` on the `rdf:Description` anyway, which
-rebinds the prefix for the tag's other attributes. No real-world producer does this;
-handling it would need a generated prefix. Noted while implementing Phase 6 Step 2.
-
-#### TODO
-
-- [ ] Detect a colliding `xmp:` binding and fall back to a generated prefix (or the
-  `xap:` alternative) instead of overwriting it.
-
-### Docs: consider a `docs/agents/core.md` guide for `crates/core`
-
-Phase 6 Step 2 found several non-obvious `quick-xml` 0.42 facts specific to
-`crates/core/src/xmp.rs` (only per-event byte offsets, no attribute-level offset,
-so the attribute form of `xmp:Rating` is patched by scanning the start tag's own
-range; prefix choice goes through `reader.resolver()`; `xmp:Rating="0"` is a legal
-value, not absence). Only this feature has touched that code so far, so no guide
-exists yet (compare `docs/agents/tauri-app.md`'s Hit/Measured/Inferred format).
-
-#### TODO
-
-- [ ] When the next feature touches `crates/core`'s XML handling, create
-  `docs/agents/core.md` capturing these facts, or judge it unnecessary and drop
-  this item.
-
 ### App: `scan-progress` carries no way to tell what became available
 
 `scan-progress` carries only `{dir, scan_id, done, total}`, so #56 had to throttle the filmstrip refresh to ~1/s rather than re-request only the thumbnails that became available. Carrying the newly-written paths, or a done-index high-water mark, would let the strip ask for exactly what is ready.
@@ -111,24 +83,6 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
 
-### App: no test harness for `tauri::AppHandle`-taking commands
-
-Review feedback (photolab-dop-sidecar Step 3, Round 1, item 1) asked for a test
-that sets a rating between the format swap and `reset_sidecars` in
-`switch_sidecar_format`. This was dismissed for that round: the function takes
-a real `tauri::AppHandle` backed by `tauri_plugin_store`, and the codebase has
-no `tauri::test` mock-app harness. Building one (mock runtime, store plugin
-wiring) would let this and other `AppHandle`-taking commands in
-`crates/app/src/commands.rs` (e.g. `switch_sidecar_format`, `set_rating`,
-`scan_folder`) be unit-tested.
-
-#### TODO
-
-- [ ] Build a `tauri::test` mock-app harness (mock runtime, `tauri_plugin_store`
-  wiring) so `AppHandle`-taking commands in `crates/app/src/commands.rs` can be
-  unit-tested, then add the deferred `switch_sidecar_format` race test (rating
-  set between the format swap and `reset_sidecars`).
-
 ### App: rejected files cannot be cleared out from the app
 
 Culling ends with the rejects still in the folder; removing them means going to
@@ -139,35 +93,6 @@ another tool.
 - [ ] Add a menu item that moves every rejected file of the open folder, with
   its sidecars, to the OS trash (or a chosen folder), after a confirmation
   showing the count.
-
-### App: sidecar read and write errors for the same file show as two separate entries
-
-The sticky error area added for sidecar problems
-(`crates/app/ui/src/errors.ts`, `crates/app/ui/src/main.ts`) keys a read
-error (from `reconcile_sidecars_of`/`scan_folder`) by the sidecar path and a
-write error (from the `sidecar-error` event) by the RAW path, so a single
-file that fails both to read on open and to write afterward shows two
-entries in the pane instead of one being superseded by the other.
-
-#### TODO
-
-- [ ] Decide on a shared key (e.g. the RAW path) for sidecar read and write
-  errors so the two can supersede each other instead of coexisting.
-
-### App: clean up bogus modifier-only shortcut entries left in the store
-
-Before this fix, pressing a modifier key alone while a shortcut row captured
-could register a chip named `control`, `shift`, `alt`, or `meta`. The fix
-(`crates/app/ui/src/keys.ts`) stops new ones from being created, but any
-already persisted in a user's `shortcuts` store are not migrated away. They
-are harmless post-fix (they can never match a real keypress again), but stay
-in the store until the user manually removes them.
-
-#### TODO
-
-- [ ] Consider a one-time migration in `crates/app/src/shortcuts.rs` to drop
-      shortcut entries whose key is exactly `control`, `shift`, `alt`, or
-      `meta`.
 
 ### App: custom menu-item icons don't tint for dark mode
 
@@ -240,3 +165,22 @@ agent. It needs a human run of `mise run tauri:release:devtools`. Files:
       re-scanning the open folder via the `index-cleared` event; and
       pressing the button while a scan is running shows the refusal in
       `#status` instead of a dialog.
+
+### App: a pick made during a sidecar format switch is lost on the next open
+
+`Index::reset_sidecars` (`crates/app/src/index.rs`) runs after the switch's
+`persist` step and executes `UPDATE ratings SET xmp_size = NULL,
+xmp_mtime_ns = NULL, pick = 0 WHERE dirty = 1`, zeroing the pick of a row the
+writer has not landed yet. `Index::mark_written` then clears `dirty` only
+`WHERE path = ?1 AND rating IS ?4 AND pick = ?5 AND label IS ?6`, which no
+longer matches (`pick = 0` in the row vs. `pick = 1` in the write), so the row
+stays dirty with `pick = 0` and the next folder open replays it over the
+sidecar, stripping the pick. Rating-only judgements are unaffected. Found via
+the deferred `pick = true` variant of the format-switch race test in
+`switch_format` (`crates/app/src/commands.rs`).
+
+#### TODO
+
+- [ ] Fix the race in `Index::reset_sidecars`/`Index::mark_written` (or
+      `switch_format`'s ordering) so a pick set during a format switch
+      survives the switch.

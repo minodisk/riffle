@@ -368,6 +368,18 @@ removal.
   new use of this splice path.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
 
+### quick-xml 0.42 namespace resolution: `&str`, not `&[u8]`, and a borrowed `QName` (Hit)
+
+`ResolveResult::Bound(Namespace)`'s `as_ref()` yields `&str` — compare it
+against `XMP_NS` directly, not as bytes. A helper that resolves an
+attribute's namespace and returns `ResolveResult<'a>` must tie the
+lifetime to the *reader*, not to a local `String` holding the name: the
+only variant that borrows (`Bound`) points into the reader's own
+namespace buffer, so binding the lifetime to a temporary buffer fails to
+compile (or is subtly wrong if it does).
+
+- Source: `docs/plans/_archived/20260920-robustness-cleanup/learnings.md`, Step 2.
+
 ### Bumping `SCHEMA_VERSION` can strand an old per-version column guard (Hit)
 
 A migration guard that adds a column for "any version other than the current
@@ -761,3 +773,15 @@ forward, and injected keystrokes are dropped silently.
 `cargo test --lib` fails because `crates/app` has no library target.
 
 - Run `cargo test <test_name>` (optionally scoped with `cd crates/app`) instead.
+
+### A rating/pick test needs a scan-populated `files` row before `rating_of` reads back (Hit)
+
+`rating_of` joins `files`, which only a folder scan fills in. A unit test
+that calls `write_batch` (or the extracted `switch_format` body in
+`crates/app/src/commands.rs`) and then reads the rating back must first
+call `index::stat` to populate that row, the same way
+`a_foreign_sidecar_is_read_on_the_first_open_without_any_files_row` does —
+otherwise the read returns nothing regardless of whether the write
+succeeded.
+
+- Source: `docs/plans/_archived/20260920-robustness-cleanup/learnings.md`, Step 4.
