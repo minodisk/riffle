@@ -391,3 +391,4 @@ chosen option turns out not to work.
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete
