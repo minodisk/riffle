@@ -150,3 +150,4 @@ Decisions already taken (do not revisit):
   (`emptyState`, `openHint`, `displayKey`) and its unit tests in
   `crates/app/ui/src/empty.test.ts`, covering the four states, the default
   `o` key, multiple keys, a rebound key, and the no-key case.
+- (2026-09-20) Step 1 complete
