@@ -69,7 +69,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 
 ## Steps
 
-- [ ] Step 1: Use `IconMenuItem` with a `NativeIcon` for the items that have a template AppKit image on macOS
+- [x] Step 1: Use `IconMenuItem` with a `NativeIcon` for the items that have a template AppKit image on macOS
   - Done when:
     - On macOS, `Check for Updates…` shows `NativeIcon::Refresh` and
       `Open in DxO PhotoLab` shows `NativeIcon::FollowLinkFreestanding` next
@@ -168,4 +168,12 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 
 ## Progress
 
-- (none yet)
+- Step 1 (`3298ea4`): `Open in DxO PhotoLab` and `Check for Updates…` now use
+  `IconMenuItem` with `NativeIcon::FollowLinkFreestanding` /
+  `NativeIcon::Refresh` on macOS, behind `#[cfg(target_os = "macos")]`; other
+  platforms keep the plain `MenuItem`. A non-macOS cross-check
+  (`cargo check --target x86_64-unknown-linux-gnu`) was not possible because
+  only `aarch64-apple-darwin` is installed locally; the non-macOS path is
+  unchanged from the previously compiling code, so it was verified by
+  inspection instead. See `learnings.md` for details.
+- (2026-09-20) Step 1 complete
