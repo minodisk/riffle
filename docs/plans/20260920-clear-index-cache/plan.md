@@ -342,3 +342,4 @@ the Cache panel's one-line explanation ("judgements are kept").
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
