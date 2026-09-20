@@ -195,3 +195,18 @@ for now.
       accelerator, including the platform-dependent defaults, the key-name-to-
       accelerator conversion, the rule for which key becomes the accelerator,
       and a `forbidden()` exemption for the app's own accelerator.
+
+### App: custom menu-item icons don't tint for dark mode
+
+muda never calls `setTemplate` on a custom menu `NSImage`, and Tauri exposes no
+template flag for menu items (only for the tray icon), so a bundled PNG
+(`Settings...` / `Undo`, `crates/app/icons/menu/`) cannot tint with the menu
+appearance the way native icons do. The current PNGs are rendered in a neutral
+grey (`#8E8E93`) as a legible-in-both-modes compromise. Upstreaming template
+support in muda / Tauri is the proper fix.
+
+#### TODO
+
+- [ ] Investigate and, if feasible, upstream `setTemplate` support for custom
+      menu item images in muda / Tauri, then switch `crates/app/src/main.rs`
+      (`app_menu`) to a template image instead of the fixed-grey PNG fallback.
