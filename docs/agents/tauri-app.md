@@ -410,6 +410,22 @@ that already have the column, and the `ALTER TABLE` fails.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
 
+### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
+
+`Index::mark_written` clears `dirty` only `WHERE path = ?1 AND rating IS ?4 AND
+pick = ?5 AND label IS ?6`. A judgement made inside a sidecar format switch's
+window has already been queued with the value the row held, so if
+`Index::reset_sidecars` rewrites any of those fields in between, the guard no
+longer matches: the row stays dirty with the rewritten value and the next
+folder open replays that stale value over the sidecar. `reset_sidecars` used to
+zero `pick`, which lost a pick set during a switch.
+
+- `reset_sidecars` nulls the stat only (`xmp_size`, `xmp_mtime_ns`); it keeps
+  the judgement (`rating`, `pick`, `label`). Keep it that way for any field
+  added to `mark_written`'s guard.
+- Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
+  Step 1.
+
 ### Folder-index eviction: lock order and where it runs (Measured)
 
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
