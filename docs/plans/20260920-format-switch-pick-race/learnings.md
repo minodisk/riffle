@@ -26,6 +26,16 @@
   Not data loss (XMP never stores a pick), and the user chose the plain
   drop over `reset_sidecars(format)` knowing of this residual.
 
+## Step 2
+
+- The todo heading "App: a pick made during a sidecar format switch is lost
+  on the next open" and its TODO are gone from `todo.md`.
+- The guide entry went into `docs/agents/tauri-app.md` under "Rust side",
+  just before "Folder-index eviction: lock order and where it runs", next to
+  the other index/SQL entries. Its Source line points at the post-archive
+  path (`docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
+  Step 1), matching how every other entry in that file links.
+
 ## Deferred issues (todo candidates)
 
 - A pick kept by `reset_sidecars` is rendered in XMP mode. Basis: the

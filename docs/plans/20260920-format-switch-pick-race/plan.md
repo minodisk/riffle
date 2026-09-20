@@ -122,7 +122,7 @@ open, and the `pick = true` variant of the format-switch race test that
       tests. No other `reset_sidecars` behaviour (dropping clean rows,
       nulling the stat, keeping the label) changes.
 
-- [ ] Step 2: Close the todo item and record the pitfall in the app guide
+- [x] Step 2: Close the todo item and record the pitfall in the app guide
   - Done when:
     - The heading "App: a pick made during a sidecar format switch is lost
       on the next open" and its TODO are removed from `todo.md`.

@@ -190,25 +190,6 @@ Mac and a native confirm dialog cannot be driven by an agent. Files:
       after opening the settings window ever does nothing, and if so
       record the window focus state at that moment.
 
-### App: a pick made during a sidecar format switch is lost on the next open
-
-`Index::reset_sidecars` (`crates/app/src/index.rs`) runs after the switch's
-`persist` step and executes `UPDATE ratings SET xmp_size = NULL,
-xmp_mtime_ns = NULL, pick = 0 WHERE dirty = 1`, zeroing the pick of a row the
-writer has not landed yet. `Index::mark_written` then clears `dirty` only
-`WHERE path = ?1 AND rating IS ?4 AND pick = ?5 AND label IS ?6`, which no
-longer matches (`pick = 0` in the row vs. `pick = 1` in the write), so the row
-stays dirty with `pick = 0` and the next folder open replays it over the
-sidecar, stripping the pick. Rating-only judgements are unaffected. Found via
-the deferred `pick = true` variant of the format-switch race test in
-`switch_format` (`crates/app/src/commands.rs`).
-
-#### TODO
-
-- [ ] Fix the race in `Index::reset_sidecars`/`Index::mark_written` (or
-      `switch_format`'s ordering) so a pick set during a format switch
-      survives the switch.
-
 ### App: unmeasured cost of a rescan on an unchanged large folder
 
 The focus/manual rescan added by the live-folder-refresh feature (`crates/app/src/commands.rs`'s `scan_folder`, `crates/app/src/index.rs`) stats every file and reconciles the sidecar index even when nothing changed, plus a `folder_entries` read of every row on `scan-done`. This cost was not measured on a real large folder; if it turns out to be visible, the watcher's debounce window may need to grow.
