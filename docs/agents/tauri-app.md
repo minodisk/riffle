@@ -300,23 +300,25 @@ and `Open Log Folder`: they live in different menus, which are never open at
 the same time. Other platforms keep the plain `MenuItem` behind `cfg`.
 
 Regenerate those PNGs with `swift tools/macos/export-menu-icons.swift`, and
-only when a symbol, its size, weight or colour changes; AppKit's rasterisation
+only when a symbol, its size or weight changes; AppKit's rasterisation
 can differ between macOS releases, so the committed files are the source of
 truth. The script never runs at build or run time.
 
-- Limitation: muda does not call `setTemplate` on a custom menu image and
-  Tauri exposes no template flag for menu items, so the bundled PNGs do not
-  tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
-  that stays legible in both appearances.
-- The fix is a one-line gap, confirmed by a throwaway spike: adding
-  `nsimage.setTemplate(true)` to `menuitem_set_icon` in muda's
-  `src/platform_impl/macos/mod.rs` makes every bundled PNG tint with the menu
-  (white in dark mode, black in light mode) exactly like the OS-provided
-  items, since a template image contributes only its alpha channel — the
-  grey fill becomes dead weight once adopted. Patching requires a `path`/`git`
-  source (crates.io-to-crates.io patches are rejected) pinned to a version
-  satisfying `tauri`'s `muda = "^0.19"` (so 0.19.3, not 0.20). No upstream
-  muda or Tauri issue tracks this yet. See
+- The bundled PNGs are alpha-only template images: the workspace `Cargo.toml`
+  patches muda through `[patch.crates-io]` to `minodisk/muda` (muda 0.19.3 plus
+  an unconditional `nsimage.setTemplate(true)` in `menuitem_set_icon`), so they
+  tint with the menu appearance — white in dark mode, black in light mode —
+  exactly like the OS-provided items. Stock muda never marks a custom menu
+  image as a template and Tauri exposes no template flag for menu items, so
+  without the patch the icons keep whatever colour the PNG carries. The patch
+  must use a `git` or `path` source (crates.io-to-crates.io patches are
+  rejected) pinned to a version satisfying `tauri`'s `muda = "^0.19"`, hence
+  0.19.3 and not 0.20; the unconditional fork was chosen over the opt-in API
+  because wiring an opt-in flag through would need a Tauri fork as well.
+  https://github.com/tauri-apps/muda/pull/413 carries the same change upstream
+  as an opt-in `IconMenuItem::set_icon_as_template`. Drop the patch entry once
+  that ships in a muda release Tauri resolves **and** Tauri exposes the
+  template flag for menu items; until both hold, the fork stays. See
   `docs/plans/_archived/20260920-menu-icon-glyph-size/learnings.md`,
   "Side experiment: muda's missing `setTemplate` is a one-line gap".
 - **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Open Folder…`,
