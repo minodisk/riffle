@@ -67,11 +67,16 @@ struct Changed {
     dir: String,
 }
 
-/// Watch `dir`, replacing a watch on another folder and leaving one on the
-/// same folder alone. Failing to watch (a network volume, say) is logged and
+/// Watch `dir` (the canonicalised path `notify` needs), replacing a watch on
+/// another folder and leaving one on the same folder alone. `owner` is
+/// emitted in `folder-changed` instead of `dir`: it is the caller's own
+/// string for the folder (what the frontend holds as `openDir`), which can
+/// differ from the canonicalised `dir` (a verbatim `\\?\` path on Windows, a
+/// resolved symlink on macOS) and would otherwise never match the frontend's
+/// comparison. Failing to watch (a network volume, say) is logged and
 /// ignored: the rescan on focus and `File > Reload Folder` is the fallback,
 /// and the folder must still open.
-pub fn set(app: &tauri::AppHandle, dir: &str) {
+pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
     let state = app.state::<Watch>();
     let mut state = crate::index::lock(&state.0);
     if state.dir.as_deref() == Some(dir) {
@@ -81,7 +86,7 @@ pub fn set(app: &tauri::AppHandle, dir: &str) {
     // `ReadDirectoryChangesW` holds on Windows.
     state.watcher = None;
     state.dir = None;
-    let (tx, owner) = (state.tx.clone(), dir.to_string());
+    let (tx, owner) = (state.tx.clone(), owner.to_string());
     let handler = move |event: notify::Result<notify::Event>| {
         if event.is_ok_and(|event| triggers(&event.paths)) {
             let _ = tx.send(owner.clone());
