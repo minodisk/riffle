@@ -386,13 +386,58 @@ impl Index {
             summary.rows += self.evict_folder(dir)?;
             summary.folders += 1;
         }
-        if summary.rows > 0 {
-            self.conn
-                .execute_batch("VACUUM")
+        self.vacuum_if_deleted(&mut summary)?;
+        Ok(summary)
+    }
+
+    /// Drop the `files` rows and clean `ratings` rows of every folder, then
+    /// `VACUUM` and truncate the WAL so the space is given back to the file
+    /// system. A folder keeping a dirty rating keeps its `folders` row and
+    /// that rating, as in `evict`. Like `evict`, call this with no scan
+    /// running.
+    // Only the tests call it until the Clear Cache command lands.
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn clear(&mut self) -> Result<EvictSummary, String> {
+        let folders: Vec<String> = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT dir FROM folders ORDER BY dir")
                 .map_err(|e| e.to_string())?;
-            summary.vacuumed = true;
+            let rows = stmt
+                .query_map([], |r| r.get(0))
+                .map_err(|e| e.to_string())?;
+            rows.collect::<rusqlite::Result<_>>()
+                .map_err(|e| e.to_string())?
+        };
+        let mut summary = EvictSummary::default();
+        for dir in &folders {
+            summary.rows += self.evict_folder(dir)?;
+            summary.folders += 1;
+        }
+        if self.vacuum_if_deleted(&mut summary)? {
+            // `VACUUM` writes the rebuilt database through the WAL, which
+            // keeps the old size on disk until a checkpoint truncates it. A
+            // reader in a read transaction makes this fail, and the clear
+            // itself still succeeded, so only log it.
+            if let Err(e) = self
+                .conn
+                .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+            {
+                log::warn!("could not truncate the index WAL: {e}");
+            }
         }
         Ok(summary)
+    }
+
+    fn vacuum_if_deleted(&mut self, summary: &mut EvictSummary) -> Result<bool, String> {
+        if summary.rows == 0 {
+            return Ok(false);
+        }
+        self.conn
+            .execute_batch("VACUUM")
+            .map_err(|e| e.to_string())?;
+        summary.vacuumed = true;
+        Ok(true)
     }
 
     /// The bytes of the pages holding data, which a delete lowers at once
@@ -406,6 +451,9 @@ impl Index {
         Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)
     }
 
+    /// One folder's share of the deletion `evict` and `clear` do: the `files`
+    /// rows, the clean `ratings` rows, and the `folders` row when no rating is
+    /// left. Returns the rows deleted.
     fn evict_folder(&mut self, dir: &str) -> Result<usize, String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         let mut rows = tx
@@ -1970,6 +2018,89 @@ mod tests {
             before,
             pages(&index)
         );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clear_empties_the_index_and_gives_the_space_back() {
+        let dir = temp_dir("clear-vacuum");
+        let mut index = open(&dir);
+        for name in ["a", "b"] {
+            let rows: Vec<_> = (0..5)
+                .map(|i| (synthetic(&dir, i), Ok(big_entry())))
+                .collect();
+            index.write_batch(name, &rows).unwrap();
+            set_opened_at(&index, name, NOW);
+        }
+        let pages = |index: &Index| -> i64 {
+            index
+                .conn
+                .pragma_query_value(None, "page_count", |r| r.get(0))
+                .unwrap()
+        };
+        let on_disk = || -> u64 {
+            let db = dir.join("index.sqlite");
+            [db.clone(), with_suffix(&db, "-wal")]
+                .iter()
+                .map(|p| std::fs::metadata(p).map_or(0, |m| m.len()))
+                .sum()
+        };
+        let before = pages(&index);
+        let before_disk = on_disk();
+
+        let summary = index.clear().unwrap();
+        assert_eq!(summary.folders, 2);
+        assert!(summary.vacuumed);
+        assert!(index.entries("a").unwrap().is_empty());
+        assert!(index.entries("b").unwrap().is_empty());
+        assert_eq!(opened_at(&index, "a"), None);
+        assert!(
+            pages(&index) * 10 < before,
+            "pages {} -> {}",
+            before,
+            pages(&index)
+        );
+        // Without the `wal_checkpoint(TRUNCATE)` the rebuilt database stays in
+        // the WAL and the footprint on disk does not drop at all.
+        assert!(
+            on_disk() < before_disk / 10,
+            "bytes {} -> {}",
+            before_disk,
+            on_disk()
+        );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_dirty_rating_survives_a_clear() {
+        let dir = temp_dir("clear-dirty");
+        let mut index = open(&dir);
+        let path = synthetic(&dir, 0).path.to_string_lossy().into_owned();
+        index
+            .write_batch("d", &[(synthetic(&dir, 0), Ok(entry()))])
+            .unwrap();
+        index
+            .set_rating("d", &path, Some(5), true, None, true)
+            .unwrap();
+        set_opened_at(&index, "d", NOW);
+
+        let summary = index.clear().unwrap();
+        assert_eq!(summary.rows, 1);
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
+        assert_eq!(opened_at(&index, "d"), Some(NOW));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_an_empty_index_does_nothing() {
+        let dir = temp_dir("clear-empty");
+        let mut index = open(&dir);
+
+        assert_eq!(index.clear().unwrap(), EvictSummary::default());
 
         remove_temp_dir(&dir);
     }
