@@ -91,10 +91,9 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   sidecars sitting next to it — both `.xmp` and `.ARW.dop` when both are there,
   no matter which format is currently selected. It asks first, showing how many files
   it is about to move, and `Cancel` leaves the folder untouched. Nothing is
-  deleted: the files go to the Trash, so restoring one from there brings back
-  its sidecar and with it the stars, the flag and the colour label it had. Any
-  file that could not be moved is listed as an error and stays in the folder
-  with its sidecars.
+  deleted: the file and its sidecars all go to the Trash, so restoring them
+  brings back the stars, the flag and the colour label. Whatever could not be
+  moved is listed as an error and stays in the folder.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
