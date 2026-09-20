@@ -21,6 +21,21 @@
   already matches. The test therefore compares the sidecar name
   case-insensitively rather than expecting the on-disk spelling.
 
+## Step 2
+
+- `History` already had `remove(entry)` (by identity, used to undo a failed
+  `set_rating`), but nothing to drop entries by path, so `removeWhere(match)`
+  was added with a `undo.test.ts` case. Entries for a RAW that failed to move
+  are kept: the file is still there and still judgeable.
+- The pure parts live in `crates/app/ui/src/trash.ts` (`rejectedPaths`,
+  `trashedStatus`) with `trash.test.ts`, as the plan asks; the event handler in
+  `main.ts` stays a thin wiring layer.
+- `trash_rejected` returns `Option<Summary>`, so the frontend's invoke is typed
+  `invoke<TrashSummary | null>` and the `null` cancel is a plain early return.
+- `NativeIcon::TrashFull` is the macOS menu icon; it renders as a template
+  image like `FollowLinkFreestanding` does for `Open in DxO PhotoLab`. Not
+  verifiable without a GUI run, so it stays part of Step 3's manual checks.
+
 ## Deferred issues (todo candidates)
 
 - The "Put Back" promise in the plan's Purpose may not hold on macOS with

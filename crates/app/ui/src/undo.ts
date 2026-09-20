@@ -23,6 +23,12 @@ export class History<T> {
     }
   }
 
+  // Drop every entry `match` accepts, for files that are gone from the
+  // folder: undoing one would judge a path that no longer exists.
+  removeWhere(match: (entry: T) => boolean): void {
+    this.entries = this.entries.filter((entry) => !match(entry));
+  }
+
   clear(): void {
     this.entries = [];
   }
