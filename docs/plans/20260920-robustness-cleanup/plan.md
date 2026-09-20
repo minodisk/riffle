@@ -115,7 +115,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
     - Do not rename the `path` field: the frontend and the
       `scan_started_serialises_the_fields_the_frontend_reads` test read it.
 
-- [ ] Step 2: Make `xmp_prefix` skip a prefix bound to another namespace and fall back to a generated one
+- [x] Step 2: Make `xmp_prefix` skip a prefix bound to another namespace and fall back to a generated one
   - Done when:
     - For each candidate in `["xmp", "xap"]`, `xmp_prefix` returns
       `(candidate, false)` on `Bound(XMP_NS)`, `(candidate, true)` on
@@ -259,3 +259,4 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 
 - Step 1: Sidecar read errors are now keyed by the RAW path in `crates/app/src/commands.rs`, so they supersede write errors for the same file (commit `a26aa38`, PR TBD).
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete
