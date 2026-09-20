@@ -55,7 +55,7 @@ Decisions already taken (do not revisit):
 
 ## Steps
 
-- [ ] Step 1: Pure empty-state logic with unit tests
+- [x] Step 1: Pure empty-state logic with unit tests
   - Done when: `crates/app/ui/src/empty.ts` exports (names indicative)
     `emptyState(openDir: string | null, total: number, shown: number)` returning
     `"none" | "no-folder" | "no-files" | "filtered"`, and
