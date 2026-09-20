@@ -287,4 +287,8 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete: added `File > Open Folder…`, put `open` and
+  `photolab` in the keymap with platform-dependent modifier defaults, and made
+  both menu accelerators follow the keymap. Landed in `5a7d52f`
+  (feat(app): add File > Open Folder… with keymap-driven accelerators). The
+  real-device checks on macOS remain unverified and are filed in `todo.md`.

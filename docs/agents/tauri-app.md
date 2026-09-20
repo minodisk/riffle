@@ -67,6 +67,25 @@ because `reject` comes before `pick`, so `p` still looked taken.
 - Source: `docs/plans/_archived/20260920-pick-shortcut-editable/learnings.md`,
   Step 1.
 
+### An accelerator string is not validated until Tauri parses it (Inferred)
+
+`accelerator()` in `crates/app/src/shortcuts.rs` is a plain table; muda is
+not a dependency of `crates/app`, so nothing checks the string at compile
+time. Tauri parses it with `.parse().ok()`, so an unrecognised name
+silently becomes "no accelerator" instead of an error — a typo here fails
+silently, not loudly.
+
+A key override with only `shift` (or no modifier at all) also converts to
+`None` on purpose: e.g. a plain `o` override leaves the corresponding menu
+item without an accelerator rather than erroring.
+
+- When adding or changing an accelerator mapping, don't rely on a build or
+  test failure to catch a bad string or a modifier-less override; check the
+  menu item's displayed accelerator by hand.
+- Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
+  Step 1 (unverified on a real device; see "GUI automation does not work on
+  this Mac").
+
 ### Measure before choosing a JPEG payload over raw pixels (Measured)
 
 `mozjpeg::Compress`'s defaults turn on trellis quantisation and optimised
@@ -248,6 +267,21 @@ destroyed so it never keeps the app running alone.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
+
+### Rebuild the menu with `set_menu`, not `set_accelerator(None)`, to clear a stale macOS key equivalent (Inferred)
+
+The menu is no longer passed to `Builder::menu`; `setup` calls
+`app_menu::refresh` right after `load_settings`, and `update_keymap` calls
+it again whenever an accelerator changes. Rebuilding the whole menu through
+`AppHandle::set_menu` is what clears a stale macOS key equivalent when an
+override moves a key away from an item; muda's `set_accelerator(None)` on
+the existing item does not clear it.
+
+- When a code path changes which action owns an accelerator, rebuild via
+  `app_menu::refresh` (which calls `set_menu`) rather than mutating an
+  existing `MenuItem`'s accelerator in place.
+- Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
+  Step 1 (unverified on a real device).
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Inferred)
 

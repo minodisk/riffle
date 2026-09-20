@@ -191,3 +191,39 @@ support in muda / Tauri is the proper fix.
 - [ ] Investigate and, if feasible, upstream `setTemplate` support for custom
       menu item images in muda / Tauri, then switch `crates/app/src/main.rs`
       (`app_menu`) to a template image instead of the fixed-grey PNG fallback.
+
+### App: the real-device checks for the File menu accelerators are still open
+
+From `menu-accelerators`'s implementation: the GUI could not be driven from
+the agent session, so the double-fire, stale-key-equivalent,
+settings-capture and menu-set-from-`setup` checks are unconfirmed on macOS,
+and Windows / Linux are unconfirmed entirely. Files: `crates/app/src/main.rs`
+(`app_menu`), `crates/app/src/shortcuts.rs`, `crates/app/src/commands.rs`
+(`update_keymap`), `crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On macOS, verify: one `Cmd+O` press opens the folder picker exactly
+      once (no double fire from keydown + menu accelerator); one
+      `Shift+Cmd+O` hands the folder to PhotoLab exactly once; rebinding
+      `open`/`photolab` updates the menu accelerator and kills the old key,
+      with the macOS key equivalent not staying stale; a menu set from
+      `setup` shows correctly and doesn't steal focus from the settings
+      window; pressing `Cmd+O`/`Shift+Cmd+O` while a shortcuts row is
+      capturing does not trigger the menu action; both File menu items work
+      via mouse click.
+- [ ] Verify the `Some`/`None` accelerator behaviour on Windows and Linux
+      (only reasoned from muda 0.19.3's sources so far, never run).
+
+### App: `Open Folder…` has no macOS menu icon
+
+From `menu-accelerators`'s trade-offs: `NativeIcon::Folder` exists, but the
+macos-menu-icons work found several `NativeIcon`s to be legacy colour
+bitmaps rather than template images, and only verified ones were used
+elsewhere, so `File > Open Folder…` ships as a plain `MenuItem` with no
+icon. File: `crates/app/src/main.rs` (`app_menu`).
+
+#### TODO
+
+- [ ] Verify whether `NativeIcon::Folder` renders as a proper template
+      image on macOS and, if so, add it to the `Open Folder…` menu item.
