@@ -118,9 +118,7 @@ mod app_menu {
             SETTINGS_ID,
             "Settings...",
             true,
-            Some(Image::from_bytes(include_bytes!(
-                "../icons/menu/gearshape.png"
-            ))?),
+            Some(Image::from_bytes(include_bytes!("../icons/menu/gear.png"))?),
             Some("CmdOrCtrl+,"),
         )?;
         #[cfg(not(target_os = "macos"))]

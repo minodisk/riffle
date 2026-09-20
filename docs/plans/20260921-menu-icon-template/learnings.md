@@ -73,3 +73,21 @@ the row highlight, and carried a different visual density.
   `NSImage` is a template image. The colour Finder-style ones (`NSTrashFull`,
   `NSTrashEmpty`, `NSFolder`) are not, so they clash in a menu whose other
   icons tint. Check `isTemplate` before reaching for a `NativeIcon`.
+
+After a second visual pass the user compared the `Settings...` icon against
+Ghostty's and found the shape differed. Ghostty uses the SF Symbol `gear` for
+its configuration item; this repo exported `gearshape`. They are two distinct
+symbols — `gear` is the classic spoked cog with fine teeth and a hub,
+`gearshape` a rounded 8-tooth outline — so the export script's `symbols` now
+lists `"gear"` and `crates/app/icons/menu/gearshape.png` is gone.
+
+- Bounding boxes after the swap (36x36 canvas, alpha-only, no edge contact):
+  `gear` (4,6)-(30,31) = 27x26, `arrow.uturn.backward` (7,7)-(27,29) = 21x23,
+  `folder` (5,7)-(29,28) = 25x22, `trash` (6,5)-(29,31) = 24x27. `gearshape`
+  measured 26x26 at the same `pointSize: 12`, so the finer teeth cost one pixel
+  of width and nothing else; no `pointSize` change was needed. The other three
+  PNGs came out byte-identical (same MD5s).
+- **General lesson**: when matching a reference app's menu icon, check which SF
+  Symbol it actually passes to `NSImage(systemSymbolName:)` rather than
+  assuming from the name. Near-synonyms like `gear` / `gearshape` (and their
+  `.fill` / `.circle` variants) render very differently at menu size.
