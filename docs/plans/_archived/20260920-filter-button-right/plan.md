@@ -44,7 +44,7 @@ sort toggle stays on the left and keeps its drop-down.
 
 ## Steps
 
-- [ ] Step 1: Move the filter toggle to the right end of `#tools` with CSS only
+- [x] Step 1: Move the filter toggle to the right end of `#tools` with CSS only
   (reopened: round-1 review found `margin-left: auto` alone did not move
   `#filter` to the right end, since `#filter` is the first child of `#tools`;
   fixed by adding `order: 1` to `#filter`. Remaining: manual visual
@@ -94,4 +94,4 @@ sort toggle stays on the left and keeps its drop-down.
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete (visual confirmation pending the user)
