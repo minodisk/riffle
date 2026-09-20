@@ -13,3 +13,14 @@
   the sidecar path never did on the read side, so the shared key is strictly
   an improvement. `crates/app/ui/src/errors.test.ts` treats keys as opaque
   strings.
+
+## Step 2
+
+- quick-xml 0.42's `ResolveResult::Bound(Namespace)`: `Namespace::as_ref()`
+  yields `&str`, not `&[u8]` (compare against `XMP_NS` directly).
+- `resolve_attribute` needs a `QName` borrowed from a local `String`, so the
+  helper returning `ResolveResult<'a>` must tie its lifetime to the reader,
+  not to the name buffer. That works because the only borrowing variant
+  (`Bound`) points into the reader's namespace buffer.
+- Both new tests pass on the first run; the existing xmp tests needed no
+  change.

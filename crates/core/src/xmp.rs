@@ -252,17 +252,37 @@ fn line_or_element(text: &str, open: usize, close: usize) -> (usize, usize) {
 }
 
 /// The prefix to write a property with, and whether it has to be declared.
+///
+/// For each of `xmp` and `xap`: a prefix already bound to the XMP namespace
+/// is reused as is, an undeclared one is used and declared, and one bound to
+/// another namespace is skipped so that binding is never rewritten. When both
+/// are bound elsewhere, the first undeclared `xmp1`, `xmp2`, ... is declared
+/// instead.
 fn xmp_prefix(reader: &NsReader<&[u8]>) -> (String, bool) {
     for candidate in ["xmp", "xap"] {
-        let name = format!("{candidate}:Rating");
-        let (ns, _) = reader
-            .resolver()
-            .resolve_attribute(quick_xml::name::QName(&name));
-        if bound_to(&ns, XMP_NS) {
-            return (candidate.to_string(), false);
+        match resolve_prefix(reader, candidate) {
+            ResolveResult::Bound(n) if n.as_ref() == XMP_NS => {
+                return (candidate.to_string(), false)
+            }
+            ResolveResult::Bound(_) => continue,
+            _ => return (candidate.to_string(), true),
         }
     }
-    ("xmp".to_string(), true)
+    for n in 1..=99 {
+        let candidate = format!("xmp{n}");
+        if !matches!(resolve_prefix(reader, &candidate), ResolveResult::Bound(_)) {
+            return (candidate, true);
+        }
+    }
+    ("xmp99".to_string(), true)
+}
+
+fn resolve_prefix<'a>(reader: &'a NsReader<&[u8]>, prefix: &str) -> ResolveResult<'a> {
+    let name = format!("{prefix}:Rating");
+    reader
+        .resolver()
+        .resolve_attribute(quick_xml::name::QName(&name))
+        .0
 }
 
 /// The offset of `key` and the byte range of its value inside a start tag,
@@ -455,6 +475,40 @@ mod tests {
         assert_eq!(
             patched(source, Some(-1)),
             source.replace("xap:Rating=\"1\"", "xap:Rating=\"-1\"")
+        );
+    }
+
+    #[test]
+    fn skips_an_xmp_prefix_bound_elsewhere() {
+        let source = concat!(
+            "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+            " <rdf:Description rdf:about=\"\" xmlns:xmp=\"http://example.com/other/\"></rdf:Description>\n",
+            "</rdf:RDF>\n",
+        );
+        let out = patched(source, Some(3));
+        assert!(out.contains("xmlns:xmp=\"http://example.com/other/\""));
+        assert!(out.contains("xmlns:xap=\"http://ns.adobe.com/xap/1.0/\""));
+        assert!(out.contains("xap:Rating=\"3\""));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(3));
+    }
+
+    #[test]
+    fn generates_a_prefix_when_xmp_and_xap_are_bound_elsewhere() {
+        let source = concat!(
+            "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+            " <rdf:Description rdf:about=\"\" xmlns:xmp=\"http://example.com/other/\"",
+            " xmlns:xap=\"http://example.com/another/\"></rdf:Description>\n",
+            "</rdf:RDF>\n",
+        );
+        let out = patched(source, Some(2));
+        assert!(out.contains("xmlns:xmp=\"http://example.com/other/\""));
+        assert!(out.contains("xmlns:xap=\"http://example.com/another/\""));
+        assert!(out.contains("xmlns:xmp1=\"http://ns.adobe.com/xap/1.0/\""));
+        assert!(out.contains("xmp1:Rating=\"2\""));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(2));
+        assert_eq!(
+            patched(&out, Some(5)),
+            out.replace("xmp1:Rating=\"2\"", "xmp1:Rating=\"5\"")
         );
     }
 
