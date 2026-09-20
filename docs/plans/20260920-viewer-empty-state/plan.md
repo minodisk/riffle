@@ -123,7 +123,7 @@ Decisions already taken (do not revisit):
       disappears); open an empty folder; apply a filter that hides everything
       and reset it; rebind `open` in Settings.
 
-- [ ] Step 3: Document the empty state in the README
+- [x] Step 3: Document the empty state in the README
   - Done when: the "Features" paragraph in `README.md` (around line 41,
     "Open a folder from the picker, or drop...") mentions that with no folder
     open the viewer shows a prompt that can be clicked to open the picker;
@@ -157,3 +157,6 @@ Decisions already taken (do not revisit):
   The hardcoded meta-pane hint and the "No RAW (ARW/DNG) files in that folder."
   note are gone. Not verified interactively (see `learnings.md`).
 - (2026-09-20) Step 2 complete
+- Step 3 (`59dcb65`): the README's Features paragraph now mentions the prompt
+  shown when no folder is open and that clicking it opens the folder picker.
+- (2026-09-20) Step 3 complete

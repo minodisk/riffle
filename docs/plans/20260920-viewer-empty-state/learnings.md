@@ -28,6 +28,10 @@
   environment (no interactive session, no way to click the overlay or rebind a
   key in the settings window). The behaviour was checked by reading the code
   paths only; a human run of the plan's manual checklist is still outstanding.
+- Step 3: the README "Features" paragraph gained one sentence about the
+  clickable prompt shown when no folder is open. The "no files" / "filtered"
+  messages were deliberately left undocumented: they are self-explanatory in
+  the app and the README stays user-facing and short.
 
 ## Deferred issues (todo candidates)
 
