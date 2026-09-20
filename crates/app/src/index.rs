@@ -147,7 +147,7 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// Append a suffix to a path's file name, for the `-wal`/`-shm` sidecars SQLite
 /// keeps next to the main database file.
-fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+pub(crate) fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(suffix);
     path.with_file_name(name)
@@ -395,8 +395,6 @@ impl Index {
     /// system. A folder keeping a dirty rating keeps its `folders` row and
     /// that rating, as in `evict`. Like `evict`, call this with no scan
     /// running.
-    // Only the tests call it until the Clear Cache command lands.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn clear(&mut self) -> Result<EvictSummary, String> {
         let folders: Vec<String> = {
             let mut stmt = self

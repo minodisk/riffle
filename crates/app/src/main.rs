@@ -440,6 +440,8 @@ fn main() {
             commands::open_in_photolab,
             commands::auto_advance,
             commands::set_auto_advance,
+            commands::index_size,
+            commands::clear_index,
             set_sidecar_format,
             debug_build,
             timing_logs,

@@ -136,7 +136,7 @@ turns the "measuring on your own folder" procedure in `README.md` into
     - Use the test helpers already in the module (`temp_dir`, `open`,
       `big_entry`, `set_opened_at`, `remove_temp_dir`, `NO_CAP`).
 
-- [ ] Step 2: `index_size` and `clear_index` commands, with the confirmation, the scan guard and the platform-unit formatting
+- [x] Step 2: `index_size` and `clear_index` commands, with the confirmation, the scan guard and the platform-unit formatting
   - Done when:
     - `commands::index_size(app) -> Result<String, String>`: an `async`
       command returning the cache's size **already formatted** for display
@@ -340,3 +340,4 @@ the Cache panel's one-line explanation ("judgements are kept").
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete

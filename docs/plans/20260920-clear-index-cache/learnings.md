@@ -35,9 +35,49 @@ the clear still succeeds, as the plan requires.
 `VACUUM` on this ~2 MB test index is instant; no large index was at hand, so
 the "seconds at ~1 GB" note in the plan is still unmeasured.
 
+## Step 2: `index_size` and `clear_index`
+
+### The dialog is awaited with no lock held, so the scan check happens twice
+
+`clear_index` checks `Scans.running` before showing the dialog (so the user is
+not asked to confirm something that then fails) and again inside the
+`spawn_blocking`, under the `Scans` lock it then holds for the clear. The first
+check's guard is dropped at the end of its block, before any `.await`; holding
+it across the dialog would be both a `Send` problem and a way to freeze every
+scan for as long as the dialog is up.
+
+### `format_bytes` keeps one decimal from KB up, including `312.0 KB`
+
+The plan's example reads `312 KB`, but "one decimal from `KB` up" is the rule
+that was implemented, so the test pins `312.0 KB`. Mixing the two would need a
+per-unit rule for no benefit.
+
+### `SIZE_BASE` is pinned by a test that branches on `cfg!`
+
+`the_size_base_follows_the_platforms_file_manager` asserts 1000 on macOS and
+1024 elsewhere, so every OS in the CI matrix checks its own branch.
+
+### Removing `expect(dead_code)` from `Index::clear`
+
+Done as Step 1's note required; `with_suffix` in `index.rs` became
+`pub(crate)` so `on_disk_bytes` can reuse it.
+
+### Manual verification
+
+Not run: the Clear Cache button does not exist until Step 3, and no other UI
+invokes `clear_index` or `index_size`, so there is no reachable path to the
+dialog, the cancel case, the mid-scan refusal or the `index-cleared` reopen in
+a running build. GUI automation is unavailable on this Mac. All of that has to
+be verified by hand after Step 3.
+
 ## Deferred issues (todo candidates)
 
-- (none)
+- Manual GUI verification of `clear_index` (dialog confirm/cancel, the
+  mid-scan refusal, and the main window's `index-cleared` reopen) is deferred
+  to Step 3, when the settings UI can actually invoke it. Basis: Step 2's
+  manual-verification requirement with no UI caller yet. Files:
+  `crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
+  `crates/app/ui/settings.html`.
 
 ### `clear` has no caller until Step 2
 
