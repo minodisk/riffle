@@ -6,7 +6,7 @@
 //
 // Last run on macOS 26.6.2 (25G83). AppKit's symbol rasterisation can change
 // between OS releases, so the committed PNGs are the source of truth; rerun
-// this only when a symbol, its size, weight or colour changes.
+// this only when a symbol, its size or weight changes.
 //
 // The glyph is deliberately drawn smaller than the canvas: drawing at
 // `pointSize: 18` in an 18pt canvas both filled the canvas and overflowed it,
@@ -17,18 +17,17 @@
 // glyph to about 16pt of ink and read larger than the rest of the menu. A 12pt
 // glyph in the 18pt canvas matches the OS-provided items.
 //
-// The symbols are drawn in a fixed neutral grey because muda never marks a
-// custom menu image as a template and Tauri exposes no way to do so, so the
-// icons cannot tint with the menu appearance. The grey stays legible in both
-// light and dark mode.
+// The glyphs are drawn alpha-only, with no colour of their own: muda (via the
+// `[patch.crates-io]` fork pinned in the workspace `Cargo.toml`) marks a custom
+// menu image as a template image, so macOS uses only the alpha channel and
+// tints the icon with the menu appearance.
 
 import AppKit
 
 let canvasSize: CGFloat = 18
 let pointSize: CGFloat = 12
 let scale: CGFloat = 2
-let color = NSColor(srgbRed: 0x8E / 255, green: 0x8E / 255, blue: 0x93 / 255, alpha: 1)
-let symbols = ["gearshape", "arrow.uturn.backward", "folder"]
+let symbols = ["gear", "arrow.uturn.backward", "folder", "trash", "arrow.clockwise", "square.and.arrow.down"]
 
 let root = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
@@ -70,8 +69,6 @@ for name in symbols {
         height: size.height
     )
     configured.draw(in: rect)
-    color.set()
-    rect.fill(using: .sourceAtop)
     NSGraphicsContext.restoreGraphicsState()
     guard let png = rep.representation(using: .png, properties: [:]) else { exit(1) }
     try png.write(to: directory.appendingPathComponent("\(name).png"))

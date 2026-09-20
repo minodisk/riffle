@@ -12,6 +12,7 @@ mod watch;
 mod app_menu {
     #[cfg(target_os = "macos")]
     use tauri::image::Image;
+    #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     #[cfg(target_os = "macos")]
     use tauri::menu::{IconMenuItem, NativeIcon};
@@ -85,12 +86,14 @@ mod app_menu {
         // No accelerator: a destructive action, reached deliberately through
         // the menu and its confirmation.
         #[cfg(target_os = "macos")]
-        let trash_rejected = IconMenuItem::with_id_and_native_icon(
+        let trash_rejected = IconMenuItem::with_id(
             handle,
             TRASH_REJECTED_ID,
             "Move Rejected to Trash…",
             true,
-            Some(NativeIcon::TrashFull),
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/trash.png"
+            ))?),
             None::<&str>,
         )?;
         #[cfg(not(target_os = "macos"))]
@@ -103,6 +106,18 @@ mod app_menu {
         )?;
         // A fixed accelerator, like Settings and Undo: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
+        #[cfg(target_os = "macos")]
+        let reload_folder = IconMenuItem::with_id(
+            handle,
+            RELOAD_FOLDER_ID,
+            "Reload Folder",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/arrow.clockwise.png"
+            ))?),
+            Some("CmdOrCtrl+R"),
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let reload_folder = MenuItem::with_id(
             handle,
             RELOAD_FOLDER_ID,
@@ -116,9 +131,7 @@ mod app_menu {
             SETTINGS_ID,
             "Settings...",
             true,
-            Some(Image::from_bytes(include_bytes!(
-                "../icons/menu/gearshape.png"
-            ))?),
+            Some(Image::from_bytes(include_bytes!("../icons/menu/gear.png"))?),
             Some("CmdOrCtrl+,"),
         )?;
         #[cfg(not(target_os = "macos"))]
@@ -130,12 +143,14 @@ mod app_menu {
             Some("CmdOrCtrl+,"),
         )?;
         #[cfg(target_os = "macos")]
-        let check_updates = IconMenuItem::with_id_and_native_icon(
+        let check_updates = IconMenuItem::with_id(
             handle,
             CHECK_UPDATES_ID,
             "Check for Updates…",
             true,
-            Some(NativeIcon::Refresh),
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/square.and.arrow.down.png"
+            ))?),
             None::<&str>,
         )?;
         #[cfg(not(target_os = "macos"))]
@@ -162,18 +177,15 @@ mod app_menu {
             &photolab,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
-        // macOS puts Settings in the app menu, right after About; elsewhere it
-        // goes at the end of File's own items, above Close Window and Quit.
+        // On macOS both go in the app menu: Check for Updates joins About above
+        // the default menu's first separator, since both are app-identity
+        // items, and Settings gets a section of its own below it, as the
+        // platform convention has it. Elsewhere they go at the end of File's
+        // own items, above Close Window and Quit.
         #[cfg(target_os = "macos")]
         if let Some(MenuItemKind::Submenu(app)) = menu.items()?.into_iter().next() {
-            app.insert_items(
-                &[
-                    &settings,
-                    &check_updates,
-                    &PredefinedMenuItem::separator(handle)?,
-                ],
-                2,
-            )?;
+            app.insert_items(&[&check_updates], 1)?;
+            app.insert_items(&[&settings, &PredefinedMenuItem::separator(handle)?], 3)?;
         }
         #[cfg(not(target_os = "macos"))]
         file.insert_items(
