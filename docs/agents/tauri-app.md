@@ -545,8 +545,9 @@ Because those imports carry the `.js` suffix, an actual `foo.js` sitting next
 to `foo.ts` wins: the dev server serves the `.js` and the `.ts` is never
 compiled. A `tsc`-era build left such files behind in `crates/app/ui/src/`, so
 the dev build ran code months older than the sources. `.gitignore` now covers
-`crates/app/ui/src/**/*.js` and `tsconfig.json` sets `"noEmit": true`, which
-also means such files no longer show up in `git status`.
+`crates/app/ui/src/**/*.js`, so such files no longer show up in `git status`,
+and `tsconfig.json` sets `"noEmit": true` so a stray `tsc` cannot regenerate
+them.
 
 - Why: when the running app disagrees with the source you are reading, check
   `ls crates/app/ui/src/*.js` (or `git clean -nX crates/app/ui/src`) before
