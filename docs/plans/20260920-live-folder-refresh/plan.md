@@ -138,7 +138,7 @@ volumes).
 
 ## Steps
 
-- [ ] Step 1: Rescan the open folder on window focus and on `File > Reload Folder`, keeping the selection
+- [x] Step 1: Rescan the open folder on window focus and on `File > Reload Folder`, keeping the selection
   - Done when:
     - `crates/app/ui/src/main.ts` has a `resync()` (name free) that, when a
       folder is open, invokes `list_arw` for `openDir`, replaces `allFiles`

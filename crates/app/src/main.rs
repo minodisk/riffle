@@ -18,6 +18,7 @@ mod app_menu {
     use tauri_plugin_opener::OpenerExt;
 
     const OPEN_FOLDER_ID: &str = "open-folder";
+    const RELOAD_FOLDER_ID: &str = "reload-folder";
     const PHOTOLAB_ID: &str = "open-in-photolab";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
@@ -64,6 +65,15 @@ mod app_menu {
             photolab_key,
         )?;
         let open_folder = MenuItem::with_id(handle, OPEN_FOLDER_ID, "Open Folder…", true, open)?;
+        // A fixed accelerator, like Settings and Undo: reloading is not a
+        // culling action, so it is not part of the rebindable keymap.
+        let reload_folder = MenuItem::with_id(
+            handle,
+            RELOAD_FOLDER_ID,
+            "Reload Folder",
+            true,
+            Some("CmdOrCtrl+R"),
+        )?;
         #[cfg(target_os = "macos")]
         let settings = IconMenuItem::with_id(
             handle,
@@ -111,6 +121,7 @@ mod app_menu {
         };
         file.prepend_items(&[
             &open_folder,
+            &reload_folder,
             &photolab,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
@@ -214,6 +225,9 @@ mod app_menu {
         // The frontend owns which folder is open, so it does the invoking.
         if event.id() == OPEN_FOLDER_ID {
             let _ = app.emit("open-folder", ());
+        }
+        if event.id() == RELOAD_FOLDER_ID {
+            let _ = app.emit("reload-folder", ());
         }
         if event.id() == PHOTOLAB_ID {
             let _ = app.emit("open-in-photolab", ());
