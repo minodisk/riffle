@@ -285,10 +285,11 @@ the existing item does not clear it.
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
-On macOS the four app items carry an icon. `Open in DxO PhotoLab` and
-`Check for Updates…` use `IconMenuItem::with_id_and_native_icon` with
-`NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh`, which are
-template images and tint with the menu. `NativeIcon` has neither an undo nor a
+On macOS several app items carry an icon. `Open in DxO PhotoLab`, `Check for
+Updates…` and `Move Rejected to Trash` use
+`IconMenuItem::with_id_and_native_icon` with
+`NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh` /
+`NativeIcon::TrashFull`, which are template images and tint with the menu. `NativeIcon` has neither an undo nor a
 modern gear, so `Settings...` and `Undo` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's

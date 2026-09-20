@@ -75,17 +75,6 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
 
-### App: rejected files cannot be cleared out from the app
-
-Culling ends with the rejects still in the folder; removing them means going to
-another tool.
-
-#### TODO
-
-- [x] Add a menu item that moves every rejected file of the open folder, with
-  its sidecars, to the OS trash (or a chosen folder), after a confirmation
-  showing the count.
-
 ### App: the manual GUI checks for Move Rejected to Trash are still open
 
 From `trash-rejected`'s implementation: GUI automation is unavailable on this
