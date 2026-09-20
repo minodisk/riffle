@@ -253,3 +253,18 @@ pick dot regardless of the current sidecar format.
       `crates/app/ui/src/strip.ts` (the flag dot, `setRating`) and
       `crates/app/ui/src/main.ts` (`applyRating`, `case "pick"`), consistent
       with `crates/app/src/index.rs`'s `reset_sidecars` behavior.
+
+### App: the filter menu closes when a thumbnail is clicked
+
+Now that the filter menu opens as a fly-out beside the sidebar (leaving the
+filmstrip visible), a user may want to click a thumbnail to inspect it while
+keeping the filter menu open. Today the outside-`mousedown` handler in
+`crates/app/ui/src/main.ts` (~line 1475) closes the menu on any click outside
+`#filter`, including a strip click. Left out of the fly-out change as a
+behaviour change; noted in
+`docs/plans/_archived/20260920-filter-menu-flyout/plan.md`'s trade-offs.
+
+#### TODO
+
+- [ ] Decide whether a thumbnail click while the filter menu is open should
+      keep the menu open, and implement if so.
