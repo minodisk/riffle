@@ -51,7 +51,7 @@ and nothing clips. `crates/app/src/main.rs` does not change.
 
 ## Steps
 
-- [ ] Step 1: Shrink the glyph inside the 18pt canvas, regenerate the PNGs, and correct the root-cause text
+- [x] Step 1: Shrink the glyph inside the 18pt canvas, regenerate the PNGs, and correct the root-cause text
   - Done when:
     - `tools/macos/export-menu-icons.swift` separates the canvas size (stays
       18pt, 36x36 px @2x) from the glyph `pointSize`, which becomes **14**
@@ -162,3 +162,9 @@ and nothing clips. `crates/app/src/main.rs` does not change.
   right. The step is not done until the user has looked.
 
 ## Progress
+
+- Step 1: Shrunk the glyph `pointSize` to 14 inside the 18pt canvas in
+  `tools/macos/export-menu-icons.swift`, regenerated the three PNGs, and
+  corrected the root-cause explanation in `docs/agents/tauri-app.md`. The
+  user's visual confirmation that the five menu icons now read as the same
+  size is still outstanding.
