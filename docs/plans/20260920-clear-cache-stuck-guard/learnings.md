@@ -94,8 +94,10 @@
   and the Step 2 finding that a `scan-state` emit must happen while holding
   the `Scans` lock.
 - The existing "Folder-index eviction" paragraph now spells out that
-  `spawn_eviction`'s `Scans.running` check is safe only because it runs once in
-  `setup`, and points at `scanning()` for the general test.
+  `spawn_eviction`'s `Scans.running` check means "a spawned scan task is in
+  flight" (set by `start_scan`, cleared by `finish`), that it deliberately
+  misses the `preparing`/`pending` phases, and points at `scanning()` for the
+  general test.
 - `README.md`'s `Clear Cache` bullet already said a scan has to finish first;
   it now also says the button is unavailable while one runs, with a note, and
   re-enables by itself.

@@ -402,11 +402,13 @@ that already have the column, and the `ALTER TABLE` fails.
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
 `app.manage(Scans)`, on a plain `std::thread`. It holds the `Scans` lock and
 then the writer lock for the whole evict + `VACUUM`, and skips if
-`Scans.running` is already set — `running` is only ever set by `start_scan`
-and never cleared, so `is_some()` there means "a scan has been started"; it is
-not a general test for "a scan is running" (use `ScansState::scanning()` for
-that, see below). A `scan_folder`/`start_scan` issued meanwhile just waits.
-Keep the order `Scans` then writer. The size cap counts pages in use
+`Scans.running` is already set — `running` is set by `start_scan` and cleared
+by `finish` when the scan task ends, so `is_some()` there means "a spawned
+scan task is in flight". It deliberately misses the `preparing`/`pending`
+phases, which is why `is_some()` is not a general test for "a scan is
+running" (use `ScansState::scanning()` for that, see below). A
+`scan_folder`/`start_scan` issued meanwhile just waits. Keep the order
+`Scans` then writer. The size cap counts pages in use
 (`page_count - freelist_count`), since a delete only moves pages to the
 freelist until `VACUUM` runs.
 
