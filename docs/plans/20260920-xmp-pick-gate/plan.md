@@ -85,7 +85,7 @@ render gate (see Trade-offs).
     - Commit as `fix(app): hide a kept pick while XMP is the sidecar format`
       (or similar Conventional Commit).
 
-- [ ] Step 2: Close the todo and record the residual
+- [x] Step 2: Close the todo and record the residual
   - Done when:
     - The "App: a pick kept across a sidecar format switch still shows its
       flag dot in the wrong format" heading and its TODO list are removed

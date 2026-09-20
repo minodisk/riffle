@@ -24,6 +24,16 @@
   format is known before the first `applyRating`, and no speculative
   `refreshEntries()` was added.
 
+## Step 2: Close the todo and record the residual
+
+- Removed the "App: a pick kept across a sidecar format switch still shows its
+  flag dot in the wrong format" heading and its TODO list from `todo.md`.
+- A guide entry was judged worthwhile and added to `docs/agents/tauri-app.md`
+  ("A pick is only meaningful while `.dop` is selected"), right after the
+  `reset_sidecars` entry: the two are the backend and frontend halves of the
+  same rule, so the reader of `reset_sidecars`'s doc comment
+  (`crates/app/src/index.rs`) finds the frontend counterpart next to it.
+
 ## Deferred issues (todo candidates)
 
 - (none)

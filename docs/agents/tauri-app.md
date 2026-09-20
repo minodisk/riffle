@@ -427,6 +427,19 @@ zero `pick`, which lost a pick set during a switch.
 - Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
   Step 1.
 
+### A pick is only meaningful while `.dop` is selected (Hit)
+
+Because `reset_sidecars` keeps the `pick` of a dirty row across a format
+switch, `folder_entries` can hand the frontend `pick: true` while the current
+format is XMP, where `commands::set_rating` would never persist it. The
+frontend gates it in `applyRating` (`crates/app/ui/src/main.ts`) with
+`effectivePick(pick, sidecarFormat)` (`crates/app/ui/src/pick.ts`), not in
+`strip.ts`: `applyRating` is the only path that fills `picks`, which the flag
+dot, the "picked" filter and `undo` all read, so gating the render alone would
+leave a filter match with no dot.
+
+- Source: `docs/plans/20260920-xmp-pick-gate/learnings.md`, Step 1.
+
 ### Folder-index eviction: lock order and where it runs (Measured)
 
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
