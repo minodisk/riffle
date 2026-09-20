@@ -401,11 +401,19 @@ same order: `Scans` lock first (re-checked under it after the confirmation
 dialog, since the dialog is awaited with no lock held), then the writer lock.
 A running scan is refused, never cancelled.
 
+- Measured (`Index::clear`'s unit test, 2 folders x 5 rows of a 200KB
+  thumbnail): `VACUUM` alone gives nothing back to the file system, because
+  the rebuilt database is written through the WAL — the on-disk footprint
+  (`index.sqlite` + `-wal`) went from 2,121,808 B to 2,212,448 B, i.e. it
+  *grew*, though `page_count` dropped by more than 10x. Ending with
+  `PRAGMA wal_checkpoint(TRUNCATE)` took it to 40,960 B. Any eviction path
+  that is meant to shrink the file needs that checkpoint after the `VACUUM`.
 - Measured (M3 Pro, release, ignored test `vacuum_cost_on_a_100_mb_index`):
   evicting half of 5000 rows of 20.8KB thumbnails (106MB in use) and vacuuming
   took ~220ms, leaving 53MB. That a WAL reader does not error during `VACUUM`
   is reasoned, not covered by a dedicated concurrent test.
-- Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
+- Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
+  `docs/plans/20260920-clear-index-cache/learnings.md`, Step 1.
 
 ### A per-tick log line can rotate other lines out of the 40 KB default (Measured)
 

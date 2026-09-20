@@ -97,6 +97,12 @@ embedded previews, rotated by each file's Orientation.
   already has does not. The last file stays selected. A file the judgement
   drops out of the active filter already hands the cursor to the next file, so
   it is not skipped twice.
+- **Clear Cache**: the `Cache` tab of `Riffle > Settings...` shows how much disk
+  the folder index takes, and `Clear Cache` empties it after a confirmation. It
+  removes the cached thumbnails and metadata of every folder ever opened; your
+  judgements are not touched, because they live in the sidecars. The size is in
+  the same units your file manager uses (decimal on macOS, binary on Windows
+  and Linux), and a scan has to finish before the cache can be cleared.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbours on the strip; the sharpest frame of
   a run is marked in the pick colour. The score is computed around the focus
@@ -353,11 +359,9 @@ committing, so this number is not reproducible from the committed tree.
 #### Measuring on your own folder
 
 Riffle logs its own scan timings, so these numbers can be reproduced on any
-folder. Quit Riffle, delete the index cache (`index.sqlite` and its
-`-wal` / `-shm` files, in `%LOCALAPPDATA%\com.minodisk.riffle\` on Windows,
-`~/Library/Caches/com.minodisk.riffle/` on macOS and `~/.cache/com.minodisk.riffle/`
-on Linux) so the next open counts as a first scan, launch Riffle and open the folder. Then quit and launch again to
-get the second open, and use `Help > Open Log Folder` to find `Riffle.log`.
+folder. Clear the cache in `Riffle > Settings...` (the `Cache` tab) so the next
+open counts as a first scan, and reopen the folder. Then quit and launch again
+to get the second open, and use `Help > Open Log Folder` to find `Riffle.log`.
 
 Every open writes `open list`, `open entries`, `scan list` (reading the
 folder), `scan reconcile` (stat-ing the files against the index),
