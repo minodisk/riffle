@@ -52,7 +52,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
 
 ## Steps
 
-- [ ] Step 1: Make `run_scan` report the paths each flush committed
+- [x] Step 1: Make `run_scan` report the paths each flush committed
   - Done when:
     - The `progress` callback of `index::run_scan` receives, besides
       `(done, total)`, the paths whose rows `write_batch` committed since the
