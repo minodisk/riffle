@@ -203,7 +203,7 @@ let crop: {
 } | null = null;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`.
 let cropInFlight = false;
-// `performance.now()` at the `Space` that asked for a crop, cleared by the
+// `performance.now()` at the zoom key that asked for a crop, cleared by the
 // crop that keypress produced. Only that one crop can be timed from the
 // keypress; a resize or a page turn starts its own request.
 let zoomKeypressAt: number | null = null;
@@ -752,7 +752,7 @@ function requestCrop(): void {
   const current = seq;
   // Every mark below is measured from this request, not from the last
   // keypress: a crop asked for by a resize or a page turn has nothing to do
-  // with a `Space` pressed minutes ago.
+  // with a zoom key pressed minutes ago.
   const requestStartedAt = performance.now();
   const keypressAt = zoomKeypressAt;
   zoomKeypressAt = null;
@@ -842,7 +842,7 @@ function requestCrop(): void {
     });
 }
 
-// `Space` toggles the 1:1 view. The crop already held for this file is
+// The zoom key (`z`) toggles the 1:1 view. The crop already held for this file is
 // reused; otherwise one is requested and the scaled preview stands in.
 function toggleZoom(): void {
   if (files.length === 0) {
@@ -1193,10 +1193,6 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 // format's judgements. A fresh token drops any open still in flight.
 void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   sidecarFormat = payload;
-  // The label keys' defaults follow the format.
-  void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
-    applyKeymap(bindings);
-  });
   if (openDir === null) {
     return;
   }
@@ -1317,7 +1313,7 @@ function filterChanged(): void {
 }
 
 filterToggle.addEventListener("click", () => {
-  // Drop the focus, or `Space` (the 1:1 toggle) would press it again.
+  // Drop the focus, or the zoom key (the 1:1 toggle) would press it again.
   filterToggle.blur();
   setFilterMenuOpen(!!filterMenu.hidden);
 });

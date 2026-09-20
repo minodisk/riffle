@@ -46,7 +46,7 @@ embedded previews, rotated by each file's Orientation.
   file you click. The `N / M` counter sits under it.
 - **Focus mark**: `f` draws a crosshair at the camera's recorded focus point
   (hidden by default; cameras that record none, such as the M11-P, show none).
-- **1:1 focus check**: `Space` shows the full-resolution image at one pixel per
+- **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centred on the focus point (or the frame centre without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
@@ -97,11 +97,11 @@ embedded previews, rotated by each file's Orientation.
 
 | Key | Action |
 |-----|--------|
-| `ArrowLeft`, `ArrowUp`, `w`, `a`, `h`, `k` | previous file |
-| `ArrowRight`, `ArrowDown`, `s`, `d`, `j`, `l` | next file |
+| `ArrowUp` | previous file |
+| `ArrowDown` | next file |
 | `o` | open a folder |
 | `f` | toggle the focus mark |
-| `Space` | toggle the 1:1 focus check |
+| `z` | toggle the 1:1 focus check |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick) |
 | `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
@@ -109,20 +109,19 @@ embedded previews, rotated by each file's Orientation.
 | `0` | clear the rating or the reject (a pick stays) |
 | `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
 
-The colour label keys follow the format chosen in `Riffle > Settings...`, and
-switch with it without a restart. Pressing the key of the label the file
-already has clears it; the stars, the flag and `0` leave the label alone.
+Pressing the key of the label the file already has clears it; the stars, the
+flag and `0` leave the label alone.
 
-| Label | XMP (Lightroom's keys) | `.dop` (PhotoLab's keys) |
-|-------|------------------------|--------------------------|
-| red | `6` | `Ctrl+Alt+1` |
-| orange | — | `Ctrl+Alt+2` |
-| yellow | `7` | `Ctrl+Alt+3` |
-| green | `8` | `Ctrl+Alt+4` |
-| blue | `9` | `Ctrl+Alt+5` |
-| pink | — | `Ctrl+Alt+6` |
-| purple | `-` | `Ctrl+Alt+7` |
-| clear the label | — | `Ctrl+Alt+0` |
+| Label | Key |
+|-------|-----|
+| red | `Ctrl+Alt+1` |
+| orange | `Ctrl+Alt+2` |
+| yellow | `Ctrl+Alt+3` |
+| green | `Ctrl+Alt+4` |
+| blue | `Ctrl+Alt+5` |
+| pink | `Ctrl+Alt+6` |
+| purple | `Ctrl+Alt+7` |
+| clear the label | `Ctrl+Alt+0` |
 
 Keys can be changed from `Riffle > Settings...` (`CmdOrCtrl+,`):
 click a row's `+` and press a key to add it (`Escape` cancels), or click the
@@ -134,10 +133,7 @@ its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
 Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+Z`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-An override applies under both formats;
-only the label defaults change with the format, and an override that collides
-with one format's default is skipped under that format only. `Reset all`
-restores the current format's defaults.
+`Reset all` restores the defaults.
 
 ### Ratings and sidecars
 
@@ -341,7 +337,7 @@ committing, so this number is not reproducible from the committed tree.
 
 ### The 1:1 focus check path
 
-The Rust side of one `Space` keypress, on one α7 V ARW (Orientation 8,
+The Rust side of one zoom keypress, on one α7 V ARW (Orientation 8,
 `JpgFromRaw` 7008x4672 baseline 4:2:2, 5.76MB) on an Apple Silicon Mac. **One real file, warm
 page cache, in-process, release build, n=20, medians.** Measured against the
 functions the CLI and the app both call.
@@ -375,11 +371,11 @@ rest from `performance.now()` on the frontend; **`ipc` is derived** as the
 invoke elapsed minus `read` minus `decode`, so it is everything else on the
 Rust side plus transport, not pure transport.
 
-n=8 crops across 3 `Space` presses:
+n=8 crops across 3 `z` presses:
 
 | Measurement | n | Measured |
 |-------------|---|----------|
-| Keypress → pixels, for the crop the `Space` itself asked for | 3 | 39 / 45 / 40ms |
+| Keypress → pixels, for the crop the keypress itself asked for | 3 | 39 / 45 / 40ms |
 | `read` | 8 | 1.8-2.7ms |
 | `decode` | 8 | 21.9-38.7ms |
 | `ipc` (derived) | 8 | 2.3-3.7ms |
