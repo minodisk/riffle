@@ -402,8 +402,10 @@ that already have the column, and the `ALTER TABLE` fails.
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
 `app.manage(Scans)`, on a plain `std::thread`. It holds the `Scans` lock and
 then the writer lock for the whole evict + `VACUUM`, and skips if
-`Scans.running` is already set, so a `scan_folder`/`start_scan` issued
-meanwhile just waits. Keep the order `Scans` then writer. The size cap counts
+`Scans.running` is already set — which at that point in `setup` can only mean
+a scan was started, since nothing else has run yet; it is not a general test
+for "a scan is running" (use `ScansState::scanning()` for that, see below).
+A `scan_folder`/`start_scan` issued meanwhile just waits. Keep the order `Scans` then writer. The size cap counts
 pages in use (`page_count - freelist_count`), since a delete only moves pages
 to the freelist until `VACUUM` runs.
 
@@ -444,6 +446,38 @@ rather than trying to suppress the log (gating on state the command doesn't
 have is more machinery than it's worth).
 
 - Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`, Step 2.
+
+### `Scans.running.is_some()` is not "a scan is running" (Hit)
+
+`Scans.running` was set by `start_scan` and only ever taken by the *next*
+`scan_folder`; nothing cleared it when the scan task finished. So
+`running.is_some()` stayed true from the first folder open until the app quit.
+It never meant "a scan is running" — it meant "a scan was started and not yet
+superseded", which was fine for its original two consumers (`scan_folder`,
+which joins the handle, and `spawn_eviction`, which runs once before any scan
+can exist) but wrong as a guard. `clear_index` used it as one and refused
+every press of `Clear Cache` after the first folder open.
+
+- `ScansState::scanning()` (`preparing > 0 || running.is_some() ||
+  !pending.is_empty()`) is now the single definition of "a scan is genuinely
+  in progress". Any new guard must use it, never the inline expression. The
+  scan task clears `running` itself via `ScansState::finish(scan_id)`, which
+  only clears when the stored id still matches, so a superseded task does not
+  wipe the newer scan's entry.
+- The bug shipped green precisely because no test covered the guard's state
+  after a scan ended. It is covered now (`commands.rs`'s `tests`: a finished
+  scan leaves nothing in progress, a superseded scan does not clear the newer
+  one, `preparing` alone counts).
+- **A `scan-state` emit must happen while *holding* the `Scans` lock**, not
+  after releasing it. `start_scan` and the task it spawns race for the same
+  lock, and on a fast or empty scan both reach an emit; computing the bool
+  under the lock and emitting after it is dropped leaves the two `app.emit`
+  calls unordered, so a stale `true` can land after the correct `false` and
+  leave the listener stuck — the same class of stuck state this whole fix is
+  about. Every emit site in `commands.rs` emits under the lock, which makes
+  the mutex itself serialise them in the order the state changed.
+- Source: `docs/plans/_archived/20260920-clear-cache-stuck-guard/learnings.md`,
+  Steps 1-2.
 
 ### `focus_crop`'s header carries the full JPEG size (Hit)
 
