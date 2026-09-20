@@ -8,13 +8,14 @@
 // between OS releases, so the committed PNGs are the source of truth; rerun
 // this only when a symbol, its size, weight or colour changes.
 //
-// The glyph is deliberately drawn smaller than the canvas: AppKit's own menu
-// template images (`NSFollowLinkFreestandingTemplate`, `NSRefreshTemplate`)
-// pad their glyph to about 16pt of ink inside a 19-20pt canvas. Drawing at
+// The glyph is deliberately drawn smaller than the canvas: drawing at
 // `pointSize: 18` in an 18pt canvas both filled the canvas and overflowed it,
 // so the committed PNGs were clipped at the edges and read visibly bigger than
-// the native icons next to them. A 14pt glyph in the same 18pt canvas leaves
-// the padding the native images have.
+// the icons next to them. The size reference is the OS-provided Edit-menu
+// items (`Cut` / `Copy` / `Paste`), not AppKit's `NativeIcon` template images
+// (`NSFollowLinkFreestandingTemplate`, `NSRefreshTemplate`), which pad their
+// glyph to about 16pt of ink and read larger than the rest of the menu. A 12pt
+// glyph in the 18pt canvas matches the OS-provided items.
 //
 // The symbols are drawn in a fixed neutral grey because muda never marks a
 // custom menu image as a template and Tauri exposes no way to do so, so the
@@ -24,7 +25,7 @@
 import AppKit
 
 let canvasSize: CGFloat = 18
-let pointSize: CGFloat = 14
+let pointSize: CGFloat = 12
 let scale: CGFloat = 2
 let color = NSColor(srgbRed: 0x8E / 255, green: 0x8E / 255, blue: 0x93 / 255, alpha: 1)
 let symbols = ["gearshape", "arrow.uturn.backward", "folder"]

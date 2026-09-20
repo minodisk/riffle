@@ -305,20 +305,21 @@ truth. The script never runs at build or run time.
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
 - **Hit**: the three PNG-backed items (`Settings...`, `Undo`, `Open Log
-  Folder`) rendered visibly larger than the two `NativeIcon` items (`Open in
-  DxO PhotoLab`, `Check for Updates…`). The cause is the glyph's padding, not
-  the canvas: measured with an alpha bounding box, the native template images
-  pad their glyph to ~16pt of ink inside a 19–20pt canvas, while the export
-  script drew the SF Symbol at `pointSize: 18` into an 18pt canvas — filling
-  it edge to edge and in fact overflowing it, so the committed PNGs were
-  clipped. muda does resize every custom `Image`-backed item to 18pt
-  (`icon.inner.to_nsimage(Some(18.))` in `src/platform_impl/macos/mod.rs`),
-  which is why the PNG's own pixel size has no effect on the rendered size,
-  but that resize is not what made the icons look bigger. Fixed in
-  `tools/macos/export-menu-icons.swift` by separating the canvas size (still
-  18pt) from the glyph `pointSize` (now 14, shared by all three symbols) and
-  regenerating the PNGs; verify any future change with an alpha bounding box
-  that also checks for edge contact. See
+  Folder`) rendered visibly larger than the rest of the menu. The cause is the
+  glyph's padding, not the canvas: the export script drew the SF Symbol at
+  `pointSize: 18` into an 18pt canvas — filling it edge to edge and in fact
+  overflowing it, so the committed PNGs were clipped. muda does resize every
+  custom `Image`-backed item to 18pt (`icon.inner.to_nsimage(Some(18.))` in
+  `src/platform_impl/macos/mod.rs`), which is why the PNG's own pixel size has
+  no effect on the rendered size, but that resize is not what made the icons
+  look bigger. Fixed in `tools/macos/export-menu-icons.swift` by separating
+  the canvas size (still 18pt) from the glyph `pointSize` (now 12, shared by
+  all three symbols) and regenerating the PNGs. Match the **OS-provided** menu
+  items (`Cut` / `Copy` / `Paste` in the Edit menu), not the `NativeIcon`
+  templates: those pad their glyph to ~16pt of ink inside a 19–20pt canvas and
+  themselves read larger than the rest of the menu, so a size tuned against
+  them (14) still looked too big. Verify any future change with an alpha
+  bounding box that also checks for edge contact. See
   `docs/plans/_archived/20260920-dependency-refresh/learnings.md` for the
   original observation, whose muda-based explanation is superseded by this
   bullet.
