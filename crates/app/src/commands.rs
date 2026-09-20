@@ -842,7 +842,9 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         let _ = app.emit("scan-state", scanning);
         (scan_id, previous, preparing)
     };
-    let dir = canonicalize(&dir);
+    let canonical = canonicalize(&dir);
+    crate::watch::set(&app, &canonical, &dir);
+    let dir = canonical;
     let cancel = Arc::new(AtomicBool::new(false));
 
     if let Some((_, previous_cancel, previous_handle)) = previous {

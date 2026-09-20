@@ -547,12 +547,39 @@ folder changed" event has to pick the right one.
   re-lists the folder, runs the same `scan_folder` -> `start_scan` diff
   through the shared `startScan` helper, and re-anchors with
   `refilter(currentPath, true)`, which keeps the strip's scroll offset. Use it
-  when only the *files* may have changed — the window focus and
-  `File > Reload Folder` triggers.
+  when only the *files* may have changed — the window focus,
+  `File > Reload Folder` and `folder-changed` (the watcher) triggers.
 - `resync` defers to `scan-done` while a scan runs (`scanRunning`), because
   `scan_folder` cancels and joins the running scan first; a focus change
   during a 5000-file first scan would otherwise restart it. Repeat triggers
   collapse into the single `resyncPending` flag.
+
+### The folder watcher cannot loop on the app's own sidecar writes (Inferred)
+
+`crates/app/src/watch.rs` watches the folder `scan_folder` canonicalises
+(non-recursively, set from inside `scan_folder` so the watched folder can never
+diverge from the indexed one) and emits `folder-changed` 500 ms after the last
+event of a burst; `main.ts` turns that into `resync()` when the payload's `dir`
+is still `openDir`. Two things keep the app's own sidecar writes from feeding
+back into it:
+
+- `triggers()` drops an event whose paths are *all* sidecars (`*.xmp`,
+  `*.arw.dop`, either format, case-insensitive) or `sidecar::TEMP_SUFFIX`
+  temporaries, which is exactly what `sidecar::write` produces. So a rating
+  does not cost a rescan at all while culling.
+- Even unfiltered it would terminate: `reconcile_sidecars` reparses a sidecar
+  only when its on-disk stat differs from the one `mark_written` stored, so a
+  rescan after the app's own write queues nothing.
+
+The price is that an *external* sidecar edit (PhotoLab writing a `.dop`) is not
+picked up live; it lands on the next focus / `Reload Folder` rescan, as it did
+on reopen before.
+
+On Windows, `ReadDirectoryChangesW` keeps a handle on the watched directory, so
+the open folder cannot be deleted or renamed while Riffle has it open. `set`
+drops the previous watcher before creating the new one, so leaving a folder
+releases it. A watch that cannot be set (SMB, say) is `log::warn!`ed and
+ignored: the focus rescan is the fallback and the open must not fail.
 
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 

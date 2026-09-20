@@ -1,0 +1,217 @@
+//! Watching the open folder so files copied in or deleted outside the app
+//! show up without waiting for the window to regain focus.
+//!
+//! The events are only a trigger: what changed is always re-derived by the
+//! frontend's rescan (a fresh listing plus `scan_folder`), never read out of
+//! the event. A burst is collapsed into one `folder-changed` event, emitted
+//! `DEBOUNCE` after the last event of the burst.
+//!
+//! The app's own sidecar writes cannot loop back in: `triggers` drops an event
+//! whose paths are all sidecars or write temporaries. Even unfiltered they
+//! would only cost a no-op rescan, since `reconcile_sidecars` reparses a
+//! sidecar only when its stat differs from the one `mark_written` stored.
+
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use tauri::{Emitter, Manager};
+
+use crate::sidecar::{SidecarFormat, TEMP_SUFFIX};
+
+/// How long after the last event of a burst the rescan is triggered. Long
+/// enough that copying a batch of files in one go rescans once, short enough
+/// that a single new file shows up in about a second.
+const DEBOUNCE: Duration = Duration::from_millis(500);
+
+/// The folder currently watched and the watcher holding it. Managed state, one
+/// per app.
+pub struct Watch(Mutex<State>);
+
+struct State {
+    dir: Option<String>,
+    watcher: Option<RecommendedWatcher>,
+    tx: Sender<String>,
+    /// The caller's string for the watched folder, shared with the running
+    /// watcher's event handler so that updating it (the "same folder,
+    /// different caller string" case in `set`) does not require dropping and
+    /// re-creating the watcher.
+    owner: Arc<Mutex<String>>,
+}
+
+impl Watch {
+    /// Start the debounce thread. It ends when the app drops the state and
+    /// with it the sender; nothing is pending on disk, so quitting needs no
+    /// drain of its own.
+    pub fn spawn(app: tauri::AppHandle) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            run(rx, move |dir| {
+                let _ = app.emit(
+                    "folder-changed",
+                    Changed {
+                        dir: dir.to_string(),
+                    },
+                );
+            });
+        });
+        Self(Mutex::new(State {
+            dir: None,
+            watcher: None,
+            tx,
+            owner: Arc::new(Mutex::new(String::new())),
+        }))
+    }
+}
+
+/// The payload of `folder-changed`: which folder to rescan, so a listener that
+/// outlives the open folder can drop an event for another one.
+#[derive(serde::Serialize, Clone)]
+struct Changed {
+    dir: String,
+}
+
+/// Watch `dir` (the canonicalised path `notify` needs), replacing a watch on
+/// another folder and leaving one on the same folder alone. `owner` is
+/// emitted in `folder-changed` instead of `dir`: it is the caller's own
+/// string for the folder (what the frontend holds as `openDir`), which can
+/// differ from the canonicalised `dir` (a verbatim `\\?\` path on Windows, a
+/// resolved symlink on macOS) and would otherwise never match the frontend's
+/// comparison. Failing to watch (a network volume, say) is logged and
+/// ignored: the rescan on focus and `File > Reload Folder` is the fallback,
+/// and the folder must still open.
+///
+/// `owner` is refreshed even on the "same folder" early return: the same
+/// canonical `dir` can be reopened under a different caller string (a
+/// trailing slash, `/tmp/x` vs `/private/tmp/x`, a stale recent-folders
+/// entry), and the watcher must keep emitting the *current* string rather
+/// than the one it started with. The refresh goes through a shared cell so
+/// it does not require dropping and re-creating the watcher (and, on
+/// Windows, the directory handle that would cost).
+pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
+    let state = app.state::<Watch>();
+    let mut state = crate::index::lock(&state.0);
+    *crate::index::lock(&state.owner) = owner.to_string();
+    if state.dir.as_deref() == Some(dir) {
+        return;
+    }
+    // Dropping the previous watcher first releases the directory handle
+    // `ReadDirectoryChangesW` holds on Windows.
+    state.watcher = None;
+    state.dir = None;
+    let (tx, owner) = (state.tx.clone(), state.owner.clone());
+    let handler = move |event: notify::Result<notify::Event>| {
+        if event.is_ok_and(|event| triggers(&event.paths)) {
+            let _ = tx.send(crate::index::lock(&owner).clone());
+        }
+    };
+    match notify::recommended_watcher(handler).and_then(|mut watcher| {
+        watcher.watch(Path::new(dir), RecursiveMode::NonRecursive)?;
+        Ok(watcher)
+    }) {
+        Ok(watcher) => {
+            state.watcher = Some(watcher);
+            state.dir = Some(dir.to_string());
+        }
+        Err(e) => log::warn!("failed to watch {dir}: {e}"),
+    }
+}
+
+/// Whether an event over `paths` is worth a rescan: no, only when every path
+/// is a sidecar of either format or a sidecar write temporary, which is what
+/// the app's own writes produce. An event without paths says nothing, so it
+/// triggers.
+fn triggers(paths: &[PathBuf]) -> bool {
+    paths.is_empty()
+        || !paths.iter().all(|path| {
+            let Some(name) = path.file_name().map(|n| n.to_string_lossy()) else {
+                return false;
+            };
+            name.ends_with(TEMP_SUFFIX)
+                || SidecarFormat::Xmp.matches(&name)
+                || SidecarFormat::Dop.matches(&name)
+        })
+}
+
+/// Collapse bursts on `rx` into one `emit` per folder, `DEBOUNCE` after that
+/// folder's last event. Same shape as `sidecar::run`: wait on the nearest
+/// deadline, and treat a timeout as "that one is due".
+fn run<F>(rx: Receiver<String>, emit: F)
+where
+    F: Fn(&str),
+{
+    let mut pending: Option<(String, Instant)> = None;
+    loop {
+        let message = match &pending {
+            Some((_, deadline)) => {
+                rx.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            }
+            None => rx.recv().map_err(|_| RecvTimeoutError::Disconnected),
+        };
+        match message {
+            Ok(dir) => {
+                // A folder change resets the window on the new folder; the old
+                // one is no longer open, so its pending event is dropped.
+                pending = Some((dir, Instant::now() + DEBOUNCE));
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                if let Some((dir, _)) = pending.take() {
+                    emit(&dir);
+                }
+            }
+            Err(RecvTimeoutError::Disconnected) => return,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paths(names: &[&str]) -> Vec<PathBuf> {
+        names
+            .iter()
+            .map(|n| PathBuf::from("/photos").join(n))
+            .collect()
+    }
+
+    #[test]
+    fn sidecar_and_temp_paths_do_not_trigger() {
+        assert!(!triggers(&paths(&["a.xmp"])));
+        assert!(!triggers(&paths(&["A.XMP"])));
+        assert!(!triggers(&paths(&["a.arw.dop"])));
+        assert!(!triggers(&paths(&["A.ARW.dop"])));
+        assert!(!triggers(&paths(&["a.xmp.riffle-tmp"])));
+        assert!(!triggers(&paths(&["a.xmp", "b.arw.dop"])));
+    }
+
+    #[test]
+    fn raw_paths_and_empty_events_trigger() {
+        assert!(triggers(&paths(&["a.arw"])));
+        assert!(triggers(&paths(&["a.dng"])));
+        assert!(triggers(&paths(&["a.xmp", "b.arw"])));
+        assert!(triggers(&[]));
+    }
+
+    #[test]
+    fn a_burst_is_collapsed_into_one_event() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (out, emitted) = std::sync::mpsc::channel();
+        let thread =
+            std::thread::spawn(move || run(rx, move |dir| out.send(dir.to_string()).unwrap()));
+
+        for _ in 0..10 {
+            tx.send("/photos".to_string()).unwrap();
+        }
+        assert_eq!(emitted.recv_timeout(DEBOUNCE * 10).unwrap(), "/photos");
+        assert!(emitted.try_recv().is_err());
+
+        tx.send("/photos".to_string()).unwrap();
+        assert_eq!(emitted.recv_timeout(DEBOUNCE * 10).unwrap(), "/photos");
+
+        drop(tx);
+        thread.join().unwrap();
+    }
+}
