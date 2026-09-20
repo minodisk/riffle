@@ -283,12 +283,11 @@ fn main() {
                     );
                 })
             });
-            let (format, overrides, keymap, auto_advance) = commands::load_settings(app.handle());
+            let (format, keymap, auto_advance) = commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
             app.manage(commands::AppKeymap(Mutex::new(keymap)));
-            app.manage(commands::AppShortcutOverrides(Mutex::new(overrides)));
             app.manage(commands::AppSwitchLock(Mutex::new(())));
             app.manage(commands::AppWriter(writer));
             app.manage(commands::AppIndex(index));

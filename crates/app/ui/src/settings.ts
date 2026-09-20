@@ -117,13 +117,6 @@ void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
 void window.__TAURI__.core.invoke<string>("sidecar_format").then(showSidecarFormat);
 void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   showSidecarFormat(payload);
-  // The label keys' defaults follow the format.
-  void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
-    if (capturing === null) {
-      shortcutBindings = bindings;
-      renderShortcuts();
-    }
-  });
 });
 void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
   autoAdvance.checked = enabled;
