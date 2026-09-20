@@ -140,4 +140,11 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
 
 ## Progress
 
-- (none yet)
+- Step 1 (`d9f6dc5`): Scaled the green dot and yellow star by 1.25x about
+  their own centroids with a one-off Pillow script (dilate mask by 1px,
+  resize crop + mask, paste), then regenerated all bundled icons with
+  `pnpm exec tauri icon`. Measured dot 66 -> 83px, star 79x76 -> 99x96px;
+  centroids `(214.76, 239.06)` and `(804.21, 243.32)`, both within 1px of
+  the plan's target. The old dilated footprint is fully covered (no pixel
+  left below mask alpha 250), so no background fill was needed, and the
+  alpha channel stayed byte-identical outside the two paste boxes.
