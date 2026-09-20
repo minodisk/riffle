@@ -87,8 +87,9 @@ and nothing clips. `crates/app/src/main.rs` does not change.
   - Implementation approach:
     - Only these files change: `tools/macos/export-menu-icons.swift`,
       `crates/app/icons/menu/{gearshape,arrow.uturn.backward,folder}.png`,
-      `docs/agents/tauri-app.md`, plus the plan files. Do not touch
-      `crates/app/src/main.rs`, and do not add an icon to `Open Folder…`.
+      `docs/agents/tauri-app.md`, plus the plan files. **Amended mid-step:**
+      `crates/app/src/main.rs` also changes, to give `Open Folder…` the
+      `folder.png` icon (see Decisions).
     - Script restructuring: introduce a `canvasSize: CGFloat = 18` used for
       `pixels` and `rep.size`, and a separate glyph `pointSize` used only in
       `NSImage.SymbolConfiguration(pointSize:weight:)`. Keep the current
@@ -138,6 +139,14 @@ and nothing clips. `crates/app/src/main.rs` does not change.
   rather than matching the native 16.0 exactly; the user accepted that in
   exchange for the simpler, optically-balanced approach. Revisit only if the
   visual pass says a specific glyph reads off.
+- **Mid-step addition: `Open Folder…` gets the folder icon in this PR.** The
+  user asked to fold the separate `todo.md` item
+  (`### App: \`Open Folder…\` has no macOS menu icon`) into this PR instead of
+  handling it on its own, and chose to reuse the existing `folder.png` for
+  both `Open Folder…` and `Open Log Folder` rather than exporting a second,
+  differentiated symbol: the two items live in different menus, which are
+  never open at the same time. The `todo.md` item is deleted in this step's
+  commit.
 - **The archived learnings keep the wrong explanation.**
   `docs/plans/_archived/20260920-dependency-refresh/learnings.md` records the
   muda-18pt cause. The user chose to leave it as a historical record of what

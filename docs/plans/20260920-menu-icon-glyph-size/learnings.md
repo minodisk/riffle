@@ -46,3 +46,18 @@
   Nothing touches pixel 0 or 35 in either axis, and the numbers match the
   expectations exactly. `folder`'s horizontal margin grew from 1px at 14 to
   5px at 12, so clipping is no longer anywhere near.
+
+### Mid-step scope addition: `Open Folder…` gets `folder.png`
+
+- The user asked to fold the separate `todo.md` item (`Open Folder…` has no
+  macOS menu icon) into this PR, so `crates/app/src/main.rs` — which the plan
+  originally froze — now builds `Open Folder…` as an `IconMenuItem` behind
+  `#[cfg(target_os = "macos")]`, with the plain `MenuItem` kept as the
+  non-macOS twin, exactly like `Settings...`.
+- The user chose to reuse the existing `folder.png` for both folder-ish items
+  (`File > Open Folder…` and `Help > Open Log Folder`) rather than exporting a
+  second, differentiated symbol. The duplication is accepted deliberately: the
+  two menus are never visible at the same time, so the repeat is never seen.
+  No new PNG was exported and the export script is unchanged by this addition.
+- `todo.md`'s item and its `#### TODO` block were deleted in this commit (the
+  glyph-size item is still left to the wrap-up's todo curator).

@@ -285,15 +285,19 @@ the existing item does not clear it.
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
-On macOS several app items carry an icon. `Open in DxO PhotoLab`, `Check for
+On macOS seven app items carry an icon. `Open in DxO PhotoLab`, `Check for
 Updates…` and `Move Rejected to Trash` use
 `IconMenuItem::with_id_and_native_icon` with
 `NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh` /
-`NativeIcon::TrashFull`, which are template images and tint with the menu. `NativeIcon` has neither an undo nor a
-modern gear, so `Settings...` and `Undo` use `IconMenuItem::with_id` with an
+`NativeIcon::TrashFull`, which are template images and tint with the menu.
+`NativeIcon` has neither an undo nor a modern gear, and `NativeIcon::Folder`
+is a colour bitmap rather than a template image, so `Settings...`, `Undo`,
+`Open Folder…` and `Open Log Folder` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's
-`image-png` feature). Other platforms keep the plain `MenuItem` behind `cfg`.
+`image-png` feature). `folder.png` is deliberately shared by `Open Folder…`
+and `Open Log Folder`: they live in different menus, which are never open at
+the same time. Other platforms keep the plain `MenuItem` behind `cfg`.
 
 Regenerate those PNGs with `swift tools/macos/export-menu-icons.swift`, and
 only when a symbol, its size, weight or colour changes; AppKit's rasterisation
@@ -304,8 +308,8 @@ truth. The script never runs at build or run time.
   Tauri exposes no template flag for menu items, so the bundled PNGs do not
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
-- **Hit**: the three PNG-backed items (`Settings...`, `Undo`, `Open Log
-  Folder`) rendered visibly larger than the rest of the menu. The cause is the
+- **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Open Folder…`,
+  `Open Log Folder`) rendered visibly larger than the rest of the menu. The cause is the
   glyph's padding, not the canvas: the export script drew the SF Symbol at
   `pointSize: 18` into an 18pt canvas — filling it edge to edge and in fact
   overflowing it, so the committed PNGs were clipped. muda does resize every

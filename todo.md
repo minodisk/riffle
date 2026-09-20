@@ -163,25 +163,6 @@ and Windows / Linux are unconfirmed entirely. Files: `crates/app/src/main.rs`
 - [ ] Verify the `Some`/`None` accelerator behaviour on Windows and Linux
       (only reasoned from muda 0.19.3's sources so far, never run).
 
-### App: `Open Folder…` has no macOS menu icon
-
-From `menu-accelerators`'s trade-offs: `NativeIcon::Folder` exists, but the
-macos-menu-icons work found several `NativeIcon`s to be legacy colour
-bitmaps rather than template images, and only verified ones were used
-elsewhere, so `File > Open Folder…` ships as a plain `MenuItem` with no
-icon. Confirmed directly (dependency-refresh, 2026-09-20, AppKit script on
-macOS 26.6): `NSImage(named: "NSFolder")` (what `NativeIcon::Folder`
-resolves to) has `isTemplate == false` — a colour Finder folder that would
-clash with the template icons around it. File: `crates/app/src/main.rs`
-(`app_menu`).
-
-#### TODO
-
-- [ ] Export an SF Symbol (e.g. `folder`) as a PNG via
-      `tools/macos/export-menu-icons.swift`, the same way `Open Log Folder`
-      is done, and assign it to `Open Folder…` instead of
-      `NativeIcon::Folder`.
-
 ### App: the Clear Cache button's manual GUI verification is still open
 
 From `clear-cache-stuck-guard`'s implementation: the button's guard used to

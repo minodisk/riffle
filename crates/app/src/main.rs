@@ -67,6 +67,20 @@ mod app_menu {
             true,
             photolab_key,
         )?;
+        // `folder.png` is deliberately shared with Help > Open Log Folder:
+        // the two menus are never open at the same time.
+        #[cfg(target_os = "macos")]
+        let open_folder = IconMenuItem::with_id(
+            handle,
+            OPEN_FOLDER_ID,
+            "Open Folder…",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/folder.png"
+            ))?),
+            open,
+        )?;
+        #[cfg(not(target_os = "macos"))]
         let open_folder = MenuItem::with_id(handle, OPEN_FOLDER_ID, "Open Folder…", true, open)?;
         // No accelerator: a destructive action, reached deliberately through
         // the menu and its confirmation.
