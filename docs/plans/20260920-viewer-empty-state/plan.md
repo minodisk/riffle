@@ -151,3 +151,9 @@ Decisions already taken (do not revisit):
   `crates/app/ui/src/empty.test.ts`, covering the four states, the default
   `o` key, multiple keys, a rebound key, and the no-key case.
 - (2026-09-20) Step 1 complete
+- Step 2 (`1f69001`): wrapped the canvas in `#viewer` and added the `#empty`
+  overlay, rendered by `renderEmpty()` from `renderMeta()` and `applyKeymap()`;
+  clicking it opens the existing `openFolder()` only in the `no-folder` state.
+  The hardcoded meta-pane hint and the "No RAW (ARW/DNG) files in that folder."
+  note are gone. Not verified interactively (see `learnings.md`).
+- (2026-09-20) Step 2 complete
