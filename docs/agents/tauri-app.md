@@ -497,8 +497,12 @@ against `control`/`alt`/`shift`/`meta`.
 
 - Why: the keymap compares names; a name built one way on dispatch and another
   way on capture never matches.
-- Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5, and
-  `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`.
+- The `control` chip that still appeared after the lone-modifier guard landed
+  was a stale `crates/app/ui/src/keys.js` shadowing `keys.ts` in the dev
+  server, not a gap in the guard; do not widen the guard for it.
+- Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5,
+  `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`, and
+  `docs/plans/20260920-ignore-stale-ui-js/learnings.md`.
 
 ### Carry every judgement field on every write (Hit)
 
@@ -534,6 +538,22 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 
 `import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
 source in dev and build, and it matches what the type check expects.
+
+### A real `.js` beside a `.ts` shadows the source (Hit)
+
+Because those imports carry the `.js` suffix, an actual `foo.js` sitting next
+to `foo.ts` wins: the dev server serves the `.js` and the `.ts` is never
+compiled. A `tsc`-era build left such files behind in `crates/app/ui/src/`, so
+the dev build ran code months older than the sources. `.gitignore` now covers
+`crates/app/ui/src/**/*.js`, so such files no longer show up in `git status`,
+and `tsconfig.json` sets `"noEmit": true` so a stray `tsc` cannot regenerate
+them.
+
+- Why: when the running app disagrees with the source you are reading, check
+  `ls crates/app/ui/src/*.js` (or `git clean -nX crates/app/ui/src`) before
+  debugging the code, and restart the dev server after deleting them — Vite
+  caches the old transform.
+- Source: `docs/plans/20260920-ignore-stale-ui-js/learnings.md`, Step 1.
 
 ### `vp check` type-checks with TypeScript-Go and covers `vite.config.ts` (Hit)
 
