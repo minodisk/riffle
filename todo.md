@@ -176,3 +176,22 @@ in the store until the user manually removes them.
 - [ ] Consider a one-time migration in `crates/app/src/shortcuts.rs` to drop
       shortcut entries whose key is exactly `control`, `shift`, `alt`, or
       `meta`.
+
+### App: `open` stays on a plain key instead of the File menu
+
+The plan for `default-shortcuts-cleanup` wanted `open` moved into the File
+menu with a rebindable `Cmd+O` / `Ctrl+O` accelerator (Tauri's
+`MenuItem::set_accelerator` makes the rebinding possible), but that needs
+platform-dependent defaults, a key-name-to-accelerator conversion, a rule for
+which of an action's keys becomes the accelerator, and an exemption in
+`forbidden()` so the app's own accelerator is not refused
+(`crates/app/src/shortcuts.rs`, the `app_menu` module in
+`crates/app/src/main.rs`). Deferred to its own PR; `open` stays bound to `o`
+for now.
+
+#### TODO
+
+- [ ] Move `open` into the File menu with a rebindable `Cmd+O` / `Ctrl+O`
+      accelerator, including the platform-dependent defaults, the key-name-to-
+      accelerator conversion, the rule for which key becomes the accelerator,
+      and a `forbidden()` exemption for the app's own accelerator.
