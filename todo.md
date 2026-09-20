@@ -51,14 +51,6 @@ The `tauri://drag-drop` handler in `crates/app/ui/src/main.ts` rejects a multi-i
 - [ ] Take the common parent folder of a multi-file drop instead of rejecting it.
 - [ ] Indicate during drag-hover whether the drop will be accepted.
 
-### App: paging keys follow `event.key`, not the physical layout
-
-The paging key handler in `crates/app/ui/src/main.ts` matches on `event.key`, so on a non-QWERTY layout (Dvorak, AZERTY) WASD and HJKL land on scattered physical keys.
-
-#### TODO
-
-- [ ] Revisit only if a user asks; a fix would be an `event.code` fallback or a key-config layer.
-
 ### App: real-folder scan and second-open numbers are still missing
 
 Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
@@ -80,44 +72,6 @@ handling it would need a generated prefix. Noted while implementing Phase 6 Step
 - [ ] Detect a colliding `xmp:` binding and fall back to a generated prefix (or the
   `xap:` alternative) instead of overwriting it.
 
-### App: an unparseable or oversize sidecar fails silently on folder open
-
-`reconcile_sidecars_of` in `crates/app/src/commands.rs` drops the `Err` for a
-sidecar another tool corrupted or that exceeds the read bound, so the file shows
-no rating and no reason. Reporting it needs a count or event the frontend can
-show (`crates/app/ui/src/main.ts`); out of scope for Phase 6 Step 4.
-
-#### TODO
-
-- [ ] Surface unparseable/oversize sidecars to the status line, e.g. via a count
-  in the `scan-done` payload or a dedicated event.
-
-### App: a `sidecar-error` event can be missed under key-mashing
-
-A `sidecar-error` event (`crates/app/ui/src/main.ts`) overwrites whatever note is
-in the status line and is cleared by the next page turn. Phase 6 Step 5's "shows
-its message once in the status line" is met literally, but `note`/`setStatus` is a
-single transient slot, so an error raised while the user is mashing rating/paging
-keys can go unseen. A dedicated, sticky error area would be a UI change beyond
-that step.
-
-#### TODO
-
-- [ ] Give sidecar errors a sticky, dismissible display distinct from the
-  transient status note.
-
-### App: folder open lists the directory twice (ARWs, then sidecars)
-
-`scan_folder` calls `list_arw_in` and then a separate `list_sidecars_in` pass over
-the same directory (`crates/app/src/commands.rs`). One listing that returns both
-ARW and sidecar entries would halve that part of a folder open. Not done in Phase
-6 Step 4 because `list_arw_in` is shared with callers that do not want sidecars.
-
-#### TODO
-
-- [ ] Fold sidecar discovery into a single directory listing shared with ARW
-  discovery, without changing behaviour for callers that only want ARWs.
-
 ### Docs: consider a `docs/agents/core.md` guide for `crates/core`
 
 Phase 6 Step 2 found several non-obvious `quick-xml` 0.42 facts specific to
@@ -132,23 +86,6 @@ exists yet (compare `docs/agents/tauri-app.md`'s Hit/Measured/Inferred format).
 - [ ] When the next feature touches `crates/core`'s XML handling, create
   `docs/agents/core.md` capturing these facts, or judge it unnecessary and drop
   this item.
-
-### App: the meta pane's sidecar header shows the predicted name, not an on-disk case variant
-
-The header in `crates/app/ui/src/main.ts` (`sidecarName`) shows the name the
-app would write (e.g. `FOO.xmp`), not a foreign on-disk variant such as
-`FOO.XMP`, which `list_sidecars_in` (`crates/app/src/commands.rs`)
-discovers and the writer patches under its real name. Exposing the real
-name needs either a `read_dir` per `folder_entries` call or a new
-`xmp_name` column (a `SCHEMA_VERSION` bump). See
-`docs/plans/_archived/20260918-rating-display-tidy-up/plan.md`'s "Sidecar name:
-predicted versus actual" trade-off for the two alternatives considered.
-
-#### TODO
-
-- [ ] Decide whether the mismatch between the displayed and on-disk
-  sidecar name is worth a `read_dir` or a schema change, and implement
-  whichever is chosen.
 
 ### App: `scan-progress` carries no way to tell what became available
 
