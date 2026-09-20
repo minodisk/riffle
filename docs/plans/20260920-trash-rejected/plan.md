@@ -147,7 +147,7 @@ Facts the design rests on (from reading the code):
       vitest test rather than inline in `main.ts`, as `filter.ts` /
       `undo.ts` do.
 
-- [ ] Step 3: Documentation and the manual verification item
+- [x] Step 3: Documentation and the manual verification item
   - Done when:
     - `README.md` describes `File > Move Rejected to Trash…` next to `Reload
       Folder` (user-facing only: what is moved, both sidecar formats, the

@@ -82,9 +82,39 @@ another tool.
 
 #### TODO
 
-- [ ] Add a menu item that moves every rejected file of the open folder, with
+- [x] Add a menu item that moves every rejected file of the open folder, with
   its sidecars, to the OS trash (or a chosen folder), after a confirmation
   showing the count.
+
+### App: the manual GUI checks for Move Rejected to Trash are still open
+
+From `trash-rejected`'s implementation: GUI automation is unavailable on this
+Mac and a native confirmation dialog cannot be driven by an agent, so nothing
+of the menu item's visible behaviour has been run by a human. Two points are
+specifically unverified: whether `NativeIcon::TrashFull` renders as a template
+image in the macOS File menu (assumed, like `FollowLinkFreestanding`), and
+whether the Trash's "Put Back" entry is actually created — the command pins
+`DeleteMethod::NsFileManager` to avoid the Finder route's Automation
+permission, and the `trash` crate documents that on some macOS systems files
+moved that way get no "Put Back" entry (trash-rs#14); dragging them out of the
+Trash still restores them. Files: `crates/app/src/main.rs` (`app_menu`),
+`crates/app/src/commands.rs` (`trash_rejected`, `trash_context`),
+`crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
+`crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On macOS, verify: the menu item's icon renders as a template image at the
+      same size as the other native-icon items; the confirmation names the
+      right count (and the singular for one file) with `Move to Trash` /
+      `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
+      plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
+      next passing file; the zero-reject, no-folder and mid-scan cases each
+      write their message to `#status`; a "Put Back" from the Trash restores
+      the file with its judgement, and if no "Put Back" entry exists, that
+      dragging it out does.
+- [ ] Verify the same flow on Windows and Linux (the `trash` crate's other
+      backends have never been run here).
 
 ### App: custom menu-item icons don't tint for dark mode
 

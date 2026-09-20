@@ -86,6 +86,15 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
   flags and colour labels already given, the current file and the strip's
   position all stay as they were.
+- **Move Rejected to Trash…**: `File > Move Rejected to Trash…` moves every
+  file of the open folder marked as a reject to the OS Trash, together with the
+  sidecars sitting next to it — both `.xmp` and `.ARW.dop` if both are there,
+  whichever format is currently selected. It asks first, showing how many files
+  it is about to move, and `Cancel` leaves the folder untouched. Nothing is
+  deleted: the files go to the Trash, so restoring one from there brings back
+  its sidecar and with it the stars, the flag and the colour label it had. Any
+  file that could not be moved is listed as an error and stays in the folder
+  with its sidecars.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).

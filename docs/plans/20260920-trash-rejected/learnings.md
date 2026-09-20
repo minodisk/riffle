@@ -42,3 +42,16 @@
   `DeleteMethod::NsFileManager` (see above). Worth checking by hand during
   Step 3's manual verification, and wording `README.md` accordingly
   (`crates/app/src/commands.rs` `trash_context`, `README.md`).
+
+## Step 3
+
+- `README.md` promises only what the implementation guarantees: the files go to
+  the OS Trash and nothing is unlinked, so restoring one from the Trash brings
+  its sidecar and judgement back. It deliberately does not name Finder's "Put
+  Back", because `DeleteMethod::NsFileManager` may leave no such entry
+  (trash-rs#14); that uncertainty lives in the new `todo.md` manual-check item
+  instead.
+- No `docs/agents/tauri-app.md` entry was added: Steps 1 and 2 hit no pitfall
+  beyond the `trash` crate's own macOS delete-method trade-off, which is
+  specific to this command rather than a rule for the next feature, and the
+  `mod trash;` shadowing note is a one-off naming collision.
