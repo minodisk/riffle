@@ -842,8 +842,9 @@ function requestCrop(): void {
     });
 }
 
-// The zoom key (`z`) toggles the 1:1 view. The crop already held for this file is
-// reused; otherwise one is requested and the scaled preview stands in.
+// The zoom key (`z`) toggles the 1:1 view. The crop already held for this
+// file is reused; otherwise one is requested and the scaled preview stands
+// in.
 function toggleZoom(): void {
   if (files.length === 0) {
     return;

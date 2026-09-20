@@ -5,11 +5,11 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 
 /// Every action in the order the shortcuts panel shows them, with its
-/// default keys. A plain key is `event.key` lower-cased,
-/// with `" "` as `"space"`. With a modifier held, the name is
-/// `ctrl+alt+shift+meta+` (only the modifiers held, in that order) and the key
-/// named from `event.code` (`Digit1` -> `1`, `Comma` -> `,`), as Option and
-/// Shift change `event.key`.
+/// default keys. A plain key is `event.key` lower-cased, with `" "` as
+/// `"space"`. With a modifier held, the name is `ctrl+alt+shift+meta+` (only
+/// the modifiers held, in that order) and the key named from `event.code`
+/// (`Digit1` -> `1`, `Comma` -> `,`), as Option and Shift change
+/// `event.key`.
 const DEFAULTS: &[(&str, &[&str])] = &[
     ("previous", &["arrowup"]),
     ("next", &["arrowdown"]),

@@ -157,4 +157,7 @@ overrides.
 
 ## Progress
 
-- (none yet)
+- Step 1: Trimmed the default keys, unified the label defaults across
+  sidecar formats, and dropped the format dependency from the keymap. Landed
+  in `e4c70ed` (feat(app): trim the default keys and unify the label
+  defaults).
