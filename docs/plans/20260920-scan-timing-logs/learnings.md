@@ -43,6 +43,21 @@
   measurement warrants. Raising the cap also keeps the mid-scan rows=N
   progression, which shows how fast the index fills.
 
+## Step 3
+
+- `create_dir_all` before `open_path`: **included**. It is one line and turns
+  the "nothing has been logged yet" case (where `open_path` errors with a
+  not-found) into an empty folder opening normally.
+- The separator is not placed unconditionally: `help.items()?.is_empty()`
+  decides, so macOS (where the default `Help` submenu is empty) gets the item
+  alone and does not render a trailing lone separator line.
+- `open_log_folder` returns `Box<dyn std::error::Error>` because it mixes
+  `tauri::Error` (`app_log_dir`), `std::io::Error` (`create_dir_all`) and the
+  opener's error; the caller logs it with `log::error!`.
+- `open_path` takes an `impl Into<String>`, not a `Path`, so the `PathBuf` goes
+  through `to_string_lossy()` (`open_in_photolab` passes an already-`String`
+  path, which hid this).
+
 ## Deferred issues (todo candidates)
 
 - (none)
