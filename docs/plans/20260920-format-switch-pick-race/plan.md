@@ -73,7 +73,7 @@ open, and the `pick = true` variant of the format-switch race test that
 
 ## Steps
 
-- [ ] Step 1: Stop `reset_sidecars` from zeroing the pick of dirty rows, and add the pick race test
+- [x] Step 1: Stop `reset_sidecars` from zeroing the pick of dirty rows, and add the pick race test
   - Done when:
     - `crates/app/src/commands.rs` has a second race test beside
       `a_rating_set_during_a_switch_lands_in_the_new_format_and_leaves_no_dirty_row`
@@ -180,4 +180,4 @@ open, and the `pick = true` variant of the format-switch race test that
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
