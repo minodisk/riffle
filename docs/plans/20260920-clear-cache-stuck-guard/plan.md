@@ -142,7 +142,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       where it is easiest to observe.
     - Assumes Step 1 is merged (needs `scanning()` and `finish`).
 
-- [ ] Step 3: Settings window: disable the button while a scan runs with the reason shown, show in-flight feedback, keep errors visible
+- [x] Step 3: Settings window: disable the button while a scan runs with the reason shown, show in-flight feedback, keep errors visible
   - Done when:
     - `crates/app/ui/settings.html`'s Cache panel gains a note element next
       to the button (e.g. `<p id="clear-index-note" hidden>`) whose text says
@@ -289,3 +289,4 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete

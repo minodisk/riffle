@@ -34,9 +34,15 @@ const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
 const indexSize = document.getElementById("index-size") as HTMLParagraphElement;
 const clearIndex = document.getElementById("clear-index") as HTMLButtonElement;
+const clearIndexNote = document.getElementById("clear-index-note") as HTMLParagraphElement;
 const tablist = document.getElementById("tabs") as HTMLDivElement;
 const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 let shortcutBindings: Binding[] = [];
+let scanRunning = false;
+let clearInFlight = false;
+// Set by the first `scan-state`, so the initial `scan_running` answer is not
+// applied over a newer state that arrived while it was in flight.
+let scanStateSeen = false;
 // The action whose row waits for a key.
 let capturing: string | null = null;
 
@@ -139,7 +145,32 @@ function showIndexSize(size: string): void {
   indexSize.textContent = `Index cache: ${size}`;
 }
 
+function showIndexClearing(): void {
+  indexSize.textContent = "Clearing the index cache…";
+}
+
 void window.__TAURI__.core.invoke<string>("index_size").then(showIndexSize);
+
+function updateClearButton(): void {
+  clearIndex.disabled = scanRunning || clearInFlight;
+  clearIndexNote.hidden = !scanRunning;
+}
+
+void window.__TAURI__.core.invoke<boolean>("scan_running").then((running) => {
+  if (scanStateSeen) {
+    return;
+  }
+  scanRunning = running;
+  updateClearButton();
+});
+void window.__TAURI__.event.listen<boolean>("scan-state", ({ payload }) => {
+  scanStateSeen = true;
+  scanRunning = payload;
+  updateClearButton();
+});
+void window.__TAURI__.event.listen("index-clearing", () => {
+  showIndexClearing();
+});
 
 for (const radio of sidecarRadios) {
   radio.addEventListener("change", () => {
@@ -167,7 +198,8 @@ debugTiming.addEventListener("change", () => {
 
 clearIndex.addEventListener("click", () => {
   status.textContent = "";
-  clearIndex.disabled = true;
+  clearInFlight = true;
+  updateClearButton();
   window.__TAURI__.core
     .invoke<boolean>("clear_index")
     .then(async (cleared) => {
@@ -175,11 +207,14 @@ clearIndex.addEventListener("click", () => {
         showIndexSize(await window.__TAURI__.core.invoke<string>("index_size"));
       }
     })
-    .catch((error: unknown) => {
+    .catch(async (error: unknown) => {
       status.textContent = String(error);
+      // The clear can fail after `index-clearing`, so put the figure back.
+      showIndexSize(await window.__TAURI__.core.invoke<string>("index_size"));
     })
     .finally(() => {
-      clearIndex.disabled = false;
+      clearInFlight = false;
+      updateClearButton();
     });
 });
 

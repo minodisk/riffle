@@ -73,6 +73,11 @@ td {
   color: #f88;
 }
 
+#clear-index-note {
+  margin: 0.5rem 0;
+  color: #aaa;
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;
