@@ -102,7 +102,7 @@ turns the "measuring on your own folder" procedure in `README.md` into
 
 ## Steps
 
-- [ ] Step 1: `Index::clear` — empty the index and reclaim the space
+- [x] Step 1: `Index::clear` — empty the index and reclaim the space
   - Done when:
     - `Index::clear(&mut self) -> Result<EvictSummary, String>` in
       `crates/app/src/index.rs` removes every `files` row, every clean
