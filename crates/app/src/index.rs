@@ -883,9 +883,12 @@ pub type ParsedSidecar = (String, Option<i8>, bool, Option<String>, i64, i64, bo
 pub type DirtyRow = (String, Option<i8>, bool, Option<String>, bool);
 
 /// Extract `files` and write them into `index` in batched transactions,
-/// reporting `(done, total)` through `progress` at most every
-/// `progress_interval` (`PROGRESS_INTERVAL` in the app) and always on the first
-/// and last file.
+/// reporting `(done, total, ready)` through `progress` at most every
+/// `progress_interval` (`PROGRESS_INTERVAL` in the app), always on the first
+/// file and once more after the trailing flush. `ready` holds the paths whose
+/// rows a batch committed since the previous notification, so a path is
+/// reported only once the index can answer for it; a batch whose write failed
+/// is not reported at all.
 ///
 /// `on_item` runs on rayon worker threads and a panic there would abort the
 /// whole scan, so nothing inside it unwraps: locks are taken with `lock` (which
@@ -900,7 +903,7 @@ pub fn run_scan<P>(
     progress: P,
 ) -> ScanSummary
 where
-    P: Fn(usize, usize) + Send + Sync,
+    P: Fn(usize, usize, Vec<String>) + Send + Sync,
 {
     let total = files.len();
     let paths: Vec<PathBuf> = files.iter().map(|f| f.path.clone()).collect();
@@ -908,6 +911,7 @@ where
     let done = AtomicUsize::new(0);
     let errors = AtomicUsize::new(0);
     let last = Mutex::new(None::<Instant>);
+    let ready: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     let flush = |batch: Vec<(FileStat, Result<Entry, String>)>| {
         if batch.is_empty() {
@@ -920,7 +924,13 @@ where
             // newly lost here.
             let newly_failed = batch.iter().filter(|(_, r)| r.is_ok()).count();
             errors.fetch_add(newly_failed, Ordering::Relaxed);
+            return;
         }
+        lock(&ready).extend(
+            batch
+                .iter()
+                .map(|(file, _)| file.path.to_string_lossy().into_owned()),
+        );
     };
 
     let on_item = |i: usize, result: Result<Entry, String>| {
@@ -942,7 +952,7 @@ where
         let now = Instant::now();
         let due = {
             let mut last = lock(&last);
-            if done == total || last.is_none_or(|t| now.duration_since(t) >= progress_interval) {
+            if last.is_none_or(|t| now.duration_since(t) >= progress_interval) {
                 *last = Some(now);
                 true
             } else {
@@ -950,7 +960,7 @@ where
             }
         };
         if due {
-            progress(done, total);
+            progress(done, total, std::mem::take(&mut *lock(&ready)));
         }
     };
 
@@ -959,9 +969,11 @@ where
         log::error!("scan of {dir} failed: {e}");
     }
     flush(std::mem::take(&mut *lock(&pending)));
+    let done_count = done.load(Ordering::Relaxed);
+    progress(done_count, total, std::mem::take(&mut *lock(&ready)));
 
     let summary = ScanSummary {
-        total: done.load(Ordering::Relaxed),
+        total: done_count,
         errors: errors.load(Ordering::Relaxed),
     };
     log::info!(
@@ -978,6 +990,7 @@ where
 mod tests {
     use super::*;
     use riffle_core::arw::{FocusLocation, Shot};
+    use std::collections::HashSet;
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("riffle-index-{name}-{}", std::process::id()));
@@ -1749,7 +1762,7 @@ mod tests {
             2,
             &AtomicBool::new(false),
             PROGRESS_INTERVAL,
-            |done, total| progress.lock().unwrap().push((done, total)),
+            |done, total, ready| progress.lock().unwrap().push((done, total, ready)),
         );
 
         assert_eq!(summary.total, 8);
@@ -1758,7 +1771,90 @@ mod tests {
         assert_eq!(entries.len(), 8);
         assert!(entries.iter().all(|e| e.has_thumb && e.orientation == 6));
         let progress = progress.into_inner().unwrap();
-        assert_eq!(progress.last(), Some(&(8, 8)), "the last file is reported");
+        let (done, total, _) = progress.last().unwrap();
+        assert_eq!((*done, *total), (8, 8), "the last file is reported");
+
+        remove_temp_dir(&dir);
+    }
+
+    /// Every written path is reported exactly once, for a file count that is
+    /// not a multiple of `BATCH`.
+    #[test]
+    fn a_scan_reports_every_written_path_exactly_once() {
+        let dir = temp_dir("ready");
+        let body = jpeg(64, 48);
+        let files: Vec<FileStat> = (0..(BATCH * 2 + 3))
+            .map(|i| file(&dir, &format!("{i:03}.ARW"), &fixture(6, &body)))
+            .collect();
+
+        let index = Mutex::new(open(&dir));
+        let reported = Mutex::new(Vec::new());
+        let summary = run_scan(
+            &index,
+            "d",
+            &files,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, ready| reported.lock().unwrap().extend(ready),
+        );
+
+        assert_eq!(summary.total, files.len());
+        let mut reported = reported.into_inner().unwrap();
+        let written: Vec<String> = {
+            let mut paths: Vec<String> = lock(&index)
+                .entries("d")
+                .unwrap()
+                .into_iter()
+                .map(|e| e.path)
+                .collect();
+            paths.sort();
+            paths
+        };
+        let unique: HashSet<&String> = reported.iter().collect();
+        assert_eq!(unique.len(), reported.len(), "no path is reported twice");
+        reported.sort();
+        assert_eq!(reported, written, "every written path is reported");
+
+        remove_temp_dir(&dir);
+    }
+
+    /// An extraction error is authoritative too: its row exists, so its path
+    /// is reported like a successful one.
+    #[test]
+    fn a_scan_reports_the_paths_of_files_that_failed_extraction() {
+        let dir = temp_dir("ready-err");
+        let body = jpeg(64, 48);
+        let mut files: Vec<FileStat> = (0..4)
+            .map(|i| file(&dir, &format!("{i:03}.ARW"), &fixture(6, &body)))
+            .collect();
+        let bad = file(&dir, "bad.ARW", b"not a raw file at all");
+        files.push(bad.clone());
+
+        let index = Mutex::new(open(&dir));
+        let reported = Mutex::new(Vec::new());
+        let summary = run_scan(
+            &index,
+            "d",
+            &files,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, ready| reported.lock().unwrap().extend(ready),
+        );
+
+        assert_eq!(summary.errors, 1);
+        let reported = reported.into_inner().unwrap();
+        let bad_path = bad.path.to_string_lossy().into_owned();
+        assert!(reported.contains(&bad_path), "the failed file is reported");
+        let entries = lock(&index).entries("d").unwrap();
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.path == bad_path && e.exif.is_none()),
+            "the failed file has a row"
+        );
+        assert_eq!(reported.len(), entries.len());
 
         remove_temp_dir(&dir);
     }
@@ -1776,6 +1872,7 @@ mod tests {
 
         let index = Mutex::new(open(&dir));
         let cancel = AtomicBool::new(false);
+        let reported = Mutex::new(Vec::new());
         // A full batch is flushed before `done` counts its last item, so
         // `done >= BATCH` means the first batch has been written.
         let summary = run_scan(
@@ -1785,7 +1882,8 @@ mod tests {
             2,
             &cancel,
             Duration::ZERO,
-            |done, _| {
+            |done, _, ready| {
+                reported.lock().unwrap().extend(ready);
                 if done >= BATCH {
                     cancel.store(true, Ordering::Relaxed);
                 }
@@ -1794,8 +1892,17 @@ mod tests {
 
         assert!(summary.total >= BATCH, "the first batch ran");
         assert!(summary.total < files.len(), "the rest did not");
-        let written = lock(&index).entries("d").unwrap().len();
-        assert_eq!(written, summary.total, "everything scanned is persisted");
+        let written = lock(&index).entries("d").unwrap();
+        assert_eq!(
+            written.len(),
+            summary.total,
+            "everything scanned is persisted"
+        );
+        let mut reported = reported.into_inner().unwrap();
+        reported.sort();
+        let mut persisted: Vec<String> = written.into_iter().map(|e| e.path).collect();
+        persisted.sort();
+        assert_eq!(reported, persisted, "the reported paths are the rows kept");
 
         remove_temp_dir(&dir);
     }
