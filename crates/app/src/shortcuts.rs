@@ -109,6 +109,11 @@ const OTHER_SYSTEM: &[&str] = &[
     "ctrl+shift+escape",
 ];
 
+/// Lone modifiers, which never name a key. An earlier bug let them into the
+/// stored `shortcuts`, so they are dropped when it is read. Mirrors
+/// `MODIFIER_KEYS` in `crates/app/ui/src/keys.ts`; the two must stay in sync.
+const MODIFIER_ONLY: [&str; 4] = ["control", "alt", "shift", "meta"];
+
 /// Why `key` cannot be bound on macOS or elsewhere, if it cannot.
 fn forbidden(key: &str, macos: bool) -> Option<&'static str> {
     let (menu, system) = if macos {
@@ -222,7 +227,7 @@ impl Keymap {
     /// cannot be used is logged and the action keeps its default; an override
     /// whose key is already bound to another action is skipped, so the
     /// earlier action wins. A conflicting override is kept in the stored
-    /// value (`overrides`).
+    /// value (`overrides`), minus any modifier-only keys.
     pub fn from_overrides(overrides: Option<&Value>) -> Keymap {
         let mut keymap = Keymap::defaults();
         let Some(overrides) = overrides else {
@@ -254,13 +259,13 @@ impl Keymap {
                 log::warn!("ignoring the shortcut for {action}: {key:?} {reason}");
                 continue;
             }
-            pending.push((i, keys, value));
+            pending.push((i, keys));
         }
         // An override may need a key that a later override releases (`p` on
         // reject once pick moves off it), so retry until nothing applies.
         loop {
             let before = pending.len();
-            pending.retain(|(i, keys, _)| {
+            pending.retain(|(i, keys)| {
                 let action = keymap.bindings[*i].action;
                 let free = keys.iter().all(|key| {
                     !keymap
@@ -277,7 +282,7 @@ impl Keymap {
                 break;
             }
         }
-        for (i, keys, value) in pending {
+        for (i, keys) in pending {
             let action = keymap.bindings[i].action;
             let conflict = keys.iter().find_map(|key| {
                 keymap
@@ -288,7 +293,9 @@ impl Keymap {
             });
             if let Some((key, other)) = conflict {
                 log::warn!("ignoring the shortcut for {action}: {key:?} is bound to {other}");
-                keymap.inactive.insert(action.to_string(), value.clone());
+                keymap
+                    .inactive
+                    .insert(action.to_string(), Value::from(keys.clone()));
             }
         }
         keymap
@@ -378,7 +385,7 @@ impl Keymap {
 
     /// The actions whose keys differ from the default, as stored under the
     /// `shortcuts` settings key. A stored override skipped for a key
-    /// conflict is kept as it was.
+    /// conflict is kept as it was, minus any modifier-only keys.
     pub fn overrides(&self) -> Value {
         let defaults = Keymap::defaults();
         let mut overrides = self.inactive.clone();
@@ -405,9 +412,21 @@ fn parse_keys(value: &Value) -> Option<Vec<String>> {
     if keys.is_empty() {
         return None;
     }
-    keys.iter()
+    let mut keys: Vec<String> = keys
+        .iter()
         .map(|k| k.as_str().filter(|k| !k.is_empty()).map(str::to_string))
-        .collect()
+        .collect::<Option<Vec<String>>>()?;
+    keys.retain(|k| {
+        let modifier_only = MODIFIER_ONLY.contains(&k.as_str());
+        if modifier_only {
+            log::warn!("ignoring the modifier-only key {k:?} in a shortcut");
+        }
+        !modifier_only
+    });
+    if keys.is_empty() {
+        return None;
+    }
+    Some(keys)
 }
 
 #[cfg(test)]
@@ -932,6 +951,30 @@ mod tests {
             vec!["arrowleft", "arrowup", "w", "a", "h", "k"]
         );
         assert_eq!(keymap.overrides(), stored);
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn a_modifier_only_override_keeps_the_default() {
+        let keymap = Keymap::from_overrides(Some(&json!({"zoom": ["control"]})));
+        assert_eq!(keys_of(&keymap, "zoom"), vec!["z"]);
+        assert_eq!(keymap.overrides(), json!({}));
+    }
+
+    #[test]
+    fn a_modifier_only_key_is_dropped_from_a_mixed_override() {
+        let keymap = Keymap::from_overrides(Some(&json!({"zoom": ["shift", "g"]})));
+        assert_eq!(keys_of(&keymap, "zoom"), vec!["g"]);
+        assert_eq!(keymap.overrides(), json!({"zoom": ["g"]}));
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn a_conflicting_override_keeps_only_its_filtered_keys() {
+        let stored = json!({"reject": ["meta", "arrowup"]});
+        let keymap = Keymap::from_overrides(Some(&stored));
+        assert_eq!(keys_of(&keymap, "reject"), vec!["x"]);
+        assert_eq!(keymap.overrides(), json!({"reject": ["arrowup"]}));
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
     }
 }

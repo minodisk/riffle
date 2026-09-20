@@ -24,3 +24,15 @@
   (`Bound`) points into the reader's namespace buffer.
 - Both new tests pass on the first run; the existing xmp tests needed no
   change.
+
+## Step 3
+
+- Filtering inside `parse_keys` means the empty check has to run twice: once
+  on the raw array (so `[]` stays "not a non-empty list of keys") and once
+  after the retain (so `["control"]` also falls back to the default).
+- `pending` no longer needs to carry the raw `Value`: the only consumer was
+  `inactive.insert`, which now stores `Value::from(keys.clone())`, so the
+  tuple shrank to `(index, keys)`.
+- No frontend change: `MODIFIER_KEYS` in `crates/app/ui/src/keys.ts` already
+  rejects lone modifiers at capture time; `MODIFIER_ONLY` in
+  `crates/app/src/shortcuts.rs` mirrors it and carries a sync comment.

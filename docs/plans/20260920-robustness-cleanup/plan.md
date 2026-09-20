@@ -151,7 +151,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
       last candidate rather than looping forever; a sidecar with 99 `xmpN`
       bindings is not a real input.
 
-- [ ] Step 3: Drop modifier-only shortcut entries when the `shortcuts` setting is read
+- [x] Step 3: Drop modifier-only shortcut entries when the `shortcuts` setting is read
   - Done when:
     - `Keymap::from_overrides` ignores any key that is exactly `control`,
       `shift`, `alt` or `meta` in a stored override list before the list is
@@ -260,3 +260,4 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 - Step 1: Sidecar read errors are now keyed by the RAW path in `crates/app/src/commands.rs`, so they supersede write errors for the same file (commit `a26aa38`, PR TBD).
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete
