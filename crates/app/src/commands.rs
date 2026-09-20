@@ -745,13 +745,22 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let scan_started = std::time::Instant::now();
+    let list_started = std::time::Instant::now();
     let (listed, sidecars) = {
         let dir = dir.clone();
         tauri::async_runtime::spawn_blocking(move || list_folder_in(Path::new(&dir), format))
             .await
             .map_err(|e| e.to_string())??
     };
+    log::info!(
+        "scan list: dir={dir} scan_id={scan_id} raws={} sidecars={} in {}ms",
+        listed.len(),
+        sidecars.len(),
+        list_started.elapsed().as_millis()
+    );
 
+    let reconcile_started = std::time::Instant::now();
     let todo = {
         let (dir, index, listed) = (dir.clone(), index.clone(), listed.clone());
         tauri::async_runtime::spawn_blocking(move || {
@@ -765,6 +774,13 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .map_err(|e| e.to_string())??
     };
 
+    log::info!(
+        "scan reconcile: dir={dir} scan_id={scan_id} todo={} in {}ms",
+        todo.len(),
+        reconcile_started.elapsed().as_millis()
+    );
+
+    let sidecars_started = std::time::Instant::now();
     let dirty = {
         let (dir, index) = (dir.clone(), index);
         tauri::async_runtime::spawn_blocking(move || {
@@ -773,7 +789,9 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         .await
         .map_err(|e| e.to_string())?
     };
+    let sidecars_ms = sidecars_started.elapsed().as_millis();
     let mut sidecar_errors = Vec::new();
+    let mut dirty_count = 0;
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
         // so it goes to the writer with none. Its own `label_known` (see
@@ -783,6 +801,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // existing sidecar label would be stripped.
         Ok((dirty, problems)) => {
             sidecar_errors = problems;
+            dirty_count = dirty.len();
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating, pick, label, label_known) in dirty {
                     if let Err(e) = writer.set_now(
@@ -802,6 +821,12 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // must not stop the folder from opening.
         Err(e) => log::error!("failed to reconcile the sidecars of {dir}: {e}"),
     }
+    log::info!("scan sidecars: dir={dir} scan_id={scan_id} dirty={dirty_count} in {sidecars_ms}ms");
+    log::info!(
+        "scan prepare: dir={dir} scan_id={scan_id} todo={} in {}ms",
+        todo.len(),
+        scan_started.elapsed().as_millis()
+    );
 
     let total = todo.len();
     let mut state = index::lock(&scans.0);
