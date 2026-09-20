@@ -182,7 +182,7 @@ the time of a subsequent open of the same folder can all be read off.
     - Do not bind a shortcut: non-culling actions go in the menu, not on a key
       (project policy).
 
-- [ ] Step 4: Document the log folder and the measurement procedure
+- [x] Step 4: Document the log folder and the measurement procedure
   - Done when:
     - `README.md` mentions `Help > Open Log Folder` in the feature list next
       to the other menu items (`Open in DxO PhotoLab`, `Undo`, ...) and names
