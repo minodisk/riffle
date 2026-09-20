@@ -26,11 +26,6 @@
 
 ## Deferred issues (todo candidates)
 
-- A rescan whose `scan_folder` result lands with a stale folder token leaves
-  `resyncPending` set until the next `scan-done` drains it. Harmless (at worst
-  one extra rescan is skipped until then), so it was not worth a third flag.
-  From the Step 1 implementation; `crates/app/ui/src/main.ts`
-  (`startScan` / `drainResync`).
 - The cost of a rescan on an unchanged large folder (stat of every file plus
   the sidecar reconcile, plus the `folder_entries` read on `scan-done`) was
   not measured; the plan's "Other risks" asks for a number on a real folder.

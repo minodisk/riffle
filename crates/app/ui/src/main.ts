@@ -1029,6 +1029,7 @@ function startScan(folder: string, token: number): Promise<void> {
     })
     .then(({ scan_id, sidecar_errors }) => {
       if (token !== folderToken) {
+        drainResync();
         return;
       }
       if (sidecar_errors.length > 0) {
@@ -1045,6 +1046,7 @@ function startScan(folder: string, token: number): Promise<void> {
     })
     .catch((err: unknown) => {
       scanRunning = false;
+      drainResync();
       setStatus(String(err));
     });
 }
