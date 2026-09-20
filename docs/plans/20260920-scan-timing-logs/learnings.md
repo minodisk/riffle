@@ -43,6 +43,57 @@
   measurement warrants. Raising the cap also keeps the mid-scan rows=N
   progression, which shows how fast the index fills.
 
+## Step 3
+
+- `create_dir_all` before `open_path`: **included**. It is one line and turns
+  the "nothing has been logged yet" case (where `open_path` errors with a
+  not-found) into an empty folder opening normally.
+- The separator is not placed unconditionally: `help.items()?.is_empty()`
+  decides, so macOS (where the default `Help` submenu is empty) gets the item
+  alone and does not render a trailing lone separator line.
+- `open_log_folder` returns `Box<dyn std::error::Error>` because it mixes
+  `tauri::Error` (`app_log_dir`), `std::io::Error` (`create_dir_all`) and the
+  opener's error; the caller logs it with `log::error!`.
+- `open_path` takes an `impl Into<String>`, not a `Path`, so the `PathBuf` goes
+  through `to_string_lossy()` (`open_in_photolab` passes an already-`String`
+  path, which hid this).
+
+## Merge conflict with concurrently-landed macOS menu icon work
+
+- While this branch was open, `feat(app): show native icons on the macOS menu
+  items that have one` (#190) and `feat(app): bundle SF Symbol icons for
+  Settings and Undo menu items` (#193) landed on `main` and changed
+  `crates/app/src/main.rs`'s `app_menu` module: `MenuItem` is now imported
+  only under `#[cfg(not(target_os = "macos"))]`, since every macOS item got
+  an `IconMenuItem` instead. This branch's Step 3 had added the `Open Log
+  Folder` item as a plain `MenuItem::with_id(...)` with no `cfg` split, so
+  merging the two was a textually clean merge (no conflict markers) that was
+  semantically wrong: `MenuItem` no longer resolves on macOS at that call
+  site.
+- **A branch-only local CI pass does not catch this kind of conflict.** CI on
+  this branch alone was green throughout, because the branch's own copy of
+  the import block still had `MenuItem` in scope. The break only exists in
+  the *merge result*, so nothing short of actually merging (or rebasing) main
+  in and rebuilding would have shown it.
+- **First diagnosis was wrong.** The `test (macos-latest)` job's failure was
+  first suspected to be a macOS runner cache flake, since the same code had
+  passed before and the other three jobs (`test (ubuntu-latest)`,
+  `test (windows-latest)`, `lint`) were green. Re-running the job
+  reproduced the identical `error[E0433]: cannot find type \`MenuItem\` in
+  this scope` at the same line every time, which ruled out flakiness.
+- **What made it look like phantom corruption**: the reported line number
+  (`main.rs:139`) did not match the branch head's `open_log_folder` line at
+  the time, because GitHub's merge commit for the PR is what CI actually
+  builds, not the branch tip — so a `git blame`/`git show` against the branch
+  head alone showed unrelated code at that line. The fix was to check out the
+  actual merge result (rebase main onto the branch, or build the PR's merge
+  ref) rather than reasoning from the branch head in isolation.
+- Fix: gave `Open Log Folder` the same `#[cfg(target_os = "macos")]` /
+  `#[cfg(not(target_os = "macos"))]` split as the other items, following the
+  established pattern of a bundled SF Symbol PNG for items with no fitting
+  `NativeIcon` (`folder.png`, rendered via `tools/macos/export-menu-icons.swift`
+  alongside `gearshape.png` and `arrow.uturn.backward.png`).
+
 ## Deferred issues (todo candidates)
 
 - (none)

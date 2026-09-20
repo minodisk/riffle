@@ -18,7 +18,7 @@ import AppKit
 let pointSize: CGFloat = 18
 let scale: CGFloat = 2
 let color = NSColor(srgbRed: 0x8E / 255, green: 0x8E / 255, blue: 0x93 / 255, alpha: 1)
-let symbols = ["gearshape", "arrow.uturn.backward"]
+let symbols = ["gearshape", "arrow.uturn.backward", "folder"]
 
 let root = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()

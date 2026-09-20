@@ -150,7 +150,7 @@ the time of a subsequent open of the same folder can all be read off.
       README procedure (Step 4) tells the user to add `open list` +
       `open entries` + the `scan_folder` summary line of the same open.
 
-- [ ] Step 3: Add `Help > Open Log Folder` to the app menu
+- [x] Step 3: Add `Help > Open Log Folder` to the app menu
   - Done when:
     - A menu item with id `open-log-folder` and label `Open Log Folder`
       appears in the `Help` submenu on every platform (on Windows/Linux above
@@ -297,3 +297,4 @@ explicitly.
 
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete

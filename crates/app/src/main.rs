@@ -16,8 +16,10 @@ mod app_menu {
     use tauri::menu::{IconMenuItem, NativeIcon};
     use tauri::menu::{Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
+    use tauri_plugin_opener::OpenerExt;
 
     const PHOTOLAB_ID: &str = "open-in-photolab";
+    const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
     const CHECK_UPDATES_ID: &str = "check-for-updates";
@@ -123,6 +125,41 @@ mod app_menu {
             ],
             2,
         )?;
+        // `Help` may be missing from the default menu (Linux), in which case
+        // it's created here; empty on macOS; holding About elsewhere, where
+        // the separator keeps the two apart.
+        let help = match submenu(&menu, "Help")? {
+            Some(help) => help,
+            None => {
+                let help = Submenu::new(handle, "Help", true)?;
+                menu.append(&help)?;
+                help
+            }
+        };
+        #[cfg(target_os = "macos")]
+        let open_log_folder = IconMenuItem::with_id(
+            handle,
+            OPEN_LOG_FOLDER_ID,
+            "Open Log Folder",
+            true,
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/folder.png"
+            ))?),
+            None::<&str>,
+        )?;
+        #[cfg(not(target_os = "macos"))]
+        let open_log_folder = MenuItem::with_id(
+            handle,
+            OPEN_LOG_FOLDER_ID,
+            "Open Log Folder",
+            true,
+            None::<&str>,
+        )?;
+        if help.items()?.is_empty() {
+            help.prepend(&open_log_folder)?;
+        } else {
+            help.prepend_items(&[&open_log_folder, &PredefinedMenuItem::separator(handle)?])?;
+        }
         // `Edit` opens with the predefined Undo and Redo, which only act on
         // editable content (neither window has any) and would own Cmd+Z.
         if let Some(edit) = submenu(&menu, "Edit")? {
@@ -160,11 +197,27 @@ mod app_menu {
         if event.id() == CHECK_UPDATES_ID {
             crate::update::spawn(app.clone(), true);
         }
+        if event.id() == OPEN_LOG_FOLDER_ID {
+            if let Err(e) = open_log_folder(app) {
+                log::error!("failed to open the log folder: {e}");
+            }
+        }
         if event.id() == SETTINGS_ID {
             if let Err(e) = open_settings(app) {
                 log::error!("failed to open the settings window: {e}");
             }
         }
+    }
+
+    /// Show the folder holding `Riffle.log` in the platform's file manager.
+    fn open_log_folder(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = app.path().app_log_dir()?;
+        // The plugin creates the folder on its first write, which has happened
+        // by the time a menu can be clicked; this only covers a log-less run.
+        std::fs::create_dir_all(&dir)?;
+        app.opener()
+            .open_path(dir.to_string_lossy(), None::<&str>)?;
+        Ok(())
     }
 
     /// Focus the settings window, or open it when it is not open yet.
