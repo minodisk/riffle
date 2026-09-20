@@ -208,6 +208,10 @@ const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
 /// A sidecar the folder-open pass could not use, reported to the frontend.
 #[derive(Debug, serde::Serialize)]
 pub struct SidecarError {
+    /// The RAW file's path, not the sidecar's: it has to match the key the
+    /// `sidecar-error` event uses for a write failure so the frontend's
+    /// `ErrorList` replaces one with the other instead of showing both. The
+    /// sidecar's file name goes in `message`.
     path: String,
     message: String,
 }
@@ -253,8 +257,14 @@ fn reconcile_sidecars_of(
     let mut problems: Vec<SidecarError> = Vec::new();
     for (path, (sidecar, size, mtime_ns), dirty) in &to_parse {
         let problem = |message: String| SidecarError {
-            path: sidecar.to_string_lossy().into_owned(),
-            message,
+            path: path.clone(),
+            message: format!(
+                "{}: {message}",
+                sidecar
+                    .file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_else(|| sidecar.to_string_lossy())
+            ),
         };
         if oversize.contains(path.as_str()) {
             problems.push(problem(format!(
@@ -1844,10 +1854,8 @@ mod tests {
 
         assert!(dirty.is_empty(), "the writer must not patch it unread");
         assert_eq!(problems.len(), 1);
-        assert_eq!(
-            problems[0].path,
-            root.join("a.ARW.dop").to_string_lossy().into_owned()
-        );
+        assert_eq!(problems[0].path, listed[0]);
+        assert!(problems[0].message.starts_with("a.ARW.dop: "));
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(5));
 
@@ -1872,14 +1880,12 @@ mod tests {
   <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="4"#,
         )
         .unwrap();
-        let expected = xmp.to_string_lossy().into_owned();
-
         for _ in 0..2 {
             let (_, problems) =
                 reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
             assert_eq!(problems.len(), 1);
-            assert_eq!(problems[0].path, expected);
-            assert!(!problems[0].message.is_empty());
+            assert_eq!(problems[0].path, listed[0]);
+            assert!(problems[0].message.starts_with("a.xmp: "));
         }
         index_files(&index, &dir, &listed);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(2));

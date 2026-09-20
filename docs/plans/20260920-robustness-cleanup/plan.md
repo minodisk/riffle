@@ -86,7 +86,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 
 ## Steps
 
-- [ ] Step 1: Key sidecar read errors by the RAW path so they supersede write errors for the same file
+- [x] Step 1: Key sidecar read errors by the RAW path so they supersede write errors for the same file
   - Done when:
     - `reconcile_sidecars_of`'s `SidecarError.path` is the RAW path (the
       `path` of the `to_parse` tuple), and its `message` starts with the
