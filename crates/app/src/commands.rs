@@ -649,7 +649,11 @@ struct ScansState {
     /// into `running`) re-check against this so an id that has since been
     /// superseded is refused rather than acted on late.
     latest_id: u64,
-    running: Option<(Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
+    /// The scan `start_scan` most recently spawned, with the id it was
+    /// spawned under so the task's own clean-up can tell whether the entry
+    /// is still its own. `Some` does not mean a scan is running; see
+    /// `scanning`.
+    running: Option<(u64, Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
     pending: HashMap<u64, PendingScan>,
     /// The number of `scan_folder` calls currently past minting their id but
     /// not yet done (listing, `reconcile`, `reconcile_sidecars_of`), i.e.
@@ -663,6 +667,27 @@ impl ScansState {
     fn next_id(&mut self) -> u64 {
         self.next_id += 1;
         self.next_id
+    }
+
+    /// Whether a scan is genuinely in progress: a `scan_folder` past minting
+    /// its id and not yet returned, a prepared scan waiting for `start_scan`,
+    /// or a spawned scan task that has not yet run to completion. The single
+    /// definition every guard uses.
+    fn scanning(&self) -> bool {
+        self.preparing > 0 || self.running.is_some() || !self.pending.is_empty()
+    }
+
+    /// Drop the entry of the scan spawned under `scan_id`, if it is still the
+    /// one stored. A later `scan_folder` may have taken it and a later
+    /// `start_scan` stored a newer one, which this must not clear.
+    fn finish(&mut self, scan_id: u64) {
+        if self
+            .running
+            .as_ref()
+            .is_some_and(|(id, _, _)| *id == scan_id)
+        {
+            self.running = None;
+        }
     }
 }
 
@@ -777,7 +802,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let dir = canonicalize(&dir);
     let cancel = Arc::new(AtomicBool::new(false));
 
-    if let Some((previous_cancel, previous_handle)) = previous {
+    if let Some((_, previous_cancel, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
     }
@@ -960,9 +985,10 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
                     errors: summary.errors,
                 },
             );
+            index::lock(&app.state::<Scans>().0).finish(scan_id);
         }
     });
-    state.running = Some((cancel, handle));
+    state.running = Some((scan_id, cancel, handle));
     Ok(())
 }
 
@@ -1308,7 +1334,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     {
         let scans = app.state::<Scans>();
         let state = index::lock(&scans.0);
-        if state.running.is_some() || state.preparing > 0 || !state.pending.is_empty() {
+        if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
     }
@@ -1344,7 +1370,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
         };
         let scans = handle.state::<Scans>();
         let state = index::lock(&scans.0);
-        if state.running.is_some() || state.preparing > 0 || !state.pending.is_empty() {
+        if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
         let summary = index::lock(&index).clear()?;
@@ -1370,7 +1396,80 @@ fn canonicalize(dir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, SIZE_BASE};
+    use super::{format_bytes, Scans, ScansState, SIZE_BASE};
+    use crate::index;
+    use std::sync::{atomic::AtomicBool, mpsc, Arc, Mutex};
+
+    /// Spawn a task that clears its own entry once `go` fires, the way the
+    /// real scan task does at the end of `start_scan`'s closure.
+    fn spawn_scan(
+        scans: &Arc<Scans>,
+        scan_id: u64,
+    ) -> (mpsc::Sender<()>, tauri::async_runtime::JoinHandle<()>) {
+        let (tx, rx) = mpsc::channel();
+        let scans = scans.clone();
+        let handle = tauri::async_runtime::spawn_blocking(move || {
+            let _ = rx.recv();
+            index::lock(&scans.0).finish(scan_id);
+        });
+        (tx, handle)
+    }
+
+    #[test]
+    fn a_finished_scan_leaves_no_scan_in_progress() {
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (go, handle) = spawn_scan(&scans, 1);
+        index::lock(&scans.0).running = Some((1, Arc::new(AtomicBool::new(false)), handle));
+        let _ = go.send(());
+        // Wait for the task the way `scan_folder` does, without taking the
+        // entry: what is asserted is that the task cleared it itself.
+        let waited = tauri::async_runtime::spawn_blocking({
+            let scans = scans.clone();
+            move || {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+                while index::lock(&scans.0).running.is_some()
+                    && std::time::Instant::now() < deadline
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            }
+        });
+        tauri::async_runtime::block_on(waited).unwrap();
+        assert!(!index::lock(&scans.0).scanning());
+    }
+
+    #[test]
+    fn a_superseded_scan_does_not_clear_the_newer_scan() {
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (old_go, old_handle) = spawn_scan(&scans, 1);
+        let old_cancel = Arc::new(AtomicBool::new(false));
+        index::lock(&scans.0).running = Some((1, old_cancel, old_handle));
+
+        // `scan_folder` supersedes it: take the entry, cancel, join.
+        let (_, old_cancel, old_handle) = index::lock(&scans.0).running.take().unwrap();
+        old_cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        // The newer scan is already stored when the old task gets to run.
+        let (new_go, new_handle) = spawn_scan(&scans, 2);
+        index::lock(&scans.0).running = Some((2, Arc::new(AtomicBool::new(false)), new_handle));
+
+        let _ = old_go.send(());
+        tauri::async_runtime::block_on(old_handle).unwrap();
+
+        let state = index::lock(&scans.0);
+        assert!(state.scanning());
+        assert_eq!(state.running.as_ref().unwrap().0, 2);
+        drop(state);
+        let _ = new_go.send(());
+    }
+
+    #[test]
+    fn a_folder_being_prepared_counts_as_a_scan_in_progress() {
+        let mut state = ScansState::default();
+        assert!(!state.scanning());
+        state.preparing = 1;
+        assert!(state.scanning());
+    }
 
     #[test]
     fn format_bytes_uses_whole_bytes_below_the_base() {
