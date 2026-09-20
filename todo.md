@@ -18,14 +18,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Decide whether these subcommands can move to `reader::read_head`/`reader::read_full` with a whole-file fallback, or whether they inherently need the whole file and this is not worth changing.
 
-### App: no rescan when new files appear in an already-open folder
-
-`scan_folder` in `crates/app/src/commands.rs` reconciles the index only when a folder is opened, so a file added to an already-open folder is not picked up until the folder is reopened.
-
-#### TODO
-
-- [ ] Add a folder watcher, or a rescan on window refocus, to catch new files without a reopen.
-
 ### App: the filmstrip re-requests every visible placeholder on each `scan-progress` event
 
 `refresh` in `crates/app/ui/src/strip.ts`, driven from the `scan-progress` handler at ~10/s, re-requests every visible placeholder rather than only the indices the scan has newly passed. It is bounded by the 4-in-flight cap and the visible range, but it is avoidable IPC. Relatedly, the strip discovers whether a file has a thumbnail by invoking `thumbnail` and treating an `Err` as "not yet", rather than reading `has_thumb` from the `folder_entries` map, because keeping that map fresh during a scan would mean the same 10/s full re-read.
@@ -184,3 +176,19 @@ the deferred `pick = true` variant of the format-switch race test in
 - [ ] Fix the race in `Index::reset_sidecars`/`Index::mark_written` (or
       `switch_format`'s ordering) so a pick set during a format switch
       survives the switch.
+
+### App: unmeasured cost of a rescan on an unchanged large folder
+
+The focus/manual rescan added by the live-folder-refresh feature (`crates/app/src/commands.rs`'s `scan_folder`, `crates/app/src/index.rs`) stats every file and reconciles the sidecar index even when nothing changed, plus a `folder_entries` read of every row on `scan-done`. This cost was not measured on a real large folder; if it turns out to be visible, the watcher's debounce window may need to grow.
+
+#### TODO
+
+- [ ] Measure a focus/manual rescan's wall time on an unchanged folder of ~5000 real files, and note whether it is noticeable enough to widen the debounce.
+
+### App: a file picked up mid-copy may be scanned from a partial read
+
+The folder watcher (`crates/app/src/watch.rs`, `crates/app/src/commands.rs`) can fire a rescan while a file is still being copied into the open folder, extracting a partial preview and writing that size/mtime into the index; the copy's completion later fires another event and `reconcile` re-extracts. The plan accepted this as expected behavior but it was never observed either way.
+
+#### TODO
+
+- [ ] Verify by hand (copy a large ARW/DNG into an open, watched folder) whether a partial mid-copy read ever produces a visibly wrong thumbnail/rating before the follow-up event corrects it, and whether any guard is warranted.
