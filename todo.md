@@ -225,18 +225,6 @@ The folder watcher (`crates/app/src/watch.rs`, `crates/app/src/commands.rs`) can
 
 - [ ] Verify by hand (copy a large ARW/DNG into an open, watched folder) whether a partial mid-copy read ever produces a visibly wrong thumbnail/rating before the follow-up event corrects it, and whether any guard is warranted.
 
-### App: the key formatter is duplicated between `empty.ts` and `settings.ts`
-
-`crates/app/ui/src/empty.ts` (`displayKey`) and `crates/app/ui/src/settings.ts`
-(the local `display`) each format keymap keys for display (e.g. `space` ->
-`Space`) independently. Sharing one implementation via `keys.ts` was left out
-of the `viewer-empty-state` feature as out of scope.
-
-#### TODO
-
-- [ ] Extract a single key-display formatter into `crates/app/ui/src/keys.ts`
-      and have both `empty.ts` and `settings.ts` use it.
-
 ### App: the viewer empty-state manual checklist is still open
 
 `viewer-empty-state`'s step 2 (overlay element, click-to-open, keymap-driven

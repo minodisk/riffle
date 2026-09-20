@@ -67,3 +67,4 @@ one place. Pure refactor; no behaviour change.
 ## Progress
 
 - Step 1: `displayKey` moved into `keys.ts` (commit `d59c301`).
+- (2026-09-20) Step 1 complete
