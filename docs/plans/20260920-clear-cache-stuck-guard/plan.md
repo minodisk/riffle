@@ -55,7 +55,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 
 ## Steps
 
-- [ ] Step 1: Clear `running` when the scan task ends, and pin the guard's state with tests
+- [x] Step 1: Clear `running` when the scan task ends, and pin the guard's state with tests
   - Done when:
     - `ScansState` gains one method, e.g. `fn scanning(&self) -> bool`, that is
       the single definition of "a scan is genuinely in progress", and both
