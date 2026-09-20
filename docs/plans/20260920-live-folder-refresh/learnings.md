@@ -14,8 +14,11 @@
   out there. Kept it that way instead of adding a prune pass.
 - Deferral state is two flags: `scanRunning` (set at the top of `startScan`,
   before `scan_folder` is invoked, so the prepare phase is covered too;
-  cleared in the `scan-done` listener, and on `startScan`'s own stale-token
-  and `catch` exits) and `resyncPending`, drained from `scan-done` via
+  cleared in the `scan-done` listener; `startScan`'s own `.then` and `catch`
+  exits key their ownership check off `folder !== openDir` rather than the
+  token, and leave `scanRunning` alone when it fires, since a new `openDir`
+  owner is expected to run its own `startScan`) and `resyncPending`, drained
+  from `scan-done` via
   `drainResync()`. `resyncInFlight` keeps one `list_arw` outstanding, the way
   `refreshEntries` does for `folder_entries`.
 - `tauri://focus` was used as decided (decision 2); it was **not** verified at

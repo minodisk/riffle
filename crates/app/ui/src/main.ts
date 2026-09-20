@@ -1018,7 +1018,7 @@ function reopenLastFolder(): void {
 // changed) and returns the ids of the work left, which `start_scan` runs.
 // Shared by `openDirectory` (the reset path) and `resync` (the keep-state
 // path).
-function startScan(folder: string, token: number): Promise<void> {
+function startScan(folder: string): Promise<void> {
   // Set before `scan_folder` resolves so a `resync()` during the prepare
   // phase (folder listing plus index and sidecar reconcile) is deferred too,
   // not just during `start_scan` — otherwise it starts a second
@@ -1033,9 +1033,14 @@ function startScan(folder: string, token: number): Promise<void> {
       dir: folder,
     })
     .then(({ scan_id, sidecar_errors }) => {
-      if (token !== folderToken) {
-        // A newer folder is already open; that folder's own `startScan` owns
-        // `scanRunning` / `resyncPending` now, so leave them alone.
+      if (folder !== openDir) {
+        // A different folder is now open; that folder's own `startScan` owns
+        // `scanRunning` / `resyncPending` now, so leave them alone. Keying
+        // this off `openDir` rather than `token` matters because `token` is
+        // bumped by `openFolder` / `reopenLastFolder` as soon as the picker
+        // opens, before its dialog resolves — a cancelled dialog never calls
+        // `openDirectory`, so the token alone would go stale with no new
+        // owner while `openDir` still points at this folder.
         return;
       }
       if (sidecar_errors.length > 0) {
@@ -1050,7 +1055,7 @@ function startScan(folder: string, token: number): Promise<void> {
       });
     })
     .catch((err: unknown) => {
-      if (token !== folderToken) {
+      if (folder !== openDir) {
         return;
       }
       scanRunning = false;
@@ -1094,7 +1099,7 @@ function resync(): void {
       }
       allFiles = found;
       refilter(anchor, true);
-      return startScan(dir, token);
+      return startScan(dir);
     })
     .catch((err: unknown) => {
       resyncInFlight = false;
@@ -1147,7 +1152,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanId = null;
     scanRunning = false;
     resyncPending = false;
-    void startScan(folder, token);
+    void startScan(folder);
     if (files.length === 0) {
       meta = null;
       setStatus(allFiles.length === 0 ? "No RAW (ARW/DNG) files in that folder." : undefined);
