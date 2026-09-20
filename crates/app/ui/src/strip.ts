@@ -21,11 +21,12 @@ const CELL_HEIGHT = Number.parseFloat(getComputedStyle(inner).getPropertyValue("
 const RANGE_MARGIN = 4;
 // Concurrent `thumbnail` invokes. The IPC hop, not the decode, is the cost.
 const MAX_IN_FLIGHT = 4;
-// Shortest gap between two `refresh` runs. `scan-progress` arrives 10/s and
-// each run re-requests every visible cell the scan has not reached yet, which
-// kept `MAX_IN_FLIGHT` invokes outstanding for the whole scan and starved the
-// rest of the IPC channel. The event carries only `done`/`total`, not which
-// files became available, so the re-request cannot be narrowed; throttle it.
+// Shortest gap between two `refresh` runs. `refresh` re-requests every
+// visible cell the index had nothing for, so running it repeatedly kept
+// `MAX_IN_FLIGHT` invokes outstanding and starved the rest of the IPC
+// channel. `scan-progress` now goes through `ready` instead, which names the
+// files that became available, and only `scan-done` refreshes; the throttle
+// stays until that is the sole caller.
 const REFRESH_INTERVAL = 1000;
 
 interface Cell {
@@ -39,6 +40,10 @@ interface Cell {
 }
 
 let files: string[] = [];
+// Path -> index in `files`, for `ready`. The strip's order is the UI's
+// sorted and filtered order, so a scanned path has no positional
+// correspondence with the scan's own list.
+let indexOf = new Map<string, number>();
 let current = 0;
 // Bumped on every `setFiles`; a response tagged with an older generation
 // belongs to a folder that is no longer open and is dropped.
@@ -52,9 +57,13 @@ const requested = new Set<number>();
 // request is still pending does not issue a second `invoke`.
 const inFlightIndices = new Set<number>();
 // Indices the index has no thumbnail for yet (the scan has not reached them,
-// or the file errored). Cleared on `refresh` so a `scan-progress` event
-// re-requests them.
+// or the file errored). Cleared on `refresh`, and cleared per path by
+// `ready`, so the cell is requested again.
 const missing = new Set<number>();
+// Indices the scan has reported committed. A request that was in flight when
+// its path was reported comes back `Err` from a query that ran before the
+// commit, and must not be left `missing` until `scan-done`.
+const ready = new Set<number>();
 // When the last `refresh` ran, and the trailing timer for a `refresh` that
 // arrived inside `REFRESH_INTERVAL` of it. The trailing run is what keeps the
 // authoritative `scan-done` refresh from being dropped.
@@ -234,7 +243,7 @@ function request(index: number): void {
       // `refresh`.
       if (String(err).includes("no cached thumbnail")) {
         failed.add(index);
-      } else {
+      } else if (!ready.delete(index)) {
         missing.add(index);
       }
     })
@@ -339,6 +348,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   requested.clear();
   inFlightIndices.clear();
   missing.clear();
+  ready.clear();
   failed.clear();
   if (refreshTimer !== null) {
     clearTimeout(refreshTimer);
@@ -350,6 +360,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   sharpness.clear();
   files = paths;
+  indexOf = new Map(paths.map((path, index) => [path, index]));
   current = 0;
   inner.style.height = `${files.length * CELL_HEIGHT}px`;
   strip.scrollTop = keepScroll
@@ -388,6 +399,21 @@ export function refresh(): void {
       refresh();
     }, wait);
   }
+}
+
+// The scan has committed these paths, so the index can answer for them now.
+// Paths that are not in the current list (filtered out, or belonging to
+// another folder) are ignored.
+export function markReady(paths: string[]): void {
+  for (const path of paths) {
+    const index = indexOf.get(path);
+    if (index === undefined) {
+      continue;
+    }
+    ready.add(index);
+    missing.delete(index);
+  }
+  pump();
 }
 
 export function init(onSelect: (index: number) => void): void {

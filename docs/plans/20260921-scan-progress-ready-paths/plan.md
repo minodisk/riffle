@@ -102,7 +102,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Commit as `feat(app): report the flushed paths from run_scan` or
       similar.
 
-- [ ] Step 2: Carry `ready` in `scan-progress` and request only those cells
+- [x] Step 2: Carry `ready` in `scan-progress` and request only those cells
   - Done when:
     - The `scan-progress` payload is `{dir, scan_id, done, total, ready: string[]}`
       where `ready` is the list Step 1's callback handed over (full paths).
@@ -265,3 +265,13 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
   `on_item` takes under lock and hands to `progress` on each due emit and
   once more after the trailing flush, so every committed path (including
   error rows) is reported exactly once.
+- (2026-09-21) Step 2 complete
+- Step 2 (`ad76af9`, review fix `14e1f90`): the `scan-progress` payload
+  gained `ready: Vec<String>`, and the strip's `markReady(paths)` (named
+  around the `ready: Set<number>` the in-flight race needs) clears those
+  indices from `missing` and pumps. Local review caught that testing the
+  race with `ready.has(index)` retries a persistently failing thumbnail
+  forever, so `.catch` uses `ready.delete(index)` instead: the bypass is
+  one-shot per reported path, and a second failure falls through to
+  `failed`. The `mise run tauri:dev` check is still outstanding and is
+  recorded in `learnings.md` as a deferred manual check.
