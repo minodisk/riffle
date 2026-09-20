@@ -260,19 +260,6 @@ idle machine) and passed on immediate re-run. File:
       scheduling noise, so an unrelated CI run does not intermittently fail
       on it.
 
-### App: a pick kept across a sidecar format switch still shows its flag dot in the wrong format
-
-A pick kept by `reset_sidecars` across a Dop -> Xmp switch is rendered in XMP
-mode even though the underlying format no longer matches. The strip draws the
-pick dot regardless of the current sidecar format.
-
-#### TODO
-
-- [ ] Gate the flag-dot render on `sidecarFormat` in
-      `crates/app/ui/src/strip.ts` (the flag dot, `setRating`) and
-      `crates/app/ui/src/main.ts` (`applyRating`, `case "pick"`), consistent
-      with `crates/app/src/index.rs`'s `reset_sidecars` behavior.
-
 ### App: the filter menu closes when a thumbnail is clicked
 
 Now that the filter menu opens as a fly-out beside the sidebar (leaving the
