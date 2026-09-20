@@ -15,6 +15,7 @@ import { relativeSharpness } from "./sharpness.js";
 import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
+import { effectivePick } from "./pick.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -498,12 +499,15 @@ function applyRating(
   pick: boolean,
   label: string | null,
 ): void {
+  // A pick the current format cannot hold (a `.dop` pick kept across a switch
+  // to XMP) is dropped here, so the strip, the flag filter and undo agree.
+  const kept = effectivePick(pick, sidecarFormat);
   if (rating === null) {
     ratings.delete(path);
   } else {
     ratings.set(path, rating);
   }
-  if (pick) {
+  if (kept) {
     picks.add(path);
   } else {
     picks.delete(path);
@@ -515,7 +519,7 @@ function applyRating(
   }
   const at = fileIndex.get(path);
   if (at !== undefined) {
-    strip.setRating(at, rating, pick, label);
+    strip.setRating(at, rating, kept, label);
   }
 }
 
@@ -1719,7 +1723,7 @@ window.addEventListener("keydown", (event) => {
       break;
     case "pick":
       // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
-      if (sidecarFormat !== "dop") {
+      if (!effectivePick(true, sidecarFormat)) {
         return;
       }
       judged = judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
