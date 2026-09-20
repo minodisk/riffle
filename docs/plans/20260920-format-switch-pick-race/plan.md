@@ -181,3 +181,4 @@ open, and the `pick = true` variant of the format-switch race test that
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete
