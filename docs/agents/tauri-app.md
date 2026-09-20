@@ -308,6 +308,17 @@ truth. The script never runs at build or run time.
   Tauri exposes no template flag for menu items, so the bundled PNGs do not
   tint for dark mode. They are rendered in a fixed neutral grey (`#8E8E93`)
   that stays legible in both appearances.
+- The fix is a one-line gap, confirmed by a throwaway spike: adding
+  `nsimage.setTemplate(true)` to `menuitem_set_icon` in muda's
+  `src/platform_impl/macos/mod.rs` makes every bundled PNG tint with the menu
+  (white in dark mode, black in light mode) exactly like the OS-provided
+  items, since a template image contributes only its alpha channel — the
+  grey fill becomes dead weight once adopted. Patching requires a `path`/`git`
+  source (crates.io-to-crates.io patches are rejected) pinned to a version
+  satisfying `tauri`'s `muda = "^0.19"` (so 0.19.3, not 0.20). No upstream
+  muda or Tauri issue tracks this yet. See
+  `docs/plans/_archived/20260920-menu-icon-glyph-size/learnings.md`,
+  "Side experiment: muda's missing `setTemplate` is a one-line gap".
 - **Hit**: the PNG-backed items (`Settings...`, `Undo`, `Open Folder…`,
   `Open Log Folder`) rendered visibly larger than the rest of the menu. The cause is the
   glyph's padding, not the canvas: the export script drew the SF Symbol at

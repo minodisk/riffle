@@ -172,8 +172,14 @@ and nothing clips. `crates/app/src/main.rs` does not change.
 
 ## Progress
 
-- Step 1: Shrunk the glyph `pointSize` to 14 inside the 18pt canvas in
-  `tools/macos/export-menu-icons.swift`, regenerated the three PNGs, and
-  corrected the root-cause explanation in `docs/agents/tauri-app.md`. The
-  user's visual confirmation that the five menu icons now read as the same
-  size is still outstanding.
+- (2026-09-20) Step 1 complete: shrank the glyph `pointSize` inside the
+  unchanged 18pt canvas in `tools/macos/export-menu-icons.swift`, regenerated
+  the three PNGs, and corrected the root-cause explanation in
+  `docs/agents/tauri-app.md`. The first attempt at `pointSize: 14` still read
+  too large against the OS-provided menu items, so the user chose 12, which
+  they then confirmed visually — `Open Folder…`'s newly assigned `folder.png`
+  included. A mid-step scope addition gave `Open Folder…` that icon, closing
+  its own todo item. A side spike (reverted, not committed) additionally
+  proved that a one-line `setTemplate(true)` in muda fixes the dark-mode
+  tinting; that is recorded in `learnings.md` and folded into the existing
+  todo item rather than done here.
