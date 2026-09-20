@@ -166,3 +166,18 @@ index 3, just below it.
 - `About riffle-app` has no icon, unlike everything below it: it is a
   `PredefinedMenuItem`, and neither muda nor Tauri exposes an icon setter for
   those (`set_icon` exists only on `IconMenuItem`).
+
+### Final visual pass: confirmed
+
+The user confirmed the finished menu in the running app: every item Riffle owns
+now carries a template icon that tints with the menu appearance, the two
+circular arrows no longer collide (`Reload Folder` keeps `arrow.clockwise`,
+`Check for Updates…` shows `square.and.arrow.down`), and the app menu reads
+`About → Check for Updates… → ── → Settings... → ── → Services…`.
+
+Final inventory: seven PNG-backed items (`gear`, `arrow.clockwise`, `folder`,
+`trash`, `arrow.uturn.backward`, `square.and.arrow.down`, plus `folder` reused
+for `Open Log Folder`) and one `NativeIcon` item (`FollowLinkFreestanding` on
+`Open in DxO PhotoLab`, which is already a template image upstream). `About`
+carries no icon: it is a `PredefinedMenuItem`, and an icon setter exists only
+on `IconMenuItem`.

@@ -179,8 +179,18 @@ clear exit condition.
 
 ## Progress
 
-- Step 1: Patched muda to the `minodisk/muda` template-image fork via
-  `[patch.crates-io]`, removed the `#8E8E93` grey fill from
-  `tools/macos/export-menu-icons.swift`, regenerated the three PNGs under
+- (2026-09-21) Step 1 complete: patched muda to the `minodisk/muda`
+  template-image fork via `[patch.crates-io]`, removed the `#8E8E93` grey fill
+  from `tools/macos/export-menu-icons.swift`, regenerated the PNGs under
   `crates/app/icons/menu/`, and updated `docs/agents/tauri-app.md`'s "Menu
-  icons" section to describe the fork patch and its exit condition.
+  icons" section to describe the fork patch and its exit condition. The user
+  confirmed the tinting visually, then asked for five follow-ups that landed on
+  the same branch: `Move Rejected to Trash` moved off the colour
+  `NativeIcon::TrashFull` onto a bundled `trash.png`; the Settings icon changed
+  from `gearshape` to `gear` to match the symbol reference apps use;
+  `Reload Folder` gained `arrow.clockwise`; `Check for Updates…` moved off
+  `NativeIcon::Refresh` onto `square.and.arrow.down` so the two circular arrows
+  no longer collide; and the app menu was reordered to
+  `About → Check for Updates… → ── → Settings... → ── → Services…`. Final
+  inventory: seven PNG-backed items, one `NativeIcon` item, and `About`, which
+  takes no icon because it is a `PredefinedMenuItem`.

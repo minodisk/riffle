@@ -79,22 +79,22 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 
 From `trash-rejected`'s implementation: GUI automation is unavailable on this
 Mac and a native confirmation dialog cannot be driven by an agent, so nothing
-of the menu item's visible behaviour has been run by a human. Two points are
-specifically unverified: whether `NativeIcon::TrashFull` renders as a template
-image in the macOS File menu (assumed, like `FollowLinkFreestanding`), and
-whether the Trash's "Put Back" entry is actually created — the command pins
+of the menu item's visible behaviour has been run by a human. One point is
+specifically unverified: whether the Trash's "Put Back" entry is actually
+created — the command pins
 `DeleteMethod::NsFileManager` to avoid the Finder route's Automation
 permission, and the `trash` crate documents that on some macOS systems files
 moved that way get no "Put Back" entry (trash-rs#14); dragging them out of the
-Trash still restores them. Files: `crates/app/src/main.rs` (`app_menu`),
+Trash still restores them. (The menu item's icon is now a bundled template
+PNG, confirmed tinting with the menu appearance — see `menu-icon-template`'s
+learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
 `crates/app/src/commands.rs` (`trash_rejected`, `trash_context`),
 `crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
 `crates/app/ui/src/main.ts`.
 
 #### TODO
 
-- [ ] On macOS, verify: the menu item's icon renders as a template image at the
-      same size as the other native-icon items; the confirmation names the
+- [ ] On macOS, verify: the confirmation names the
       right count (and the singular for one file) with `Move to Trash` /
       `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
       plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
@@ -105,46 +105,28 @@ Trash still restores them. Files: `crates/app/src/main.rs` (`app_menu`),
 - [ ] Verify the same flow on Windows and Linux (the `trash` crate's other
       backends have never been run here).
 
-### App: custom menu-item icons don't tint for dark mode
+### App: the muda template-icon fork is a temporary bridge
 
-muda never calls `setTemplate` on a custom menu `NSImage`, and Tauri exposes no
-template flag for menu items (only for the tray icon), so a bundled PNG
-(`Settings...` / `Undo` / `Open Folder…` / `Open Log Folder`,
-`crates/app/icons/menu/`) cannot tint with the menu appearance the way native
-icons do. The current PNGs are rendered in a neutral grey (`#8E8E93`) as a
-legible-in-both-modes compromise.
-
-A spike (menu-icon-glyph-size plan, reverted, not committed) confirmed the fix
-is a one-line change in muda 0.19.3's `menuitem_set_icon`
-(`src/platform_impl/macos/mod.rs`): adding `nsimage.setTemplate(true)` makes
-every bundled PNG icon tint with the menu appearance exactly like the
-OS-provided `Cut` / `Copy` / `Paste` items, and the baked `#8E8E93` grey
-becomes irrelevant (a template image contributes only its alpha channel). No
-upstream muda issue exists for this (all 92 issues, open and closed, checked;
-nearest are #262, #240, #97, none of them this). Tauri's tray icon already
-has `set_icon_as_template`; the concept was simply never extended to menu
-items.
-
-Patching requires a `path`/`git`-sourced fork (a crates.io-to-crates.io patch
-via `[patch.crates-io]` is rejected outright) that still satisfies Tauri's
-`muda = "^0.19"`, so a fork must stay on muda 0.19.3 rather than move to
-0.20.
+Custom menu-item icons now tint with the menu appearance (white in dark mode,
+black in light mode) via a `[patch.crates-io]` fork of muda 0.19.3
+(`minodisk/muda`, `rev = "ef4fbfda53416382a2eeca7da683a64a8fe0e8ed"`) that
+calls `nsimage.setTemplate(true)` unconditionally in `menuitem_set_icon`. This
+is a temporary bridge, not the permanent fix: upstream PR
+https://github.com/tauri-apps/muda/pull/413 carries the same change behind an
+opt-in `set_icon_as_template` API, against muda `dev`.
 
 #### TODO
 
-- [ ] Open an upstream PR against `tauri-apps/muda` adding
-      `nsimage.setTemplate(true)` to `menuitem_set_icon`.
-- [ ] Until it lands, adopt a `path`/`git`-patched fork of muda 0.19.3 via
-      `[patch.crates-io]` in `Cargo.toml`, pinned to 0.19.3 to satisfy
-      Tauri's `muda = "^0.19"`.
-- [ ] Once menu-item images are templates, drop the now-dead `#8E8E93` fill
-      step from `tools/macos/export-menu-icons.swift`.
-- [ ] Done when `Settings...`, `Undo`, `Open Folder…` and `Open Log Folder`
-      tint white in dark mode and black in light mode in the running app, and
-      the grey fill step is gone from the export script.
+- [ ] Once muda#413 (or equivalent) ships in a muda release that Tauri
+      resolves under its `muda = "^0.19"` (or a later Tauri bump), **and**
+      Tauri exposes the template flag for menu items, drop the
+      `[patch.crates-io]` entry from the workspace `Cargo.toml` and switch to
+      the upstream opt-in API.
+- [ ] Re-verify in the running app that all bundled menu PNGs still tint
+      correctly with the menu appearance after the switch.
 
-Related: `tools/macos/export-menu-icons.swift`, `Cargo.toml`,
-`crates/app/icons/menu/*.png`.
+Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
+`tools/macos/export-menu-icons.swift`.
 
 ### App: the real-device checks for the File menu accelerators are still open
 
