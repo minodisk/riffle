@@ -346,22 +346,23 @@ committing, so this number is not reproducible from the committed tree.
 Riffle logs its own scan timings, so these numbers can be reproduced on any
 folder. Quit Riffle, delete the index cache (`index.sqlite` and its
 `-wal` / `-shm` files, in `%LOCALAPPDATA%\com.minodisk.riffle\` on Windows,
-`~/Library/Caches/com.minodisk.riffle/` on macOS) so the next open counts as a
-first scan, launch Riffle and open the folder. Then quit and launch again to
+`~/Library/Caches/com.minodisk.riffle/` on macOS and `~/.cache/com.minodisk.riffle/`
+on Linux) so the next open counts as a first scan, launch Riffle and open the folder. Then quit and launch again to
 get the second open, and use `Help > Open Log Folder` to find `Riffle.log`.
 
-The first scan writes, per open, `scan list` (reading the folder),
-`scan reconcile` (stat-ing the files against the index), `scan sidecars`,
-`scan prepare` (the sum of those three) and finally `scan extract`, which
-carries the whole extraction pass with its `files`, `done`, `errors` and
-`threads` counts. `scan prepare` plus `scan extract` is the first-scan total.
+Every open writes `open list` and `open entries`; only the first scan also
+writes `scan list` (reading the folder), `scan reconcile` (stat-ing the files
+against the index), `scan sidecars`, `scan prepare` (the sum of those three)
+and finally `scan extract` (`todo` > 0), which carries the whole extraction
+pass with its `files`, `done`, `errors` and `threads` counts. `scan prepare`
+plus `scan extract` is the first-scan total.
 
-The second open writes `open list`, `open entries` and the same `scan ...`
-lines with `todo=0`. It spans three separate calls, so there is no single
-number for it: add the `open list`, `open entries` and `scan prepare` lines of
-that open. Every line ends in `in <n>ms` and names its directory, and the
-timestamps tell the two runs apart.
-
+The second open still writes `scan list`, `scan reconcile`, `scan sidecars`
+and `scan prepare`, but with `todo=0`, and skips `scan extract`. It spans
+three separate calls, so there is no single number for it: add the
+`open list`, `open entries` and `scan prepare` lines of that open. Every line
+ends in `in <n>ms` and names its directory, and the timestamps tell the two
+runs apart.
 
 ### The 1:1 focus check path
 
