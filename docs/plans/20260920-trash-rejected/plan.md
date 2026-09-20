@@ -204,4 +204,4 @@ Facts the design rests on (from reading the code):
 
 ## Progress
 
-- (none yet)
+- (2026-09-20) Step 1 complete
