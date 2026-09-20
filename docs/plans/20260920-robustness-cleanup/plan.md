@@ -185,7 +185,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
       say it is kept minus modifier-only keys.
     - No one-time migration, no store write at load time.
 
-- [ ] Step 4: Extract `switch_sidecar_format`'s body into a testable function and add the deferred race test
+- [x] Step 4: Extract `switch_sidecar_format`'s body into a testable function and add the deferred race test
   - Done when:
     - `commands.rs` has a plain (non-`AppHandle`) function, e.g.
       `fn switch_format(current: &Mutex<SidecarFormat>, writer: Option<&Writer>, index: Option<&Arc<Mutex<Index>>>, format: SidecarFormat, persist: impl FnOnce(SidecarFormat) -> Result<(), String>) -> Result<(), String>`,
@@ -261,3 +261,4 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
 - (2026-09-20) Step 3 complete
+- (2026-09-20) Step 4 complete
