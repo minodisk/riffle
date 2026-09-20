@@ -206,3 +206,4 @@ Facts the design rests on (from reading the code):
 
 - (2026-09-20) Step 1 complete
 - (2026-09-20) Step 2 complete
+- (2026-09-20) Step 3 complete
