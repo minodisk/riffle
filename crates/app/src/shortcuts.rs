@@ -4,6 +4,19 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
+const MACOS: bool = cfg!(target_os = "macos");
+
+/// The default key of `open`, the accelerator of `File > Open Folder…`.
+const OPEN_DEFAULT: &str = if MACOS { "meta+o" } else { "ctrl+o" };
+
+/// The default key of `photolab`, the accelerator of
+/// `File > Open in DxO PhotoLab`.
+const PHOTOLAB_DEFAULT: &str = if MACOS {
+    "shift+meta+o"
+} else {
+    "ctrl+shift+o"
+};
+
 /// Every action in the order the shortcuts panel shows them, with its
 /// default keys. A plain key is `event.key` lower-cased, with `" "` as
 /// `"space"`. With a modifier held, the name is `ctrl+alt+shift+meta+` (only
@@ -13,7 +26,8 @@ use serde_json::{Map, Value};
 const DEFAULTS: &[(&str, &[&str])] = &[
     ("previous", &["arrowup"]),
     ("next", &["arrowdown"]),
-    ("open", &["o"]),
+    ("open", &[OPEN_DEFAULT]),
+    ("photolab", &[PHOTOLAB_DEFAULT]),
     ("focus", &["f"]),
     ("zoom", &["z"]),
     ("rate1", &["1"]),
@@ -36,7 +50,10 @@ const DEFAULTS: &[(&str, &[&str])] = &[
 ];
 
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
-/// `Menu::default`).
+/// `Menu::default`). The `Open Folder…` and `Open in DxO PhotoLab`
+/// accelerators are deliberately absent: each is derived from its own
+/// action's keys, so it can never collide with another action, and once the
+/// action moves off a combination that combination is free again.
 const MACOS_MENU: &[&str] = &[
     "meta+,",
     "meta+z",
@@ -77,7 +94,8 @@ const MACOS_SYSTEM: &[&str] = &[
     "ctrl+arrowdown",
 ];
 
-/// Windows / Linux combinations owned by the app's menu.
+/// Windows / Linux combinations owned by the app's menu; the keymap-derived
+/// accelerators are absent, as in `MACOS_MENU`.
 const OTHER_MENU: &[&str] = &[
     "ctrl+,", "ctrl+z", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+a", "ctrl+m", "alt+f4",
 ];
@@ -107,7 +125,67 @@ fn forbidden(key: &str, macos: bool) -> Option<&'static str> {
     }
 }
 
-const MACOS: bool = cfg!(target_os = "macos");
+/// The muda accelerator string for a Riffle key name, or `None` when muda
+/// has no accelerator for it. A key held with no `ctrl`, `alt` or `meta` is
+/// `None` too: a modifier-less key equivalent would fire on every such key
+/// typed anywhere, text fields included, and double with the webview.
+pub fn accelerator(key: &str) -> Option<String> {
+    let mut parts = key.split('+').peekable();
+    let mut modifiers = Vec::new();
+    let mut plain = true;
+    for name in ["ctrl", "alt", "shift", "meta"] {
+        if parts.peek() == Some(&name) {
+            parts.next();
+            modifiers.push(match name {
+                "ctrl" => "Ctrl",
+                "alt" => "Alt",
+                "shift" => "Shift",
+                _ => "Cmd",
+            });
+            plain &= name == "shift";
+        }
+    }
+    let key = parts.next()?;
+    if parts.next().is_some() || plain {
+        return None;
+    }
+    let key = match key {
+        "space" => "Space".to_string(),
+        "escape" => "Escape".to_string(),
+        "enter" => "Enter".to_string(),
+        "tab" => "Tab".to_string(),
+        "backspace" => "Backspace".to_string(),
+        "delete" => "Delete".to_string(),
+        "home" => "Home".to_string(),
+        "end" => "End".to_string(),
+        "pageup" => "PageUp".to_string(),
+        "pagedown" => "PageDown".to_string(),
+        "insert" => "Insert".to_string(),
+        "arrowup" => "ArrowUp".to_string(),
+        "arrowdown" => "ArrowDown".to_string(),
+        "arrowleft" => "ArrowLeft".to_string(),
+        "arrowright" => "ArrowRight".to_string(),
+        "-" | "=" | "," | "." | "/" | ";" | "'" | "[" | "]" | "\\" | "`" => key.to_string(),
+        _ => {
+            let mut chars = key.chars();
+            let c = chars.next()?;
+            if chars.next().is_some() {
+                match key.strip_prefix('f').and_then(|n| n.parse::<u8>().ok()) {
+                    Some(n) if (1..=24).contains(&n) => format!("F{n}"),
+                    _ => return None,
+                }
+            } else if c.is_ascii_alphabetic() {
+                c.to_ascii_uppercase().to_string()
+            } else if c.is_ascii_digit() {
+                c.to_string()
+            } else {
+                return None;
+            }
+        }
+    };
+    modifiers.push(&key);
+    Some(modifiers.join("+"))
+}
 
 /// One action and the keys bound to it, as the `shortcuts` command returns.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -214,6 +292,18 @@ impl Keymap {
             }
         }
         keymap
+    }
+
+    /// The accelerator of `action`'s menu item: the first of its keys, in
+    /// stored order, that converts to one. `None` when no key converts, or
+    /// for an unknown action.
+    pub fn accelerator_for(&self, action: &str) -> Option<String> {
+        self.bindings
+            .iter()
+            .find(|b| b.action == action)?
+            .keys
+            .iter()
+            .find_map(|k| accelerator(k))
     }
 
     /// The bindings in the order the shortcuts panel shows them.
@@ -432,7 +522,8 @@ mod tests {
         let expected: Vec<(&str, Vec<String>)> = [
             ("previous", "arrowup"),
             ("next", "arrowdown"),
-            ("open", "o"),
+            ("open", OPEN_DEFAULT),
+            ("photolab", PHOTOLAB_DEFAULT),
             ("focus", "f"),
             ("zoom", "z"),
             ("rate1", "1"),
@@ -457,6 +548,93 @@ mod tests {
         .map(|(action, key)| (action, vec![key.to_string()]))
         .collect();
         assert_eq!(bindings, expected);
+    }
+
+    #[test]
+    fn the_menu_defaults_follow_the_platform() {
+        let keymap = Keymap::defaults();
+        if MACOS {
+            assert_eq!(keys_of(&keymap, "open"), vec!["meta+o"]);
+            assert_eq!(keys_of(&keymap, "photolab"), vec!["shift+meta+o"]);
+        } else {
+            assert_eq!(keys_of(&keymap, "open"), vec!["ctrl+o"]);
+            assert_eq!(keys_of(&keymap, "photolab"), vec!["ctrl+shift+o"]);
+        }
+    }
+
+    #[test]
+    fn accelerator_converts_the_key_names() {
+        for (key, expected) in [
+            ("ctrl+o", "Ctrl+O"),
+            ("meta+o", "Cmd+O"),
+            ("shift+meta+o", "Shift+Cmd+O"),
+            ("ctrl+shift+o", "Ctrl+Shift+O"),
+            ("ctrl+alt+shift+meta+k", "Ctrl+Alt+Shift+Cmd+K"),
+            ("ctrl+alt+1", "Ctrl+Alt+1"),
+            ("ctrl+,", "Ctrl+,"),
+            ("meta+`", "Cmd+`"),
+            ("alt+\\", "Alt+\\"),
+            ("ctrl+space", "Ctrl+Space"),
+            ("meta+arrowleft", "Cmd+ArrowLeft"),
+            ("ctrl+pagedown", "Ctrl+PageDown"),
+            ("ctrl+f12", "Ctrl+F12"),
+        ] {
+            assert_eq!(accelerator(key).as_deref(), Some(expected), "{key}");
+        }
+        for key in [
+            "o", "shift+j", "space", "arrowup", "ctrl+f25", "ctrl+oo", "ctrl+", "meta",
+        ] {
+            assert_eq!(accelerator(key), None, "{key}");
+        }
+    }
+
+    #[test]
+    fn accelerator_for_takes_the_first_convertible_key() {
+        let mut keymap = Keymap::defaults();
+        assert_eq!(
+            keymap.accelerator_for("open").as_deref(),
+            Some(if MACOS { "Cmd+O" } else { "Ctrl+O" })
+        );
+        assert_eq!(
+            keymap.accelerator_for("photolab").as_deref(),
+            Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
+        );
+        assert_eq!(keymap.accelerator_for("nope"), None);
+        keymap.add("open", "j").unwrap();
+        keymap.remove("open", OPEN_DEFAULT).unwrap();
+        assert_eq!(keymap.accelerator_for("open"), None);
+        keymap.add("open", "ctrl+alt+j").unwrap();
+        assert_eq!(
+            keymap.accelerator_for("open").as_deref(),
+            Some("Ctrl+Alt+J")
+        );
+        assert_eq!(
+            keymap.accelerator_for("photolab").as_deref(),
+            Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
+        );
+    }
+
+    #[test]
+    fn the_menu_defaults_are_not_forbidden() {
+        for macos in [true, false] {
+            let open = if macos { "meta+o" } else { "ctrl+o" };
+            let photolab = if macos {
+                "shift+meta+o"
+            } else {
+                "ctrl+shift+o"
+            };
+            assert_eq!(forbidden(open, macos), None, "{open}");
+            assert_eq!(forbidden(photolab, macos), None, "{photolab}");
+        }
+    }
+
+    #[test]
+    fn a_default_freed_by_rebinding_can_go_to_another_action() {
+        let mut keymap = Keymap::defaults();
+        keymap.add("open", "ctrl+alt+j").unwrap();
+        keymap.remove("open", OPEN_DEFAULT).unwrap();
+        keymap.add("focus", OPEN_DEFAULT).unwrap();
+        assert_eq!(keys_of(&keymap, "focus"), vec!["f", OPEN_DEFAULT]);
     }
 
     #[test]
@@ -740,11 +918,14 @@ mod tests {
     fn a_store_from_the_old_defaults_still_loads() {
         let stored = json!({
             "zoom": ["space", "z"],
+            "open": ["o"],
             "red": ["6"],
             "previous": ["arrowleft", "arrowup", "w", "a", "h", "k"],
         });
         let keymap = Keymap::from_overrides(Some(&stored));
         assert_eq!(keys_of(&keymap, "zoom"), vec!["space", "z"]);
+        assert_eq!(keys_of(&keymap, "open"), vec!["o"]);
+        assert_eq!(keymap.accelerator_for("open"), None);
         assert_eq!(keys_of(&keymap, "red"), vec!["6"]);
         assert_eq!(
             keys_of(&keymap, "previous"),
