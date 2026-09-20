@@ -510,7 +510,15 @@ pub fn set_sort_order(app: tauri::AppHandle, order: String) {
 
 #[tauri::command]
 pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
-    list_arw_in(Path::new(&canonicalize(&dir)))
+    let dir = canonicalize(&dir);
+    let started = std::time::Instant::now();
+    let files = list_arw_in(Path::new(&dir))?;
+    log::info!(
+        "open list: dir={dir} raws={} in {}ms",
+        files.len(),
+        started.elapsed().as_millis()
+    );
+    Ok(files)
 }
 
 /// The folder a dropped path stands for: a directory is taken as it is, a
@@ -947,9 +955,19 @@ pub async fn folder_entries(
     let Some(index) = app.state::<AppIndexReader>().0.clone() else {
         return Ok(Vec::new());
     };
-    tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
-        .await
-        .map_err(|e| e.to_string())?
+    let started = std::time::Instant::now();
+    let rows = {
+        let dir = dir.clone();
+        tauri::async_runtime::spawn_blocking(move || index::lock(&index).entries(&dir))
+            .await
+            .map_err(|e| e.to_string())??
+    };
+    log::info!(
+        "open entries: dir={dir} rows={} in {}ms",
+        rows.len(),
+        started.elapsed().as_millis()
+    );
+    Ok(rows)
 }
 
 /// The cached thumbnail of one file, in the same envelope as `preview`.

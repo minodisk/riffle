@@ -120,7 +120,7 @@ the time of a subsequent open of the same folder can all be read off.
     - `threads` is a parameter of `run_scan`, so the thread count is logged
       there; `scan_threads()` in `commands.rs` is where it is computed.
 
-- [ ] Step 2: Log the second-open path as separate `open` lines
+- [x] Step 2: Log the second-open path as separate `open` lines
   - Done when:
     - `list_arw` logs its elapsed time and the RAW count for the directory
       (this is the listing the frontend waits on before it can show anything).
