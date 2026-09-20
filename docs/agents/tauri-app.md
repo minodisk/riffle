@@ -688,6 +688,21 @@ loaded thumbnail (24px above and below a 3:2 one).
 - Source: `docs/plans/_archived/20260920-aspect-independent-strip-cells/learnings.md`,
   Step 1.
 
+### `margin-left: auto` on a flex item only pushes items after it, not the item itself (Hit)
+
+Moving `#filter` to the right edge of `#tools` by adding `margin-left: auto`
+to `#filter` alone did not work: `#filter` is `#tools`'s first child, so the
+auto margin pushed the whole `[filter][sort]` group rightward instead of
+moving `#filter` past `#sort`, leaving `#sort` as the right-most item. Fix by
+also giving the item to move `order: 1` (or otherwise reordering it after the
+sibling it should end up right of) so the auto margin lands between it and
+its new left neighbour.
+
+- Why: an auto margin on a flex item consumes space on that item's own edge;
+  it says nothing about the item's position relative to siblings, which is
+  set by source order (or `order`).
+- Source: `docs/plans/_archived/20260920-filter-button-right/learnings.md`, Step 1.
+
 ### Name a modified key from `event.code`, not `event.key` (Hit)
 
 On macOS, Option and Shift change `event.key` (⌃⌥1 reports `¡`, not `1`), so

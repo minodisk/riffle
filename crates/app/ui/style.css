@@ -61,9 +61,14 @@ body {
   padding: 0.5rem 8px 0.25rem;
 }
 
+#filter {
+  order: 1;
+  margin-left: auto;
+  padding-left: 0;
+}
+
 #sort {
   position: relative;
-  padding-left: 0;
 }
 
 #filter-toggle,
