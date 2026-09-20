@@ -77,3 +77,4 @@ timer, so the test should assert that instead.
   the reader thread before `ROLLBACK`, relying on `open_reader`'s
   `busy_timeout` to fail the reader if it were actually blocked. Removed the
   `### App: a Rust test is flaky under load — ...` section from `todo.md`.
+- (2026-09-21) Step 1 complete
