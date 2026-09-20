@@ -80,6 +80,13 @@ embedded previews, rotated by each file's Orientation.
   Repeated presses walk further back. The history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes. There
   is no redo.
+- **Open Log Folder**: `Help > Open Log Folder` reveals the folder holding
+  `Riffle.log`, the app's log file (capped at 1 MB; on rotation the previous
+  contents are discarded, not kept as a separate file). It lives in the app
+  log directory:
+  `%LOCALAPPDATA%\com.minodisk.riffle\logs\` on Windows,
+  `~/Library/Logs/com.minodisk.riffle/` on macOS and
+  `~/.local/share/com.minodisk.riffle/logs/` on Linux.
 - **Auto-advance**: when `Auto-advance after a star, reject or pick` is on in
   `Riffle > Settings...` (off by default), `1`-`5`, reject and pick move to the
   next file once they change the current one; pressing the value the file
@@ -334,6 +341,30 @@ regardless.
 
 [^1]: Measured with a temporary `#[ignore]`d test that was removed before
 committing, so this number is not reproducible from the committed tree.
+
+#### Measuring on your own folder
+
+Riffle logs its own scan timings, so these numbers can be reproduced on any
+folder. Quit Riffle, delete the index cache (`index.sqlite` and its
+`-wal` / `-shm` files, in `%LOCALAPPDATA%\com.minodisk.riffle\` on Windows,
+`~/Library/Caches/com.minodisk.riffle/` on macOS and `~/.cache/com.minodisk.riffle/`
+on Linux) so the next open counts as a first scan, launch Riffle and open the folder. Then quit and launch again to
+get the second open, and use `Help > Open Log Folder` to find `Riffle.log`.
+
+Every open writes `open list`, `open entries`, `scan list` (reading the
+folder), `scan reconcile` (stat-ing the files against the index),
+`scan sidecars`, `scan prepare` (the sum of those three) and `scan extract`,
+which carries the whole extraction pass with its `files`, `done`, `errors`
+and `threads` counts. The first scan's `scan extract` has `files` > 0; `scan
+prepare` plus that `scan extract` is the first-scan total.
+
+The second open writes the same lines but with `todo=0`, and its
+`scan extract` reads `files=0 done=0` with a near-zero duration — that
+`files=0` line, not its absence, is what marks a cached open. It spans three
+separate calls, so there is no single number for it: add the `open list`,
+`open entries` and `scan prepare` lines of that open. Every line ends in
+`in <n>ms` and names its directory, and the timestamps tell the two runs
+apart.
 
 ### The 1:1 focus check path
 

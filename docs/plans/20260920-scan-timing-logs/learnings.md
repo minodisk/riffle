@@ -94,6 +94,21 @@
   `NativeIcon` (`folder.png`, rendered via `tools/macos/export-menu-icons.swift`
   alongside `gearshape.png` and `arrow.uturn.backward.png`).
 
+## Step 4
+
+- The log line names verified against the code rather than the plan:
+  `scan list` / `scan reconcile` / `scan sidecars` / `scan prepare`
+  (`commands.rs::scan_folder`), `scan extract` (`index.rs::run_scan`),
+  `open list` (`list_arw`) and `open entries` (`folder_entries`).
+- `scan prepare` is the sum of the three `scan_folder` phases, so the
+  second-open total is `open list` + `open entries` + `scan prepare` (not the
+  three phase lines separately, which would double-count).
+- README content policy kept the measurement paragraph device-agnostic: the
+  cache path is given for Windows and macOS only as the thing to delete, with
+  no machine, drive or folder of the user's own named.
+- `todo.md`'s item is updated in place but deliberately left unticked; the
+  numbers themselves are still missing.
+
 ## Deferred issues (todo candidates)
 
 - (none)

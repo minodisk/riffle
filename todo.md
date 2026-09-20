@@ -57,7 +57,7 @@ Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second 
 
 #### TODO
 
-- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers.
+- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
 
 ### Core: `xmp_prefix` can rebind a namespace prefix already used for something else
 
