@@ -157,3 +157,6 @@ Decisions already taken (do not revisit):
   The hardcoded meta-pane hint and the "No RAW (ARW/DNG) files in that folder."
   note are gone. Not verified interactively (see `learnings.md`).
 - (2026-09-20) Step 2 complete
+- Step 3 (`59dcb65`): the README's Features paragraph now mentions the prompt
+  shown when no folder is open and that clicking it opens the folder picker.
+- (2026-09-20) Step 3 complete
