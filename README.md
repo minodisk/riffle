@@ -88,8 +88,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   position all stay as they were.
 - **Move Rejected to Trash…**: `File > Move Rejected to Trash…` moves every
   file of the open folder marked as a reject to the OS Trash, together with the
-  sidecars sitting next to it — both `.xmp` and `.ARW.dop` if both are there,
-  whichever format is currently selected. It asks first, showing how many files
+  sidecars sitting next to it — both `.xmp` and `.ARW.dop` when both are there,
+  no matter which format is currently selected. It asks first, showing how many files
   it is about to move, and `Cancel` leaves the folder untouched. Nothing is
   deleted: the files go to the Trash, so restoring one from there brings back
   its sidecar and with it the stars, the flag and the colour label it had. Any
