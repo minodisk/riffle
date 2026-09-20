@@ -25,4 +25,18 @@
 
 ## Deferred issues (todo candidates)
 
-- (none)
+- **Decide whether the Pillow pixel-diff verification pitfalls deserve a guide**
+  - Change: if the pattern recurs, add a short "verifying pixel edits" note under
+    `docs/agents/` (a new file, or a section in `tauri-app.md`), covering:
+    (1) `Image.getbbox()` defaults to `alpha_only=True` on RGBA (Pillow >= 9.5),
+    so a "no difference" check over `ImageChops.difference` can silently pass
+    while the RGB channels differ — use `getbbox(alpha_only=False)` or a
+    per-pixel scan; (2) measuring a resized/pasted mark inside the padded crop
+    box that produced it clips the bbox and understates the mark's size — the
+    measurement window must be wider than the source crop.
+  - Rationale: both pitfalls actually bit this work, but only once. Filing a
+    general guide off a single occurrence risks untested general advice.
+  - Done when: the next plan doing Pillow-based pixel verification is checked
+    for the same pitfalls; if they recur, the guide is written, linking
+    `docs/plans/_archived/20260921-app-icon-enlarge-marks/learnings.md` for the
+    concrete numbers. If they do not, close this out.

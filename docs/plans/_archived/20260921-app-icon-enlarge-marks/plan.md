@@ -140,7 +140,7 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
 
 ## Progress
 
-- Step 1 (`d9f6dc5`): Scaled the green dot and yellow star by 1.25x about
+- (2026-09-21) Step 1 complete. Step 1 (`d9f6dc5`): Scaled the green dot and yellow star by 1.25x about
   their own centroids with a one-off Pillow script (dilate mask by 1px,
   resize crop + mask, paste), then regenerated all bundled icons with
   `pnpm exec tauri icon`. Measured dot 66 -> 83px, star 79x76 -> 99x96px;
