@@ -101,7 +101,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       at setup before any scan can have been started, so it is not affected,
       and touching it is outside this fix.
 
-- [ ] Step 2: Backend signals for the settings window: `scan_running` command, `scan-state` event, `index-clearing` event
+- [x] Step 2: Backend signals for the settings window: `scan_running` command, `scan-state` event, `index-clearing` event
   - Done when:
     - A new async command `scan_running(app) -> bool` returns
       `ScansState::scanning()`, registered in `main.rs`'s handler list next
@@ -129,11 +129,17 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       a scan with an empty `todo` emits only `scan-done`. A new event keyed
       to `scanning()` is exact by construction, and the initial query covers
       a settings window opened mid-scan.
-    - Compute the bool under the `Scans` lock, drop the lock, then emit; do
-      not emit while holding it. A helper like
-      `fn publish_scan_state(app: &AppHandle, scanning: bool)` keeps the
-      four call sites to one line each. `Preparing` already owns an
-      `AppHandle`, so its `Drop` can emit after decrementing.
+    - Compute the bool under the `Scans` lock and emit while still holding
+      it, at every site (`scan_folder`, `Preparing::drop`, `start_scan`, and
+      the scan task's `finish`): the mutex then serialises every `scan-state`
+      emit in the order the state actually changed. This is required because
+      `start_scan` and the scan task it spawns race for the same lock: on a
+      fast or empty scan they can both reach an emit, and if either one were
+      issued after dropping the lock, nothing would order the two `app.emit`
+      calls, so a stale `true` could land after the task's correct `false`
+      and leave the button stuck disabled. Emitting under the lock at every
+      site prevents that race consistently rather than only at the two sites
+      where it is easiest to observe.
     - Assumes Step 1 is merged (needs `scanning()` and `finish`).
 
 - [ ] Step 3: Settings window: disable the button while a scan runs with the reason shown, show in-flight feedback, keep errors visible
@@ -282,3 +288,4 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 ## Progress
 
 - (2026-09-20) Step 1 complete
+- (2026-09-20) Step 2 complete

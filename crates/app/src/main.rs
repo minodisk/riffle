@@ -454,6 +454,7 @@ fn main() {
             commands::open_in_photolab,
             commands::auto_advance,
             commands::set_auto_advance,
+            commands::scan_running,
             commands::index_size,
             commands::clear_index,
             set_sidecar_format,
