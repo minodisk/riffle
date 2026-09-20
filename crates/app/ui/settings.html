@@ -38,6 +38,16 @@
         Keyboard Shortcuts
       </button>
       <button
+        id="tab-cache"
+        type="button"
+        role="tab"
+        aria-controls="cache"
+        aria-selected="false"
+        tabindex="-1"
+      >
+        Cache
+      </button>
+      <button
         id="tab-debug"
         type="button"
         role="tab"
@@ -63,6 +73,16 @@
       <table id="shortcuts-rows"></table>
       <div class="actions">
         <button id="shortcuts-reset-all" type="button">Reset all</button>
+      </div>
+    </section>
+    <section id="cache" role="tabpanel" aria-labelledby="tab-cache" hidden>
+      <p id="index-size">Index cache: …</p>
+      <p>
+        Clearing drops every cached thumbnail, so the next open of a folder scans it again; your
+        judgements are kept, because they live in the sidecars.
+      </p>
+      <div class="actions">
+        <button id="clear-index" type="button">Clear Cache</button>
       </div>
     </section>
     <section id="debug" role="tabpanel" aria-labelledby="tab-debug" hidden>

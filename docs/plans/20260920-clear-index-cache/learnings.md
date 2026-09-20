@@ -70,14 +70,45 @@ dialog, the cancel case, the mid-scan refusal or the `index-cleared` reopen in
 a running build. GUI automation is unavailable on this Mac. All of that has to
 be verified by hand after Step 3.
 
+## Step 3: The Cache tab
+
+### The panel is plain HTML plus two `invoke`s
+
+No new frontend module and no formatting in TypeScript: `showIndexSize` only
+writes `` `Index cache: ${size}` `` with the string `index_size` returns. The
+button disables itself for the whole round trip (the dialog is part of it, so
+it stays disabled while the dialog is up) and re-enables in `finally`;
+`Ok(false)` skips the refetch, so a cancel leaves the figure untouched.
+
+### `nextTab` needed no change, as the plan predicted
+
+The tablist keyboard handler already filters by `tab.hidden`, so the new
+visible tab joins the cycle with no test change; `pnpm exec vp check/fmt/test`
+pass unchanged.
+
+### Manual verification: NOT performed
+
+None of the five GUI checks the step asked for (initial size, the dialog,
+cancel, confirm + reopen, the mid-scan refusal) were run. GUI automation is
+unavailable on this Mac (`osascript` is denied) and this agent cannot click a
+native dialog, so `mise run tauri:release:devtools` would only have started an
+app nobody can drive. The code paths are exercised only by `mise run ci`
+(Rust unit tests for `format_bytes`/`Index::clear`, the frontend type check).
+The manual verification therefore stays open — see the deferred item below.
+
 ## Deferred issues (todo candidates)
 
-- Manual GUI verification of `clear_index` (dialog confirm/cancel, the
-  mid-scan refusal, and the main window's `index-cleared` reopen) is deferred
-  to Step 3, when the settings UI can actually invoke it. Basis: Step 2's
-  manual-verification requirement with no UI caller yet. Files:
-  `crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
-  `crates/app/ui/settings.html`.
+- Manual GUI verification of the Clear Cache button (the size shown on open,
+  the confirmation dialog, cancel leaving the index untouched, confirm
+  dropping the figure and the main window rescanning via `index-cleared`, and
+  the mid-scan refusal appearing in `#status`) is **still open**. Step 2
+  deferred it to Step 3 because no UI invoked the commands; Step 3 built the
+  UI but could not run the checks, because GUI automation is unavailable on
+  this Mac and a native dialog cannot be driven by the agent. It needs a human
+  run of `mise run tauri:release:devtools`. Basis: Step 2's and Step 3's
+  manual-verification requirements. Files: `crates/app/src/commands.rs`,
+  `crates/app/ui/src/main.ts`, `crates/app/ui/settings.html`,
+  `crates/app/ui/src/settings.ts`.
 
 ### `clear` has no caller until Step 2
 
