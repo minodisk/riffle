@@ -40,3 +40,36 @@
   should be rewritten to the remainder rather than deleted. Files:
   `Cargo.toml`, `docs/agents/tauri-app.md`,
   `tools/macos/export-menu-icons.swift`.
+
+### Visual pass: confirmed
+
+The user confirmed in the running app (`mise run tauri:dev`) that the four
+PNG-backed menu items (`Settings...`, `Open Folder…`, `Undo`,
+`Open Log Folder`) now tint with the menu appearance — white in dark mode,
+black in light mode — and invert together with the label when an item is
+highlighted. That last part is what the baked `#8E8E93` grey could never do:
+a fixed-colour icon stayed grey while the row's text went white under the
+highlight, which is where the mismatch was most visible.
+
+### Scope addition: `Move Rejected to Trash` was the last untinted icon
+
+After the visual pass the user spotted that `Move Rejected to Trash…` alone
+stayed colour. Measured on this machine with a throwaway AppKit script:
+`NativeIcon::TrashFull` resolves to `NSTrashFull`, a 32x32 colour Finder icon
+with `isTemplate == false`, while every other icon in the menu is a template
+(`NSFollowLinkFreestandingTemplate`, `NSRefreshTemplate`, and the bundled PNGs
+via the muda fork). So it did not follow dark/light mode, did not invert under
+the row highlight, and carried a different visual density.
+
+- Fixed by adding `"trash"` to the export script's `symbols` and switching the
+  item to `IconMenuItem::with_id` with `icons/menu/trash.png`. The three
+  existing PNGs came out byte-identical (same MD5s), so only `trash.png` is
+  new. `NativeIcon` stays imported for `FollowLinkFreestanding` / `Refresh`.
+- Bounding boxes (36x36 canvas, alpha-only, opaque pixel `r=g=b=0`, no edge
+  contact): `gearshape` (5,5)-(30,30), `arrow.uturn.backward` (7,7)-(27,29),
+  `folder` (5,7)-(29,28), `trash` (6,5)-(29,31). The new icon sits in the same
+  size band as its neighbours.
+- **General lesson**: a `NativeIcon` is only a good neighbour if its underlying
+  `NSImage` is a template image. The colour Finder-style ones (`NSTrashFull`,
+  `NSTrashEmpty`, `NSFolder`) are not, so they clash in a menu whose other
+  icons tint. Check `isTemplate` before reaching for a `NativeIcon`.

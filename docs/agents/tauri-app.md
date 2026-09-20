@@ -285,14 +285,15 @@ the existing item does not clear it.
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
-On macOS seven app items carry an icon. `Open in DxO PhotoLab`, `Check for
-Updates…` and `Move Rejected to Trash` use
-`IconMenuItem::with_id_and_native_icon` with
-`NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh` /
-`NativeIcon::TrashFull`, which are template images and tint with the menu.
-`NativeIcon` has neither an undo nor a modern gear, and `NativeIcon::Folder`
-is a colour bitmap rather than a template image, so `Settings...`, `Undo`,
-`Open Folder…` and `Open Log Folder` use `IconMenuItem::with_id` with an
+On macOS seven app items carry an icon. `Open in DxO PhotoLab` and `Check for
+Updates…` use `IconMenuItem::with_id_and_native_icon` with
+`NativeIcon::FollowLinkFreestanding` / `NativeIcon::Refresh`, which are
+template images and tint with the menu. `NativeIcon` has neither an undo nor a
+modern gear, and `NativeIcon::Folder` and `NativeIcon::TrashFull` are colour
+Finder bitmaps rather than template images (`isTemplate == false`), so they
+keep their colour while every icon around them tints, so `Settings...`,
+`Undo`, `Open Folder…`, `Open Log Folder` and `Move Rejected to Trash` use
+`IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's
 `image-png` feature). `folder.png` is deliberately shared by `Open Folder…`

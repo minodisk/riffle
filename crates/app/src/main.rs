@@ -85,12 +85,14 @@ mod app_menu {
         // No accelerator: a destructive action, reached deliberately through
         // the menu and its confirmation.
         #[cfg(target_os = "macos")]
-        let trash_rejected = IconMenuItem::with_id_and_native_icon(
+        let trash_rejected = IconMenuItem::with_id(
             handle,
             TRASH_REJECTED_ID,
             "Move Rejected to Trash…",
             true,
-            Some(NativeIcon::TrashFull),
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/trash.png"
+            ))?),
             None::<&str>,
         )?;
         #[cfg(not(target_os = "macos"))]
