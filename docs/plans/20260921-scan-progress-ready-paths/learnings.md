@@ -21,8 +21,11 @@
   (alongside the other per-folder resets) and a `ready: Set<number>`. The new
   export is `markReady(paths)` (`ready` was already taken by the set).
 - The in-flight race is closed in `request`'s `.catch`: `requested.delete` runs
-  as before, but the index goes into `missing` only when it is not in `ready`,
-  so `finally`'s `pump()` retries it.
+  as before, and the `ready` bypass is one-shot (`!ready.delete(index)`), so a
+  failure right after the scan reports the path goes unmarked once and
+  `finally`'s `pump()` retries it, but a repeat failure on the same index (the
+  row is missing, the DB query keeps failing, etc.) settles into `missing`
+  instead of spinning forever on the IPC channel. Found in review round 1.
 - The stale comments on `REFRESH_INTERVAL` and `missing` ("the re-request
   cannot be narrowed") were rewritten; `REFRESH_INTERVAL` itself is untouched,
   it goes in Step 3.

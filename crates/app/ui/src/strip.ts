@@ -243,7 +243,7 @@ function request(index: number): void {
       // `refresh`.
       if (String(err).includes("no cached thumbnail")) {
         failed.add(index);
-      } else if (!ready.has(index)) {
+      } else if (!ready.delete(index)) {
         missing.add(index);
       }
     })
