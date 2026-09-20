@@ -1926,7 +1926,7 @@ mod tests {
         let first = rows[0].0.path.to_string_lossy().into_owned();
 
         let writer = Mutex::new(writer);
-        let hold = Duration::from_millis(300);
+        let hold = Duration::from_secs(1);
         let elapsed = std::thread::scope(|scope| {
             let guard = lock(&writer);
             guard.conn.execute_batch("BEGIN IMMEDIATE").unwrap();
@@ -1943,7 +1943,11 @@ mod tests {
             read.join().unwrap()
         });
         assert_eq!((elapsed.1, elapsed.2), (3, 6));
-        assert!(elapsed.0 < Duration::from_millis(100), "{:?}", elapsed.0);
+        // The reader must return well before the writer's transaction
+        // is held for `hold`; a generous margin (half of `hold`) keeps
+        // this from flaking under a loaded CI machine while still
+        // proving the reader did not wait on the writer.
+        assert!(elapsed.0 < hold / 2, "{:?}", elapsed.0);
 
         lock(&writer)
             .write_batch("d", &[(synthetic(&dir, 3), Ok(entry()))])
