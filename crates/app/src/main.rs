@@ -143,12 +143,14 @@ mod app_menu {
             Some("CmdOrCtrl+,"),
         )?;
         #[cfg(target_os = "macos")]
-        let check_updates = IconMenuItem::with_id_and_native_icon(
+        let check_updates = IconMenuItem::with_id(
             handle,
             CHECK_UPDATES_ID,
             "Check for Updates…",
             true,
-            Some(NativeIcon::Refresh),
+            Some(Image::from_bytes(include_bytes!(
+                "../icons/menu/square.and.arrow.down.png"
+            ))?),
             None::<&str>,
         )?;
         #[cfg(not(target_os = "macos"))]

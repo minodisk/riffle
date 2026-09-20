@@ -120,3 +120,26 @@ use; its id, label, enabled state and `CmdOrCtrl+R` accelerator are unchanged.
   (`-D unused-imports`). The import now carries
   `#[cfg(not(target_os = "macos"))]`, mirroring the `Image` / `IconMenuItem`
   imports above it.
+
+### Scope addition: `Check for Updates…` duplicated `Reload Folder`'s circular arrow
+
+Giving `Reload Folder` `arrow.clockwise` made two unrelated items show the same
+glyph: `Check for Updates…` was still on `NativeIcon::Refresh`
+(`NSRefreshTemplate`), also a circular arrow. The circular arrow genuinely
+belongs to "reload", so `Check for Updates…` moved instead, to a PNG-backed
+`square.and.arrow.down` — checking for updates is really a download, and
+Ghostty uses the same symbol for its Check for Updates item.
+
+- **Lesson**: when adding a menu icon, look at every icon in the app's menus
+  together, not just the item being changed. A symbol that is right in
+  isolation can collide with a neighbour's meaning, and the collision is only
+  visible with the whole menu in view. The previous addition picked
+  `arrow.clockwise` on its own merits and never compared it with the
+  `NativeIcon`-backed items, which is exactly how the duplicate slipped in.
+- Bounding box (36x36 canvas, alpha-only, no canvas-edge contact):
+  `square.and.arrow.down` 20x26, against `gear` 27x26,
+  `arrow.uturn.backward` 21x23, `folder` 25x22, `trash` 24x27,
+  `arrow.clockwise` 21x26. In line; no `pointSize` change. The other five PNGs
+  came out byte-identical.
+- `NativeIcon` stays imported: `FollowLinkFreestanding` on the PhotoLab item is
+  now its only use, so `-D unused-imports` is satisfied without a `cfg` change.
