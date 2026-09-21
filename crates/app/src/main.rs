@@ -375,6 +375,13 @@ fn set_timing_logs(app: AppHandle, enabled: bool) {
     let _ = app.emit("debug", enabled);
 }
 
+/// Write a frontend timing line to `Riffle.log`, so it can be read without
+/// DevTools.
+#[tauri::command]
+fn log_timing(line: String) {
+    log::info!("{line}");
+}
+
 /// Switch the sidecar format from the settings window. The backend then emits
 /// `sidecar-format` so the frontend reopens the folder in the new format.
 #[tauri::command]
@@ -533,7 +540,8 @@ fn main() {
             set_sidecar_format,
             debug_build,
             timing_logs,
-            set_timing_logs
+            set_timing_logs,
+            log_timing
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

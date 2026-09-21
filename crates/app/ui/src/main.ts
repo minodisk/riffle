@@ -31,6 +31,7 @@ let debugLogging = false;
 function debugLog(...args: unknown[]): void {
   if (debugLogging) {
     console.debug(...args);
+    void window.__TAURI__.core.invoke("log_timing", { line: args.map(String).join(" ") });
   }
 }
 
