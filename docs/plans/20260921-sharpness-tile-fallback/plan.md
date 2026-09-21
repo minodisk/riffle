@@ -136,7 +136,7 @@ Scope: no user-facing setting, no change to the zoom/crop path
     - Check the v7 `folders` seeding, which selects from `files`; note in a
       comment if it now sees an empty table
 
-- [ ] Step 4: Documentation
+- [x] Step 4: Documentation
   - Done when:
     - `README.md` "Sharpness cue" bullet says the score is taken around the
       AF focus point when the camera recorded one, and otherwise (manual

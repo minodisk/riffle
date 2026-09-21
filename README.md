@@ -129,8 +129,10 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   available again by itself when the scan ends.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbours on the strip; the sharpest frame of
-  a run is marked in the pick colour. The score is computed around the focus
-  point (or the centre) from the embedded preview, so it ranks a burst rather
+  a run is marked in the pick colour. The score is computed from the embedded
+  preview around the AF focus point when the camera recorded one, and
+  otherwise (manual focus, Leica DNG) as the sharpest region of the frame, so
+  it ranks a burst rather
   than judging a frame on its own, and it does not replace the 1:1 focus check.
   The meta pane shows the raw score.
 
