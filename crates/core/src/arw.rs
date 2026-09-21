@@ -27,6 +27,9 @@ const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
 const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
 const TAG_MAKER_NOTE: u16 = 0x927c;
 const TAG_FOCUS_LOCATION: u16 = 0x2027;
+/// Sony `FocusMode`, a BYTE. Older bodies write it as 0xb04e / 0xb042
+/// instead, which is not read, so they keep `None`.
+const TAG_FOCUS_MODE: u16 = 0x201b;
 /// Leica MakerNote `FocusDistance`, a LONG in millimetres.
 const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
 /// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
@@ -38,6 +41,7 @@ const PHOTOMETRIC_YCBCR: u32 = 6;
 /// The preview tier takes the smallest strip JPEG at least this wide.
 const PREVIEW_MIN_WIDTH: u32 = 1600;
 
+const TYPE_BYTE: u16 = 1;
 const TYPE_ASCII: u16 = 2;
 const TYPE_SHORT: u16 = 3;
 const TYPE_LONG: u16 = 4;
@@ -84,6 +88,8 @@ pub struct Shot {
     /// Raw `SubSecTimeOriginal`.
     pub subsec: Option<String>,
     pub focus: Option<FocusLocation>,
+    /// Raw Sony `FocusMode`: 0 manual, 2 AF-S, 3 AF-C, 4 AF-A, 6 DMF.
+    pub focus_mode: Option<u8>,
     pub make: Option<String>,
     pub model: Option<String>,
     pub lens_model: Option<String>,
@@ -282,6 +288,11 @@ fn integer(entry: &Entry) -> Option<u32> {
     ((typ == TYPE_SHORT || typ == TYPE_LONG) && count == 1).then_some(value)
 }
 
+fn byte(entry: &Entry) -> Option<u8> {
+    let (_, value, typ, count) = *entry;
+    (typ == TYPE_BYTE && count == 1).then_some(value as u8)
+}
+
 /// Follow IFD0 -> ExifIFD (0x8769) -> MakerNote (0x927c) for the shooting
 /// settings and the focus point. Any of the three may be absent, which is not
 /// an error; an offset pointing outside `buf` is.
@@ -319,7 +330,12 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         }
     }
 
-    shot.focus = match maker_note_ifd(buf, &exif_ifd, shot.make.as_deref())? {
+    let maker = maker_note_ifd(buf, &exif_ifd, shot.make.as_deref())?;
+    shot.focus_mode = maker
+        .as_ref()
+        .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_MODE))
+        .and_then(byte);
+    shot.focus = match maker {
         Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
             Some(e) => shorts4(buf, e)?.map(|v| FocusLocation {
                 sensor_w: v[0],
@@ -481,11 +497,21 @@ mod tests {
     /// and SubSecTimeOriginal, optionally followed by a Sony MakerNote IFD
     /// that optionally holds FocusLocation.
     fn tiff_with_exif(maker: bool, focus: Option<[u16; 4]>, sony_header: bool) -> Vec<u8> {
+        tiff_with_maker(maker, focus, sony_header, None)
+    }
+
+    /// `tiff_with_exif` whose MakerNote may also carry a `FocusMode` BYTE.
+    fn tiff_with_maker(
+        maker: bool,
+        focus: Option<[u16; 4]>,
+        sony_header: bool,
+        focus_mode: Option<u8>,
+    ) -> Vec<u8> {
         let exif_at = 8 + ifd_len(1);
         let exif_entries = if maker { 3 } else { 2 };
         let maker_at = exif_at + ifd_len(exif_entries);
         let header_len = if sony_header { 12 } else { 0 };
-        let maker_entries = usize::from(focus.is_some());
+        let maker_entries = usize::from(focus.is_some()) + usize::from(focus_mode.is_some());
         let maker_len = if maker {
             header_len + ifd_len(maker_entries)
         } else {
@@ -520,9 +546,10 @@ mod tests {
             if sony_header {
                 buf.extend_from_slice(b"SONY DSC \0\0\0");
             }
-            let entries: Vec<_> = focus
-                .map(|_| (TAG_FOCUS_LOCATION, TYPE_SHORT, 4, focus_at as u32))
+            let entries: Vec<_> = focus_mode
+                .map(|m| (TAG_FOCUS_MODE, TYPE_BYTE, 1, u32::from(m)))
                 .into_iter()
+                .chain(focus.map(|_| (TAG_FOCUS_LOCATION, TYPE_SHORT, 4, focus_at as u32)))
                 .collect();
             buf.extend_from_slice(&ifd(&entries));
         }
@@ -592,6 +619,23 @@ mod tests {
         let a = parse(&tiff_with_exif(true, None, false)).unwrap();
         assert!(a.shot.focus.is_none());
         assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+    }
+
+    #[test]
+    fn reads_the_sony_focus_mode() {
+        let manual = parse(&tiff_with_maker(true, None, false, Some(0))).unwrap();
+        assert_eq!(manual.shot.focus_mode, Some(0));
+        let af_c = parse(&tiff_with_maker(
+            true,
+            Some([6000, 4000, 1, 2]),
+            false,
+            Some(3),
+        ))
+        .unwrap();
+        assert_eq!(af_c.shot.focus_mode, Some(3));
+        assert_eq!(af_c.shot.focus.unwrap().x, 1);
+        let absent = parse(&tiff_with_exif(true, None, false)).unwrap();
+        assert!(absent.shot.focus_mode.is_none());
     }
 
     #[test]
@@ -732,6 +776,7 @@ mod tests {
         buf.extend_from_slice(make);
         let a = parse(&buf).unwrap();
         assert!(a.shot.focus.is_none());
+        assert!(a.shot.focus_mode.is_none());
         assert!(a.shot.focus_distance_mm.is_none());
         assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));
     }

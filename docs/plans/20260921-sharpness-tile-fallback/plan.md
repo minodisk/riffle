@@ -60,7 +60,7 @@ Scope: no user-facing setting, no change to the zoom/crop path
 
 ## Steps
 
-- [ ] Step 1: Core: parse the Sony `FocusMode` maker note tag into `Shot`
+- [x] Step 1: Core: parse the Sony `FocusMode` maker note tag into `Shot`
   - Done when:
     - `crates/core/src/arw.rs` reads tag `0x201b` out of the Sony maker note
       IFD (the same IFD `TAG_FOCUS_LOCATION` is read from) into a new field
@@ -158,4 +158,4 @@ Scope: no user-facing setting, no change to the zoom/crop path
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
