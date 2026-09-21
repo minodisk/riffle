@@ -78,6 +78,7 @@ const bursts = new Map<number, BurstMark>();
 const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink", "purple"]);
 let inFlight = 0;
 let select: (index: number) => void = () => {};
+let contextMenu: (index: number, x: number, y: number) => void = () => {};
 
 // A rated cell carries its stars in the top-right corner. A picked or
 // rejected cell carries a dot in the top-left corner, green or red (the two
@@ -159,6 +160,10 @@ function createCell(index: number): Cell {
   el.append(sharp);
   el.addEventListener("click", () => {
     select(index);
+  });
+  el.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    contextMenu(index, event.clientX, event.clientY);
   });
   inner.append(el);
   const cell: Cell = { el, img, badge, flag, sharpness: sharp, name, url: null };
@@ -416,8 +421,15 @@ export function markReady(paths: string[]): void {
   pump();
 }
 
-export function init(onSelect: (index: number) => void): void {
+export function init(
+  onSelect: (index: number) => void,
+  onContextMenu: (index: number, x: number, y: number) => void,
+): void {
   select = onSelect;
+  contextMenu = onContextMenu;
+  strip.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
   strip.addEventListener("scroll", render);
   window.addEventListener("resize", render);
 }
