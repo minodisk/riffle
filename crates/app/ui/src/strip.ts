@@ -30,6 +30,7 @@ interface Cell {
   badge: HTMLSpanElement;
   flag: HTMLSpanElement;
   sharpness: HTMLSpanElement;
+  count: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
 }
@@ -73,7 +74,7 @@ const labels = new Map<number, string>();
 // The relative sharpness per index, from `relativeSharpness` in
 // `sharpness.ts`; a missing entry has no score.
 const sharpness = new Map<number, RelativeSharpness>();
-// The burst bracket per index, from `burstMarks` in `burst.ts`; a missing
+// The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
 // The selected indices besides `current`, mirroring the selection in
@@ -121,13 +122,22 @@ function paintSharpness(index: number, cell: Cell): void {
   cell.sharpness.classList.toggle("best", value?.best === true);
 }
 
-// A bracket down the cell's right edge, joined to the next and previous
-// member of the same burst.
+// A band behind the cell, joined to the next and previous member of the same
+// burst. The first displayed cell of a burst run carries the burst's size, and
+// the current cell `position/size` instead.
 function paintBurst(index: number, cell: Cell): void {
   const value = bursts.get(index);
   cell.el.classList.toggle("burst", value !== undefined);
   cell.el.classList.toggle("burst-first", value?.first === true);
   cell.el.classList.toggle("burst-last", value?.last === true);
+  cell.count.textContent =
+    value === undefined
+      ? ""
+      : index === current
+        ? `${value.position + 1}/${value.size}`
+        : value.first
+          ? String(value.size)
+          : "";
 }
 
 function baseName(path: string): string {
@@ -162,6 +172,9 @@ function createCell(index: number): Cell {
   const sharp = document.createElement("span");
   sharp.className = "sharpness";
   el.append(sharp);
+  const count = document.createElement("span");
+  count.className = "count";
+  el.append(count);
   el.addEventListener("click", (event) => {
     select(index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
   });
@@ -170,7 +183,7 @@ function createCell(index: number): Cell {
     contextMenu(index, event.clientX, event.clientY);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, flag, sharpness: sharp, name, url: null };
+  const cell: Cell = { el, img, badge, flag, sharpness: sharp, count, name, url: null };
   paintRating(index, cell);
   paintSharpness(index, cell);
   paintBurst(index, cell);
@@ -182,6 +195,7 @@ function highlight(): void {
     cell.el.classList.toggle("current", index === current);
     cell.el.classList.toggle("selected", index !== current && selected.has(index));
     cell.el.classList.toggle("failed", failed.has(index));
+    paintBurst(index, cell);
   }
 }
 
@@ -346,7 +360,7 @@ export function setSharpness(index: number, value: RelativeSharpness | null): vo
   }
 }
 
-// Record the burst bracket of one file, repainting its cell when it is on
+// Record the burst band and badge of one file, repainting its cell when it is on
 // screen. `null` is not in a burst of two or more.
 export function setBurst(index: number, value: BurstMark | null): void {
   if (value === null) {

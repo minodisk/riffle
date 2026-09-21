@@ -357,13 +357,7 @@ emptyEl.addEventListener("click", () => {
 function renderMeta(): void {
   renderTitle();
   renderEmpty();
-  const member = files.length > 0 ? bursts.get(files[index]) : undefined;
-  positionEl.textContent =
-    files.length === 0
-      ? ""
-      : member !== undefined && member.size > 1
-        ? `${index + 1} / ${files.length} \u00B7 ${member.position + 1} / ${member.size} in burst`
-        : `${index + 1} / ${files.length}`;
+  positionEl.textContent = files.length === 0 ? "" : `${index + 1} / ${files.length}`;
   if (selection.selected.size > 1) {
     positionEl.textContent += ` \u00B7 ${selection.selected.size} selected`;
   }

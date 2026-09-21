@@ -82,22 +82,22 @@ describe("burstMarks", () => {
     ["f", { burst: 2, position: 1, size: 2 }],
   ]);
 
-  test("brackets open and close at burst edges and skip singletons", () => {
+  test("bands open and close at burst edges and skip singletons", () => {
     expect(burstMarks(["a", "b", "c", "d", "e", "f"], members)).toEqual([
-      { first: true, last: false },
-      { first: false, last: false },
-      { first: false, last: true },
+      { first: true, last: false, position: 0, size: 3 },
+      { first: false, last: false, position: 1, size: 3 },
+      { first: false, last: true, position: 2, size: 3 },
       null,
-      { first: true, last: false },
-      { first: false, last: true },
+      { first: true, last: false, position: 0, size: 2 },
+      { first: false, last: true, position: 1, size: 2 },
     ]);
   });
 
-  test("members separated by another file close and reopen the bracket", () => {
+  test("members separated by another file close and reopen the band", () => {
     expect(burstMarks(["a", "e", "b"], members)).toEqual([
-      { first: true, last: true },
-      { first: true, last: true },
-      { first: true, last: true },
+      { first: true, last: true, position: 0, size: 3 },
+      { first: true, last: true, position: 0, size: 2 },
+      { first: true, last: true, position: 1, size: 3 },
     ]);
   });
 });
