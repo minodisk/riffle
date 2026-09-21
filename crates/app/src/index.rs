@@ -1926,28 +1926,21 @@ mod tests {
         let first = rows[0].0.path.to_string_lossy().into_owned();
 
         let writer = Mutex::new(writer);
-        let hold = Duration::from_secs(1);
-        let elapsed = std::thread::scope(|scope| {
+        // The reads are joined while the transaction is still open: a blocked
+        // reader would hit the busy timeout `Index::open_reader` sets and fail
+        // here, since the rollback below cannot run until the join returns.
+        std::thread::scope(|scope| {
             let guard = lock(&writer);
             guard.conn.execute_batch("BEGIN IMMEDIATE").unwrap();
             let read = scope.spawn(|| {
-                let start = Instant::now();
                 let reader = lock(&reader);
                 let entries = reader.entries("d").unwrap();
                 let thumb = reader.thumbnail(&first).unwrap();
-                (start.elapsed(), entries.len(), thumb.0)
+                (entries.len(), thumb.0)
             });
-            std::thread::sleep(hold);
+            assert_eq!(read.join().unwrap(), (3, 6));
             guard.conn.execute_batch("ROLLBACK").unwrap();
-            drop(guard);
-            read.join().unwrap()
         });
-        assert_eq!((elapsed.1, elapsed.2), (3, 6));
-        // The reader must return well before the writer's transaction
-        // is held for `hold`; a generous margin (half of `hold`) keeps
-        // this from flaking under a loaded CI machine while still
-        // proving the reader did not wait on the writer.
-        assert!(elapsed.0 < hold / 2, "{:?}", elapsed.0);
 
         lock(&writer)
             .write_batch("d", &[(synthetic(&dir, 3), Ok(entry()))])

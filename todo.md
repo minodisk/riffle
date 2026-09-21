@@ -210,20 +210,6 @@ The behaviour was checked by reading the code paths only. Files:
       restart; resizing the window and 1:1 zoom still render the canvas
       correctly now that `#viewer` (not `#canvas`) carries the flex sizing.
 
-### App: a Rust test is flaky under load — `index::tests::the_reader_does_not_wait_on_an_open_write_transaction`
-
-The test asserts a wall-clock budget of 100 ms for a read taken while a
-write transaction is open; it failed once at 161 ms during
-`clear-cache-stuck-guard`'s Step 3 local `mise run ci` run (an otherwise
-idle machine) and passed on immediate re-run. File:
-`crates/app/src/index.rs`.
-
-#### TODO
-
-- [ ] Loosen the timing bound, or otherwise make the assertion robust to
-      scheduling noise, so an unrelated CI run does not intermittently fail
-      on it.
-
 ### App: the manual GUI check of `scan-progress` `ready` is outstanding
 
 Steps 2 and 3 of `docs/plans/_archived/20260921-scan-progress-ready-paths/plan.md`
