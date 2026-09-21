@@ -77,3 +77,31 @@ export function targets(selection: Selection, files: readonly string[], focused:
   if (selection.selected.size <= 1) return [path];
   return files.filter((file) => selection.selected.has(file));
 }
+
+export type State = { rating: number | null; pick: boolean; label: string | null };
+export type Judged = State & { path: string };
+
+// A judgement command: given the focused file's state, the change it makes
+// to one file's own state. The value is decided once, from the focused file,
+// and each file keeps every field the command does not touch.
+export type Command = (focused: State) => (own: State) => State;
+
+// The changes a command makes to `paths`, focused file first. A file already
+// at its new state is skipped unless `force` holds for it.
+export function judgements(
+  paths: readonly string[],
+  focused: string,
+  lookup: (path: string) => State,
+  command: Command,
+  force: (path: string) => boolean = () => false,
+): { before: Judged; after: State }[] {
+  const apply = command(lookup(focused));
+  const ordered = [focused, ...paths.filter((path) => path !== focused)];
+  return ordered.flatMap((path) => {
+    const own = lookup(path);
+    const after = apply(own);
+    const same =
+      own.rating === after.rating && own.pick === after.pick && own.label === after.label;
+    return same && !force(path) ? [] : [{ before: { path, ...own }, after }];
+  });
+}

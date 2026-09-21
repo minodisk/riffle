@@ -19,3 +19,21 @@
   `strip.setFiles` clears the strip's copy, so `refilter` repaints it.
 - `move`, `moveBurst` and the arrow keys do not collapse the selection yet
   (Step 4), so until then the focused file can move outside the selection.
+
+## Step 3
+
+- A command is `(focused) => (own) => State`: the outer call decides the
+  value once from the focused file, the inner one applies it to each file's
+  own state, so fields the command does not touch survive per file. The flag
+  commands (`pick`, `unflag`) turn a reject into "no stars" per file, since a
+  reject lives in the rating field; stars on the other files are kept.
+- `judgements` always puts the focused file first, even when it is not in
+  the selection (possible until Step 4 collapses on arrow keys), so the
+  focused file is always judged.
+- `judge` now returns the number of targets (0 when nothing changed), and
+  auto-advance fires only when it is 1.
+- The strip context menu routes its items through `runAction`, so they act
+  on the selection too. A right-click on a cell outside the selection
+  collapses the selection to that cell first (as file managers do); one
+  inside keeps it and only moves the focus.
+- No slowness measured; N `set_rating` invokes per batch as `rejectRest`.

@@ -18,7 +18,15 @@ import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { effectivePick } from "./pick.js";
 import { flagMenuItems, menuPosition } from "./context.js";
-import { type Selection, click, prune, single } from "./selection.js";
+import {
+  type Command,
+  type Selection,
+  click,
+  judgements,
+  prune,
+  single,
+  targets,
+} from "./selection.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -634,44 +642,41 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   }
 }
 
-// A judgement key, given the current file's judgement and returning the new
-// one: update the map and redraw first, then tell the backend. The invoke is
-// never awaited for anything visible; only its failure is, which reverts the
-// entry (if the folder is still the one it belongs to) and says so in the
-// status line.
-function judge(
-  next: (
-    rating: number | null,
-    pick: boolean,
-    label: string | null,
-  ) => [number | null, boolean, string | null],
-  forceLabel = false,
-): boolean {
+// A judgement key over the selection's targets: the command's new value is
+// decided once from the focused file and set on every target, each keeping
+// the fields the command does not touch. Update the maps and redraw first,
+// then tell the backend per file. The invokes are never awaited for anything
+// visible; only a failure is, which reverts that file (if the folder is still
+// the one it belongs to) and says so in the status line. Returns the number
+// of targets when anything changed, else 0.
+function judge(command: Command, forceLabel = false): number {
   if (files.length === 0) {
-    return false;
+    return 0;
   }
-  const path = files[index];
-  const previous = ratings.get(path) ?? null;
-  const previousPick = picks.has(path);
-  const previousLabel = labels.get(path) ?? null;
-  const [rating, pick, label] = next(previous, previousPick, previousLabel);
+  const current = files[index];
+  const paths = targets(selection, files, index);
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless. A forced label still goes out
   // while the file's real label is unknown.
-  if (
-    previous === rating &&
-    previousPick === pick &&
-    previousLabel === label &&
-    (!forceLabel || entries.has(path))
-  ) {
-    return false;
+  const changes: Change[] = judgements(
+    paths,
+    current,
+    (path) => ({
+      rating: ratings.get(path) ?? null,
+      pick: picks.has(path),
+      label: labels.get(path) ?? null,
+    }),
+    command,
+    (path) => forceLabel && !entries.has(path),
+  ).map(({ before, after }) => ({ before, ...after, forceLabel }));
+  if (changes.length === 0) {
+    return 0;
   }
-  const before = { path, rating: previous, pick: previousPick, label: previousLabel };
-  const batch = [before];
+  const batch = changes.map(({ before }) => before);
   history.push(batch);
   redoable.clear();
-  commit([{ before, rating, pick, label, forceLabel }], forgetOnFail(history, batch));
-  return true;
+  commit(changes, forgetOnFail(history, batch), () => current);
+  return paths.length;
 }
 
 // `rejectRest`: reject every other member of the current file's burst, over
@@ -1368,6 +1373,10 @@ strip.init(
     show();
   },
   (selected, x, y) => {
+    if (!selection.selected.has(files[selected])) {
+      selection = single(files[selected]);
+      paintSelection();
+    }
     if (selected !== index) {
       index = selected;
       show();
@@ -1991,7 +2000,7 @@ window.addEventListener("keydown", (event) => {
 
 function runAction(action: string): boolean {
   const current = files[index];
-  let judged = false;
+  let judged = 0;
   switch (action) {
     case "previous":
       move(-1);
@@ -2030,13 +2039,13 @@ function runAction(action: string): boolean {
     case "rate4":
     case "rate5": {
       const stars = Number(action.slice(-1));
-      judged = judge((_, pick, label) => [stars, pick, label]);
+      judged = judge(() => (own) => ({ ...own, rating: stars }));
       break;
     }
     case "reject":
       // Sticky, not a toggle: reject twice is still a reject, and it replaces
       // a pick. Unflag undoes it.
-      judged = judge((_rating, _pick, label) => [-1, false, label]);
+      judged = judge(() => (own) => ({ ...own, rating: -1, pick: false }));
       break;
     case "rejectRest":
       rejectRest();
@@ -2046,15 +2055,23 @@ function runAction(action: string): boolean {
       if (!effectivePick(true, sidecarFormat)) {
         return false;
       }
-      judged = judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
+      judged = judge(() => (own) => ({
+        ...own,
+        rating: own.rating === -1 ? null : own.rating,
+        pick: true,
+      }));
       break;
     case "unflag":
       // Clears a reject or a pick; does nothing to a file with neither.
-      judge((rating, _pick, label) => [rating === -1 ? null : rating, false, label]);
+      judge(() => (own) => ({
+        ...own,
+        rating: own.rating === -1 ? null : own.rating,
+        pick: false,
+      }));
       break;
     case "clear":
       // Clears the stars or the reject and leaves a pick alone.
-      judge((_, pick, label) => [null, pick, label]);
+      judge(() => (own) => ({ ...own, rating: null }));
       break;
     case "red":
     case "orange":
@@ -2065,21 +2082,24 @@ function runAction(action: string): boolean {
     case "purple": {
       // Toggles: the same colour again clears it; another colour replaces it.
       const name = action.charAt(0).toUpperCase() + action.slice(1);
-      judge((rating, pick, label) => [rating, pick, label === name ? null : name]);
+      judge((focused) => {
+        const label = focused.label === name ? null : name;
+        return (own) => ({ ...own, label });
+      });
       break;
     }
     case "clearlabel":
-      judge((rating, pick) => [rating, pick, null]);
+      judge(() => (own) => ({ ...own, label: null }));
       break;
     case "clearall":
       // Clears the stars or reject, the pick and the label in one undo entry.
-      judge(() => [null, false, null], true);
+      judge(() => () => ({ rating: null, pick: false, label: null }), true);
       break;
     default:
       return false;
   }
   // A file that dropped out of the filter already moved the cursor on.
-  if (judged && autoAdvance && advancesAfter(action) && files[index] === current) {
+  if (judged === 1 && autoAdvance && advancesAfter(action) && files[index] === current) {
     move(1);
   }
   return true;

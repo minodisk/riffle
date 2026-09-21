@@ -133,7 +133,7 @@ command; no backend change is needed.
       selection, push the selected indices to the strip
     - Add the CSS rule next to `.cell.current` in `crates/app/ui/style.css`
 
-- [ ] Step 3: Bulk judgements over the selection
+- [x] Step 3: Bulk judgements over the selection
   - Done when:
     - Every action routed through `judge` in the keydown handler (`rate1`-
       `rate5`, `reject`, `pick`, `unflag`, `clear`, the seven labels,
@@ -227,3 +227,4 @@ command; no backend change is needed.
 
 - (2026-09-22) Step 1 complete
 - (2026-09-22) Step 2 complete
+- (2026-09-22) Step 3 complete
