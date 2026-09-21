@@ -11,7 +11,10 @@ interface TauriGlobal {
     listen<T>(event: string, handler: (event: TauriEvent<T>) => void): Promise<() => void>;
   };
   window: {
-    getCurrentWindow(): { setTitle(title: string): Promise<void> };
+    getCurrentWindow(): {
+      setTitle(title: string): Promise<void>;
+      listen<T>(event: string, handler: (event: TauriEvent<T>) => void): Promise<() => void>;
+    };
   };
 }
 

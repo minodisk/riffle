@@ -26,6 +26,14 @@ In the Windows real-folder measurement, after a cache clear `scan_id` N was supe
 
 - [ ] Find why two scans start and make the second one not fire (or coalesce it), verified by the log showing one `scan extract` per trigger.
 
+### App: cold first scan on an internal SSD is far slower than the extrapolation
+
+A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown.
+
+#### TODO
+
+- [ ] Run `riffle-cli scan` on a cold real folder on Windows at thread counts 1 / 4 / 8 / 22 (cold each run) to separate IO concurrency from per-file cost, and compare the bounded 1MiB read against reading the whole file.
+
 ### App: `open entries` is called twice per folder open
 
 In the Windows real-folder measurement, the log shows two `open entries` lines (56ms and 76ms on 2677 files) for one folder open.
@@ -174,23 +182,6 @@ PhotoLab" always fails with `Could not open PhotoLab: ... (os error 3)`
 - [ ] Decide between a Windows / Linux PhotoLab lookup and hiding or
       disabling the item on those platforms, then implement it.
 
-### App: Clear Cache is refused on Windows with no scan running
-
-Found during the Windows manual GUI check run: pressing Clear in the Clear
-Cache confirm dialog, with no scan running beforehand, is refused with `a
-scan is running; wait for it to finish`. Likely cause (unverified):
-`crates/app/ui/src/main.ts` subscribes
-`window.__TAURI__.event.listen("tauri://focus", resync)` globally, so the
-settings window regaining focus when the dialog closes triggers a
-main-window rescan, and `clear_index`'s second `scanning()` check (after the
-sidecar flush) refuses. Proposed fix: scope the focus listener to the main
-window. Files: `crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`
-(`clear_index`).
-
-#### TODO
-
-- [ ] Confirm the cause, fix it, and add a regression test if feasible.
-
 ### App: the Clear Cache button's manual GUI verification is still open
 
 From `clear-cache-stuck-guard`'s implementation: the button's guard used to
@@ -198,8 +189,8 @@ get stuck (never re-enabling after the first scan), so none of its GUI
 behaviour has been run by a human. GUI automation is unavailable on this
 Mac and a native confirm dialog cannot be driven by an agent. A later manual
 run on Windows passed (1) and showed the dialog in (2) immediately; the
-Cancel half of (2) and checks (3)-(7) are blocked by the Clear Cache
-refusal bug above. Files:
+Cancel half of (2) and checks (3)-(7) were blocked by a Clear Cache refusal
+bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
 `crates/app/src/commands.rs`, `crates/app/ui/settings.html`,
 `crates/app/ui/src/settings.ts`.
 
