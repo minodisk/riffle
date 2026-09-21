@@ -27,3 +27,7 @@
   check is skipped when `forceLabel` is set and `entries` lacks the path.
 - `reset_restores_the_defaults` in `shortcuts.rs` bound `c` to `clear`; now that
   `c` is `clearall`'s default it uses `q` instead. `c` is in no forbidden list.
+
+## Step 3
+
+- The docs never name the settings labels, so the `0` key label rename to "0 star" needed no docs change.
