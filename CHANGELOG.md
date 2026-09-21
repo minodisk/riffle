@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.9](https://github.com/minodisk/riffle/compare/v0.1.8...v0.1.9) (2026-09-21)
+
+
+### Features
+
+* **app:** add Edit &gt; Redo ([#261](https://github.com/minodisk/riffle/issues/261)) ([bafd49f](https://github.com/minodisk/riffle/commit/bafd49fb8ba0104a4737b309f79e09c91b986ec2))
+* **app:** carry the flushed paths in scan-progress ([#254](https://github.com/minodisk/riffle/issues/254)) ([1b39ce5](https://github.com/minodisk/riffle/commit/1b39ce50b8c5d5db592b9b9f9afd9139cfe7b570))
+* **app:** enlarge the dot and star on the app icon ([#255](https://github.com/minodisk/riffle/issues/255)) ([6e998ee](https://github.com/minodisk/riffle/commit/6e998ee0a3b267add9f5bca69e16bc61e0362aa9))
+* **app:** forward timing lines to Riffle.log ([#265](https://github.com/minodisk/riffle/issues/265)) ([d8f0072](https://github.com/minodisk/riffle/commit/d8f007273aa4d7ecc4bf52a5351c54fa8fdb1eae))
+* **app:** log a per-page timing line from the preview path ([#264](https://github.com/minodisk/riffle/issues/264)) ([7d49723](https://github.com/minodisk/riffle/commit/7d4972349bc156dca8d88dafa56107da401b1083))
+* **app:** report the flushed paths from run_scan ([#253](https://github.com/minodisk/riffle/issues/253)) ([76b37a6](https://github.com/minodisk/riffle/commit/76b37a61071f543ca75a659e689056e01e519189))
+* **app:** tint the macOS menu icons with the menu appearance ([#259](https://github.com/minodisk/riffle/issues/259)) ([ea2e1a8](https://github.com/minodisk/riffle/commit/ea2e1a834e5b2233385a1fe681187f389c8c6da2))
+
+
+### Bug Fixes
+
+* **app:** match the menu icon glyph size to the OS menu items ([#250](https://github.com/minodisk/riffle/issues/250)) ([29050f3](https://github.com/minodisk/riffle/commit/29050f36db9d9c75b5df2ab6a614801d7ef48c15))
+
 ## [0.1.8](https://github.com/minodisk/riffle/compare/v0.1.7...v0.1.8) (2026-09-20)
 
 
