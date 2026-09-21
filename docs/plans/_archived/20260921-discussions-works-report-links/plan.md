@@ -39,4 +39,4 @@ After finishing a step, continue to the next without asking the user.
 
 ## Progress
 
-- Step 1 done: README and config.yml point at #286/#287/#288, TODO markers and the todo.md item removed
+- (2026-09-21) Step 1 complete
