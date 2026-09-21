@@ -160,10 +160,10 @@ this is CPU cost with no IO variety.
 The second open of a fully indexed folder does no extraction: it stats every
 file, reconciles the rows and queries them. On the 5000-file folder:
 
-| Step | Measured |
-|------|----------|
-| First open, full scan (5000 files, 10 threads, 0 errors) | 5.55s |
-| Second open (stat + reconcile + query, fully indexed) [^1] | 34.4ms |
+| Step | Target | Measured |
+|------|--------|----------|
+| First open, full scan (5000 files, 10 threads, 0 errors) | - | 5.55s |
+| Second open (stat + reconcile + query, fully indexed) [^1] | 3s | 34.4ms |
 
 Both rows were measured on **5000 symlinks pointing at one real ARW, with a
 warm page cache**, so they carry the same caveat as the tables above. The
