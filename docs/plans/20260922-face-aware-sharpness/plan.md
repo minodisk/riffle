@@ -56,7 +56,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
 
 ## Steps
 
-- [ ] Step 1: Core + CLI: face/eye detector prototype and its benchmark
+- [x] Step 1: Core + CLI: face/eye detector prototype and its benchmark
   - Done when:
     - `crates/core/src/faces.rs` (new) exposes a pure function of the form
       `detect(gray_or_rgb, width, height) -> Result<Vec<Face>>`, where
@@ -206,4 +206,4 @@ Builds on the "App: face/eye-aware focus check for culling" item in
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete

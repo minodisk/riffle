@@ -9,3 +9,4 @@ mozjpeg-sys = "2.2"
 anyhow = "1"
 rayon = "1"
 quick-xml = "0.42"
+tract-onnx = { version = "0.23", default-features = false }
