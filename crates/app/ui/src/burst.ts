@@ -79,3 +79,28 @@ export function burstMarks(
     return { first: burstAt(at - 1) !== burst, last: burstAt(at + 1) !== burst };
   });
 }
+
+// The index `burstNext` / `burstPrevious` move to over the displayed files'
+// burst ids: the first displayed file of the next burst, or the first of the
+// current burst unless already there, else the first of the previous one.
+// Clamps at the ends.
+export function burstStep(ids: readonly number[], current: number, direction: -1 | 1): number {
+  const start = (at: number): number => {
+    while (at > 0 && ids[at - 1] === ids[at]) {
+      at -= 1;
+    }
+    return at;
+  };
+  if (direction === 1) {
+    let at = current;
+    while (at < ids.length - 1 && ids[at + 1] === ids[current]) {
+      at += 1;
+    }
+    return at < ids.length - 1 ? at + 1 : current;
+  }
+  const first = start(current);
+  if (first !== current) {
+    return first;
+  }
+  return first > 0 ? start(first - 1) : current;
+}

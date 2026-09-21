@@ -21,9 +21,29 @@
   this environment, so the bracket placement and the observed group sizes
   still need to be confirmed by hand.
 
+## Step 2
+
+- `burstStep(ids, current, direction)` takes one burst id per displayed file;
+  `main.ts` gives a file missing from the grouping the unique id `-1 - index`
+  so it acts as a singleton. Equal ids are only treated as one burst when
+  adjacent, so members separated by a filter or the rating sort are walked
+  as separate runs.
+- The `a_store_from_the_old_defaults_still_loads` test stored
+  `arrowleft` on `previous`; with `arrowleft` now the `burstPrevious`
+  default that override conflicts and is dropped, so `arrowleft` was removed
+  from the test's stored list.
+- `arrowleft` / `arrowright` pass `forbidden()` on both platforms (only the
+  `ctrl+` variants are reserved on macOS).
+
 ## Deferred issues (todo candidates)
 
 - Verify Step 1's burst bracket and `· N / M in burst` counter by hand on a
   real Sony and Leica burst folder and note the group sizes (basis: Step 1
   "Implementation approach", last bullet; not possible without GUI access).
   Files: `crates/app/ui/src/burst.ts`, `crates/app/ui/style.css`.
+- A stored `shortcuts` override that still binds `arrowleft` / `arrowright`
+  to `previous` / `next` (older defaults) now conflicts with the new burst
+  defaults and the whole override for that action is ignored at load (basis:
+  Step 2, `a_store_from_the_old_defaults_still_loads` had to drop
+  `arrowleft`). Consider letting an override win over a default of another
+  action. Files: `crates/app/src/shortcuts.rs`.

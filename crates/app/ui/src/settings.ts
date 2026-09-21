@@ -4,6 +4,8 @@ import { nextTab } from "./tabs.js";
 const shortcutLabels: Record<string, string> = {
   previous: "Previous",
   next: "Next",
+  burstPrevious: "Previous burst",
+  burstNext: "Next burst",
   open: "Open folder",
   photolab: "Open in DxO PhotoLab",
   focus: "Focus mark",
