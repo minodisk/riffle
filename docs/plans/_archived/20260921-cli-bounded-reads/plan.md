@@ -63,3 +63,4 @@ The read cost stays excluded from the measurement, as it is today.
 - Step 1: `info`, `focusbox` and `bench` moved to `riffle_core::reader`; the todo.md item was
   removed. See `learnings.md` for the output-verification results and the round 1 review fix to
   `bench`'s preview/full gating.
+- (2026-09-21) Step 1 complete
