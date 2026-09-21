@@ -812,6 +812,17 @@ against `control`/`alt`/`shift`/`meta`.
   `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`, and
   `docs/plans/20260920-ignore-stale-ui-js/learnings.md`.
 
+### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
+
+Sizing `#side` with plain `flex: none` lets a long `#position` line
+(`N / M · a / b in burst`) widen the column, shifting the layout as the text
+changes. Adding `width: min-content` sizes the column to its narrowest
+content instead: the fixed-width strip (plus its scrollbar gutter) sets the
+width and the text wraps. Absolutely positioned children (the filter / sort
+menus) do not feed into the intrinsic width.
+
+- Source: `docs/plans/_archived/20260922-strip-scrollbar/learnings.md`, Step 1.
+
 ### Carry every judgement field on every write (Hit)
 
 `set_rating` writes the whole judgement (stars, pick, label), so the frontend

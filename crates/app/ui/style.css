@@ -43,7 +43,11 @@ body {
      or an overflow: a stacking context here would paint the menu below
      #viewer, and an overflow would clip it. */
   position: relative;
-  flex: 0 0 160px;
+  /* min-content, so the strip's fixed 160px plus its scrollbar gutter sets
+     the width (0 extra with overlay scrollbars) and #position's text wraps
+     instead of widening the column. */
+  flex: none;
+  width: min-content;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -232,6 +236,9 @@ body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
 }
 
 #position {
@@ -261,6 +268,7 @@ body {
 
 #strip-inner {
   position: relative;
+  width: 160px;
   /* The single source of truth for cell placement: `strip.ts` reads
      `--cell-height` once at startup instead of hard-coding it, so this is
      the only place that needs to change to resize a cell. */
