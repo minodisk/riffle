@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Result};
-use riffle_core::arw;
 use riffle_core::decode::{apply_orientation, decode_rgb};
 use riffle_core::partial;
 use riffle_core::reader;
@@ -28,8 +27,7 @@ fn main() -> Result<()> {
 }
 
 fn info(path: &Path) -> Result<()> {
-    let buf = std::fs::read(path)?;
-    let a = arw::parse(&buf)?;
+    let a = reader::read_metadata(path)?;
     println!("orientation: {}", a.orientation);
     println!("preview: {:?}", a.preview);
     println!("full:    {:?}", a.full);
@@ -67,12 +65,10 @@ fn draw_rect(rgb: &mut [u8], w: usize, h: usize, x0: i64, y0: i64, bw: i64, bh: 
 }
 
 fn focusbox(path: &Path, out: &Path) -> Result<()> {
-    let buf = std::fs::read(path)?;
-    let a = arw::parse(&buf)?;
-    let e = a.preview.ok_or_else(|| anyhow!("no preview in {path:?}"))?;
+    let (a, jpeg) = reader::read_preview(path)?;
 
     let t = Instant::now();
-    let (rgb, w, h) = decode_rgb(a.slice(&buf, e))?;
+    let (rgb, w, h) = decode_rgb(&jpeg)?;
     println!("preview {w}x{h} decoded in {:?}", t.elapsed());
 
     let f = a
@@ -127,25 +123,20 @@ fn bench(paths: &[String]) -> Result<()> {
 
     for p in paths {
         let path = Path::new(p);
-        let buf = std::fs::read(path)?;
-        let a = arw::parse(&buf)?;
+        let (a, jpeg) = reader::read_preview(path)?;
+        let t = Instant::now();
+        decode_rgb(&jpeg)?;
+        t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
 
-        if let Some(e) = a.preview {
-            let jpeg = a.slice(&buf, e);
+        if a.full.is_some() {
+            let (a, jpeg) = reader::read_full(path)?;
             let t = Instant::now();
-            decode_rgb(jpeg)?;
-            t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
-        }
-
-        if let Some(e) = a.full {
-            let jpeg = a.slice(&buf, e);
-            let t = Instant::now();
-            decode_rgb(jpeg)?;
+            decode_rgb(&jpeg)?;
             t_full.push(t.elapsed().as_secs_f64() * 1000.0);
 
             // The centre fallback the app uses when there is no FocusLocation.
             let t = Instant::now();
-            partial::decode_focus_crop(jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE)?;
+            partial::decode_focus_crop(&jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE)?;
             t_crop.push(t.elapsed().as_secs_f64() * 1000.0);
         }
     }
