@@ -73,7 +73,7 @@ undo entry, same auto-advance.
       judgement's own move must not double up") is preserved verbatim.
     - No other behavioural change; do not touch strip.ts in this step.
 
-- [ ] Step 2: Pure helpers for the flag menu, with tests
+- [x] Step 2: Pure helpers for the flag menu, with tests
   - Done when:
     - A new module (e.g. `crates/app/ui/src/context.ts`) exports:
       - `flagMenuItems(bindings: Binding[], sidecarFormat: string)` returning
