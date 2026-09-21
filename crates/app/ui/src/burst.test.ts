@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
+import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import type { SortFacts } from "./sort.js";
 
 function lookupFrom(facts: Record<string, SortFacts>): (path: string) => SortFacts {
@@ -134,5 +134,41 @@ describe("burstStep", () => {
     expect(burstStep(shown, 1, 1)).toBe(3);
     expect(burstStep(shown, 3, -1)).toBe(1);
     expect(burstStep(shown, 2, -1)).toBe(1);
+  });
+});
+
+describe("burstFrameStep", () => {
+  const ids = [0, 1, 1, 1, 2];
+
+  test("steps down and up inside a burst", () => {
+    expect(burstFrameStep(ids, 1, 1)).toBe(2);
+    expect(burstFrameStep(ids, 2, 1)).toBe(3);
+    expect(burstFrameStep(ids, 3, -1)).toBe(2);
+    expect(burstFrameStep(ids, 2, -1)).toBe(1);
+  });
+
+  test("clamps at the first and last displayed member", () => {
+    expect(burstFrameStep(ids, 1, -1)).toBe(1);
+    expect(burstFrameStep(ids, 3, 1)).toBe(3);
+  });
+
+  test("a singleton and an empty list are no-ops", () => {
+    expect(burstFrameStep(ids, 0, 1)).toBe(0);
+    expect(burstFrameStep(ids, 0, -1)).toBe(0);
+    expect(burstFrameStep(ids, 4, 1)).toBe(4);
+    expect(burstFrameStep(ids, 4, -1)).toBe(4);
+    expect(burstFrameStep([], 0, 1)).toBe(0);
+    expect(burstFrameStep([], 0, -1)).toBe(0);
+  });
+
+  test("steps only within a run of equal ids left by a filter or a sort", () => {
+    const shown = [0, 3, 3, 7];
+    expect(burstFrameStep(shown, 0, 1)).toBe(0);
+    expect(burstFrameStep(shown, 1, 1)).toBe(2);
+    expect(burstFrameStep(shown, 2, 1)).toBe(2);
+    expect(burstFrameStep(shown, 1, -1)).toBe(1);
+    const split = [0, 1, 0];
+    expect(burstFrameStep(split, 0, 1)).toBe(0);
+    expect(burstFrameStep(split, 2, -1)).toBe(2);
   });
 });

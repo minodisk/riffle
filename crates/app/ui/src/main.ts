@@ -12,7 +12,7 @@ import {
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
-import { burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
+import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
@@ -1273,6 +1273,20 @@ function moveBurst(direction: -1 | 1): void {
   show();
 }
 
+function moveBurstFrame(direction: -1 | 1): void {
+  if (files.length === 0) {
+    return;
+  }
+  const ids = files.map((path, at) => bursts.get(path)?.burst ?? -1 - at);
+  const next = burstFrameStep(ids, index, direction);
+  if (next === index) {
+    return;
+  }
+  index = next;
+  pageKeypressAt = performance.now();
+  show();
+}
+
 function move(delta: number): void {
   if (files.length === 0) {
     return;
@@ -1990,6 +2004,12 @@ function runAction(action: string): boolean {
       break;
     case "burstNext":
       moveBurst(1);
+      break;
+    case "burstFramePrevious":
+      moveBurstFrame(-1);
+      break;
+    case "burstFrameNext":
+      moveBurstFrame(1);
       break;
     case "focus":
       showFocus = !showFocus;

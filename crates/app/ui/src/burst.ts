@@ -104,3 +104,11 @@ export function burstStep(ids: readonly number[], current: number, direction: -1
   }
   return first > 0 ? start(first - 1) : current;
 }
+
+// The index `burstFrameNext` / `burstFramePrevious` move to over the displayed
+// files' burst ids: the neighbouring displayed file when it is in the same
+// burst run, else `current`.
+export function burstFrameStep(ids: readonly number[], current: number, direction: -1 | 1): number {
+  const next = current + direction;
+  return next >= 0 && next < ids.length && ids[next] === ids[current] ? next : current;
+}
