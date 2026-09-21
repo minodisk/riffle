@@ -1923,6 +1923,9 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     return;
   }
+  if (!contextMenu.hidden) {
+    closeContextMenu();
+  }
   const action = keymap.get(key);
   if (action !== undefined && runAction(action)) {
     event.preventDefault();
