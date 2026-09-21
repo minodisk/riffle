@@ -40,6 +40,10 @@ fn info(path: &Path) -> Result<()> {
         Some(f) => println!("focus: {} {} {} {}", f.sensor_w, f.sensor_h, f.x, f.y),
         None => println!("focus: -"),
     }
+    match a.shot.focus_mode {
+        Some(m) => println!("focus mode: {m}"),
+        None => println!("focus mode: -"),
+    }
     Ok(())
 }
 
