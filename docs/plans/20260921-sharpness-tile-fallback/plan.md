@@ -121,7 +121,7 @@ Scope: no user-facing setting, no change to the zoom/crop path
       cost in `learnings.md`. A note, not a gate
     - Update the module doc comment to describe both paths
 
-- [ ] Step 3: App: bump the index schema so cached scores are recomputed
+- [x] Step 3: App: bump the index schema so cached scores are recomputed
   - Done when:
     - `crates/app/src/index.rs`: `SCHEMA_VERSION = 9`; `prepare` accepts 8 and
       drops `files` for `version != 0 && version < 9` (the v7 precedent),

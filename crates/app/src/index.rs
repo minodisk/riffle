@@ -35,8 +35,12 @@ use crate::exif::{exif, Exif};
 /// database has its `files` table dropped and recreated, so every folder is
 /// rescanned once, and keeps `ratings`. v8 added `folders`, when each folder
 /// was last opened, for `evict`; a v7 database gains it in place, seeded with
-/// every indexed folder opened "now", and keeps its `files` rows.
-const SCHEMA_VERSION: i64 = 8;
+/// every indexed folder opened "now", and keeps its `files` rows. v9 changed
+/// how `files.sharpness` is scored (the sharpest tile when there is no
+/// trustworthy AF point); a v2 to v8 database has its `files` table dropped
+/// and recreated, so every folder is rescanned once, and keeps `ratings` and
+/// `folders`.
+const SCHEMA_VERSION: i64 = 9;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -219,11 +223,11 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, 7, 8, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        if version != 0 && version < 7 {
+        if version != 0 && version < 9 {
             tx.execute_batch("DROP TABLE IF EXISTS files;")
                 .map_err(|e| e.to_string())?;
         }
@@ -280,6 +284,8 @@ impl Index {
                  );",
         )
         .map_err(|e| e.to_string())?;
+        // `files` was just dropped, so this seeds nothing; kept so a v7
+        // database still gains the `folders` table in the same way.
         if version == 7 {
             tx.execute(
                 "INSERT OR IGNORE INTO folders (dir, opened_at)
@@ -1145,7 +1151,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 8);
+        assert_eq!(version, 9);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1220,7 +1226,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 8);
+        assert_eq!(version, 9);
 
         remove_temp_dir(&dir);
     }
@@ -1618,7 +1624,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 8);
+        assert_eq!(version, 9);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -2208,7 +2214,7 @@ mod tests {
     }
 
     #[test]
-    fn a_v7_database_keeps_its_files_rows_and_seeds_folders() {
+    fn a_v7_database_drops_its_files_rows_and_gains_folders() {
         let dir = temp_dir("migrate-v7");
         let db = dir.join("index.sqlite");
         let a = synthetic(&dir, 0);
@@ -2221,15 +2227,51 @@ mod tests {
                 .unwrap();
         }
 
-        let before = now_secs();
         let index = Index::open(&db).unwrap();
         let version: i64 = index
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 8);
-        assert_eq!(index.entries("d").unwrap().len(), 1);
-        assert!(opened_at(&index, "d").unwrap() >= before);
+        assert_eq!(version, 9);
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(opened_at(&index, "d"), None);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v8_database_drops_its_files_rows_and_keeps_ratings_and_folders() {
+        let dir = temp_dir("migrate-v8");
+        let db = dir.join("index.sqlite");
+        let a = synthetic(&dir, 0);
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            set_opened_at(&index, "d", NOW);
+            index
+                .conn
+                .execute_batch(
+                    "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
+                     PRAGMA user_version = 8;",
+                )
+                .unwrap();
+        }
+
+        let index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 9);
+        assert!(index.entries("d").unwrap().is_empty());
+        assert_eq!(opened_at(&index, "d"), Some(NOW));
+        let rating: i64 = index
+            .conn
+            .query_row("SELECT rating FROM ratings WHERE path = 'x'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(rating, 3);
 
         remove_temp_dir(&dir);
     }
