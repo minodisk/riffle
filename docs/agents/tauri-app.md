@@ -812,6 +812,20 @@ against `control`/`alt`/`shift`/`meta`.
   `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`, and
   `docs/plans/20260920-ignore-stale-ui-js/learnings.md`.
 
+### The strip context menu is HTML, not a native `tauri::menu` popup (Inferred)
+
+Right-clicking a strip cell opens `#context-menu`, an HTML menu built by
+`crates/app/ui/src/context.ts`, listing Pick / Reject / Unflag with their
+current shortcut keys (Pick is omitted under XMP). A native menu cannot show
+those keys: `accelerator()` only renders modifier combinations, so `p`, `x`
+and `u` would have to be baked into the item title, plus a new command and
+menu-event routing. The default WebView menu is suppressed only inside
+`#strip`, so Inspect stays available elsewhere in devtools builds. Any key
+other than Escape closes the menu first and then runs as usual.
+
+- Source: `docs/plans/20260922-strip-context-menu/plan.md` and its
+  `learnings.md`, Steps 2-3.
+
 ### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
 
 Sizing `#side` with plain `flex: none` lets a long `#position` line
