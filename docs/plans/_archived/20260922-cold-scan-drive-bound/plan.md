@@ -128,4 +128,4 @@ target from the docs and code comments.
 
 ## Progress
 
-- (not started)
+- (2026-09-22) Step 1 complete
