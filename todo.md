@@ -253,3 +253,19 @@ load (found while implementing burst-grouping Step 2, where the
 - [ ] Consider letting a stored override win over a default belonging to
       another action, so an old override does not silently disappear when a
       new action claims its key. Files: `crates/app/src/shortcuts.rs`.
+
+### Docs: Discussions "works" report threads do not exist yet
+
+`README.md` links `https://github.com/minodisk/riffle/discussions` for the OS / camera / software compatibility "works" reports, with `<!-- TODO: replace with the ... works-report thread -->` markers instead of real thread links; `.github/ISSUE_TEMPLATE/config.yml`'s `contact_links` point at the same placeholder.
+
+#### TODO
+
+- [ ] Enable GitHub Discussions if needed, create the three "works" report threads (OS / camera / software) — needs the user's confirmation — and replace the placeholder links in `README.md` and `.github/ISSUE_TEMPLATE/config.yml` with the real thread URLs.
+
+### GitHub: verify the issue report forms on GitHub
+
+The three issue forms (`.github/ISSUE_TEMPLATE/os.yml`, `camera.yml`, `software.yml`) and `config.yml` were only checked by YAML parsing and review before merge; `mise run ci`'s actionlint only covers `workflows/`, so nothing validates `ISSUE_TEMPLATE/` locally.
+
+#### TODO
+
+- [ ] Open `https://github.com/minodisk/riffle/issues/new/choose`, walk through each of the three forms once, and confirm the fields render correctly (or fix them).
