@@ -131,12 +131,12 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
-| `C` | clear every flag of the current file: stars, reject, pick and colour label |
+| `c` | clear every flag of the current file: stars, reject, pick and colour label |
 | `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgement (the `Edit > Redo` accelerator; not rebindable) |
 
 Pressing the key of the label the file already has clears it; the stars, the
-flag and `0` leave the label alone, while `C` clears it along with
+flag and `0` leave the label alone, while `c` clears it along with
 everything else.
 
 | Label | Key |
