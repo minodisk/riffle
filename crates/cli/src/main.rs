@@ -162,8 +162,8 @@ fn bench(paths: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// Extract a whole folder in parallel, with no database: the benchmark for the
-/// 30s scan target.
+/// Extract a whole folder in parallel, with no database: the folder scan
+/// throughput benchmark.
 fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
     let threads =
         threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
