@@ -310,6 +310,12 @@ body {
   background: #333;
 }
 
+/* A selected cell other than the focused one: weaker than `.current`. */
+.cell.selected {
+  border-color: #777;
+  background: #2a2a2a;
+}
+
 /* A permanent failure (the file errored during the scan), as opposed to a
    placeholder still waiting for the scan to reach it. */
 .cell.failed {

@@ -18,6 +18,7 @@ import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { effectivePick } from "./pick.js";
 import { flagMenuItems, menuPosition } from "./context.js";
+import { type Selection, click, prune, single } from "./selection.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -194,6 +195,8 @@ let sidecarFormat = "xmp";
 // `folder_entries` (which may predate the pending sidecar write) does not
 // undo what the user just pressed.
 const touched = new Set<string>();
+// The strip's multi-selection; `files[index]` is its focused member.
+let selection: Selection = single(undefined);
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
 // A judgement's file and its state before it, for `Edit > Undo`. An entry is
@@ -353,6 +356,9 @@ function renderMeta(): void {
       : member !== undefined && member.size > 1
         ? `${index + 1} / ${files.length} \u00B7 ${member.position + 1} / ${member.size} in burst`
         : `${index + 1} / ${files.length}`;
+  if (selection.selected.size > 1) {
+    positionEl.textContent += ` \u00B7 ${selection.selected.size} selected`;
+  }
   metaEl.replaceChildren();
   metaStatusEl.replaceChildren();
   if (files.length > 0) {
@@ -606,6 +612,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   if (files.length === 0) {
     closeContextMenu();
     index = 0;
+    selection = prune(selection, files, index);
     seq += 1;
     shown?.bitmap.close();
     shown = null;
@@ -617,6 +624,8 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   }
   const target = anchorAfterFilter(order, passes, anchor);
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
+  selection = prune(selection, files, index);
+  paintSelection();
   if (files[index] === anchor) {
     strip.setCurrent(index);
     renderMeta();
@@ -1303,9 +1312,24 @@ document.addEventListener("mousedown", (event) => {
   }
 });
 
+// Push the selection to the strip as indices into `files`.
+function paintSelection(): void {
+  strip.setSelected(
+    [...selection.selected].flatMap((path) => {
+      const at = fileIndex.get(path);
+      return at === undefined ? [] : [at];
+    }),
+  );
+}
+
+// A Cmd/Ctrl+click only changes the selection; a Shift+click also moves the
+// focus to the clicked file, so the range always holds the focused file.
 strip.init(
-  (selected) => {
-    if (selected === index) {
+  (selected, modifiers) => {
+    selection = click(selection, files, index, selected, modifiers);
+    paintSelection();
+    if (selected === index || modifiers.toggle) {
+      renderMeta();
       return;
     }
     index = selected;
@@ -1463,6 +1487,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     ratings.clear();
     files = ordered().filter(passes);
     index = 0;
+    selection = single(files[0]);
     openDir = folder;
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
     rebuildExifMenu();

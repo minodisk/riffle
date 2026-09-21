@@ -2,6 +2,7 @@
 // the cached thumbnails the `thumbnail` command serves.
 
 import type { BurstMark } from "./burst.js";
+import type { Modifiers } from "./selection.js";
 import type { RelativeSharpness } from "./sharpness.js";
 
 // Header layout of a `thumbnail` payload, see `crates/app/src/commands.rs`.
@@ -75,9 +76,12 @@ const sharpness = new Map<number, RelativeSharpness>();
 // The burst bracket per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
+// The selected indices besides `current`, mirroring the selection in
+// `main.ts`.
+const selected = new Set<number>();
 const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink", "purple"]);
 let inFlight = 0;
-let select: (index: number) => void = () => {};
+let select: (index: number, modifiers: Modifiers) => void = () => {};
 let contextMenu: (index: number, x: number, y: number) => void = () => {};
 
 // A rated cell carries its stars in the top-right corner. A picked or
@@ -158,8 +162,8 @@ function createCell(index: number): Cell {
   const sharp = document.createElement("span");
   sharp.className = "sharpness";
   el.append(sharp);
-  el.addEventListener("click", () => {
-    select(index);
+  el.addEventListener("click", (event) => {
+    select(index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
   });
   el.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -176,6 +180,7 @@ function createCell(index: number): Cell {
 function highlight(): void {
   for (const [index, cell] of cells) {
     cell.el.classList.toggle("current", index === current);
+    cell.el.classList.toggle("selected", index !== current && selected.has(index));
     cell.el.classList.toggle("failed", failed.has(index));
   }
 }
@@ -376,6 +381,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   sharpness.clear();
   bursts.clear();
+  selected.clear();
   files = paths;
   indexOf = new Map(paths.map((path, index) => [path, index]));
   current = 0;
@@ -384,6 +390,15 @@ export function setFiles(paths: string[], keepScroll = false): void {
     ? Math.max(0, Math.min(offset, files.length * CELL_HEIGHT - strip.clientHeight))
     : 0;
   render();
+}
+
+// Mark the selected indices; `highlight` paints them unless one is current.
+export function setSelected(indices: Iterable<number>): void {
+  selected.clear();
+  for (const index of indices) {
+    selected.add(index);
+  }
+  highlight();
 }
 
 // Highlight `index` and scroll it into view, the `block: "nearest"` way.
@@ -422,7 +437,7 @@ export function markReady(paths: string[]): void {
 }
 
 export function init(
-  onSelect: (index: number) => void,
+  onSelect: (index: number, modifiers: Modifiers) => void,
   onContextMenu: (index: number, x: number, y: number) => void,
 ): void {
   select = onSelect;

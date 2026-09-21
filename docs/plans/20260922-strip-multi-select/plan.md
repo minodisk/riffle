@@ -100,7 +100,7 @@ command; no backend change is needed.
       string[]` as an argument wherever an index-to-path conversion is needed
     - Keep it small; do not add a class hierarchy or events
 
-- [ ] Step 2: Strip click modifiers and selection painting
+- [x] Step 2: Strip click modifiers and selection painting
   - Done when:
     - A Cmd/Ctrl+click on a strip cell toggles it in the selection and a
       Shift+click selects the range from the anchor; a plain click behaves
