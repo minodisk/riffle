@@ -123,10 +123,14 @@ fn bench(paths: &[String]) -> Result<()> {
 
     for p in paths {
         let path = Path::new(p);
-        let (a, jpeg) = reader::read_preview(path)?;
-        let t = Instant::now();
-        decode_rgb(&jpeg)?;
-        t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
+        let a = reader::read_metadata(path)?;
+
+        if a.preview.is_some() {
+            let (_, jpeg) = reader::read_preview(path)?;
+            let t = Instant::now();
+            decode_rgb(&jpeg)?;
+            t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
 
         if a.full.is_some() {
             let (a, jpeg) = reader::read_full(path)?;

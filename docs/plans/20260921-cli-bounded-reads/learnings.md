@@ -5,9 +5,12 @@
 - `info` / `focusbox` / `bench` now go through `riffle_core::reader`; `riffle_core::arw` became
   unused in `crates/cli/src/main.rs` and the import was removed. `std::fs::read` is gone (only
   `std::fs::read_dir` in `scan_dir` remains).
-- `bench` no longer gates the preview timing on `a.preview`: `reader::read_preview` errors when
-  there is no embedded preview, so a preview-less file now fails instead of being skipped. The
-  JpgFromRaw gate is preserved via `a.full.is_some()` on the `Arw` from `read_preview`.
+- `bench` reads metadata first (`reader::read_metadata`) and gates the preview timing on
+  `a.preview.is_some()` before calling `reader::read_preview`, and the full/crop timings on
+  `a.full.is_some()` before calling `reader::read_full`, so a file missing either kind of
+  embedded JPEG still contributes whichever timings it can, instead of aborting the whole batch
+  (round 1 review fix: the first draft called `read_preview` unconditionally, which errored out
+  on a preview-less file and discarded all timings collected so far).
 
 ### Output verification
 
