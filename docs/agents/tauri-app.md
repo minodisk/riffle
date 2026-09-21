@@ -615,6 +615,21 @@ current view alone.
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
 - Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
+- `commit(...)` now takes a *list* of changes (one per file in a batch), not
+  a single change: it applies every change locally, refilters once, then
+  sends one `set_rating` per file, reverting only that file's own change on
+  failure. A batch of more than one keeps the currently shown file current
+  (anchor on the shown file) and reports `Undid/Redid N files`; a one-file
+  batch keeps the re-anchor-on-the-file behaviour above.
+- A failed file is spliced out of its batch; the batch itself is dropped from
+  undo/redo history only once every file in it has failed. Only files that
+  actually wrote successfully stay undoable, and undo never rewrites a file
+  whose write failed and was already reverted. The same drop-when-empty rule
+  applies to trash: a batch is removed from history only when every file in
+  it was trashed, and `step()` skips paths no longer in `allFiles` for a
+  partly-trashed batch.
+- Source: `docs/plans/_archived/20260921-burst-grouping/learnings.md`, Step 3
+  (`commit`, `forgetOnFail`, reject-rest in `crates/app/ui/src/main.ts`).
 
 ### `ErrorList`'s `Map` keeps a superseded entry in its original position (Hit)
 

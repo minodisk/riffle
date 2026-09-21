@@ -226,3 +226,30 @@ since the GUI cannot be driven from one. Files: `crates/app/ui/src/strip.ts`,
 - [ ] On a large folder, confirm the un-throttled `scan-done` `refresh()` does
       not visibly starve the IPC channel: at most `MAX_IN_FLIGHT` invokes for
       the still-missing visible cells, issued once.
+
+### App: burst grouping's manual checks are still open
+
+From `burst-grouping`'s implementation: GUI automation is unavailable on this
+development machine, so several behaviours were never exercised by a human.
+
+#### TODO
+
+- [ ] Verify Step 1's burst bracket and `· N / M in burst` counter by hand on a
+      real Sony and Leica burst folder and note the group sizes. Files:
+      `crates/app/ui/src/burst.ts`, `crates/app/ui/style.css`.
+- [ ] Exercise `Shift+x` reject-rest and its one-step undo by hand on a real
+      burst folder. Files: `crates/app/ui/src/main.ts`.
+
+### App: an old shortcut override for `previous`/`next` can silently conflict with new burst defaults
+
+A stored `shortcuts` override that still binds `arrowleft` / `arrowright` to
+`previous` / `next` (older defaults) now conflicts with the new burst
+navigation defaults, and the whole override for that action is ignored at
+load (found while implementing burst-grouping Step 2, where the
+`a_store_from_the_old_defaults_still_loads` test had to drop `arrowleft`).
+
+#### TODO
+
+- [ ] Consider letting a stored override win over a default belonging to
+      another action, so an old override does not silently disappear when a
+      new action claims its key. Files: `crates/app/src/shortcuts.rs`.
