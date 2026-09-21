@@ -1863,6 +1863,12 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   const action = keymap.get(key);
+  if (action !== undefined && runAction(action)) {
+    event.preventDefault();
+  }
+});
+
+function runAction(action: string): boolean {
   const current = files[index];
   let judged = false;
   switch (action) {
@@ -1911,7 +1917,7 @@ window.addEventListener("keydown", (event) => {
     case "pick":
       // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
       if (!effectivePick(true, sidecarFormat)) {
-        return;
+        return false;
       }
       judged = judge((rating, _pick, label) => [rating === -1 ? null : rating, true, label]);
       break;
@@ -1939,14 +1945,14 @@ window.addEventListener("keydown", (event) => {
       judge((rating, pick) => [rating, pick, null]);
       break;
     default:
-      return;
+      return false;
   }
   // A file that dropped out of the filter already moved the cursor on.
   if (judged && autoAdvance && advancesAfter(action) && files[index] === current) {
     move(1);
   }
-  event.preventDefault();
-});
+  return true;
+}
 
 window.addEventListener("resize", () => {
   draw();
