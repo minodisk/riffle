@@ -35,7 +35,28 @@
 - `arrowleft` / `arrowright` pass `forbidden()` on both platforms (only the
   `ctrl+` variants are reserved on macOS).
 
+## Step 3
+
+- `commit` now takes a list of changes: it applies every one locally,
+  refilters once, then `send`s one `set_rating` per file, each reverting only
+  its own file on failure. `judge` passes a one-element list.
+- Failure handling for a batch: a failed file is spliced out of its batch and
+  the batch is removed from the history only once it is empty (every file
+  failed). The files that were written really changed and stay undoable,
+  and undo no longer rewrites a file whose write failed and was reverted.
+- Undo / redo of a batch of more than one keeps the current file current
+  (anchor on the shown file) and says `Undid N files`; a one-file batch keeps
+  the old re-anchor-on-the-file behaviour.
+- Trash: a batch is dropped from the history only when every file in it was
+  trashed; a partly trashed batch keeps its entries and `step()` skips paths
+  no longer in `allFiles`.
+- Not exercised by hand on a real burst folder (no GUI automation here).
+
 ## Deferred issues (todo candidates)
+
+- Exercise `Shift+x` reject-rest and its one-step undo by hand on a real burst
+  folder (basis: Step 3; no GUI access for the implementation agent). Files:
+  `crates/app/ui/src/main.ts`.
 
 - Verify Step 1's burst bracket and `· N / M in burst` counter by hand on a
   real Sony and Leica burst folder and note the group sizes (basis: Step 1

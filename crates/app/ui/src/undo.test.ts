@@ -43,6 +43,31 @@ describe("History", () => {
     expect(history.pop()).toBeUndefined();
   });
 
+  test("a batch pushes and pops as one entry", () => {
+    const history = new History<{ path: string }[]>(10);
+    const single = [{ path: "a" }];
+    const batch = [{ path: "b" }, { path: "c" }];
+    history.push(single);
+    history.push(batch);
+    expect(history.pop()).toBe(batch);
+    expect(history.pop()).toBe(single);
+    expect(history.pop()).toBeUndefined();
+  });
+
+  test("removes a batch by identity and removeWhere drops batches it matches", () => {
+    const history = new History<{ path: string }[]>(10);
+    const kept = [{ path: "a" }, { path: "b" }];
+    const removed = [{ path: "c" }, { path: "d" }];
+    const gone = [{ path: "e" }];
+    history.push(kept);
+    history.push(removed);
+    history.push(gone);
+    history.remove(removed);
+    history.removeWhere((batch) => batch.every((entry) => entry.path === "e"));
+    expect(history.pop()).toBe(kept);
+    expect(history.pop()).toBeUndefined();
+  });
+
   test("clear empties it", () => {
     const history = new History<number>(10);
     history.push(1);

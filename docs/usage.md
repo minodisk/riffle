@@ -66,7 +66,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
-  Repeated presses walk further back. The history belongs to the open folder
+  Repeated presses walk further back. A reject-rest (`Shift+x`) is undone as
+  one, restoring every frame it rejected and staying on the current file. The history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
   undone judgement, the same way round. The redo history is forgotten as soon
@@ -116,6 +117,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `z` | toggle the 1:1 focus check |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick) |
+| `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
 | `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
