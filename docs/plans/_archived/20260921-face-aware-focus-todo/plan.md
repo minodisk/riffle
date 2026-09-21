@@ -40,4 +40,4 @@ Record, in `todo.md`, the idea of a face/eye-aware focus check so it is not lost
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
