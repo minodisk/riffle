@@ -22,3 +22,13 @@
   `riffle-cli scan <dir> 1`, warm cache, 3 runs each, per-file mean on a
   worker: before 11.2-12.5 ms, after 12.7-13.1 ms (roughly +1 ms per file,
   within run-to-run noise territory). Not worth a README table row on its own.
+
+## Step 3
+
+- Dropping `files` for every `version < 9` also covers v7, so the v7
+  `folders` seeding (which selects from `files`) now seeds nothing. A v7
+  database therefore ends with an empty `folders` table; harmless, since
+  there are no `files` rows left to evict. The old
+  `a_v7_database_keeps_its_files_rows_and_seeds_folders` test was rewritten
+  as `a_v7_database_drops_its_files_rows_and_gains_folders`, and the seeding
+  kept with a comment.
