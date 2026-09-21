@@ -206,4 +206,4 @@ Builds on the "App: face/eye-aware focus check for culling" item in
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete
