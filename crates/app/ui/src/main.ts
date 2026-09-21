@@ -17,6 +17,7 @@ import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { effectivePick } from "./pick.js";
+import { flagMenuItems, menuPosition } from "./context.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -603,6 +604,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   applySharpness();
   applyBursts();
   if (files.length === 0) {
+    closeContextMenu();
     index = 0;
     seq += 1;
     shown?.bitmap.close();
@@ -1257,13 +1259,66 @@ function move(delta: number): void {
   show();
 }
 
-strip.init((selected) => {
-  if (selected === index) {
-    return;
+const contextMenu = document.getElementById("context-menu") as HTMLDivElement;
+
+function closeContextMenu(): void {
+  contextMenu.hidden = true;
+}
+
+function openContextMenu(x: number, y: number): void {
+  contextMenu.replaceChildren(
+    ...flagMenuItems(keyBindings, sidecarFormat).map(({ action, label, shortcut }) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.setAttribute("role", "menuitem");
+      const name = document.createElement("span");
+      name.textContent = label;
+      const key = document.createElement("span");
+      key.className = "shortcut";
+      key.textContent = shortcut;
+      item.append(name, key);
+      item.addEventListener("click", () => {
+        closeContextMenu();
+        runAction(action);
+      });
+      return item;
+    }),
+  );
+  contextMenu.hidden = false;
+  const { left, top } = menuPosition(
+    x,
+    y,
+    contextMenu.offsetWidth,
+    contextMenu.offsetHeight,
+    window.innerWidth,
+    window.innerHeight,
+  );
+  contextMenu.style.left = `${left}px`;
+  contextMenu.style.top = `${top}px`;
+}
+
+document.addEventListener("mousedown", (event) => {
+  if (!contextMenu.hidden && !(event.target as Element).closest("#context-menu")) {
+    closeContextMenu();
   }
-  index = selected;
-  show();
 });
+
+strip.init(
+  (selected) => {
+    if (selected === index) {
+      return;
+    }
+    index = selected;
+    show();
+  },
+  (selected, x, y) => {
+    if (selected !== index) {
+      index = selected;
+      show();
+    }
+    openContextMenu(x, y);
+  },
+);
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
 // token before its dialog opens; a drop mints its token only after
@@ -1399,6 +1454,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     if (token !== folderToken) {
       return;
     }
+    closeContextMenu();
     for (const set of shownExif.values()) {
       set.clear();
     }
@@ -1859,6 +1915,11 @@ window.addEventListener("keydown", (event) => {
   }
   if (key === "escape" && !sortMenu.hidden) {
     setSortMenuOpen(false);
+    event.preventDefault();
+    return;
+  }
+  if (key === "escape" && !contextMenu.hidden) {
+    closeContextMenu();
     event.preventDefault();
     return;
   }

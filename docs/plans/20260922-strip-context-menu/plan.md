@@ -97,7 +97,7 @@ undo entry, same auto-advance.
       from `./pick.js` (relative imports with `.js`, per the guide).
     - No DOM access in this module (tests run under `environment: node`).
 
-- [ ] Step 3: Wire the context menu into the strip and the main window
+- [x] Step 3: Wire the context menu into the strip and the main window
   - Done when:
     - `strip.ts`: each cell listens for `contextmenu`, calls
       `event.preventDefault()`, and reports `(index, clientX, clientY)`
