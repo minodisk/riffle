@@ -18,3 +18,11 @@
   which `crates/app/capabilities/default.json` does not grant. `debugLog`
   joins its args with `String` so the `zoom keypress` line (a label plus a
   number) is forwarded too.
+
+## Step 3
+
+- README's "End to end, keypress to pixels" still says `Debug > Timing logs`, while the toggle now lives in the settings window; the new paragraph uses the settings window wording.
+
+## Deferred issues (todo candidates)
+
+- README.md "End to end, keypress to pixels" refers to `Debug > Timing logs`, but the item is in the settings window (`crates/app/ui/settings.html`, `debug-timing`). Found while writing Step 3's docs; out of scope for that step.

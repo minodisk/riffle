@@ -4,11 +4,11 @@
 
 ### App: unmeasured end-to-end per-page latency
 
-End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see the Phase 4 baseline table in the README.
+End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in the README.
 
 #### TODO
 
-- [ ] Add a timing readout in the status line, or a Rust-side benchmark that includes the IPC hop, before Phase 4 tuning work begins.
+- [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to the README's "Per-page preview read". The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
 
 ### App: real-folder scan and second-open numbers are still missing
 

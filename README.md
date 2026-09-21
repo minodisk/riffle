@@ -297,8 +297,9 @@ Thumbnails (528x352): 30,231 bytes per file on average (967,419 bytes over
 ### Per-page preview read
 
 The per-page cost on the Rust side only, on an Apple Silicon Mac.
-**It excludes the IPC hop and `createImageBitmap`**, which could not be
-measured. Reading the whole 48MB ARW (`std::fs::read` plus `arw::parse`) is
+**It excludes the IPC hop and `createImageBitmap`**. The app now logs the
+end-to-end number per page turn (a `page …` line in `Riffle.log`; see
+"Measuring on your own folder" below), but it has not been measured yet. Reading the whole 48MB ARW (`std::fs::read` plus `arw::parse`) is
 compared with reading a bounded 1MiB prefix (`reader::read_preview`), which is
 where the metadata and the embedded preview live:
 
@@ -402,6 +403,16 @@ separate calls, so there is no single number for it: add the `open list`,
 `open entries` and `scan prepare` lines of that open. Every line ends in
 `in <n>ms` and names its directory, and the timestamps tell the two runs
 apart.
+
+Per-page latency is logged the same way. Turn on `Timing logs` in the settings
+window (the item only shows in a `mise run tauri:release:devtools` or debug
+build), page through a folder with the next/previous keys, and read the
+`page invoke=… decode=… total=… keypressToPixels=…` lines in `Riffle.log`.
+`invoke` is the `preview` call's round trip (the Rust read plus IPC), `decode`
+is the worker's `createImageBitmap` round trip, `total` runs from the request
+to the drawn canvas, and `keypressToPixels` from the keypress to the drawn
+canvas; it is left out for a page not asked for by a key (a strip click or a
+folder open). A page turn overtaken by the next one logs nothing.
 
 ### The 1:1 focus check path
 
