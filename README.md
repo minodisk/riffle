@@ -120,9 +120,8 @@ are very welcome.
   - [ ] Fedora
 
 If it works, post in the
-[OS works report thread](https://github.com/minodisk/riffle/discussions)
-<!-- TODO: replace with the OS works-report thread --> in Discussions. If it
-does not, open an issue from the
+[OS works report thread](https://github.com/minodisk/riffle/discussions/286) in
+Discussions. If it does not, open an issue from the
 [OS issue template](https://github.com/minodisk/riffle/issues/new?template=os.yml).
 
 ### RAW formats and cameras
@@ -133,9 +132,8 @@ does not, open an issue from the
   - [x] Leica M11-P
 
 If a camera not on the list works, post in the
-[camera works report thread](https://github.com/minodisk/riffle/discussions)
-<!-- TODO: replace with the camera works-report thread --> in Discussions. If
-it does not, open an issue from the
+[camera works report thread](https://github.com/minodisk/riffle/discussions/287)
+in Discussions. If it does not, open an issue from the
 [camera issue template](https://github.com/minodisk/riffle/issues/new?template=camera.yml).
 A sample file is needed to look into it, so please attach one (or link to it).
 One file is enough; a landscape and a portrait shot, if possible, also let the
@@ -151,9 +149,8 @@ rotation and the focus mark be checked.
 
 If the stars, flags and colour labels given in Riffle show up correctly in the
 software, post in the
-[software works report thread](https://github.com/minodisk/riffle/discussions)
-<!-- TODO: replace with the software works-report thread --> in Discussions.
-If they do not, open an issue from the
+[software works report thread](https://github.com/minodisk/riffle/discussions/288)
+in Discussions. If they do not, open an issue from the
 [software issue template](https://github.com/minodisk/riffle/issues/new?template=software.yml).
 
 ## For developers
