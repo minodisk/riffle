@@ -128,7 +128,14 @@ Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 From `menu-accelerators`'s implementation: the GUI could not be driven from
 the agent session, so the double-fire, stale-key-equivalent,
 settings-capture and menu-set-from-`setup` checks are unconfirmed on macOS,
-and Windows / Linux are unconfirmed entirely. Files: `crates/app/src/main.rs`
+and Windows / Linux are unconfirmed entirely. A later manual run on Windows
+(`mise run tauri:dev`, `Ctrl` in place of `Cmd`) passed all six checks:
+`Ctrl+O` opens the picker exactly once; `Shift+Ctrl+O` fires once (judged
+only from a single status line, which a second identical message would
+overwrite); rebinding `open` updates the menu accelerator and kills
+`Ctrl+O`; the menu shows correctly with the settings window open and steals
+no focus; a capturing shortcuts row swallows `Ctrl+O` / `Shift+Ctrl+O`;
+both File items work by mouse. Files: `crates/app/src/main.rs`
 (`app_menu`), `crates/app/src/shortcuts.rs`, `crates/app/src/commands.rs`
 (`update_keymap`), `crates/app/ui/src/main.ts`.
 
@@ -143,15 +150,48 @@ and Windows / Linux are unconfirmed entirely. Files: `crates/app/src/main.rs`
       window; pressing `Cmd+O`/`Shift+Cmd+O` while a shortcuts row is
       capturing does not trigger the menu action; both File menu items work
       via mouse click.
-- [ ] Verify the `Some`/`None` accelerator behaviour on Windows and Linux
-      (only reasoned from muda 0.19.3's sources so far, never run).
+- [ ] Verify the `Some`/`None` accelerator behaviour on Linux (only
+      reasoned from muda 0.19.3's sources so far, never run; Windows passed).
+
+### App: Open in DxO PhotoLab always fails on Windows
+
+Found during the Windows manual GUI check run: `open_in_photolab` only reads
+`/Applications` for `DXOPhotoLab<N>.app`, so on Windows "Open in DxO
+PhotoLab" always fails with `Could not open PhotoLab: ... (os error 3)`
+(path not found) while the menu item is still shown. Files:
+`crates/app/src/commands.rs` (`open_in_photolab`), `crates/app/src/main.rs`.
+
+#### TODO
+
+- [ ] Decide between a Windows / Linux PhotoLab lookup and hiding or
+      disabling the item on those platforms, then implement it.
+
+### App: Clear Cache is refused on Windows with no scan running
+
+Found during the Windows manual GUI check run: pressing Clear in the Clear
+Cache confirm dialog, with no scan running beforehand, is refused with `a
+scan is running; wait for it to finish`. Likely cause (unverified):
+`crates/app/ui/src/main.ts` subscribes
+`window.__TAURI__.event.listen("tauri://focus", resync)` globally, so the
+settings window regaining focus when the dialog closes triggers a
+main-window rescan, and `clear_index`'s second `scanning()` check (after the
+sidecar flush) refuses. Proposed fix: scope the focus listener to the main
+window. Files: `crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`
+(`clear_index`).
+
+#### TODO
+
+- [ ] Confirm the cause, fix it, and add a regression test if feasible.
 
 ### App: the Clear Cache button's manual GUI verification is still open
 
 From `clear-cache-stuck-guard`'s implementation: the button's guard used to
 get stuck (never re-enabling after the first scan), so none of its GUI
 behaviour has been run by a human. GUI automation is unavailable on this
-Mac and a native confirm dialog cannot be driven by an agent. Files:
+Mac and a native confirm dialog cannot be driven by an agent. A later manual
+run on Windows passed (1) and showed the dialog in (2) immediately; the
+Cancel half of (2) and checks (3)-(7) are blocked by the Clear Cache
+refusal bug above. Files:
 `crates/app/src/commands.rs`, `crates/app/ui/settings.html`,
 `crates/app/ui/src/settings.ts`.
 
@@ -188,27 +228,6 @@ The folder watcher (`crates/app/src/watch.rs`, `crates/app/src/commands.rs`) can
 #### TODO
 
 - [ ] Verify by hand (copy a large ARW/DNG into an open, watched folder) whether a partial mid-copy read ever produces a visibly wrong thumbnail/rating before the follow-up event corrects it, and whether any guard is warranted.
-
-### App: the viewer empty-state manual checklist is still open
-
-`viewer-empty-state`'s step 2 (overlay element, click-to-open, keymap-driven
-re-render) could not be verified by running the app: `mise run tauri:dev`
-needs an interactive session, unavailable in the implementation environment.
-The behaviour was checked by reading the code paths only. Files:
-`crates/app/ui/index.html`, `crates/app/ui/style.css`,
-`crates/app/ui/src/main.ts`.
-
-#### TODO
-
-- [ ] Run `mise run tauri:dev` and verify: first launch with no remembered
-      folder shows the clickable "no folder" prompt with the real `open` key;
-      clicking it opens the native picker; reopening with a remembered folder
-      hides it without a lingering flash; opening an empty folder shows the
-      "no files" message; applying a filter that hides everything shows the
-      "filtered" message and resetting the filter restores the view;
-      rebinding the `open` key in Settings updates the shown key without
-      restart; resizing the window and 1:1 zoom still render the canvas
-      correctly now that `#viewer` (not `#canvas`) carries the flex sizing.
 
 ### App: the manual GUI check of `scan-progress` `ready` is outstanding
 
