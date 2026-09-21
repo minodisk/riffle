@@ -38,7 +38,7 @@ field is added to the preview header.
 
 ## Steps
 
-- [ ] Step 1: Log a per-page timing line from the preview path
+- [x] Step 1: Log a per-page timing line from the preview path
   - Done when: with `Timing logs` on, every page turn that ends in pixels
     writes one line `page invoke=<ms> decode=<ms> total=<ms>[ keypressToPixels=<ms>]`
     (naming may follow the `zoom …` line; the marks are what matters) where
@@ -126,4 +126,4 @@ field is added to the preview header.
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
