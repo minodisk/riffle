@@ -16,6 +16,7 @@ const shortcutLabels: Record<string, string> = {
   rate4: "4 stars",
   rate5: "5 stars",
   reject: "Reject",
+  rejectRest: "Reject the rest of the burst",
   pick: "Pick",
   unflag: "Un-reject / un-pick",
   clear: "Clear",

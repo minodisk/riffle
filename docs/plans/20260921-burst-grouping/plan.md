@@ -176,7 +176,7 @@ it.
     - Check the key names against `forbidden()` and the macOS reserved list
       (`ctrl+arrowleft` is reserved; plain `arrowleft` is not)
 
-- [ ] Step 3: Reject the rest of the burst, undone as one entry
+- [x] Step 3: Reject the rest of the burst, undone as one entry
   - Done when:
     - A new keymap action `rejectRest` is added to `DEFAULTS` right after
       `reject`, default `shift+x`; `shortcutLabels` names it (`Reject the
@@ -285,3 +285,4 @@ it.
 
 - (2026-09-21) Step 1 complete
 - (2026-09-21) Step 2 complete
+- (2026-09-21) Step 3 complete

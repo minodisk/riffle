@@ -193,13 +193,14 @@ let sidecarFormat = "xmp";
 const touched = new Set<string>();
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
-// A judgement's file and its state before it, for `Edit > Undo`. Per folder:
-// `openDirectory` clears it.
+// A judgement's file and its state before it, for `Edit > Undo`. An entry is
+// a batch, undone as one: a single key judges one file, reject-rest several.
+// Per folder: `openDirectory` clears it.
 type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
-const history = new History<Judgement>(100);
-// The pre-undo state of each undone judgement, for `Edit > Redo`. A new
+const history = new History<Judgement[]>(100);
+// The pre-undo state of each undone batch, for `Edit > Redo`. A new
 // judgement forgets it, as every editor does.
-const redoable = new History<Judgement>(100);
+const redoable = new History<Judgement[]>(100);
 // Sidecar problems, kept until dismissed rather than in the transient `note`.
 const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
@@ -458,8 +459,9 @@ function trashRejected(): void {
       }
       // An undo of a trashed file would `set_rating` a path that is gone and
       // mint an orphan sidecar.
-      history.removeWhere((entry) => !failed.has(entry.path) && paths.includes(entry.path));
-      redoable.removeWhere((entry) => !failed.has(entry.path) && paths.includes(entry.path));
+      const gone = (entry: Judgement) => !failed.has(entry.path) && paths.includes(entry.path);
+      history.removeWhere((batch) => batch.every(gone));
+      redoable.removeWhere((batch) => batch.every(gone));
       for (const { path, message } of summary.failed) {
         errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
       }
@@ -642,29 +644,90 @@ function judge(
   if (previous === rating && previousPick === pick && previousLabel === label) {
     return false;
   }
-  const entry = { path, rating: previous, pick: previousPick, label: previousLabel };
-  history.push(entry);
+  const before = { path, rating: previous, pick: previousPick, label: previousLabel };
+  const batch = [before];
+  history.push(batch);
   redoable.clear();
-  commit(entry, rating, pick, label, () => history.remove(entry));
+  commit([{ before, rating, pick, label }], forgetOnFail(history, batch));
   return true;
 }
 
-// Apply `path`'s new judgement locally, then tell the backend; `before` is its
-// state to revert to when the invoke fails. `anchor` picks the file to keep
-// current once the new state is applied (`path` by default).
+// `rejectRest`: reject every other member of the current file's burst, over
+// `allFiles` so a member the filter hides is rejected too, as one undo entry.
+// Members already rejected are skipped, so the batch holds real changes only.
+function rejectRest(): void {
+  if (files.length === 0) {
+    return;
+  }
+  const current = files[index];
+  const burst = bursts.get(current);
+  if (burst === undefined || burst.size < 2) {
+    return;
+  }
+  const changes: Change[] = [];
+  for (const path of allFiles) {
+    if (path === current || bursts.get(path)?.burst !== burst.burst) {
+      continue;
+    }
+    const before = {
+      path,
+      rating: ratings.get(path) ?? null,
+      pick: picks.has(path),
+      label: labels.get(path) ?? null,
+    };
+    if (before.rating === -1 && !before.pick) {
+      continue;
+    }
+    changes.push({ before, rating: -1, pick: false, label: before.label });
+  }
+  if (changes.length === 0) {
+    return;
+  }
+  const batch = changes.map(({ before }) => before);
+  history.push(batch);
+  redoable.clear();
+  // The current file stays current unless the filter now hides it.
+  commit(changes, forgetOnFail(history, batch), () => current);
+}
+
+// A failed write drops its file from `batch`, and the batch from `from` once
+// every file of it has failed: the rest still changed and stay undoable.
+function forgetOnFail(from: History<Judgement[]>, batch: Judgement[]): (failed: Judgement) => void {
+  return (failed) => {
+    const at = batch.indexOf(failed);
+    if (at !== -1) {
+      batch.splice(at, 1);
+    }
+    if (batch.length === 0) {
+      from.remove(batch);
+    }
+  };
+}
+
+type Change = { before: Judgement; rating: number | null; pick: boolean; label: string | null };
+
+// Apply every change locally and refilter once, then tell the backend per
+// file; each `before` is its file's state to revert to when its invoke fails.
+// `anchor` picks the file to keep current once the new state is applied (the
+// first change's file by default).
 function commit(
-  before: Judgement,
-  rating: number | null,
-  pick: boolean,
-  label: string | null,
-  onFail?: () => void,
+  changes: Change[],
+  onFail?: (failed: Judgement) => void,
   anchor?: () => string | undefined,
 ): void {
-  const { path } = before;
-  touched.add(path);
-  applyRating(path, rating, pick, label);
+  for (const { before, rating, pick, label } of changes) {
+    touched.add(before.path);
+    applyRating(before.path, rating, pick, label);
+  }
   renderMeta();
-  refilter(anchor === undefined ? path : anchor());
+  refilter(anchor === undefined ? changes[0].before.path : anchor());
+  for (const change of changes) {
+    send(change, onFail);
+  }
+}
+
+function send({ before, rating, pick, label }: Change, onFail?: (failed: Judgement) => void): void {
+  const { path } = before;
   const token = folderToken;
   // `label` only carries a meaningful value once `folder_entries` has told us
   // this path's label; before that, `labelKnown: false` tells the backend to
@@ -682,7 +745,7 @@ function commit(
       if (token !== folderToken) {
         return;
       }
-      onFail?.();
+      onFail?.(before);
       touched.delete(path);
       applyRating(path, before.rating, before.pick, before.label);
       refilter();
@@ -690,30 +753,40 @@ function commit(
     });
 }
 
-// `Edit > Undo` and `Edit > Redo`: pop the most recent entry off `from`, push
-// the file's current state onto `to`, restore the popped state and make that
-// file current, unless the filter now hides it.
-function step(from: History<Judgement>, to: History<Judgement>, verb: string): void {
+// `Edit > Undo` and `Edit > Redo`: pop the most recent batch off `from`, push
+// its files' current states onto `to` and restore the popped states. A single
+// file becomes current unless the filter now hides it; a batch leaves the
+// current file where it is.
+function step(from: History<Judgement[]>, to: History<Judgement[]>, verb: string): void {
   if (openDir === null) {
     return;
   }
-  const entry = from.pop();
-  if (entry === undefined || !allFiles.includes(entry.path)) {
+  const popped = from.pop();
+  const batch = popped?.filter((entry) => allFiles.includes(entry.path)) ?? [];
+  if (batch.length === 0) {
     return;
   }
-  const { path } = entry;
-  const current = {
-    path,
-    rating: ratings.get(path) ?? null,
-    pick: picks.has(path),
-    label: labels.get(path) ?? null,
-  };
-  to.push(current);
+  const changes = batch.map((entry) => ({
+    before: {
+      path: entry.path,
+      rating: ratings.get(entry.path) ?? null,
+      pick: picks.has(entry.path),
+      label: labels.get(entry.path) ?? null,
+    },
+    rating: entry.rating,
+    pick: entry.pick,
+    label: entry.label,
+  }));
+  to.push(changes.map(({ before }) => before));
   // A file the filter now hides leaves the current file where it is.
   const shownPath = files[index];
-  commit(current, entry.rating, entry.pick, entry.label, undefined, () =>
-    passes(path) ? path : shownPath,
-  );
+  if (batch.length > 1) {
+    commit(changes, undefined, () => shownPath);
+    setStatus(`${verb} ${batch.length} files`);
+    return;
+  }
+  const { path } = batch[0];
+  commit(changes, undefined, () => (passes(path) ? path : shownPath));
   const at = fileIndex.get(path);
   const name = path.split(/[\\/]/).pop();
   if (at === undefined) {
@@ -1825,6 +1898,9 @@ window.addEventListener("keydown", (event) => {
       // Sticky, not a toggle: reject twice is still a reject, and it replaces
       // a pick. Unflag undoes it.
       judged = judge((_rating, _pick, label) => [-1, false, label]);
+      break;
+    case "rejectRest":
+      rejectRest();
       break;
     case "pick":
       // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
