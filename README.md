@@ -55,7 +55,11 @@ sidecars.
   Paging keeps the zoom.
 - **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
-  sharpest, scored around the AF point or, without one, the sharpest region.
+  sharpest, scored on the subject's eyes when a face is found, else around
+  the AF point, else the sharpest region.
+- **Offline face detection**: faces and eyes are found by the bundled
+  [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  model (MIT licence), run locally with no network access.
 - **Bursts**: frames shot within 1 s of each other are bracketed together on
   the strip; `ArrowLeft` / `ArrowRight` jump between bursts and `Shift+x`
   rejects the rest of one.
