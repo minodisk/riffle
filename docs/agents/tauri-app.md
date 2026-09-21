@@ -823,7 +823,17 @@ menu-event routing. The default WebView menu is suppressed only inside
 `#strip`, so Inspect stays available elsewhere in devtools builds. Any key
 other than Escape closes the menu first and then runs as usual.
 
-- Source: `docs/plans/20260922-strip-context-menu/plan.md` and its
+Positioning: `menuPosition` flips the menu to the other side of the pointer
+when it would overflow, then clamps at 0, so a menu bigger than the space on
+both sides sticks to the top/left edge. It runs after the menu is un-hidden,
+because `offsetWidth`/`offsetHeight` need the rebuilt items to measure
+correctly; `#context-menu` overrides the shared `position: absolute` with its
+own `position: fixed`. The menu is closed explicitly at the top of
+`openDirectory` and in `refilter`'s empty-`files` branch, so it never floats
+over a folder that just changed — any other place that swaps out `#strip`'s
+contents needs the same explicit close.
+
+- Source: `docs/plans/_archived/20260922-strip-context-menu/plan.md` and its
   `learnings.md`, Steps 2-3.
 
 ### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
