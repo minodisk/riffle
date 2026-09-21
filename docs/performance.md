@@ -73,9 +73,8 @@ On a 12-core Apple Silicon Mac:
 
 The thumbnails come to 19232 bytes each, i.e. ~96MB for 5000 files.
 Extrapolating the freshly-written-copies column to 5000 files gives 9.5s at 12
-threads and 21.7s at 4; the CPU cost leaves ~25s of headroom against the
-30-second target, but whether that headroom survives on a real, cold-read
-folder is not something these numbers establish. A single thread would not
+threads and 21.7s at 4, but whether that holds on a real, cold-read folder is
+not something these numbers establish. A single thread would not
 make it (34.9s). More threads than cores does not help: 16 threads was flat
 against 12 and doubled the per-file p95. On real cold reads this
 extrapolation does not hold; see "Real folders on Windows" below.
@@ -90,7 +89,8 @@ regardless.
 ### Real folders on Windows
 
 Measured on 2026-09-21 with the release app on Windows 11 Home, reading
-real folders of Sony ARWs from an internal SSD with 22 extraction threads.
+real folders of Sony ARWs from a DRAM-less QLC SATA SSD (Crucial BX500 4TB)
+with 22 extraction threads.
 The numbers come from the `scan prepare` and `scan extract` lines of
 `Riffle.log` (see "Measuring on your own folder" below). Each run used a
 different folder:
@@ -104,11 +104,37 @@ different folder:
 Both cold runs finished with 0 errors. Excluding the folder from Defender did
 not make the scan faster, so Defender is not the cause; the warm run shows
 the CPU side costs ~1ms per file, so cold IO dominates. Extrapolated to 5000
-files, a cold first scan takes ~82-97s, far over the 30-second target. At a
-1MiB bounded read per file and ~16ms per file, the effective throughput
-works out to ~63MB/s (derived, not measured), low for an internal SSD; the
-root cause is unknown (`todo.md`: "App: cold first scan on an internal SSD is
-far slower than the extrapolation").
+files, a cold first scan takes ~82-97s. At a 1MiB bounded read per file and
+~16ms per file, the effective throughput works out to ~63MB/s (derived, not
+measured).
+
+A thread-count sweep pins the cause on the drive. Measured on 2026-09-22 on
+the same Windows 11 machine (i7-13700) with a release `riffle-cli scan`
+cross-built for `x86_64-pc-windows-gnu`; each run used a different real
+folder of Sony ARWs never read since boot, on the same drive, and all runs
+finished with 0 errors:
+
+| threads | files | total | files/s | per file on a worker (mean / p95) |
+|---------|-------|-------|---------|-----------------------------------|
+| 1 | 1337 | 41.08s | 33 | 30.7ms / 58.2ms |
+| 4 | 1415 | 27.34s | 52 | 77.0ms / 103.5ms |
+| 8 | 1520 | 29.47s | 52 | 154.9ms / 196.8ms |
+| 22 | 1545 | 22.90s | 67 | 324.2ms / 369.5ms |
+
+Throughput plateaus at ~50-67 files/s from 4 threads on, while the per-file
+time on a worker roughly doubles with each doubling of threads: the workers
+queue on one shared resource, the drive. A DRAM-less QLC SATA SSD is slow at
+cold random reads: with no DRAM for the mapping table it needs extra NAND
+reads, QLC read latency is high (worse for data written long ago), and SATA
+has a single command queue. On one thread a file costs ~30ms, of which an
+estimated ~10ms is CPU (from the warm run) and ~20ms is waiting on the drive.
+The cause is the drive, not Riffle's code, and more threads help little.
+
+The boot NVMe drive in the same machine (Crucial P5, TLC with DRAM) was not
+measured, so there is no NVMe-vs-SATA comparison. The expected workaround,
+not a measurement, is to keep the folders being culled on an NVMe drive,
+internal or in an external USB NVMe enclosure with UASP; even over 5Gbps USB
+it should be several times faster.
 
 After a cache clear, the log once showed a `scan_id` superseded by the next
 one with no `scan extract` line for the first (`todo.md`: "App: a scan can be
@@ -134,10 +160,10 @@ this is CPU cost with no IO variety.
 The second open of a fully indexed folder does no extraction: it stats every
 file, reconciles the rows and queries them. On the 5000-file folder:
 
-| Step | Target | Measured |
-|------|--------|----------|
-| First open, full scan (5000 files, 10 threads, 0 errors) | 30s | 5.55s |
-| Second open (stat + reconcile + query, fully indexed) [^1] | 3s | 34.4ms |
+| Step | Measured |
+|------|----------|
+| First open, full scan (5000 files, 10 threads, 0 errors) | 5.55s |
+| Second open (stat + reconcile + query, fully indexed) [^1] | 34.4ms |
 
 Both rows were measured on **5000 symlinks pointing at one real ARW, with a
 warm page cache**, so they carry the same caveat as the tables above. The
@@ -153,7 +179,7 @@ disk-bound regardless.
 [^1]: Measured with a temporary `#[ignore]`d test that was removed before
 committing, so this number is not reproducible from the committed tree.
 
-On a real folder of 2677 Sony ARWs on an internal SSD (Windows 11 Home,
+On a real folder of 2677 Sony ARWs on the same SATA SSD (Windows 11 Home,
 release app, 2026-09-21, from `Riffle.log`):
 
 | Step | Target | Measured |
