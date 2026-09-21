@@ -158,4 +158,4 @@ Scope: no user-facing setting, no change to the zoom/crop path
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
