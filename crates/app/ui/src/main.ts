@@ -341,8 +341,7 @@ emptyEl.addEventListener("click", () => {
 // Redraw the right pane: the current file's name and its shooting settings
 // in the scrolling metadata block, and any note (an error, the scan's
 // progress, the 1:1 indicator, the sticky errors) in the status block pinned
-// to the bottom. Also refreshes the strip
-// pane's `N / M` counter.
+// to the bottom. Also refreshes the strip pane's `N / M` counter.
 function renderMeta(): void {
   renderTitle();
   renderEmpty();

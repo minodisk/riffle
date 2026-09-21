@@ -79,4 +79,5 @@ otherwise unchanged.
 
 ## Progress
 
-- (none yet)
+- 2026-09-22: Step 1 landed in `287c7ff` (feat(app): pin the meta pane status
+  lines to the bottom).
