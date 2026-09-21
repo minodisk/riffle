@@ -261,3 +261,23 @@ The three issue forms (`.github/ISSUE_TEMPLATE/os.yml`, `camera.yml`, `software.
 #### TODO
 
 - [ ] Open `https://github.com/minodisk/riffle/issues/new/choose`, walk through each of the three forms once, and confirm the fields render correctly (or fix them).
+
+### App: face/eye-aware focus check for culling
+
+The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted_focus`, `tile_max`) measures a `WINDOW` around the Sony `FocusLocation` or, without one, the sharpest tile of the embedded preview, so a portrait focused on the background, the nose or the ear rather than the eye still scores high. The stored `files.sharpness` column in `crates/app/src/index.rs`, the strip's relative cue (`crates/app/ui/src/sharpness.ts`) and the burst group (`crates/app/ui/src/burst.ts`) inherit that blind spot. Idea: detect faces/eyes on the embedded preview at scan time with a lightweight detector (such as YuNet or BlazeFace via ONNX, e.g. the `ort` crate), store the region in the SQLite index, score sharpness on the eye/face region, and suggest the sharpest-eye frame within a burst group.
+
+#### TODO
+
+- [ ] First check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
+      detection positions (Sony's MakerNote parsing lives in
+      `crates/core/src/arw.rs`, which already reads `FocusLocation` and
+      `FocusMode`); if they do, no inference is needed for those bodies.
+- [ ] Prototype a lightweight detector and measure the per-image cost at scan
+      time and the added bundle size (runtime plus model); note the numbers in
+      `docs/performance.md` or the plan's learnings.
+- [ ] Fall back to the current AF-point / tile scoring when no face is found
+      (landscapes, animals), keeping the `files.sharpness` semantics for such
+      files.
+- [ ] Optionally, detect closed eyes from the landmarks.
+
+Related: `crates/core/src/sharpness.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
