@@ -517,6 +517,23 @@ have is more machinery than it's worth).
 
 - Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`, Step 2.
 
+### Forward frontend timing lines through a command, not the log plugin's JS API (Inferred)
+
+The preview path's per-page timing line is sent from the frontend to
+`Riffle.log` via a dedicated `log_timing` Tauri command, not
+`tauri-plugin-log`'s JS API (`window.__TAURI__.log`). That global also needs
+the `log:default` capability, which `crates/app/capabilities/default.json`
+does not grant, so calling it directly from the frontend would fail silently
+or need a capability change. `debugLog` joins its arguments with `String`, so
+a line built from a label plus a number (e.g. `zoom keypress`) forwards
+correctly through the same path.
+
+- When a frontend line needs to land in `Riffle.log`, route it through a
+  command like `log_timing` rather than granting `log:default` to call the
+  plugin's JS API directly.
+- Source: `docs/plans/_archived/20260921-page-latency-timing/learnings.md`,
+  Step 2.
+
 ### `scan-progress` carries flushed paths, not a done-index high-water mark (Inferred)
 
 `done` cannot tell the frontend what became readable: `run_scan`

@@ -10,6 +10,14 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to the README's "Per-page preview read". The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
 
+### Docs: README's "End to end, keypress to pixels" section has a stale menu path
+
+README's "End to end, keypress to pixels" section still says `Debug > Timing logs`, but the toggle lives in the settings window (`crates/app/ui/settings.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
+
+#### TODO
+
+- [ ] Update the "End to end, keypress to pixels" section in README.md to say the `Timing logs` toggle is in the settings window, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
+
 ### App: real-folder scan and second-open numbers are still missing
 
 Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
