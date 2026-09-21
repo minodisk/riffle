@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { click, extend, prune, single, targets } from "./selection.js";
+import {
+  type Command,
+  type State,
+  click,
+  extend,
+  judgements,
+  prune,
+  single,
+  targets,
+} from "./selection.js";
 
 const files = ["/a", "/b", "/c", "/d", "/e"];
 const plain = { toggle: false, range: false };
@@ -89,5 +98,58 @@ describe("targets", () => {
   test("falls back to the focused file", () => {
     expect(targets(single("/a"), files, 3)).toEqual(["/d"]);
     expect(targets(single(undefined), [], 0)).toEqual([]);
+  });
+});
+
+describe("judgements", () => {
+  const states: Record<string, State> = {
+    "/a": { rating: 2, pick: false, label: "Red" },
+    "/b": { rating: 5, pick: true, label: null },
+    "/c": { rating: -1, pick: false, label: "Blue" },
+  };
+  const lookup = (path: string) => states[path];
+  const toggleRed: Command = (focused) => {
+    const label = focused.label === "Red" ? null : "Red";
+    return (own) => ({ ...own, label });
+  };
+
+  test("a label toggle on a mixed selection follows the focused file", () => {
+    expect(
+      judgements(["/a", "/b", "/c"], "/b", lookup, toggleRed).map((c) => c.after.label),
+    ).toEqual(["Red", "Red"]);
+    expect(
+      judgements(["/a", "/b", "/c"], "/a", lookup, toggleRed).map((c) => c.before.path),
+    ).toEqual(["/a", "/c"]);
+  });
+
+  test("a star command keeps each file's label and flag", () => {
+    const three: Command = () => (own) => ({ ...own, rating: 3 });
+    expect(judgements(["/a", "/b", "/c"], "/a", lookup, three).map((c) => c.after)).toEqual([
+      { rating: 3, pick: false, label: "Red" },
+      { rating: 3, pick: true, label: null },
+      { rating: 3, pick: false, label: "Blue" },
+    ]);
+  });
+
+  test("files already at the value are skipped", () => {
+    const two: Command = () => (own) => ({ ...own, rating: 2 });
+    expect(judgements(["/a", "/b"], "/b", lookup, two).map((c) => c.before)).toEqual([
+      { path: "/b", rating: 5, pick: true, label: null },
+    ]);
+  });
+
+  test("a batch with no change is empty unless forced", () => {
+    const same: Command = () => (own) => own;
+    expect(judgements(["/a", "/b"], "/a", lookup, same)).toEqual([]);
+    expect(judgements(["/a"], "/a", lookup, same, () => true)).toHaveLength(1);
+  });
+
+  test("the focused file comes first", () => {
+    const clear: Command = () => (own) => ({ ...own, rating: null });
+    expect(judgements(["/a", "/b", "/c"], "/c", lookup, clear).map((c) => c.before.path)).toEqual([
+      "/c",
+      "/a",
+      "/b",
+    ]);
   });
 });
