@@ -102,6 +102,15 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   it ranks a burst rather
   than judging a frame on its own, and it does not replace the 1:1 focus check.
   The meta pane shows the raw score.
+- **Bursts**: frames shot within 1 s of the previous frame form a burst. The
+  grouping follows capture order whatever the chosen sort, and Leica files,
+  which record no sub-second time, are grouped by whole seconds. A thin
+  bracket down the right edge of the strip cells joins the frames of a burst of
+  two or more, and the counter adds the position in it (`12 / 80 · 3 / 7 in
+  burst`). `ArrowRight` jumps to the first frame of the next burst and
+  `ArrowLeft` to the first frame of the current one, or of the previous one
+  when already there. `Shift+x` rejects every other frame of the current burst,
+  including frames the filter hides, and one `Edit > Undo` restores them all.
 
 ## Keys
 

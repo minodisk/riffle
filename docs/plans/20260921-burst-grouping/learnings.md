@@ -68,3 +68,12 @@
   Step 2, `a_store_from_the_old_defaults_still_loads` had to drop
   `arrowleft`). Consider letting an override win over a default of another
   action. Files: `crates/app/src/shortcuts.rs`.
+
+## Step 4
+
+- PR #280 split the README after the plan was written: detailed feature
+  bullets and the Keys table live in `docs/usage.md`, and `README.md` keeps a
+  short feature list. The full `Bursts` bullet went into `docs/usage.md`
+  "Features" and a one-line summary into `README.md` "Features". Step 2's
+  `ArrowLeft` / `ArrowRight` rows had already survived the split.
+- `CLAUDE.md` "Layout" names no frontend modules, so it was left unchanged.

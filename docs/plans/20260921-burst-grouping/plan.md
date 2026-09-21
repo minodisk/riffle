@@ -221,7 +221,11 @@ it.
     - Follow "Undo must re-anchor conditionally": anchor on the current file
       only if it still passes the filter
 
-- [ ] Step 4: Documentation
+- [x] Step 4: Documentation
+  - Adjusted after PR #280 split the README: the full `Bursts` bullet lives in
+    `docs/usage.md` "Features" (where the detailed feature descriptions and
+    the Keys table now are), with a one-line summary in `README.md`
+    "Features"
   - Done when:
     - `README.md` "Features" gains a `Bursts` bullet: what a burst is (frames
       whose capture times are within 1 s of the previous frame, in capture
@@ -286,3 +290,4 @@ it.
 - (2026-09-21) Step 1 complete
 - (2026-09-21) Step 2 complete
 - (2026-09-21) Step 3 complete
+- (2026-09-21) Step 4 complete
