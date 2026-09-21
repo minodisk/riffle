@@ -258,6 +258,10 @@ development machine, so several behaviours were never exercised by a human.
       `crates/app/ui/src/burst.ts`, `crates/app/ui/style.css`.
 - [ ] Exercise `Shift+x` reject-rest and its one-step undo by hand on a real
       burst folder. Files: `crates/app/ui/src/main.ts`.
+- [ ] On Windows, confirm the strip scrollbar is thin and dark and that the
+      thumbnail right edge and the burst bracket are no longer clipped; on
+      macOS, confirm the strip looks unchanged (160px wide). Files:
+      `crates/app/ui/style.css`.
 
 ### App: an old shortcut override for `previous`/`next` can silently conflict with new burst defaults
 
