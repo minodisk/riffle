@@ -126,4 +126,4 @@ field is added to the preview header.
 
 ## Progress
 
-- Step 1: done (commit ef980bd)
+- (2026-09-21) Step 1 complete
