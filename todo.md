@@ -254,14 +254,6 @@ load (found while implementing burst-grouping Step 2, where the
       another action, so an old override does not silently disappear when a
       new action claims its key. Files: `crates/app/src/shortcuts.rs`.
 
-### GitHub: verify the issue report forms on GitHub
-
-The three issue forms (`.github/ISSUE_TEMPLATE/os.yml`, `camera.yml`, `software.yml`) and `config.yml` were only checked by YAML parsing and review before merge; `mise run ci`'s actionlint only covers `workflows/`, so nothing validates `ISSUE_TEMPLATE/` locally.
-
-#### TODO
-
-- [ ] Open `https://github.com/minodisk/riffle/issues/new/choose`, walk through each of the three forms once, and confirm the fields render correctly (or fix them).
-
 ### App: face/eye-aware focus check for culling
 
 The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted_focus`, `tile_max`) measures a `WINDOW` around the Sony `FocusLocation` or, without one, the sharpest tile of the embedded preview, so a portrait focused on the background, the nose or the ear rather than the eye still scores high. The stored `files.sharpness` column in `crates/app/src/index.rs`, the strip's relative cue (`crates/app/ui/src/sharpness.ts`) and the burst group (`crates/app/ui/src/burst.ts`) inherit that blind spot. Idea: detect faces/eyes on the embedded preview at scan time with a lightweight detector (such as YuNet or BlazeFace via ONNX, e.g. the `ort` crate), store the region in the SQLite index, score sharpness on the eye/face region, and suggest the sharpest-eye frame within a burst group.
