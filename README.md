@@ -56,6 +56,9 @@ sidecars.
 - **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored around the AF point or, without one, the sharpest region.
+- **Bursts**: frames shot within 1 s of each other are bracketed together on
+  the strip; `ArrowLeft` / `ArrowRight` jump between bursts and `Shift+x`
+  rejects the rest of one.
 - **Shooting info**: camera, lens, shutter speed, aperture, ISO and focal
   length.
 - **Filter and sort**: narrow down by stars, label, orientation, lens and more;
