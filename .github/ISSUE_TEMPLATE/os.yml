@@ -1,0 +1,39 @@
+name: OS problem
+description: Riffle does not install, launch or behave correctly on your OS.
+title: "[OS] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If Riffle works fine on your OS, please post in the OS works report thread in Discussions instead.
+  - type: input
+    id: os
+    attributes:
+      label: OS and version
+      placeholder: macOS 15.5 (Apple silicon) / Windows 11 24H2 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: riffle-version
+    attributes:
+      label: Riffle version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Riffle.log
+      description: |
+        Paste the contents of `Riffle.log` or attach the file. `Help > Open Log Folder` opens the folder, or find it at:
+        - Windows: `%LOCALAPPDATA%\com.minodisk.riffle\logs\`
+        - macOS: `~/Library/Logs/com.minodisk.riffle/`
+        - Linux: `~/.local/share/com.minodisk.riffle/logs/`
+      render: text

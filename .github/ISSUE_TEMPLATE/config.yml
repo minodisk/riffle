@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  # TODO: replace with the OS works-report thread URL
+  - name: OS works report
+    url: https://github.com/minodisk/riffle/discussions
+    about: Riffle works on your OS? Let us know here.
+  # TODO: replace with the camera works-report thread URL
+  - name: Camera works report
+    url: https://github.com/minodisk/riffle/discussions
+    about: Riffle works with your camera? Let us know here.
+  # TODO: replace with the software works-report thread URL
+  - name: Software works report
+    url: https://github.com/minodisk/riffle/discussions
+    about: Riffle's judgements show up correctly in your software? Let us know here.
