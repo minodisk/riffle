@@ -142,6 +142,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 |-----|--------|
 | `ArrowUp` | previous file |
 | `ArrowDown` | next file |
+| `ArrowLeft` | first frame of the current burst, or of the previous burst when already on it |
+| `ArrowRight` | first frame of the next burst |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
 | `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
 | `f` | toggle the focus mark |

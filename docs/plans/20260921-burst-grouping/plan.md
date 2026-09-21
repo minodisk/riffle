@@ -145,7 +145,7 @@ it.
       `~/Downloads`) that the bracket appears where expected; note the
       observed group sizes in `learnings.md`
 
-- [ ] Step 2: Burst navigation keys
+- [x] Step 2: Burst navigation keys
   - Done when:
     - Two new keymap actions, `burstPrevious` and `burstNext`, are added to
       `DEFAULTS` in `crates/app/src/shortcuts.rs` right after `next` (the
@@ -284,3 +284,4 @@ it.
 ## Progress
 
 - (2026-09-21) Step 1 complete
+- (2026-09-21) Step 2 complete

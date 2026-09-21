@@ -26,6 +26,8 @@ const PHOTOLAB_DEFAULT: &str = if MACOS {
 const DEFAULTS: &[(&str, &[&str])] = &[
     ("previous", &["arrowup"]),
     ("next", &["arrowdown"]),
+    ("burstPrevious", &["arrowleft"]),
+    ("burstNext", &["arrowright"]),
     ("open", &[OPEN_DEFAULT]),
     ("photolab", &[PHOTOLAB_DEFAULT]),
     ("focus", &["f"]),
@@ -550,6 +552,8 @@ mod tests {
         let expected: Vec<(&str, Vec<String>)> = [
             ("previous", "arrowup"),
             ("next", "arrowdown"),
+            ("burstPrevious", "arrowleft"),
+            ("burstNext", "arrowright"),
             ("open", OPEN_DEFAULT),
             ("photolab", PHOTOLAB_DEFAULT),
             ("focus", "f"),
@@ -955,7 +959,7 @@ mod tests {
             "zoom": ["space", "z"],
             "open": ["o"],
             "red": ["6"],
-            "previous": ["arrowleft", "arrowup", "w", "a", "h", "k"],
+            "previous": ["arrowup", "w", "a", "h", "k"],
         });
         let keymap = Keymap::from_overrides(Some(&stored));
         assert_eq!(keys_of(&keymap, "zoom"), vec!["space", "z"]);
@@ -964,7 +968,7 @@ mod tests {
         assert_eq!(keys_of(&keymap, "red"), vec!["6"]);
         assert_eq!(
             keys_of(&keymap, "previous"),
-            vec!["arrowleft", "arrowup", "w", "a", "h", "k"]
+            vec!["arrowup", "w", "a", "h", "k"]
         );
         assert_eq!(keymap.overrides(), stored);
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);

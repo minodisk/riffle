@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { burstMarks, groupBursts, type BurstMember } from "./burst.js";
+import { burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import type { SortFacts } from "./sort.js";
 
 function lookupFrom(facts: Record<string, SortFacts>): (path: string) => SortFacts {
@@ -99,5 +99,40 @@ describe("burstMarks", () => {
       { first: true, last: true },
       { first: true, last: true },
     ]);
+  });
+});
+
+describe("burstStep", () => {
+  const ids = [0, 0, 0, 1, 2, 2];
+
+  test("next moves to the first file of the following burst", () => {
+    expect(burstStep(ids, 1, 1)).toBe(3);
+    expect(burstStep(ids, 0, 1)).toBe(3);
+  });
+
+  test("a singleton is its own burst", () => {
+    expect(burstStep(ids, 3, 1)).toBe(4);
+    expect(burstStep(ids, 3, -1)).toBe(0);
+  });
+
+  test("previous goes to the start of the burst, then to the previous burst", () => {
+    expect(burstStep(ids, 5, -1)).toBe(4);
+    expect(burstStep(ids, 4, -1)).toBe(3);
+    expect(burstStep(ids, 2, -1)).toBe(0);
+  });
+
+  test("clamps at either end", () => {
+    expect(burstStep(ids, 0, -1)).toBe(0);
+    expect(burstStep(ids, 4, 1)).toBe(4);
+    expect(burstStep(ids, 5, 1)).toBe(5);
+    expect(burstStep([], 0, 1)).toBe(0);
+  });
+
+  test("works over non-adjacent ids left by a filter", () => {
+    const shown = [0, 3, 3, 7];
+    expect(burstStep(shown, 0, 1)).toBe(1);
+    expect(burstStep(shown, 1, 1)).toBe(3);
+    expect(burstStep(shown, 3, -1)).toBe(1);
+    expect(burstStep(shown, 2, -1)).toBe(1);
   });
 });
