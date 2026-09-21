@@ -847,6 +847,20 @@ menus) do not feed into the intrinsic width.
 
 - Source: `docs/plans/_archived/20260922-strip-scrollbar/learnings.md`, Step 1.
 
+### Paint a full-bleed band under a cell's own background with `isolation: isolate` + negative `z-index` (Inferred)
+
+The burst band and count badge are a `::before` with `z-index: -1` inside
+`.cell.burst`, and `.cell` gets `isolation: isolate`. That makes the `::before`
+paint under the cell's own background (so `.cell.current` / `.cell.failed`
+backgrounds still cover it inside the box) while the few pixels it extends
+outside the box still show, reading as a frame around the cell.
+
+- Why: without `isolation: isolate` on the cell, a negative `z-index` child
+  escapes to the nearest ancestor stacking context instead of staying local,
+  so it can end up painting over unrelated siblings instead of just under its
+  own parent.
+- Source: `docs/plans/_archived/20260922-burst-frame-nav/learnings.md`, Step 2.
+
 ### Carry every judgement field on every write (Hit)
 
 `set_rating` writes the whole judgement (stars, pick, label), so the frontend

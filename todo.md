@@ -245,9 +245,18 @@ development machine, so several behaviours were never exercised by a human.
 
 #### TODO
 
-- [ ] Verify Step 1's burst bracket and `· N / M in burst` counter by hand on a
-      real Sony and Leica burst folder and note the group sizes. Files:
-      `crates/app/ui/src/burst.ts`, `crates/app/ui/style.css`.
+- [ ] Verify the burst band and count badge by hand on a real Sony and Leica
+      burst folder and note the group sizes: band visible, badge shows on
+      the first displayed cell of a burst, the badge switches to
+      `position/size` and follows the current selection, the gap above a
+      non-first member is filled, and the band is distinguishable from
+      `.cell.current` and `.cell.failed`. Files: `crates/app/ui/src/burst.ts`,
+      `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
+- [ ] In `mise run tauri:dev`, confirm `Alt+ArrowUp` / `Alt+ArrowDown`
+      (`burstFramePrevious` / `burstFrameNext`) reach the app on Windows and
+      macOS, i.e. the webview does not swallow them, and step through a burst
+      stopping at its ends. Files: `crates/app/src/shortcuts.rs`,
+      `crates/app/ui/src/main.ts`.
 - [ ] Exercise `Shift+x` reject-rest and its one-step undo by hand on a real
       burst folder. Files: `crates/app/ui/src/main.ts`.
 - [ ] On Windows, confirm the strip scrollbar is thin and dark and that the
