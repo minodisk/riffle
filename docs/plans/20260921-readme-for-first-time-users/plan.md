@@ -191,4 +191,4 @@ from the scratchpad path above.
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
