@@ -1,25 +1,144 @@
 # Riffle
 
-A culling app for Sony ARW and Leica DNG files: look through them fast, apply
-ratings, and mark picks and rejects. Nothing else — no developing, no editing.
-It never runs a RAW decoder (LibRaw / rawler); everything comes from the JPEGs
-already embedded in the ARW or DNG.
+A culling app for going through the RAW files you shot, fast, and deciding what
+to keep and what to throw away.
+
+- It reads only the JPEG previews embedded in the RAW files, so paging through a
+  folder of thousands of shots never keeps you waiting.
+- Stars, picks / rejects and colour labels are written to sidecar files that
+  DxO PhotoLab and tools that read XMP sidecars, such as Lightroom, can read.
+  The RAW files themselves are never written.
+- There is no developing and no editing. It does one thing: choosing.
+
+For the supported cameras and formats, see [Compatibility](#compatibility).
+
+## Getting started
+
+### Install
+
+Download the file for your OS from the latest release on the
+[Releases page](https://github.com/minodisk/riffle/releases):
+
+| OS | File |
+|----|------|
+| macOS, Apple Silicon | `Riffle_<version>_aarch64.dmg` |
+| macOS, Intel | `Riffle_<version>_x64.dmg` |
+| Windows | `Riffle_<version>_x64-setup.exe` |
+| Linux | `Riffle_<version>_amd64.AppImage` |
+
+The app is not signed by the OS vendors, so the first launch needs your
+permission once:
+
+- **macOS**: right-click `Riffle.app` → Open.
+- **Windows**: in the SmartScreen warning, More info → Run anyway.
+
+After that, updates are downloaded automatically on launch and take effect the
+next time Riffle starts. For the other packages and the details, see
+[docs/usage.md](./docs/usage.md#installing).
+
+### First steps
+
+1. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
+2. Page through the shots with `↑` `↓`, give stars with `1`-`5` and reject with
+   `x`.
+3. When the focus is in doubt, press `z` for the 1:1 view and check the focus
+   point.
+
+Judgements are saved to the sidecars as you go, so there is nothing to save.
+When you are done, they are picked up by DxO PhotoLab and tools that read XMP
+sidecars.
+
+## Features
+
+- **Filmstrip**: thumbnails run down the left edge; click one to show it.
+- **1:1 focus check**: `z` shows the image at 1:1, centred on the focus point.
+  Paging keeps the zoom.
+- **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
+- **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
+  sharpest, scored around the AF point or, without one, the sharpest region.
+- **Shooting info**: camera, lens, shutter speed, aperture, ISO and focal
+  length.
+- **Filter and sort**: narrow down by stars, label, orientation, lens and more;
+  sort by file name, capture time or rating.
+- **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
+  rejected shots to the Trash. Nothing is deleted, so restoring them brings the
+  judgements back.
+- **Undo / redo**: `Cmd+Z` / `Ctrl+Z` undoes a judgement; add `Shift` to redo.
+- **Auto-advance**: when turned on in the settings, each judgement moves on to
+  the next shot.
+
+Detailed behaviour: [docs/usage.md](./docs/usage.md).
+
+## Keys
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | previous / next shot |
+| `1`-`5` | give stars |
+| `0` | clear the stars or the reject |
+| `x` | reject |
+| `p` | pick (DxO PhotoLab format only) |
+| `u` | clear the reject / pick |
+| `Ctrl+Alt+1`-`7` | colour label (red, orange, yellow, green, blue, pink, purple) |
+| `Ctrl+Alt+0` | clear the colour label |
+| `z` | 1:1 focus check |
+| `f` | focus mark |
+| `Cmd+O` / `Ctrl+O` | open a folder |
+
+Keys can be changed in `Riffle > Settings...`.
+
+## Working with other software
+
+Judgements are saved in a sidecar file next to the RAW. The format is chosen in
+the settings:
+
+- **XMP** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom and others
+  read. It cannot hold a pick.
+- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks too.
+  `File > Open in DxO PhotoLab` opens the folder straight in PhotoLab.
+
+A sidecar created by other software is edited in place: everything except the
+stars, the flag and the label (develop settings, keywords, ...) is left
+untouched.
 
 ## Compatibility
 
-### RAW formats
+Anything unchecked has not been verified yet. Reports of how it went for you
+are very welcome.
+
+### OS
+
+- macOS
+  - [x] 26 (Apple Silicon)
+- Windows
+  - [x] 11
+- Linux
+  - [ ] Ubuntu
+  - [ ] Fedora
+
+If it works, post in the
+[OS works report thread](https://github.com/minodisk/riffle/discussions)
+<!-- TODO: replace with the OS works-report thread --> in Discussions. If it
+does not, open an issue from the
+[OS issue template](https://github.com/minodisk/riffle/issues/new?template=os.yml).
+
+### RAW formats and cameras
 
 - ARW
   - [x] Sony α7 V
 - DNG
   - [x] Leica M11-P
-  - [ ] Sigma BF
-  - [ ] Sigma fp L
 
-### Sidecar formats
+If a camera not on the list works, post in the
+[camera works report thread](https://github.com/minodisk/riffle/discussions)
+<!-- TODO: replace with the camera works-report thread --> in Discussions. If
+it does not, open an issue from the
+[camera issue template](https://github.com/minodisk/riffle/issues/new?template=camera.yml).
+A sample file is needed to look into it, so please attach one (or link to it).
+One file is enough; a landscape and a portrait shot, if possible, also let the
+rotation and the focus mark be checked.
 
-Which tools read the sidecars Riffle writes; see
-[Ratings and sidecars](#ratings-and-sidecars).
+### Sidecar formats and software
 
 - XMP
   - [ ] Adobe Lightroom Classic
@@ -27,469 +146,14 @@ Which tools read the sidecars Riffle writes; see
 - DOP
   - [x] DxO PhotoLab 10
 
-### Requesting support
-
-Requests for any camera, RAW format or developing software are welcome;
-[open an issue](https://github.com/minodisk/riffle/issues). Since Riffle only
-reads the JPEGs embedded in a RAW, attach a sample file from the camera (or
-link to one) so they can be checked. One file is enough to start; a landscape
-and a portrait shot together also let the rotation and the focus mark be
-checked.
-
-## Features
-
-Open a folder from the picker, or drop a folder or any file in it onto the
-window. Riffle lists the ARW and DNG files in it and pages through their
-embedded previews, rotated by each file's Orientation. With no folder open the
-viewer shows a prompt in its centre; click it to open the folder picker.
-
-- **Filmstrip**: thumbnails run down the left edge, follow paging and show the
-  file you click. The `N / M` counter sits under it.
-- **Focus mark**: `f` draws a crosshair at the camera's recorded focus point
-  (hidden by default; cameras that record none, such as the M11-P, show none).
-- **1:1 focus check**: `z` shows the full-resolution image at one pixel per
-  screen pixel, centred on the focus point (or the frame centre without one).
-  Paging while zoomed stays zoomed and moves to the next file's focus point.
-  There is no panning or free zoom.
-- **Judgements**: stars, reject, (with `.dop`) pick and a colour label, shown on
-  the strip cell (the label tints the file-name band along the cell's bottom
-  edge) and written to a sidecar; see
-  [Ratings and sidecars](#ratings-and-sidecars).
-- **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
-  lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
-  camera's estimate, marked `(est.)`; Leica files add the focus distance.
-- **Filter menu**: narrows the strip by pick flag, stars, colour label,
-  orientation (`Portrait` / `Landscape`), camera, lens, aperture, shutter speed,
-  ISO and focal length (grouped into ranges such as `24–35 mm`). The colour
-  label group lists the seven colours and `No label`; a label outside those
-  seven colours matches no colour item (nor `No label`). The orientation is
-  decided by the file's EXIF Orientation — a quarter turn is portrait, so a
-  frame the camera did not tag as rotated counts as landscape.
-  The EXIF groups list only values present in the folder. Checks within a group
-  are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgement that drops
-  the current file out of the filter hides it at once and moves to the next
-  passing file after it, else the last one before it, else the empty view.
-- **Sort menu**: orders the strip by file name, capture time or rating;
-  paging and `n / N` follow the chosen order. Capture time breaks ties by
-  sub-second then file name, and files without a capture time come last.
-  Rating puts higher stars first, then unrated files, then rejects, with file
-  name breaking ties.
-  The order settles while a folder is scanned for the first time, and the
-  choice is remembered across launches.
-- **Open Folder…**: `File > Open Folder…` opens the folder picker, the same as
-  the `open` key.
-- **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
-  folder to the newest PhotoLab in `/Applications`. Both File menu items are
-  rebindable: each shows the first key of its action that can be an
-  accelerator, and none when the action holds no such key.
-- **Reload Folder**: the open folder keeps up with the disk on its own: a file
-  copied in or deleted outside Riffle shows up in the strip about a second
-  later. On volumes that send no change notifications, such as network shares,
-  bring the window back to the front or choose `File > Reload Folder`
-  (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
-  flags and colour labels already given, the current file and the strip's
-  position all stay as they were.
-- **Move Rejected to Trash…**: `File > Move Rejected to Trash…` moves every
-  file of the open folder marked as a reject to the OS Trash, together with the
-  sidecars sitting next to it — both `.xmp` and `.ARW.dop` when both are there,
-  no matter which format is currently selected. It asks first, showing how many files
-  it is about to move, and `Cancel` leaves the folder untouched. Nothing is
-  deleted: the file and its sidecars all go to the Trash, so restoring them
-  brings back the stars, the flag and the colour label. Whatever could not be
-  moved is listed as an error and stays in the folder.
-- **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
-  label the last judged file had before, writes that to its sidecar and returns
-  to the file (unless the filter now hides it, which the status line says).
-  Repeated presses walk further back. The history belongs to the open folder
-  and is cleared when another folder opens or the sidecar format changes.
-- **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
-  undone judgement, the same way round. The redo history is forgotten as soon
-  as you judge a file again, and like the undo history it is cleared when
-  another folder opens or the sidecar format changes.
-- **Open Log Folder**: `Help > Open Log Folder` reveals the folder holding
-  `Riffle.log`, the app's log file (capped at 1 MB; on rotation the previous
-  contents are discarded, not kept as a separate file). It lives in the app
-  log directory:
-  `%LOCALAPPDATA%\com.minodisk.riffle\logs\` on Windows,
-  `~/Library/Logs/com.minodisk.riffle/` on macOS and
-  `~/.local/share/com.minodisk.riffle/logs/` on Linux.
-- **Auto-advance**: when `Auto-advance after a star, reject or pick` is on in
-  `Riffle > Settings...` (off by default), `1`-`5`, reject and pick move to the
-  next file once they change the current one; pressing the value the file
-  already has does not. The last file stays selected. A file the judgement
-  drops out of the active filter already hands the cursor to the next file, so
-  it is not skipped twice.
-- **Clear Cache**: the `Cache` tab of `Riffle > Settings...` shows how much disk
-  the folder index takes, and `Clear Cache` empties it after a confirmation. It
-  removes the cached thumbnails and metadata of every folder ever opened; your
-  judgements are not touched, because they live in the sidecars. The size is in
-  the same units your file manager uses (decimal on macOS, binary on Windows
-  and Linux). A scan has to finish before the cache can be cleared: while one is
-  running the button is unavailable, with a note saying so, and it becomes
-  available again by itself when the scan ends.
-- **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
-  sharp the frame is next to its neighbours on the strip; the sharpest frame of
-  a run is marked in the pick colour. The score is computed from the embedded
-  preview around the AF focus point when the camera recorded one, and
-  otherwise (manual focus, Leica DNG) as the sharpest region of the frame, so
-  it ranks a burst rather
-  than judging a frame on its own, and it does not replace the 1:1 focus check.
-  The meta pane shows the raw score.
-
-### Keys
-
-| Key | Action |
-|-----|--------|
-| `ArrowUp` | previous file |
-| `ArrowDown` | next file |
-| `ArrowLeft` | first frame of the current burst, or of the previous burst when already on it |
-| `ArrowRight` | first frame of the next burst |
-| `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
-| `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
-| `f` | toggle the focus mark |
-| `z` | toggle the 1:1 focus check |
-| `1`-`5` | rate the current file that many stars |
-| `x` | reject the current file (replaces a pick) |
-| `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
-| `u` | un-reject or un-pick the current file |
-| `0` | clear the rating or the reject (a pick stays) |
-| `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
-| `CmdOrCtrl+Shift+Z` | redo the last undone judgement (the `Edit > Redo` accelerator; not rebindable) |
-
-Pressing the key of the label the file already has clears it; the stars, the
-flag and `0` leave the label alone.
-
-| Label | Key |
-|-------|-----|
-| red | `Ctrl+Alt+1` |
-| orange | `Ctrl+Alt+2` |
-| yellow | `Ctrl+Alt+3` |
-| green | `Ctrl+Alt+4` |
-| blue | `Ctrl+Alt+5` |
-| pink | `Ctrl+Alt+6` |
-| purple | `Ctrl+Alt+7` |
-| clear the label | `Ctrl+Alt+0` |
-
-Keys can be changed from `Riffle > Settings...` (`CmdOrCtrl+,`):
-click a row's `+` and press a key to add it (`Escape` cancels), or click the
-`×` on a key to remove it. The last key of an action cannot be removed (use
-Reset). A key already used by another action is refused, and a modifier pressed alone is ignored. Any combination of
-Ctrl, Alt (Option), Shift and Cmd (Windows / Super) can be bound; it is stored
-as `ctrl+alt+shift+meta+` with only the modifiers held, and the key named from
-its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
-character on macOS. Shift counts, so Shift+J is a different key from J.
-Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+Z`,
-`Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-The two File menu accelerators are the exception: they follow their own
-action's keys, so unlike `Cmd+Z` and `Cmd+,` they can be rebound, and the
-combination an action leaves behind is free for another action.
-`Reset all` restores the defaults.
-
-### Ratings and sidecars
-
-The RAW file is never written. Judgements go into a sidecar next to it, in one
-of two formats chosen in `Riffle > Settings...`:
-
-- **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` — `0`-`5`,
-  or `-1` for a reject — and `xmp:Label`, Lightroom's colour label (`Red`,
-  `Yellow`, `Green`, `Blue`, `Purple`). XMP has no pick.
-- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
-  pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
-  `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
-
-Clearing a label removes `xmp:Label` or the `ColorLabel` line; no label is the
-field being absent. The label is kept as the exact string the sidecar holds: a
-name from the other tool's vocabulary is written back unchanged and shown in
-its colour, and any other name (say, a custom Lightroom label) is shown grey.
-
-A sidecar written by another tool is edited in place: only the rating, the
-label (and, for `.dop`, the flag) change, and everything else — develop
-settings, keywords — is kept byte for byte. Clearing a file that has no sidecar
-creates none.
-
-Writes happen in the background and are atomic, so a crash never leaves a
-half-written sidecar, and quitting finishes any pending write. A judgement that
-could not be written (say, on a locked card) is retried a few times over the
-next half minute, and if it still fails it is kept and retried the next time
-the folder is opened; the error is shown at the bottom of the right pane until
-you dismiss it, and so is any sidecar the app cannot read when a folder opens
-(damaged, or larger than 4 MiB). Sidecars edited by another tool are picked up the next
-time the folder is opened; when both changed, the other tool's edit wins.
-Switching the format keeps unwritten judgements and writes them in the new
-format; the other format's files are left alone.
-
-The folder index is a cache, but it also holds unwritten judgements, so a new
-index schema migrates the previous ones in place instead of discarding them;
-only a version it cannot migrate is dropped and rebuilt from the sidecars.
-
-Reading `-1` back is up to the other tool: exiftool documents it as
-"rejected", Adobe Bridge and darktable use it, and Lightroom Classic is
-reported to read it as a reject on import.
-
-## Installing
-
-Download the installer for your OS from the latest release on the
-[Releases page](https://github.com/minodisk/riffle/releases):
-
-| OS | File |
-|----|------|
-| macOS, Apple Silicon | `Riffle_<version>_aarch64.dmg` |
-| macOS, Intel | `Riffle_<version>_x64.dmg` |
-| Windows | `Riffle_<version>_x64-setup.exe` (or `Riffle_<version>_x64_en-US.msi`) |
-| Linux | `Riffle_<version>_amd64.AppImage` (or `Riffle_<version>_amd64.deb` / `Riffle-<version>-1.x86_64.rpm`) |
-
-The builds are not OS-signed (no Apple notarization, no Authenticode), so the
-first launch needs one extra step:
-
-- **macOS**: Gatekeeper blocks the first launch. Right-click `Riffle.app` →
-  Open, or System Settings → Privacy & Security → Open Anyway, or run
-  `xattr -d com.apple.quarantine /Applications/Riffle.app`.
-- **Windows**: SmartScreen warns. More info → Run anyway.
-- **Linux**: nothing extra.
-
-Updating: the app checks for a newer release on launch and, when there is one,
-downloads and installs it quietly in the background; the new version is used the
-next time Riffle launches. On Windows the download still happens quietly in the
-background, and the installer runs when Riffle quits, so the next launch is the
-new version. **Check for Updates…** in the app menu (the File menu
-on Windows and Linux) runs the same check by hand and reports the outcome. The update itself is signed with the
-project's updater key and verified before it is installed. On Linux only the
-AppImage updates itself; a `.deb` / `.rpm` install is updated by installing the
-newer package.
-
-To build from source, see [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-## Performance
-
-### Sony α7 V ARW (Apple Silicon Mac, n=20)
-
-| Step | Target | Measured (median) |
-|------|--------|-------------------|
-| 1616x1080 preview extraction | 10ms | 4.4ms |
-| JpgFromRaw full decode | 300ms | 84ms |
-| 512px partial decode at the focus point | 50ms | 17.5ms |
-
-### Leica M11-P DNG (Apple Silicon Mac, n=32)
-
-Measured with release builds over 32 distinct real M11-P DNGs
-(60.8MB to 78.0MB, 72.0MB mean), with the page cache warm (the files had been
-read just before). Each DNG embeds a 2112x1408 preview and a 9504x6320 1:1
-JPEG. The M11-P writes no `FocusLocation`, so the 512px crop is taken at the
-image centre (row ~3160), the fallback the app uses.
-
-`riffle-cli bench` (two runs, medians):
-
-| Step | Target | Measured (median) |
-|------|--------|-------------------|
-| 2112x1408 preview decode | 10ms | 7.5-8.0ms (α7 V 1616x1080: 4.4ms) |
-| 9504x6320 1:1 JPEG full decode | 300ms | 105ms (p95 125-130ms) |
-| 512px partial decode at the centre | 50ms | 16.4-16.5ms (p95 ~20ms, max 22.7ms) |
-
-The centre crop sits well inside the 50ms budget on its own; this is the CLI
-decode only, not keypress to pixels.
-
-`riffle-cli scan` over the folder:
-
-| Threads | Total | Throughput | Per file on a worker (mean / p95) |
-|---------|-------|------------|-----------------------------------|
-| 1 | 0.39s | 83 files/s | 12.1ms / 14.1ms |
-| 12 | 0.05s | 596 files/s | 17.3ms / 24.2ms |
-
-Thumbnails (528x352): 30,231 bytes per file on average (967,419 bytes over
-32 files), against ~19KB on the α7 V.
-
-### Per-page preview read
-
-The per-page cost on the Rust side only, on an Apple Silicon Mac.
-**It excludes the IPC hop and `createImageBitmap`**. The app now logs the
-end-to-end number per page turn (a `page …` line in `Riffle.log`; see
-"Measuring on your own folder" below), but it has not been measured yet. Reading the whole 48MB ARW (`std::fs::read` plus `arw::parse`) is
-compared with reading a bounded 1MiB prefix (`reader::read_preview`), which is
-where the metadata and the embedded preview live:
-
-| Folder | n | whole file | bounded prefix (Riffle) |
-|--------|---|---------------------|------------------------|
-| 5000 symlinks to one ARW, warm page cache | 300 | mean 6.6ms / p95 7.7ms | mean 0.06ms / p95 0.13ms |
-| 20 distinct 48MB copies, first read | 20 | mean 16.0ms / p95 30.0ms | mean 5.1ms / p95 7.8ms |
-
-Both columns were measured together, so they compare like with like. The symlink folder is 5000 symlinks to the same file and
-the copy folder is 20 `cp` copies, read in file-name
-order by a fresh process. The "first read" column cannot be guaranteed cold.
-
-The whole-file read dominates, which is what the bounded read removes.
-
-### Folder scan throughput
-
-`riffle-cli scan` runs the folder extraction (bounded read, metadata parse,
-404x270 thumbnail) over a folder on a dedicated rayon pool, with no database.
-On a 12-core Apple Silicon Mac:
-
-| Folder | threads | total | files/s |
-|--------|---------|-------|---------|
-| 5000 symlinks to one ARW, warm page cache | 1 | 34.9s | 143 |
-| 5000 symlinks to one ARW, warm page cache | 8 | 5.35s | 935 |
-| 5000 symlinks to one ARW, warm page cache | 12 | 4.46s | 1121 |
-| 100 distinct 48MB copies, freshly written, page cache not guaranteed cold | 4 | 0.44s | 230 |
-| 100 distinct 48MB copies, freshly written, page cache not guaranteed cold | 12 | 0.19s | 529 |
-
-The thumbnails come to 19232 bytes each, i.e. ~96MB for 5000 files.
-Extrapolating the freshly-written-copies column to 5000 files gives 9.5s at 12
-threads and 21.7s at 4; the CPU cost leaves ~25s of headroom against the
-30-second target, but whether that headroom survives on a real, cold-read
-folder is not something these numbers establish. A single thread would not
-make it (34.9s). More threads than cores does not help: 16 threads was flat
-against 12 and doubled the per-file p95.
-
-What this cannot measure: a real 5000-distinct-file folder. Each
-freshly-written-copies folder here is 100 `cp` copies scanned once, nothing is guaranteed cold, and the copies were
-still likely warm in the page cache right after being written; the folders
-were also scanned in the order they were written, which flatters the higher
-thread counts. On a card reader or slow external disk the scan is disk-bound
-regardless.
-
-#### Sharpness scoring cost
-
-Scoring sharpness adds a grayscale decode of the embedded preview to each
-file's extraction. `riffle-cli scan`, release build, over 1000 symlinks to one
-α7 V ARW (1616x1080 preview), warm page cache, on a 12-core Apple Silicon Mac,
-runs alternated before and after:
-
-| Threads | Runs | Per file on a worker before (mean / p95) | After (mean / p95) |
-|---------|------|------------------------------------------|--------------------|
-| 1 | 2 | 7.2-7.5ms / 7.6-7.9ms | 10.4-10.7ms / 10.9-11.2ms |
-| 8 | 3 | 8.6-9.1ms / 12.1-13.3ms | 12.3-17.1ms / 15.7-22.0ms |
-
-About +3.2ms per file on one thread (~+45%). The symlinks repeat one file, so
-this is CPU cost with no IO variety.
-
-### Opening an indexed folder again
-
-The second open of a fully indexed folder does no extraction: it stats every
-file, reconciles the rows and queries them. On the 5000-file folder:
-
-| Step | Target | Measured |
-|------|--------|----------|
-| First open, full scan (5000 files, 10 threads, 0 errors) | 30s | 5.55s |
-| Second open (stat + reconcile + query, fully indexed) [^1] | 3s | 34.4ms |
-
-Both rows were measured on **5000 symlinks pointing at one real ARW, with a
-warm page cache**, so they carry the same caveat as the tables above. The
-second open is a stat-and-query number, which the symlinks flatter less than
-they flatter a read benchmark, but 5000 lookups of one cached inode's metadata
-is still cheaper than 5000 distinct 48MB files' metadata on a card. The first
-scan is the same folder and procedure as the scan throughput table above, at
-10 threads, a thread count that table does not have a row for; and the real
-number on a real folder of 5000 distinct files has never been measured by
-anyone; on a card reader or a slow external disk the first scan is disk-bound
-regardless.
-
-[^1]: Measured with a temporary `#[ignore]`d test that was removed before
-committing, so this number is not reproducible from the committed tree.
-
-#### Measuring on your own folder
-
-Riffle logs its own scan timings, so these numbers can be reproduced on any
-folder. Clear the cache in `Riffle > Settings...` (the `Cache` tab) so the next
-open counts as a first scan, and reopen the folder. Then quit and launch again
-to get the second open, and use `Help > Open Log Folder` to find `Riffle.log`.
-
-Every open writes `open list`, `open entries`, `scan list` (reading the
-folder), `scan reconcile` (stat-ing the files against the index),
-`scan sidecars`, `scan prepare` (the sum of those three) and `scan extract`,
-which carries the whole extraction pass with its `files`, `done`, `errors`
-and `threads` counts. The first scan's `scan extract` has `files` > 0; `scan
-prepare` plus that `scan extract` is the first-scan total.
-
-The second open writes the same lines but with `todo=0`, and its
-`scan extract` reads `files=0 done=0` with a near-zero duration — that
-`files=0` line, not its absence, is what marks a cached open. It spans three
-separate calls, so there is no single number for it: add the `open list`,
-`open entries` and `scan prepare` lines of that open. Every line ends in
-`in <n>ms` and names its directory, and the timestamps tell the two runs
-apart.
-
-Per-page latency is logged the same way. Turn on `Timing logs` in the settings
-window (the item only shows in a `mise run tauri:release:devtools` or debug
-build), page through a folder with the next/previous keys, and read the
-`page invoke=… decode=… total=… keypressToPixels=…` lines in `Riffle.log`.
-`invoke` is the `preview` call's round trip (the Rust read plus IPC), `decode`
-is the worker's `createImageBitmap` round trip, `total` runs from the request
-to the drawn canvas, and `keypressToPixels` from the keypress to the drawn
-canvas; it is left out for a page not asked for by a key (a strip click or a
-folder open). A page turn overtaken by the next one logs nothing.
-
-### The 1:1 focus check path
-
-The Rust side of one zoom keypress, on one α7 V ARW (Orientation 8,
-`JpgFromRaw` 7008x4672 baseline 4:2:2, 5.76MB) on an Apple Silicon Mac. **One real file, warm
-page cache, in-process, release build, n=20, medians.** Measured against the
-functions the CLI and the app both call.
-**The IPC hop and `createImageBitmap` are excluded** — they could not be
-measured headlessly; the end-to-end numbers the user measured by hand are in
-the next table.
-
-| Step | Median |
-|------|--------|
-| Ranged read of the 5.76MB `JpgFromRaw` (`reader::read_full`) | 0.7ms |
-| Crop at the focus point, 512 / 1024 / 2048 per axis (`partial::decode_focus_crop`, RGBA) | 18.4 / 21.5 / 29.8ms |
-| 1024 crop at row 300 / 2336 / 4400 of the 4672-row JPEG (`partial::decode_crop`, RGB) | 10.8 / 27.3 / 44.1ms |
-
-Crop size barely matters; the crop's **row** dominates. `jpeg_skip_scanlines`
-on a baseline JPEG still entropy-decodes every skipped row, so a focus point
-low in the frame costs four times one at the top, and 44ms leaves nothing of
-the 50ms budget for the IPC hop and the bitmap. The payload is raw RGBA (4.2MB
-at the 1024 cap) rather than a re-encoded JPEG because re-encoding that crop
-with `mozjpeg::Compress`'s defaults measured 49ms at q85 — more
-than the decode it follows.
-
-#### End to end, keypress to pixels
-
-Measured by hand in the running app. **Conditions**:
-optimised build (`mise run tauri:release:devtools`), `Debug > Timing logs` on, **DevTools
-open** (a webview can be slower with the inspector attached, so these may be
-upper bounds), warm page cache (the folder had been opened before), one real
-folder of Sony ARW files. `read` and `decode` come
-from the `focus_crop` payload header (`Instant` inside `spawn_blocking`), the
-rest from `performance.now()` on the frontend; **`ipc` is derived** as the
-invoke elapsed minus `read` minus `decode`, so it is everything else on the
-Rust side plus transport, not pure transport.
-
-n=8 crops across 3 `z` presses:
-
-| Measurement | n | Measured |
-|-------------|---|----------|
-| Keypress → pixels, for the crop the keypress itself asked for | 3 | 39 / 45 / 40ms |
-| `read` | 8 | 1.8-2.7ms |
-| `decode` | 8 | 21.9-38.7ms |
-| `ipc` (derived) | 8 | 2.3-3.7ms |
-| `bitmap` | 8 | 0-1ms |
-| Total per crop | 8 | 26-45ms |
-
-`decode` dominates. `read`, `ipc` and `bitmap` are noise beside it, so the
-raw-RGBA-over-IPC decision (a 4MB payload at the 1024 cap) costs a few
-milliseconds: **IPC is not the bottleneck**.
-
-### What the sidecar pass adds to a folder open
-
-Opening a folder also reconciles the XMP sidecars: one listing of the
-directory, a `stat` per sidecar found, and a parse of only those whose
-`(size, mtime)` changed since the app last saw them.
-
-| Second open of a 5000-file folder | Measured (median) |
-|-----------------------------------|-------------------|
-| No sidecars in the folder | 31.3ms |
-| 5000 sidecars, all with an unchanged stat | 67.4ms |
-
-**These two numbers are not comparable to the 34.4ms above and do not replace
-it.** They were measured on a different folder: 5000 one-KB regular files
-named `*.ARW`, not symlinks and not real ARWs, on a local APFS disk with a
-warm page cache, on an Apple Silicon Mac. The work timed is the same
-sequence a folder open does on the Rust side — list, `stat` every file,
-`reconcile`, reconcile the sidecars, `entries` — in a temporary `#[ignore]`d
-test (release profile, median of 7 runs after 3 warm-up runs) that was
-removed before committing, so neither number is reproducible from the
-committed tree. What they do establish is the shape of the cost: on this
-machine the sidecar pass roughly doubles a second open, adding about 36ms
-for 5000 sidecars, and that cost is a listing plus a `stat` each, not a
-parse, because an unchanged stat parses nothing. A first open of a folder
-full of foreign sidecars pays the parse as well and was not measured.
+If the stars, flags and colour labels given in Riffle show up correctly in the
+software, post in the
+[software works report thread](https://github.com/minodisk/riffle/discussions)
+<!-- TODO: replace with the software works-report thread --> in Discussions.
+If they do not, open an issue from the
+[software issue template](https://github.com/minodisk/riffle/issues/new?template=software.yml).
+
+## For developers
+
+- Building from source: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Performance measurements: [docs/performance.md](./docs/performance.md)
