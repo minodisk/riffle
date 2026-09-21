@@ -95,7 +95,7 @@ field is added to the preview header.
       bytes, so no cap change (see `docs/agents/tauri-app.md`, "A per-tick log
       line can rotate other lines out").
 
-- [ ] Step 3: Document the measurement and update `todo.md`
+- [x] Step 3: Document the measurement and update `todo.md`
   - Done when: README's "Per-page preview read" section says the end-to-end
     number is now observable and where; "Measuring on your own folder" gains
     a short paragraph on per-page latency (turn on `Timing logs` in the
