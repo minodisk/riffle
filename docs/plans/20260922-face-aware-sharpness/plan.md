@@ -162,7 +162,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
     - If the scan cost is unacceptable, the fallback to note here is running
       detection at a smaller input size, not a setting to turn it off
 
-- [ ] Step 4: Documentation
+- [x] Step 4: Documentation
   - Done when:
     - `docs/performance.md` gains a "Face detection cost" subsection next to
       "Sharpness scoring cost" with the Step 1 latency, the binary size delta

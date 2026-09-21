@@ -108,3 +108,11 @@
 - Scan before/after measurement on the Mac is still pending (Step 3,
   `crates/core/src/scan.rs`); a scaled RGB decode for detection is the first
   lever if the scan cost is too high.
+
+## Step 4: documentation
+
+- `docs/performance.md` records only the Linux WSL2 numbers (synthetic
+  latency, unstripped binary sizes, cold build time); the real-file latency
+  and scan before/after are marked as not yet measured. In `todo.md` the
+  MakerNote checkbox stays open and a separate open item tracks the Mac
+  measurements.

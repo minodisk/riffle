@@ -274,17 +274,25 @@ The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted
 
 #### TODO
 
-- [ ] First check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
+- [ ] (Not yet done: needs exiftool on a real file on the Mac.) First check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
       detection positions (Sony's MakerNote parsing lives in
       `crates/core/src/arw.rs`, which already reads `FocusLocation` and
       `FocusMode`); if they do, no inference is needed for those bodies.
-- [ ] Prototype a lightweight detector and measure the per-image cost at scan
+- [x] Prototype a lightweight detector and measure the per-image cost at scan
       time and the added bundle size (runtime plus model); note the numbers in
       `docs/performance.md` or the plan's learnings.
-- [ ] Fall back to the current AF-point / tile scoring when no face is found
+      Result: YuNet via `tract-onnx`, ~17-18ms per synthetic image on Linux,
+      `riffle-app` 26.8 MB -> 47.8 MB (see `docs/performance.md`).
+- [ ] Measure on the Mac: face detection latency on real ARW/DNG previews
+      (`riffle-cli bench`) and `riffle-cli scan` before/after on real folders.
+- [x] Fall back to the current AF-point / tile scoring when no face is found
       (landscapes, animals), keeping the `files.sharpness` semantics for such
       files.
+      Result: `sharpness::score_preview` scores the eyes when a confident face
+      is found, else the AF point, else the sharpest tile.
 - [ ] Optionally, detect closed eyes from the landmarks.
+- [ ] Store the face region in the SQLite index and suggest the sharpest-eye
+      frame within a burst group.
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 

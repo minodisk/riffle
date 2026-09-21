@@ -155,6 +155,33 @@ runs alternated before and after:
 About +3.2ms per file on one thread (~+45%). The symlinks repeat one file, so
 this is CPU cost with no IO variety.
 
+### Face detection cost
+
+The scan runs YuNet (2023mar, via `tract-onnx`) on each embedded preview,
+shrunk to a 320x320 input, before scoring sharpness on the eyes. Measured so
+far only on a Linux WSL2 machine (24 threads), release build, with synthetic
+input: the OpenCV sample images `lena.jpg` and `messi5.jpg` upscaled to a
+1616 px long edge, single thread, 30 runs after one warm-up (the time
+includes the downscale to the model input):
+
+| Input | Mean | Median | p95 |
+|-------|------|--------|-----|
+| 1616x1616 | 18.2ms | 17.8ms | 21.5ms |
+| 1615x1008 | 17.1ms | 16.9ms | 18.7ms |
+
+The first call, which builds the model plan, took 46ms. Unstripped release
+binaries on the same machine:
+
+| Binary | Before | After |
+|--------|--------|-------|
+| `riffle-app` | 26.8 MB | 47.8 MB |
+| `riffle-cli` | 1.7 MB | 31.3 MB |
+
+A cold `cargo build --release -p riffle-cli` went from 10.8s to 140s.
+
+Not yet measured: the latency on real α7 V ARW and M11-P DNG previews, and
+the `riffle-cli scan` before/after on real folders on the Mac.
+
 ## Opening an indexed folder again
 
 The second open of a fully indexed folder does no extraction: it stats every
