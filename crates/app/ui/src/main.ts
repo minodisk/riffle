@@ -100,6 +100,16 @@ let index = 0;
 // belongs to a file that is no longer current and is dropped.
 let seq = 0;
 const orientations = new Map<number, number>();
+// `performance.now()` marks of the preview request for each `seq` awaiting
+// its decoded bitmap, for the `page …` timing line.
+const pageTimings = new Map<
+  number,
+  { startedAt: number; invokeMs: number; postedAt: number; keypressAt: number | null }
+>();
+// `performance.now()` at the key that turned the page, cleared by the preview
+// request that page turn produced. A strip click or a folder open starts its
+// own request, which is not timed from a keypress.
+let pageKeypressAt: number | null = null;
 let shown: { bitmap: ImageBitmap; orientation: number; seq: number } | null = null;
 // True while a `preview` invoke is outstanding. Keeps at most one request in
 // flight; when it settles, if `index` moved on in the meantime, exactly one
@@ -992,13 +1002,18 @@ function toggleZoom(): void {
 
 function requestPreview(): void {
   if (inFlight || files.length === 0) {
+    pageKeypressAt = null;
     return;
   }
   inFlight = true;
   const current = seq;
+  const requestStartedAt = performance.now();
+  const keypressAt = pageKeypressAt;
+  pageKeypressAt = null;
   window.__TAURI__.core
     .invoke<ArrayBuffer>("preview", { path: files[index] })
     .then((payload) => {
+      const invokeMs = performance.now() - requestStartedAt;
       inFlight = false;
       if (current !== seq) {
         requestPreview();
@@ -1011,6 +1026,12 @@ function requestPreview(): void {
       }
       orientations.set(current, header.getUint16(2, true));
       const jpeg = payload.slice(PREVIEW_HEADER_LEN);
+      pageTimings.set(current, {
+        startedAt: requestStartedAt,
+        invokeMs,
+        postedAt: performance.now(),
+        keypressAt,
+      });
       worker.postMessage({ seq: current, jpeg }, [jpeg]);
     })
     .catch((err: unknown) => {
@@ -1074,6 +1095,8 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
   const { seq: responseSeq, bitmap, error } = event.data;
   const orientation = orientations.get(responseSeq) ?? 1;
   orientations.delete(responseSeq);
+  const timing = pageTimings.get(responseSeq);
+  pageTimings.delete(responseSeq);
   if (responseSeq !== seq) {
     bitmap?.close();
     return;
@@ -1085,7 +1108,21 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
   shown?.bitmap.close();
   shown = { bitmap, orientation, seq: responseSeq };
   setStatus();
+  const decodedAt = performance.now();
   draw();
+  if (timing !== undefined) {
+    const drawnAt = performance.now();
+    const sinceKeypress =
+      timing.keypressAt === null
+        ? ""
+        : ` keypressToPixels=${(drawnAt - timing.keypressAt).toFixed(1)}ms`;
+    debugLog(
+      `page invoke=${timing.invokeMs.toFixed(1)}ms` +
+        ` decode=${(decodedAt - timing.postedAt).toFixed(1)}ms` +
+        ` total=${(drawnAt - timing.startedAt).toFixed(1)}ms` +
+        sinceKeypress,
+    );
+  }
 });
 
 function move(delta: number): void {
@@ -1097,6 +1134,7 @@ function move(delta: number): void {
     return;
   }
   index = next;
+  pageKeypressAt = performance.now();
   show();
 }
 
