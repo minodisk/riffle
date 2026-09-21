@@ -7,7 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 
 use crate::arw::Shot;
-use crate::decode::thumbnail_jpeg;
+use crate::decode::{apply_orientation, decode_rgb, thumbnail_jpeg};
+use crate::faces::{self, Face};
 use crate::reader::read_preview;
 use crate::sharpness::{score_preview, trusted_focus};
 
@@ -46,8 +47,10 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     }))
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
+    let faces = catch_unwind(AssertUnwindSafe(|| detect_faces(&preview, arw.orientation)))
+        .unwrap_or_default();
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
-        score_preview(&preview, trusted_focus(&arw.shot), &[])
+        score_preview(&preview, trusted_focus(&arw.shot), &faces)
     }))
     .ok()
     .and_then(Result::ok);
@@ -57,6 +60,23 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
         thumbnail,
         sharpness,
     })
+}
+
+/// Faces in `preview`, in its stored coordinates. The detector runs on the
+/// upright image; any failure is no face.
+fn detect_faces(preview: &[u8], orientation: u16) -> Vec<Face> {
+    let Ok((rgb, w, h)) = decode_rgb(preview) else {
+        return Vec::new();
+    };
+    let (mut upright, uw, uh) = apply_orientation(&rgb, w, h, orientation);
+    if orientation == 3 {
+        upright = upright.chunks_exact(3).rev().flatten().copied().collect();
+    }
+    faces::detect(&upright, uw, uh)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| faces::to_stored(f, orientation, w, h))
+        .collect()
 }
 
 /// Run `extract` over `paths` on a pool of `threads` threads, handing each

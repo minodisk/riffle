@@ -74,14 +74,37 @@
   square window is rotation invariant, so scoring in stored coordinates is
   equivalent.
 
+## Step 3: detector at scan time
+
+- `scan::extract` decodes the preview to RGB (full size), makes it upright,
+  runs `faces::detect`, and maps each face back with the new
+  `faces::to_stored(face, orientation, stored_w, stored_h)` before
+  `score_preview`. A decode/detect error or panic is the no-face path.
+- `decode::apply_orientation` only rotates 6/8; for orientation 3 the scan
+  reverses the pixel order itself so the detector sees the upright image,
+  and `to_stored` handles 3 as a half turn.
+- The detector's `OnceLock` plan is shared by every rayon worker through
+  `&'static`; nothing is rebuilt per file.
+- `SCHEMA_VERSION = 10`; v2 to v9 drop `files` and keep `ratings` / `folders`.
+
+### Pending on the user's Mac (not done in this step)
+
+- `riffle-cli scan` before/after on the a7 V and M11-P folders (1 and 8-12
+  threads, warm cache, alternated): per-file mean / p95 and whether the
+  30 s / 5000-file target still holds. No real ARW/DNG exists on this Linux
+  machine, so no numbers were taken; this Done-when item is unmet.
+- The extra full-size RGB decode per file is a likely cost; if the scan is
+  too slow, decode at a DCT scale (the detector only needs a 320 px long
+  edge) before shrinking the model input.
+
 ## Deferred issues (todo candidates)
 
 - Release binary size grows by ~30 MB with tract (Linux measurement, Step 1,
   `crates/core/Cargo.toml`, `crates/core/src/faces.rs`). If the user vetoes
   it, try `ort` or trimming tract features before Step 3 wires it into the
   app.
-- Mapping a `Face` from upright to stored-preview coordinates (inverse of
-  `decode::apply_orientation` for orientation 6/8) is not implemented; Step 3
-  needs it before passing detector output to `sharpness::score_preview`
-  (Step 2, `crates/core/src/sharpness.rs`, `crates/core/src/scan.rs`,
-  `crates/core/src/faces.rs`).
+- Mapping a `Face` from upright to stored-preview coordinates: done in Step 3
+  (`faces::to_stored`).
+- Scan before/after measurement on the Mac is still pending (Step 3,
+  `crates/core/src/scan.rs`); a scaled RGB decode for detection is the first
+  lever if the scan cost is too high.

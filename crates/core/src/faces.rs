@@ -210,6 +210,30 @@ fn nms(mut faces: Vec<Face>, threshold: f32) -> Vec<Face> {
     kept
 }
 
+/// Map a face found on the upright image back to the image as stored, which
+/// is `width` x `height` before the Orientation tag is applied: 6 and 8 are
+/// quarter turns, 3 a half turn, anything else is the identity.
+pub fn to_stored(face: Face, orientation: u16, width: usize, height: usize) -> Face {
+    let (w, h) = (width as f32, height as f32);
+    let point = |(x, y): (f32, f32)| match orientation {
+        6 => (y, h - x),
+        8 => (w - y, x),
+        3 => (w - x, h - y),
+        _ => (x, y),
+    };
+    let a = point((face.x, face.y));
+    let b = point((face.x + face.width, face.y + face.height));
+    Face {
+        x: a.0.min(b.0),
+        y: a.1.min(b.1),
+        width: (a.0 - b.0).abs(),
+        height: (a.1 - b.1).abs(),
+        score: face.score,
+        left_eye: point(face.left_eye),
+        right_eye: point(face.right_eye),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,6 +248,33 @@ mod tests {
             left_eye: (0.0, 0.0),
             right_eye: (0.0, 0.0),
         }
+    }
+
+    fn upright() -> Face {
+        Face {
+            x: 10.0,
+            y: 20.0,
+            width: 30.0,
+            height: 40.0,
+            score: 0.9,
+            left_eye: (15.0, 25.0),
+            right_eye: (35.0, 26.0),
+        }
+    }
+
+    #[test]
+    fn maps_an_upright_face_back_to_the_stored_image() {
+        // Stored 200x100; upright is 100x200 for 6/8 and 200x100 for 3.
+        let f = to_stored(upright(), 6, 200, 100);
+        assert_eq!((f.x, f.y, f.width, f.height), (20.0, 60.0, 40.0, 30.0));
+        assert_eq!((f.left_eye, f.right_eye), ((25.0, 85.0), (26.0, 65.0)));
+        let f = to_stored(upright(), 8, 200, 100);
+        assert_eq!((f.x, f.y, f.width, f.height), (140.0, 10.0, 40.0, 30.0));
+        assert_eq!((f.left_eye, f.right_eye), ((175.0, 15.0), (174.0, 35.0)));
+        let f = to_stored(upright(), 3, 200, 100);
+        assert_eq!((f.x, f.y, f.width, f.height), (160.0, 40.0, 30.0, 40.0));
+        assert_eq!((f.left_eye, f.right_eye), ((185.0, 75.0), (165.0, 74.0)));
+        assert_eq!(to_stored(upright(), 1, 200, 100), upright());
     }
 
     #[test]
