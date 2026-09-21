@@ -87,4 +87,4 @@ be picked up as their own work.
 
 ## Progress
 
-- (none yet)
+- 2026-09-21: Step 1 done: todo.md updated with the Windows GUI check results.
