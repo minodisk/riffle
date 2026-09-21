@@ -105,7 +105,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
       this step
     - Keep `faces.rs` independent of `sharpness.rs`; Step 2 joins them
 
-- [ ] Step 2: Core: score sharpness on the eyes when a face is found
+- [x] Step 2: Core: score sharpness on the eyes when a face is found
   - Done when:
     - `crates/core/src/sharpness.rs` accepts the detected faces (extend
       `score_preview`'s input, e.g. `score_preview(preview, focus, faces)`
@@ -207,3 +207,4 @@ Builds on the "App: face/eye-aware focus check for culling" item in
 ## Progress
 
 - (2026-09-22) Step 1 complete
+- (2026-09-22) Step 2 complete
