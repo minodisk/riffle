@@ -101,8 +101,11 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
   Repeated presses walk further back. The history belongs to the open folder
-  and is cleared when another folder opens or the sidecar format changes. There
-  is no redo.
+  and is cleared when another folder opens or the sidecar format changes.
+- **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
+  undone judgement, the same way round. The redo history is forgotten as soon
+  as you judge a file again, and like the undo history it is cleared when
+  another folder opens or the sidecar format changes.
 - **Open Log Folder**: `Help > Open Log Folder` reveals the folder holding
   `Riffle.log`, the app's log file (capped at 1 MB; on rotation the previous
   contents are discarded, not kept as a separate file). It lives in the app
@@ -147,6 +150,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
 | `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
+| `CmdOrCtrl+Shift+Z` | redo the last undone judgement (the `Edit > Redo` accelerator; not rebindable) |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone.

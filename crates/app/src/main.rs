@@ -27,6 +27,7 @@ mod app_menu {
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
+    const REDO_ID: &str = "redo";
     const CHECK_UPDATES_ID: &str = "check-for-updates";
 
     /// The default menu's submenu titled `title`, if the platform has one.
@@ -253,6 +254,20 @@ mod app_menu {
             #[cfg(not(target_os = "macos"))]
             let undo = MenuItem::with_id(handle, UNDO_ID, "Undo", true, Some("CmdOrCtrl+Z"))?;
             edit.insert(&undo, 0)?;
+            #[cfg(target_os = "macos")]
+            let redo = IconMenuItem::with_id(
+                handle,
+                REDO_ID,
+                "Redo",
+                true,
+                Some(Image::from_bytes(include_bytes!(
+                    "../icons/menu/arrow.uturn.forward.png"
+                ))?),
+                Some("CmdOrCtrl+Shift+Z"),
+            )?;
+            #[cfg(not(target_os = "macos"))]
+            let redo = MenuItem::with_id(handle, REDO_ID, "Redo", true, Some("CmdOrCtrl+Shift+Z"))?;
+            edit.insert(&redo, 1)?;
         }
         Ok(menu)
     }
@@ -286,6 +301,9 @@ mod app_menu {
         }
         if event.id() == UNDO_ID {
             let _ = app.emit("undo", ());
+        }
+        if event.id() == REDO_ID {
+            let _ = app.emit("redo", ());
         }
         if event.id() == CHECK_UPDATES_ID {
             crate::update::spawn(app.clone(), true);

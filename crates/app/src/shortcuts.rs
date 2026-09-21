@@ -57,6 +57,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
 const MACOS_MENU: &[&str] = &[
     "meta+,",
     "meta+z",
+    "shift+meta+z",
     "meta+q",
     "meta+h",
     "alt+meta+h",
@@ -97,7 +98,15 @@ const MACOS_SYSTEM: &[&str] = &[
 /// Windows / Linux combinations owned by the app's menu; the keymap-derived
 /// accelerators are absent, as in `MACOS_MENU`.
 const OTHER_MENU: &[&str] = &[
-    "ctrl+,", "ctrl+z", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+a", "ctrl+m", "alt+f4",
+    "ctrl+,",
+    "ctrl+z",
+    "ctrl+shift+z",
+    "ctrl+x",
+    "ctrl+c",
+    "ctrl+v",
+    "ctrl+a",
+    "ctrl+m",
+    "alt+f4",
 ];
 
 /// Windows / Linux combinations owned by the OS; every `meta+` name is too,
@@ -829,9 +838,16 @@ mod tests {
         );
         assert_eq!(forbidden("meta+k", true), None);
         assert_eq!(forbidden("meta+arrowleft", true), None);
-        assert_eq!(forbidden("shift+meta+z", true), None);
+        assert_eq!(
+            forbidden("shift+meta+z", true),
+            Some("is a menu accelerator")
+        );
         assert_eq!(forbidden("ctrl+z", true), None);
         assert_eq!(forbidden("ctrl+z", false), Some("is a menu accelerator"));
+        assert_eq!(
+            forbidden("ctrl+shift+z", false),
+            Some("is a menu accelerator")
+        );
         assert_eq!(forbidden("alt+f4", false), Some("is a menu accelerator"));
         assert_eq!(
             forbidden("alt+tab", false),
