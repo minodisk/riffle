@@ -10,3 +10,15 @@
 - `riffle-cli info ~/Downloads/_DSC6978.ARW` (a real ARW, AF-C shot) printed
   `focus mode: 3` next to `focus: 7008 4672 3613 1732`, confirming the parse.
 - 0xb04e / 0xb042 (older bodies) are not read; those files keep `None`.
+
+## Step 2
+
+- Routing choice: `score_preview` keeps its `Option<FocusLocation>` signature
+  (`None` = tile maximum). The manual-focus decision lives in
+  `sharpness::trusted_focus(&Shot)`, which `scan::extract` calls, so the call
+  site reads `score_preview(&preview, trusted_focus(&arw.shot))` and the
+  FocusMode case is unit-testable without building an ARW.
+- Cost on `~/Downloads/2026-02-01 3` (31 Leica M11-P DNGs, all tile path),
+  `riffle-cli scan <dir> 1`, warm cache, 3 runs each, per-file mean on a
+  worker: before 11.2-12.5 ms, after 12.7-13.1 ms (roughly +1 ms per file,
+  within run-to-run noise territory). Not worth a README table row on its own.

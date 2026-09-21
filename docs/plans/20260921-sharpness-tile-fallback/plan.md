@@ -87,7 +87,7 @@ Scope: no user-facing setting, no change to the zoom/crop path
     - Do not read `0xb04e` / `0xb042` (older bodies); mention this limitation
       in a comment
 
-- [ ] Step 2: Core: tile-maximum score without a trustworthy AF point, and route by focus mode
+- [x] Step 2: Core: tile-maximum score without a trustworthy AF point, and route by focus mode
   - Done when:
     - `crates/core/src/sharpness.rs` gains a pure function that, given the
       gray buffer and its size, covers the image with a grid of
@@ -159,3 +159,4 @@ Scope: no user-facing setting, no change to the zoom/crop path
 ## Progress
 
 - (2026-09-21) Step 1 complete
+- (2026-09-21) Step 2 complete
