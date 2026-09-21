@@ -89,4 +89,4 @@ todo.md items with one change; no Rust change is needed.
 
 ## Progress
 
-- (none yet)
+- Step 1: done (focus listener scoped via getCurrentWindow().listen; manual Windows check pending, run by the user after merge)
