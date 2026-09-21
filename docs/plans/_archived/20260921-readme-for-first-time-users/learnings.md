@@ -29,3 +29,10 @@
   confirmation), and replace the links in `README.md` (and in
   `.github/ISSUE_TEMPLATE/config.yml` from Step 2). Basis: plan.md, Step 1
   Compatibility rules.
+
+- **Verify the issue report forms on GitHub.** The three forms (`os.yml`,
+  `camera.yml`, `software.yml`) and `config.yml` were only checked by YAML
+  parsing and review before merge; nothing validates `ISSUE_TEMPLATE/` locally.
+  Open `https://github.com/minodisk/riffle/issues/new/choose`, walk through each
+  form once and confirm the fields render. Done when all three are confirmed
+  working (or fixed).
