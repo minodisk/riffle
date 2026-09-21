@@ -300,3 +300,21 @@ The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted
 - [ ] Optionally, detect closed eyes from the landmarks.
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+
+### Merge skill: jq reserved words as variable names in skill scripts
+
+jq 1.6 rejects `$label` (`label` is a jq keyword) with `syntax error, unexpected
+label, expecting IDENT`; jq 1.7+ accepts it, so CI (which runs jq 1.7.x) never
+catches it. This caused `.claude/skills/merge/scripts/wait-post-merge-runs.sh`
+to exit 3 on jq 1.6 and made the merger report `run_list_failed` on successful
+merges (fixed in the `fix-jq-label-keyword` plan by renaming `$label` to
+`$verdict`). Other jq keywords (`def`, `as`, `if`, `reduce`, `foreach`, `try`,
+`import`, `include`, `and`, `or`, `not`, ...) would fail the same way in any
+other skill script. No guide currently covers skill-script (shell/jq)
+conventions.
+
+#### TODO
+
+- [ ] Either create a guide for skill-script (shell/jq) conventions that
+      includes a note to avoid jq keywords as variable names, or judge it not
+      worth a guide and close this with no action
