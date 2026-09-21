@@ -32,3 +32,8 @@
   `a_v7_database_keeps_its_files_rows_and_seeds_folders` test was rewritten
   as `a_v7_database_drops_its_files_rows_and_gains_folders`, and the seeding
   kept with a comment.
+
+## Step 4
+
+- No cost row added to the "Sharpness scoring cost" table: Step 2 measured
+  about +1 ms per file, too small to state.
