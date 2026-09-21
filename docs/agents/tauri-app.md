@@ -186,6 +186,19 @@ so a `set_rating` landing in that window was silently discarded by the
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 4.
 
+### A global `event.listen("tauri://focus")` fires for every window (Hit)
+
+Listen for a window's own focus with
+`window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", …)`, not
+the global `window.__TAURI__.event.listen`.
+
+- Why: the global form registers with `target: { kind: "Any" }`, and Tauri
+  2.11 lets an `Any` listener bypass the per-window filter, so the main
+  webview also receives the settings window's focus.
+- What broke: closing the Clear Cache dialog refocused the settings window,
+  the main window ran a focus rescan, and `clear_index` refused with `a scan
+  is running`, or the clear's own reopen superseded that rescan.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so
