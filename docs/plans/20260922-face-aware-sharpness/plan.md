@@ -137,7 +137,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
       no-face frames stays comparable (the same caveat the tile-max plan
       accepted)
 
-- [ ] Step 3: Core + App: run the detector at scan time and recompute cached scores
+- [x] Step 3: Core + App: run the detector at scan time and recompute cached scores
   - Done when:
     - `crates/core/src/scan.rs` `extract` runs `faces::detect` on the preview
       inside the same `catch_unwind` discipline and passes the result to the
