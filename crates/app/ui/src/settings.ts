@@ -19,7 +19,7 @@ const shortcutLabels: Record<string, string> = {
   rejectRest: "Reject the rest of the burst",
   pick: "Pick",
   unflag: "Un-reject / un-pick",
-  clear: "Clear",
+  clear: "0 star",
   red: "Red label",
   orange: "Orange label",
   yellow: "Yellow label",
@@ -28,6 +28,7 @@ const shortcutLabels: Record<string, string> = {
   pink: "Pink label",
   purple: "Purple label",
   clearlabel: "Clear label",
+  clearall: "Clear",
 };
 
 const shortcutsRows = document.getElementById("shortcuts-rows") as HTMLTableElement;

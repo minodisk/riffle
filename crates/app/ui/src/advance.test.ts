@@ -9,7 +9,16 @@ describe("advancesAfter", () => {
   });
 
   test("stays after labels, corrections and navigation", () => {
-    for (const action of ["red", "clearlabel", "unflag", "clear", "next", "previous", "zoom"]) {
+    for (const action of [
+      "red",
+      "clearlabel",
+      "unflag",
+      "clear",
+      "clearall",
+      "next",
+      "previous",
+      "zoom",
+    ]) {
       expect(advancesAfter(action)).toBe(false);
     }
   });

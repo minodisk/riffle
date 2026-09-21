@@ -76,7 +76,7 @@ User decisions (2026-09-22):
       `lightroom_sidecar()` helper.
     - Expected to be verification only.
 
-- [ ] Step 2: Add the `clearall` action: keymap default, key handler, settings labels
+- [x] Step 2: Add the `clearall` action: keymap default, key handler, settings labels
   - Done when:
     - `crates/app/src/shortcuts.rs` `DEFAULTS` has `("clearall", &["c"])`
       right after `("clearlabel", ...)`; `the_defaults_are_the_full_table`
