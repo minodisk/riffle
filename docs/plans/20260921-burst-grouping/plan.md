@@ -92,7 +92,7 @@ it.
 
 ## Steps
 
-- [ ] Step 1: Group files into bursts and show the groups on the strip
+- [x] Step 1: Group files into bursts and show the groups on the strip
   - Done when:
     - `crates/app/ui/src/burst.ts` (new, no DOM, no Tauri) exports
       `BURST_GAP_MS` and a pure `groupBursts(paths, lookup, gapMs)` that

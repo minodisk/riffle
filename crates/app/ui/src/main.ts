@@ -12,6 +12,7 @@ import {
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
+import { burstMarks, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
@@ -180,6 +181,9 @@ const labels = new Map<string, string>();
 // The sharpness score of every file the index has one for, from
 // `folder_entries`; cleared with `labels`.
 const sharpness = new Map<string, number>();
+// Every file's burst, from `groupBursts` over `allFiles` in capture order
+// whatever the sort; recomputed whenever `entries` is refreshed.
+let bursts = new Map<string, BurstMember>();
 // The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
 // launch and the `sidecar-format` event after a switch.
 let sidecarFormat = "xmp";
@@ -337,7 +341,13 @@ emptyEl.addEventListener("click", () => {
 function renderMeta(): void {
   renderTitle();
   renderEmpty();
-  positionEl.textContent = files.length > 0 ? `${index + 1} / ${files.length}` : "";
+  const member = files.length > 0 ? bursts.get(files[index]) : undefined;
+  positionEl.textContent =
+    files.length === 0
+      ? ""
+      : member !== undefined && member.size > 1
+        ? `${index + 1} / ${files.length} \u00B7 ${member.position + 1} / ${member.size} in burst`
+        : `${index + 1} / ${files.length}`;
   metaEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
@@ -585,6 +595,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
     strip.setRating(at, ratings.get(path) ?? null, picks.has(path), labels.get(path) ?? null);
   });
   applySharpness();
+  applyBursts();
   if (files.length === 0) {
     index = 0;
     seq += 1;
@@ -733,6 +744,14 @@ function applySharpness(): void {
   });
 }
 
+// Hand the strip each displayed file's place in its burst, so the bracket
+// opens and closes where a filter or sort separates members.
+function applyBursts(): void {
+  burstMarks(files, bursts).forEach((value, at) => {
+    strip.setBurst(at, value);
+  });
+}
+
 function refreshEntries(): void {
   if (openDir === null) {
     return;
@@ -766,10 +785,18 @@ function refreshEntries(): void {
           applyRating(row.path, row.rating, row.pick, row.label);
         }
       }
+      bursts = groupBursts(allFiles, (path) => {
+        const entry = entries.get(path);
+        return {
+          captureTime: entry?.capture_time ?? undefined,
+          subsec: entry?.subsec ?? undefined,
+        };
+      });
       rebuildExifMenu();
       renderMeta();
       draw();
       applySharpness();
+      applyBursts();
       refilter();
     })
     .catch(() => {
@@ -1295,6 +1322,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     picks.clear();
     labels.clear();
     sharpness.clear();
+    bursts = new Map();
     touched.clear();
     history.clear();
     redoable.clear();
