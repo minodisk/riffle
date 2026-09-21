@@ -4,31 +4,31 @@
 
 ### App: unmeasured end-to-end per-page latency
 
-End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in the README.
+End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in docs/performance.md.
 
 #### TODO
 
-- [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to the README's "Per-page preview read". The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
+- [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to "Per-page preview read" in docs/performance.md. The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and "Measuring on your own folder" in docs/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
 
-### Docs: README's "End to end, keypress to pixels" section has a stale menu path
+### Docs: the "End to end, keypress to pixels" section of docs/performance.md has a stale menu path
 
-README's "End to end, keypress to pixels" section still says `Debug > Timing logs`, but the toggle lives in the settings window (`crates/app/ui/settings.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
+The "End to end, keypress to pixels" section of docs/performance.md still says `Debug > Timing logs`, but the toggle lives in the settings window (`crates/app/ui/settings.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
 
 #### TODO
 
-- [ ] Update the "End to end, keypress to pixels" section in README.md to say the `Timing logs` toggle is in the settings window, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
+- [ ] Update the "End to end, keypress to pixels" section in docs/performance.md to say the `Timing logs` toggle is in the settings window, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
 
 ### App: real-folder scan and second-open numbers are still missing
 
-Every Phase 3 performance figure in the README (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
+Every Phase 3 performance figure in docs/performance.md (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
 
 #### TODO
 
-- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the README's numbers. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and README's "Measuring on your own folder" spells out the procedure. Only running the measurement and filling in the numbers is left.
+- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the numbers in docs/performance.md. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and "Measuring on your own folder" in docs/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 
-A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in the README. Options are prefetching the neighbouring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
+A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/performance.md. Options are prefetching the neighbouring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
 
 #### TODO
 
@@ -36,7 +36,7 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 
 ### App: the silent update path is unverified end-to-end
 
-`README.md`'s Updating paragraph describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time.
+The Updating paragraph in `docs/usage.md` describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time.
 
 #### TODO
 

@@ -17,7 +17,7 @@ mise run tauri:dev
 
 That is a debug build of the Rust side: quick to compile, slow at runtime. **Any
 timing measurement has to come from the optimised build instead**, because the
-numbers under "Performance" in the README are all optimised ones and a debug build is
+numbers in [docs/performance.md](./docs/performance.md) are all optimised ones and a debug build is
 not comparable to them:
 
 ```sh

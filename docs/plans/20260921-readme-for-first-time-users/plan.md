@@ -51,7 +51,7 @@ from the scratchpad path above.
 
 ## Steps
 
-- [ ] Step 1: Split README.md into `docs/usage.md`, `docs/performance.md` and a rewritten user-facing README
+- [x] Step 1: Split README.md into `docs/usage.md`, `docs/performance.md` and a rewritten user-facing README
   - Done when:
     - `docs/usage.md` holds the current README's "Features" (the whole
       bulleted list plus its lead-in paragraph about opening a folder),
@@ -191,4 +191,4 @@ from the scratchpad path above.
 
 ## Progress
 
-- (none yet)
+- (2026-09-21) Step 1 complete
