@@ -81,7 +81,7 @@ position counter.
       `Alt+ArrowUp` / `Option+ArrowUp` the way README already writes
       `Shift+x`; keep it short
 
-- [ ] Step 2: Burst band and count badge on the strip, replacing the bracket and the counter suffix
+- [x] Step 2: Burst band and count badge on the strip, replacing the bracket and the counter suffix
   - Done when:
     - `crates/app/ui/src/burst.ts` `BurstMark` carries what a cell needs to
       draw both the band and the badge: `first`, `last` (as now) plus

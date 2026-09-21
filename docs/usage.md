@@ -105,10 +105,10 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   The meta pane shows the raw score.
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,
-  which record no sub-second time, are grouped by whole seconds. A thin
-  bracket down the right edge of the strip cells joins the frames of a burst of
-  two or more, and the counter adds the position in it (`12 / 80 · 3 / 7 in
-  burst`). `ArrowRight` jumps to the first frame of the next burst and
+  which record no sub-second time, are grouped by whole seconds. A tinted
+  band behind the strip cells joins the frames of a burst of two or more. The
+  first cell of the band shows the burst's size (`7`), and the current cell
+  shows its position in the burst instead (`3/7`). `ArrowRight` jumps to the first frame of the next burst and
   `ArrowLeft` to the first frame of the current one, or of the previous one
   when already there. `Alt+ArrowUp` / `Alt+ArrowDown` (`Option` on macOS) move
   one frame at a time within the current burst and stop at its first and last

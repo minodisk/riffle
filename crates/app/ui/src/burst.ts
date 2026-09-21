@@ -13,11 +13,14 @@ export interface BurstMember {
   size: number;
 }
 
-// What a strip cell needs to draw its part of a burst's bracket: whether the
-// displayed cell above and below belong to the same burst.
+// What a strip cell needs to draw its part of a burst's band and its count
+// badge: whether the displayed cell above and below belong to the same burst,
+// and the file's position in the whole burst and the burst's size.
 export interface BurstMark {
   first: boolean;
   last: boolean;
+  position: number;
+  size: number;
 }
 
 function captureMs(facts: SortFacts): number | null {
@@ -67,16 +70,21 @@ export function burstMarks(
   files: readonly string[],
   members: ReadonlyMap<string, BurstMember>,
 ): (BurstMark | null)[] {
-  const burstAt = (at: number): number | undefined => {
+  const memberAt = (at: number): BurstMember | undefined => {
     const member = files[at] === undefined ? undefined : members.get(files[at]);
-    return member !== undefined && member.size > 1 ? member.burst : undefined;
+    return member !== undefined && member.size > 1 ? member : undefined;
   };
   return files.map((_, at) => {
-    const burst = burstAt(at);
-    if (burst === undefined) {
+    const member = memberAt(at);
+    if (member === undefined) {
       return null;
     }
-    return { first: burstAt(at - 1) !== burst, last: burstAt(at + 1) !== burst };
+    return {
+      first: memberAt(at - 1)?.burst !== member.burst,
+      last: memberAt(at + 1)?.burst !== member.burst,
+      position: member.position,
+      size: member.size,
+    };
   });
 }
 

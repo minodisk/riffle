@@ -60,8 +60,8 @@ sidecars.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT licence), run locally with no network access.
-- **Bursts**: frames shot within 1 s of each other are bracketed together on
-  the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
+- **Bursts**: frames shot within 1 s of each other share a band and a
+  count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
   its ends, and `Shift+x` rejects the rest of one.
 - **Shooting info**: camera, lens, shutter speed, aperture, ISO and focal

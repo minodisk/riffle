@@ -428,28 +428,46 @@ body {
   display: none;
 }
 
-/* The burst bracket, down the gutter right of the cell. A member reaches up
-   across the gap to the member above it, and the first and last are capped,
-   so a burst reads as one continuous bracket. */
-.cell.burst::after {
+/* The burst band, a tint behind the cells of a burst that reaches a little
+   outside each cell and, on a member below another, up across the gap, so a
+   burst reads as one block. `isolation` on `.cell` keeps it behind the
+   cell's contents but above the background under the strip. */
+.cell.burst {
+  isolation: isolate;
+}
+
+.cell.burst::before {
   content: "";
   position: absolute;
+  z-index: -1;
   top: calc(-1px - var(--cell-gap));
   bottom: -1px;
-  right: -6px;
-  width: 3px;
-  border-right: 2px solid #888;
-  box-sizing: border-box;
+  left: -5px;
+  right: -5px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.cell.burst.burst-first::after {
-  top: 8px;
-  border-top: 2px solid #888;
+.cell.burst.burst-first::before {
+  top: -5px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
 }
 
-.cell.burst.burst-last::after {
-  bottom: 8px;
-  border-bottom: 2px solid #888;
+.cell.burst.burst-last::before {
+  bottom: -5px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* The burst count badge, top-left beside the pick or reject dot. */
+.cell span.count {
+  top: 2px;
+  bottom: auto;
+  left: 14px;
+  width: auto;
+  font-size: 0.7rem;
+  color: #ddd;
+  text-shadow: 0 0 2px #000;
 }
 
 .cell.rejected {
