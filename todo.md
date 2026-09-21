@@ -204,7 +204,8 @@ bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
       shows `Clearing the index cache…` until the size drops and the main
       window rescans; (4) while a scan is running (or opening a large
       folder with Settings already open), the button is disabled and the
-      note visible without any press, and both clear when the scan ends;
+      note visible without any press, and both clear when the scan ends,
+      and the size figure updates when the scan ends;
       (5) opening Settings during a large folder's prepare phase (before
       the first `scanning N / M` line) shows the button already disabled;
       (6) an error path, if reachable, writes the refusal to `#status` and

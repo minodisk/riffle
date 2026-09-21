@@ -93,7 +93,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   the same units your file manager uses (decimal on macOS, binary on Windows
   and Linux). A scan has to finish before the cache can be cleared: while one is
   running the button is unavailable, with a note saying so, and it becomes
-  available again by itself when the scan ends.
+  available again by itself when the scan ends. The size figure refreshes each
+  time a scan ends.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbours on the strip; the sharpest frame of
   a run is marked in the pick colour. The score is computed from the embedded
