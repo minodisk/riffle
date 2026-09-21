@@ -857,7 +857,28 @@ false` and keeps whatever the sidecar holds; that state is stored
 (`ratings.label_known`, schema v6) so a crash before the write does not strip
 the sidecar's label on the replay.
 
-- Source: `docs/plans/20260919-color-labels/learnings.md`, Steps 4 and 6.
+`clearall` needs `labelKnown: true` even for paths the frontend has not yet
+loaded via `folder_entries` (`entries` in `crates/app/ui/src/main.ts`), so
+`judge(next, forceLabel)` sets an optional `forceLabel` field on `Change`
+that `send` turns into `labelKnown: true` regardless of `entries`.
+`judge`'s idempotency check must also skip its "this path's local state
+already matches" shortcut when `forceLabel` is set and `entries` lacks the
+path — otherwise it would silently drop the clear for files whose label the
+frontend doesn't know yet.
+
+- Source: `docs/plans/20260919-color-labels/learnings.md`, Steps 4 and 6;
+  `docs/plans/_archived/20260922-clear-all-flags/learnings.md`, Step 2.
+
+### Clearing a rating writes `Rating = 0`, not "no rating", in both sidecar formats (Hit)
+
+There is no way to represent "unrated" as an absent field once a sidecar
+exists: `xmp::write_rating(None)` and `dop::write_rating(None)` both write
+`Rating = 0` (see the doc comments in `crates/core/src/xmp.rs` and
+`crates/core/src/dop.rs`), and the readers return `Some(0)`, which the app
+already treats as unrated. Don't expect `read_rating() == None` after a clear
+on a file that already has a sidecar — assert `Some(0)` instead.
+
+- Source: `docs/plans/_archived/20260922-clear-all-flags/learnings.md`, Step 1.
 
 ### A `.ts` file with no `import`/`export` is a global script (Hit)
 
