@@ -37,4 +37,4 @@ removes it so `todo.md` only lists open items.
 
 ## Progress
 
-- 2026-09-21: Step 1 done — removed the section from todo.md
+- (2026-09-21) Step 1 complete
