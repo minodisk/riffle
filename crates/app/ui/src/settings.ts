@@ -168,7 +168,13 @@ void window.__TAURI__.core.invoke<boolean>("scan_running").then((running) => {
 });
 void window.__TAURI__.event.listen<boolean>("scan-state", ({ payload }) => {
   scanStateSeen = true;
+  const scanEnded = scanRunning && !payload;
   scanRunning = payload;
+  if (scanEnded && !clearInFlight) {
+    void window.__TAURI__.core.invoke<string>("index_size").then((size) => {
+      if (!clearInFlight) showIndexSize(size);
+    });
+  }
   updateClearButton();
 });
 void window.__TAURI__.event.listen("index-clearing", () => {
