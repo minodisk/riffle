@@ -73,7 +73,7 @@ field is added to the preview header.
       the line), put it in a small module with a vitest like `zoom.ts` /
       `zoom.test.ts`, otherwise no new tests.
 
-- [ ] Step 2: Forward the timing lines to `Riffle.log`
+- [x] Step 2: Forward the timing lines to `Riffle.log`
   - Done when: with `Timing logs` on, the `page …` and `zoom …` lines appear
     in `Riffle.log` (the same file `Help > Open Log Folder` reveals) without
     DevTools open; with it off, nothing is sent; `mise run ci` and
@@ -127,3 +127,4 @@ field is added to the preview header.
 ## Progress
 
 - (2026-09-21) Step 1 complete
+- (2026-09-21) Step 2 complete
