@@ -1048,17 +1048,18 @@ mod tests {
         writer: &Writer,
         path: &Path,
         rating: Option<i8>,
+        pick: bool,
         label: Option<&str>,
         format: SidecarFormat,
     ) {
         lock(index)
-            .set_rating("d", &path.to_string_lossy(), rating, false, label, true)
+            .set_rating("d", &path.to_string_lossy(), rating, pick, label, true)
             .unwrap();
         writer
             .set(
                 path.to_path_buf(),
                 rating,
-                false,
+                pick,
                 label.map(str::to_string),
                 true,
                 format,
@@ -1074,7 +1075,15 @@ mod tests {
         let writer = writer(index.clone());
 
         let a = arw(&dir, "a.ARW");
-        judge(&index, &writer, &a, None, Some("Green"), SidecarFormat::Xmp);
+        judge(
+            &index,
+            &writer,
+            &a,
+            None,
+            false,
+            Some("Green"),
+            SidecarFormat::Xmp,
+        );
         let bytes = std::fs::read(xmp::sidecar_path(&a)).unwrap();
         assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Green"));
 
@@ -1084,6 +1093,7 @@ mod tests {
             &writer,
             &b,
             None,
+            false,
             Some("Orange"),
             SidecarFormat::Dop,
         );
@@ -1109,6 +1119,7 @@ mod tests {
             &writer,
             &path,
             Some(2),
+            false,
             Some("Red"),
             SidecarFormat::Xmp,
         );
@@ -1124,6 +1135,7 @@ mod tests {
             &writer,
             &path,
             Some(4),
+            false,
             Some("Red"),
             SidecarFormat::Xmp,
         );
@@ -1131,7 +1143,15 @@ mod tests {
         assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
         assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Red"));
 
-        judge(&index, &writer, &path, Some(4), None, SidecarFormat::Xmp);
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(4),
+            false,
+            None,
+            SidecarFormat::Xmp,
+        );
         let text = std::fs::read_to_string(&sidecar).unwrap();
         assert_eq!(text, lightroom_sidecar(4), "clearing removes the property");
 
@@ -1153,13 +1173,22 @@ mod tests {
             &writer,
             &path,
             Some(3),
+            false,
             Some("Blue"),
             SidecarFormat::Dop,
         );
         let bytes = std::fs::read(&sidecar).unwrap();
         assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Blue"));
 
-        judge(&index, &writer, &path, Some(3), None, SidecarFormat::Dop);
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(3),
+            false,
+            None,
+            SidecarFormat::Dop,
+        );
         let bytes = std::fs::read(&sidecar).unwrap();
         assert_eq!(dop::read_label(&bytes).unwrap(), None);
         assert_eq!(dop::read_rating(&bytes).unwrap(), Some(3));
@@ -1187,6 +1216,7 @@ mod tests {
             &writer,
             &path,
             Some(3),
+            false,
             Some("Red"),
             SidecarFormat::Dop,
         );
@@ -1279,12 +1309,127 @@ mod tests {
         let writer = writer(index.clone());
         let path = arw(&dir, "a.ARW");
 
-        judge(&index, &writer, &path, None, None, SidecarFormat::Xmp);
-        judge(&index, &writer, &path, None, None, SidecarFormat::Dop);
+        judge(
+            &index,
+            &writer,
+            &path,
+            None,
+            false,
+            None,
+            SidecarFormat::Xmp,
+        );
+        judge(
+            &index,
+            &writer,
+            &path,
+            None,
+            false,
+            None,
+            SidecarFormat::Dop,
+        );
 
         assert!(!xmp::sidecar_path(&path).exists());
         assert!(!dop::sidecar_path(&path).exists());
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_everything_strips_stars_and_label_from_an_xmp() {
+        let dir = temp_dir("clear-all-xmp");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "a.ARW");
+        let sidecar = xmp::sidecar_path(&path);
+        std::fs::write(&sidecar, lightroom_sidecar(2)).unwrap();
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(4),
+            false,
+            Some("Red"),
+            SidecarFormat::Xmp,
+        );
+
+        judge(
+            &index,
+            &writer,
+            &path,
+            None,
+            false,
+            None,
+            SidecarFormat::Xmp,
+        );
+
+        let bytes = std::fs::read(&sidecar).unwrap();
+        assert_eq!(
+            xmp::read_rating(&bytes).unwrap(),
+            Some(0),
+            "cleared stars are Rating 0"
+        );
+        assert!(!SidecarFormat::Xmp.read_pick(&bytes).unwrap());
+        assert_eq!(xmp::read_label(&bytes).unwrap(), None);
+        assert_eq!(
+            std::fs::read_to_string(&sidecar).unwrap(),
+            lightroom_sidecar(0)
+        );
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_everything_strips_every_judgement_from_a_dop() {
+        let dir = temp_dir("clear-all-dop");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "_DSC0003.ARW");
+        let sidecar = dop::sidecar_path(&path);
+
+        for (rating, pick, label) in [
+            (Some(4), false, "Red"),
+            (None, true, "Blue"),
+            (Some(-1), false, "Green"),
+        ] {
+            std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
+            judge(
+                &index,
+                &writer,
+                &path,
+                rating,
+                pick,
+                Some(label),
+                SidecarFormat::Dop,
+            );
+            let bytes = std::fs::read(&sidecar).unwrap();
+            assert_eq!(dop::read_rating(&bytes).unwrap(), rating.or(Some(0)));
+            assert_eq!(dop::read_pick(&bytes).unwrap(), pick);
+            assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some(label));
+
+            judge(
+                &index,
+                &writer,
+                &path,
+                None,
+                false,
+                None,
+                SidecarFormat::Dop,
+            );
+
+            let bytes = std::fs::read(&sidecar).unwrap();
+            assert_eq!(
+                dop::read_rating(&bytes).unwrap(),
+                Some(0),
+                "{label}: unrated (Rating = 0) and not rejected"
+            );
+            assert!(!dop::read_pick(&bytes).unwrap(), "{label}: not picked");
+            assert_eq!(dop::read_label(&bytes).unwrap(), None, "{label}: no label");
+            assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+        }
 
         drop(writer);
         remove_temp_dir(&dir);

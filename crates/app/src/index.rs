@@ -1323,6 +1323,34 @@ mod tests {
     }
 
     #[test]
+    fn clearing_everything_nulls_the_rating_pick_and_label_of_a_row() {
+        let dir = temp_dir("clear-all");
+        let mut index = open(&dir);
+        index
+            .set_rating("d", "/a.ARW", Some(4), true, Some("Red"), true)
+            .unwrap();
+        index
+            .mark_written("/a.ARW", Some(4), true, Some("Red"), true, None)
+            .unwrap();
+
+        index
+            .set_rating("d", "/a.ARW", None, false, None, true)
+            .unwrap();
+
+        let row: (Option<i8>, i64, Option<String>, i64, i64) = index
+            .conn
+            .query_row(
+                "SELECT rating, pick, label, label_known, dirty FROM ratings WHERE path = ?1",
+                ["/a.ARW"],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .unwrap();
+        assert_eq!(row, (None, 0, None, 1, 1));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
     fn mark_written_only_clears_a_row_that_still_holds_the_written_value() {
         let dir = temp_dir("written");
         let mut index = open(&dir);
