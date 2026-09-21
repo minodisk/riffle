@@ -69,4 +69,6 @@ keeps the figure honest with no polling.
 
 ## Progress
 
-- (none yet)
+- 2026-09-22: Step 1 landed — the settings window's `scan-state` listener
+  re-fetches `index_size` on the true->false transition (guarded by
+  `clearInFlight`), and `docs/usage.md` / `todo.md` were updated accordingly.
