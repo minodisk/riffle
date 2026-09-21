@@ -126,4 +126,4 @@ three problems the measurement surfaced so they can be worked on.
 
 ## Progress
 
-- (none yet)
+- Step 1: done (2026-09-21)
