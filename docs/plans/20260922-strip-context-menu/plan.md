@@ -55,7 +55,7 @@ undo entry, same auto-advance.
 
 ## Steps
 
-- [ ] Step 1: Extract the keydown action dispatch into a reusable `runAction`
+- [x] Step 1: Extract the keydown action dispatch into a reusable `runAction`
   - Done when:
     - `main.ts` has a function (e.g. `runAction(action: string): boolean`)
       holding the whole `switch (action)` body and the auto-advance check
@@ -190,3 +190,4 @@ undo entry, same auto-advance.
 ## Progress
 
 - (2026-09-22) Plan approved by the user
+- (2026-09-22) Step 1 complete
