@@ -97,6 +97,16 @@
   too slow, decode at a DCT scale (the detector only needs a 320 px long
   edge) before shrinking the model input.
 
+## App binary size (measured by the main agent during Step 1)
+
+- `cargo build --release -p riffle-app` on Linux WSL2, unstripped, same
+  machine: `origin/main` before Step 1 (built in a temporary worktree) was
+  26,766,448 B (26.8 MB); the Step 1 branch was 47,829,432 B (47.8 MB),
+  +21.1 MB. The app did not call the detector yet; tract and the model came
+  in through `riffle-core`. The user accepted this size.
+- Step 4's review dropped this row from `docs/performance.md` as unsourced,
+  because it had not been written here. It is sourced now and can go back.
+
 ## Deferred issues (todo candidates)
 
 - Release binary size grows by ~30 MB with tract (Linux measurement, Step 1,
@@ -108,6 +118,19 @@
 - Scan before/after measurement on the Mac is still pending (Step 3,
   `crates/core/src/scan.rs`); a scaled RGB decode for detection is the first
   lever if the scan cost is too high.
+- New guide `docs/agents/tract-onnx-inference.md` (from wrap-up learnings
+  extraction). Change: write a guide for loading and running `tract-onnx`
+  models in `crates/core`, covering `with_ignore_value_info` /
+  `with_ignore_output_shapes` for fixed-size shape annotations, outputs found
+  by outlet label rather than node name, the tract 0.23 `Arc<TypedRunnableModel>`
+  / `try_as_plain_ram` API, `default-features = false`, upright input plus
+  mapping back to stored coordinates, and a `OnceLock`-shared plan. Why: no
+  existing guide covers core inference code. Done when: the guide exists and
+  is linked from `CLAUDE.md` or `docs/agents/`.
+- Restore the `riffle-app` binary-size row in `docs/performance.md`
+  "Face detection cost" (26.8 MB -> 47.8 MB, Linux WSL2, unstripped), now
+  sourced in "App binary size" above. Done when: the row is back with its
+  environment stated.
 
 ## Step 4: documentation
 
