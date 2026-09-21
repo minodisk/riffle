@@ -271,32 +271,21 @@ load (found while implementing burst-grouping Step 2, where the
 
 ### App: face/eye-aware focus check for culling
 
-The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted_focus`, `tile_max`) measures a `WINDOW` around the Sony `FocusLocation` or, without one, the sharpest tile of the embedded preview, so a portrait focused on the background, the nose or the ear rather than the eye still scores high. The stored `files.sharpness` column in `crates/app/src/index.rs`, the strip's relative cue (`crates/app/ui/src/sharpness.ts`) and the burst group (`crates/app/ui/src/burst.ts`) inherit that blind spot. Idea: detect faces/eyes on the embedded preview at scan time with a lightweight detector (such as YuNet or BlazeFace via ONNX, e.g. the `ort` crate), store the region in the SQLite index, score sharpness on the eye/face region, and suggest the sharpest-eye frame within a burst group.
+Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the eyes when a face is found and the AF point is missing or off the face, else on the AF point, else on the sharpest tile (see `docs/plans/_archived/20260922-face-aware-sharpness/`). What remains:
 
 #### TODO
 
-- [ ] (Not yet done: needs exiftool on a real file on the Mac.) First check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
+- [ ] (Not yet done: needs exiftool on a real file on the Mac.) Check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
       detection positions (Sony's MakerNote parsing lives in
       `crates/core/src/arw.rs`, which already reads `FocusLocation` and
       `FocusMode`); if they do, no inference is needed for those bodies.
-- [x] Prototype a lightweight detector and measure the per-image cost at scan
-      time and the added bundle size (runtime plus model); note the numbers in
-      `docs/performance.md` or the plan's learnings.
-      Result: YuNet via `tract-onnx`, ~17-18ms per synthetic image on Linux,
-      `riffle-cli` 1.7 MB -> 31.3 MB (see `docs/performance.md`).
 - [ ] Measure on the Mac: face detection latency on real ARW/DNG previews
       (`riffle-cli bench`) and `riffle-cli scan` before/after on real folders.
-- [x] Fall back to the current AF-point / tile scoring when no face is found
-      (landscapes, animals), keeping the `files.sharpness` semantics for such
-      files.
-      Result: `sharpness::score_preview` scores the AF point when it lies
-      inside a confident face, else the eyes; without a face, the AF point,
-      else the sharpest tile.
 - [ ] Optionally, detect closed eyes from the landmarks.
 - [ ] Store the face region in the SQLite index and suggest the sharpest-eye
       frame within a burst group.
 
-Related: `crates/core/src/sharpness.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 
 ### Merge skill: jq reserved words as variable names in skill scripts
 
@@ -315,3 +304,20 @@ conventions.
 - [ ] Either create a guide for skill-script (shell/jq) conventions that
       includes a note to avoid jq keywords as variable names, or judge it not
       worth a guide and close this with no action
+
+### Docs: write a guide for tract-onnx inference (`docs/agents/tract-onnx-inference.md`)
+
+`crates/core/src/faces.rs` (face-aware-sharpness feature) worked out several tract 0.23 / ONNX pitfalls that no existing guide covers: `with_ignore_value_info` / `with_ignore_output_shapes` for models whose fixed-size shape annotations don't match a different input size, finding outputs by outlet label (`model.outlet_label`) rather than ONNX node name, the `Arc<TypedRunnableModel>` / `try_as_plain_ram` API, trimming with `default-features = false`, feeding an upright input and mapping detections back to stored (possibly rotated) coordinates, and sharing a built model across rayon workers via `OnceLock`.
+
+#### TODO
+
+- [ ] Write `docs/agents/tract-onnx-inference.md` covering the points above.
+- [ ] Link it from `CLAUDE.md` or `docs/agents/`.
+
+### Docs: restore the `riffle-app` binary-size row in `docs/performance.md`'s "Face detection cost"
+
+The section shows only the `riffle-cli` binary size (1.7 MB -> 31.3 MB). The `riffle-app` size was also measured (26.8 MB -> 47.8 MB, Linux WSL2, unstripped; tract and the model came in through `riffle-core`) but was dropped during review as unsourced. It is now sourced in `docs/plans/_archived/20260922-face-aware-sharpness/learnings.md` ("App binary size").
+
+#### TODO
+
+- [ ] Add the `riffle-app` row (26.8 MB -> 47.8 MB) to the "Face detection cost" table in `docs/performance.md`, noting the environment.
