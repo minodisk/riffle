@@ -103,7 +103,7 @@ User decisions (2026-09-22):
     - Confirm `c` is in no `forbidden()` / `*_MENU` / `*_SYSTEM` list in
       `shortcuts.rs`.
 
-- [ ] Step 3: Document the key
+- [x] Step 3: Document the key
   - Done when:
     - `README.md` and `docs/usage.md` "Keys" tables have a row for `C`
       (clear every flag: stars, reject, pick and colour label) next to the

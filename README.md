@@ -84,6 +84,7 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `u` | clear the reject / pick |
 | `Ctrl+Alt+1`-`7` | colour label (red, orange, yellow, green, blue, pink, purple) |
 | `Ctrl+Alt+0` | clear the colour label |
+| `C` | clear every flag: stars, reject, pick and colour label |
 | `z` | 1:1 focus check |
 | `f` | focus mark |
 | `Cmd+O` / `Ctrl+O` | open a folder |
