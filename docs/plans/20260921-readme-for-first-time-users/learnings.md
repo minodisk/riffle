@@ -10,6 +10,16 @@
 - The README sharpness one-liner follows current main (AF point or, without
   one, the sharpest region), not the older draft wording.
 
+## Step 2
+
+- The forms set no `labels`: the repository has no dedicated labels for these
+  reports, and a label that does not exist is silently dropped. The `title`
+  prefixes (`[OS]`, `[Camera]`, `[Software]`) make them filterable instead.
+- Validation is review-only before merge (actionlint only covers
+  `workflows/`). After merge, open
+  `https://github.com/minodisk/riffle/issues/new/choose` and each form once;
+  result not yet recorded.
+
 ## Deferred issues (todo candidates)
 
 - Discussions "works" report threads (OS / camera / software) do not exist yet.

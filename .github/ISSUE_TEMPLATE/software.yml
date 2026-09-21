@@ -1,0 +1,38 @@
+name: Software compatibility problem
+description: Another application does not show the judgements Riffle wrote as expected.
+title: "[Software] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If the software shows Riffle's judgements correctly, please post in the software works report thread in Discussions instead.
+  - type: input
+    id: software
+    attributes:
+      label: Software and version
+      placeholder: DxO PhotoLab 8.5
+    validations:
+      required: true
+  - type: dropdown
+    id: sidecar-format
+    attributes:
+      label: Sidecar format
+      options:
+        - XMP
+        - DxO PhotoLab .dop
+    validations:
+      required: true
+  - type: textarea
+    id: judgement
+    attributes:
+      label: Judgement applied in Riffle
+      description: The stars, pick, reject or colour label you set in Riffle.
+    validations:
+      required: true
+  - type: textarea
+    id: shown-as
+    attributes:
+      label: How the software shows it
+      description: What the other software shows for the same file.
+    validations:
+      required: true

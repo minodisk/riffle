@@ -135,7 +135,7 @@ from the scratchpad path above.
     - Files: `README.md`, `docs/usage.md` (new), `docs/performance.md` (new),
       `CONTRIBUTING.md` (one pointer), `todo.md` (pointers only).
 
-- [ ] Step 2: Add the GitHub issue forms and the template chooser config
+- [x] Step 2: Add the GitHub issue forms and the template chooser config
   - Done when:
     - `.github/ISSUE_TEMPLATE/os.yml`, `camera.yml`, `software.yml` and
       `config.yml` exist and are valid GitHub issue-form YAML (each form has
@@ -192,3 +192,4 @@ from the scratchpad path above.
 ## Progress
 
 - (2026-09-21) Step 1 complete
+- (2026-09-21) Step 2 complete

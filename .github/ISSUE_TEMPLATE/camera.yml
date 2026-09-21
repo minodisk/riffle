@@ -1,0 +1,36 @@
+name: Camera problem
+description: Files from your camera do not open or display correctly.
+title: "[Camera] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If your camera works fine, please post in the camera works report thread in Discussions instead.
+  - type: input
+    id: camera-model
+    attributes:
+      label: Camera model
+      placeholder: Sony ILCE-7M4
+    validations:
+      required: true
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware version
+      placeholder: "3.01"
+  - type: textarea
+    id: sample-file
+    attributes:
+      label: Sample file
+      description: |
+        Attach a sample file or share a download link. A landscape and a portrait shot help if possible.
+        GitHub limits non-image attachments to 25 MB, so a RAW file usually has to be shared as a link.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected and what happened instead.
+    validations:
+      required: true
