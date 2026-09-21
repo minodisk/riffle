@@ -1,11 +1,15 @@
-//! A focus-quality score: the variance of the Laplacian of the luma in a
-//! window around the focus point. Only meaningful relative to other frames.
+//! A focus-quality score: the variance of the Laplacian of the luma. With a
+//! trustworthy AF focus point it is taken over a window around that point;
+//! otherwise (no focus location, or a Sony frame shot in manual focus) it is
+//! the maximum over a grid of tiles covering the preview, so a frame sharp
+//! anywhere ranks above one sharp nowhere. Only meaningful relative to other
+//! frames.
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use anyhow::{anyhow, bail, Result};
 
-use crate::arw::FocusLocation;
+use crate::arw::{FocusLocation, Shot};
 use crate::partial::focus_point;
 
 /// Side of the square window the score is taken over, in preview pixels.
@@ -61,8 +65,43 @@ pub fn laplacian_variance(gray: &[u8], width: usize, window: Window) -> f64 {
     sum_sq as f64 / n as f64 - mean * mean
 }
 
+/// Sony `FocusMode` value for manual focus.
+const MANUAL_FOCUS: u8 = 0;
+
+/// The focus location of `shot` when the AF point can be trusted: `None`
+/// when there is none or the frame was shot in manual focus.
+pub fn trusted_focus(shot: &Shot) -> Option<FocusLocation> {
+    if shot.focus_mode == Some(MANUAL_FOCUS) {
+        None
+    } else {
+        shot.focus
+    }
+}
+
+/// Maximum `laplacian_variance` over `WINDOW`-sized tiles at stride `WINDOW`
+/// covering the `width` x `height` image, the last column and row clamped
+/// inside it.
+pub fn tile_max(gray: &[u8], width: usize, height: usize) -> f64 {
+    let tw = WINDOW.min(width);
+    let th = WINDOW.min(height);
+    let mut best = 0.0f64;
+    for y in (0..height).step_by(WINDOW) {
+        for x in (0..width).step_by(WINDOW) {
+            let tile = Window {
+                x: x.min(width - tw),
+                y: y.min(height - th),
+                width: tw,
+                height: th,
+            };
+            best = best.max(laplacian_variance(gray, width, tile));
+        }
+    }
+    best
+}
+
 /// Decode `preview` to grayscale and score the `WINDOW`-sized window on the
-/// focus point (the centre when there is none). mozjpeg aborts through a
+/// focus point, or the tile maximum when there is none (pass
+/// `trusted_focus`). mozjpeg aborts through a
 /// panic on bytes that are not a JPEG; that comes back as `Err` too.
 pub fn score_preview(preview: &[u8], focus: Option<FocusLocation>) -> Result<f64> {
     catch_unwind(AssertUnwindSafe(|| score(preview, focus)))
@@ -76,6 +115,9 @@ fn score(preview: &[u8], focus: Option<FocusLocation>) -> Result<f64> {
     d.finish()?;
     if w < 3 || h < 3 {
         bail!("a {w}x{h} preview has no interior pixel to score");
+    }
+    if focus.is_none() {
+        return Ok(tile_max(&gray, w, h));
     }
     let (cx, cy) = focus_point(w, h, focus);
     Ok(laplacian_variance(
@@ -185,12 +227,10 @@ mod tests {
         assert_eq!(small, all(100, 80));
     }
 
-    #[test]
-    fn without_a_focus_location_the_centre_is_scored() {
-        let (w, h) = (1024, 768);
+    fn with_checker(w: usize, h: usize, x0: usize, y0: usize, side: usize) -> Vec<u8> {
         let mut gray = vec![128u8; w * h];
-        for y in h / 2 - 64..h / 2 + 64 {
-            for x in w / 2 - 64..w / 2 + 64 {
+        for y in y0..y0 + side {
+            for x in x0..x0 + side {
                 gray[y * w + x] = if (x / 4 + y / 4).is_multiple_of(2) {
                     0
                 } else {
@@ -198,15 +238,67 @@ mod tests {
                 };
             }
         }
-        let jpeg = jpeg(&gray, w, h);
-        assert!(score_preview(&jpeg, None).unwrap() > 0.0);
-        let corner = FocusLocation {
+        gray
+    }
+
+    #[test]
+    fn with_a_focus_location_only_its_window_counts() {
+        let (w, h) = (1024, 768);
+        let jpeg = jpeg(&with_checker(w, h, w / 2 - 64, h / 2 - 64, 128), w, h);
+        let centre = FocusLocation {
             sensor_w: 1024,
             sensor_h: 768,
+            x: 512,
+            y: 384,
+        };
+        assert!(score_preview(&jpeg, Some(centre)).unwrap() > 0.0);
+        let corner = FocusLocation {
             x: 0,
             y: 0,
+            ..centre
         };
         assert!(score_preview(&jpeg, Some(corner)).unwrap() < 1.0);
+    }
+
+    #[test]
+    fn without_a_focus_location_the_sharpest_tile_is_scored() {
+        let (w, h) = (1000, 700);
+        let gray = with_checker(w, h, w - 200, h - 200, 200);
+        let sharp = jpeg(&gray, w, h);
+        let soft = jpeg(&blur(&blur(&gray, w, h), w, h), w, h);
+        let score = score_preview(&sharp, None).unwrap();
+        assert!(score > score_preview(&soft, None).unwrap());
+        let mut d = mozjpeg::Decompress::new_mem(&sharp)
+            .unwrap()
+            .grayscale()
+            .unwrap();
+        let decoded: Vec<u8> = d.read_scanlines().unwrap();
+        d.finish().unwrap();
+        let corner = window_at(w, h, w, h, WINDOW);
+        let expected = laplacian_variance(&decoded, w, corner);
+        assert!((score - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_manual_focus_frame_ignores_its_focus_location() {
+        let (w, h) = (1024, 768);
+        let jpeg = jpeg(&with_checker(w, h, 0, 0, 200), w, h);
+        let shot = Shot {
+            focus: Some(FocusLocation {
+                sensor_w: 1024,
+                sensor_h: 768,
+                x: 512,
+                y: 384,
+            }),
+            focus_mode: Some(0),
+            ..Shot::default()
+        };
+        assert!(score_preview(&jpeg, trusted_focus(&shot)).unwrap() > 0.0);
+        let af = Shot {
+            focus_mode: Some(3),
+            ..shot
+        };
+        assert!(score_preview(&jpeg, trusted_focus(&af)).unwrap() < 1.0);
     }
 
     #[test]

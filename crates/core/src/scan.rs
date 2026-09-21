@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use crate::arw::Shot;
 use crate::decode::thumbnail_jpeg;
 use crate::reader::read_preview;
-use crate::sharpness::score_preview;
+use crate::sharpness::{score_preview, trusted_focus};
 
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
@@ -46,9 +46,11 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     }))
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
-    let sharpness = catch_unwind(AssertUnwindSafe(|| score_preview(&preview, arw.shot.focus)))
-        .ok()
-        .and_then(Result::ok);
+    let sharpness = catch_unwind(AssertUnwindSafe(|| {
+        score_preview(&preview, trusted_focus(&arw.shot))
+    }))
+    .ok()
+    .and_then(Result::ok);
     Ok(Entry {
         orientation: arw.orientation,
         shot: arw.shot,
