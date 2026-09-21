@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use riffle_core::decode::{apply_orientation, decode_rgb};
+use riffle_core::faces;
 use riffle_core::partial;
 use riffle_core::reader;
 use riffle_core::scan;
@@ -13,6 +14,7 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str) {
         Some("info") => info(Path::new(&args[1])),
         Some("focusbox") => focusbox(Path::new(&args[1]), Path::new(&args[2])),
+        Some("faces") => faces(Path::new(&args[1]), Path::new(&args[2])),
         Some("bench") => bench(&args[1..]),
         Some("crop") => crop(
             Path::new(&args[1]),
@@ -21,7 +23,7 @@ fn main() -> Result<()> {
         ),
         Some("scan") => scan_dir(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?),
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]"
         ),
     }
 }
@@ -106,6 +108,53 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Draw the detected faces and their eyes on the preview.
+fn faces(path: &Path, out: &Path) -> Result<()> {
+    let (a, jpeg) = reader::read_preview(path)?;
+    let (mut rgb, w, h) = decode_rgb(&jpeg)?;
+    // The first call builds the model; time a second one too.
+    let t = Instant::now();
+    let found = faces::detect(&rgb, w, h)?;
+    let first = t.elapsed();
+    let t = Instant::now();
+    faces::detect(&rgb, w, h)?;
+    println!(
+        "preview {w}x{h}: {} face(s), detection {:?} (first call {first:?})",
+        found.len(),
+        t.elapsed()
+    );
+    for f in &found {
+        println!(
+            "face ({:.0},{:.0}) {:.0}x{:.0} score {:.2} eyes ({:.0},{:.0}) ({:.0},{:.0})",
+            f.x,
+            f.y,
+            f.width,
+            f.height,
+            f.score,
+            f.left_eye.0,
+            f.left_eye.1,
+            f.right_eye.0,
+            f.right_eye.1
+        );
+        draw_rect(
+            &mut rgb,
+            w,
+            h,
+            f.x as i64,
+            f.y as i64,
+            f.width as i64,
+            f.height as i64,
+        );
+        for (x, y) in [f.left_eye, f.right_eye] {
+            draw_rect(&mut rgb, w, h, x as i64 - 4, y as i64 - 4, 8, 8);
+        }
+    }
+    let (rgb, w, h) = apply_orientation(&rgb, w, h, a.orientation);
+    image::save_buffer(out, &rgb, w as u32, h as u32, image::ColorType::Rgb8)?;
+    println!("wrote {out:?} ({w}x{h}, orientation {})", a.orientation);
+    Ok(())
+}
+
 const CROP_SIZE: usize = 512;
 
 fn stats(label: &str, mut ms: Vec<f64>) {
@@ -124,6 +173,7 @@ fn bench(paths: &[String]) -> Result<()> {
     let mut t_preview = Vec::new();
     let mut t_full = Vec::new();
     let mut t_crop = Vec::new();
+    let mut t_faces = Vec::new();
 
     for p in paths {
         let path = Path::new(p);
@@ -132,8 +182,16 @@ fn bench(paths: &[String]) -> Result<()> {
         if a.preview.is_some() {
             let (_, jpeg) = reader::read_preview(path)?;
             let t = Instant::now();
-            decode_rgb(&jpeg)?;
+            let (rgb, w, h) = decode_rgb(&jpeg)?;
             t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
+
+            if t_faces.is_empty() {
+                // Build the model outside the timing.
+                faces::detect(&rgb, w, h)?;
+            }
+            let t = Instant::now();
+            faces::detect(&rgb, w, h)?;
+            t_faces.push(t.elapsed().as_secs_f64() * 1000.0);
         }
 
         if a.full.is_some() {
@@ -158,6 +216,9 @@ fn bench(paths: &[String]) -> Result<()> {
     }
     if !t_crop.is_empty() {
         stats("3. partial decode 512px", t_crop);
+    }
+    if !t_faces.is_empty() {
+        stats("4. face detection", t_faces);
     }
     Ok(())
 }
