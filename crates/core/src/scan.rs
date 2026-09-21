@@ -47,7 +47,7 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
-        score_preview(&preview, trusted_focus(&arw.shot))
+        score_preview(&preview, trusted_focus(&arw.shot), &[])
     }))
     .ok()
     .and_then(Result::ok);

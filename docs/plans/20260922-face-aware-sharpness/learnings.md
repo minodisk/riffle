@@ -55,9 +55,33 @@
   face/eye-AF positions (Sony `Tag2010` / `Tag9405`).
 - Release binary size and build time on macOS.
 
+## Step 2: eye-window scoring
+
+- Signature chosen: `score_preview(preview, focus, faces: &[Face])` rather
+  than a `Subject` enum; `scan::extract` passes `trusted_focus(..)` and the
+  detector output unchanged, and the routing stays inside `sharpness.rs`.
+  `scan::extract` passes `&[]` until Step 3 wires the detector.
+- Constants: `FACE_CONFIDENCE = 0.8` (above `faces::SCORE_THRESHOLD` 0.6),
+  `EYE_WINDOW_MIN = 128`; the eye window side is the face box's long side
+  clamped to `[128, WINDOW = 256]`, centred on the midpoint of the two eyes.
+- "Focus inside the face" maps the `FocusLocation` to preview pixels with
+  `partial::focus_point` and tests it against the face box (edges inclusive).
+- Coordinate spaces: `score` decodes the preview as stored (no orientation
+  applied), which is also the space `focus_point` maps into. `faces::detect`
+  must run on the upright image, so Step 3 has to map each `Face` (box and
+  eyes) back to stored-preview coordinates before calling `score_preview`
+  for orientation 6/8 frames. The 4-neighbour Laplacian variance over a
+  square window is rotation invariant, so scoring in stored coordinates is
+  equivalent.
+
 ## Deferred issues (todo candidates)
 
 - Release binary size grows by ~30 MB with tract (Linux measurement, Step 1,
   `crates/core/Cargo.toml`, `crates/core/src/faces.rs`). If the user vetoes
   it, try `ort` or trimming tract features before Step 3 wires it into the
   app.
+- Mapping a `Face` from upright to stored-preview coordinates (inverse of
+  `decode::apply_orientation` for orientation 6/8) is not implemented; Step 3
+  needs it before passing detector output to `sharpness::score_preview`
+  (Step 2, `crates/core/src/sharpness.rs`, `crates/core/src/scan.rs`,
+  `crates/core/src/faces.rs`).
