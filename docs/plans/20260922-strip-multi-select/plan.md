@@ -177,7 +177,7 @@ command; no backend change is needed.
     - Nothing in `crates/app/src/sidecar.rs` or `index.rs` should need to
       change; record any slowness on large selections in `learnings.md`
 
-- [ ] Step 4: Keyboard range extension and collapse
+- [x] Step 4: Keyboard range extension and collapse
   - Done when:
     - `crates/app/src/shortcuts.rs` `DEFAULTS` gains `extendPrevious`
       (`shift+arrowup`) and `extendNext` (`shift+arrowdown`) after

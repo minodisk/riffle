@@ -22,6 +22,7 @@ import {
   type Command,
   type Selection,
   click,
+  extend,
   judgements,
   prune,
   single,
@@ -1274,6 +1275,8 @@ function moveBurst(direction: -1 | 1): void {
     return;
   }
   index = next;
+  selection = single(files[index]);
+  paintSelection();
   pageKeypressAt = performance.now();
   show();
 }
@@ -1288,6 +1291,8 @@ function moveBurstFrame(direction: -1 | 1): void {
     return;
   }
   index = next;
+  selection = single(files[index]);
+  paintSelection();
   pageKeypressAt = performance.now();
   show();
 }
@@ -1301,6 +1306,25 @@ function move(delta: number): void {
     return;
   }
   index = next;
+  selection = single(files[index]);
+  paintSelection();
+  pageKeypressAt = performance.now();
+  show();
+}
+
+// Moves the focus by one and grows or shrinks the range from the anchor.
+function extendSelection(delta: -1 | 1): void {
+  if (files.length === 0) {
+    return;
+  }
+  const extended = extend(selection, files, index, delta);
+  selection = extended.selection;
+  paintSelection();
+  if (extended.index === index) {
+    renderMeta();
+    return;
+  }
+  index = extended.index;
   pageKeypressAt = performance.now();
   show();
 }
@@ -2019,6 +2043,12 @@ function runAction(action: string): boolean {
       break;
     case "burstFrameNext":
       moveBurstFrame(1);
+      break;
+    case "extendPrevious":
+      extendSelection(-1);
+      break;
+    case "extendNext":
+      extendSelection(1);
       break;
     case "focus":
       showFocus = !showFocus;

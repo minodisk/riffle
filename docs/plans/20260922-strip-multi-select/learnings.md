@@ -37,3 +37,16 @@
   collapses the selection to that cell first (as file managers do); one
   inside keeps it and only moves the focus.
 - No slowness measured; N `set_rating` invokes per batch as `rejectRest`.
+
+## Step 4
+
+- `extendPrevious` / `extendNext` sit after `burstFrameNext` rather than
+  `burstNext` as the plan said: the `burstFrame*` actions landed after the
+  plan was written, and this keeps the navigation actions together.
+- `move`, `moveBurst` and `moveBurstFrame` collapse the selection to the new
+  focused file only when the focus actually moves; a plain arrow at either end
+  of the strip leaves a multi-selection as it is. This closes the Step 2 gap
+  where the focused file could leave the selection.
+- `shift+arrowup` / `shift+arrowdown` have no accelerator (`accelerator`
+  returns `None` for shift-only keys), so they never reach a menu item; no
+  menu binds them.

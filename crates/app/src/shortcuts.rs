@@ -30,6 +30,8 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("burstNext", &["arrowright"]),
     ("burstFramePrevious", &["alt+arrowup"]),
     ("burstFrameNext", &["alt+arrowdown"]),
+    ("extendPrevious", &["shift+arrowup"]),
+    ("extendNext", &["shift+arrowdown"]),
     ("open", &[OPEN_DEFAULT]),
     ("photolab", &[PHOTOLAB_DEFAULT]),
     ("focus", &["f"]),
@@ -479,6 +481,20 @@ mod tests {
     }
 
     #[test]
+    fn the_extend_actions_can_be_rebound() {
+        let keymap = Keymap::from_overrides(Some(&json!({
+            "extendPrevious": ["shift+k"],
+            "extendNext": ["shift+j"],
+        })));
+        assert_eq!(keys_of(&keymap, "extendPrevious"), vec!["shift+k"]);
+        assert_eq!(keys_of(&keymap, "extendNext"), vec!["shift+j"]);
+        assert_eq!(
+            keymap.overrides(),
+            json!({"extendPrevious": ["shift+k"], "extendNext": ["shift+j"]})
+        );
+    }
+
+    #[test]
     fn invalid_shapes_keep_the_defaults() {
         for value in [
             json!(["r"]),
@@ -560,6 +576,8 @@ mod tests {
             ("burstNext", "arrowright"),
             ("burstFramePrevious", "alt+arrowup"),
             ("burstFrameNext", "alt+arrowdown"),
+            ("extendPrevious", "shift+arrowup"),
+            ("extendNext", "shift+arrowdown"),
             ("open", OPEN_DEFAULT),
             ("photolab", PHOTOLAB_DEFAULT),
             ("focus", "f"),
@@ -622,7 +640,16 @@ mod tests {
             assert_eq!(accelerator(key).as_deref(), Some(expected), "{key}");
         }
         for key in [
-            "o", "shift+j", "space", "arrowup", "ctrl+f25", "ctrl+oo", "ctrl+", "meta",
+            "o",
+            "shift+j",
+            "space",
+            "arrowup",
+            "shift+arrowup",
+            "shift+arrowdown",
+            "ctrl+f25",
+            "ctrl+oo",
+            "ctrl+",
+            "meta",
         ] {
             assert_eq!(accelerator(key), None, "{key}");
         }
@@ -640,6 +667,8 @@ mod tests {
             Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
         );
         assert_eq!(keymap.accelerator_for("nope"), None);
+        assert_eq!(keymap.accelerator_for("extendPrevious"), None);
+        assert_eq!(keymap.accelerator_for("extendNext"), None);
         keymap.add("open", "j").unwrap();
         keymap.remove("open", OPEN_DEFAULT).unwrap();
         assert_eq!(keymap.accelerator_for("open"), None);
