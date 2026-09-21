@@ -111,7 +111,9 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
 /// Draw the detected faces and their eyes on the preview.
 fn faces(path: &Path, out: &Path) -> Result<()> {
     let (a, jpeg) = reader::read_preview(path)?;
-    let (mut rgb, w, h) = decode_rgb(&jpeg)?;
+    let (rgb, w, h) = decode_rgb(&jpeg)?;
+    // YuNet is trained on upright faces, so orient before detecting.
+    let (mut rgb, w, h) = apply_orientation(&rgb, w, h, a.orientation);
     // The first call builds the model; time a second one too.
     let t = Instant::now();
     let found = faces::detect(&rgb, w, h)?;
@@ -149,7 +151,6 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
             draw_rect(&mut rgb, w, h, x as i64 - 4, y as i64 - 4, 8, 8);
         }
     }
-    let (rgb, w, h) = apply_orientation(&rgb, w, h, a.orientation);
     image::save_buffer(out, &rgb, w as u32, h as u32, image::ColorType::Rgb8)?;
     println!("wrote {out:?} ({w}x{h}, orientation {})", a.orientation);
     Ok(())
@@ -184,6 +185,9 @@ fn bench(paths: &[String]) -> Result<()> {
             let t = Instant::now();
             let (rgb, w, h) = decode_rgb(&jpeg)?;
             t_preview.push(t.elapsed().as_secs_f64() * 1000.0);
+
+            // YuNet is trained on upright faces, so orient before detecting.
+            let (rgb, w, h) = apply_orientation(&rgb, w, h, a.orientation);
 
             if t_faces.is_empty() {
                 // Build the model outside the timing.

@@ -24,6 +24,11 @@
 - RGB input was chosen (`detect(rgb, w, h)`); the grayscale-replicated
   variant was not measured here since there are no real previews on this
   machine. Recall on grayscale is still to be compared on the Mac.
+- `detect` requires an upright input: YuNet is trained on upright faces, so
+  callers (the CLI `faces` and `bench` commands, and Step 2/3) must call
+  `decode::apply_orientation` before `faces::detect`, not after drawing.
+  Passing a raw, un-rotated preview drops recall sharply on portrait frames
+  (orientation 6/8) and mislabels eye left/right as top/bottom.
 - `default-features = false` on `tract-onnx` drops `tract-transformers`
   (32.8 MB -> 31.3 MB `riffle-cli`, and less to compile).
 

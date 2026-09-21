@@ -78,6 +78,10 @@ fn build() -> Result<Detector> {
 
 /// Detect faces in an RGB image (`width` x `height`, 3 bytes per pixel),
 /// best first.
+///
+/// YuNet is trained on upright faces: the caller must pass an image already
+/// rotated to display orientation (e.g. via `decode::apply_orientation`),
+/// or recall drops sharply on portrait frames.
 pub fn detect(rgb: &[u8], width: usize, height: usize) -> Result<Vec<Face>> {
     if width == 0 || height == 0 || rgb.len() < width * height * 3 {
         return Ok(Vec::new());
