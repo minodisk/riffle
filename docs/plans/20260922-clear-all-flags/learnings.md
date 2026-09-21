@@ -16,3 +16,14 @@
 - `judge(...)` in the `sidecar.rs` tests now takes `pick: bool` after
   `rating`; the existing callers pass `false`.
 - Verification only: all new tests passed without changing production code.
+
+## Step 2
+
+- `labelKnown` is forced by an optional `forceLabel` field on `Change`, set by
+  `judge(next, forceLabel)` for `clearall` and read in `send`; the label
+  comparison itself is untouched.
+- `judge`'s idempotency check would have swallowed `c` on a file whose label the
+  frontend does not know yet (locally everything already looks cleared), so the
+  check is skipped when `forceLabel` is set and `entries` lacks the path.
+- `reset_restores_the_defaults` in `shortcuts.rs` bound `c` to `clear`; now that
+  `c` is `clearall`'s default it uses `q` instead. `c` is in no forbidden list.

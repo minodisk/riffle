@@ -645,6 +645,7 @@ function judge(
     pick: boolean,
     label: string | null,
   ) => [number | null, boolean, string | null],
+  forceLabel = false,
 ): boolean {
   if (files.length === 0) {
     return false;
@@ -655,15 +656,21 @@ function judge(
   const previousLabel = labels.get(path) ?? null;
   const [rating, pick, label] = next(previous, previousPick, previousLabel);
   // Idempotent: pressing the current value again does nothing at all, which
-  // is what makes key auto-repeat harmless.
-  if (previous === rating && previousPick === pick && previousLabel === label) {
+  // is what makes key auto-repeat harmless. A forced label still goes out
+  // while the file's real label is unknown.
+  if (
+    previous === rating &&
+    previousPick === pick &&
+    previousLabel === label &&
+    (!forceLabel || entries.has(path))
+  ) {
     return false;
   }
   const before = { path, rating: previous, pick: previousPick, label: previousLabel };
   const batch = [before];
   history.push(batch);
   redoable.clear();
-  commit([{ before, rating, pick, label }], forgetOnFail(history, batch));
+  commit([{ before, rating, pick, label, forceLabel }], forgetOnFail(history, batch));
   return true;
 }
 
@@ -719,7 +726,15 @@ function forgetOnFail(from: History<Judgement[]>, batch: Judgement[]): (failed: 
   };
 }
 
-type Change = { before: Judgement; rating: number | null; pick: boolean; label: string | null };
+// `forceLabel` sends `labelKnown: true` even before `folder_entries` has told
+// us the file's label, so the sidecar's label is cleared whatever it is.
+type Change = {
+  before: Judgement;
+  rating: number | null;
+  pick: boolean;
+  label: string | null;
+  forceLabel?: boolean;
+};
 
 // Apply every change locally and refilter once, then tell the backend per
 // file; each `before` is its file's state to revert to when its invoke fails.
@@ -741,7 +756,10 @@ function commit(
   }
 }
 
-function send({ before, rating, pick, label }: Change, onFail?: (failed: Judgement) => void): void {
+function send(
+  { before, rating, pick, label, forceLabel }: Change,
+  onFail?: (failed: Judgement) => void,
+): void {
   const { path } = before;
   const token = folderToken;
   // `label` only carries a meaningful value once `folder_entries` has told us
@@ -754,7 +772,7 @@ function send({ before, rating, pick, label }: Change, onFail?: (failed: Judgeme
       rating: rating ?? 0,
       pick,
       label,
-      labelKnown: entries.has(path) || label !== before.label,
+      labelKnown: forceLabel === true || entries.has(path) || label !== before.label,
     })
     .catch((err: unknown) => {
       if (token !== folderToken) {
@@ -2032,6 +2050,10 @@ function runAction(action: string): boolean {
     }
     case "clearlabel":
       judge((rating, pick) => [rating, pick, null]);
+      break;
+    case "clearall":
+      // Clears the stars or reject, the pick and the label in one undo entry.
+      judge(() => [null, false, null], true);
       break;
     default:
       return false;

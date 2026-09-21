@@ -50,6 +50,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("pink", &["ctrl+alt+6"]),
     ("purple", &["ctrl+alt+7"]),
     ("clearlabel", &["ctrl+alt+0"]),
+    ("clearall", &["c"]),
 ];
 
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
@@ -577,6 +578,7 @@ mod tests {
             ("pink", "ctrl+alt+6"),
             ("purple", "ctrl+alt+7"),
             ("clearlabel", "ctrl+alt+0"),
+            ("clearall", "c"),
         ]
         .into_iter()
         .map(|(action, key)| (action, vec![key.to_string()]))
@@ -796,13 +798,13 @@ mod tests {
     fn reset_restores_the_defaults() {
         let mut keymap = Keymap::defaults();
         keymap.add("reject", "r").unwrap();
-        keymap.add("clear", "c").unwrap();
+        keymap.add("clear", "q").unwrap();
         keymap.add("previous", "k").unwrap();
         keymap.remove("previous", "arrowup").unwrap();
         keymap.reset("reject").unwrap();
         assert_eq!(
             keymap.overrides(),
-            json!({"clear": ["0", "c"], "previous": ["k"]})
+            json!({"clear": ["0", "q"], "previous": ["k"]})
         );
         keymap.reset_all();
         assert_eq!(keymap.overrides(), json!({}));
