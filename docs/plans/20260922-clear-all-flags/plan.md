@@ -50,7 +50,7 @@ User decisions (2026-09-22):
 
 ## Steps
 
-- [ ] Step 1: Pin down the "clear everything" judgement in the sidecar and index tests
+- [x] Step 1: Pin down the "clear everything" judgement in the sidecar and index tests
   - Done when:
     - `crates/app/src/sidecar.rs` has tests, for both `SidecarFormat::Xmp`
       and `SidecarFormat::Dop`, that start from an existing sidecar holding
@@ -121,4 +121,4 @@ User decisions (2026-09-22):
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete
