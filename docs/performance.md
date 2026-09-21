@@ -174,7 +174,6 @@ binaries on the same machine:
 
 | Binary | Before | After |
 |--------|--------|-------|
-| `riffle-app` | 26.8 MB | 47.8 MB |
 | `riffle-cli` | 1.7 MB | 31.3 MB |
 
 A cold `cargo build --release -p riffle-cli` went from 10.8s to 140s.

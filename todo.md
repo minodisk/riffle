@@ -282,14 +282,15 @@ The sharpness score in `crates/core/src/sharpness.rs` (`score_preview`, `trusted
       time and the added bundle size (runtime plus model); note the numbers in
       `docs/performance.md` or the plan's learnings.
       Result: YuNet via `tract-onnx`, ~17-18ms per synthetic image on Linux,
-      `riffle-app` 26.8 MB -> 47.8 MB (see `docs/performance.md`).
+      `riffle-cli` 1.7 MB -> 31.3 MB (see `docs/performance.md`).
 - [ ] Measure on the Mac: face detection latency on real ARW/DNG previews
       (`riffle-cli bench`) and `riffle-cli scan` before/after on real folders.
 - [x] Fall back to the current AF-point / tile scoring when no face is found
       (landscapes, animals), keeping the `files.sharpness` semantics for such
       files.
-      Result: `sharpness::score_preview` scores the eyes when a confident face
-      is found, else the AF point, else the sharpest tile.
+      Result: `sharpness::score_preview` scores the AF point when it lies
+      inside a confident face, else the eyes; without a face, the AF point,
+      else the sharpest tile.
 - [ ] Optionally, detect closed eyes from the landmarks.
 - [ ] Store the face region in the SQLite index and suggest the sharpest-eye
       frame within a burst group.

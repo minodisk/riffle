@@ -10,8 +10,9 @@ whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating` and the
 `xmp:Label` colour label) and `src/dop.rs` DxO PhotoLab `.dop` sidecar bytes
 (rating, pick / reject and `ColorLabel`), `src/faces.rs` the YuNet face/eye detector, whose ONNX model and licence
 live in `crates/core/models/`, and `src/sharpness.rs` the
-sharpness score of the embedded preview, taken around the AF point or, without
-one, from the sharpest tile), `crates/cli` (the
+sharpness score of the embedded preview, taken between the eyes of a detected
+face (or on the AF point when it falls inside that face), else around the AF
+point, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
