@@ -82,6 +82,7 @@ interface DecodeResponse {
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 const metaEl = document.getElementById("meta") as HTMLDivElement;
+const metaStatusEl = document.getElementById("meta-status") as HTMLDivElement;
 const openEl = document.getElementById("open") as HTMLButtonElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
@@ -125,7 +126,8 @@ let metaStale = false;
 // The same one-in-flight, re-request-if-stale pattern as `inFlight`, so
 // holding a paging key down does not queue up a read per file passed.
 let metaInFlight = false;
-// A transient line under the metadata: an error.
+// A transient line in the status block at the bottom of the right pane: an
+// error.
 let note: string | undefined;
 // How far the current scan got, or null when nothing is scanning. Events
 // carry the id of the scan that emitted them; only events whose id matches
@@ -336,8 +338,10 @@ emptyEl.addEventListener("click", () => {
   }
 });
 
-// Redraw the right pane: the current file's name, its shooting settings,
-// and any note (an error or the scan's progress). Also refreshes the strip
+// Redraw the right pane: the current file's name and its shooting settings
+// in the scrolling metadata block, and any note (an error, the scan's
+// progress, the 1:1 indicator, the sticky errors) in the status block pinned
+// to the bottom. Also refreshes the strip
 // pane's `N / M` counter.
 function renderMeta(): void {
   renderTitle();
@@ -350,6 +354,7 @@ function renderMeta(): void {
         ? `${index + 1} / ${files.length} \u00B7 ${member.position + 1} / ${member.size} in burst`
         : `${index + 1} / ${files.length}`;
   metaEl.replaceChildren();
+  metaStatusEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
     if (meta !== null) {
@@ -368,15 +373,15 @@ function renderMeta(): void {
     }
   }
   if (note !== undefined) {
-    metaEl.append(line("note", note));
+    metaStatusEl.append(line("note", note));
   }
   if (scanning !== null) {
-    metaEl.append(line("note", scanning));
+    metaStatusEl.append(line("note", scanning));
   }
   // Driven by `zoomed` rather than `note`, so paging or an error does not
   // erase the mode indicator while the 1:1 view is still showing.
   if (zoomed) {
-    metaEl.append(line("note", "1:1"));
+    metaStatusEl.append(line("note", "1:1"));
   }
   for (const { key, message } of errors.list()) {
     const el = line("error", message);
@@ -388,7 +393,7 @@ function renderMeta(): void {
       renderMeta();
     });
     el.append(dismiss);
-    metaEl.append(el);
+    metaStatusEl.append(el);
   }
 }
 
