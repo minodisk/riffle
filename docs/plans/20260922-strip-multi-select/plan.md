@@ -68,7 +68,7 @@ command; no backend change is needed.
 
 ## Steps
 
-- [ ] Step 1: Pure selection model with tests
+- [x] Step 1: Pure selection model with tests
   - Done when:
     - `crates/app/ui/src/selection.ts` (new) exports a DOM-free model of the
       selection: the state (`selected: Set<string>`, `anchor: string |
