@@ -111,7 +111,7 @@ fi
 # Print the table of completed runs and the counts. runs_json /
 # superseded_json / total / failed / superseded must be set before calling.
 function print_result() {
-	echo "$runs_json" | jq -r --argjson sup "$superseded_json" '.[] | .workflowName as $name | (if .conclusion == "cancelled" and (($sup | index($name)) != null) then "superseded" else (.conclusion // "?") end) as $label | "\($label)\t\($name)\t\(.url)"' | sort
+	echo "$runs_json" | jq -r --argjson sup "$superseded_json" '.[] | .workflowName as $name | (if .conclusion == "cancelled" and (($sup | index($name)) != null) then "superseded" else (.conclusion // "?") end) as $verdict | "\($verdict)\t\($name)\t\(.url)"' | sort
 	echo "TOTAL_COUNT=$total"
 	echo "FAILED_COUNT=$failed"
 	echo "SUPERSEDED_COUNT=$superseded"
