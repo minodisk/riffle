@@ -198,7 +198,7 @@ command; no backend change is needed.
       confirm `accelerator()` returns `None` for them without erroring
     - Check the menus for a collision with `shift+arrowup`/`shift+arrowdown`
 
-- [ ] Step 5: Documentation
+- [x] Step 5: Documentation
   - Done when:
     - `README.md` Features (Filmstrip) and Keys mention Cmd/Ctrl+click,
       Shift+click, Shift+ArrowUp/Down and that judgements apply to the whole
@@ -229,3 +229,4 @@ command; no backend change is needed.
 - (2026-09-22) Step 2 complete
 - (2026-09-22) Step 3 complete
 - (2026-09-22) Step 4 complete
+- (2026-09-22) Step 5 complete

@@ -50,3 +50,12 @@
 - `shift+arrowup` / `shift+arrowdown` have no accelerator (`accelerator`
   returns `None` for shift-only keys), so they never reach a menu item; no
   menu binds them.
+
+## Step 5
+
+- The docs also cover the behaviours that differ from the plan: Shift+click
+  moves the focus, a right-click outside the selection collapses it (inside
+  keeps it), and a plain arrow at a strip end keeps a multi-selection.
+- Judgement key rows in the usage Keys table still say "the current file";
+  the Judgements paragraph states they apply to the selection instead of
+  rewording every row.

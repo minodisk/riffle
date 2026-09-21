@@ -11,6 +11,17 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 
 - **Filmstrip**: thumbnails run down the left edge, follow paging and show the
   file you click. The `N / M` counter sits under it.
+  Several files can be selected: `Cmd+click` (`Ctrl+click` on Windows and
+  Linux) adds or removes one file without changing the file shown (the shown
+  file itself always stays selected), `Shift+click` selects every file from the
+  last clicked one (the anchor) to the clicked one and shows the clicked file,
+  and `Shift+ArrowUp` / `Shift+ArrowDown` grow or shrink that range one file at
+  a time. A plain click, or any key that moves to another file (arrows, burst
+  jumps), collapses the selection to the new file; a plain arrow at either end
+  of the strip, which moves nowhere, keeps it. A right-click on a cell outside
+  the selection collapses it to that cell; one inside keeps it, so the context
+  menu items act on the whole selection. Files the filter hides leave the
+  selection.
 - **Focus mark**: `f` draws a crosshair at the camera's recorded focus point
   (hidden by default; cameras that record none, such as the M11-P, show none).
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
@@ -21,6 +32,11 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   the strip cell (the label tints the file-name band along the cell's bottom
   edge) and written to a sidecar; see
   [Ratings and sidecars](#ratings-and-sidecars).
+  With several files selected, a judgement sets the same value, decided from
+  the shown file, on every selected file; fields the judgement does not touch
+  keep each file's own value (a star key leaves each label as it was, and a
+  pick turns a reject into no stars but keeps other files' stars). Hidden files
+  are never judged.
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
   camera's estimate, marked `(est.)`; Leica files add the focus distance.
@@ -66,7 +82,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
-  Repeated presses walk further back. A reject-rest (`Shift+x`) is undone as
+  Repeated presses walk further back. A judgement on several selected files
+  is undone as one. A reject-rest (`Shift+x`) is undone as
   one, restoring every frame it rejected and staying on the current file. The history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
@@ -85,7 +102,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   next file once they change the current one; pressing the value the file
   already has does not. The last file stays selected. A file the judgement
   drops out of the active filter already hands the cursor to the next file, so
-  it is not skipped twice.
+  it is not skipped twice. A judgement that changes more than one selected
+  file does not advance.
 - **Clear Cache**: the `Cache` tab of `Riffle > Settings...` shows how much disk
   the folder index takes, and `Clear Cache` empties it after a confirmation. It
   removes the cached thumbnails and metadata of every folder ever opened; your
@@ -121,6 +139,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 |-----|--------|
 | `ArrowUp` | previous file |
 | `ArrowDown` | next file |
+| `Shift+ArrowUp` | extend the selection to the previous file (or shrink it back towards the anchor) |
+| `Shift+ArrowDown` | extend the selection to the next file (or shrink it back towards the anchor) |
 | `ArrowLeft` | first frame of the current burst, or of the previous burst when already on it |
 | `ArrowRight` | first frame of the next burst |
 | `Alt+ArrowUp` | previous frame in the current burst (stops at its first frame) |

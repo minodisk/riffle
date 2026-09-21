@@ -51,6 +51,9 @@ sidecars.
 ## Features
 
 - **Filmstrip**: thumbnails run down the left edge; click one to show it.
+  `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
+  `Shift+↑` / `Shift+↓` select a range, and every judgement applies to the
+  whole selection.
 - **1:1 focus check**: `z` shows the image at 1:1, centred on the focus point.
   Paging keeps the zoom.
 - **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
@@ -82,6 +85,7 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | previous / next shot |
+| `Shift+↑` / `Shift+↓` | extend the selection to the previous / next shot |
 | `1`-`5` | give stars |
 | `0` | clear the stars or the reject |
 | `x` | reject |
