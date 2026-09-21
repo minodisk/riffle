@@ -18,13 +18,29 @@ The "End to end, keypress to pixels" section of docs/performance.md still says `
 
 - [ ] Update the "End to end, keypress to pixels" section in docs/performance.md to say the `Timing logs` toggle is in the settings window, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
 
-### App: real-folder scan and second-open numbers are still missing
+### App: cold first scan on an internal SSD is far slower than the extrapolation
 
-Every Phase 3 performance figure in docs/performance.md (5.55s first scan, 34.4ms second open, the per-file timings) was measured on 5000 symlinks to one inode, or on freshly `cp`-copied files — never on a real folder of 5000 distinct ARWs on real hardware. Only the user can close this.
+A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown.
 
 #### TODO
 
-- [ ] Measure first-scan and second-open times on a real folder of ~5000 distinct ARW files, and update the numbers in docs/performance.md. The instrumentation now exists: the app logs `scan ...` and `open ...` timing lines, `Help > Open Log Folder` reveals `Riffle.log`, and "Measuring on your own folder" in docs/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
+- [ ] Run `riffle-cli scan` on a cold real folder on Windows at thread counts 1 / 4 / 8 / 22 (cold each run) to separate IO concurrency from per-file cost, and compare the bounded 1MiB read against reading the whole file.
+
+### App: a scan can be started twice after a cache clear / focus rescan
+
+In the Windows real-folder measurement, after a cache clear `scan_id` N was superseded by N+1 with no `scan extract` line for N, and two focus rescans once fired at the same instant. This may be one bug or two. Files: `crates/app/src/commands.rs` (`scan_folder`), `crates/app/src/watch.rs`, the settings-window clear-cache path.
+
+#### TODO
+
+- [ ] Find why two scans start and make the second one not fire (or coalesce it), verified by the log showing one `scan extract` per trigger.
+
+### App: `open entries` is called twice per folder open
+
+In the Windows real-folder measurement, the log shows two `open entries` lines (56ms and 76ms on 2677 files) for one folder open.
+
+#### TODO
+
+- [ ] Find the second caller (frontend `crates/app/ui/src/main.ts` / backend `crates/app/src/commands.rs`) and remove the redundant call, or document why both are needed.
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 
@@ -212,14 +228,6 @@ refusal bug above. Files:
       it stays until the next press; (7) note whether the very first press
       after opening the settings window ever does nothing, and if so
       record the window focus state at that moment.
-
-### App: unmeasured cost of a rescan on an unchanged large folder
-
-The focus/manual rescan added by the live-folder-refresh feature (`crates/app/src/commands.rs`'s `scan_folder`, `crates/app/src/index.rs`) stats every file and reconciles the sidecar index even when nothing changed, plus a `folder_entries` read of every row on `scan-done`. This cost was not measured on a real large folder; if it turns out to be visible, the watcher's debounce window may need to grow.
-
-#### TODO
-
-- [ ] Measure a focus/manual rescan's wall time on an unchanged folder of ~5000 real files, and note whether it is noticeable enough to widen the debounce.
 
 ### App: a file picked up mid-copy may be scanned from a partial read
 

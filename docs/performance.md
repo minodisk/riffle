@@ -77,7 +77,8 @@ threads and 21.7s at 4; the CPU cost leaves ~25s of headroom against the
 30-second target, but whether that headroom survives on a real, cold-read
 folder is not something these numbers establish. A single thread would not
 make it (34.9s). More threads than cores does not help: 16 threads was flat
-against 12 and doubled the per-file p95.
+against 12 and doubled the per-file p95. On real cold reads this
+extrapolation does not hold; see "Real folders on Windows" below.
 
 What this cannot measure: a real 5000-distinct-file folder. Each
 freshly-written-copies folder here is 100 `cp` copies scanned once, nothing is guaranteed cold, and the copies were
@@ -85,6 +86,33 @@ still likely warm in the page cache right after being written; the folders
 were also scanned in the order they were written, which flatters the higher
 thread counts. On a card reader or slow external disk the scan is disk-bound
 regardless.
+
+### Real folders on Windows
+
+Measured on 2026-09-21 with the release app on Windows 11 Home, reading
+real folders of Sony ARWs from an internal SSD with 22 extraction threads.
+The numbers come from the `scan prepare` and `scan extract` lines of
+`Riffle.log` (see "Measuring on your own folder" below). Each run used a
+different folder:
+
+| Run | files | prepare | extract | total | per file | files/s |
+|-----|-------|---------|---------|-------|----------|---------|
+| Cold first scan, Defender real-time protection on | 2677 | 1427ms | 42509ms | ~43.9s | ~16ms | ~61 |
+| Cold first scan, folder excluded from Defender | 3401 | 639ms | 65605ms | ~66.2s | ~19ms | ~51 |
+| First scan, warm page cache (index cleared, files read moments before) | 2134 | 47ms | 2084ms | ~2.1s | ~1ms | ~1000 |
+
+Both cold runs finished with 0 errors. Excluding the folder from Defender did
+not make the scan faster, so Defender is not the cause; the warm run shows
+the CPU side costs ~1ms per file, so cold IO dominates. Extrapolated to 5000
+files, a cold first scan takes ~82-97s, far over the 30-second target. At a
+1MiB bounded read per file and ~16ms per file, the effective throughput
+works out to ~63MB/s (derived, not measured), low for an internal SSD; the
+root cause is unknown (`todo.md`: "App: cold first scan on an internal SSD is
+far slower than the extrapolation").
+
+After a cache clear, the log once showed a `scan_id` superseded by the next
+one with no `scan extract` line for the first (`todo.md`: "App: a scan can be
+started twice after a cache clear / focus rescan").
 
 ### Sharpness scoring cost
 
@@ -117,13 +145,28 @@ second open is a stat-and-query number, which the symlinks flatter less than
 they flatter a read benchmark, but 5000 lookups of one cached inode's metadata
 is still cheaper than 5000 distinct 48MB files' metadata on a card. The first
 scan is the same folder and procedure as the scan throughput table above, at
-10 threads, a thread count that table does not have a row for; and the real
-number on a real folder of 5000 distinct files has never been measured by
-anyone; on a card reader or a slow external disk the first scan is disk-bound
-regardless.
+10 threads, a thread count that table does not have a row for; for a real
+folder of distinct files, see the Windows numbers below and "Real folders on
+Windows" above; on a card reader or a slow external disk the first scan is
+disk-bound regardless.
 
 [^1]: Measured with a temporary `#[ignore]`d test that was removed before
 committing, so this number is not reproducible from the committed tree.
+
+On a real folder of 2677 Sony ARWs on an internal SSD (Windows 11 Home,
+release app, 2026-09-21, from `Riffle.log`):
+
+| Step | Target | Measured |
+|------|--------|----------|
+| Second open after a relaunch (`open list` 34ms + `open entries` 56ms + `scan prepare` 73ms) | 3s | ~163ms |
+| Focus rescan of the unchanged folder (`scan prepare`) | - | ~65ms |
+
+The focus rescan is not noticeable, so the watcher's debounce does not need
+to grow for it. Two anomalies showed up in the log: each open called
+`open entries` twice (56ms and 76ms), and the second call is not counted in
+the ~163ms above (`todo.md`: "App: `open entries` is called twice per folder
+open"); and two focus rescans once fired at the same instant (`todo.md`:
+"App: a scan can be started twice after a cache clear / focus rescan").
 
 ### Measuring on your own folder
 
