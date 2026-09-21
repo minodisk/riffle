@@ -31,10 +31,10 @@ removes it so `todo.md` only lists open items.
 - [x] Step 1: Remove the "GitHub: verify the issue report forms on GitHub" section from `todo.md`
   - Done when: the section (the `### GitHub: verify the issue report forms on GitHub` heading, its paragraph, the `#### TODO` subheading and its single checkbox item) is gone from `todo.md`; no other line of `todo.md` changes; `mise run ci` passes.
   - Implementation approach:
-    - The section is the last one in the file. Delete it and the blank line that separated it from the preceding section, so the file still ends right after the previous section's last item with a single trailing newline. Confirm with `git diff` that only that deletion appears.
+    - Delete the section and its trailing blank line. Confirm with `git diff` that only that deletion appears.
     - Do not touch `.github/ISSUE_TEMPLATE/` (form ordering and content stay as they are).
     - Single-PR mode: the plan's step tick goes in the same PR.
 
 ## Progress
 
-- (none yet)
+- 2026-09-21: Step 1 done — removed the section from todo.md
