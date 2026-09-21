@@ -59,4 +59,4 @@ GitHub's template are deliberately left out.
 
 ## Progress
 
-- (none yet)
+- 2026-09-21: Step 1 done (added .github/FUNDING.yml)
