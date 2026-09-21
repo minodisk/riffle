@@ -31,7 +31,7 @@ position counter.
 
 ## Steps
 
-- [ ] Step 1: `burstFramePrevious` / `burstFrameNext` actions
+- [x] Step 1: `burstFramePrevious` / `burstFrameNext` actions
   - Done when:
     - `crates/app/ui/src/burst.ts` exports a pure helper (e.g.
       `burstFrameStep(ids, current, direction)`) with the same signature

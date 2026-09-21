@@ -110,7 +110,9 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   two or more, and the counter adds the position in it (`12 / 80 · 3 / 7 in
   burst`). `ArrowRight` jumps to the first frame of the next burst and
   `ArrowLeft` to the first frame of the current one, or of the previous one
-  when already there. `Shift+x` rejects every other frame of the current burst,
+  when already there. `Alt+ArrowUp` / `Alt+ArrowDown` (`Option` on macOS) move
+  one frame at a time within the current burst and stop at its first and last
+  displayed frame. `Shift+x` rejects every other frame of the current burst,
   including frames the filter hides, and one `Edit > Undo` restores them all.
 
 ## Keys
@@ -121,6 +123,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `ArrowDown` | next file |
 | `ArrowLeft` | first frame of the current burst, or of the previous burst when already on it |
 | `ArrowRight` | first frame of the next burst |
+| `Alt+ArrowUp` | previous frame in the current burst (stops at its first frame) |
+| `Alt+ArrowDown` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
 | `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
 | `f` | toggle the focus mark |

@@ -6,6 +6,8 @@ const shortcutLabels: Record<string, string> = {
   next: "Next",
   burstPrevious: "Previous burst",
   burstNext: "Next burst",
+  burstFramePrevious: "Previous frame in burst",
+  burstFrameNext: "Next frame in burst",
   open: "Open folder",
   photolab: "Open in DxO PhotoLab",
   focus: "Focus mark",

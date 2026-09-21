@@ -28,6 +28,8 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("next", &["arrowdown"]),
     ("burstPrevious", &["arrowleft"]),
     ("burstNext", &["arrowright"]),
+    ("burstFramePrevious", &["alt+arrowup"]),
+    ("burstFrameNext", &["alt+arrowdown"]),
     ("open", &[OPEN_DEFAULT]),
     ("photolab", &[PHOTOLAB_DEFAULT]),
     ("focus", &["f"]),
@@ -556,6 +558,8 @@ mod tests {
             ("next", "arrowdown"),
             ("burstPrevious", "arrowleft"),
             ("burstNext", "arrowright"),
+            ("burstFramePrevious", "alt+arrowup"),
+            ("burstFrameNext", "alt+arrowdown"),
             ("open", OPEN_DEFAULT),
             ("photolab", PHOTOLAB_DEFAULT),
             ("focus", "f"),
@@ -834,6 +838,14 @@ mod tests {
         keymap.add("pick", "ctrl+alt+p").unwrap();
         keymap.remove("pick", "p").unwrap();
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn the_burst_frame_keys_are_not_forbidden() {
+        for macos in [true, false] {
+            assert_eq!(forbidden("alt+arrowup", macos), None);
+            assert_eq!(forbidden("alt+arrowdown", macos), None);
+        }
     }
 
     #[test]
