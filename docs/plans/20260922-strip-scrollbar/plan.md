@@ -87,4 +87,10 @@ exactly as today.
 
 ## Progress
 
-- (none yet)
+- Step 1: Took approach A. `#strip-inner` is fixed at `width: 160px`, `#strip`
+  has `scrollbar-gutter: stable` and a thin, dark scrollbar
+  (`scrollbar-width: thin; scrollbar-color: #444 transparent`), and `#side`
+  changed from `flex: 0 0 160px` to `flex: none; width: min-content` so the
+  column's intrinsic width (the strip's fixed 160px plus its scrollbar
+  gutter) sets the column width. The Windows/macOS visual result is left to
+  the manual check added to `todo.md`.
