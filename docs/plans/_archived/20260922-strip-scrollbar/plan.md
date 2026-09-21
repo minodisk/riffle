@@ -94,3 +94,5 @@ exactly as today.
   column's intrinsic width (the strip's fixed 160px plus its scrollbar
   gutter) sets the column width. The Windows/macOS visual result is left to
   the manual check added to `todo.md`.
+
+- (2026-09-22) Step 1 complete
