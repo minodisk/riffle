@@ -143,7 +143,7 @@ undo entry, same auto-advance.
     - Keep `strip.ts` free of judgement knowledge: it only reports the
       index and pointer position.
 
-- [ ] Step 4: Document the decision
+- [x] Step 4: Document the decision
   - Done when:
     - `CLAUDE.md`'s layout paragraph mentions the new `context.ts` module
       in one clause, in the same style as the existing entries.

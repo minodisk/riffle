@@ -17,3 +17,8 @@
   shared `position: absolute` with `position: fixed` in its own rule.
 - The menu is closed at the top of `openDirectory` and in `refilter`'s
   empty-`files` branch, so it never floats over a changed folder.
+
+## Step 4
+
+- Documentation only; the tauri-app.md item is tagged Inferred since no
+  pitfall was hit in Step 3.
