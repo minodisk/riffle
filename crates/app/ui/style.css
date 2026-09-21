@@ -277,7 +277,6 @@ body {
   border-radius: 3px;
   box-sizing: border-box;
   cursor: pointer;
-  overflow: hidden;
 }
 
 .cell.current {
@@ -395,6 +394,30 @@ body {
 
 .cell span.sharpness[hidden] {
   display: none;
+}
+
+/* The burst bracket, down the gutter right of the cell. A member reaches up
+   across the gap to the member above it, and the first and last are capped,
+   so a burst reads as one continuous bracket. */
+.cell.burst::after {
+  content: "";
+  position: absolute;
+  top: calc(-1px - var(--cell-gap));
+  bottom: -1px;
+  right: -6px;
+  width: 3px;
+  border-right: 2px solid #888;
+  box-sizing: border-box;
+}
+
+.cell.burst.burst-first::after {
+  top: 8px;
+  border-top: 2px solid #888;
+}
+
+.cell.burst.burst-last::after {
+  bottom: 8px;
+  border-bottom: 2px solid #888;
 }
 
 .cell.rejected {

@@ -1,6 +1,7 @@
 // The thumbnail filmstrip down the left edge: a hand-rolled virtual list over
 // the cached thumbnails the `thumbnail` command serves.
 
+import type { BurstMark } from "./burst.js";
 import type { RelativeSharpness } from "./sharpness.js";
 
 // Header layout of a `thumbnail` payload, see `crates/app/src/commands.rs`.
@@ -71,6 +72,9 @@ const labels = new Map<number, string>();
 // The relative sharpness per index, from `relativeSharpness` in
 // `sharpness.ts`; a missing entry has no score.
 const sharpness = new Map<number, RelativeSharpness>();
+// The burst bracket per index, from `burstMarks` in `burst.ts`; a missing
+// entry is not in a burst of two or more.
+const bursts = new Map<number, BurstMark>();
 const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink", "purple"]);
 let inFlight = 0;
 let select: (index: number) => void = () => {};
@@ -112,6 +116,15 @@ function paintSharpness(index: number, cell: Cell): void {
   cell.sharpness.classList.toggle("best", value?.best === true);
 }
 
+// A bracket down the cell's right edge, joined to the next and previous
+// member of the same burst.
+function paintBurst(index: number, cell: Cell): void {
+  const value = bursts.get(index);
+  cell.el.classList.toggle("burst", value !== undefined);
+  cell.el.classList.toggle("burst-first", value?.first === true);
+  cell.el.classList.toggle("burst-last", value?.last === true);
+}
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
@@ -151,6 +164,7 @@ function createCell(index: number): Cell {
   const cell: Cell = { el, img, badge, flag, sharpness: sharp, name, url: null };
   paintRating(index, cell);
   paintSharpness(index, cell);
+  paintBurst(index, cell);
   return cell;
 }
 
@@ -322,6 +336,20 @@ export function setSharpness(index: number, value: RelativeSharpness | null): vo
   }
 }
 
+// Record the burst bracket of one file, repainting its cell when it is on
+// screen. `null` is not in a burst of two or more.
+export function setBurst(index: number, value: BurstMark | null): void {
+  if (value === null) {
+    bursts.delete(index);
+  } else {
+    bursts.set(index, value);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintBurst(index, cell);
+  }
+}
+
 // Show one cell per file, in `list_arw` order, all of them placeholders.
 // `keepScroll` is for a rescan of the folder already shown: the offset is
 // kept (clamped to the new list's height) instead of jumping back to the top,
@@ -342,6 +370,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   picks.clear();
   labels.clear();
   sharpness.clear();
+  bursts.clear();
   files = paths;
   indexOf = new Map(paths.map((path, index) => [path, index]));
   current = 0;
