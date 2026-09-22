@@ -30,6 +30,11 @@ const TAG_FOCUS_LOCATION: u16 = 0x2027;
 /// Sony `FocusMode`, a BYTE. Older bodies write it as 0xb04e / 0xb042
 /// instead, which is not read, so they keep `None`.
 const TAG_FOCUS_MODE: u16 = 0x201b;
+/// Sony `AFTracking`, a BYTE.
+const TAG_AF_TRACKING: u16 = 0x2021;
+/// Sony `FocusFrameSize`: three SHORTs, width, height and a validity flag
+/// (0 when the frame is not available). Bodies write it as `UNDEFINED[6]`.
+const TAG_FOCUS_FRAME_SIZE: u16 = 0x2037;
 /// Leica MakerNote `FocusDistance`, a LONG in millimetres.
 const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
 /// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
@@ -43,6 +48,7 @@ const PREVIEW_MIN_WIDTH: u32 = 1600;
 
 const TYPE_BYTE: u16 = 1;
 const TYPE_ASCII: u16 = 2;
+const TYPE_UNDEFINED: u16 = 7;
 const TYPE_SHORT: u16 = 3;
 const TYPE_LONG: u16 = 4;
 const TYPE_RATIONAL: u16 = 5;
@@ -63,6 +69,14 @@ pub struct FocusLocation {
     pub sensor_h: u16,
     pub x: u16,
     pub y: u16,
+}
+
+/// Sony `FocusFrameSize`: the AF frame size in the same sensor coordinates
+/// as `FocusLocation`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FocusFrame {
+    pub width: u16,
+    pub height: u16,
 }
 
 /// A TIFF RATIONAL or SRATIONAL: numerator over denominator, kept unreduced
@@ -90,6 +104,10 @@ pub struct Shot {
     pub focus: Option<FocusLocation>,
     /// Raw Sony `FocusMode`: 0 manual, 2 AF-S, 3 AF-C, 4 AF-A, 6 DMF.
     pub focus_mode: Option<u8>,
+    /// Raw Sony `AFTracking`: 0 off, 1 face tracking, 2 lock-on AF.
+    pub af_tracking: Option<u8>,
+    /// Sony `FocusFrameSize`, `None` when the camera flags it as unavailable.
+    pub focus_frame: Option<FocusFrame>,
     pub make: Option<String>,
     pub model: Option<String>,
     pub lens_model: Option<String>,
@@ -204,18 +222,18 @@ fn ascii(buf: &[u8], entry: &Entry) -> Result<Option<String>> {
     Ok(Some(text.trim_end_matches('\0').to_string()))
 }
 
-/// Read a `SHORT[4]` entry. Eight bytes never fit in an entry, so the value is
-/// always at the offset.
-fn shorts4(buf: &[u8], entry: &Entry) -> Result<Option<[u16; 4]>> {
+/// Read a `SHORT[N]` entry for `N > 2`. More than four bytes never fit in an
+/// entry, so the value is always at the offset.
+fn shorts<const N: usize>(buf: &[u8], entry: &Entry) -> Result<Option<[u16; N]>> {
     let (_, value, typ, count) = *entry;
-    if typ != TYPE_SHORT || count != 4 {
+    if typ != TYPE_SHORT || count as usize != N {
         return Ok(None);
     }
     let at = value as usize;
-    if at.checked_add(8).is_none_or(|end| end > buf.len()) {
-        bail!("SHORT[4] value out of range");
+    if at.checked_add(N * 2).is_none_or(|end| end > buf.len()) {
+        bail!("SHORT[{N}] value out of range");
     }
-    let mut out = [0u16; 4];
+    let mut out = [0u16; N];
     for (i, v) in out.iter_mut().enumerate() {
         *v = u16le(buf, at + i * 2);
     }
@@ -335,9 +353,31 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_MODE))
         .and_then(byte);
+    shot.af_tracking = maker
+        .as_ref()
+        .and_then(|m| m.iter().find(|e| e.0 == TAG_AF_TRACKING))
+        .and_then(byte);
+    shot.focus_frame = match maker
+        .as_ref()
+        .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_FRAME_SIZE))
+    {
+        Some(&(tag, value, typ, count)) => {
+            let e = match (typ, count) {
+                (TYPE_UNDEFINED, 6) => (tag, value, TYPE_SHORT, 3),
+                _ => (tag, value, typ, count),
+            };
+            shorts::<3>(buf, &e)?.and_then(|v| {
+                (v[2] != 0).then_some(FocusFrame {
+                    width: v[0],
+                    height: v[1],
+                })
+            })
+        }
+        None => None,
+    };
     shot.focus = match maker {
         Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
-            Some(e) => shorts4(buf, e)?.map(|v| FocusLocation {
+            Some(e) => shorts::<4>(buf, e)?.map(|v| FocusLocation {
                 sensor_w: v[0],
                 sensor_h: v[1],
                 x: v[2],
@@ -638,6 +678,107 @@ mod tests {
         assert!(absent.shot.focus_mode.is_none());
     }
 
+    /// A Sony TIFF whose MakerNote holds exactly `entries`, built by `f` from
+    /// the offset at which `data` is appended.
+    fn tiff_with_sony_note(f: impl Fn(u32) -> Vec<(u16, u16, u32, u32)>, data: &[u8]) -> Vec<u8> {
+        let exif_at = 8 + ifd_len(1);
+        let maker_at = exif_at + ifd_len(1);
+        let count = f(0).len();
+        let data_at = maker_at + ifd_len(count);
+        let mut buf = tiff(&[(TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32)]);
+        buf.extend_from_slice(&ifd(&[(
+            TAG_MAKER_NOTE,
+            7,
+            ifd_len(count) as u32,
+            maker_at as u32,
+        )]));
+        buf.extend_from_slice(&ifd(&f(data_at as u32)));
+        buf.extend_from_slice(data);
+        buf
+    }
+
+    fn shorts_le(v: &[u16]) -> Vec<u8> {
+        v.iter().flat_map(|v| v.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn reads_af_tracking_and_focus_frame_size() {
+        let shot = parse(&tiff_with_sony_note(
+            |at| {
+                vec![
+                    (TAG_AF_TRACKING, TYPE_BYTE, 1, 1),
+                    (TAG_FOCUS_FRAME_SIZE, TYPE_UNDEFINED, 6, at),
+                ]
+            },
+            &shorts_le(&[153, 154, 257]),
+        ))
+        .unwrap()
+        .shot;
+        assert_eq!(shot.af_tracking, Some(1));
+        assert_eq!(
+            shot.focus_frame,
+            Some(FocusFrame {
+                width: 153,
+                height: 154,
+            })
+        );
+    }
+
+    #[test]
+    fn af_tracking_and_focus_frame_size_are_independent() {
+        let only_tracking = parse(&tiff_with_sony_note(
+            |_| vec![(TAG_AF_TRACKING, TYPE_BYTE, 1, 2)],
+            &[],
+        ))
+        .unwrap()
+        .shot;
+        assert_eq!(only_tracking.af_tracking, Some(2));
+        assert!(only_tracking.focus_frame.is_none());
+        let only_frame = parse(&tiff_with_sony_note(
+            |at| vec![(TAG_FOCUS_FRAME_SIZE, TYPE_SHORT, 3, at)],
+            &shorts_le(&[832, 740, 257]),
+        ))
+        .unwrap()
+        .shot;
+        assert!(only_frame.af_tracking.is_none());
+        assert_eq!(only_frame.focus_frame.unwrap().width, 832);
+    }
+
+    #[test]
+    fn a_focus_frame_flagged_unavailable_is_none() {
+        let shot = parse(&tiff_with_sony_note(
+            |at| vec![(TAG_FOCUS_FRAME_SIZE, TYPE_SHORT, 3, at)],
+            &shorts_le(&[5519, 3864, 0]),
+        ))
+        .unwrap()
+        .shot;
+        assert!(shot.focus_frame.is_none());
+    }
+
+    #[test]
+    fn wrong_type_or_count_is_none() {
+        let shot = parse(&tiff_with_sony_note(
+            |at| {
+                vec![
+                    (TAG_AF_TRACKING, TYPE_SHORT, 1, 1),
+                    (TAG_FOCUS_FRAME_SIZE, TYPE_SHORT, 4, at),
+                ]
+            },
+            &shorts_le(&[153, 154, 257, 0]),
+        ))
+        .unwrap()
+        .shot;
+        assert!(shot.af_tracking.is_none());
+        assert!(shot.focus_frame.is_none());
+        let long = parse(&tiff_with_sony_note(
+            |at| vec![(TAG_FOCUS_FRAME_SIZE, TYPE_LONG, 3, at)],
+            &[0; 12],
+        ))
+        .unwrap()
+        .shot;
+        assert!(long.focus_frame.is_none());
+    }
+
     #[test]
     fn no_maker_note_is_none() {
         let a = parse(&tiff_with_exif(false, None, false)).unwrap();
@@ -777,6 +918,8 @@ mod tests {
         let a = parse(&buf).unwrap();
         assert!(a.shot.focus.is_none());
         assert!(a.shot.focus_mode.is_none());
+        assert!(a.shot.af_tracking.is_none());
+        assert!(a.shot.focus_frame.is_none());
         assert!(a.shot.focus_distance_mm.is_none());
         assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));
     }
@@ -831,6 +974,7 @@ mod tests {
         let shot = parse(&tiff_with_leica_maker_note(&note)).unwrap().shot;
         assert_eq!(shot.focus_distance_mm, Some(921));
         assert!(shot.focus.is_none());
+        assert!(shot.af_tracking.is_none() && shot.focus_frame.is_none());
     }
 
     #[test]
