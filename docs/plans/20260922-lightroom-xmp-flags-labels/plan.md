@@ -139,7 +139,7 @@ Decisions already taken (do not reopen):
       filter working with no UI change.
     - Orange and Pink are outside Lightroom's five; still write
       `LabelColor="orange"` / `"pink"` (see Trade-offs).
-- [ ] Step 3: Tri-state flag through the app: index migration, commands, writer, UI state
+- [x] Step 3: Tri-state flag through the app: index migration, commands, writer, UI state
   - Done when:
     - `ratings` gains `flag INTEGER NOT NULL DEFAULT 0` (`0` none, `1`
       pick, `2` reject) and loses `pick`; `SCHEMA_VERSION` becomes 11 with
@@ -246,3 +246,4 @@ Decisions already taken (do not reopen):
 
 - (2026-09-22) Step 1 complete
 - (2026-09-22) Step 2 complete
+- (2026-09-22) Step 3 complete

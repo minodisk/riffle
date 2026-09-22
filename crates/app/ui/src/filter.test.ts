@@ -35,10 +35,10 @@ const exif: Exif = {
   focal_length: null,
 };
 
-const unjudged = { rating: null, pick: false, label: null };
-const rejected = { rating: -1, pick: false, label: null };
-const threeStars = { rating: 3, pick: false, label: null };
-const pickedTwo = { rating: 2, pick: true, label: null };
+const unjudged: Judgement = { rating: null, flag: "none", label: null };
+const rejected: Judgement = { rating: null, flag: "reject", label: null };
+const threeStars: Judgement = { rating: 3, flag: "none", label: null };
+const pickedTwo: Judgement = { rating: 2, flag: "pick", label: null };
 
 describe("passes", () => {
   test("empty groups pass everything", () => {
@@ -73,6 +73,12 @@ describe("passes", () => {
     expect(passes(state(["untagged"]), rejected, undefined, undefined)).toBe(false);
   });
 
+  test("a reject with stars counts as rejected and its stars", () => {
+    const rejectedFour = { rating: 4, flag: "reject" as const, label: null };
+    expect(passes(state(["rejected"], [4]), rejectedFour, undefined, undefined)).toBe(true);
+    expect(passes(state([], [0]), rejectedFour, undefined, undefined)).toBe(false);
+  });
+
   test("a pick with stars counts as picked and its stars", () => {
     expect(passes(state(["picked"], [2]), pickedTwo, undefined, undefined)).toBe(true);
     expect(passes(state(["untagged"]), pickedTwo, undefined, undefined)).toBe(false);
@@ -89,9 +95,9 @@ describe("passes", () => {
 });
 
 describe("passes: colour label", () => {
-  const red = { rating: null, pick: false, label: "Red" };
-  const blue = { rating: null, pick: false, label: "Blue" };
-  const foreign = { rating: null, pick: false, label: "Approved" };
+  const red: Judgement = { rating: null, flag: "none", label: "Red" };
+  const blue: Judgement = { rating: null, flag: "none", label: "Blue" };
+  const foreign: Judgement = { rating: null, flag: "none", label: "Approved" };
   const colours = ["red", "orange", "yellow", "green", "blue", "pink", "purple"];
 
   test("a labelled file fails none", () => {
@@ -129,7 +135,9 @@ describe("passes: colour label", () => {
     expect(passes(s, unjudged, undefined, undefined)).toBe(true);
     expect(passes(s, red, undefined, undefined)).toBe(false);
     expect(passes(s, threeStars, undefined, undefined)).toBe(false);
-    expect(passes(s, { rating: null, pick: true, label: null }, undefined, undefined)).toBe(false);
+    expect(passes(s, { rating: null, flag: "pick", label: null }, undefined, undefined)).toBe(
+      false,
+    );
     expect(passes(s, rejected, undefined, undefined)).toBe(false);
   });
 });
@@ -158,11 +166,11 @@ describe("anchorAfterFilter", () => {
 
 describe("a judgement under untagged + 0 + none", () => {
   const s = state(["untagged"], [0], [], ["none"]);
-  const judgements = {
-    rating: { rating: 3, pick: false, label: null },
-    reject: { rating: -1, pick: false, label: null },
-    pick: { rating: null, pick: true, label: null },
-    label: { rating: null, pick: false, label: "Red" },
+  const judgements: Record<string, Judgement> = {
+    rating: { rating: 3, flag: "none", label: null },
+    reject: { rating: null, flag: "reject", label: null },
+    pick: { rating: null, flag: "pick", label: null },
+    label: { rating: null, flag: "none", label: "Red" },
   };
 
   function after(all: string[], judged: string, judgement: Judgement) {

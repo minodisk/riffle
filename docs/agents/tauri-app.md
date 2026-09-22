@@ -458,31 +458,18 @@ that already have the column, and the `ALTER TABLE` fails.
 ### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
 
 `Index::mark_written` clears `dirty` only `WHERE path = ?1 AND rating IS ?4 AND
-pick = ?5 AND label IS ?6`. A judgement made inside a sidecar format switch's
+flag = ?5 AND label IS ?6`. A judgement made inside a sidecar format switch's
 window has already been queued with the value the row held, so if
 `Index::reset_sidecars` rewrites any of those fields in between, the guard no
 longer matches: the row stays dirty with the rewritten value and the next
 folder open replays that stale value over the sidecar. `reset_sidecars` used to
-zero `pick`, which lost a pick set during a switch.
+zero `pick` (now `flag`), which lost a pick set during a switch.
 
 - `reset_sidecars` nulls the stat only (`xmp_size`, `xmp_mtime_ns`); it keeps
-  the judgement (`rating`, `pick`, `label`). Keep it that way for any field
+  the judgement (`rating`, `flag`, `label`). Keep it that way for any field
   added to `mark_written`'s guard.
 - Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
   Step 1.
-
-### A pick is only meaningful while `.dop` is selected (Hit)
-
-Because `reset_sidecars` keeps the `pick` of a dirty row across a format
-switch, `folder_entries` can hand the frontend `pick: true` while the current
-format is XMP, where `commands::set_rating` would never persist it. The
-frontend gates it in `applyRating` (`crates/app/ui/src/main.ts`) with
-`effectivePick(pick, sidecarFormat)` (`crates/app/ui/src/pick.ts`), not in
-`strip.ts`: `applyRating` is the only path that fills `picks`, which the flag
-dot, the "picked" filter and `undo` all read, so gating the render alone would
-leave a filter match with no dot.
-
-- Source: `docs/plans/20260920-xmp-pick-gate/learnings.md`, Step 1.
 
 ### Folder-index eviction: lock order and where it runs (Measured)
 

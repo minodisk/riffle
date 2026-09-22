@@ -13,6 +13,7 @@ use rusqlite::{params, Connection, OpenFlags};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::scan::{extract_all, Entry};
+use riffle_core::Flag;
 
 use crate::exif::{exif, Exif};
 
@@ -41,8 +42,11 @@ use crate::exif::{exif, Exif};
 /// and recreated, so every folder is rescanned once, and keeps `ratings` and
 /// `folders`. v10 changed it again (the eyes when a face is found); a v2 to v9
 /// database likewise drops and recreates `files` and keeps `ratings` and
-/// `folders`.
-const SCHEMA_VERSION: i64 = 10;
+/// `folders`. v11 replaced `ratings.pick` with `ratings.flag` (`0` none, `1`
+/// pick, `2` reject) and took the reject out of `rating`, which now only
+/// holds `0`-`5`; older databases are migrated in place (a `-1` rating
+/// becomes a reject with no stars, a pick a pick) and keep their `files`.
+const SCHEMA_VERSION: i64 = 11;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -117,12 +121,53 @@ pub struct IndexedFile {
     pub focus: Option<Focus>,
     pub has_thumb: bool,
     pub rating: Option<i8>,
-    pub pick: bool,
+    #[serde(serialize_with = "serialize_flag")]
+    pub flag: Flag,
     pub label: Option<String>,
     pub has_sidecar: bool,
     pub sharpness: Option<f64>,
     /// `None` for a file whose extraction failed.
     pub exif: Option<Exif>,
+}
+
+/// The name the frontend uses for `flag`.
+pub fn flag_name(flag: Flag) -> &'static str {
+    match flag {
+        Flag::None => "none",
+        Flag::Pick => "pick",
+        Flag::Reject => "reject",
+    }
+}
+
+/// The flag `flag_name` names.
+pub fn parse_flag(name: &str) -> Result<Flag, String> {
+    match name {
+        "none" => Ok(Flag::None),
+        "pick" => Ok(Flag::Pick),
+        "reject" => Ok(Flag::Reject),
+        _ => Err(format!("unknown flag {name:?}")),
+    }
+}
+
+fn serialize_flag<S: serde::Serializer>(flag: &Flag, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(flag_name(*flag))
+}
+
+/// The `ratings.flag` code of `flag`.
+fn flag_code(flag: Flag) -> i64 {
+    match flag {
+        Flag::None => 0,
+        Flag::Pick => 1,
+        Flag::Reject => 2,
+    }
+}
+
+fn flag_from_code(code: i64) -> Flag {
+    match code {
+        1 => Flag::Pick,
+        2 => Flag::Reject,
+        _ => Flag::None,
+    }
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
@@ -225,7 +270,7 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, 10, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -265,13 +310,14 @@ impl Index {
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
                  -- `xmp_size` / `xmp_mtime_ns` are the stat of the sidecar of
                  -- the selected format (XMP or `.dop`), whatever its name says.
-                 -- `pick` is PhotoLab's pick flag, kept apart from `rating`
-                 -- because the two coexist in a `.dop`.
+                 -- `flag` is the pick / reject (`0` none, `1` pick, `2`
+                 -- reject), kept apart from the `0`-`5` `rating` because the
+                 -- two coexist in both an XMP and a `.dop`.
                  CREATE TABLE IF NOT EXISTS ratings (
                      path TEXT PRIMARY KEY,
                      dir TEXT NOT NULL,
                      rating INTEGER,
-                     pick INTEGER NOT NULL DEFAULT 0,
+                     flag INTEGER NOT NULL DEFAULT 0,
                      label TEXT,
                      label_known INTEGER NOT NULL DEFAULT 1,
                      xmp_size INTEGER,
@@ -307,6 +353,23 @@ impl Index {
         if version != 0 && version != SCHEMA_VERSION && version < 6 {
             tx.execute_batch(
                 "ALTER TABLE ratings ADD COLUMN label_known INTEGER NOT NULL DEFAULT 1;",
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        if version != 0 && version != SCHEMA_VERSION {
+            // Clean rows carry stats matching values written by the old,
+            // lossy `read_pick` / `read_rating` shims (a Lightroom pick
+            // stored as `pick = 0`, a starred reject stored with its stars
+            // dropped). Invalidate their stat so `reconcile_sidecars`
+            // re-parses the sidecar with the real readers instead of trusting
+            // those stale values.
+            tx.execute_batch(
+                "ALTER TABLE ratings ADD COLUMN flag INTEGER NOT NULL DEFAULT 0;
+                 UPDATE ratings SET flag = CASE WHEN rating = -1 THEN 2
+                     WHEN pick = 1 THEN 1 ELSE 0 END;
+                 UPDATE ratings SET rating = NULL WHERE rating = -1;
+                 ALTER TABLE ratings DROP COLUMN pick;
+                 UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL WHERE dirty = 0;",
             )
             .map_err(|e| e.to_string())?;
         }
@@ -554,7 +617,7 @@ impl Index {
                 "SELECT path, orientation, capture_time, subsec,
                         focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
                         ratings.rating, ratings.xmp_size IS NOT NULL,
-                        COALESCE(ratings.pick, 0), error IS NOT NULL,
+                        COALESCE(ratings.flag, 0), error IS NOT NULL,
                         make, model, lens, f_num, f_den, f_estimated, exposure_num,
                         exposure_den, iso, focal_num, focal_den, ratings.label,
                         sharpness
@@ -600,7 +663,7 @@ impl Index {
                     focus,
                     has_thumb: r.get(8)?,
                     rating: r.get(9)?,
-                    pick: r.get(11)?,
+                    flag: flag_from_code(r.get(11)?),
                     label: r.get(24)?,
                     has_sidecar: r.get(10)?,
                     sharpness: r.get(25)?,
@@ -655,25 +718,26 @@ impl Index {
         dir: &str,
         path: &str,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
         label: Option<&str>,
         label_known: bool,
     ) -> Result<(), String> {
+        let flag = flag_code(flag);
         let result = if label_known {
             self.conn.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, label, label_known, dirty)
+                "INSERT INTO ratings (path, dir, rating, flag, label, label_known, dirty)
                  VALUES (?1, ?2, ?3, ?4, ?5, 1, 1)
-                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, flag = ?4, label = ?5,
                      label_known = 1, dirty = 1",
-                params![path, dir, rating, pick, label],
+                params![path, dir, rating, flag, label],
             )
         } else {
             self.conn.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, label_known, dirty)
+                "INSERT INTO ratings (path, dir, rating, flag, label_known, dirty)
                  VALUES (?1, ?2, ?3, ?4, 0, 1)
-                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4,
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, flag = ?4,
                      dirty = 1",
-                params![path, dir, rating, pick],
+                params![path, dir, rating, flag],
             )
         };
         result.map(|_| ()).map_err(|e| format!("{path}: {e}"))
@@ -699,25 +763,26 @@ impl Index {
         &mut self,
         path: &str,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
         label: Option<&str>,
         label_known: bool,
         stat: Option<(i64, i64)>,
     ) -> Result<bool, String> {
+        let flag = flag_code(flag);
         let (size, mtime_ns) = (stat.map(|s| s.0), stat.map(|s| s.1));
         let n = if label_known {
             self.conn.execute(
                 "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3
-                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5 AND label IS ?6",
-                params![path, size, mtime_ns, rating, pick, label],
+                 WHERE path = ?1 AND rating IS ?4 AND flag = ?5 AND label IS ?6",
+                params![path, size, mtime_ns, rating, flag, label],
             )
         } else {
             self.conn.execute(
                 "UPDATE ratings SET dirty = 0, xmp_size = ?2, xmp_mtime_ns = ?3,
                      label = ?6, label_known = 1
-                 WHERE path = ?1 AND rating IS ?4 AND pick = ?5
+                 WHERE path = ?1 AND rating IS ?4 AND flag = ?5
                      AND (label_known = 0 OR label IS ?6)",
-                params![path, size, mtime_ns, rating, pick, label],
+                params![path, size, mtime_ns, rating, flag, label],
             )
         }
         .map_err(|e| format!("{path}: {e}"))?;
@@ -728,9 +793,7 @@ impl Index {
     /// clean rows are dropped so the next open reads the newly selected
     /// format, and dirty rows keep their judgement but lose the old format's
     /// stat, so the next open writes them into the new one. Their whole
-    /// judgement is kept, including the pick: a pick is only ever set while
-    /// `.dop` is current, and an XMP write ignores it, so rewriting it here
-    /// would only make `mark_written` miss a row judged during the switch.
+    /// judgement is kept, including the flag, since both formats hold it.
     pub fn reset_sidecars(&mut self) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM ratings WHERE dirty = 0", [])
@@ -752,13 +815,19 @@ impl Index {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT path, rating, pick, label, label_known FROM ratings
+                "SELECT path, rating, flag, label, label_known FROM ratings
                  WHERE dir = ?1 AND dirty = 1",
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(params![dir], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    flag_from_code(r.get(2)?),
+                    r.get(3)?,
+                    r.get(4)?,
+                ))
             })
             .map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<_>>()
@@ -775,7 +844,7 @@ impl Index {
     /// is parsed (which is also the first open of a folder Lightroom wrote);
     /// an unchanged stat costs nothing, which is what keeps the second open of
     /// a 5000-file folder cheap; a sidecar that is gone while the row is
-    /// clean clears the rating, pick and label, because the truth is gone with it; and a row
+    /// clean clears the rating, flag and label, because the truth is gone with it; and a row
     /// that is still dirty is left dirty, for `dirty_rows` to hand to the
     /// writer once the parsed sidecars have been stored.
     ///
@@ -823,7 +892,7 @@ impl Index {
                 None => {
                     if !dirty && row.is_some_and(|r| r.stat.0.is_some() || r.stat.1.is_some()) {
                         tx.execute(
-                            "UPDATE ratings SET rating = NULL, pick = 0, label = NULL,
+                            "UPDATE ratings SET rating = NULL, flag = 0, label = NULL,
                                  label_known = 1, xmp_size = NULL, xmp_mtime_ns = NULL
                                  WHERE path = ?1",
                             params![path],
@@ -837,7 +906,7 @@ impl Index {
         Ok(to_parse)
     }
 
-    /// Store what parsing the sidecars of `dir` found: the rating, pick and label
+    /// Store what parsing the sidecars of `dir` found: the rating, flag and label
     /// become the sidecar's and `dirty` is cleared, since the sidecar wins over an app
     /// edit that never reached disk.
     ///
@@ -854,14 +923,15 @@ impl Index {
         rows: &[ParsedSidecar],
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for (path, rating, pick, label, size, mtime_ns, dirty) in rows {
+        for (path, rating, flag, label, size, mtime_ns, dirty) in rows {
+            let flag = flag_code(*flag);
             tx.execute(
-                "INSERT INTO ratings (path, dir, rating, pick, label, label_known, xmp_size, xmp_mtime_ns, dirty)
+                "INSERT INTO ratings (path, dir, rating, flag, label, label_known, xmp_size, xmp_mtime_ns, dirty)
                  VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, 0)
-                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, pick = ?4, label = ?5,
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, rating = ?3, flag = ?4, label = ?5,
                      label_known = 1, xmp_size = ?6, xmp_mtime_ns = ?7, dirty = 0
                  WHERE dirty = ?8",
-                params![path, dir, rating, pick, label, size, mtime_ns, *dirty as i64],
+                params![path, dir, rating, flag, label, size, mtime_ns, *dirty as i64],
             )
             .map_err(|e| format!("{path}: {e}"))?;
         }
@@ -882,13 +952,13 @@ struct RatingRow {
 pub type SidecarStat = (PathBuf, i64, i64);
 
 /// What parsing one file's sidecar found, for `store_sidecar_ratings`:
-/// `(path, rating, pick, label, size, mtime_ns, dirty)`, the last being the
+/// `(path, rating, flag, label, size, mtime_ns, dirty)`, the last being the
 /// `dirty` flag `reconcile_sidecars` observed.
-pub type ParsedSidecar = (String, Option<i8>, bool, Option<String>, i64, i64, bool);
+pub type ParsedSidecar = (String, Option<i8>, Flag, Option<String>, i64, i64, bool);
 
-/// A row `dirty_rows` hands to the writer: `(path, rating, pick, label,
+/// A row `dirty_rows` hands to the writer: `(path, rating, flag, label,
 /// label_known)`.
-pub type DirtyRow = (String, Option<i8>, bool, Option<String>, bool);
+pub type DirtyRow = (String, Option<i8>, Flag, Option<String>, bool);
 
 /// Extract `files` and write them into `index` in batched transactions,
 /// reporting `(done, total, ready)` through `progress` at most every
@@ -1145,7 +1215,7 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), true, None, true)]
+            [("/a.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
@@ -1153,7 +1223,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1219,7 +1289,7 @@ mod tests {
             [(
                 "/a.ARW".to_string(),
                 Some(4),
-                true,
+                Flag::Pick,
                 Some("Red".to_string()),
                 true
             )]
@@ -1228,7 +1298,77 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v10_database_turns_its_picks_and_rejects_into_flags_and_keeps_its_files() {
+        let dir = temp_dir("migrate-v10");
+        let db = dir.join("index.sqlite");
+        let a = synthetic(&dir, 0);
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "ALTER TABLE ratings RENAME COLUMN flag TO pick;
+                     INSERT INTO ratings (path, dir, rating, pick, dirty, xmp_size, xmp_mtime_ns) VALUES
+                         ('/rejected.ARW', 'd', -1, 0, 1, 10, 20),
+                         ('/picked.ARW', 'd', 3, 1, 0, 10, 20),
+                         ('/plain.ARW', 'd', 2, 0, 0, 10, 20);
+                     PRAGMA user_version = 10;",
+                )
+                .unwrap();
+        }
+
+        let index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 11);
+        assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
+        let rows: Vec<(String, Option<i8>, i64, i64)> = index
+            .conn
+            .prepare("SELECT path, rating, flag, dirty FROM ratings ORDER BY path")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            [
+                ("/picked.ARW".to_string(), Some(3), 1, 0),
+                ("/plain.ARW".to_string(), Some(2), 0, 0),
+                ("/rejected.ARW".to_string(), None, 2, 1),
+            ]
+        );
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/rejected.ARW".to_string(), None, Flag::Reject, None, true)]
+        );
+        let stats: Vec<(String, Option<i64>, Option<i64>)> = index
+            .conn
+            .prepare("SELECT path, xmp_size, xmp_mtime_ns FROM ratings ORDER BY path")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            stats,
+            [
+                ("/picked.ARW".to_string(), None, None),
+                ("/plain.ARW".to_string(), None, None),
+                ("/rejected.ARW".to_string(), Some(10), Some(20)),
+            ],
+            "the stat of clean rows is invalidated so reconcile_sidecars re-parses \
+             them with the real readers, but a dirty row keeps its stat"
+        );
 
         remove_temp_dir(&dir);
     }
@@ -1305,9 +1445,10 @@ mod tests {
         let mut index = open(&dir);
         index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
         index
-            .set_rating("d", &path, Some(-1), false, None, true)
+            .set_rating("d", &path, Some(2), Flag::Reject, None, true)
             .unwrap();
-        assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
+        let judged = &index.entries("d").unwrap()[0];
+        assert_eq!((judged.rating, judged.flag), (Some(2), Flag::Reject));
 
         // A reconcile that drops the `files` row must leave `ratings` alone:
         // the sidecar, not the scan, is what a rating belongs to.
@@ -1315,34 +1456,35 @@ mod tests {
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [(path.clone(), Some(-1), false, None, true)]
+            [(path.clone(), Some(2), Flag::Reject, None, true)]
         );
 
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
-        assert_eq!(index.entries("d").unwrap()[0].rating, Some(-1));
+        let judged = &index.entries("d").unwrap()[0];
+        assert_eq!((judged.rating, judged.flag), (Some(2), Flag::Reject));
 
         remove_temp_dir(&dir);
     }
 
     #[test]
-    fn clearing_everything_nulls_the_rating_pick_and_label_of_a_row() {
+    fn clearing_everything_nulls_the_rating_flag_and_label_of_a_row() {
         let dir = temp_dir("clear-all");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(4), true, Some("Red"), true)
+            .set_rating("d", "/a.ARW", Some(4), Flag::Pick, Some("Red"), true)
             .unwrap();
         index
-            .mark_written("/a.ARW", Some(4), true, Some("Red"), true, None)
+            .mark_written("/a.ARW", Some(4), Flag::Pick, Some("Red"), true, None)
             .unwrap();
 
         index
-            .set_rating("d", "/a.ARW", None, false, None, true)
+            .set_rating("d", "/a.ARW", None, Flag::None, None, true)
             .unwrap();
 
         let row: (Option<i8>, i64, Option<String>, i64, i64) = index
             .conn
             .query_row(
-                "SELECT rating, pick, label, label_known, dirty FROM ratings WHERE path = ?1",
+                "SELECT rating, flag, label, label_known, dirty FROM ratings WHERE path = ?1",
                 ["/a.ARW"],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
@@ -1357,34 +1499,34 @@ mod tests {
         let dir = temp_dir("written");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(3), false, None, true)
+            .set_rating("d", "/a.ARW", Some(3), Flag::None, None, true)
             .unwrap();
 
         assert!(index
-            .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
+            .mark_written("/a.ARW", Some(3), Flag::None, None, true, Some((42, 7)))
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
         index
-            .set_rating("d", "/a.ARW", Some(5), false, None, true)
+            .set_rating("d", "/a.ARW", Some(5), Flag::None, None, true)
             .unwrap();
         assert!(
             !index
-                .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
+                .mark_written("/a.ARW", Some(3), Flag::None, None, true, Some((42, 7)))
                 .unwrap(),
             "a keypress during the write keeps the row dirty"
         );
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(5), false, None, true)]
+            [("/a.ARW".to_string(), Some(5), Flag::None, None, true)]
         );
 
         // An unrated row is matched by NULL, not skipped.
         index
-            .set_rating("d", "/a.ARW", None, false, None, true)
+            .set_rating("d", "/a.ARW", None, Flag::None, None, true)
             .unwrap();
         assert!(index
-            .mark_written("/a.ARW", None, false, None, true, None)
+            .mark_written("/a.ARW", None, Flag::None, None, true, None)
             .unwrap());
         assert!(index.dirty_rows("d").unwrap().is_empty());
 
@@ -1397,20 +1539,27 @@ mod tests {
         let mut index = open(&dir);
         // An unknown-label write for "Red" is in flight...
         index
-            .set_rating("d", "/a.ARW", Some(3), false, None, false)
+            .set_rating("d", "/a.ARW", Some(3), Flag::None, None, false)
             .unwrap();
 
-        // ...but a newer judgement with the same rating/pick asserts "Blue"
+        // ...but a newer judgement with the same rating/flag asserts "Blue"
         // before that write lands.
         index
-            .set_rating("d", "/a.ARW", Some(3), false, Some("Blue"), true)
+            .set_rating("d", "/a.ARW", Some(3), Flag::None, Some("Blue"), true)
             .unwrap();
 
         // The stale unknown-label write must not overwrite the newer,
         // known label, and must leave the row dirty so it is retried.
         assert!(
             !index
-                .mark_written("/a.ARW", Some(3), false, Some("Red"), false, Some((42, 7)))
+                .mark_written(
+                    "/a.ARW",
+                    Some(3),
+                    Flag::None,
+                    Some("Red"),
+                    false,
+                    Some((42, 7))
+                )
                 .unwrap(),
             "a row that has since asserted a different label is left dirty"
         );
@@ -1419,7 +1568,7 @@ mod tests {
             [(
                 "/a.ARW".to_string(),
                 Some(3),
-                false,
+                Flag::None,
                 Some("Blue".to_string()),
                 true
             )]
@@ -1433,22 +1582,22 @@ mod tests {
         let dir = temp_dir("reset-sidecars");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(3), false, None, true)
+            .set_rating("d", "/a.ARW", Some(3), Flag::None, None, true)
             .unwrap();
         assert!(index
-            .mark_written("/a.ARW", Some(3), false, None, true, Some((42, 7)))
+            .mark_written("/a.ARW", Some(3), Flag::None, None, true, Some((42, 7)))
             .unwrap());
         index
-            .set_rating("d", "/b.ARW", Some(5), false, None, true)
+            .set_rating("d", "/b.ARW", Some(5), Flag::None, None, true)
             .unwrap();
         index
             .store_sidecar_ratings(
                 "d",
-                &[("/b.ARW".to_string(), Some(5), false, None, 9, 9, true)],
+                &[("/b.ARW".to_string(), Some(5), Flag::None, None, 9, 9, true)],
             )
             .unwrap();
         index
-            .set_rating("d", "/b.ARW", Some(-1), false, None, true)
+            .set_rating("d", "/b.ARW", None, Flag::Reject, None, true)
             .unwrap();
 
         index.reset_sidecars().unwrap();
@@ -1464,41 +1613,52 @@ mod tests {
         assert_eq!(rows, [("/b.ARW".to_string(), true)]);
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/b.ARW".to_string(), Some(-1), false, None, true)]
+            [("/b.ARW".to_string(), None, Flag::Reject, None, true)]
         );
 
         remove_temp_dir(&dir);
     }
 
     #[test]
-    fn a_pick_is_stored_beside_the_rating_and_guards_mark_written() {
-        let dir = temp_dir("pick");
+    fn a_flag_is_stored_beside_the_rating_and_guards_mark_written() {
+        let dir = temp_dir("flag");
         let a = file(&dir, "a.ARW", b"a");
         let path = a.path.to_string_lossy().into_owned();
         let mut index = open(&dir);
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
-        assert!(!index.entries("d").unwrap()[0].pick, "no ratings row");
+        assert_eq!(
+            index.entries("d").unwrap()[0].flag,
+            Flag::None,
+            "no ratings row"
+        );
 
         index
-            .set_rating("d", &path, Some(3), true, None, true)
+            .set_rating("d", &path, Some(3), Flag::Pick, None, true)
             .unwrap();
         let entry = &index.entries("d").unwrap()[0];
-        assert_eq!((entry.rating, entry.pick), (Some(3), true));
+        assert_eq!((entry.rating, entry.flag), (Some(3), Flag::Pick));
 
         assert!(
             !index
-                .mark_written(&path, Some(3), false, None, true, None)
+                .mark_written(&path, Some(3), Flag::None, None, true, None)
                 .unwrap(),
             "an unpick during the write keeps the row dirty"
         );
         assert!(index
-            .mark_written(&path, Some(3), true, None, true, None)
+            .mark_written(&path, Some(3), Flag::Pick, None, true, None)
             .unwrap());
 
         index
-            .store_sidecar_ratings("d", &[(path.clone(), Some(0), false, None, 1, 2, false)])
+            .store_sidecar_ratings(
+                "d",
+                &[(path.clone(), Some(0), Flag::None, None, 1, 2, false)],
+            )
             .unwrap();
-        assert!(!index.entries("d").unwrap()[0].pick, "the sidecar wins");
+        assert_eq!(
+            index.entries("d").unwrap()[0].flag,
+            Flag::None,
+            "the sidecar wins"
+        );
 
         remove_temp_dir(&dir);
     }
@@ -1513,21 +1673,21 @@ mod tests {
         assert_eq!(index.entries("d").unwrap()[0].label, None, "no ratings row");
 
         index
-            .set_rating("d", &path, Some(3), false, Some("Red"), true)
+            .set_rating("d", &path, Some(3), Flag::None, Some("Red"), true)
             .unwrap();
         assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
 
         assert!(
             !index
-                .mark_written(&path, Some(3), false, Some("Blue"), true, None)
+                .mark_written(&path, Some(3), Flag::None, Some("Blue"), true, None)
                 .unwrap(),
             "a relabel during the write keeps the row dirty"
         );
         assert!(!index
-            .mark_written(&path, Some(3), false, None, true, None)
+            .mark_written(&path, Some(3), Flag::None, None, true, None)
             .unwrap());
         assert!(index
-            .mark_written(&path, Some(3), false, Some("Red"), true, None)
+            .mark_written(&path, Some(3), Flag::None, Some("Red"), true, None)
             .unwrap());
 
         remove_temp_dir(&dir);
@@ -1545,7 +1705,7 @@ mod tests {
         // as `None`: a later sidecar parse still needs to be free to fill it
         // in, and mark_written must not be guarded on a value never asserted.
         index
-            .set_rating("d", &path, Some(3), false, None, false)
+            .set_rating("d", &path, Some(3), Flag::None, None, false)
             .unwrap();
         assert_eq!(
             index.entries("d").unwrap()[0].label,
@@ -1560,7 +1720,15 @@ mod tests {
         index
             .store_sidecar_ratings(
                 "d",
-                &[(path.clone(), Some(3), false, Some("Red".into()), 1, 2, true)],
+                &[(
+                    path.clone(),
+                    Some(3),
+                    Flag::None,
+                    Some("Red".into()),
+                    1,
+                    2,
+                    true,
+                )],
             )
             .unwrap();
         assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
@@ -1572,7 +1740,7 @@ mod tests {
         // later replay of a still-dirty row (see `dirty_rows`) never sends
         // "no label" and strips it.
         assert!(index
-            .mark_written(&path, Some(3), false, Some("Red"), false, None)
+            .mark_written(&path, Some(3), Flag::None, Some("Red"), false, None)
             .unwrap());
         assert_eq!(
             index.entries("d").unwrap()[0].label.as_deref(),
@@ -1584,11 +1752,17 @@ mod tests {
         // that now-known label untouched, and a replay of the resulting
         // dirty row carries it as known.
         index
-            .set_rating("d", &path, Some(4), false, None, false)
+            .set_rating("d", &path, Some(4), Flag::None, None, false)
             .unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [(path.clone(), Some(4), false, Some("Red".to_string()), true)],
+            [(
+                path.clone(),
+                Some(4),
+                Flag::None,
+                Some("Red".to_string()),
+                true
+            )],
             "the row survives a crash before the writer drains it: a replay must \
              not treat the label as unknown and strip it from the sidecar"
         );
@@ -1601,7 +1775,7 @@ mod tests {
         let dir = temp_dir("reset-label");
         let mut index = open(&dir);
         index
-            .set_rating("d", "/a.ARW", Some(2), true, Some("Green"), true)
+            .set_rating("d", "/a.ARW", Some(2), Flag::Pick, Some("Green"), true)
             .unwrap();
 
         index.reset_sidecars().unwrap();
@@ -1611,7 +1785,7 @@ mod tests {
             [(
                 "/a.ARW".to_string(),
                 Some(2),
-                true,
+                Flag::Pick,
                 Some("Green".to_string()),
                 true
             )]
@@ -1646,7 +1820,7 @@ mod tests {
         let index = Index::open(&db).unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), true, None, true)]
+            [("/a.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
@@ -1654,14 +1828,14 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
     }
 
     #[test]
-    fn a_v2_database_gains_the_pick_column_and_keeps_its_dirty_rows() {
+    fn a_v2_database_gains_the_flag_column_and_keeps_its_dirty_rows() {
         let dir = temp_dir("migrate-v2");
         let db = dir.join("index.sqlite");
         {
@@ -1684,11 +1858,11 @@ mod tests {
         let index = Index::open(&db).unwrap();
         assert_eq!(
             index.dirty_rows("d").unwrap(),
-            [("/a.ARW".to_string(), Some(4), false, None, true)]
+            [("/a.ARW".to_string(), Some(4), Flag::None, None, true)]
         );
         drop(index);
         let index = Index::open(&db).unwrap();
-        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v6");
+        assert_eq!(index.dirty_rows("d").unwrap().len(), 1, "a reopen is v11");
 
         remove_temp_dir(&dir);
     }
@@ -1705,25 +1879,28 @@ mod tests {
         assert!(!has_sidecar(&index), "no ratings row");
 
         index
-            .set_rating("d", &path, Some(3), false, None, true)
+            .set_rating("d", &path, Some(3), Flag::None, None, true)
             .unwrap();
         assert!(!has_sidecar(&index), "dirty row, nothing written yet");
 
         assert!(index
-            .mark_written(&path, Some(3), false, None, true, Some((42, 7)))
+            .mark_written(&path, Some(3), Flag::None, None, true, Some((42, 7)))
             .unwrap());
         assert!(has_sidecar(&index));
 
         index
-            .set_rating("d", &path, None, false, None, true)
+            .set_rating("d", &path, None, Flag::None, None, true)
             .unwrap();
         assert!(index
-            .mark_written(&path, None, false, None, true, None)
+            .mark_written(&path, None, Flag::None, None, true, None)
             .unwrap());
         assert!(!has_sidecar(&index));
 
         index
-            .store_sidecar_ratings("d", &[(path.clone(), Some(-1), false, None, 10, 20, false)])
+            .store_sidecar_ratings(
+                "d",
+                &[(path.clone(), None, Flag::Reject, None, 10, 20, false)],
+            )
             .unwrap();
         assert!(has_sidecar(&index));
 
@@ -2048,7 +2225,7 @@ mod tests {
                 "old",
                 &synthetic(&dir, 0).path.to_string_lossy(),
                 Some(3),
-                false,
+                Flag::None,
                 None,
                 true,
             )
@@ -2057,7 +2234,7 @@ mod tests {
             .mark_written(
                 &synthetic(&dir, 0).path.to_string_lossy(),
                 Some(3),
-                false,
+                Flag::None,
                 None,
                 true,
                 None,
@@ -2119,7 +2296,7 @@ mod tests {
             .write_batch("d", &[(synthetic(&dir, 0), Ok(entry()))])
             .unwrap();
         index
-            .set_rating("d", &path, Some(5), true, None, true)
+            .set_rating("d", &path, Some(5), Flag::Pick, None, true)
             .unwrap();
         set_opened_at(&index, "d", 0);
 
@@ -2220,7 +2397,7 @@ mod tests {
             .write_batch("d", &[(synthetic(&dir, 0), Ok(entry()))])
             .unwrap();
         index
-            .set_rating("d", &path, Some(5), true, None, true)
+            .set_rating("d", &path, Some(5), Flag::Pick, None, true)
             .unwrap();
         set_opened_at(&index, "d", NOW);
 
@@ -2253,7 +2430,11 @@ mod tests {
             index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
             index
                 .conn
-                .execute_batch("DROP TABLE folders; PRAGMA user_version = 7;")
+                .execute_batch(
+                    "DROP TABLE folders;
+                     ALTER TABLE ratings RENAME COLUMN flag TO pick;
+                     PRAGMA user_version = 7;",
+                )
                 .unwrap();
         }
 
@@ -2262,7 +2443,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), None);
 
@@ -2282,6 +2463,7 @@ mod tests {
                 .conn
                 .execute_batch(
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
+                     ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      PRAGMA user_version = 8;",
                 )
                 .unwrap();
@@ -2292,7 +2474,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index
@@ -2319,6 +2501,7 @@ mod tests {
                 .conn
                 .execute_batch(
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
+                     ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      PRAGMA user_version = 9;",
                 )
                 .unwrap();
@@ -2329,7 +2512,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index

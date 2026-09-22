@@ -3,19 +3,19 @@ import { rejectedPaths, trashedStatus } from "./trash.js";
 
 describe("rejectedPaths", () => {
   test("keeps the rejects in the given order", () => {
-    const ratings = new Map([
-      ["/a.ARW", -1],
-      ["/b.ARW", 3],
-      ["/c.ARW", -1],
+    const flags = new Map<string, "pick" | "reject">([
+      ["/a.ARW", "reject"],
+      ["/b.ARW", "pick"],
+      ["/c.ARW", "reject"],
     ]);
-    expect(rejectedPaths(["/a.ARW", "/b.ARW", "/c.ARW", "/d.ARW"], ratings)).toEqual([
+    expect(rejectedPaths(["/a.ARW", "/b.ARW", "/c.ARW", "/d.ARW"], flags)).toEqual([
       "/a.ARW",
       "/c.ARW",
     ]);
   });
 
   test("is empty without a reject", () => {
-    expect(rejectedPaths(["/a.ARW"], new Map([["/a.ARW", 0]]))).toEqual([]);
+    expect(rejectedPaths(["/a.ARW"], new Map([["/a.ARW", "pick"]]))).toEqual([]);
   });
 });
 

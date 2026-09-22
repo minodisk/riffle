@@ -9,7 +9,7 @@ const defaults = [
 
 describe("flagMenuItems", () => {
   test("shows the default keys", () => {
-    expect(flagMenuItems(defaults, "dop")).toEqual([
+    expect(flagMenuItems(defaults)).toEqual([
       { action: "pick", label: "Pick", shortcut: "p" },
       { action: "reject", label: "Reject", shortcut: "x" },
       { action: "unflag", label: "Unflag", shortcut: "u" },
@@ -18,20 +18,16 @@ describe("flagMenuItems", () => {
 
   test("shows an overridden key", () => {
     const bindings = [...defaults.slice(0, 2), { action: "unflag", keys: ["space"] }];
-    expect(flagMenuItems(bindings, "dop")[2]?.shortcut).toBe("Space");
+    expect(flagMenuItems(bindings)[2]?.shortcut).toBe("Space");
   });
 
   test("shows the first key when an action has several", () => {
     const bindings = [{ action: "reject", keys: ["d", "x"] }, ...defaults.slice(2)];
-    expect(flagMenuItems(bindings, "xmp")[0]?.shortcut).toBe("d");
-  });
-
-  test("drops pick under XMP", () => {
-    expect(flagMenuItems(defaults, "xmp").map((item) => item.action)).toEqual(["reject", "unflag"]);
+    expect(flagMenuItems(bindings)[1]?.shortcut).toBe("d");
   });
 
   test("gives an empty shortcut for an unbound action", () => {
-    expect(flagMenuItems([], "dop").map((item) => item.shortcut)).toEqual(["", "", ""]);
+    expect(flagMenuItems([]).map((item) => item.shortcut)).toEqual(["", "", ""]);
   });
 });
 
