@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1](https://github.com/minodisk/riffle/compare/v0.2.0...v0.2.1) (2026-09-22)
+
+
+### Features
+
+* **app:** add a momentary grayscale preview on a held key ([#338](https://github.com/minodisk/riffle/issues/338)) ([bf7f2f2](https://github.com/minodisk/riffle/commit/bf7f2f20685ddb3fd319e33900479729b064f162))
+* **app:** add side-by-side comparison view ([#340](https://github.com/minodisk/riffle/issues/340)) ([1d4387d](https://github.com/minodisk/riffle/commit/1d4387d3698da6c95a59d6ef4cf26a07e6a6fe0e))
+* **app:** carry the tri-state pick / reject flag through the app ([#343](https://github.com/minodisk/riffle/issues/343)) ([e442942](https://github.com/minodisk/riffle/commit/e442942817b8795b0c040b07a3377bbacd7ae73f))
+* **core:** add a tri-state pick / reject flag with xmpDM:good ([#341](https://github.com/minodisk/riffle/issues/341)) ([acdd0fa](https://github.com/minodisk/riffle/commit/acdd0fa81597833d08186229165573be42a73470))
+* **core:** read and write photoshop:LabelColor colour labels ([#342](https://github.com/minodisk/riffle/issues/342)) ([dddb12b](https://github.com/minodisk/riffle/commit/dddb12bc0544c6bc6d14929f416ebcac93879c92))
+
 ## [0.2.0](https://github.com/minodisk/riffle/compare/v0.1.10...v0.2.0) (2026-09-22)
 
 
