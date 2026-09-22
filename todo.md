@@ -60,11 +60,12 @@ The Updating paragraph in `docs/usage.md` describes a background download and in
 
 ### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
 
-Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimetres); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count.
+Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimetres); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count. Sony's α7 V MakerNote also stores `FocusFrameSize` (tag 0x2037) as `UNDEFINED[6]` (type 7, count 6), not `SHORT[3]` — exiftool only reinterprets it as `int16u[3]`. A reader that only accepts `SHORT[3]` returns `None` on real files (verified on `_DSC3590.ARW`); the parser now accepts both encodings.
 
 #### TODO
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
+- [ ] Also cover the `FocusFrameSize` `UNDEFINED[6]`-vs-`SHORT[3]` quirk, linking `docs/plans/_archived/20260922-sony-eye-af-window/learnings.md` (Step 1) alongside the Leica one.
 
 ### Docs: consider a guide for verifying Pillow pixel edits
 
@@ -302,6 +303,11 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Optionally, detect closed eyes from the landmarks.
 - [ ] Store the face region in the SQLite index and suggest the sharpest-eye
       frame within a burst group.
+- [ ] Spot-check whether the sharpness ranking within a burst changes now
+      that Sony frames with face tracking are scored on the camera's AF frame
+      instead of YuNet's eye midpoint. Needs a per-file score output
+      (`riffle-cli scan` prints none). Files: `crates/core/src/sharpness.rs`,
+      `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 

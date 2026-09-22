@@ -47,6 +47,14 @@
   score output; basis: Step 2 implementation. Files:
   `crates/core/src/sharpness.rs`, `crates/core/src/scan.rs`,
   `crates/cli/src/main.rs`.
+- Add to the existing todo "Docs: write a guide for RAW metadata parsing
+  (`docs/agents/raw-metadata-parsing.md`)" (from wrap-up learnings
+  extraction; merge, do not duplicate): real Sony α7 V files store
+  `FocusFrameSize` (MakerNote 0x2037) as `UNDEFINED[6]` (type 7, count 6),
+  not `SHORT[3]`; exiftool only reinterprets it. A reader accepting only
+  `SHORT[3]` returned `None` on real files (`_DSC3590.ARW`); the parser now
+  accepts both. Basis: Step 1 above. Done when: the guide, once written,
+  includes this point.
 
 ## Step 3
 
