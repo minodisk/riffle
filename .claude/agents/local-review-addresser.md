@@ -78,8 +78,8 @@ You are given:
    file update), always after the Markdown updates:
    - `mise run fmt` → `mise run ci`
    - `mise run ci` can take close to 10 minutes, so pass the maximum `timeout`
-     of `600000` (ms) explicitly to the Bash tool (the 6-minute default would
-     cut it off). **Do not set `run_in_background: true`** (a subagent exits the
+     of `600000` (ms) explicitly to the Bash tool (the default timeout
+     can be as low as 120 s and would cut it off). **Do not set `run_in_background: true`** (a subagent exits the
      moment its turn ends, leaving nobody to receive the completion notice)
 6. Once the checks pass, `git add` **only the files you actually fixed this
    round and the review history file** by path (`git add .` and `git add -A` are

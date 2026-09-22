@@ -6,7 +6,7 @@ description: Merges a PR, sees the post-merge runs through to completion, and de
 model: sonnet
 name: merger
 permissionMode: default
-tools: Bash, Read
+tools: Bash, Read, TaskStop
 ---
 
 You are the merge execution agent. You merge the PR, see through to completion
@@ -59,6 +59,10 @@ You are given:
 bash .claude/skills/pr/scripts/wait-pr-actionable.sh <PR-number>
 ```
 
+Pass the Bash tool's `timeout` of `600000` (ms) explicitly on every run: the
+default foreground timeout can be as low as 120 s, far shorter than one
+240-second slice.
+
 Hold two integer counters, `pr_wait_timeouts` and `pr_status_failures`, **in
 your own conversation** (not as shell variables). Branch on the exit code.
 
@@ -90,6 +94,13 @@ the background task's completion notice, and reporting "waiting for a notice"
 and ending your turn drops the watching onto the caller (a trap `pr-runner`
 actually hit and has since fixed). Express a long wait by ticking it off in the
 foreground while counting.
+
+**If the harness nonetheless reports that a command was moved to the
+background, do not improvise `sleep` / `until` polling or any other waiting
+command.** Re-run the same script in the foreground with `timeout: 600000`
+(the counters keep counting exit 2 as before). **Before handing back any
+result, stop every background task of your own that is still running with
+`TaskStop`**, so nothing lingers after the hand-back.
 
 ### 2. Approval judgement
 
@@ -158,6 +169,10 @@ the sync and cleanup just because it was already merged.
 bash .claude/skills/merge/scripts/wait-post-merge-runs.sh --max-wait=240 <merge commit SHA>
 ```
 
+Pass the Bash tool's `timeout` of `600000` (ms) explicitly on every run: the
+default foreground timeout can be as low as 120 s, far shorter than one
+240-second slice.
+
 Depending on what changed, the main commit after a squash-merge automatically
 starts workflows. Reporting completion just because "the PR closed" misses
 whether those actually succeeded.
@@ -196,10 +211,18 @@ is success", so the caller can judge.
 
 **Do not drop `--max-wait=240` or switch to `run_in_background: true`.** The
 default `MAX_WAIT` is 1800 seconds (30 minutes), which the Bash tool's
-foreground execution (6 minutes by default, 10 at most) would kill, leaving the
-exit code unobservable. Tick it off in the foreground in 240-second slices and
-express the total wait with the counter (backgrounding is impossible for the
-same reason as step 1).
+foreground execution (whose default timeout can be as low as 120 s, and 600 s
+at most even with `timeout: 600000`) would kill, leaving the exit code
+unobservable. Tick it off in the foreground in 240-second slices with
+`timeout: 600000` and express the total wait with the counter (backgrounding is
+impossible for the same reason as step 1).
+
+**If the harness nonetheless reports that a command was moved to the
+background, do not improvise `sleep` / `until` polling or any other waiting
+command.** Re-run the same script in the foreground with `timeout: 600000`
+(the counters keep counting exit 2 as before). **Before handing back any
+result, stop every background task of your own that is still running with
+`TaskStop`**, so nothing lingers after the hand-back.
 
 A `superseded` row can appear in the table. That is a workflow with
 `cancel-in-progress` concurrency caught by another merge right after, which is
