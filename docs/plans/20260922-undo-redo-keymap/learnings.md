@@ -13,3 +13,11 @@
 - Manual GUI verification (Windows `mise run tauri:dev`: one press undoes /
   redoes once, Edit menu labels, rebinding) was not possible from this agent
   session; it remains a manual check.
+
+## Step 2
+
+- The Windows run behind the 2026-09-22 results predates Step 1, so the new
+  undo / redo keys are unverified on Windows too; `todo.md` got a Windows
+  check alongside the macOS one instead of a "Windows passed" note.
+- The `open entries` section was retitled, since the second call turned out
+  to come from the post-scan rescan rather than a redundant frontend call.

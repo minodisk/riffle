@@ -20,7 +20,7 @@ The "End to end, keypress to pixels" section of docs/performance.md still says `
 
 ### App: a scan can be started twice after a cache clear / focus rescan
 
-In the Windows real-folder measurement, after a cache clear `scan_id` N was superseded by N+1 with no `scan extract` line for N, and two focus rescans once fired at the same instant. This may be one bug or two. Files: `crates/app/src/commands.rs` (`scan_folder`), `crates/app/src/watch.rs`, the settings-window clear-cache path.
+In the Windows real-folder measurement, after a cache clear `scan_id` N was superseded by N+1 with no `scan extract` line for N, and two focus rescans once fired at the same instant. It reproduced on 2026-09-22 (Windows 11, v0.2.0): `scan_id=3` and `4` started in the same second at 04:39:40. This may be one bug or two. Files: `crates/app/src/commands.rs` (`scan_folder`), `crates/app/src/watch.rs`, the settings-window clear-cache path.
 
 #### TODO
 
@@ -28,19 +28,19 @@ In the Windows real-folder measurement, after a cache clear `scan_id` N was supe
 
 ### App: cold first scan on an internal SSD is far slower than the extrapolation
 
-A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown.
+A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown. A later data point (Windows 11, v0.2.0, 2026-09-22): a cold first scan after an index schema change took 25.5s on 3045 Sony ARW (~8.4ms/file, ~42s extrapolated to 5000), against the earlier 16-19ms/file; it is unknown whether the OS cache was cold for that run.
 
 #### TODO
 
 - [ ] Run `riffle-cli scan` on a cold real folder on Windows at thread counts 1 / 4 / 8 / 22 (cold each run) to separate IO concurrency from per-file cost, and compare the bounded 1MiB read against reading the whole file.
 
-### App: `open entries` is called twice per folder open
+### App: `open entries` is called again after a scan's follow-up rescan
 
-In the Windows real-folder measurement, the log shows two `open entries` lines (56ms and 76ms on 2677 files) for one folder open.
+In the Windows real-folder measurement, the log showed two `open entries` lines (56ms and 76ms on 2677 files) for one folder open. A later run (Windows 11, v0.2.0, 2026-09-22) showed a plain folder open logs one `open entries` (seen at 03:15 and 04:00); the extra call appears after scan-done when a follow-up rescan runs (`scan_id=2` immediately after the cold scan finished at 04:39:37).
 
 #### TODO
 
-- [ ] Find the second caller (frontend `crates/app/ui/src/main.ts` / backend `crates/app/src/commands.rs`) and remove the redundant call, or document why both are needed.
+- [ ] Find why a follow-up rescan starts right after a cold scan finishes and whether its `open entries` is needed (`crates/app/src/commands.rs` `scan_folder`, `crates/app/ui/src/main.ts`); remove it or document why it is needed.
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 
@@ -52,11 +52,13 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 
 ### App: the silent update path is unverified end-to-end
 
-The Updating paragraph in `docs/usage.md` describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time.
+The Updating paragraph in `docs/usage.md` describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time. The background flow is verified on Windows 11 (2026-09-22): 0.1.10 downloaded 0.2.0, installed it on quit, and launched as 0.2.0.
 
 #### TODO
 
-- [ ] Verify the update path once a newer release is out: install the current release, publish the next one, then launch the installed build (and separately, use **Check for Updates…**). Done when the background flow installs the newer release after the signature check and it is used on the next launch, and the menu item reports the up-to-date / installed / already-installed outcomes correctly, on macOS, Windows, and Linux AppImage.
+- [x] Background update flow on Windows (Windows 11, 0.1.10 -> 0.2.0, 2026-09-22): downloaded, installed on quit, launched as 0.2.0.
+- [ ] Verify the **Check for Updates…** menu item reports the up-to-date / installed / already-installed outcomes correctly on macOS, Windows, and Linux AppImage.
+- [ ] Verify the background flow on macOS and Linux AppImage: install the current release, publish the next one, then launch the installed build. Done when the newer release is installed after the signature check and used on the next launch.
 
 ### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
 
@@ -156,6 +158,13 @@ both File items work by mouse. Files: `crates/app/src/main.rs`
 (`app_menu`), `crates/app/src/shortcuts.rs`, `crates/app/src/commands.rs`
 (`update_keymap`), `crates/app/ui/src/main.ts`.
 
+Since `undo-redo-keymap`, `Edit > Undo` / `Edit > Redo` are keymap actions
+too (`Cmd+Z` / `Shift+Cmd+Z` on macOS, `Ctrl+Z` / `Ctrl+Shift+Z`
+elsewhere), run by the frontend keydown with keymap-derived menu
+accelerators. Before that change, `Ctrl+Z` did nothing on Windows 11
+(v0.2.0) while clicking the Edit items worked. The new keys have not been
+run by hand on any platform yet.
+
 #### TODO
 
 - [ ] On macOS, verify: one `Cmd+O` press opens the folder picker exactly
@@ -167,6 +176,18 @@ both File items work by mouse. Files: `crates/app/src/main.rs`
       window; pressing `Cmd+O`/`Shift+Cmd+O` while a shortcuts row is
       capturing does not trigger the menu action; both File menu items work
       via mouse click.
+- [ ] On macOS, verify: one `Cmd+Z` press undoes exactly once and one
+      `Shift+Cmd+Z` redoes exactly once (no double fire from keydown + the
+      Edit menu key equivalent); rebinding `undo`/`redo` updates the Edit
+      menu accelerator and kills the old key; both Edit items work via mouse
+      click. Files: `crates/app/src/main.rs` (`app_menu`),
+      `crates/app/src/shortcuts.rs`, `crates/app/ui/src/main.ts`.
+- [ ] On Windows (`mise run tauri:dev`), verify: one `Ctrl+Z` press undoes
+      exactly once and one `Ctrl+Shift+Z` redoes exactly once; the Edit menu
+      shows the accelerators; rebinding `undo`/`redo` updates the Edit menu
+      label in place (no `menu item undo not found` warning in the log) and
+      kills the old key; both Edit items work via mouse click. Files: same
+      as above, plus `crates/app/src/commands.rs` (`update_keymap`).
 - [ ] Verify the `Some`/`None` accelerator behaviour on Linux (only
       reasoned from muda 0.19.3's sources so far, never run; Windows passed).
 
@@ -253,16 +274,19 @@ development machine, so several behaviours were never exercised by a human.
       non-first member is filled, and the band is distinguishable from
       `.cell.current` and `.cell.failed`. Files: `crates/app/ui/src/burst.ts`,
       `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
+- [x] `Alt+ArrowUp` / `Alt+ArrowDown` (`burstFramePrevious` /
+      `burstFrameNext`) reach the app on Windows and step through bursts
+      (Windows 11, v0.2.0, 2026-09-22).
 - [ ] In `mise run tauri:dev`, confirm `Alt+ArrowUp` / `Alt+ArrowDown`
-      (`burstFramePrevious` / `burstFrameNext`) reach the app on Windows and
-      macOS, i.e. the webview does not swallow them, and step through a burst
-      stopping at its ends. Files: `crates/app/src/shortcuts.rs`,
-      `crates/app/ui/src/main.ts`.
-- [ ] Exercise `Shift+x` reject-rest and its one-step undo by hand on a real
-      burst folder. Files: `crates/app/ui/src/main.ts`.
-- [ ] On Windows, confirm the strip scrollbar is thin and dark and that the
-      thumbnail right edge and the burst bracket are no longer clipped; on
-      macOS, confirm the strip looks unchanged (160px wide). Files:
+      reach the app on macOS, i.e. the webview does not swallow them, and
+      step through a burst stopping at its ends. Files:
+      `crates/app/src/shortcuts.rs`, `crates/app/ui/src/main.ts`.
+- [x] `Shift+x` reject-rest and its one-step undo exercised by hand on a
+      real burst folder (Windows 11, v0.2.0, 2026-09-22).
+- [x] On Windows, the strip scrollbar is thin and dark and the thumbnail
+      right edge and the burst bracket are not clipped (Windows 11, v0.2.0,
+      2026-09-22).
+- [ ] On macOS, confirm the strip looks unchanged (160px wide). Files:
       `crates/app/ui/style.css`.
 
 ### App: an old shortcut override for `previous`/`next` can silently conflict with new burst defaults
