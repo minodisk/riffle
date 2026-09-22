@@ -110,4 +110,5 @@ and the pitfall is written down in `docs/agents/tauri-app.md`.
 
 ## Progress
 
-- (none yet)
+- 2026-09-22: Step 1 done: `refresh` patches accelerators in place on
+  non-macOS; Windows check deferred to the release build.
