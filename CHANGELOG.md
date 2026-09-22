@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.2](https://github.com/minodisk/riffle/compare/v0.2.1...v0.2.2) (2026-09-22)
+
+
+### Features
+
+* **app:** add the labelNames setting through the app ([#356](https://github.com/minodisk/riffle/issues/356)) ([d9eb60c](https://github.com/minodisk/riffle/commit/d9eb60c3ba63dcebb85f229fc73eec1a77a32a9a))
+* **app:** make undo and redo rebindable keymap actions ([#346](https://github.com/minodisk/riffle/issues/346)) ([e79c313](https://github.com/minodisk/riffle/commit/e79c313771896f42481a80fadf0e0c5366e71711))
+* **app:** replace the app icon with the contact-sheet design ([#361](https://github.com/minodisk/riffle/issues/361)) ([8b40f20](https://github.com/minodisk/riffle/commit/8b40f200019ea6b1f326f046dcea250c637356d1))
+* **app:** settings window for Lightroom label names ([#357](https://github.com/minodisk/riffle/issues/357)) ([6f15b9f](https://github.com/minodisk/riffle/commit/6f15b9f8dd4462e76a53418c05c5c9207630ddde))
+* **app:** show the Sony shutter type in the meta pane ([#352](https://github.com/minodisk/riffle/issues/352)) ([6929e51](https://github.com/minodisk/riffle/commit/6929e510e09ac58255c6c1ed154476e59d2d839f))
+* **core:** write and read configurable Lightroom label names ([#355](https://github.com/minodisk/riffle/issues/355)) ([fbea8b5](https://github.com/minodisk/riffle/commit/fbea8b5a839f7d2b0c580450551be1e3faab34fe))
+
 ## [0.2.1](https://github.com/minodisk/riffle/compare/v0.2.0...v0.2.1) (2026-09-22)
 
 
