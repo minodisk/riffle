@@ -42,13 +42,20 @@ mod app_menu {
         Ok(None)
     }
 
-    /// The app menu, with the `Open Folder…` and `Open in DxO PhotoLab`
-    /// accelerators the keymap currently gives those actions.
+    /// The app menu, with the `Open Folder…`, `Open in DxO PhotoLab`, `Undo`
+    /// and `Redo` accelerators the keymap currently gives those actions.
     pub fn build(
         handle: &AppHandle,
-        open: Option<&str>,
-        photolab_key: Option<&str>,
+        keymap: &crate::shortcuts::Keymap,
     ) -> tauri::Result<Menu<Wry>> {
+        let open = keymap.accelerator_for("open");
+        let open = open.as_deref();
+        let photolab_key = keymap.accelerator_for("photolab");
+        let photolab_key = photolab_key.as_deref();
+        let undo_key = keymap.accelerator_for("undo");
+        let undo_key = undo_key.as_deref();
+        let redo_key = keymap.accelerator_for("redo");
+        let redo_key = redo_key.as_deref();
         // The default menu carries the platform's standard items (Quit, Copy,
         // ...), which setting a menu at all would otherwise replace.
         let menu = Menu::default(handle)?;
@@ -105,7 +112,7 @@ mod app_menu {
             true,
             None::<&str>,
         )?;
-        // A fixed accelerator, like Settings and Undo: reloading is not a
+        // A fixed accelerator, like Settings: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
         #[cfg(target_os = "macos")]
         let reload_folder = IconMenuItem::with_id(
@@ -249,10 +256,10 @@ mod app_menu {
                 Some(Image::from_bytes(include_bytes!(
                     "../icons/menu/arrow.uturn.backward.png"
                 ))?),
-                Some("CmdOrCtrl+Z"),
+                undo_key,
             )?;
             #[cfg(not(target_os = "macos"))]
-            let undo = MenuItem::with_id(handle, UNDO_ID, "Undo", true, Some("CmdOrCtrl+Z"))?;
+            let undo = MenuItem::with_id(handle, UNDO_ID, "Undo", true, undo_key)?;
             edit.insert(&undo, 0)?;
             #[cfg(target_os = "macos")]
             let redo = IconMenuItem::with_id(
@@ -263,23 +270,28 @@ mod app_menu {
                 Some(Image::from_bytes(include_bytes!(
                     "../icons/menu/arrow.uturn.forward.png"
                 ))?),
-                Some("CmdOrCtrl+Shift+Z"),
+                redo_key,
             )?;
             #[cfg(not(target_os = "macos"))]
-            let redo = MenuItem::with_id(handle, REDO_ID, "Redo", true, Some("CmdOrCtrl+Shift+Z"))?;
+            let redo = MenuItem::with_id(handle, REDO_ID, "Redo", true, redo_key)?;
             edit.insert(&redo, 1)?;
         }
         Ok(menu)
     }
 
-    /// Make both accelerators match the keymap. muda's macOS
+    /// Make the keymap-derived accelerators match the keymap. muda's macOS
     /// `set_accelerator(None)` does not clear a key equivalent, so macOS
     /// replaces the whole menu. Elsewhere a runtime `set_menu` turns the
     /// Windows dark menu bar white, so an existing menu is patched in place.
     pub fn refresh(app: &AppHandle, keymap: &crate::shortcuts::Keymap) -> tauri::Result<()> {
         #[cfg(not(target_os = "macos"))]
         if let Some(menu) = app.menu() {
-            for (id, action) in [(OPEN_FOLDER_ID, "open"), (PHOTOLAB_ID, "photolab")] {
+            for (id, action) in [
+                (OPEN_FOLDER_ID, "open"),
+                (PHOTOLAB_ID, "photolab"),
+                (UNDO_ID, "undo"),
+                (REDO_ID, "redo"),
+            ] {
                 let item = menu
                     .items()?
                     .iter()
@@ -293,11 +305,7 @@ mod app_menu {
             }
             return Ok(());
         }
-        let menu = build(
-            app,
-            keymap.accelerator_for("open").as_deref(),
-            keymap.accelerator_for("photolab").as_deref(),
-        )?;
+        let menu = build(app, keymap)?;
         app.set_menu(menu)?;
         Ok(())
     }

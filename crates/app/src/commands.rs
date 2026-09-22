@@ -1240,12 +1240,9 @@ pub fn reset_shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
     .unwrap_or_default()
 }
 
-/// The menu accelerators the keymap gives the two menu-backed actions.
-fn accelerators(keymap: &Keymap) -> (Option<String>, Option<String>) {
-    (
-        keymap.accelerator_for("open"),
-        keymap.accelerator_for("photolab"),
-    )
+/// The menu accelerators the keymap gives the menu-backed actions.
+fn accelerators(keymap: &Keymap) -> [Option<String>; 4] {
+    ["open", "photolab", "undo", "redo"].map(|action| keymap.accelerator_for(action))
 }
 
 /// Apply `change` to the keymap and save its overrides under `shortcuts`,

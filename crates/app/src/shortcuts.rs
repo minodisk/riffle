@@ -17,6 +17,16 @@ const PHOTOLAB_DEFAULT: &str = if MACOS {
     "ctrl+shift+o"
 };
 
+/// The default key of `undo`, the accelerator of `Edit > Undo`.
+const UNDO_DEFAULT: &str = if MACOS { "meta+z" } else { "ctrl+z" };
+
+/// The default key of `redo`, the accelerator of `Edit > Redo`.
+const REDO_DEFAULT: &str = if MACOS {
+    "shift+meta+z"
+} else {
+    "ctrl+shift+z"
+};
+
 /// Every action in the order the shortcuts panel shows them, with its
 /// default keys. A plain key is `event.key` lower-cased, with `" "` as
 /// `"space"`. With a modifier held, the name is `ctrl+alt+shift+meta+` (only
@@ -34,6 +44,8 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("extendNext", &["shift+arrowdown"]),
     ("open", &[OPEN_DEFAULT]),
     ("photolab", &[PHOTOLAB_DEFAULT]),
+    ("undo", &[UNDO_DEFAULT]),
+    ("redo", &[REDO_DEFAULT]),
     ("focus", &["f"]),
     ("zoom", &["z"]),
     ("grayscale", &["g"]),
@@ -60,14 +72,12 @@ const DEFAULTS: &[(&str, &[&str])] = &[
 ];
 
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
-/// `Menu::default`). The `Open Folder…` and `Open in DxO PhotoLab`
-/// accelerators are deliberately absent: each is derived from its own
+/// `Menu::default`). The `Open Folder…`, `Open in DxO PhotoLab`, `Undo` and
+/// `Redo` accelerators are deliberately absent: each is derived from its own
 /// action's keys, so it can never collide with another action, and once the
 /// action moves off a combination that combination is free again.
 const MACOS_MENU: &[&str] = &[
     "meta+,",
-    "meta+z",
-    "shift+meta+z",
     "meta+q",
     "meta+h",
     "alt+meta+h",
@@ -108,15 +118,7 @@ const MACOS_SYSTEM: &[&str] = &[
 /// Windows / Linux combinations owned by the app's menu; the keymap-derived
 /// accelerators are absent, as in `MACOS_MENU`.
 const OTHER_MENU: &[&str] = &[
-    "ctrl+,",
-    "ctrl+z",
-    "ctrl+shift+z",
-    "ctrl+x",
-    "ctrl+c",
-    "ctrl+v",
-    "ctrl+a",
-    "ctrl+m",
-    "alt+f4",
+    "ctrl+,", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+a", "ctrl+m", "alt+f4",
 ];
 
 /// Windows / Linux combinations owned by the OS; every `meta+` name is too,
@@ -582,6 +584,8 @@ mod tests {
             ("extendNext", "shift+arrowdown"),
             ("open", OPEN_DEFAULT),
             ("photolab", PHOTOLAB_DEFAULT),
+            ("undo", UNDO_DEFAULT),
+            ("redo", REDO_DEFAULT),
             ("focus", "f"),
             ("zoom", "z"),
             ("grayscale", "g"),
@@ -618,9 +622,13 @@ mod tests {
         if MACOS {
             assert_eq!(keys_of(&keymap, "open"), vec!["meta+o"]);
             assert_eq!(keys_of(&keymap, "photolab"), vec!["shift+meta+o"]);
+            assert_eq!(keys_of(&keymap, "undo"), vec!["meta+z"]);
+            assert_eq!(keys_of(&keymap, "redo"), vec!["shift+meta+z"]);
         } else {
             assert_eq!(keys_of(&keymap, "open"), vec!["ctrl+o"]);
             assert_eq!(keys_of(&keymap, "photolab"), vec!["ctrl+shift+o"]);
+            assert_eq!(keys_of(&keymap, "undo"), vec!["ctrl+z"]);
+            assert_eq!(keys_of(&keymap, "redo"), vec!["ctrl+shift+z"]);
         }
     }
 
@@ -670,6 +678,14 @@ mod tests {
             keymap.accelerator_for("photolab").as_deref(),
             Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
         );
+        assert_eq!(
+            keymap.accelerator_for("undo").as_deref(),
+            Some(if MACOS { "Cmd+Z" } else { "Ctrl+Z" })
+        );
+        assert_eq!(
+            keymap.accelerator_for("redo").as_deref(),
+            Some(if MACOS { "Shift+Cmd+Z" } else { "Ctrl+Shift+Z" })
+        );
         assert_eq!(keymap.accelerator_for("nope"), None);
         assert_eq!(keymap.accelerator_for("extendPrevious"), None);
         assert_eq!(keymap.accelerator_for("extendNext"), None);
@@ -698,7 +714,26 @@ mod tests {
             };
             assert_eq!(forbidden(open, macos), None, "{open}");
             assert_eq!(forbidden(photolab, macos), None, "{photolab}");
+            let undo = if macos { "meta+z" } else { "ctrl+z" };
+            let redo = if macos {
+                "shift+meta+z"
+            } else {
+                "ctrl+shift+z"
+            };
+            assert_eq!(forbidden(undo, macos), None, "{undo}");
+            assert_eq!(forbidden(redo, macos), None, "{redo}");
         }
+    }
+
+    #[test]
+    fn a_store_from_before_undo_redo_still_loads() {
+        let stored = json!({"pick": ["q"], "burstNext": ["n"]});
+        let keymap = Keymap::from_overrides(Some(&stored));
+        assert_eq!(keys_of(&keymap, "pick"), vec!["q"]);
+        assert_eq!(keys_of(&keymap, "burstNext"), vec!["n"]);
+        assert_eq!(keys_of(&keymap, "undo"), vec![UNDO_DEFAULT]);
+        assert_eq!(keys_of(&keymap, "redo"), vec![REDO_DEFAULT]);
+        assert_eq!(keymap.overrides(), stored);
     }
 
     #[test]
@@ -891,16 +926,10 @@ mod tests {
         );
         assert_eq!(forbidden("meta+k", true), None);
         assert_eq!(forbidden("meta+arrowleft", true), None);
-        assert_eq!(
-            forbidden("shift+meta+z", true),
-            Some("is a menu accelerator")
-        );
-        assert_eq!(forbidden("ctrl+z", true), None);
-        assert_eq!(forbidden("ctrl+z", false), Some("is a menu accelerator"));
-        assert_eq!(
-            forbidden("ctrl+shift+z", false),
-            Some("is a menu accelerator")
-        );
+        assert_eq!(forbidden("meta+c", true), Some("is a menu accelerator"));
+        assert_eq!(forbidden("ctrl+c", true), None);
+        assert_eq!(forbidden("ctrl+c", false), Some("is a menu accelerator"));
+        assert_eq!(forbidden("ctrl+,", false), Some("is a menu accelerator"));
         assert_eq!(forbidden("alt+f4", false), Some("is a menu accelerator"));
         assert_eq!(
             forbidden("alt+tab", false),
@@ -922,7 +951,7 @@ mod tests {
 
     #[test]
     fn add_refuses_a_forbidden_key() {
-        let key = if MACOS { "meta+z" } else { "ctrl+z" };
+        let key = if MACOS { "meta+," } else { "ctrl+," };
         let mut keymap = Keymap::defaults();
         assert_eq!(
             keymap.add("reject", key),

@@ -264,8 +264,10 @@ finds them in `Menu::default` by title and inserts into them: `Settings...`
 (`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
 `Open in DxO PhotoLab` at the top of `File`. Linux's default has no `File`, so
 one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
-that owns `CmdOrCtrl+Z`; the app's `Undo` (emitting `undo` to the frontend)
-replaces that pair rather than being added next to it. The replacement only
+that owns `CmdOrCtrl+Z`; the app's `Undo` / `Redo` (emitting `undo` / `redo`
+to the frontend) replace that pair rather than being added next to it. Their
+accelerators come from the keymap's `undo` / `redo` actions, like the two File
+items, so the frontend keydown runs the keys and the menu only mirrors them. The replacement only
 fires when the item at position 0 is still `MenuItemKind::Predefined`, so a
 Tauri reordering cannot make it silently remove the wrong item. Settings themselves (sidecar format, shortcuts, the
 dev-only timing logs) live in a separate `settings` window
@@ -289,8 +291,8 @@ it again whenever an accelerator changes. On macOS `refresh` always rebuilds
 the whole menu through `AppHandle::set_menu`, because muda's
 `set_accelerator(None)` on an existing item does not clear a stale key
 equivalent. On Windows and Linux `refresh` only calls `set_menu` the first
-time (no menu yet, i.e. `setup`); afterwards it looks up `Open Folder…` and
-`Open in DxO PhotoLab` with `Submenu::get` on each top-level submenu
+time (no menu yet, i.e. `setup`); afterwards it looks up `Open Folder…`,
+`Open in DxO PhotoLab`, `Edit > Undo` and `Edit > Redo` with `Submenu::get` on each top-level submenu
 (`Menu::get` does not recurse) and calls `set_accelerator` on them,
 which muda's Windows backend handles correctly (label and `HACCEL` are
 rewritten, `None` removes the entry).

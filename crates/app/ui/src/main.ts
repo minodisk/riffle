@@ -2267,6 +2267,12 @@ function runAction(action: string): boolean {
     case "photolab":
       openInPhotoLab();
       break;
+    case "undo":
+      undo();
+      break;
+    case "redo":
+      redo();
+      break;
     case "rate1":
     case "rate2":
     case "rate3":
