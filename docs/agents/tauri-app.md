@@ -428,6 +428,24 @@ removal.
   new use of this splice path.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 1.
 
+### A sidecar write of two properties patches in two independent passes, and clearing one leaves its `xmlns` behind (Hit)
+
+`xmp::write_rating` and `xmp::write_label` each touch two properties
+(`Rating`/`xmpDM:good`, `xmp:Label`/`photoshop:LabelColor`): they patch one,
+re-parse the spliced text, then patch the other, so each splice's byte
+offsets are never computed against stale text.
+
+- Clearing a property this way removes only the attribute or element itself;
+  any `xmlns:xmpDM` / `xmlns:photoshop` declaration Riffle had added earlier
+  is left in place. A sidecar that is labelled (or rated via `xmpDM:good`)
+  and then cleared is therefore not byte-identical to one that was never
+  touched — assert on the specific properties, not full-file equality, after
+  a clear.
+- Follow the same two-pass-with-re-parse pattern for any future property
+  pair added to a sidecar write.
+- Source: `docs/plans/_archived/20260922-lightroom-xmp-flags-labels/learnings.md`,
+  Steps 1 and 2.
+
 ### quick-xml 0.42 namespace resolution: `&str`, not `&[u8]`, and a borrowed `QName` (Hit)
 
 `ResolveResult::Bound(Namespace)`'s `as_ref()` yields `&str` — compare it
