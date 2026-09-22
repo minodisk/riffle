@@ -58,7 +58,8 @@ sidecars.
   Paging keeps the zoom.
 - **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
-  sharpest, scored on the subject's eyes when a face is found, else around
+  sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
+  face, else on the subject's eyes when a face is found, else around
   the AF point, else the sharpest region.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
