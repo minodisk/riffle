@@ -14,6 +14,7 @@ const shortcutLabels: Record<string, string> = {
   photolab: "Open in DxO PhotoLab",
   focus: "Focus mark",
   zoom: "1:1 zoom",
+  grayscale: "Grayscale",
   rate1: "1 star",
   rate2: "2 stars",
   rate3: "3 stars",

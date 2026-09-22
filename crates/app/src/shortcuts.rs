@@ -36,6 +36,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("photolab", &[PHOTOLAB_DEFAULT]),
     ("focus", &["f"]),
     ("zoom", &["z"]),
+    ("grayscale", &["g"]),
     ("rate1", &["1"]),
     ("rate2", &["2"]),
     ("rate3", &["3"]),
@@ -582,6 +583,7 @@ mod tests {
             ("photolab", PHOTOLAB_DEFAULT),
             ("focus", "f"),
             ("zoom", "z"),
+            ("grayscale", "g"),
             ("rate1", "1"),
             ("rate2", "2"),
             ("rate3", "3"),
@@ -1028,9 +1030,9 @@ mod tests {
 
     #[test]
     fn a_modifier_only_key_is_dropped_from_a_mixed_override() {
-        let keymap = Keymap::from_overrides(Some(&json!({"zoom": ["shift", "g"]})));
-        assert_eq!(keys_of(&keymap, "zoom"), vec!["g"]);
-        assert_eq!(keymap.overrides(), json!({"zoom": ["g"]}));
+        let keymap = Keymap::from_overrides(Some(&json!({"zoom": ["shift", "m"]})));
+        assert_eq!(keys_of(&keymap, "zoom"), vec!["m"]);
+        assert_eq!(keymap.overrides(), json!({"zoom": ["m"]}));
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
     }
 

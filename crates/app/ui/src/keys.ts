@@ -17,6 +17,10 @@ const MODIFIER_CODES = [
   "OSRight",
 ];
 
+export function isModifierCode(code: string): boolean {
+  return MODIFIER_CODES.includes(code);
+}
+
 const CODE_NAMES: Record<string, string> = {
   Minus: "-",
   Equal: "=",

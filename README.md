@@ -96,6 +96,7 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `Ctrl+Alt+0` | clear the colour label |
 | `c` | clear every flag: stars, reject, pick and colour label |
 | `z` | 1:1 focus check |
+| `g` (hold) | grayscale preview |
 | `f` | focus mark |
 | `Cmd+O` / `Ctrl+O` | open a folder |
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { displayKey, keyName } from "./keys.js";
+import { displayKey, isModifierCode, keyName } from "./keys.js";
 
 function press(
   key: string,
@@ -78,5 +78,16 @@ describe("displayKey", () => {
 
   test("other keys pass through unchanged", () => {
     expect(displayKey("j")).toBe("j");
+  });
+});
+
+describe("isModifierCode", () => {
+  test("modifier codes end a hold", () => {
+    expect(isModifierCode("ControlLeft")).toBe(true);
+    expect(isModifierCode("MetaRight")).toBe(true);
+  });
+
+  test("other codes do not", () => {
+    expect(isModifierCode("KeyG")).toBe(false);
   });
 });

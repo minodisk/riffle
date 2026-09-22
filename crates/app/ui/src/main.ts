@@ -1,4 +1,4 @@
-import { type Binding, keyName } from "./keys.js";
+import { type Binding, isModifierCode, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
@@ -236,6 +236,8 @@ const shownExif = new Map<ExifGroup, Set<string>>(
   exifGroups.map(({ group }) => [group, new Set<string>()]),
 );
 let showFocus = false;
+// The event.code of the key holding the grayscale preview, or null when off.
+let grayscaleHeld: string | null = null;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
 // The crop of the file that `cropSeq` identifies, at one JPEG pixel per
@@ -2011,10 +2013,31 @@ window.addEventListener("keydown", (event) => {
     closeContextMenu();
   }
   const action = keymap.get(key);
+  if (action === "grayscale") {
+    setGrayscale(event.code);
+    event.preventDefault();
+    return;
+  }
   if (action !== undefined && runAction(action)) {
     event.preventDefault();
   }
 });
+
+// Match the physical key: with a modified binding, whichever key goes up first ends the hold.
+window.addEventListener("keyup", (event) => {
+  if (grayscaleHeld !== null && (event.code === grayscaleHeld || isModifierCode(event.code))) {
+    setGrayscale(null);
+  }
+});
+
+window.addEventListener("blur", () => {
+  setGrayscale(null);
+});
+
+function setGrayscale(code: string | null): void {
+  grayscaleHeld = code;
+  canvas.classList.toggle("grayscale", code !== null);
+}
 
 function runAction(action: string): boolean {
   const current = files[index];
