@@ -935,8 +935,14 @@ the cell's own bottom, and stay clear of the name strip below the image box
 image box edge with no inset; `bottom: 26px` matches the 2px inset the other
 corner badges use.
 
+Absolutely positioned children of `.cell` are placed against the padding box,
+not the border box, so with `box-sizing: border-box` the cell must be made
+2px wider than the image box (144px image box → 146px cell) for a badge
+positioned from the cell's edge to land flush with the image box's edge.
+
 - Source: `docs/plans/_archived/20260922-burst-count-bottom-right/learnings.md`,
   Step 1.
+- Source: `docs/plans/_archived/20260923-strip-cell-geometry/learnings.md`, Step 1.
 
 ### Carry every judgement field on every write (Hit)
 
