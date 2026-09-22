@@ -55,3 +55,25 @@ export async function loadComparisonFrames<T>(
     return result.value;
   });
 }
+
+// Hit-test the comparison grid, in canvas-local coordinates. Returns the frame
+// index under the point, or `null` in the gap between panes.
+export function comparePaneAt(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+): number | null {
+  const columns = count <= 2 ? count : 2;
+  const rows = Math.ceil(count / columns);
+  const gap = 4;
+  const cellWidth = (width - gap * (columns - 1)) / columns;
+  const cellHeight = (height - gap * (rows - 1)) / rows;
+  const col = Math.floor(x / (cellWidth + gap));
+  const row = Math.floor(y / (cellHeight + gap));
+  if (x - col * (cellWidth + gap) > cellWidth) return null;
+  if (y - row * (cellHeight + gap) > cellHeight) return null;
+  const at = row * columns + col;
+  return at >= 0 && at < count ? at : null;
+}

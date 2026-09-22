@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { comparisonCandidates, loadComparisonFrames, reconcileActive } from "./compare.js";
+import {
+  comparePaneAt,
+  comparisonCandidates,
+  loadComparisonFrames,
+  reconcileActive,
+} from "./compare.js";
 import { extend } from "./selection.js";
 
 describe("reconcileActive", () => {
@@ -71,5 +76,28 @@ describe("loadComparisonFrames", () => {
       loadComparisonFrames(["/a", "/bad", "/c"], load, (frame) => disposed.push(frame.path)),
     ).rejects.toThrow("bad preview");
     expect(disposed).toEqual(["/a", "/c"]);
+  });
+});
+
+describe("comparePaneAt", () => {
+  test("hits the pane under the point in a two-up grid", () => {
+    expect(comparePaneAt(10, 10, 204, 100, 2)).toBe(0);
+    expect(comparePaneAt(110, 10, 204, 100, 2)).toBe(1);
+  });
+
+  test("hits the pane under the point in a four-up grid", () => {
+    expect(comparePaneAt(10, 10, 204, 204, 4)).toBe(0);
+    expect(comparePaneAt(110, 10, 204, 204, 4)).toBe(1);
+    expect(comparePaneAt(10, 110, 204, 204, 4)).toBe(2);
+    expect(comparePaneAt(110, 110, 204, 204, 4)).toBe(3);
+  });
+
+  test("misses the gap between panes", () => {
+    expect(comparePaneAt(101, 10, 204, 204, 4)).toBeNull();
+    expect(comparePaneAt(10, 101, 204, 204, 4)).toBeNull();
+  });
+
+  test("misses an empty cell of a three-up grid", () => {
+    expect(comparePaneAt(110, 110, 204, 204, 3)).toBeNull();
   });
 });

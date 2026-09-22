@@ -73,7 +73,7 @@ the keys.
       [aria-checked="true"]` rules to `crates/app/ui/style.css` next to the
       filter menu's equivalents.
     - No submenus; the menu is a flat `<div role="menu">` of buttons.
-- [ ] Step 2: The same context menu on the main photo view, targeting the compare pane
+- [x] Step 2: The same context menu on the main photo view, targeting the compare pane
   - Done when:
     - Right-clicking `#canvas` opens the same menu (`openContextMenu`) and
       suppresses the native webview menu (`preventDefault`); nothing opens

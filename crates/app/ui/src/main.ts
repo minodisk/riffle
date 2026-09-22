@@ -17,7 +17,12 @@ import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
-import { comparisonCandidates, loadComparisonFrames, reconcileActive } from "./compare.js";
+import {
+  comparePaneAt,
+  comparisonCandidates,
+  loadComparisonFrames,
+  reconcileActive,
+} from "./compare.js";
 import {
   type Command,
   type PickFlag,
@@ -686,25 +691,35 @@ function toggleCompare(): void {
   void loadCompare();
 }
 
-canvas.addEventListener("click", (event) => {
-  if (!comparing || compareFrames.length === 0) return;
+// Make the comparison pane under the pointer the active one. Returns whether
+// a pane was hit.
+function activateComparePane(clientX: number, clientY: number): boolean {
+  if (!comparing || compareFrames.length === 0) return false;
   const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const count = compareFrames.length;
-  const columns = count <= 2 ? count : 2;
-  const rows = Math.ceil(count / columns);
-  const gap = 4;
-  const cellWidth = (rect.width - gap * (columns - 1)) / columns;
-  const cellHeight = (rect.height - gap * (rows - 1)) / rows;
-  const col = Math.floor(x / (cellWidth + gap));
-  const row = Math.floor(y / (cellHeight + gap));
-  const at = row * columns + col;
-  const frame = compareFrames[at];
-  if (frame === undefined || x - col * (cellWidth + gap) > cellWidth) return;
+  const at = comparePaneAt(
+    clientX - rect.left,
+    clientY - rect.top,
+    rect.width,
+    rect.height,
+    compareFrames.length,
+  );
+  const frame = at === null ? undefined : compareFrames[at];
+  if (frame === undefined) return false;
   compareActivePath = frame.path;
   drawCompare();
   renderMeta();
+  return true;
+}
+
+canvas.addEventListener("click", (event) => {
+  activateComparePane(event.clientX, event.clientY);
+});
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  if (files.length === 0) return;
+  if (comparing && !activateComparePane(event.clientX, event.clientY)) return;
+  openContextMenu(event.clientX, event.clientY);
 });
 
 // Record a judgement locally: the `ratings` and `flags` maps and the strip
