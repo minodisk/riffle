@@ -514,9 +514,10 @@ fn main() {
                     );
                 })
             });
-            let (format, keymap, auto_advance) = commands::load_settings(app.handle());
+            let (format, keymap, auto_advance, label_names) = commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
+            app.manage(commands::AppLabelNames(Mutex::new(label_names)));
             app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
             if let Err(e) = app_menu::refresh(app.handle(), &keymap) {
                 log::error!("failed to set the app menu: {e}");
@@ -558,6 +559,8 @@ fn main() {
             commands::open_in_photolab,
             commands::auto_advance,
             commands::set_auto_advance,
+            commands::label_names,
+            commands::set_label_names,
             commands::scan_running,
             commands::index_size,
             commands::clear_index,

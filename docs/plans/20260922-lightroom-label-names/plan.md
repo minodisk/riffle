@@ -84,7 +84,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
     - `crates/cli` does not call `read_label` / `write_label` (grep before
       changing the signature; fix call sites if it does).
 
-- [ ] Step 2: `labelNames` setting through the app: state, persistence, commands, parse and writer
+- [x] Step 2: `labelNames` setting through the app: state, persistence, commands, parse and writer
   - Done when:
     - A `labelNames` key in the settings store persists the five names as a
       JSON object keyed by lowercase colour (`{"red": "レッド", ...}`);
@@ -230,3 +230,4 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
 ## Progress
 
 - (2026-09-23) Step 1 complete
+- (2026-09-23) Step 2 complete
