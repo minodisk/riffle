@@ -232,3 +232,4 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
 - (2026-09-23) Step 1 complete
 - (2026-09-23) Step 2 complete
 - (2026-09-23) Step 3 complete
+- (2026-09-23) Step 4 complete
