@@ -72,4 +72,7 @@ sits inside its cell.
 
 ## Progress
 
-- (none yet)
+- 2026-09-23: Step 1 done. Fixed the burst band edge offsets (`-2px`) and
+  widened `.cell` to 146px / `left: 7px` in `crates/app/ui/style.css` so
+  consecutive bursts show a break and the selection outline is visible on all
+  four sides. Commit: `2792300`.
