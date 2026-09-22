@@ -33,7 +33,7 @@ You are given:
    - **Dismiss**: when there is a legitimate reason not to make the change
 
    **Documentation that states the same thing as the code you fixed** (the
-   completion log in the plan folder's `plan.md`, measurements and judgements
+   completion log in the plan folder's `plan.md`, measurements and judgments
    written in `learnings.md`) is part of what you fix. Fix only the code and the
    documentation keeps stale numbers and wording, and it gets raised again next
    round (a real case: a character count was fixed in the code, the old numbers

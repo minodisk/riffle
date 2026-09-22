@@ -30,7 +30,7 @@ need_review=true
 if [[ -d "${review_dir}" ]]; then
 	# Take the newest by string-sorting the filename (review-YYYYMMDD-HHmm.md).
 	# With ls -t (mtime), merely editing an old file makes it "newest" and the
-	# judgement becomes unstable.
+	# judgment becomes unstable.
 	# shellcheck disable=SC2012 # sorting by filename is the point; find would need an extra sort spec
 	latest=$(ls -1 "${review_dir}"/review-*.md 2>/dev/null | sort | tail -n1 || true)
 	if [[ -n "${latest}" ]]; then

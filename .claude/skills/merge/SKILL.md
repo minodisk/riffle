@@ -36,7 +36,7 @@ Do not specify `model` (leave it to `merger`'s frontmatter).
 
 **`/merge` is a command a human types, and typing it is the approval to merge**,
 so pass the approved flag from the very first dispatch. `merger` skips the
-approval judgement and goes straight to merging, so `NEEDS_APPROVAL` never comes
+approval judgment and goes straight to merging, so `NEEDS_APPROVAL` never comes
 back on this path.
 
 (That premise is upheld by `disable-model-invocation: true` in the frontmatter.
@@ -50,7 +50,7 @@ Agent(
   prompt: "PR number: <number>
 Approved: yes (the user approved the merge by invoking /merge)
 
-Skip the approval judgement and go from the merge through post-merge waiting, main sync, and branch cleanup.")
+Skip the approval judgment and go from the merge through post-merge waiting, main sync, and branch cleanup.")
 ```
 
 If the PR number is unknown, omit the `PR number:` line entirely.

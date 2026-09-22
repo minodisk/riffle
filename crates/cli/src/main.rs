@@ -204,7 +204,7 @@ fn bench(paths: &[String]) -> Result<()> {
             decode_rgb(&jpeg)?;
             t_full.push(t.elapsed().as_secs_f64() * 1000.0);
 
-            // The centre fallback the app uses when there is no FocusLocation.
+            // The center fallback the app uses when there is no FocusLocation.
             let t = Instant::now();
             partial::decode_focus_crop(&jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE)?;
             t_crop.push(t.elapsed().as_secs_f64() * 1000.0);

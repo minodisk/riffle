@@ -43,7 +43,7 @@ pnpm tauri dev
 """
 
 [tasks."tauri:release:devtools"]
-description = "Run the desktop app with an optimised Rust build (use this for any timing measurement)"
+description = "Run the desktop app with an optimized Rust build (use this for any timing measurement)"
 shell = "bash -c"
 run = """
 set -euo pipefail

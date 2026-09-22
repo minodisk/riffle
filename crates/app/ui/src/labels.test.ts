@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { englishLabelNames, labelNamesPayload } from "./labels.js";
 
 describe("englishLabelNames", () => {
-  test("capitalises each colour", () => {
+  test("capitalizes each color", () => {
     expect(englishLabelNames()).toEqual({
       red: "Red",
       yellow: "Yellow",

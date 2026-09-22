@@ -101,7 +101,7 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
 
 ## Steps
 
-- [ ] Step 1: Convert code, config, `.claude/`, `.github/`, `tools/`, and the top-level and `docs/agents` / `docs/*.md` documents
+- [x] Step 1: Convert code, config, `.claude/`, `.github/`, `tools/`, and the top-level and `docs/agents` / `docs/*.md` documents
   - Done when:
     - The acceptance grep, restricted to everything outside `docs/plans/`, prints only the allowed exceptions.
     - `mise run ci` passes (vp check/test, cargo fmt/clippy/test, shellcheck, actionlint, lychee, the two bash test scripts).

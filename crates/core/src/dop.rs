@@ -1,6 +1,6 @@
 //! DxO PhotoLab `.dop` sidecar reading and writing for ratings.
 //!
-//! A `.dop` is a Lua table literal. PhotoLab keeps the judgement in two keys
+//! A `.dop` is a Lua table literal. PhotoLab keeps the judgment in two keys
 //! directly under `Sidecar.Source.Items[0]`: `ShouldProcess` (`0` pick, `1`
 //! reject, `2` unflagged) and `Rating` (`0..=5`). They map onto a [`Flag`]
 //! and the stars one to one: every write sets both `Rating` and
@@ -9,7 +9,7 @@
 //! An existing sidecar is patched by splicing the bytes of those values and
 //! of the two timestamps `Sidecar.Date` and `Items[0].ModificationDate`, so
 //! PhotoLab's develop settings stay byte-for-byte; a sidecar is never
-//! regenerated from a parse. The colour label is the `ColorLabel = "Red",`
+//! regenerated from a parse. The color label is the `ColorLabel = "Red",`
 //! line of the same item, absent for "no label"; [`write_label`] splices,
 //! inserts or removes that line the same way.
 //!
@@ -77,7 +77,7 @@ pub fn read_flag(bytes: &[u8]) -> Result<Flag, String> {
 /// otherwise.
 ///
 /// `rating` `None` means unrated and writes `Rating = 0`. On a file that has
-/// no sidecar yet, the caller must not write anything at all for a judgement
+/// no sidecar yet, the caller must not write anything at all for a judgment
 /// that is both unrated (`rating` `None`) and unflagged, as
 /// with [`crate::xmp::write_rating`].
 pub fn write_rating(
@@ -129,7 +129,7 @@ pub fn write_rating(
     Ok(out.into_bytes())
 }
 
-/// The colour label of `Items[0]`: the string inside the quotes of
+/// The color label of `Items[0]`: the string inside the quotes of
 /// `ColorLabel`, `None` when the key is absent, empty or not a double-quoted
 /// string; `Err` as for [`read_rating`].
 pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
@@ -144,7 +144,7 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
     }))
 }
 
-/// The sidecar bytes carrying the colour label `label`, written at `now`.
+/// The sidecar bytes carrying the color label `label`, written at `now`.
 ///
 /// `Some(label)` splices the quoted value in place or inserts a
 /// `ColorLabel = "...",` line before the item's closing brace; `None` removes
@@ -448,7 +448,7 @@ mod tests {
     const RED: &str = include_str!("fixtures/dop/_DSC0004.ARW.dop");
     const CLEARED: &str = include_str!("fixtures/dop/_DSC0005.ARW.dop");
 
-    const LABELLED: [(&str, &str, i8); 7] = [
+    const LABELED: [(&str, &str, i8); 7] = [
         (include_str!("fixtures/dop/_DSC0009.ARW.dop"), "Red", 0),
         (include_str!("fixtures/dop/_DSC0010.ARW.dop"), "Orange", 1),
         (include_str!("fixtures/dop/_DSC0011.ARW.dop"), "Yellow", 0),
@@ -457,7 +457,7 @@ mod tests {
         (include_str!("fixtures/dop/_DSC0014.ARW.dop"), "Pink", 0),
         (include_str!("fixtures/dop/_DSC0015.ARW.dop"), "Purple", 0),
     ];
-    const TABBED: &str = LABELLED[0].0;
+    const TABBED: &str = LABELED[0].0;
 
     const NOW: &str = "2026-09-18T11:00:00.0000000Z";
 
@@ -550,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    fn patching_keeps_the_colour_label_and_the_label_decoys() {
+    fn patching_keeps_the_color_label_and_the_label_decoys() {
         let out = patched(RED, Some(5), Flag::None);
         let expected = with_now(
             RED,
@@ -737,7 +737,7 @@ mod tests {
         assert_eq!(timestamp(UNIX_EPOCH), "1970-01-01T00:00:00.0000000Z");
     }
 
-    fn labelled(source: &str, label: Option<&str>) -> String {
+    fn labeled(source: &str, label: Option<&str>) -> String {
         String::from_utf8(write_label(Some(source.as_bytes()), label, "x", NOW).unwrap()).unwrap()
     }
 
@@ -751,7 +751,7 @@ mod tests {
 
     #[test]
     fn reads_the_labels_of_the_photolab_10_0_2_samples() {
-        for (source, label, rating) in LABELLED {
+        for (source, label, rating) in LABELED {
             assert_eq!(
                 read_label(source.as_bytes()).unwrap().as_deref(),
                 Some(label)
@@ -785,16 +785,16 @@ mod tests {
             "2026-09-18T10:21:52.2405327Z",
         )
         .replace("ColorLabel = \"Red\",", "ColorLabel = \"Blue\",");
-        assert_eq!(labelled(RED, Some("Blue")), expected);
+        assert_eq!(labeled(RED, Some("Blue")), expected);
 
         let expected =
             tabbed_with_now(TABBED).replace("ColorLabel = \"Red\",", "ColorLabel = \"Blue\",");
-        assert_eq!(labelled(TABBED, Some("Blue")), expected);
+        assert_eq!(labeled(TABBED, Some("Blue")), expected);
     }
 
     #[test]
     fn inserts_a_label_line_in_an_unindented_item() {
-        let out = labelled(THREE, Some("Blue"));
+        let out = labeled(THREE, Some("Blue"));
         assert!(out.contains(
             "Uuid = \"B638CACC-6B37-4480-8A40-9377C1C2783A\",\nColorLabel = \"Blue\",\n}\n,\n}\n"
         ));
@@ -806,7 +806,7 @@ mod tests {
     fn inserts_a_label_line_in_a_tab_indented_item() {
         let source = TABBED.replace("\t\t\tColorLabel = \"Red\",\n", "");
         assert_eq!(read_label(source.as_bytes()).unwrap(), None);
-        let out = labelled(&source, Some("Blue"));
+        let out = labeled(&source, Some("Blue"));
         assert!(out.contains(
             "\t\t\tUuid = \"7C7CB8FF-24DD-43A1-83CC-19ACD6642103\",\n\t\t\tColorLabel = \"Blue\",\n\t\t\t},\n"
         ));
@@ -815,7 +815,7 @@ mod tests {
 
     #[test]
     fn clearing_removes_exactly_the_label_line() {
-        let out = labelled(RED, None);
+        let out = labeled(RED, None);
         let expected = with_now(
             RED,
             "2026-09-18T10:21:52.2425322Z",
@@ -826,7 +826,7 @@ mod tests {
         assert_eq!(out.matches("\nLabel = \"").count(), 8);
         assert!(out.ends_with("}\n\r\n"));
 
-        let out = labelled(TABBED, None);
+        let out = labeled(TABBED, None);
         let expected = tabbed_with_now(TABBED).replace("\t\t\tColorLabel = \"Red\",\n", "");
         assert_eq!(out, expected);
         assert_eq!(out.matches("\tLabel = \"").count(), 8);
@@ -841,25 +841,25 @@ mod tests {
             "2026-09-18T10:21:52.2415388Z",
             "2026-09-18T10:21:52.2405327Z",
         );
-        assert_eq!(labelled(THREE, None), expected);
+        assert_eq!(labeled(THREE, None), expected);
     }
 
     #[test]
     fn labels_and_ratings_keep_each_other() {
-        let rated = patched(&labelled(THREE, Some("Green")), Some(5), Flag::None);
+        let rated = patched(&labeled(THREE, Some("Green")), Some(5), Flag::None);
         assert_eq!(
             read_label(rated.as_bytes()).unwrap().as_deref(),
             Some("Green")
         );
         assert_eq!(read_rating(rated.as_bytes()).unwrap(), Some(5));
 
-        let labelled = labelled(&patched(TABBED, Some(2), Flag::Pick), Some("Pink"));
+        let labeled = labeled(&patched(TABBED, Some(2), Flag::Pick), Some("Pink"));
         assert_eq!(
-            read_label(labelled.as_bytes()).unwrap().as_deref(),
+            read_label(labeled.as_bytes()).unwrap().as_deref(),
             Some("Pink")
         );
-        assert_eq!(read_rating(labelled.as_bytes()).unwrap(), Some(2));
-        assert_eq!(read_flag(labelled.as_bytes()).unwrap(), Flag::Pick);
+        assert_eq!(read_rating(labeled.as_bytes()).unwrap(), Some(2));
+        assert_eq!(read_flag(labeled.as_bytes()).unwrap(), Flag::Pick);
     }
 
     #[test]

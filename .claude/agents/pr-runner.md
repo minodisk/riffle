@@ -17,7 +17,7 @@ CI failures, and addressing review feedback are all the children's job. What you
 read is `wait-pr-actionable.sh`'s output (the `ACTION=` line and friends), the
 children's return values, and `plan.md` for composing the PR body.
 
-**You cannot ask the user questions.** For a state needing the user's judgement
+**You cannot ask the user questions.** For a state needing the user's judgment
 (a plan containing `discuss`), do not decide yourself: return
 `needs_discussion` to the caller (the main agent).
 

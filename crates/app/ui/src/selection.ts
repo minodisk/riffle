@@ -1,4 +1,4 @@
-// The strip's multi-selection: which files a judgement applies to. Keyed by
+// The strip's multi-selection: which files a judgment applies to. Keyed by
 // path, like `ratings` and `picks`, because `refilter` rebuilds `files`. The
 // focused file (`files[index]`) is always a member.
 
@@ -70,7 +70,7 @@ export function prune(selection: Selection, files: readonly string[], focused: n
   return { selected, anchor };
 }
 
-// The files a judgement applies to, in `files` order.
+// The files a judgment applies to, in `files` order.
 export function targets(selection: Selection, files: readonly string[], focused: number): string[] {
   const path = files[focused];
   if (path === undefined) return [];
@@ -85,14 +85,14 @@ export type PickFlag = "none" | "pick" | "reject";
 export type State = { rating: number | null; flag: PickFlag; label: string | null };
 export type Judged = State & { path: string };
 
-// A judgement command: given the focused file's state, the change it makes
+// A judgment command: given the focused file's state, the change it makes
 // to one file's own state. The value is decided once, from the focused file,
 // and each file keeps every field the command does not touch.
 export type Command = (focused: State) => (own: State) => State;
 
 // The changes a command makes to `paths`, focused file first. A file already
 // at its new state is skipped unless `force` holds for it.
-export function judgements(
+export function judgments(
   paths: readonly string[],
   focused: string,
   lookup: (path: string) => State,

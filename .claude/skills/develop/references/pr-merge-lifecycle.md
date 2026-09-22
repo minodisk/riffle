@@ -25,9 +25,9 @@ approval for merges on that basis, with two exceptions:
   check prints an `approval` line for one of these, stop and ask the user before
   starting `merger` with the approved flag.
 
-Everything else keeps the report-only behaviour below.
+Everything else keeps the report-only behavior below.
 
-That does not mean the judgement is skipped. Run the check yourself first — it
+That does not mean the judgment is skipped. Run the check yourself first — it
 is read-only — so you know what it would have flagged:
 
 ```bash
@@ -44,7 +44,7 @@ Agent(
   prompt: "PR number: {number}
 Approved: yes (this repository grants a standing approval for ordinary merges; they only change main, so a bad merge costs a revert)
 
-Skip the approval judgement and go from the merge through post-merge waiting, main sync, and branch cleanup.")
+Skip the approval judgment and go from the merge through post-merge waiting, main sync, and branch cleanup.")
 ```
 
 **Do not set `run_in_background: true`.** Waiting for CI and waiting for
@@ -70,9 +70,9 @@ per the exceptions above.)
 ## What `merger` does
 
 `merger` owns the squash merge, waiting for the post-merge workflow, syncing
-main, and cleaning up the branch. It carries an approval judgement of its own
+main, and cleaning up the branch. It carries an approval judgment of its own
 (with `.claude/skills/merge/scripts/check-merge-approval.sh` as the source of
-truth), but the approved flag above skips it, so the judgement that matters here
+truth), but the approved flag above skips it, so the judgment that matters here
 is the read-only one you ran yourself. It does not bypass protections with
 `--admin`, and branch deletion is left to `merger`'s existing cleanup.
 
@@ -143,7 +143,7 @@ section describes, rather than asking the user.
 agent stays correct for a repository that has something to release. The standing
 approval lives in the caller, not in the agent.
 
-A malfunction in the approval judgement itself is still `FAILED`, and `FAILED`
+A malfunction in the approval judgment itself is still `FAILED`, and `FAILED`
 still stops and asks.
 
 ## Handling `NOT_READY`

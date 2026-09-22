@@ -37,7 +37,7 @@ const TAG_AF_TRACKING: u16 = 0x2021;
 /// Sony `FocusFrameSize`: three SHORTs, width, height and a validity flag
 /// (0 when the frame is not available). Bodies write it as `UNDEFINED[6]`.
 const TAG_FOCUS_FRAME_SIZE: u16 = 0x2037;
-/// Leica MakerNote `FocusDistance`, a LONG in millimetres.
+/// Leica MakerNote `FocusDistance`, a LONG in millimeters.
 const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
 /// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
 const LEICA_HEADER: &[u8] = b"LEICA\0";
@@ -120,7 +120,7 @@ pub struct Shot {
     /// `2^(AV/2)` from the APEX `ApertureValue`, only when `FNumber` is
     /// absent (manual lenses without a lens contact): the camera's estimate.
     pub estimated_f_number: Option<f64>,
-    /// Leica MakerNote focus distance, in millimetres.
+    /// Leica MakerNote focus distance, in millimeters.
     pub focus_distance_mm: Option<u32>,
     pub focal_length: Option<Rational>,
     pub exposure_bias: Option<Rational>,
@@ -513,7 +513,7 @@ impl Arw {
 mod tests {
     use super::*;
 
-    /// Serialise one IFD: entry count, the entries, and a null next-IFD link.
+    /// Serialize one IFD: entry count, the entries, and a null next-IFD link.
     fn ifd(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&(entries.len() as u16).to_le_bytes());

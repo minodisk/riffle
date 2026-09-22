@@ -71,7 +71,7 @@ because `reject` comes before `pick`, so `p` still looked taken.
 
 `accelerator()` in `crates/app/src/shortcuts.rs` is a plain table; muda is
 not a dependency of `crates/app`, so nothing checks the string at compile
-time. Tauri parses it with `.parse().ok()`, so an unrecognised name
+time. Tauri parses it with `.parse().ok()`, so an unrecognized name
 silently becomes "no accelerator" instead of an error — a typo here fails
 silently, not loudly.
 
@@ -88,20 +88,20 @@ item without an accelerator rather than erroring.
 
 ### Measure before choosing a JPEG payload over raw pixels (Measured)
 
-`mozjpeg::Compress`'s defaults turn on trellis quantisation and optimised
+`mozjpeg::Compress`'s defaults turn on trellis quantization and optimized
 Huffman tables, so re-encoding a crop costs more than the partial decode that
 produced it: 49ms at q85 for a 1037x1024 crop, against 21.5ms to decode it.
 
-- Why: the defaults optimise for file size, and both passes run over every MCU.
+- Why: the defaults optimize for file size, and both passes run over every MCU.
 - Phase 5's `focus_crop` therefore returns raw RGBA (4.2MB at the 1024 cap)
   rather than a ~180KB JPEG. That trades IPC bytes for CPU; take the
-  measurement before trading back, and measure with the optimisations off, not
+  measurement before trading back, and measure with the optimizations off, not
   with the defaults.
 
 ### A partial decode's cost is set by its row, not its size (Measured)
 
 `jpeg_skip_scanlines` on a baseline JPEG still entropy-decodes the rows it
-skips; it only skips the IDCT and colour conversion.
+skips; it only skips the IDCT and color conversion.
 
 - Why: baseline Huffman data is not randomly addressable, so libjpeg must walk
   every MCU row from the start of the scan to reach the wanted one.
@@ -111,7 +111,7 @@ skips; it only skips the IDCT and colour conversion.
 - So a budget for a crop has to be stated for the worst row, not an average
   one, and shrinking the crop is not a way to make it fit.
 
-### A crop's origin snaps to an MCU boundary; don't assume centred or bit-identical (Hit, twice)
+### A crop's origin snaps to an MCU boundary; don't assume centered or bit-identical (Hit, twice)
 
 `jpeg_crop_scanline` snaps the requested crop origin **down** to an MCU
 boundary (16px in the tested files) and does not necessarily widen the crop to
@@ -120,16 +120,16 @@ compensate.
 - Why: baseline JPEG DCT blocks (MCUs) are the smallest unit libjpeg can crop
   to; it never crops mid-MCU.
 - What broke: two independent guesses were wrong. `FocusCrop`'s `point_x`/
-  `point_y` are not the crop's centre (measured 269 vs a centre of 262 on one
-  file). `crop_size()`'s width does not grow to keep the point centred (a
+  `point_y` are not the crop's center (measured 269 vs a center of 262 on one
+  file). `crop_size()`'s width does not grow to keep the point centered (a
   64px-wide request at x=200 came back as width 64 at x=160, landing the point
-  at 40, not 32) — that behaviour also isn't consistent across files (it does
+  at 40, not 32) — that behavior also isn't consistent across files (it does
   widen on a 4:2:2 test file). Always derive the point of interest as
-  `centre - crop.origin` from the actual returned crop, never assume a fixed
+  `center - crop.origin` from the actual returned crop, never assume a fixed
   offset or that width grows.
 - A crop decoded via `jpeg_crop_scanline` is also **not bit-identical** to the
   same region of a full `decode_rgb` near its left/right edges (chroma
-  upsampling has one fewer neighbour there; differences up to 2 in the first
+  upsampling has one fewer neighbor there; differences up to 2 in the first
   columns, 1 in the last, on the tested file). Equality tests against a crop
   must exclude ~8px from each edge or use a tolerance there, not assert exact
   equality everywhere.
@@ -234,7 +234,7 @@ with "could not find `serde_json` in the list of imported crates".
 ### Self-update defers the install to quit on Windows only (Hit)
 
 `tauri-plugin-updater-2.11.0`'s macOS and Linux (AppImage) `install_inner`
-only extract and rename bundles (`std::fs::rename`, with an authorised
+only extract and rename bundles (`std::fs::rename`, with an authorized
 fallback); they never exit or signal the process, so `update.rs` keeps
 `download_and_install` there and `RunEvent::ExitRequested` runs normally on a
 later real quit. Windows is different: the running exe is locked, so its
@@ -311,9 +311,9 @@ On macOS nine app items carry an icon. `Open in DxO PhotoLab` alone uses
 `IconMenuItem::with_id_and_native_icon`, with
 `NativeIcon::FollowLinkFreestanding`, which is a template image and tints with
 the menu. `NativeIcon` has neither an undo nor a
-modern gear, and `NativeIcon::Folder` and `NativeIcon::TrashFull` are colour
+modern gear, and `NativeIcon::Folder` and `NativeIcon::TrashFull` are color
 Finder bitmaps rather than template images (`isTemplate == false`), so they
-keep their colour while every icon around them tints, so `Settings...`,
+keep their color while every icon around them tints, so `Settings...`,
 `Undo`, `Redo`, `Open Folder…`, `Open Log Folder`, `Move Rejected to Trash`,
 `Reload Folder` and `Check for Updates…` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
@@ -323,7 +323,7 @@ and `Open Log Folder`: they live in different menus, which are never open at
 the same time. Other platforms keep the plain `MenuItem` behind `cfg`.
 
 Regenerate those PNGs with `swift tools/macos/export-menu-icons.swift`, and
-only when a symbol, its size or weight changes; AppKit's rasterisation
+only when a symbol, its size or weight changes; AppKit's rasterization
 can differ between macOS releases, so the committed files are the source of
 truth. The script never runs at build or run time.
 
@@ -333,7 +333,7 @@ truth. The script never runs at build or run time.
   tint with the menu appearance — white in dark mode, black in light mode —
   exactly like the OS-provided items. Stock muda never marks a custom menu
   image as a template and Tauri exposes no template flag for menu items, so
-  without the patch the icons keep whatever colour the PNG carries. The patch
+  without the patch the icons keep whatever color the PNG carries. The patch
   must use a `git` or `path` source (crates.io-to-crates.io patches are
   rejected) pinned to a version satisfying `tauri`'s `muda = "^0.19"`, hence
   0.19.3 and not 0.20; the unconditional fork was chosen over the opt-in API
@@ -437,7 +437,7 @@ offsets are never computed against stale text.
 
 - Clearing a property this way removes only the attribute or element itself;
   any `xmlns:xmpDM` / `xmlns:photoshop` declaration Riffle had added earlier
-  is left in place. A sidecar that is labelled (or rated via `xmpDM:good`)
+  is left in place. A sidecar that is labeled (or rated via `xmpDM:good`)
   and then cleared is therefore not byte-identical to one that was never
   touched — assert on the specific properties, not full-file equality, after
   a clear.
@@ -449,10 +449,10 @@ offsets are never computed against stale text.
 ### Label-name reads fall back configured-name-then-English, not the other way (Hit)
 
 `LabelNames::name(&self, color)` returns the English `color` itself when the
-configured name for that colour is empty — callers don't need a separate
-"is this customised" check. Reads match a sidecar's `xmp:Label` against the
+configured name for that color is empty — callers don't need a separate
+"is this customized" check. Reads match a sidecar's `xmp:Label` against the
 configured name first, then against the English name, so a sidecar written
-by an English-locale Lightroom still reads as the right colour even when
+by an English-locale Lightroom still reads as the right color even when
 Riffle's settings hold Japanese (or other) names.
 
 - Source: `docs/plans/_archived/20260922-lightroom-label-names/learnings.md`, Step 1.
@@ -489,7 +489,7 @@ that already have the column, and the `ALTER TABLE` fails.
 ### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
 
 `Index::mark_written` clears `dirty` only `WHERE path = ?1 AND rating IS ?4 AND
-flag = ?5 AND label IS ?6`. A judgement made inside a sidecar format switch's
+flag = ?5 AND label IS ?6`. A judgment made inside a sidecar format switch's
 window has already been queued with the value the row held, so if
 `Index::reset_sidecars` rewrites any of those fields in between, the guard no
 longer matches: the row stays dirty with the rewritten value and the next
@@ -497,7 +497,7 @@ folder open replays that stale value over the sidecar. `reset_sidecars` used to
 zero `pick` (now `flag`), which lost a pick set during a switch.
 
 - `reset_sidecars` nulls the stat only (`xmp_size`, `xmp_mtime_ns`); it keeps
-  the judgement (`rating`, `flag`, `label`). Keep it that way for any field
+  the judgment (`rating`, `flag`, `label`). Keep it that way for any field
   added to `mark_written`'s guard.
 - Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
   Step 1.
@@ -521,7 +521,7 @@ freelist until `VACUUM` runs.
 `commands::clear_index`) is the second caller of `evict_folder` and keeps the
 same order: `Scans` lock first (re-checked under it after the confirmation
 dialog, since the dialog is awaited with no lock held), then the writer lock.
-A running scan is refused, never cancelled.
+A running scan is refused, never canceled.
 
 - Measured (`Index::clear`'s unit test, 2 folders x 5 rows of a 200KB
   thumbnail): `VACUUM` alone gives nothing back to the file system, because
@@ -617,7 +617,7 @@ every press of `Clear Cache` after the first folder open.
   calls unordered, so a stale `true` can land after the correct `false` and
   leave the listener stuck — the same class of stuck state this whole fix is
   about. Every emit site in `commands.rs` emits under the lock, which makes
-  the mutex itself serialise them in the order the state changed.
+  the mutex itself serialize them in the order the state changed.
 - Source: `docs/plans/_archived/20260920-clear-cache-stuck-guard/learnings.md`,
   Steps 1-2.
 
@@ -644,7 +644,7 @@ size until the current file's crop arrives.
 
 `refilter(anchor)` re-anchors the view on the given file when it is still
 visible under the current filter, but anchoring on a file the filter now
-hides moves the current file to a neighbour instead. So the shared
+hides moves the current file to a neighbor instead. So the shared
 apply-and-invoke `commit(...)` behind judge and undo applies the state first,
 then evaluates an optional anchor thunk against the new state: it anchors on
 the target file only when it still passes the filter, and otherwise leaves the
@@ -652,13 +652,13 @@ current view alone.
 
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
-- Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
+- Source: `docs/plans/_archived/20260919-undo-judgments/learnings.md`, Step 1.
 - `commit(...)` now takes a *list* of changes (one per file in a batch), not
   a single change: it applies every change locally, refilters once, then
   sends one `set_rating` per file, reverting only that file's own change on
   failure. A batch of more than one keeps the currently shown file current
   (anchor on the shown file) and reports `Undid/Redid N files`; a one-file
-  batch keeps the re-anchor-on-the-file behaviour above.
+  batch keeps the re-anchor-on-the-file behavior above.
 - A failed file is spliced out of its batch; the batch itself is dropped from
   undo/redo history only once every file in it has failed. Only files that
   actually wrote successfully stay undoable, and undo never rewrites a file
@@ -681,14 +681,14 @@ first inserted, not where it was last updated.
 - Source: `docs/plans/_archived/20260920-sidecar-error-display/learnings.md`,
   Step 1 (pinned by `errors.test.ts`).
 
-### A judgement's own move must not double up with `refilter`'s move (Inferred)
+### A judgment's own move must not double up with `refilter`'s move (Inferred)
 
 `judge` returns whether it changed anything. The keydown handler records the
 current path *before* the switch/commit runs, then — only if that path is
 still the current file afterward — calls `move(1)` for auto-advance.
 
 - Why: `commit`'s `refilter` step already moves the view off a file that
-  drops out of the active filter as a result of the judgement. If the
+  drops out of the active filter as a result of the judgment. If the
   keydown handler also unconditionally called `move(1)`, a filtered-out file
   would advance twice. Checking "is the just-judged file still current"
   before moving is what prevents the double skip.
@@ -698,7 +698,7 @@ still the current file afterward — calls `move(1)` for auto-advance.
 
 - `judge` now returns the number of targets it changed (0 when nothing
   changed), not just whether it changed anything; auto-advance fires only
-  when that count is 1, i.e. only for a single-file, non-batch judgement.
+  when that count is 1, i.e. only for a single-file, non-batch judgment.
   Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
   Step 3.
 
@@ -749,7 +749,7 @@ folder changed" event has to pick the right one.
 - `openDirectory(folder, token)` is the **reset** path: it mints a folder
   token, clears `entries`, `ratings`, `picks`, `labels`, `sharpness`,
   `touched`, `history` and `errors`, sets `index = 0` and scrolls the strip
-  back to the top. Use it when the *judgements* are no longer valid — the
+  back to the top. Use it when the *judgments* are no longer valid — the
   `sidecar-format` and `index-cleared` listeners, which run after the backend
   reset the index.
 - `resync()` is the **keep-state** path: the same open, so no new token; it
@@ -765,7 +765,7 @@ folder changed" event has to pick the right one.
 
 ### The folder watcher cannot loop on the app's own sidecar writes (Inferred)
 
-`crates/app/src/watch.rs` watches the folder `scan_folder` canonicalises
+`crates/app/src/watch.rs` watches the folder `scan_folder` canonicalizes
 (non-recursively, set from inside `scan_folder` so the watched folder can never
 diverge from the indexed one) and emits `folder-changed` 500 ms after the last
 event of a burst; `main.ts` turns that into `resync()` when the payload's `dir`
@@ -795,10 +795,10 @@ ignored: the focus rescan is the fallback and the open must not fail.
 `createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`
 and sets `src` only once the thumbnail payload arrives; cells are recreated
 rather than reused on refresh, so `src` is never stale. That makes
-`.cell img:not([src])` exactly "placeholder or failed load". Put the grey
+`.cell img:not([src])` exactly "placeholder or failed load". Put the gray
 placeholder background there, not on `.cell img` itself: the image box is the
 144px square footprint and `object-fit: contain` letterboxes anything that is
-not square, so a background on `.cell img` shows as grey bands around every
+not square, so a background on `.cell img` shows as gray bands around every
 loaded thumbnail (24px above and below a 3:2 one).
 
 - Source: `docs/plans/_archived/20260920-aspect-independent-strip-cells/learnings.md`,
@@ -812,7 +812,7 @@ auto margin pushed the whole `[filter][sort]` group rightward instead of
 moving `#filter` past `#sort`, leaving `#sort` as the right-most item. Fix by
 also giving the item to move `order: 1` (or otherwise reordering it after the
 sibling it should end up right of) so the auto margin lands between it and
-its new left neighbour.
+its new left neighbor.
 
 - Why: an auto margin on a flex item consumes space on that item's own edge;
   it says nothing about the item's position relative to siblings, which is
@@ -871,11 +871,11 @@ contents needs the same explicit close.
 
 `selection.ts` (`crates/app/ui/src/selection.ts`) returns new `Selection`
 values rather than mutating; callers replace the state held in `main.ts`.
-Judgement commands are `(focused) => (own) => State`: the outer call decides
+Judgment commands are `(focused) => (own) => State`: the outer call decides
 the value once from the focused file, the inner one applies it to each
 selected file's own state, so fields the command does not touch survive per
 file (e.g. `pick`/`unflag` only touch the rating field, so other files'
-stars are kept). `judgements` always puts the focused file first, even on the
+stars are kept). `judgments` always puts the focused file first, even on the
 rare frame where it is outside the selection, so the focused file is always
 judged.
 
@@ -891,7 +891,7 @@ might otherwise assume:
 - A right-click on a strip cell outside the current selection collapses the
   selection to that cell first (as file managers do); a right-click inside
   the selection keeps it and only moves the focus.
-- Pruning the selection after a filter/sort/judgement change happens only in
+- Pruning the selection after a filter/sort/judgment change happens only in
   `refilter`, which re-adds the focused file so the invariant holds; other
   paths (`resync`, `trashRejected`, `strip.setFiles`) all route through it
   rather than pruning themselves.
@@ -944,9 +944,9 @@ positioned from the cell's edge to land flush with the image box's edge.
   Step 1.
 - Source: `docs/plans/_archived/20260923-strip-cell-geometry/learnings.md`, Step 1.
 
-### Carry every judgement field on every write (Hit)
+### Carry every judgment field on every write (Hit)
 
-`set_rating` writes the whole judgement (stars, pick, label), so the frontend
+`set_rating` writes the whole judgment (stars, pick, label), so the frontend
 keeps a `labels` map from `folder_entries` and passes the current label with a
 star or flag keypress; otherwise a rating clears the label. Until the label is
 known (`folder_entries` not yet arrived), the backend is told `labelKnown:
@@ -1061,7 +1061,7 @@ them.
   is unchanged.
 - `test.include` is relative to the Vite `root` (`crates/app/ui`), so it reads
   `src/**/*.test.ts`.
-- `vp fmt` honours `.gitignore`. Its scope (and `lint.ignorePatterns`) is the
+- `vp fmt` honors `.gitignore`. Its scope (and `lint.ignorePatterns`) is the
   frontend plus the root JS tooling files; Markdown, the release-please JSON
   and `.claude/**` are excluded.
 - Adding `vp fmt` to `mise run fmt` before the reformat commit would have made
@@ -1162,7 +1162,7 @@ forward, and injected keystrokes are dropped silently.
 
 - Why: macOS privacy settings on this machine, not something the repo controls.
 - Plan any GUI check as a **manual confirmation by the user**, and list exactly
-  what they should look at. Report unchecked behaviour as "not verified"; that
+  what they should look at. Report unchecked behavior as "not verified"; that
   is more useful than an implied pass.
 
 ### `riffle-app` is bin-only: use `cargo test <name>`, not `--lib` (Hit)

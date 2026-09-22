@@ -20,8 +20,8 @@ pub struct Crop {
     pub image_height: usize,
 }
 
-/// A crop centred on the focus point, together with that point's position
-/// inside the crop: the MCU snap moves the crop's origin, so its centre is not
+/// A crop centered on the focus point, together with that point's position
+/// inside the crop: the MCU snap moves the crop's origin, so its center is not
 /// the point of interest.
 pub struct FocusCrop {
     pub crop: Crop,
@@ -31,7 +31,7 @@ pub struct FocusCrop {
 }
 
 /// The point of interest on the unrotated JPEG: the focus point scaled from
-/// sensor coordinates, or the image centre when the file has none.
+/// sensor coordinates, or the image center when the file has none.
 pub fn focus_point(w: usize, h: usize, focus: Option<FocusLocation>) -> (usize, usize) {
     match focus {
         Some(f) if f.sensor_w > 0 && f.sensor_h > 0 => {
@@ -46,7 +46,7 @@ pub fn focus_point(w: usize, h: usize, focus: Option<FocusLocation>) -> (usize, 
     }
 }
 
-/// Cut out `width` x `height` RGBA centred on the focus point, mapped onto
+/// Cut out `width` x `height` RGBA centered on the focus point, mapped onto
 /// this JPEG's own size.
 pub fn decode_focus_crop(
     jpeg: &[u8],
@@ -74,7 +74,7 @@ pub fn decode_crop(jpeg: &[u8], cx: usize, cy: usize, size: usize) -> Result<Cro
 }
 
 /// The shared partial decode. `region` is handed the JPEG's size and returns
-/// the wanted centre and size; the result is clamped to the image and snapped
+/// the wanted center and size; the result is clamped to the image and snapped
 /// to MCU boundaries horizontally.
 fn decode_region(
     jpeg: &[u8],
@@ -199,7 +199,7 @@ mod tests {
                 let a = &crop.pixels[(y * crop.width + x) * 4..][..3];
                 let b = &full[((crop.y + y) * fw + crop.x + x) * 3..][..3];
                 // Chroma upsampling at the crop's side edges has one fewer
-                // neighbour than in the full decode, so only the interior is
+                // neighbor than in the full decode, so only the interior is
                 // exact.
                 if (8..crop.width - 8).contains(&x) {
                     assert_eq!(a, b, "at ({x},{y})");
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn without_a_focus_location_the_crop_is_centred() {
+    fn without_a_focus_location_the_crop_is_centered() {
         assert_eq!(focus_point(640, 480, None), (320, 240));
         let c = decode_focus_crop(&jpeg(640, 480), None, 64, 64).unwrap();
         assert_eq!(c.crop.y, 240 - 32);

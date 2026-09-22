@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Poll until the PR reaches a state that needs the agent's judgement, then
+# Poll until the PR reaches a state that needs the agent's judgment, then
 # return pr-status.sh's output at that moment verbatim.
 #
 # The waiting ACTIONs in the pr skill's step 5 (`wait` = checks in progress /

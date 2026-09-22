@@ -436,7 +436,7 @@ fn debug_build() -> bool {
 
 /// The payload of the `sidecar-error` event: a sidecar that could not be
 /// written. The writer retries it a few times with a growing delay, and the
-/// judgement stays in the index to be written on the next open if all fail.
+/// judgment stays in the index to be written on the next open if all fail.
 #[derive(Clone, serde::Serialize)]
 struct SidecarError {
     path: String,
@@ -574,7 +574,7 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            // A judgement may still be inside the writer's debounce window
+            // A judgment may still be inside the writer's debounce window
             // when the user quits, so the exit waits on an explicit drain
             // rather than on the writer's `Drop`, which is not guaranteed to
             // run during teardown.

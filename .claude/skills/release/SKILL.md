@@ -67,7 +67,7 @@ Agent(
   prompt: "PR number: <number>
 Approved: yes (the user approved shipping this release by invoking /release; this is the release-please release PR, and the invocation is the human release gate)
 
-Skip the approval judgement and go from the merge through post-merge waiting, main sync, and branch cleanup. Post-merge includes the Release workflow: release-please tags the release, then four build jobs upload installers and latest.json, which takes a while.")
+Skip the approval judgment and go from the merge through post-merge waiting, main sync, and branch cleanup. Post-merge includes the Release workflow: release-please tags the release, then four build jobs upload installers and latest.json, which takes a while.")
 ```
 
 Do not specify `model`. Branch on the return value as `/merge` does

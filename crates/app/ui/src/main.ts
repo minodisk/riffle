@@ -24,7 +24,7 @@ import {
   type Selection,
   click,
   extend,
-  judgements,
+  judgments,
   prune,
   single,
   targets,
@@ -144,13 +144,13 @@ let metaInFlight = false;
 let note: string | undefined;
 // How far the current scan got, or null when nothing is scanning. Events
 // carry the id of the scan that emitted them; only events whose id matches
-// `scanId` are applied, so the stragglers of a cancelled scan (including one
-// cancelled by reopening the very same folder) are ignored even though they
+// `scanId` are applied, so the stragglers of a canceled scan (including one
+// canceled by reopening the very same folder) are ignored even though they
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
 // True between `start_scan` and its `scan-done`. A rescan asked for while it
-// is true is deferred (`resyncPending`) rather than cancelling the scan.
+// is true is deferred (`resyncPending`) rather than canceling the scan.
 let scanRunning = false;
 // Mints a per-call id for `startScan` so its `.then`/`.catch` can tell
 // whether a later call (a re-open of the same folder included) has already
@@ -190,7 +190,7 @@ const ratings = new Map<string, number>();
 // The pick / reject of every flagged file, owned the same way as `ratings`.
 // It coexists with the stars under both sidecar formats.
 const flags = new Map<string, "pick" | "reject">();
-// The colour label of every file that has one, owned the same way as
+// The color label of every file that has one, owned the same way as
 // `ratings`.
 const labels = new Map<string, string>();
 // The sharpness score of every file the index has one for, from
@@ -207,14 +207,14 @@ const touched = new Set<string>();
 let selection: Selection = single(undefined);
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
-// A judgement's file and its state before it, for `Edit > Undo`. An entry is
+// A judgment's file and its state before it, for `Edit > Undo`. An entry is
 // a batch, undone as one: a single key judges one file, reject-rest several.
 // Per folder: `openDirectory` clears it.
-type Judgement = { path: string; rating: number | null; flag: PickFlag; label: string | null };
-const history = new History<Judgement[]>(100);
+type Judgment = { path: string; rating: number | null; flag: PickFlag; label: string | null };
+const history = new History<Judgment[]>(100);
 // The pre-undo state of each undone batch, for `Edit > Redo`. A new
-// judgement forgets it, as every editor does.
-const redoable = new History<Judgement[]>(100);
+// judgment forgets it, as every editor does.
+const redoable = new History<Judgment[]>(100);
 // Sidecar problems, kept until dismissed rather than in the transient `note`.
 const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
@@ -335,7 +335,7 @@ function line(className: string, text: string): HTMLDivElement {
 // Empty until the `shortcuts` invoke resolves.
 let keyBindings: Binding[] = [];
 
-// The centred message over the viewer: the clickable opening hint when no
+// The centered message over the viewer: the clickable opening hint when no
 // folder is open, or why an open folder shows nothing.
 function renderEmpty(): void {
   const state = emptyState(openDir, allFiles.length, files.length);
@@ -486,7 +486,7 @@ function trashRejected(): void {
       }
       // An undo of a trashed file would `set_rating` a path that is gone and
       // mint an orphan sidecar.
-      const gone = (entry: Judgement) => !failed.has(entry.path) && paths.includes(entry.path);
+      const gone = (entry: Judgment) => !failed.has(entry.path) && paths.includes(entry.path);
       history.removeWhere((batch) => batch.every(gone));
       redoable.removeWhere((batch) => batch.every(gone));
       for (const { path, message } of summary.failed) {
@@ -707,7 +707,7 @@ canvas.addEventListener("click", (event) => {
   renderMeta();
 });
 
-// Record a judgement locally: the `ratings` and `flags` maps and the strip
+// Record a judgment locally: the `ratings` and `flags` maps and the strip
 // cell. `null` (or `0`) is unrated.
 function applyRating(
   path: string,
@@ -771,10 +771,10 @@ function ordered(): string[] {
   });
 }
 
-// Rebuild `files` from `allFiles` after a filter, sort or judgement change.
+// Rebuild `files` from `allFiles` after a filter, sort or judgment change.
 // The current file stays current if it still passes; otherwise the next
 // passing file after it (in sort order) takes over, or the last one before it,
-// or the empty view. A judgement that drops the current file out of the
+// or the empty view. A judgment that drops the current file out of the
 // filter therefore hides it at once and moves on to the next passing file.
 function refilter(anchor: string | undefined = files[index], keepScroll = false): void {
   const order = ordered();
@@ -821,7 +821,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   }
 }
 
-// A judgement key over the selection's targets: the command's new value is
+// A judgment key over the selection's targets: the command's new value is
 // decided once from the focused file and set on every target, each keeping
 // the fields the command does not touch. Update the maps and redraw first,
 // then tell the backend per file. The invokes are never awaited for anything
@@ -837,7 +837,7 @@ function judge(command: Command, forceLabel = false): number {
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless. A forced label still goes out
   // while the file's real label is unknown.
-  const changes: Change[] = judgements(
+  const changes: Change[] = judgments(
     paths,
     current,
     (path) => ({
@@ -898,7 +898,7 @@ function rejectRest(): void {
 
 // A failed write drops its file from `batch`, and the batch from `from` once
 // every file of it has failed: the rest still changed and stay undoable.
-function forgetOnFail(from: History<Judgement[]>, batch: Judgement[]): (failed: Judgement) => void {
+function forgetOnFail(from: History<Judgment[]>, batch: Judgment[]): (failed: Judgment) => void {
   return (failed) => {
     const at = batch.indexOf(failed);
     if (at !== -1) {
@@ -913,7 +913,7 @@ function forgetOnFail(from: History<Judgement[]>, batch: Judgement[]): (failed: 
 // `forceLabel` sends `labelKnown: true` even before `folder_entries` has told
 // us the file's label, so the sidecar's label is cleared whatever it is.
 type Change = {
-  before: Judgement;
+  before: Judgment;
   rating: number | null;
   flag: PickFlag;
   label: string | null;
@@ -926,7 +926,7 @@ type Change = {
 // first change's file by default).
 function commit(
   changes: Change[],
-  onFail?: (failed: Judgement) => void,
+  onFail?: (failed: Judgment) => void,
   anchor?: () => string | undefined,
 ): void {
   for (const { before, rating, flag, label } of changes) {
@@ -942,7 +942,7 @@ function commit(
 
 function send(
   { before, rating, flag, label, forceLabel }: Change,
-  onFail?: (failed: Judgement) => void,
+  onFail?: (failed: Judgment) => void,
 ): void {
   const { path } = before;
   const token = folderToken;
@@ -974,7 +974,7 @@ function send(
 // its files' current states onto `to` and restore the popped states. A single
 // file becomes current unless the filter now hides it; a batch leaves the
 // current file where it is.
-function step(from: History<Judgement[]>, to: History<Judgement[]>, verb: string): void {
+function step(from: History<Judgment[]>, to: History<Judgment[]>, verb: string): void {
   if (openDir === null) {
     return;
   }
@@ -1025,7 +1025,7 @@ function redo(): void {
   step(redoable, history, "Redid");
 }
 
-// Hand the strip each visible file's score relative to its neighbours. The
+// Hand the strip each visible file's score relative to its neighbors. The
 // window runs over `files` (the filtered, sorted view), not `allFiles`, so a
 // filter changes which frames a file is compared with.
 function applySharpness(): void {
@@ -1119,9 +1119,9 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
   const arm = FOCUS_MARK_ARM;
   const gap = FOCUS_MARK_GAP;
-  // A fixed colour over a dark outline: the colour carries the mark on most
+  // A fixed color over a dark outline: the color carries the mark on most
   // photos, and the outline still draws its edge where the subject shares the
-  // colour. The same path is stroked twice, the outline first and wider, and
+  // color. The same path is stroked twice, the outline first and wider, and
   // square caps give the arm ends the same 1px outline as their sides.
   context.save();
   context.lineCap = "square";
@@ -1144,7 +1144,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
 }
 
 // The 1:1 view: the same rotation `draw()` applies, with the focus point at
-// the canvas centre. Everything here is in device pixels, so the `scale(dpr,
+// the canvas center. Everything here is in device pixels, so the `scale(dpr,
 // dpr)` of `draw()` is deliberately not applied. The crop is cut in unrotated
 // JPEG coordinates, exactly like the focus mark, so the rotation carries it.
 function drawZoom(): void {
@@ -1680,7 +1680,7 @@ function startScan(folder: string): Promise<void> {
 // Bring the open folder in line with the disk without losing anything the
 // session holds: ratings, flags, labels, sharpness, `touched`, the undo
 // history, the errors and the preview all stay, and the current file stays
-// current (or, when it was deleted, gives way to the neighbour
+// current (or, when it was deleted, gives way to the neighbor
 // `anchorAfterFilter` picks). `entries` is left alone here; the
 // `folder_entries` read on `scan-done` replaces the map wholesale, so rows of
 // files that are gone drop out there.
@@ -1902,7 +1902,7 @@ void window.__TAURI__.event.listen<{
 });
 
 // A sidecar the writer could not write: the writer retries it a few times,
-// and if it still fails the judgement is still in the index and is retried
+// and if it still fails the judgment is still in the index and is retried
 // on the next open of the folder, so this is a sticky error, not a revert.
 void window.__TAURI__.event.listen<{ path: string; message: string }>(
   "sidecar-error",
@@ -1917,7 +1917,7 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 
 // The settings window switched the format and the backend has reset the index:
 // reopen the folder so the strip and the meta pane show the newly selected
-// format's judgements. A fresh token drops any open still in flight.
+// format's judgments. A fresh token drops any open still in flight.
 void window.__TAURI__.event.listen<string>("sidecar-format", () => {
   if (openDir === null) {
     return;
@@ -2322,7 +2322,7 @@ function runAction(action: string): boolean {
     case "blue":
     case "pink":
     case "purple": {
-      // Toggles: the same colour again clears it; another colour replaces it.
+      // Toggles: the same color again clears it; another color replaces it.
       const name = action.charAt(0).toUpperCase() + action.slice(1);
       judge((focused) => {
         const label = focused.label === name ? null : name;

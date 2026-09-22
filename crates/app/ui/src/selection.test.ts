@@ -4,7 +4,7 @@ import {
   type State,
   click,
   extend,
-  judgements,
+  judgments,
   prune,
   single,
   targets,
@@ -101,7 +101,7 @@ describe("targets", () => {
   });
 });
 
-describe("judgements", () => {
+describe("judgments", () => {
   const states: Record<string, State> = {
     "/a": { rating: 2, flag: "none", label: "Red" },
     "/b": { rating: 5, flag: "pick", label: null },
@@ -115,16 +115,16 @@ describe("judgements", () => {
 
   test("a label toggle on a mixed selection follows the focused file", () => {
     expect(
-      judgements(["/a", "/b", "/c"], "/b", lookup, toggleRed).map((c) => c.after.label),
+      judgments(["/a", "/b", "/c"], "/b", lookup, toggleRed).map((c) => c.after.label),
     ).toEqual(["Red", "Red"]);
     expect(
-      judgements(["/a", "/b", "/c"], "/a", lookup, toggleRed).map((c) => c.before.path),
+      judgments(["/a", "/b", "/c"], "/a", lookup, toggleRed).map((c) => c.before.path),
     ).toEqual(["/a", "/c"]);
   });
 
   test("a star command keeps each file's label and flag", () => {
     const three: Command = () => (own) => ({ ...own, rating: 3 });
-    expect(judgements(["/a", "/b", "/c"], "/a", lookup, three).map((c) => c.after)).toEqual([
+    expect(judgments(["/a", "/b", "/c"], "/a", lookup, three).map((c) => c.after)).toEqual([
       { rating: 3, flag: "none", label: "Red" },
       { rating: 3, flag: "pick", label: null },
       { rating: 3, flag: "reject", label: "Blue" },
@@ -133,20 +133,20 @@ describe("judgements", () => {
 
   test("files already at the value are skipped", () => {
     const two: Command = () => (own) => ({ ...own, rating: 2 });
-    expect(judgements(["/a", "/b"], "/b", lookup, two).map((c) => c.before)).toEqual([
+    expect(judgments(["/a", "/b"], "/b", lookup, two).map((c) => c.before)).toEqual([
       { path: "/b", rating: 5, flag: "pick", label: null },
     ]);
   });
 
   test("a batch with no change is empty unless forced", () => {
     const same: Command = () => (own) => own;
-    expect(judgements(["/a", "/b"], "/a", lookup, same)).toEqual([]);
-    expect(judgements(["/a"], "/a", lookup, same, () => true)).toHaveLength(1);
+    expect(judgments(["/a", "/b"], "/a", lookup, same)).toEqual([]);
+    expect(judgments(["/a"], "/a", lookup, same, () => true)).toHaveLength(1);
   });
 
   test("the focused file comes first", () => {
     const clear: Command = () => (own) => ({ ...own, rating: null });
-    expect(judgements(["/a", "/b", "/c"], "/c", lookup, clear).map((c) => c.before.path)).toEqual([
+    expect(judgments(["/a", "/b", "/c"], "/c", lookup, clear).map((c) => c.before.path)).toEqual([
       "/c",
       "/a",
       "/b",

@@ -46,7 +46,7 @@ You are given:
   number.**
 
 - **The "approved" flag** (optional): when given, skip step 2 (the approval
-  judgement). The `merge` skill (`/merge`) **always passes it** — a human typing
+  judgment). The `merge` skill (`/merge`) **always passes it** — a human typing
   `/merge` is itself the approval. From the develop skill it is passed only when
   the main agent reported the approval reason to the user and re-dispatches
   after being told to go ahead
@@ -102,7 +102,7 @@ command.** Re-run the same script in the foreground with `timeout: 600000`
 result, stop every background task of your own that is still running with
 `TaskStop`**, so nothing lingers after the hand-back.
 
-### 2. Approval judgement
+### 2. Approval judgment
 
 If the Input carried the "approved" flag, skip this step and go to step 3.
 
@@ -184,7 +184,7 @@ own conversation**. Branch on the exit code.
   step 6 (`no_runs` is the normal case for a docs-only chore commit and the
   like, where nothing is triggered)
 - **1**: `STATUS=failed`. **Do not auto-recover** (a rerun, supplying a secret,
-  or manual handling needs human judgement). Return `POST_MERGE_FAILED` with the
+  or manual handling needs human judgment). Return `POST_MERGE_FAILED` with the
   failed runs' URLs
 - **2**: `STATUS=timeout`. Increment `post_merge_timeouts` and re-run as-is
   while `post_merge_timeouts < 7` (about 30 minutes in total). Once it is

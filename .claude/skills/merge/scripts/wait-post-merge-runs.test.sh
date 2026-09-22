@@ -90,7 +90,7 @@ expect "one failure" 1 "[${ci_ok},$(run Release failure 2026-01-01T00:00:00Z)]" 
 	$'failure\tRelease\thttps://example.com/Release' \
 	'TOTAL_COUNT=2' 'FAILED_COUNT=1' 'SUPERSEDED_COUNT=0' 'STATUS=failed'
 
-expect "cancelled superseded" 0 "[${ci_ok},$(run Release cancelled 2026-01-01T00:00:00Z)]" \
+expect "canceled superseded" 0 "[${ci_ok},$(run Release cancelled 2026-01-01T00:00:00Z)]" \
 	'[{"status":"completed","conclusion":"success","createdAt":"2026-01-01T00:05:00Z"}]' \
 	$'superseded\tRelease\thttps://example.com/Release' \
 	'TOTAL_COUNT=2' 'FAILED_COUNT=0' 'SUPERSEDED_COUNT=1' 'STATUS=success'

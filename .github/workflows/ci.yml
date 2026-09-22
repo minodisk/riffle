@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 # Cancel superseded runs on a PR, but never on main: merger waits for the run
-# tied to the merge commit, and cancelling it there would leave nothing to wait
+# tied to the merge commit, and canceling it there would leave nothing to wait
 # for.
 concurrency:
   group: ci-${{ github.ref }}

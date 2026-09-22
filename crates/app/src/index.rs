@@ -21,15 +21,15 @@ use crate::exif::{exif, Exif};
 /// below changes; a version `prepare` cannot migrate is dropped and rebuilt.
 ///
 /// From v2 on the database is no longer purely derivable: a `ratings` row with
-/// `dirty = 1` is a judgement that has not reached its sidecar yet, so
+/// `dirty = 1` is a judgment that has not reached its sidecar yet, so
 /// discarding the database loses it. A future bump must migrate `ratings` or
 /// flush every dirty row to its sidecar first. v3 added `ratings.pick`, and a
 /// v2 database is migrated in place with an `ALTER TABLE`. v4 added the
 /// shooting settings to `files`; a v2 or v3 database has its `files` table
 /// dropped and recreated, so every folder is rescanned once, and keeps
-/// `ratings`. v5 added `ratings.label`, the colour label (`NULL` = none); a
+/// `ratings`. v5 added `ratings.label`, the color label (`NULL` = none); a
 /// v2, v3 or v4 database gains it in place with an `ALTER TABLE`. v6 added
-/// `ratings.label_known`, persisting whether `label` reflects a judgement the
+/// `ratings.label_known`, persisting whether `label` reflects a judgment the
 /// app actually asserted (see `set_rating`); older databases gain it in
 /// place, defaulting to `1` since every label they hold was asserted. v7
 /// added `files.sharpness`, the preview's focus-window score; a v2 to v6
@@ -697,14 +697,14 @@ impl Index {
             })
     }
 
-    /// Record a judgement for one file, pending a sidecar write.
+    /// Record a judgment for one file, pending a sidecar write.
     ///
     /// The row is independent of `files`, so a rescan or a failed extraction
     /// never drops a rating. `dirty = 1` until the writer has landed exactly
     /// this value in the sidecar.
     ///
     /// `label_known` is false when the caller has not yet learned this
-    /// path's label (e.g. a judgement made before the first `folder_entries`
+    /// path's label (e.g. a judgment made before the first `folder_entries`
     /// refresh, or before the sidecar parse has stored it). The `label`
     /// column is then left untouched rather than being set to `label`
     /// (typically `None`), so a later sidecar parse or read is still free to
@@ -744,14 +744,14 @@ impl Index {
     }
 
     /// Clear `dirty` and store the sidecar's stat, but only while the row
-    /// still holds the judgement that was written: a keypress during the write
+    /// still holds the judgment that was written: a keypress during the write
     /// leaves the row dirty so the newer value is written in turn.
     ///
     /// `stat` is `None` when no sidecar exists (clearing a rating on a file
     /// that never had one writes nothing).
     ///
     /// `label_known` is false when the label `set_rating` was given for this
-    /// judgement was not asserted by the app: the writer instead kept the
+    /// judgment was not asserted by the app: the writer instead kept the
     /// sidecar's own current label, passed here as `label` (the label
     /// actually resolved and written, see `sidecar::write`). That resolved
     /// label is now known to match the sidecar, so it and `label_known = 1`
@@ -791,9 +791,9 @@ impl Index {
 
     /// Forget every sidecar the index has seen, for a sidecar format switch:
     /// clean rows are dropped so the next open reads the newly selected
-    /// format, and dirty rows keep their judgement but lose the old format's
+    /// format, and dirty rows keep their judgment but lose the old format's
     /// stat, so the next open writes them into the new one. Their whole
-    /// judgement is kept, including the flag, since both formats hold it.
+    /// judgment is kept, including the flag, since both formats hold it.
     pub fn reset_sidecars(&mut self) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM ratings WHERE dirty = 0", [])
@@ -806,7 +806,7 @@ impl Index {
         tx.commit().map_err(|e| e.to_string())
     }
 
-    /// The rows of `dir` whose judgement has not reached its sidecar yet,
+    /// The rows of `dir` whose judgment has not reached its sidecar yet,
     /// with each row's own `label_known` (see `set_rating`) rather than a
     /// blanket "known": a row created before the label was learned must
     /// still be replayed as unknown, or the writer would strip whatever
@@ -940,7 +940,7 @@ impl Index {
 }
 
 /// The part of a `ratings` row the folder-open reconciliation looks at: the
-/// stat of the sidecar as the app last saw it, and whether a judgement is
+/// stat of the sidecar as the app last saw it, and whether a judgment is
 /// still waiting to be written.
 struct RatingRow {
     stat: (Option<i64>, Option<i64>),
@@ -1055,7 +1055,7 @@ where
         errors: errors.load(Ordering::Relaxed),
     };
     log::info!(
-        "scan extract: dir={dir} files={total} done={} errors={} threads={threads} cancelled={} in {}ms",
+        "scan extract: dir={dir} files={total} done={} errors={} threads={threads} canceled={} in {}ms",
         summary.total,
         summary.errors,
         cancel.load(Ordering::Relaxed),
@@ -1542,7 +1542,7 @@ mod tests {
             .set_rating("d", "/a.ARW", Some(3), Flag::None, None, false)
             .unwrap();
 
-        // ...but a newer judgement with the same rating/flag asserts "Blue"
+        // ...but a newer judgment with the same rating/flag asserts "Blue"
         // before that write lands.
         index
             .set_rating("d", "/a.ARW", Some(3), Flag::None, Some("Blue"), true)
@@ -1701,7 +1701,7 @@ mod tests {
         let mut index = open(&dir);
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
 
-        // A judgement before the row's label is known must not stamp `label`
+        // A judgment before the row's label is known must not stamp `label`
         // as `None`: a later sidecar parse still needs to be free to fill it
         // in, and mark_written must not be guarded on a value never asserted.
         index
@@ -1715,7 +1715,7 @@ mod tests {
 
         // Simulate the sidecar parse landing afterwards: it is free to set
         // the label, since `set_rating` above never touched the column. The
-        // row is still dirty from that judgement, so the snapshot passed
+        // row is still dirty from that judgment, so the snapshot passed
         // here must say so too.
         index
             .store_sidecar_ratings(
@@ -1733,7 +1733,7 @@ mod tests {
             .unwrap();
         assert_eq!(index.entries("d").unwrap()[0].label.as_deref(), Some("Red"));
 
-        // `mark_written` for the same unknown-label judgement must not check
+        // `mark_written` for the same unknown-label judgment must not check
         // `label` at all, since `ratings.label` was never set to it, but the
         // resolved label the writer actually put in the sidecar ("Red", the
         // one already there) is stored and marked known regardless, so a
@@ -1748,7 +1748,7 @@ mod tests {
             "the resolved label is now stored and marked known"
         );
 
-        // A later judgement that again does not know the label yet leaves
+        // A later judgment that again does not know the label yet leaves
         // that now-known label untouched, and a replay of the resulting
         // dirty row carries it as known.
         index
@@ -1771,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn a_sidecar_reset_keeps_the_judgement_of_a_dirty_row() {
+    fn a_sidecar_reset_keeps_the_judgment_of_a_dirty_row() {
         let dir = temp_dir("reset-label");
         let mut index = open(&dir);
         index
@@ -2073,7 +2073,7 @@ mod tests {
     }
 
     #[test]
-    fn cancelling_after_the_first_batch_keeps_what_was_written() {
+    fn canceling_after_the_first_batch_keeps_what_was_written() {
         let dir = temp_dir("cancel");
         let body = jpeg(64, 48);
         // The cancel fires from `progress` once `done >= BATCH`, so the count

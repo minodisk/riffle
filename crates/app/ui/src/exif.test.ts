@@ -38,7 +38,7 @@ describe("exifKey", () => {
     expect(exifKey(exif, "lens")).toEqual({ label: "FE 35mm F1.4 GM", order: "FE 35mm F1.4 GM" });
   });
 
-  test("orders labelled values by their numeric value", () => {
+  test("orders labeled values by their numeric value", () => {
     expect(exifKey(exif, "aperture")).toEqual({ label: "f/1.4", order: 1.4 });
     expect(exifKey(exif, "shutter")).toEqual({ label: "1/250 s", order: 0.004 });
     expect(exifKey(exif, "iso")).toEqual({ label: "ISO 100", order: 100 });

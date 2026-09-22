@@ -1,4 +1,4 @@
-// The strip's sharpness cue: each file's score relative to its neighbours.
+// The strip's sharpness cue: each file's score relative to its neighbors.
 // Free of DOM and Tauri so it is tested without mocks.
 
 // How many cells on each side a file is compared with (up to 5 frames).

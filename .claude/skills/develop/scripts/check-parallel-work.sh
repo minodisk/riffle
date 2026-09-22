@@ -139,7 +139,7 @@ fi
 
 # 3. Open PRs
 # A gh failure alone (unauthenticated, network down) should not block starting
-# work, so this stays a warning and the git-based judgement continues.
+# work, so this stays a warning and the git-based judgment continues.
 # `gh pr list --search` is GitHub full-text search (token matching on title and
 # body) and does not index head branch names. Post-filtering on headRefName
 # therefore only produces the conjunction "title/body match AND headRefName
