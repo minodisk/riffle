@@ -296,8 +296,10 @@ body {
 
 .cell {
   position: absolute;
-  left: 8px;
-  width: 144px;
+  left: 7px;
+  /* The 144px image box plus the 1px border each side: absolute children
+     are placed against the padding box. */
+  width: 146px;
   height: calc(var(--cell-height) - var(--cell-gap));
   border: 1px solid transparent;
   border-radius: 3px;
@@ -430,8 +432,9 @@ body {
 
 /* The burst band, a tint behind the cells of a burst that reaches a little
    outside each cell and, on a member below another, up across the gap, so a
-   burst reads as one block. `isolation` on `.cell` keeps it behind the
-   cell's contents but above the background under the strip. */
+   burst reads as one block; at a burst's first and last cell it stops
+   short of the neighbouring burst's band. `isolation` on `.cell` keeps it
+   behind the cell's contents but above the background under the strip. */
 .cell.burst {
   isolation: isolate;
 }
@@ -448,13 +451,13 @@ body {
 }
 
 .cell.burst.burst-first::before {
-  top: -5px;
+  top: -2px;
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
 }
 
 .cell.burst.burst-last::before {
-  bottom: -5px;
+  bottom: -2px;
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
 }
