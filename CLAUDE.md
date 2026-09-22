@@ -24,7 +24,7 @@ and the filter menu, and
 XMP-or-`.dop` setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
 `xmp:Label` names per colour persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
-the default keys, whose colour label keys differ per sidecar format, and the
+the default keys and the
 user's overrides, persisted in the `shortcuts` key).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
