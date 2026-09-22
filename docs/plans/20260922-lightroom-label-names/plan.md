@@ -121,7 +121,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
     - `.dop` is unaffected: `dop::read_label` / `write_label` keep their
       signatures.
 
-- [ ] Step 3: Settings window: "Lightroom" / "PhotoLab" names and the label name fields
+- [x] Step 3: Settings window: "Lightroom" / "PhotoLab" names and the label name fields
   - Done when:
     - `crates/app/ui/settings.html` shows the radios as "Lightroom (.xmp)"
       and "PhotoLab (.dop)" (values `xmp` / `dop` unchanged).

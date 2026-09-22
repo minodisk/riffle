@@ -1,4 +1,5 @@
 import { type Binding, displayKey, keyName } from "./keys.js";
+import { LABEL_COLORS, type LabelNames, englishLabelNames, labelNamesPayload } from "./labels.js";
 import { nextTab } from "./tabs.js";
 
 const shortcutLabels: Record<string, string> = {
@@ -42,6 +43,10 @@ const shortcutLabels: Record<string, string> = {
 const shortcutsRows = document.getElementById("shortcuts-rows") as HTMLTableElement;
 const status = document.getElementById("status") as HTMLDivElement;
 const sidecarRadios = document.querySelectorAll<HTMLInputElement>('input[name="sidecar-format"]');
+const labelNamesBlock = document.getElementById("label-names") as HTMLDivElement;
+const labelNameInput = (color: string): HTMLInputElement =>
+  document.getElementById(`label-name-${color}`) as HTMLInputElement;
+let japaneseLabelNames: LabelNames | null = null;
 const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
 const indexSize = document.getElementById("index-size") as HTMLParagraphElement;
@@ -128,6 +133,23 @@ function showSidecarFormat(format: string): void {
   for (const radio of sidecarRadios) {
     radio.checked = radio.value === format;
   }
+  labelNamesBlock.hidden = format !== "xmp";
+}
+
+function showLabelNames(names: LabelNames): void {
+  for (const color of LABEL_COLORS) {
+    labelNameInput(color).value = names[color];
+  }
+}
+
+function saveLabelNames(names: LabelNames): void {
+  status.textContent = "";
+  window.__TAURI__.core
+    .invoke<LabelNames>("set_label_names", { names })
+    .then(showLabelNames)
+    .catch((error: unknown) => {
+      status.textContent = String(error);
+    });
 }
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
@@ -137,6 +159,15 @@ void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then((bindings) => {
 void window.__TAURI__.core.invoke<string>("sidecar_format").then(showSidecarFormat);
 void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
   showSidecarFormat(payload);
+});
+void window.__TAURI__.core
+  .invoke<{ names: LabelNames; japanese: LabelNames }>("label_names")
+  .then(({ names, japanese }) => {
+    japaneseLabelNames = japanese;
+    showLabelNames(names);
+  });
+void window.__TAURI__.event.listen<LabelNames>("label-names", ({ payload }) => {
+  showLabelNames(payload);
 });
 void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
   autoAdvance.checked = enabled;
@@ -192,6 +223,7 @@ void window.__TAURI__.event.listen("index-clearing", () => {
 for (const radio of sidecarRadios) {
   radio.addEventListener("change", () => {
     status.textContent = "";
+    labelNamesBlock.hidden = radio.value !== "xmp";
     window.__TAURI__.core
       .invoke("set_sidecar_format", { format: radio.value })
       .catch((error: unknown) => {
@@ -199,6 +231,26 @@ for (const radio of sidecarRadios) {
       });
   });
 }
+
+for (const color of LABEL_COLORS) {
+  labelNameInput(color).addEventListener("change", () => {
+    saveLabelNames(labelNamesPayload((c) => labelNameInput(c).value));
+  });
+}
+
+(document.getElementById("label-names-japanese") as HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    if (japaneseLabelNames !== null) saveLabelNames(japaneseLabelNames);
+  },
+);
+
+(document.getElementById("label-names-english") as HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    saveLabelNames(englishLabelNames());
+  },
+);
 
 autoAdvance.addEventListener("change", () => {
   status.textContent = "";
