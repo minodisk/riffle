@@ -107,4 +107,4 @@ succeeded keeps "Latest" pointing at a complete release at all times.
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete

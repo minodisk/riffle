@@ -1090,6 +1090,16 @@ with a separate `actions/upload-artifact@v4` step over
 - Source: `docs/plans/_archived/20260918-github-releases-auto-update/learnings.md`,
   Steps 2 and 4.
 
+### `gh release edit` resolves drafts by tag only once the tag is pushed up front (Hit)
+
+`tauri-action`'s own `getReleaseByTag` lookup skips draft releases, so it
+still needs `releaseId` passed explicitly rather than relying on tag
+resolution. `gh release edit <tag>` only works once `force-tag-creation`
+makes release-please push the tag before the draft release exists.
+
+- Source: `docs/plans/_archived/20260923-draft-release-publish/learnings.md`,
+  Step 1.
+
 ### Cache Rust builds by `matrix.os`, not `runner.os` (Hit)
 
 `macos-latest` (arm64) and `macos-15-intel` (x86_64) both report
