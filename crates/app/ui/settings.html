@@ -60,8 +60,23 @@
       </button>
     </div>
     <section id="sidecar" role="tabpanel" aria-labelledby="tab-sidecar">
-      <label><input type="radio" name="sidecar-format" value="xmp" /> XMP (.xmp)</label>
-      <label><input type="radio" name="sidecar-format" value="dop" /> DxO PhotoLab (.dop)</label>
+      <label><input type="radio" name="sidecar-format" value="xmp" /> Lightroom (.xmp)</label>
+      <label><input type="radio" name="sidecar-format" value="dop" /> PhotoLab (.dop)</label>
+      <div id="label-names" hidden>
+        <p>
+          The <code>xmp:Label</code> written for each colour. These must match the names in
+          Lightroom's colour label set.
+        </p>
+        <label>Red <input id="label-name-red" type="text" /></label>
+        <label>Yellow <input id="label-name-yellow" type="text" /></label>
+        <label>Green <input id="label-name-green" type="text" /></label>
+        <label>Blue <input id="label-name-blue" type="text" /></label>
+        <label>Purple <input id="label-name-purple" type="text" /></label>
+        <div class="actions">
+          <button id="label-names-japanese" type="button">Lightroom default (Japanese)</button>
+          <button id="label-names-english" type="button">Reset to English</button>
+        </div>
+      </div>
     </section>
     <section id="culling" role="tabpanel" aria-labelledby="tab-culling" hidden>
       <label
