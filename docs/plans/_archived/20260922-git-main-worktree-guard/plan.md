@@ -73,4 +73,4 @@ worktree holds it"; this makes the task actually honour that promise.
 
 ## Progress
 
-- Step 1: done (git:main skips the main fast-forward when any worktree holds main)
+- (2026-09-22) Step 1 complete
