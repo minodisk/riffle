@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.1.10](https://github.com/minodisk/riffle/compare/v0.1.9...v0.1.10) (2026-09-22)
+
+
+### Features
+
+* **app:** add a clearall action that clears every flag with one key ([#312](https://github.com/minodisk/riffle/issues/312)) ([c024382](https://github.com/minodisk/riffle/commit/c024382ec89a8397be64a9c597e0b457046953ea))
+* **app:** add a pure strip selection model ([#307](https://github.com/minodisk/riffle/issues/307)) ([6d01931](https://github.com/minodisk/riffle/commit/6d01931993080099a7aadf2bc5e68b9bdb805ac6))
+* **app:** add burst navigation keys ([#278](https://github.com/minodisk/riffle/issues/278)) ([174fa82](https://github.com/minodisk/riffle/commit/174fa821dd962ddbf2b5cc6b614af55133dc0ed5))
+* **app:** add burstFramePrevious / burstFrameNext actions on Alt+ArrowUp/Down ([#320](https://github.com/minodisk/riffle/issues/320)) ([7d6bd99](https://github.com/minodisk/riffle/commit/7d6bd991c08cafe696bf6ec437055c2274f86cd8))
+* **app:** add pure helpers for the strip flag menu ([#306](https://github.com/minodisk/riffle/issues/306)) ([4e54a1a](https://github.com/minodisk/riffle/commit/4e54a1a65f8e156f2b6b0cb4056db0dd80d9fc7b))
+* **app:** apply judgements to every selected strip file ([#317](https://github.com/minodisk/riffle/issues/317)) ([7891bf7](https://github.com/minodisk/riffle/commit/7891bf71d1d2cc07448e8dfefbe4bb1a2be17a27))
+* **app:** bump the index schema to v9 so sharpness scores are recomputed ([#272](https://github.com/minodisk/riffle/issues/272)) ([5ae9fd1](https://github.com/minodisk/riffle/commit/5ae9fd1c30610045a1ef607a9de75493b2aa53dc))
+* **app:** group files into bursts and show them on the strip ([#276](https://github.com/minodisk/riffle/issues/276)) ([0f29a4e](https://github.com/minodisk/riffle/commit/0f29a4e5072a3ded7ac86049e9296f3a74c2b451))
+* **app:** keyboard range extension and collapse for strip selection ([#323](https://github.com/minodisk/riffle/issues/323)) ([c9d7524](https://github.com/minodisk/riffle/commit/c9d752464f80b6ce7d5d54f4c824f5f5d2d431c9))
+* **app:** pin the meta pane status lines to the bottom ([#299](https://github.com/minodisk/riffle/issues/299)) ([ce2b859](https://github.com/minodisk/riffle/commit/ce2b859fab0b1a12119ab1546f1e65c34cb53d8c))
+* **app:** refresh the index cache size when a scan ends ([#315](https://github.com/minodisk/riffle/issues/315)) ([05c9a9b](https://github.com/minodisk/riffle/commit/05c9a9beb05430cfb8ecb92859d9f0de6e1478cb))
+* **app:** reject the rest of the burst, undone as one entry ([#281](https://github.com/minodisk/riffle/issues/281)) ([98375ba](https://github.com/minodisk/riffle/commit/98375baf9082352b0c4a3441a312266f46ddc4d2))
+* **app:** replace the burst bracket with a band and count badge ([#322](https://github.com/minodisk/riffle/issues/322)) ([a19f81d](https://github.com/minodisk/riffle/commit/a19f81d975a7af8914391f0f10ed5d47d43d102d))
+* **app:** select multiple strip cells with Cmd/Ctrl+click and Shift+click ([#311](https://github.com/minodisk/riffle/issues/311)) ([f9d6442](https://github.com/minodisk/riffle/commit/f9d6442bce9ef26b673d94bc6ebafae4ea468801))
+* **app:** wire the strip context menu into the main window ([#310](https://github.com/minodisk/riffle/issues/310)) ([6b78f0e](https://github.com/minodisk/riffle/commit/6b78f0eeae75a5d863d974126771e8a31dab8ab9))
+* **core,app:** run face detection at scan time and bump schema to v10 ([#309](https://github.com/minodisk/riffle/issues/309)) ([5b1b684](https://github.com/minodisk/riffle/commit/5b1b68452b5f386720d329e1d12c67614011dece))
+* **core:** add a face/eye detector prototype with a CLI benchmark ([#303](https://github.com/minodisk/riffle/issues/303)) ([3996e1b](https://github.com/minodisk/riffle/commit/3996e1b47a4d74ccc99f1f09aa9c0ec26b32bc91))
+* **core:** parse the Sony FocusMode maker note tag into Shot ([#269](https://github.com/minodisk/riffle/issues/269)) ([2617703](https://github.com/minodisk/riffle/commit/26177030b8362c35c1fc2ac28795a0c9de1862d3))
+* **core:** score sharpness on the eyes when a face is found ([#305](https://github.com/minodisk/riffle/issues/305)) ([c496d48](https://github.com/minodisk/riffle/commit/c496d4853f9f6325ad5b1ea9a8f6b046474610f3))
+* **core:** score the sharpest tile when there is no trustworthy AF point ([#271](https://github.com/minodisk/riffle/issues/271)) ([73096bf](https://github.com/minodisk/riffle/commit/73096bfd733a94f74112b0f0e8d56eb7811e7211))
+
+
+### Bug Fixes
+
+* **app:** keep the strip scrollbar from clipping thumbnails ([#298](https://github.com/minodisk/riffle/issues/298)) ([68e978d](https://github.com/minodisk/riffle/commit/68e978d17591f106dfec42eb19809fa8921a6343))
+* **app:** patch menu accelerators in place to keep the Windows menu bar dark ([#329](https://github.com/minodisk/riffle/issues/329)) ([8feb659](https://github.com/minodisk/riffle/commit/8feb6590adedefecc2caca1f7373a9f11469e274))
+* **app:** scope the focus rescan to the main window ([#297](https://github.com/minodisk/riffle/issues/297)) ([ab28958](https://github.com/minodisk/riffle/commit/ab28958cda436b73c5500c4d48d10c86c8e00ee9))
+* **merge:** rename the jq $label variable rejected by jq 1.6 ([#294](https://github.com/minodisk/riffle/issues/294)) ([c6f7140](https://github.com/minodisk/riffle/commit/c6f7140a1988bbc18f37c2cc357192e681e62443))
+* **mise:** skip fast-forwarding main when any worktree has it checked out ([#330](https://github.com/minodisk/riffle/issues/330)) ([b1c6037](https://github.com/minodisk/riffle/commit/b1c6037195dd16a938025a5dcfa77a9c4cfe45cd))
+
 ## [0.1.9](https://github.com/minodisk/riffle/compare/v0.1.8...v0.1.9) (2026-09-21)
 
 
