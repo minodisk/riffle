@@ -18,6 +18,7 @@ import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { effectivePick } from "./pick.js";
 import { flagMenuItems, menuPosition } from "./context.js";
+import { reconcileActive } from "./compare.js";
 import {
   type Command,
   type Selection,
@@ -241,9 +242,9 @@ let grayscaleHeld: string | null = null;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
 // Side-by-side culling view. With a multi-selection it compares up to four
-// selected files; otherwise it compares the sharpest two frames in the
-// current burst. The bitmaps are independent of `shown`, which remains ready
-// for an immediate return to the single-image view.
+// selected files; otherwise it compares the current file with the sharpest
+// frame in its burst. The bitmaps are independent of `shown`, which remains
+// ready for an immediate return to the single-image view.
 let comparing = false;
 let compareSeq = 0;
 let compareFrames: { path: string; bitmap: ImageBitmap; orientation: number }[] = [];
@@ -567,6 +568,13 @@ function closeCompareFrames(): void {
   compareFrames = [];
 }
 
+function stopComparing(): void {
+  comparing = false;
+  compareSeq += 1;
+  closeCompareFrames();
+  compareActivePath = null;
+}
+
 function drawCompare(): void {
   const dpr = window.devicePixelRatio;
   const width = canvas.clientWidth;
@@ -631,6 +639,13 @@ function drawCompare(): void {
 
 async function loadCompare(): Promise<void> {
   const paths = compareCandidates();
+  compareActivePath = reconcileActive(paths, compareActivePath, files[index]);
+  if (paths.length < 2) {
+    stopComparing();
+    renderMeta();
+    draw();
+    return;
+  }
   const request = ++compareSeq;
   closeCompareFrames();
   drawCompare();
@@ -662,10 +677,7 @@ async function loadCompare(): Promise<void> {
 
 function toggleCompare(): void {
   if (comparing) {
-    comparing = false;
-    compareSeq += 1;
-    closeCompareFrames();
-    compareActivePath = null;
+    stopComparing();
     renderMeta();
     draw();
     return;
@@ -787,6 +799,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
     closeContextMenu();
     index = 0;
     selection = prune(selection, files, index);
+    if (comparing) stopComparing();
     seq += 1;
     shown?.bitmap.close();
     shown = null;
@@ -803,6 +816,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   if (files[index] === anchor) {
     strip.setCurrent(index);
     renderMeta();
+    if (comparing) void loadCompare();
   } else {
     show();
   }
@@ -1711,10 +1725,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       return;
     }
     closeContextMenu();
-    comparing = false;
-    compareSeq += 1;
-    closeCompareFrames();
-    compareActivePath = null;
+    stopComparing();
     for (const set of shownExif.values()) {
       set.clear();
     }

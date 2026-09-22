@@ -100,7 +100,7 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `c` | clear every flag: stars, reject, pick and colour label |
 | `z` | 1:1 focus check |
 | `g` (hold) | grayscale preview |
-| `v` | compare selected shots / the sharpest two frames in a burst |
+| `v` | compare selected shots / the current shot with its burst's sharpest frame |
 | `f` | focus mark |
 | `Cmd+O` / `Ctrl+O` | open a folder |
 

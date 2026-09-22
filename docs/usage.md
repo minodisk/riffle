@@ -160,7 +160,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
-| `v` | toggle comparison of selected files / the sharpest two burst frames |
+| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
