@@ -94,4 +94,6 @@ About as a MessageBox and ignores `icon`, so it is left as is.
 
 ## Progress
 
-- (none yet)
+- Step 1: About rebuilt with `icons/128x128.png` as the `AboutMetadata` icon
+  (macOS app menu item 0, `Help` item 0 elsewhere); GUI check pending manual
+  verification.
