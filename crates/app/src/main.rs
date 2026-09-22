@@ -272,10 +272,27 @@ mod app_menu {
         Ok(menu)
     }
 
-    /// Rebuild and set the menu so both accelerators match the keymap.
-    /// muda's macOS `set_accelerator(None)` does not clear a key equivalent,
-    /// so the whole menu is replaced rather than patched.
+    /// Make both accelerators match the keymap. muda's macOS
+    /// `set_accelerator(None)` does not clear a key equivalent, so macOS
+    /// replaces the whole menu. Elsewhere a runtime `set_menu` turns the
+    /// Windows dark menu bar white, so an existing menu is patched in place.
     pub fn refresh(app: &AppHandle, keymap: &crate::shortcuts::Keymap) -> tauri::Result<()> {
+        #[cfg(not(target_os = "macos"))]
+        if let Some(menu) = app.menu() {
+            for (id, action) in [(OPEN_FOLDER_ID, "open"), (PHOTOLAB_ID, "photolab")] {
+                let item = menu
+                    .items()?
+                    .iter()
+                    .filter_map(|kind| kind.as_submenu()?.get(id))
+                    .find_map(|kind| kind.as_menuitem().cloned());
+                let Some(item) = item else {
+                    log::warn!("menu item {id} not found; accelerator not updated");
+                    return Ok(());
+                };
+                item.set_accelerator(keymap.accelerator_for(action).as_deref())?;
+            }
+            return Ok(());
+        }
         let menu = build(
             app,
             keymap.accelerator_for("open").as_deref(),
