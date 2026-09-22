@@ -386,23 +386,28 @@ confirmed it works.
 From `lightroom-xmp-flags-labels`'s implementation: the tri-state flag and
 colour-label read/write for XMP were built and unit-tested against trimmed
 copies of Lightroom-shaped fixtures, but the round-trip was never confirmed
-against real Lightroom. In particular it is unverified whether Lightroom
-9.5.1 resolves the colour label from `photoshop:LabelColor` when the
-sibling `xmp:Label` holds Riffle's English name instead of Lightroom's own
-localised string. Files: `crates/core/src/xmp.rs`, `crates/app/src/sidecar.rs`,
-`README.md` ("Sidecar formats and software" checklist).
-
-Answer (checked in Lightroom Classic 2026, Windows, Japanese UI): Lightroom
-Classic does not resolve the colour from `photoshop:LabelColor`; it matches
-`xmp:Label` against the names in its colour label set. The write approach was
-revised by the `lightroom-label-names` plan (configurable `xmp:Label` names,
-with a Japanese preset).
+against real Lightroom. Files: `crates/core/src/xmp.rs`,
+`crates/app/src/sidecar.rs`, `README.md` ("Sidecar formats and software"
+checklist).
 
 #### TODO
 
 - [ ] Open `D:\Photos\2026\2026-09-05` under the XMP format and check L1005439
       is picked, L1005438 is rejected, L1005428-L1005432 show purple / blue /
       green / yellow / red, and L1005433-L1005437 show 5..1 stars.
-- [x] Check whether Lightroom resolves the colour from `photoshop:LabelColor`
-      when `xmp:Label` carries the English name: it does not (Lightroom
-      Classic 2026); addressed by the `lightroom-label-names` plan.
+
+### App/Core: unverified whether a Riffle-written pick/reject shows correctly in Lightroom Classic
+
+Lightroom Classic writes a pick as `xmpDM:good="true"` + `xmpDM:pick="1"`;
+Riffle only reads and writes `xmpDM:good`. The user confirmed Lightroom
+Classic 2026 read Riffle-written pick flags (`xmpDM:good` only, no
+`xmpDM:pick`) correctly on first import, but reject display from a
+Riffle-written XMP was not separately checked. Basis: `lightroom-label-names`
+plan's "Trade-offs and risks" and the user's session verification. Files:
+`crates/core/src/xmp.rs`, `README.md`.
+
+#### TODO
+
+- [ ] Verify a Riffle-written reject (no `xmpDM:pick`) shows correctly as
+      rejected in Lightroom Classic; if it does not, decide whether Riffle
+      should also write `xmpDM:pick`.
