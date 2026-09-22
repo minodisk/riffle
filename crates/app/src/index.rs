@@ -357,12 +357,19 @@ impl Index {
             .map_err(|e| e.to_string())?;
         }
         if version != 0 && version != SCHEMA_VERSION {
+            // Clean rows carry stats matching values written by the old,
+            // lossy `read_pick` / `read_rating` shims (a Lightroom pick
+            // stored as `pick = 0`, a starred reject stored with its stars
+            // dropped). Invalidate their stat so `reconcile_sidecars`
+            // re-parses the sidecar with the real readers instead of trusting
+            // those stale values.
             tx.execute_batch(
                 "ALTER TABLE ratings ADD COLUMN flag INTEGER NOT NULL DEFAULT 0;
                  UPDATE ratings SET flag = CASE WHEN rating = -1 THEN 2
                      WHEN pick = 1 THEN 1 ELSE 0 END;
                  UPDATE ratings SET rating = NULL WHERE rating = -1;
-                 ALTER TABLE ratings DROP COLUMN pick;",
+                 ALTER TABLE ratings DROP COLUMN pick;
+                 UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL WHERE dirty = 0;",
             )
             .map_err(|e| e.to_string())?;
         }
@@ -1308,10 +1315,10 @@ mod tests {
                 .conn
                 .execute_batch(
                     "ALTER TABLE ratings RENAME COLUMN flag TO pick;
-                     INSERT INTO ratings (path, dir, rating, pick, dirty) VALUES
-                         ('/rejected.ARW', 'd', -1, 0, 1),
-                         ('/picked.ARW', 'd', 3, 1, 0),
-                         ('/plain.ARW', 'd', 2, 0, 0);
+                     INSERT INTO ratings (path, dir, rating, pick, dirty, xmp_size, xmp_mtime_ns) VALUES
+                         ('/rejected.ARW', 'd', -1, 0, 1, 10, 20),
+                         ('/picked.ARW', 'd', 3, 1, 0, 10, 20),
+                         ('/plain.ARW', 'd', 2, 0, 0, 10, 20);
                      PRAGMA user_version = 10;",
                 )
                 .unwrap();
@@ -1343,6 +1350,24 @@ mod tests {
         assert_eq!(
             index.dirty_rows("d").unwrap(),
             [("/rejected.ARW".to_string(), None, Flag::Reject, None, true)]
+        );
+        let stats: Vec<(String, Option<i64>, Option<i64>)> = index
+            .conn
+            .prepare("SELECT path, xmp_size, xmp_mtime_ns FROM ratings ORDER BY path")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(
+            stats,
+            [
+                ("/picked.ARW".to_string(), None, None),
+                ("/plain.ARW".to_string(), None, None),
+                ("/rejected.ARW".to_string(), Some(10), Some(20)),
+            ],
+            "the stat of clean rows is invalidated so reconcile_sidecars re-parses \
+             them with the real readers, but a dirty row keeps its stat"
         );
 
         remove_temp_dir(&dir);
