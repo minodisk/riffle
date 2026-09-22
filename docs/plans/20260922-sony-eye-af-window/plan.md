@@ -49,7 +49,7 @@ measurements already taken are in `measurements.md`, both in this folder.
 
 ## Steps
 
-- [ ] Step 1: Parse `AFTracking` and `FocusFrameSize` from the Sony MakerNote
+- [x] Step 1: Parse `AFTracking` and `FocusFrameSize` from the Sony MakerNote
   - Done when:
     - `crates/core/src/arw.rs` reads tag 0x2021 (`TYPE_BYTE`, count 1) into
       `Shot::af_tracking: Option<u8>` (raw value, documented: 0 off, 1 face
@@ -175,4 +175,4 @@ measurements already taken are in `measurements.md`, both in this folder.
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete
