@@ -893,6 +893,20 @@ outside the box still show, reading as a frame around the cell.
   own parent.
 - Source: `docs/plans/_archived/20260922-burst-frame-nav/learnings.md`, Step 2.
 
+### Strip cell geometry: 168px cell, 144px image box, 2px corner inset (Hit)
+
+`.cell` is 168px tall with a 144px square image box as its top; the star
+rating and flag badges sit 2px in from their corners (e.g. `top: 2px`). When
+placing a new badge (e.g. the burst count, at `bottom: 26px`), keep the same
+2px inset from the image box's edge (not the cell's edge) rather than from
+the cell's own bottom, and stay clear of the name strip below the image box
+(about y 153-166 in a 168px cell). `bottom: 24px` would sit exactly on the
+image box edge with no inset; `bottom: 26px` matches the 2px inset the other
+corner badges use.
+
+- Source: `docs/plans/_archived/20260922-burst-count-bottom-right/learnings.md`,
+  Step 1.
+
 ### Carry every judgement field on every write (Hit)
 
 `set_rating` writes the whole judgement (stars, pick, label), so the frontend
