@@ -126,7 +126,7 @@ It also records the 2026-09-22 Windows manual check results in `todo.md`.
       the accelerators, rebinding `undo` in Settings updates the menu label
       and disables the old key. Record the result in `learnings.md`.
 
-- [ ] Step 2: Record the 2026-09-22 Windows manual results in `todo.md`
+- [x] Step 2: Record the 2026-09-22 Windows manual results in `todo.md`
   - Done when: `todo.md` reflects the user-verified results (Windows 11,
     v0.2.0, 2026-09-22) below, each still-open part stays a `- [ ]` item, and
     a macOS check for the new undo / redo keys is added.
