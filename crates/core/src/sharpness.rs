@@ -169,7 +169,7 @@ fn eye_window(width: usize, height: usize, face: &Face) -> Window {
     )
 }
 
-/// Decode `preview` to grayscale and score it along the three paths of the
+/// Decode `preview` to grayscale and score it along the four paths of the
 /// module doc. Pass `trusted_focus` as `focus`, the frame of
 /// `eye_af_frame` as `frame` (used only with a `focus`), and `faces` in the pixel
 /// coordinates of the preview as stored (before any orientation is
