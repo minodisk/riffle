@@ -300,7 +300,7 @@ rewritten, `None` removes the entry).
   inherits the app-wide menu, so `set_menu` attaches one `HMENU` to two
   top-level windows (unproven).
 - Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
-  Step 1, and `docs/plans/20260922-windows-dark-menu-bar/plan.md`
+  Step 1, and `docs/plans/_archived/20260922-windows-dark-menu-bar/learnings.md`
   (unverified on a real device).
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
