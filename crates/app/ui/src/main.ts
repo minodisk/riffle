@@ -18,7 +18,7 @@ import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { effectivePick } from "./pick.js";
 import { flagMenuItems, menuPosition } from "./context.js";
-import { reconcileActive } from "./compare.js";
+import { comparisonCandidates, loadComparisonFrames, reconcileActive } from "./compare.js";
 import {
   type Command,
   type Selection,
@@ -551,16 +551,7 @@ function draw(): void {
 }
 
 function compareCandidates(): string[] {
-  if (selection.selected.size > 1) {
-    return files.filter((path) => selection.selected.has(path)).slice(0, 4);
-  }
-  const current = files[index];
-  const burst = current === undefined ? undefined : bursts.get(current)?.burst;
-  if (burst === undefined) return current === undefined ? [] : [current];
-  const ranked = files
-    .filter((path) => bursts.get(path)?.burst === burst)
-    .sort((a, b) => (sharpness.get(b) ?? -Infinity) - (sharpness.get(a) ?? -Infinity));
-  return ranked.length < 2 ? [current] : [current, ranked[0]];
+  return comparisonCandidates(files, index, selection.selected, bursts, sharpness);
 }
 
 function closeCompareFrames(): void {
@@ -650,8 +641,9 @@ async function loadCompare(): Promise<void> {
   closeCompareFrames();
   drawCompare();
   try {
-    const frames = await Promise.all(
-      paths.map(async (path) => {
+    const frames = await loadComparisonFrames(
+      paths,
+      async (path) => {
         const payload = await window.__TAURI__.core.invoke<ArrayBuffer>("preview", { path });
         const header = new DataView(payload, 0, PREVIEW_HEADER_LEN);
         if (header.getUint16(0, true) !== PREVIEW_KIND_JPEG_V1) {
@@ -662,7 +654,8 @@ async function loadCompare(): Promise<void> {
           new Blob([payload.slice(PREVIEW_HEADER_LEN)], { type: "image/jpeg" }),
         );
         return { path, bitmap, orientation };
-      }),
+      },
+      (frame) => frame.bitmap.close(),
     );
     if (!comparing || request !== compareSeq) {
       for (const frame of frames) frame.bitmap.close();
@@ -782,6 +775,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   const order = ordered();
   const next = order.filter(passes);
   if (next.length === files.length && next.every((path, at) => path === files[at])) {
+    if (comparing) void loadCompare();
     return;
   }
   files = next;
@@ -1502,6 +1496,7 @@ function extendSelection(delta: -1 | 1): void {
   paintSelection();
   if (extended.index === index) {
     renderMeta();
+    if (comparing) void loadCompare();
     return;
   }
   index = extended.index;
