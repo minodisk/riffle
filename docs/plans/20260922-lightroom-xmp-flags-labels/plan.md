@@ -245,3 +245,4 @@ Decisions already taken (do not reopen):
 ## Progress
 
 - (2026-09-22) Step 1 complete
+- (2026-09-22) Step 2 complete
