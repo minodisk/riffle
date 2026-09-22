@@ -2,10 +2,9 @@
 //!
 //! A `.dop` is a Lua table literal. PhotoLab keeps the judgement in two keys
 //! directly under `Sidecar.Source.Items[0]`: `ShouldProcess` (`0` pick, `1`
-//! reject, `2` unflagged) and `Rating` (`0..=5`). Riffle's judgement maps
-//! onto them as follows: a reject is `ShouldProcess = 1` with `Rating` left as
-//! it is; stars or a clear write `Rating` and set `ShouldProcess` to `0` for a
-//! pick and `2` otherwise. A pick and stars coexist, as they do in PhotoLab.
+//! reject, `2` unflagged) and `Rating` (`0..=5`). They map onto a [`Flag`]
+//! and the stars one to one: every write sets both `Rating` and
+//! `ShouldProcess`, so a pick or a reject keeps its stars, as in PhotoLab.
 //!
 //! An existing sidecar is patched by splicing the bytes of those values and
 //! of the two timestamps `Sidecar.Date` and `Items[0].ModificationDate`, so
@@ -25,6 +24,8 @@ use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::Flag;
+
 /// The sidecar path of an ARW: `.dop` appended to the full file name, as
 /// PhotoLab names it (`_DSC0001.ARW` -> `_DSC0001.ARW.dop`).
 ///
@@ -37,17 +38,13 @@ pub fn sidecar_path(arw: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// The rating of `Items[0]`: `-1` when `ShouldProcess = 1` whatever the
-/// `Rating`, otherwise `Rating` when it is in `0..=5`.
+/// The `Rating` of `Items[0]` when it is in `0..=5`, whatever the flag.
 ///
-/// `None` when neither applies; `Err` when the bytes are not a `.dop` the
-/// scanner can follow.
+/// `None` otherwise; `Err` when the bytes are not a `.dop` the scanner can
+/// follow.
 pub fn read_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
     let doc = locate(text)?;
-    if doc.should_process.map(|r| &text[r.0..r.1]) == Some("1") {
-        return Ok(Some(-1));
-    }
     Ok(doc.rating.and_then(|(s, e)| {
         text[s..e]
             .parse::<i8>()
@@ -56,15 +53,19 @@ pub fn read_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
     }))
 }
 
-/// Whether `Items[0]` is picked (`ShouldProcess = 0`); `Err` as for
-/// [`read_rating`].
-pub fn read_pick(bytes: &[u8]) -> Result<bool, String> {
+/// The flag of `Items[0]`: `ShouldProcess` `0` is a pick, `1` a reject and
+/// anything else (or none) unflagged; `Err` as for [`read_rating`].
+pub fn read_flag(bytes: &[u8]) -> Result<Flag, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
     let doc = locate(text)?;
-    Ok(doc.should_process.map(|r| &text[r.0..r.1]) == Some("0"))
+    Ok(match doc.should_process.map(|r| &text[r.0..r.1]) {
+        Some("0") => Flag::Pick,
+        Some("1") => Flag::Reject,
+        _ => Flag::None,
+    })
 }
 
-/// The sidecar bytes carrying `rating` and `pick`, written at `now` (a
+/// The sidecar bytes carrying `rating` and `flag`, written at `now` (a
 /// [`timestamp`]).
 ///
 /// With `existing` `None` this is a fresh minimal template for the file
@@ -72,26 +73,26 @@ pub fn read_pick(bytes: &[u8]) -> Result<bool, String> {
 /// `Date` and `ModificationDate` spliced, each inserted as its own line when
 /// absent. `name` is only used by the template.
 ///
-/// `ShouldProcess` becomes `1` for a reject (whatever `pick` says), `0` for a
-/// pick and `2` otherwise, so the caller passes the pick it wants kept.
+/// `ShouldProcess` becomes `0` for a pick, `1` for a reject and `2`
+/// otherwise.
 ///
 /// `rating` `None` means unrated and writes `Rating = 0`. On a file that has
 /// no sidecar yet, the caller must not write anything at all for a judgement
-/// that is both unrated (`rating` `None`) and unpicked (`pick` `false`), as
+/// that is both unrated (`rating` `None`) and unflagged, as
 /// with [`crate::xmp::write_rating`].
 pub fn write_rating(
     existing: Option<&[u8]>,
     rating: Option<i8>,
-    pick: bool,
+    flag: Flag,
     name: &str,
     now: &str,
 ) -> Result<Vec<u8>, String> {
     let value = rating.unwrap_or(0);
-    if !(-1..=5).contains(&value) {
-        return Err(format!("rating {value} is outside -1..=5"));
+    if !(0..=5).contains(&value) {
+        return Err(format!("rating {value} is outside 0..=5"));
     }
     let Some(existing) = existing else {
-        return Ok(template(value, pick, name, now, [uuid(), uuid()]).into_bytes());
+        return Ok(template(value, flag, name, now, [uuid(), uuid()]).into_bytes());
     };
     let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
     let doc = locate(text)?;
@@ -106,31 +107,20 @@ pub fn write_rating(
             &stamp,
         )?,
     ];
-    if value == -1 {
-        edits.push(doc.edit(
-            text,
-            doc.should_process,
-            doc.item_close,
-            "ShouldProcess",
-            "1",
-        )?);
-    } else {
-        let flag = if pick { "0" } else { "2" };
-        edits.push(doc.edit(
-            text,
-            doc.rating,
-            doc.item_close,
-            "Rating",
-            &value.to_string(),
-        )?);
-        edits.push(doc.edit(
-            text,
-            doc.should_process,
-            doc.item_close,
-            "ShouldProcess",
-            flag,
-        )?);
-    }
+    edits.push(doc.edit(
+        text,
+        doc.rating,
+        doc.item_close,
+        "Rating",
+        &value.to_string(),
+    )?);
+    edits.push(doc.edit(
+        text,
+        doc.should_process,
+        doc.item_close,
+        "ShouldProcess",
+        should_process(flag),
+    )?);
     edits.sort_by_key(|e| std::cmp::Reverse(e.0));
     let mut out = text.to_string();
     for (start, end, replacement) in edits {
@@ -175,7 +165,7 @@ pub fn write_label(
     let existing = match (existing, label) {
         (Some(existing), _) => existing,
         (None, Some(_)) => {
-            owned = template(0, false, name, now, [uuid(), uuid()]);
+            owned = template(0, Flag::None, name, now, [uuid(), uuid()]);
             owned.as_bytes()
         }
         (None, None) => return Err("no sidecar to clear a label from".to_string()),
@@ -259,12 +249,16 @@ fn uuid() -> String {
     )
 }
 
-fn template(value: i8, pick: bool, name: &str, now: &str, uuids: [String; 2]) -> String {
-    let (rating, flag) = match (value, pick) {
-        (-1, _) => (0, 1),
-        (_, true) => (value, 0),
-        _ => (value, 2),
-    };
+fn should_process(flag: Flag) -> &'static str {
+    match flag {
+        Flag::Pick => "0",
+        Flag::Reject => "1",
+        Flag::None => "2",
+    }
+}
+
+fn template(rating: i8, flag: Flag, name: &str, now: &str, uuids: [String; 2]) -> String {
+    let flag = should_process(flag);
     let name = name.replace('\\', "\\\\").replace('"', "\\\"");
     let [item_uuid, source_uuid] = uuids;
     format!(
@@ -467,8 +461,8 @@ mod tests {
 
     const NOW: &str = "2026-09-18T11:00:00.0000000Z";
 
-    fn patched(source: &str, rating: Option<i8>, pick: bool) -> String {
-        String::from_utf8(write_rating(Some(source.as_bytes()), rating, pick, "x", NOW).unwrap())
+    fn patched(source: &str, rating: Option<i8>, flag: Flag) -> String {
+        String::from_utf8(write_rating(Some(source.as_bytes()), rating, flag, "x", NOW).unwrap())
             .unwrap()
     }
 
@@ -495,7 +489,7 @@ mod tests {
     #[test]
     fn reads_the_photolab_samples() {
         assert_eq!(read_rating(PICK.as_bytes()).unwrap(), Some(0));
-        assert_eq!(read_rating(REJECT.as_bytes()).unwrap(), Some(-1));
+        assert_eq!(read_rating(REJECT.as_bytes()).unwrap(), Some(0));
         assert_eq!(read_rating(THREE.as_bytes()).unwrap(), Some(3));
         assert_eq!(read_rating(RED.as_bytes()).unwrap(), Some(0));
         assert_eq!(read_rating(CLEARED.as_bytes()).unwrap(), Some(0));
@@ -503,7 +497,7 @@ mod tests {
 
     #[test]
     fn rating_a_pick_keeps_the_pick() {
-        let out = patched(PICK, Some(3), true);
+        let out = patched(PICK, Some(3), Flag::Pick);
         let expected = with_now(
             PICK,
             "2026-09-18T10:20:50.0471837Z",
@@ -517,7 +511,7 @@ mod tests {
 
     #[test]
     fn a_reject_keeps_the_stars() {
-        let out = patched(THREE, Some(-1), false);
+        let out = patched(THREE, Some(3), Flag::Reject);
         let expected = with_now(
             THREE,
             "2026-09-18T10:21:52.2415388Z",
@@ -526,12 +520,25 @@ mod tests {
         .replace("ShouldProcess = 2,", "ShouldProcess = 1,");
         assert_eq!(out, expected);
         assert!(out.contains("Rating = 3,"));
-        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(-1));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(3));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
+    }
+
+    #[test]
+    fn a_rejected_item_keeps_its_stars_on_read_and_write() {
+        let source = REJECT.replace("Rating = 0,", "Rating = 4,");
+        assert_eq!(read_rating(source.as_bytes()).unwrap(), Some(4));
+        assert_eq!(read_flag(source.as_bytes()).unwrap(), Flag::Reject);
+        let out = patched(&source, Some(2), Flag::Reject);
+        assert!(out.contains("Rating = 2,"));
+        assert!(out.contains("ShouldProcess = 1,"));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(2));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
     }
 
     #[test]
     fn clearing_a_reject_unflags_it() {
-        let out = patched(REJECT, None, false);
+        let out = patched(REJECT, None, Flag::None);
         let expected = with_now(
             REJECT,
             "2026-09-18T10:21:52.2455450Z",
@@ -544,7 +551,7 @@ mod tests {
 
     #[test]
     fn patching_keeps_the_colour_label_and_the_label_decoys() {
-        let out = patched(RED, Some(5), false);
+        let out = patched(RED, Some(5), Flag::None);
         let expected = with_now(
             RED,
             "2026-09-18T10:21:52.2425322Z",
@@ -560,7 +567,7 @@ mod tests {
     #[test]
     fn the_trailing_crlf_survives() {
         for source in [PICK, REJECT, THREE, CLEARED] {
-            assert!(patched(source, Some(2), false).ends_with("}\n\r\n"));
+            assert!(patched(source, Some(2), Flag::None).ends_with("}\n\r\n"));
         }
     }
 
@@ -568,18 +575,18 @@ mod tests {
     fn inserts_a_missing_should_process_in_the_item() {
         let source = THREE.replace("ShouldProcess = 2,\n", "");
         assert_eq!(read_rating(source.as_bytes()).unwrap(), Some(3));
-        let out = patched(&source, Some(-1), false);
+        let out = patched(&source, Some(3), Flag::Reject);
         assert!(out.contains(
             "Uuid = \"B638CACC-6B37-4480-8A40-9377C1C2783A\",\nShouldProcess = 1,\n}\n,\n}\n"
         ));
-        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(-1));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
     }
 
     #[test]
     fn inserts_a_missing_rating_in_the_item() {
         let source = PICK.replace("Rating = 0,\n", "");
         assert_eq!(read_rating(source.as_bytes()).unwrap(), None);
-        let out = patched(&source, Some(4), true);
+        let out = patched(&source, Some(4), Flag::Pick);
         assert!(out
             .contains("Uuid = \"B2A2E6B3-CECB-427D-84C3-49A1351D8E65\",\nRating = 4,\n}\n,\n}\n"));
         assert!(out.contains("ShouldProcess = 0,"));
@@ -587,45 +594,43 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_pick_of_the_photolab_samples() {
-        assert!(read_pick(PICK.as_bytes()).unwrap());
-        for source in [REJECT, THREE, RED, CLEARED] {
-            assert!(!read_pick(source.as_bytes()).unwrap());
+    fn reads_the_flag_of_the_photolab_samples() {
+        assert_eq!(read_flag(PICK.as_bytes()).unwrap(), Flag::Pick);
+        assert_eq!(read_flag(REJECT.as_bytes()).unwrap(), Flag::Reject);
+        for source in [THREE, RED, CLEARED] {
+            assert_eq!(read_flag(source.as_bytes()).unwrap(), Flag::None);
         }
     }
 
     #[test]
     fn a_pick_replaces_a_reject_and_back() {
-        let picked = patched(REJECT, None, true);
+        let picked = patched(REJECT, None, Flag::Pick);
         assert!(picked.contains("ShouldProcess = 0,"));
-        assert!(read_pick(picked.as_bytes()).unwrap());
+        assert_eq!(read_flag(picked.as_bytes()).unwrap(), Flag::Pick);
         assert_eq!(read_rating(picked.as_bytes()).unwrap(), Some(0));
 
-        let rejected = patched(&picked, Some(-1), false);
+        let rejected = patched(&picked, None, Flag::Reject);
         assert!(rejected.contains("ShouldProcess = 1,"));
-        assert!(!read_pick(rejected.as_bytes()).unwrap());
-        assert_eq!(read_rating(rejected.as_bytes()).unwrap(), Some(-1));
+        assert_eq!(read_flag(rejected.as_bytes()).unwrap(), Flag::Reject);
     }
 
     #[test]
     fn unpicking_keeps_the_stars_and_clearing_keeps_the_pick() {
-        let unpicked = patched(PICK, Some(0), false);
+        let unpicked = patched(PICK, Some(0), Flag::None);
         assert!(unpicked.contains("ShouldProcess = 2,"));
-        assert!(!read_pick(unpicked.as_bytes()).unwrap());
+        assert_eq!(read_flag(unpicked.as_bytes()).unwrap(), Flag::None);
 
-        let starred = patched(PICK, Some(4), true);
-        let cleared = patched(&starred, None, true);
-        assert!(read_pick(cleared.as_bytes()).unwrap());
+        let starred = patched(PICK, Some(4), Flag::Pick);
+        let cleared = patched(&starred, None, Flag::Pick);
+        assert_eq!(read_flag(cleared.as_bytes()).unwrap(), Flag::Pick);
         assert_eq!(read_rating(cleared.as_bytes()).unwrap(), Some(0));
     }
 
     #[test]
     fn a_fresh_pick_is_should_process_zero() {
-        let bytes = write_rating(None, Some(2), true, "a", NOW).unwrap();
+        let bytes = write_rating(None, Some(2), Flag::Pick, "a", NOW).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("Rating = 2,\nShouldProcess = 0,\n"));
-        assert!(read_pick(&bytes).unwrap());
-        let reject = write_rating(None, Some(-1), true, "a", NOW).unwrap();
-        assert!(!read_pick(&reject).unwrap());
+        assert_eq!(read_flag(&bytes).unwrap(), Flag::Pick);
     }
 
     #[test]
@@ -654,16 +659,19 @@ mod tests {
         ];
         for bytes in cases {
             assert!(read_rating(bytes).is_err());
-            assert!(read_pick(bytes).is_err());
-            assert!(write_rating(Some(bytes), Some(1), false, "x", NOW).is_err());
+            assert!(read_flag(bytes).is_err());
+            assert!(write_rating(Some(bytes), Some(1), Flag::None, "x", NOW).is_err());
         }
     }
 
     #[test]
     fn a_fresh_template_round_trips() {
-        for n in -1..=5 {
-            let bytes = write_rating(None, Some(n), false, "_DSC0001.ARW", NOW).unwrap();
-            assert_eq!(read_rating(&bytes).unwrap(), Some(n));
+        for n in 0..=5 {
+            for flag in [Flag::None, Flag::Pick, Flag::Reject] {
+                let bytes = write_rating(None, Some(n), flag, "_DSC0001.ARW", NOW).unwrap();
+                assert_eq!(read_rating(&bytes).unwrap(), Some(n));
+                assert_eq!(read_flag(&bytes).unwrap(), flag);
+            }
         }
     }
 
@@ -671,7 +679,7 @@ mod tests {
     fn the_fresh_template_is_the_documented_one() {
         let uuids = ["A".to_string(), "B".to_string()];
         assert_eq!(
-            template(3, false, "_DSC0001.ARW", NOW, uuids),
+            template(3, Flag::None, "_DSC0001.ARW", NOW, uuids),
             concat!(
                 "Sidecar = {\n",
                 "Date = \"2026-09-18T11:00:00.0000000Z\",\n",
@@ -699,10 +707,10 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_reject_is_should_process_one() {
-        let out =
-            String::from_utf8(write_rating(None, Some(-1), false, "a", NOW).unwrap()).unwrap();
-        assert!(out.contains("Rating = 0,\nShouldProcess = 1,\n"));
+    fn a_fresh_reject_is_should_process_one_and_keeps_the_stars() {
+        let out = String::from_utf8(write_rating(None, Some(3), Flag::Reject, "a", NOW).unwrap())
+            .unwrap();
+        assert!(out.contains("Rating = 3,\nShouldProcess = 1,\n"));
     }
 
     #[test]
@@ -716,8 +724,8 @@ mod tests {
 
     #[test]
     fn a_rating_outside_the_range_is_an_error() {
-        assert!(write_rating(None, Some(6), false, "a", NOW).is_err());
-        assert!(write_rating(None, Some(-2), false, "a", NOW).is_err());
+        assert!(write_rating(None, Some(6), Flag::None, "a", NOW).is_err());
+        assert!(write_rating(None, Some(-1), Flag::None, "a", NOW).is_err());
     }
 
     #[test]
@@ -749,7 +757,7 @@ mod tests {
                 Some(label)
             );
             assert_eq!(read_rating(source.as_bytes()).unwrap(), Some(rating));
-            assert!(!read_pick(source.as_bytes()).unwrap());
+            assert_eq!(read_flag(source.as_bytes()).unwrap(), Flag::None);
         }
     }
 
@@ -838,20 +846,20 @@ mod tests {
 
     #[test]
     fn labels_and_ratings_keep_each_other() {
-        let rated = patched(&labelled(THREE, Some("Green")), Some(5), false);
+        let rated = patched(&labelled(THREE, Some("Green")), Some(5), Flag::None);
         assert_eq!(
             read_label(rated.as_bytes()).unwrap().as_deref(),
             Some("Green")
         );
         assert_eq!(read_rating(rated.as_bytes()).unwrap(), Some(5));
 
-        let labelled = labelled(&patched(TABBED, Some(2), true), Some("Pink"));
+        let labelled = labelled(&patched(TABBED, Some(2), Flag::Pick), Some("Pink"));
         assert_eq!(
             read_label(labelled.as_bytes()).unwrap().as_deref(),
             Some("Pink")
         );
         assert_eq!(read_rating(labelled.as_bytes()).unwrap(), Some(2));
-        assert!(read_pick(labelled.as_bytes()).unwrap());
+        assert_eq!(read_flag(labelled.as_bytes()).unwrap(), Flag::Pick);
     }
 
     #[test]
