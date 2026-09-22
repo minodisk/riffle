@@ -584,6 +584,7 @@ pub struct Metadata {
     lens: Option<String>,
     aperture: Option<String>,
     shutter: Option<String>,
+    shutter_type: Option<String>,
     iso: Option<String>,
     focal_length: Option<String>,
     exposure_bias: Option<String>,
@@ -606,6 +607,14 @@ fn read_metadata(path: &Path) -> Result<Metadata, String> {
         lens: exif.lens,
         aperture: label(exif.aperture),
         shutter: label(exif.shutter),
+        // Sony has no shutter type tag on ILCE bodies; EFCS is assumed always
+        // enabled, so Off means the electronic shutter. A fully mechanical
+        // shutter with EFCS disabled would also read Off.
+        shutter_type: shot.electronic_front_curtain.and_then(|v| match v {
+            1 => Some("Mechanical".to_owned()),
+            0 => Some("Electronic".to_owned()),
+            _ => None,
+        }),
         iso: label(exif.iso),
         focal_length: label(exif.focal_length),
         exposure_bias: shot.exposure_bias.and_then(|r| {

@@ -30,6 +30,8 @@ const TAG_FOCUS_LOCATION: u16 = 0x2027;
 /// Sony `FocusMode`, a BYTE. Older bodies write it as 0xb04e / 0xb042
 /// instead, which is not read, so they keep `None`.
 const TAG_FOCUS_MODE: u16 = 0x201b;
+/// Sony `ElectronicFrontCurtainShutter`, a LONG on the ILCE-7M5.
+const TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER: u16 = 0x201a;
 /// Sony `AFTracking`, a BYTE.
 const TAG_AF_TRACKING: u16 = 0x2021;
 /// Sony `FocusFrameSize`: three SHORTs, width, height and a validity flag
@@ -106,6 +108,8 @@ pub struct Shot {
     pub focus_mode: Option<u8>,
     /// Raw Sony `AFTracking`: 0 off, 1 face tracking, 2 lock-on AF.
     pub af_tracking: Option<u8>,
+    /// Raw Sony `ElectronicFrontCurtainShutter`: 1 on, 0 off.
+    pub electronic_front_curtain: Option<u32>,
     /// Sony `FocusFrameSize`, `None` when the camera flags it as unavailable.
     pub focus_frame: Option<FocusFrame>,
     pub make: Option<String>,
@@ -357,6 +361,13 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_AF_TRACKING))
         .and_then(byte);
+    shot.electronic_front_curtain = maker
+        .as_ref()
+        .and_then(|m| {
+            m.iter()
+                .find(|e| e.0 == TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER)
+        })
+        .and_then(integer);
     shot.focus_frame = match maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_FRAME_SIZE))
@@ -678,6 +689,21 @@ mod tests {
         assert!(absent.shot.focus_mode.is_none());
     }
 
+    #[test]
+    fn reads_the_sony_electronic_front_curtain_shutter() {
+        for value in [1, 0] {
+            let shot = parse(&tiff_with_sony_note(
+                |_| vec![(TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER, TYPE_LONG, 1, value)],
+                &[],
+            ))
+            .unwrap()
+            .shot;
+            assert_eq!(shot.electronic_front_curtain, Some(value));
+        }
+        let absent = parse(&tiff_with_exif(true, None, false)).unwrap();
+        assert!(absent.shot.electronic_front_curtain.is_none());
+    }
+
     /// A Sony TIFF whose MakerNote holds exactly `entries`, built by `f` from
     /// the offset at which `data` is appended.
     fn tiff_with_sony_note(f: impl Fn(u32) -> Vec<(u16, u16, u32, u32)>, data: &[u8]) -> Vec<u8> {
@@ -919,6 +945,7 @@ mod tests {
         assert!(a.shot.focus.is_none());
         assert!(a.shot.focus_mode.is_none());
         assert!(a.shot.af_tracking.is_none());
+        assert!(a.shot.electronic_front_curtain.is_none());
         assert!(a.shot.focus_frame.is_none());
         assert!(a.shot.focus_distance_mm.is_none());
         assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));

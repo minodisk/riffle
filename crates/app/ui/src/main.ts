@@ -78,6 +78,7 @@ interface Metadata {
   lens: string | null;
   aperture: string | null;
   shutter: string | null;
+  shutter_type: string | null;
   iso: string | null;
   focal_length: string | null;
   exposure_bias: string | null;
@@ -378,6 +379,7 @@ function renderMeta(): void {
       const list = document.createElement("dl");
       row(list, "Aperture", meta.aperture);
       row(list, "Shutter", meta.shutter);
+      row(list, "Shutter type", meta.shutter_type);
       row(list, "ISO", meta.iso);
       row(list, "Focal length", meta.focal_length);
       row(list, "Exposure", meta.exposure_bias);
