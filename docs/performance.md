@@ -175,11 +175,57 @@ binaries on the same machine:
 | Binary | Before | After |
 |--------|--------|-------|
 | `riffle-cli` | 1.7 MB | 31.3 MB |
+| `riffle-app` | 26.8 MB | 47.8 MB |
+
+The `riffle-app` growth came in through `riffle-core` (tract and the model).
 
 A cold `cargo build --release -p riffle-cli` went from 10.8s to 140s.
 
-Not yet measured: the latency on real α7 V ARW and M11-P DNG previews, and
-the `riffle-cli scan` before/after on real folders on the Mac.
+#### Real files (Linux WSL2)
+
+Measured on 2026-09-22 on the same Linux WSL2 machine (24 hardware threads),
+release `riffle-cli`, files read from a Windows NTFS drive mounted in WSL,
+warm page cache (each folder scanned once before timing).
+
+Detection latency on real previews: `riffle-cli bench <file>` (row
+`4. face detection`, one thread) on about 40 files sampled evenly from each
+folder:
+
+| Body / folder | Files | Preview | Mean | Median | p95 |
+|---------------|-------|---------|------|--------|-----|
+| α7 V ARW | 39 | 1080x1616 | 15.8ms | 15.4ms | 17.1ms |
+| M11-P DNG | 36 | 2112x1408 | 16.1ms | 16.0ms | 17.1ms |
+
+The first call (model build) took ~42-44ms.
+
+`riffle-cli scan <dir> <threads>` before and after adding detection (before:
+the scan passed no faces), runs alternated, two runs each:
+
+| Folder | Files | Threads | Per file mean before -> after | p95 before -> after | Wall before -> after |
+|--------|-------|---------|-------------------------------|---------------------|----------------------|
+| α7 V ARW | 468 | 1 | 17.8 -> 43.3-47.2ms | 21.9 -> 50.7-54.4ms | |
+| α7 V ARW | 468 | 12 | 29.3 -> 67-68ms | 35.9 -> 81-83ms | 1.13s (414 files/s) -> 2.63s (178 files/s) |
+| M11-P DNG | 146 | 1 | 27.8 -> 57.9ms | 39.2 -> 73.9ms | |
+| M11-P DNG | 146 | 12 | 45 -> 91-92ms | 63 -> 135-139ms | |
+
+Sony bodies with face tracking engaged write the AF frame (`AFTracking`,
+`FocusFrameSize`, `FocusLocation`), and the scan now scores the window on that
+frame and skips detection for those files. Before and after the skip on the
+same 468-ARW folder, runs alternated, two runs each:
+
+| Threads | Per file mean before -> after | p95 before -> after | Files/s before -> after |
+|---------|-------------------------------|---------------------|-------------------------|
+| 12 | 74.6 / 80.8 -> 33.9 / 33.9ms | 90.3 / 97.5 -> 63.3 / 59.7ms | 160 / 147 -> 345 / 350 |
+| 1 | 43.0 / 43.1 -> 19.6 / 19.8ms | 50.4 / 49.9 -> 40.6 / 39.3ms | 23 / 23 -> 51 / 51 |
+
+441 of the 468 files took the AF-frame path; the other 27 (25 without
+tracking, 2 with the focus point at the exact sensor centre) still run
+detection, which keeps the p95 above the pre-detection baseline.
+
+Recall: on the same samples the detector found no face in 29 of the 36 DNGs
+(9 of the 39 ARWs). Visual checks show boxes on the faces, but a group of 7
+people on a swing (`L1005161.DNG`) yielded 2, and a basketball player in
+three-quarter profile was missed.
 
 ## Opening an indexed folder again
 

@@ -284,12 +284,21 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 
 #### TODO
 
-- [ ] (Not yet done: needs exiftool on a real file on the Mac.) Check whether Sony ARW and Leica DNG MakerNotes record face/eye-AF
-      detection positions (Sony's MakerNote parsing lives in
-      `crates/core/src/arw.rs`, which already reads `FocusLocation` and
-      `FocusMode`); if they do, no inference is needed for those bodies.
-- [ ] Measure on the Mac: face detection latency on real ARW/DNG previews
-      (`riffle-cli bench`) and `riffle-cli scan` before/after on real folders.
+- [x] MakerNote check (exiftool 13.59, 2026-09-22): Sony α7 V ARW writes
+      `AFTracking` + `FocusFrameSize` + `FocusLocation` but no per-face list;
+      `AFAreaMode` is enciphered; Leica M11-P DNG writes only
+      `FocusDistance`. The scan now uses the Sony AF frame and skips detection
+      when face tracking was engaged
+      (`docs/plans/20260922-sony-eye-af-window/`).
+- [x] Measured on Linux WSL2 (not the Mac): detection latency on real
+      α7 V ARW / M11-P DNG previews and `riffle-cli scan` before/after adding
+      detection and the AF-frame skip; see `docs/performance.md` "Face
+      detection cost".
+- [ ] Improve small-face recall: the detector found no face in 29 of 36
+      sampled M11-P DNGs and 2 of 7 people in a group frame
+      (`L1005161.DNG`).
+- [ ] Decode the preview for detection at a DCT-scaled size instead of a
+      full-size RGB decode, to cut the per-file cost on the detector path.
 - [ ] Optionally, detect closed eyes from the landmarks.
 - [ ] Store the face region in the SQLite index and suggest the sharpest-eye
       frame within a burst group.
@@ -322,14 +331,6 @@ conventions.
 
 - [ ] Write `docs/agents/tract-onnx-inference.md` covering the points above.
 - [ ] Link it from `CLAUDE.md` or `docs/agents/`.
-
-### Docs: restore the `riffle-app` binary-size row in `docs/performance.md`'s "Face detection cost"
-
-The section shows only the `riffle-cli` binary size (1.7 MB -> 31.3 MB). The `riffle-app` size was also measured (26.8 MB -> 47.8 MB, Linux WSL2, unstripped; tract and the model came in through `riffle-core`) but was dropped during review as unsourced. It is now sourced in `docs/plans/_archived/20260922-face-aware-sharpness/learnings.md` ("App binary size").
-
-#### TODO
-
-- [ ] Add the `riffle-app` row (26.8 MB -> 47.8 MB) to the "Face detection cost" table in `docs/performance.md`, noting the environment.
 
 ### Agents: confirm the long-wait timeout fix on a real `/pr` or `/merge` run
 

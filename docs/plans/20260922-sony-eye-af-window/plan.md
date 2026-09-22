@@ -124,7 +124,7 @@ measurements already taken are in `measurements.md`, both in this folder.
       path unchanged; the 4-neighbour Laplacian over a square window is
       rotation-invariant, so scoring in stored coordinates stays valid
 
-- [ ] Step 3: Record the real-file measurements and update the docs
+- [x] Step 3: Record the real-file measurements and update the docs
   - Done when:
     - `docs/performance.md` "Face detection cost" replaces its "Not yet
       measured" paragraph with: detection latency on real α7 V ARW and M11-P
@@ -177,3 +177,4 @@ measurements already taken are in `measurements.md`, both in this folder.
 
 - (2026-09-22) Step 1 complete
 - (2026-09-22) Step 2 complete
+- (2026-09-22) Step 3 complete
