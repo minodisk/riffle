@@ -247,3 +247,4 @@ Decisions already taken (do not reopen):
 - (2026-09-22) Step 1 complete
 - (2026-09-22) Step 2 complete
 - (2026-09-22) Step 3 complete
+- (2026-09-22) Step 4 complete
