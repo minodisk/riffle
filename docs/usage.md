@@ -28,6 +28,9 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   screen pixel, centred on the focus point (or the frame centre without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
+- **Grayscale preview**: holding `g` shows the viewed image in grayscale to
+  judge composition; releasing it restores colour. It is momentary and
+  display-only: nothing is written or remembered.
 - **Judgements**: stars, reject, (with `.dop`) pick and a colour label, shown on
   the strip cell (the label tints the file-name band along the cell's bottom
   edge) and written to a sidecar; see
@@ -149,6 +152,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
+| `g` (hold) | grayscale preview |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |

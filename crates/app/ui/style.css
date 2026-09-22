@@ -487,6 +487,10 @@ body {
   height: 100%;
 }
 
+#canvas.grayscale {
+  filter: grayscale(1);
+}
+
 #empty {
   position: absolute;
   inset: 0;
