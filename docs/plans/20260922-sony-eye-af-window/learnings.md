@@ -47,3 +47,10 @@
   score output; basis: Step 2 implementation. Files:
   `crates/core/src/sharpness.rs`, `crates/core/src/scan.rs`,
   `crates/cli/src/main.rs`.
+
+## Step 3
+
+- `docs/performance.md` real-file numbers are Linux WSL2, not the Mac the
+  original todo asked for; the todo entry says so. Only the DNG part of the
+  recall note (29/36) was flagged as a deferred item; the ARW zero-face count
+  (9/39) is listed for context.
