@@ -113,4 +113,6 @@ Current state the plan is based on:
 
 ## Progress
 
-- (none yet)
+- 2026-09-23: Step 1 done — `source.png` replaced (sha256
+  `f1bbba21df7274fb7d0f3cb5524d3164e081a36c1f1d93f25aa0598781a64fa`), icon set
+  regenerated, `ios/` and `android/` removed.
