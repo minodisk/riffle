@@ -31,6 +31,13 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Grayscale preview**: holding `g` shows the viewed image in grayscale to
   judge composition; releasing it restores colour. It is momentary and
   display-only: nothing is written or remembered.
+- **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
+  file selected, it instead puts that file beside the highest-scoring
+  frame in its burst (the same file appears twice when it is already the
+  highest-scoring one). Each frame is labelled with its file name and score, and
+  the highest-scoring frame is outlined as `BEST`. Click a frame to make it
+  `ACTIVE`; a star, pick, reject or label then applies only to that frame,
+  regardless of the filmstrip selection. Press `v` again to return.
 - **Judgements**: stars, reject, (with `.dop`) pick and a colour label, shown on
   the strip cell (the label tints the file-name band along the cell's bottom
   edge) and written to a sidecar; see
@@ -153,6 +160,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
+| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
