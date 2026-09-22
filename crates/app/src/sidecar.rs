@@ -1144,9 +1144,12 @@ mod tests {
         );
         let text = std::fs::read_to_string(&sidecar).unwrap();
         assert_eq!(
-            text.replace(r#" xmp:Label="Red""#, ""),
+            text.replace(
+                r#" xmp:Label="Red" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/" photoshop:LabelColor="red""#,
+                ""
+            ),
             lightroom_sidecar(2),
-            "only the label is added"
+            "only the label and its colour are added"
         );
 
         judge(
@@ -1172,7 +1175,14 @@ mod tests {
             SidecarFormat::Xmp,
         );
         let text = std::fs::read_to_string(&sidecar).unwrap();
-        assert_eq!(text, lightroom_sidecar(4), "clearing removes the property");
+        assert_eq!(
+            text.replace(
+                r#" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/""#,
+                ""
+            ),
+            lightroom_sidecar(4),
+            "clearing removes both properties"
+        );
 
         drop(writer);
         remove_temp_dir(&dir);
@@ -1392,7 +1402,10 @@ mod tests {
         assert!(!SidecarFormat::Xmp.read_pick(&bytes).unwrap());
         assert_eq!(xmp::read_label(&bytes).unwrap(), None);
         assert_eq!(
-            std::fs::read_to_string(&sidecar).unwrap(),
+            std::fs::read_to_string(&sidecar).unwrap().replace(
+                r#" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/""#,
+                ""
+            ),
             lightroom_sidecar(0)
         );
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());

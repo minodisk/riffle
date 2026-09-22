@@ -112,7 +112,7 @@ Decisions already taken (do not reopen):
       attribute and declaration for a fresh rated + flagged sidecar.
     - Update the module docs of both files (`xmp.rs` still says `-1` is a
       reject and only `Rating` / `Label` are written).
-- [ ] Step 2: `photoshop:LabelColor` in `crates/core/src/xmp.rs`
+- [x] Step 2: `photoshop:LabelColor` in `crates/core/src/xmp.rs`
   - Done when:
     - `xmp::read_label` returns the colour of a non-empty
       `photoshop:LabelColor`, normalised to the capitalised English name

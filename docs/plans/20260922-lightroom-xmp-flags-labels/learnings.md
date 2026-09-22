@@ -20,6 +20,20 @@
   `a_photolab_sidecar_is_patched_in_place` "the stars are kept" assertion
   was dropped and should come back in Step 3.
 
+## Step 2
+
+- `crates/app/src/sidecar.rs` byte-exact label tests had to learn the
+  added `photoshop:LabelColor` and the leftover declaration.
+- `write_label` patches in two passes (`xmp:Label`, then
+  `photoshop:LabelColor`); the colour is inserted as an attribute even when
+  the sidecar holds `xmp:Label` as an element, matching the existing insert
+  path.
+- Clearing a label removes both properties but keeps any `xmlns:photoshop`
+  Riffle declared, so a sidecar labelled then cleared is not byte-identical
+  to the original (same as `xmpDM:good` in Step 1). Tests expect that.
+- `read_label` normalises `LabelColor` to first-letter-uppercase, rest
+  lowercase; a Bridge-only `xmp:Label` is still returned raw.
+
 ## Deferred issues (todo candidates)
 
 - Restore the "the stars are kept" assertion in
