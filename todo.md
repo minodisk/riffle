@@ -380,3 +380,28 @@ confirmed it works.
       before handing back, so `ListAgents` shows them completed with nothing
       running. If not clean, adjust
       `.claude/agents/{merger,pr-runner}.md`.
+
+### App: the Lightroom 9.5.1 round-trip check is still open
+
+From `lightroom-xmp-flags-labels`'s implementation: the tri-state flag and
+colour-label read/write for XMP were built and unit-tested against trimmed
+copies of Lightroom-shaped fixtures, but the round-trip was never confirmed
+against real Lightroom. In particular it is unverified whether Lightroom
+9.5.1 resolves the colour label from `photoshop:LabelColor` when the
+sibling `xmp:Label` holds Riffle's English name instead of Lightroom's own
+localised string. Files: `crates/core/src/xmp.rs`, `crates/app/src/sidecar.rs`,
+`README.md` ("Sidecar formats and software" checklist).
+
+#### TODO
+
+- [ ] Open `D:\Photos\2026\2026-09-05` under the XMP format and check L1005439
+      is picked, L1005438 is rejected, L1005428-L1005432 show purple / blue /
+      green / yellow / red, and L1005433-L1005437 show 5..1 stars.
+- [ ] On a copy of the folder, give a pick, a starred reject and a colour
+      label in Riffle, then confirm Adobe Lightroom 9.5.1 (Windows, Japanese
+      UI) shows them correctly — notably that it resolves the colour from
+      `photoshop:LabelColor` even though `xmp:Label` carries the English name.
+      Tick the README "Sidecar formats and software" checklist entry for
+      Lightroom once confirmed; if Lightroom does not resolve the colour from
+      `LabelColor`, revise the label-write approach instead (e.g. leave an
+      existing localised `xmp:Label` untouched when the colour is unchanged).

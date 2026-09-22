@@ -73,6 +73,13 @@
 
 - (Done in Step 3) Restore the "the stars are kept" assertion in
   `a_photolab_sidecar_is_patched_in_place` (`crates/app/src/sidecar.rs`).
+- Confirm the Lightroom 9.5.1 round-trip in the GUI and tick the README
+  checklist entry. Open `D:\Photos\2026\2026-09-05` under XMP (expect 439
+  picked, 438 rejected, 428-432 purple / blue / green / yellow / red, 433-437
+  5..1 stars); on a copy, give a pick, a starred reject and a label in Riffle
+  and check Japanese Lightroom shows them, notably the colour when
+  `xmp:Label` is the English name. Done when the README entry is ticked, or
+  the label write is revised if Lightroom ignores `LabelColor`.
 
 ## Step 4
 
