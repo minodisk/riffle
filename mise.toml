@@ -15,7 +15,12 @@ git fetch origin main
 if [ "$(git rev-parse --abbrev-ref HEAD)" = main ]; then
   git checkout -q --detach
 fi
-git fetch origin main:main || echo "Notice: local main was not moved (checked out in another worktree or not a fast-forward)" >&2
+notice="Notice: local main was not moved (checked out in another worktree or not a fast-forward)"
+if git worktree list --porcelain | grep -qx 'branch refs/heads/main'; then
+  echo "$notice" >&2
+else
+  git fetch origin main:main || echo "$notice" >&2
+fi
 git checkout --detach origin/main
 """
 
