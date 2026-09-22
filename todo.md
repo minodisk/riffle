@@ -330,3 +330,22 @@ The section shows only the `riffle-cli` binary size (1.7 MB -> 31.3 MB). The `ri
 #### TODO
 
 - [ ] Add the `riffle-app` row (26.8 MB -> 47.8 MB) to the "Face detection cost" table in `docs/performance.md`, noting the environment.
+
+### Agents: confirm the long-wait timeout fix on a real `/pr` or `/merge` run
+
+The `long-wait-timeouts` plan added explicit `timeout: 600000` to every
+`wait-pr-actionable.sh` / `wait-post-merge-runs.sh` call site and a rule for
+`merger` / `pr-runner` to stop improvising `sleep`/`until` polling and to
+`TaskStop` their own lingering background tasks before handing back. The fix
+is verified only statically (docs and script comments); no real run has
+confirmed it works.
+
+#### TODO
+
+- [ ] Watch `merger` and `pr-runner` through their waits on a real `/pr` or
+      `/merge` run and confirm they pass `timeout: 600000` (no "moved to the
+      background" message), do not improvise polling if a command is
+      backgrounded anyway, and `TaskStop` any background task of their own
+      before handing back, so `ListAgents` shows them completed with nothing
+      running. If not clean, adjust
+      `.claude/agents/{merger,pr-runner}.md`.

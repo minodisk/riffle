@@ -125,3 +125,5 @@ holds.
   shells from a subagent can only be confirmed on a real run.
 
 ## Progress
+
+(2026-09-22) Step 1 complete
