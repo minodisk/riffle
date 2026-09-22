@@ -4,12 +4,17 @@
 //! [`Flag`] is Lightroom's `xmpDM:good`: `"True"` a pick, `"False"` a reject,
 //! absent unflagged; a reject keeps its stars. A legacy `xmp:Rating="-1"`
 //! (the reject Adobe Bridge writes and darktable reads) reads as a reject
-//! with no stars and is rewritten to Lightroom's shape. A label is the raw
-//! string of `xmp:Label`, kept as-is so any vocabulary round-trips. Nothing
-//! but `xmp:Rating`, `xmpDM:good` and `xmp:Label` is ever written.
+//! with no stars and is rewritten to Lightroom's shape. A label is read from
+//! Lightroom's language-independent `photoshop:LabelColor` (`"purple"`, read
+//! as `"Purple"`), else as the raw string of `xmp:Label`, which a localised
+//! Lightroom fills in its own language (`"パープル"`). A label is written to
+//! both, `LabelColor` lowercased and `xmp:Label` in English. Nothing but
+//! `xmp:Rating`, `xmpDM:good`, `xmp:Label` and `photoshop:LabelColor` is
+//! ever written.
 //!
 //! An existing sidecar is patched by splicing the bytes of those values (or
-//! removing `xmpDM:good` or `xmp:Label`), so a Lightroom sidecar
+//! removing `xmpDM:good`, `xmp:Label` or `photoshop:LabelColor`), so a
+//! Lightroom sidecar
 //! keeps its `crs:` develop settings byte-for-byte; a sidecar is never
 //! regenerated from a parse.
 
@@ -36,6 +41,10 @@ const XMP: Ns = Ns {
 const XMP_DM: Ns = Ns {
     uri: "http://ns.adobe.com/xmp/1.0/DynamicMedia/",
     prefixes: &["xmpDM"],
+};
+const PHOTOSHOP: Ns = Ns {
+    uri: "http://ns.adobe.com/photoshop/1.0/",
+    prefixes: &["photoshop"],
 };
 
 /// The sidecar path of an ARW: the extension replaced with `xmp`.
@@ -130,13 +139,21 @@ pub fn write_rating(
     }
 }
 
-/// The `xmp:Label` of the first `rdf:Description` that has one, as the raw
-/// string the sidecar holds.
+/// The label of the sidecar: a non-empty `photoshop:LabelColor` with its
+/// first letter capitalised and the rest lowercased (`"purple"` ->
+/// `"Purple"`), else the raw string of a non-empty `xmp:Label`.
 ///
-/// `None` when the property is absent or empty; `Err` when the bytes are not
+/// `None` when both are absent or empty; `Err` when the bytes are not
 /// parseable XMP.
 pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
+    if let Location::Value { start, end, .. } = locate(text, &PHOTOSHOP, "LabelColor")? {
+        let color = text[start..end].trim().to_lowercase();
+        let mut chars = color.chars();
+        if let Some(first) = chars.next() {
+            return Ok(Some(first.to_uppercase().chain(chars).collect()));
+        }
+    }
     match locate(text, &XMP, "Label")? {
         Location::Value { start, end, .. } if !text[start..end].trim().is_empty() => {
             Ok(Some(text[start..end].to_string()))
@@ -145,22 +162,34 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
     }
 }
 
-/// The sidecar bytes carrying `label`.
+/// The sidecar bytes carrying `label`: `xmp:Label` set to `label` and
+/// `photoshop:LabelColor` to it lowercased.
 ///
-/// `Some` splices the value in place or inserts one attribute, as
-/// [`write_rating`] does; `None` removes the property and leaves a sidecar
-/// without one byte-identical. With `existing` `None`, `Some` is a fresh
+/// `Some` splices each value in place or inserts one attribute, as
+/// [`write_rating`] does; `None` removes both properties and leaves a sidecar
+/// without them byte-identical. With `existing` `None`, `Some` is a fresh
 /// template and `None` is an error: no sidecar is minted for "no label".
 pub fn write_label(existing: Option<&[u8]>, label: Option<&str>) -> Result<Vec<u8>, String> {
+    let color = label.map(str::to_lowercase);
     let Some(existing) = existing else {
-        return match label {
-            Some(label) => Ok(template(&[(&XMP, "Label", label)]).into_bytes()),
-            None => Err("no sidecar to clear a label from".to_string()),
+        return match (label, color.as_deref()) {
+            (Some(label), Some(color)) => {
+                Ok(
+                    template(&[(&XMP, "Label", label), (&PHOTOSHOP, "LabelColor", color)])
+                        .into_bytes(),
+                )
+            }
+            _ => Err("no sidecar to clear a label from".to_string()),
         };
     };
-    match label {
-        Some(label) => set(existing, &XMP, "Label", label),
-        None => remove(existing, &XMP, "Label"),
+    match (label, color.as_deref()) {
+        (Some(label), Some(color)) => set(
+            &set(existing, &XMP, "Label", label)?,
+            &PHOTOSHOP,
+            "LabelColor",
+            color,
+        ),
+        _ => remove(&remove(existing, &XMP, "Label")?, &PHOTOSHOP, "LabelColor"),
     }
 }
 
@@ -882,18 +911,124 @@ mod tests {
         String::from_utf8(write_label(Some(source.as_bytes()), label).unwrap()).unwrap()
     }
 
-    fn with_attribute_label(label: &str) -> String {
+    const PHOTOSHOP_DECL: &str = "xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"";
+
+    fn bridge_declaring_photoshop() -> String {
+        BRIDGE.replace(
+            "xmp:CreatorTool=\"Bridge\"/>",
+            &format!("xmp:CreatorTool=\"Bridge\" {PHOTOSHOP_DECL}/>"),
+        )
+    }
+
+    fn with_bridge_label(label: &str) -> String {
         BRIDGE.replace(
             "   xmp:Rating=\"3\"\n",
             &format!("   xmp:Rating=\"3\"\n   xmp:Label=\"{label}\"\n"),
         )
     }
 
-    fn with_element_label(label: &str) -> String {
-        LIGHTROOM.replace(
-            "   <xmp:Rating>2</xmp:Rating>\n",
-            &format!("   <xmp:Rating>2</xmp:Rating>\n   <xmp:Label>{label}</xmp:Label>\n"),
+    fn with_attribute_label(label: &str) -> String {
+        BRIDGE.replace(
+            "   xmp:Rating=\"3\"\n",
+            &format!(
+                "   xmp:Rating=\"3\"\n   xmp:Label=\"{label}\"\n   {PHOTOSHOP_DECL}\n   photoshop:LabelColor=\"{}\"\n",
+                label.to_lowercase()
+            ),
         )
+    }
+
+    fn with_element_label(label: &str) -> String {
+        LIGHTROOM
+            .replace(
+                "    xmlns:dc=",
+                &format!("    {PHOTOSHOP_DECL}\n    xmlns:dc="),
+            )
+            .replace(
+                "   <xmp:Rating>2</xmp:Rating>\n",
+                &format!(
+                    "   <xmp:Rating>2</xmp:Rating>\n   <xmp:Label>{label}</xmp:Label>\n   <photoshop:LabelColor>{}</photoshop:LabelColor>\n",
+                    label.to_lowercase()
+                ),
+            )
+    }
+
+    const LIGHTROOM_LABELLED: &str = concat!(
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"Adobe XMP Core 7.0-c000 1.000000, 0000/00/00-00:00:00        \">\n",
+        " <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+        "  <rdf:Description rdf:about=\"Leica Camera AG\"\n",
+        "    xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n",
+        "    xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"\n",
+        "    xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\"\n",
+        "   xmp:Rating=\"0\"\n",
+        "   xmp:Label=\"パープル\"\n",
+        "   xmp:CreatorTool=\"2.6.0\"\n",
+        "   photoshop:SidecarForExtension=\"DNG\"\n",
+        "   photoshop:LabelColor=\"purple\"\n",
+        "   crs:Version=\"18.5.1\">\n",
+        "  </rdf:Description>\n",
+        " </rdf:RDF>\n",
+        "</x:xmpmeta>\n",
+    );
+
+    #[test]
+    fn reads_a_lightroom_label_color_over_the_localised_label() {
+        assert_eq!(
+            read_label(LIGHTROOM_LABELLED.as_bytes()).unwrap(),
+            Some("Purple".to_string())
+        );
+        let empty = LIGHTROOM_LABELLED.replace("LabelColor=\"purple\"", "LabelColor=\"\"");
+        assert_eq!(
+            read_label(empty.as_bytes()).unwrap(),
+            Some("パープル".to_string())
+        );
+    }
+
+    #[test]
+    fn relabels_and_clears_a_lightroom_sidecar() {
+        let red = labelled(LIGHTROOM_LABELLED, Some("Red"));
+        assert_eq!(
+            red,
+            LIGHTROOM_LABELLED
+                .replace("xmp:Label=\"パープル\"", "xmp:Label=\"Red\"")
+                .replace("LabelColor=\"purple\"", "LabelColor=\"red\"")
+        );
+        assert_eq!(read_label(red.as_bytes()).unwrap(), Some("Red".to_string()));
+        assert_eq!(
+            labelled(LIGHTROOM_LABELLED, None),
+            LIGHTROOM_LABELLED
+                .replace("   xmp:Label=\"パープル\"\n", "")
+                .replace("   photoshop:LabelColor=\"purple\"\n", "")
+        );
+    }
+
+    #[test]
+    fn a_bridge_label_reads_and_gains_a_label_color() {
+        let source = with_bridge_label("Red");
+        assert_eq!(
+            read_label(source.as_bytes()).unwrap(),
+            Some("Red".to_string())
+        );
+        let out = labelled(&source, Some("Green"));
+        assert_eq!(
+            out,
+            with_bridge_label("Green").replace(
+                "xmp:CreatorTool=\"Bridge\"/>",
+                &format!(
+                    "xmp:CreatorTool=\"Bridge\" {PHOTOSHOP_DECL} photoshop:LabelColor=\"green\"/>"
+                )
+            )
+        );
+        assert_eq!(labelled(&out, None), bridge_declaring_photoshop());
+    }
+
+    #[test]
+    fn reads_an_element_label_color() {
+        let source = with_element_label("Red")
+            .replace("<xmp:Label>Red</xmp:Label>", "<xmp:Label>赤</xmp:Label>");
+        assert_eq!(
+            read_label(source.as_bytes()).unwrap(),
+            Some("Red".to_string())
+        );
     }
 
     #[test]
@@ -950,7 +1085,7 @@ mod tests {
             out,
             NO_RATING.replace(
                 "xmp:CreatorTool=\"darktable\"/>",
-                "xmp:CreatorTool=\"darktable\" xmp:Label=\"Yellow\"/>"
+                &format!("xmp:CreatorTool=\"darktable\" xmp:Label=\"Yellow\" {PHOTOSHOP_DECL} photoshop:LabelColor=\"yellow\"/>")
             )
         );
         assert_eq!(
@@ -961,17 +1096,34 @@ mod tests {
 
     #[test]
     fn clearing_removes_the_attribute() {
-        assert_eq!(labelled(&with_attribute_label("Red"), None), BRIDGE);
+        assert_eq!(
+            labelled(&with_attribute_label("Red"), None),
+            BRIDGE.replace(
+                "   xmp:Rating=\"3\"\n",
+                &format!("   xmp:Rating=\"3\"\n   {PHOTOSHOP_DECL}\n")
+            )
+        );
         let inline = NO_RATING.replace(
             "xmp:CreatorTool=\"darktable\"/>",
-            "xmp:CreatorTool=\"darktable\" xmp:Label=\"Red\"/>",
+            &format!("xmp:CreatorTool=\"darktable\" xmp:Label=\"Red\" {PHOTOSHOP_DECL} photoshop:LabelColor=\"red\"/>"),
         );
-        assert_eq!(labelled(&inline, None), NO_RATING);
+        assert_eq!(
+            labelled(&inline, None),
+            NO_RATING.replace(
+                "\"darktable\"/>",
+                &format!("\"darktable\" {PHOTOSHOP_DECL}/>")
+            )
+        );
     }
 
     #[test]
     fn clearing_removes_the_element_and_its_line() {
-        assert_eq!(labelled(&with_element_label("Red"), None), LIGHTROOM);
+        assert_eq!(
+            labelled(&with_element_label("Red"), None),
+            with_element_label("Red")
+                .replace("   <xmp:Label>Red</xmp:Label>\n", "")
+                .replace("   <photoshop:LabelColor>red</photoshop:LabelColor>\n", "")
+        );
         let shared = LIGHTROOM.replace(
             "<xmp:Rating>2</xmp:Rating>",
             "<xmp:Rating>2</xmp:Rating><xmp:Label>Red</xmp:Label>",
@@ -1018,7 +1170,10 @@ mod tests {
 
     #[test]
     fn an_element_label_with_an_entity_reference_reads_and_sets_whole() {
-        let source = with_element_label("Red &amp; Blue");
+        let source = with_element_label("Red &amp; Blue").replace(
+            "   <photoshop:LabelColor>red &amp; blue</photoshop:LabelColor>\n",
+            "",
+        );
         assert_eq!(
             read_label(source.as_bytes()).unwrap(),
             Some("Red &amp; Blue".to_string())
@@ -1026,6 +1181,14 @@ mod tests {
         assert_eq!(
             labelled(&source, Some("Green")),
             with_element_label("Green")
+                .replace(
+                    "   <photoshop:LabelColor>green</photoshop:LabelColor>\n",
+                    ""
+                )
+                .replace(
+                    "crs:ToneCurveName2012=\"Medium Contrast\">",
+                    "crs:ToneCurveName2012=\"Medium Contrast\" photoshop:LabelColor=\"green\">"
+                )
         );
     }
 
@@ -1034,7 +1197,7 @@ mod tests {
         for label in ["Orange", "Rouge vif", "赤"] {
             let out = labelled(BRIDGE, Some(label));
             assert_eq!(read_label(out.as_bytes()).unwrap(), Some(label.to_string()));
-            assert_eq!(labelled(&out, None), BRIDGE);
+            assert_eq!(labelled(&out, None), bridge_declaring_photoshop());
             let out = labelled(&with_element_label("Red"), Some(label));
             assert_eq!(out, with_element_label(label));
         }
