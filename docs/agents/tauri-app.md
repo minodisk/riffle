@@ -671,6 +671,12 @@ still the current file afterward — calls `move(1)` for auto-advance.
   need its own bounds check.
 - Source: `docs/plans/_archived/20260919-auto-advance/learnings.md`, Step 3.
 
+- `judge` now returns the number of targets it changed (0 when nothing
+  changed), not just whether it changed anything; auto-advance fires only
+  when that count is 1, i.e. only for a single-file, non-batch judgement.
+  Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
+  Step 3.
+
 ### A derived-state refresh has to run even when `refilter` short-circuits (Hit)
 
 `refilter` returns early when the visible file list did not change, so per-file
@@ -835,6 +841,38 @@ contents needs the same explicit close.
 
 - Source: `docs/plans/_archived/20260922-strip-context-menu/plan.md` and its
   `learnings.md`, Steps 2-3.
+
+### The strip's multi-selection keeps one invariant: the focused file is always selected (Inferred)
+
+`selection.ts` (`crates/app/ui/src/selection.ts`) returns new `Selection`
+values rather than mutating; callers replace the state held in `main.ts`.
+Judgement commands are `(focused) => (own) => State`: the outer call decides
+the value once from the focused file, the inner one applies it to each
+selected file's own state, so fields the command does not touch survive per
+file (e.g. `pick`/`unflag` only touch the rating field, so other files'
+stars are kept). `judgements` always puts the focused file first, even on the
+rare frame where it is outside the selection, so the focused file is always
+judged.
+
+Interaction rules that keep the invariant, and that diverge from what you
+might otherwise assume:
+
+- Shift+click moves the focus to the clicked file (and reloads the viewer),
+  so the shift-range from the anchor always contains the focused file.
+  Cmd/Ctrl+click only changes the selection and leaves the viewer as it is.
+- `move`, `moveBurst` and `moveBurstFrame` collapse the selection to the new
+  focused file only when the focus actually moves; a plain arrow at either
+  end of the strip leaves an existing multi-selection as it is.
+- A right-click on a strip cell outside the current selection collapses the
+  selection to that cell first (as file managers do); a right-click inside
+  the selection keeps it and only moves the focus.
+- Pruning the selection after a filter/sort/judgement change happens only in
+  `refilter`, which re-adds the focused file so the invariant holds; other
+  paths (`resync`, `trashRejected`, `strip.setFiles`) all route through it
+  rather than pruning themselves.
+
+- Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
+  Steps 1-4.
 
 ### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
 
