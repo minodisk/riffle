@@ -207,4 +207,4 @@ It also records the 2026-09-22 Windows manual check results in `todo.md`.
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete
