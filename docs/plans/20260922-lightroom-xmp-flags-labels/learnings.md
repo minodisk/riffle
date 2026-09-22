@@ -73,3 +73,12 @@
 
 - (Done in Step 3) Restore the "the stars are kept" assertion in
   `a_photolab_sidecar_is_patched_in_place` (`crates/app/src/sidecar.rs`).
+
+## Step 4
+
+- The README "Sidecar formats and software" checklist now names Adobe
+  Lightroom 9.5.1 (Windows; not Lightroom Classic) but leaves it unticked:
+  the user has not yet confirmed the round-trip in Lightroom. Tick it once
+  they do (mention this in the PR).
+- The Step 4 commit carries a `Release-As: 0.3.0` trailer so release-please
+  cuts 0.3.0 rather than 0.2.1.

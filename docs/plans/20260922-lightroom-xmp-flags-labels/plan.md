@@ -194,7 +194,7 @@ Decisions already taken (do not reopen):
       snapshot rule (see `docs/agents/tauri-app.md`).
     - `README`-visible wording is left for Step 4; only code and tests
       here.
-- [ ] Step 4: Documentation: README, CLAUDE.md
+- [x] Step 4: Documentation: README, CLAUDE.md
   - Done when:
     - README "Working with other software" no longer says XMP "cannot hold
       a pick"; the key table reads: `0` clears the stars, `x` reject (keeps
