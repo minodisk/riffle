@@ -147,7 +147,8 @@ body {
   color: #888;
 }
 
-#filter-menu hr {
+#filter-menu hr,
+#context-menu hr {
   margin: 4px 0;
   border: none;
   border-top: 1px solid #3a3a3a;
@@ -177,7 +178,8 @@ body {
 }
 
 #filter-menu button[aria-checked="true"],
-#sort-menu button[aria-checked="true"] {
+#sort-menu button[aria-checked="true"],
+#context-menu button[aria-checked="true"] {
   color: #fff;
   background: #2f4a6a;
 }

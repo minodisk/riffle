@@ -42,7 +42,7 @@ the keys.
 
 ## Steps
 
-- [ ] Step 1: Rating and colour label items in the strip's context menu
+- [x] Step 1: Rating and colour label items in the strip's context menu
   - Done when:
     - Right-clicking a strip cell shows, in order and separated by `<hr>`:
       Pick / Reject / Unflag; 1 star … 5 stars, No stars (`clear`); Red,

@@ -16,7 +16,7 @@ import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } 
 import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
-import { flagMenuItems, menuPosition } from "./context.js";
+import { contextMenuGroups, menuPosition } from "./context.js";
 import { comparisonCandidates, loadComparisonFrames, reconcileActive } from "./compare.js";
 import {
   type Command,
@@ -1516,22 +1516,32 @@ function closeContextMenu(): void {
 }
 
 function openContextMenu(x: number, y: number): void {
+  const focused = (comparing ? compareActivePath : null) ?? files[index];
+  const state = {
+    rating: ratings.get(focused) ?? null,
+    flag: flagOf(focused),
+    label: labels.get(focused) ?? null,
+  };
   contextMenu.replaceChildren(
-    ...flagMenuItems(keyBindings).map(({ action, label, shortcut }) => {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.setAttribute("role", "menuitem");
-      const name = document.createElement("span");
-      name.textContent = label;
-      const key = document.createElement("span");
-      key.className = "shortcut";
-      key.textContent = shortcut;
-      item.append(name, key);
-      item.addEventListener("click", () => {
-        closeContextMenu();
-        runAction(action);
+    ...contextMenuGroups(keyBindings, state).flatMap((group, i) => {
+      const items: HTMLElement[] = group.map(({ action, label, shortcut, checked }) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.setAttribute("role", "menuitemradio");
+        item.setAttribute("aria-checked", String(checked));
+        const name = document.createElement("span");
+        name.textContent = label;
+        const key = document.createElement("span");
+        key.className = "shortcut";
+        key.textContent = shortcut;
+        item.append(name, key);
+        item.addEventListener("click", () => {
+          closeContextMenu();
+          runAction(action);
+        });
+        return item;
       });
-      return item;
+      return i === 0 ? items : [document.createElement("hr"), ...items];
     }),
   );
   contextMenu.hidden = false;
