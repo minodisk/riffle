@@ -240,6 +240,14 @@ let showFocus = false;
 let grayscaleHeld: string | null = null;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
+// Side-by-side culling view. With a multi-selection it compares up to four
+// selected files; otherwise it compares the sharpest two frames in the
+// current burst. The bitmaps are independent of `shown`, which remains ready
+// for an immediate return to the single-image view.
+let comparing = false;
+let compareSeq = 0;
+let compareFrames: { path: string; bitmap: ImageBitmap; orientation: number }[] = [];
+let compareActivePath: string | null = null;
 // The crop of the file that `cropSeq` identifies, at one JPEG pixel per
 // device pixel, with its point of interest in crop pixels. Kept while the
 // view is toggled off so toggling back on redraws without a round trip.
@@ -394,6 +402,9 @@ function renderMeta(): void {
   if (zoomed) {
     metaStatusEl.append(line("note", "1:1"));
   }
+  if (comparing) {
+    metaStatusEl.append(line("note", `Compare · ${compareCandidates().length} frames`));
+  }
   for (const { key, message } of errors.list()) {
     const el = line("error", message);
     const dismiss = document.createElement("button");
@@ -499,6 +510,10 @@ function setStatus(extra?: string): void {
 }
 
 function draw(): void {
+  if (comparing) {
+    drawCompare();
+    return;
+  }
   if (zoomed) {
     drawZoom();
     return;
@@ -533,6 +548,160 @@ function draw(): void {
   drawFocusMark(drawWidth, drawHeight);
   context.restore();
 }
+
+function compareCandidates(): string[] {
+  if (selection.selected.size > 1) {
+    return files.filter((path) => selection.selected.has(path)).slice(0, 4);
+  }
+  const current = files[index];
+  const burst = current === undefined ? undefined : bursts.get(current)?.burst;
+  if (burst === undefined) return current === undefined ? [] : [current];
+  const ranked = files
+    .filter((path) => bursts.get(path)?.burst === burst)
+    .sort((a, b) => (sharpness.get(b) ?? -Infinity) - (sharpness.get(a) ?? -Infinity));
+  return ranked.length < 2 ? [current] : [current, ranked[0]];
+}
+
+function closeCompareFrames(): void {
+  for (const frame of compareFrames) frame.bitmap.close();
+  compareFrames = [];
+}
+
+function drawCompare(): void {
+  const dpr = window.devicePixelRatio;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  context.scale(dpr, dpr);
+  const count = compareFrames.length;
+  const columns = count <= 2 ? Math.max(count, 1) : 2;
+  const rows = Math.max(Math.ceil(count / columns), 1);
+  const gap = 4;
+  const cellWidth = (width - gap * (columns - 1)) / columns;
+  const cellHeight = (height - gap * (rows - 1)) / rows;
+  const best = Math.max(...compareFrames.map(({ path }) => sharpness.get(path) ?? -Infinity));
+  compareFrames.forEach(({ path, bitmap, orientation }, at) => {
+    const col = at % columns;
+    const row = Math.floor(at / columns);
+    const x = col * (cellWidth + gap);
+    const y = row * (cellHeight + gap);
+    const labelHeight = 28;
+    const quarterTurn = orientation === 6 || orientation === 8;
+    const uprightWidth = quarterTurn ? bitmap.height : bitmap.width;
+    const uprightHeight = quarterTurn ? bitmap.width : bitmap.height;
+    const scale = Math.min(cellWidth / uprightWidth, (cellHeight - labelHeight) / uprightHeight);
+    const drawWidth = bitmap.width * scale;
+    const drawHeight = bitmap.height * scale;
+    context.save();
+    context.beginPath();
+    context.rect(x, y, cellWidth, cellHeight - labelHeight);
+    context.clip();
+    context.translate(x + cellWidth / 2, y + (cellHeight - labelHeight) / 2);
+    if (orientation === 6) context.rotate(Math.PI / 2);
+    else if (orientation === 8) context.rotate(-Math.PI / 2);
+    else if (orientation === 3) context.rotate(Math.PI);
+    context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.restore();
+    const score = sharpness.get(path);
+    const isBest = score !== undefined && score === best && compareFrames.length > 1;
+    const isActive = path === compareActivePath;
+    context.fillStyle = isBest ? "#244c31" : "#252525";
+    context.fillRect(x, y + cellHeight - labelHeight, cellWidth, labelHeight);
+    context.fillStyle = isBest ? "#6bdc8a" : "#ddd";
+    context.font = "12px system-ui, sans-serif";
+    context.textBaseline = "middle";
+    const suffix =
+      (score === undefined ? "" : `  ·  ${score.toFixed(1)}`) +
+      `${isBest ? "  BEST" : ""}${isActive ? "  ACTIVE" : ""}`;
+    context.fillText(`${baseName(path)}${suffix}`, x + 8, y + cellHeight - labelHeight / 2);
+    context.strokeStyle = isBest ? "#6bdc8a" : "#444";
+    context.lineWidth = isBest ? 2 : 1;
+    context.strokeRect(x + 0.5, y + 0.5, cellWidth - 1, cellHeight - 1);
+    if (isActive) {
+      context.strokeStyle = "#fff";
+      context.lineWidth = 2;
+      context.strokeRect(x + 3.5, y + 3.5, cellWidth - 7, cellHeight - 7);
+    }
+  });
+  context.restore();
+}
+
+async function loadCompare(): Promise<void> {
+  const paths = compareCandidates();
+  const request = ++compareSeq;
+  closeCompareFrames();
+  drawCompare();
+  try {
+    const frames = await Promise.all(
+      paths.map(async (path) => {
+        const payload = await window.__TAURI__.core.invoke<ArrayBuffer>("preview", { path });
+        const header = new DataView(payload, 0, PREVIEW_HEADER_LEN);
+        if (header.getUint16(0, true) !== PREVIEW_KIND_JPEG_V1) {
+          throw new Error("unknown preview payload");
+        }
+        const orientation = header.getUint16(2, true);
+        const bitmap = await createImageBitmap(
+          new Blob([payload.slice(PREVIEW_HEADER_LEN)], { type: "image/jpeg" }),
+        );
+        return { path, bitmap, orientation };
+      }),
+    );
+    if (!comparing || request !== compareSeq) {
+      for (const frame of frames) frame.bitmap.close();
+      return;
+    }
+    compareFrames = frames;
+    drawCompare();
+  } catch (error) {
+    if (comparing && request === compareSeq) setStatus(String(error));
+  }
+}
+
+function toggleCompare(): void {
+  if (comparing) {
+    comparing = false;
+    compareSeq += 1;
+    closeCompareFrames();
+    compareActivePath = null;
+    renderMeta();
+    draw();
+    return;
+  }
+  const candidates = compareCandidates();
+  if (candidates.length < 2) {
+    setStatus("Select 2–4 files, or move to a burst with at least two frames");
+    return;
+  }
+  comparing = true;
+  compareActivePath = files[index] ?? candidates[0];
+  if (zoomed) toggleZoom();
+  renderMeta();
+  void loadCompare();
+}
+
+canvas.addEventListener("click", (event) => {
+  if (!comparing || compareFrames.length === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const count = compareFrames.length;
+  const columns = count <= 2 ? count : 2;
+  const rows = Math.ceil(count / columns);
+  const gap = 4;
+  const cellWidth = (rect.width - gap * (columns - 1)) / columns;
+  const cellHeight = (rect.height - gap * (rows - 1)) / rows;
+  const col = Math.floor(x / (cellWidth + gap));
+  const row = Math.floor(y / (cellHeight + gap));
+  const at = row * columns + col;
+  const frame = compareFrames[at];
+  if (frame === undefined || x - col * (cellWidth + gap) > cellWidth) return;
+  compareActivePath = frame.path;
+  drawCompare();
+  renderMeta();
+});
 
 // Record a judgement locally: the `ratings` map, the `picks` set and the
 // strip cell. `null` is unrated.
@@ -650,8 +819,8 @@ function judge(command: Command, forceLabel = false): number {
   if (files.length === 0) {
     return 0;
   }
-  const current = files[index];
-  const paths = targets(selection, files, index);
+  const current = (comparing ? compareActivePath : null) ?? files[index];
+  const paths = comparing ? [current] : targets(selection, files, index);
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless. A forced label still goes out
   // while the file's real label is unknown.
@@ -1225,6 +1394,7 @@ function show(): void {
     crop?.bitmap.close();
     crop = null;
   }
+  if (comparing) void loadCompare();
 }
 
 worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
@@ -1387,6 +1557,7 @@ strip.init(
     paintSelection();
     if (selected === index || modifiers.toggle) {
       renderMeta();
+      if (comparing) void loadCompare();
       return;
     }
     index = selected;
@@ -1540,6 +1711,10 @@ function openDirectory(folder: string, token: number): Promise<void> {
       return;
     }
     closeContextMenu();
+    comparing = false;
+    compareSeq += 1;
+    closeCompareFrames();
+    compareActivePath = null;
     for (const set of shownExif.values()) {
       set.clear();
     }
@@ -2009,6 +2184,11 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     return;
   }
+  if (key === "escape" && comparing) {
+    toggleCompare();
+    event.preventDefault();
+    return;
+  }
   if (!contextMenu.hidden) {
     closeContextMenu();
   }
@@ -2073,6 +2253,9 @@ function runAction(action: string): boolean {
       break;
     case "zoom":
       toggleZoom();
+      break;
+    case "compare":
+      toggleCompare();
       break;
     case "open":
       openFolder();
@@ -2146,7 +2329,13 @@ function runAction(action: string): boolean {
       return false;
   }
   // A file that dropped out of the filter already moved the cursor on.
-  if (judged === 1 && autoAdvance && advancesAfter(action) && files[index] === current) {
+  if (
+    judged === 1 &&
+    autoAdvance &&
+    !comparing &&
+    advancesAfter(action) &&
+    files[index] === current
+  ) {
     move(1);
   }
   return true;

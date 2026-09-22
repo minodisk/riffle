@@ -15,6 +15,7 @@ const shortcutLabels: Record<string, string> = {
   focus: "Focus mark",
   zoom: "1:1 zoom",
   grayscale: "Grayscale",
+  compare: "Compare frames",
   rate1: "1 star",
   rate2: "2 stars",
   rate3: "3 stars",

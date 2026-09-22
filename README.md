@@ -56,6 +56,9 @@ sidecars.
   whole selection.
 - **1:1 focus check**: `z` shows the image at 1:1, centred on the focus point.
   Paging keeps the zoom.
+- **Compare**: `v` shows 2–4 selected shots together, or the current shot
+  beside the sharpest frame in its burst. Click a frame to rate, pick or
+  reject only that one.
 - **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
@@ -97,6 +100,7 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `c` | clear every flag: stars, reject, pick and colour label |
 | `z` | 1:1 focus check |
 | `g` (hold) | grayscale preview |
+| `v` | compare selected shots / the sharpest two frames in a burst |
 | `f` | focus mark |
 | `Cmd+O` / `Ctrl+O` | open a folder |
 
