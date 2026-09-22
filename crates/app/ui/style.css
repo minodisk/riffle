@@ -459,11 +459,12 @@ body {
   border-bottom-right-radius: 6px;
 }
 
-/* The burst count badge, top-left beside the pick or reject dot. */
+/* The burst count badge, in the bottom-right corner of the image box,
+   above the file name. */
 .cell span.count {
-  top: 2px;
-  bottom: auto;
-  left: 14px;
+  bottom: 26px;
+  left: auto;
+  right: 2px;
   width: auto;
   font-size: 0.7rem;
   color: #ddd;
