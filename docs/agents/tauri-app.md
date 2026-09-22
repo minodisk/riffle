@@ -446,6 +446,17 @@ offsets are never computed against stale text.
 - Source: `docs/plans/_archived/20260922-lightroom-xmp-flags-labels/learnings.md`,
   Steps 1 and 2.
 
+### Label-name reads fall back configured-name-then-English, not the other way (Hit)
+
+`LabelNames::name(&self, color)` returns the English `color` itself when the
+configured name for that colour is empty — callers don't need a separate
+"is this customised" check. Reads match a sidecar's `xmp:Label` against the
+configured name first, then against the English name, so a sidecar written
+by an English-locale Lightroom still reads as the right colour even when
+Riffle's settings hold Japanese (or other) names.
+
+- Source: `docs/plans/_archived/20260922-lightroom-label-names/learnings.md`, Step 1.
+
 ### quick-xml 0.42 namespace resolution: `&str`, not `&[u8]`, and a borrowed `QName` (Hit)
 
 `ResolveResult::Bound(Namespace)`'s `as_ref()` yields `&str` — compare it
@@ -948,6 +959,17 @@ frontend doesn't know yet.
 
 - Source: `docs/plans/20260919-color-labels/learnings.md`, Steps 4 and 6;
   `docs/plans/_archived/20260922-clear-all-flags/learnings.md`, Step 2.
+
+### `Writer::set` / `set_now` carry `#[allow(clippy::too_many_arguments)]`, not a parameter struct (Hit)
+
+Adding the `LabelNames` snapshot pushed `Writer::set` / `set_now` to 8
+parameters, over clippy's `too_many_arguments` limit of 7 (`-D warnings` in
+CI). The fix was `#[allow(clippy::too_many_arguments)]` on both, not a new
+parameter struct — kept the change small and matches how this pair already
+carries `format`. Expect the same call when adding another per-write field
+here; every `sidecar.rs` test call site needs updating too.
+
+- Source: `docs/plans/_archived/20260922-lightroom-label-names/learnings.md`, Step 2.
 
 ### Clearing a rating writes `Rating = 0`, not "no rating", in both sidecar formats (Hit)
 
