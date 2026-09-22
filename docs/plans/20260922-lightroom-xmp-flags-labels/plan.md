@@ -56,7 +56,7 @@ Decisions already taken (do not reopen):
 
 ## Steps
 
-- [ ] Step 1: Tri-state flag in `riffle-core`: `xmpDM:good` in `xmp.rs`, stars kept on a `.dop` reject
+- [x] Step 1: Tri-state flag in `riffle-core`: `xmpDM:good` in `xmp.rs`, stars kept on a `.dop` reject
   - Done when:
     - `crates/core/src/lib.rs` exports a `Flag { None, Pick, Reject }` enum
       (`Copy`, `Default = None`) shared by `xmp.rs` and `dop.rs`.
@@ -207,6 +207,9 @@ Decisions already taken (do not reopen):
       round-trip in Lightroom (say so in the PR if left unticked).
     - `CLAUDE.md`'s `xmp.rs` / `dop.rs` sentence mentions the tri-state
       flag, `xmpDM:good` and `photoshop:LabelColor`.
+    - The Step 4 commit carries a `Release-As: 0.3.0` footer so
+      release-please cuts 0.3.0 (the user wants a minor bump for Lightroom
+      support; `bump-patch-for-minor-pre-major` would otherwise give 0.2.1).
   - Implementation approach:
     - Assumes Step 3 is merged. Docs only.
 

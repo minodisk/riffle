@@ -1,13 +1,15 @@
-//! XMP sidecar reading and writing for ratings and colour labels.
+//! XMP sidecar reading and writing for ratings, flags and colour labels.
 //!
-//! A rating is a single signed integer in `-1..=5`: `0` is unrated, `1`-`5`
-//! are stars and `-1` is a reject, which is the convention Adobe Bridge
-//! writes and darktable reads. A label is the raw string of `xmp:Label`,
-//! kept as-is so any vocabulary round-trips. Nothing but `xmp:Rating` and
-//! `xmp:Label` is ever written.
+//! A rating is `xmp:Rating` in `0..=5`, `0` being unrated. The pick / reject
+//! [`Flag`] is Lightroom's `xmpDM:good`: `"True"` a pick, `"False"` a reject,
+//! absent unflagged; a reject keeps its stars. A legacy `xmp:Rating="-1"`
+//! (the reject Adobe Bridge writes and darktable reads) reads as a reject
+//! with no stars and is rewritten to Lightroom's shape. A label is the raw
+//! string of `xmp:Label`, kept as-is so any vocabulary round-trips. Nothing
+//! but `xmp:Rating`, `xmpDM:good` and `xmp:Label` is ever written.
 //!
-//! An existing sidecar is patched by splicing the bytes of the `Rating` or
-//! `Label` value (or removing the `Label` property), so a Lightroom sidecar
+//! An existing sidecar is patched by splicing the bytes of those values (or
+//! removing `xmpDM:good` or `xmp:Label`), so a Lightroom sidecar
 //! keeps its `crs:` develop settings byte-for-byte; a sidecar is never
 //! regenerated from a parse.
 
@@ -17,8 +19,24 @@ use quick_xml::events::Event;
 use quick_xml::name::ResolveResult;
 use quick_xml::NsReader;
 
-const XMP_NS: &str = "http://ns.adobe.com/xap/1.0/";
+use crate::Flag;
+
 const RDF_NS: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+
+/// A namespace and the prefixes to write it with, in order of preference.
+struct Ns {
+    uri: &'static str,
+    prefixes: &'static [&'static str],
+}
+
+const XMP: Ns = Ns {
+    uri: "http://ns.adobe.com/xap/1.0/",
+    prefixes: &["xmp", "xap"],
+};
+const XMP_DM: Ns = Ns {
+    uri: "http://ns.adobe.com/xmp/1.0/DynamicMedia/",
+    prefixes: &["xmpDM"],
+};
 
 /// The sidecar path of an ARW: the extension replaced with `xmp`.
 ///
@@ -31,43 +49,85 @@ pub fn sidecar_path(arw: &Path) -> PathBuf {
     path
 }
 
-/// The `xmp:Rating` of the first `rdf:Description` that has one, clamped to
-/// `-1..=5`.
+/// The `xmp:Rating` of the first `rdf:Description` that has one, when it is
+/// in `0..=5`.
 ///
-/// `None` when the property is absent or its value is outside the range;
+/// `None` when the property is absent or its value is outside the range (a
+/// legacy `-1` included: the reject it meant is reported by [`read_flag`]);
 /// `Err` when the bytes are not parseable XMP.
 pub fn read_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
+    Ok(raw_rating(bytes)?.filter(|n| (0..=5).contains(n)))
+}
+
+/// The flag of the sidecar: `Pick` for `xmpDM:good="True"`, `Reject` for
+/// `"False"` or for a legacy `xmp:Rating="-1"`, `None` otherwise.
+///
+/// The value is compared trimmed and case-insensitively; `Err` when the
+/// bytes are not parseable XMP.
+pub fn read_flag(bytes: &[u8]) -> Result<Flag, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
-    match locate(text, "Rating")? {
-        Location::Value { start, end, .. } => Ok(text[start..end]
-            .trim()
-            .parse::<i8>()
-            .ok()
-            .filter(|n| (-1..=5).contains(n))),
+    if let Location::Value { start, end, .. } = locate(text, &XMP_DM, "good")? {
+        let value = text[start..end].trim();
+        if value.eq_ignore_ascii_case("true") {
+            return Ok(Flag::Pick);
+        }
+        if value.eq_ignore_ascii_case("false") {
+            return Ok(Flag::Reject);
+        }
+    }
+    Ok(if raw_rating(bytes)? == Some(-1) {
+        Flag::Reject
+    } else {
+        Flag::None
+    })
+}
+
+fn raw_rating(bytes: &[u8]) -> Result<Option<i8>, String> {
+    let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
+    match locate(text, &XMP, "Rating")? {
+        Location::Value { start, end, .. } => Ok(text[start..end].trim().parse::<i8>().ok()),
         Location::Insert { .. } => Ok(None),
     }
 }
 
-/// The sidecar bytes carrying `rating`.
+/// The sidecar bytes carrying `rating` and `flag`.
 ///
 /// With `existing` `None` this is a fresh template; otherwise the existing
 /// bytes with only the `Rating` value replaced in the first `rdf:Description`
 /// that has one, or one attribute inserted into the first `rdf:Description`
-/// when the property is absent from all of them.
+/// when the property is absent from all of them. `xmpDM:good` is set the
+/// same way to `"True"` for a pick and `"False"` for a reject, and removed
+/// when unflagged.
 ///
 /// `rating` `None` means unrated and writes `0`. On a file that has no
 /// sidecar yet the caller must not write anything at all rather than call
-/// this with `None`, so that clearing a rating does not litter a folder with
-/// empty sidecars.
-pub fn write_rating(existing: Option<&[u8]>, rating: Option<i8>) -> Result<Vec<u8>, String> {
+/// this with `None` and no flag, so that clearing a rating does not litter a
+/// folder with empty sidecars.
+pub fn write_rating(
+    existing: Option<&[u8]>,
+    rating: Option<i8>,
+    flag: Flag,
+) -> Result<Vec<u8>, String> {
     let value = rating.unwrap_or(0);
-    if !(-1..=5).contains(&value) {
-        return Err(format!("rating {value} is outside -1..=5"));
+    if !(0..=5).contains(&value) {
+        return Err(format!("rating {value} is outside 0..=5"));
     }
-    let Some(existing) = existing else {
-        return Ok(template("Rating", &value.to_string()).into_bytes());
+    let value = value.to_string();
+    let good = match flag {
+        Flag::Pick => Some("True"),
+        Flag::Reject => Some("False"),
+        Flag::None => None,
     };
-    set(existing, "Rating", &value.to_string())
+    let Some(existing) = existing else {
+        let mut props = vec![(&XMP, "Rating", value.as_str())];
+        props.extend(good.map(|g| (&XMP_DM, "good", g)));
+        return Ok(template(&props).into_bytes());
+    };
+    let rated = set(existing, &XMP, "Rating", &value)?;
+    match good {
+        Some(good) => set(&rated, &XMP_DM, "good", good),
+        None => remove(&rated, &XMP_DM, "good"),
+    }
 }
 
 /// The `xmp:Label` of the first `rdf:Description` that has one, as the raw
@@ -77,7 +137,7 @@ pub fn write_rating(existing: Option<&[u8]>, rating: Option<i8>) -> Result<Vec<u
 /// parseable XMP.
 pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
-    match locate(text, "Label")? {
+    match locate(text, &XMP, "Label")? {
         Location::Value { start, end, .. } if !text[start..end].trim().is_empty() => {
             Ok(Some(text[start..end].to_string()))
         }
@@ -94,26 +154,30 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
 pub fn write_label(existing: Option<&[u8]>, label: Option<&str>) -> Result<Vec<u8>, String> {
     let Some(existing) = existing else {
         return match label {
-            Some(label) => Ok(template("Label", label).into_bytes()),
+            Some(label) => Ok(template(&[(&XMP, "Label", label)]).into_bytes()),
             None => Err("no sidecar to clear a label from".to_string()),
         };
     };
-    let Some(label) = label else {
-        let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
-        return Ok(match locate(text, "Label")? {
-            Location::Value { remove, .. } => {
-                format!("{}{}", &text[..remove.0], &text[remove.1..]).into_bytes()
-            }
-            Location::Insert { .. } => existing.to_vec(),
-        });
-    };
-    set(existing, "Label", label)
+    match label {
+        Some(label) => set(existing, &XMP, "Label", label),
+        None => remove(existing, &XMP, "Label"),
+    }
 }
 
-fn set(existing: &[u8], name: &str, value: &str) -> Result<Vec<u8>, String> {
+fn remove(existing: &[u8], ns: &Ns, name: &str) -> Result<Vec<u8>, String> {
+    let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
+    Ok(match locate(text, ns, name)? {
+        Location::Value { remove, .. } => {
+            format!("{}{}", &text[..remove.0], &text[remove.1..]).into_bytes()
+        }
+        Location::Insert { .. } => existing.to_vec(),
+    })
+}
+
+fn set(existing: &[u8], ns: &Ns, name: &str, value: &str) -> Result<Vec<u8>, String> {
     let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
     let mut out = String::with_capacity(text.len() + 32);
-    match locate(text, name)? {
+    match locate(text, ns, name)? {
         Location::Value { start, end, .. } => {
             out.push_str(&text[..start]);
             out.push_str(value);
@@ -126,7 +190,7 @@ fn set(existing: &[u8], name: &str, value: &str) -> Result<Vec<u8>, String> {
         } => {
             out.push_str(&text[..at]);
             if declare {
-                out.push_str(&format!(" xmlns:{prefix}=\"{XMP_NS}\""));
+                out.push_str(&format!(" xmlns:{prefix}=\"{}\"", ns.uri));
             }
             out.push_str(&format!(" {prefix}:{name}=\"{value}\""));
             out.push_str(&text[at..]);
@@ -135,12 +199,23 @@ fn set(existing: &[u8], name: &str, value: &str) -> Result<Vec<u8>, String> {
     Ok(out.into_bytes())
 }
 
-fn template(name: &str, value: &str) -> String {
+/// A fresh sidecar whose single `rdf:Description` declares each namespace of
+/// `props` once, with its preferred prefix, and carries `props` in order.
+fn template(props: &[(&Ns, &str, &str)]) -> String {
+    let mut attrs = String::new();
+    for (i, (ns, _, _)) in props.iter().enumerate() {
+        if !props[..i].iter().any(|(seen, _, _)| seen.uri == ns.uri) {
+            attrs.push_str(&format!(" xmlns:{}=\"{}\"", ns.prefixes[0], ns.uri));
+        }
+    }
+    for (ns, name, value) in props {
+        attrs.push_str(&format!(" {}:{name}=\"{value}\"", ns.prefixes[0]));
+    }
     format!(
         "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n\
          <x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"riffle\">\n\
          \x20<rdf:RDF xmlns:rdf=\"{RDF_NS}\">\n\
-         \x20 <rdf:Description rdf:about=\"\" xmlns:xmp=\"{XMP_NS}\" xmp:{name}=\"{value}\"/>\n\
+         \x20 <rdf:Description rdf:about=\"\"{attrs}/>\n\
          \x20</rdf:RDF>\n\
          </x:xmpmeta>\n\
          <?xpacket end=\"w\"?>\n"
@@ -164,7 +239,7 @@ enum Location {
     },
 }
 
-fn locate(text: &str, name: &str) -> Result<Location, String> {
+fn locate(text: &str, ns: &Ns, name: &str) -> Result<Location, String> {
     let mut reader = NsReader::from_str(text);
     let mut pos = 0usize;
     let mut insert: Option<Location> = None;
@@ -179,12 +254,12 @@ fn locate(text: &str, name: &str) -> Result<Location, String> {
         match &event {
             Event::Eof => break,
             Event::Start(e) | Event::Empty(e) => {
-                let (ns, local) = reader.resolver().resolve_element(e.name());
-                if bound_to(&ns, RDF_NS) && local.as_ref() == "Description" {
+                let (ens, local) = reader.resolver().resolve_element(e.name());
+                if bound_to(&ens, RDF_NS) && local.as_ref() == "Description" {
                     for attr in e.attributes() {
                         let attr = attr.map_err(|e| format!("XMP parse error: {e}"))?;
                         let (ans, alocal) = reader.resolver().resolve_attribute(attr.key);
-                        if bound_to(&ans, XMP_NS) && alocal.as_ref() == name {
+                        if bound_to(&ans, ns.uri) && alocal.as_ref() == name {
                             if let Some((k, s, e)) = attr_value_range(span, attr.key.as_ref()) {
                                 let lead = span[..k].trim_end().len();
                                 return Ok(Location::Value {
@@ -197,20 +272,20 @@ fn locate(text: &str, name: &str) -> Result<Location, String> {
                     }
                     if !first_description_seen {
                         first_description_seen = true;
-                        let (prefix, declare) = xmp_prefix(&reader);
+                        let (prefix, declare) = prefix_for(&reader, ns);
                         insert = Some(Location::Insert {
                             at: pos + insert_offset(span),
                             prefix,
                             declare,
                         });
                     }
-                } else if bound_to(&ns, XMP_NS) && local.as_ref() == name {
+                } else if bound_to(&ens, ns.uri) && local.as_ref() == name {
                     element = matches!(event, Event::Start(_)).then_some((pos, end));
                 }
             }
             Event::End(e) => {
-                let (ns, local) = reader.resolver().resolve_element(e.name());
-                if bound_to(&ns, XMP_NS) && local.as_ref() == name {
+                let (ens, local) = reader.resolver().resolve_element(e.name());
+                if bound_to(&ens, ns.uri) && local.as_ref() == name {
                     if let Some((open, open_tag_end)) = element {
                         // The value range spans everything between the open
                         // and close tags, `open_tag_end..pos` (`pos` is the
@@ -253,28 +328,30 @@ fn line_or_element(text: &str, open: usize, close: usize) -> (usize, usize) {
 
 /// The prefix to write a property with, and whether it has to be declared.
 ///
-/// For each of `xmp` and `xap`: a prefix already bound to the XMP namespace
-/// is reused as is, an undeclared one is used and declared, and one bound to
-/// another namespace is skipped so that binding is never rewritten. When both
-/// are bound elsewhere, the first undeclared `xmp1`, `xmp2`, ... is declared
+/// For each preferred prefix of `ns` (`xmp` then `xap` for XMP): a prefix
+/// already bound to the namespace is reused as is, an undeclared one is used
+/// and declared, and one bound to another namespace is skipped so that
+/// binding is never rewritten. When all are bound elsewhere, the first
+/// undeclared `<first>1`, `<first>2`, ... (`xmp1`, `xmpDM1`) is declared
 /// instead.
-fn xmp_prefix(reader: &NsReader<&[u8]>) -> (String, bool) {
-    for candidate in ["xmp", "xap"] {
+fn prefix_for(reader: &NsReader<&[u8]>, ns: &Ns) -> (String, bool) {
+    for candidate in ns.prefixes {
         match resolve_prefix(reader, candidate) {
-            ResolveResult::Bound(n) if n.as_ref() == XMP_NS => {
+            ResolveResult::Bound(n) if n.as_ref() == ns.uri => {
                 return (candidate.to_string(), false)
             }
             ResolveResult::Bound(_) => continue,
             _ => return (candidate.to_string(), true),
         }
     }
+    let first = ns.prefixes[0];
     for n in 1..=99 {
-        let candidate = format!("xmp{n}");
+        let candidate = format!("{first}{n}");
         if !matches!(resolve_prefix(reader, &candidate), ResolveResult::Bound(_)) {
             return (candidate, true);
         }
     }
-    ("xmp99".to_string(), true)
+    (format!("{first}99"), true)
 }
 
 fn resolve_prefix<'a>(reader: &'a NsReader<&[u8]>, prefix: &str) -> ResolveResult<'a> {
@@ -390,7 +467,11 @@ mod tests {
     );
 
     fn patched(source: &str, rating: Option<i8>) -> String {
-        String::from_utf8(write_rating(Some(source.as_bytes()), rating).unwrap()).unwrap()
+        flagged(source, rating, Flag::None)
+    }
+
+    fn flagged(source: &str, rating: Option<i8>, flag: Flag) -> String {
+        String::from_utf8(write_rating(Some(source.as_bytes()), rating, flag).unwrap()).unwrap()
     }
 
     #[test]
@@ -420,12 +501,12 @@ mod tests {
 
     #[test]
     fn patches_only_the_element_text() {
-        let out = patched(LIGHTROOM, Some(-1));
+        let out = patched(LIGHTROOM, Some(4));
         assert_eq!(
             out,
-            LIGHTROOM.replace("<xmp:Rating>2</xmp:Rating>", "<xmp:Rating>-1</xmp:Rating>")
+            LIGHTROOM.replace("<xmp:Rating>2</xmp:Rating>", "<xmp:Rating>4</xmp:Rating>")
         );
-        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(-1));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(4));
     }
 
     #[test]
@@ -473,8 +554,8 @@ mod tests {
         );
         assert_eq!(read_rating(source.as_bytes()).unwrap(), Some(1));
         assert_eq!(
-            patched(source, Some(-1)),
-            source.replace("xap:Rating=\"1\"", "xap:Rating=\"-1\"")
+            patched(source, Some(4)),
+            source.replace("xap:Rating=\"1\"", "xap:Rating=\"4\"")
         );
     }
 
@@ -581,7 +662,8 @@ mod tests {
     fn a_truncated_document_is_an_error() {
         let source = &BRIDGE[..BRIDGE.len() / 2];
         assert!(read_rating(source.as_bytes()).is_err());
-        assert!(write_rating(Some(source.as_bytes()), Some(1)).is_err());
+        assert!(write_rating(Some(source.as_bytes()), Some(1), Flag::None).is_err());
+        assert!(read_flag(source.as_bytes()).is_err());
     }
 
     #[test]
@@ -591,16 +673,19 @@ mod tests {
 
     #[test]
     fn a_fresh_template_round_trips() {
-        for n in -1..=5 {
-            let bytes = write_rating(None, Some(n)).unwrap();
-            assert_eq!(read_rating(&bytes).unwrap(), Some(n));
+        for n in 0..=5 {
+            for flag in [Flag::None, Flag::Pick, Flag::Reject] {
+                let bytes = write_rating(None, Some(n), flag).unwrap();
+                assert_eq!(read_rating(&bytes).unwrap(), Some(n));
+                assert_eq!(read_flag(&bytes).unwrap(), flag);
+            }
         }
     }
 
     #[test]
     fn the_fresh_template_is_the_documented_one() {
         assert_eq!(
-            String::from_utf8(write_rating(None, Some(3)).unwrap()).unwrap(),
+            String::from_utf8(write_rating(None, Some(3), Flag::None).unwrap()).unwrap(),
             concat!(
                 "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n",
                 "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"riffle\">\n",
@@ -615,8 +700,183 @@ mod tests {
 
     #[test]
     fn a_rating_outside_the_range_is_an_error() {
-        assert!(write_rating(None, Some(6)).is_err());
-        assert!(write_rating(None, Some(-2)).is_err());
+        assert!(write_rating(None, Some(6), Flag::None).is_err());
+        assert!(write_rating(None, Some(-1), Flag::Reject).is_err());
+    }
+
+    #[test]
+    fn the_fresh_template_declares_xmp_dm_only_for_a_flag() {
+        let template =
+            |flag| String::from_utf8(write_rating(None, Some(2), flag).unwrap()).unwrap();
+        let description = |attrs: &str| {
+            format!(
+                concat!(
+                    "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n",
+                    "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"riffle\">\n",
+                    " <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+                    "  <rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"{}/>\n",
+                    " </rdf:RDF>\n",
+                    "</x:xmpmeta>\n",
+                    "<?xpacket end=\"w\"?>\n",
+                ),
+                attrs
+            )
+        };
+        assert_eq!(template(Flag::None), description(" xmp:Rating=\"2\""));
+        assert_eq!(
+            template(Flag::Pick),
+            description(
+                " xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\" xmp:Rating=\"2\" xmpDM:good=\"True\""
+            )
+        );
+        assert_eq!(
+            template(Flag::Reject),
+            description(
+                " xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\" xmp:Rating=\"2\" xmpDM:good=\"False\""
+            )
+        );
+    }
+
+    const LIGHTROOM_FLAGGED: &str = concat!(
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"Adobe XMP Core 7.0-c000 1.000000, 0000/00/00-00:00:00        \">\n",
+        " <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+        "  <rdf:Description rdf:about=\"Leica Camera AG\"\n",
+        "    xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n",
+        "    xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"\n",
+        "    xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\"\n",
+        "    xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\"\n",
+        "   xmp:Rating=\"0\"\n",
+        "   xmp:CreatorTool=\"2.6.0\"\n",
+        "   photoshop:SidecarForExtension=\"DNG\"\n",
+        "   xmpDM:good=\"False\"\n",
+        "   crs:Version=\"18.5.1\"\n",
+        "   crs:AlreadyApplied=\"False\">\n",
+        "  </rdf:Description>\n",
+        " </rdf:RDF>\n",
+        "</x:xmpmeta>\n",
+    );
+
+    #[test]
+    fn reads_a_lightroom_flag_attribute() {
+        assert_eq!(
+            read_flag(LIGHTROOM_FLAGGED.as_bytes()).unwrap(),
+            Flag::Reject
+        );
+        assert_eq!(read_rating(LIGHTROOM_FLAGGED.as_bytes()).unwrap(), Some(0));
+        let pick = LIGHTROOM_FLAGGED.replace("xmpDM:good=\"False\"", "xmpDM:good=\"True\"");
+        assert_eq!(read_flag(pick.as_bytes()).unwrap(), Flag::Pick);
+        let loose = LIGHTROOM_FLAGGED.replace("xmpDM:good=\"False\"", "xmpDM:good=\" true \"");
+        assert_eq!(read_flag(loose.as_bytes()).unwrap(), Flag::Pick);
+        let unflagged = LIGHTROOM_FLAGGED.replace("   xmpDM:good=\"False\"\n", "");
+        assert_eq!(read_flag(unflagged.as_bytes()).unwrap(), Flag::None);
+        assert_eq!(read_flag(BRIDGE.as_bytes()).unwrap(), Flag::None);
+    }
+
+    #[test]
+    fn reads_and_patches_a_flag_element() {
+        let source = LIGHTROOM
+            .replace(
+                "   <xmp:Rating>2</xmp:Rating>\n",
+                "   <xmp:Rating>2</xmp:Rating>\n   <xmpDM:good>True</xmpDM:good>\n",
+            )
+            .replace(
+                "    xmlns:dc=",
+                "    xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\"\n    xmlns:dc=",
+            );
+        assert_eq!(read_flag(source.as_bytes()).unwrap(), Flag::Pick);
+        let rejected = flagged(&source, Some(2), Flag::Reject);
+        assert_eq!(
+            rejected,
+            source.replace("<xmpDM:good>True<", "<xmpDM:good>False<")
+        );
+        let cleared = flagged(&rejected, Some(2), Flag::None);
+        assert_eq!(
+            cleared,
+            source.replace("   <xmpDM:good>True</xmpDM:good>\n", "")
+        );
+        assert_eq!(read_flag(cleared.as_bytes()).unwrap(), Flag::None);
+    }
+
+    #[test]
+    fn pick_reject_none_transitions_touch_only_the_flag() {
+        let unflagged = LIGHTROOM_FLAGGED.replace("   xmpDM:good=\"False\"\n", "");
+        let picked = flagged(&unflagged, Some(0), Flag::Pick);
+        assert_eq!(
+            picked,
+            unflagged.replace(
+                "crs:AlreadyApplied=\"False\">",
+                "crs:AlreadyApplied=\"False\" xmpDM:good=\"True\">"
+            )
+        );
+        let rejected = flagged(&picked, Some(0), Flag::Reject);
+        assert_eq!(
+            rejected,
+            picked.replace("xmpDM:good=\"True\"", "xmpDM:good=\"False\"")
+        );
+        assert_eq!(flagged(&rejected, Some(0), Flag::None), unflagged);
+
+        let picked = flagged(LIGHTROOM_FLAGGED, Some(0), Flag::Pick);
+        assert_eq!(
+            picked,
+            LIGHTROOM_FLAGGED.replace("xmpDM:good=\"False\"", "xmpDM:good=\"True\"")
+        );
+        assert_eq!(flagged(LIGHTROOM_FLAGGED, Some(0), Flag::None), unflagged);
+    }
+
+    #[test]
+    fn a_reject_keeps_its_stars() {
+        let out = flagged(LIGHTROOM_FLAGGED, Some(3), Flag::Reject);
+        assert_eq!(
+            out,
+            LIGHTROOM_FLAGGED.replace("xmp:Rating=\"0\"", "xmp:Rating=\"3\"")
+        );
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(3));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
+    }
+
+    #[test]
+    fn a_legacy_minus_one_reads_as_a_starless_reject_and_is_rewritten() {
+        let legacy = BRIDGE.replace("xmp:Rating=\"3\"", "xmp:Rating=\"-1\"");
+        assert_eq!(read_rating(legacy.as_bytes()).unwrap(), None);
+        assert_eq!(read_flag(legacy.as_bytes()).unwrap(), Flag::Reject);
+        let out = flagged(&legacy, None, Flag::Reject);
+        assert_eq!(
+            out,
+            BRIDGE
+                .replace("xmp:Rating=\"3\"", "xmp:Rating=\"0\"")
+                .replace(
+                    "xmp:CreatorTool=\"Bridge\"/>",
+                    "xmp:CreatorTool=\"Bridge\" xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\" xmpDM:good=\"False\"/>"
+                )
+        );
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(0));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
+        let starred = flagged(&legacy, Some(2), Flag::None);
+        assert_eq!(
+            starred,
+            BRIDGE.replace("xmp:Rating=\"3\"", "xmp:Rating=\"2\"")
+        );
+    }
+
+    #[test]
+    fn skips_an_xmp_dm_prefix_bound_elsewhere() {
+        let source = BRIDGE.replace(
+            "    xmlns:xmp=",
+            "    xmlns:xmpDM=\"http://example.com/other/\"\n    xmlns:xmp=",
+        );
+        let out = flagged(&source, Some(3), Flag::Pick);
+        assert_eq!(
+            out,
+            source.replace(
+                "xmp:CreatorTool=\"Bridge\"/>",
+                "xmp:CreatorTool=\"Bridge\" xmlns:xmpDM1=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\" xmpDM1:good=\"True\"/>"
+            )
+        );
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Pick);
+        assert_eq!(
+            flagged(&out, Some(3), Flag::None),
+            out.replace(" xmpDM1:good=\"True\"", "")
+        );
     }
     fn labelled(source: &str, label: Option<&str>) -> String {
         String::from_utf8(write_label(Some(source.as_bytes()), label).unwrap()).unwrap()

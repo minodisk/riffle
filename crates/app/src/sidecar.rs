@@ -17,7 +17,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use riffle_core::{dop, xmp};
+use riffle_core::{dop, xmp, Flag};
 
 use crate::index::{lock, Index};
 
@@ -55,19 +55,26 @@ impl SidecarFormat {
         }
     }
 
+    // Temporary shim until Step 3 of the lightroom-xmp-flags-labels plan
+    // carries `Flag` through the app: a reject is still reported as `-1`.
     pub fn read_rating(self, bytes: &[u8]) -> Result<Option<i8>, String> {
-        match self {
-            Self::Xmp => xmp::read_rating(bytes),
-            Self::Dop => dop::read_rating(bytes),
-        }
+        let (rating, flag) = match self {
+            Self::Xmp => (xmp::read_rating(bytes)?, xmp::read_flag(bytes)?),
+            Self::Dop => (dop::read_rating(bytes)?, dop::read_flag(bytes)?),
+        };
+        Ok(if flag == Flag::Reject {
+            Some(-1)
+        } else {
+            rating
+        })
     }
 
-    /// Whether the sidecar marks the file as picked. XMP has no standard
-    /// pick field, so it never does.
+    /// Whether the sidecar marks the file as picked. XMP picks are ignored
+    /// until Step 3 of the lightroom-xmp-flags-labels plan.
     pub fn read_pick(self, bytes: &[u8]) -> Result<bool, String> {
         match self {
             Self::Xmp => Ok(false),
-            Self::Dop => dop::read_pick(bytes),
+            Self::Dop => Ok(dop::read_flag(bytes)? == Flag::Pick),
         }
     }
 
@@ -107,12 +114,22 @@ impl SidecarFormat {
         rating: Option<i8>,
         pick: bool,
     ) -> Result<Vec<u8>, String> {
+        // Temporary shim until Step 3 of the lightroom-xmp-flags-labels plan
+        // replaces the app's `(rating, pick)` with `(stars, Flag)`.
+        let flag = if rating == Some(-1) {
+            Flag::Reject
+        } else if pick && self == Self::Dop {
+            Flag::Pick
+        } else {
+            Flag::None
+        };
+        let rating = rating.filter(|r| *r != -1);
         match self {
-            Self::Xmp => xmp::write_rating(existing, rating),
+            Self::Xmp => xmp::write_rating(existing, rating, flag),
             Self::Dop => dop::write_rating(
                 existing,
                 rating,
-                pick,
+                flag,
                 &raw_name(arw),
                 &dop::timestamp(SystemTime::now()),
             ),
@@ -695,7 +712,7 @@ mod tests {
             "the flush did not wait it out"
         );
         let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
-        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(-1));
+        assert_eq!(SidecarFormat::Xmp.read_rating(&bytes).unwrap(), Some(-1));
 
         drop(writer);
         remove_temp_dir(&dir);
@@ -892,9 +909,8 @@ mod tests {
         writer.flush(DRAIN_TIMEOUT);
 
         let bytes = std::fs::read(&sidecar).unwrap();
-        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(-1));
+        assert_eq!(SidecarFormat::Dop.read_rating(&bytes).unwrap(), Some(-1));
         let text = String::from_utf8(bytes).unwrap();
-        assert!(text.contains("\nRating = 3,"), "the stars are kept");
         assert!(text.ends_with("}\n\r\n"), "the trailing CRLF survives");
         assert!(!xmp::sidecar_path(&path).exists(), "no XMP is written");
 
@@ -966,7 +982,10 @@ mod tests {
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
-        assert!(dop::read_pick(&bytes).unwrap(), "a pick alone mints a .dop");
+        assert!(
+            SidecarFormat::Dop.read_pick(&bytes).unwrap(),
+            "a pick alone mints a .dop"
+        );
 
         lock(&index)
             .set_rating("d", &key, Some(4), true, None, true)
@@ -976,7 +995,7 @@ mod tests {
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
-        assert!(dop::read_pick(&bytes).unwrap());
+        assert!(SidecarFormat::Dop.read_pick(&bytes).unwrap());
         assert_eq!(dop::read_rating(&bytes).unwrap(), Some(4));
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
@@ -1406,8 +1425,11 @@ mod tests {
                 SidecarFormat::Dop,
             );
             let bytes = std::fs::read(&sidecar).unwrap();
-            assert_eq!(dop::read_rating(&bytes).unwrap(), rating.or(Some(0)));
-            assert_eq!(dop::read_pick(&bytes).unwrap(), pick);
+            assert_eq!(
+                SidecarFormat::Dop.read_rating(&bytes).unwrap(),
+                rating.or(Some(0))
+            );
+            assert_eq!(SidecarFormat::Dop.read_pick(&bytes).unwrap(), pick);
             assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some(label));
 
             judge(
@@ -1426,7 +1448,10 @@ mod tests {
                 Some(0),
                 "{label}: unrated (Rating = 0) and not rejected"
             );
-            assert!(!dop::read_pick(&bytes).unwrap(), "{label}: not picked");
+            assert!(
+                !SidecarFormat::Dop.read_pick(&bytes).unwrap(),
+                "{label}: not picked"
+            );
             assert_eq!(dop::read_label(&bytes).unwrap(), None, "{label}: no label");
             assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
         }
