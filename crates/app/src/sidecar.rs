@@ -17,6 +17,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use riffle_core::xmp::LabelNames;
 use riffle_core::{dop, xmp, Flag};
 
 use crate::index::{lock, Index};
@@ -72,23 +73,26 @@ impl SidecarFormat {
     }
 
     /// The raw colour label the sidecar holds, `None` when it has none.
-    pub fn read_label(self, bytes: &[u8]) -> Result<Option<String>, String> {
+    /// `names` are the `xmp:Label` names an XMP label is matched against.
+    pub fn read_label(self, bytes: &[u8], names: &LabelNames) -> Result<Option<String>, String> {
         match self {
-            Self::Xmp => xmp::read_label(bytes, &xmp::LabelNames::default()),
+            Self::Xmp => xmp::read_label(bytes, names),
             Self::Dop => dop::read_label(bytes),
         }
     }
 
     /// `existing` (or a fresh sidecar of `arw`) with its colour label set to
-    /// `label`, or removed when `None`.
+    /// `label`, or removed when `None`. An XMP label is written under its
+    /// name in `names`.
     pub fn write_label(
         self,
         arw: &Path,
         existing: Option<&[u8]>,
         label: Option<&str>,
+        names: &LabelNames,
     ) -> Result<Vec<u8>, String> {
         match self {
-            Self::Xmp => xmp::write_label(existing, label, &xmp::LabelNames::default()),
+            Self::Xmp => xmp::write_label(existing, label, names),
             Self::Dop => dop::write_label(
                 existing,
                 label,
@@ -187,6 +191,7 @@ enum Message {
         path: PathBuf,
         judgement: Judgement,
         format: SidecarFormat,
+        names: LabelNames,
         deadline: Instant,
     },
     /// Write everything pending now and answer on the channel.
@@ -216,6 +221,7 @@ impl Writer {
 
     /// Queue one judgement, to be written `DEBOUNCE` after the last update of
     /// that path. Fails only once the thread is gone.
+    #[allow(clippy::too_many_arguments)]
     pub fn set(
         &self,
         path: PathBuf,
@@ -224,6 +230,7 @@ impl Writer {
         label: Option<String>,
         label_known: bool,
         format: SidecarFormat,
+        names: LabelNames,
     ) -> Result<(), String> {
         self.send(
             path,
@@ -234,6 +241,7 @@ impl Writer {
                 label_known,
             },
             format,
+            names,
             Instant::now() + DEBOUNCE,
         )
     }
@@ -241,6 +249,7 @@ impl Writer {
     /// Queue one judgement with no debounce, for the dirty rows a folder open
     /// finds: they were queued in an earlier session and have waited long
     /// enough already.
+    #[allow(clippy::too_many_arguments)]
     pub fn set_now(
         &self,
         path: PathBuf,
@@ -249,6 +258,7 @@ impl Writer {
         label: Option<String>,
         label_known: bool,
         format: SidecarFormat,
+        names: LabelNames,
     ) -> Result<(), String> {
         self.send(
             path,
@@ -259,6 +269,7 @@ impl Writer {
                 label_known,
             },
             format,
+            names,
             Instant::now(),
         )
     }
@@ -268,6 +279,7 @@ impl Writer {
         path: PathBuf,
         judgement: Judgement,
         format: SidecarFormat,
+        names: LabelNames,
         deadline: Instant,
     ) -> Result<(), String> {
         lock(&self.tx)
@@ -275,6 +287,7 @@ impl Writer {
                 path,
                 judgement,
                 format,
+                names,
                 deadline,
             })
             .map_err(|_| "the sidecar writer is not running".to_string())
@@ -310,6 +323,7 @@ where
                 path,
                 judgement,
                 format,
+                names,
                 deadline,
             }) => {
                 pending.insert(
@@ -317,6 +331,7 @@ where
                     Entry {
                         judgement,
                         format,
+                        names,
                         deadline,
                         attempts: 0,
                     },
@@ -337,11 +352,13 @@ where
     }
 }
 
-/// A queued judgement, with the format selected when it was made, the instant
-/// its sidecar is due and how many retries of it have already failed.
+/// A queued judgement, with the format and label names selected when it was
+/// made, the instant its sidecar is due and how many retries of it have
+/// already failed.
 struct Entry {
     judgement: Judgement,
     format: SidecarFormat,
+    names: LabelNames,
     deadline: Instant,
     attempts: u32,
 }
@@ -365,7 +382,7 @@ where
     for path in due {
         let entry = pending.remove(&path).expect("just listed");
         let judgement = &entry.judgement;
-        match write(&path, judgement, entry.format) {
+        match write(&path, judgement, entry.format, &entry.names) {
             Ok((stat, resolved_label)) => {
                 if let Err(e) = lock(index).mark_written(
                     &path.to_string_lossy(),
@@ -431,7 +448,12 @@ type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
 /// sidecar's own current label, read from disk, is kept and returned instead,
 /// so an unknown label can never clear one PhotoLab or Lightroom already
 /// wrote.
-fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResult {
+fn write(
+    arw: &Path,
+    judgement: &Judgement,
+    format: SidecarFormat,
+    names: &LabelNames,
+) -> WriteResult {
     let Judgement {
         rating,
         flag,
@@ -449,7 +471,7 @@ fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResul
     } else {
         current
             .as_deref()
-            .map(|bytes| format.read_label(bytes))
+            .map(|bytes| format.read_label(bytes, names))
             .transpose()?
             .flatten()
     };
@@ -460,10 +482,10 @@ fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResul
                 return Ok((None, resolved_label));
             }
             let bytes = if rating.is_none() && flag == Flag::None {
-                format.write_label(arw, None, label)?
+                format.write_label(arw, None, label, names)?
             } else {
                 let rated = format.write_rating(arw, None, rating, flag)?;
-                format.write_label(arw, Some(&rated), label)?
+                format.write_label(arw, Some(&rated), label, names)?
             };
             (format.sidecar_path(arw), bytes)
         }
@@ -472,10 +494,10 @@ fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResul
             let rated = format.write_rating(arw, Some(current), rating, flag)?;
             // Clearing a label that is not there would still bump the `.dop`
             // timestamps, so it is skipped.
-            let bytes = if label.is_none() && format.read_label(&rated)?.is_none() {
+            let bytes = if label.is_none() && format.read_label(&rated, names)?.is_none() {
                 rated
             } else {
-                format.write_label(arw, Some(&rated), label)?
+                format.write_label(arw, Some(&rated), label, names)?
             };
             (target.clone(), bytes)
         }
@@ -607,6 +629,7 @@ mod tests {
                     None,
                     true,
                     SidecarFormat::Xmp,
+                    LabelNames::default(),
                 )
                 .unwrap();
         }
@@ -661,6 +684,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
 
@@ -697,6 +721,7 @@ mod tests {
                     label_known: true,
                 },
                 SidecarFormat::Xmp,
+                LabelNames::default(),
                 deadline,
             )
             .unwrap();
@@ -732,6 +757,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -774,6 +800,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -837,6 +864,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
@@ -882,6 +910,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
@@ -903,6 +932,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -970,6 +1000,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1010,6 +1041,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1043,6 +1075,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1073,6 +1106,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1094,6 +1128,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1124,6 +1159,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Xmp,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1168,6 +1204,7 @@ mod tests {
                 None,
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1208,6 +1245,7 @@ mod tests {
                 label.map(str::to_string),
                 true,
                 format,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1250,6 +1288,43 @@ mod tests {
         let bytes = std::fs::read(dop::sidecar_path(&b)).unwrap();
         assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Orange"));
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_xmp_label_is_written_under_the_configured_name() {
+        let dir = temp_dir("label-names");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+        let path = arw(&dir, "a.ARW");
+        lock(&index)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                None,
+                Flag::None,
+                Some("Red"),
+                true,
+            )
+            .unwrap();
+        writer
+            .set(
+                path.clone(),
+                None,
+                Flag::None,
+                Some("Red".to_string()),
+                true,
+                SidecarFormat::Xmp,
+                LabelNames::japanese(),
+            )
+            .unwrap();
+        writer.flush(DRAIN_TIMEOUT);
+
+        let text = std::fs::read_to_string(xmp::sidecar_path(&path)).unwrap();
+        assert!(text.contains(r#"xmp:Label="レッド""#), "{text}");
+        assert!(text.contains(r#"photoshop:LabelColor="red""#), "{text}");
 
         drop(writer);
         remove_temp_dir(&dir);
@@ -1410,6 +1485,7 @@ mod tests {
                 None,
                 false,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
@@ -1459,6 +1535,7 @@ mod tests {
                 Some("Red".to_string()),
                 true,
                 SidecarFormat::Dop,
+                LabelNames::default(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);

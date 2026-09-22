@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use riffle_core::xmp::LabelNames;
 use serde_json::Value;
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
@@ -230,6 +231,7 @@ fn reconcile_sidecars_of(
     sidecars: &HashMap<String, SidecarStat>,
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
+    names: &LabelNames,
 ) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
@@ -280,7 +282,7 @@ fn reconcile_sidecars_of(
                 Ok((
                     format.read_rating(&bytes)?,
                     format.read_flag(&bytes)?,
-                    format.read_label(&bytes)?,
+                    format.read_label(&bytes, names)?,
                 ))
             });
         match read {
@@ -350,15 +352,20 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
-/// be read is logged and falls back to the defaults, followed by the keymap
-/// and the `autoAdvance` setting.
-pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool) {
+/// be read is logged and falls back to the defaults, followed by the keymap,
+/// the `autoAdvance` setting and the `labelNames` setting.
+pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, LabelNames) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
             eprintln!("failed to open the settings: {e}");
             let format = SidecarFormat::default();
-            return (format, Keymap::defaults(), auto_advance_setting(None));
+            return (
+                format,
+                Keymap::defaults(),
+                auto_advance_setting(None),
+                LabelNames::default(),
+            );
         }
     };
     if !store.has("lastFolder") {
@@ -378,12 +385,45 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool) {
         SidecarFormat::from_setting(store.get("sidecarFormat").as_ref().and_then(|v| v.as_str()));
     let keymap = Keymap::from_overrides(store.get("shortcuts").as_ref());
     let auto_advance = auto_advance_setting(store.get("autoAdvance").as_ref());
-    (format, keymap, auto_advance)
+    let names = label_names_setting(store.get("labelNames").as_ref());
+    (format, keymap, auto_advance, names)
 }
 
 /// The stored `autoAdvance` value; missing or non-boolean means off.
 fn auto_advance_setting(value: Option<&Value>) -> bool {
     value.and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// The stored `labelNames` value: an object keyed by lowercase colour whose
+/// missing, non-string or blank entries are the English default.
+fn label_names_setting(value: Option<&Value>) -> LabelNames {
+    let name = |color: &str, default: String| {
+        value
+            .and_then(|v| v.get(color))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map_or(default, str::to_string)
+    };
+    let d = LabelNames::default();
+    LabelNames {
+        red: name("red", d.red),
+        yellow: name("yellow", d.yellow),
+        green: name("green", d.green),
+        blue: name("blue", d.blue),
+        purple: name("purple", d.purple),
+    }
+}
+
+/// `names` in the shape stored under `labelNames`.
+fn label_names_value(names: &LabelNames) -> Value {
+    serde_json::json!({
+        "red": names.red,
+        "yellow": names.yellow,
+        "green": names.green,
+        "blue": names.blue,
+        "purple": names.purple,
+    })
 }
 
 /// Switch the sidecar format to `format`: apply the new format first so any
@@ -871,6 +911,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let names = index::lock(&app.state::<AppLabelNames>().0).clone();
     let scan_started = std::time::Instant::now();
     let (listed, sidecars) = {
         let dir = dir.clone();
@@ -908,8 +949,9 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let sidecars_started = std::time::Instant::now();
     let dirty = {
         let (dir, index) = (dir.clone(), index);
+        let names = names.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            reconcile_sidecars_of(&dir, &listed, &sidecars, &index, format)
+            reconcile_sidecars_of(&dir, &listed, &sidecars, &index, format, &names)
         })
         .await
         .map_err(|e| e.to_string())?
@@ -936,6 +978,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
                         label,
                         label_known,
                         format,
+                        names.clone(),
                     ) {
                         log::error!("failed to queue a pending sidecar: {e}");
                     }
@@ -1165,6 +1208,9 @@ pub struct AppWriter(pub Option<Writer>);
 /// The sidecar format selected in the settings, read once at launch.
 pub struct AppSidecarFormat(pub Mutex<SidecarFormat>);
 
+/// The `xmp:Label` names selected in the settings.
+pub struct AppLabelNames(pub Mutex<LabelNames>);
+
 /// The culling keymap resolved from the defaults and the `shortcuts` setting.
 pub struct AppKeymap(pub Mutex<Keymap>);
 
@@ -1173,7 +1219,7 @@ pub struct AppAutoAdvance(pub AtomicBool);
 
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
 /// concurrent switches whose drain, save, state write and reset would
-/// otherwise interleave.
+/// otherwise interleave. `set_label_names` takes it for its drain and reset.
 pub struct AppSwitchLock(pub Mutex<()>);
 
 /// The sidecar format currently selected, as stored under `sidecarFormat`
@@ -1204,6 +1250,68 @@ pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
         log::warn!("failed to save the auto-advance setting: {e}");
     }
     let _ = app.emit("auto-advance", enabled);
+}
+
+/// The `xmp:Label` names written for Red ... Purple, in the shape stored
+/// under `labelNames`, and the Japanese Lightroom preset the settings window
+/// offers, as `{"names": {...}, "japanese": {...}}`.
+#[tauri::command]
+pub fn label_names(app: tauri::AppHandle) -> Value {
+    let names = index::lock(&app.state::<AppLabelNames>().0).clone();
+    serde_json::json!({
+        "names": label_names_value(&names),
+        "japanese": label_names_value(&LabelNames::japanese()),
+    })
+}
+
+/// Normalise and apply `names` (see `label_names_setting`), persist them
+/// under `labelNames`, reset the index's sidecar state so the open folder
+/// re-reads its XMP labels under the new names (after draining the writer,
+/// whose queued judgements keep the names they were made under), and emit `label-names` with
+/// the stored names and `sidecar-format` so the main window reopens the
+/// folder. A save failure is logged and the in-memory change stands.
+///
+/// `async` because the reset touches SQLite, which must not block the main
+/// thread.
+#[tauri::command]
+pub async fn set_label_names(app: tauri::AppHandle, names: Value) -> Result<Value, String> {
+    let names = label_names_setting(Some(&names));
+    let stored = label_names_value(&names);
+    let changed = {
+        let state = app.state::<AppLabelNames>();
+        let mut current = index::lock(&state.0);
+        let changed = *current != names;
+        *current = names;
+        changed
+    };
+    let saved = settings(&app).and_then(|store| {
+        store.set("labelNames", stored.clone());
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        log::warn!("failed to save the label names: {e}");
+    }
+    let _ = app.emit("label-names", stored.clone());
+    if !changed {
+        return Ok(stored);
+    }
+    let reset = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let switch_lock = reset.state::<AppSwitchLock>();
+        let _guard = index::lock(&switch_lock.0);
+        if let Some(writer) = &reset.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        match reset.state::<AppIndex>().0.as_ref() {
+            Some(index) => index::lock(index).reset_sidecars(),
+            None => Ok(()),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let _ = app.emit("sidecar-format", format.setting());
+    Ok(stored)
 }
 
 /// The resolved keymap, one binding per action in the order the shortcuts
@@ -1322,6 +1430,7 @@ pub async fn set_rating(
     // gets a `0` only when one already exists.
     let rating = Some(rating as i8).filter(|r| *r != 0);
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    let names = index::lock(&app.state::<AppLabelNames>().0).clone();
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
     };
@@ -1345,6 +1454,7 @@ pub async fn set_rating(
             label,
             label_known,
             format,
+            names,
         ),
         None => Err("the sidecar writer is not running".to_string()),
     }
@@ -1720,6 +1830,30 @@ mod tests {
     }
 
     #[test]
+    fn label_names_setting_falls_back_to_english_per_colour() {
+        use serde_json::json;
+        assert_eq!(super::label_names_setting(None), LabelNames::default());
+        let names = super::label_names_setting(Some(&json!({
+            "red": " レッド ",
+            "yellow": "",
+            "green": 3,
+            "purple": "パープル",
+        })));
+        assert_eq!(
+            names,
+            LabelNames {
+                red: "レッド".to_string(),
+                purple: "パープル".to_string(),
+                ..LabelNames::default()
+            }
+        );
+        assert_eq!(
+            super::label_names_setting(Some(&super::label_names_value(&LabelNames::japanese()))),
+            LabelNames::japanese()
+        );
+    }
+
+    #[test]
     fn auto_advance_setting_reads_a_boolean_or_defaults_to_off() {
         use serde_json::json;
         assert!(!super::auto_advance_setting(None));
@@ -1766,7 +1900,14 @@ mod tests {
         format: SidecarFormat,
     ) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
         let (_, sidecars) = list_folder_in(Path::new(dir), format)?;
-        reconcile_sidecars_of(dir, listed, &sidecars, index, format)
+        reconcile_sidecars_of(
+            dir,
+            listed,
+            &sidecars,
+            index,
+            format,
+            &LabelNames::default(),
+        )
     }
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -2067,6 +2208,38 @@ mod tests {
         }
 
         remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn an_xmp_label_name_is_read_under_the_configured_names() {
+        for (names, want) in [
+            (LabelNames::japanese(), "Red"),
+            (LabelNames::default(), "レッド"),
+        ] {
+            let root = temp_dir("xmp-label-names");
+            let dir = root.to_string_lossy().into_owned();
+            std::fs::write(root.join("a.ARW"), b"x").unwrap();
+            std::fs::write(
+                root.join("a.xmp"),
+                r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+   xmp:Label="レッド"/>
+ </rdf:RDF>
+</x:xmpmeta>"#,
+            )
+            .unwrap();
+            let index = sidecar_index(&root);
+            let listed = list_arw_in(&root).unwrap();
+            let (_, sidecars) = list_folder_in(&root, SidecarFormat::Xmp).unwrap();
+
+            reconcile_sidecars_of(&dir, &listed, &sidecars, &index, SidecarFormat::Xmp, &names)
+                .unwrap();
+            index_files(&index, &dir, &listed);
+            assert_eq!(label_of(&index, &dir, &listed[0]).as_deref(), Some(want));
+
+            remove_temp_dir(&root);
+        }
     }
 
     #[test]
@@ -2656,6 +2829,7 @@ mod tests {
                         None,
                         true,
                         format,
+                        LabelNames::default(),
                     )
                     .unwrap();
                 Ok(())
@@ -2714,6 +2888,7 @@ mod tests {
                         None,
                         true,
                         format,
+                        LabelNames::default(),
                     )
                     .unwrap();
                 Ok(())
