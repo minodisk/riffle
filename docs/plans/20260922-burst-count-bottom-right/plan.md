@@ -71,4 +71,4 @@ edge, count bottom-right, name along the bottom.
 
 ## Progress
 
-- (none yet)
+- 2026-09-22: Step 1 done (count badge at bottom: 26px; right: 2px)
