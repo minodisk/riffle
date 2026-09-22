@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/minodisk/riffle/compare/v0.1.10...v0.2.0) (2026-09-22)
+
+
+### Features
+
+* **core:** parse Sony AFTracking and FocusFrameSize from the MakerNote ([#332](https://github.com/minodisk/riffle/issues/332)) ([e62fb18](https://github.com/minodisk/riffle/commit/e62fb1846bcec7d04cecd24faf283acf6030eeab))
+* **core:** route the sharpness window through the Sony eye-AF frame ([#334](https://github.com/minodisk/riffle/issues/334)) ([0af87f3](https://github.com/minodisk/riffle/commit/0af87f382a073e569ff263f43a295d1ac1f0108c))
+
+
+### Documentation
+
+* **performance:** record Sony eye-AF window measurements ([#335](https://github.com/minodisk/riffle/issues/335)) ([fb3db85](https://github.com/minodisk/riffle/commit/fb3db85bd0a3a5f60bce4c6a53640ed2a30abaeb))
+
 ## [0.1.10](https://github.com/minodisk/riffle/compare/v0.1.9...v0.1.10) (2026-09-22)
 
 
