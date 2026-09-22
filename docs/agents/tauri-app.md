@@ -269,7 +269,10 @@ to the frontend) replace that pair rather than being added next to it. Their
 accelerators come from the keymap's `undo` / `redo` actions, like the two File
 items, so the frontend keydown runs the keys and the menu only mirrors them. The replacement only
 fires when the item at position 0 is still `MenuItemKind::Predefined`, so a
-Tauri reordering cannot make it silently remove the wrong item. Settings themselves (sidecar format, shortcuts, the
+Tauri reordering cannot make it silently remove the wrong item. About (item 0
+of the macOS app menu, of `Help` elsewhere) is rebuilt the same guarded way,
+with `Menu::default`'s metadata plus `icons/128x128.png` as `icon`, since the
+default metadata has none and macOS / GTK would show no app icon. Settings themselves (sidecar format, shortcuts, the
 dev-only timing logs) live in a separate `settings` window
 (`ui/settings.html`), not in menu check items, so the menu reads no plugin
 state and is built in `Builder::menu`.
