@@ -281,20 +281,27 @@ destroyed so it never keeps the app running alone.
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
 
-### Rebuild the menu with `set_menu`, not `set_accelerator(None)`, to clear a stale macOS key equivalent (Inferred)
+### Rebuild the menu on macOS, patch accelerators in place elsewhere (Inferred)
 
 The menu is no longer passed to `Builder::menu`; `setup` calls
 `app_menu::refresh` right after `load_settings`, and `update_keymap` calls
-it again whenever an accelerator changes. Rebuilding the whole menu through
-`AppHandle::set_menu` is what clears a stale macOS key equivalent when an
-override moves a key away from an item; muda's `set_accelerator(None)` on
-the existing item does not clear it.
+it again whenever an accelerator changes. On macOS `refresh` always rebuilds
+the whole menu through `AppHandle::set_menu`, because muda's
+`set_accelerator(None)` on an existing item does not clear a stale key
+equivalent. On Windows and Linux `refresh` only calls `set_menu` the first
+time (no menu yet, i.e. `setup`); afterwards it looks up `Open Folder…` and
+`Open in DxO PhotoLab` with `Submenu::get` on each top-level submenu
+(`Menu::get` does not recurse) and calls `set_accelerator` on them,
+which muda's Windows backend handles correctly (label and `HACCEL` are
+rewritten, `None` removes the entry).
 
-- When a code path changes which action owns an accelerator, rebuild via
-  `app_menu::refresh` (which calls `set_menu`) rather than mutating an
-  existing `MenuItem`'s accelerator in place.
+- Do not call `set_menu` at runtime on Windows: it turns muda's dark menu
+  bar white. Suspected cause: the Settings window, built without `.menu()`,
+  inherits the app-wide menu, so `set_menu` attaches one `HMENU` to two
+  top-level windows (unproven).
 - Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
-  Step 1 (unverified on a real device).
+  Step 1, and `docs/plans/_archived/20260922-windows-dark-menu-bar/learnings.md`
+  (unverified on a real device).
 
 ### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
 
