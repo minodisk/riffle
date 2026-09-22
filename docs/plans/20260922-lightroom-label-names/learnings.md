@@ -44,3 +44,22 @@
   and `sidecar-format` event) and directly in the radio change handler, so it
   follows the radio before the backend answers.
 - The visibility rule still needs a manual check in the app.
+
+## Step 4
+
+- Lightroom Classic 2026 facts (user-verified, Windows, Japanese UI): no XMP
+  written by default (`Ctrl+S` or the catalog auto-write setting); XMP is read
+  on first import only, later changes need `Synchronize Folder...` with
+  `Scan for metadata updates`; colour labels match `xmp:Label` against the
+  colour label set names, not `photoshop:LabelColor`; LrC writes a pick as
+  `xmpDM:good="true"` + `xmpDM:pick="1"`.
+- The README Lightroom Classic 2026 checklist line was left unticked: the full
+  round-trip after this feature is not yet confirmed by the user.
+
+## Deferred issues (todo candidates)
+
+- Whether a Riffle-written XMP without `xmpDM:pick` shows the pick / reject
+  flag in Lightroom Classic is unverified (LrC itself writes
+  `xmpDM:good="true"` + `xmpDM:pick="1"`). Basis: the user's LrC 2026 check in
+  Step 4 and plan.md "Trade-offs and risks". Files: `crates/core/src/xmp.rs`,
+  `README.md`.

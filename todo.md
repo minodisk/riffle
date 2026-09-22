@@ -392,16 +392,17 @@ sibling `xmp:Label` holds Riffle's English name instead of Lightroom's own
 localised string. Files: `crates/core/src/xmp.rs`, `crates/app/src/sidecar.rs`,
 `README.md` ("Sidecar formats and software" checklist).
 
+Answer (checked in Lightroom Classic 2026, Windows, Japanese UI): Lightroom
+Classic does not resolve the colour from `photoshop:LabelColor`; it matches
+`xmp:Label` against the names in its colour label set. The write approach was
+revised by the `lightroom-label-names` plan (configurable `xmp:Label` names,
+with a Japanese preset).
+
 #### TODO
 
 - [ ] Open `D:\Photos\2026\2026-09-05` under the XMP format and check L1005439
       is picked, L1005438 is rejected, L1005428-L1005432 show purple / blue /
       green / yellow / red, and L1005433-L1005437 show 5..1 stars.
-- [ ] On a copy of the folder, give a pick, a starred reject and a colour
-      label in Riffle, then confirm Adobe Lightroom 9.5.1 (Windows, Japanese
-      UI) shows them correctly — notably that it resolves the colour from
-      `photoshop:LabelColor` even though `xmp:Label` carries the English name.
-      Tick the README "Sidecar formats and software" checklist entry for
-      Lightroom once confirmed; if Lightroom does not resolve the colour from
-      `LabelColor`, revise the label-write approach instead (e.g. leave an
-      existing localised `xmp:Label` untouched when the colour is unchanged).
+- [x] Check whether Lightroom resolves the colour from `photoshop:LabelColor`
+      when `xmp:Label` carries the English name: it does not (Lightroom
+      Classic 2026); addressed by the `lightroom-label-names` plan.

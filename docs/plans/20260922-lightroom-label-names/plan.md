@@ -152,7 +152,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
       the `label_names` response or a dedicated command) or duplicate the
       five strings in the helper module; note the choice in `learnings.md`.
 
-- [ ] Step 4: README, docs/usage.md, CLAUDE.md and the todo item
+- [x] Step 4: README, docs/usage.md, CLAUDE.md and the todo item
   - Done when:
     - README "Working with other software" names the formats "Lightroom
       (XMP)" and "PhotoLab (.dop)" as the settings do, and gains a

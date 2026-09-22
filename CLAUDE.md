@@ -22,7 +22,8 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP-or-`.dop` setting chosen in the settings window and persisted in the
-`sidecarFormat` key of the settings store, and `src/shortcuts.rs` the keymap:
+`sidecarFormat` key of the settings store, next to the configurable
+`xmp:Label` names per colour persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
 the default keys, whose colour label keys differ per sidecar format, and the
 user's overrides, persisted in the `shortcuts` key).
 

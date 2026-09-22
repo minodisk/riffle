@@ -211,8 +211,12 @@ of two formats chosen in `Riffle > Settings...`:
 - **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
   the pick / reject flag as `xmpDM:good` (`True` for a pick, `False` for a
   reject, absent for neither), and the colour label as both
-  `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them
-  (`Red`, `Yellow`, `Green`, `Blue`, `Purple`).
+  `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.
+  `xmp:Label` carries the name configured for the colour in the settings
+  (English by default: `Red`, `Yellow`, `Green`, `Blue`, `Purple`) and
+  `photoshop:LabelColor` the lowercase English colour (`red`, ...). A sidecar
+  whose `xmp:Label` matches a configured name or the English name is shown in
+  that colour.
 - **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
   pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
   `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
