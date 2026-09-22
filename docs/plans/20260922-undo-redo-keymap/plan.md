@@ -36,7 +36,7 @@ It also records the 2026-09-22 Windows manual check results in `todo.md`.
 
 ## Steps
 
-- [ ] Step 1: Make `undo` and `redo` keymap actions and derive the Edit menu accelerators from the keymap
+- [x] Step 1: Make `undo` and `redo` keymap actions and derive the Edit menu accelerators from the keymap
   - Done when:
     - `crates/app/src/shortcuts.rs` has `undo` and `redo` in `DEFAULTS` with
       platform defaults `meta+z` / `shift+meta+z` on macOS and `ctrl+z` /
@@ -207,4 +207,4 @@ It also records the 2026-09-22 Windows manual check results in `todo.md`.
 
 ## Progress
 
-- (none yet)
+- (2026-09-22) Step 1 complete

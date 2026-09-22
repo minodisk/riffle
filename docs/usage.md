@@ -89,7 +89,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   deleted: the file and its sidecars all go to the Trash, so restoring them
   brings back the stars, the flag and the colour label. Whatever could not be
   moved is listed as an error and stays in the folder.
-- **Undo**: `Edit > Undo` (`CmdOrCtrl+Z`) restores the rating, flag and colour
+- **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and colour
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
   Repeated presses walk further back. A judgement on several selected files
@@ -168,8 +168,8 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the rating or the reject (a pick stays) |
 | `c` | clear every flag of the current file: stars, reject, pick and colour label |
-| `CmdOrCtrl+Z` | undo the last judgement (the `Edit > Undo` accelerator; not rebindable) |
-| `CmdOrCtrl+Shift+Z` | redo the last undone judgement (the `Edit > Redo` accelerator; not rebindable) |
+| `CmdOrCtrl+Z` | undo the last judgement (also `Edit > Undo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Shift+Z` | redo the last undone judgement (also `Edit > Redo`, whose accelerator follows this key) |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone, while `c` clears it along with
@@ -194,10 +194,11 @@ Ctrl, Alt (Option), Shift and Cmd (Windows / Super) can be bound; it is stored
 as `ctrl+alt+shift+meta+` with only the modifiers held, and the key named from
 its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
-Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+Z`,
+Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+,`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-The two File menu accelerators are the exception: they follow their own
-action's keys, so unlike `Cmd+Z` and `Cmd+,` they can be rebound, and the
+The two File menu accelerators and the Edit menu's Undo / Redo are the
+exception: they follow their own action's keys, so unlike `Cmd+,` they can be
+rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.
 
