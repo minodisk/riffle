@@ -99,4 +99,8 @@ DNG has no equivalent tag and shows no row.
 
 ## Progress
 
-- (none yet)
+- 2026-09-22: Step 1 done. Added `riffle_core::arw::Shot::electronic_front_curtain`
+  (tag 0x201a, LONG count 1) with unit tests, `Metadata::shutter_type`
+  ("Mechanical"/"Electronic") in `crates/app/src/commands.rs`, and the
+  "Shutter type" row in the meta pane (`crates/app/ui/src/main.ts`). PR:
+  `4a16963` feat(app): show the Sony shutter type in the meta pane.
