@@ -51,4 +51,4 @@ per-format keymap that does not exist.
 
 ## Progress
 
-- Step 1 done: removed the per-format clause from CLAUDE.md (docs-only)
+- (2026-09-22) Step 1 complete
