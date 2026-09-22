@@ -10,7 +10,7 @@ use crate::arw::Shot;
 use crate::decode::{apply_orientation, decode_rgb, thumbnail_jpeg};
 use crate::faces::{self, Face};
 use crate::reader::read_preview;
-use crate::sharpness::{score_preview, trusted_focus};
+use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
@@ -47,10 +47,20 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     }))
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
-    let faces = catch_unwind(AssertUnwindSafe(|| detect_faces(&preview, arw.orientation)))
-        .unwrap_or_default();
+    let eye_af = eye_af_frame(&arw.shot);
+    let faces = if eye_af.is_some() {
+        Vec::new()
+    } else {
+        catch_unwind(AssertUnwindSafe(|| detect_faces(&preview, arw.orientation)))
+            .unwrap_or_default()
+    };
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
-        score_preview(&preview, trusted_focus(&arw.shot), &faces)
+        score_preview(
+            &preview,
+            trusted_focus(&arw.shot),
+            eye_af.map(|(_, frame)| frame),
+            &faces,
+        )
     }))
     .ok()
     .and_then(Result::ok);

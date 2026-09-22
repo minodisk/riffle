@@ -78,7 +78,7 @@ measurements already taken are in `measurements.md`, both in this folder.
     - Nothing in the app reads the new fields yet; `Shot` is not persisted in
       the index, so no schema change
 
-- [ ] Step 2: Route the sharpness window through the eye-AF frame and skip detection in the scan
+- [x] Step 2: Route the sharpness window through the eye-AF frame and skip detection in the scan
   - Done when:
     - `crates/core/src/sharpness.rs` exposes the gate (e.g.
       `eye_af_frame(shot: &Shot) -> Option<(FocusLocation, FocusFrame)>`)

@@ -1,6 +1,10 @@
 //! A focus-quality score: the variance of the Laplacian of the luma, taken
-//! over one of three regions of the preview:
+//! over one of four regions of the preview:
 //!
+//! 0. A Sony frame whose camera tracked a face (`eye_af_frame`): a window
+//!    centred on the AF point, its side the AF frame's long side in preview
+//!    pixels clamped to `[EYE_WINDOW_MIN, WINDOW]`. Faces are ignored and
+//!    the scan does not detect them.
 //! 1. A face is found (the best one scoring at least `FACE_CONFIDENCE`) and
 //!    the trustworthy AF point lies inside its box: the `WINDOW`-sized window
 //!    on the AF point, as Eye-AF already put it on the eye.
@@ -18,7 +22,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use anyhow::{anyhow, bail, Result};
 
-use crate::arw::{FocusLocation, Shot};
+use crate::arw::{FocusFrame, FocusLocation, Shot};
 use crate::faces::Face;
 use crate::partial::focus_point;
 
@@ -92,6 +96,31 @@ pub fn trusted_focus(shot: &Shot) -> Option<FocusLocation> {
     }
 }
 
+/// Sony `AFTracking` value for face tracking.
+const FACE_TRACKING: u8 = 1;
+
+/// The AF point and frame of `shot` when the camera tracked a face: a
+/// trustworthy AF point, `AFTracking` face tracking and a valid frame, with
+/// the point off the exact sensor centre (where bodies leave it when tracking
+/// never locked).
+pub fn eye_af_frame(shot: &Shot) -> Option<(FocusLocation, FocusFrame)> {
+    let focus = trusted_focus(shot)?;
+    let frame = shot.focus_frame?;
+    if shot.af_tracking != Some(FACE_TRACKING)
+        || (focus.x == focus.sensor_w / 2 && focus.y == focus.sensor_h / 2)
+    {
+        return None;
+    }
+    Some((focus, frame))
+}
+
+/// Side of the eye-AF window: the frame's long side in preview pixels,
+/// clamped to `[EYE_WINDOW_MIN, WINDOW]`.
+fn frame_side(frame: FocusFrame, sensor_w: u16, preview_w: usize) -> usize {
+    let side = frame.width.max(frame.height) as usize * preview_w / (sensor_w.max(1) as usize);
+    side.clamp(EYE_WINDOW_MIN, WINDOW)
+}
+
 /// Maximum `laplacian_variance` over `WINDOW`-sized tiles at stride `WINDOW`
 /// covering the `width` x `height` image, the last column and row clamped
 /// inside it.
@@ -141,16 +170,27 @@ fn eye_window(width: usize, height: usize, face: &Face) -> Window {
 }
 
 /// Decode `preview` to grayscale and score it along the three paths of the
-/// module doc. Pass `trusted_focus` as `focus`, and `faces` in the pixel
+/// module doc. Pass `trusted_focus` as `focus`, the frame of
+/// `eye_af_frame` as `frame` (used only with a `focus`), and `faces` in the pixel
 /// coordinates of the preview as stored (before any orientation is
 /// applied). mozjpeg aborts through a panic on bytes that are not a JPEG;
 /// that comes back as `Err` too.
-pub fn score_preview(preview: &[u8], focus: Option<FocusLocation>, faces: &[Face]) -> Result<f64> {
-    catch_unwind(AssertUnwindSafe(|| score(preview, focus, faces)))
+pub fn score_preview(
+    preview: &[u8],
+    focus: Option<FocusLocation>,
+    frame: Option<FocusFrame>,
+    faces: &[Face],
+) -> Result<f64> {
+    catch_unwind(AssertUnwindSafe(|| score(preview, focus, frame, faces)))
         .map_err(|_| anyhow!("panic while decoding the preview"))?
 }
 
-fn score(preview: &[u8], focus: Option<FocusLocation>, faces: &[Face]) -> Result<f64> {
+fn score(
+    preview: &[u8],
+    focus: Option<FocusLocation>,
+    frame: Option<FocusFrame>,
+    faces: &[Face],
+) -> Result<f64> {
     let mut d = mozjpeg::Decompress::new_mem(preview)?.grayscale()?;
     let (w, h) = (d.width(), d.height());
     let gray: Vec<u8> = d.read_scanlines()?;
@@ -159,6 +199,14 @@ fn score(preview: &[u8], focus: Option<FocusLocation>, faces: &[Face]) -> Result
         bail!("a {w}x{h} preview has no interior pixel to score");
     }
     let point = focus.map(|f| focus_point(w, h, Some(f)));
+    if let (Some(f), Some(frame), Some(p)) = (focus, frame, point) {
+        let side = frame_side(frame, f.sensor_w, w);
+        return Ok(laplacian_variance(
+            &gray,
+            w,
+            window_at(w, h, p.0, p.1, side),
+        ));
+    }
     let window = match (chosen_face(faces), point) {
         (Some(face), Some(p)) if inside(face, p) => window_at(w, h, p.0, p.1, WINDOW),
         (Some(face), _) => eye_window(w, h, face),
@@ -292,13 +340,13 @@ mod tests {
             x: 512,
             y: 384,
         };
-        assert!(score_preview(&jpeg, Some(centre), &[]).unwrap() > 0.0);
+        assert!(score_preview(&jpeg, Some(centre), None, &[]).unwrap() > 0.0);
         let corner = FocusLocation {
             x: 0,
             y: 0,
             ..centre
         };
-        assert!(score_preview(&jpeg, Some(corner), &[]).unwrap() < 1.0);
+        assert!(score_preview(&jpeg, Some(corner), None, &[]).unwrap() < 1.0);
     }
 
     #[test]
@@ -307,8 +355,8 @@ mod tests {
         let gray = with_checker(w, h, w - 200, h - 200, 200);
         let sharp = jpeg(&gray, w, h);
         let soft = jpeg(&blur(&blur(&gray, w, h), w, h), w, h);
-        let score = score_preview(&sharp, None, &[]).unwrap();
-        assert!(score > score_preview(&soft, None, &[]).unwrap());
+        let score = score_preview(&sharp, None, None, &[]).unwrap();
+        assert!(score > score_preview(&soft, None, None, &[]).unwrap());
         let mut d = mozjpeg::Decompress::new_mem(&sharp)
             .unwrap()
             .grayscale()
@@ -334,22 +382,22 @@ mod tests {
             focus_mode: Some(0),
             ..Shot::default()
         };
-        assert!(score_preview(&jpeg, trusted_focus(&shot), &[]).unwrap() > 0.0);
+        assert!(score_preview(&jpeg, trusted_focus(&shot), None, &[]).unwrap() > 0.0);
         let af = Shot {
             focus_mode: Some(3),
             ..shot
         };
-        assert!(score_preview(&jpeg, trusted_focus(&af), &[]).unwrap() < 1.0);
+        assert!(score_preview(&jpeg, trusted_focus(&af), None, &[]).unwrap() < 1.0);
     }
 
     #[test]
     fn a_preview_too_small_to_score_is_an_error() {
-        assert!(score_preview(&jpeg(&[0u8; 4], 2, 2), None, &[]).is_err());
+        assert!(score_preview(&jpeg(&[0u8; 4], 2, 2), None, None, &[]).is_err());
     }
 
     #[test]
     fn a_preview_that_is_not_a_jpeg_is_an_error() {
-        assert!(score_preview(&[0u8; 512], None, &[]).is_err());
+        assert!(score_preview(&[0u8; 512], None, None, &[]).is_err());
     }
 
     fn face(x: f32, y: f32, side: f32, score: f32) -> Face {
@@ -398,7 +446,8 @@ mod tests {
         let soft = jpeg(&blur(&blur(&gray, w, h), w, h), w, h);
         let f = [face(100.0, 100.0, 200.0, 0.95)];
         assert!(
-            score_preview(&sharp, None, &f).unwrap() > score_preview(&soft, None, &[]).unwrap()
+            score_preview(&sharp, None, None, &f).unwrap()
+                > score_preview(&soft, None, None, &[]).unwrap()
         );
         let mut d = mozjpeg::Decompress::new_mem(&sharp)
             .unwrap()
@@ -407,7 +456,7 @@ mod tests {
         let decoded: Vec<u8> = d.read_scanlines().unwrap();
         d.finish().unwrap();
         let expected = laplacian_variance(&decoded, w, window_at(w, h, 200, 180, 200));
-        assert!((score_preview(&sharp, None, &f).unwrap() - expected).abs() < 1e-6);
+        assert!((score_preview(&sharp, None, None, &f).unwrap() - expected).abs() < 1e-6);
     }
 
     #[test]
@@ -417,8 +466,8 @@ mod tests {
         let f = [face(100.0, 100.0, 200.0, 0.95)];
         let chin = focus_at(w, h, 200, 290);
         assert_eq!(
-            score_preview(&sharp, Some(chin), &f).unwrap(),
-            score_preview(&sharp, Some(chin), &[]).unwrap()
+            score_preview(&sharp, Some(chin), None, &f).unwrap(),
+            score_preview(&sharp, Some(chin), None, &[]).unwrap()
         );
     }
 
@@ -429,12 +478,12 @@ mod tests {
         let f = [face(100.0, 100.0, 200.0, 0.95)];
         let background = focus_at(w, h, 850, 550);
         assert_eq!(
-            score_preview(&sharp, Some(background), &f).unwrap(),
-            score_preview(&sharp, None, &f).unwrap()
+            score_preview(&sharp, Some(background), None, &f).unwrap(),
+            score_preview(&sharp, None, None, &f).unwrap()
         );
         assert_ne!(
-            score_preview(&sharp, Some(background), &f).unwrap(),
-            score_preview(&sharp, Some(background), &[]).unwrap()
+            score_preview(&sharp, Some(background), None, &f).unwrap(),
+            score_preview(&sharp, Some(background), None, &[]).unwrap()
         );
     }
 
@@ -444,8 +493,8 @@ mod tests {
         let sharp = jpeg(&portrait(w, h), w, h);
         let f = [face(100.0, 100.0, 200.0, FACE_CONFIDENCE - 0.1)];
         assert_eq!(
-            score_preview(&sharp, None, &f).unwrap(),
-            score_preview(&sharp, None, &[]).unwrap()
+            score_preview(&sharp, None, None, &f).unwrap(),
+            score_preview(&sharp, None, None, &[]).unwrap()
         );
     }
 
@@ -455,5 +504,78 @@ mod tests {
         assert_eq!(eye_window(1000, 700, &small).width, EYE_WINDOW_MIN);
         let large = face(100.0, 100.0, 600.0, 0.9);
         assert_eq!(eye_window(1000, 700, &large).width, WINDOW);
+    }
+
+    fn tracked(x: u16, y: u16, tracking: Option<u8>, frame: Option<FocusFrame>) -> Shot {
+        Shot {
+            focus: Some(FocusLocation {
+                sensor_w: 7008,
+                sensor_h: 4672,
+                x,
+                y,
+            }),
+            focus_mode: Some(3),
+            af_tracking: tracking,
+            focus_frame: frame,
+            ..Shot::default()
+        }
+    }
+
+    const SMALL: FocusFrame = FocusFrame {
+        width: 153,
+        height: 154,
+    };
+
+    #[test]
+    fn the_eye_af_gate_needs_engaged_face_tracking() {
+        assert!(eye_af_frame(&tracked(2000, 1500, Some(0), Some(SMALL))).is_none());
+        assert!(eye_af_frame(&tracked(2000, 1500, Some(2), Some(SMALL))).is_none());
+        assert!(eye_af_frame(&tracked(2000, 1500, None, Some(SMALL))).is_none());
+        assert!(eye_af_frame(&tracked(2000, 1500, Some(1), None)).is_none());
+        assert!(eye_af_frame(&tracked(3504, 2336, Some(1), Some(SMALL))).is_none());
+        let manual = Shot {
+            focus_mode: Some(0),
+            ..tracked(2000, 1500, Some(1), Some(SMALL))
+        };
+        assert!(eye_af_frame(&manual).is_none());
+        let shot = tracked(2000, 1500, Some(1), Some(SMALL));
+        assert_eq!(eye_af_frame(&shot), Some((shot.focus.unwrap(), SMALL)));
+        assert!(eye_af_frame(&tracked(3504, 2297, Some(1), Some(SMALL))).is_some());
+    }
+
+    #[test]
+    fn the_eye_af_window_side_follows_the_frame() {
+        assert_eq!(frame_side(SMALL, 7008, 1616), 128);
+        let close = FocusFrame {
+            width: 1533,
+            height: 1535,
+        };
+        assert_eq!(frame_side(close, 7008, 1616), 256);
+    }
+
+    #[test]
+    fn with_an_eye_af_frame_faces_do_not_move_the_window() {
+        let (w, h) = (1000, 700);
+        let sharp = jpeg(&portrait(w, h), w, h);
+        let f = [face(100.0, 100.0, 200.0, 0.95)];
+        let background = focus_at(w, h, 850, 550);
+        let frame = Some(FocusFrame {
+            width: 200,
+            height: 200,
+        });
+        let with_face = score_preview(&sharp, Some(background), frame, &f).unwrap();
+        assert_eq!(
+            with_face,
+            score_preview(&sharp, Some(background), frame, &[]).unwrap()
+        );
+        assert_ne!(with_face, score_preview(&sharp, None, None, &f).unwrap());
+        let mut d = mozjpeg::Decompress::new_mem(&sharp)
+            .unwrap()
+            .grayscale()
+            .unwrap();
+        let decoded: Vec<u8> = d.read_scanlines().unwrap();
+        d.finish().unwrap();
+        let expected = laplacian_variance(&decoded, w, window_at(w, h, 850, 550, 200));
+        assert!((with_face - expected).abs() < 1e-6);
     }
 }
