@@ -46,7 +46,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
 
 ## Steps
 
-- [ ] Step 1: Label names in `crates/core/src/xmp.rs`
+- [x] Step 1: Label names in `crates/core/src/xmp.rs`
   - Done when:
     - `xmp.rs` (or `lib.rs`, next to `Flag`) has a `LabelNames` struct
       holding the `xmp:Label` string for each of Red, Yellow, Green, Blue,

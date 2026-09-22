@@ -74,7 +74,7 @@ impl SidecarFormat {
     /// The raw colour label the sidecar holds, `None` when it has none.
     pub fn read_label(self, bytes: &[u8]) -> Result<Option<String>, String> {
         match self {
-            Self::Xmp => xmp::read_label(bytes),
+            Self::Xmp => xmp::read_label(bytes, &xmp::LabelNames::default()),
             Self::Dop => dop::read_label(bytes),
         }
     }
@@ -88,7 +88,7 @@ impl SidecarFormat {
         label: Option<&str>,
     ) -> Result<Vec<u8>, String> {
         match self {
-            Self::Xmp => xmp::write_label(existing, label),
+            Self::Xmp => xmp::write_label(existing, label, &xmp::LabelNames::default()),
             Self::Dop => dop::write_label(
                 existing,
                 label,
@@ -1230,7 +1230,12 @@ mod tests {
             SidecarFormat::Xmp,
         );
         let bytes = std::fs::read(xmp::sidecar_path(&a)).unwrap();
-        assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Green"));
+        assert_eq!(
+            xmp::read_label(&bytes, &xmp::LabelNames::default())
+                .unwrap()
+                .as_deref(),
+            Some("Green")
+        );
 
         let b = arw(&dir, "b.ARW");
         judge(
@@ -1289,7 +1294,12 @@ mod tests {
         );
         let bytes = std::fs::read(&sidecar).unwrap();
         assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
-        assert_eq!(xmp::read_label(&bytes).unwrap().as_deref(), Some("Red"));
+        assert_eq!(
+            xmp::read_label(&bytes, &xmp::LabelNames::default())
+                .unwrap()
+                .as_deref(),
+            Some("Red")
+        );
 
         judge(
             &index,
@@ -1533,7 +1543,10 @@ mod tests {
             "cleared stars are Rating 0"
         );
         assert_eq!(SidecarFormat::Xmp.read_flag(&bytes).unwrap(), Flag::None);
-        assert_eq!(xmp::read_label(&bytes).unwrap(), None);
+        assert_eq!(
+            xmp::read_label(&bytes, &xmp::LabelNames::default()).unwrap(),
+            None
+        );
         assert_eq!(
             std::fs::read_to_string(&sidecar).unwrap().replace(
                 r#" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/""#,

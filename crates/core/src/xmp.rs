@@ -6,9 +6,11 @@
 //! (the reject Adobe Bridge writes and darktable reads) reads as a reject
 //! with no stars and is rewritten to Lightroom's shape. A label is read from
 //! Lightroom's language-independent `photoshop:LabelColor` (`"purple"`, read
-//! as `"Purple"`), else as the raw string of `xmp:Label`, which a localised
-//! Lightroom fills in its own language (`"パープル"`). A label is written to
-//! both, `LabelColor` lowercased and `xmp:Label` in English. Nothing but
+//! as `"Purple"`), else from `xmp:Label`, which a localised Lightroom fills in
+//! its own language (`"パープル"`): a configured [`LabelNames`] name or an
+//! English name maps to its canonical colour, any other string reads raw. A
+//! label is written to both, `LabelColor` the lowercase English colour and
+//! `xmp:Label` the configured name for it. Nothing but
 //! `xmp:Rating`, `xmpDM:good`, `xmp:Label` and `photoshop:LabelColor` is
 //! ever written.
 //!
@@ -139,13 +141,74 @@ pub fn write_rating(
     }
 }
 
+/// The five colours with an `xmp:Label` name, in canonical (English) form.
+const COLORS: [&str; 5] = ["Red", "Yellow", "Green", "Blue", "Purple"];
+
+/// The `xmp:Label` string written for each of the five canonical colours.
+/// An empty name falls back to the English default.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LabelNames {
+    pub red: String,
+    pub yellow: String,
+    pub green: String,
+    pub blue: String,
+    pub purple: String,
+}
+
+impl Default for LabelNames {
+    fn default() -> Self {
+        Self::from_names(COLORS)
+    }
+}
+
+impl LabelNames {
+    /// The names of a Japanese Lightroom's default colour label set.
+    pub fn japanese() -> Self {
+        Self::from_names(["レッド", "イエロー", "グリーン", "ブルー", "パープル"])
+    }
+
+    fn from_names([red, yellow, green, blue, purple]: [&str; 5]) -> Self {
+        Self {
+            red: red.to_string(),
+            yellow: yellow.to_string(),
+            green: green.to_string(),
+            blue: blue.to_string(),
+            purple: purple.to_string(),
+        }
+    }
+
+    /// The `xmp:Label` name for a canonical colour (`"Red"` ... `"Purple"`),
+    /// `None` for any other label.
+    pub fn name<'a>(&'a self, color: &'a str) -> Option<&'a str> {
+        let name = match color {
+            "Red" => &self.red,
+            "Yellow" => &self.yellow,
+            "Green" => &self.green,
+            "Blue" => &self.blue,
+            "Purple" => &self.purple,
+            _ => return None,
+        };
+        Some(if name.trim().is_empty() { color } else { name })
+    }
+
+    /// The canonical colour whose configured or English name is `label`.
+    fn color(&self, label: &str) -> Option<&'static str> {
+        let label = label.trim();
+        COLORS
+            .into_iter()
+            .find(|color| self.name(color).map(str::trim) == Some(label))
+            .or_else(|| COLORS.into_iter().find(|color| *color == label))
+    }
+}
+
 /// The label of the sidecar: a non-empty `photoshop:LabelColor` with its
 /// first letter capitalised and the rest lowercased (`"purple"` ->
-/// `"Purple"`), else the raw string of a non-empty `xmp:Label`.
+/// `"Purple"`), else a non-empty `xmp:Label`, mapped to its canonical colour
+/// when it is one of `names` or an English name and raw otherwise.
 ///
 /// `None` when both are absent or empty; `Err` when the bytes are not
 /// parseable XMP.
-pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
+pub fn read_label(bytes: &[u8], names: &LabelNames) -> Result<Option<String>, String> {
     let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
     if let Location::Value { start, end, .. } = locate(text, &PHOTOSHOP, "LabelColor")? {
         let color = text[start..end].trim().to_lowercase();
@@ -156,21 +219,28 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
     }
     match locate(text, &XMP, "Label")? {
         Location::Value { start, end, .. } if !text[start..end].trim().is_empty() => {
-            Ok(Some(text[start..end].to_string()))
+            let label = &text[start..end];
+            Ok(Some(names.color(label).unwrap_or(label).to_string()))
         }
         _ => Ok(None),
     }
 }
 
-/// The sidecar bytes carrying `label`: `xmp:Label` set to `label` and
-/// `photoshop:LabelColor` to it lowercased.
+/// The sidecar bytes carrying `label`: `xmp:Label` set to its name in
+/// `names` (`label` itself when it is not one of the five colours) and
+/// `photoshop:LabelColor` to `label` lowercased.
 ///
 /// `Some` splices each value in place or inserts one attribute, as
 /// [`write_rating`] does; `None` removes both properties and leaves a sidecar
 /// without them byte-identical. With `existing` `None`, `Some` is a fresh
 /// template and `None` is an error: no sidecar is minted for "no label".
-pub fn write_label(existing: Option<&[u8]>, label: Option<&str>) -> Result<Vec<u8>, String> {
+pub fn write_label(
+    existing: Option<&[u8]>,
+    label: Option<&str>,
+    names: &LabelNames,
+) -> Result<Vec<u8>, String> {
     let color = label.map(str::to_lowercase);
+    let label = label.map(|label| names.name(label).unwrap_or(label));
     let Some(existing) = existing else {
         return match (label, color.as_deref()) {
             (Some(label), Some(color)) => {
@@ -908,7 +978,10 @@ mod tests {
         );
     }
     fn labelled(source: &str, label: Option<&str>) -> String {
-        String::from_utf8(write_label(Some(source.as_bytes()), label).unwrap()).unwrap()
+        String::from_utf8(
+            write_label(Some(source.as_bytes()), label, &LabelNames::default()).unwrap(),
+        )
+        .unwrap()
     }
 
     const PHOTOSHOP_DECL: &str = "xmlns:photoshop=\"http://ns.adobe.com/photoshop/1.0/\"";
@@ -973,14 +1046,65 @@ mod tests {
     #[test]
     fn reads_a_lightroom_label_color_over_the_localised_label() {
         assert_eq!(
-            read_label(LIGHTROOM_LABELLED.as_bytes()).unwrap(),
+            read_label(LIGHTROOM_LABELLED.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Purple".to_string())
         );
         let empty = LIGHTROOM_LABELLED.replace("LabelColor=\"purple\"", "LabelColor=\"\"");
         assert_eq!(
-            read_label(empty.as_bytes()).unwrap(),
+            read_label(empty.as_bytes(), &LabelNames::default()).unwrap(),
             Some("パープル".to_string())
         );
+    }
+
+    #[test]
+    fn writes_and_reads_japanese_label_names() {
+        let ja = LabelNames::japanese();
+        let out = write_label(Some(BRIDGE.as_bytes()), Some("Red"), &ja).unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("xmp:Label=\"レッド\""));
+        assert!(text.contains("LabelColor=\"red\""));
+        assert_eq!(
+            read_label(text.as_bytes(), &ja).unwrap(),
+            Some("Red".to_string())
+        );
+        let stripped = remove(text.as_bytes(), &PHOTOSHOP, "LabelColor").unwrap();
+        assert_eq!(read_label(&stripped, &ja).unwrap(), Some("Red".to_string()));
+    }
+
+    #[test]
+    fn maps_english_and_configured_label_names_without_a_label_color() {
+        let ja = LabelNames::japanese();
+        assert_eq!(
+            read_label(with_bridge_label("Red").as_bytes(), &ja).unwrap(),
+            Some("Red".to_string())
+        );
+        let stripped = LIGHTROOM_LABELLED.replace("   photoshop:LabelColor=\"purple\"\n", "");
+        assert_eq!(
+            read_label(stripped.as_bytes(), &ja).unwrap(),
+            Some("Purple".to_string())
+        );
+        assert_eq!(
+            read_label(stripped.as_bytes(), &LabelNames::default()).unwrap(),
+            Some("パープル".to_string())
+        );
+        assert_eq!(
+            read_label(with_bridge_label("Violet").as_bytes(), &ja).unwrap(),
+            Some("Violet".to_string())
+        );
+    }
+
+    #[test]
+    fn an_empty_label_name_falls_back_to_english() {
+        let names = LabelNames {
+            red: String::new(),
+            ..LabelNames::japanese()
+        };
+        assert_eq!(names.name("Red"), Some("Red"));
+        let out = write_label(Some(BRIDGE.as_bytes()), Some("Red"), &names).unwrap();
+        assert!(String::from_utf8(out)
+            .unwrap()
+            .contains("xmp:Label=\"Red\""));
+        assert_eq!(names.name("Orange"), None);
     }
 
     #[test]
@@ -992,7 +1116,10 @@ mod tests {
                 .replace("xmp:Label=\"パープル\"", "xmp:Label=\"Red\"")
                 .replace("LabelColor=\"purple\"", "LabelColor=\"red\"")
         );
-        assert_eq!(read_label(red.as_bytes()).unwrap(), Some("Red".to_string()));
+        assert_eq!(
+            read_label(red.as_bytes(), &LabelNames::default()).unwrap(),
+            Some("Red".to_string())
+        );
         assert_eq!(
             labelled(LIGHTROOM_LABELLED, None),
             LIGHTROOM_LABELLED
@@ -1005,7 +1132,7 @@ mod tests {
     fn a_bridge_label_reads_and_gains_a_label_color() {
         let source = with_bridge_label("Red");
         assert_eq!(
-            read_label(source.as_bytes()).unwrap(),
+            read_label(source.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red".to_string())
         );
         let out = labelled(&source, Some("Green"));
@@ -1026,7 +1153,7 @@ mod tests {
         let source = with_element_label("Red")
             .replace("<xmp:Label>Red</xmp:Label>", "<xmp:Label>赤</xmp:Label>");
         assert_eq!(
-            read_label(source.as_bytes()).unwrap(),
+            read_label(source.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red".to_string())
         );
     }
@@ -1034,7 +1161,11 @@ mod tests {
     #[test]
     fn reads_an_attribute_label() {
         assert_eq!(
-            read_label(with_attribute_label("Red").as_bytes()).unwrap(),
+            read_label(
+                with_attribute_label("Red").as_bytes(),
+                &LabelNames::default()
+            )
+            .unwrap(),
             Some("Red".to_string())
         );
     }
@@ -1042,26 +1173,36 @@ mod tests {
     #[test]
     fn reads_an_element_label() {
         assert_eq!(
-            read_label(with_element_label("Blue").as_bytes()).unwrap(),
+            read_label(
+                with_element_label("Blue").as_bytes(),
+                &LabelNames::default()
+            )
+            .unwrap(),
             Some("Blue".to_string())
         );
     }
 
     #[test]
     fn an_absent_or_empty_label_reads_as_none() {
-        assert_eq!(read_label(BRIDGE.as_bytes()).unwrap(), None);
         assert_eq!(
-            read_label(with_attribute_label("").as_bytes()).unwrap(),
+            read_label(BRIDGE.as_bytes(), &LabelNames::default()).unwrap(),
             None
         );
-        assert_eq!(read_label(with_element_label("").as_bytes()).unwrap(), None);
+        assert_eq!(
+            read_label(with_attribute_label("").as_bytes(), &LabelNames::default()).unwrap(),
+            None
+        );
+        assert_eq!(
+            read_label(with_element_label("").as_bytes(), &LabelNames::default()).unwrap(),
+            None
+        );
     }
 
     #[test]
     fn a_truncated_document_is_a_label_error() {
         let source = &BRIDGE[..BRIDGE.len() / 2];
-        assert!(read_label(source.as_bytes()).is_err());
-        assert!(write_label(Some(source.as_bytes()), Some("Red")).is_err());
+        assert!(read_label(source.as_bytes(), &LabelNames::default()).is_err());
+        assert!(write_label(Some(source.as_bytes()), Some("Red"), &LabelNames::default()).is_err());
     }
 
     #[test]
@@ -1089,7 +1230,7 @@ mod tests {
             )
         );
         assert_eq!(
-            read_label(out.as_bytes()).unwrap(),
+            read_label(out.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Yellow".to_string())
         );
     }
@@ -1139,30 +1280,33 @@ mod tests {
 
     #[test]
     fn a_fresh_label_template_and_no_sidecar_to_clear() {
-        let bytes = write_label(None, Some("Red")).unwrap();
-        assert_eq!(read_label(&bytes).unwrap(), Some("Red".to_string()));
+        let bytes = write_label(None, Some("Red"), &LabelNames::default()).unwrap();
+        assert_eq!(
+            read_label(&bytes, &LabelNames::default()).unwrap(),
+            Some("Red".to_string())
+        );
         assert_eq!(read_rating(&bytes).unwrap(), None);
-        assert!(write_label(None, None).is_err());
+        assert!(write_label(None, None, &LabelNames::default()).is_err());
     }
 
     #[test]
     fn rating_and_label_keep_each_other() {
         let rated = patched(&with_element_label("Red"), Some(5));
         assert_eq!(
-            read_label(rated.as_bytes()).unwrap(),
+            read_label(rated.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red".to_string())
         );
         let both = labelled(&rated, Some("Blue"));
         assert_eq!(read_rating(both.as_bytes()).unwrap(), Some(5));
         assert_eq!(
-            read_label(both.as_bytes()).unwrap(),
+            read_label(both.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Blue".to_string())
         );
 
         let labelled_fresh = labelled(NO_RATING, Some("Green"));
         let rated = patched(&labelled_fresh, Some(2));
         assert_eq!(
-            read_label(rated.as_bytes()).unwrap(),
+            read_label(rated.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Green".to_string())
         );
         assert_eq!(read_rating(rated.as_bytes()).unwrap(), Some(2));
@@ -1175,7 +1319,7 @@ mod tests {
             "",
         );
         assert_eq!(
-            read_label(source.as_bytes()).unwrap(),
+            read_label(source.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red &amp; Blue".to_string())
         );
         assert_eq!(
@@ -1196,7 +1340,10 @@ mod tests {
     fn foreign_label_names_round_trip() {
         for label in ["Orange", "Rouge vif", "赤"] {
             let out = labelled(BRIDGE, Some(label));
-            assert_eq!(read_label(out.as_bytes()).unwrap(), Some(label.to_string()));
+            assert_eq!(
+                read_label(out.as_bytes(), &LabelNames::default()).unwrap(),
+                Some(label.to_string())
+            );
             assert_eq!(labelled(&out, None), bridge_declaring_photoshop());
             let out = labelled(&with_element_label("Red"), Some(label));
             assert_eq!(out, with_element_label(label));
