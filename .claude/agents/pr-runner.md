@@ -6,7 +6,7 @@ description: Creates the PR, watches its state on GitHub, delegates conflicts, C
 model: sonnet
 name: pr-runner
 permissionMode: default
-tools: Agent, Bash, Read, Write
+tools: Agent, Bash, Read, Write, TaskStop
 ---
 
 You are the PR orchestrator. You create the PR, watch its state, and delegate
@@ -92,8 +92,8 @@ mise run ci
 ```
 
 `mise run ci` can take close to 10 minutes, so pass the maximum `timeout` of
-`600000` (ms) explicitly to the Bash tool (the 6-minute default would cut it
-off). **Do not set `run_in_background: true`** — same reason as the waiting in
+`600000` (ms) explicitly to the Bash tool (the default timeout can be as low as 120 s
+and would cut it off). **Do not set `run_in_background: true`** — same reason as the waiting in
 §4: a subagent exits the moment its turn ends, leaving nobody to receive the
 completion notice.
 
@@ -150,6 +150,10 @@ variables). Each iteration, run this single command.
 ```bash
 <wait-pr-actionable command> <PR-number>
 ```
+
+Pass the Bash tool's `timeout` of `600000` (ms) explicitly on every run: the
+default foreground timeout can be as low as 120 s, far shorter than one
+4-minute slice.
 
 Do not compose a compound command such as `until ...; do sleep 30; done` (it
 triggers a permission prompt). Waiting on `wait` / `review_required` (checks in
@@ -232,7 +236,8 @@ Handle the exit code as follows.
   `pr_status_failure`) with the last stderr
 
 The 4-minute default timeout exists because the Bash tool cuts off foreground
-execution at 6 minutes by default and 10 at most. Killed by the tool, the exit
+execution at 600 s at most, even with `timeout: 600000`, and its default can be
+as low as 120 s (so always pass `timeout: 600000`). Killed by the tool, the exit
 code is unobservable and cannot be branched on, so always let the script itself
 return exit 2.
 
@@ -247,6 +252,13 @@ counting `wait_timeouts`, and return `aborted` (reason: `wait_timeout`) once you
 hit the limit (`wait_timeouts < 7`). The skill this was ported from expands in
 the main session and could receive notices; that premise does not hold for an
 agent.
+
+**If the harness nonetheless reports that a command was moved to the
+background, do not improvise `sleep` / `until` polling or any other waiting
+command.** Re-run the same script in the foreground with `timeout: 600000`
+(the counters keep counting exit 2 as before). **Before handing back any
+result, stop every background task of your own that is still running with
+`TaskStop`**, so nothing lingers after the hand-back.
 
 ### Counter reset rules
 
@@ -489,9 +501,11 @@ Report to the caller:
 ## Claude execution contract
 
 - The shared text's platform commands map to these execution paths:
-  - `commit-push`: `bash .claude/skills/develop/scripts/commit-push.sh`
+  - `commit-push`: `bash .claude/skills/develop/scripts/commit-push.sh` (runs
+    `mise run ci` inside; pass the Bash tool's `timeout: 600000`)
   - `create-pr`: `bash .claude/skills/pr/scripts/create-pr.sh`
   - `wait-pr-actionable`: `bash .claude/skills/pr/scripts/wait-pr-actionable.sh`
+    (pass the Bash tool's `timeout: 600000`)
   - `head-reviewed-by-copilot`: `bash .claude/skills/pr/scripts/head-reviewed-by-copilot.sh`
   - `rerequest-review`: `bash .claude/skills/pr/scripts/rerequest-review.sh`
   - `verify-review-plan`: `bash .claude/skills/pr/scripts/verify-review-plan.sh`

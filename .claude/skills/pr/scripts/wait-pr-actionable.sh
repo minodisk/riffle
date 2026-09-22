@@ -12,15 +12,16 @@
 #   ready / merged / closed / conflict / check_failed / changes_requested /
 #   draft / behind / blocked
 #
-# The default max_wait_sec is 240 (4 minutes). The Bash tool cuts off foreground
-# execution at 6 minutes by default and 10 at most, so keep it shorter to always
-# land on "the script returns exit 2 itself" (killed by the tool, the exit code
-# is unobservable and cannot be branched on). max_wait_sec is the sum of the
-# sleeps; real time adds pr-status.sh's runtime on top (a few seconds per call ×
-# the number of waits). At 240 it measures out around 5 minutes, comfortably
-# under the 6-minute default.
-# To wait 30 minutes, start it with run_in_background: true and pass 1800 as the
-# third argument.
+# The default max_wait_sec is 240 (4 minutes). The Bash tool's default
+# foreground timeout can be as low as 120 s, so callers must pass the Bash
+# tool's `timeout: 600000` (ms) explicitly; 600 s is the maximum. Keep the wait
+# shorter than that to always land on "the script returns exit 2 itself" (killed
+# by the tool, the exit code is unobservable and cannot be branched on).
+# max_wait_sec is the sum of the sleeps; real time adds pr-status.sh's runtime
+# on top (a few seconds per call × the number of waits). At 240 it measures out
+# around 5 minutes, well under 600 s.
+# To wait longer, callers extend the wait by re-running and counting exit 2, not
+# by backgrounding.
 #
 # usage: wait-pr-actionable.sh <PR_number_or_url> [interval_sec=30] [max_wait_sec=240]
 # exit code:
