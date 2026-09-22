@@ -177,3 +177,4 @@ measurements already taken are in `measurements.md`, both in this folder.
 
 - (2026-09-22) Step 1 complete
 - (2026-09-22) Step 2 complete
+- (2026-09-22) Step 3 complete
