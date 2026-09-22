@@ -38,14 +38,15 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   the highest-scoring frame is outlined as `BEST`. Click a frame to make it
   `ACTIVE`; a star, pick, reject or label then applies only to that frame,
   regardless of the filmstrip selection. Press `v` again to return.
-- **Judgements**: stars, reject, (with `.dop`) pick and a colour label, shown on
+- **Judgements**: stars, a pick / reject flag and a colour label, shown on
   the strip cell (the label tints the file-name band along the cell's bottom
   edge) and written to a sidecar; see
   [Ratings and sidecars](#ratings-and-sidecars).
   With several files selected, a judgement sets the same value, decided from
   the shown file, on every selected file; fields the judgement does not touch
   keep each file's own value (a star key leaves each label as it was, and a
-  pick turns a reject into no stars but keeps other files' stars). Hidden files
+  pick replaces a reject on every selected file but leaves each file's stars
+  as they were). Hidden files
   are never judged.
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
@@ -162,11 +163,11 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `g` (hold) | grayscale preview |
 | `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
 | `1`-`5` | rate the current file that many stars |
-| `x` | reject the current file (replaces a pick) |
+| `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
-| `p` | pick the current file (`.dop` only; replaces a reject, keeps the stars) |
+| `p` | pick the current file (replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file |
-| `0` | clear the rating or the reject (a pick stays) |
+| `0` | clear the stars |
 | `c` | clear every flag of the current file: stars, reject, pick and colour label |
 | `CmdOrCtrl+Z` | undo the last judgement (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgement (also `Edit > Redo`, whose accelerator follows this key) |
@@ -207,22 +208,24 @@ combination an action leaves behind is free for another action.
 The RAW file is never written. Judgements go into a sidecar next to it, in one
 of two formats chosen in `Riffle > Settings...`:
 
-- **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` — `0`-`5`,
-  or `-1` for a reject — and `xmp:Label`, Lightroom's colour label (`Red`,
-  `Yellow`, `Green`, `Blue`, `Purple`). XMP has no pick.
+- **XMP** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
+  the pick / reject flag as `xmpDM:good` (`True` for a pick, `False` for a
+  reject, absent for neither), and the colour label as both
+  `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them
+  (`Red`, `Yellow`, `Green`, `Blue`, `Purple`).
 - **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
   pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
   `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
 
-Clearing a label removes `xmp:Label` or the `ColorLabel` line; no label is the
-field being absent. The label is kept as the exact string the sidecar holds: a
-name from the other tool's vocabulary is written back unchanged and shown in
-its colour, and any other name (say, a custom Lightroom label) is shown grey.
+Clearing a label removes `photoshop:LabelColor` and `xmp:Label`, or the
+`ColorLabel` line; no label is the field being absent. The label is kept as
+the exact string the sidecar holds: a name from the other tool's vocabulary is
+written back unchanged and shown in its colour, and any other name (say, a
+custom Lightroom label) is shown grey.
 
 A sidecar written by another tool is edited in place: only the rating, the
-label (and, for `.dop`, the flag) change, and everything else — develop
-settings, keywords — is kept byte for byte. Clearing a file that has no sidecar
-creates none.
+flag and the label change, and everything else — develop settings, keywords —
+is kept byte for byte. Clearing a file that has no sidecar creates none.
 
 Writes happen in the background and are atomic, so a crash never leaves a
 half-written sidecar, and quitting finishes any pending write. A judgement that
@@ -238,10 +241,6 @@ format; the other format's files are left alone.
 The folder index is a cache, but it also holds unwritten judgements, so a new
 index schema migrates the previous ones in place instead of discarding them;
 only a version it cannot migrate is dropped and rebuilt from the sidecars.
-
-Reading `-1` back is up to the other tool: exiftool documents it as
-"rejected", Adobe Bridge and darktable use it, and Lightroom Classic is
-reported to read it as a reject on import.
 
 ## Installing
 

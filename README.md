@@ -91,13 +91,13 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `↑` / `↓` | previous / next shot |
 | `Shift+↑` / `Shift+↓` | extend the selection to the previous / next shot |
 | `1`-`5` | give stars |
-| `0` | clear the stars or the reject |
-| `x` | reject |
-| `p` | pick (DxO PhotoLab format only) |
-| `u` | clear the reject / pick |
+| `0` | clear the stars |
+| `x` | reject (keeps the stars) |
+| `p` | pick (keeps the stars) |
+| `u` | clear the pick / reject |
 | `Ctrl+Alt+1`-`7` | colour label (red, orange, yellow, green, blue, pink, purple) |
 | `Ctrl+Alt+0` | clear the colour label |
-| `c` | clear every flag: stars, reject, pick and colour label |
+| `c` | clear everything: stars, pick / reject and colour label |
 | `z` | 1:1 focus check |
 | `g` (hold) | grayscale preview |
 | `v` | compare selected shots / the current shot with its burst's sharpest frame |
@@ -112,8 +112,9 @@ Judgements are saved in a sidecar file next to the RAW. The format is chosen in
 the settings:
 
 - **XMP** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom and others
-  read. It cannot hold a pick.
-- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks too.
+  read. Picks and rejects are written as `xmpDM:good` and colour labels as
+  both `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.
+- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
   `File > Open in DxO PhotoLab` opens the folder straight in PhotoLab.
 
 A sidecar created by other software is edited in place: everything except the
@@ -158,7 +159,7 @@ rotation and the focus mark be checked.
 ### Sidecar formats and software
 
 - XMP
-  - [ ] Adobe Lightroom Classic
+  - [ ] Adobe Lightroom 9.5.1 (Windows; not Lightroom Classic)
   - [ ] Capture One
 - DOP
   - [x] DxO PhotoLab 10

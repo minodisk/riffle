@@ -6,9 +6,11 @@ for what it is and the current status.
 ## Layout
 
 A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle-core`,
-whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating` and the
-`xmp:Label` colour label) and `src/dop.rs` DxO PhotoLab `.dop` sidecar bytes
-(rating, pick / reject and `ColorLabel`), `src/faces.rs` the YuNet face/eye detector, whose ONNX model and licence
+whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating`, the
+tri-state pick / reject flag as `xmpDM:good`, and the colour label as
+`photoshop:LabelColor` and `xmp:Label`) and `src/dop.rs` DxO PhotoLab `.dop`
+sidecar bytes (rating, the tri-state pick / reject flag as `ShouldProcess`,
+and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and licence
 live in `crates/core/models/`, and `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else between the eyes of a detected
