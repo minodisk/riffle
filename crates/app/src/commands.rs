@@ -279,13 +279,13 @@ fn reconcile_sidecars_of(
             .and_then(|bytes| {
                 Ok((
                     format.read_rating(&bytes)?,
-                    format.read_pick(&bytes)?,
+                    format.read_flag(&bytes)?,
                     format.read_label(&bytes)?,
                 ))
             });
         match read {
-            Ok((rating, pick, label)) => {
-                parsed.push((path.clone(), rating, pick, label, *size, *mtime_ns, *dirty))
+            Ok((rating, flag, label)) => {
+                parsed.push((path.clone(), rating, flag, label, *size, *mtime_ns, *dirty))
             }
             Err(e) => problems.push(problem(e)),
         }
@@ -919,11 +919,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
             sidecar_errors = problems;
             dirty_count = dirty.len();
             if let Some(writer) = &app.state::<AppWriter>().0 {
-                for (path, rating, pick, label, label_known) in dirty {
+                for (path, rating, flag, label, label_known) in dirty {
                     if let Err(e) = writer.set_now(
                         PathBuf::from(path),
                         rating,
-                        pick,
+                        flag,
                         label,
                         label_known,
                         format,
@@ -1168,7 +1168,7 @@ pub struct AppAutoAdvance(pub AtomicBool);
 pub struct AppSwitchLock(pub Mutex<()>);
 
 /// The sidecar format currently selected, as stored under `sidecarFormat`
-/// (`"xmp"` or `"dop"`), so the frontend knows whether a pick can be kept.
+/// (`"xmp"` or `"dop"`).
 #[tauri::command]
 pub fn sidecar_format(app: tauri::AppHandle) -> &'static str {
     index::lock(&app.state::<AppSidecarFormat>().0).setting()
@@ -1282,10 +1282,9 @@ fn update_keymap(
     Ok(bindings)
 }
 
-/// Record a judgement for one file: `-1` is a reject, `0` unrated and `1`-`5`
-/// stars, plus PhotoLab's pick flag and the colour label beside them. A pick
-/// is only kept while `.dop` is selected; with XMP it is dropped, as XMP has
-/// nowhere to put it. The label is any raw name, kept under both formats; an
+/// Record a judgement for one file: `0` unrated and `1`-`5` stars, plus the
+/// pick / reject flag (`"none"`, `"pick"` or `"reject"`) and the colour label
+/// beside them, all kept under both formats. The label is any raw name; an
 /// empty one is no label.
 ///
 /// `label_known` is false when the frontend has not yet learned this path's
@@ -1304,19 +1303,19 @@ fn update_keymap(
 pub async fn set_rating(
     app: tauri::AppHandle,
     path: String,
-    rating: i8,
-    pick: bool,
+    rating: u8,
+    flag: String,
     label: Option<String>,
     label_known: bool,
 ) -> Result<(), String> {
-    if !(-1..=5).contains(&rating) {
-        return Err(format!("rating {rating} is outside -1..=5"));
+    if rating > 5 {
+        return Err(format!("rating {rating} is outside 0..=5"));
     }
+    let flag = index::parse_flag(&flag)?;
     // 0 and "unrated" are the same state; the row keeps NULL and the sidecar
     // gets a `0` only when one already exists.
-    let rating = Some(rating).filter(|r| *r != 0);
+    let rating = Some(rating as i8).filter(|r| *r != 0);
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
-    let pick = pick && rating != Some(-1) && format == SidecarFormat::Dop;
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         return Err("no index cache available".to_string());
     };
@@ -1327,7 +1326,7 @@ pub async fn set_rating(
     {
         let (path, label) = (path.clone(), label.clone());
         tauri::async_runtime::spawn_blocking(move || {
-            index::lock(&index).set_rating(&dir, &path, rating, pick, label.as_deref(), label_known)
+            index::lock(&index).set_rating(&dir, &path, rating, flag, label.as_deref(), label_known)
         })
         .await
         .map_err(|e| e.to_string())??;
@@ -1336,7 +1335,7 @@ pub async fn set_rating(
         Some(writer) => writer.set(
             PathBuf::from(path),
             rating,
-            pick,
+            flag,
             label,
             label_known,
             format,
@@ -1593,6 +1592,7 @@ fn canonicalize(dir: &str) -> String {
 mod tests {
     use super::{format_bytes, Scans, ScansState, SIZE_BASE};
     use crate::index;
+    use riffle_core::Flag;
     use std::sync::{atomic::AtomicBool, mpsc, Arc, Mutex};
 
     /// Spawn a task that clears its own entry once `go` fires, the way the
@@ -1809,6 +1809,16 @@ mod tests {
             .rating
     }
 
+    fn flag_of(index: &Arc<Mutex<Index>>, dir: &str, path: &str) -> Flag {
+        index::lock(index)
+            .entries(dir)
+            .unwrap()
+            .into_iter()
+            .find(|e| e.path == path)
+            .unwrap()
+            .flag
+    }
+
     /// Give a file the `(size, mtime)` it had before it was rewritten, so a
     /// content change that the reconciliation is meant to miss really is
     /// invisible to it.
@@ -1859,7 +1869,7 @@ mod tests {
 
         // An app edit that never reached disk, then someone else's edit.
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None, true)
+            .set_rating(&dir, &listed[0], Some(5), Flag::None, None, true)
             .unwrap();
         sidecar(&root, "a.xmp", 3);
 
@@ -1910,11 +1920,11 @@ mod tests {
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[1], Some(-1), false, None, true)
+            .set_rating(&dir, &listed[1], None, Flag::Reject, None, true)
             .unwrap();
 
         let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
-        assert_eq!(dirty, [(listed[1].clone(), Some(-1), false, None, true)]);
+        assert_eq!(dirty, [(listed[1].clone(), None, Flag::Reject, None, true)]);
 
         let files: Vec<_> = listed
             .iter()
@@ -1978,8 +1988,10 @@ mod tests {
 
         assert!(dirty.is_empty());
         index_files(&index, &dir, &listed);
-        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(-1));
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(0));
+        assert_eq!(flag_of(&index, &dir, &listed[0]), Flag::Reject);
         assert_eq!(rating_of(&index, &dir, &listed[1]), Some(3));
+        assert_eq!(flag_of(&index, &dir, &listed[1]), Flag::None);
         assert_eq!(rating_of(&index, &dir, &listed[2]), None);
 
         remove_temp_dir(&root);
@@ -2082,7 +2094,7 @@ mod tests {
     }
 
     #[test]
-    fn a_photolab_pick_is_read_with_dop_and_ignored_with_xmp() {
+    fn a_pick_is_read_from_a_photolab_dop_and_from_a_lightroom_xmp() {
         let root = temp_dir("dop-pick");
         let dir = root.to_string_lossy().into_owned();
         for name in ["a.ARW", "b.ARW"] {
@@ -2090,25 +2102,118 @@ mod tests {
         }
         std::fs::write(root.join("a.ARW.dop"), PHOTOLAB_PICK).unwrap();
         std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_THREE).unwrap();
+        std::fs::write(root.join("b.xmp"), lightroom_xmp(r#"xmpDM:good="True""#)).unwrap();
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
-        let picks = |index: &Arc<Mutex<Index>>| -> Vec<bool> {
+        let flags = |index: &Arc<Mutex<Index>>| -> Vec<Flag> {
             index::lock(index)
                 .entries(&dir)
                 .unwrap()
                 .into_iter()
-                .map(|e| e.pick)
+                .map(|e| e.flag)
                 .collect()
         };
 
         reconcile_listed(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
         index_files(&index, &dir, &listed);
-        assert_eq!(picks(&index), [true, false]);
+        assert_eq!(flags(&index), [Flag::Pick, Flag::None]);
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(0));
 
         index::lock(&index).reset_sidecars().unwrap();
         reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
-        assert_eq!(picks(&index), [false, false]);
+        assert_eq!(flags(&index), [Flag::None, Flag::Pick]);
+
+        remove_temp_dir(&root);
+    }
+
+    /// A trimmed copy of a Lightroom desktop 9.5.1 (Japanese UI) sidecar,
+    /// with `extra` as the judgement attributes beside `xmp:Rating`.
+    fn lightroom_xmp(extra: &str) -> String {
+        format!(
+            r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 7.0-c000 1.000000, 0000/00/00-00:00:00        ">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="Leica Camera AG"
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
+    xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/"
+   xmp:CreatorTool="2.6.0"
+   {extra}/>
+ </rdf:RDF>
+</x:xmpmeta>"#
+        )
+    }
+
+    #[test]
+    fn a_lightroom_folder_reads_its_flags_labels_and_stars() {
+        let root = temp_dir("lightroom-folder");
+        let dir = root.to_string_lossy().into_owned();
+        let shots: [(&str, &str); 12] = [
+            (
+                "L1005428",
+                r#"xmp:Rating="0" xmp:Label="パープル" photoshop:LabelColor="purple""#,
+            ),
+            (
+                "L1005429",
+                r#"xmp:Rating="0" xmp:Label="ブルー" photoshop:LabelColor="blue""#,
+            ),
+            (
+                "L1005430",
+                r#"xmp:Rating="0" xmp:Label="グリーン" photoshop:LabelColor="green""#,
+            ),
+            (
+                "L1005431",
+                r#"xmp:Rating="0" xmp:Label="イエロー" photoshop:LabelColor="yellow""#,
+            ),
+            (
+                "L1005432",
+                r#"xmp:Rating="0" xmp:Label="レッド" photoshop:LabelColor="red""#,
+            ),
+            ("L1005433", r#"xmp:Rating="5""#),
+            ("L1005434", r#"xmp:Rating="4""#),
+            ("L1005435", r#"xmp:Rating="3""#),
+            ("L1005436", r#"xmp:Rating="2""#),
+            ("L1005437", r#"xmp:Rating="1""#),
+            ("L1005438", r#"xmp:Rating="0" xmpDM:good="False""#),
+            ("L1005439", r#"xmp:Rating="0" xmpDM:good="True""#),
+        ];
+        for (name, extra) in shots {
+            std::fs::write(root.join(format!("{name}.DNG")), b"x").unwrap();
+            std::fs::write(root.join(format!("{name}.xmp")), lightroom_xmp(extra)).unwrap();
+        }
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        reconcile_listed(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        index_files(&index, &dir, &listed);
+
+        let judged: Vec<(Option<i8>, Flag, Option<String>)> = listed
+            .iter()
+            .map(|p| {
+                (
+                    rating_of(&index, &dir, p),
+                    flag_of(&index, &dir, p),
+                    label_of(&index, &dir, p),
+                )
+            })
+            .collect();
+        let label = |l: &str| Some(l.to_string());
+        assert_eq!(
+            judged,
+            [
+                (Some(0), Flag::None, label("Purple")),
+                (Some(0), Flag::None, label("Blue")),
+                (Some(0), Flag::None, label("Green")),
+                (Some(0), Flag::None, label("Yellow")),
+                (Some(0), Flag::None, label("Red")),
+                (Some(5), Flag::None, None),
+                (Some(4), Flag::None, None),
+                (Some(3), Flag::None, None),
+                (Some(2), Flag::None, None),
+                (Some(1), Flag::None, None),
+                (Some(0), Flag::Reject, None),
+                (Some(0), Flag::Pick, None),
+            ]
+        );
 
         remove_temp_dir(&root);
     }
@@ -2140,7 +2245,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(5), false, None, true)
+            .set_rating(&dir, &listed[0], Some(5), Flag::None, None, true)
             .unwrap();
 
         let (dirty, problems) =
@@ -2164,7 +2269,7 @@ mod tests {
         let index = sidecar_index(&root);
         let listed = list_arw_in(&root).unwrap();
         index::lock(&index)
-            .set_rating(&dir, &listed[0], Some(2), false, None, true)
+            .set_rating(&dir, &listed[0], Some(2), Flag::None, None, true)
             .unwrap();
         let xmp = root.join("a.xmp");
         std::fs::write(
@@ -2535,10 +2640,17 @@ mod tests {
                 let format = *index::lock(&current);
                 *index::lock(&observed) = Some(format);
                 index::lock(&index)
-                    .set_rating(&dir, &path, Some(4), false, None, true)
+                    .set_rating(&dir, &path, Some(4), Flag::None, None, true)
                     .unwrap();
                 writer
-                    .set(PathBuf::from(&path), Some(4), false, None, true, format)
+                    .set(
+                        PathBuf::from(&path),
+                        Some(4),
+                        Flag::None,
+                        None,
+                        true,
+                        format,
+                    )
                     .unwrap();
                 Ok(())
             },
@@ -2564,8 +2676,8 @@ mod tests {
         remove_temp_dir(&root);
     }
 
-    /// The same race with a pick: `reset_sidecars` must not zero the pick of
-    /// the row the writer is about to confirm, or `mark_written`'s `pick`
+    /// The same race with a pick: `reset_sidecars` must not zero the flag of
+    /// the row the writer is about to confirm, or `mark_written`'s `flag`
     /// guard misses it and the next open replays it over the `.dop`.
     #[test]
     fn a_pick_set_during_a_switch_lands_in_the_dop_and_leaves_no_dirty_row() {
@@ -2586,10 +2698,17 @@ mod tests {
             |_| {
                 let format = *index::lock(&current);
                 index::lock(&index)
-                    .set_rating(&dir, &path, Some(4), true, None, true)
+                    .set_rating(&dir, &path, Some(4), Flag::Pick, None, true)
                     .unwrap();
                 writer
-                    .set(PathBuf::from(&path), Some(4), true, None, true, format)
+                    .set(
+                        PathBuf::from(&path),
+                        Some(4),
+                        Flag::Pick,
+                        None,
+                        true,
+                        format,
+                    )
                     .unwrap();
                 Ok(())
             },
@@ -2600,7 +2719,7 @@ mod tests {
         let dop = SidecarFormat::Dop.sidecar_path(Path::new(&path));
         let bytes = std::fs::read(&dop).unwrap();
         assert_eq!(SidecarFormat::Dop.read_rating(&bytes).unwrap(), Some(4));
-        assert!(SidecarFormat::Dop.read_pick(&bytes).unwrap());
+        assert_eq!(SidecarFormat::Dop.read_flag(&bytes).unwrap(), Flag::Pick);
         assert!(!SidecarFormat::Xmp.sidecar_path(Path::new(&path)).exists());
         // `entries` joins `files`, which only a scan fills in.
         index::lock(&index)
@@ -2615,8 +2734,7 @@ mod tests {
             .into_iter()
             .find(|e| e.path == path)
             .unwrap();
-        assert_eq!(entry.rating, Some(4));
-        assert!(entry.pick);
+        assert_eq!((entry.rating, entry.flag), (Some(4), Flag::Pick));
         assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
 
         remove_temp_dir(&root);

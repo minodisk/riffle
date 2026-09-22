@@ -7,10 +7,9 @@ export type TrashSummary = {
   failed: { path: string; message: string }[];
 };
 
-// The rejects of the folder, in `files` order; `pick` is a separate flag, so
-// only the rating decides.
-export function rejectedPaths(files: string[], ratings: Map<string, number>): string[] {
-  return files.filter((path) => ratings.get(path) === -1);
+// The rejects of the folder, in `files` order, whatever their stars.
+export function rejectedPaths(files: string[], flags: Map<string, "pick" | "reject">): string[] {
+  return files.filter((path) => flags.get(path) === "reject");
 }
 
 export function trashedStatus(summary: TrashSummary): string {

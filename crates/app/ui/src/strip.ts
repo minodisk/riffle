@@ -2,7 +2,7 @@
 // the cached thumbnails the `thumbnail` command serves.
 
 import type { BurstMark } from "./burst.js";
-import type { Modifiers } from "./selection.js";
+import type { Modifiers, PickFlag } from "./selection.js";
 import type { RelativeSharpness } from "./sharpness.js";
 
 // Header layout of a `thumbnail` payload, see `crates/app/src/commands.rs`.
@@ -64,11 +64,11 @@ const ready = new Set<number>();
 // Kept separate from `missing` so a real failure is shown once instead of
 // being retried forever like a not-yet-scanned file.
 const failed = new Set<number>();
-// The judgement per index, mirroring the `ratings` map in `main.ts`: `-1` is
-// a reject, `1`-`5` stars, and a missing entry is unrated.
+// The stars per index, mirroring the `ratings` map in `main.ts`: `1`-`5`
+// stars, and a missing entry is unrated.
 const ratings = new Map<number, number>();
-// The picked indices, mirroring the `picks` set in `main.ts`.
-const picks = new Set<number>();
+// The pick / reject per index, mirroring the `flags` map in `main.ts`.
+const flags = new Map<number, "pick" | "reject">();
 // The colour label per index, mirroring the `labels` map in `main.ts`.
 const labels = new Map<number, string>();
 // The relative sharpness per index, from `relativeSharpness` in
@@ -87,12 +87,12 @@ let contextMenu: (index: number, x: number, y: number) => void = () => {};
 
 // A rated cell carries its stars in the top-right corner. A picked or
 // rejected cell carries a dot in the top-left corner, green or red (the two
-// never coexist), and a rejected cell is also dimmed.
+// never coexist), and a rejected cell is also dimmed, its stars still shown.
 function paintRating(index: number, cell: Cell): void {
   const rating = ratings.get(index);
-  const rejected = rating === -1;
-  const picked = picks.has(index);
-  cell.badge.textContent = rating === undefined || rejected ? "" : "\u2605".repeat(rating);
+  const rejected = flags.get(index) === "reject";
+  const picked = flags.get(index) === "pick";
+  cell.badge.textContent = rating === undefined ? "" : "\u2605".repeat(rating);
   cell.el.classList.toggle("rejected", rejected);
   cell.flag.textContent = picked || rejected ? "\u25CF" : "";
   cell.flag.classList.toggle("pick", picked);
@@ -322,7 +322,7 @@ function render(): void {
 export function setRating(
   index: number,
   rating: number | null,
-  pick: boolean,
+  flag: PickFlag,
   label: string | null,
 ): void {
   if (rating === null) {
@@ -330,10 +330,10 @@ export function setRating(
   } else {
     ratings.set(index, rating);
   }
-  if (pick) {
-    picks.add(index);
+  if (flag === "none") {
+    flags.delete(index);
   } else {
-    picks.delete(index);
+    flags.set(index, flag);
   }
   if (label === null) {
     labels.delete(index);
@@ -391,7 +391,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   ready.clear();
   failed.clear();
   ratings.clear();
-  picks.clear();
+  flags.clear();
   labels.clear();
   sharpness.clear();
   bursts.clear();

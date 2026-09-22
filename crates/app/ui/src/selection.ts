@@ -78,7 +78,11 @@ export function targets(selection: Selection, files: readonly string[], focused:
   return files.filter((file) => selection.selected.has(file));
 }
 
-export type State = { rating: number | null; pick: boolean; label: string | null };
+// The pick / reject beside the stars, as `set_rating` and `folder_entries`
+// name it.
+export type PickFlag = "none" | "pick" | "reject";
+
+export type State = { rating: number | null; flag: PickFlag; label: string | null };
 export type Judged = State & { path: string };
 
 // A judgement command: given the focused file's state, the change it makes
@@ -101,7 +105,7 @@ export function judgements(
     const own = lookup(path);
     const after = apply(own);
     const same =
-      own.rating === after.rating && own.pick === after.pick && own.label === after.label;
+      own.rating === after.rating && own.flag === after.flag && own.label === after.label;
     return same && !force(path) ? [] : [{ before: { path, ...own }, after }];
   });
 }

@@ -34,8 +34,42 @@
 - `read_label` normalises `LabelColor` to first-letter-uppercase, rest
   lowercase; a Bridge-only `xmp:Label` is still returned raw.
 
+## Step 3
+
+- `Flag` lives in `riffle-core`, which has no serde or rusqlite, so the app
+  maps it by hand: `index::flag_code` / `flag_from_code` for the
+  `ratings.flag` column and `flag_name` / `parse_flag` (plus a
+  `serialize_with`) for the `"none" | "pick" | "reject"` IPC strings.
+- The v11 migration runs for every older version (after the v2 `pick`
+  `ALTER` and the label ones), so the v7 / v8 / v9 migration tests, which
+  build their database with the current schema and then lower
+  `user_version`, now rename `flag` back to `pick` first to look like the
+  schema they claim to be.
+- The frontend's `rating === 0` from a sidecar holding `Rating="0"` is
+  normalised to unrated in `applyRating`, so `ratings` holds only `1`-`5`.
+- Sorting by rating used to put rejects last because they were `-1`; the
+  sort input in `main.ts` still passes `-1` for a reject so that order is
+  kept (not listed in the plan, but otherwise rejects would silently sort
+  by their stars).
+- `sidecarFormat` in `main.ts` had no reader left once the XMP pick gates
+  went, so it and its `sidecar_format` invoke were removed; the settings
+  window still uses the command.
+- `docs/agents/tauri-app.md` lost the "a pick is only meaningful while
+  `.dop` is selected" section and its `pick` column names became `flag`,
+  since the code it described is gone (README / CLAUDE.md stay for Step 4).
+- The stars-kept assertion deferred from Step 1 is back in
+  `a_photolab_sidecar_is_patched_in_place` (a reject on `Rating = 3` keeps
+  it). `a_lightroom_folder_reads_its_flags_labels_and_stars` in
+  `commands.rs` loads trimmed copies of the L1005428-L1005439 shapes
+  (namespaces and judgement attributes only) and checks flags, labels and
+  stars; the reference sidecars were only read.
+- Manual GUI check left for the user: open `/mnt/d/Photos/2026/2026-09-05`
+  under XMP and check 439 picked, 438 rejected, 428-432 purple / blue /
+  green / yellow / red, 433-437 5..1 stars; on a copy of the folder, diff a
+  sidecar before and after `p` / `x` / `u` / `3` / a colour key, and check a
+  reject on a starred file keeps `xmp:Rating`.
+
 ## Deferred issues (todo candidates)
 
-- Restore the "the stars are kept" assertion in
-  `a_photolab_sidecar_is_patched_in_place` (`crates/app/src/sidecar.rs`)
-  once Step 3 passes real stars with a reject (basis: Step 1 shim).
+- (Done in Step 3) Restore the "the stars are kept" assertion in
+  `a_photolab_sidecar_is_patched_in_place` (`crates/app/src/sidecar.rs`).

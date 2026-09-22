@@ -55,26 +55,19 @@ impl SidecarFormat {
         }
     }
 
-    // Temporary shim until Step 3 of the lightroom-xmp-flags-labels plan
-    // carries `Flag` through the app: a reject is still reported as `-1`.
+    /// The `0`-`5` stars the sidecar holds, `None` when it has none.
     pub fn read_rating(self, bytes: &[u8]) -> Result<Option<i8>, String> {
-        let (rating, flag) = match self {
-            Self::Xmp => (xmp::read_rating(bytes)?, xmp::read_flag(bytes)?),
-            Self::Dop => (dop::read_rating(bytes)?, dop::read_flag(bytes)?),
-        };
-        Ok(if flag == Flag::Reject {
-            Some(-1)
-        } else {
-            rating
-        })
+        match self {
+            Self::Xmp => xmp::read_rating(bytes),
+            Self::Dop => dop::read_rating(bytes),
+        }
     }
 
-    /// Whether the sidecar marks the file as picked. XMP picks are ignored
-    /// until Step 3 of the lightroom-xmp-flags-labels plan.
-    pub fn read_pick(self, bytes: &[u8]) -> Result<bool, String> {
+    /// The pick / reject the sidecar holds.
+    pub fn read_flag(self, bytes: &[u8]) -> Result<Flag, String> {
         match self {
-            Self::Xmp => Ok(false),
-            Self::Dop => Ok(dop::read_flag(bytes)? == Flag::Pick),
+            Self::Xmp => xmp::read_flag(bytes),
+            Self::Dop => dop::read_flag(bytes),
         }
     }
 
@@ -105,25 +98,15 @@ impl SidecarFormat {
         }
     }
 
-    /// The sidecar bytes of `arw` carrying `rating` and `pick`, patched from
-    /// `existing` or freshly minted. XMP ignores `pick`.
+    /// The sidecar bytes of `arw` carrying `rating` and `flag`, patched from
+    /// `existing` or freshly minted.
     pub fn write_rating(
         self,
         arw: &Path,
         existing: Option<&[u8]>,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
     ) -> Result<Vec<u8>, String> {
-        // Temporary shim until Step 3 of the lightroom-xmp-flags-labels plan
-        // replaces the app's `(rating, pick)` with `(stars, Flag)`.
-        let flag = if rating == Some(-1) {
-            Flag::Reject
-        } else if pick && self == Self::Dop {
-            Flag::Pick
-        } else {
-            Flag::None
-        };
-        let rating = rating.filter(|r| *r != -1);
         match self {
             Self::Xmp => xmp::write_rating(existing, rating, flag),
             Self::Dop => dop::write_rating(
@@ -182,7 +165,7 @@ pub(crate) const TEMP_SUFFIX: &str = ".riffle-tmp";
 /// Longest the quit path waits for the writer to drain.
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// One file's rating, pick and colour label, bundled so the writer's queue
+/// One file's rating, flag and colour label, bundled so the writer's queue
 /// and channel do not need one argument per field.
 ///
 /// `label_known` is false when the caller has not learned this path's label
@@ -193,7 +176,7 @@ pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 #[derive(Clone)]
 struct Judgement {
     rating: Option<i8>,
-    pick: bool,
+    flag: Flag,
     label: Option<String>,
     label_known: bool,
 }
@@ -237,7 +220,7 @@ impl Writer {
         &self,
         path: PathBuf,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
         label: Option<String>,
         label_known: bool,
         format: SidecarFormat,
@@ -246,7 +229,7 @@ impl Writer {
             path,
             Judgement {
                 rating,
-                pick,
+                flag,
                 label,
                 label_known,
             },
@@ -262,7 +245,7 @@ impl Writer {
         &self,
         path: PathBuf,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
         label: Option<String>,
         label_known: bool,
         format: SidecarFormat,
@@ -271,7 +254,7 @@ impl Writer {
             path,
             Judgement {
                 rating,
-                pick,
+                flag,
                 label,
                 label_known,
             },
@@ -387,7 +370,7 @@ where
                 if let Err(e) = lock(index).mark_written(
                     &path.to_string_lossy(),
                     judgement.rating,
-                    judgement.pick,
+                    judgement.flag,
                     resolved_label.as_deref(),
                     judgement.label_known,
                     stat,
@@ -451,12 +434,11 @@ type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
 fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResult {
     let Judgement {
         rating,
-        pick,
+        flag,
         label,
         label_known,
     } = judgement;
-    let (rating, label_known) = (*rating, *label_known);
-    let pick = *pick && format == SidecarFormat::Dop;
+    let (rating, flag, label_known) = (*rating, *flag, *label_known);
     let existing = existing_sidecar(arw, format);
     let current = existing
         .as_ref()
@@ -474,20 +456,20 @@ fn write(arw: &Path, judgement: &Judgement, format: SidecarFormat) -> WriteResul
     let label = resolved_label.as_deref();
     let (target, bytes) = match &existing {
         None => {
-            if rating.is_none() && !pick && label.is_none() {
+            if rating.is_none() && flag == Flag::None && label.is_none() {
                 return Ok((None, resolved_label));
             }
-            let bytes = if rating.is_none() && !pick {
+            let bytes = if rating.is_none() && flag == Flag::None {
                 format.write_label(arw, None, label)?
             } else {
-                let rated = format.write_rating(arw, None, rating, pick)?;
+                let rated = format.write_rating(arw, None, rating, flag)?;
                 format.write_label(arw, Some(&rated), label)?
             };
             (format.sidecar_path(arw), bytes)
         }
         Some(target) => {
             let current = current.as_deref().expect("existing sidecar was read above");
-            let rated = format.write_rating(arw, Some(current), rating, pick)?;
+            let rated = format.write_rating(arw, Some(current), rating, flag)?;
             // Clearing a label that is not there would still bump the `.dop`
             // timestamps, so it is skipped.
             let bytes = if label.is_none() && format.read_label(&rated)?.is_none() {
@@ -612,7 +594,7 @@ mod tests {
                     "d",
                     &path.to_string_lossy(),
                     Some(rating),
-                    false,
+                    Flag::None,
                     None,
                     true,
                 )
@@ -621,7 +603,7 @@ mod tests {
                 .set(
                     path.clone(),
                     Some(rating),
-                    false,
+                    Flag::None,
                     None,
                     true,
                     SidecarFormat::Xmp,
@@ -662,10 +644,24 @@ mod tests {
         std::fs::write(&sidecar, lightroom_sidecar(2)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
 
         assert!(eventually(
@@ -684,7 +680,7 @@ mod tests {
         let path = arw(&dir, "c.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None, true)
+            .set_rating("d", &path.to_string_lossy(), None, Flag::Reject, None, true)
             .unwrap();
         // A deadline far enough out that a slow machine cannot blur the
         // difference between flushing now and waiting for it. Measuring
@@ -695,8 +691,8 @@ mod tests {
             .send(
                 path.clone(),
                 Judgement {
-                    rating: Some(-1),
-                    pick: false,
+                    rating: None,
+                    flag: Flag::Reject,
                     label: None,
                     label_known: true,
                 },
@@ -712,7 +708,7 @@ mod tests {
             "the flush did not wait it out"
         );
         let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
-        assert_eq!(SidecarFormat::Xmp.read_rating(&bytes).unwrap(), Some(-1));
+        assert_eq!(SidecarFormat::Xmp.read_flag(&bytes).unwrap(), Flag::Reject);
 
         drop(writer);
         remove_temp_dir(&dir);
@@ -726,10 +722,17 @@ mod tests {
         let path = arw(&dir, "d.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false, None, true)
+            .set_rating("d", &path.to_string_lossy(), None, Flag::None, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                None,
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -754,10 +757,24 @@ mod tests {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(4), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(4),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(4), false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                Some(4),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -803,10 +820,24 @@ mod tests {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(3), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(3),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(3), false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                Some(3),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -834,17 +865,45 @@ mod tests {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(2), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(2),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(2), false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                Some(2),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         assert!(eventually(|| errors.load(Ordering::SeqCst) >= 1));
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
 
@@ -894,13 +953,20 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(-1), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(3),
+                Flag::Reject,
+                None,
+                true,
+            )
             .unwrap();
         writer
             .set(
                 path.clone(),
-                Some(-1),
-                false,
+                Some(3),
+                Flag::Reject,
                 None,
                 true,
                 SidecarFormat::Dop,
@@ -909,8 +975,9 @@ mod tests {
         writer.flush(DRAIN_TIMEOUT);
 
         let bytes = std::fs::read(&sidecar).unwrap();
-        assert_eq!(SidecarFormat::Dop.read_rating(&bytes).unwrap(), Some(-1));
+        assert_eq!(SidecarFormat::Dop.read_flag(&bytes).unwrap(), Flag::Reject);
         let text = String::from_utf8(bytes).unwrap();
+        assert!(text.contains("\nRating = 3,"), "the stars are kept");
         assert!(text.ends_with("}\n\r\n"), "the trailing CRLF survives");
         assert!(!xmp::sidecar_path(&path).exists(), "no XMP is written");
 
@@ -926,10 +993,24 @@ mod tests {
         let path = arw(&dir, "f.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(2), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(2),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(2), false, None, true, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                Some(2),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -952,10 +1033,17 @@ mod tests {
         let path = arw(&dir, "g.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, false, None, true)
+            .set_rating("d", &path.to_string_lossy(), None, Flag::None, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, false, None, true, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                None,
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -975,27 +1063,42 @@ mod tests {
         let key = path.to_string_lossy().into_owned();
 
         lock(&index)
-            .set_rating("d", &key, None, true, None, true)
+            .set_rating("d", &key, None, Flag::Pick, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, true, None, true, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                None,
+                Flag::Pick,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
-        assert!(
-            SidecarFormat::Dop.read_pick(&bytes).unwrap(),
+        assert_eq!(
+            SidecarFormat::Dop.read_flag(&bytes).unwrap(),
+            Flag::Pick,
             "a pick alone mints a .dop"
         );
 
         lock(&index)
-            .set_rating("d", &key, Some(4), true, None, true)
+            .set_rating("d", &key, Some(4), Flag::Pick, None, true)
             .unwrap();
         writer
-            .set(path.clone(), Some(4), true, None, true, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                Some(4),
+                Flag::Pick,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
         let bytes = std::fs::read(dop::sidecar_path(&path)).unwrap();
-        assert!(SidecarFormat::Dop.read_pick(&bytes).unwrap());
+        assert_eq!(SidecarFormat::Dop.read_flag(&bytes).unwrap(), Flag::Pick);
         assert_eq!(dop::read_rating(&bytes).unwrap(), Some(4));
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
@@ -1004,26 +1107,35 @@ mod tests {
     }
 
     #[test]
-    fn xmp_ignores_a_pick() {
+    fn a_pick_reaches_the_xmp() {
         let dir = temp_dir("xmp-pick");
         let index = index(&dir);
         let writer = writer(index.clone());
         let path = arw(&dir, "q.ARW");
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), None, true, None, true)
+            .set_rating("d", &path.to_string_lossy(), None, Flag::Pick, None, true)
             .unwrap();
         writer
-            .set(path.clone(), None, true, None, true, SidecarFormat::Xmp)
+            .set(
+                path.clone(),
+                None,
+                Flag::Pick,
+                None,
+                true,
+                SidecarFormat::Xmp,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
-        assert!(
-            !xmp::sidecar_path(&path).exists(),
-            "a pick alone writes no XMP"
+        let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
+        assert_eq!(
+            SidecarFormat::Xmp.read_flag(&bytes).unwrap(),
+            Flag::Pick,
+            "a pick alone mints an XMP"
         );
         assert!(!dop::sidecar_path(&path).exists());
-        assert!(!SidecarFormat::Xmp.read_pick(b"anything").unwrap());
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
         drop(writer);
         remove_temp_dir(&dir);
@@ -1039,10 +1151,24 @@ mod tests {
         std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
 
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(5), false, None, true)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+            )
             .unwrap();
         writer
-            .set(path.clone(), Some(5), false, None, true, SidecarFormat::Dop)
+            .set(
+                path.clone(),
+                Some(5),
+                Flag::None,
+                None,
+                true,
+                SidecarFormat::Dop,
+            )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
 
@@ -1067,18 +1193,18 @@ mod tests {
         writer: &Writer,
         path: &Path,
         rating: Option<i8>,
-        pick: bool,
+        flag: Flag,
         label: Option<&str>,
         format: SidecarFormat,
     ) {
         lock(index)
-            .set_rating("d", &path.to_string_lossy(), rating, pick, label, true)
+            .set_rating("d", &path.to_string_lossy(), rating, flag, label, true)
             .unwrap();
         writer
             .set(
                 path.to_path_buf(),
                 rating,
-                pick,
+                flag,
                 label.map(str::to_string),
                 true,
                 format,
@@ -1099,7 +1225,7 @@ mod tests {
             &writer,
             &a,
             None,
-            false,
+            Flag::None,
             Some("Green"),
             SidecarFormat::Xmp,
         );
@@ -1112,7 +1238,7 @@ mod tests {
             &writer,
             &b,
             None,
-            false,
+            Flag::None,
             Some("Orange"),
             SidecarFormat::Dop,
         );
@@ -1138,7 +1264,7 @@ mod tests {
             &writer,
             &path,
             Some(2),
-            false,
+            Flag::None,
             Some("Red"),
             SidecarFormat::Xmp,
         );
@@ -1157,7 +1283,7 @@ mod tests {
             &writer,
             &path,
             Some(4),
-            false,
+            Flag::None,
             Some("Red"),
             SidecarFormat::Xmp,
         );
@@ -1170,7 +1296,7 @@ mod tests {
             &writer,
             &path,
             Some(4),
-            false,
+            Flag::None,
             None,
             SidecarFormat::Xmp,
         );
@@ -1202,7 +1328,7 @@ mod tests {
             &writer,
             &path,
             Some(3),
-            false,
+            Flag::None,
             Some("Blue"),
             SidecarFormat::Dop,
         );
@@ -1214,7 +1340,7 @@ mod tests {
             &writer,
             &path,
             Some(3),
-            false,
+            Flag::None,
             None,
             SidecarFormat::Dop,
         );
@@ -1245,7 +1371,7 @@ mod tests {
             &writer,
             &path,
             Some(3),
-            false,
+            Flag::None,
             Some("Red"),
             SidecarFormat::Dop,
         );
@@ -1257,13 +1383,20 @@ mod tests {
         // There is no row for this path in a fresh index, but the guard must
         // hold even when one already exists.
         lock(&index)
-            .set_rating("d", &path.to_string_lossy(), Some(4), false, None, false)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(4),
+                Flag::None,
+                None,
+                false,
+            )
             .unwrap();
         writer
             .set(
                 path.clone(),
                 Some(4),
-                false,
+                Flag::None,
                 None,
                 false,
                 SidecarFormat::Dop,
@@ -1303,7 +1436,7 @@ mod tests {
                 "d",
                 &path.to_string_lossy(),
                 Some(5),
-                false,
+                Flag::None,
                 Some("Red"),
                 true,
             )
@@ -1312,7 +1445,7 @@ mod tests {
             .set(
                 path.clone(),
                 Some(5),
-                false,
+                Flag::None,
                 Some("Red".to_string()),
                 true,
                 SidecarFormat::Dop,
@@ -1343,7 +1476,7 @@ mod tests {
             &writer,
             &path,
             None,
-            false,
+            Flag::None,
             None,
             SidecarFormat::Xmp,
         );
@@ -1352,7 +1485,7 @@ mod tests {
             &writer,
             &path,
             None,
-            false,
+            Flag::None,
             None,
             SidecarFormat::Dop,
         );
@@ -1378,7 +1511,7 @@ mod tests {
             &writer,
             &path,
             Some(4),
-            false,
+            Flag::None,
             Some("Red"),
             SidecarFormat::Xmp,
         );
@@ -1388,7 +1521,7 @@ mod tests {
             &writer,
             &path,
             None,
-            false,
+            Flag::None,
             None,
             SidecarFormat::Xmp,
         );
@@ -1399,7 +1532,7 @@ mod tests {
             Some(0),
             "cleared stars are Rating 0"
         );
-        assert!(!SidecarFormat::Xmp.read_pick(&bytes).unwrap());
+        assert_eq!(SidecarFormat::Xmp.read_flag(&bytes).unwrap(), Flag::None);
         assert_eq!(xmp::read_label(&bytes).unwrap(), None);
         assert_eq!(
             std::fs::read_to_string(&sidecar).unwrap().replace(
@@ -1422,10 +1555,10 @@ mod tests {
         let path = arw(&dir, "_DSC0003.ARW");
         let sidecar = dop::sidecar_path(&path);
 
-        for (rating, pick, label) in [
-            (Some(4), false, "Red"),
-            (None, true, "Blue"),
-            (Some(-1), false, "Green"),
+        for (rating, flag, label) in [
+            (Some(4), Flag::None, "Red"),
+            (None, Flag::Pick, "Blue"),
+            (Some(2), Flag::Reject, "Green"),
         ] {
             std::fs::write(&sidecar, PHOTOLAB_0003).unwrap();
             judge(
@@ -1433,7 +1566,7 @@ mod tests {
                 &writer,
                 &path,
                 rating,
-                pick,
+                flag,
                 Some(label),
                 SidecarFormat::Dop,
             );
@@ -1442,7 +1575,7 @@ mod tests {
                 SidecarFormat::Dop.read_rating(&bytes).unwrap(),
                 rating.or(Some(0))
             );
-            assert_eq!(SidecarFormat::Dop.read_pick(&bytes).unwrap(), pick);
+            assert_eq!(SidecarFormat::Dop.read_flag(&bytes).unwrap(), flag);
             assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some(label));
 
             judge(
@@ -1450,7 +1583,7 @@ mod tests {
                 &writer,
                 &path,
                 None,
-                false,
+                Flag::None,
                 None,
                 SidecarFormat::Dop,
             );
@@ -1461,9 +1594,10 @@ mod tests {
                 Some(0),
                 "{label}: unrated (Rating = 0) and not rejected"
             );
-            assert!(
-                !SidecarFormat::Dop.read_pick(&bytes).unwrap(),
-                "{label}: not picked"
+            assert_eq!(
+                SidecarFormat::Dop.read_flag(&bytes).unwrap(),
+                Flag::None,
+                "{label}: not flagged"
             );
             assert_eq!(dop::read_label(&bytes).unwrap(), None, "{label}: no label");
             assert!(lock(&index).dirty_rows("d").unwrap().is_empty());

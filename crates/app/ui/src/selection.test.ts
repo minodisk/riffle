@@ -103,9 +103,9 @@ describe("targets", () => {
 
 describe("judgements", () => {
   const states: Record<string, State> = {
-    "/a": { rating: 2, pick: false, label: "Red" },
-    "/b": { rating: 5, pick: true, label: null },
-    "/c": { rating: -1, pick: false, label: "Blue" },
+    "/a": { rating: 2, flag: "none", label: "Red" },
+    "/b": { rating: 5, flag: "pick", label: null },
+    "/c": { rating: 1, flag: "reject", label: "Blue" },
   };
   const lookup = (path: string) => states[path];
   const toggleRed: Command = (focused) => {
@@ -125,16 +125,16 @@ describe("judgements", () => {
   test("a star command keeps each file's label and flag", () => {
     const three: Command = () => (own) => ({ ...own, rating: 3 });
     expect(judgements(["/a", "/b", "/c"], "/a", lookup, three).map((c) => c.after)).toEqual([
-      { rating: 3, pick: false, label: "Red" },
-      { rating: 3, pick: true, label: null },
-      { rating: 3, pick: false, label: "Blue" },
+      { rating: 3, flag: "none", label: "Red" },
+      { rating: 3, flag: "pick", label: null },
+      { rating: 3, flag: "reject", label: "Blue" },
     ]);
   });
 
   test("files already at the value are skipped", () => {
     const two: Command = () => (own) => ({ ...own, rating: 2 });
     expect(judgements(["/a", "/b"], "/b", lookup, two).map((c) => c.before)).toEqual([
-      { path: "/b", rating: 5, pick: true, label: null },
+      { path: "/b", rating: 5, flag: "pick", label: null },
     ]);
   });
 

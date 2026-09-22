@@ -1,5 +1,4 @@
 import { type Binding, displayKey } from "./keys.js";
-import { effectivePick } from "./pick.js";
 
 export type FlagMenuItem = { action: string; label: string; shortcut: string };
 
@@ -9,10 +8,8 @@ const FLAG_ACTIONS: [string, string][] = [
   ["unflag", "Unflag"],
 ];
 
-export function flagMenuItems(bindings: Binding[], sidecarFormat: string): FlagMenuItem[] {
-  return FLAG_ACTIONS.filter(
-    ([action]) => action !== "pick" || effectivePick(true, sidecarFormat),
-  ).map(([action, label]) => {
+export function flagMenuItems(bindings: Binding[]): FlagMenuItem[] {
+  return FLAG_ACTIONS.map(([action, label]) => {
     const key = bindings.find((binding) => binding.action === action)?.keys[0];
     return { action, label, shortcut: key === undefined ? "" : displayKey(key) };
   });

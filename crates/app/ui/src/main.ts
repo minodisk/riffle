@@ -16,11 +16,11 @@ import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } 
 import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
-import { effectivePick } from "./pick.js";
 import { flagMenuItems, menuPosition } from "./context.js";
 import { comparisonCandidates, loadComparisonFrames, reconcileActive } from "./compare.js";
 import {
   type Command,
+  type PickFlag,
   type Selection,
   click,
   extend,
@@ -63,7 +63,7 @@ interface IndexedFile {
   focus: Focus | null;
   has_thumb: boolean;
   rating: number | null;
-  pick: boolean;
+  flag: PickFlag;
   label: string | null;
   has_sidecar: boolean;
   sharpness: number | null;
@@ -182,13 +182,13 @@ let entriesInFlight = false;
 // is never silently dropped just because a `scan-progress` refresh happened
 // to be outstanding at that moment.
 let entriesPending = false;
-// The judgement of every file that has one: `-1` is a reject, `1`-`5` stars,
-// and a missing entry is unrated. Filled from `folder_entries` and then owned
-// by the keyboard until the next folder open.
+// The stars of every file that has some: `1`-`5`, and a missing entry is
+// unrated. Filled from `folder_entries` and then owned by the keyboard until
+// the next folder open.
 const ratings = new Map<string, number>();
-// The picked paths, owned the same way as `ratings`. A pick is PhotoLab's
-// flag and coexists with stars; it exists only while `.dop` is selected.
-const picks = new Set<string>();
+// The pick / reject of every flagged file, owned the same way as `ratings`.
+// It coexists with the stars under both sidecar formats.
+const flags = new Map<string, "pick" | "reject">();
 // The colour label of every file that has one, owned the same way as
 // `ratings`.
 const labels = new Map<string, string>();
@@ -198,9 +198,6 @@ const sharpness = new Map<string, number>();
 // Every file's burst, from `groupBursts` over `allFiles` in capture order
 // whatever the sort; recomputed whenever `entries` is refreshed.
 let bursts = new Map<string, BurstMember>();
-// The selected sidecar format (`"xmp"` or `"dop"`), from `sidecar_format` at
-// launch and the `sidecar-format` event after a switch.
-let sidecarFormat = "xmp";
 // The paths judged through the keyboard in this session, so a refresh from
 // `folder_entries` (which may predate the pending sidecar write) does not
 // undo what the user just pressed.
@@ -212,7 +209,7 @@ const fileIndex = new Map<string, number>();
 // A judgement's file and its state before it, for `Edit > Undo`. An entry is
 // a batch, undone as one: a single key judges one file, reject-rest several.
 // Per folder: `openDirectory` clears it.
-type Judgement = { path: string; rating: number | null; pick: boolean; label: string | null };
+type Judgement = { path: string; rating: number | null; flag: PickFlag; label: string | null };
 const history = new History<Judgement[]>(100);
 // The pre-undo state of each undone batch, for `Edit > Redo`. A new
 // judgement forgets it, as every editor does.
@@ -461,7 +458,7 @@ function trashRejected(): void {
     setStatus("a scan is running; wait for it to finish");
     return;
   }
-  const paths = rejectedPaths(allFiles, ratings);
+  const paths = rejectedPaths(allFiles, flags);
   if (paths.length === 0) {
     setStatus("No rejected files in this folder");
     return;
@@ -480,7 +477,7 @@ function trashRejected(): void {
           continue;
         }
         ratings.delete(path);
-        picks.delete(path);
+        flags.delete(path);
         labels.delete(path);
         sharpness.delete(path);
         touched.delete(path);
@@ -708,26 +705,23 @@ canvas.addEventListener("click", (event) => {
   renderMeta();
 });
 
-// Record a judgement locally: the `ratings` map, the `picks` set and the
-// strip cell. `null` is unrated.
+// Record a judgement locally: the `ratings` and `flags` maps and the strip
+// cell. `null` (or `0`) is unrated.
 function applyRating(
   path: string,
   rating: number | null,
-  pick: boolean,
+  flag: PickFlag,
   label: string | null,
 ): void {
-  // A pick the current format cannot hold (a `.dop` pick kept across a switch
-  // to XMP) is dropped here, so the strip, the flag filter and undo agree.
-  const kept = effectivePick(pick, sidecarFormat);
-  if (rating === null) {
+  if (rating === null || rating === 0) {
     ratings.delete(path);
   } else {
     ratings.set(path, rating);
   }
-  if (kept) {
-    picks.add(path);
+  if (flag === "none") {
+    flags.delete(path);
   } else {
-    picks.delete(path);
+    flags.set(path, flag);
   }
   if (label === null) {
     labels.delete(path);
@@ -736,8 +730,12 @@ function applyRating(
   }
   const at = fileIndex.get(path);
   if (at !== undefined) {
-    strip.setRating(at, rating, kept, label);
+    strip.setRating(at, ratings.get(path) ?? null, flag, label);
   }
+}
+
+function flagOf(path: string): PickFlag {
+  return flags.get(path) ?? "none";
 }
 
 function passes(path: string): boolean {
@@ -749,7 +747,11 @@ function passes(path: string): boolean {
       orientations: shownOrientations,
       exif: shownExif,
     },
-    { rating: ratings.get(path) ?? null, pick: picks.has(path), label: labels.get(path) ?? null },
+    {
+      rating: ratings.get(path) ?? null,
+      flag: flagOf(path),
+      label: labels.get(path) ?? null,
+    },
     entries.get(path)?.exif,
     entries.get(path)?.orientation,
   );
@@ -761,7 +763,8 @@ function ordered(): string[] {
     return {
       captureTime: entry?.capture_time ?? undefined,
       subsec: entry?.subsec ?? undefined,
-      rating: ratings.get(path),
+      // A reject sorts after the unrated files whatever its stars.
+      rating: flagOf(path) === "reject" ? -1 : ratings.get(path),
     };
   });
 }
@@ -785,7 +788,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   });
   strip.setFiles(files, keepScroll);
   files.forEach((path, at) => {
-    strip.setRating(at, ratings.get(path) ?? null, picks.has(path), labels.get(path) ?? null);
+    strip.setRating(at, ratings.get(path) ?? null, flagOf(path), labels.get(path) ?? null);
   });
   applySharpness();
   applyBursts();
@@ -837,7 +840,7 @@ function judge(command: Command, forceLabel = false): number {
     current,
     (path) => ({
       rating: ratings.get(path) ?? null,
-      pick: picks.has(path),
+      flag: flagOf(path),
       label: labels.get(path) ?? null,
     }),
     command,
@@ -873,13 +876,13 @@ function rejectRest(): void {
     const before = {
       path,
       rating: ratings.get(path) ?? null,
-      pick: picks.has(path),
+      flag: flagOf(path),
       label: labels.get(path) ?? null,
     };
-    if (before.rating === -1 && !before.pick) {
+    if (before.flag === "reject") {
       continue;
     }
-    changes.push({ before, rating: -1, pick: false, label: before.label });
+    changes.push({ before, rating: before.rating, flag: "reject", label: before.label });
   }
   if (changes.length === 0) {
     return;
@@ -910,7 +913,7 @@ function forgetOnFail(from: History<Judgement[]>, batch: Judgement[]): (failed: 
 type Change = {
   before: Judgement;
   rating: number | null;
-  pick: boolean;
+  flag: PickFlag;
   label: string | null;
   forceLabel?: boolean;
 };
@@ -924,9 +927,9 @@ function commit(
   onFail?: (failed: Judgement) => void,
   anchor?: () => string | undefined,
 ): void {
-  for (const { before, rating, pick, label } of changes) {
+  for (const { before, rating, flag, label } of changes) {
     touched.add(before.path);
-    applyRating(before.path, rating, pick, label);
+    applyRating(before.path, rating, flag, label);
   }
   renderMeta();
   refilter(anchor === undefined ? changes[0].before.path : anchor());
@@ -936,7 +939,7 @@ function commit(
 }
 
 function send(
-  { before, rating, pick, label, forceLabel }: Change,
+  { before, rating, flag, label, forceLabel }: Change,
   onFail?: (failed: Judgement) => void,
 ): void {
   const { path } = before;
@@ -949,7 +952,7 @@ function send(
     .invoke("set_rating", {
       path,
       rating: rating ?? 0,
-      pick,
+      flag,
       label,
       labelKnown: forceLabel === true || entries.has(path) || label !== before.label,
     })
@@ -959,7 +962,7 @@ function send(
       }
       onFail?.(before);
       touched.delete(path);
-      applyRating(path, before.rating, before.pick, before.label);
+      applyRating(path, before.rating, before.flag, before.label);
       refilter();
       setStatus(String(err));
     });
@@ -982,11 +985,11 @@ function step(from: History<Judgement[]>, to: History<Judgement[]>, verb: string
     before: {
       path: entry.path,
       rating: ratings.get(entry.path) ?? null,
-      pick: picks.has(entry.path),
+      flag: flagOf(entry.path),
       label: labels.get(entry.path) ?? null,
     },
     rating: entry.rating,
-    pick: entry.pick,
+    flag: entry.flag,
     label: entry.label,
   }));
   to.push(changes.map(({ before }) => before));
@@ -1067,7 +1070,7 @@ function refreshEntries(): void {
           sharpness.set(row.path, row.sharpness);
         }
         if (!touched.has(row.path)) {
-          applyRating(row.path, row.rating, row.pick, row.label);
+          applyRating(row.path, row.rating, row.flag, row.label);
         }
       }
       bursts = groupBursts(allFiles, (path) => {
@@ -1512,7 +1515,7 @@ function closeContextMenu(): void {
 
 function openContextMenu(x: number, y: number): void {
   contextMenu.replaceChildren(
-    ...flagMenuItems(keyBindings, sidecarFormat).map(({ action, label, shortcut }) => {
+    ...flagMenuItems(keyBindings).map(({ action, label, shortcut }) => {
       const item = document.createElement("button");
       item.type = "button";
       item.setAttribute("role", "menuitem");
@@ -1663,7 +1666,7 @@ function startScan(folder: string): Promise<void> {
 }
 
 // Bring the open folder in line with the disk without losing anything the
-// session holds: ratings, picks, labels, sharpness, `touched`, the undo
+// session holds: ratings, flags, labels, sharpness, `touched`, the undo
 // history, the errors and the preview all stay, and the current file stays
 // current (or, when it was deleted, gives way to the neighbour
 // `anchorAfterFilter` picks). `entries` is left alone here; the
@@ -1733,7 +1736,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     openDir = folder;
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
     rebuildExifMenu();
-    picks.clear();
+    flags.clear();
     labels.clear();
     sharpness.clear();
     bursts = new Map();
@@ -1903,8 +1906,7 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
 // The settings window switched the format and the backend has reset the index:
 // reopen the folder so the strip and the meta pane show the newly selected
 // format's judgements. A fresh token drops any open still in flight.
-void window.__TAURI__.event.listen<string>("sidecar-format", ({ payload }) => {
-  sidecarFormat = payload;
+void window.__TAURI__.event.listen<string>("sidecar-format", () => {
   if (openDir === null) {
     return;
   }
@@ -1923,10 +1925,6 @@ void window.__TAURI__.event.listen("index-cleared", () => {
   openDirectory(openDir, newFolderToken()).catch((err: unknown) => {
     setStatus(String(err));
   });
-});
-
-void window.__TAURI__.core.invoke<string>("sidecar_format").then((format) => {
-  sidecarFormat = format;
 });
 
 // The settings window's "Timing logs" item toggles this through the `debug`
@@ -2280,33 +2278,23 @@ function runAction(action: string): boolean {
     }
     case "reject":
       // Sticky, not a toggle: reject twice is still a reject, and it replaces
-      // a pick. Unflag undoes it.
-      judged = judge(() => (own) => ({ ...own, rating: -1, pick: false }));
+      // a pick and keeps the stars. Unflag undoes it.
+      judged = judge(() => (own) => ({ ...own, flag: "reject" }));
       break;
     case "rejectRest":
       rejectRest();
       break;
     case "pick":
-      // Sticky like reject, replacing a reject; XMP has no pick, so a no-op there.
-      if (!effectivePick(true, sidecarFormat)) {
-        return false;
-      }
-      judged = judge(() => (own) => ({
-        ...own,
-        rating: own.rating === -1 ? null : own.rating,
-        pick: true,
-      }));
+      // Sticky like reject, replacing a reject and keeping the stars.
+      judged = judge(() => (own) => ({ ...own, flag: "pick" }));
       break;
     case "unflag":
-      // Clears a reject or a pick; does nothing to a file with neither.
-      judge(() => (own) => ({
-        ...own,
-        rating: own.rating === -1 ? null : own.rating,
-        pick: false,
-      }));
+      // Clears a reject or a pick and keeps the stars; does nothing to a file
+      // with neither.
+      judge(() => (own) => ({ ...own, flag: "none" }));
       break;
     case "clear":
-      // Clears the stars or the reject and leaves a pick alone.
+      // Clears the stars and leaves the flag alone.
       judge(() => (own) => ({ ...own, rating: null }));
       break;
     case "red":
@@ -2328,8 +2316,8 @@ function runAction(action: string): boolean {
       judge(() => (own) => ({ ...own, label: null }));
       break;
     case "clearall":
-      // Clears the stars or reject, the pick and the label in one undo entry.
-      judge(() => () => ({ rating: null, pick: false, label: null }), true);
+      // Clears the stars, the flag and the label in one undo entry.
+      judge(() => () => ({ rating: null, flag: "none", label: null }), true);
       break;
     default:
       return false;
