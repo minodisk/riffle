@@ -111,15 +111,33 @@ Keys can be changed in `Riffle > Settings...`.
 Judgements are saved in a sidecar file next to the RAW. The format is chosen in
 the settings:
 
-- **XMP** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom and others
-  read. Picks and rejects are written as `xmpDM:good` and colour labels as
-  both `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.
-- **DxO PhotoLab**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
+- **Lightroom (XMP)** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom
+  and others read. Picks and rejects are written as `xmpDM:good` and colour
+  labels as both `photoshop:LabelColor` and `xmp:Label`, the way Lightroom
+  writes them. The name written to `xmp:Label` can be set per colour in the
+  settings.
+- **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
   `File > Open in DxO PhotoLab` opens the folder straight in PhotoLab.
 
 A sidecar created by other software is edited in place: everything except the
 stars, the flag and the label (develop settings, keywords, ...) is left
 untouched.
+
+### Lightroom Classic
+
+- Lightroom Classic reads the XMP Riffle wrote when the photos are first
+  imported.
+- After import it does not re-read a sidecar Riffle changed, not even on
+  restart. Right-click the folder, choose `Synchronize Folder...`, check
+  `Scan for metadata updates` and click `Synchronize`.
+- Lightroom Classic does not write XMP by default. `Ctrl+S`
+  (`Metadata > Save Metadata to File`) writes it for the selected photos, or
+  turn on `Catalog Settings > Metadata > Automatically write changes into XMP`.
+- Colour labels are matched by name against Lightroom Classic's colour label
+  set (`Metadata > Color Label Set > Edit...`). Either rename that set's labels
+  to `Red`, `Yellow`, `Green`, `Blue` and `Purple`, or set Riffle's label names
+  in the settings to the names in the set (a preset for the Japanese default
+  set is provided).
 
 ## Compatibility
 
@@ -160,6 +178,7 @@ rotation and the focus mark be checked.
 
 - XMP
   - [ ] Adobe Lightroom 9.5.1 (Windows; not Lightroom Classic)
+  - [ ] Adobe Lightroom Classic 2026 (Windows, Japanese UI)
   - [ ] Capture One
 - DOP
   - [x] DxO PhotoLab 10
