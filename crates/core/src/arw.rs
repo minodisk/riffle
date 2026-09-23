@@ -42,6 +42,19 @@ const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
 /// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
 const LEICA_HEADER: &[u8] = b"LEICA\0";
 const LEICA_HEADER_LEN: usize = 8;
+/// Sigma MakerNote AF point, `SHORT[2]` (x, y) written by the Sigma BF.
+const TAG_SIGMA_AF_POINT: u16 = 0x0147;
+/// A Sigma MakerNote is `SIGMA\0\0\0` plus two version bytes, then a plain IFD.
+const SIGMA_HEADER: &[u8] = b"SIGMA\0\0\0";
+const SIGMA_HEADER_LEN: usize = 10;
+const SIGMA_BF_MODEL: &str = "Sigma BF";
+/// The frame the Sigma BF AF point is in, taken as unrotated sensor
+/// coordinates like Sony's `FocusLocation`: a 3:2 frame normalized to 1000
+/// wide. The BF writes no AF area size. An assumption derived from 11
+/// landscape samples (the point lands on the subject read as `x/1000`,
+/// `y/667`; `y/1000` misses); portrait frames are unverified.
+const SIGMA_BF_AF_GRID_W: u16 = 1000;
+const SIGMA_BF_AF_GRID_H: u16 = 667;
 
 const COMPRESSION_JPEG: u32 = 7;
 const PHOTOMETRIC_YCBCR: u32 = 6;
@@ -408,6 +421,12 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
         shot.estimated_f_number = None;
     }
     shot.focus_distance_mm = leica_focus_distance(buf, &exif_ifd)?;
+    shot.focus = shot.focus.or(sigma_af_point(
+        buf,
+        &exif_ifd,
+        shot.make.as_deref(),
+        shot.model.as_deref(),
+    )?);
 
     Ok(shot)
 }
@@ -430,6 +449,49 @@ fn leica_focus_distance(buf: &[u8], exif_ifd: &[Entry]) -> Result<Option<u32>> {
         .iter()
         .find(|e| e.0 == TAG_LEICA_FOCUS_DISTANCE)
         .and_then(integer))
+}
+
+/// The AF point out of a Sigma BF MakerNote, on the
+/// `SIGMA_BF_AF_GRID_W` x `SIGMA_BF_AF_GRID_H` grid. A point outside the grid
+/// is kept as is; the consumers clamp it into the JPEG.
+fn sigma_af_point(
+    buf: &[u8],
+    exif_ifd: &[Entry],
+    make: Option<&str>,
+    model: Option<&str>,
+) -> Result<Option<FocusLocation>> {
+    let sigma = make.is_some_and(|m| m.get(..5).is_some_and(|p| p.eq_ignore_ascii_case("SIGMA")));
+    if !sigma || model != Some(SIGMA_BF_MODEL) {
+        return Ok(None);
+    }
+    let Some(entry) = exif_ifd.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
+        return Ok(None);
+    };
+    let (at, count) = (entry.1 as usize, entry.3 as usize);
+    if count <= SIGMA_HEADER_LEN {
+        return Ok(None);
+    }
+    if at.checked_add(count).is_none_or(|end| end > buf.len()) {
+        bail!("MakerNote out of range");
+    }
+    if !buf[at..].starts_with(SIGMA_HEADER) {
+        return Ok(None);
+    }
+    let (note, _) = read_ifd(buf, at + SIGMA_HEADER_LEN)?;
+    Ok(note
+        .iter()
+        .find(|e| e.0 == TAG_SIGMA_AF_POINT)
+        .and_then(|&(_, value, typ, count)| {
+            (typ == TYPE_SHORT && count == 2).then(|| {
+                let v = value.to_le_bytes();
+                FocusLocation {
+                    sensor_w: SIGMA_BF_AF_GRID_W,
+                    sensor_h: SIGMA_BF_AF_GRID_H,
+                    x: u16le(&v, 0),
+                    y: u16le(&v, 2),
+                }
+            })
+        }))
 }
 
 pub fn parse(buf: &[u8]) -> Result<Arw> {
@@ -1080,5 +1142,128 @@ mod tests {
             .shot;
         assert_eq!(shot.f_number, Some(Rational { num: 28, den: 10 }));
         assert!(shot.estimated_f_number.is_none());
+    }
+
+    fn sigma_note(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+        let mut note = b"SIGMA\0\0\0\x01\x04".to_vec();
+        note.extend_from_slice(&ifd(entries));
+        note
+    }
+
+    /// A Sigma-made TIFF with the given `Model` whose ExifIFD holds only a
+    /// MakerNote with the given bytes.
+    fn tiff_with_sigma_maker_note(model: &str, note: &[u8]) -> Vec<u8> {
+        let make = b"Sigma\0";
+        let model = [model.as_bytes(), b"\0"].concat();
+        let exif_at = 8 + ifd_len(3);
+        let maker_at = exif_at + ifd_len(1);
+        let make_at = maker_at + note.len();
+        let model_at = make_at + make.len();
+        let mut buf = tiff(&[
+            (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
+            (TAG_MODEL, TYPE_ASCII, model.len() as u32, model_at as u32),
+            (TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32),
+        ]);
+        buf.extend_from_slice(&ifd(&[(
+            TAG_MAKER_NOTE,
+            7,
+            note.len() as u32,
+            maker_at as u32,
+        )]));
+        buf.extend_from_slice(note);
+        buf.extend_from_slice(make);
+        buf.extend_from_slice(&model);
+        buf
+    }
+
+    fn sigma_point(x: u16, y: u16) -> u32 {
+        u32::from(x) | u32::from(y) << 16
+    }
+
+    #[test]
+    fn reads_the_sigma_bf_af_point() {
+        let note = sigma_note(&[
+            (0x0146, TYPE_BYTE, 1, 0),
+            (TAG_SIGMA_AF_POINT, TYPE_SHORT, 2, sigma_point(386, 323)),
+        ]);
+        let shot = parse(&tiff_with_sigma_maker_note("Sigma BF", &note))
+            .unwrap()
+            .shot;
+        assert_eq!(
+            shot.focus,
+            Some(FocusLocation {
+                sensor_w: 1000,
+                sensor_h: 667,
+                x: 386,
+                y: 323,
+            })
+        );
+        assert!(shot.focus_mode.is_none());
+        assert!(shot.af_tracking.is_none());
+        assert!(shot.focus_frame.is_none());
+        assert!(shot.focus_distance_mm.is_none());
+    }
+
+    #[test]
+    fn keeps_a_sigma_bf_af_point_outside_the_grid() {
+        let note = sigma_note(&[(TAG_SIGMA_AF_POINT, TYPE_SHORT, 2, sigma_point(1200, 900))]);
+        let focus = parse(&tiff_with_sigma_maker_note("Sigma BF", &note))
+            .unwrap()
+            .shot
+            .focus
+            .unwrap();
+        assert_eq!((focus.x, focus.y), (1200, 900));
+    }
+
+    #[test]
+    fn a_sigma_note_without_the_af_point_is_none() {
+        let note = sigma_note(&[(0x0146, TYPE_BYTE, 1, 0)]);
+        let shot = parse(&tiff_with_sigma_maker_note("Sigma BF", &note))
+            .unwrap()
+            .shot;
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn another_sigma_model_ignores_the_af_point() {
+        let note = sigma_note(&[(TAG_SIGMA_AF_POINT, TYPE_SHORT, 2, sigma_point(386, 323))]);
+        let shot = parse(&tiff_with_sigma_maker_note("Sigma fp L", &note))
+            .unwrap()
+            .shot;
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn a_sigma_bf_maker_note_with_an_inline_value_is_none() {
+        // count <= SIGMA_HEADER_LEN means the entry's value field holds the
+        // MakerNote bytes inline, not an offset. Reading it as an offset
+        // (0xffff_fff0, past the buffer) must not bail the whole parse.
+        let make = b"Sigma\0";
+        let model = b"Sigma BF\0";
+        let exif_at = 8 + ifd_len(3);
+        let maker_at = exif_at + ifd_len(1);
+        let make_at = maker_at;
+        let model_at = make_at + make.len();
+        let mut buf = tiff(&[
+            (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
+            (TAG_MODEL, TYPE_ASCII, model.len() as u32, model_at as u32),
+            (TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32),
+        ]);
+        buf.extend_from_slice(&ifd(&[(TAG_MAKER_NOTE, 7, 4, 0xffff_fff0)]));
+        buf.extend_from_slice(make);
+        buf.extend_from_slice(model);
+        let shot = parse(&buf).unwrap().shot;
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn a_sigma_af_point_of_the_wrong_shape_is_none() {
+        for (typ, count) in [(TYPE_LONG, 2), (TYPE_SHORT, 1), (TYPE_SHORT, 4)] {
+            let note = sigma_note(&[(TAG_SIGMA_AF_POINT, typ, count, sigma_point(386, 323))]);
+            let shot = parse(&tiff_with_sigma_maker_note("Sigma BF", &note))
+                .unwrap()
+                .shot;
+            assert!(shot.focus.is_none(), "{typ} {count}");
+        }
     }
 }
