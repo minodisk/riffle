@@ -141,3 +141,4 @@ v9/v10 approach) and without touching `ratings`.
   `ALTER TABLE` guard to `(10..12).contains(&version)`, and covered it with
   migration and `reconcile` tests. See `learnings.md`.
 - (2026-09-24) Step 1 complete
+- (2026-09-24) Step 2 complete
