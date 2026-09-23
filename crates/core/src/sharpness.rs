@@ -2,7 +2,7 @@
 //! over one of four regions of the preview:
 //!
 //! 0. A Sony frame whose camera tracked a face (`eye_af_frame`): a window
-//!    centred on the AF point, its side the AF frame's long side in preview
+//!    centered on the AF point, its side the AF frame's long side in preview
 //!    pixels clamped to `[EYE_WINDOW_MIN, WINDOW]`. Faces are ignored and
 //!    the scan does not detect them.
 //! 1. A face is found (the best one scoring at least `FACE_CONFIDENCE`) and
@@ -10,7 +10,7 @@
 //!    on the AF point, as Eye-AF already put it on the eye.
 //! 2. A face is found and there is no trustworthy AF point (none, or a Sony
 //!    frame shot in manual focus), or it lies outside the face box: a window
-//!    centred between the two eyes, its side the face box's long side clamped
+//!    centered between the two eyes, its side the face box's long side clamped
 //!    to `[EYE_WINDOW_MIN, WINDOW]`.
 //! 3. No face: the window on the trustworthy AF point, or without one the
 //!    maximum over a grid of tiles covering the preview, so a frame sharp
@@ -42,7 +42,7 @@ pub struct Window {
     pub height: usize,
 }
 
-/// A `size` x `size` window centred on `(cx, cy)`, clamped into a
+/// A `size` x `size` window centered on `(cx, cy)`, clamped into a
 /// `width` x `height` image.
 pub fn window_at(width: usize, height: usize, cx: usize, cy: usize, size: usize) -> Window {
     let w = size.min(width);
@@ -56,7 +56,7 @@ pub fn window_at(width: usize, height: usize, cx: usize, cy: usize, size: usize)
 }
 
 /// Variance of the 3x3 Laplacian over the pixels of `window` whose
-/// neighbours all lie inside it, so nothing outside the window counts.
+/// neighbors all lie inside it, so nothing outside the window counts.
 /// `gray` is `width` x `height`, one byte per pixel.
 pub fn laplacian_variance(gray: &[u8], width: usize, window: Window) -> f64 {
     if window.width < 3 || window.height < 3 {
@@ -101,7 +101,7 @@ const FACE_TRACKING: u8 = 1;
 
 /// The AF point and frame of `shot` when the camera tracked a face: a
 /// trustworthy AF point, `AFTracking` face tracking and a valid frame, with
-/// the point off the exact sensor centre (where bodies leave it when tracking
+/// the point off the exact sensor center (where bodies leave it when tracking
 /// never locked).
 pub fn eye_af_frame(shot: &Shot) -> Option<(FocusLocation, FocusFrame)> {
     let focus = trusted_focus(shot)?;
@@ -334,17 +334,17 @@ mod tests {
     fn with_a_focus_location_only_its_window_counts() {
         let (w, h) = (1024, 768);
         let jpeg = jpeg(&with_checker(w, h, w / 2 - 64, h / 2 - 64, 128), w, h);
-        let centre = FocusLocation {
+        let center = FocusLocation {
             sensor_w: 1024,
             sensor_h: 768,
             x: 512,
             y: 384,
         };
-        assert!(score_preview(&jpeg, Some(centre), None, &[]).unwrap() > 0.0);
+        assert!(score_preview(&jpeg, Some(center), None, &[]).unwrap() > 0.0);
         let corner = FocusLocation {
             x: 0,
             y: 0,
-            ..centre
+            ..center
         };
         assert!(score_preview(&jpeg, Some(corner), None, &[]).unwrap() < 1.0);
     }

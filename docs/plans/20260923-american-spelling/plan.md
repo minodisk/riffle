@@ -101,7 +101,7 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
 
 ## Steps
 
-- [ ] Step 1: Convert code, config, `.claude/`, `.github/`, `tools/`, and the top-level and `docs/agents` / `docs/*.md` documents
+- [x] Step 1: Convert code, config, `.claude/`, `.github/`, `tools/`, and the top-level and `docs/agents` / `docs/*.md` documents
   - Done when:
     - The acceptance grep, restricted to everything outside `docs/plans/`, prints only the allowed exceptions.
     - `mise run ci` passes (vp check/test, cargo fmt/clippy/test, shellcheck, actionlint, lychee, the two bash test scripts).
@@ -118,6 +118,7 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
     - The acceptance grep over the whole repository prints only the allowed exceptions.
     - `lychee --offline --include-fragments` (part of `mise run lint`) still passes, so no intra-doc link or fragment was broken (headings containing a converted word change their anchors; update links that point at them).
     - `docs/plans/_archived/20260919-filter-colour-label/` and `docs/plans/review-history/filter-colour-label-step-{1,2,3}/` are renamed with `git mv` to their `color` forms.
+    - `docs/plans/_archived/20260919-undo-judgements/` is renamed with `git mv` to `20260919-undo-judgments/`, and the citation in `docs/agents/tauri-app.md` (the Source line of the undo-anchoring learnings entry) is updated to the new path.
   - Implementation approach:
     - Assumes Step 1 is merged; reuse the same sed/perl pass on `docs/plans/` alone.
     - In-flight plans (including this one) get their prose converted but keep their structure. This plan's own word list and exception list must keep the British forms, since they document the conversion; list this file as an allowed exception.
@@ -136,4 +137,4 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete

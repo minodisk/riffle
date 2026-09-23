@@ -196,7 +196,7 @@ one-to-one onto the nodes in the diagram above.
 | **3** | **Wrap-up** (once) | |
 | 3.1 | Chore branch prep | `ensure-new-branch.sh` |
 | 3.2 | Extract learnings | `learnings-extractor` (agent) + main consolidates into the existing guides and saves follow-ups as the feature's todo candidates |
-| 3.3 | Curate todo.md | `todo-curator` (agent) + main writes without consent (deferred judgements go to the PR body) |
+| 3.3 | Curate todo.md | `todo-curator` (agent) + main writes without consent (deferred judgments go to the PR body) |
 | 3.4 | Promote settings | `settings-promoter` (agent) + `commit-settings.sh` |
 | 3.5 | Archive the plan + tidy auto memory | `archive-plan.sh` + main |
 | 3.6 | Create and watch the chore PR | `pr-runner` (agent) |
@@ -331,7 +331,7 @@ Three risks are accepted:
 
 There is no "exclusion rule to avoid Phase S" on the `planner` side. A change
 that needs approval, such as one under `.claude/**`, can still fit in one step,
-so needing approval is not avoidable in itself — the judgement is that since
+so needing approval is not avoidable in itself — the judgment is that since
 that approval happens only once, it is accepted as risk 3 above. Plans whose
 step-splitting rules already force multiple steps (for example, keeping
 infrastructure changes and application code in separate PRs) split under those
@@ -373,15 +373,15 @@ always in `-er` / `-or` form (an agent is a thing that does a job).
 
 | agent | Role | Parent | model | Category |
 | --- | --- | --- | --- | --- |
-| `planner` | Makes the plan | — | **`fable`** | Top-level judgement |
+| `planner` | Makes the plan | — | **`fable`** | Top-level judgment |
 | `implementer` | Implements | — | inherited | Implementation |
 | `local-review-runner` | Runs the review loop | — | `sonnet` | Routine execution |
-| `local-review-reviewer` | Raises feedback | `local-review-runner` | **`opus`** | Judgement that passes silently |
+| `local-review-reviewer` | Raises feedback | `local-review-runner` | **`opus`** | Judgment that passes silently |
 | `local-review-addresser` | Addresses feedback | `local-review-runner` | `sonnet` | Routine execution |
 | `pr-runner` | Creates, watches, and branches on a PR | — | `sonnet` | Routine execution |
 | `pr-conflict-resolver` | Merges main in and resolves conflicts | `pr-runner` | `sonnet` | Routine execution |
 | `pr-check-fixer` | Reads failed check logs and fixes the code | `pr-runner` | `sonnet` | Routine execution |
-| `pr-review-planner` | Decides how to handle review feedback | `pr-runner` | **`opus`** | Judgement that passes silently |
+| `pr-review-planner` | Decides how to handle review feedback | `pr-runner` | **`opus`** | Judgment that passes silently |
 | `pr-review-addresser` | Applies that decision | `pr-runner` | `sonnet` | Routine execution |
 | `merger` | Merges the PR and sees post-merge through | — | `sonnet` | Routine execution |
 | `learnings-extractor` | Extracts reusable knowledge | — | `sonnet` | Routine execution |
@@ -395,10 +395,10 @@ onto the model.
 
 Choosing a model:
 
-- **`fable`** = the top-tier, highest-priced model. The hardest judgement: its
+- **`fable`** = the top-tier, highest-priced model. The hardest judgment: its
   output governs every subsequent step, it is called rarely, and its input is
   small. `planner` only
-- **`opus`** = **judgement where mistakes pass through silently**. Nothing
+- **`opus`** = **judgment where mistakes pass through silently**. Nothing
   downstream gates it — no user gate, no automatic verification — or only
   partially. Two of them: `local-review-reviewer` (nobody catches what it
   misses) and `pr-review-planner` (there is a partial gate, but a
@@ -410,7 +410,7 @@ Choosing a model:
   `pr-conflict-resolver` / `pr-check-fixer` whose failures surface in CI, plus
   `learnings-extractor` / `todo-curator` which only return proposals the user
   ultimately accepts or rejects
-- **`haiku`** = almost no judgement at all (`settings-promoter` only runs a
+- **`haiku`** = almost no judgment at all (`settings-promoter` only runs a
   script and `Write`)
 - **inherited** (the session model) = implementation, where quality cannot drop.
   `implementer` only
@@ -491,7 +491,7 @@ sequenceDiagram
     end
     P-->>M: terminal state / PR URL
     M->>G: PR number (2.5)
-    Note over G: approval judgement → squash merge<br/>→ wait for post-merge → sync main → clean up branch
+    Note over G: approval judgment → squash merge<br/>→ wait for post-merge → sync main → clean up branch
     alt no approval needed
         G-->>M: MERGED (SHA / count summary)
     else path needing approval
@@ -581,12 +581,12 @@ and it can be restored with `git revert` or by re-adding). The "record only"
 part from `learnings-extractor` is not applied to its proposed target directly:
 it is saved under `## Deferred issues (todo candidates)` in the feature's file
 and lands in `todo.md` via `todo-curator`. Existing issues are merged, and the
-outcome is written into the PR body. `todo-curator`'s deferred judgements are
+outcome is written into the PR body. `todo-curator`'s deferred judgments are
 recorded in the PR body. Creating or appending to `docs/learnings/` has ended;
 reusable points are consolidated into the existing guides, and measurements and
 history stay in the feature's `learnings.md` and go to the archive. The reason
 the repository's top-level code-of-conduct file (`CLAUDE.md`) is not edited
-automatically during wrap-up is to avoid letting sonnet's judgement alone bloat
+automatically during wrap-up is to avoid letting sonnet's judgment alone bloat
 a document that rides in every agent's context every session.
 
 **What cannot be peeled off** (stays with main):
@@ -733,7 +733,7 @@ Moving to `planner` removed the need to reformat, and `plan-persister`'s
 | Old process | What | Where it went |
 | --- | --- | --- |
 | 0 | kebab-case validation | done by `ensure-new-branch.sh` |
-| 1–4 | get the date / decide the directory / check for existing (both unarchived and `_archived`) / mkdir | **`ensure-plan-dir.sh`** (not one LLM judgement needed) |
+| 1–4 | get the date / decide the directory / check for existing (both unarchived and `_archived`) / mkdir | **`ensure-plan-dir.sh`** (not one LLM judgment needed) |
 | 5–6 | write out plan.md | the main agent's **`Write`** (`planner`'s output is already in plan.md form) |
 
 **The added context cost is zero.** The full plan is already in main's context
@@ -752,7 +752,7 @@ off an agent**.
 Outside develop you still need branch prep and local review, so the `pr` skill
 covers just those two steps and hands off to the same `pr-runner`. The merge
 likewise goes to the same `pr-runner` first, and then the `merger` shared with
-develop finishes the safety judgement, the merge, the post-merge workflow, the
+develop finishes the safety judgment, the merge, the post-merge workflow, the
 main sync, and the branch cleanup. The `merge` skill is a thin wrapper around
 the same `merger` that develop's 1.4 / 2.5 / 3.7 / S.7 call, preserving the
 existing direct route.
@@ -803,7 +803,7 @@ The `/merge` route differs from the develop route in only three ways, all
 confined to the caller's branching (the agent definition is shared). `/merge` is
 a command a human types, and typing it is the approval, so it starts `merger`
 with the approved flag from the very first dispatch (`merger` skips the approval
-judgement and never returns `NEEDS_APPROVAL`). develop runs unattended, so it
+judgment and never returns `NEEDS_APPROVAL`). develop runs unattended, so it
 starts without the flag and stops at `NEEDS_APPROVAL` on paths that need it.
 Also, on `NOT_READY`, `/merge` points the user at `/pr <number>` and ends,
 whereas develop re-runs `pr-runner` exactly once. And on `MERGED`, `/merge`
@@ -814,7 +814,7 @@ without stopping for the user.
 
 In `/pr`, `pr-runner` handles PR creation, CI fixing, conflict resolution, and
 review handling; once it returns ready or already-merged, `merger` handles the
-safety judgement and post-merge. The intermediate goal of "get it to ready",
+safety judgment and post-merge. The intermediate goal of "get it to ready",
 kept when `/address-review` was merged in, is no longer `/pr`'s exit condition.
 The difference between a new PR and an existing one is expressible as an
 argument:
@@ -904,7 +904,7 @@ actually stops depends on the main agent's restraint. Mitigations:
 - Put a **cutoff clause** like `or stop after 20 turns` into the condition
   (officially recommended)
 - Set the goal **per phase** ("until Step 3's PR is ready", for instance)
-- If the approval requests are in the way, **loosen the approval judgement
+- If the approval requests are in the way, **loosen the approval judgment
   itself** (promote it to a safe pattern in `check-merge-approval.sh`). That is
   a change to the criteria rather than a skill-side workaround, so treat it as
   an agreement about what may be merged unattended
@@ -913,7 +913,7 @@ actually stops depends on the main agent's restraint. Mitigations:
   this especially when using `/goal`)
 
 `POST_MERGE_FAILED` / `POST_MERGE_TIMEOUT` are stopping points too. Rerunning a
-failed apply or supplying a secret by hand needs human judgement, so they do not
+failed apply or supplying a secret by hand needs human judgment, so they do not
 advance automatically even in unattended operation.
 
 Combined with

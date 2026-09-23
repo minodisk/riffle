@@ -7,10 +7,10 @@ for what it is and the current status.
 
 A Cargo workspace: `crates/core` (ARW and DNG parsing and JPEG decoding, `riffle-core`,
 whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating`, the
-tri-state pick / reject flag as `xmpDM:good`, and the colour label as
+tri-state pick / reject flag as `xmpDM:good`, and the color label as
 `photoshop:LabelColor` and `xmp:Label`) and `src/dop.rs` DxO PhotoLab `.dop`
 sidecar bytes (rating, the tri-state pick / reject flag as `ShouldProcess`,
-and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and licence
+and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, and `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else between the eyes of a detected
@@ -23,7 +23,7 @@ and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP-or-`.dop` setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
-`xmp:Label` names per colour persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
+`xmp:Label` names per color persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
 the default keys and the
 user's overrides, persisted in the `shortcuts` key).
 

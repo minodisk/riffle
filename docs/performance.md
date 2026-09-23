@@ -14,7 +14,7 @@ Measured with release builds over 32 distinct real M11-P DNGs
 (60.8MB to 78.0MB, 72.0MB mean), with the page cache warm (the files had been
 read just before). Each DNG embeds a 2112x1408 preview and a 9504x6320 1:1
 JPEG. The M11-P writes no `FocusLocation`, so the 512px crop is taken at the
-image centre (row ~3160), the fallback the app uses.
+image center (row ~3160), the fallback the app uses.
 
 `riffle-cli bench` (two runs, medians):
 
@@ -22,9 +22,9 @@ image centre (row ~3160), the fallback the app uses.
 |------|--------|-------------------|
 | 2112x1408 preview decode | 10ms | 7.5-8.0ms (α7 V 1616x1080: 4.4ms) |
 | 9504x6320 1:1 JPEG full decode | 300ms | 105ms (p95 125-130ms) |
-| 512px partial decode at the centre | 50ms | 16.4-16.5ms (p95 ~20ms, max 22.7ms) |
+| 512px partial decode at the center | 50ms | 16.4-16.5ms (p95 ~20ms, max 22.7ms) |
 
-The centre crop sits well inside the 50ms budget on its own; this is the CLI
+The center crop sits well inside the 50ms budget on its own; this is the CLI
 decode only, not keypress to pixels.
 
 `riffle-cli scan` over the folder:
@@ -219,7 +219,7 @@ same 468-ARW folder, runs alternated, two runs each:
 | 1 | 43.0 / 43.1 -> 19.6 / 19.8ms | 50.4 / 49.9 -> 40.6 / 39.3ms | 23 / 23 -> 51 / 51 |
 
 441 of the 468 files took the AF-frame path; the other 27 (25 without
-tracking, 2 with the focus point at the exact sensor centre) still run
+tracking, 2 with the focus point at the exact sensor center) still run
 detection, which keeps the p95 above the pre-detection baseline.
 
 Recall: on the same samples the detector found no face in 29 of the 36 DNGs
@@ -325,7 +325,7 @@ than the decode it follows.
 ### End to end, keypress to pixels
 
 Measured by hand in the running app. **Conditions**:
-optimised build (`mise run tauri:release:devtools`), `Debug > Timing logs` on, **DevTools
+optimized build (`mise run tauri:release:devtools`), `Debug > Timing logs` on, **DevTools
 open** (a webview can be slower with the inspector attached, so these may be
 upper bounds), warm page cache (the folder had been opened before), one real
 folder of Sony ARW files. `read` and `decode` come

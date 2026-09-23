@@ -73,11 +73,11 @@ struct Changed {
     dir: String,
 }
 
-/// Watch `dir` (the canonicalised path `notify` needs), replacing a watch on
+/// Watch `dir` (the canonicalized path `notify` needs), replacing a watch on
 /// another folder and leaving one on the same folder alone. `owner` is
 /// emitted in `folder-changed` instead of `dir`: it is the caller's own
 /// string for the folder (what the frontend holds as `openDir`), which can
-/// differ from the canonicalised `dir` (a verbatim `\\?\` path on Windows, a
+/// differ from the canonicalized `dir` (a verbatim `\\?\` path on Windows, a
 /// resolved symlink on macOS) and would otherwise never match the frontend's
 /// comparison. Failing to watch (a network volume, say) is logged and
 /// ignored: the rescan on focus and `File > Reload Folder` is the fallback,

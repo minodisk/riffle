@@ -5,7 +5,7 @@ to keep and what to throw away.
 
 - It reads only the JPEG previews embedded in the RAW files, so paging through a
   folder of thousands of shots never keeps you waiting.
-- Stars, picks / rejects and colour labels are written to sidecar files that
+- Stars, picks / rejects and color labels are written to sidecar files that
   DxO PhotoLab and tools that read XMP sidecars, such as Lightroom, can read.
   The RAW files themselves are never written.
 - There is no developing and no editing. It does one thing: choosing.
@@ -44,7 +44,7 @@ next time Riffle starts. For the other packages and the details, see
 3. When the focus is in doubt, press `z` for the 1:1 view and check the focus
    point.
 
-Judgements are saved to the sidecars as you go, so there is nothing to save.
+Judgments are saved to the sidecars as you go, so there is nothing to save.
 When you are done, they are picked up by DxO PhotoLab and tools that read XMP
 sidecars.
 
@@ -52,9 +52,9 @@ sidecars.
 
 - **Filmstrip**: thumbnails run down the left edge; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
-  `Shift+↑` / `Shift+↓` select a range, and every judgement applies to the
+  `Shift+↑` / `Shift+↓` select a range, and every judgment applies to the
   whole selection.
-- **1:1 focus check**: `z` shows the image at 1:1, centred on the focus point.
+- **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.
   Paging keeps the zoom.
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
@@ -66,7 +66,7 @@ sidecars.
   the AF point, else the sharpest region.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
-  model (MIT licence), run locally with no network access.
+  model (MIT license), run locally with no network access.
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
@@ -77,12 +77,12 @@ sidecars.
   sort by file name, capture time or rating.
 - **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
   rejected shots to the Trash. Nothing is deleted, so restoring them brings the
-  judgements back.
-- **Undo / redo**: `Cmd+Z` / `Ctrl+Z` undoes a judgement; add `Shift` to redo.
-- **Auto-advance**: when turned on in the settings, each judgement moves on to
+  judgments back.
+- **Undo / redo**: `Cmd+Z` / `Ctrl+Z` undoes a judgment; add `Shift` to redo.
+- **Auto-advance**: when turned on in the settings, each judgment moves on to
   the next shot.
 
-Detailed behaviour: [docs/usage.md](./docs/usage.md).
+Detailed behavior: [docs/usage.md](./docs/usage.md).
 
 ## Keys
 
@@ -95,9 +95,9 @@ Detailed behaviour: [docs/usage.md](./docs/usage.md).
 | `x` | reject (keeps the stars) |
 | `p` | pick (keeps the stars) |
 | `u` | clear the pick / reject |
-| `Ctrl+Alt+1`-`7` | colour label (red, orange, yellow, green, blue, pink, purple) |
-| `Ctrl+Alt+0` | clear the colour label |
-| `c` | clear everything: stars, pick / reject and colour label |
+| `Ctrl+Alt+1`-`7` | color label (red, orange, yellow, green, blue, pink, purple) |
+| `Ctrl+Alt+0` | clear the color label |
+| `c` | clear everything: stars, pick / reject and color label |
 | `z` | 1:1 focus check |
 | `g` (hold) | grayscale preview |
 | `v` | compare selected shots / the current shot with its burst's sharpest frame |
@@ -108,13 +108,13 @@ Keys can be changed in `Riffle > Settings...`.
 
 ## Working with other software
 
-Judgements are saved in a sidecar file next to the RAW. The format is chosen in
+Judgments are saved in a sidecar file next to the RAW. The format is chosen in
 the settings:
 
 - **Lightroom (XMP)** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom
-  and others read. Picks and rejects are written as `xmpDM:good` and colour
+  and others read. Picks and rejects are written as `xmpDM:good` and color
   labels as both `photoshop:LabelColor` and `xmp:Label`, the way Lightroom
-  writes them. The name written to `xmp:Label` can be set per colour in the
+  writes them. The name written to `xmp:Label` can be set per color in the
   settings.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
   `File > Open in DxO PhotoLab` opens the folder straight in PhotoLab.
@@ -133,7 +133,7 @@ untouched.
 - Lightroom Classic does not write XMP by default. `Ctrl+S`
   (`Metadata > Save Metadata to File`) writes it for the selected photos, or
   turn on `Catalog Settings > Metadata > Automatically write changes into XMP`.
-- Colour labels are matched by name against Lightroom Classic's colour label
+- Color labels are matched by name against Lightroom Classic's color label
   set (`Metadata > Color Label Set > Edit...`). Either rename that set's labels
   to `Red`, `Yellow`, `Green`, `Blue` and `Purple`, or set Riffle's label names
   in the settings to the names in the set (a preset for the Japanese default
@@ -183,7 +183,7 @@ rotation and the focus mark be checked.
 - DOP
   - [x] DxO PhotoLab 10
 
-If the stars, flags and colour labels given in Riffle show up correctly in the
+If the stars, flags and color labels given in Riffle show up correctly in the
 software, post in the
 [software works report thread](https://github.com/minodisk/riffle/discussions/288)
 in Discussions. If they do not, open an issue from the

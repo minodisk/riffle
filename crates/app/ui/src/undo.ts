@@ -1,4 +1,4 @@
-// A bounded stack of judgement states, used for both undo and redo: pushing
+// A bounded stack of judgment states, used for both undo and redo: pushing
 // past `limit` drops the oldest.
 export class History<T> {
   private entries: T[] = [];

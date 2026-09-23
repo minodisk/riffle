@@ -219,7 +219,7 @@ pub struct SidecarError {
 }
 
 /// Bring the `ratings` rows of `dir` in line with the sidecars on disk and
-/// return the judgements that still have to be written, along with the
+/// return the judgments that still have to be written, along with the
 /// sidecars that could not be used.
 ///
 /// The sidecar is the source of truth, so anything whose stat changed since
@@ -394,7 +394,7 @@ fn auto_advance_setting(value: Option<&Value>) -> bool {
     value.and_then(Value::as_bool).unwrap_or(false)
 }
 
-/// The stored `labelNames` value: an object keyed by lowercase colour whose
+/// The stored `labelNames` value: an object keyed by lowercase color whose
 /// missing, non-string or blank entries are the English default.
 fn label_names_setting(value: Option<&Value>) -> LabelNames {
     let name = |color: &str, default: String| {
@@ -457,7 +457,7 @@ pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> R
 
 /// The body of `switch_sidecar_format`, without the `AppHandle`: the state
 /// write, the drain, `persist` (a save failure is logged, not returned) and
-/// the index reset. The caller serialises switches (the command does it with
+/// the index reset. The caller serializes switches (the command does it with
 /// `AppSwitchLock`); this function does no locking of its own beyond the
 /// state and index mutexes.
 fn switch_format(
@@ -640,7 +640,7 @@ fn read_metadata(path: &Path) -> Result<Metadata, String> {
         riffle_core::reader::read_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let shot = arw.shot;
     let exif = crate::exif::exif(&shot);
-    let label = |l: Option<crate::exif::Labelled>| l.map(|l| l.label);
+    let label = |l: Option<crate::exif::Labeled>| l.map(|l| l.label);
     Ok(Metadata {
         name,
         camera: exif.camera,
@@ -803,7 +803,7 @@ impl Drop for Preparing {
         state.preparing -= 1;
         let scanning = state.scanning();
         // Every `scan-state` emit in this file happens under the `Scans`
-        // lock, at the moment the state changes, so the mutex serialises
+        // lock, at the moment the state changes, so the mutex serializes
         // them in the order the state actually changed; releasing the lock
         // first (or emitting a value read earlier) would let two emits from
         // different threads interleave with no ordering guarantee. Holding
@@ -1201,7 +1201,7 @@ pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, 
 }
 
 /// The sidecar writer, shared between `set_rating` and the quit-time drain.
-/// `None` when there is no index to record judgements in, in which case
+/// `None` when there is no index to record judgments in, in which case
 /// `set_rating` is an error rather than a silent no-op.
 pub struct AppWriter(pub Option<Writer>);
 
@@ -1214,7 +1214,7 @@ pub struct AppLabelNames(pub Mutex<LabelNames>);
 /// The culling keymap resolved from the defaults and the `shortcuts` setting.
 pub struct AppKeymap(pub Mutex<Keymap>);
 
-/// Whether the selection moves to the next file after a judgement.
+/// Whether the selection moves to the next file after a judgment.
 pub struct AppAutoAdvance(pub AtomicBool);
 
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
@@ -1264,10 +1264,10 @@ pub fn label_names(app: tauri::AppHandle) -> Value {
     })
 }
 
-/// Normalise and apply `names` (see `label_names_setting`), persist them
+/// Normalize and apply `names` (see `label_names_setting`), persist them
 /// under `labelNames`, reset the index's sidecar state so the open folder
 /// re-reads its XMP labels under the new names (after draining the writer,
-/// whose queued judgements keep the names they were made under), and emit `label-names` with
+/// whose queued judgments keep the names they were made under), and emit `label-names` with
 /// the stored names and `sidecar-format` so the main window reopens the
 /// folder. A save failure is logged and the in-memory change stands.
 ///
@@ -1396,13 +1396,13 @@ fn update_keymap(
     Ok(bindings)
 }
 
-/// Record a judgement for one file: `0` unrated and `1`-`5` stars, plus the
-/// pick / reject flag (`"none"`, `"pick"` or `"reject"`) and the colour label
+/// Record a judgment for one file: `0` unrated and `1`-`5` stars, plus the
+/// pick / reject flag (`"none"`, `"pick"` or `"reject"`) and the color label
 /// beside them, all kept under both formats. The label is any raw name; an
 /// empty one is no label.
 ///
 /// `label_known` is false when the frontend has not yet learned this path's
-/// label from `folder_entries` (e.g. a judgement made before the first
+/// label from `folder_entries` (e.g. a judgment made before the first
 /// refresh lands, or before the sidecar has even been parsed): `label` is
 /// then ignored, the `ratings.label` column is left untouched rather than
 /// being cleared, and the writer keeps whatever label the sidecar itself
@@ -1471,7 +1471,7 @@ const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
 };
 
 /// The message shown when the button is pressed while a scan is running. The
-/// clear is refused rather than cancelling the scan.
+/// clear is refused rather than canceling the scan.
 const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
 
 /// Format `bytes` for display with plain `B`/`KB`/`MB`/`GB` labels: whole
@@ -1544,7 +1544,7 @@ pub async fn index_size(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 /// Empty the index cache after a native confirmation; `false` when the user
-/// cancelled. A running scan is refused before the dialog is shown, and again
+/// canceled. A running scan is refused before the dialog is shown, and again
 /// under the `Scans` lock in case one started while the dialog was up.
 ///
 /// Lock order is `Scans` then the writer, as in `spawn_eviction`, and the
@@ -1564,7 +1564,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
         .dialog()
         .message(
             "Every cached thumbnail and the cached metadata of every folder are removed. \
-             Judgements are kept. The next open of a folder scans it again.",
+             Judgments are kept. The next open of a folder scans it again.",
         )
         .title("Clear the index cache?")
         .kind(MessageDialogKind::Warning)
@@ -1608,13 +1608,13 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
 
 /// Move the rejected files of `dir` to the OS trash after a native
 /// confirmation, together with the `.xmp` and `.dop` sidecars that exist on
-/// disk for them; `None` when the user cancelled. `paths` is the frontend's
+/// disk for them; `None` when the user canceled. `paths` is the frontend's
 /// list of rejects and every path is validated against `dir` before anything
 /// is moved.
 ///
 /// A running scan is refused before the dialog and again under the `Scans`
 /// lock, and the sidecar writer is drained first, as in `clear_index`: a
-/// judgement still inside its debounce window would otherwise mint a sidecar
+/// judgment still inside its debounce window would otherwise mint a sidecar
 /// for a file that is already gone.
 #[tauri::command]
 pub async fn trash_rejected(
@@ -1830,7 +1830,7 @@ mod tests {
     }
 
     #[test]
-    fn label_names_setting_falls_back_to_english_per_colour() {
+    fn label_names_setting_falls_back_to_english_per_color() {
         use serde_json::json;
         assert_eq!(super::label_names_setting(None), LabelNames::default());
         let names = super::label_names_setting(Some(&json!({
@@ -2063,7 +2063,7 @@ mod tests {
             .is_empty());
 
         // `a` had a sidecar and lost it: the truth is gone with it. `b` has a
-        // judgement that never reached a sidecar, and must be written instead.
+        // judgment that never reached a sidecar, and must be written instead.
         // `c` has neither a sidecar nor a row, and is not a case at all.
         std::fs::remove_file(&file).unwrap();
         index::lock(&index)
@@ -2306,7 +2306,7 @@ mod tests {
     }
 
     /// A trimmed copy of a Lightroom desktop 9.5.1 (Japanese UI) sidecar,
-    /// with `extra` as the judgement attributes beside `xmp:Rating`.
+    /// with `extra` as the judgment attributes beside `xmp:Rating`.
     fn lightroom_xmp(extra: &str) -> String {
         format!(
             r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 7.0-c000 1.000000, 0000/00/00-00:00:00        ">
@@ -2472,7 +2472,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_started_serialises_the_fields_the_frontend_reads() {
+    fn scan_started_serializes_the_fields_the_frontend_reads() {
         let started = ScanStarted {
             total: 3,
             scan_id: 7,
@@ -2663,7 +2663,7 @@ mod tests {
         // only yields `None` for the root itself, so a file directly under
         // it resolves to the root. There is no writable file directly under
         // `/` to exercise `dropped_dir` itself against, so this pins the
-        // `Path::parent` behaviour the function relies on instead.
+        // `Path::parent` behavior the function relies on instead.
         assert_eq!(Path::new("/a.arw").parent(), Some(Path::new("/")));
     }
 
@@ -2759,7 +2759,7 @@ mod tests {
     }
 
     #[test]
-    fn a_synthetic_arw_crops_around_the_centre_without_a_focus_point() {
+    fn a_synthetic_arw_crops_around_the_center_without_a_focus_point() {
         let dir = temp_dir("crop");
         let path = dir.join("a.arw");
         std::fs::write(&path, arw_with_full(&gradient_jpeg(400, 300))).unwrap();
@@ -2771,7 +2771,7 @@ mod tests {
         assert!((64..64 + 16).contains(&crop.crop.width));
         assert_eq!(crop.crop.height, 48);
         assert_eq!(crop.crop.pixels.len(), crop.crop.width * 48 * 4);
-        // Centre of a 400x300 image, minus the crop's own snapped origin.
+        // Center of a 400x300 image, minus the crop's own snapped origin.
         assert_eq!(crop.point_x, 200 - crop.crop.x);
         assert_eq!(crop.crop.x % 16, 0);
         assert_eq!(crop.point_y, 24);
@@ -2795,7 +2795,7 @@ mod tests {
         })
     }
 
-    /// A judgement made in the window between the format swap and
+    /// A judgment made in the window between the format swap and
     /// `reset_sidecars` must land in the newly selected format and leave the
     /// row clean, not be replayed on the next open.
     #[test]

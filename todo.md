@@ -44,7 +44,7 @@ In the Windows real-folder measurement, the log showed two `open entries` lines 
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 
-A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/performance.md. Options are prefetching the neighbouring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
+A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/performance.md. Options are prefetching the neighboring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
 
 #### TODO
 
@@ -62,7 +62,7 @@ The Updating paragraph in `docs/usage.md` describes a background download and in
 
 ### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
 
-Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimetres); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count. Sony's α7 V MakerNote also stores `FocusFrameSize` (tag 0x2037) as `UNDEFINED[6]` (type 7, count 6), not `SHORT[3]` — exiftool only reinterprets it as `int16u[3]`. A reader that only accepts `SHORT[3]` returns `None` on real files (verified on `_DSC3590.ARW`); the parser now accepts both encodings.
+Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimeters); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count. Sony's α7 V MakerNote also stores `FocusFrameSize` (tag 0x2037) as `UNDEFINED[6]` (type 7, count 6), not `SHORT[3]` — exiftool only reinterprets it as `int16u[3]`. A reader that only accepts `SHORT[3]` returns `None` on real files (verified on `_DSC3590.ARW`); the parser now accepts both encodings.
 
 #### TODO
 
@@ -93,7 +93,7 @@ must be wider than the source crop.
 
 From `trash-rejected`'s implementation: GUI automation is unavailable on this
 Mac and a native confirmation dialog cannot be driven by an agent, so nothing
-of the menu item's visible behaviour has been run by a human. One point is
+of the menu item's visible behavior has been run by a human. One point is
 specifically unverified: whether the Trash's "Put Back" entry is actually
 created — the command pins
 `DeleteMethod::NsFileManager` to avoid the Finder route's Automation
@@ -114,7 +114,7 @@ learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
       plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
       next passing file; the zero-reject, no-folder and mid-scan cases each
       write their message to `#status`; a "Put Back" from the Trash restores
-      the file with its judgement, and if no "Put Back" entry exists, that
+      the file with its judgment, and if no "Put Back" entry exists, that
       dragging it out does.
 - [ ] Verify the same flow on Windows and Linux (the `trash` crate's other
       backends have never been run here).
@@ -188,7 +188,7 @@ run by hand on any platform yet.
       label in place (no `menu item undo not found` warning in the log) and
       kills the old key; both Edit items work via mouse click. Files: same
       as above, plus `crates/app/src/commands.rs` (`update_keymap`).
-- [ ] Verify the `Some`/`None` accelerator behaviour on Linux (only
+- [ ] Verify the `Some`/`None` accelerator behavior on Linux (only
       reasoned from muda 0.19.3's sources so far, never run; Windows passed).
 
 ### App: Open in DxO PhotoLab always fails on Windows
@@ -208,7 +208,7 @@ PhotoLab" always fails with `Could not open PhotoLab: ... (os error 3)`
 
 From `clear-cache-stuck-guard`'s implementation: the button's guard used to
 get stuck (never re-enabling after the first scan), so none of its GUI
-behaviour has been run by a human. GUI automation is unavailable on this
+behavior has been run by a human. GUI automation is unavailable on this
 Mac and a native confirm dialog cannot be driven by an agent. A later manual
 run on Windows passed (1) and showed the dialog in (2) immediately; the
 Cancel half of (2) and checks (3)-(7) were blocked by a Clear Cache refusal
@@ -263,7 +263,7 @@ since the GUI cannot be driven from one. Files: `crates/app/ui/src/strip.ts`,
 ### App: burst grouping's manual checks are still open
 
 From `burst-grouping`'s implementation: GUI automation is unavailable on this
-development machine, so several behaviours were never exercised by a human.
+development machine, so several behaviors were never exercised by a human.
 
 #### TODO
 
@@ -401,7 +401,7 @@ is verified only by actionlint; no real release has run through it. Files:
 ### App: the Lightroom 9.5.1 round-trip check is still open
 
 From `lightroom-xmp-flags-labels`'s implementation: the tri-state flag and
-colour-label read/write for XMP were built and unit-tested against trimmed
+color-label read/write for XMP were built and unit-tested against trimmed
 copies of Lightroom-shaped fixtures, but the round-trip was never confirmed
 against real Lightroom. Files: `crates/core/src/xmp.rs`,
 `crates/app/src/sidecar.rs`, `README.md` ("Sidecar formats and software"

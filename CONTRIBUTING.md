@@ -16,8 +16,8 @@ mise run tauri:dev
 ```
 
 That is a debug build of the Rust side: quick to compile, slow at runtime. **Any
-timing measurement has to come from the optimised build instead**, because the
-numbers in [docs/performance.md](./docs/performance.md) are all optimised ones and a debug build is
+timing measurement has to come from the optimized build instead**, because the
+numbers in [docs/performance.md](./docs/performance.md) are all optimized ones and a debug build is
 not comparable to them:
 
 ```sh
@@ -67,7 +67,7 @@ in the app cache directory:
 - **macOS**: `~/Library/Caches/com.minodisk.riffle/index.sqlite`
 - **Windows**: `%LOCALAPPDATA%\com.minodisk.riffle\index.sqlite`
 
-Deleting it only costs one more scan (plus any judgements not yet written to
+Deleting it only costs one more scan (plus any judgments not yet written to
 a sidecar). Nothing runs `VACUUM`, so renaming a folder leaves its old rows
 behind and the file does not shrink.
 

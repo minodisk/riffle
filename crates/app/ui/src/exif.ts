@@ -1,5 +1,5 @@
 // Mirrors `Exif` in `crates/app/src/exif.rs`: `value` sorts, `label` shows.
-export interface Labelled {
+export interface Labeled {
   value: number;
   label: string;
 }
@@ -7,10 +7,10 @@ export interface Labelled {
 export interface Exif {
   camera: string | null;
   lens: string | null;
-  aperture: Labelled | null;
-  shutter: Labelled | null;
-  iso: Labelled | null;
-  focal_length: Labelled | null;
+  aperture: Labeled | null;
+  shutter: Labeled | null;
+  iso: Labeled | null;
+  focal_length: Labeled | null;
 }
 
 export type ExifGroup = "camera" | "lens" | "aperture" | "shutter" | "iso" | "focal";
@@ -52,8 +52,8 @@ export function exifKey(
       return { label: focalRanges[at].label, order: at };
     }
     default: {
-      const labelled = exif[group];
-      return labelled === null ? null : { label: labelled.label, order: labelled.value };
+      const labeled = exif[group];
+      return labeled === null ? null : { label: labeled.label, order: labeled.value };
     }
   }
 }

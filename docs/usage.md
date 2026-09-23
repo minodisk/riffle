@@ -1,13 +1,13 @@
 # Using Riffle
 
-The detailed behaviour of Riffle. For a quick start, see [README.md](../README.md).
+The detailed behavior of Riffle. For a quick start, see [README.md](../README.md).
 
 ## Features
 
 Open a folder from the picker, or drop a folder or any file in it onto the
 window. Riffle lists the ARW and DNG files in it and pages through their
 embedded previews, rotated by each file's Orientation. With no folder open the
-viewer shows a prompt in its centre; click it to open the folder picker.
+viewer shows a prompt in its center; click it to open the folder picker.
 
 - **Filmstrip**: thumbnails run down the left edge, follow paging and show the
   file you click. The `N / M` counter sits under it.
@@ -25,25 +25,25 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Focus mark**: `f` draws a crosshair at the camera's recorded focus point
   (hidden by default; cameras that record none, such as the M11-P, show none).
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
-  screen pixel, centred on the focus point (or the frame centre without one).
+  screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
 - **Grayscale preview**: holding `g` shows the viewed image in grayscale to
-  judge composition; releasing it restores colour. It is momentary and
+  judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
 - **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
   file selected, it instead puts that file beside the highest-scoring
   frame in its burst (the same file appears twice when it is already the
-  highest-scoring one). Each frame is labelled with its file name and score, and
+  highest-scoring one). Each frame is labeled with its file name and score, and
   the highest-scoring frame is outlined as `BEST`. Click a frame to make it
   `ACTIVE`; a star, pick, reject or label then applies only to that frame,
   regardless of the filmstrip selection. Press `v` again to return.
-- **Judgements**: stars, a pick / reject flag and a colour label, shown on
+- **Judgments**: stars, a pick / reject flag and a color label, shown on
   the strip cell (the label tints the file-name band along the cell's bottom
   edge) and written to a sidecar; see
   [Ratings and sidecars](#ratings-and-sidecars).
-  With several files selected, a judgement sets the same value, decided from
-  the shown file, on every selected file; fields the judgement does not touch
+  With several files selected, a judgment sets the same value, decided from
+  the shown file, on every selected file; fields the judgment does not touch
   keep each file's own value (a star key leaves each label as it was, and a
   pick replaces a reject on every selected file but leaves each file's stars
   as they were). Hidden files
@@ -51,15 +51,15 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Meta pane**: camera, lens, shutter, aperture, ISO and focal length. When a
   lens reports no f-number (the M11-P with an M-mount lens), the aperture is the
   camera's estimate, marked `(est.)`; Leica files add the focus distance.
-- **Filter menu**: narrows the strip by pick flag, stars, colour label,
+- **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), camera, lens, aperture, shutter speed,
-  ISO and focal length (grouped into ranges such as `24–35 mm`). The colour
-  label group lists the seven colours and `No label`; a label outside those
-  seven colours matches no colour item (nor `No label`). The orientation is
+  ISO and focal length (grouped into ranges such as `24–35 mm`). The color
+  label group lists the seven colors and `No label`; a label outside those
+  seven colors matches no color item (nor `No label`). The orientation is
   decided by the file's EXIF Orientation — a quarter turn is portrait, so a
   frame the camera did not tag as rotated counts as landscape.
   The EXIF groups list only values present in the folder. Checks within a group
-  are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgement that drops
+  are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgment that drops
   the current file out of the filter hides it at once and moves to the next
   passing file after it, else the last one before it, else the empty view.
 - **Sort menu**: orders the strip by file name, capture time or rating;
@@ -80,7 +80,7 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   later. On volumes that send no change notifications, such as network shares,
   bring the window back to the front or choose `File > Reload Folder`
   (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
-  flags and colour labels already given, the current file and the strip's
+  flags and color labels already given, the current file and the strip's
   position all stay as they were.
 - **Move Rejected to Trash…**: `File > Move Rejected to Trash…` moves every
   file of the open folder marked as a reject to the OS Trash, together with the
@@ -88,17 +88,17 @@ viewer shows a prompt in its centre; click it to open the folder picker.
   no matter which format is currently selected. It asks first, showing how many files
   it is about to move, and `Cancel` leaves the folder untouched. Nothing is
   deleted: the file and its sidecars all go to the Trash, so restoring them
-  brings back the stars, the flag and the colour label. Whatever could not be
+  brings back the stars, the flag and the color label. Whatever could not be
   moved is listed as an error and stays in the folder.
-- **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and colour
+- **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and color
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
-  Repeated presses walk further back. A judgement on several selected files
+  Repeated presses walk further back. A judgment on several selected files
   is undone as one. A reject-rest (`Shift+x`) is undone as
   one, restoring every frame it rejected and staying on the current file. The history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
-  undone judgement, the same way round. The redo history is forgotten as soon
+  undone judgment, the same way round. The redo history is forgotten as soon
   as you judge a file again, and like the undo history it is cleared when
   another folder opens or the sidecar format changes.
 - **Open Log Folder**: `Help > Open Log Folder` reveals the folder holding
@@ -111,22 +111,22 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 - **Auto-advance**: when `Auto-advance after a star, reject or pick` is on in
   `Riffle > Settings...` (off by default), `1`-`5`, reject and pick move to the
   next file once they change the current one; pressing the value the file
-  already has does not. The last file stays selected. A file the judgement
+  already has does not. The last file stays selected. A file the judgment
   drops out of the active filter already hands the cursor to the next file, so
-  it is not skipped twice. A judgement that changes more than one selected
+  it is not skipped twice. A judgment that changes more than one selected
   file does not advance.
 - **Clear Cache**: the `Cache` tab of `Riffle > Settings...` shows how much disk
   the folder index takes, and `Clear Cache` empties it after a confirmation. It
   removes the cached thumbnails and metadata of every folder ever opened; your
-  judgements are not touched, because they live in the sidecars. The size is in
+  judgments are not touched, because they live in the sidecars. The size is in
   the same units your file manager uses (decimal on macOS, binary on Windows
   and Linux). A scan has to finish before the cache can be cleared: while one is
   running the button is unavailable, with a note saying so, and it becomes
   available again by itself when the scan ends. The size figure refreshes each
   time a scan ends.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
-  sharp the frame is next to its neighbours on the strip; the sharpest frame of
-  a run is marked in the pick colour. The score is computed from the embedded
+  sharp the frame is next to its neighbors on the strip; the sharpest frame of
+  a run is marked in the pick color. The score is computed from the embedded
   preview around the AF focus point when the camera recorded one, and
   otherwise (manual focus, Leica DNG) as the sharpest region of the frame, so
   it ranks a burst rather
@@ -168,9 +168,9 @@ viewer shows a prompt in its centre; click it to open the folder picker.
 | `p` | pick the current file (replaces a reject, keeps the stars) |
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the stars |
-| `c` | clear every flag of the current file: stars, reject, pick and colour label |
-| `CmdOrCtrl+Z` | undo the last judgement (also `Edit > Undo`, whose accelerator follows this key) |
-| `CmdOrCtrl+Shift+Z` | redo the last undone judgement (also `Edit > Redo`, whose accelerator follows this key) |
+| `c` | clear every flag of the current file: stars, reject, pick and color label |
+| `CmdOrCtrl+Z` | undo the last judgment (also `Edit > Undo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Shift+Z` | redo the last undone judgment (also `Edit > Redo`, whose accelerator follows this key) |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone, while `c` clears it along with
@@ -205,18 +205,18 @@ combination an action leaves behind is free for another action.
 
 ## Ratings and sidecars
 
-The RAW file is never written. Judgements go into a sidecar next to it, in one
+The RAW file is never written. Judgments go into a sidecar next to it, in one
 of two formats chosen in `Riffle > Settings...`:
 
 - **Lightroom (XMP)** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
   the pick / reject flag as `xmpDM:good` (`True` for a pick, `False` for a
-  reject, absent for neither), and the colour label as both
+  reject, absent for neither), and the color label as both
   `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.
-  `xmp:Label` carries the name configured for the colour in the settings
+  `xmp:Label` carries the name configured for the color in the settings
   (English by default: `Red`, `Yellow`, `Green`, `Blue`, `Purple`) and
-  `photoshop:LabelColor` the lowercase English colour (`red`, ...). A sidecar
+  `photoshop:LabelColor` the lowercase English color (`red`, ...). A sidecar
   whose `xmp:Label` matches a configured name or the English name is shown in
-  that colour.
+  that color.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
   pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
   `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
@@ -224,25 +224,25 @@ of two formats chosen in `Riffle > Settings...`:
 Clearing a label removes `photoshop:LabelColor` and `xmp:Label`, or the
 `ColorLabel` line; no label is the field being absent. The label is kept as
 the exact string the sidecar holds: a name from the other tool's vocabulary is
-written back unchanged and shown in its colour, and any other name (say, a
-custom Lightroom label) is shown grey.
+written back unchanged and shown in its color, and any other name (say, a
+custom Lightroom label) is shown gray.
 
 A sidecar written by another tool is edited in place: only the rating, the
 flag and the label change, and everything else — develop settings, keywords —
 is kept byte for byte. Clearing a file that has no sidecar creates none.
 
 Writes happen in the background and are atomic, so a crash never leaves a
-half-written sidecar, and quitting finishes any pending write. A judgement that
+half-written sidecar, and quitting finishes any pending write. A judgment that
 could not be written (say, on a locked card) is retried a few times over the
 next half minute, and if it still fails it is kept and retried the next time
 the folder is opened; the error is shown at the bottom of the right pane until
 you dismiss it, and so is any sidecar the app cannot read when a folder opens
 (damaged, or larger than 4 MiB). Sidecars edited by another tool are picked up the next
 time the folder is opened; when both changed, the other tool's edit wins.
-Switching the format keeps unwritten judgements and writes them in the new
+Switching the format keeps unwritten judgments and writes them in the new
 format; the other format's files are left alone.
 
-The folder index is a cache, but it also holds unwritten judgements, so a new
+The folder index is a cache, but it also holds unwritten judgments, so a new
 index schema migrates the previous ones in place instead of discarding them;
 only a version it cannot migrate is dropped and rebuilt from the sidecars.
 

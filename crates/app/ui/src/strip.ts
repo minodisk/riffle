@@ -16,7 +16,7 @@ const inner = document.getElementById("strip-inner") as HTMLDivElement;
 // plus the file name, and 96x144 upright after a quarter turn. Read from the
 // `--cell-height` custom property in `style.css` (the single source of truth
 // for cell placement) rather than duplicated here. A fixed height keeps
-// `scrollTop -> index` arithmetic, which is what makes virtualisation cheap.
+// `scrollTop -> index` arithmetic, which is what makes virtualization cheap.
 const CELL_HEIGHT = Number.parseFloat(getComputedStyle(inner).getPropertyValue("--cell-height"));
 // Cells kept beyond the visible range, so a short scroll shows an image that
 // is already decoded.
@@ -69,7 +69,7 @@ const failed = new Set<number>();
 const ratings = new Map<number, number>();
 // The pick / reject per index, mirroring the `flags` map in `main.ts`.
 const flags = new Map<number, "pick" | "reject">();
-// The colour label per index, mirroring the `labels` map in `main.ts`.
+// The color label per index, mirroring the `labels` map in `main.ts`.
 const labels = new Map<number, string>();
 // The relative sharpness per index, from `relativeSharpness` in
 // `sharpness.ts`; a missing entry has no score.
@@ -98,10 +98,10 @@ function paintRating(index: number, cell: Cell): void {
   cell.flag.classList.toggle("pick", picked);
   cell.flag.classList.toggle("reject", rejected);
   // The label tints the file-name strip along the bottom edge, as Lightroom's
-  // cell does; a name outside the seven colours gets a neutral grey.
+  // cell does; a name outside the seven colors gets a neutral gray.
   const label = labels.get(index);
   const key = label?.toLowerCase();
-  cell.name.classList.toggle("labelled", label !== undefined);
+  cell.name.classList.toggle("labeled", label !== undefined);
   cell.name.style.setProperty(
     "--label",
     label === undefined
@@ -114,7 +114,7 @@ function paintRating(index: number, cell: Cell): void {
 }
 
 // A bar up the image box's left edge, as long as the file's sharpness
-// relative to its neighbours, in the accent colour on the sharpest of its run.
+// relative to its neighbors, in the accent color on the sharpest of its run.
 function paintSharpness(index: number, cell: Cell): void {
   const value = sharpness.get(index);
   cell.sharpness.hidden = value === undefined;
@@ -202,7 +202,7 @@ function highlight(): void {
 // The cell nearest the middle of the viewport is wanted first, so scrolling
 // fast fills what the user is looking at rather than what it flew past.
 function pickNext(): number | null {
-  const centre = (strip.scrollTop + strip.clientHeight / 2) / CELL_HEIGHT;
+  const center = (strip.scrollTop + strip.clientHeight / 2) / CELL_HEIGHT;
   let best: number | null = null;
   let bestDistance = Infinity;
   for (const index of cells.keys()) {
@@ -214,7 +214,7 @@ function pickNext(): number | null {
     ) {
       continue;
     }
-    const distance = Math.abs(index - centre);
+    const distance = Math.abs(index - center);
     if (distance < bestDistance) {
       best = index;
       bestDistance = distance;
@@ -317,7 +317,7 @@ function render(): void {
   pump();
 }
 
-// Record the judgement of one file, repainting its cell when it is on screen.
+// Record the judgment of one file, repainting its cell when it is on screen.
 // `null` is unrated.
 export function setRating(
   index: number,

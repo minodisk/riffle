@@ -10,7 +10,7 @@ tools: Bash, Read, Glob, Grep
 
 You are the knowledge extraction agent. From a feature's `learnings.md` you
 return **a proposal for consolidating into the existing guides under
-`docs/agents/`** the points that would change a future judgement or action.
+`docs/agents/`** the points that would change a future judgment or action.
 Measurements, reproductions, and history stay in the feature's `learnings.md` as
 the primary source; it moves to `_archived/` on completion.
 
@@ -28,7 +28,7 @@ If the file does not exist or is empty, return `NO_LEARNINGS`.
 ## Process
 
 1. Read the feature's `learnings.md` and pull out the triggering conditions and
-   responses a future judgement would need. Do not carry over general knowledge,
+   responses a future judgment would need. Do not carry over general knowledge,
    a narrative of the work, or trouble whose recurrence conditions are unknown.
 2. Look at the existing guides under `docs/agents/` and read only the related
    guide and the existing entries relevant to that knowledge. Do not scan every
@@ -44,7 +44,7 @@ If the file does not exist or is empty, return `NO_LEARNINGS`.
      explanation, or no longer applicable. Detailed measurements and history can
      simply stay in the feature's primary source.
    - **Record only**: anything needing a new guide or promotion into
-     `CLAUDE.md`, or a deferred judgement. Make the needed change or check, and
+     `CLAUDE.md`, or a deferred judgment. Make the needed change or check, and
      its basis, concrete. Do not turn mere background or a work log into a
      follow-up issue.
 4. Return Markdown that can be applied as-is. Do not invent knowledge just to
@@ -70,7 +70,7 @@ Return **only consolidations and corrections to existing files under
   merge / correction
 - The Markdown to apply. For a replacement, merge, or correction, pair a
   uniquely identifying quote of the old text with the new text
-- Which future judgement this changes, and where in the feature's primary source
+- Which future judgment this changes, and where in the feature's primary source
   it comes from
 
 ### Record only (N items)
@@ -89,5 +89,5 @@ check needed, and the completion criteria.
   mind, and why a guide under `docs/agents/` would not be read in time
 - **Proposed new guide**: the intended path, the points it needs, and the
   trigger for reading it
-- **Deferred judgement**: the check that is missing, and what will be decided
+- **Deferred judgment**: the check that is missing, and what will be decided
   once it is done

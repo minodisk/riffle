@@ -58,7 +58,7 @@ pub fn plan(dir: &Path, paths: &[String]) -> Result<Vec<Group>, String> {
 }
 
 /// Move every group with `mover`, never stopping at a failure. The RAW goes
-/// first: when it fails its sidecars are left alone, so the judgement stays
+/// first: when it fails its sidecars are left alone, so the judgment stays
 /// with the file.
 pub fn run(groups: Vec<Group>, mut mover: impl FnMut(&Path) -> Result<(), String>) -> Summary {
     let mut summary = Summary::default();

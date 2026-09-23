@@ -7,7 +7,7 @@ opt-level = 3
 
 # `minodisk/muda` is muda 0.19.3 (the version `tauri` resolves for `muda = "^0.19"`)
 # plus an unconditional `nsimage.setTemplate(true)` in `menuitem_set_icon`. Without
-# it macOS draws our custom menu icons in their own colours, so they do not tint
+# it macOS draws our custom menu icons in their own colors, so they do not tint
 # with the menu appearance like the OS-provided items next to them. This pulls
 # third-party code from a personal GitHub fork at build time. Drop it once
 # muda#413 (https://github.com/tauri-apps/muda/pull/413) ships in a muda release

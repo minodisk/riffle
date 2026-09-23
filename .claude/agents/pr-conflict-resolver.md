@@ -206,7 +206,7 @@ Report to the caller:
 
 - Terminal state: `RESOLVED` (resolved and pushed) / `NOT_RESOLVED` (returned
   unresolved) / `LOCAL_CHECK_FAILED` (tried the local checks 3 times and gave
-  up) / `needs_discussion` (a semantic resolution needs the user's judgement)
+  up) / `needs_discussion` (a semantic resolution needs the user's judgment)
 - How it was resolved (`auto` = the rebase went straight through / `manual` =
   resolved by hand)
 - The list of conflicting files and how each was resolved (one line each)

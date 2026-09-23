@@ -1,4 +1,4 @@
-//! XMP sidecar reading and writing for ratings, flags and colour labels.
+//! XMP sidecar reading and writing for ratings, flags and color labels.
 //!
 //! A rating is `xmp:Rating` in `0..=5`, `0` being unrated. The pick / reject
 //! [`Flag`] is Lightroom's `xmpDM:good`: `"True"` a pick, `"False"` a reject,
@@ -6,10 +6,10 @@
 //! (the reject Adobe Bridge writes and darktable reads) reads as a reject
 //! with no stars and is rewritten to Lightroom's shape. A label is read from
 //! Lightroom's language-independent `photoshop:LabelColor` (`"purple"`, read
-//! as `"Purple"`), else from `xmp:Label`, which a localised Lightroom fills in
+//! as `"Purple"`), else from `xmp:Label`, which a localized Lightroom fills in
 //! its own language (`"パープル"`): a configured [`LabelNames`] name or an
-//! English name maps to its canonical colour, any other string reads raw. A
-//! label is written to both, `LabelColor` the lowercase English colour and
+//! English name maps to its canonical color, any other string reads raw. A
+//! label is written to both, `LabelColor` the lowercase English color and
 //! `xmp:Label` the configured name for it. Nothing but
 //! `xmp:Rating`, `xmpDM:good`, `xmp:Label` and `photoshop:LabelColor` is
 //! ever written.
@@ -141,10 +141,10 @@ pub fn write_rating(
     }
 }
 
-/// The five colours with an `xmp:Label` name, in canonical (English) form.
+/// The five colors with an `xmp:Label` name, in canonical (English) form.
 const COLORS: [&str; 5] = ["Red", "Yellow", "Green", "Blue", "Purple"];
 
-/// The `xmp:Label` string written for each of the five canonical colours.
+/// The `xmp:Label` string written for each of the five canonical colors.
 /// An empty name falls back to the English default.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LabelNames {
@@ -162,7 +162,7 @@ impl Default for LabelNames {
 }
 
 impl LabelNames {
-    /// The names of a Japanese Lightroom's default colour label set.
+    /// The names of a Japanese Lightroom's default color label set.
     pub fn japanese() -> Self {
         Self::from_names(["レッド", "イエロー", "グリーン", "ブルー", "パープル"])
     }
@@ -177,7 +177,7 @@ impl LabelNames {
         }
     }
 
-    /// The `xmp:Label` name for a canonical colour (`"Red"` ... `"Purple"`),
+    /// The `xmp:Label` name for a canonical color (`"Red"` ... `"Purple"`),
     /// `None` for any other label.
     pub fn name<'a>(&'a self, color: &'a str) -> Option<&'a str> {
         let name = match color {
@@ -191,7 +191,7 @@ impl LabelNames {
         Some(if name.trim().is_empty() { color } else { name })
     }
 
-    /// The canonical colour whose configured or English name is `label`.
+    /// The canonical color whose configured or English name is `label`.
     fn color(&self, label: &str) -> Option<&'static str> {
         let label = label.trim();
         COLORS
@@ -202,8 +202,8 @@ impl LabelNames {
 }
 
 /// The label of the sidecar: a non-empty `photoshop:LabelColor` with its
-/// first letter capitalised and the rest lowercased (`"purple"` ->
-/// `"Purple"`), else a non-empty `xmp:Label`, mapped to its canonical colour
+/// first letter capitalized and the rest lowercased (`"purple"` ->
+/// `"Purple"`), else a non-empty `xmp:Label`, mapped to its canonical color
 /// when it is one of `names` or an English name and raw otherwise.
 ///
 /// `None` when both are absent or empty; `Err` when the bytes are not
@@ -227,7 +227,7 @@ pub fn read_label(bytes: &[u8], names: &LabelNames) -> Result<Option<String>, St
 }
 
 /// The sidecar bytes carrying `label`: `xmp:Label` set to its name in
-/// `names` (`label` itself when it is not one of the five colours) and
+/// `names` (`label` itself when it is not one of the five colors) and
 /// `photoshop:LabelColor` to `label` lowercased.
 ///
 /// `Some` splices each value in place or inserts one attribute, as
@@ -977,7 +977,7 @@ mod tests {
             out.replace(" xmpDM1:good=\"True\"", "")
         );
     }
-    fn labelled(source: &str, label: Option<&str>) -> String {
+    fn labeled(source: &str, label: Option<&str>) -> String {
         String::from_utf8(
             write_label(Some(source.as_bytes()), label, &LabelNames::default()).unwrap(),
         )
@@ -1025,7 +1025,7 @@ mod tests {
             )
     }
 
-    const LIGHTROOM_LABELLED: &str = concat!(
+    const LIGHTROOM_LABELED: &str = concat!(
         "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"Adobe XMP Core 7.0-c000 1.000000, 0000/00/00-00:00:00        \">\n",
         " <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
         "  <rdf:Description rdf:about=\"Leica Camera AG\"\n",
@@ -1044,12 +1044,12 @@ mod tests {
     );
 
     #[test]
-    fn reads_a_lightroom_label_color_over_the_localised_label() {
+    fn reads_a_lightroom_label_color_over_the_localized_label() {
         assert_eq!(
-            read_label(LIGHTROOM_LABELLED.as_bytes(), &LabelNames::default()).unwrap(),
+            read_label(LIGHTROOM_LABELED.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Purple".to_string())
         );
-        let empty = LIGHTROOM_LABELLED.replace("LabelColor=\"purple\"", "LabelColor=\"\"");
+        let empty = LIGHTROOM_LABELED.replace("LabelColor=\"purple\"", "LabelColor=\"\"");
         assert_eq!(
             read_label(empty.as_bytes(), &LabelNames::default()).unwrap(),
             Some("パープル".to_string())
@@ -1078,7 +1078,7 @@ mod tests {
             read_label(with_bridge_label("Red").as_bytes(), &ja).unwrap(),
             Some("Red".to_string())
         );
-        let stripped = LIGHTROOM_LABELLED.replace("   photoshop:LabelColor=\"purple\"\n", "");
+        let stripped = LIGHTROOM_LABELED.replace("   photoshop:LabelColor=\"purple\"\n", "");
         assert_eq!(
             read_label(stripped.as_bytes(), &ja).unwrap(),
             Some("Purple".to_string())
@@ -1109,10 +1109,10 @@ mod tests {
 
     #[test]
     fn relabels_and_clears_a_lightroom_sidecar() {
-        let red = labelled(LIGHTROOM_LABELLED, Some("Red"));
+        let red = labeled(LIGHTROOM_LABELED, Some("Red"));
         assert_eq!(
             red,
-            LIGHTROOM_LABELLED
+            LIGHTROOM_LABELED
                 .replace("xmp:Label=\"パープル\"", "xmp:Label=\"Red\"")
                 .replace("LabelColor=\"purple\"", "LabelColor=\"red\"")
         );
@@ -1121,8 +1121,8 @@ mod tests {
             Some("Red".to_string())
         );
         assert_eq!(
-            labelled(LIGHTROOM_LABELLED, None),
-            LIGHTROOM_LABELLED
+            labeled(LIGHTROOM_LABELED, None),
+            LIGHTROOM_LABELED
                 .replace("   xmp:Label=\"パープル\"\n", "")
                 .replace("   photoshop:LabelColor=\"purple\"\n", "")
         );
@@ -1135,7 +1135,7 @@ mod tests {
             read_label(source.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red".to_string())
         );
-        let out = labelled(&source, Some("Green"));
+        let out = labeled(&source, Some("Green"));
         assert_eq!(
             out,
             with_bridge_label("Green").replace(
@@ -1145,7 +1145,7 @@ mod tests {
                 )
             )
         );
-        assert_eq!(labelled(&out, None), bridge_declaring_photoshop());
+        assert_eq!(labeled(&out, None), bridge_declaring_photoshop());
     }
 
     #[test]
@@ -1209,19 +1209,19 @@ mod tests {
     fn sets_only_the_label_value() {
         let source = with_attribute_label("Red");
         assert_eq!(
-            labelled(&source, Some("Green")),
+            labeled(&source, Some("Green")),
             with_attribute_label("Green")
         );
         let source = with_element_label("Red");
         assert_eq!(
-            labelled(&source, Some("Purple")),
+            labeled(&source, Some("Purple")),
             with_element_label("Purple")
         );
     }
 
     #[test]
     fn inserts_a_label_attribute_when_absent() {
-        let out = labelled(NO_RATING, Some("Yellow"));
+        let out = labeled(NO_RATING, Some("Yellow"));
         assert_eq!(
             out,
             NO_RATING.replace(
@@ -1238,7 +1238,7 @@ mod tests {
     #[test]
     fn clearing_removes_the_attribute() {
         assert_eq!(
-            labelled(&with_attribute_label("Red"), None),
+            labeled(&with_attribute_label("Red"), None),
             BRIDGE.replace(
                 "   xmp:Rating=\"3\"\n",
                 &format!("   xmp:Rating=\"3\"\n   {PHOTOSHOP_DECL}\n")
@@ -1249,7 +1249,7 @@ mod tests {
             &format!("xmp:CreatorTool=\"darktable\" xmp:Label=\"Red\" {PHOTOSHOP_DECL} photoshop:LabelColor=\"red\"/>"),
         );
         assert_eq!(
-            labelled(&inline, None),
+            labeled(&inline, None),
             NO_RATING.replace(
                 "\"darktable\"/>",
                 &format!("\"darktable\" {PHOTOSHOP_DECL}/>")
@@ -1260,7 +1260,7 @@ mod tests {
     #[test]
     fn clearing_removes_the_element_and_its_line() {
         assert_eq!(
-            labelled(&with_element_label("Red"), None),
+            labeled(&with_element_label("Red"), None),
             with_element_label("Red")
                 .replace("   <xmp:Label>Red</xmp:Label>\n", "")
                 .replace("   <photoshop:LabelColor>red</photoshop:LabelColor>\n", "")
@@ -1269,13 +1269,13 @@ mod tests {
             "<xmp:Rating>2</xmp:Rating>",
             "<xmp:Rating>2</xmp:Rating><xmp:Label>Red</xmp:Label>",
         );
-        assert_eq!(labelled(&shared, None), LIGHTROOM);
+        assert_eq!(labeled(&shared, None), LIGHTROOM);
     }
 
     #[test]
     fn clearing_without_a_label_is_a_no_op() {
-        assert_eq!(labelled(BRIDGE, None), BRIDGE);
-        assert_eq!(labelled(LIGHTROOM, None), LIGHTROOM);
+        assert_eq!(labeled(BRIDGE, None), BRIDGE);
+        assert_eq!(labeled(LIGHTROOM, None), LIGHTROOM);
     }
 
     #[test]
@@ -1296,15 +1296,15 @@ mod tests {
             read_label(rated.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Red".to_string())
         );
-        let both = labelled(&rated, Some("Blue"));
+        let both = labeled(&rated, Some("Blue"));
         assert_eq!(read_rating(both.as_bytes()).unwrap(), Some(5));
         assert_eq!(
             read_label(both.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Blue".to_string())
         );
 
-        let labelled_fresh = labelled(NO_RATING, Some("Green"));
-        let rated = patched(&labelled_fresh, Some(2));
+        let labeled_fresh = labeled(NO_RATING, Some("Green"));
+        let rated = patched(&labeled_fresh, Some(2));
         assert_eq!(
             read_label(rated.as_bytes(), &LabelNames::default()).unwrap(),
             Some("Green".to_string())
@@ -1323,7 +1323,7 @@ mod tests {
             Some("Red &amp; Blue".to_string())
         );
         assert_eq!(
-            labelled(&source, Some("Green")),
+            labeled(&source, Some("Green")),
             with_element_label("Green")
                 .replace(
                     "   <photoshop:LabelColor>green</photoshop:LabelColor>\n",
@@ -1339,13 +1339,13 @@ mod tests {
     #[test]
     fn foreign_label_names_round_trip() {
         for label in ["Orange", "Rouge vif", "赤"] {
-            let out = labelled(BRIDGE, Some(label));
+            let out = labeled(BRIDGE, Some(label));
             assert_eq!(
                 read_label(out.as_bytes(), &LabelNames::default()).unwrap(),
                 Some(label.to_string())
             );
-            assert_eq!(labelled(&out, None), bridge_declaring_photoshop());
-            let out = labelled(&with_element_label("Red"), Some(label));
+            assert_eq!(labeled(&out, None), bridge_declaring_photoshop());
+            let out = labeled(&with_element_label("Red"), Some(label));
             assert_eq!(out, with_element_label(label));
         }
     }

@@ -1,9 +1,9 @@
 :root {
-  /* One colour each for stars, a reject and a pick in the strip cell. */
+  /* One color each for stars, a reject and a pick in the strip cell. */
   --stars-color: #ffd050;
   --reject-color: #ff6b6b;
   --pick-color: #6bdc8a;
-  /* The colour label, tinting the file-name strip of the cell. */
+  /* The color label, tinting the file-name strip of the cell. */
   --label-red: #d9453f;
   --label-orange: #e8892c;
   --label-yellow: #d8c032;
@@ -340,7 +340,7 @@ body {
   transform: translate(-50%, -50%);
 }
 
-/* A cell whose thumbnail has not arrived yet has no src, and shows the grey
+/* A cell whose thumbnail has not arrived yet has no src, and shows the gray
    of the box itself as a placeholder. */
 .cell img:not([src]) {
   background: #2a2a2a;
@@ -372,8 +372,8 @@ body {
   text-overflow: ellipsis;
 }
 
-/* A labelled cell's file name sits on a strip of the label's colour. */
-.cell span.name.labelled {
+/* A labeled cell's file name sits on a strip of the label's color. */
+.cell span.name.labeled {
   background: var(--label);
   color: #fff;
   text-shadow: 0 0 2px #000;
@@ -410,7 +410,7 @@ body {
 }
 
 /* The sharpness cue, a bar up the image box's left edge whose length is the
-   file's score over the sharpest of its neighbours; overrides the name span's
+   file's score over the sharpest of its neighbors; overrides the name span's
    placement above. */
 .cell span.sharpness {
   top: 24px;
@@ -435,7 +435,7 @@ body {
 /* The burst band, a tint behind the cells of a burst that reaches a little
    outside each cell and, on a member below another, up across the gap, so a
    burst reads as one block; at a burst's first and last cell it stops
-   short of the neighbouring burst's band. `isolation` on `.cell` keeps it
+   short of the neighboring burst's band. `isolation` on `.cell` keeps it
    behind the cell's contents but above the background under the strip. */
 .cell.burst {
   isolation: isolate;

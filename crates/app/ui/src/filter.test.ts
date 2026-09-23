@@ -3,7 +3,7 @@ import type { Exif, ExifGroup } from "./exif.js";
 import {
   type FilterState,
   type Flag,
-  type Judgement,
+  type Judgment,
   type Orientation,
   anchorAfterFilter,
   orientationOf,
@@ -35,15 +35,15 @@ const exif: Exif = {
   focal_length: null,
 };
 
-const unjudged: Judgement = { rating: null, flag: "none", label: null };
-const rejected: Judgement = { rating: null, flag: "reject", label: null };
-const threeStars: Judgement = { rating: 3, flag: "none", label: null };
-const pickedTwo: Judgement = { rating: 2, flag: "pick", label: null };
+const unjudged: Judgment = { rating: null, flag: "none", label: null };
+const rejected: Judgment = { rating: null, flag: "reject", label: null };
+const threeStars: Judgment = { rating: 3, flag: "none", label: null };
+const pickedTwo: Judgment = { rating: 2, flag: "pick", label: null };
 
 describe("passes", () => {
   test("empty groups pass everything", () => {
-    for (const judgement of [unjudged, rejected, threeStars, pickedTwo]) {
-      expect(passes(state(), judgement, undefined, undefined)).toBe(true);
+    for (const judgment of [unjudged, rejected, threeStars, pickedTwo]) {
+      expect(passes(state(), judgment, undefined, undefined)).toBe(true);
     }
   });
 
@@ -94,13 +94,13 @@ describe("passes", () => {
   });
 });
 
-describe("passes: colour label", () => {
-  const red: Judgement = { rating: null, flag: "none", label: "Red" };
-  const blue: Judgement = { rating: null, flag: "none", label: "Blue" };
-  const foreign: Judgement = { rating: null, flag: "none", label: "Approved" };
-  const colours = ["red", "orange", "yellow", "green", "blue", "pink", "purple"];
+describe("passes: color label", () => {
+  const red: Judgment = { rating: null, flag: "none", label: "Red" };
+  const blue: Judgment = { rating: null, flag: "none", label: "Blue" };
+  const foreign: Judgment = { rating: null, flag: "none", label: "Approved" };
+  const colors = ["red", "orange", "yellow", "green", "blue", "pink", "purple"];
 
-  test("a labelled file fails none", () => {
+  test("a labeled file fails none", () => {
     expect(passes(state([], [], [], ["none"]), red, undefined, undefined)).toBe(false);
     expect(passes(state([], [], [], ["none"]), unjudged, undefined, undefined)).toBe(true);
   });
@@ -110,7 +110,7 @@ describe("passes: colour label", () => {
     expect(passes(state([], [], [], ["blue"]), red, undefined, undefined)).toBe(false);
   });
 
-  test("ORs the checked colours", () => {
+  test("ORs the checked colors", () => {
     const s = state([], [], [], ["red", "blue"]);
     expect(passes(s, red, undefined, undefined)).toBe(true);
     expect(passes(s, blue, undefined, undefined)).toBe(true);
@@ -123,8 +123,8 @@ describe("passes: colour label", () => {
     );
   });
 
-  test("a foreign label fails every colour and none", () => {
-    for (const key of [...colours, "none"]) {
+  test("a foreign label fails every color and none", () => {
+    for (const key of [...colors, "none"]) {
       expect(passes(state([], [], [], [key]), foreign, undefined, undefined)).toBe(false);
     }
     expect(passes(state(), foreign, undefined, undefined)).toBe(true);
@@ -164,32 +164,32 @@ describe("anchorAfterFilter", () => {
   });
 });
 
-describe("a judgement under untagged + 0 + none", () => {
+describe("a judgment under untagged + 0 + none", () => {
   const s = state(["untagged"], [0], [], ["none"]);
-  const judgements: Record<string, Judgement> = {
+  const judgments: Record<string, Judgment> = {
     rating: { rating: 3, flag: "none", label: null },
     reject: { rating: null, flag: "reject", label: null },
     pick: { rating: null, flag: "pick", label: null },
     label: { rating: null, flag: "none", label: "Red" },
   };
 
-  function after(all: string[], judged: string, judgement: Judgement) {
+  function after(all: string[], judged: string, judgment: Judgment) {
     const pass = (path: string) =>
-      passes(s, path === judged ? judgement : unjudged, undefined, undefined);
+      passes(s, path === judged ? judgment : unjudged, undefined, undefined);
     return anchorAfterFilter(all, pass, judged);
   }
 
-  for (const [name, judgement] of Object.entries(judgements)) {
+  for (const [name, judgment] of Object.entries(judgments)) {
     test(`${name} moves to the next unjudged file after it`, () => {
-      expect(after(["a", "b", "c"], "b", judgement)).toBe("c");
+      expect(after(["a", "b", "c"], "b", judgment)).toBe("c");
     });
 
     test(`${name} falls back to the last unjudged file before it`, () => {
-      expect(after(["a", "b", "c"], "c", judgement)).toBe("b");
+      expect(after(["a", "b", "c"], "c", judgment)).toBe("b");
     });
 
     test(`${name} on the only file leaves the empty view`, () => {
-      expect(after(["a"], "a", judgement)).toBeUndefined();
+      expect(after(["a"], "a", judgment)).toBeUndefined();
     });
   }
 });

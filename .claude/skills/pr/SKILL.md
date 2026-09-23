@@ -1,6 +1,6 @@
 ---
 name: pr
-description: Create a PR, clear GitHub Checks / conflicts / review feedback, pass the safety judgement, and carry it through merge and post-merge. Given a PR number as an argument, runs the same process against that existing PR.
+description: Create a PR, clear GitHub Checks / conflicts / review feedback, pass the safety judgment, and carry it through merge and post-merge. Given a PR number as an argument, runs the same process against that existing PR.
 argument-hint: "[pr-number]"
 allowed-tools: Agent, AskUserQuestion, Bash, ListAgents, SendMessage, TaskStop
 ---

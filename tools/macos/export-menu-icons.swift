@@ -4,7 +4,7 @@
 //
 //     swift tools/macos/export-menu-icons.swift
 //
-// Last run on macOS 26.6.2 (25G83). AppKit's symbol rasterisation can change
+// Last run on macOS 26.6.2 (25G83). AppKit's symbol rasterization can change
 // between OS releases, so the committed PNGs are the source of truth; rerun
 // this only when a symbol, its size or weight changes.
 //
@@ -17,7 +17,7 @@
 // glyph to about 16pt of ink and read larger than the rest of the menu. A 12pt
 // glyph in the 18pt canvas matches the OS-provided items.
 //
-// The glyphs are drawn alpha-only, with no colour of their own: muda (via the
+// The glyphs are drawn alpha-only, with no color of their own: muda (via the
 // `[patch.crates-io]` fork pinned in the workspace `Cargo.toml`) marks a custom
 // menu image as a template image, so macOS uses only the alpha channel and
 // tints the icon with the menu appearance.

@@ -5,7 +5,7 @@ import type { PickFlag } from "./selection.js";
 // one group are OR-ed, the groups AND-ed, and a group with nothing checked
 // lets everything through. `0` stars is unrated; a reject keeps its stars,
 // independent of its flag. A label is keyed lowercased, or `none`
-// when there is none; a label outside the menu's colours matches no item.
+// when there is none; a label outside the menu's colors matches no item.
 export type Flag = "picked" | "untagged" | "rejected";
 
 // The displayed shape, decided by the EXIF Orientation tag alone: every
@@ -24,7 +24,7 @@ export interface FilterState {
   exif: Map<ExifGroup, Set<string>>;
 }
 
-export interface Judgement {
+export interface Judgment {
   rating: number | null;
   flag: PickFlag;
   label: string | null;
@@ -32,7 +32,7 @@ export interface Judgement {
 
 export function passes(
   state: FilterState,
-  { rating, flag: pickFlag, label }: Judgement,
+  { rating, flag: pickFlag, label }: Judgment,
   exif: Exif | null | undefined,
   orientation: number | undefined,
 ): boolean {

@@ -3,7 +3,7 @@
 # rounds).
 #
 # Writing a branch like `if ! git diff --cached --quiet; then ... fi`
-# agent-side makes a compound command that prompts every time, so the judgement
+# agent-side makes a compound command that prompts every time, so the judgment
 # is shut inside this script as one atomic call.
 #
 # This script never writes the index itself (`git status --porcelain` takes an
@@ -20,7 +20,7 @@
 #      with commit-push.sh (which runs mise run fmt → mise run ci before pushing)
 #   4. With no diff, push only (the case where the preceding Address phase
 #      already committed and pushed. A new branch may have no upstream, so push
-#      with the same judgement commit-push.sh uses)
+#      with the same judgment commit-push.sh uses)
 #
 # Sandbox: this script assumes it is always called with the Bash tool's
 # `dangerouslyDisableSandbox: true`. Setting an upstream writes to the shared

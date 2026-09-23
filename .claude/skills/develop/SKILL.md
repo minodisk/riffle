@@ -235,7 +235,7 @@ Branch on the exit code:
 - **exit 1**: Traces found. **Do not continue on your own.** Present the listed
   traces with `AskUserQuestion` and ask whether to continue or abort. The main
   agent cannot tell whether a trace is "something I made earlier" or "another
-  session working right now", so the judgement belongs to the user
+  session working right now", so the judgment belongs to the user
 - **exit 2 / exit 3**: There are no traces to list; this is an error in the
   script or the environment. exit 2 is a bad feature-name argument (not
   kebab-case). exit 3 means the query to origin cannot be trusted, by one of two
@@ -247,7 +247,7 @@ Branch on the exit code:
   fail open, so it stops. Check the arguments, the network, and the raw output
   of `git ls-remote --heads origin`, fix it, and re-run. **Do not confuse this
   with a `gh` failure**: a failure of `gh pr list` itself (unauthenticated,
-  network down, etc.) is only a warning and the git-based judgement continues
+  network down, etc.) is only a warning and the git-based judgment continues
   (it does not produce exit 3)
 - **Run this check before starting work even when resuming an existing plan**
   (i.e. skipping Phases 0–1 and entering at Phase 2; see the head of Phase 2)
@@ -535,7 +535,7 @@ Branch on the terminal state of the return value:
 - `EXTRACTED`: the return value has two sections — **apply automatically**
   (consolidations and corrections into the existing guides under `docs/agents/`)
   and **record only** (new guides / candidates for promotion into `CLAUDE.md` /
-  deferred judgements). Skip only the sections that are empty.
+  deferred judgments). Skip only the sections that are empty.
   1. **The apply-automatically part**: the main agent applies it to the existing
      guides without user consent. Creating or appending to `docs/learnings/` is
      forbidden.
@@ -573,7 +573,7 @@ Branch on the terminal state of the return value:
   additions (target section / pasteable Markdown) to `todo.md` **with `Edit`**,
   without user consent. **Apply every deletion regardless of confidence**
   (certain / needs checking) — confidence is information for the 3.6 PR body,
-  not a filter. Do not apply deferred judgements; list them in the 3.6 PR body.
+  not a filter. Do not apply deferred judgments; list them in the 3.6 PR body.
   **Do not commit** (the `pr-runner` in 3.6 commits it all together)
 - `NOTHING_TO_DO` / `NO_SOURCES`: skip
 
@@ -637,7 +637,7 @@ Start it per § Starting `pr-runner`. What to pass:
     whose content was rewritten), with what changed
   - The paths of the existing guides **consolidated** in 3.2, and the gist
   - The **record-only** items (candidates for promotion into `CLAUDE.md` /
-    proposed new files under `docs/agents/` / deferred judgements from learnings
+    proposed new files under `docs/agents/` / deferred judgments from learnings
     and todo). Distinguish "the target was not edited" from "it was reflected
     into the feature records and todo"
 - **Paths to commit**: the existing files under `docs/agents/` consolidated in
@@ -733,7 +733,7 @@ If it is `[x]`, run the following in order:
    existing guides and saves the record-only part as the feature's todo
    candidates before moving on. Do not commit)
 2. `todo-curator` (same as 3.3; the main agent applies the deletions and
-   additions with `Edit` without consent, and deferred judgements go into the
+   additions with `Edit` without consent, and deferred judgments go into the
    S.6 PR body)
 3. `settings-promoter` (same as 3.4; this agent commits)
 4. Append `(YYYY-MM-DD) Step 1 complete` to the plan file's Progress with `Edit`

@@ -8,7 +8,7 @@ set -o nounset
 # path to stdout. The caller uses that path as the Write tool's destination.
 #
 # Getting the date, deciding the path, checking for an existing folder, and
-# mkdir are all deterministic steps needing no LLM judgement, so they are shut
+# mkdir are all deterministic steps needing no LLM judgment, so they are shut
 # inside a script rather than composed agent-side (which would be a compound
 # command with substitutions and branches, prompting every time).
 #

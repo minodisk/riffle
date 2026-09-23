@@ -5,7 +5,7 @@ use riffle_core::arw::{Rational, Shot};
 
 /// A numeric setting: `value` to sort by, `label` to show.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
-pub struct Labelled {
+pub struct Labeled {
     pub value: f64,
     pub label: String,
 }
@@ -16,10 +16,10 @@ pub struct Labelled {
 pub struct Exif {
     pub camera: Option<String>,
     pub lens: Option<String>,
-    pub aperture: Option<Labelled>,
-    pub shutter: Option<Labelled>,
-    pub iso: Option<Labelled>,
-    pub focal_length: Option<Labelled>,
+    pub aperture: Option<Labeled>,
+    pub shutter: Option<Labeled>,
+    pub iso: Option<Labeled>,
+    pub focal_length: Option<Labeled>,
 }
 
 /// Format a rational as a decimal with at most `places` digits, with trailing
@@ -56,7 +56,7 @@ pub fn exif(shot: &Shot) -> Exif {
         (make, model) => make.or(model).map(str::to_string),
     };
     let aperture = match (shot.f_number, shot.estimated_f_number) {
-        (Some(r), _) => r.value().zip(decimal(r, 1)).map(|(value, t)| Labelled {
+        (Some(r), _) => r.value().zip(decimal(r, 1)).map(|(value, t)| Labeled {
             value,
             label: format!("f/{t}"),
         }),
@@ -67,7 +67,7 @@ pub fn exif(shot: &Shot) -> Exif {
             },
             1,
         )
-        .map(|t| Labelled {
+        .map(|t| Labeled {
             value: f,
             label: format!("f/{t} (est.)"),
         }),
@@ -78,17 +78,17 @@ pub fn exif(shot: &Shot) -> Exif {
         lens: shot.lens_model.clone(),
         aperture,
         shutter: shot.exposure_time.and_then(|r| {
-            Some(Labelled {
+            Some(Labeled {
                 label: shutter(r)?,
                 value: r.value()?,
             })
         }),
-        iso: shot.iso.map(|v| Labelled {
+        iso: shot.iso.map(|v| Labeled {
             value: f64::from(v),
             label: v.to_string(),
         }),
         focal_length: shot.focal_length.and_then(|r| {
-            Some(Labelled {
+            Some(Labeled {
                 label: format!("{} mm", decimal(r, 1)?),
                 value: r.value()?,
             })
@@ -140,7 +140,7 @@ mod tests {
             lens_model: Some("FE 50mm F1.4 GM".to_string()),
             ..Shot::default()
         });
-        let label = |l: &Option<Labelled>| l.as_ref().map(|l| (l.value, l.label.clone()));
+        let label = |l: &Option<Labeled>| l.as_ref().map(|l| (l.value, l.label.clone()));
         assert_eq!(label(&e.shutter), Some((0.004, "1/250".to_string())));
         assert_eq!(label(&e.aperture), Some((2.8, "f/2.8".to_string())));
         assert_eq!(label(&e.iso), Some((800.0, "800".to_string())));

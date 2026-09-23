@@ -70,7 +70,7 @@ pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
     c.set_size(w, h);
     c.set_quality(quality);
     // Baseline, not progressive: the strip decodes these one by one on the UI
-    // thread, and mozjpeg's scan optimisation costs more time than the few
+    // thread, and mozjpeg's scan optimization costs more time than the few
     // kilobytes it saves at this size.
     c.set_optimize_scans(false);
     let mut c = c.start_compress(Vec::new())?;

@@ -90,7 +90,7 @@ in the PR body how confident the deletion was, so be honest:
 - **Certain**: explicitly designated as closed out, or the item's TODOs map
   one-to-one onto plan.md's acceptance criteria and are all met
 - **Needs checking**: related, but only some of the item's TODOs were closed
-  out, or only the premise of the description changed — anything where judgement
+  out, or only the premise of the description changed — anything where judgment
   could go either way
 
 ### 3. Write the deletion proposals

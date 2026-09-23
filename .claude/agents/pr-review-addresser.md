@@ -136,7 +136,7 @@ escalates to an approval even with unresolved threads remaining.
 - **Threads addressed by a fix**: resolve them
 - **Threads rejected and replied to**: resolve after posting the reply
 - **Threads under discussion, or decided not to address**: do not resolve (leave
-  the human judgement standing)
+  the human judgment standing)
 
 ## When the local checks fail
 
@@ -189,7 +189,7 @@ Report to the caller:
 - Terminal state: `DONE` (got through step 6) / `NO_PLAN` (no plan JSON was
   given) / `LOCAL_CHECK_FAILED` (tried the local checks 3 times and gave up) /
   `needs_discussion` (could not be handled safely per the plan; needs the user's
-  judgement)
+  judgment)
 - The fix / reject / discuss breakdown (counts, and one line per thread)
 - The list of files fixed and the commit hash (`null` when there was no code
   change)

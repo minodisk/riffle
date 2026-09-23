@@ -21,7 +21,7 @@
 * **app:** add side-by-side comparison view ([#340](https://github.com/minodisk/riffle/issues/340)) ([1d4387d](https://github.com/minodisk/riffle/commit/1d4387d3698da6c95a59d6ef4cf26a07e6a6fe0e))
 * **app:** carry the tri-state pick / reject flag through the app ([#343](https://github.com/minodisk/riffle/issues/343)) ([e442942](https://github.com/minodisk/riffle/commit/e442942817b8795b0c040b07a3377bbacd7ae73f))
 * **core:** add a tri-state pick / reject flag with xmpDM:good ([#341](https://github.com/minodisk/riffle/issues/341)) ([acdd0fa](https://github.com/minodisk/riffle/commit/acdd0fa81597833d08186229165573be42a73470))
-* **core:** read and write photoshop:LabelColor colour labels ([#342](https://github.com/minodisk/riffle/issues/342)) ([dddb12b](https://github.com/minodisk/riffle/commit/dddb12bc0544c6bc6d14929f416ebcac93879c92))
+* **core:** read and write photoshop:LabelColor color labels ([#342](https://github.com/minodisk/riffle/issues/342)) ([dddb12b](https://github.com/minodisk/riffle/commit/dddb12bc0544c6bc6d14929f416ebcac93879c92))
 
 ## [0.2.0](https://github.com/minodisk/riffle/compare/v0.1.10...v0.2.0) (2026-09-22)
 
@@ -46,7 +46,7 @@
 * **app:** add burst navigation keys ([#278](https://github.com/minodisk/riffle/issues/278)) ([174fa82](https://github.com/minodisk/riffle/commit/174fa821dd962ddbf2b5cc6b614af55133dc0ed5))
 * **app:** add burstFramePrevious / burstFrameNext actions on Alt+ArrowUp/Down ([#320](https://github.com/minodisk/riffle/issues/320)) ([7d6bd99](https://github.com/minodisk/riffle/commit/7d6bd991c08cafe696bf6ec437055c2274f86cd8))
 * **app:** add pure helpers for the strip flag menu ([#306](https://github.com/minodisk/riffle/issues/306)) ([4e54a1a](https://github.com/minodisk/riffle/commit/4e54a1a65f8e156f2b6b0cb4056db0dd80d9fc7b))
-* **app:** apply judgements to every selected strip file ([#317](https://github.com/minodisk/riffle/issues/317)) ([7891bf7](https://github.com/minodisk/riffle/commit/7891bf71d1d2cc07448e8dfefbe4bb1a2be17a27))
+* **app:** apply judgments to every selected strip file ([#317](https://github.com/minodisk/riffle/issues/317)) ([7891bf7](https://github.com/minodisk/riffle/commit/7891bf71d1d2cc07448e8dfefbe4bb1a2be17a27))
 * **app:** bump the index schema to v9 so sharpness scores are recomputed ([#272](https://github.com/minodisk/riffle/issues/272)) ([5ae9fd1](https://github.com/minodisk/riffle/commit/5ae9fd1c30610045a1ef607a9de75493b2aa53dc))
 * **app:** group files into bursts and show them on the strip ([#276](https://github.com/minodisk/riffle/issues/276)) ([0f29a4e](https://github.com/minodisk/riffle/commit/0f29a4e5072a3ded7ac86049e9296f3a74c2b451))
 * **app:** keyboard range extension and collapse for strip selection ([#323](https://github.com/minodisk/riffle/issues/323)) ([c9d7524](https://github.com/minodisk/riffle/commit/c9d752464f80b6ce7d5d54f4c824f5f5d2d431c9))
@@ -155,23 +155,23 @@
 
 ### Features
 
-* **app:** add a colour label group to the filter menu ([#149](https://github.com/minodisk/riffle/issues/149)) ([931d42b](https://github.com/minodisk/riffle/commit/931d42be6882b5418ca4b9978c5da6817a4ae244))
+* **app:** add a color label group to the filter menu ([#149](https://github.com/minodisk/riffle/issues/149)) ([931d42b](https://github.com/minodisk/riffle/commit/931d42be6882b5418ca4b9978c5da6817a4ae244))
 * **app:** add a pure strip ordering module ([#141](https://github.com/minodisk/riffle/issues/141)) ([f3b5bcd](https://github.com/minodisk/riffle/commit/f3b5bcd2f5d36c05f3e24a4efe14f7e1cf413a01))
 * **app:** add a sort choice to the strip pane ([#148](https://github.com/minodisk/riffle/issues/148)) ([7bee9db](https://github.com/minodisk/riffle/commit/7bee9db670305ccc2b098af354415d2a6f147bf3))
 * **app:** add and remove individual shortcut keys per action ([#147](https://github.com/minodisk/riffle/issues/147)) ([50eea6b](https://github.com/minodisk/riffle/commit/50eea6b81052d17ca1dca4792c0cacc69b1e5306))
 * **app:** add the Auto-advance toggle to the settings window ([#144](https://github.com/minodisk/riffle/issues/144)) ([5ef967d](https://github.com/minodisk/riffle/commit/5ef967d5ec10b2dc3ac34776a6c0c16c8bd1b4f2))
 * **app:** add the autoAdvance setting to the backend ([#139](https://github.com/minodisk/riffle/issues/139)) ([062a0d9](https://github.com/minodisk/riffle/commit/062a0d98ab3425544bd9bdb1cb9666c105be5907))
-* **app:** advance to the next file after a judgement when Auto-advance is on ([#150](https://github.com/minodisk/riffle/issues/150)) ([546dbb6](https://github.com/minodisk/riffle/commit/546dbb6ddf9f40cdb55a9db3f377d8b83eece982))
+* **app:** advance to the next file after a judgment when Auto-advance is on ([#150](https://github.com/minodisk/riffle/issues/150)) ([546dbb6](https://github.com/minodisk/riffle/commit/546dbb6ddf9f40cdb55a9db3f377d8b83eece982))
 * **app:** bind shortcuts with any modifier combination ([#166](https://github.com/minodisk/riffle/issues/166)) ([70580ca](https://github.com/minodisk/riffle/commit/70580ca4d7df691f8b188365f40831fdf10c9109))
 * **app:** install updates silently and add Check for Updates… ([#143](https://github.com/minodisk/riffle/issues/143)) ([d978438](https://github.com/minodisk/riffle/commit/d978438034ed4ffddc2d471fefa20669606da161))
 * **app:** persist the strip sort order in the settings store ([#153](https://github.com/minodisk/riffle/issues/153)) ([5b047e3](https://github.com/minodisk/riffle/commit/5b047e3ee0495cb4427d392a83cdc40e412c1f38))
 * **app:** read folder entries and thumbnails through a separate index connection ([#163](https://github.com/minodisk/riffle/issues/163)) ([7423537](https://github.com/minodisk/riffle/commit/74235373409a2caba63e3b3022dfb71338d17089))
 * **app:** set the Riffle app icon ([#165](https://github.com/minodisk/riffle/issues/165)) ([9bbe44b](https://github.com/minodisk/riffle/commit/9bbe44bf90d5143923b5272c86a4ee86768c55a3))
-* **app:** show each strip cell's sharpness relative to its neighbours ([#157](https://github.com/minodisk/riffle/issues/157)) ([b3b5fc7](https://github.com/minodisk/riffle/commit/b3b5fc7bffd9052897ae84ba663294f2827de2d9))
+* **app:** show each strip cell's sharpness relative to its neighbors ([#157](https://github.com/minodisk/riffle/issues/157)) ([b3b5fc7](https://github.com/minodisk/riffle/commit/b3b5fc7bffd9052897ae84ba663294f2827de2d9))
 * **app:** show the open folder and file in the window title ([#123](https://github.com/minodisk/riffle/issues/123)) ([a09f12f](https://github.com/minodisk/riffle/commit/a09f12f653a1ff1d5426a7ef212aa78b080ba271))
 * **app:** split the settings window into tabs ([#170](https://github.com/minodisk/riffle/issues/170)) ([b7a8af3](https://github.com/minodisk/riffle/commit/b7a8af3488f3cb5abe687e26e2d4fcc565f4840e))
 * **app:** store the sharpness score in index schema v7 ([#152](https://github.com/minodisk/riffle/issues/152)) ([bace8de](https://github.com/minodisk/riffle/commit/bace8debdd0129749f0fed99598a934015aafb85))
-* **app:** undo judgements with Edit &gt; Undo ([#136](https://github.com/minodisk/riffle/issues/136)) ([e463fd4](https://github.com/minodisk/riffle/commit/e463fd4b081c61c8d67fa4473bab0889cfc7464b))
+* **app:** undo judgments with Edit &gt; Undo ([#136](https://github.com/minodisk/riffle/issues/136)) ([e463fd4](https://github.com/minodisk/riffle/commit/e463fd4b081c61c8d67fa4473bab0889cfc7464b))
 * **core:** score preview sharpness around the focus point at scan time ([#145](https://github.com/minodisk/riffle/issues/145)) ([a2074df](https://github.com/minodisk/riffle/commit/a2074df8025773c87d2bf5e2d53d7ef762c47fea))
 
 
@@ -188,10 +188,10 @@
 ### Features
 
 * **app:** add per-format label shortcuts and Ctrl+Alt keys ([#116](https://github.com/minodisk/riffle/issues/116)) ([980d7a8](https://github.com/minodisk/riffle/commit/980d7a84443bb7379bc204a1ffb0e7b65a8e40df))
-* **app:** carry the colour label through the writer and set_rating ([#115](https://github.com/minodisk/riffle/issues/115)) ([1b95a4a](https://github.com/minodisk/riffle/commit/1b95a4a971da0b941311b63156fe5bd9925cd503))
+* **app:** carry the color label through the writer and set_rating ([#115](https://github.com/minodisk/riffle/issues/115)) ([1b95a4a](https://github.com/minodisk/riffle/commit/1b95a4a971da0b941311b63156fe5bd9925cd503))
 * **app:** move settings into a separate settings window ([#120](https://github.com/minodisk/riffle/issues/120)) ([1662f0e](https://github.com/minodisk/riffle/commit/1662f0efe0c452783e1abc9c3f4a67baaa4687fa))
-* **app:** show the colour label and set it from the keymap ([#117](https://github.com/minodisk/riffle/issues/117)) ([8674546](https://github.com/minodisk/riffle/commit/8674546019165f115a8c74aa16f8920cc1ff8f4f))
-* **app:** store the colour label beside the rating in the index ([#114](https://github.com/minodisk/riffle/issues/114)) ([f3cfeea](https://github.com/minodisk/riffle/commit/f3cfeea65439efa34697ac0eb377d94cff49b22f))
+* **app:** show the color label and set it from the keymap ([#117](https://github.com/minodisk/riffle/issues/117)) ([8674546](https://github.com/minodisk/riffle/commit/8674546019165f115a8c74aa16f8920cc1ff8f4f))
+* **app:** store the color label beside the rating in the index ([#114](https://github.com/minodisk/riffle/issues/114)) ([f3cfeea](https://github.com/minodisk/riffle/commit/f3cfeea65439efa34697ac0eb377d94cff49b22f))
 * **core:** read and patch the .dop ColorLabel ([#113](https://github.com/minodisk/riffle/issues/113)) ([e9b77ec](https://github.com/minodisk/riffle/commit/e9b77ecbcf2c715a4ab8a18ae97490d73a6a319f))
 * **core:** read and patch xmp:Label ([#111](https://github.com/minodisk/riffle/issues/111)) ([5834a22](https://github.com/minodisk/riffle/commit/5834a224271195e3b1368f745c41267560fecff3))
 
@@ -245,7 +245,7 @@
 ### Features
 
 * **app-ui:** add ArrowUp/ArrowDown, WASD and HJKL paging keys ([#14](https://github.com/minodisk/riffle/issues/14)) ([b3787c8](https://github.com/minodisk/riffle/commit/b3787c8a9e5dd070571f418b4c0fb42390a69332))
-* **app:** add a virtualised left thumbnail filmstrip ([#19](https://github.com/minodisk/riffle/issues/19)) ([2913a5e](https://github.com/minodisk/riffle/commit/2913a5e0773e7520549c3f7b6f4d52f959f9d22f))
+* **app:** add a virtualized left thumbnail filmstrip ([#19](https://github.com/minodisk/riffle/issues/19)) ([2913a5e](https://github.com/minodisk/riffle/commit/2913a5e0773e7520549c3f7b6f4d52f959f9d22f))
 * **app:** add an async focus_crop command returning a raw RGBA crop ([#30](https://github.com/minodisk/riffle/issues/30)) ([f839a21](https://github.com/minodisk/riffle/commit/f839a2158a1d47e5cc2f73e6b81a506d890b9255))
 * **app:** add tauri-plugin-updater and an in-app update check ([#50](https://github.com/minodisk/riffle/issues/50)) ([2eadc47](https://github.com/minodisk/riffle/commit/2eadc47987dd8b9cca39bffaa8fa27777bbbf54a))
 * **app:** draw the focus box on the preview ([#20](https://github.com/minodisk/riffle/issues/20)) ([808a58a](https://github.com/minodisk/riffle/commit/808a58afc37b4d8a608e44c870a7d8c235c557ce))

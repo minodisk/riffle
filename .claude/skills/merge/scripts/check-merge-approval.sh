@@ -11,7 +11,7 @@ set -o nounset
 # effect". A rebuild or redeploy is not cause for approval, because reverting a
 # broken change takes the same path back to the previous state. Approval is
 # required for what a revert does not undo:
-#   (1) self-referential things (this judgement script itself, agent / skill /
+#   (1) self-referential things (this judgment script itself, agent / skill /
 #       permission definitions, CODEOWNERS, CI pipeline definitions — anything
 #       that rewrites the approval gate itself)
 #   (2) things that move external state irreversibly
@@ -19,7 +19,7 @@ set -o nounset
 #       hooks and editor settings that run automatically on a developer machine)
 #   (4) build scripts that execute arbitrary code at build time
 #
-# The judgement is fail-closed.
+# The judgment is fail-closed.
 #   1. Any path matching an approval pattern → approval required
 #   2. Every path matching a safe pattern → auto-merge allowed
 #   3. Any path matching neither → approval required (reason = unclassified)
@@ -40,7 +40,7 @@ set -o nounset
 #   2 = bad arguments / an environment error such as a failed gh call
 #
 # With `--paths-from-stdin` it does not call gh and reads a newline-separated
-# path list from stdin. The judgement, output, and exit code are identical to
+# path list from stdin. The judgment, output, and exit code are identical to
 # normal mode; only the input route is swapped (used by the test).
 # The allow rules in `.claude/settings.json` pass arguments through regardless,
 # so enabling it also requires the environment variable
@@ -65,7 +65,7 @@ Options:
 EOF
 }
 
-# Classify one path. **This case is the sole definition of the judgement** (the
+# Classify one path. **This case is the sole definition of the judgment** (the
 # develop path, started without a flag, goes through this script; `/merge` does
 # not, because it dispatches with the approved flag). It is evaluated top to
 # bottom, so the order of the patterns is the priority.
@@ -79,7 +79,7 @@ function classify() {
 	# Agent / skill / permission definitions. Markdown under these is execution
 	# logic itself, so they are evaluated before the blanket *.md safe rule.
 	.claude/* | .agents/* | .codex/*)
-		echo "contains the judgement script / permission allowlist / hooks / agent and skill definitions (the Markdown under them is execution logic too)"
+		echo "contains the judgment script / permission allowlist / hooks / agent and skill definitions (the Markdown under them is execution logic too)"
 		return 0
 		;;
 	# Everything under .github, not just workflows. A composite action runs

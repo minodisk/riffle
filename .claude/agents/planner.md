@@ -20,7 +20,7 @@ planning does not turn into implementing. You only investigate (`Read` / `Glob`
 / `Grep` and read-only `Bash`) and output the plan.
 
 **You cannot ask the user questions.** Where interpretations diverge or a
-judgement is needed, do not decide on your own: write both options and their
+judgment is needed, do not decide on your own: write both options and their
 consequences in the "Trade-offs and risks" section and leave the decision to the
 caller (the main agent).
 
@@ -117,7 +117,7 @@ After finishing a step, continue to the next without asking the user.
 
 ## Trade-offs and risks
 
-{Options not taken and why, points where judgement diverges, what could break
+{Options not taken and why, points where judgment diverges, what could break
 during a migration. Omit the whole section if there are none}
 
 ## Progress

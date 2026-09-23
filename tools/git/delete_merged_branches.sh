@@ -52,7 +52,7 @@ delete_merged_branches() {
 		fi
 	fi
 	targetBranch=${headRef#refs/remotes/origin/}
-	# The basis for the judgement is the latest remote tip (origin/<default>).
+	# The basis for the judgment is the latest remote tip (origin/<default>).
 	targetRef="origin/${targetBranch}"
 
 	# Delete merged branches. The worktreepath field is non-empty when the

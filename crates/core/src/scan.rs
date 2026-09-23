@@ -209,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn cancelling_stops_the_scan_early() {
+    fn canceling_stops_the_scan_early() {
         let dir = dir("cancel");
         let jpeg = jpeg(64, 48);
         let paths: Vec<PathBuf> = (0..200)

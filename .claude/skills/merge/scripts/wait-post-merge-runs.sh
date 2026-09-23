@@ -28,23 +28,23 @@ set -o nounset
 #     `STATUS=success|failed|timeout|no_runs`
 #   - Exits 1 if even one run concluded failure / timed_out / startup_failure /
 #     action_required / stale
-#   - A run concluded cancelled is treated as collateral from concurrency
+#   - A run concluded canceled is treated as collateral from concurrency
 #     (cancel-in-progress) when a newer successful run of the same workflow
 #     exists on the default branch: it is not counted as a failure and shows as
-#     `superseded` in the table. A cancelled run with no later success is still
+#     `superseded` in the table. A canceled run with no later success is still
 #     treated as a failure
 #   - When the re-run is not yet complete, it withholds the verdict and keeps
 #     polling (it starts seconds after the cancellation, so it is usually
 #     incomplete at this point). But if there is a failure other than what it is
 #     waiting on, STATUS will not change, so it exits 1 without waiting
 #   - On a timeout while still awaiting a verdict, it still prints the table and
-#     counts at that moment (with the pending cancelled counted as a failure)
+#     counts at that moment (with the pending canceled counted as a failure)
 #   - If the gh call used for the superseded check fails, it warns on stderr and
-#     leaves that run as cancelled (i.e. a failure). The results table is always
+#     leaves that run as canceled (i.e. a failure). The results table is always
 #     printed
 #   - Right after the table it prints TOTAL_COUNT / FAILED_COUNT (failures
-#     excluding superseded; includes a cancelled with no later success and a
-#     cancelled still awaiting a verdict) / SUPERSEDED_COUNT
+#     excluding superseded; includes a canceled with no later success and a
+#     canceled still awaiting a verdict) / SUPERSEDED_COUNT
 #   - A timeout is exit 2
 #   - no_runs (still zero after the initial grace) is exit 0 with STATUS=no_runs
 #   - A failure of `gh run list` itself is exit 3. gh's error output is not
@@ -150,23 +150,23 @@ while true; do
 
 	awaiting=0
 	if [[ "$pending" -eq 0 ]]; then
-		# Every run is complete. A cancelled run is usually collateral from
+		# Every run is complete. A canceled run is usually collateral from
 		# concurrency (cancel-in-progress), so those with a later successful run
 		# are separated out as superseded.
 		superseded_json='[]'
-		cancelled_tsv=$(echo "$runs_json" | jq -r '.[] | select(.conclusion == "cancelled") | "\(.workflowName)\t\(.createdAt)"')
+		canceled_tsv=$(echo "$runs_json" | jq -r '.[] | select(.conclusion == "cancelled") | "\(.workflowName)\t\(.createdAt)"')
 		# The results table is printed even if the gh call for the check fails. A
-		# cancelled run whose check was abandoned stays a failure. See the line
+		# canceled run whose check was abandoned stays a failure. See the line
 		# above for gh's error output.
-		if [[ -n "$cancelled_tsv" ]] && ! default_branch=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name); then
-			echo "warning: failed to resolve default branch; treating cancelled runs as failures" >&2
-			cancelled_tsv=""
+		if [[ -n "$canceled_tsv" ]] && ! default_branch=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name); then
+			echo "warning: failed to resolve default branch; treating canceled runs as failures" >&2
+			canceled_tsv=""
 		fi
-		if [[ -n "$cancelled_tsv" ]]; then
+		if [[ -n "$canceled_tsv" ]]; then
 			while IFS=$'\t' read -r workflow_name run_created_at; do
 				# Among the recent runs of the same workflow on the default
 				# branch, look at those created after this one. Ancestry is not
-				# checked (it loosens the judgement, and keeps this to gh
+				# checked (it loosens the judgment, and keeps this to gh
 				# alone).
 				if ! recent_json=$(gh run list --workflow="$workflow_name" --branch="$default_branch" --limit="$supersede_limit" --json status,conclusion,createdAt </dev/null); then
 					echo "warning: failed to list recent runs of workflow '$workflow_name' on $default_branch; treating it as a failure" >&2
@@ -185,10 +185,10 @@ while true; do
 				if [[ "$newer_running" -gt 0 ]]; then
 					awaiting=$((awaiting + 1))
 				fi
-			done <<<"$cancelled_tsv"
+			done <<<"$canceled_tsv"
 		fi
 
-		# A cancelled run still awaiting a verdict is conservatively counted as a
+		# A canceled run still awaiting a verdict is conservatively counted as a
 		# failure (STATUS does not change even if the later run turns out
 		# successful, so with a confirmed failure it finishes without waiting).
 		superseded=$(echo "$superseded_json" | jq 'length')
@@ -210,7 +210,7 @@ while true; do
 			echo "$runs_json" | jq -r '.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending") | "\(.status)\t\(.workflowName)\t\(.url)"' | sort >&2
 		else
 			# Every run was complete and only the superseded check was pending.
-			# Print the results with the pending cancelled counted as a
+			# Print the results with the pending canceled counted as a
 			# failure.
 			print_result
 		fi
@@ -221,7 +221,7 @@ while true; do
 	if [[ "$pending" -gt 0 ]]; then
 		echo "[elapsed ${elapsed}s] $pending/$total runs still in progress; retrying in ${poll_interval}s" >&2
 	else
-		echo "[elapsed ${elapsed}s] $awaiting cancelled run(s) waiting for a newer run to finish; retrying in ${poll_interval}s" >&2
+		echo "[elapsed ${elapsed}s] $awaiting canceled run(s) waiting for a newer run to finish; retrying in ${poll_interval}s" >&2
 	fi
 	sleep "$poll_interval"
 	elapsed=$((elapsed + poll_interval))

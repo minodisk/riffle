@@ -59,7 +59,7 @@ You are given:
   it is out of scope). Put a one-line rejection reason in `plan`, usable as the
   reply to the thread verbatim. Include the basis (the relevant convention, the
   design decision, the code's actual behavior)
-- **discuss**: the intent is unclear, or a human judgement is needed (a design
+- **discuss**: the intent is unclear, or a human judgment is needed (a design
   change with trade-offs, a spec whose reading diverges). **When in doubt, lean
   toward discuss**
 
