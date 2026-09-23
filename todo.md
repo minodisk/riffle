@@ -450,6 +450,32 @@ time on SIGMA fp L folders. Files: `crates/core/src/arw.rs`
       slow, consider downscaling the full-size JPEG for the preview tier
       instead of using it as-is.
 
+### App: SIGMA fp L main view appears late on Linux
+
+Since #383 and #385, the main view for SIGMA fp L DNGs displays on Linux
+(WebKitGTK), but noticeably later than for other files. SIGMA fp L has no
+mid-size embedded JPEG, so the `preview` payload is the 9520x6328 (about
+60 MP, about 28 MB) full-size JPEG. On Linux the decode worker must pass
+`createImageBitmap` resize options to fit it under `PREVIEW_PIXEL_LIMIT`
+(6 MP), because WebKitGTK draws transferred bitmaps of about 6.87 MP or more
+transparent. A MiniBrowser run on a synthetic 60 MP JPEG (not the app) took
+about 200-400 ms per resized decode, on top of the IPC of the ~28 MB
+payload; the real app is unmeasured. Same root cause as "App: SIGMA fp L
+strip may decode the full-size JPEG per thumbnail" (strip side), and the
+Linux/SIGMA-specific case of "App: unmeasured end-to-end per-page latency".
+Files: `crates/app/ui/src/worker.ts` (resize on decode),
+`crates/app/src/commands.rs` (`PREVIEW_PIXEL_LIMIT`).
+
+#### TODO
+
+- [ ] Measure first on the real app on Linux with `Timing logs` on: the
+      `page invoke=… decode=… total=… keypressToPixels=…` line splits the
+      IPC (invoke) from the decode.
+- [ ] Candidate fixes, none decided: prefetch and decode the neighbouring
+      pages ahead; or have the backend downscale and cache a mid-size JPEG
+      for files lacking one, the fix already noted in the SIGMA fp L strip
+      item, which would serve both the strip and the main view.
+
 ### Core: widen camera support from public sample RAW files
 
 The user no longer owns the Sigma fp L or BF and cannot shoot new
