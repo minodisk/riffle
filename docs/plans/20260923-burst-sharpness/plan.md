@@ -113,4 +113,4 @@ lone frames, and the answer must not depend on the filter or the sort.
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete
