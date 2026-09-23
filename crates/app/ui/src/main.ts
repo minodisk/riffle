@@ -1040,12 +1040,22 @@ function redo(): void {
   step(redoable, history, "Redid");
 }
 
-// Hand the strip each visible file's score relative to its neighbors. The
-// window runs over `files` (the filtered, sorted view), not `allFiles`, so a
-// filter changes which frames a file is compared with.
+// Hand the strip each visible file's score relative to its burst, or to the
+// singles around it. The comparison runs over `allFiles` in capture order, so
+// neither the filter nor the sort changes it.
 function applySharpness(): void {
-  relativeSharpness(files.map((path) => sharpness.get(path) ?? null)).forEach((value, at) => {
-    strip.setSharpness(at, value);
+  const result = relativeSharpness(allFiles, (path) => {
+    const entry = entries.get(path);
+    const member = bursts.get(path);
+    return {
+      captureTime: entry?.capture_time ?? undefined,
+      subsec: entry?.subsec ?? undefined,
+      score: sharpness.get(path) ?? null,
+      burst: member !== undefined && member.size > 1 ? member.burst : null,
+    };
+  });
+  files.forEach((path, at) => {
+    strip.setSharpness(at, result.get(path) ?? null);
   });
 }
 
