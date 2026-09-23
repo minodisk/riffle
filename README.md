@@ -163,6 +163,8 @@ Discussions. If it does not, open an issue from the
   - [x] Sony α7 V
 - DNG
   - [x] Leica M11-P
+  - [x] SIGMA BF
+  - [x] SIGMA fp L
 
 If a camera not on the list works, post in the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)
