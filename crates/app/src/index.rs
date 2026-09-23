@@ -2,7 +2,8 @@
 //! fills it.
 //!
 //! One database holds every folder ever opened; a row is valid for a file only
-//! while the file's `size` and `mtime_ns` still match what was indexed.
+//! while the file's `size` and `mtime_ns` still match what was indexed and it
+//! was written at the current `EXTRACTOR_VERSION`.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -46,7 +47,21 @@ use crate::exif::{exif, Exif};
 /// pick, `2` reject) and took the reject out of `rating`, which now only
 /// holds `0`-`5`; older databases are migrated in place (a `-1` rating
 /// becomes a reject with no stars, a pick a pick) and keep their `files`.
-const SCHEMA_VERSION: i64 = 11;
+/// v12 added `files.extractor`, the `EXTRACTOR_VERSION` a row was written at;
+/// a v10 or v11 database gains it in place with an `ALTER TABLE`, defaulting
+/// to `0` so every existing row is re-extracted once, and keeps `files`,
+/// `ratings` and `folders`.
+const SCHEMA_VERSION: i64 = 12;
+
+/// The version of what `riffle_core::scan::extract` produces, stored on every
+/// `files` row. Bump it on any change to that output: ARW/DNG parsing or
+/// embedded JPEG tier selection (`crates/core/src/arw.rs`), thumbnail
+/// generation, face detection or the sharpness score
+/// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts
+/// every row, error rows included, on the next scan of each folder, and keeps
+/// `ratings`. It starts at `1` so rows from before the column existed (`0`)
+/// are stale.
+const EXTRACTOR_VERSION: i64 = 1;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -270,7 +285,7 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, 10, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -304,7 +319,8 @@ impl Index {
                      iso INTEGER,
                      focal_num INTEGER,
                      focal_den INTEGER,
-                     sharpness REAL
+                     sharpness REAL,
+                     extractor INTEGER NOT NULL DEFAULT 0
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
@@ -356,7 +372,7 @@ impl Index {
             )
             .map_err(|e| e.to_string())?;
         }
-        if version != 0 && version != SCHEMA_VERSION {
+        if version != 0 && version < 11 {
             // Clean rows carry stats matching values written by the old,
             // lossy `read_pick` / `read_rating` shims (a Lightroom pick
             // stored as `pick = 0`, a starred reject stored with its stars
@@ -373,31 +389,44 @@ impl Index {
             )
             .map_err(|e| e.to_string())?;
         }
+        // Below v10 `files` was just dropped and recreated with the column.
+        if (10..12).contains(&version) {
+            tx.execute_batch("ALTER TABLE files ADD COLUMN extractor INTEGER NOT NULL DEFAULT 0;")
+                .map_err(|e| e.to_string())?;
+        }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
         tx.commit().map_err(|e| e.to_string())
     }
 
-    /// Drop the rows under `dir` whose file is gone or whose `size`/`mtime_ns`
-    /// no longer match, and return the files that have no valid row, in the
+    /// Drop the rows under `dir` whose file is gone, whose `size`/`mtime_ns`
+    /// no longer match, or that were written at an older `EXTRACTOR_VERSION`,
+    /// and return the files that have no valid row, in the
     /// order given. Paths are compared with the same lossy conversion
     /// `write_batch` uses to key rows, so a non-UTF-8 path matches the row it
     /// wrote instead of being rescanned on every open.
     pub fn reconcile(&mut self, dir: &str, files: &[FileStat]) -> Result<Vec<FileStat>, String> {
-        let known: Vec<(String, i64, i64)> = {
+        let known: Vec<(String, i64, i64, i64)> = {
             let mut stmt = self
                 .conn
-                .prepare("SELECT path, size, mtime_ns FROM files WHERE dir = ?1")
+                .prepare("SELECT path, size, mtime_ns, extractor FROM files WHERE dir = ?1")
                 .map_err(|e| e.to_string())?;
             let rows = stmt
-                .query_map(params![dir], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .query_map(params![dir], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+                })
                 .map_err(|e| e.to_string())?;
             rows.collect::<rusqlite::Result<_>>()
                 .map_err(|e| e.to_string())?
         };
-        let listed: std::collections::HashMap<String, (i64, i64)> = files
+        let listed: std::collections::HashMap<String, (i64, i64, i64)> = files
             .iter()
-            .map(|f| (f.path.to_string_lossy().into_owned(), (f.size, f.mtime_ns)))
+            .map(|f| {
+                (
+                    f.path.to_string_lossy().into_owned(),
+                    (f.size, f.mtime_ns, EXTRACTOR_VERSION),
+                )
+            })
             .collect();
 
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -409,22 +438,22 @@ impl Index {
         .map_err(|e| e.to_string())?;
         for (path, ..) in known
             .iter()
-            .filter(|(p, s, m)| listed.get(p.as_str()) != Some(&(*s, *m)))
+            .filter(|(p, s, m, v)| listed.get(p.as_str()) != Some(&(*s, *m, *v)))
         {
             tx.execute("DELETE FROM files WHERE path = ?1", params![path])
                 .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())?;
 
-        let known: std::collections::HashMap<&str, (i64, i64)> = known
+        let known: std::collections::HashMap<&str, (i64, i64, i64)> = known
             .iter()
-            .map(|(p, s, m)| (p.as_str(), (*s, *m)))
+            .map(|(p, s, m, v)| (p.as_str(), (*s, *m, *v)))
             .collect();
         Ok(files
             .iter()
             .filter(|f| {
                 let path = f.path.to_string_lossy();
-                known.get(path.as_ref()) != Some(&(f.size, f.mtime_ns))
+                known.get(path.as_ref()) != Some(&(f.size, f.mtime_ns, EXTRACTOR_VERSION))
             })
             .cloned()
             .collect())
@@ -561,9 +590,9 @@ impl Index {
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
                              make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                             exposure_den, iso, focal_num, focal_den, sharpness)
+                             exposure_den, iso, focal_num, focal_den, sharpness, extractor)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
                         params![
                             path,
                             dir,
@@ -589,6 +618,7 @@ impl Index {
                             shot.focal_length.map(|r| r.num),
                             shot.focal_length.map(|r| r.den),
                             entry.sharpness,
+                            EXTRACTOR_VERSION,
                         ],
                     )
                     .map_err(|e| e.to_string())?;
@@ -597,10 +627,17 @@ impl Index {
                     tx.execute(
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
-                             sharpness)
+                             sharpness, extractor)
                          VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?5,
-                             NULL)",
-                        params![path, dir, file.size, file.mtime_ns, message],
+                             NULL, ?6)",
+                        params![
+                            path,
+                            dir,
+                            file.size,
+                            file.mtime_ns,
+                            message,
+                            EXTRACTOR_VERSION
+                        ],
                     )
                     .map_err(|e| e.to_string())?;
                 }
@@ -1223,7 +1260,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1298,7 +1335,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
 
         remove_temp_dir(&dir);
     }
@@ -1315,6 +1352,7 @@ mod tests {
                 .conn
                 .execute_batch(
                     "ALTER TABLE ratings RENAME COLUMN flag TO pick;
+                     ALTER TABLE files DROP COLUMN extractor;
                      INSERT INTO ratings (path, dir, rating, pick, dirty, xmp_size, xmp_mtime_ns) VALUES
                          ('/rejected.ARW', 'd', -1, 0, 1, 10, 20),
                          ('/picked.ARW', 'd', 3, 1, 0, 10, 20),
@@ -1329,7 +1367,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         let rows: Vec<(String, Option<i8>, i64, i64)> = index
             .conn
@@ -1411,6 +1449,106 @@ mod tests {
         let bigger = FileStat { size: 99, ..a };
         assert_eq!(index.reconcile("d", &[bigger]).unwrap().len(), 1);
         assert!(index.entries("d").unwrap().is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_row_at_an_older_extractor_version_is_re_extracted() {
+        let dir = temp_dir("extractor");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        index
+            .write_batch(
+                "d",
+                &[
+                    (a.clone(), Ok(entry())),
+                    (b.clone(), Err("broken".to_string())),
+                ],
+            )
+            .unwrap();
+        index
+            .conn
+            .execute_batch("UPDATE files SET extractor = 0")
+            .unwrap();
+
+        let stale = index.reconcile("d", &[a.clone(), b.clone()]).unwrap();
+        assert_eq!(
+            stale.iter().map(|f| f.path.clone()).collect::<Vec<_>>(),
+            [a.path.clone(), b.path.clone()],
+            "both the success row and the error row are returned"
+        );
+        assert!(index.entries("d").unwrap().is_empty());
+
+        index
+            .write_batch(
+                "d",
+                &[
+                    (a.clone(), Ok(entry())),
+                    (b.clone(), Err("broken".to_string())),
+                ],
+            )
+            .unwrap();
+        assert_eq!(index.entries("d").unwrap().len(), 2);
+        assert!(index.reconcile("d", &[a, b]).unwrap().is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn rows_at_the_current_extractor_version_are_kept() {
+        let dir = temp_dir("extractor-current");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        index
+            .write_batch(
+                "d",
+                &[
+                    (a.clone(), Ok(entry())),
+                    (b.clone(), Err("broken".to_string())),
+                ],
+            )
+            .unwrap();
+
+        assert!(index.reconcile("d", &[a, b]).unwrap().is_empty());
+        assert_eq!(index.entries("d").unwrap().len(), 2);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v11_database_gains_the_extractor_column_and_keeps_its_files_and_ratings() {
+        let dir = temp_dir("migrate-v11");
+        let db = dir.join("index.sqlite");
+        let a = file(&dir, "a.ARW", b"a");
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
+                         ('/rated.ARW', 'd', 4, 1, 1);
+                     ALTER TABLE files DROP COLUMN extractor;
+                     PRAGMA user_version = 11;",
+                )
+                .unwrap();
+        }
+
+        let mut index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 12);
+        assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
+        );
+        assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
 
         remove_temp_dir(&dir);
     }
@@ -1828,7 +1966,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -2443,7 +2581,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), None);
 
@@ -2474,7 +2612,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index
@@ -2512,7 +2650,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index
