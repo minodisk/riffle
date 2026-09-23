@@ -97,5 +97,5 @@ ragged list. Saving behaviour (`change` listeners on the inputs by id in
 
 ## Progress
 
-- 2026-09-24: Step 1 done (subgrid layout for #label-names, scoped as
+- (2026-09-24) Step 1 complete (subgrid layout for #label-names, scoped as
   `:not([hidden])`); visual check pending, see learnings.md
