@@ -55,8 +55,9 @@ const SCHEMA_VERSION: i64 = 12;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG parsing or
-/// embedded JPEG tier selection (`crates/core/src/arw.rs`), thumbnail
-/// generation, face detection or the sharpness score
+/// embedded JPEG tier selection (`crates/core/src/arw.rs`), which preview
+/// bytes are read (`crates/core/src/reader.rs`), thumbnail generation
+/// (`crates/core/src/decode.rs`), face detection or the sharpness score
 /// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts
 /// every row, error rows included, on the next scan of each folder, and keeps
 /// `ratings`. It starts at `1` so rows from before the column existed (`0`)

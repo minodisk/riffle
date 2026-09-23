@@ -507,9 +507,10 @@ retried.
 
 - Bump `EXTRACTOR_VERSION` (`crates/app/src/index.rs`) on any change to what
   `riffle_core::scan::extract` produces: ARW/DNG parsing or embedded JPEG tier
-  selection (`crates/core/src/arw.rs`), thumbnail generation, face detection
-  or the sharpness score (`crates/core/src/scan.rs`, `sharpness.rs`,
-  `faces.rs`).
+  selection (`crates/core/src/arw.rs`), which preview bytes are read
+  (`crates/core/src/reader.rs`), thumbnail generation (`crates/core/src/decode.rs`),
+  face detection or the sharpness score (`crates/core/src/scan.rs`,
+  `sharpness.rs`, `faces.rs`).
 - Bump `SCHEMA_VERSION` only when the table layout changes.
 - An extractor bump re-extracts every row, error rows included, on the next
   scan of each folder, and keeps `ratings`. Stale rows are deleted by
