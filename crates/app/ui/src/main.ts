@@ -1345,7 +1345,10 @@ function requestPreview(): void {
       }
       return previewPixelLimit.then((maxPixels) => {
         if (current !== seq) {
-          requestPreview();
+          // `inFlight` was already cleared above, and the page turn that
+          // invalidated this request already started its own
+          // `requestPreview()` from `show()`. Calling it again here would
+          // start a duplicate `preview` invoke for the same `seq`.
           return;
         }
         orientations.set(current, header.getUint16(2, true));
