@@ -29,5 +29,8 @@ tauri-plugin-window-state = "2"
 notify = "8.2.0"
 trash = "5.2.9"
 
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
 [dev-dependencies]
 mozjpeg = "0.10"

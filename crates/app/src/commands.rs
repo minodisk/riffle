@@ -11,6 +11,7 @@ use serde_json::Value;
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+#[cfg(target_os = "macos")]
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 
@@ -496,13 +497,16 @@ pub fn remember_folder(app: tauri::AppHandle, dir: String) {
     }
 }
 
-/// Open `dir` in the newest DxO PhotoLab installed under /Applications, the
-/// hand-off from culling to developing. PhotoLab's bundle name carries its
-/// major version (`DXOPhotoLab10.app`), so it is looked up rather than named.
+/// Open `dir` in the newest installed DxO PhotoLab, the hand-off from culling
+/// to developing. On macOS that is the `DXOPhotoLab<N>.app` bundle in
+/// /Applications; on Windows the `DxO.PhotoLab.exe` under the `InstallPath` of
+/// `HKLM\SOFTWARE\DxO\DxO PhotoLab <N>`. Both carry PhotoLab's major version,
+/// so it is looked up rather than named.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn open_in_photolab(app: tauri::AppHandle, dir: String) -> Result<(), String> {
     let names = std::fs::read_dir("/Applications")
-        .map_err(|e| e.to_string())?
+        .map_err(|_| "DxO PhotoLab is not installed")?
         .filter_map(|entry| entry.ok()?.file_name().into_string().ok());
     let photolab = newest_photolab(names).ok_or("DxO PhotoLab is not installed")?;
     app.opener()
@@ -510,7 +514,39 @@ pub fn open_in_photolab(app: tauri::AppHandle, dir: String) -> Result<(), String
         .map_err(|e| e.to_string())
 }
 
+/// `Command` rather than the opener's `open_path`, which hands the folder to
+/// `ShellExecuteExW` unquoted and so splits a path containing a space.
+#[cfg(windows)]
+#[tauri::command]
+pub fn open_in_photolab(dir: String) -> Result<(), String> {
+    use winreg::enums::HKEY_LOCAL_MACHINE;
+    use winreg::RegKey;
+
+    let not_installed = |_| "DxO PhotoLab is not installed".to_string();
+    let dxo = RegKey::predef(HKEY_LOCAL_MACHINE)
+        .open_subkey("SOFTWARE\\DxO")
+        .map_err(not_installed)?;
+    let key = newest_photolab_key(dxo.enum_keys().filter_map(Result::ok))
+        .ok_or("DxO PhotoLab is not installed")?;
+    let install_path: String = dxo
+        .open_subkey(key)
+        .and_then(|photolab| photolab.get_value("InstallPath"))
+        .map_err(not_installed)?;
+    std::process::Command::new(PathBuf::from(install_path).join("DxO.PhotoLab.exe"))
+        .arg(dir)
+        .spawn()
+        .map(drop)
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+#[tauri::command]
+pub fn open_in_photolab() -> Result<(), String> {
+    Err("DxO PhotoLab is not installed".into())
+}
+
 /// The `DXOPhotoLab<N>.app` name with the highest `N` among `names`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn newest_photolab(names: impl Iterator<Item = String>) -> Option<String> {
     names
         .filter_map(|name| {
@@ -519,6 +555,19 @@ fn newest_photolab(names: impl Iterator<Item = String>) -> Option<String> {
                 .strip_suffix(".app")?
                 .parse::<u32>()
                 .ok()?;
+            Some((version, name))
+        })
+        .max()
+        .map(|(_, name)| name)
+}
+
+/// The `DxO PhotoLab <N>` registry key name with the highest `N` among
+/// `names`, skipping the other DxO products registered next to it.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn newest_photolab_key(names: impl Iterator<Item = String>) -> Option<String> {
+    names
+        .filter_map(|name| {
+            let version = name.strip_prefix("DxO PhotoLab ")?.parse::<u32>().ok()?;
             Some((version, name))
         })
         .max()
@@ -1876,6 +1925,33 @@ mod tests {
             Some("DXOPhotoLab10.app")
         );
         assert_eq!(super::newest_photolab(std::iter::empty()), None);
+    }
+
+    #[test]
+    fn newest_photolab_key_picks_the_highest_photolab_version() {
+        let names = [
+            "DxO FilmPack 8",
+            "DxO PhotoLab 9",
+            "DxO PureRAW 5",
+            "DxO PhotoLab 10",
+            "DxO PureRAW 6",
+            "DxO PhotoLab X",
+            "DxO PhotoLab",
+        ]
+        .map(String::from);
+        assert_eq!(
+            super::newest_photolab_key(names.into_iter()).as_deref(),
+            Some("DxO PhotoLab 10")
+        );
+        let others = [
+            "DxO FilmPack 8",
+            "DxO PureRAW 6",
+            "DxO PhotoLab X",
+            "DxO PhotoLab",
+        ]
+        .map(String::from);
+        assert_eq!(super::newest_photolab_key(others.into_iter()), None);
+        assert_eq!(super::newest_photolab_key(std::iter::empty()), None);
     }
 
     use std::time::Duration;
