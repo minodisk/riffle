@@ -35,7 +35,7 @@ lone frames, and the answer must not depend on the filter or the sort.
   the burst's best frame is hidden, no displayed member is `best`; the bar
   still shows the ratio to that hidden best.
 - A single (not in a burst of >= 2) is compared with up to
-  `SHARPNESS_RADIUS` neighbouring singles on each side in capture order over
+  `SHARPNESS_RADIUS` neighboring singles on each side in capture order over
   all files; bursts are skipped entirely, filter and sort are ignored. A
   `null`-scored single still takes a window slot (as today).
 - The display stays as it is: ratio bar plus accent on the best, every tied
