@@ -175,6 +175,18 @@
       </div>
     </div>
     <div id="context-menu" role="menu" hidden></div>
+    <div id="format-dialog" role="dialog" aria-modal="true" aria-labelledby="format-title" hidden>
+      <div id="format-box">
+        <p id="format-title">Which software do you develop your photos in?</p>
+        <p>Riffle writes your ratings, picks and labels to the sidecar files it reads.</p>
+        <div id="format-choices">
+          <button type="button" data-format="xmp">Lightroom (XMP)</button>
+          <button type="button" data-format="dop">DxO PhotoLab (.dop)</button>
+        </div>
+        <p class="note">You can change this later in Settings.</p>
+        <p id="format-error" hidden></p>
+      </div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

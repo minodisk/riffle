@@ -6,7 +6,7 @@ to keep and what to throw away.
 - It reads only the JPEG previews embedded in the RAW files, so paging through a
   folder of thousands of shots never keeps you waiting.
 - Stars, picks / rejects and color labels are written to sidecar files that
-  DxO PhotoLab and tools that read XMP sidecars, such as Lightroom, can read.
+  tools that read XMP sidecars, such as Lightroom, and DxO PhotoLab can read.
   The RAW files themselves are never written.
 - There is no developing and no editing. It does one thing: choosing.
 
@@ -38,15 +38,17 @@ next time Riffle starts. For the other packages and the details, see
 
 ### First steps
 
-1. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
-2. Page through the shots with `↑` `↓`, give stars with `1`-`5` and reject with
+1. Choose your developing software (Lightroom or DxO PhotoLab) in the dialog
+   Riffle shows on its first launch; it can be changed later in Settings.
+2. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
+3. Page through the shots with `↑` `↓`, give stars with `1`-`5` and reject with
    `x`.
-3. When the focus is in doubt, press `z` for the 1:1 view and check the focus
+4. When the focus is in doubt, press `z` for the 1:1 view and check the focus
    point.
 
 Judgments are saved to the sidecars as you go, so there is nothing to save.
-When you are done, they are picked up by DxO PhotoLab and tools that read XMP
-sidecars.
+When you are done, they are picked up by tools that read XMP sidecars and by
+DxO PhotoLab.
 
 ## Features
 
@@ -108,10 +110,10 @@ Keys can be changed in `Riffle > Settings...`.
 
 ## Working with other software
 
-Judgments are saved in a sidecar file next to the RAW. The format is chosen in
-the settings:
+Judgments are saved in a sidecar file next to the RAW. The format is chosen on
+the first launch and can be changed in the settings:
 
-- **Lightroom (XMP)** (default): `FOO.ARW` gets `FOO.xmp`, the format Lightroom
+- **Lightroom (XMP)**: `FOO.ARW` gets `FOO.xmp`, the format Lightroom
   and others read. Picks and rejects are written as `xmpDM:good` and color
   labels as both `photoshop:LabelColor` and `xmp:Label`, the way Lightroom
   writes them. The name written to `xmp:Label` can be set per color in the
