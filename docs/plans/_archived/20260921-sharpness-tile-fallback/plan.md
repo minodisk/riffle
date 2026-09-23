@@ -18,17 +18,17 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 `riffle_core::sharpness::score_preview` scores a 256 px window around the
-focus point and falls back to the image centre when the file has none. A
+focus point and falls back to the image center when the file has none. A
 Leica DNG (no focus location) or a Sony frame shot in manual focus therefore
-gets the centre's sharpness, which is misleading whenever the subject is
-off-centre. After this work the window around the Sony AF `FocusLocation`
+gets the center's sharpness, which is misleading whenever the subject is
+off-center. After this work the window around the Sony AF `FocusLocation`
 (maker note 0x2027) is still scored as today, but a file without one, or a
 Sony frame taken in manual focus (maker note 0x201b `FocusMode == 0`), is
 scored as the maximum Laplacian variance over a grid of preview tiles, so a
 frame that is sharp anywhere ranks above a frame that is sharp nowhere.
 
 Scope: no user-facing setting, no change to the zoom/crop path
-(`partial::focus_point` and `decode_focus_crop` keep their centre fallback).
+(`partial::focus_point` and `decode_focus_crop` keep their center fallback).
 
 ## Decisions
 
@@ -49,11 +49,11 @@ Scope: no user-facing setting, no change to the zoom/crop path
   `~/Downloads/_DSC6978.ARW`, value 3). It is not encrypted. `arw.rs` has
   no `TYPE_BYTE` yet and `integer()` only accepts SHORT/LONG.
 - All 123 local sample ARWs are AF-C with a `FocusLocation`. Whether an MF
-  frame carries a (centred or stale) `FocusLocation` is unknown, which is
+  frame carries a (centered or stale) `FocusLocation` is unknown, which is
   why the routing is keyed on `FocusMode`, not on the presence of
   `FocusLocation`.
 - All local Leica M11-P DNGs carry no `FocusLocation` (only Leica
-  `FocusDistance`), so they take the centre fallback today.
+  `FocusDistance`), so they take the center fallback today.
 - Scores live in `files.sharpness` in the SQLite index and are recomputed
   only when the `files` rows are dropped (schema bump, v7 precedent) or the
   user clears the cache.
@@ -108,10 +108,10 @@ Scope: no user-facing setting, no change to the zoom/crop path
       2. without a focus location, an image sharp only in one corner scores
          higher than the same image blurred everywhere, and its score equals
          (within a small tolerance) `laplacian_variance` of the corner window
-      3. a Sony frame with a centred `FocusLocation` but `FocusMode == Manual`
+      3. a Sony frame with a centered `FocusLocation` but `FocusMode == Manual`
          scores the corner-sharp image through the tile path (score `> 0`),
          whereas the same `FocusLocation` in AF scores `< 1.0`
-    - `partial::focus_point`, `decode_focus_crop` and `crates/cli` behaviour
+    - `partial::focus_point`, `decode_focus_crop` and `crates/cli` behavior
       are unchanged
     - `mise run ci` passes
   - Implementation approach:

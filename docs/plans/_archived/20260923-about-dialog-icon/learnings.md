@@ -9,5 +9,5 @@
   land where they did. The target submenu is picked per platform (first
   submenu on macOS, `Help` elsewhere) and the swap reuses the Edit
   Undo/Redo guard (`MenuItemKind::Predefined` at index 0).
-- GUI behaviour (icon visible in macOS About panel / GTK dialog) can only be
+- GUI behavior (icon visible in macOS About panel / GTK dialog) can only be
   checked manually; CI proves compilation on all three OSes.

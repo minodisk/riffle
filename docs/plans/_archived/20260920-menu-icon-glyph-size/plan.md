@@ -39,7 +39,7 @@ content: the native template images carry internal padding, so their glyph
 covers ~16pt of a 19–20pt canvas, while `tools/macos/export-menu-icons.swift`
 draws the SF Symbol at `pointSize: 18` into an 18pt canvas. Worse, the
 configured symbol's reported `size` at `pointSize: 18` is 24x24 (gearshape),
-21x21 (arrow), 25x21 (folder), so the centred draw rect overflows the canvas
+21x21 (arrow), 25x21 (folder), so the centered draw rect overflows the canvas
 and the committed PNGs are clipped at the edges (folder ink is exactly
 edge-to-edge). muda does still resize every `Image`-backed item to an 18pt
 height, so the PNG's pixel size is irrelevant to the rendered size — but that
@@ -76,7 +76,7 @@ and nothing clips. `crates/app/src/main.rs` does not change.
     - `todo.md`: the item
       `### App: PNG-backed menu icons render larger than native ones` (and its
       `#### TODO` checkbox) is handed to the wrap-up's todo curation for
-      **deletion**, not rewording — this PR closes it. The neighbouring items
+      **deletion**, not rewording — this PR closes it. The neighboring items
       `### App: custom menu-item icons don't tint for dark mode` and
       `### App: `Open Folder…` has no macOS menu icon` are untouched.
     - `mise run ci` passes.
@@ -93,7 +93,7 @@ and nothing clips. `crates/app/src/main.rs` does not change.
     - Script restructuring: introduce a `canvasSize: CGFloat = 18` used for
       `pixels` and `rep.size`, and a separate glyph `pointSize` used only in
       `NSImage.SymbolConfiguration(pointSize:weight:)`. Keep the current
-      approach of centring the configured symbol's reported `size` rect in
+      approach of centering the configured symbol's reported `size` rect in
       the canvas, keep `weight: .medium`, the `#8E8E93` fill and the
       `.sourceAtop` tint. Keep it a few lines; no options or CLI arguments.
     - Expected ink at the chosen `pointSize: 14` (measured on this machine
@@ -162,8 +162,8 @@ and nothing clips. `crates/app/src/main.rs` does not change.
   rather than hand-edited in the implementation commit. In single-PR mode the
   wrap-up lands in the same PR, so the item disappears in this PR either way;
   the implementer should let `todo-curator` do it.
-- **Rasterisation drift.** Ink sizes were measured on macOS 26.6; a
-  different OS release may rasterise differently, which is why the committed
+- **Rasterization drift.** Ink sizes were measured on macOS 26.6; a
+  different OS release may rasterize differently, which is why the committed
   PNGs (not the script) are the source of truth. Regenerate and re-measure on
   the same machine in one go.
 - **The visual pass depends on the user.** The agent can prove the ink

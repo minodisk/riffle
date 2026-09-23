@@ -17,11 +17,11 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-macOS draws a custom `NSMenuItem` image in its own colours unless the image is
+macOS draws a custom `NSMenuItem` image in its own colors unless the image is
 marked a template image. muda never calls `setTemplate:` on a custom menu
 image, so Riffle's bundled menu PNGs (`Settings...`, `Undo`, `Open Folder…`,
-`Open Log Folder`) are exported with a baked-in neutral grey (`#8E8E93`) that
-reads differently from every neighbouring item: the OS-provided `Cut` /
+`Open Log Folder`) are exported with a baked-in neutral gray (`#8E8E93`) that
+reads differently from every neighboring item: the OS-provided `Cut` /
 `Copy` / `Paste` and the `NativeIcon`-backed items tint with the menu
 appearance, ours do not. This is the `todo.md` item
 `### App: custom menu-item icons don't tint for dark mode`.
@@ -43,7 +43,7 @@ API: the opt-in route would also need a Tauri fork to wire the flag through,
 whereas the unconditional one needs no Tauri change and no
 `crates/app/src/main.rs` change. That decision is settled.
 
-Once done, the bundled icons tint with the menu, the grey fill in the export
+Once done, the bundled icons tint with the menu, the gray fill in the export
 script is gone, and the fork patch is documented as a temporary bridge with a
 clear exit condition.
 
@@ -69,7 +69,7 @@ clear exit condition.
 
 ## Steps
 
-- [x] Step 1: Patch muda to the template-image fork, drop the grey fill from the icon export, regenerate the PNGs, update the guide
+- [x] Step 1: Patch muda to the template-image fork, drop the gray fill from the icon export, regenerate the PNGs, update the guide
   - Done when:
     - The workspace `Cargo.toml` has a `[patch.crates-io]` entry pointing
       `muda` at `https://github.com/minodisk/muda` with a comment stating what
@@ -86,9 +86,9 @@ clear exit condition.
       as template images. Canvas 18pt and glyph `pointSize` 12 are unchanged.
     - The three PNGs under `crates/app/icons/menu/` are regenerated with the
       script and committed; sampling a non-transparent pixel shows no baked
-      colour (alpha-only glyph).
+      color (alpha-only glyph).
     - `docs/agents/tauri-app.md` "Menu icons" section describes the fork patch,
-      why it exists and when it goes away, instead of the grey compromise;
+      why it exists and when it goes away, instead of the gray compromise;
       the one-line-fix note and the pointer to muda#413 carrying it opt-in
       stay.
     - `mise run ci` passes.
@@ -111,17 +111,17 @@ clear exit condition.
       change to `crates/app/Cargo.toml` or `crates/app/src/main.rs`.
     - `tools/macos/export-menu-icons.swift`: delete the `let color = …` line
       and the `color.set()` / `rect.fill(using: .sourceAtop)` pair; leave the
-      drawing, centring, `canvasSize`, `pointSize`, `scale` and `symbols`
+      drawing, centering, `canvasSize`, `pointSize`, `scale` and `symbols`
       untouched. Rewrite the last header paragraph (currently "The symbols are
-      drawn in a fixed neutral grey because …") to say the glyphs are drawn
+      drawn in a fixed neutral gray because …") to say the glyphs are drawn
       alpha-only because the muda fork marks the image as a template, so only
-      the alpha channel is used. Also drop "or colour" from the "rerun this
-      only when a symbol, its size, weight or colour changes" sentence and
+      the alpha channel is used. Also drop "or color" from the "rerun this
+      only when a symbol, its size, weight or color changes" sentence and
       update the "Last run on macOS …" line to the OS the regeneration runs
       on (`sw_vers`).
     - Regenerate: `swift tools/macos/export-menu-icons.swift`. Verify the
-      bounding box did not move (only colour should differ) and that a
-      non-transparent pixel has no colour: e.g. a throwaway Swift snippet
+      bounding box did not move (only color should differ) and that a
+      non-transparent pixel has no color: e.g. a throwaway Swift snippet
       reading `NSBitmapImageRep.colorAt(x:y:)` on an opaque pixel. Do not
       commit the check script.
     - `docs/agents/tauri-app.md`, section "Menu icons: native where one exists,
@@ -132,7 +132,7 @@ clear exit condition.
       the opt-in upstream route would need a Tauri fork too); the exit
       condition; that muda#413 carries the change opt-in upstream. Keep the
       "only when a symbol, its size or weight changes" regeneration note
-      (drop "colour") and the existing "Hit" bullet on glyph size. Keep the
+      (drop "color") and the existing "Hit" bullet on glyph size. Keep the
       link to the archived learnings heading so `lychee --include-fragments`
       still resolves.
     - Verification: `mise run ci`; then check port 1420 is free
@@ -180,12 +180,12 @@ clear exit condition.
 ## Progress
 
 - (2026-09-21) Step 1 complete: patched muda to the `minodisk/muda`
-  template-image fork via `[patch.crates-io]`, removed the `#8E8E93` grey fill
+  template-image fork via `[patch.crates-io]`, removed the `#8E8E93` gray fill
   from `tools/macos/export-menu-icons.swift`, regenerated the PNGs under
   `crates/app/icons/menu/`, and updated `docs/agents/tauri-app.md`'s "Menu
   icons" section to describe the fork patch and its exit condition. The user
   confirmed the tinting visually, then asked for five follow-ups that landed on
-  the same branch: `Move Rejected to Trash` moved off the colour
+  the same branch: `Move Rejected to Trash` moved off the color
   `NativeIcon::TrashFull` onto a bundled `trash.png`; the Settings icon changed
   from `gearshape` to `gear` to match the symbol reference apps use;
   `Reload Folder` gained `arrow.clockwise`; `Check for Updates…` moved off

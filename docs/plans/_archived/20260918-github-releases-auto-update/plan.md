@@ -155,7 +155,7 @@ available / install it", no crates.io publishing of `riffle-core` /
       **not** covered by the standing approval: when the check prints an
       `approval` line for one of them, stop and ask the user before
       dispatching `merger` with the approved flag. Everything else keeps the
-      report-only behaviour
+      report-only behavior
     - `.claude/skills/develop/SKILL.md` and `.claude/skills/pr/SKILL.md` § 6
       say the same thing in one sentence each and point at the reference
     - `check-merge-approval.sh` classifies `release-please-config.json`,

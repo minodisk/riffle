@@ -17,19 +17,19 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-Phase 6 records a judgement (`1`-`5`, `x`, `u`, `0`) in an XMP sidecar. The
+Phase 6 records a judgment (`1`-`5`, `x`, `u`, `0`) in an XMP sidecar. The
 user's downstream tool is DxO PhotoLab, which keeps its own sidecar,
 `<name>.ARW.dop`, and does not read `xmp:Rating="-1"` as a reject. Writing an
 XMP next to every RAW is noise for a user who only uses PhotoLab. This work
 adds `.dop` as a second sidecar format, behind a setting that selects **one**
 format at a time: Riffle reads and writes only the selected format, and
 ratings and rejects set in PhotoLab are read back from `.dop` when it is
-selected. The default stays XMP, so existing behaviour is unchanged until the
+selected. The default stays XMP, so existing behavior is unchanged until the
 user switches.
 
 Decisions settled with the user; do not reopen:
 
-1. Both directions when `.dop` is selected: Riffle's judgements are written
+1. Both directions when `.dop` is selected: Riffle's judgments are written
    to `.dop`, and PhotoLab's ratings/rejects are read from it.
 2. When a file has no `.dop`, Riffle creates a minimal one PhotoLab accepts.
    What "minimal" PhotoLab tolerates is unknown at planning time; the user
@@ -37,16 +37,16 @@ Decisions settled with the user; do not reopen:
    there.
 3. One format at a time, selected by a setting. **No** writing of both
    sidecars and no mtime reconciliation between them. When the setting
-   changes, the judgements are re-read from the newly selected format.
+   changes, the judgments are re-read from the newly selected format.
 
 Samples: five real PhotoLab 10.0.1 sidecars the user made (0001 pick, 0002
-reject, 0003 three stars, 0004 red colour label, 0005 three stars then back to
+reject, 0003 three stars, 0004 red color label, 0005 three stars then back to
 0). The relevant keys sit directly under `Sidecar.Source.Items[0]`:
 `ShouldProcess` (0 = pick, 1 = reject, 2 = unflagged), `Rating = 0..5`, and
 `ColorLabel = "Red"` (absent when there is no label). Line endings are LF with
 a single CRLF on the last line.
 
-Model mapping (Riffle has no colour label; pick is added in Step 4):
+Model mapping (Riffle has no color label; pick is added in Step 4):
 
 - Read: `ShouldProcess = 1` reads as a reject (`-1`), regardless of `Rating`;
   otherwise `Rating` `1`-`5` reads as stars and `Rating = 0` as `Some(0)`
@@ -158,9 +158,9 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
       `reconcile_sidecars_of`. There is no UI yet; the store file is edited
       by hand to test. A format is carried with each `Writer::set` / `set_now` (in
       `Message::Set` and the `Pending` map) rather than read by the thread,
-      so a judgement is written in the format selected when it was made.
+      so a judgment is written in the format selected when it was made.
     - Every existing sidecar test in `sidecar.rs` and `commands.rs` still
-      passes for XMP, and each gets a `.dop` counterpart where the behaviour
+      passes for XMP, and each gets a `.dop` counterpart where the behavior
       is format-specific: patch-in-place of a PhotoLab sidecar (the Step 1
       fixture), creation of the minimal template on a file with none,
       "clearing on a file with no sidecar writes nothing" (same rule as XMP),
@@ -198,12 +198,12 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
       (`DELETE FROM ratings WHERE dirty = 0`; `UPDATE ratings SET xmp_size =
       NULL, xmp_mtime_ns = NULL WHERE dirty = 1`), then emits a
       `sidecar-format` event with the new value. Dirty rows survive on
-      purpose: a judgement that never reached the old format is written into
+      purpose: a judgment that never reached the old format is written into
       the new one on the next open (rule 4), which is the user's most recent
       intent.
     - The frontend listens for `sidecar-format` and, when a folder is open,
       reopens it (`openDirectory(openDir, newFolderToken())`), so the strip
-      badges and the meta pane show the newly selected format's judgements.
+      badges and the meta pane show the newly selected format's judgments.
       With no folder open nothing happens.
     - An `Index` unit test covers the reset (clean rows gone, dirty rows kept
       with their stat cleared), and a `commands.rs` test covers "switch
@@ -237,7 +237,7 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
     is selected: XMP has no standard pick field, so with XMP selected `p`
     does nothing (no custom XMP property, no index-only pick).
   - Done when:
-    - Riffle's judgement model carries the pick separately from the stars
+    - Riffle's judgment model carries the pick separately from the stars
       (pick and stars coexist, as `ShouldProcess = 0` and `Rating` do in
       `.dop`); the index stores it (schema change handled per the existing
       `SCHEMA_VERSION` rules, without dropping dirty rows silently).
@@ -274,7 +274,7 @@ Model mapping (Riffle has no colour label; pick is added in Step 4):
     - `README.md`: the "Ratings and XMP sidecars" section is renamed to cover
       both formats and documents the setting (menu, default XMP, one format
       at a time, what a switch does to the index and to unwritten
-      judgements), the `.dop` mapping (`ShouldProcess` 0/1/2, `Rating`,
+      judgments), the `.dop` mapping (`ShouldProcess` 0/1/2, `Rating`,
       pick preserved, `ColorLabel` untouched, the two timestamps updated),
       the minimal template and which shape PhotoLab accepted, and the
       "confirmed / verified without a GUI / awaiting confirmation" split
@@ -316,7 +316,7 @@ PhotoLab gets them back); Riffle itself reads the file as `-1` either way.
 Alternative: also write `Rating = 0` on a reject, for parity with the XMP
 model. Not taken because it destroys information Riffle never displays. Note
 the asymmetry: Riffle's `u` (un-reject) writes `Rating = 0`, because in
-Riffle's model `u` means "no judgement"; a user who wants PhotoLab's stars
+Riffle's model `u` means "no judgment"; a user who wants PhotoLab's stars
 back should un-reject in PhotoLab.
 
 ### Index reset on a format switch versus a per-row format column
@@ -330,11 +330,11 @@ whose cost is one folder open. Not taken.
 
 ### Dirty rows on a switch
 
-Taken: a dirty judgement is written into the **new** format on the next open.
+Taken: a dirty judgment is written into the **new** format on the next open.
 Alternative: write it into the old format before switching (the drain does
 that for what is already queued in the writer; a row that is dirty because
 a previous write failed — read-only folder — would need the old format kept
-around). The chosen rule is simpler and the judgement is not lost either way;
+around). The chosen rule is simpler and the judgment is not lost either way;
 it just lands in the format the user just chose.
 
 ### The minimal `.dop` template
@@ -366,7 +366,7 @@ menu; a keyboard shortcut or a settings dialog were rejected as larger.
 
 GUI automation is impossible on this machine, so everything involving
 PhotoLab and the running app is **(manual)** for the user. Unit tests cover
-the byte-level behaviour on the five real samples; they cannot tell whether
+the byte-level behavior on the five real samples; they cannot tell whether
 PhotoLab agrees.
 
 ## Progress

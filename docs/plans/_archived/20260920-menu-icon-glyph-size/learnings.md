@@ -19,7 +19,7 @@
 - Mild surprise: `folder` leaves only 1px (0.5pt) of margin horizontally at
   `pointSize: 14`, which confirms the plan's decision that 14 is the largest
   shared size that does not clip it.
-- The script change is small because the old code already centred the
+- The script change is small because the old code already centered the
   configured symbol's reported `size` rect; only the rect's container had to
   become `canvasSize` while `pointSize` stayed the symbol configuration's.
 
@@ -65,13 +65,13 @@
 ### Visual pass: confirmed at `pointSize: 12`
 
 The user compared the menu in the running app and confirmed the icons now read
-at the same size as their neighbours, `Open Folder…`'s new `folder.png`
+at the same size as their neighbors, `Open Folder…`'s new `folder.png`
 included. `pointSize: 14` had been rejected in the same way one iteration
 earlier, so 12 is the settled value.
 
 ### Side experiment: muda's missing `setTemplate` is a one-line gap
 
-While the visual pass was open, the user asked whether the grey `#8E8E93`
+While the visual pass was open, the user asked whether the gray `#8E8E93`
 fill could be avoided. A throwaway spike answered it: muda 0.19.3 was copied
 to a scratchpad directory, one line added to `menuitem_set_icon` in
 `src/platform_impl/macos/mod.rs`
@@ -88,13 +88,13 @@ the fork stays on 0.19.3 rather than moving to 0.20.
 
 Result, confirmed visually: every bundled PNG icon tints with the menu
 appearance — white in dark mode, black in light mode — exactly like the
-OS-provided `Cut` / `Copy` / `Paste` items. The baked `#8E8E93` grey is
+OS-provided `Cut` / `Copy` / `Paste` items. The baked `#8E8E93` gray is
 ignored entirely, since a template image contributes only its alpha channel.
 
 Consequences worth acting on:
 
-- The grey fill in `tools/macos/export-menu-icons.swift` becomes dead weight
-  once the icons are templates, and the script can drop the colour step.
+- The gray fill in `tools/macos/export-menu-icons.swift` becomes dead weight
+  once the icons are templates, and the script can drop the color step.
 - No upstream issue asks for this. All 92 muda issues (open and closed) were
   checked; the nearest are #262 (missing Sequoia predefined items), #240
   (`Submenu::set_icon`) and #97 (Windows menu bar theming), none of them this.
@@ -111,7 +111,7 @@ in the meantime; that work is tracked separately from this plan.
 - **Upstream or fork muda for `setTemplate` on custom menu-item images.**
   The spike above proves a one-line change in muda 0.19.3's
   `menuitem_set_icon` (`nsimage.setTemplate(true)`) makes the bundled menu-icon
-  PNGs tint with the OS menu appearance instead of sitting at a fixed grey.
+  PNGs tint with the OS menu appearance instead of sitting at a fixed gray.
   The change needed: open an upstream PR against `tauri-apps/muda` adding that
   call, and — until it lands — adopt a `path`/`git`-patched fork of muda 0.19.3
   through `[patch.crates-io]` in `Cargo.toml`. Once the icons are templates,
@@ -120,7 +120,7 @@ in the meantime; that work is tracked separately from this plan.
   or `git` (a crates.io-to-crates.io patch is rejected) and must satisfy
   `tauri`'s `muda = "^0.19"`, so the fork stays on 0.19.3 rather than 0.20.
   Done when `Settings...`, `Undo`, `Open Folder…` and `Open Log Folder` tint
-  white in dark mode and black in light mode in the running app, and the grey
+  white in dark mode and black in light mode in the running app, and the gray
   fill step is gone from the export script. Related:
   `tools/macos/export-menu-icons.swift`, `Cargo.toml`,
   `crates/app/icons/menu/*.png`.

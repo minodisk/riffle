@@ -17,7 +17,7 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-The filter menu narrows the strip by pick flag, stars, colour label and the
+The filter menu narrows the strip by pick flag, stars, color label and the
 shooting settings, but not by whether a frame is portrait or landscape. When
 culling for a layout that needs one shape (a cover, a vertical feed, a
 double-page spread), the user has to eyeball every thumbnail. After this work
@@ -87,7 +87,7 @@ with the rest, and `Reset` clears it.
       as the label items: `role="menuitemcheckbox"`, `aria-checked="false"`,
       `data-orientation="portrait"` with text `Portrait`, and
       `data-orientation="landscape"` with text `Landscape`. No `.dot` icon
-      (that is the pick-flag / colour-label marker), and no heading, matching
+      (that is the pick-flag / color-label marker), and no heading, matching
       the other static groups.
     - `crates/app/ui/src/main.ts`: a `shownOrientations = new Set<Orientation>()`
       beside `shownFlags` / `shownStars` / `shownLabels`; the `filterItems`
@@ -104,7 +104,7 @@ with the rest, and `Reset` clears it.
     - `mise run ci` passes.
   - Implementation approach:
     - Frontend only; do not touch `crates/app/src` or `crates/core`.
-    - Keep `Judgement` as it is (rating / pick / label); the orientation is
+    - Keep `Judgment` as it is (rating / pick / label); the orientation is
       index data like `exif`, so it travels as a separate argument.
     - Style is already covered by the `#filter-menu button` rules in
       `crates/app/ui/style.css`; no CSS change is expected. If the two

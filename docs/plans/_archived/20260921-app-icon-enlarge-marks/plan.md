@@ -29,24 +29,24 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
 - Body: 824x824 rounded square at (100,100)-(924,924) with a ~185px corner
   radius (mask inset 2px, so the visible body spans 101-922), per the
   previous plan.
-- Green dot: colour-key bbox `(182, 206)-(247, 271)` (66x66 px), mask
-  centroid `(215.2, 239.4)`, colour ≈ `(112, 188, 96)`, flat fill, no
+- Green dot: color-key bbox `(182, 206)-(247, 271)` (66x66 px), mask
+  centroid `(215.2, 239.4)`, color ≈ `(112, 188, 96)`, flat fill, no
   shadow. Local background is dark navy ≈ `(1, 15-26, 65-103)`, a gentle
   gradient with film grain (per-channel sd ≈ 0.9 / 2.5 / 4.7 in a flat
   20x20 patch).
-- Yellow star: colour-key bbox `(764, 202)-(842, 277)` (79x76 px), mask
-  centroid `(804.0, 243.9)` (lower than the bbox centre because a 5-point
-  star is asymmetric), colour ≈ `(250, 188, 71)` with a lighter rim
+- Yellow star: color-key bbox `(764, 202)-(842, 277)` (79x76 px), mask
+  centroid `(804.0, 243.9)` (lower than the bbox center because a 5-point
+  star is asymmetric), color ≈ `(250, 188, 71)` with a lighter rim
   `(255, 216, 117)` on the left edge, no drop shadow. Local background runs
   from purple `(106, 2, 123)` above to red `(240, 9, 86)` below.
-- Colour keys that isolate each mark cleanly (alpha > 200 in both):
+- Color keys that isolate each mark cleanly (alpha > 200 in both):
   dot `g > 150 and r < 140 and g - r > 50`;
   star `r > 180 and g > 140 and b < 140 and r - b > 80`.
   (Do not run the star key over the whole image: it also matches the orange
-  wave in the centre. Restrict it to the star's bbox plus padding.)
+  wave in the center. Restrict it to the star's bbox plus padding.)
 - Because each mark is scaled about its own centroid, the enlarged mark is a
   superset of the original footprint (circle and star are both star-convex
-  about their centre). Prototyped in scratch: with the mask dilated by 1px
+  about their center). Prototyped in scratch: with the mask dilated by 1px
   before resizing, zero pixels of the old footprint (dilated by 1px) are left
   with new-mask alpha < 250 at 1.2x and 1.25x, for both marks. So **no
   background fill / inpainting is needed**: the old mark is completely
@@ -74,13 +74,13 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
       and yellow star are 1.25x their previous size (dot ≈ 82px across, star
       ≈ 99x95px) and their mask centroids are within 1px of
       `(215.2, 239.4)` and `(804.0, 243.9)` respectively (re-measure with the
-      colour keys above).
+      color keys above).
     - Every pixel outside the two pasted regions is byte-identical to the
       current `source.png` (compare with `ImageChops.difference` and check
       that its non-zero bbox lies within the union of the two paste boxes);
       in particular alpha, corners, margins and the gradient are unchanged.
-    - No rectangular crop edge or colour mismatch is visible around either
-      mark: `Read` a nearest-neighbour zoom of each mark (e.g. crop
+    - No rectangular crop edge or color mismatch is visible around either
+      mark: `Read` a nearest-neighbor zoom of each mark (e.g. crop
       (150,180,290,300) and (730,170,880,300), scaled 3x) and the full icon
       at 256px.
     - All icons under `crates/app/icons/` (`32x32.png`, `64x64.png`,
@@ -99,7 +99,7 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
       enough at this size. For each mark:
       1. Crop the bbox padded by 6px: dot `(176, 200, 254, 278)`, star
          `(758, 196, 849, 284)`.
-      2. Build an `L` mask from the colour key; record the mask centroid.
+      2. Build an `L` mask from the color key; record the mask centroid.
       3. Dilate the mask by 1px (`ImageFilter.MaxFilter(3)`) so the paste
          carries a 1px ring of the crop's own background, guaranteeing the
          old anti-aliased edge is covered.
@@ -122,7 +122,7 @@ Current state the plan is based on (measured with Pillow 12.3.0 on
   the body width). 1.2 was also verified clean but barely noticeable at Dock
   size; 1.3 starts to read as a different design.
 - **No background fill**: relying on "new mark ⊇ old mark" instead of
-  synthesising background is simpler and preserves the film grain exactly.
+  synthesizing background is simpler and preserves the film grain exactly.
   It only holds because the marks are scaled up about their own centroid;
   if a mark is later moved or shrunk, a fill step (fit a per-channel linear
   gradient over the bbox from a surrounding ring, add matching noise) would

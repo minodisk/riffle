@@ -44,7 +44,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
 
 ## Decisions (made by the user; not open)
 
-- A running scan is still refused — never cancelled, never queued.
+- A running scan is still refused — never canceled, never queued.
 - The button is disabled up front while a scan runs, with the reason shown,
   rather than looking pressable and then rejecting the press.
 - **In-flight feedback replaces the size line**: `Index cache: 6.3 MB` becomes
@@ -65,7 +65,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       already taken the entry and stored a newer one), and `scanning()` is
       false afterwards.
     - Unit tests in `commands.rs`'s `tests` module cover: (a) after a scan
-      task completes, `scanning()` is false; (b) after a scan is cancelled the
+      task completes, `scanning()` is false; (b) after a scan is canceled the
       superseding way (`scan_folder` takes the entry, sets the cancel flag,
       joins), the old task's own clean-up does not clear the newer scan's
       entry, and `scanning()` reflects the newer scan; (c) `preparing > 0`
@@ -131,7 +131,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       a settings window opened mid-scan.
     - Compute the bool under the `Scans` lock and emit while still holding
       it, at every site (`scan_folder`, `Preparing::drop`, `start_scan`, and
-      the scan task's `finish`): the mutex then serialises every `scan-state`
+      the scan task's `finish`): the mutex then serializes every `scan-state`
       emit in the order the state actually changed. This is required because
       `start_scan` and the scan task it spawns race for the same lock: on a
       fast or empty scan they can both reach an emit, and if either one were
@@ -153,7 +153,7 @@ takes seconds shows that it is happening; a refusal or error stays visible.
       `clearIndex.disabled` is true while a scan runs or a clear is in
       flight, and the note is visible exactly while a scan runs. When the
       scan ends the button re-enables without reopening the window.
-    - While a clear is in flight (after the dialog is confirmed, signalled by
+    - While a clear is in flight (after the dialog is confirmed, signaled by
       `index-clearing`), the `#index-size` line reads
       `Clearing the index cache…`; when the invoke resolves the normal
       `Index cache: <size>` line returns with the new figure. During the

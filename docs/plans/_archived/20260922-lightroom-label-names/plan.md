@@ -1,10 +1,10 @@
-# Lightroom Classic colour label names
+# Lightroom Classic color label names
 
 ## Purpose
 
 Lightroom Classic (verified on LrC 2026, Japanese UI, real files) decides a
-photo's colour label only from the `xmp:Label` string, matched against the
-names in the user's colour label set (Metadata > Color Label Set > Edit;
+photo's color label only from the `xmp:Label` string, matched against the
+names in the user's color label set (Metadata > Color Label Set > Edit;
 "Lightroom default" is Red/Yellow/Green/Blue/Purple in English and
 レッド/イエロー/グリーン/ブルー/パープル in Japanese). It ignores
 `photoshop:LabelColor` on read: an XMP with only `LabelColor="red"` gave no
@@ -14,14 +14,14 @@ user renamed their label set to English. LrC itself writes both
 (`xmp:Label="レッド"` + `photoshop:LabelColor="red"`).
 
 This answers the open question in `todo.md` ("App: the Lightroom 9.5.1
-round-trip check is still open"): Lightroom does not resolve the colour from
+round-trip check is still open"): Lightroom does not resolve the color from
 `LabelColor`, so the label-write approach is revised. The user tells Riffle
-the `xmp:Label` names their Lightroom uses: a per-colour name setting shown
+the `xmp:Label` names their Lightroom uses: a per-color name setting shown
 only while the XMP ("Lightroom") format is selected, with a Japanese-default
 preset and a reset to English. Writing uses the configured name for
 `xmp:Label` (still `LabelColor` in lowercase English); reading keeps
 `LabelColor` precedence and, when it is absent, maps a configured or English
-name back to the colour, so files written with custom names round-trip. The
+name back to the color, so files written with custom names round-trip. The
 settings window's format choices are renamed "Lightroom" (XMP) and
 "PhotoLab" (.dop) with the stored `sidecarFormat` values unchanged, and the
 README gains a Lightroom Classic section on how LrC picks up sidecar changes.
@@ -31,11 +31,11 @@ are unchanged since the `lightroom-xmp-flags-labels` plan, now archived).
 
 Decisions already taken (do not reopen):
 
-- `xmp:Label` = the configured name for the colour; `photoshop:LabelColor`
-  stays lowercase English. Default names are English (current behaviour).
+- `xmp:Label` = the configured name for the color; `photoshop:LabelColor`
+  stays lowercase English. Default names are English (current behavior).
 - Reading: `LabelColor` first; when absent, match `xmp:Label` against the
   configured names and the English defaults; a name matching neither is
-  still returned raw (today's behaviour, shows as grey "other").
+  still returned raw (today's behavior, shows as gray "other").
 - Persisted `sidecarFormat` values (`"xmp"` / `"dop"`) do not change; only
   the display names do.
 - Orange and Pink are not in Lightroom's five and have no name field; they
@@ -51,27 +51,27 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
     - `xmp.rs` (or `lib.rs`, next to `Flag`) has a `LabelNames` struct
       holding the `xmp:Label` string for each of Red, Yellow, Green, Blue,
       Purple (`Clone`, `Debug`, `PartialEq`, `Default` = English names), with
-      a lookup by canonical colour name (`"Red"` ... `"Purple"`, the strings
+      a lookup by canonical color name (`"Red"` ... `"Purple"`, the strings
       the app already passes) and a `japanese()` (or similarly named)
       constant for レッド/イエロー/グリーン/ブルー/パープル (the preset the
       settings UI offers; keeping it in core keeps the strings in one place).
     - `xmp::write_label(existing, label, names: &LabelNames)`: for one of the
-      five canonical colours, `xmp:Label` is `names`' string for it and
-      `LabelColor` is the lowercase English colour; for any other label
+      five canonical colors, `xmp:Label` is `names`' string for it and
+      `LabelColor` is the lowercase English color; for any other label
       (Orange, Pink, a foreign string) both are written as today.
     - `xmp::read_label(bytes, names: &LabelNames)`: `LabelColor` precedence
       unchanged; when `LabelColor` is absent or empty, an `xmp:Label` equal
       (trimmed) to a configured name or to an English default maps to the
-      canonical colour (`"Red"` ...); otherwise the raw string as today.
+      canonical color (`"Red"` ...); otherwise the raw string as today.
     - Tests: a sidecar written with the Japanese names carries
       `xmp:Label="レッド"` + `LabelColor="red"` and reads back as `"Red"`
       both with `LabelColor` present and with it stripped; a sidecar holding
       only `xmp:Label="Red"` (English) reads as `"Red"` under Japanese
-      names; `LIGHTROOM_LABELLED` with `LabelColor` stripped reads as
+      names; `LIGHTROOM_LABELED` with `LabelColor` stripped reads as
       `"Purple"` under Japanese names and raw `"パープル"` under English; a
       foreign name still reads raw; the existing byte-exact tests pass with
       `LabelNames::default()`; a `LabelNames` with an empty string for a
-      colour falls back to the English default (test it; the app's Step 2
+      color falls back to the English default (test it; the app's Step 2
       validation relies on it).
     - `cargo test -p riffle-core` and `mise run ci` pass.
   - Implementation approach:
@@ -87,14 +87,14 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
 - [x] Step 2: `labelNames` setting through the app: state, persistence, commands, parse and writer
   - Done when:
     - A `labelNames` key in the settings store persists the five names as a
-      JSON object keyed by lowercase colour (`{"red": "レッド", ...}`);
+      JSON object keyed by lowercase color (`{"red": "レッド", ...}`);
       missing or non-string / empty entries fall back to the English default
       (a helper like `auto_advance_setting` in `commands.rs`, unit-tested).
     - `load_settings` returns the names; `main.rs` manages an
       `AppLabelNames(Mutex<LabelNames>)` state next to `AppSidecarFormat`.
     - Commands `label_names` (returns the five names in the same JSON shape,
       plus the Japanese preset if Step 3 chooses to fetch it) and
-      `set_label_names(names)` (normalises, stores in state, persists under
+      `set_label_names(names)` (normalizes, stores in state, persists under
       `labelNames`, and makes the open folder re-read its XMP sidecars; see
       Trade-offs) are registered in `main.rs`' handler list.
     - `SidecarFormat::read_label` / `write_label` take the names and pass
@@ -103,7 +103,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
       writer's `write()` in `sidecar.rs` use the names.
     - The writer receives the names the way it receives `format`: a snapshot
       carried in `Writer::set` / `set_now` / `Message::Set`, so a change
-      after a judgement was queued does not rewrite it with a different
+      after a judgment was queued does not rewrite it with a different
       name.
     - Tests in `sidecar.rs` / `commands.rs`: an XMP write under Japanese
       names yields `xmp:Label="レッド"`; a folder holding a sidecar with
@@ -127,10 +127,10 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
       and "PhotoLab (.dop)" (values `xmp` / `dop` unchanged).
     - Under the Sidecar tab, a block visible only while the `xmp` radio is
       checked (hidden on `dop`; toggled in `showSidecarFormat` and the radio
-      change handler in `settings.ts`) has one text input per colour (Red,
-      Yellow, Green, Blue, Purple) labelled as the `xmp:Label` written for
-      that colour, a short note that they must match the names in
-      Lightroom's colour label set, a "Lightroom default (Japanese)" preset
+      change handler in `settings.ts`) has one text input per color (Red,
+      Yellow, Green, Blue, Purple) labeled as the `xmp:Label` written for
+      that color, a short note that they must match the names in
+      Lightroom's color label set, a "Lightroom default (Japanese)" preset
       button that fills レッド/イエロー/グリーン/ブルー/パープル, and a
       "Reset to English" button.
     - Values load from `label_names`, save through `set_label_names` on
@@ -161,7 +161,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
       XMP"); after import, LrC only re-reads a sidecar Riffle changed through
       Library > Synchronize Folder with "Scan for metadata updates"
       (restarting LrC does not re-read); import reads the XMP on first
-      import; colour labels need either LrC's label set named
+      import; color labels need either LrC's label set named
       Red/Yellow/Green/Blue/Purple or Riffle's label name setting matching
       the names in LrC's set (Japanese default preset provided).
     - README "Sidecar formats and software" adds `Adobe Lightroom Classic
@@ -171,13 +171,13 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
       unticked.
     - `docs/usage.md` "Ratings and sidecars" says `xmp:Label` carries the
       configured name (English by default) and `photoshop:LabelColor` the
-      lowercase English colour, and that a sidecar whose `xmp:Label` matches
-      a configured or English name is shown in that colour.
+      lowercase English color, and that a sidecar whose `xmp:Label` matches
+      a configured or English name is shown in that color.
     - `CLAUDE.md`'s layout sentence mentions the configurable `xmp:Label`
       names (`labelNames` key) next to `sidecarFormat`.
     - `todo.md`'s "App: the Lightroom 9.5.1 round-trip check is still open"
       item records the answer (Lightroom Classic 2026 does not resolve the
-      colour from `LabelColor`; the write approach was revised by this
+      color from `LabelColor`; the write approach was revised by this
       plan), ticks / removes the `LabelColor` sub-item, and keeps the folder
       open check (`D:\Photos\2026\2026-09-05`) only if the user has not run
       it; the wrap-up's todo curation may then close the heading.
@@ -195,7 +195,7 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
 - **Names reaching the writer thread**: a snapshot per `Message::Set`
   beside `format` (chosen: consistent with the format, no shared lock in
   the thread) vs. an `Arc<Mutex<LabelNames>>` the thread reads at write
-  time (fewer signature changes, but a judgement queued before a change is
+  time (fewer signature changes, but a judgment queued before a change is
   written with the new names).
 - **What a names change does to the open folder**: (a) reset the index's
   sidecar parse state (`Index::reset_sidecars`) and emit `sidecar-format`
@@ -207,12 +207,12 @@ Todo heading closed out by this plan (for the wrap-up's todo curation):
   must be `async` + `spawn_blocking`.
 - **Reading back after switching names**: matching configured + English
   names only means a file written under the Japanese names reads as raw
-  "レッド" (grey) once the user resets to English. Always matching the
+  "レッド" (gray) once the user resets to English. Always matching the
   Japanese preset too would avoid that but hard-codes one locale into the
   reader. Not taken.
 - **Empty or duplicate names**: an empty field falls back to English (LrC
   cannot match an empty name); duplicates are not rejected, the first
-  colour in Red..Purple order wins on read. Rejecting duplicates in
+  color in Red..Purple order wins on read. Rejecting duplicates in
   `set_label_names` is an option if stricter validation is wanted.
 - **Which Lightroom was verified**: the experiments were on Lightroom
   Classic 2026; the todo item and README checklist name Lightroom desktop

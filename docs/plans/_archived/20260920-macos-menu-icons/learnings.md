@@ -18,7 +18,7 @@
 ## Step 2
 
 - `NSImage.withSymbolConfiguration` returns the configured copy at the symbol's
-  natural size for the point size, which is not square, so the script centres
+  natural size for the point size, which is not square, so the script centers
   it in a square 36x36 px (`18 pt` at 2x) bitmap and tints it by filling the
   drawn rect with `.sourceAtop`. `NSBitmapImageRep.size` has to be set to the
   point size or the drawing comes out at 1x.

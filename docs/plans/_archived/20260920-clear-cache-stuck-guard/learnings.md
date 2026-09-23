@@ -11,7 +11,7 @@
   emitting `scan-done`, and `finish` only clears the entry when the stored id
   still matches. Step 2 can hang its `scan-state` emit off `finish`'s call site
   (after the lock is dropped).
-- Confirmed the new tests fail on the pre-fix behaviour, by temporarily
+- Confirmed the new tests fail on the pre-fix behavior, by temporarily
   rewriting `finish`'s body twice and re-running the tests:
   - `finish` as a no-op (what `main` does today: nothing ever clears `running`)
     → `a_finished_scan_leaves_no_scan_in_progress` fails
@@ -30,7 +30,7 @@
 - All four `scan-state` emit sites (`scan_folder`, `Preparing::drop`,
   `start_scan`, and the scan task's `finish`) compute `scanning()` under the
   `Scans` lock and emit while still holding it, so the mutex itself
-  serialises every emit in the order the state actually changed. There is no
+  serializes every emit in the order the state actually changed. There is no
   `publish_scan_state` helper; it was dropped once all sites converged on
   emitting under the lock.
 - `start_scan` and the scan task it spawns race for the same lock: on a fast
@@ -41,7 +41,7 @@
   leave the settings window stuck showing "scanning" forever. `start_scan`
   and the task's closure now emit `scan-state` directly (not through
   `publish_scan_state`) while still holding the `Scans` lock, so the mutex
-  itself serialises the two `app.emit` calls: the task cannot take the lock
+  itself serializes the two `app.emit` calls: the task cannot take the lock
   to emit until `start_scan` has stored `running` and emitted `true` under
   it, and vice versa if the task gets there first. `start_scan` never drops
   its guard mid-function, so `running` is always stored while the task is
@@ -72,10 +72,10 @@
   line would stay `Clearing the index cache…` forever on that path, so the
   `.catch` refetches `index_size` after writing the error to `#status`. The
   error itself stays in `#status`; nothing new clears it.
-- `#clear-index-note` is styled grey (`#aaa`) in `settings.css`, deliberately
-  not the red `#status` colour, because a running scan is a normal state.
+- `#clear-index-note` is styled gray (`#aaa`) in `settings.css`, deliberately
+  not the red `#status` color, because a running scan is a normal state.
 - Verified: `pnpm exec vp check`, `vp test`, `mise run fmt`, `mise run ci`.
-  Not verified: the GUI behaviour (disabled button, note, in-flight line, the
+  Not verified: the GUI behavior (disabled button, note, in-flight line, the
   native dialog), which needs the human run listed in Step 4.
 - `mise run ci` failed once on
   `index::tests::the_reader_does_not_wait_on_an_open_write_transaction`

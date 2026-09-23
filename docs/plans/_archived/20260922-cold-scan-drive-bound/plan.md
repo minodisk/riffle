@@ -110,7 +110,7 @@ target from the docs and code comments.
     - Follow the guide rule in `docs/agents/tauri-app.md` ("Write a
       performance number with its measurement conditions"): conditions inline
       with the new table; the NVMe workaround and the ~10ms-CPU / ~20ms-drive
-      split labelled as estimates.
+      split labeled as estimates.
     - Optional: "Opening an indexed folder again" says "on an internal SSD"
       for the same machine's warm second-open numbers; change only the drive
       phrase if it reads inconsistent.

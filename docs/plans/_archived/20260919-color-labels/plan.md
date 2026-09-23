@@ -13,13 +13,13 @@ After finishing a step, continue to the next without asking the user.
 </pr-rules>
 </plan-guide>
 
-# Colour labels
+# Color labels
 
 ## Purpose
 
 Riffle records stars, a reject and (with `.dop`) a pick, but has no notion of
-a colour label, and the README promises `ColorLabel` is never touched. This
-work adds the label as a third judgement field, read from and written to the
+a color label, and the README promises `ColorLabel` is never touched. This
+work adds the label as a third judgment field, read from and written to the
 selected sidecar format so a label set in Lightroom or PhotoLab shows on the
 strip, and a label set in Riffle shows in those tools. The label vocabulary
 and the keys follow the format selected in the `Sidecar` menu:
@@ -57,7 +57,7 @@ Current state the plan is based on:
 - `crates/app/src/sidecar.rs`: `SidecarFormat` dispatches to the two
   modules; the writer thread carries `(rating, pick, format, deadline)` per
   path; `write` composes `existing_sidecar` -> `format.write_rating` ->
-  temp file + rename, and skips a file with no sidecar when the judgement
+  temp file + rename, and skips a file with no sidecar when the judgment
   is empty.
 - `crates/app/src/index.rs`: `SCHEMA_VERSION = 3`, `ratings (path, dir,
   rating, pick, xmp_size, xmp_mtime_ns, dirty)`; `set_rating`,
@@ -77,11 +77,11 @@ Current state the plan is based on:
   handler returns early on `metaKey || ctrlKey || altKey`, then `switch`es
   on the action. The shortcuts plan's Steps 3-4 (rebind commands, panel)
   are not merged yet.
-- Frontend judgement state: `ratings` map and `picks` set mirrored in
+- Frontend judgment state: `ratings` map and `picks` set mirrored in
   `strip.ts`; `applyRating(path, rating, pick)`, `judge(next)`,
   `strip.setRating(index, rating, pick)`; the cell shows stars top-right
   (`span.rating`) and a pick/reject dot top-left (`span.flag`). The
-  judgement is shown nowhere else (README lines about a `Rating` row in
+  judgment is shown nowhere else (README lines about a `Rating` row in
   the meta pane are stale).
 
 Design decisions taken by this plan (the user's, 2026-09-19, where marked):
@@ -91,15 +91,15 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
 - The label is stored and carried as the raw string the sidecar holds
   (`Option<String>`), not an enum. Reading returns the raw bytes of the
   value and writing splices them back as-is, so a name from the other
-  vocabulary (Orange/Pink under XMP) or a localised Lightroom name
-  round-trips untouched with no escaping code; the frontend colours every
-  name it knows (all seven) and shows any other value grey. (user)
+  vocabulary (Orange/Pink under XMP) or a localized Lightroom name
+  round-trips untouched with no escaping code; the frontend colors every
+  name it knows (all seven) and shows any other value gray. (user)
 - Clearing removes the property (attribute, element or `.dop` line) rather
   than writing an empty value; an empty value is read as no label.
-- The writer always writes the whole judgement (rating, pick, label) from
+- The writer always writes the whole judgment (rating, pick, label) from
   the `ratings` row, as it already does for rating and pick, so a label
   keypress does not clobber stars and vice versa.
-- Keymap model: one action per colour (`red`, `orange`, `yellow`, `green`,
+- Keymap model: one action per color (`red`, `orange`, `yellow`, `green`,
   `blue`, `pink`, `purple`) plus `clearlabel`, format-independent names;
   only their **default keys** depend on the format (XMP: `6 7 8 9 -` on
   red/yellow/green/blue/purple, orange/pink/clearlabel unbound; `.dop`:
@@ -127,19 +127,19 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       none. `existing` `None` with `Some(label)` is the fresh template with
       the attribute; with `None` it is an error (the caller never mints a
       sidecar for "no label").
-    - `read_rating` / `write_rating` behaviour and every existing test are
+    - `read_rating` / `write_rating` behavior and every existing test are
       unchanged.
     - Unit tests: read attribute and element forms; absent and empty read
       as `None`; set on `BRIDGE` and `LIGHTROOM` changes only the value;
       insert into `NO_RATING`; clear removes the attribute and the element
       leaving everything else byte-identical; clear on a sidecar without
-      one is a no-op; rating a labelled sidecar keeps the label and
-      labelling a rated one keeps the rating (compose `write_rating` then
+      one is a no-op; rating a labeled sidecar keeps the label and
+      labeling a rated one keeps the rating (compose `write_rating` then
       `write_label`); a non-ASCII value and `"Orange"` round-trip
       byte-for-byte.
     - `mise run ci` passes.
   - Implementation approach:
-    - Generalise `locate` to take the property's local name (`"Rating"` /
+    - Generalize `locate` to take the property's local name (`"Rating"` /
       `"Label"`); `Location::Value` gains the range to remove (attribute
       including leading whitespace, or start tag through end tag) while
       `write_rating` keeps splicing only the value.
@@ -179,9 +179,9 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       correctly indented line before the item's closing brace and reads
       back; clearing 0004 and 0009 removes exactly the `ColorLabel` line
       and keeps all eight HSL `Label` lines, the trailing CRLF (0004) and
-      the LF ending (0009); rating after labelling and labelling after
+      the LF ending (0009); rating after labeling and labeling after
       rating keep each other; the existing
-      `patching_keeps_the_colour_label_and_the_label_decoys` still passes.
+      `patching_keeps_the_color_label_and_the_label_decoys` still passes.
     - `mise run ci` passes.
   - Implementation approach:
     - Add `color_label: Option<Range>` to `Doc` via `in_item("ColorLabel")`;
@@ -211,7 +211,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       v2 migration test still passes; `reset_sidecars` keeps a dirty row's
       label.
     - Callers in `commands.rs` / `sidecar.rs` pass `None` for now (or this
-      step merges with Step 4 if the intermediate is awkward). Behaviour
+      step merges with Step 4 if the intermediate is awkward). Behavior
       unchanged. `mise run ci` passes.
     - Note: Step 4 later bumped the schema again to v6 (`label_known`).
   - Implementation approach:
@@ -222,14 +222,14 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       migrations together.
     - The `(rating, pick)` tuples grow to three fields in `dirty_rows`,
       `ParsedSidecar`, the writer's `Pending` and `Message::Set`. Either
-      extend them or introduce one `Judgement { rating: Option<i8>, pick:
+      extend them or introduce one `Judgment { rating: Option<i8>, pick:
       bool, label: Option<String> }` in `index.rs`; pick whichever keeps
       the diff readable and use it consistently in Step 4.
 
 - [x] Step 4: Writer, reconcile and the `set_rating` command carry the label
   - Note: local review added a `label_known` flag to `set_rating` and a
     `ratings.label_known` column (schema v6, migrated in place from v5), so
-    a judgement made before the sidecar's label is known never strips it;
+    a judgment made before the sidecar's label is known never strips it;
     the writer reads the sidecar's current label in that case and
     `mark_written` stores it. Re-verified against "Done when" below.
   - Done when:
@@ -242,7 +242,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       a label written by PhotoLab or Lightroom is stored on folder open;
       `scan_folder` hands dirty rows' labels to `set_now`.
     - `set_rating(path, rating, pick, label: Option<String>)` accepts any
-      string or null (empty normalised to null) and stores it; XMP keeps it
+      string or null (empty normalized to null) and stores it; XMP keeps it
       (unlike `pick`).
     - Tests in `sidecar.rs`: a label alone mints an XMP and a `.dop`; a
       label on a Lightroom-shaped sidecar keeps the `crs:` block and the
@@ -278,7 +278,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       `ctrlKey && altKey && !metaKey`, the handler no longer returns early
       for that combination, and calls `preventDefault` when the key is
       bound. Dispatch for the eight new actions is present but Step 6 wires
-      the behaviour (until then the cases are a no-op, or Step 5 and 6
+      the behavior (until then the cases are a no-op, or Step 5 and 6
       merge as one PR if the reviewer prefers).
     - The overrides `Value` is kept in app state beside `AppKeymap` (e.g.
       `AppShortcutOverrides(Mutex<Option<Value>>)`), `load_settings` builds
@@ -314,29 +314,29 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       and `strip.ts`; `applyRating`, `judge`, `refilter`, `refreshEntries`,
       the folder-open clears and `strip.setRating` carry it; `set_rating`
       is invoked with `label`.
-    - The strip cell shows the label as a colour: seven CSS custom
+    - The strip cell shows the label as a color: seven CSS custom
       properties (`--label-red` ... `--label-purple`, matched
       case-insensitively on the name) next to `--stars-color`; any other
-      non-empty value uses a neutral grey; `title` on the element carries
-      the raw name. Where the colour goes (a tinted file-name strip like
+      non-empty value uses a neutral gray; `title` on the element carries
+      the raw name. Where the color goes (a tinted file-name strip like
       Lightroom's cell, or a thin bar along the cell's bottom edge) is
       decided in this step; it must not collide with the stars (top-right)
       or the dot (top-left).
     - `main.ts` dispatches the eight actions through `judge`, which becomes
-      a function of `(rating, pick, label)`: a colour action sets that name
-      (capitalised as the vocabulary spells it, `"Red"` etc.), or clears it
+      a function of `(rating, pick, label)`: a color action sets that name
+      (capitalized as the vocabulary spells it, `"Red"` etc.), or clears it
       when the file already has exactly that name (toggle); `clearlabel`
       clears; `clear` (`0`), `unflag`, `reject`, `pick` and the stars leave
       the label alone; the idempotence check compares the label too. The
-      colour actions are not gated on the format: an action the user bound
+      color actions are not gated on the format: an action the user bound
       under XMP (say `orange`) writes `"Orange"` to the XMP, which
       Lightroom shows as a custom label.
     - **(manual, GUI automation is unavailable)** the user confirms, with
       `.dop` on the PhotoLab folder and with XMP on any folder: the seven
-      fixtures show their colours on open; the keys set, replace and toggle;
+      fixtures show their colors on open; the keys set, replace and toggle;
       a rating after a label keeps it and PhotoLab / Lightroom show the
       label; clearing in Riffle clears it there; a label from the other
-      vocabulary shows its colour.
+      vocabulary shows its color.
     - `mise run ci` passes.
   - Implementation approach:
     - Assumes Steps 4-5 are merged. The existing `judge` callers pass the
@@ -349,7 +349,7 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       Ctrl+Alt rule; "Ratings and sidecars" describes `xmp:Label` and
       `ColorLabel` (vocabularies, toggle, removal on clear, raw string kept
       for foreign names), the schema migration rule, and drops the stale
-      "`ColorLabel` is never touched" / "no colour label" / meta-pane
+      "`ColorLabel` is never touched" / "no color label" / meta-pane
       `Rating` row sentences; the manual results of Steps 5-6 go in the
       "confirmed / awaiting the user's confirmation" split. The
       `shortcuts` documentation (from the shortcuts plan, if merged)
@@ -365,10 +365,10 @@ Design decisions taken by this plan (the user's, 2026-09-19, where marked):
       does nothing and `6` works; switching the `Sidecar` menu swaps them
       without a restart.
     - Step 6: with `.dop` on the PhotoLab folder and XMP on any folder, the
-      seven fixtures show their colours on open; the keys set, replace and
+      seven fixtures show their colors on open; the keys set, replace and
       toggle; a rating after a label keeps it and PhotoLab / Lightroom show
       the label; clearing in Riffle clears it there; a label from the other
-      vocabulary shows its colour; PhotoLab 10.0.2 re-reads a `.dop` after a
+      vocabulary shows its color; PhotoLab 10.0.2 re-reads a `.dop` after a
       label-only change.
 
 ## Trade-offs and risks
@@ -422,15 +422,15 @@ Both plans bump `SCHEMA_VERSION` from 3. The second to merge takes the next
 number and chains its migration; check `prepare`'s accepted-version list on
 rebase so two "v4" definitions cannot coexist.
 
-### Localised or foreign label names
+### Localized or foreign label names
 
-Round-trip byte-for-byte; coloured when the name is one of the seven, grey
-otherwise. Mapping localised Lightroom names is out of scope.
+Round-trip byte-for-byte; colored when the name is one of the seven, gray
+otherwise. Mapping localized Lightroom names is out of scope.
 
 ### Manual verification
 
 GUI automation is impossible on this machine (`docs/agents/tauri-app.md`),
-so the strip colour, the keys (especially ⌃⌥ digits and the format switch)
+so the strip color, the keys (especially ⌃⌥ digits and the format switch)
 and the PhotoLab / Lightroom round-trip are **(manual)**; unit tests cover
 read/patch for both formats and both indentation styles, the migration,
 the writer composition and the per-format keymap.

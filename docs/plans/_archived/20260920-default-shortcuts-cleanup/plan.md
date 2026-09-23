@@ -18,7 +18,7 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 The default keymap binds six keys each to previous / next, uses `Space` for
-the 1:1 zoom, and gives the colour labels different defaults under XMP
+the 1:1 zoom, and gives the color labels different defaults under XMP
 (Lightroom's `6`-`9`, `-`) and `.dop` (PhotoLab's `Ctrl+Alt+1`-`7`, `0`).
 Riffle's strip runs vertically, so only the up / down arrows are needed; `z`
 follows Lightroom for zoom; and one PhotoLab-style label keymap under both

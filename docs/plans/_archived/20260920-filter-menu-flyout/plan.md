@@ -18,7 +18,7 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 The filter menu opens from the filter button at the top of the 160px sidebar
-and drops straight down over the thumbnail strip: with the flag, star, colour
+and drops straight down over the thumbnail strip: with the flag, star, color
 label and EXIF groups it fills up to 70vh, so only the last two or three
 thumbnails stay visible. The point of the menu is to narrow the strip while
 watching what remains, and that result is hidden behind the menu itself.
@@ -29,7 +29,7 @@ The live update already exists: every toggle runs `filterChanged()` ->
 strip (`#position`) already reflects the match count. Only the placement is
 wrong. After this work the menu opens as a fly-out beside the sidebar, over
 the left edge of the viewer, so the whole strip stays visible and updates in
-front of the user while they toggle filters. Behaviour, state and the DOM are
+front of the user while they toggle filters. Behavior, state and the DOM are
 unchanged.
 
 ## Background (from investigation)
@@ -59,7 +59,7 @@ unchanged.
   - Done when: with a folder open, clicking the filter button opens the menu
     to the right of the sidebar (over the viewer's left edge), the strip
     underneath is fully visible and visibly narrows/widens as items are
-    toggled, every existing group (Reset, flags, stars, colour labels, the
+    toggled, every existing group (Reset, flags, stars, color labels, the
     EXIF groups) is reachable by scrolling the menu, outside-click and
     Escape still close it, the sort menu is unaffected, `mise run ci` passes,
     and the PR lists the manual checks for the user to confirm.
@@ -90,14 +90,14 @@ unchanged.
     - Manual verification list for the PR (GUI automation is unavailable):
       1. Open a folder with 20+ files; click the filter button: the menu
          opens right of the strip, the strip stays fully visible.
-      2. Toggle `Picked`, a star item, a colour label and an EXIF item: the
+      2. Toggle `Picked`, a star item, a color label and an EXIF item: the
          strip narrows immediately and the `N / M` counter updates while the
          menu stays open; untoggle and it widens.
       3. Scroll the menu to the last EXIF group (Focal length) in a short
          window (for example 700px tall): reachable, menu scrolls, strip
          still visible.
       4. Click a thumbnail while the menu is open: the menu closes and the
-         thumbnail is selected (unchanged behaviour).
+         thumbnail is selected (unchanged behavior).
       5. Escape closes the menu; the filter button stays lit while a filter
          is active.
       6. The menu paints above the viewer image and above the empty-state
@@ -111,7 +111,7 @@ unchanged.
   leaving it is the smaller diff. The cost is that the two adjacent toggles
   open their menus in different directions.
 - **The fly-out covers the viewer's left ~200px while open.** For a portrait
-  image centred in a wide viewer this is empty margin; for a landscape image
+  image centered in a wide viewer this is empty margin; for a landscape image
   it hides the left edge of the current photo while the menu is open. Accepted
   by the user for a culling tool (the viewer is the large, spare area; the
   strip is the one the filter is about), and the menu closes on any outside
@@ -121,7 +121,7 @@ unchanged.
 - **Clicking a thumbnail closes the menu.** Unchanged from today (outside
   `mousedown` closes). With the strip now visible, a user may want to click a
   thumbnail to inspect it while keeping the menu open. Keeping the menu open
-  on strip clicks would be a behaviour change and is out of scope here; note
+  on strip clicks would be a behavior change and is out of scope here; note
   it as a follow-up if the user asks for it.
 - **A live match count inside the menu** was considered and not planned: the
   `N / M` counter under the strip already updates on every toggle and is

@@ -18,7 +18,7 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 The current app icon (rounded-square gradient body with a green dot and a
-yellow star) is replaced by a design the user has already finalised as an
+yellow star) is replaced by a design the user has already finalized as an
 image: a single 2:3 portrait 35mm frame of the existing landscape on a black
 film base, inside the same rounded-square footprint as today. The edge
 printing is rotated like Kodak 35mm film (left edge: a hollow triangle with
@@ -37,7 +37,7 @@ It was composited by a one-off Pillow script (`tall.py` in the same scratchpad
 directory) from the current `crates/app/icons/source.png`. As with the two
 previous icon plans (`docs/plans/_archived/20260920-app-icon/`,
 `docs/plans/_archived/20260921-app-icon-enlarge-marks/`), the script is not
-committed; the image is the artefact.
+committed; the image is the artifact.
 
 Current state the plan is based on:
 
@@ -94,7 +94,7 @@ Current state the plan is based on:
 
 - **Script not committed**: matches the two previous app-icon plans. The
   Pillow script (`tall.py`) only exists in the session scratchpad; the
-  finished image is the artefact. If the design needs to be reproducible, the
+  finished image is the artifact. If the design needs to be reproducible, the
   alternative is to commit the script under `tools/`. Not planned.
 - **Scratchpad is ephemeral**: the source image lives in a session-specific
   temp directory. If it is gone when the step runs, the design cannot be

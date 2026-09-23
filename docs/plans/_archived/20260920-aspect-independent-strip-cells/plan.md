@@ -28,12 +28,12 @@ height instead. The virtual list (`--cell-height`, `strip.ts`) is untouched.
 
 ## Steps
 
-- [x] Step 1: Make `.cell img` a 144x144 box and keep the placeholder grey off the loaded thumbnail
+- [x] Step 1: Make `.cell img` a 144x144 box and keep the placeholder gray off the loaded thumbnail
   - Done when:
-    - `.cell img` in `crates/app/ui/style.css` is `width: 144px; height: 144px` with `object-fit: contain`, still centred at (72px, 72px) via `translate(-50%, -50%)`; `.cw`, `.ccw` and `.half` are unchanged
-    - A loaded 3:2 thumbnail (flat, `cw`, `ccw`, `half`) looks identical to before the change: 144x96 (or 96x144) with no grey band above/below or beside it. Verified by eye in the running app on an existing ARW/DNG folder
+    - `.cell img` in `crates/app/ui/style.css` is `width: 144px; height: 144px` with `object-fit: contain`, still centered at (72px, 72px) via `translate(-50%, -50%)`; `.cw`, `.ccw` and `.half` are unchanged
+    - A loaded 3:2 thumbnail (flat, `cw`, `ccw`, `half`) looks identical to before the change: 144x96 (or 96x144) with no gray band above/below or beside it. Verified by eye in the running app on an existing ARW/DNG folder
     - A loaded non-3:2 thumbnail fills the full 144px width (landscape) or 144px height (portrait). If no such file is at hand, verified by temporarily pointing an `<img>` with the same CSS at a 4:3 image in the dev server, or by reasoning from `object-fit: contain` in the PR description
-    - The not-yet-loaded placeholder is still visibly grey (`#2a2a2a`) on `#1c1c1c`; no grey shows outside a loaded thumbnail
+    - The not-yet-loaded placeholder is still visibly gray (`#2a2a2a`) on `#1c1c1c`; no gray shows outside a loaded thumbnail
     - The comment above `.cell img` ("The image box is 144x96 ...") describes the new rule: the box is the 144px square footprint, `object-fit: contain` scales any aspect into it, a 3:2 thumbnail lands at 144x96 exactly as before, and the quarter turns stay within the square so the cell height the virtual list depends on does not change
     - The "App: filmstrip cell geometry assumes 3:2 thumbnails" section (heading through its TODO list) is removed from `todo.md`
     - `--cell-height`, `--cell-gap`, `.cell` and `crates/app/ui/src/strip.ts` are not modified
@@ -57,7 +57,7 @@ height instead. The virtual list (`--cell-height`, `strip.ts`) is untouched.
 - **`img:not([src])` relies on `src` never being cleared.** True today
   (`strip.ts` recreates cells and only ever sets `src`). If a future change
   starts reusing cells and clearing `src`, the placeholder simply
-  reappears, which is the desired behaviour anyway.
+  reappears, which is the desired behavior anyway.
 - **No automated check of the rendering.** There are no CSS/visual tests;
   the acceptance is by inspection in the running app. Record what was
   looked at in the PR description.
@@ -68,10 +68,10 @@ height instead. The virtual list (`--cell-height`, `strip.ts`) is untouched.
 ## Progress
 
 - Step 1: Changed `.cell img` in `crates/app/ui/style.css` to a 144x144 box
-  with `object-fit: contain`, and moved the placeholder grey background to a
-  new `.cell img:not([src])` rule so a loaded thumbnail no longer shows grey
+  with `object-fit: contain`, and moved the placeholder gray background to a
+  new `.cell img:not([src])` rule so a loaded thumbnail no longer shows gray
   bands. Updated the comment above `.cell img` to describe the new rule.
   Removed the "App: filmstrip cell geometry assumes 3:2 thumbnails" section
   from `todo.md`. The by-eye acceptance checks (3:2 thumbnail unchanged,
-  non-3:2 thumbnail fills width/height, placeholder still grey) are left to
+  non-3:2 thumbnail fills width/height, placeholder still gray) are left to
   the user, per `learnings.md`.

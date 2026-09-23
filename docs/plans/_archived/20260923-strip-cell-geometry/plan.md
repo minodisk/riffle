@@ -44,9 +44,9 @@ sits inside its cell.
       unchanged, so members of one burst still fill the gap between each
       other.
     - Outline: `.cell` is `width: 146px` (144px padding box + 1px border each
-      side) and `left: 7px` so it stays centred in the 160px column; the
+      side) and `left: 7px` so it stays centered in the 160px column; the
       thumbnail is fully inside the border, and the white `.cell.current`
-      outline (and the grey `.cell.selected` one) is visible on all four sides.
+      outline (and the gray `.cell.selected` one) is visible on all four sides.
     - `mise run ci` passes.
   - Implementation approach:
     - All changes are in `crates/app/ui/style.css`; do not touch `burst.ts`,
@@ -55,7 +55,7 @@ sits inside its cell.
       `--cell-height`, never the cell width.
     - Burst gap: change the two edge offsets to `-2px`, keep the horizontal
       `-5px` overhang and the 6px corner radii, and update the comment above
-      `.cell.burst` to say the band stops short of the neighbouring burst.
+      `.cell.burst` to say the band stops short of the neighboring burst.
     - Outline: change `.cell { width: 144px }` to `146px`, `left: 8px` to
       `7px`, and add a short comment that the width is the 144px image box plus
       the border, since absolute children are placed against the padding box.
@@ -68,7 +68,7 @@ sits inside its cell.
   shrinking the image to 142px would break the documented 144x96 / 96x144
   sizing.
 - Not taken: widening `--cell-gap`. That changes every row height and the
-  virtual-list maths in `strip.ts` for a cosmetic fix.
+  virtual-list math in `strip.ts` for a cosmetic fix.
 
 ## Progress
 

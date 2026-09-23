@@ -17,25 +17,25 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-A photo can carry up to three independent judgements: stars or a reject
-(`ratings`, `1`-`5` / `-1`), a pick (`picks`, `.dop` only) and a colour
+A photo can carry up to three independent judgments: stars or a reject
+(`ratings`, `1`-`5` / `-1`), a pick (`picks`, `.dop` only) and a color
 label (`labels`). Clearing all of them today takes up to three keys (`0`,
 `u`, `Ctrl+Alt+0`), and the user asked for one action that removes every
 flag on the photo from its sidecar.
 
-The backend already treats the three as one judgement: `set_rating`
+The backend already treats the three as one judgment: `set_rating`
 (`crates/app/src/commands.rs`) takes `rating`, `pick` and `label` together,
 `Index::set_rating` (`crates/app/src/index.rs`) stores them in one row, and
 `sidecar::write` (`crates/app/src/sidecar.rs`) writes all three into one XMP
-or `.dop` sidecar in one atomic rename. Every judgement key in
+or `.dop` sidecar in one atomic rename. Every judgment key in
 `crates/app/ui/src/main.ts` goes through `judge(next)`, which records one
 undo batch. So this feature is a new keymap action, `clearall`, whose `judge`
 callback returns `[null, false, null]`, plus the tests that pin down the
-sidecar bytes such a judgement produces. No new Tauri command, no writer
+sidecar bytes such a judgment produces. No new Tauri command, no writer
 change and no schema change are needed.
 
 Riffle has no multi-select, so the action targets the current photo only,
-like every other judgement key.
+like every other judgment key.
 
 User decisions (2026-09-22):
 
@@ -46,22 +46,22 @@ User decisions (2026-09-22):
 - `clearall` always strips the label from the sidecar, even before
   `folder_entries` has told the frontend what label the file has: it sends
   `labelKnown: true` unconditionally.
-- No confirmation dialog; the action is undoable like every judgement.
+- No confirmation dialog; the action is undoable like every judgment.
 
 ## Steps
 
-- [x] Step 1: Pin down the "clear everything" judgement in the sidecar and index tests
+- [x] Step 1: Pin down the "clear everything" judgment in the sidecar and index tests
   - Done when:
     - `crates/app/src/sidecar.rs` has tests, for both `SidecarFormat::Xmp`
       and `SidecarFormat::Dop`, that start from an existing sidecar holding
       stars plus a label (and, for `.dop`, a pick plus a label, and a reject
-      plus a label), send one judgement of `rating: None, pick: false,
+      plus a label), send one judgment of `rating: None, pick: false,
       label: None, label_known: true` through `Writer`, and assert the
       written file reads back as `read_rating == None`, `read_pick == false`
       and `read_label == None` (`.dop` also neither picked nor rejected). The
       XMP case asserts the `xmp:Rating="0"` convention documented by
       `clearing_writes_zero_into_an_existing_sidecar` in `crates/core/src/xmp.rs`.
-    - A test asserts that the same judgement on a file with **no** sidecar
+    - A test asserts that the same judgment on a file with **no** sidecar
       writes nothing.
     - `crates/app/src/index.rs` has a test that `set_rating(dir, path, None,
       false, None, true)` on a row holding `Some(4), true, Some("Red")`
@@ -83,7 +83,7 @@ User decisions (2026-09-22):
       lists it and `the_defaults_bind_no_key_twice` still passes.
     - `crates/app/ui/src/main.ts` has a `case "clearall":` next to `"clear"`
       / `"clearlabel"` that calls `judge(() => [null, false, null])` and makes
-      `send` pass `labelKnown: true` for this judgement even when the
+      `send` pass `labelKnown: true` for this judgment even when the
       frontend does not yet know the file's label. It does not set `judged`,
       so Auto-advance does not fire.
     - `crates/app/ui/src/advance.test.ts` adds `"clearall"` to the "stays"
@@ -106,7 +106,7 @@ User decisions (2026-09-22):
 - [x] Step 3: Document the key
   - Done when:
     - `README.md` and `docs/usage.md` "Keys" tables have a row for `C`
-      (clear every flag: stars, reject, pick and colour label) next to the
+      (clear every flag: stars, reject, pick and color label) next to the
       `0` / `Ctrl+Alt+0` rows, and the `docs/usage.md` sentence about which
       keys leave the label alone mentions that `C` clears it too.
     - `mise run ci` passes (lychee link check included).

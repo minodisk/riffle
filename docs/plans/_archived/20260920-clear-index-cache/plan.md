@@ -56,10 +56,10 @@ turns the "measuring on your own folder" procedure in `README.md` into
   runs `VACUUM` if any row went. `used_bytes()` (private, line ~400) is
   `(page_count - freelist_count) * page_size`. "Clear everything" is
   `evict_folder` over every `folders` row, plus the `VACUUM`.
-- Dirty `ratings` rows are judgements that have not reached their sidecar
+- Dirty `ratings` rows are judgments that have not reached their sidecar
   (README: "the folder index is a cache, but it also holds unwritten
-  judgements"). `evict_folder` and `reset_sidecars` both keep them; a clear
-  must too, or it silently loses a judgement.
+  judgments"). `evict_folder` and `reset_sidecars` both keep them; a clear
+  must too, or it silently loses a judgment.
 - `commands::spawn_eviction` (`crates/app/src/commands.rs:674`) is the lock
   precedent: `Scans` lock first, then the writer lock (`index::lock(&index)`),
   and it returns without doing anything if `state.running.is_some()`.
@@ -203,12 +203,12 @@ turns the "measuring on your own folder" procedure in `README.md` into
       `Index cache: 1.2 GB` (the string from `index_size` verbatim) and a
       `Clear Cache` button, with a one-line explanation that clearing drops
       every cached thumbnail so the next open of a folder scans it again
-      (judgements are kept — they live in the sidecars).
+      (judgments are kept — they live in the sidecars).
     - The size is fetched with `index_size` when the window opens and again
       after a successful `clear_index`, so the figure visibly drops.
     - The button invokes `clear_index`; while it is in flight the button is
       disabled; an `Err` (including the running-scan refusal) is shown in
-      `#status` like every other settings error; `Ok(false)` (cancelled)
+      `#status` like every other settings error; `Ok(false)` (canceled)
       leaves the figure as is.
     - No formatting logic in TypeScript and no new frontend module: the
       backend string is displayed as-is.
@@ -226,7 +226,7 @@ turns the "measuring on your own folder" procedure in `README.md` into
     - `README.md`'s feature list gains a `Clear Cache` entry next to the
       other settings-window items (auto-advance, sidecar format) saying
       where it is, what it removes (thumbnails and cached metadata of every
-      folder; judgements are not touched), that the size shown uses the
+      folder; judgments are not touched), that the size shown uses the
       same units as the platform's file manager, and that a running scan has
       to finish first.
     - The "Measuring on your own folder" paragraph replaces the "quit and
@@ -295,9 +295,9 @@ turns the "measuring on your own folder" procedure in `README.md` into
 `reset_sidecars` do, and the command flushes the writer first so almost none
 remain. Consequence: the size after a clear is not exactly zero (a few KB of
 `ratings` rows and the schema), and a folder with a still-dirty rating keeps
-its `folders` row. Deleting them instead would lose a judgement that failed
+its `folders` row. Deleting them instead would lose a judgment that failed
 to reach its sidecar, which the README promises not to do. This is stated in
-the Cache panel's one-line explanation ("judgements are kept").
+the Cache panel's one-line explanation ("judgments are kept").
 
 ### How the size is computed, and what it includes
 

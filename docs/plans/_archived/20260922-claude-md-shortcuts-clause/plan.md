@@ -18,8 +18,8 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 The Layout section of `CLAUDE.md` says `crates/app/src/shortcuts.rs` holds "the
-default keys, whose colour label keys differ per sidecar format". That was true
-when colour labels landed (#118) but is no longer: `DEFAULTS` in
+default keys, whose color label keys differ per sidecar format". That was true
+when color labels landed (#118) but is no longer: `DEFAULTS` in
 `shortcuts.rs` is a single static table (`red`..`purple` = `ctrl+alt+1`..`7`,
 `clearlabel` = `ctrl+alt+0`), `Keymap::defaults()` takes no format argument,
 and the file never references `SidecarFormat`. Removing the clause keeps the
@@ -28,11 +28,11 @@ per-format keymap that does not exist.
 
 ## Steps
 
-- [x] Step 1: Remove the ", whose colour label keys differ per sidecar format" clause from CLAUDE.md
+- [x] Step 1: Remove the ", whose color label keys differ per sidecar format" clause from CLAUDE.md
   - Done when:
     - The `src/shortcuts.rs` description in the Layout section of `CLAUDE.md`
       reads "the keymap: the default keys and the user's overrides, persisted
-      in the `shortcuts` key" (or equivalent) with no mention of colour label
+      in the `shortcuts` key" (or equivalent) with no mention of color label
       keys differing per sidecar format
     - No other text in `CLAUDE.md` or `README.md` claims the default keys
       depend on the sidecar format (grep for "differ per sidecar" and
@@ -43,7 +43,7 @@ per-format keymap that does not exist.
     - Re-confirm before editing that `crates/app/src/shortcuts.rs` still has no
       `SidecarFormat` / `sidecar_format` reference and that `Keymap::defaults()`
       takes no argument
-    - Commit as `docs: drop the stale per-format colour label clause from CLAUDE.md`
+    - Commit as `docs: drop the stale per-format color label clause from CLAUDE.md`
 
 ## Trade-offs and risks
 

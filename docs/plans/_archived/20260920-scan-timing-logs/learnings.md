@@ -12,7 +12,7 @@
   `spawn_blocking` around `index::run_scan` plus two `emit` calls, so its wall
   time is `run_scan`'s time plus event emission; `run_scan` already logs the
   elapsed time together with `files` / `done` / `errors` / `threads` /
-  `cancelled`, which is strictly more informative. A second, nearly identical
+  `canceled`, which is strictly more informative. A second, nearly identical
   number would only make the log longer (the 40 KB rotation budget) and invite
   mis-reading.
 - `run_scan` now builds the `ScanSummary` into a local before returning it so

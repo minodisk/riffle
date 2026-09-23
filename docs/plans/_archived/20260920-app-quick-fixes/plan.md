@@ -30,7 +30,7 @@ and share no code:
 - **Folder open lists the directory twice.** `scan_folder` calls
   `list_arw_in` and then `reconcile_sidecars_of` calls `list_sidecars_in`, two
   `read_dir` passes over the same folder. `list_arw_in` is also the body of the
-  `list_arw` command and is used by ~14 tests, so it must keep its behaviour.
+  `list_arw` command and is used by ~14 tests, so it must keep its behavior.
 - **The SQLite index is never pruned or `VACUUM`ed.** `crates/app/src/index.rs`
   holds every folder ever opened at ~20.8 KB per row; `reconcile` only deletes
   rows for files that changed inside a folder being reopened, and nothing ever
@@ -54,7 +54,7 @@ step.
       records that v1 -> v2 was a header change; keep that convention).
       `CROP_HEADER_LEN` stays 32.
     - `crop_payload_header_encodes_every_field` asserts the two new fields, and
-      `a_synthetic_arw_crops_around_the_centre_without_a_focus_point` asserts
+      `a_synthetic_arw_crops_around_the_center_without_a_focus_point` asserts
       the full size is 400x300 for its gradient JPEG.
     - `drawZoom()` scales the placeholder from the header's full size when the
       crop for the current file (`crop.cropSeq === seq`) is present, and the
@@ -75,7 +75,7 @@ step.
       `CROP_KIND_RGBA_V2` constant/check to V3.
     - The placeholder is drawn before the crop arrives, so there is a window
       with no exact size. Keep the sensor fallback for that window only
-      (decided; see "Trade-offs"). Memoising per path is optional if the
+      (decided; see "Trade-offs"). Memoizing per path is optional if the
       flicker turns out visible.
     - `docs/agents/tauri-app.md` needs no change unless a new pitfall is hit.
 
@@ -85,7 +85,7 @@ step.
       RAW discovery and sidecar discovery combined; `list_sidecars_in` is
       removed (grep returns nothing) and `reconcile_sidecars_of` takes the
       sidecar map as a parameter instead of listing.
-    - `list_arw_in` keeps its signature and behaviour (`list_arw` command and
+    - `list_arw_in` keeps its signature and behavior (`list_arw` command and
       the existing tests untouched), still returning `Err` for an unreadable
       directory and skipping unreadable entries.
     - A new test in `commands.rs` builds a folder with mixed-case RAW files,
@@ -103,7 +103,7 @@ step.
       duplicating the filter/sort, factor the shared per-entry logic so
       `list_arw_in` becomes `list_folder_in`-with-no-sidecars or both call one
       internal iterator over `DirEntry`s. Either way `list_arw_in`'s public
-      behaviour is the acceptance criterion, not its body.
+      behavior is the acceptance criterion, not its body.
     - In `scan_folder`, the sidecar format is currently read *after* the
       listing (`let format = *index::lock(&app.state::<AppSidecarFormat>().0)`
       at line ~697); move that read before the listing so the single pass
@@ -134,7 +134,7 @@ step.
       measured 20.8 KB/row). Both constants are documented next to `BATCH` with
       the reasoning.
     - `ratings` rows with `dirty = 1` are never deleted (they are unwritten
-      judgements, per the `SCHEMA_VERSION` comment), and a folder with any
+      judgments, per the `SCHEMA_VERSION` comment), and a folder with any
       dirty row keeps its `folders` row so it is reconsidered next time.
     - `SCHEMA_VERSION` becomes 8; a v7 database migrates in place (no `files`
       drop: the current `version != 0 && version != SCHEMA_VERSION` drop
@@ -178,7 +178,7 @@ step.
   the frontend the full size once a crop has come back, so the first frame
   after zooming into a file that has never been cropped has no exact size.
   (a) Keep the sensor fallback for that transient window only (chosen). (b)
-  Also memoise full dims per path in the frontend. (c) Store the JPEG size in
+  Also memoize full dims per path in the frontend. (c) Store the JPEG size in
   the index (schema bump, rescan of every folder): rejected as far heavier
   than the todo item asks for.
 - **Step 1, header versioning.** Redefining the reserved word without bumping

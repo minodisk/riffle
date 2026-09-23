@@ -21,7 +21,7 @@
   are byte-identical before and after — `gearshape` (5,5)-(30,30),
   `arrow.uturn.backward` (7,7)-(27,29), `folder` (5,7)-(29,28) — while an
   opaque pixel went from `r=0.557 g=0.557 b=0.576` (the baked `#8E8E93`) to
-  `r=0 g=0 b=0`. Only the colour changed; geometry, canvas (18pt) and
+  `r=0 g=0 b=0`. Only the color changed; geometry, canvas (18pt) and
   `pointSize` (12) are untouched.
 - `sw_vers` on the regeneration machine: macOS 26.6.2 (25G83) — the same value
   the script's header already carried, so that line did not need editing.
@@ -47,15 +47,15 @@ The user confirmed in the running app (`mise run tauri:dev`) that the four
 PNG-backed menu items (`Settings...`, `Open Folder…`, `Undo`,
 `Open Log Folder`) now tint with the menu appearance — white in dark mode,
 black in light mode — and invert together with the label when an item is
-highlighted. That last part is what the baked `#8E8E93` grey could never do:
-a fixed-colour icon stayed grey while the row's text went white under the
+highlighted. That last part is what the baked `#8E8E93` gray could never do:
+a fixed-color icon stayed gray while the row's text went white under the
 highlight, which is where the mismatch was most visible.
 
 ### Scope addition: `Move Rejected to Trash` was the last untinted icon
 
 After the visual pass the user spotted that `Move Rejected to Trash…` alone
-stayed colour. Measured on this machine with a throwaway AppKit script:
-`NativeIcon::TrashFull` resolves to `NSTrashFull`, a 32x32 colour Finder icon
+stayed color. Measured on this machine with a throwaway AppKit script:
+`NativeIcon::TrashFull` resolves to `NSTrashFull`, a 32x32 color Finder icon
 with `isTemplate == false`, while every other icon in the menu is a template
 (`NSFollowLinkFreestandingTemplate`, `NSRefreshTemplate`, and the bundled PNGs
 via the muda fork). So it did not follow dark/light mode, did not invert under
@@ -68,9 +68,9 @@ the row highlight, and carried a different visual density.
 - Bounding boxes (36x36 canvas, alpha-only, opaque pixel `r=g=b=0`, no edge
   contact): `gearshape` (5,5)-(30,30), `arrow.uturn.backward` (7,7)-(27,29),
   `folder` (5,7)-(29,28), `trash` (6,5)-(29,31). The new icon sits in the same
-  size band as its neighbours.
-- **General lesson**: a `NativeIcon` is only a good neighbour if its underlying
-  `NSImage` is a template image. The colour Finder-style ones (`NSTrashFull`,
+  size band as its neighbors.
+- **General lesson**: a `NativeIcon` is only a good neighbor if its underlying
+  `NSImage` is a template image. The color Finder-style ones (`NSTrashFull`,
   `NSTrashEmpty`, `NSFolder`) are not, so they clash in a menu whose other
   icons tint. Check `isTemplate` before reaching for a `NativeIcon`.
 
@@ -97,7 +97,7 @@ lists `"gear"` and `crates/app/icons/menu/gearshape.png` is gone.
 With `Move Rejected to Trash…` and `Settings...` settled, `Reload Folder` was
 the only menu item Riffle owns that still had no icon at all. Added
 `"arrow.clockwise"` to the export script's `symbols` and switched the item to
-the `IconMenuItem::with_id` / `MenuItem::with_id` `cfg` pair its neighbours
+the `IconMenuItem::with_id` / `MenuItem::with_id` `cfg` pair its neighbors
 use; its id, label, enabled state and `CmdOrCtrl+R` accelerator are unchanged.
 
 - Symbol choice: `arrow.clockwise`, the plain circular-refresh symbol. Ghostty
@@ -113,7 +113,7 @@ use; its id, label, enabled state and `CmdOrCtrl+R` accelerator are unchanged.
   arrowhead pointing left. The silhouettes differ at a glance.
 - Bounding boxes (36x36 canvas, alpha-only, no canvas-edge contact): `gear`
   27x26, `arrow.uturn.backward` 21x23, `folder` 25x22, `trash` 24x27,
-  `arrow.clockwise` 21x26. In line with its neighbours; no `pointSize` change.
+  `arrow.clockwise` 21x26. In line with its neighbors; no `pointSize` change.
   The other four PNGs came out byte-identical (unchanged in `git status`).
 - **CI failure**: moving the last macOS-side `MenuItem::with_id` to
   `IconMenuItem` left `use tauri::menu::MenuItem;` unused on macOS
@@ -132,7 +132,7 @@ Ghostty uses the same symbol for its Check for Updates item.
 
 - **Lesson**: when adding a menu icon, look at every icon in the app's menus
   together, not just the item being changed. A symbol that is right in
-  isolation can collide with a neighbour's meaning, and the collision is only
+  isolation can collide with a neighbor's meaning, and the collision is only
   visible with the whole menu in view. The previous addition picked
   `arrow.clockwise` on its own merits and never compared it with the
   `NativeIcon`-backed items, which is exactly how the duplicate slipped in.

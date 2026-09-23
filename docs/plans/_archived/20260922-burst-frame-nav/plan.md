@@ -36,7 +36,7 @@ position counter.
     - `crates/app/ui/src/burst.ts` exports a pure helper (e.g.
       `burstFrameStep(ids, current, direction)`) with the same signature
       shape as `burstStep`: over the displayed files' burst ids it returns
-      `current ± 1` when that neighbour has the same id, else `current`
+      `current ± 1` when that neighbor has the same id, else `current`
     - `crates/app/ui/src/burst.test.ts` covers: stepping down and up inside a
       burst, clamping at the first and last displayed member, a singleton
       (unique id) is a no-op in both directions, `[]` is a no-op, and ids
@@ -125,7 +125,7 @@ position counter.
       `prefers-color-scheme` rules in `style.css`); a translucent white tint
       (e.g. `rgba(255, 255, 255, 0.08)`-ish) is legible on the dark
       background and would also survive a future light theme better than a
-      fixed grey. Measure by eye that a band is distinguishable from a
+      fixed gray. Measure by eye that a band is distinguishable from a
       `.cell.current` `#333` background and from `.cell.failed`
     - Badge placement: the top-right corner is taken by `span.rating` and
       the left edge by `span.sharpness`; put the count badge top-left

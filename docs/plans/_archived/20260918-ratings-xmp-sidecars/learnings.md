@@ -180,7 +180,7 @@ ARWs, and nothing here says anything about how the app feels.
   belongs to; after a folder change the map has already been cleared.
 - Not verified here: everything in this step that needs a running window.
   GUI automation is denied on this machine, so the README lists the Phase 6
-  behaviours under "Awaiting the user's confirmation".
+  behaviors under "Awaiting the user's confirmation".
 
 ## Deferred issues (todo candidates)
 

@@ -13,17 +13,17 @@ After finishing a step, continue to the next without asking the user.
 </pr-rules>
 </plan-guide>
 
-# Undo for judgements
+# Undo for judgments
 
 ## Purpose
 
-A mistaken star, flag or colour label can only be fixed today by navigating
-back to the file and re-keying it (`todo.md`, "App: no undo for judgements").
+A mistaken star, flag or color label can only be fixed today by navigating
+back to the file and re-keying it (`todo.md`, "App: no undo for judgments").
 Once auto-advance lands the mistake is already off screen. `Edit > Undo`
-(`CmdOrCtrl+Z`) reverts the most recent judgement, returns to that file, and
+(`CmdOrCtrl+Z`) reverts the most recent judgment, returns to that file, and
 writes the restored state to the sidecar through the normal `set_rating`
 path, so the index and the sidecar writer thread see it like any other
-judgement.
+judgment.
 
 Findings that shape the plan (2026-09-19):
 
@@ -47,32 +47,32 @@ Findings that shape the plan (2026-09-19):
   it touches `index`, so navigating to the undone file must be explicit.
 
 Redo (`Shift+CmdOrCtrl+Z`) is out of scope: it needs a second stack and rules
-for invalidating it on the next judgement, which is not trivial, and nothing
+for invalidating it on the next judgment, which is not trivial, and nothing
 in the todo asks for it. The predefined Redo item is removed with Undo so the
 Edit menu does not advertise a redo that does nothing.
 
 ## Steps
 
-- [x] Step 1: `Edit > Undo` reverts the last judgement and returns to its file
+- [x] Step 1: `Edit > Undo` reverts the last judgment and returns to its file
   - Done when:
     - The `Edit` submenu shows a custom `Undo` item with the `CmdOrCtrl+Z`
       accelerator in place of the predefined Undo and Redo items, on every
       platform (`crates/app/src/main.rs::app_menu`). Clicking it or pressing
       the accelerator emits an `undo` event to the main window.
     - In the main window, an undo pops the most recent history entry, restores
-      that file's previous rating, pick flag and colour label through the same
+      that file's previous rating, pick flag and color label through the same
       local-apply + `set_rating` invoke path `judge` uses (so `touched`, the
       strip cell, the meta pane, the filter and the sidecar writer all see it),
       and makes that file current (strip and preview), including when it is
       not the file currently shown. Repeated presses walk further back, one
-      judgement per press, across files.
+      judgment per press, across files.
     - The history is per open folder: `openDirectory` clears it (this also
       covers the sidecar-format switch, which reopens the folder), and its
       depth is bounded (e.g. 100 entries, oldest dropped). An undo itself
       pushes nothing (no redo). Undo with an empty history does nothing.
-    - A judgement whose `set_rating` invoke fails (and is reverted by the
+    - A judgment whose `set_rating` invoke fails (and is reverted by the
       existing catch) is removed from the history, so an undo does not "revert"
-      a judgement that never happened.
+      a judgment that never happened.
     - When the undone file is hidden by the active filter after restoring its
       state, the filter and the current file are left alone and the status
       line says so (e.g. `Undid <name> (hidden by the filter)`). Decided by
@@ -80,7 +80,7 @@ Edit menu does not advertise a redo that does nothing.
     - `README.md`: the Features list gets an Undo bullet (menu item,
       accelerator, what is restored, per-folder history, no redo) and the Keys
       table gets a `CmdOrCtrl+Z` row; `todo.md`'s "App: no undo for
-      judgements" section is removed.
+      judgments" section is removed.
     - `docs/agents/tauri-app.md`'s "App items go into the default menu's own
       submenus" item notes that `Edit` ships a predefined Undo/Redo pair which
       is replaced, not added to.
@@ -106,7 +106,7 @@ Edit menu does not advertise a redo that does nothing.
       `{ path, rating, pick, label }` (the previous state) pushed in `judge`
       right where `previous` / `previousPick` / `previousLabel` are computed,
       after the idempotence early return. In the invoke `.catch`, drop that
-      entry by identity (later judgements may have been pushed since). Listen
+      entry by identity (later judgments may have been pushed since). Listen
       to `undo` with `window.__TAURI__.event.listen` next to the
       `open-in-photolab` listener; the handler guards with `openDir !== null`
       and `allFiles` membership (the listener outlives every folder, see the
@@ -149,7 +149,7 @@ Edit menu does not advertise a redo that does nothing.
   left as a dead native item.
 - **`set_rating` under XMP drops picks** (`pick && format == Dop`), so an undo
   under XMP that restores `pick: true` is silently clamped by the backend, as
-  any keypress would be. Not a new behaviour.
+  any keypress would be. Not a new behavior.
 
 ## Progress
 

@@ -89,7 +89,7 @@ Current state the plan is based on:
     - Keep `#status` outside the panels so an error is visible regardless of
       the active tab; keep the `.actions` Reset-all row inside the Shortcuts
       panel.
-    - CSS: generalise `#debug[hidden]` to `[hidden] { display: none }` so
+    - CSS: generalize `#debug[hidden]` to `[hidden] { display: none }` so
       panels and the Debug tab button hide reliably; style the tab bar as a
       simple row of buttons (selected one highlighted, matching the existing
       `#222` / `#333` / `#444` palette). Drop the per-section `<h2>` inside

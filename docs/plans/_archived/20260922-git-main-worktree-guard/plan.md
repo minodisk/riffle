@@ -25,7 +25,7 @@ runs the task from `~/.herdr/worktrees/riffle/...` worktrees, so
 out, leaving its index and working tree stale (staged reverse diffs, and
 `git pull` fails with "Your index contains uncommitted changes"). The task's
 own description and `.claude/agents/merger.md` already promise "unless another
-worktree holds it"; this makes the task actually honour that promise.
+worktree holds it"; this makes the task actually honor that promise.
 
 ## Steps
 
@@ -57,7 +57,7 @@ worktree holds it"; this makes the task actually honour that promise.
       unchanged and the notice appears; then with no worktree on `main`, confirm
       `main` moves.
     - Docs: `.claude/agents/merger.md` and the task `description` already
-      describe this behaviour accurately; no change needed.
+      describe this behavior accurately; no change needed.
     - Commit: `fix(mise): skip fast-forwarding main when any worktree has it checked out`
 
 ## Trade-offs and risks

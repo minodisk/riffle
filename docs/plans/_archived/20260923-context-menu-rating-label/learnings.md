@@ -2,9 +2,9 @@
 
 ## Step 1
 
-- `labels` in `main.ts` stores the capitalised label name (`"Red"`), while the
+- `labels` in `main.ts` stores the capitalized label name (`"Red"`), while the
   action names are lower-case (`red`); the checked test compares against the
-  capitalised name.
+  capitalized name.
 - The menu buttons use `role="menuitemradio"` since `aria-checked` is not a
   valid attribute on a plain `menuitem`.
 - A rating of `0` (as well as `null`) counts as "No stars".

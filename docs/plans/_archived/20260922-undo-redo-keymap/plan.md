@@ -194,7 +194,7 @@ It also records the 2026-09-22 Windows manual check results in `todo.md`.
 - **Removing the Z combinations from the menu lists changes what overrides
   are accepted.** A stored override binding `ctrl+z` to another action was
   refused before, so none can exist; after this change such a binding is
-  refused instead by the "bound to undo" conflict rule, so behaviour for
+  refused instead by the "bound to undo" conflict rule, so behavior for
   existing stores is unchanged.
 - **Windows `refresh` patch-in-place for Edit items** is reasoned from the
   existing lookup code, not run. If `Submenu::get` on the Edit submenu does

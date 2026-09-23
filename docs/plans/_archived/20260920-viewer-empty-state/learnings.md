@@ -13,8 +13,8 @@
 ## Step 2
 
 - The `"No RAW (ARW/DNG) files in that folder."` meta-pane note is **removed**.
-  The overlay now says the same thing in the centre of the viewer, in the same
-  grey, and `note` is a transient line for errors and the scan progress; two
+  The overlay now says the same thing in the center of the viewer, in the same
+  gray, and `note` is a transient line for errors and the scan progress; two
   copies of one sentence on screen at once only risks them drifting apart.
   `openDirectory` now just clears the status (`setStatus()`).
 - `keyBindings` (the `Binding[]` last applied) is declared next to
@@ -26,7 +26,7 @@
   match the viewer box that `draw()` and `drawZoom()` size against.
 - Not verified interactively: `mise run tauri:dev` cannot be driven from this
   environment (no interactive session, no way to click the overlay or rebind a
-  key in the settings window). The behaviour was checked by reading the code
+  key in the settings window). The behavior was checked by reading the code
   paths only; a human run of the plan's manual checklist is still outstanding.
 - Step 3: the README "Features" paragraph gained one sentence about the
   clickable prompt shown when no folder is open. The "no files" / "filtered"

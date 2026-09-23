@@ -22,7 +22,7 @@ The macOS menu bar mixes two icon sources: muda's `NativeIcon` for
 under `crates/app/icons/menu/` for `Settings...`, `Open Log Folder` and
 `Undo`. The goal was to move `Settings...` and `Undo` onto OS-provided
 template images (`NSActionTemplate`, `NSTouchBarRotateLeftTemplate`) so they
-tint with dark mode and menu highlight like their neighbours, and to drop the
+tint with dark mode and menu highlight like their neighbors, and to drop the
 two PNGs from the repo. That needs muda's `NativeIcon::Raw` /
 `NativeIcon::from_name`, added in muda 0.20.0.
 
@@ -122,7 +122,7 @@ later, the swap is a single PR:
   (see below), so `use tauri::image::Image;` and the `image-png` Tauri
   feature in `crates/app/Cargo.toml` remain in use — do not remove them.
 - `Open Log Folder` keeps `folder.png` **on purpose**: the only built-in
-  candidate, `NSFolder`, is a colour Finder folder (`isTemplate == false`),
+  candidate, `NSFolder`, is a color Finder folder (`isTemplate == false`),
   which would clash with the surrounding template icons. Reviewers should
   not "fix" this.
 - `tools/macos/export-menu-icons.swift` (line 21,

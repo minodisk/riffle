@@ -22,7 +22,7 @@
   `strip.setRating`, and `crates/app/ui/src/strip.ts` draws the flag dot
   from the `picks` set with no format check. So after a Dop -> Xmp switch,
   a dirty row that keeps `pick = 1` and is replayed on the next open would
-  show its dot in XMP mode until a sidecar re-read or a new judgement.
+  show its dot in XMP mode until a sidecar re-read or a new judgment.
   Not data loss (XMP never stores a pick), and the user chose the plain
   drop over `reset_sidecars(format)` knowing of this residual.
 

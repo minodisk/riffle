@@ -74,7 +74,7 @@ None.
   TS2307 on `import ... from "vitest"` (pnpm does not hoist it), so `vitest`
   was added as an explicit devDependency pinned to 4.1.11, as the plan
   anticipated.
-- Extracting `focalRange` + `exifKey` also required moving the `Labelled`,
+- Extracting `focalRange` + `exifKey` also required moving the `Labeled`,
   `Exif` and `ExifGroup` types and the `focalRanges` table into `exif.ts`
   (the functions depend on them); `main.ts` imports `Exif`, `ExifGroup` and
   `exifKey` back. So the `main.ts` edit is the import plus the removals, not

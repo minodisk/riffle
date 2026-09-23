@@ -67,7 +67,7 @@ be picked up as their own work.
     - Only `todo.md` (repo root) changes.
     - Match the existing style exactly: `### App: ...` heading, a context
       paragraph (mentioning the origin and ending with `Files: ...`), then
-      `#### TODO` with `- [ ]` checkboxes, wrapped like the neighbouring
+      `#### TODO` with `- [ ]` checkboxes, wrapped like the neighboring
       items. Do not touch unrelated items.
     - Place the two new items near the related existing items (the PhotoLab
       item next to the File menu accelerators item; the Clear Cache bug next

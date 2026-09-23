@@ -26,7 +26,7 @@ plaintext MakerNote tags `AFTracking` (0x2021, BYTE; 1 = face tracking) and
 `FocusFrameSize` (0x2037, 3 x SHORT `w h valid`) alongside the
 `FocusLocation` the parser already reads. When face tracking was engaged the
 frame is a small square on the face/eye, so the sharpness window can be
-centred on `FocusLocation` and sized from the frame with no inference at all.
+centered on `FocusLocation` and sized from the frame with no inference at all.
 Face detection stays for everything else (Leica DNG, Sony frames without
 tracking, tracking that never locked).
 
@@ -41,7 +41,7 @@ measurements already taken are in `measurements.md`, both in this folder.
 
 - Gate on `AFTracking` + `FocusFrameSize` + `FocusLocation`; `AFAreaMode` is
   not parsed (enciphered, unreliable). Not-engaged state excluded by the exact
-  sensor-centre focus point (Option A below).
+  sensor-center focus point (Option A below).
 - Step 3 restores the `riffle-app` binary-size row in `docs/performance.md`
   and closes that todo item.
 - `docs/agents/raw-metadata-parsing.md` is not written in this plan; its todo
@@ -70,7 +70,7 @@ measurements already taken are in `measurements.md`, both in this folder.
   - Implementation approach:
     - Follow the existing constant naming (`TAG_AF_TRACKING`,
       `TAG_FOCUS_FRAME_SIZE`) and the `byte` / `shorts4` helper style; a
-      3-SHORT reader can generalise `shorts4` or be a small sibling. Count-3
+      3-SHORT reader can generalize `shorts4` or be a small sibling. Count-3
       SHORT is 6 bytes, so the value lives at the entry's offset, unlike
       `FocusMode`
     - Do not parse `AFAreaMode`: it lives in the enciphered 0x9402 block and
@@ -84,13 +84,13 @@ measurements already taken are in `measurements.md`, both in this folder.
       `eye_af_frame(shot: &Shot) -> Option<(FocusLocation, FocusFrame)>`)
       that is `Some` only when `trusted_focus` is `Some`,
       `af_tracking == Some(1)`, `focus_frame` is `Some`, and the focus point
-      is not exactly at the sensor centre (`x == sensor_w / 2 &&
+      is not exactly at the sensor center (`x == sensor_w / 2 &&
       y == sensor_h / 2`, the not-engaged state observed as
       `3504 2336` + `832x740`)
     - `score_preview` gains the frame as an input (a new `Option<FocusFrame>`
       parameter, or a small enum in place of `focus`; decide in the step and
       keep the routing inside `sharpness.rs`) and, when the frame is given,
-      scores a square window centred on the focus point whose side is the
+      scores a square window centered on the focus point whose side is the
       frame's long side mapped to preview pixels (`side * preview_w /
       sensor_w`, the same scale `partial::focus_point` uses) and clamped to
       `[EYE_WINDOW_MIN, WINDOW]`, ignoring `faces`
@@ -100,8 +100,8 @@ measurements already taken are in `measurements.md`, both in this folder.
       layout sentence for `sharpness.rs` and the README "Sharpness cue"
       bullet mention it in one clause each
     - Unit tests: gate `None` for `af_tracking` 0/2/absent, for a `None`
-      frame, for manual focus, and for the exact-centre point; `Some` for an
-      off-centre point (including one with only x at centre); window side
+      frame, for manual focus, and for the exact-center point; `Some` for an
+      off-center point (including one with only x at center); window side
       128 for a 153x154 frame on a 7008-wide sensor and 1616-wide preview,
       256 for a 1533x1535 frame; with a frame given, a face elsewhere in the
       preview does not move the window
@@ -116,12 +116,12 @@ measurements already taken are in `measurements.md`, both in this folder.
     - `mise run ci` passes
   - Implementation approach:
     - Assumes Step 1 is merged
-    - The sensor-centre test needs `FocusLocation` only; do not hard-code
+    - The sensor-center test needs `FocusLocation` only; do not hard-code
       `832x740`, it is body-specific. If the implementation finds engaged
-      frames at the exact centre in a broader sample, switch to excluding by
+      frames at the exact center in a broader sample, switch to excluding by
       frame size and note it in `learnings.md`
     - Leica DNG and Sony frames without tracking keep the existing detector
-      path unchanged; the 4-neighbour Laplacian over a square window is
+      path unchanged; the 4-neighbor Laplacian over a square window is
       rotation-invariant, so scoring in stored coordinates stays valid
 
 - [x] Step 3: Record the real-file measurements and update the docs
@@ -161,14 +161,14 @@ measurements already taken are in `measurements.md`, both in this folder.
   would only distinguish human from animal eye tracking, which the window
   sizing does not need.
 - **Not-engaged detection.** Option A (taken): exclude when the focus point is
-  exactly at the sensor centre. Body-independent; a tracked face dead centre
+  exactly at the sensor center. Body-independent; a tracked face dead center
   falls back to detection (harmless, only slower). Option B: exclude when the
   frame equals the body's default (832x740 on the α7 V), body-specific.
 - **`score_preview` signature.** Extra parameter vs a subject enum; Step 2
   decides.
 - **Eye-AF path count.** Temporary instrumentation rather than a committed
   field.
-- **Behaviour change for Sony frames with tracking engaged.** The window now
+- **Behavior change for Sony frames with tracking engaged.** The window now
   sits on the camera's frame instead of YuNet's eye midpoint; this is
   reasoning, not a measured ranking change. Step 2 should spot-check a burst
   and note it in `learnings.md`.

@@ -27,8 +27,8 @@ every bundled icon from it with `tauri icon`.
 Current state the plan is based on:
 
 - The supplied PNG is 1254x1254 RGBA with transparency already applied, but
-  its edge is ragged (colour fringes on the left and right sides, e.g. around
-  x≈1200–1224 in the middle rows) and it is off-centre: the alpha bounding box
+  its edge is ragged (color fringes on the left and right sides, e.g. around
+  x≈1200–1224 in the middle rows) and it is off-center: the alpha bounding box
   is `(0, 8, 1224, 1254)`, touching the left and bottom edges with no margin.
 - macOS does not round icons for `.icns` apps: a square icon stays square,
   and on macOS 26 non-conforming legacy icons are shrunk onto a plate. The
@@ -45,10 +45,10 @@ Current state the plan is based on:
 - [x] Step 1: Prepare the 1024x1024 transparent source and regenerate the app icons
   - Done when:
     - `crates/app/icons/source.png` is 1024x1024 RGBA; the rounded-square body
-      is 824x824 and centred (100px transparent margin on each side), with a
+      is 824x824 and centered (100px transparent margin on each side), with a
       macOS-style corner radius of ~185px (≈22.5% of the body); every pixel
       outside the rounded square has alpha 0 and the edge is smooth with no
-      colour fringe (spot-check edge alpha and RGB with Pillow).
+      color fringe (spot-check edge alpha and RGB with Pillow).
     - All icons under `crates/app/icons/` (`32x32.png`, `64x64.png`,
       `128x128.png`, `128x128@2x.png`, `icon.png`, `icon.icns`, `icon.ico`,
       `Square*Logo.png`, `StoreLogo.png`) are regenerated from `source.png`
@@ -66,11 +66,11 @@ Current state the plan is based on:
          around it so the artwork (dot, star, wave) stays intact.
       2. Resize the crop to 824x824 with LANCZOS, and discard its original
          alpha (treat as opaque RGB, filling any transparent pixels inside the
-         crop from neighbouring colour so no dark/transparent fringe bleeds in).
+         crop from neighboring color so no dark/transparent fringe bleeds in).
       3. Build a geometric alpha mask: `ImageDraw.rounded_rectangle` with a
          ~185px radius, rendered at 4x and downsampled (LANCZOS) for smooth
          anti-aliasing, inset by ~1–2px so no original fringe survives.
-      4. Paste centred on a transparent 1024x1024 canvas at (100, 100) and
+      4. Paste centered on a transparent 1024x1024 canvas at (100, 100) and
          save as `crates/app/icons/source.png`.
     - Regenerate from the repository root:
       `pnpm install --frozen-lockfile && pnpm exec tauri icon crates/app/icons/source.png -o crates/app/icons`,
@@ -80,7 +80,7 @@ Current state the plan is based on:
 ## Trade-offs and risks
 
 - Corner radius follows the macOS grid (~22.5%) rather than the supplied
-  image's own curve, so the icon lines up with neighbouring Dock icons (user
+  image's own curve, so the icon lines up with neighboring Dock icons (user
   agreed).
 - Only `source.png` is committed, not the original 1254px PNG.
 - `icon.ico` is only exercised by Windows builds; a malformed one would first
@@ -89,7 +89,7 @@ Current state the plan is based on:
 ## Progress
 
 - 2026-09-20: Step 1 done. Generated `crates/app/icons/source.png` (1024x1024,
-  824x824 rounded-square body centred with a 100px margin and ~185px corner
+  824x824 rounded-square body centered with a 100px margin and ~185px corner
   radius) from the supplied artwork with a one-off Pillow script, regenerated
   all bundled icons via `pnpm exec tauri icon`, and removed the generated
   `ios/`/`android/` folders. PR: `fe43a45` (feat(app): set the Riffle app

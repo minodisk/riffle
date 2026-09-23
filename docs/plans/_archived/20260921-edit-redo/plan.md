@@ -17,10 +17,10 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-`Edit > Undo` (`CmdOrCtrl+Z`) walks judgements back, but an undo pressed once
+`Edit > Undo` (`CmdOrCtrl+Z`) walks judgments back, but an undo pressed once
 too often has no way forward: the user has to re-judge the file by hand.
 `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently undone
-judgement, so Undo → Redo → Undo round-trips, and a new judgement after an
+judgment, so Undo → Redo → Undo round-trips, and a new judgment after an
 undo forgets the redo branch as every editor does.
 
 ## Steps
@@ -28,11 +28,11 @@ undo forgets the redo branch as every editor does.
 - [x] Step 1: Add `Edit > Redo` (menu item, `redo` event, redo stack, README)
   - Done when:
     - `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently undone
-      judgement and reports `Redid {name}` / `Redid {name} (hidden by the
-      filter)`, mirroring Undo's filter behaviour (current file moves to the
+      judgment and reports `Redid {name}` / `Redid {name} (hidden by the
+      filter)`, mirroring Undo's filter behavior (current file moves to the
       redone file unless the filter hides it).
     - Undo → Redo → Undo returns the file to the same state.
-    - A new judgement (`judge()`) after an undo clears the redo stack.
+    - A new judgment (`judge()`) after an undo clears the redo stack.
     - Files gone from the folder are dropped from both stacks (the trash
       handler's `removeWhere`); `openDirectory` clears both.
     - Undo/Redo remain menu accelerators only (nothing added to
@@ -57,9 +57,9 @@ undo forgets the redo branch as every editor does.
       `crates/app/icons/menu/arrow.uturn.forward.png` (the existing PNGs must
       stay byte-identical; restore them if the run rewrites them).
     - `crates/app/ui/src/main.ts`:
-      - Next to `history`, add `const redoable = new History<Judgement>(100);`
+      - Next to `history`, add `const redoable = new History<Judgment>(100);`
         with a comment explaining it holds the pre-undo state of each undone
-        judgement for `Edit > Redo`, and that a new judgement forgets it.
+        judgment for `Edit > Redo`, and that a new judgment forgets it.
       - `judge()`: after `history.push(entry)`, `redoable.clear()`.
       - `undo()`: the `current` object it already builds is exactly the
         pre-undo state; `redoable.push(current)` before/at the `commit`. Keep
@@ -73,7 +73,7 @@ undo forgets the redo branch as every editor does.
       - Consider extracting the shared body (pop from one stack, push current
         onto the other, commit, move, status verb) into one helper that
         `undo` and `redo` call with `(from, to, verb)`; only do so if it stays
-        readable and does not change `undo`'s observable behaviour.
+        readable and does not change `undo`'s observable behavior.
       - Trash handler (~line 437): apply the same `removeWhere` predicate to
         `redoable`. `openDirectory` (~line 1245): `redoable.clear()` next to
         `history.clear()`.
@@ -82,12 +82,12 @@ undo forgets the redo branch as every editor does.
     - A failed sidecar write leaves both stacks untouched: `undo()` passes no
       `onFail` to `commit` today, and `redo()` mirrors that. Do not add stack
       cleanup on failure to either.
-    - `crates/app/ui/src/undo.ts` / `undo.test.ts`: no new stack behaviour is
+    - `crates/app/ui/src/undo.ts` / `undo.test.ts`: no new stack behavior is
       expected. If the implementation does add a method to `History`, cover
       it in `undo.test.ts` in the existing style.
     - README (`/README.md` around the Undo bullet and the `CmdOrCtrl+Z` row):
       add Redo in the same voice (menu accelerator, not rebindable, cleared
-      by a new judgement and by opening another folder).
+      by a new judgment and by opening another folder).
 
 ## Trade-offs and risks
 
@@ -104,7 +104,7 @@ undo forgets the redo branch as every editor does.
   place preserves that; verify during implementation that no other path
   clears `history` (grep found none).
 - **Redo of a file whose state changed by other means.** Redo re-applies the
-  stored post-judgement state regardless of what a refresh from
+  stored post-judgment state regardless of what a refresh from
   `folder_entries` has since shown; same limitation Undo already has, not
   addressed here.
 

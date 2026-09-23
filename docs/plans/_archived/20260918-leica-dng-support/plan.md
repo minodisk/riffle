@@ -23,7 +23,7 @@ and wants to cull them the same way. A DNG is a little-endian TIFF like an ARW,
 and the M11-P embeds baseline JPEGs at four sizes, so every tier the app has —
 filmstrip thumbnail, preview, 1:1 focus check — can come from embedded JPEGs
 without running a RAW decoder. Once done, a folder of `.DNG` files behaves like
-a folder of `.ARW` files: indexed, paged, focus-checked (centre fallback, the
+a folder of `.ARW` files: indexed, paged, focus-checked (center fallback, the
 M-lens is manual focus) and rated via XMP sidecars.
 
 ## What the sample files look like (investigated during planning)
@@ -68,10 +68,10 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       `lens_model`, `exposure_time`, `iso`, `focal_length`, `exposure_bias`,
       and `focus: None`, `subsec: None`, `f_number: None`.
     - `riffle-cli info <file.DNG>` prints those locations; `riffle-cli crop
-      <file.DNG> out.png` writes a centred crop; `riffle-cli focusbox` may
-      still fail with "no FocusLocation" (that is the existing behaviour on
+      <file.DNG> out.png` writes a centered crop; `riffle-cli focusbox` may
+      still fail with "no FocusLocation" (that is the existing behavior on
       manual-focus ARWs).
-    - ARW behaviour is unchanged: the existing tests pass untouched, and
+    - ARW behavior is unchanged: the existing tests pass untouched, and
       `riffle-cli info` on an α7 V ARW prints the same offsets as before.
     - Unit tests, built with the same synthetic-TIFF helpers the file already
       has, cover: (a) a DNG-style file whose SubIFDs carry strip JPEGs of
@@ -87,7 +87,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       say the parser also covers DNG.
     - In `crates/core/src/arw.rs`, extend the IFD walk that already visits the
       IFD chain and the `SubIFDs`: for each IFD, besides `embedded()` (the
-      `0x0201/0x0202` pair), also recognise a **strip JPEG**: `Compression`
+      `0x0201/0x0202` pair), also recognize a **strip JPEG**: `Compression`
       (0x0103) == 7, `PhotometricInterpretation` (0x0106) == 6, `StripOffsets`
       (0x0111) and `StripByteCounts` (0x0117) both with `count == 1`, plus
       `ImageWidth` (0x0100) / `ImageHeight` (0x0101). The width/height are
@@ -131,7 +131,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
     - Opening `/Users/mino/Downloads/leica raw files` in the release build
       (`mise run tauri:release:devtools`) is **confirmed by the user** for:
       all 31 files listed, the scan completing with 0 errors, filmstrip
-      thumbnails, the preview, `Space` showing a centred 1:1 crop,
+      thumbnails, the preview, `Space` showing a centered 1:1 crop,
       `L1005231.DNG` displayed upright (Orientation 6) in the strip, preview
       and crop, the meta pane showing camera/lens/shutter/ISO/focal
       length with a blank aperture, and `1`-`5`/`x`/`u`/`0` producing
@@ -190,7 +190,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
   - Done when:
     - `riffle-cli bench` times the 1:1 crop on a file without `FocusLocation`
       too, by using `partial::decode_focus_crop(jpeg, a.shot.focus, ...)` (the
-      centre fallback the app uses) instead of skipping when `focus` is
+      center fallback the app uses) instead of skipping when `focus` is
       `None`; the ARW numbers it prints stay comparable (same crop size).
     - `riffle-cli bench` over the 31 DNGs and `riffle-cli scan` over the
       folder (at least 1 thread and the machine's core count) have been run
@@ -202,7 +202,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
       session or listed explicitly as "awaiting the user's confirmation".
   - Implementation approach:
     - The DNG's 1:1 JPEG is 9504 wide with 6320 rows, and the cost of a crop
-      is set by its row, so expect the centre crop (row ~3160) to cost more
+      is set by its row, so expect the center crop (row ~3160) to cost more
       than the α7 V's typical focus row. Report the number against the 50ms
       budget plainly, rather than as a pass.
     - Preview cost: a 2112x1408 decode versus 1616x1080; record it.
@@ -240,7 +240,7 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 - **Scope of "DNG"**: only the M11-P layout (little-endian, strip-based SubIFD
   JPEGs, baseline previews). Other DNGs come back with `full`/`preview` `None`
   and show the existing "no embedded preview" error.
-- **MakerNote gating** changes ARW behaviour only for a file whose MakerNote
+- **MakerNote gating** changes ARW behavior only for a file whose MakerNote
   lacks the `SONY` header and whose `Make` is not Sony.
 - **Whole-file fallback**: Step 1 must check the DNGs never take that path.
 
@@ -248,6 +248,6 @@ Measured on `L1005200.DNG` with exiftool and a hand-written IFD walk; the other
 
 - (2026-09-18) Step 1 complete
 - (2026-09-18) Step 2 complete (GUI checks 1-8 confirmed by the user on the 32-file sample folder)
-- (2026-09-18) Step 3 complete (user confirmed on screen: L1005206.DNG shows f/9.5 (est.) and 5.42 m, and the focus distances match the scenes, so millimetres holds; the α7 V ARW meta pane was not re-checked, not verified)
+- (2026-09-18) Step 3 complete (user confirmed on screen: L1005206.DNG shows f/9.5 (est.) and 5.42 m, and the focus distances match the scenes, so millimeters holds; the α7 V ARW meta pane was not re-checked, not verified)
 - (2026-09-18) Step 4 complete
 - (2026-09-18) Step 5 complete

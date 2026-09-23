@@ -113,7 +113,7 @@ field is added to the preview header.
 ## Trade-offs and risks
 
 - **Status-line readout vs log line.** `setStatus()` is rewritten on every
-  `show()` and by judgement messages, so a number there would be overwritten;
+  `show()` and by judgment messages, so a number there would be overwritten;
   logging matches the existing zoom instrumentation.
 - **Rust-side `read` in the preview header.** Not planned: the Rust read is
   already measured and small; if `invoke` dominates the first measurement,

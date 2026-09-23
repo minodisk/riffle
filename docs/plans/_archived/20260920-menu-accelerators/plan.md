@@ -115,7 +115,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
       pressing `Cmd+O` or `Shift+Cmd+O` while a row captures does not
       trigger the menu action (or, if it does, the result is written down in
       the trade-offs of this plan and the chosen mitigation applied);
-      (d) both items clicked with the mouse work. Windows / Linux behaviour
+      (d) both items clicked with the mouse work. Windows / Linux behavior
       is reasoned from the muda sources and noted as unverified in
       `learnings.md` if no machine is at hand.
     - README's key table, the menu bullets and the "already used by the
@@ -261,7 +261,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 - **Defaults freed after rebinding.** Because each accelerator always
   mirrors one of its own action's keys, freeing the default combination for
   another action can never clash with the menu. This is the chosen
-  behaviour; the alternative (permanently reserving them) contradicts
+  behavior; the alternative (permanently reserving them) contradicts
   "rebindable".
 - **Double fire and capture interference are real-device questions.** On
   macOS, WebKit's `performKeyEquivalent` sends the key to the page first and
@@ -278,7 +278,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
   actually tested in `learnings.md` rather than claim them verified.
 - **Native icon on macOS for `Open Folder…`.** `NativeIcon::Folder` exists,
   but the macos-menu-icons work found several `NativeIcon`s to be legacy
-  colour bitmaps rather than template images and only used verified ones. A
+  color bitmaps rather than template images and only used verified ones. A
   plain `MenuItem` is the minimum; adding an icon is a separate, small
   follow-up if wanted.
 - **Menu label.** `Open Folder…` with the ellipsis character matches

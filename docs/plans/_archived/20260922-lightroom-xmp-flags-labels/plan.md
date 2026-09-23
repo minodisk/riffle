@@ -13,7 +13,7 @@ After finishing a step, continue to the next without asking the user.
 </pr-rules>
 </plan-guide>
 
-# Lightroom XMP flags and colour labels
+# Lightroom XMP flags and color labels
 
 ## Purpose
 
@@ -21,17 +21,17 @@ Lightroom 9.5.1 (Windows, Japanese UI) writes its pick / reject flag as
 `xmpDM:good="True"` / `"False"` (namespace
 `http://ns.adobe.com/xmp/1.0/DynamicMedia/`) on the `rdf:Description`,
 absent when unflagged, and keeps `xmp:Rating` as the star count even on a
-reject; it never uses `xmp:Rating="-1"`. It writes the colour label twice:
-a localised `xmp:Label` (`"パープル"`) and a language-independent
+reject; it never uses `xmp:Rating="-1"`. It writes the color label twice:
+a localized `xmp:Label` (`"パープル"`) and a language-independent
 `photoshop:LabelColor="purple"` (namespace
 `http://ns.adobe.com/photoshop/1.0/`).
 
 Riffle folds the reject into the rating (`-1`), has no pick under XMP, and
-reads the colour from `xmp:Label` alone, so a Lightroom-flagged folder opens
+reads the color from `xmp:Label` alone, so a Lightroom-flagged folder opens
 with no picks or rejects, a rejected shot loses its stars once Riffle
-rewrites it, and localised labels render as "other" (grey).
+rewrites it, and localized labels render as "other" (gray).
 
-This work widens Riffle's judgement to a tri-state flag (none / pick /
+This work widens Riffle's judgment to a tri-state flag (none / pick /
 reject) independent of the `0`-`5` stars, the way both Lightroom and DxO
 PhotoLab model it; reads and writes `xmpDM:good` and `photoshop:LabelColor`;
 and lets a pick be kept under XMP. Afterwards, opening
@@ -83,7 +83,7 @@ Decisions already taken (do not reopen):
       `ShouldProcess = 0 / 1 / 2`; the template does the same (no more
       `(-1, _) => (0, 1)` arm). `read_pick` is removed.
     - `crates/app/src/sidecar.rs` `SidecarFormat` is adapted just enough to
-      compile and keep today's app behaviour: `read_pick` maps
+      compile and keep today's app behavior: `read_pick` maps
       `read_flag() == Pick`, and a temporary shim in `write_rating` turns
       the app's `(rating, pick)` into `(rating.filter(|r| *r != -1),
       if rating == Some(-1) { Reject } else if pick { Pick } else { None })`.
@@ -102,20 +102,20 @@ Decisions already taken (do not reopen):
       updated for the new signatures.
     - `mise run ci` passes.
   - Implementation approach:
-    - Generalise `locate(text, name)` to take the namespace, and
+    - Generalize `locate(text, name)` to take the namespace, and
       `xmp_prefix` / `resolve_prefix` to take the namespace plus its
       preferred prefixes (`["xmp", "xap"]` for XMP, `["xmpDM"]` here,
       `["photoshop"]` in Step 2), keeping the "reuse a bound prefix,
       declare an unbound one, skip one bound elsewhere, else `xmpN`" rule.
       `set`, the removal path (today only in `write_label`) and `template`
-      need the same parameterisation; `template` must emit more than one
+      need the same parameterization; `template` must emit more than one
       attribute and declaration for a fresh rated + flagged sidecar.
     - Update the module docs of both files (`xmp.rs` still says `-1` is a
       reject and only `Rating` / `Label` are written).
 - [x] Step 2: `photoshop:LabelColor` in `crates/core/src/xmp.rs`
   - Done when:
-    - `xmp::read_label` returns the colour of a non-empty
-      `photoshop:LabelColor`, normalised to the capitalised English name
+    - `xmp::read_label` returns the color of a non-empty
+      `photoshop:LabelColor`, normalized to the capitalized English name
       the UI uses (`"purple"` -> `"Purple"`), and falls back to the raw
       `xmp:Label` only when `LabelColor` is absent or empty.
     - `xmp::write_label(existing, Some(name))` writes both
@@ -125,17 +125,17 @@ Decisions already taken (do not reopen):
       `xmlns:photoshop` when needed) when absent; the fresh template
       carries both.
     - Unit tests: the Lightroom fixture with `xmp:Label="パープル"` +
-      `photoshop:LabelColor="purple"` reads `"Purple"`; relabelling it to
+      `photoshop:LabelColor="purple"` reads `"Purple"`; relabeling it to
       Red rewrites exactly the two attributes; clearing removes both; a
       Bridge-style fixture with only `xmp:Label` still reads and is patched
       as before (now gaining `LabelColor`); the element form for
       `LabelColor`; existing label tests updated for the new write shape.
     - `mise run ci` passes.
   - Implementation approach:
-    - Assumes Step 1 is merged (namespace-parameterised helpers).
+    - Assumes Step 1 is merged (namespace-parameterized helpers).
     - The UI toggles with a case-sensitive `focused.label === "Purple"`
       (`crates/app/ui/src/main.ts`), while `strip.ts` and `filter.ts`
-      lowercase, so normalising the read value keeps the toggle, tint and
+      lowercase, so normalizing the read value keeps the toggle, tint and
       filter working with no UI change.
     - Orange and Pink are outside Lightroom's five; still write
       `LabelColor="orange"` / `"pink"` (see Trade-offs).
@@ -152,7 +152,7 @@ Decisions already taken (do not reopen):
       `-1`. The schema-history doc comment gains the v11 sentence.
     - `IndexedFile`, `ParsedSidecar`, `dirty_rows`, `set_rating`,
       `mark_written`, `store_sidecar_ratings`, `reset_sidecars` and the
-      sidecar `Judgement` carry `flag: Flag` instead of `pick: bool`;
+      sidecar `Judgment` carry `flag: Flag` instead of `pick: bool`;
       `rating` is `0..=5` everywhere. The Step 1 shim in `sidecar.rs` is
       deleted; `SidecarFormat::read_flag` / `write_rating(.., flag)` call
       through for both formats with no `Dop` gate, and `write()`'s
@@ -160,9 +160,9 @@ Decisions already taken (do not reopen):
       && label.is_none()`.
     - `#[tauri::command] set_rating(path, rating: u8 0..=5, flag: "none" |
       "pick" | "reject", label, label_known)`; the `format == Dop` gate is
-      gone; `folder_entries` serialises `flag` as the same strings.
+      gone; `folder_entries` serializes `flag` as the same strings.
     - UI: `picks: Set` becomes `flags: Map<string, "pick" | "reject">` in
-      `main.ts` and `strip.ts`; `ratings` holds only `1`-`5`; `Judgement`
+      `main.ts` and `strip.ts`; `ratings` holds only `1`-`5`; `Judgment`
       (`main.ts`, `filter.ts`), undo / redo, `rejectRest`, `trash.ts`,
       `applyRating`, `strip.setRating` and `paintRating` use `flag`. Key
       semantics: `x` sets reject and keeps the stars (replacing a pick);
@@ -181,7 +181,7 @@ Decisions already taken (do not reopen):
     - Manual check: opening `/mnt/d/Photos/2026/2026-09-05` under XMP
       shows 439 picked, 438 rejected, 428-432 purple / blue / green /
       yellow / red, 433-437 with 5..1 stars. On a copy of the folder,
-      `p` / `x` / `u` / `3` / a colour key patch only the expected
+      `p` / `x` / `u` / `3` / a color key patch only the expected
       attributes (diff the sidecar before and after) and a reject given on
       a starred file keeps `xmp:Rating`.
   - Implementation approach:
@@ -225,10 +225,10 @@ Decisions already taken (do not reopen):
   throwaway code; not taken.
 - **Lightroom reading the English `xmp:Label`**: Japanese Lightroom will
   see `Label="Red"` beside `LabelColor="red"`. Whether 9.5.1 resolves the
-  colour from `LabelColor` when `Label` does not match its localised set is
+  color from `LabelColor` when `Label` does not match its localized set is
   unverified; only the user's Lightroom check can tell. If it does not, the
-  fallback is to leave an existing localised `xmp:Label` untouched when the
-  colour is unchanged (revisit in a follow-up).
+  fallback is to leave an existing localized `xmp:Label` untouched when the
+  color is unchanged (revisit in a follow-up).
 - **Orange and Pink**: not in Lightroom's five; `LabelColor="orange"` /
   `"pink"` are Riffle's extrapolation and may show as a custom label in
   Lightroom. Documented, not blocking.

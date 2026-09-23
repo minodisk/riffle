@@ -29,7 +29,7 @@ After this work a lightweight, pre-trained face detector runs on the embedded
 preview at scan time, fully offline, and when it finds a face and the AF point
 is missing, untrusted or off the face, the score is taken around the eyes.
 Nothing is trained on the user's photos and no face identity or feature is
-stored. Frames without a face (landscapes, animals) keep today's behaviour
+stored. Frames without a face (landscapes, animals) keep today's behavior
 exactly. The first step is a measurable prototype behind `riffle-cli`, so the
 runtime and model are judged on real numbers (latency, binary size, build
 time) before anything touches the app.
@@ -45,7 +45,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
 - Model: YuNet `face_detection_yunet_2023mar.onnx` from the OpenCV Zoo
   (MIT, ~230 KB, dynamic input size, outputs a bounding box, a score and 5
   landmarks: both eyes, nose, both mouth corners). Bundled into `riffle-core`
-  with `include_bytes!`; no download at run time. The licence text ships
+  with `include_bytes!`; no download at run time. The license text ships
   next to the model file. Confirmed by the user.
 - Detection test with a real face: an `#[ignore]` test reading an image path
   from an environment variable; no face image is committed. Confirmed by the
@@ -63,7 +63,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
       `Face` carries the bounding box, the score and the two eye positions in
       **preview pixel coordinates** (not model-input coordinates)
     - The model bytes live under `crates/core/models/` with the upstream
-      licence file beside them, embedded with `include_bytes!`; the tract
+      license file beside them, embedded with `include_bytes!`; the tract
       model is built once per process (`std::sync::OnceLock` or similar) and
       is `Send + Sync` so `scan::extract_all`'s rayon workers can share it
     - Pre/post-processing is in Rust: downscale the preview to the model
@@ -74,7 +74,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
       detection test reading a face image path from an env var (no face
       image committed)
     - `crates/cli/src/main.rs` gains `riffle-cli faces <file> <out.png>`,
-      modelled on `focusbox`: draws the face boxes and eye points on the
+      modeled on `focusbox`: draws the face boxes and eye points on the
       preview and prints the count, the boxes and the detection time
     - `riffle-cli bench` prints a new `4. face detection` row via the
       existing `stats()` helper, measured on the preview decode result
@@ -114,7 +114,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
       1. trusted `FocusLocation` inside the chosen face's box -> the AF
          window exactly as today (Eye-AF already put the point on the eye)
       2. a face found and (no trusted focus, or the focus point outside the
-         face box) -> a window centred between the two eyes, side clamped to
+         face box) -> a window centered between the two eyes, side clamped to
          `[EYE_WINDOW_MIN, WINDOW]` from the face box size (constants in
          `sharpness.rs`; record the values)
       3. no face -> unchanged (`trusted_focus` window or `tile_max`)
@@ -170,7 +170,7 @@ Builds on the "App: face/eye-aware focus check for culling" item in
     - `README.md` "Sharpness cue" bullet says the score is taken on the
       subject's eyes when a face is found, else around the AF point, else the
       sharpest region; a short "Offline face detection" note names the model
-      and its licence
+      and its license
     - `CLAUDE.md` "Layout" mentions `src/faces.rs` and the model directory
     - `todo.md`: the face/eye item's first three checkboxes are ticked with a
       one-line result each, the closed-eye item stays open, and a follow-up

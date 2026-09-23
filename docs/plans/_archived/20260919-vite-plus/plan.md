@@ -49,7 +49,7 @@ Research findings that shape the plan (2026-09-19):
   `vite-plus`); the docs discourage `.oxlintrc.json` / `.oxfmtrc`.
 - Verified in a scratchpad copy of the UI: Vite resolves
   `new URL("./worker.js", import.meta.url)` to `worker.ts` and emits it as its
-  own chunk, so the worker needs no code change; `vp fmt` honours
+  own chunk, so the worker needs no code change; `vp fmt` honors
   `.gitignore`; `test.include` is relative to Vite's `root`; `vp check` with
   `lint.options.typeCheck: true` type-checks through tsgolint **without the
   `typescript` package installed**, given a root `tsconfig.json` whose
@@ -240,7 +240,7 @@ in Step 1.
       and any `tsc --noEmit` mention to `vp check`; add a short "Frontend"
       section with the items learned in Steps 1-5 (tagged
       Hit/Measured/Inferred per the file's convention): `.js`-suffixed imports
-      resolve to `.ts` under Vite, `vp fmt` honours `.gitignore`,
+      resolve to `.ts` under Vite, `vp fmt` honors `.gitignore`,
       `test.include` is root-relative, the Oxfmt scope decision, anything that
       broke.
     - Do not touch `README.md` (user-facing only).

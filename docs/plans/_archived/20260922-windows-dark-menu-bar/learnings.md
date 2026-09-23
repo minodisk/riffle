@@ -6,4 +6,4 @@
   recurse into submenus. The in-place patch looks each id up with
   `Submenu::get` on every top-level submenu instead.
 - The non-macOS path cannot be exercised on Linux CI beyond compiling; the
-  Windows dark-bar behaviour is verified manually by the user after release.
+  Windows dark-bar behavior is verified manually by the user after release.

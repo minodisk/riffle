@@ -68,7 +68,7 @@ volumes).
   todo list to `start_scan`, which runs `riffle_core::scan::extract_all`
   over just that list and emits `scan-progress` / `scan-done` (a
   `scan-done` is emitted even when the todo list is empty). `ratings`
-  rows are independent of `files`, so a rescan never drops a judgement.
+  rows are independent of `files`, so a rescan never drops a judgment.
   The README's "second open" numbers are the cost of one such rescan on an
   unchanged folder (a stat-and-query pass, no extraction).
 - **The frontend's only open path resets everything.** `openDirectory`
@@ -121,7 +121,7 @@ volumes).
   the stored one, so a rescan that follows the app's own write parses
   nothing and queues nothing: **one rescan per own write is a no-op, not a
   loop.** The remaining hazards are (a) the cost of that no-op rescan on
-  every judgement while culling (list + 5000 stats + reconcile +
+  every judgment while culling (list + 5000 stats + reconcile +
   `folder_entries` refresh), and (b) the window between the rename and
   `mark_written` where `reconcile_sidecars` would read the app's own
   sidecar as an external edit (the "snapshot the state you decided on"
@@ -152,8 +152,8 @@ volumes).
       no longer listed are pruned (or simply left to the next
       `refreshEntries`, which replaces the map wholesale; state which).
     - The current file stays current when it still exists and passes the
-      filter; when it was deleted, the view moves to the neighbour
-      `anchorAfterFilter` chooses (already the behaviour for a filtered-out
+      filter; when it was deleted, the view moves to the neighbor
+      `anchorAfterFilter` chooses (already the behavior for a filtered-out
       file). The strip's scroll offset is preserved across the rescan
       (clamped to the new list height) rather than reset to 0; if the list
       did not change, nothing visible happens (`refilter`'s short-circuit).
@@ -181,7 +181,7 @@ volumes).
       fixed `CmdOrCtrl+R` accelerator (decision 1).
     - `README.md`'s feature list mentions that the open folder is rescanned
       when the window regains focus and on `File > Reload Folder`, and
-      that judgements and the current file are kept (user-facing wording
+      that judgments and the current file are kept (user-facing wording
       only, per the README content policy).
     - `docs/agents/tauri-app.md` (frontend section) gains a short note that
       `openDirectory` is the *reset* path and `resync()` the *keep-state*
@@ -193,7 +193,7 @@ volumes).
       switch to Finder and back: the file appears in the strip (sorted into
       place), the selection and scroll position are unchanged; delete a file
       the same way: it disappears; delete the *current* file: the view moves
-      to a neighbour; `File > Reload Folder` does the same without a focus
+      to a neighbor; `File > Reload Folder` does the same without a focus
       change; press it during a first scan: the scan continues and the
       rescan runs after `scan-done`. Report what was not checked.
   - Implementation approach:
@@ -226,7 +226,7 @@ volumes).
     - `crates/app/Cargo.toml` adds `notify` (current major). A new
       `crates/app/src/watch.rs` owns: a managed state holding the watched
       directory and its `RecommendedWatcher`; a debounce thread (an `mpsc`
-      receiver with `recv_timeout`, modelled on `sidecar::run`) that
+      receiver with `recv_timeout`, modeled on `sidecar::run`) that
       collapses a burst of events into one `folder-changed` event carrying
       `{ dir }`, emitted ~500 ms after the *last* event (trailing edge; a
       constant, documented); and a pure `fn triggers(paths: &[PathBuf]) ->
@@ -236,7 +236,7 @@ volumes).
       (made `pub(crate)`), and `true` otherwise, including for an event
       with no paths. Nothing else about the event (kind, which path) is
       used.
-    - The watch is set to the folder `scan_folder` canonicalises, non-
+    - The watch is set to the folder `scan_folder` canonicalizes, non-
       recursively, replacing the previous watch when the folder differs
       and leaving it alone when it is the same (a rescan of the same
       folder must not unwatch/rewatch). A failure to watch (e.g. an SMB
@@ -327,7 +327,7 @@ chosen option turns out not to work.
 
 ### Where the watch is set: inside `scan_folder` (chosen) vs. a separate command
 
-- **Chosen: inside `scan_folder`.** It already canonicalises the
+- **Chosen: inside `scan_folder`.** It already canonicalizes the
   folder and is the single point every open and rescan passes through, so
   the watch cannot point at a folder other than the one indexed, and there
   is no frontend token race for a "set watch" invoke.
@@ -346,7 +346,7 @@ chosen option turns out not to work.
 ### Trigger on sidecar changes too?
 
 - **Chosen: no.** Filtering sidecar and temp paths out of the trigger
-  removes both the per-judgement no-op rescan while culling and the
+  removes both the per-judgment no-op rescan while culling and the
   rename-to-`mark_written` window entirely. External sidecar edits
   (PhotoLab writing a `.dop` while Riffle is open) are then picked up on
   the next focus / manual rescan, exactly as they are today on reopen, so
@@ -361,7 +361,7 @@ chosen option turns out not to work.
 
 - Preserving `scrollTop` across `setFiles` is a small `strip.ts` change; the
   fallback, if it proves awkward, is accepting `refilter`'s existing
-  behaviour (reset, then `setCurrent` scrolls the current cell to the
+  behavior (reset, then `setCurrent` scrolls the current cell to the
   nearest edge), which keeps the *selection* but moves the strip. The
   acceptance criterion is "selection not lost"; the scroll is "as far as
   possible".
@@ -385,7 +385,7 @@ chosen option turns out not to work.
   not follow renames of the directory itself. All of these degrade to
   "the next focus rescan catches it", which is the stated fallback.
 - The watcher tests must not depend on real file-system event timing, or
-  they will flake on CI; the end-to-end behaviour is a manual check (GUI
+  they will flake on CI; the end-to-end behavior is a manual check (GUI
   automation does not work on this Mac).
 
 ## Progress

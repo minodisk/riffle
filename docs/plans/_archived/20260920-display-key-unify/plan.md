@@ -24,7 +24,7 @@ body. Both files already import from `crates/app/ui/src/keys.ts`, which owns
 the key naming (`keyName`, `Binding`), so the display formatter belongs there
 too. After this work there is one `displayKey`, exported from `keys.ts`, and
 any future change to how keys are shown (e.g. modifier formatting) is made in
-one place. Pure refactor; no behaviour change.
+one place. Pure refactor; no behavior change.
 
 ## Steps
 

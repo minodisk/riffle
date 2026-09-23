@@ -22,7 +22,7 @@ After finishing a step, continue to the next without asking the user.
 Ctrl+Alt. Shift is folded away (Shift+J acts as `j`), and
 `isUnboundModifier` drops every Meta, Ctrl-only and Alt-only press before the
 keymap sees it, so none of those can be bound from the settings window. This
-work generalises the name to `ctrl+alt+shift+meta+<key>` (fixed order, only the
+work generalizes the name to `ctrl+alt+shift+meta+<key>` (fixed order, only the
 modifiers held, key named from `event.code` whenever a modifier is held), so
 any combination can be bound, while keeping the stored `ctrl+alt+N` names
 byte-identical, refusing a lone modifier, and refusing the combinations the
@@ -55,7 +55,7 @@ Current state the plan is based on:
 
 ## Steps
 
-- [x] Step 1: Generalise the key names, refuse lone modifiers and the system / menu combinations, update tests and docs
+- [x] Step 1: Generalize the key names, refuse lone modifiers and the system / menu combinations, update tests and docs
   - Done when:
     - `keyName` returns `ctrl+alt+shift+meta+<key>` with only the held
       modifiers, in that order; with no modifier held the name is unchanged
@@ -148,7 +148,7 @@ Current state the plan is based on:
 - The macOS system-shortcut list can never be complete (users remap them in
   System Settings). `shift+meta+z` is deliberately not forbidden because the
   app removes the Redo item.
-- Visible behaviour change: Shift+letter no longer triggers the unshifted
+- Visible behavior change: Shift+letter no longer triggers the unshifted
   binding, and `ctrl+alt+shift+x` is now distinct from `ctrl+alt+x`.
 - A forbidden combination pressed during capture may be consumed by the OS or
   the menu before the page sees it (`Cmd+W`, `Cmd+Q`); the `from_overrides`
