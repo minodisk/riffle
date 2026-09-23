@@ -68,6 +68,7 @@ Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reade
 
 - [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
 - [ ] Also cover the `FocusFrameSize` `UNDEFINED[6]`-vs-`SHORT[3]` quirk, linking `docs/plans/_archived/20260922-sony-eye-af-window/learnings.md` (Step 1) alongside the Leica one.
+- [ ] Also cover the count-1 `SHORT` TIFF-entry padding quirk (the unused high 16 bits of the 4-byte value field can carry nonzero per-file garbage, as seen on SIGMA fp L DNGs) and that `integer()` in `crates/core/src/arw.rs` now masks it, linking `docs/plans/_archived/20260924-tiff-short-padding/learnings.md` (Step 1) alongside the Leica and Sony eye-AF ones.
 
 ### Docs: consider a guide for verifying Pillow pixel edits
 
@@ -414,3 +415,17 @@ plan's "Trade-offs and risks" and the user's session verification. Files:
 - [ ] Verify a Riffle-written reject (no `xmpDM:pick`) shows correctly as
       rejected in Lightroom Classic; if it does not, decide whether Riffle
       should also write `xmpDM:pick`.
+
+### App: SIGMA fp L strip may decode the full-size JPEG per thumbnail
+
+SIGMA fp L DNGs have no strip JPEG between 640x480 and the 9520x6328
+full-size one, so the preview tier falls back to the full-size JPEG (about
+28 MB) and the strip decodes it per thumbnail. Worth checking strip load
+time on SIGMA fp L folders. Files: `crates/core/src/arw.rs`
+(`PREVIEW_MIN_WIDTH`, tier selection).
+
+#### TODO
+
+- [ ] Measure strip scroll/thumbnail load time on a SIGMA fp L folder; if
+      slow, consider downscaling the full-size JPEG for the preview tier
+      instead of using it as-is.

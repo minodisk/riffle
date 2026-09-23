@@ -91,4 +91,4 @@ and SIGMA fp L as supported DNG cameras.
 
 ## Progress
 
-- (none yet)
+- (2026-09-24) Step 1 complete
