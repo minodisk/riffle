@@ -137,4 +137,4 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete
