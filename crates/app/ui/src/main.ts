@@ -17,6 +17,7 @@ import { placeholderRect } from "./zoom.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
+import { type Metadata, metaGroups } from "./meta.js";
 import {
   comparePaneAt,
   comparisonCandidates,
@@ -73,22 +74,6 @@ interface IndexedFile {
   has_sidecar: boolean;
   sharpness: number | null;
   exif: Exif | null;
-}
-
-// Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
-// display, so a field is either a string to show or null to leave out.
-interface Metadata {
-  name: string;
-  camera: string | null;
-  lens: string | null;
-  aperture: string | null;
-  shutter: string | null;
-  shutter_type: string | null;
-  iso: string | null;
-  focal_length: string | null;
-  exposure_bias: string | null;
-  focus_distance: string | null;
-  captured_at: string | null;
 }
 
 interface DecodeResponse {
@@ -318,10 +303,7 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function row(list: HTMLDListElement, label: string, value: string | null): void {
-  if (value === null) {
-    return;
-  }
+function row(list: HTMLDListElement, label: string, value: string): void {
   const dt = document.createElement("dt");
   dt.textContent = label;
   const dd = document.createElement("dd");
@@ -380,20 +362,18 @@ function renderMeta(): void {
   metaStatusEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
-    if (meta !== null) {
-      const list = document.createElement("dl");
-      row(list, "Aperture", meta.aperture);
-      row(list, "Shutter", meta.shutter);
-      row(list, "Shutter type", meta.shutter_type);
-      row(list, "ISO", meta.iso);
-      row(list, "Focal length", meta.focal_length);
-      row(list, "Exposure", meta.exposure_bias);
-      row(list, "Focus distance", meta.focus_distance);
-      row(list, "Camera", meta.camera);
-      row(list, "Lens", meta.lens);
-      row(list, "Captured", meta.captured_at);
-      row(list, "Sharpness", sharpness.get(files[index])?.toFixed(1) ?? null);
-      metaEl.append(list);
+    for (const group of metaGroups(meta, sharpness.get(files[index]) ?? null)) {
+      metaEl.append(line("group", group.heading));
+      for (const section of group.sections) {
+        if (section.label !== null) {
+          metaEl.append(line("section", section.label));
+        }
+        const list = document.createElement("dl");
+        for (const { label, value } of section.rows) {
+          row(list, label, value);
+        }
+        metaEl.append(list);
+      }
     }
   }
   if (note !== undefined) {
