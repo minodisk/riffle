@@ -46,13 +46,8 @@
   context-menu-rating-label wrap-up after Step 1; converted here.
 - `maths` (British) became `math` in four plan / review files.
 - No intra-doc link or heading anchor contained a converted word.
-
-## Deferred issues (todo candidates)
-
-- Step 2 must also rename `docs/plans/_archived/20260919-undo-judgements/`
-  with `git mv` and update the path cited in `docs/agents/tauri-app.md`
-  (the Source line of the undo-anchoring learnings entry); otherwise the
-  acceptance grep over the whole repository keeps matching `judgement`. This
-  is now listed in the plan's Step 2 "Done when". Basis: Step 1
-  implementation, `docs/agents/tauri-app.md`,
-  `docs/plans/_archived/20260919-undo-judgements/`.
+- `docs/plans/_archived/20260919-undo-judgements/` was renamed to
+  `20260919-undo-judgments` with `git mv`, and the path cited in
+  `docs/agents/tauri-app.md` (the Source line of the undo-anchoring learnings
+  entry) was updated to match. This resolves the Step 1 deferred issue that
+  previously sat under "Deferred issues (todo candidates)".
