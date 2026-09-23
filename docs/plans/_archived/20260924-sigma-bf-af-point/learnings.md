@@ -36,3 +36,18 @@
 - In a fresh worktree, `mise run fmt` fails with `Command "vp" not found`
   because it runs no `pnpm install` of its own. `mise run ci` does install, so
   after one `ci` run `fmt` works.
+
+## Deferred issues (todo candidates)
+
+- **Decide whether `crates/core` needs a MakerNote-parsing guide.**
+  - Background: two parsers (`leica_focus_distance`, `sigma_af_point`) now
+    share a convention: a MakerNote entry whose `count` fits in the entry
+    (`<= 4`, or `<= header_len`) holds its value inline, so the offset/range
+    check must come after that case. `Make` strings also differ per body
+    within one vendor (Sigma BF `Sigma`/`Sigma BF`, fp L `SIGMA`/`SIGMA fp L`).
+    No guide under `docs/agents/` covers `crates/core` parsing.
+  - Change: if a third vendor-specific MakerNote parser is added and meets the
+    same inline-versus-offset or vendor-string question, create
+    `docs/agents/core-exif-parsing.md` (or similar) with this convention.
+  - Done when: the next change to `crates/core`'s MakerNote/IFD parsing
+    decides to create the guide or keep deferring.
