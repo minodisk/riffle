@@ -516,7 +516,23 @@ fn write(
         let _ = std::fs::remove_file(&temp);
         return Err(format!("{}: {e}", temp.display()));
     }
-    if let Err(e) = std::fs::rename(&temp, &target) {
+    // On Windows, replacing an existing file this way can transiently fail
+    // with a sharing violation while an indexer or antivirus has it briefly
+    // open for scanning; a couple of short retries ride that out. POSIX
+    // renames succeed on the first try, so this is a no-op there.
+    let mut attempt = 0;
+    let result = loop {
+        match std::fs::rename(&temp, &target) {
+            Ok(()) => break Ok(()),
+            Err(e) if attempt < 5 => {
+                attempt += 1;
+                std::thread::sleep(Duration::from_millis(20 * attempt));
+                let _ = e;
+            }
+            Err(e) => break Err(e),
+        }
+    };
+    if let Err(e) = result {
         let _ = std::fs::remove_file(&temp);
         return Err(format!("{}: {e}", target.display()));
     }

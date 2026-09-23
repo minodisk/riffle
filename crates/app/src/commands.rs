@@ -11,7 +11,6 @@ use serde_json::Value;
 use tauri::ipc::Response;
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 
 use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
@@ -494,35 +493,6 @@ pub fn remember_folder(app: tauri::AppHandle, dir: String) {
     if let Err(e) = saved {
         eprintln!("failed to remember the folder: {e}");
     }
-}
-
-/// Open `dir` in the newest DxO PhotoLab installed under /Applications, the
-/// hand-off from culling to developing. PhotoLab's bundle name carries its
-/// major version (`DXOPhotoLab10.app`), so it is looked up rather than named.
-#[tauri::command]
-pub fn open_in_photolab(app: tauri::AppHandle, dir: String) -> Result<(), String> {
-    let names = std::fs::read_dir("/Applications")
-        .map_err(|e| e.to_string())?
-        .filter_map(|entry| entry.ok()?.file_name().into_string().ok());
-    let photolab = newest_photolab(names).ok_or("DxO PhotoLab is not installed")?;
-    app.opener()
-        .open_path(dir, Some(format!("/Applications/{photolab}")))
-        .map_err(|e| e.to_string())
-}
-
-/// The `DXOPhotoLab<N>.app` name with the highest `N` among `names`.
-fn newest_photolab(names: impl Iterator<Item = String>) -> Option<String> {
-    names
-        .filter_map(|name| {
-            let version = name
-                .strip_prefix("DXOPhotoLab")?
-                .strip_suffix(".app")?
-                .parse::<u32>()
-                .ok()?;
-            Some((version, name))
-        })
-        .max()
-        .map(|(_, name)| name)
 }
 
 /// The folder remembered by `remember_folder`, or `None` if there is none or
@@ -1358,8 +1328,8 @@ pub fn reset_shortcuts(app: tauri::AppHandle) -> Vec<Binding> {
 }
 
 /// The menu accelerators the keymap gives the menu-backed actions.
-fn accelerators(keymap: &Keymap) -> [Option<String>; 4] {
-    ["open", "photolab", "undo", "redo"].map(|action| keymap.accelerator_for(action))
+fn accelerators(keymap: &Keymap) -> [Option<String>; 3] {
+    ["open", "undo", "redo"].map(|action| keymap.accelerator_for(action))
 }
 
 /// Apply `change` to the keymap and save its overrides under `shortcuts`,
@@ -1860,22 +1830,6 @@ mod tests {
         assert!(super::auto_advance_setting(Some(&json!(true))));
         assert!(!super::auto_advance_setting(Some(&json!(false))));
         assert!(!super::auto_advance_setting(Some(&json!("true"))));
-    }
-
-    #[test]
-    fn newest_photolab_picks_the_highest_major_version() {
-        let names = [
-            "DXOPhotoLab9.app",
-            "Safari.app",
-            "DXOPhotoLab10.app",
-            "DXOPhotoLabX.app",
-        ]
-        .map(String::from);
-        assert_eq!(
-            super::newest_photolab(names.into_iter()).as_deref(),
-            Some("DXOPhotoLab10.app")
-        );
-        assert_eq!(super::newest_photolab(std::iter::empty()), None);
     }
 
     use std::time::Duration;

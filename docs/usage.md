@@ -70,11 +70,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   The order settles while a folder is scanned for the first time, and the
   choice is remembered across launches.
 - **Open Folder…**: `File > Open Folder…` opens the folder picker, the same as
-  the `open` key.
-- **Open in DxO PhotoLab**: `File > Open in DxO PhotoLab` hands the open
-  folder to the newest PhotoLab in `/Applications`. Both File menu items are
-  rebindable: each shows the first key of its action that can be an
-  accelerator, and none when the action holds no such key.
+  the `open` key. It is rebindable: the menu shows the first key of `open`
+  that can be an accelerator, and none when the action holds no such key.
 - **Reload Folder**: the open folder keeps up with the disk on its own: a file
   copied in or deleted outside Riffle shows up in the strip about a second
   later. On volumes that send no change notifications, such as network shares,
@@ -157,7 +154,6 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `Alt+ArrowUp` | previous frame in the current burst (stops at its first frame) |
 | `Alt+ArrowDown` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
-| `Shift+Cmd+O` / `Ctrl+Shift+O` | open the folder in DxO PhotoLab (`File > Open in DxO PhotoLab`) |
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
@@ -197,8 +193,8 @@ its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
 Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+,`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-The two File menu accelerators and the Edit menu's Undo / Redo are the
-exception: they follow their own action's keys, so unlike `Cmd+,` they can be
+The File menu's `Open Folder…` accelerator and the Edit menu's Undo / Redo
+are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
 rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.

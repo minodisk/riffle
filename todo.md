@@ -168,14 +168,13 @@ run by hand on any platform yet.
 #### TODO
 
 - [ ] On macOS, verify: one `Cmd+O` press opens the folder picker exactly
-      once (no double fire from keydown + menu accelerator); one
-      `Shift+Cmd+O` hands the folder to PhotoLab exactly once; rebinding
-      `open`/`photolab` updates the menu accelerator and kills the old key,
+      once (no double fire from keydown + menu accelerator); rebinding
+      `open` updates the menu accelerator and kills the old key,
       with the macOS key equivalent not staying stale; a menu set from
       `setup` shows correctly and doesn't steal focus from the settings
-      window; pressing `Cmd+O`/`Shift+Cmd+O` while a shortcuts row is
-      capturing does not trigger the menu action; both File menu items work
-      via mouse click.
+      window; pressing `Cmd+O` while a shortcuts row is
+      capturing does not trigger the menu action; `Open Folder…` works via
+      mouse click.
 - [ ] On macOS, verify: one `Cmd+Z` press undoes exactly once and one
       `Shift+Cmd+Z` redoes exactly once (no double fire from keydown + the
       Edit menu key equivalent); rebinding `undo`/`redo` updates the Edit
@@ -190,19 +189,6 @@ run by hand on any platform yet.
       as above, plus `crates/app/src/commands.rs` (`update_keymap`).
 - [ ] Verify the `Some`/`None` accelerator behavior on Linux (only
       reasoned from muda 0.19.3's sources so far, never run; Windows passed).
-
-### App: Open in DxO PhotoLab always fails on Windows
-
-Found during the Windows manual GUI check run: `open_in_photolab` only reads
-`/Applications` for `DXOPhotoLab<N>.app`, so on Windows "Open in DxO
-PhotoLab" always fails with `Could not open PhotoLab: ... (os error 3)`
-(path not found) while the menu item is still shown. Files:
-`crates/app/src/commands.rs` (`open_in_photolab`), `crates/app/src/main.rs`.
-
-#### TODO
-
-- [ ] Decide between a Windows / Linux PhotoLab lookup and hiding or
-      disabling the item on those platforms, then implement it.
 
 ### App: the Clear Cache button's manual GUI verification is still open
 

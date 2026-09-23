@@ -9,14 +9,6 @@ const MACOS: bool = cfg!(target_os = "macos");
 /// The default key of `open`, the accelerator of `File > Open Folder…`.
 const OPEN_DEFAULT: &str = if MACOS { "meta+o" } else { "ctrl+o" };
 
-/// The default key of `photolab`, the accelerator of
-/// `File > Open in DxO PhotoLab`.
-const PHOTOLAB_DEFAULT: &str = if MACOS {
-    "shift+meta+o"
-} else {
-    "ctrl+shift+o"
-};
-
 /// The default key of `undo`, the accelerator of `Edit > Undo`.
 const UNDO_DEFAULT: &str = if MACOS { "meta+z" } else { "ctrl+z" };
 
@@ -43,7 +35,6 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("extendPrevious", &["shift+arrowup"]),
     ("extendNext", &["shift+arrowdown"]),
     ("open", &[OPEN_DEFAULT]),
-    ("photolab", &[PHOTOLAB_DEFAULT]),
     ("undo", &[UNDO_DEFAULT]),
     ("redo", &[REDO_DEFAULT]),
     ("focus", &["f"]),
@@ -72,10 +63,10 @@ const DEFAULTS: &[(&str, &[&str])] = &[
 ];
 
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
-/// `Menu::default`). The `Open Folder…`, `Open in DxO PhotoLab`, `Undo` and
-/// `Redo` accelerators are deliberately absent: each is derived from its own
-/// action's keys, so it can never collide with another action, and once the
-/// action moves off a combination that combination is free again.
+/// `Menu::default`). The `Open Folder…`, `Undo` and `Redo` accelerators are
+/// deliberately absent: each is derived from its own action's keys, so it can
+/// never collide with another action, and once the action moves off a
+/// combination that combination is free again.
 const MACOS_MENU: &[&str] = &[
     "meta+,",
     "meta+q",
@@ -583,7 +574,6 @@ mod tests {
             ("extendPrevious", "shift+arrowup"),
             ("extendNext", "shift+arrowdown"),
             ("open", OPEN_DEFAULT),
-            ("photolab", PHOTOLAB_DEFAULT),
             ("undo", UNDO_DEFAULT),
             ("redo", REDO_DEFAULT),
             ("focus", "f"),
@@ -621,12 +611,10 @@ mod tests {
         let keymap = Keymap::defaults();
         if MACOS {
             assert_eq!(keys_of(&keymap, "open"), vec!["meta+o"]);
-            assert_eq!(keys_of(&keymap, "photolab"), vec!["shift+meta+o"]);
             assert_eq!(keys_of(&keymap, "undo"), vec!["meta+z"]);
             assert_eq!(keys_of(&keymap, "redo"), vec!["shift+meta+z"]);
         } else {
             assert_eq!(keys_of(&keymap, "open"), vec!["ctrl+o"]);
-            assert_eq!(keys_of(&keymap, "photolab"), vec!["ctrl+shift+o"]);
             assert_eq!(keys_of(&keymap, "undo"), vec!["ctrl+z"]);
             assert_eq!(keys_of(&keymap, "redo"), vec!["ctrl+shift+z"]);
         }
@@ -675,10 +663,6 @@ mod tests {
             Some(if MACOS { "Cmd+O" } else { "Ctrl+O" })
         );
         assert_eq!(
-            keymap.accelerator_for("photolab").as_deref(),
-            Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
-        );
-        assert_eq!(
             keymap.accelerator_for("undo").as_deref(),
             Some(if MACOS { "Cmd+Z" } else { "Ctrl+Z" })
         );
@@ -697,23 +681,13 @@ mod tests {
             keymap.accelerator_for("open").as_deref(),
             Some("Ctrl+Alt+J")
         );
-        assert_eq!(
-            keymap.accelerator_for("photolab").as_deref(),
-            Some(if MACOS { "Shift+Cmd+O" } else { "Ctrl+Shift+O" })
-        );
     }
 
     #[test]
     fn the_menu_defaults_are_not_forbidden() {
         for macos in [true, false] {
             let open = if macos { "meta+o" } else { "ctrl+o" };
-            let photolab = if macos {
-                "shift+meta+o"
-            } else {
-                "ctrl+shift+o"
-            };
             assert_eq!(forbidden(open, macos), None, "{open}");
-            assert_eq!(forbidden(photolab, macos), None, "{photolab}");
             let undo = if macos { "meta+z" } else { "ctrl+z" };
             let redo = if macos {
                 "shift+meta+z"
@@ -734,6 +708,22 @@ mod tests {
         assert_eq!(keys_of(&keymap, "undo"), vec![UNDO_DEFAULT]);
         assert_eq!(keys_of(&keymap, "redo"), vec![REDO_DEFAULT]);
         assert_eq!(keymap.overrides(), stored);
+    }
+
+    #[test]
+    fn a_store_with_the_retired_photolab_action_still_loads() {
+        let stored = json!({"photolab": ["ctrl+shift+o"], "pick": ["q"]});
+        let keymap = Keymap::from_overrides(Some(&stored));
+        assert_eq!(keys_of(&keymap, "pick"), vec!["q"]);
+        let others = |keymap: &Keymap| {
+            keymap
+                .bindings()
+                .into_iter()
+                .filter(|b| b.action != "pick")
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(others(&keymap), others(&Keymap::defaults()));
+        assert_eq!(keymap.overrides(), json!({"pick": ["q"]}));
     }
 
     #[test]

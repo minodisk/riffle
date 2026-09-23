@@ -444,16 +444,6 @@ function renderTitle(): void {
   void window.__TAURI__.window.getCurrentWindow().setTitle(title);
 }
 
-// Hand the open folder to DxO PhotoLab for developing.
-function openInPhotoLab(): void {
-  if (openDir === null) {
-    return;
-  }
-  window.__TAURI__.core
-    .invoke("open_in_photolab", { dir: openDir })
-    .catch((e: unknown) => setStatus(`Could not open PhotoLab: ${String(e)}`));
-}
-
 // `File > Move Rejected to Trash…`: hand the rejects of the open folder to the
 // backend, which confirms before moving anything.
 function trashRejected(): void {
@@ -1836,7 +1826,6 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   }
   resync();
 });
-void window.__TAURI__.event.listen("open-in-photolab", openInPhotoLab);
 void window.__TAURI__.event.listen("trash-rejected", trashRejected);
 void window.__TAURI__.event.listen("undo", undo);
 void window.__TAURI__.event.listen("redo", redo);
@@ -2300,9 +2289,6 @@ function runAction(action: string): boolean {
       break;
     case "open":
       openFolder();
-      break;
-    case "photolab":
-      openInPhotoLab();
       break;
     case "undo":
       undo();
