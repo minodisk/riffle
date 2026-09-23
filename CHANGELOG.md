@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/minodisk/riffle/compare/v0.2.2...v0.3.0) (2026-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **app:** the `File > Open in DxO PhotoLab` menu item, the `photolab` shortcut action (Shift+Cmd+O / Ctrl+Shift+O) and the `open_in_photolab` Tauri command are removed.
+
+### Features
+
+* **app:** add rating and colour label items to the strip's context menu ([#363](https://github.com/minodisk/riffle/issues/363)) ([f4fb5e9](https://github.com/minodisk/riffle/commit/f4fb5e9fd65fc1a21270a138063829e3d161d9be))
+* **app:** compare the sharpness cue within bursts ([#374](https://github.com/minodisk/riffle/issues/374)) ([38e9652](https://github.com/minodisk/riffle/commit/38e965287f51dec57459f1df651d65a226ce2da3))
+* **app:** open the context menu on the main photo view ([#367](https://github.com/minodisk/riffle/issues/367)) ([d4e4d5a](https://github.com/minodisk/riffle/commit/d4e4d5adc796455f918c7286914255f7ae2ba54e))
+* **app:** remove Open in DxO PhotoLab ([#375](https://github.com/minodisk/riffle/issues/375)) ([79556c7](https://github.com/minodisk/riffle/commit/79556c76240675e299de4445ec7babb8530e0778))
+* **app:** show the app icon in the About dialog ([#368](https://github.com/minodisk/riffle/issues/368)) ([fe5b037](https://github.com/minodisk/riffle/commit/fe5b037f6a2422f681f03e35ae5558bf836b34b7))
+
+
+### Bug Fixes
+
+* **app:** fix strip cell burst band gap and selection outline ([#362](https://github.com/minodisk/riffle/issues/362)) ([4d71ddd](https://github.com/minodisk/riffle/commit/4d71dddde3bf43ba82757c04e776dae64eeb4fcd))
+* **release:** publish the release only after the installers are attached ([#364](https://github.com/minodisk/riffle/issues/364)) ([bfcff56](https://github.com/minodisk/riffle/commit/bfcff56fa3d3737f5a59a193d0710f54c6409441))
+
 ## [0.2.2](https://github.com/minodisk/riffle/compare/v0.2.1...v0.2.2) (2026-09-22)
 
 
