@@ -739,6 +739,15 @@ rather than by a test.
   which is registered once and outlives every folder, needs the same kind of
   guard on its payload before it touches the UI; the `sidecar-error` listener
   drops a payload whose path is not in the current folder's index.
+- When an async path clears its own in-flight guard before an `await` and
+  re-checks the token after it resolves, the post-await stale branch must
+  `return` without re-issuing the request: whatever invalidated it (the user
+  paging again) already started its own fresh request from the normal trigger
+  path, so re-issuing makes a duplicate in-flight request for a superseded
+  token. Found in the preview `seq` check of `requestPreview()` in
+  `crates/app/ui/src/main.ts`. Source:
+  `docs/plans/_archived/20260924-linux-preview-pixel-limit/learnings.md`,
+  Step 1.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 

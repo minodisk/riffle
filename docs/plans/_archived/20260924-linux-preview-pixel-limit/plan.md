@@ -137,4 +137,4 @@ made by the user and is not up for re-litigation.
 
 ## Progress
 
-- (none yet)
+- (2026-09-24) Step 1 complete
