@@ -652,7 +652,7 @@ current view alone.
 
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
-- Source: `docs/plans/_archived/20260919-undo-judgments/learnings.md`, Step 1.
+- Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
 - `commit(...)` now takes a *list* of changes (one per file in a batch), not
   a single change: it applies every change locally, refilters once, then
   sends one `set_rating` per file, reverting only that file's own change on
