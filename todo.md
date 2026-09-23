@@ -2,6 +2,25 @@
 
 ## Cross-cutting / other
 
+### Docs: record the practice of verifying platform-workaround thresholds on the production code path
+
+`fix(app): lower the Linux preview pixel limit to 6 MP` was a follow-up to
+#383, whose original 12 MP limit was based on a secondhand claim ("12.3 MP
+drew, 16 MP did not") never measured on the shipped code path; the user's
+manual check still showed a blank main view. A MiniBrowser bisect (worker
+`createImageBitmap` with resize options, the bitmap transferred, `drawImage`
+to a canvas, the center pixel read, results POSTed to a local Python HTTP
+server) found the real threshold was ~6.87 MP by pixel count, shape-independent.
+
+#### TODO
+
+- [ ] Decide whether this belongs as a note in the `docs/agents/tauri-app.md`
+      WebKitGTK "draws a large transferred `ImageBitmap` transparent" Hit item
+      (with the MiniBrowser + POST-logging harness as the method), or as a
+      broader practice elsewhere, and write it into the chosen guide: verify a
+      platform workaround's numeric threshold on the exact production code
+      path before shipping it, instead of taking a quoted/secondhand number.
+
 ### App: unmeasured end-to-end per-page latency
 
 End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in docs/performance.md.
