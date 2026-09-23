@@ -544,6 +544,7 @@ fn main() {
             commands::sort_order,
             commands::set_sort_order,
             commands::preview,
+            commands::preview_pixel_limit,
             commands::dropped_folder,
             commands::scan_folder,
             commands::start_scan,

@@ -739,6 +739,15 @@ rather than by a test.
   which is registered once and outlives every folder, needs the same kind of
   guard on its payload before it touches the UI; the `sidecar-error` listener
   drops a payload whose path is not in the current folder's index.
+- When an async path clears its own in-flight guard before an `await` and
+  re-checks the token after it resolves, the post-await stale branch must
+  `return` without re-issuing the request: whatever invalidated it (the user
+  paging again) already started its own fresh request from the normal trigger
+  path, so re-issuing makes a duplicate in-flight request for a superseded
+  token. Found in the preview `seq` check of `requestPreview()` in
+  `crates/app/ui/src/main.ts`. Source:
+  `docs/plans/_archived/20260924-linux-preview-pixel-limit/learnings.md`,
+  Step 1.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
@@ -1051,6 +1060,18 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 
 - Why: `DedicatedWorkerGlobalScope` is only in the `webworker` lib, and adding
   `webworker` next to `dom` clashes on the globals both declare.
+
+### WebKitGTK draws a large transferred `ImageBitmap` transparent (Hit)
+
+On Linux (WebKitGTK 2.50.4, WSLg), an `ImageBitmap` decoded in the worker and
+transferred to the main thread draws fully transparent once it is large:
+12.3 MP drew, 16 MP did not, and a 60 MP SIGMA fp L preview left the main view
+blank with no error. The worker passes `resizeWidth` / `resizeHeight` to
+`createImageBitmap` for previews over `PREVIEW_PIXEL_LIMIT` (`commands.rs`,
+Linux only, 12 MP), reading the size from the JPEG's SOF (`decode.ts`).
+
+- Why: decoding on the main thread, or resizing inside the worker, both draw;
+  only the large transferred bitmap fails. Windows (WebView2) is unaffected.
 
 ### Write relative imports with `.js` (Measured)
 

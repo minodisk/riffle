@@ -94,6 +94,12 @@ const worker = new Worker(new URL("./worker.js", import.meta.url), {
   type: "module",
 });
 
+// Linux's WebKitGTK only; resolved once, awaited before every post so the
+// first preview cannot race it.
+const previewPixelLimit = window.__TAURI__.core
+  .invoke<number | null>("preview_pixel_limit")
+  .catch(() => null);
+
 // Every RAW file in the open folder, in `list_arw` order.
 let allFiles: string[] = [];
 // The strip order, kept across folder opens within the session.
@@ -1337,15 +1343,24 @@ function requestPreview(): void {
       if (kind !== PREVIEW_KIND_JPEG_V1) {
         throw new Error(`unknown preview payload kind ${kind}`);
       }
-      orientations.set(current, header.getUint16(2, true));
-      const jpeg = payload.slice(PREVIEW_HEADER_LEN);
-      pageTimings.set(current, {
-        startedAt: requestStartedAt,
-        invokeMs,
-        postedAt: performance.now(),
-        keypressAt,
+      return previewPixelLimit.then((maxPixels) => {
+        if (current !== seq) {
+          // `inFlight` was already cleared above, and the page turn that
+          // invalidated this request already started its own
+          // `requestPreview()` from `show()`. Calling it again here would
+          // start a duplicate `preview` invoke for the same `seq`.
+          return;
+        }
+        orientations.set(current, header.getUint16(2, true));
+        const jpeg = payload.slice(PREVIEW_HEADER_LEN);
+        pageTimings.set(current, {
+          startedAt: requestStartedAt,
+          invokeMs,
+          postedAt: performance.now(),
+          keypressAt,
+        });
+        worker.postMessage({ seq: current, jpeg, maxPixels }, [jpeg]);
       });
-      worker.postMessage({ seq: current, jpeg }, [jpeg]);
     })
     .catch((err: unknown) => {
       inFlight = false;

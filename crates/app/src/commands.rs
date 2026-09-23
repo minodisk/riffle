@@ -1440,6 +1440,23 @@ const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
     1024
 };
 
+/// The largest preview, in pixels, the decode worker hands over unresized.
+/// WebKitGTK draws an `ImageBitmap` created in a Worker and transferred to the
+/// main thread as fully transparent once it is large enough: 12.3 MP drew,
+/// 16 MP did not. Above the limit the worker decodes with resize options, so
+/// Linux keeps a margin under the failure; other platforms are unaffected.
+pub const PREVIEW_PIXEL_LIMIT: Option<u32> = if cfg!(target_os = "linux") {
+    Some(12_000_000)
+} else {
+    None
+};
+
+/// The preview pixel limit, or `None` where previews go unresized.
+#[tauri::command]
+pub fn preview_pixel_limit() -> Option<u32> {
+    PREVIEW_PIXEL_LIMIT
+}
+
 /// The message shown when the button is pressed while a scan is running. The
 /// clear is refused rather than canceling the scan.
 const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
@@ -1676,7 +1693,7 @@ fn canonicalize(dir: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_bytes, Scans, ScansState, SIZE_BASE};
+    use super::{format_bytes, Scans, ScansState, PREVIEW_PIXEL_LIMIT, SIZE_BASE};
     use crate::index;
     use riffle_core::Flag;
     use std::sync::{atomic::AtomicBool, mpsc, Arc, Mutex};
@@ -1797,6 +1814,17 @@ mod tests {
             "1.0 GB"
         };
         assert_eq!(format_bytes(1_073_741_824, SIZE_BASE), expected);
+    }
+
+    #[test]
+    fn the_preview_pixel_limit_applies_on_linux_only() {
+        // WebKitGTK drops large transferred bitmaps; other webviews do not.
+        let expected = if cfg!(target_os = "linux") {
+            Some(12_000_000)
+        } else {
+            None
+        };
+        assert_eq!(PREVIEW_PIXEL_LIMIT, expected);
     }
 
     #[test]
