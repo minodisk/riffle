@@ -140,3 +140,4 @@ v9/v10 approach) and without touching `ratings`.
   older extractor). Added `files.extractor` / `EXTRACTOR_VERSION`, keyed the
   `ALTER TABLE` guard to `(10..12).contains(&version)`, and covered it with
   migration and `reconcile` tests. See `learnings.md`.
+- (2026-09-24) Step 1 complete
