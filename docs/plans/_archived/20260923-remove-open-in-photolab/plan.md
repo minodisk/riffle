@@ -54,4 +54,4 @@ still holds a `photolab` shortcut override loads unchanged.
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete
