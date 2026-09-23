@@ -10,8 +10,11 @@
   alone too, since the change is a helper inside `arw.rs`.
 - The inline `SHORT[2]` is read out of the entry's value field with
   `value.to_le_bytes()`, so it never touches `buf`. A wrong type or count gives
-  `None`. The only error path is a MakerNote range past the buffer, which
-  `maker_note_ifd` already rejects before the Sigma helper runs.
+  `None`. `sigma_af_point` checks `count <= SIGMA_HEADER_LEN` before the range
+  check, since a MakerNote entry with `count <= 4` stores its value inline
+  (not as an offset into `buf`), matching the order `leica_focus_distance`
+  uses. Only a MakerNote with `count > SIGMA_HEADER_LEN` whose range runs past
+  the buffer is a real error.
 - Manual verification (only the 11 camera originals `BF_[0-9]*.DNG`, release
   build of `riffle-cli`):
   - `riffle-cli info` prints `focus: 1000 667 x y` on all 11, and every value

@@ -468,10 +468,13 @@ fn sigma_af_point(
         return Ok(None);
     };
     let (at, count) = (entry.1 as usize, entry.3 as usize);
+    if count <= SIGMA_HEADER_LEN {
+        return Ok(None);
+    }
     if at.checked_add(count).is_none_or(|end| end > buf.len()) {
         bail!("MakerNote out of range");
     }
-    if count <= SIGMA_HEADER_LEN || !buf[at..].starts_with(SIGMA_HEADER) {
+    if !buf[at..].starts_with(SIGMA_HEADER) {
         return Ok(None);
     }
     let (note, _) = read_ifd(buf, at + SIGMA_HEADER_LEN)?;
@@ -1227,6 +1230,29 @@ mod tests {
         let shot = parse(&tiff_with_sigma_maker_note("Sigma fp L", &note))
             .unwrap()
             .shot;
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn a_sigma_bf_maker_note_with_an_inline_value_is_none() {
+        // count <= SIGMA_HEADER_LEN means the entry's value field holds the
+        // MakerNote bytes inline, not an offset. Reading it as an offset
+        // (0xffff_fff0, past the buffer) must not bail the whole parse.
+        let make = b"Sigma\0";
+        let model = b"Sigma BF\0";
+        let exif_at = 8 + ifd_len(3);
+        let maker_at = exif_at + ifd_len(1);
+        let make_at = maker_at;
+        let model_at = make_at + make.len();
+        let mut buf = tiff(&[
+            (TAG_MAKE, TYPE_ASCII, make.len() as u32, make_at as u32),
+            (TAG_MODEL, TYPE_ASCII, model.len() as u32, model_at as u32),
+            (TAG_EXIF_IFD, TYPE_LONG, 1, exif_at as u32),
+        ]);
+        buf.extend_from_slice(&ifd(&[(TAG_MAKER_NOTE, 7, 4, 0xffff_fff0)]));
+        buf.extend_from_slice(make);
+        buf.extend_from_slice(model);
+        let shot = parse(&buf).unwrap().shot;
         assert!(shot.focus.is_none());
     }
 

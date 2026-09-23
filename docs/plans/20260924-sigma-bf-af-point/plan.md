@@ -150,4 +150,6 @@ Investigation results (from exiftool 13.59 on the 11 sample files under
 
 ## Progress
 
-- (none yet)
+- Step 1: Read the Sigma BF AF point (`TAG_SIGMA_AF_POINT`, tag `0x0147`) out
+  of the Sigma MakerNote into `Shot.focus`, gated on `Make` starting with
+  `SIGMA` (case-insensitive) and `Model == "Sigma BF"`.
