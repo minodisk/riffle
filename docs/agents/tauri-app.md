@@ -1052,6 +1052,18 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 - Why: `DedicatedWorkerGlobalScope` is only in the `webworker` lib, and adding
   `webworker` next to `dom` clashes on the globals both declare.
 
+### WebKitGTK draws a large transferred `ImageBitmap` transparent (Hit)
+
+On Linux (WebKitGTK 2.50.4, WSLg), an `ImageBitmap` decoded in the worker and
+transferred to the main thread draws fully transparent once it is large:
+12.3 MP drew, 16 MP did not, and a 60 MP SIGMA fp L preview left the main view
+blank with no error. The worker passes `resizeWidth` / `resizeHeight` to
+`createImageBitmap` for previews over `PREVIEW_PIXEL_LIMIT` (`commands.rs`,
+Linux only, 12 MP), reading the size from the JPEG's SOF (`decode.ts`).
+
+- Why: decoding on the main thread, or resizing inside the worker, both draw;
+  only the large transferred bitmap fails. Windows (WebView2) is unaffected.
+
 ### Write relative imports with `.js` (Measured)
 
 `import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
