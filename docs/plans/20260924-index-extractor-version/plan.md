@@ -92,7 +92,7 @@ v9/v10 approach) and without touching `ratings`.
     - `entries`, `thumbnail`, `evict`, `clear` and `commands.rs` need no
       change; the `write_batch` callers in `commands.rs` tests keep working.
 
-- [ ] Step 2: Document the extractor version in the agent guide
+- [x] Step 2: Document the extractor version in the agent guide
   - Done when:
     - `docs/agents/tauri-app.md` gains a short section in the "Rust side"
       part, next to "Bumping `SCHEMA_VERSION` can strand an old per-version

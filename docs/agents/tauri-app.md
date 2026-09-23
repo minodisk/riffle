@@ -484,8 +484,39 @@ that already have the column, and the `ALTER TABLE` fails.
   `version != SCHEMA_VERSION`, which would have thrown away every thumbnail on
   the v7 -> v8 upgrade. It is now keyed to `version < 7`, and v8 seeds the new
   `folders` table from the surviving `files` rows.
+- Audit every existing guard on each bump, not just the new one: the v11
+  `ratings.flag` guard was still `version != SCHEMA_VERSION` and would have
+  fired for v11 databases on the v12 bump. A range key also has to exclude
+  versions whose table is dropped and recreated with the column: the v12
+  `files.extractor` guard is `(10..12).contains(&version)`, because
+  `version < 12` would also fire for v2-v9, where `files` has just been
+  recreated with the column, and the duplicate-column `ALTER` would discard the
+  cache, dirty ratings included.
+- A migration test fixture built with `open` has the current schema, so faking
+  an older version means dropping every column added since then too.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
-  `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3.
+  `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
+  `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1.
+
+### Bump `EXTRACTOR_VERSION`, not `SCHEMA_VERSION`, when extraction output changes (Hit)
+
+`reconcile` treats a `files` row as valid only while its size, mtime **and**
+`extractor` match. Before `files.extractor` existed, a fix to extraction (e.g.
+#376) never reached existing caches: error rows in particular were never
+retried.
+
+- Bump `EXTRACTOR_VERSION` (`crates/app/src/index.rs`) on any change to what
+  `riffle_core::scan::extract` produces: ARW/DNG parsing or embedded JPEG tier
+  selection (`crates/core/src/arw.rs`), thumbnail generation, face detection
+  or the sharpness score (`crates/core/src/scan.rs`, `sharpness.rs`,
+  `faces.rs`).
+- Bump `SCHEMA_VERSION` only when the table layout changes.
+- An extractor bump re-extracts every row, error rows included, on the next
+  scan of each folder, and keeps `ratings`. Stale rows are deleted by
+  `reconcile` right away, so the folder shows placeholders until its rescan
+  fills them in.
+- Source: `docs/plans/_archived/20260924-index-extractor-version/learnings.md`,
+  Step 1.
 
 ### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
 

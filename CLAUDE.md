@@ -18,6 +18,7 @@ face (or on the AF point when it falls inside that face), else around the AF
 point, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
+re-extracting rows written by an older `EXTRACTOR_VERSION`,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
