@@ -83,7 +83,9 @@ Not British, leave alone (they match naive regexes): `optimistic`,
   `expect "cancelled superseded"` test description) are free to change; the
   shell variable `cancelled_tsv` may be renamed but the jq string literals
   must not.
-- `aria-labelledby` in `crates/app/ui/settings.html`: WAI-ARIA attribute name.
+- `aria-labelledby` in `crates/app/ui/settings.html` and
+  `docs/plans/_archived/20260920-settings-tabs/plan.md`: WAI-ARIA attribute
+  name.
 - `crates/core/models/LICENSE`: third-party license text, untouched.
 - `Cargo.lock`, `pnpm-lock.yaml`, `node_modules`, `target`, binary assets.
 - XMP / `.dop` field names and settings-store keys: none carry a British
@@ -141,3 +143,4 @@ git ls-files -z | grep -zvE 'Cargo\.lock|pnpm-lock\.yaml|\.(png|jpg|ico|icns|onn
 ## Progress
 
 - (2026-09-23) Step 1 complete
+- (2026-09-23) Step 2 complete
