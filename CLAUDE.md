@@ -30,7 +30,9 @@ user's overrides, persisted in the `shortcuts` key).
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
 formatted, linted, type-checked and tested by `mise run ci`; its
-`src/context.ts` builds the items of the strip's HTML right-click menu.
+`src/context.ts` builds the items of the strip's HTML right-click menu, and
+`src/meta.ts` groups the meta pane rows by provenance (EXIF with its Maker
+note section, and Riffle).
 
 ## Language
 

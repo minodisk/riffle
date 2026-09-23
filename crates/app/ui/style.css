@@ -566,11 +566,28 @@ body {
   cursor: pointer;
 }
 
+/* Provenance groups (EXIF, Riffle): the heading carries the gap below the
+   file name that the list used to, so the pane's rhythm is unchanged. */
+#meta .group {
+  margin: 0.75rem 0 0.125rem;
+  font-size: 0.7rem;
+  color: #999;
+}
+
+/* The maker note section inside EXIF, set apart by a thin divider. */
+#meta .section {
+  margin-top: 0.25rem;
+  padding-top: 0.125rem;
+  border-top: 1px solid #3a3a3a;
+  font-size: 0.65rem;
+  color: #999;
+}
+
 #meta dl {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0 0.5rem;
-  margin: 0.75rem 0 0;
+  margin: 0;
 }
 
 #meta dt {
