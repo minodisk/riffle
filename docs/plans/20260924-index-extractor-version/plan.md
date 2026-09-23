@@ -35,7 +35,7 @@ v9/v10 approach) and without touching `ratings`.
 
 ## Steps
 
-- [ ] Step 1: Store an extractor version per `files` row and re-extract rows whose version is stale
+- [x] Step 1: Store an extractor version per `files` row and re-extract rows whose version is stale
   - Done when:
     - `crates/app/src/index.rs` has a `const EXTRACTOR_VERSION: i64 = 1;`
       next to `SCHEMA_VERSION`, with a doc comment saying when to bump it:
