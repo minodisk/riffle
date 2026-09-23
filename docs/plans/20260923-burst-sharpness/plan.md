@@ -84,7 +84,7 @@ lone frames, and the answer must not depend on the filter or the sort.
     - Singles: from the capture-ordered list keep only the singles (a
       compacted array), then apply the current positional ±radius window
       over that array (this keeps "a `null` single still takes a slot" and
-      the clamping behaviour).
+      the clamping behavior).
     - `applySharpness()`: recompute over `allFiles` on each call (`refilter`
       and `refreshEntries` only; one sort plus a linear pass), then
       `files.forEach((path, at) => strip.setSharpness(at, result.get(path) ?? null))`.
