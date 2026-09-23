@@ -68,4 +68,4 @@ instead of a raw OS error.
 
 ## Progress
 
-- (2026-09-23) Step 1 complete (manual launch check on Windows pending; see learnings.md)
+- (none yet)
