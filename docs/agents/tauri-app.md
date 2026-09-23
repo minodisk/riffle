@@ -870,6 +870,36 @@ contents needs the same explicit close.
 - Source: `docs/plans/_archived/20260922-strip-context-menu/plan.md` and its
   `learnings.md`, Steps 2-3.
 
+The menu also lists the star ratings and the colour labels, in groups separated
+by `<hr>`, and marks the focused file's current flag, rating and label.
+
+- `main.ts`'s `labels` map stores the capitalised label name (`"Red"`), while
+  the menu's action names are lower-case (`red`); code comparing a label
+  against an action name must convert case, not compare directly.
+- The rating/label buttons use `role="menuitemradio"`, not `menuitem`, because
+  `aria-checked` is not a valid attribute on a plain `menuitem`.
+- A rating of `0` counts as "No stars", same as `null` — check both when
+  deciding whether a rating is set.
+- Source: `docs/plans/_archived/20260923-context-menu-rating-label/learnings.md`,
+  Step 1.
+
+### The main-view right-click hit test rejects the vertical gap too (Hit)
+
+`crates/app/ui/src/compare.ts` exports `comparePaneAt`, extracted from the
+existing `click` handler on `#canvas` so the new `contextmenu` handler can
+reuse it. The original `click` hit test only checked the horizontal gap
+between panes; `comparePaneAt` also rejects the vertical gap, so a right-click
+in a gap (horizontal or vertical) does nothing rather than opening the menu for
+the nearest pane.
+
+- While a comparison is still loading (`compareFrames` is empty), no pane is
+  hit, so a right-click there only suppresses the native context menu.
+- `openContextMenu` is a hoisted function declaration, so the new `contextmenu`
+  handler on `#canvas` can be placed above it, next to the existing `click`
+  handler.
+- Source: `docs/plans/_archived/20260923-context-menu-rating-label/learnings.md`,
+  Step 2.
+
 ### The strip's multi-selection keeps one invariant: the focused file is always selected (Inferred)
 
 `selection.ts` (`crates/app/ui/src/selection.ts`) returns new `Selection`
