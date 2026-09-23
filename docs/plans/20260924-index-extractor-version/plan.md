@@ -51,9 +51,12 @@ v9/v10 approach) and without touching `ratings`.
       defaulting to `0` so every existing row is re-extracted once, and keeps
       `files`, `ratings` and `folders`), `11` is added to the whitelist in
       `prepare`, and the `ALTER TABLE` guard is keyed as
-      `version != 0 && version < 12` (never `!= SCHEMA_VERSION`, per the
+      `(10..12).contains(&version)` (never `!= SCHEMA_VERSION`, per the
       guide pitfall). Since `files` is dropped for `version < 10` and
-      recreated with the column, the guard only has to fire for 10 and 11.
+      recreated with the column, the guard only has to fire for 10 and 11;
+      a plain `version != 0 && version < 12` would also fire for v2-v9
+      databases, which don't have `files` yet, and would fail with a
+      duplicate column, discarding the cache.
     - `write_batch` writes `EXTRACTOR_VERSION` into `extractor` in both the
       `Ok` and the `Err` insert.
     - `reconcile` selects `extractor` too and a row is valid only when
@@ -120,15 +123,20 @@ v9/v10 approach) and without touching `ratings`.
   fills in, instead of the old thumbnails. The plan keeps the existing
   behavior so `entries` never serves known-stale data (e.g. the wrong
   sharpness).
-- **Migration guard.** Keying the `ALTER TABLE` to `version < 12` (not
-  `!= SCHEMA_VERSION`) is essential; the guide records the previous failure.
-  Adding the column to a table that already has it would fail `prepare` and
-  discard the cache (including dirty ratings), which is why the migration
-  test matters.
+- **Migration guard.** Keying the `ALTER TABLE` to `(10..12).contains(&version)`
+  (not `!= SCHEMA_VERSION`, and not a plain `version != 0 && version < 12`,
+  which would also fire for v2-v9 databases that don't have `files` yet and
+  fail with a duplicate column) is essential; the guide records the previous
+  failure. Adding the column to a table that already has it would fail
+  `prepare` and discard the cache (including dirty ratings), which is why the
+  migration test matters.
 - **Every folder is re-extracted once after upgrading**: a full rescan per
   folder on first open. This is the intended effect and the same cost as the
   v9/v10 upgrades.
 
 ## Progress
 
-- (none yet)
+- Step 1: done (`7d59c28`, feat(app): re-extract index rows written by an
+  older extractor). Added `files.extractor` / `EXTRACTOR_VERSION`, keyed the
+  `ALTER TABLE` guard to `(10..12).contains(&version)`, and covered it with
+  migration and `reconcile` tests. See `learnings.md`.
