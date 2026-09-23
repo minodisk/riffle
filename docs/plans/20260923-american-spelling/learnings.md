@@ -25,6 +25,28 @@
 - The settings-store key accesses (`store.get` / `store.set` in
   `crates/app/src`) are identical before and after the pass.
 
+## Step 2
+
+- The pass needs `(?<![a-z])` / `(?![a-z])` instead of `\b` at the word
+  edges: `_` is a word character, so `\b` missed test names quoted in plans
+  such as `cancelling_after_the_first_batch_keeps_what_was_written` and
+  `scan_started_serialises_the_fields_the_frontend_reads`.
+- `aria-labelledby` also appears in
+  `docs/plans/_archived/20260920-settings-tabs/plan.md`; it was protected the
+  same way as in Step 1.
+- Besides the directories the plan names, two review-history directories
+  carried a British form in their path (`feature/undo-judgements`,
+  `feature/judgement-dots-in-strip`); they were renamed with `git mv` too so
+  the directory names match the converted text.
+- This plan's own `plan.md` / `learnings.md` and
+  `review-history/american-spelling-step-1/` were left as they are (they
+  quote the British forms and the old paths); the plan's exception list now
+  names them.
+- `docs/agents/tauri-app.md` had picked up a new `colour` from the
+  context-menu-rating-label wrap-up after Step 1; converted here.
+- `maths` (British) became `math` in four plan / review files.
+- No intra-doc link or heading anchor contained a converted word.
+
 ## Deferred issues (todo candidates)
 
 - Step 2 must also rename `docs/plans/_archived/20260919-undo-judgements/`

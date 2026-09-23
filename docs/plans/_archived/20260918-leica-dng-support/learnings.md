@@ -37,7 +37,7 @@
   then a little-endian IFD at note offset 8 (32 entries). `FocusDistance` is
   tag **0x0304, LONG count 1, value inline** (921 on `L1005200.DNG`, 921
   read by our parser too). exiftool prints it as a bare integer; the unit is
-  taken as **millimetres** (range 921-7529 over the samples, consistent with
+  taken as **millimeters** (range 921-7529 over the samples, consistent with
   a 50mm Summicron's 0.7 m close focus). Shown as `0.92 m`.
 - The Step 1 Sony gate only skips a non-`SONY` note when `Make` is present
   and non-Sony, so a synthetic Leica note in a test needs a `Make` entry;
@@ -51,13 +51,13 @@
 ## Step 4: DNG benchmark
 
 - The sample folder holds 32 DNGs (the plan said 31); all 32 were measured.
-- `bench` now crops via `partial::decode_focus_crop` (RGBA, centre fallback)
+- `bench` now crops via `partial::decode_focus_crop` (RGBA, center fallback)
   instead of `decode_crop` (RGB, skipped without focus). Crop size is still
   512x512, but ARW numbers now include RGBA output; the α7 V table in README
   was not re-measured.
 - The bench's preview label no longer says "1616px" since DNG previews are
   2112 wide.
-- Centre crop on the 9504x6320 JPEG: ~16.5ms median, well under 50ms, despite
+- Center crop on the 9504x6320 JPEG: ~16.5ms median, well under 50ms, despite
   skipping ~2900 rows. Thumbnails average 30.2KB versus ~19KB on ARW.
 
 ## Step 5

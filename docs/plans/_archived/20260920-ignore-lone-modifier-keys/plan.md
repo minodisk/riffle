@@ -37,7 +37,7 @@ and combos keep registering as before.
       `meta`) with the modifier flag **not** set, and the same with the flag
       set; the right-hand codes (`ControlRight`, `ShiftRight`, `AltRight`,
       `MetaRight`) and the legacy `OSLeft` / `OSRight`; and a case where
-      `event.key` is unrecognisable but `event.code` is a modifier code.
+      `event.key` is unrecognizable but `event.code` is a modifier code.
     - `mise run ci` passes.
   - Implementation approach:
     - Only `crates/app/ui/src/keys.ts` and `crates/app/ui/src/keys.test.ts`
@@ -77,7 +77,7 @@ and combos keep registering as before.
   not, any modifier `event.code`), so it does not depend on pinning it down.
   If the implementer can reproduce it in the running app, note the observed
   `key` / `code` / flags in `learnings.md`.
-- `event.code` may be an empty string for synthesised events; the
+- `event.code` may be an empty string for synthesized events; the
   `event.key` check still applies then, so nothing regresses for the existing
   test fixtures.
 

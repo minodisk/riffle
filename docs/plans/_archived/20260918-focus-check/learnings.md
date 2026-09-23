@@ -3,21 +3,21 @@
 ## Step 1: core ranged read + focus-point RGBA crop
 
 - `reader::read_preview` and the new `read_full` share `read_embedded` /
-  `embedded_from`, parameterised by a small `Kind` enum that picks
+  `embedded_from`, parameterized by a small `Kind` enum that picks
   `arw.preview` or `arw.full` and names itself in the error messages.
-  `read_preview`'s behaviour is unchanged.
+  `read_preview`'s behavior is unchanged.
 - `partial::decode_crop` and the new `decode_focus_crop` share
-  `decode_region`, which takes the colour space, the bytes per pixel and a
-  closure handed the JPEG's size that returns the wanted centre and size.
+  `decode_region`, which takes the color space, the bytes per pixel and a
+  closure handed the JPEG's size that returns the wanted center and size.
   `Crop::rgb` became `Crop::pixels` because the RGBA variant fills the same
   field; `bench` does not read the field, so it stayed untouched.
 - `FocusCrop` carries `point_x` / `point_y` in crop coordinates. They come out
   of the crop's actual origin, which `jpeg_crop_scanline` snaps down to an MCU
-  boundary (16px here), so the point is not the crop's centre: on the test
-  file 3613 - 3344 = 269 against a centre of 262.
+  boundary (16px here), so the point is not the crop's center: on the test
+  file 3613 - 3344 = 269 against a center of 262.
 - A crop decoded with `jpeg_crop_scanline` is **not** bit-identical to the
   same region of a full `decode_rgb` near its left and right edges: chroma
-  upsampling has one fewer neighbour there. Measured differences up to 2 in
+  upsampling has one fewer neighbor there. Measured differences up to 2 in
   the first columns and 1 in the last. The unit test therefore asserts
   equality only for `8..width - 8` and a tolerance of 4 on the edge columns.
   Tripped this over twice before narrowing it down.
@@ -34,7 +34,7 @@
   The first run of a fresh process reads in 9.5ms and crops in 19.3ms. These
   are single runs, not the n=20 medians from the plan; Step 4 re-measures.
 - `image::save_buffer` and `decode::apply_orientation` are RGB-only, so the
-  CLI drops the alpha channel before rotating. Not worth generalising
+  CLI drops the alpha channel before rotating. Not worth generalizing
   `apply_orientation` for one caller.
 
 ## Step 2: the app's `focus_crop` command
@@ -48,10 +48,10 @@
   round-trip test builds has no Orientation tag (so orientation 1), which is
   why the swap is covered through `crop_size` rather than through the ARW.
 - The crop's origin snaps **down** to the MCU boundary and the returned width
-  is not necessarily widened: for a 64px-wide request centred at x=200 on a
+  is not necessarily widened: for a 64px-wide request centered at x=200 on a
   400x300 gradient, `jpeg_crop_scanline` gave width 64 at x=160, so the point
   of interest landed at 40, not 32. The test asserts
-  `point_x == centre - crop.x` rather than a fixed number; an earlier guess
+  `point_x == center - crop.x` rather than a fixed number; an earlier guess
   that the width grows to absorb the snap was wrong (it does on the 4:2:2 test
   file, not here).
 - `mozjpeg` was already a dev-dependency of `crates/app`, so the gradient
@@ -69,7 +69,7 @@
   placed by its own point of interest). Adding the JPEG size to the header's
   reserved word would remove the approximation.
 - With no index row (scan not there yet) or no `FocusLocation`, no placeholder
-  is drawn; only the crop, centred by its point of interest.
+  is drawn; only the crop, centered by its point of interest.
 - `draw()` applies `context.scale(dpr, dpr)`; `drawZoom()` deliberately does
   not, so everything in it is device pixels and the crop is 1:1 by
   construction.
@@ -81,7 +81,7 @@
   (keypress, invoke resolved, bitmap ready).
 - The (manual) checks of Step 3 are **awaiting the user's confirmation**: GUI
   automation does not work on this machine, so `Space` toggling, the upright
-  Orientation 8 placement, paging while zoomed, the manual-focus centre
+  Orientation 8 placement, paging while zoomed, the manual-focus center
   fallback and the three timings are all unverified.
 
 ## Step 4: documentation and measurements

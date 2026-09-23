@@ -94,7 +94,7 @@ the dependency refresh.
   `crates/app/src/main.rs`.
 - **`Open Folder…` has no icon.** It is built as a plain `MenuItem` in
   `crates/app/src/main.rs` and no icon was ever assigned. `NativeIcon::Folder`
-  exists but is the colour Finder folder (`isTemplate == false`) and would
+  exists but is the color Finder folder (`isTemplate == false`) and would
   clash; exporting an SF Symbol the way `Open Log Folder` does would match.
   Worth deciding together with the sizing fix above, since both touch the same
   export script. Related: `crates/app/src/main.rs`,

@@ -24,7 +24,7 @@ that shows the count, every file of the open folder judged as a reject
 (`rating == -1`) is moved to the OS trash together with the sidecars that
 exist for it on disk (`.xmp` and `.dop`, whichever are present). Nothing is
 unlinked; the Trash's "Put Back" restores the RAW, its sidecar and, since the
-index row is kept, its judgement.
+index row is kept, its judgment.
 
 Facts the design rests on (from reading the code):
 
@@ -70,7 +70,7 @@ Facts the design rests on (from reading the code):
         Vec<PathBuf> }`.
       - `run(groups, mover: impl FnMut(&Path) -> Result<(), String>) ->
         Summary`: per group, the RAW first; if the RAW fails its sidecars are
-        left alone (the judgement stays with the file) and the failure is
+        left alone (the judgment stays with the file) and the failure is
         recorded; a sidecar that fails after its RAW went is recorded too. It
         never stops at the first failure. `Summary { trashed: usize, failed:
         Vec<Failure { path, message }> }` (`serde::Serialize`), where `path`
@@ -104,7 +104,7 @@ Facts the design rests on (from reading the code):
       Automation permission and must not be used. Record the finding in
       `learnings.md`.
     - Do not delete `ratings` rows: `entries()` hides them and a "Put Back"
-      then restores the judgement with the file.
+      then restores the judgment with the file.
     - Non-UTF-8 paths: compare with the same lossy conversion the index uses.
 
 - [x] Step 2: Menu item and frontend flow
@@ -141,7 +141,7 @@ Facts the design rests on (from reading the code):
     - Assumes Step 1 is merged.
     - `resync()` keeps the current file and scroll position, and its
       `refilter(anchor, true)` moves off a deleted current file to a
-      neighbour; `openDirectory` (the reset path) is not the right one here.
+      neighbor; `openDirectory` (the reset path) is not the right one here.
     - Any pure helper worth testing (e.g. selecting the rejected paths from
       the map, or composing the status text) lives in a small module with a
       vitest test rather than inline in `main.ts`, as `filter.ts` /
@@ -151,14 +151,14 @@ Facts the design rests on (from reading the code):
   - Done when:
     - `README.md` describes `File > Move Rejected to Trash…` next to `Reload
       Folder` (user-facing only: what is moved, both sidecar formats, the
-      confirmation, that the OS Trash's restore brings the judgement back).
+      confirmation, that the OS Trash's restore brings the judgment back).
     - `todo.md`: the "App: rejected files cannot be cleared out from the
       app" item is closed, and a new item lists the GUI checks that could
       not be run here (dialog with the right count and buttons; Cancel
       leaving the folder untouched; Confirm moving RAW + `.xmp` + `.dop` to
       the Trash and the strip updating; zero-reject / no-folder / mid-scan
       messages in `#status`; a "Put Back" from the Trash restoring the file
-      with its judgement; on Windows and Linux too).
+      with its judgment; on Windows and Linux too).
     - `docs/agents/tauri-app.md` gains an entry only if Step 1 or 2 hit a
       pitfall (e.g. the `trash` macOS delete method), sourced to this plan's
       `learnings.md`.
@@ -175,7 +175,7 @@ Facts the design rests on (from reading the code):
   rename into `<dir>/Rejected/` and the dialog text changes; the rest of the
   plan holds.
 - **Source of the rejected list.** The frontend `ratings` map (chosen) is what
-  the strip shows and already owns judgements during a session; the backend
+  the strip shows and already owns judgments during a session; the backend
   validates every path. An index query (`WHERE dir = ? AND rating = -1`) is
   the alternative; it can lag an un-awaited `set_rating`. Either way a reject
   pressed a few milliseconds before the menu click may not be in the writer
@@ -189,8 +189,8 @@ Facts the design rests on (from reading the code):
   went is reported as its own failure. `delete_all` would not make this
   atomic either.
 - **`ratings` rows are kept** for trashed paths (a restore brings the
-  judgement back; the rows are invisible without a `files` row). Deleting
-  them is the alternative; it costs a restored file its judgement until the
+  judgment back; the rows are invisible without a `files` row). Deleting
+  them is the alternative; it costs a restored file its judgment until the
   sidecar is re-read, which `reconcile_sidecars` does anyway.
 - **No accelerator** (chosen): a destructive, confirmed action; Finder's
   `Cmd+Delete` is the obvious candidate if the caller wants one, as a fixed

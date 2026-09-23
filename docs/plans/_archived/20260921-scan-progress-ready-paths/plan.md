@@ -71,7 +71,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
         `BATCH` and with `threads = 2`;
       - a scan where some files fail extraction (a bad fixture) still reports
         the failed files' paths (their rows exist with `error` set);
-      - the cancel test (`cancelling_after_the_first_batch_keeps_what_was_written`)
+      - the cancel test (`canceling_after_the_first_batch_keeps_what_was_written`)
         still passes, and the paths reported up to the end equal the rows
         persisted.
     - `cargo test -p riffle-app` and `mise run ci` pass.
@@ -90,7 +90,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
       the trailing `flush(std::mem::take(&mut *lock(&pending)))`, with the
       final `done` and whatever `ready` still holds. This one unconditional
       final call covers both the normal end and a cancel. Keep the
-      "always on the first file" behaviour (the `last.is_none()` branch) as
+      "always on the first file" behavior (the `last.is_none()` branch) as
       is. Update the doc comment above `run_scan`.
     - Callback signature: `P: Fn(usize, usize, Vec<String>) + Send + Sync`
       (or a small `ScanProgress { done, total, ready }` struct if clippy
@@ -126,7 +126,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
     - Verified by hand in `mise run tauri:dev` on a folder with a cold index:
       thumbnails fill in while the scan runs (not only at `scan-done`), and
       the log / devtools show no burst of `thumbnail` invokes per event
-      beyond the newly ready cells. Note the observed behaviour in
+      beyond the newly ready cells. Note the observed behavior in
       `learnings.md`.
     - `mise run ci` passes.
   - Implementation approach (as far as it is known; omit if unknown):
@@ -221,7 +221,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
   folder's path lengths, not by the emit rate; per event it is throughput /
   10, ~100 paths at the measured 5000 files in 5.55 s. A cap (e.g. 500 paths,
   or `ready: null` meaning "too many, re-request all") would keep the old
-  behaviour as a runtime fallback but adds a second code path in `strip.ts`
+  behavior as a runtime fallback but adds a second code path in `strip.ts`
   that is hard to exercise.
 - **Full paths vs. names relative to `dir`.** Settled: full paths. They match
   `list_arw`'s strings exactly, so the frontend map is a plain lookup.
@@ -247,7 +247,7 @@ revisit them mid-implementation. The reasoning is kept in Trade-offs below.
   depend on that ordering (it only compares `scan_id` and then `scan-done`
   follows immediately), and the existing `progress.last() == (8, 8)` test
   still holds. On cancel the final callback reports `done < total`, which is
-  what today's behaviour already does through the throttled emits.
+  what today's behavior already does through the throttled emits.
 - **In-flight race in `strip.ts`.** Without the `ready` set, a request that
   was answered `Err` just before its batch committed would be stuck until
   `scan-done`; with it, the retry is one extra `thumbnail` invoke for that

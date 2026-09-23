@@ -13,7 +13,7 @@
   reaching up across `--cell-gap` to the member above. `.cell` had
   `overflow: hidden`, which would clip it; it was removed. Nothing inside a
   cell overflows (the image box is the 144px square, rotations stay inside
-  it, spans ellipsise on their own), so no visible change otherwise.
+  it, spans ellipsize on their own), so no visible change otherwise.
 - The bracket sits inside a `.rejected` cell and is dimmed with it
   (`opacity: 0.45`); acceptable, and it keeps the bracket continuous.
 - The real-folder check (Sony ARWs and Leica DNGs under `~/Downloads`) was
@@ -46,7 +46,7 @@
   and undo no longer rewrites a file whose write failed and was reverted.
 - Undo / redo of a batch of more than one keeps the current file current
   (anchor on the shown file) and says `Undid N files`; a one-file batch keeps
-  the old re-anchor-on-the-file behaviour.
+  the old re-anchor-on-the-file behavior.
 - Trash: a batch is dropped from the history only when every file in it was
   trashed; a partly trashed batch keeps its entries and `step()` skips paths
   no longer in `allFiles`.

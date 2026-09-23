@@ -72,7 +72,7 @@ the native menu bar.
     - Orders, each with the file name (`baseName`, as the existing
       `main.ts` helper computes it) as the final deterministic tie-break:
       - `name`: file name, byte-wise like today's `list_arw` (`Path::file_name`
-        `Ord`), so the order is unchanged from the current behaviour.
+        `Ord`), so the order is unchanged from the current behavior.
       - `capture`: `capture_time` ascending, then `subsec` as a fraction
         (compare `"0." + subsec` numerically, or pad the shorter string with
         trailing zeros; `"5"` is `.5`, `"122"` is `.122`), then file name.
@@ -181,7 +181,7 @@ the native menu bar.
       content policy).
     - `todo.md`: the "App: the strip is always in file-name order" section
       is removed (or its TODO checked and the section trimmed, whichever
-      matches how neighbouring closed items were handled in the last
+      matches how neighboring closed items were handled in the last
       curate commit).
     - `CLAUDE.md` "Layout" is untouched unless a Rust file was added;
       `docs/agents/tauri-app.md` gains any pitfall Steps 1-3 hit (or
@@ -204,7 +204,7 @@ the native menu bar.
 
 ### Default order: file name (chosen by the user)
 
-- File name keeps today's behaviour and never re-sorts while a folder is
+- File name keeps today's behavior and never re-sorts while a folder is
   scanned for the first time. The persisted choice (Step 3) lets a user who
   wants capture order keep it.
 

@@ -655,7 +655,7 @@ current view alone.
 
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
-- Source: `docs/plans/_archived/20260919-undo-judgements/learnings.md`, Step 1.
+- Source: `docs/plans/_archived/20260919-undo-judgments/learnings.md`, Step 1.
 - `commit(...)` now takes a *list* of changes (one per file in a batch), not
   a single change: it applies every change locally, refilters once, then
   sends one `set_rating` per file, reverting only that file's own change on
@@ -870,10 +870,10 @@ contents needs the same explicit close.
 - Source: `docs/plans/_archived/20260922-strip-context-menu/plan.md` and its
   `learnings.md`, Steps 2-3.
 
-The menu also lists the star ratings and the colour labels, in groups separated
+The menu also lists the star ratings and the color labels, in groups separated
 by `<hr>`, and marks the focused file's current flag, rating and label.
 
-- `main.ts`'s `labels` map stores the capitalised label name (`"Red"`), while
+- `main.ts`'s `labels` map stores the capitalized label name (`"Red"`), while
   the menu's action names are lower-case (`red`); code comparing a label
   against an action name must convert case, not compare directly.
 - The rating/label buttons use `role="menuitemradio"`, not `menuitem`, because

@@ -13,14 +13,14 @@ After finishing a step, continue to the next without asking the user.
 </pr-rules>
 </plan-guide>
 
-# Rating and colour label in the right-click menu, also on the main view
+# Rating and color label in the right-click menu, also on the main view
 
 ## Purpose
 
 The strip's HTML right-click menu (`crates/app/ui/src/context.ts`, opened by
 `openContextMenu` in `crates/app/ui/src/main.ts`) only offers Pick / Reject /
 Unflag. The user also wants to set the star rating (clear, 1–5) and the
-colour label (Red, Orange, Yellow, Green, Blue, Pink, Purple, clear) from it,
+color label (Red, Orange, Yellow, Green, Blue, Pink, Purple, clear) from it,
 on the same targets the flag items act on. The same menu must also open on
 the main photo view (`#canvas`), which today shows the webview's native
 context menu; in compare mode (`v`) a right-click on one pane must target that
@@ -34,7 +34,7 @@ the keys.
 ## Decisions (agreed with the user)
 
 - The menu marks the focused file's current flag, rating and label with
-  `aria-checked="true"` (colour label actions are toggles, so the marking makes
+  `aria-checked="true"` (color label actions are toggles, so the marking makes
   that self-explanatory).
 - In compare mode, a right-click in the gap between panes or outside every pane
   does nothing (no menu).
@@ -42,7 +42,7 @@ the keys.
 
 ## Steps
 
-- [x] Step 1: Rating and colour label items in the strip's context menu
+- [x] Step 1: Rating and color label items in the strip's context menu
   - Done when:
     - Right-clicking a strip cell shows, in order and separated by `<hr>`:
       Pick / Reject / Unflag; 1 star … 5 stars, No stars (`clear`); Red,
@@ -62,7 +62,7 @@ the keys.
       overridden key, and unbound actions.
     - `mise run ci` passes.
   - Implementation approach:
-    - Generalise `flagMenuItems` in `crates/app/ui/src/context.ts` to return
+    - Generalize `flagMenuItems` in `crates/app/ui/src/context.ts` to return
       groups (one array per section) built from a static table of
       `[action, label]` pairs per section, keeping the
       `{ action, label, shortcut }` shape plus a `checked` boolean computed
@@ -79,7 +79,7 @@ the keys.
       suppresses the native webview menu (`preventDefault`); nothing opens
       when no files are shown.
     - Outside compare mode the menu acts on the current targets exactly as a
-      keyboard judgement would; the selection is not changed by the
+      keyboard judgment would; the selection is not changed by the
       right-click.
     - In compare mode a right-click on a pane first makes that pane active
       (`compareActivePath = frame.path`, `drawCompare()`, `renderMeta()`),
@@ -91,7 +91,7 @@ the keys.
     - The `canvas` `click` handler in `main.ts` hit-tests the compare grid
       inline. Extract that into a helper (e.g. `comparePaneAt(clientX,
       clientY)`) used by both the `click` and the new `contextmenu` handler.
-      If the pure grid maths moves into `crates/app/ui/src/compare.ts`, add a
+      If the pure grid math moves into `crates/app/ui/src/compare.ts`, add a
       unit test in `compare.test.ts`.
     - The strip's own `contextmenu` handlers stay as they are.
     - Manual check to record in `learnings.md`: compare mode with 2 / 3 / 4

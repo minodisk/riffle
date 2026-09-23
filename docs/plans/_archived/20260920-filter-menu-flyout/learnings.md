@@ -19,5 +19,5 @@
 - Clicking a thumbnail while the filter menu is open still closes the menu
   (the outside-`mousedown` handler in `crates/app/ui/src/main.ts`, ~line
   1475). Now that the strip stays visible behind the fly-out, keeping the
-  menu open on strip clicks may be wanted; it is a behaviour change and was
+  menu open on strip clicks may be wanted; it is a behavior change and was
   left out of this step (noted in the plan's trade-offs).

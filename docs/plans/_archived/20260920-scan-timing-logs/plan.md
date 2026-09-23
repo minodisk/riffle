@@ -83,7 +83,7 @@ the time of a subsequent open of the same folder can all be read off.
       elapsed time of the extraction pass, the number of files handed to it
       (`files.len()`), the number completed (`done`), the error count and the
       thread count, with an explicit unit (e.g. `... in 5123ms`), and whether
-      the scan was cancelled (`cancel` set) so a partial run is not mistaken
+      the scan was canceled (`cancel` set) so a partial run is not mistaken
       for a full one.
     - `scan_folder` emits a line per phase — directory listing
       (`list_folder_in`, with the RAW count and sidecar count found), stat +

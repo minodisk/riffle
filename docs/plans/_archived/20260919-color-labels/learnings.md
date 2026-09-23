@@ -44,13 +44,13 @@
 
 ## Step 4
 
-- The tuples were extended rather than introducing a `Judgement` struct:
+- The tuples were extended rather than introducing a `Judgment` struct:
   `Pending` / `Message::Set` / `Writer::set` / `set_now` take
   `label: Option<String>` after `pick`, and `reconcile_sidecars_of` now returns
   `index::DirtyRow` unchanged.
 - `sidecar::write` skips `write_label` when the label is `None` and the
   (rating-patched) sidecar has none, because `dop::write_label(.., None, ..)`
-  still bumps the timestamps. A label-only judgement on a file with no sidecar
+  still bumps the timestamps. A label-only judgment on a file with no sidecar
   mints via `write_label(None, ..)` directly rather than rating first.
 - The frontend keeps a `labels` map filled from `folder_entries` (cleared on
   folder open) and passes the file's current label to every `set_rating`, so

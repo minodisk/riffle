@@ -13,17 +13,17 @@ After finishing a step, continue to the next without asking the user.
 </pr-rules>
 </plan-guide>
 
-# Auto-advance after a judgement
+# Auto-advance after a judgment
 
 ## Purpose
 
-Culling a folder takes two keypresses per file: a judgement, then a paging
+Culling a folder takes two keypresses per file: a judgment, then a paging
 key. This work adds an **Auto-advance** setting to `Riffle > Settings...`
 that, when on, moves the selection to the next file after a star rating, a
 reject or a pick is applied, halving the keypresses. The setting is persisted
 in the settings store (`autoAdvance` key, next to `sidecarFormat` and
-`shortcuts`) so it survives a restart. With the setting off, behaviour is
-unchanged. This closes the `App: auto-advance after a judgement` item in
+`shortcuts`) so it survives a restart. With the setting off, behavior is
+unchanged. This closes the `App: auto-advance after a judgment` item in
 `todo.md`.
 
 Default: **off** (decided by the user; see Trade-offs).
@@ -51,7 +51,7 @@ Default: **off** (decided by the user; see Trade-offs).
       after `load_settings`.
     - Extend `load_settings`'s return value (or add a small sibling reader)
       rather than opening the store twice; keep the "a store that cannot be
-      read falls back to the defaults" behaviour.
+      read falls back to the defaults" behavior.
     - Persist the way `update_keymap` does: `settings(app)` then
       `store.set("autoAdvance", enabled)` + `store.save()`; log a save
       failure with `log::warn!` and let the in-memory change stand. If the
@@ -65,7 +65,7 @@ Default: **off** (decided by the user; see Trade-offs).
 - [x] Step 2: Add the Auto-advance toggle to the settings window
   - Done when:
     - `crates/app/ui/settings.html` has a new section (heading e.g.
-      `Culling`) with a checkbox labelled `Auto-advance after a star, reject
+      `Culling`) with a checkbox labeled `Auto-advance after a star, reject
       or pick`, placed before `Keyboard Shortcuts`.
     - `crates/app/ui/src/settings.ts` reads the initial state via
       `invoke("auto_advance")`, calls `set_auto_advance` on change, shows an
@@ -80,7 +80,7 @@ Default: **off** (decided by the user; see Trade-offs).
 - [x] Step 3: Advance in the main window, with tests and docs
   - Done when:
     - With the toggle on, pressing `1`-`5`, reject or pick on a file whose
-      judgement changes moves the selection to the next file in the current
+      judgment changes moves the selection to the next file in the current
       (filtered) strip; on the last file the selection stays put; with the
       toggle off nothing changes.
     - Toggling in the settings window takes effect in the main window without
@@ -92,11 +92,11 @@ Default: **off** (decided by the user; see Trade-offs).
       it is in `Riffle > Settings...`, which keys trigger it, that it is off by
       default, and that a file that drops out of the filter is not skipped
       twice).
-    - The `App: auto-advance after a judgement` item is removed from
+    - The `App: auto-advance after a judgment` item is removed from
       `todo.md`, and the "consider this together with auto-advance" bullet
-      under `App: no colour label group in the filter menu` is reworded or
+      under `App: no color label group in the filter menu` is reworded or
       trimmed to reflect the decision recorded below.
-    - `mise run ci` passes. GUI behaviour is confirmed manually by the user
+    - `mise run ci` passes. GUI behavior is confirmed manually by the user
       (list what to check in the PR: on/off, last file, filtered strip, reject
       with the `rejected` filter excluded); report it as "not verified" if
       not done.
@@ -117,16 +117,16 @@ Default: **off** (decided by the user; see Trade-offs).
 
 ## Trade-offs and risks
 
-- **Default on vs off.** Off, chosen by the user: behaviour stays identical
-  for existing users. Undo of judgements (`Edit > Undo`) has since landed, so a
+- **Default on vs off.** Off, chosen by the user: behavior stays identical
+  for existing users. Undo of judgments (`Edit > Undo`) has since landed, so a
   mistaken advance is recoverable, but the default stays off.
-- **Which actions advance.** Stars, reject, pick. Colour labels are toggles
+- **Which actions advance.** Stars, reject, pick. Color labels are toggles
   and `unflag` / `clear` / `clearlabel` are corrections, so they do not
   advance.
-- **Re-pressing the current value.** `judge` returns early when the judgement
+- **Re-pressing the current value.** `judge` returns early when the judgment
   is unchanged, so `3` on a 3-star file does not advance; a held key does not
   page through the folder.
-- **Filter interaction.** A judgement that drops the file out of the active
+- **Filter interaction.** A judgment that drops the file out of the active
   filter already moves the cursor via `refilter`; the plan advances only when
   the judged file is still current.
 - **Sync vs async persistence in `set_auto_advance`.** Left to Step 1, noted

@@ -60,23 +60,23 @@ folder (for focal length, only the ranges that contain a frame).
       `shot: Shot` field replacing the three copied fields, or as the
       individual fields; pick the one that leaves `index.rs` and the tests
       smallest). `Shot` derives `Clone` if needed. `riffle-cli scan` and the
-      app build unchanged in behaviour.
+      app build unchanged in behavior.
     - A new `crates/app/src/exif.rs` owns the display formatting that
       `read_metadata` has today: `decimal`, `shutter`, the camera join, the
       aperture label including `(est.)`, the focal length label. It exposes
-      one function that turns a `&Shot` into the labelled values (a struct
+      one function that turns a `&Shot` into the labeled values (a struct
       with `camera`, `lens`, `aperture`, `shutter`, `iso`, `focal_length`,
       each optional; the four numeric ones as `{ value: f64, label: String }`
       so a later consumer can sort by value and display by label).
       `read_metadata` builds `Metadata` from it; the pane's output is
       byte-identical to before.
-    - The existing formatting behaviour is covered by unit tests in
+    - The existing formatting behavior is covered by unit tests in
       `exif.rs` (`1/250`, `1.3"`, `f/2.8`, `f/2 (est.)`, `50 mm`,
       `SONY ILCE-7M5`, make-only, model-only, all-None).
     - `mise run ci` passes.
   - Implementation approach:
     - No schema change in this step; `write_batch` only follows the field
-      rename if `Entry` changes shape. The point is a small, behaviour-free
+      rename if `Entry` changes shape. The point is a small, behavior-free
       PR so Step 2's diff is the schema alone.
     - `exif.rs` lives in `crates/app`, not `riffle-core`: formatting is
       presentation, and core stays parsing. Register it in `main.rs`
@@ -95,12 +95,12 @@ folder (for focal length, only the ranges that contain a frame).
     - `SCHEMA_VERSION` is 4. `prepare` accepts 0, 2, 3 and 4. v3 -> v4
       deletes every `files` row (the thumbnails are re-derived on the next
       open of each folder) and adds the columns; `ratings` is untouched, so
-      no `dirty` judgement is lost. A v2 database goes through v2 -> v3 ->
+      no `dirty` judgment is lost. A v2 database goes through v2 -> v3 ->
       v4 in one open. The existing `unsupported index schema version`
       discard path still handles anything else.
-    - `IndexedFile` gains `exif: Option<Exif>` (serde-serialised), built
+    - `IndexedFile` gains `exif: Option<Exif>` (serde-serialized), built
       with Step 1's `exif.rs` from the stored columns: `None` for an error
-      row, otherwise the labelled values with each field optional.
+      row, otherwise the labeled values with each field optional.
     - Unit tests in `index.rs`: a written row round-trips every field
       through `entries()`; an error row has `exif: None`; a v3 fixture (a
       `files` row with a thumbnail plus a `dirty = 1` `ratings` row) opens

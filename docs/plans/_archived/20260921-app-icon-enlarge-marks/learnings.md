@@ -12,7 +12,7 @@
 - Measuring the enlarged mark must use a window larger than the plan's 6px-padded
   crop boxes. The 1.25x dot is 83px across inside a 78x78 crop box, so measuring
   within that box clips the bbox to the box itself. This is only a measurement
-  artefact: the paste itself is unclipped, because the crop is resized to 98x98
+  artifact: the paste itself is unclipped, because the crop is resized to 98x98
   first. Windows `(160,184,270,294)` / `(740,178,868,300)` measure cleanly.
 - Measured results match the plan: dot 66 -> 83px, star 79x76 -> 99x96; centroids
   `(214.76, 239.06)` and `(804.21, 243.32)`, both within 1px of the plan's

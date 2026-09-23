@@ -44,7 +44,7 @@
 
 ## Step 3: The Sidecar menu and the format switch
 
-- `Builder::menu` runs before the plugins are initialised, so a menu that
+- `Builder::menu` runs before the plugins are initialized, so a menu that
   needs the settings store cannot be built there. The menu (default items,
   `Sidecar`, and the dev-only `Debug`) is now built in `setup` with
   `app.set_menu`, after `load_settings`; `debug_menu::build` became
@@ -68,7 +68,7 @@
   struct: the smallest change to the existing tuple-shaped signatures.
 - `dop::write_rating` gained a `pick: bool` (after `rating`) and no longer
   preserves an existing `ShouldProcess = 0` on its own: the caller passes the
-  full judgement, which the index got from the same file on the folder open.
+  full judgment, which the index got from the same file on the folder open.
   "Never clears a pick it did not mean to" therefore rests on the index
   mirroring the sidecar; an unknown `.dop` found after a format switch has a
   NULL stat, so it is parsed and wins over a dirty row before anything writes.
@@ -92,7 +92,7 @@
 - The user ran the PhotoLab 10 check on 2026-09-18 and reported all of it OK:
   folder opens without a sidecar error, ratings and rejects on files with an
   existing `.dop` show, pick round-trips both ways, PhotoLab edits show in
-  Riffle after reopening, and switching back to XMP shows the XMP judgements.
+  Riffle after reopening, and switching back to XMP shows the XMP judgments.
 - **The minimal template (no `Settings` block) was accepted by PhotoLab 10**
   and its rating showed, so the fallback template carrying the sample's
   `Settings` block was not needed.

@@ -33,7 +33,7 @@ Decisions already taken by the user (do not revisit):
 - No runtime `objc` calls (no `NSImage(systemSymbolName:)` at run time).
 - Icons are macOS only; the other platforms keep `MenuItem` behind `cfg`.
 - `Open in DxO PhotoLab` uses `NativeIcon::FollowLinkFreestanding`.
-- The bundled PNGs are rendered in a neutral grey (`#8E8E93`, roughly
+- The bundled PNGs are rendered in a neutral gray (`#8E8E93`, roughly
   `NSColor.systemGray`) so they stay legible in both light and dark
   appearance, accepting that they do not tint like the native icons beside
   them.
@@ -51,7 +51,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 - Verified through AppKit on this machine: `Refresh`,
   `FollowLinkFreestanding`, `Share`, `GoLeft` are template images (they tint
   with the menu, so they work in dark mode). `PreferencesGeneral`, `Info`,
-  `Advanced` are legacy 32px colour bitmaps (`isTemplate == false`), which
+  `Advanced` are legacy 32px color bitmaps (`isTemplate == false`), which
   look out of place next to the system's monochrome symbols.
 - muda sets a native icon's size to 18x18 pt; a custom `Image` is converted
   to PNG and given an `NSImage` with height 18 pt (`to_nsimage(Some(18.))`).
@@ -74,7 +74,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
     - On macOS, `Check for Updates…` shows `NativeIcon::Refresh` and
       `Open in DxO PhotoLab` shows `NativeIcon::FollowLinkFreestanding` next
       to the label, in both light and dark appearance.
-    - `Settings...` and `Undo` are unchanged in this step (no legacy colour
+    - `Settings...` and `Undo` are unchanged in this step (no legacy color
       bitmap is used for them).
     - Non-macOS builds still compile with the existing `MenuItem` (verify
       with `cargo check -p riffle-app --target x86_64-unknown-linux-gnu` if
@@ -111,7 +111,7 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
       the point size.
     - A Swift script (`tools/macos/export-menu-icons.swift`, run with
       `swift tools/macos/export-menu-icons.swift`) regenerates exactly those
-      files from the symbol names, point size, weight and colour it hardcodes.
+      files from the symbol names, point size, weight and color it hardcodes.
       Running it on a clean checkout produces no git diff (byte-identical
       output on the same macOS version; if AppKit output differs across OS
       versions, record the version used in the script header).
@@ -148,11 +148,11 @@ Investigation results (Tauri 2.11.5, muda 0.19.3; see
 - **Dark mode for the bundled PNGs**: muda never marks a custom menu image as
   a template and Tauri exposes no way to do so, so a black-on-transparent PNG
   is invisible on a dark menu and a white one on a light menu. The user chose
-  a neutral grey (`#8E8E93`) that is legible on both, accepting that it does
+  a neutral gray (`#8E8E93`) that is legible on both, accepting that it does
   not exactly match the tinted native icons beside it. Adding `setTemplate`
   support upstream in muda / Tauri is the proper fix; it is out of scope here
   and should be recorded in `learnings.md` as a follow-up.
-- **Reproducibility across macOS versions**: AppKit's symbol rasterisation
+- **Reproducibility across macOS versions**: AppKit's symbol rasterization
   can change between OS releases, so "rerun the script, no diff" may only
   hold on the recorded macOS version. Recording the version in the script
   header and treating the committed PNGs as the source of truth (rerun only

@@ -77,11 +77,11 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
 - `Index::reset_sidecars` (`crates/app/src/index.rs:726`) deletes clean rows
   and runs `UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL, pick = 0
   WHERE dirty = 1`. `Index::mark_written` (line 690) clears `dirty` only
-  `WHERE ... rating IS ?4 AND pick = ?5 ...`. So a judgement with `pick =
+  `WHERE ... rating IS ?4 AND pick = ?5 ...`. So a judgment with `pick =
   true` made during a switch to `.dop` would have its row's pick zeroed before
   the writer lands it, `mark_written` would not match, the row stays dirty
   with `pick = 0`, and the next open replays it over the sidecar's pick.
-  Rating-only judgements are unaffected. This is unverified; Step 4's test
+  Rating-only judgments are unaffected. This is unverified; Step 4's test
   is where it gets checked.
 
 ## Steps
@@ -113,7 +113,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
       `crates/app/src/main.rs`'s `sidecar-error` payload or the writer's
       messages.
     - Do not rename the `path` field: the frontend and the
-      `scan_started_serialises_the_fields_the_frontend_reads` test read it.
+      `scan_started_serializes_the_fields_the_frontend_reads` test read it.
 
 - [x] Step 2: Make `xmp_prefix` skip a prefix bound to another namespace and fall back to a generated one
   - Done when:
@@ -193,7 +193,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
       `persist` (logging a failure as today), then `reset_sidecars`.
       `switch_sidecar_format(app, format)` becomes: take `AppSwitchLock`,
       look up the three states, call `switch_format` with a closure that
-      saves `sidecarFormat` to the store. Behaviour is unchanged.
+      saves `sidecarFormat` to the store. Behavior is unchanged.
     - New test (in `commands.rs`'s test module, reusing `temp_dir`,
       `sidecar_index`, `list_arw_in`, `rating_of`; spawn a `Writer` as
       `sidecar.rs`'s tests do): start in `Xmp`, call `switch_format(..,
@@ -223,7 +223,7 @@ Every step's wrap-up drops the corresponding `todo.md` heading.
       `persist` closure is the injection point for the race; do not add a
       test-only hook or `#[cfg(test)]` branch to `switch_format`.
     - Keep the `AppSwitchLock` acquisition in the `AppHandle` wrapper; the
-      extracted function assumes its caller serialises switches (say so in
+      extracted function assumes its caller serializes switches (say so in
       its doc comment).
     - The tests in `commands.rs` do not currently spawn a `Writer`; copy the
       pattern from `sidecar.rs` (`Writer::spawn(index, |path, message| eprintln!(..))`)

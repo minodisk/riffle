@@ -149,7 +149,7 @@ Settled with the user; do not reopen.
     - mozjpeg: `Decompress::new_mem` -> `.scale(2)` -> `.rgb()`;
       `Compress::new(ColorSpace::JCS_RGB)`, `set_size`, `set_quality`,
       `start_compress(Vec::new())`, `write_scanlines`, `finish`. Quality ~80;
-      note the resulting size. mozjpeg's optimised encode is slower than
+      note the resulting size. mozjpeg's optimized encode is slower than
       libjpeg-turbo's baseline; if encode dominates, turn off
       `set_optimize_scans` / progressive
     - `riffle_core::partial` and `apply_orientation` are unchanged
@@ -175,7 +175,7 @@ Settled with the user; do not reopen.
       plainly that the real 5000-distinct-file number can only be measured by
       the user on a real folder
     - Tests: `extract_all` over a temp dir of synthetic fixtures (from Step 2)
-      delivers every index exactly once and stops early when cancelled.
+      delivers every index exactly once and stops early when canceled.
       `mise run ci` passes
   - Implementation approach:
     - `rayon` in `crates/core/Cargo.toml` (build a dedicated
@@ -216,7 +216,7 @@ Settled with the user; do not reopen.
       scans)
     - Opening another folder mid-scan sets the previous scan's cancel flag;
       only one scan runs at a time (a `Mutex<Option<ScanHandle>>` in managed
-      state); a `scan-progress` event from a cancelled scan carries its `dir`
+      state); a `scan-progress` event from a canceled scan carries its `dir`
       so the frontend can ignore it
     - `folder_entries(dir) -> Vec<{ path, orientation, capture_time, subsec,
       focus, has_thumb }>` returns the index rows for a folder in the same
@@ -267,7 +267,7 @@ Settled with the user; do not reopen.
       file errored) shows a neutral placeholder with the file name; when a
       `scan-progress` event arrives, cells in the visible range that are still
       placeholders are re-requested
-    - The strip is **virtualised**: only cells within the visible range plus a
+    - The strip is **virtualized**: only cells within the visible range plus a
       margin have a decoded image; scrolled-out images are released
       (`URL.revokeObjectURL` / `ImageBitmap.close()`), so a 5000-file folder
       does not hold 5000 decoded thumbnails
@@ -294,7 +294,7 @@ Settled with the user; do not reopen.
       out, mirroring the `seq` discipline in `requestPreview`
     - Cell geometry: fixed height per cell (e.g. 160px column, 8px gutter,
       cells sized for the 404x270 / 270x404 image at 2x DPR), so
-      `scrollTop -> index` is arithmetic and virtualisation is a spacer div
+      `scrollTop -> index` is arithmetic and virtualization is a spacer div
       plus absolutely positioned cells
     - `ArrowUp`/`ArrowDown`/`Space` must not scroll the strip; the window
       handler already calls `preventDefault()` and the strip must not be the
@@ -314,7 +314,7 @@ Settled with the user; do not reopen.
       portrait file (Orientation 8), where a box drawn the naive way lands on
       the wrong edge
     - The box size is a fixed fraction of the image's short side (so it reads
-      the same on portrait and landscape), stroked in a colour that survives
+      the same on portrait and landscape), stroked in a color that survives
       both a white jersey and a dark background (e.g. a 2px stroke with a
       contrasting 1px outline). It is drawn on every `show()`, including during
       key auto-repeat, and costs no extra IPC round trip — the coordinates come
@@ -340,7 +340,7 @@ Settled with the user; do not reopen.
   - Done when:
     - Dropping a folder onto the window opens it exactly as the picker does
       (same path through `list_arw` / `scan_folder` / first preview), and a
-      scan already running for another folder is cancelled the same way
+      scan already running for another folder is canceled the same way
     - Dropping something that is not a directory, or several items at once,
       does not open a wrong folder: a single directory is taken; a single
       **file** is accepted by taking its parent directory (dragging one ARW is
@@ -419,7 +419,7 @@ listing on every open.
   still the standard choice; content hashing 48 MB files would defeat the
   purpose. Renaming a folder re-scans it; acceptable
 - Risk: two app instances writing the same database — WAL mode handles
-  concurrent readers and serialises writers; do not design for it beyond that
+  concurrent readers and serializes writers; do not design for it beyond that
 
 ### The 30-second target and the whole-file read
 
@@ -470,8 +470,8 @@ Step 4; measure, do not guess.
 
 ### Filmstrip memory
 
-5000 decoded 404x270 thumbnails would be ~2 GB of RGBA; hence virtualisation
-is an acceptance criterion in Step 5, not an optimisation. The cost is that the
+5000 decoded 404x270 thumbnails would be ~2 GB of RGBA; hence virtualization
+is an acceptance criterion in Step 5, not an optimization. The cost is that the
 strip is a hand-rolled virtual list in a framework-free frontend. The
 alternative — plain `<img loading="lazy">` for every file and trusting the
 webview to discard offscreen bitmaps — is simpler but unmeasurable here, and

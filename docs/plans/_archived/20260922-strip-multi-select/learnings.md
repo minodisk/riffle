@@ -15,7 +15,7 @@
   the "focused is always selected" invariant holds without a special case. A
   Cmd/Ctrl+click only changes the selection and keeps the viewer as it is.
 - Pruning lives in `refilter` only: `resync` and `trashRejected` (through
-  `resync`) and every filter / sort / judgement change go through it, and
+  `resync`) and every filter / sort / judgment change go through it, and
   `strip.setFiles` clears the strip's copy, so `refilter` repaints it.
 - `move`, `moveBurst` and the arrow keys do not collapse the selection yet
   (Step 4), so until then the focused file can move outside the selection.
@@ -27,7 +27,7 @@
   own state, so fields the command does not touch survive per file. The flag
   commands (`pick`, `unflag`) turn a reject into "no stars" per file, since a
   reject lives in the rating field; stars on the other files are kept.
-- `judgements` always puts the focused file first, even when it is not in
+- `judgments` always puts the focused file first, even when it is not in
   the selection (possible until Step 4 collapses on arrow keys), so the
   focused file is always judged.
 - `judge` now returns the number of targets (0 when nothing changed), and
@@ -53,9 +53,9 @@
 
 ## Step 5
 
-- The docs also cover the behaviours that differ from the plan: Shift+click
+- The docs also cover the behaviors that differ from the plan: Shift+click
   moves the focus, a right-click outside the selection collapses it (inside
   keeps it), and a plain arrow at a strip end keeps a multi-selection.
-- Judgement key rows in the usage Keys table still say "the current file";
-  the Judgements paragraph states they apply to the selection instead of
+- Judgment key rows in the usage Keys table still say "the current file";
+  the Judgments paragraph states they apply to the selection instead of
   rewording every row.

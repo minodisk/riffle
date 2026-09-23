@@ -62,16 +62,16 @@ undo entry, same auto-advance.
       that follows it, returning whether the action was handled.
     - The `keydown` listener only resolves `keyName` -> `keymap.get(key)`,
       handles the Escape-closes-menu cases, calls `runAction`, and calls
-      `event.preventDefault()` when it returns `true` — behaviour is
+      `event.preventDefault()` when it returns `true` — behavior is
       unchanged (the `pick`-under-XMP early `return` must still leave the
-      default key behaviour alone, i.e. return `false`).
+      default key behavior alone, i.e. return `false`).
     - `mise run ci` passes; no new tests (pure refactor of DOM-bound code).
   - Implementation approach:
     - Keep the current-path capture (`const current = files[index]` before
       the switch) inside `runAction` so the "file dropped out of the filter
       already moved the cursor" rule (`docs/agents/tauri-app.md`, "A
-      judgement's own move must not double up") is preserved verbatim.
-    - No other behavioural change; do not touch strip.ts in this step.
+      judgment's own move must not double up") is preserved verbatim.
+    - No other behavioral change; do not touch strip.ts in this step.
 
 - [x] Step 2: Pure helpers for the flag menu, with tests
   - Done when:
@@ -111,7 +111,7 @@ undo entry, same auto-advance.
       `position: fixed` with the same look as `#filter-menu` / `#sort-menu`
       (extend the shared selector list), items as `<button role="menuitem">`
       with the label on the left and the shortcut right-aligned in a muted
-      colour.
+      color.
     - `main.ts`: on the strip callback it sets `index = selected; show()`
       (skipping when already current, as the click callback does), rebuilds
       the items from `flagMenuItems(keyBindings, sidecarFormat)`, positions
@@ -140,7 +140,7 @@ undo entry, same auto-advance.
       (`hidden` toggle + `aria-expanded` is not needed since there is no
       toggle button). Items are rebuilt on every open, so a keymap change
       needs no extra listener.
-    - Keep `strip.ts` free of judgement knowledge: it only reports the
+    - Keep `strip.ts` free of judgment knowledge: it only reports the
       index and pointer position.
 
 - [x] Step 4: Document the decision
@@ -177,10 +177,10 @@ undo entry, same auto-advance.
   `runAction`, Reject / Pick from the menu advances when auto-advance is on,
   exactly like the key. If a mouse action should not advance, `runAction`
   needs an `advance: boolean` parameter (small change).
-- **Right-click changes the current file.** Necessary because judgements
+- **Right-click changes the current file.** Necessary because judgments
   act on `files[index]`; a right-click that did not select would need the
-  whole `judge` path parameterised by path.
-- **Items limited to flags.** Stars and colour labels are deliberately not
+  whole `judge` path parameterized by path.
+- **Items limited to flags.** Stars and color labels are deliberately not
   in the menu; `flagMenuItems` can grow later without changing the wiring.
 - **Risk: `contextmenu` on macOS with Ctrl+click.** Ctrl+click also fires
   `contextmenu`; verify in Step 3's manual check that Ctrl+click opens the

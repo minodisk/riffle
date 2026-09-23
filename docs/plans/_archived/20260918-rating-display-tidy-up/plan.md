@@ -17,7 +17,7 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-Phase 6 shows a file's judgement in three places, each styled differently:
+Phase 6 shows a file's judgment in three places, each styled differently:
 red upper-case `REJECTED` (or stars) drawn on the canvas, a small red `X`
 (or stars) on the filmstrip cell, and yellow lower-case `rejected` (or stars)
 under the file name in the meta pane next to the `N / M` position line. The
@@ -52,7 +52,7 @@ Settled with the user; do not reopen.
    the bottom, after a rule, a section headed by the sidecar name (with a
    "not created" note when none exists) holds a `Rating` row: stars, the
    reject mark, or a dash when unrated.
-5. The filmstrip and the meta section use the same colour and the same
+5. The filmstrip and the meta section use the same color and the same
    symbol for stars and for a reject.
 
 Defaults taken by the caller for the planner's open points (the user asked
@@ -115,7 +115,7 @@ in the status line and does not revert the flag (see Trade-offs).
         `drawZoom()` are gone from `crates/app/ui/src/main.ts`
       - **(manual)** `N / M` appears in the left pane between the filmstrip
         and the "Open folder" button, updates on every page turn, is empty
-        when no folder is open, and the strip still scrolls and virtualises as
+        when no folder is open, and the strip still scrolls and virtualizes as
         before
       - **(manual)** The meta pane no longer shows a position or a rating line
         under the file name, and ends with a section separated from the EXIF
@@ -126,10 +126,10 @@ in the status line and does not revert the flag (see Trade-offs).
       - **(manual)** Pressing a rating key on a file without a sidecar makes
         the "not created" note disappear at once; `0` on such a file does not
       - **(manual)** The filmstrip cell and the meta `Rating` row use the same
-        glyphs and the same colours (one yellow for stars, one red for the
+        glyphs and the same colors (one yellow for stars, one red for the
         reject), and the reject mark is the same text in both places
     - `README.md`: the "Status" paragraph and the "Ratings and XMP sidecars"
-      section say where the judgement is shown (strip cell and the meta
+      section say where the judgment is shown (strip cell and the meta
       pane's sidecar section; the canvas shows only the image; the counter is
       in the strip pane), say that the header shows the name the app would
       write so a foreign `FOO.XMP` reads as `FOO.xmp`, and the Phase 6
@@ -148,9 +148,9 @@ in the status line and does not revert the flag (see Trade-offs).
     - Add `has_sidecar: boolean` to the `IndexedFile` interface in `main.ts`
     - `crates/app/ui/index.html`: add `<div id="position"></div>` between
       `#strip` and `#open` inside `#side`. `style.css`: `#position { flex:
-      none; ... }` in the same muted colour the old `.position` line used, so
+      none; ... }` in the same muted color the old `.position` line used, so
       `#strip` keeps `flex: 1` and `strip.ts` is not touched for this
-    - `main.ts`, keep changes localised and additive (another session may be
+    - `main.ts`, keep changes localized and additive (another session may be
       editing the file): a `positionEl` next to `metaEl` / `openEl`; set its
       `textContent` at the top of `renderMeta()` (called on every `show()`
       through `setStatus`), so no new call sites are needed. Remove the
@@ -178,7 +178,7 @@ in the status line and does not revert the flag (see Trade-offs).
       `<div>` and a `<dl>` built with the existing `row()` helper:
       `row(list, "Rating", text)`. A later pick flag is one more `row()`
       call. The value element gets a class (`stars` / `rejected`) so CSS
-      colours it; `row()` needs a small extension (an optional class on the
+      colors it; `row()` needs a small extension (an optional class on the
       `dd`) or a sibling helper — prefer the smallest change
     - Consistency: define `--stars-color: #ffd050` and `--reject-color:
       #ff6b6b` on `:root` in `style.css` and use them in `.cell span.rating`,
@@ -188,7 +188,7 @@ in the status line and does not revert the flag (see Trade-offs).
       in both `strip.ts` (`paintRating`) and the meta row; the stars stay
       `★`. A shared constant is not worth a new module; a comment in each
       file naming the other is enough
-    - `strip.ts` changes are limited to the reject glyph and, if the colour
+    - `strip.ts` changes are limited to the reject glyph and, if the color
       moves to a custom property, nothing else; the cell dimming stays
     - Write `learnings.md` as you go; if `tsc` or clippy surfaces anything
       about the `IS NOT NULL` column typing, record it there

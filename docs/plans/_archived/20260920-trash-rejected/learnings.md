@@ -10,7 +10,7 @@
   permission and is faster, but on some systems the Trash's "Put Back" entry
   is missing for files it moved (a macOS bug, trash-rs#14); the file can still
   be dragged out of the Trash, which restores the sidecar and so the
-  judgement.
+  judgment.
 - `mod trash;` in `main.rs` shadows the `trash` crate inside `main.rs`, so the
   external crate is reached as `::trash::` (`commands.rs` uses
   `use crate::trash;` for the module and `::trash::TrashContext` for the
@@ -47,7 +47,7 @@
 
 - `README.md` promises only what the implementation guarantees: the RAW and
   each sidecar are moved to the OS Trash as separate files, so restoring them
-  all brings the stars, the flag and the colour label back (restoring the RAW
+  all brings the stars, the flag and the color label back (restoring the RAW
   alone does not bring its sidecars along). It deliberately does not name
   Finder's "Put Back", because `DeleteMethod::NsFileManager` may leave no such
   entry (trash-rs#14); that uncertainty lives in the new `todo.md` manual-check

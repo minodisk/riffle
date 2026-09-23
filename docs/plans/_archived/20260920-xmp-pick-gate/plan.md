@@ -37,9 +37,9 @@ render gate (see Trade-offs).
   - Done when:
     - With `sidecarFormat === "xmp"`, a row that arrives from `folder_entries`
       with `pick: true` renders no flag dot, is not matched by the "picked"
-      flag filter, and `judge`/`undo` see it as unpicked (so a later judgement
+      flag filter, and `judge`/`undo` see it as unpicked (so a later judgment
       sends `pick: false`, matching what the backend would store anyway).
-    - With `sidecarFormat === "dop"`, behaviour is unchanged: the dot, the
+    - With `sidecarFormat === "dop"`, behavior is unchanged: the dot, the
       filter and the pick action work as before.
     - The `case "pick"` early return keeps working and now shares the same
       rule as the render path rather than a separate literal comparison.
@@ -117,7 +117,7 @@ render gate (see Trade-offs).
   `AppSidecarFormat` state in the reader path and a Rust test. The todo asks
   for the frontend fix, and the frontend already tracks `sidecarFormat`, so
   this plan keeps it frontend-only, as the user chose.
-- Dropping the pick on the next judgement: once gated, a judgement made under
+- Dropping the pick on the next judgment: once gated, a judgment made under
   XMP sends `pick: false`, and the backend row loses the kept pick. This
   already happens today (the backend forces `pick = false` under XMP
   regardless of what the frontend sends), so it is not a new loss; it is

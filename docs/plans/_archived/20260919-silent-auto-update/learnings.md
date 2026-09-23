@@ -15,7 +15,7 @@
 - Sidecar flush on install: verified in
   `tauri-plugin-updater-2.11.0/src/updater.rs` that the macOS `install_inner`
   only extracts the tarball into a temp dir and renames bundles
-  (`std::fs::rename` of `extract_path`, with an authorised fallback); it does
+  (`std::fs::rename` of `extract_path`, with an authorized fallback); it does
   not exit or signal the process, so the writer thread and the
   `ExitRequested` flush are unaffected. Same for the Linux AppImage path.
 - Windows limitation: the running exe is locked, so the Windows

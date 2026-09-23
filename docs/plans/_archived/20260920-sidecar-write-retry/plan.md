@@ -20,7 +20,7 @@ After finishing a step, continue to the next without asking the user.
 `crates/app/src/sidecar.rs`'s writer thread reports a failed sidecar write
 through `on_error` (which `main.rs` turns into the `sidecar-error` event the
 status line shows) and then forgets the entry: the `ratings` row stays
-`dirty`, and the judgement only reaches the sidecar when the folder is opened
+`dirty`, and the judgment only reaches the sidecar when the folder is opened
 again, because `scan_folder` replays dirty rows with `set_now`. A transient
 failure (a card that was briefly busy, a share that reconnects, a directory
 that was read-only for a moment) therefore costs the user a folder reopen for
@@ -47,8 +47,8 @@ Removing the resolved `todo.md` heading happens in wrap-up, not in the step.
       the dirty row is left for the next folder open. The constants and the
       reasoning are documented next to `DEBOUNCE`.
     - Coalescing and latest-state-wins are preserved: a new `Message::Set`
-      for a path that is waiting for a retry replaces the queued judgement
-      (and resets the attempt counter, since it is a new judgement) — the
+      for a path that is waiting for a retry replaces the queued judgment
+      (and resets the attempt counter, since it is a new judgment) — the
       existing `pending.insert` already does the replacement; the new struct
       must not break it.
     - A drain (`flush` with `now: None`, i.e. the quit-time `Flush` and the
@@ -74,14 +74,14 @@ Removing the resolved `todo.md` heading happens in wrap-up, not in the step.
     - The stale doc comments are updated: `Writer::spawn` ("the row stays
       dirty and is retried on the next folder open"), `SidecarError` in
       `crates/app/src/main.rs`, the comment above the `sidecar-error` listener
-      in `crates/app/ui/src/main.ts`, and the README sentence "A judgement
+      in `crates/app/ui/src/main.ts`, and the README sentence "A judgment
       that could not be written (say, on a locked card) is kept and retried
       the next time the folder is opened" (`README.md` ~line 166), which now
       mentions the in-session retries before the folder-open backstop.
     - `mise run ci` passes.
   - Implementation approach:
-    - Replace the `Pending` value tuple `(Judgement, SidecarFormat, Instant)`
-      with a small struct (e.g. `Entry { judgement, format, deadline,
+    - Replace the `Pending` value tuple `(Judgment, SidecarFormat, Instant)`
+      with a small struct (e.g. `Entry { judgment, format, deadline,
       attempts: u32 }`); `run`'s min-deadline wait and `flush`'s due filter
       then work unchanged for retry entries, because a retry is just an entry
       whose deadline is in the future.
@@ -90,7 +90,7 @@ Removing the resolved `todo.md` heading happens in wrap-up, not in the step.
       entry with `deadline = Instant::now() + delay` and the incremented
       counter. The `mark_written` `Err` (an index failure, not a disk one)
       can go through the same arm for simplicity or keep the report-only
-      behaviour; decide in the step and note it in `learnings.md`.
+      behavior; decide in the step and note it in `learnings.md`.
     - Keep the backoff base at ~1 s so the failure-then-success test
       completes well inside `eventually`'s 10 s budget; do not add a
       configurable delay to `Writer::spawn` just for tests (the pure

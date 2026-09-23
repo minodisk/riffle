@@ -60,7 +60,7 @@ self-update exits the app mid-session".
       context defaults to `true`, `updater.rs:197`).
     - The `on_before_exit` flush hook in `update.rs` is removed: the flush now
       runs in `main.rs` before `install`.
-    - macOS and Linux keep the current behaviour.
+    - macOS and Linux keep the current behavior.
     - The startup log line and the menu item's dialog on Windows say the
       update was downloaded and will be installed when Riffle quits (not
       "installed"); a later menu click during the same session reports the

@@ -23,7 +23,7 @@ sidecar problem that outlives the next keypress.
 - **"App: a `sidecar-error` event can be missed under key-mashing."** The
   `sidecar-error` handler in `crates/app/ui/src/main.ts` calls `setStatus`,
   which writes the single transient `note` slot that the next page turn,
-  undo or judgement failure overwrites, so a write failure raised while the
+  undo or judgment failure overwrites, so a write failure raised while the
   user is mashing rating/paging keys goes unseen. Its second TODO ("revert
   the optimistic has-sidecar flag") is already closed: #54 (`f1ba56d`)
   removed the `sidecars` set and the sidecar header from the meta pane, and
@@ -60,9 +60,9 @@ step.
     - `crates/app/ui/src/main.ts` keeps one instance of it, renders every
       entry in `renderMeta()` (or a sibling element inside `#meta`) as a
       line visually distinct from `.note` (its own class in
-      `crates/app/ui/style.css`; a warning colour rather than `#999`) with a
+      `crates/app/ui/style.css`; a warning color rather than `#999`) with a
       per-entry dismiss button, and the list survives `setStatus`, paging,
-      judgement keys and `scan-progress`/`scan-done` renders. It is cleared
+      judgment keys and `scan-progress`/`scan-done` renders. It is cleared
       when `openDirectory` starts a new folder open (the same place
       `touched`/`history` are cleared) and, as today's handler does, an event
       for a path not in `allFiles` is ignored.
@@ -74,7 +74,7 @@ step.
       `std::fs::read`, `read_rating`, `read_pick` or `read_label`, or that
       exceeded `MAX_SIDECAR_BYTES`, each carrying the sidecar path and a
       message (the parser's `Err` string, or a fixed "larger than 4 MiB"-style
-      text for oversize). The row-handling behaviour (unparsed rows keep
+      text for oversize). The row-handling behavior (unparsed rows keep
       their old stat; oversize rows are kept out of the writer's list) is
       unchanged and the existing tests still pass.
     - `ScanStarted` (the `scan_folder` return value) gains a
@@ -93,7 +93,7 @@ step.
       file's stored rating is untouched, and that a second reconcile of the
       unchanged folder reports it again (the row's stat is never updated for
       an unparsed sidecar, so the problem recurs on every open, which is the
-      intended behaviour); a serialisation test pins `ScanStarted`'s JSON
+      intended behavior); a serialization test pins `ScanStarted`'s JSON
       shape (`serde_json` is already a dependency), so the field names the
       frontend reads are covered.
     - `README.md`'s sentence about a sidecar that could not be written
@@ -157,8 +157,8 @@ step.
   rare failure, and each line can be dismissed.
 - **Persistence across a folder reopen.** Clearing the list on
   `openDirectory` means a write error for folder A disappears when the user
-  opens B; the judgement itself is still in the index and is retried on the
-  next open of A (existing behaviour). Keeping errors across folders would
+  opens B; the judgment itself is still in the index and is retried on the
+  next open of A (existing behavior). Keeping errors across folders would
   need per-folder keys; not worth it now.
 - **Where `sidecar-error` is ignored.** Today's handler drops an event whose
   path is not in `allFiles` (a stale write for a previous folder). The plan

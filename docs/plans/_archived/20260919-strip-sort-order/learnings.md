@@ -12,7 +12,7 @@
 ## Step 2
 
 - `IndexedFile` in `main.ts` did not declare `capture_time` / `subsec`,
-  contrary to the plan; the backend already serialises them, so only the
+  contrary to the plan; the backend already serializes them, so only the
   TypeScript interface gained the two fields.
 - The filter and sort dropdowns sit in a new `#tools` flex row; the sort menu
   reuses the filter menu's rules by adding `#sort-*` selectors beside them.
@@ -33,7 +33,7 @@
 ## Step 3
 
 - The stored value is parsed by `parse_sort_order` in `commands.rs` (unit
-  tested); `set_sort_order` normalises through it too, so the store never
+  tested); `set_sort_order` normalizes through it too, so the store never
   holds an unknown value.
 - `main.ts` awaits `sort_order` (errors ignored) before `reopenLastFolder()`,
   so the reopened folder is ordered once, with no re-sort flash.

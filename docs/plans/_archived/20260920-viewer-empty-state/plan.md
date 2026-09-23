@@ -18,10 +18,10 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 On first launch (and whenever no folder is open) the viewer is a blank canvas;
-the only hint is a hardcoded grey note in the meta pane ("Press "o" or click
+the only hint is a hardcoded gray note in the meta pane ("Press "o" or click
 "Open folder"."). A folder that is open but shows nothing (no ARW/DNG files,
 or everything filtered out) looks the same as an unopened one. This work puts
-a visible, clickable empty state in the centre of the viewer for the
+a visible, clickable empty state in the center of the viewer for the
 "no folder" case, wired to the existing folder picker and showing the real
 `open` shortcut from the keymap, and a distinct, non-clickable message for the
 "folder open but nothing to show" case.
@@ -80,7 +80,7 @@ Decisions already taken (do not revisit):
       wording; keep the sentence composition in one place.
 
 - [x] Step 2: Overlay element, click-to-open, keymap-driven re-render
-  - Done when: with no folder open the message from step 1 is centred over the
+  - Done when: with no folder open the message from step 1 is centered over the
     viewer and clicking it opens the native picker (same `openFolder()` as
     menu/key/button); opening any folder (picker, drop, `last_folder` reopen)
     hides it; a folder with no ARW/DNG files, or a filter that excludes every
@@ -96,7 +96,7 @@ Decisions already taken (do not revisit):
       `position: relative`; canvas becomes `width: 100%; height: 100%`
       (`draw()` and `drawZoom()` read `canvas.clientWidth/Height`, so the
       canvas must still fill the viewer; check this by resizing the window and
-      with the 1:1 zoom). `#empty` is absolutely positioned, centred with flex,
+      with the 1:1 zoom). `#empty` is absolutely positioned, centered with flex,
       `color: #999` like `#meta .note`, `text-align: center`, and gets
       `cursor: pointer` only in the clickable state (e.g.
       `#empty[data-state="no-folder"]`).
@@ -134,7 +134,7 @@ Decisions already taken (do not revisit):
 
 ## Trade-offs and risks
 
-1. `renderMeta()` is called often (every judgement, page turn, scan tick).
+1. `renderMeta()` is called often (every judgment, page turn, scan tick).
    Setting `textContent` on a hidden element each time is cheap, but keep the
    render idempotent and avoid re-creating nodes.
 2. Moving `flex: 1; min-width: 0; min-height: 0` onto the new `#viewer` wrapper

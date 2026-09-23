@@ -26,7 +26,7 @@ Close three small `todo.md` items in `crates/app`:
   (`crates/app/src/commands.rs`) persists `Keymap::overrides()` of the
   resolved keymap. The override should survive so it still applies after a
   switch to `.dop`.
-- `cancelling_after_the_first_batch_keeps_what_was_written`
+- `canceling_after_the_first_batch_keeps_what_was_written`
   (`crates/app/src/index.rs`) cancels from a polling watcher thread and only
   "wins" the race by having 40 batches' worth of files; a faster runner can
   finish the scan first. It should cancel at a deterministic point.
@@ -83,7 +83,7 @@ not touch `scan_folder`, `crop_payload`, or `run_scan`'s completion path.
     - Update the doc comments on `overrides()` and `from_overrides` to say a
       conflicting override is kept in the stored value.
 
-- [x] Step 2: Cancel `cancelling_after_the_first_batch_keeps_what_was_written` from a deterministic point
+- [x] Step 2: Cancel `canceling_after_the_first_batch_keeps_what_was_written` from a deterministic point
   - Done when:
     - The test in `crates/app/src/index.rs` no longer spawns a polling watcher
       thread nor depends on `BATCH * 40` files: it sets `cancel` from the

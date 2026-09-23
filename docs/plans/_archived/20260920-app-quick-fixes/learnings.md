@@ -9,12 +9,12 @@
   (`CROP_KIND_RGBA_V3`); 3 (`CROP_KIND_RGBA_V1`) and 4 were both already used,
   so 5 is the next free value.
 - The placeholder still uses the sensor fallback until the current file's crop
-  arrives (option a); the rect maths is in `crates/app/ui/src/zoom.ts`.
+  arrives (option a); the rect math is in `crates/app/ui/src/zoom.ts`.
 
 ## Step 2
 
 - `list_arw_in` and the new `list_folder_in` share one private `list_dir(dir,
-  Option<SidecarFormat>)`; `list_arw_in` passes `None`, so its behaviour is
+  Option<SidecarFormat>)`; `list_arw_in` passes `None`, so its behavior is
   unchanged. `reconcile_sidecars_of` now takes the sidecar map, and the tests
   go through a `reconcile_listed` helper that lists afresh on each call (several
   tests rewrite sidecars between calls, so reusing one listing would be wrong).

@@ -54,7 +54,7 @@ main window.
         mention the reservation.
       - Tests: delete `p_on_another_action_is_skipped` and
         `only_plain_p_is_reserved` (or rewrite them to assert the generic
-        behaviour); in `add_rejects_p_and_pick` and `remove_refuses_the_last_key`
+        behavior); in `add_rejects_p_and_pick` and `remove_refuses_the_last_key`
         drop the assertions for the removed errors (keep the unknown-action and
         last-key assertions). Add tests that reproduce the bug and pass after
         the fix:
@@ -97,7 +97,7 @@ main window.
 ## Trade-offs and risks
 
 - **`p` after pick releases it.** Once the user removes `p` from pick, `p`
-  is unbound until added elsewhere; that is the ordinary behaviour of every
+  is unbound until added elsewhere; that is the ordinary behavior of every
   other action and is what the user asked for.
 - **Empty pick.** `remove` already refuses the last key of an action, so
   pick can never become unbound; no new guard is needed.
@@ -105,7 +105,7 @@ main window.
   (the UI could not write one), so nothing migrates. A stored override that
   put `p` on another action was previously skipped by the reservation; it is
   now still skipped while pick holds `p` (generic conflict), and applied once
-  a `pick` override releases `p`. This is a behaviour change only for
+  a `pick` override releases `p`. This is a behavior change only for
   hand-edited stores.
 - **No UI test.** There is no `settings.test.ts`, so the reproducing test is
   a Rust unit test in `shortcuts.rs`; the UI change is verified manually.

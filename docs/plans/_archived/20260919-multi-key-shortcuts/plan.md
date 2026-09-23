@@ -48,7 +48,7 @@ same way as today.
   - Implementation approach:
     - Backend: factor the three refusal checks out of `rebind` into a private helper (e.g. `fn check_bindable(&self, action, key) -> Result<usize, String>` returning the action index) and use it from `add`. Keep error strings byte-identical.
     - Persistence: `update_keymap` already saves `keymap.overrides()` and deletes the `shortcuts` key when empty; no change. Because `parse_keys` rejects an empty list on load, refusing to remove the last key keeps overrides round-trippable.
-    - Known todo ("override skipped under the current format is dropped on the next rebind"): add/remove go through the same `update_keymap`, so the behaviour is unchanged. Do not touch `from_overrides` for this.
+    - Known todo ("override skipped under the current format is dropped on the next rebind"): add/remove go through the same `update_keymap`, so the behavior is unchanged. Do not touch `from_overrides` for this.
     - Frontend: keep the single `capturing: string | null` state and the `window` `keydown` handler; change the invoked command to `add_shortcut_key`. The keys cell is no longer clickable as a whole. Format keys for display as today (`space` → `Space`). `main.ts`'s `applyKeymap` already flattens `keys`.
     - Frontend tests: optional (settings.ts is DOM-bound and untested today).
 

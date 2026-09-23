@@ -97,7 +97,7 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
       or detached out from under an implementer, and running the script twice
       in a row (the duplicate-`MERGED` case) is a no-op the second time.
     - Branches that are merged into `origin/<default>` are still deleted, and
-      squash-merged branches still are too (behaviour verified in a throwaway
+      squash-merged branches still are too (behavior verified in a throwaway
       clone under the scratchpad, never in this worktree: a merged branch, a
       squashed branch, a fresh commit-less branch that is checked out, and a
       fresh commit-less branch that is not checked out).
@@ -107,7 +107,7 @@ five closed `todo.md` headings happens in wrap-up, not in a step.
       the next branch until merger has returned MERGED") and
       `.claude/skills/develop/references/pr-merge-lifecycle.md` ("Its branch
       cleanup deletes every local branch already merged...") describe the new
-      behaviour accurately.
+      behavior accurately.
     - `mise run ci` passes (shellcheck runs on `tools/git/*.sh`).
   - Implementation approach:
     - Root cause (measured from the script): it runs

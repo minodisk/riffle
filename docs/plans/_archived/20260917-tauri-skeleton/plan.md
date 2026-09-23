@@ -68,7 +68,7 @@ than quietly switching.
     - Root `Cargo.toml` `members = ["crates/core", "crates/cli"]`. Move
       `mozjpeg`, `mozjpeg-sys`, `anyhow` to `crates/core`; `image` stays in
       `crates/cli` (PNG output is CLI-only)
-    - Do not change behaviour or signatures of `arw.rs` / `partial.rs`; this is
+    - Do not change behavior or signatures of `arw.rs` / `partial.rs`; this is
       a pure move so the diff is reviewable. `focus_location` (exiftool
       shell-out) and `draw_rect` stay in the CLI
     - Module docs (`//!`) stay in English as they are

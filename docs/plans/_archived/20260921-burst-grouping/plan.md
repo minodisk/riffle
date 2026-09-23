@@ -60,7 +60,7 @@ it.
   `index-cleared`); a derived state must be recomputed there and after
   `refilter` (see `docs/agents/tauri-app.md`, "A derived-state refresh has to
   run even when `refilter` short-circuits").
-- Undo / redo (`History<Judgement>` in `main.ts`, `undo.ts`) hold one file
+- Undo / redo (`History<Judgment>` in `main.ts`, `undo.ts`) hold one file
   per entry; `step()` pops one and re-applies it through `commit`.
 - Keymap: actions live in `DEFAULTS` in `crates/app/src/shortcuts.rs` (the
   panel order), with a `defaults` test that enumerates every action; the
@@ -76,7 +76,7 @@ it.
 
 - Grouping is computed in the frontend, not stored in SQLite: the inputs
   (`capture_time`, `subsec`) are already cached in the index and shipped on
-  every `folder_entries`, and a group boundary depends on neighbours, so an
+  every `folder_entries`, and a group boundary depends on neighbors, so an
   index column would have to be rewritten for the whole folder on every scan
   diff. See "Trade-offs and risks" for the alternative.
 - The threshold is a constant (`BURST_GAP_MS = 1000`) exported from
@@ -159,7 +159,7 @@ it.
       moves to the first displayed file of the current burst when the
       current file is not its first, else to the first displayed file of
       the previous burst (the "go to the start, then to the previous track"
-      behaviour). Both clamp at the ends and work on the displayed, filtered
+      behavior). Both clamp at the ends and work on the displayed, filtered
       `files` list, so hidden members are skipped
     - The step function that finds the target index is a pure exported
       function in `burst.ts` (given the displayed list's burst ids and the
@@ -186,12 +186,12 @@ it.
       kept, exactly as the `reject` key does per file) and leaves the current
       file untouched. On a singleton, or when nothing changes, it does
       nothing (no history entry, no invoke)
-    - The judgements are applied locally first, then the strip is refiltered
+    - The judgments are applied locally first, then the strip is refiltered
       **once**, then one `set_rating` invoke per changed file goes to the
       backend (the existing command; the sidecar writer coalesces them), each
       reverting its own file on failure as `commit` does today
     - One `Edit > Undo` restores all of them: the history entry type becomes
-      a batch (`Judgement[]`; a single-file judgement pushes a one-element
+      a batch (`Judgment[]`; a single-file judgment pushes a one-element
       batch), `step()` re-applies every file of the batch and pushes the
       batch's current states onto the other stack, and the status line says
       how many files were undone / redone when more than one. `undo.ts`'s
@@ -216,7 +216,7 @@ it.
       `commitMany`) rather than calling `commit` per file: `commit` calls
       `refilter` every time, and with a `Rejected` filter each call would
       rebuild the strip
-    - Follow "Carry every judgement field on every write" and the
+    - Follow "Carry every judgment field on every write" and the
       `labelKnown` rule in `commit` for each file
     - Follow "Undo must re-anchor conditionally": anchor on the current file
       only if it still passes the filter
@@ -242,7 +242,7 @@ it.
 
 - **Where the grouping lives (decided: frontend).** Storing a burst id in the
   SQLite index would cache it, but the inputs are already cached and shipped,
-  and a boundary depends on neighbours, so the column would be recomputed for
+  and a boundary depends on neighbors, so the column would be recomputed for
   the whole folder on every scan diff and need a schema bump plus migration
   test. The later similarity phase can cache its *per-file* features (a
   hash) in the index and still combine them in the frontend grouping. If the
@@ -272,11 +272,11 @@ it.
   a deliberate earlier pick but makes the action's result depend on state
   the user may not see. Not addressed beyond undo.
 - **"Comparing" is within-burst paging.** The 1:1 focus check stays on while
-  paging and the sharpness cue already ranks neighbours, so comparing frames
+  paging and the sharpness cue already ranks neighbors, so comparing frames
   of a burst is `next` / `previous` with `z` on; a side-by-side compare view
   is out of scope for this plan.
 - **The sharpness cue's window is unchanged.** It still compares a frame with
-  two neighbours on each side regardless of burst boundaries. Aligning it to
+  two neighbors on each side regardless of burst boundaries. Aligning it to
   the burst is a natural follow-up but is not in scope.
 - **Default keys.** `arrowleft` / `arrowright` are free today but a later
   free-pan feature might want them; `shift+x` is free everywhere. All three

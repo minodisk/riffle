@@ -78,7 +78,7 @@ sort toggle stays on the left and keeps its drop-down.
       `#sort` now padded 8px on the left, the menu's left edge lines up with
       the sort button's left edge, 8px left of where it sits today.
     - Verify with `mise run ci`; keep the property order consistent with the
-      neighbouring rules.
+      neighboring rules.
 
 ## Trade-offs and risks
 

@@ -59,7 +59,7 @@
   not a JPEG: a `thumbnail_jpeg(b"not a jpeg")` test failed on
   `assert!(...is_err())` with no panic message. The test was dropped; the
   matter belongs to Step 3, which runs over thousands of files.
-- `mozjpeg::Compress` defaults to mozjpeg's scan optimisation.
+- `mozjpeg::Compress` defaults to mozjpeg's scan optimization.
   `set_optimize_scans(false)` nulls `scan_info`, which is what makes the output
   baseline.
 - Not verified in the running app: the GUI could not be driven here
@@ -215,7 +215,7 @@ guaranteed cold:
   without changing the cell height the virtual list depends on. The empty box
   doubles as the placeholder: an `<img>` with no `src` but a fixed height still
   paints its background.
-- Virtualisation is a spacer div (`#strip-inner`, height =
+- Virtualization is a spacer div (`#strip-inner`, height =
   `files.length * 176`) plus absolutely positioned cells, so `scrollTop ->
   index` is arithmetic. Releasing a cell revokes its object URL **and** clears
   its entry in `requested`, since the bytes are gone with the URL and a cell
@@ -226,7 +226,7 @@ guaranteed cold:
   `missing`, which `scan-progress` clears so the visible placeholders are
   re-requested. That is also why the catch is silent — one status-line error
   per not-yet-scanned file would be 5000 of them.
-- Requests are capped at 4 in flight and picked nearest-to-viewport-centre, so
+- Requests are capped at 4 in flight and picked nearest-to-viewport-center, so
   scrolling fast fills what the user stopped on rather than everything it flew
   past. Responses for cells that scrolled out (or for a folder that was closed,
   via a `generation` counter mirroring `seq` in `requestPreview`) are dropped.
@@ -240,11 +240,11 @@ guaranteed cold:
 
 - Step 6: the focus box transform was verified without a GUI by comparing the
   canvas arithmetic against `riffle-cli focusbox` on the real portrait file
-  (Orientation 8). The CLI drew its box centred at (400, 782) in the rotated
+  (Orientation 8). The CLI drew its box centered at (400, 782) in the rotated
   1080x1616 PNG; scaling `FocusLocation` (3613, 1732) of the 7008x4672 sensor
   onto the unrotated 1616x1080 preview gives (833.2, 400.4), i.e. (+25, -140)
-  from the image centre, and `context.rotate(-PI/2)` maps a local `(u, v)` to
-  `(v, -u)` = (-140, -25) from the canvas centre — the same offset the PNG
+  from the image center, and `context.rotate(-PI/2)` maps a local `(u, v)` to
+  `(v, -u)` = (-140, -25) from the canvas center — the same offset the PNG
   shows. So scaling first and letting the existing rotation carry the box is
   correct, and the two implementations are in step.
 - Canvas `rotate(theta)` maps `(u, v)` to `(u cos - v sin, u sin + v cos)`; for

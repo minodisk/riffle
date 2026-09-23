@@ -20,7 +20,7 @@ After finishing a step, continue to the next without asking the user.
 The app shows 400px thumbnails (Phase 3) and the 1616x1080 embedded preview
 (Phase 2/3), which is enough to see the frame but not whether the eye is
 sharp. Phase 5 adds the third tier: pressing `Space` toggles a 1:1 view of the
-current file, centred on the camera's focus point, cut out of the
+current file, centered on the camera's focus point, cut out of the
 full-resolution `JpgFromRaw` by the partial decode `riffle-cli crop` already
 uses. Budget: 50ms from keypress to pixels.
 
@@ -46,7 +46,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
    has no role in the app yet, and panning implies decoding more than the
    focus region. The crop is where the camera focused; that is what is being
    judged.
-4. **A file without `FocusLocation` (manual focus) falls back to the centre of
+4. **A file without `FocusLocation` (manual focus) falls back to the center of
    the full JPEG**, decided on the Rust side so the frontend has one code path.
    Refusing would make `Space` a no-op on a whole class of files.
 5. **1:1 means one JPEG pixel per device pixel** (`devicePixelRatio`-aware).
@@ -84,17 +84,17 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
     - `riffle_core::partial` (or a sibling) has a function that, given the
       decoded JPEG size, an `Option<FocusLocation>` and a requested crop
       width/height in unrotated JPEG pixels, returns the point of interest on
-      the full JPEG (scaled focus point, or the centre when `None`) and the
+      the full JPEG (scaled focus point, or the center when `None`) and the
       crop; the crop is rectangular (`w`, `h`), not only square, and can be
       produced as RGBA (`JCS_EXT_RGBA`) so no conversion pass is needed. The
       result carries the point of interest **in crop pixel coordinates** (the
-      MCU snap shifts the crop's origin by up to 15px, so the crop's centre is
+      MCU snap shifts the crop's origin by up to 15px, so the crop's center is
       not the focus point). The existing `decode_crop(jpeg, cx, cy, size)`
       keeps working (as a wrapper or unchanged) so `bench` is untouched
     - Unit tests with a synthetic encoded JPEG (like `decode.rs`'s gradient
       test): the crop's pixels equal the same region of a full `decode_rgb`,
       `x` is a multiple of the MCU width, the clamping at the edges, the
-      centre fallback, and the sensor→JPEG scaling with a sensor size that
+      center fallback, and the sensor→JPEG scaling with a sensor size that
       differs from the JPEG size
     - `riffle-cli crop <file.ARW> <out.png> [size]` goes through the new read
       and mapping functions and prints the crop rectangle **and the point of
@@ -107,9 +107,9 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
   - Implementation approach:
     - Follow `reader::read_preview` / `preview_from` for the head-then-range
       pattern; a shared helper taking the `Embedded` is fine, but do not change
-      `read_preview`'s behaviour
+      `read_preview`'s behavior
     - `decode_crop`'s body already does clamp → `jpeg_crop_scanline` →
-      `jpeg_skip_scanlines` → read rows → `jpeg_abort_decompress`; generalise
+      `jpeg_skip_scanlines` → read rows → `jpeg_abort_decompress`; generalize
       it rather than duplicating it. Set `out_color_space` to
       `JCS_EXT_RGBA` for the RGBA variant and use 4 bytes per pixel in the
       stride
@@ -148,7 +148,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
       directly. The index's `FocusLocation` is not needed here because the
       bounded prefix already yields it in the same read
 
-- [x] Step 3: Frontend: `Space` toggles the 1:1 view, drawn centred on the focus point under the preview's rotation
+- [x] Step 3: Frontend: `Space` toggles the 1:1 view, drawn centered on the focus point under the preview's rotation
   - Done when:
     - `Space` toggles a `zoomed` flag. While zoomed, `draw()` hands off to a
       new `drawZoom()` at its top and returns; nothing else in `draw()`,
@@ -156,7 +156,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
       addition is one `else if (key === " ")` branch (`event.key` is `" "`
       for Space; it survives `toLowerCase()`). Space does not claim `1`–`5`,
       `x`, `f`, `o` or the paging keys
-    - `drawZoom()`: translates to the canvas centre and applies the **same
+    - `drawZoom()`: translates to the canvas center and applies the **same
       rotation as `draw()`**; first draws the current preview bitmap (`shown`)
       scaled so one full-JPEG pixel is one device pixel (scale =
       `jpegWidth / bitmap.width` known from the crop header or the point
@@ -195,12 +195,12 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
       - `Space` again returns to the preview with the focus box
       - Paging with `j`/`l` while zoomed stays zoomed and moves to the next
         file's focus point; the old crop never appears over the new file
-      - A manual-focus file (no `FocusLocation`) zooms to the frame centre
+      - A manual-focus file (no `FocusLocation`) zooms to the frame center
       - Report the three `console.debug` timings for a top-of-frame and a
         bottom-of-frame focus point, stating whether the folder had been
         opened before (page cache)
   - Implementation approach:
-    - All additions in `crates/app/ui/src/main.ts`, localised: new state
+    - All additions in `crates/app/ui/src/main.ts`, localized: new state
       (`zoomed`, `crop`, `cropInFlight`), new functions (`requestCrop`,
       `drawZoom`), the three one-line hooks. No reformatting of untouched
       code; the parallel Phase 6 session edits the same file
@@ -219,8 +219,8 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
 - [x] Step 4: Documentation, status and measurements
   - Done when:
     - `README.md` "Status": Phase 5 done, `Space` in the key table, a
-      paragraph on the 1:1 tier (crop from `JpgFromRaw`, centred on the focus
-      point, centre fallback, stays zoomed while paging, no panning); the
+      paragraph on the 1:1 tier (crop from `JpgFromRaw`, centered on the focus
+      point, center fallback, stays zoomed while paging, no panning); the
       `crop` CLI line shows the optional size; the "confirmed / verified
       without a GUI / awaiting the user's confirmation" split is extended
       with this phase's items, with the Step 3 manual checks listed as
@@ -236,7 +236,7 @@ measurements are in "Trade-offs and risks". Reopen only with a reason.
     - `CLAUDE.md` "Layout" mentions the `focus_crop` command if the layout
       text lists commands; otherwise unchanged
     - `docs/agents/tauri-app.md` gains what this phase hit, at minimum:
-      `mozjpeg::Compress` defaults (trellis/Huffman optimisation) make a
+      `mozjpeg::Compress` defaults (trellis/Huffman optimization) make a
       re-encode cost more than the decode it follows — measure before
       choosing a JPEG payload; and that `jpeg_skip_scanlines` on a baseline
       JPEG still entropy-decodes the skipped rows, so a crop's cost is set by
@@ -268,7 +268,7 @@ runs (the first run of a fresh process is the slow one).
 
 Skipped rows dominate: 43ms at row 4400 before the IPC hop and the bitmap. The
 plan does not have a fix inside this phase; options for later, to be chosen on
-the user's Step 3 timings: prefetch the crop of the neighbouring files (Phase
+the user's Step 3 timings: prefetch the crop of the neighboring files (Phase
 4's ring buffer), or decode with DCT scaling for the placeholder. Do not claim
 the budget is met until the user reports end-to-end numbers.
 
@@ -288,7 +288,7 @@ the budget is met until the user reports end-to-end numbers.
 
 JPEG would cut the payload to ~180KB and reuse the worker's
 `createImageBitmap` path, but the re-encode costs 49ms at 1024² with
-`mozjpeg::Compress` defaults; turning the optimisations off was not measured.
+`mozjpeg::Compress` defaults; turning the optimizations off was not measured.
 If IPC proves to be the bottleneck, that measurement is the first thing to
 take before switching.
 

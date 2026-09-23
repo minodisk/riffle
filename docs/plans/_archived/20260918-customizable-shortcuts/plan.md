@@ -49,7 +49,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
 - The keymap model is **action -> list of keys** (previous/next have six
   aliases each today). Rebinding through the UI replaces the list with the
   single pressed key.
-- Key names are the normalised form the matcher uses: `event.key`
+- Key names are the normalized form the matcher uses: `event.key`
   lower-cased, except `" "` which is stored and shown as `"space"`.
   Modifier combinations are not bindable (the handler keeps ignoring them).
 - `p` is reserved: the `pick` row is not editable, and `p` is rejected for
@@ -88,7 +88,7 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
       default is skipped; two overrides colliding with each other keep the
       first in action order; the defaults themselves contain no duplicate
       key.
-    - `mise run ci` passes. No frontend change; behaviour is identical.
+    - `mise run ci` passes. No frontend change; behavior is identical.
   - Implementation approach:
     - Merge rule: start from the defaults, walk the actions in their fixed
       order, apply an override only if its keys collide with no key currently
@@ -98,18 +98,18 @@ Design decisions taken by this plan (approved by the user on 2026-09-18):
       is dropped entirely) is accepted; the UI never produces it.
     - Mirror `SidecarFormat::from_setting`'s style: missing or unusable means
       default, never an error. Use `log::warn!` (the `tauri_plugin_log`
-      plugin is initialised) rather than `eprintln!`.
+      plugin is initialized) rather than `eprintln!`.
     - Keep defaults in Rust only; the frontend gets them through the command.
 
 - [x] Step 2: Frontend dispatches through the resolved map
   - Done when:
     - At launch `main.ts` invokes `shortcuts` (as it does `sidecar_format`)
       and builds a `Map<key, action>` from the result; the `keydown` handler
-      becomes: ignore modifier keys as today, normalise the key, look up the
+      becomes: ignore modifier keys as today, normalize the key, look up the
       action, `switch` on it. The `pagingKeys` map and the literal key
       comparisons are gone; `pick`'s `sidecarFormat !== "dop"` guard and the
       sticky/idempotent `judge` closures are unchanged.
-    - The key normalisation is one function (`keyName(event)`), reused by
+    - The key normalization is one function (`keyName(event)`), reused by
       Step 4's capture.
     - With no `shortcuts` key every key behaves exactly as before; with e.g.
       `"shortcuts": {"reject": ["r"]}` written by hand into `settings.json`,

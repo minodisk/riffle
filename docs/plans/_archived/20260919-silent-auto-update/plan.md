@@ -52,7 +52,7 @@ update logic lives in one place, in Rust.
       from `main.rs`, and `process:allow-restart` and `updater:default` are
       removed from `crates/app/capabilities/default.json` (the frontend no
       longer calls either plugin).
-    - README's "Updating:" paragraph describes the new behaviour (silent
+    - README's "Updating:" paragraph describes the new behavior (silent
       install on launch, used on next launch, plus the menu item) instead of
       the bar.
     - `mise run ci` passes.
@@ -70,7 +70,7 @@ update logic lives in one place, in Rust.
       one async `fn run(app: AppHandle, interactive: bool)` that both callers
       share, so the check/download/install sequence is written once; only the
       reporting differs (dialogs when `interactive`, logs otherwise).
-    - Dialogs: `tauri-plugin-dialog` is already a dependency and initialised.
+    - Dialogs: `tauri-plugin-dialog` is already a dependency and initialized.
       `app.dialog().message(text).title("Riffle").kind(MessageDialogKind::Info | Error).show(|_| {})`
       is non-blocking and marshals itself to the main thread, so it is safe to
       call from the async task. Do not use `blocking_show` (see the note on
@@ -114,7 +114,7 @@ update logic lives in one place, in Rust.
 ## Trade-offs and risks
 
 - Rust vs frontend: Rust chosen because the menu event already arrives in
-  Rust, the dialog plugin is already initialised there, and the frontend
+  Rust, the dialog plugin is already initialized there, and the frontend
   would otherwise need the `updater` and `dialog:allow-message` capabilities
   and a duplicate of the flow. Cost: none of the update code is unit-testable
   without network; the previous frontend code was not either.

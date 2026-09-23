@@ -36,7 +36,7 @@ About as a MessageBox and ignores `icon`, so it is left as is.
       `Help` elsewhere), with the same `name` / `version` / `copyright` /
       `authors` as `Menu::default` and `icon` set to the app icon.
     - Every other menu item and its order is unchanged on all three platforms;
-      Windows behaviour is unchanged (About is rebuilt there too, with an icon
+      Windows behavior is unchanged (About is rebuilt there too, with an icon
       Windows ignores).
     - No custom About window is added.
     - `mise run ci` passes.
@@ -71,7 +71,7 @@ About as a MessageBox and ignores `icon`, so it is left as is.
       is `MenuItemKind::Predefined(_)`. macOS: the first submenu of
       `menu.items()?`; non-macOS: `submenu(&menu, "Help")?`. Use two branches
       (`macos` / `not(macos)`), not a Linux-only cfg.
-    - Add a short comment in the style of the neighbours explaining why the
+    - Add a short comment in the style of the neighbors explaining why the
       default About is swapped (default metadata carries no icon; Windows
       ignores it).
     - Optional: add one clause to the "App items go into the default menu's own
@@ -81,7 +81,7 @@ About as a MessageBox and ignores `icon`, so it is left as is.
 ## Trade-offs and risks
 
 - **Windows**: decided to run the replacement on every non-macOS platform;
-  muda never reads `icon` on Windows, so behaviour there is identical and the
+  muda never reads `icon` on Windows, so behavior there is identical and the
   code needs one fewer cfg branch.
 - **Icon size.** 128x128.png is the middle ground. If the manual check on
   macOS shows 128 px blurry, switch to a per-platform choice (256 px on macOS,

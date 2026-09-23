@@ -13,7 +13,7 @@
   `Some(-1)` for both formats, not only XMP: `dop::read_rating` used to do
   that itself, so dropping it for `.dop` would have lost rejects in the UI.
   `read_pick` stays `Ok(false)` under XMP (and the shim never passes a pick
-  to `xmp::write_rating`) so today's "XMP ignores a pick" behaviour and its
+  to `xmp::write_rating`) so today's "XMP ignores a pick" behavior and its
   tests hold until Step 3.
 - As the plan's trade-off says, a `.dop` reject now writes `Rating = 0`
   through the shim (stars are `None` on a reject); the
@@ -25,13 +25,13 @@
 - `crates/app/src/sidecar.rs` byte-exact label tests had to learn the
   added `photoshop:LabelColor` and the leftover declaration.
 - `write_label` patches in two passes (`xmp:Label`, then
-  `photoshop:LabelColor`); the colour is inserted as an attribute even when
+  `photoshop:LabelColor`); the color is inserted as an attribute even when
   the sidecar holds `xmp:Label` as an element, matching the existing insert
   path.
 - Clearing a label removes both properties but keeps any `xmlns:photoshop`
-  Riffle declared, so a sidecar labelled then cleared is not byte-identical
+  Riffle declared, so a sidecar labeled then cleared is not byte-identical
   to the original (same as `xmpDM:good` in Step 1). Tests expect that.
-- `read_label` normalises `LabelColor` to first-letter-uppercase, rest
+- `read_label` normalizes `LabelColor` to first-letter-uppercase, rest
   lowercase; a Bridge-only `xmp:Label` is still returned raw.
 
 ## Step 3
@@ -46,7 +46,7 @@
   `user_version`, now rename `flag` back to `pick` first to look like the
   schema they claim to be.
 - The frontend's `rating === 0` from a sidecar holding `Rating="0"` is
-  normalised to unrated in `applyRating`, so `ratings` holds only `1`-`5`.
+  normalized to unrated in `applyRating`, so `ratings` holds only `1`-`5`.
 - Sorting by rating used to put rejects last because they were `-1`; the
   sort input in `main.ts` still passes `-1` for a reject so that order is
   kept (not listed in the plan, but otherwise rejects would silently sort
@@ -61,12 +61,12 @@
   `a_photolab_sidecar_is_patched_in_place` (a reject on `Rating = 3` keeps
   it). `a_lightroom_folder_reads_its_flags_labels_and_stars` in
   `commands.rs` loads trimmed copies of the L1005428-L1005439 shapes
-  (namespaces and judgement attributes only) and checks flags, labels and
+  (namespaces and judgment attributes only) and checks flags, labels and
   stars; the reference sidecars were only read.
 - Manual GUI check left for the user: open `/mnt/d/Photos/2026/2026-09-05`
   under XMP and check 439 picked, 438 rejected, 428-432 purple / blue /
   green / yellow / red, 433-437 5..1 stars; on a copy of the folder, diff a
-  sidecar before and after `p` / `x` / `u` / `3` / a colour key, and check a
+  sidecar before and after `p` / `x` / `u` / `3` / a color key, and check a
   reject on a starred file keeps `xmp:Rating`.
 
 ## Deferred issues (todo candidates)
@@ -77,7 +77,7 @@
   checklist entry. Open `D:\Photos\2026\2026-09-05` under XMP (expect 439
   picked, 438 rejected, 428-432 purple / blue / green / yellow / red, 433-437
   5..1 stars); on a copy, give a pick, a starred reject and a label in Riffle
-  and check Japanese Lightroom shows them, notably the colour when
+  and check Japanese Lightroom shows them, notably the color when
   `xmp:Label` is the English name. Done when the README entry is ticked, or
   the label write is revised if Lightroom ignores `LabelColor`.
 

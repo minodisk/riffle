@@ -56,6 +56,6 @@ only reasoned from muda 0.19.3's Windows accelerator-table and GTK
   `crates/app/src/main.rs` (`app_menu`), `crates/app/src/shortcuts.rs`,
   `crates/app/src/commands.rs` (`update_keymap`), `crates/app/ui/src/main.ts`.
 - **App: `Open Folder…` has no macOS menu icon.** From the plan's trade-offs:
-  `NativeIcon::Folder` exists but some `NativeIcon`s proved to be legacy colour
+  `NativeIcon::Folder` exists but some `NativeIcon`s proved to be legacy color
   bitmaps in the macos-menu-icons work, so a plain `MenuItem` was used. A
   verified icon could be added later in `crates/app/src/main.rs` (`app_menu`).

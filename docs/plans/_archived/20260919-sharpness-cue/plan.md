@@ -19,9 +19,9 @@ After finishing a step, continue to the next without asking the user.
 
 Spotting a missed focus or camera shake currently needs `Space` (the 1:1
 view) on every file. This adds a per-file sharpness score, computed around the
-camera's focus point (the frame centre when none is recorded) from the JPEG
+camera's focus point (the frame center when none is recorded) from the JPEG
 already read at scan time, stored in the folder index, and shown on the strip
-**relative to the neighbouring frames**. Absolute thresholds are unreliable
+**relative to the neighboring frames**. Absolute thresholds are unreliable
 (edge content varies by subject), so the cue answers "which frame of this
 burst is the sharpest", not "is this frame sharp".
 
@@ -47,11 +47,11 @@ the alternatives are in "Trade-offs and risks".
    JpgFromRaw refinement can come later as an on-demand pass reusing the same
    scoring function.
 2. **The score is the variance of the Laplacian of the luma** over a fixed
-   window centred on `partial::focus_point(preview_w, preview_h, focus)`
-   (sensor -> preview scaling and the centre fallback already live there),
-   clamped to the image. One `f64` per file; no normalisation, since it is
-   only ever compared with neighbours.
-3. **Relative means "against the strip neighbours"**: the cue for a cell is
+   window centered on `partial::focus_point(preview_w, preview_h, focus)`
+   (sensor -> preview scaling and the center fallback already live there),
+   clamped to the image. One `f64` per file; no normalization, since it is
+   only ever compared with neighbors.
+3. **Relative means "against the strip neighbors"**: the cue for a cell is
    its score over the maximum score within a small window of adjacent cells
    in the *visible* (filtered) strip order, which is capture order for a
    single body. The cell holding that maximum is marked as the sharpest of
@@ -87,7 +87,7 @@ the alternatives are in "Trade-offs and risks".
       `decode.rs` / `partial.rs` tests): a constant image scores 0; a
       checkerboard scores higher than the same checkerboard box-blurred; a
       focus point near a corner yields a window clamped inside the image;
-      `None` focus uses the centre; the score depends only on the window
+      `None` focus uses the center; the score depends only on the window
       (sharp content outside the window does not raise it); a preview that
       is not a JPEG yields `Err`, and through `extract` yields
       `sharpness: None` with a thumbnail still present
@@ -119,7 +119,7 @@ the alternatives are in "Trade-offs and risks".
       older versions). The doc comment above `SCHEMA_VERSION` gets a v7
       sentence in the same style
     - `write_batch` stores `entry.sharpness` (NULL when `None`); `entries()`
-      reads it into a new `IndexedFile.sharpness: Option<f64>` (serialised
+      reads it into a new `IndexedFile.sharpness: Option<f64>` (serialized
       as `null` when absent, like `focus`)
     - Tests in `index.rs`'s module, following the existing ones: a v6
       database (build it the way the existing migration tests build older
@@ -127,7 +127,7 @@ the alternatives are in "Trade-offs and risks".
       rows gone; a written entry's score round-trips through `entries()`;
       an entry with `sharpness: None` round-trips as `None`
     - `crates/app/ui/src/main.ts`'s `IndexedFile` interface gains
-      `sharpness: number | null` (no behaviour yet; keeps the type mirror
+      `sharpness: number | null` (no behavior yet; keeps the type mirror
       honest)
     - `mise run ci` passes
   - Implementation approach:
@@ -136,7 +136,7 @@ the alternatives are in "Trade-offs and risks".
       `entries()` for the column plumbing; the error-row `INSERT` writes NULL
     - Do not touch `ratings`, `reconcile`, or the sidecar paths
 
-- [x] Step 3: Frontend: the strip shows each cell's sharpness relative to its neighbours
+- [x] Step 3: Frontend: the strip shows each cell's sharpness relative to its neighbors
   - Done when:
     - A new `crates/app/ui/src/sharpness.ts` exports a pure function that
       takes the scores of the visible files in strip order
@@ -158,7 +158,7 @@ the alternatives are in "Trade-offs and risks".
     - `strip.ts` paints the cue on the cell without moving the existing
       badges: the rating stays top-right, the pick/reject dot top-left, the
       label tint on the name band. The cue is a small bar along one edge of
-      the image box whose length is `ratio` and whose colour changes for
+      the image box whose length is `ratio` and whose color changes for
       `best`; `style.css` gets the matching rules next to `.cell span.rating`
       / `.cell span.flag`. Exact placement is the implementer's call; it must
       not overlap the star badge
@@ -168,8 +168,8 @@ the alternatives are in "Trade-offs and risks".
       added to the canvas
     - No new key, no menu item, no setting. `mise run ci` passes
     - **(manual, the user confirms)** in the running app on a real folder: a
-      burst's sharpest frame carries the `best` colour; a clearly missed
-      frame's bar is visibly shorter than its neighbours; filtering the strip
+      burst's sharpest frame carries the `best` color; a clearly missed
+      frame's bar is visibly shorter than its neighbors; filtering the strip
       recomputes the cues over the visible files; a folder scanned by an
       older app version is rescanned once and then shows cues
   - Implementation approach:
@@ -185,7 +185,7 @@ the alternatives are in "Trade-offs and risks".
 - [x] Step 4: Documentation and measurements
   - Done when:
     - `README.md` (user-facing only): a **Sharpness cue** bullet in
-      "Features" saying what the bar means (relative to the neighbouring
+      "Features" saying what the bar means (relative to the neighboring
       frames on the strip, sharpest of its run marked, computed around the
       focus point from the embedded preview, so it ranks a burst rather than
       judging a frame on its own, and does not replace the 1:1 view); the
@@ -214,7 +214,7 @@ the alternatives are in "Trade-offs and risks".
   (`docs/agents/tauri-app.md`, "A partial decode's cost is set by its row").
   At scan time that is roughly 3x the CPU and ~6x the IO of today's scan;
   on 5000 files, ~30GB of reads. As an on-demand pass (score the current file
-  and its neighbours when the user lands on them) it avoids the scan cost but
+  and its neighbors when the user lands on them) it avoids the scan cost but
   needs its own cache column, in-flight bookkeeping and a "not yet scored"
   state on the strip.
 - Keep the scoring function generic over a grayscale buffer (Step 1) so a
@@ -232,7 +232,7 @@ the alternatives are in "Trade-offs and risks".
 - **Group by capture time** (frames within ~1-2 s form a run): the right
   unit, but needs `capture_time` + `subsec` parsing on the frontend, a gap
   threshold that is itself a guess, and leaves single frames with no
-  neighbour at all.
+  neighbor at all.
 - The pure function in `sharpness.ts` is the one place to swap in grouping
   later.
 
@@ -253,7 +253,7 @@ symlink folder in the README; real folders on a card are disk-bound). The
 alternative, `ALTER TABLE ADD COLUMN sharpness REAL` plus a backfill pass
 for NULL rows, avoids the rescan but needs a second code path that reads
 previews outside the scan; not worth it for a cache column. `ratings` is
-untouched either way, so no judgement is lost.
+untouched either way, so no judgment is lost.
 
 ### Where the cue lives
 

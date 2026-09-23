@@ -24,7 +24,7 @@
   preview smaller than 3x3 has no interior pixel, so `score_preview` rejects
   it with `Err`; the `extract` test uses a 2x2 JPEG for the
   "thumbnail present, `sharpness: None`" case.
-- `laplacian_variance` only uses pixels whose four neighbours are inside the
+- `laplacian_variance` only uses pixels whose four neighbors are inside the
   window, so content just outside the window never leaks into the score.
 - `crates/app/src/index.rs`'s test `entry()` builds an `Entry` literally and
   needed `sharpness: None`; `write_batch` ignores the field until Step 2.
@@ -41,8 +41,8 @@
 ## Step 3
 
 - The cue is a 3px bar up the left edge of the image box (`top: 24px`,
-  96px tall, `transform: scaleY(ratio)` from the bottom), grey, and in the
-  pick colour for the sharpest of its run. It sits below the top-left pick /
+  96px tall, `transform: scaleY(ratio)` from the bottom), gray, and in the
+  pick color for the sharpest of its run. It sits below the top-left pick /
   reject dot and never touches the top-right stars.
 - The meta pane's `Sharpness` row shows the raw score with one decimal
   (`toFixed(1)`).
@@ -51,7 +51,7 @@
   `refilter` does rebuild, `setFiles` clears the strip's store and `refilter`
   re-applies it.
 - Unverified (for the user): the manual on-screen checks (the burst's
-  sharpest frame in the `best` colour, a missed frame's shorter bar, the cue
+  sharpest frame in the `best` color, a missed frame's shorter bar, the cue
   recomputing on filter, an older-index folder rescanned once and then showing
   cues). GUI automation does not work on this machine.
 

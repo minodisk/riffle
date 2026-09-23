@@ -8,7 +8,7 @@
   parser now treats `UNDEFINED[6]` as `SHORT[3]` (value at offset either way)
   and still accepts `SHORT[3]`. Verified on `_DSC3590.ARW`: `AFTracking` 0,
   frame 832x740, validity bytes `01 01` (257).
-- `shorts4` was generalised to `shorts::<N>` for the 3-SHORT read.
+- `shorts4` was generalized to `shorts::<N>` for the 3-SHORT read.
 
 ## Step 2
 
@@ -28,9 +28,9 @@
 
 - Eye-AF path count (temporary `eprintln!` in `scan::extract`, not
   committed): 441 of 468 files took it; 25 had `AFTracking` 0; 2 had
-  `AFTracking` 1 with the focus point at the exact sensor centre (3504, 2336)
+  `AFTracking` 1 with the focus point at the exact sensor center (3504, 2336)
   and frames 153x156 and 3307x2317, so they fell back to detection. Neither
-  is the 832x740 not-engaged frame, so an engaged frame dead centre does
+  is the 832x740 not-engaged frame, so an engaged frame dead center does
   occur, but it is rare (2/468) and only costs the detector path; kept
   Option A.
 - The p95 stays higher than the pre-detection baseline (35.9 ms at 12

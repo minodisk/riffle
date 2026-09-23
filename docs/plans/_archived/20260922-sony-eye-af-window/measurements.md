@@ -57,5 +57,5 @@ exiftool 13.59 (perl, from the GitHub source tree).
     Unknown (22) / Off 3; Unknown (22) / Face tracking 3; Multi / Off 2;
     Expanded Flexible Spot / Lock On AF 2; Custom AF Area / Lock On AF 2
   - Of 47 files with Face tracking, 43 had `FocusLocation` moved off the
-    sensor centre (3504, 2336 on 7008x4672) with a square `FocusFrameSize`
-    between 153x154 and 438x439; 4 stayed at the centre with 832x740.
+    sensor center (3504, 2336 on 7008x4672) with a square `FocusFrameSize`
+    between 153x154 and 438x439; 4 stayed at the center with 832x740.

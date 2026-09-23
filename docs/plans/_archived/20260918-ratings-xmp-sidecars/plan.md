@@ -18,8 +18,8 @@ After finishing a step, continue to the next without asking the user.
 ## Purpose
 
 The app exists to page through ~5000 ARW files from a game and record a
-judgement on each. Up to Phase 3 it can only look. Phase 6 is where a
-judgement is finally recorded: `1`-`5` set a star rating, `x` marks a reject,
+judgment on each. Up to Phase 3 it can only look. Phase 6 is where a
+judgment is finally recorded: `1`-`5` set a star rating, `x` marks a reject,
 and the result is written to a standard XMP sidecar (`FOO.ARW` ->
 `FOO.xmp`) next to the RAW so Lightroom, Bridge, Capture One and darktable
 read it back. The RAW file is never touched.
@@ -33,7 +33,7 @@ what they have already judged.
 
 Scope guard: no filtering by rating (a later phase; this phase only stores
 what it would filter on), no prefetch (Phase 4), no 1:1 focus check (Phase
-5), no burst grouping (Phase 7), no pick flag (`p`), no colour labels, and
+5), no burst grouping (Phase 7), no pick flag (`p`), no color labels, and
 nothing beyond `xmp:Rating` is written to the sidecar.
 
 ## Decisions taken before implementation
@@ -51,8 +51,8 @@ repeated here.
    does not write pick/reject flags to XMP at all (flags are catalog-only)
    but reads `-1` as a reject on import, so the app's rejects survive a trip
    into Lightroom while Lightroom's own rejects can never reach a sidecar
-   from any tool. `xmp:Label` is not used: it is a *colour label* in every
-   reader, so writing `Label="Rejected"` would put a nonsense colour on the
+   from any tool. `xmp:Label` is not used: it is a *color label* in every
+   reader, so writing `Label="Rejected"` would put a nonsense color on the
    file rather than a reject. A private namespace would be read by nobody.
    Consequence: the model is one signed integer per file, `-1..5`, `None`
    when unrated; a reject and a star rating cannot coexist (see 5).
@@ -106,7 +106,7 @@ repeated here.
    writer synchronously with a bounded wait (about 2 s) before the process
    ends; a normal Cmd+Q therefore loses nothing. Failure modes, stated
    plainly: a kill -9 or a crash inside the debounce window loses the
-   sidecar write but not the judgement (the row is dirty and is written on
+   sidecar write but not the judgment (the row is dirty and is written on
    the next open of that folder, rule 2); a keypress is lost only if the
    process dies between the DOM event and the `ratings` insert (a few ms);
    a sidecar directory that is read-only (an SD card, a locked share) fails
@@ -365,12 +365,12 @@ repeated here.
 ### Reject representation (decision 1)
 
 Taken: `xmp:Rating="-1"`. Alternative: also write `xmp:Label`. Not taken
-because `Label` is a colour in every reader, and because the user declined it
+because `Label` is a color in every reader, and because the user declined it
 when offered. Risk: a reader that does not understand `-1` shows a rejected
 file as unrated; Lightroom's own rejects never reach a sidecar, so a round
 trip through Lightroom cannot bring a reject back — both are properties of
 those tools, not of this choice. The user should verify with Lightroom and
-DxO PhotoLab **(manual)**; if PhotoLab ignores `-1`, adding a colour label is
+DxO PhotoLab **(manual)**; if PhotoLab ignores `-1`, adding a color label is
 a one-line change in `write_rating`.
 
 ### Source of truth (decision 2)
@@ -394,7 +394,7 @@ because it litters a folder that was previously clean.
 ### Toggle versus sticky (decision 5)
 
 Taken: sticky with explicit clears (`u`, `0`). Alternative: `x` toggles, as
-in some cullers. Toggle is one key fewer but is exactly the behaviour that
+in some cullers. Toggle is one key fewer but is exactly the behavior that
 turns a double-press under auto-repeat into an accidental un-reject.
 
 ### Schema bump
@@ -430,7 +430,7 @@ Phase 5 (the 1:1 focus check) is being implemented at the same time in a
 separate worktree. It has been told not to touch `index.rs`'s schema, which
 Step 3 bumps; `Space` is its key and `0`, `1`-`5`, `u`, `x` are this phase's.
 Both edit `crates/app/ui/src/main.ts`, so changes here stay additive and
-localised, and each PR rebases onto `origin/main` before merging.
+localized, and each PR rebases onto `origin/main` before merging.
 
 ### Todo items this phase touches
 

@@ -21,7 +21,7 @@ A pick set while a sidecar format switch is in flight is lost on the next
 folder open (`todo.md`, "App: a pick made during a sidecar format switch is
 lost on the next open"). `switch_format` (`crates/app/src/commands.rs`) swaps
 the current format, drains the writer, persists the setting and then calls
-`Index::reset_sidecars`. A judgement made after the swap already observes the
+`Index::reset_sidecars`. A judgment made after the swap already observes the
 new format (`.dop`) and is queued with `pick = 1`, but `reset_sidecars`
 zeroes the pick of every dirty row (`UPDATE ratings SET xmp_size = NULL,
 xmp_mtime_ns = NULL, pick = 0 WHERE dirty = 1`), including that one. The
@@ -48,7 +48,7 @@ open, and the `pick = true` variant of the format-switch race test that
     post-swap (race-window) row's pick is a legitimate `.dop` pick.
   - On a Dop -> Xmp switch, `sidecar::write` already ignores the pick for
     XMP (`let pick = *pick && format == SidecarFormat::Dop;`) and calls
-    `mark_written` with the judgement's own `pick`, so a kept `pick = 1`
+    `mark_written` with the judgment's own `pick`, so a kept `pick = 1`
     on a dirty row still matches and the row is cleared normally.
 - `mark_written`'s `pick = ?5` guard is correct and must stay: it is what
   keeps a row dirty when a keypress lands during a write (see
@@ -95,13 +95,13 @@ open, and the `pick = true` variant of the format-switch race test that
       `pick = 0`; its `UPDATE` becomes
       `UPDATE ratings SET xmp_size = NULL, xmp_mtime_ns = NULL WHERE dirty = 1`.
       Its doc comment drops the two sentences about the pick and states
-      instead that the judgement (rating, pick and label) is kept, and
+      instead that the judgment (rating, pick and label) is kept, and
       why the pick is safe to keep (a pick is only ever set under `.dop`,
       and an XMP write ignores it).
     - `a_sidecar_reset_keeps_the_label_of_a_dirty_row` in `index.rs` is
       updated to assert the pick is kept too (`true` in the expected
       `dirty_rows` tuple) and renamed to say so, e.g.
-      `a_sidecar_reset_keeps_the_judgement_of_a_dirty_row`.
+      `a_sidecar_reset_keeps_the_judgment_of_a_dirty_row`.
     - `mise run ci` passes.
   - Implementation approach:
     - The fix site is `reset_sidecars` only, and the fix is the plain drop
@@ -119,7 +119,7 @@ open, and the `pick = true` variant of the format-switch race test that
     - Commit the test before the fix (or run it once against the
       unfixed `index.rs`) so the failure is observed, then fix.
     - Keep the change surgical: the SQL clause, the doc comment, the two
-      tests. No other `reset_sidecars` behaviour (dropping clean rows,
+      tests. No other `reset_sidecars` behavior (dropping clean rows,
       nulling the stat, keeping the label) changes.
 
 - [x] Step 2: Close the todo item and record the pitfall in the app guide
@@ -129,7 +129,7 @@ open, and the `pick = true` variant of the format-switch race test that
     - `docs/agents/tauri-app.md` gains a short "Hit" entry under "Rust
       side" stating that `reset_sidecars` must not rewrite any field
       `mark_written` guards on (`rating`, `pick`, `label`), because a
-      judgement made in the switch window has already been queued with
+      judgment made in the switch window has already been queued with
       the value the row held, and a mismatch leaves the row dirty and
       replays a stale value on the next open. Source line points at this
       plan's `learnings.md`.
@@ -153,7 +153,7 @@ open, and the `pick = true` variant of the format-switch race test that
     is what protects a keypress made during a write. Not taken.
   - `switch_format` ordering: no reordering closes the window, since the
     race is with any concurrent `set_rating`, not with `persist`;
-    `reset_sidecars` must follow the drain, and serialising `set_rating`
+    `reset_sidecars` must follow the drain, and serializing `set_rating`
     against the switch would mean holding the index mutex across a drain
     that itself needs the mutex (`mark_written`). Not taken.
 - Alternative within the chosen site, considered and declined by the user
@@ -170,7 +170,7 @@ open, and the `pick = true` variant of the format-switch race test that
   row that keeps `pick = 1` and is replayed on the next open ends clean
   with `pick = 1` in the index (the XMP holds no pick). `entries` could
   then report `pick = true` in XMP mode for that file until a sidecar
-  re-read or a new judgement. Whether the UI renders a pick in XMP mode
+  re-read or a new judgment. Whether the UI renders a pick in XMP mode
   was not verified at planning time; the implementer should check
   `crates/app/ui/src/main.ts` and note it in `learnings.md`. It is not a
   data loss in either direction.

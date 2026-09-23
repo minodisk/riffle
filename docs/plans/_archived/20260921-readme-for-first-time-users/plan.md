@@ -19,7 +19,7 @@ After finishing a step, continue to the next without asking the user.
 
 `README.md` today is a single 490-line file that mixes the first-time user's
 questions (what is this, how do I install it, what do I press) with exhaustive
-behaviour descriptions and the whole performance log. A newcomer has to scroll
+behavior descriptions and the whole performance log. A newcomer has to scroll
 past filter-menu semantics and symlink benchmarks to find the install table.
 
 The user reviewed a Japanese draft of the new README at
@@ -30,7 +30,7 @@ After this work:
 
 - `README.md` is short and user-facing: intro, Getting started, Features (one
   line each), Keys, Working with other software, Compatibility, For developers.
-- The detailed behaviour moves, unchanged in substance, to `docs/usage.md`, and
+- The detailed behavior moves, unchanged in substance, to `docs/usage.md`, and
   the Performance section to `docs/performance.md`.
 - Compatibility reports have somewhere to go: three GitHub issue forms
   (`os.yml`, `camera.yml`, `software.yml`) and `config.yml` pointing at
@@ -42,7 +42,7 @@ from the scratchpad path above.
 ## Decisions made at approval
 
 - Two PRs (Step 2 touches `.github/**`, which needs user approval to merge).
-- Lightroom: Getting started says judgements are picked up by DxO PhotoLab and
+- Lightroom: Getting started says judgments are picked up by DxO PhotoLab and
   tools that read XMP sidecars, without asserting Lightroom works. The intro may
   name Lightroom only as an example of an XMP-reading tool.
 - `blank_issues_enabled: true`.
@@ -81,7 +81,7 @@ from the scratchpad path above.
   - Implementation approach:
     - Content rules for `README.md`:
       - Intro: three benefit bullets from the draft (embedded JPEG only, so no
-        waiting; judgements go to sidecars that DxO PhotoLab and XMP-reading
+        waiting; judgments go to sidecars that DxO PhotoLab and XMP-reading
         tools such as Lightroom read, RAW never written; no developing /
         editing) and a pointer to `#compatibility`.
       - Getting started > Install: table trimmed to one file per OS
@@ -92,11 +92,11 @@ from the scratchpad path above.
       - Getting started > First steps: the draft's three numbered steps
         (drop a folder / `Cmd+O`; `↑` `↓` + `1`-`5` + `x`; `z` for the 1:1
         check), then the "saved as you go" line. Do not assert Lightroom picks
-        the judgements up: say they are picked up by DxO PhotoLab and tools that
+        the judgments up: say they are picked up by DxO PhotoLab and tools that
         read XMP sidecars.
       - Features: one line each for filmstrip, 1:1 focus check, focus mark,
         sharpness cue, shooting info, filter and sort, Move Rejected to Trash,
-        undo/redo, auto-advance; end with "Detailed behaviour: docs/usage.md".
+        undo/redo, auto-advance; end with "Detailed behavior: docs/usage.md".
       - Keys: the draft's condensed single table (`↑`/`↓`, `1`-`5`, `0`, `x`,
         `p` (.dop only), `u`, `Ctrl+Alt+1`-`7`, `Ctrl+Alt+0`, `z`, `f`,
         `Cmd+O`/`Ctrl+O`) followed by "Keys can be changed in
@@ -154,8 +154,8 @@ from the scratchpad path above.
       attachments, so a RAW usually has to be a link), what happened
       (textarea).
     - `software.yml` asks for: software and version (input), sidecar format
-      (dropdown: XMP / DxO PhotoLab `.dop`), the judgement applied in Riffle
-      (textarea: stars / pick / reject / colour label), how the software shows
+      (dropdown: XMP / DxO PhotoLab `.dop`), the judgment applied in Riffle
+      (textarea: stars / pick / reject / color label), how the software shows
       it (textarea).
     - `config.yml` sets `blank_issues_enabled: true` and `contact_links` to the
       three Discussions "works" report threads (OS / camera / software), each

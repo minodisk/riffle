@@ -17,9 +17,9 @@ After finishing a step, continue to the next without asking the user.
 
 ## Purpose
 
-Judging composition is easier without colour pulling the eye. While the
+Judging composition is easier without color pulling the eye. While the
 `grayscale` key is held, the viewed image is rendered in grayscale; releasing
-it restores colour, so a quick press-and-release is a glance at the
+it restores color, so a quick press-and-release is a glance at the
 composition and nothing can be left switched on by accident. It is
 display-only: nothing is written to files, sidecars or the folder index, and
 there is no persisted state.
@@ -30,7 +30,7 @@ there is no persisted state.
       CSS grayscale filter to the viewer canvas while its key is held
   - Done when:
     - Holding `g` in the main window shows the viewed image in grayscale;
-      releasing it restores colour. Auto-repeat while held does not flicker.
+      releasing it restores color. Auto-repeat while held does not flicker.
       With a rebound modified key (e.g. `ctrl+g`) the filter ends on the
       release of either the key or the modifier, whichever comes first.
       Losing window focus while the key is held ends the filter.
@@ -88,7 +88,7 @@ there is no persisted state.
     - Verify by hand in `mise run tauri:dev` (no GUI automation): hold/release
       `g`; hold `g` through auto-repeat; rebind to `ctrl+g` in the settings
       window and release Ctrl first, then `g` first; hold `g` and Cmd+Tab /
-      open Settings with `Cmd+,`, then come back and confirm colour is back.
+      open Settings with `Cmd+,`, then come back and confirm color is back.
 
 ## Trade-offs and risks
 
@@ -109,8 +109,8 @@ there is no persisted state.
   docs/agents/tauri-app.md, not the global `event.listen`). Verify by hand on
   the platforms available.
 - The focus-mark crosshair (`#3f3`) is drawn on the same canvas and turns
-  grey while held. Accepted; keeping it green needs a second canvas.
-- Filter scope is the viewer canvas only (strip thumbnails keep colour for
+  gray while held. Accepted; keeping it green needs a second canvas.
+- Filter scope is the viewer canvas only (strip thumbnails keep color for
   labels and flags).
 - Default `g`; `m` is the free alternative. As a plain key it gets no menu
   accelerator, like `focus` and `zoom`.

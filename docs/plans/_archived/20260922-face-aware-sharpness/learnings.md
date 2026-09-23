@@ -63,14 +63,14 @@
   `scan::extract` passes `&[]` until Step 3 wires the detector.
 - Constants: `FACE_CONFIDENCE = 0.8` (above `faces::SCORE_THRESHOLD` 0.6),
   `EYE_WINDOW_MIN = 128`; the eye window side is the face box's long side
-  clamped to `[128, WINDOW = 256]`, centred on the midpoint of the two eyes.
+  clamped to `[128, WINDOW = 256]`, centered on the midpoint of the two eyes.
 - "Focus inside the face" maps the `FocusLocation` to preview pixels with
   `partial::focus_point` and tests it against the face box (edges inclusive).
 - Coordinate spaces: `score` decodes the preview as stored (no orientation
   applied), which is also the space `focus_point` maps into. `faces::detect`
   must run on the upright image, so Step 3 has to map each `Face` (box and
   eyes) back to stored-preview coordinates before calling `score_preview`
-  for orientation 6/8 frames. The 4-neighbour Laplacian variance over a
+  for orientation 6/8 frames. The 4-neighbor Laplacian variance over a
   square window is rotation invariant, so scoring in stored coordinates is
   equivalent.
 

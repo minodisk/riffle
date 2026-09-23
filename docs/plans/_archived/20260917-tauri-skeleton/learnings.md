@@ -101,7 +101,7 @@
   meantime it immediately issues exactly one follow-up for the latest index,
   so holding an arrow key never queues more than one request in flight.
 - Drawing: the canvas backing store is `clientWidth/Height * devicePixelRatio`,
-  the context is translated to the centre and scaled by `dpr`, then rotated by
+  the context is translated to the center and scaled by `dpr`, then rotated by
   ±90° for Orientation 6 / 8. The fit scale is computed against the **upright**
   dimensions (width/height swapped for a quarter turn) while `drawImage` uses
   the bitmap's own dimensions, so a portrait frame fits the window height.
@@ -226,7 +226,7 @@ Not verified:
   Basis: observed at wrap-up step 3.4 of this plan. Paths:
   `.claude/settings.json`, `.claude/skills/develop/SKILL.md`,
   `.claude/skills/pr/SKILL.md`.
-- Deferred judgement, not yet worth filing on its own: the fixture trick from
+- Deferred judgment, not yet worth filing on its own: the fixture trick from
   Step 1 — a hand-built TIFF for `arw::parse` tests needs only the 8-byte header
   plus IFD0, because `next_ifd = 0` stops the chain walk and no SubIFD has to be
   faked. It is one narrow fact about one parser's tests rather than a general
