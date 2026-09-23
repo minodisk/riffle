@@ -303,10 +303,7 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function row(list: HTMLDListElement, label: string, value: string | null): void {
-  if (value === null) {
-    return;
-  }
+function row(list: HTMLDListElement, label: string, value: string): void {
   const dt = document.createElement("dt");
   dt.textContent = label;
   const dd = document.createElement("dd");
