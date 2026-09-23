@@ -26,3 +26,10 @@
   `sharpness.rs`, `faces.rs`). Bump `SCHEMA_VERSION` only when the table
   layout changes. An extractor bump re-extracts every row, error rows
   included, on the next scan of each folder, and keeps `ratings`.
+
+## Step 2
+
+- Documentation only. The new `docs/agents/tauri-app.md` section and the
+  additions to the stranded-guard section cite the plan's learnings under
+  `docs/plans/_archived/...`, the path it will have after the wrap-up move, in
+  code spans (not links), so lychee does not check them before the move.
