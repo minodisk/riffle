@@ -1442,11 +1442,13 @@ const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
 
 /// The largest preview, in pixels, the decode worker hands over unresized.
 /// WebKitGTK draws an `ImageBitmap` created in a Worker and transferred to the
-/// main thread as fully transparent once it is large enough: 12.3 MP drew,
-/// 16 MP did not. Above the limit the worker decodes with resize options, so
-/// Linux keeps a margin under the failure; other platforms are unaffected.
+/// main thread as fully transparent once it has too many pixels, whatever its
+/// shape: about 6.87 MP (6,840,000 px drew, 6,900,000 px did not; WebKitGTK
+/// 2.50.4 under WSLg). Above the limit the worker decodes with resize options;
+/// 6 MP keeps a margin since the threshold may vary by environment. Other
+/// platforms are unaffected.
 pub const PREVIEW_PIXEL_LIMIT: Option<u32> = if cfg!(target_os = "linux") {
-    Some(12_000_000)
+    Some(6_000_000)
 } else {
     None
 };
@@ -1820,7 +1822,7 @@ mod tests {
     fn the_preview_pixel_limit_applies_on_linux_only() {
         // WebKitGTK drops large transferred bitmaps; other webviews do not.
         let expected = if cfg!(target_os = "linux") {
-            Some(12_000_000)
+            Some(6_000_000)
         } else {
             None
         };
