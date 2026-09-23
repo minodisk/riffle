@@ -39,7 +39,7 @@ instead of a raw OS error.
 
 ## Steps
 
-- [x] Step 1: Locate PhotoLab through the registry and launch it on Windows, and turn a missing install into "not installed" everywhere
+- [ ] Step 1: Locate PhotoLab through the registry and launch it on Windows, and turn a missing install into "not installed" everywhere (incomplete: the manual launch check on the user's Windows machine is still pending; see learnings.md)
   - Done when:
     - On Windows with `DxO PhotoLab 9` and `DxO PhotoLab 10` registered under `HKLM\SOFTWARE\DxO` (plus FilmPack and PureRAW siblings), `Open in DxO PhotoLab` launches `<InstallPath of DxO PhotoLab 10>DxO.PhotoLab.exe` with the open folder as its argument, including a folder whose path contains spaces.
     - When `HKLM\SOFTWARE\DxO` does not exist, holds no `DxO PhotoLab <N>` subkey, or the chosen subkey has no string `InstallPath`, the command returns `Err("DxO PhotoLab is not installed")`. On macOS the same message is returned when `/Applications` cannot be read or holds no `DXOPhotoLab<N>.app` (today a `read_dir` failure surfaces the OS error). Linux returns the same "not installed" error without touching the file system or registry.
@@ -68,4 +68,4 @@ instead of a raw OS error.
 
 ## Progress
 
-- (none yet)
+- (2026-09-23) Step 1 complete (manual launch check on Windows pending; see learnings.md)
