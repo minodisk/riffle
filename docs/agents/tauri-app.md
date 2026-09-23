@@ -281,7 +281,11 @@ The settings window is its own JS context, so a change reaches the main window
 as a backend event (`shortcuts-changed`, `sidecar-format`, `debug`), and state
 both windows read (timing logs) lives in Rust. The window is listed in
 `capabilities/default.json` so it can invoke, and it is closed when `main` is
-destroyed so it never keeps the app running alone.
+destroyed so it never keeps the app running alone. On Windows and Linux a
+window built without `.menu()` inherits the app menu, so `open_settings` calls
+`remove_menu` right after `build()`. `AppHandle::set_menu` would re-attach the
+app menu to every menu-less window, which is one more reason the non-macOS
+`refresh` patches items in place instead of calling `set_menu` again.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.

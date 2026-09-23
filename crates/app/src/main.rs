@@ -363,7 +363,7 @@ mod app_menu {
         if let Some(window) = app.get_webview_window(super::SETTINGS_WINDOW) {
             return window.set_focus();
         }
-        WebviewWindowBuilder::new(
+        let window = WebviewWindowBuilder::new(
             app,
             super::SETTINGS_WINDOW,
             WebviewUrl::App("settings.html".into()),
@@ -371,6 +371,14 @@ mod app_menu {
         .title("Settings")
         .inner_size(480.0, 640.0)
         .build()?;
+        // On Windows and Linux a window built without `.menu()` inherits the
+        // app-wide menu. Menu events arrive on the main thread, where
+        // `remove_menu` runs inline, so it is gone before the first paint. On
+        // macOS the menu is app-wide and `Window::remove_menu` is unsupported.
+        #[cfg(not(target_os = "macos"))]
+        window.remove_menu()?;
+        #[cfg(target_os = "macos")]
+        let _ = window;
         Ok(())
     }
 }
