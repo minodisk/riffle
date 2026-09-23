@@ -304,10 +304,15 @@ fn rational(buf: &[u8], entry: &Entry) -> Result<Option<Rational>> {
 }
 
 /// Read a single SHORT or LONG entry, whose value always rides inside the
-/// entry itself.
+/// entry itself. A SHORT occupies the low two bytes of the value field; the
+/// other two are padding, which some writers leave nonzero.
 fn integer(entry: &Entry) -> Option<u32> {
     let (_, value, typ, count) = *entry;
-    ((typ == TYPE_SHORT || typ == TYPE_LONG) && count == 1).then_some(value)
+    match (typ, count) {
+        (TYPE_SHORT, 1) => Some(value & 0xFFFF),
+        (TYPE_LONG, 1) => Some(value),
+        _ => None,
+    }
 }
 
 fn byte(entry: &Entry) -> Option<u8> {
@@ -913,6 +918,28 @@ mod tests {
         let (p, f) = (a.preview.unwrap(), a.full.unwrap());
         assert_eq!((p.offset, p.length), (400, 40));
         assert_eq!((f.offset, f.length), (300, 30));
+    }
+
+    #[test]
+    fn short_entries_ignore_the_padding_in_their_high_half() {
+        let padded = |w, h, offset, length| {
+            let mut e = strip_entries(w, h, PHOTOMETRIC_YCBCR, offset, length);
+            e[2].3 |= 0xFFFF_0000;
+            e[3].3 |= 0x4D47_0000;
+            e
+        };
+        let buf = tiff_with_sub_ifds(
+            &strip_entries(9536, 6336, 32803, 900_000, 5_000_000),
+            &[
+                padded(640, 480, 100, 10),
+                padded(9520, 6328, 200, 20),
+                padded(1620, 1080, 300, 30),
+            ],
+        );
+        let a = parse(&buf).unwrap();
+        let (p, f) = (a.preview.unwrap(), a.full.unwrap());
+        assert_eq!((p.offset, p.length), (300, 30));
+        assert_eq!((f.offset, f.length), (200, 20));
     }
 
     #[test]
