@@ -151,8 +151,7 @@ are very welcome.
 - Windows
   - [x] 11
 - Linux
-  - [ ] Ubuntu
-  - [ ] Fedora
+  - [x] Ubuntu
 
 If it works, post in the
 [OS works report thread](https://github.com/minodisk/riffle/discussions/286) in
@@ -177,8 +176,8 @@ rotation and the focus mark be checked.
 ### Sidecar formats and software
 
 - XMP
-  - [ ] Adobe Lightroom 9.5.1 (Windows; not Lightroom Classic)
-  - [ ] Adobe Lightroom Classic 2026 (Windows, Japanese UI)
+  - [ ] Adobe Lightroom (Windows; not Lightroom Classic)
+  - [ ] Adobe Lightroom Classic (Windows, Japanese UI)
   - [ ] Capture One
 - DOP
   - [x] DxO PhotoLab 10
