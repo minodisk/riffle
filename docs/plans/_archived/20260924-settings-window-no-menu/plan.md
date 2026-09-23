@@ -94,4 +94,4 @@ keeps its menu and macOS (app-wide menu) is unchanged.
 
 ## Progress
 
-- (none yet)
+- (2026-09-24) Step 1 complete
