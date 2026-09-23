@@ -430,3 +430,49 @@ time on SIGMA fp L folders. Files: `crates/core/src/arw.rs`
 - [ ] Measure strip scroll/thumbnail load time on a SIGMA fp L folder; if
       slow, consider downscaling the full-size JPEG for the preview tier
       instead of using it as-is.
+
+### Core: widen camera support from public sample RAW files
+
+The user no longer owns the Sigma fp L or BF and cannot shoot new
+samples, so public sample files are the verification source for more
+cameras. Two kinds exist: raw.pixls.us (CC0; a few files per camera,
+often flat test scenes that are weak for AF-point checks; CC0 means a
+small file could be committed as a fixture, but tests prefer synthetic
+bytes as in `crates/core/src/arw.rs`) and review-site sample galleries
+(real scenes, good for AF checks, but not redistributable, so local
+verification only). Riffle reads only ARW and DNG today (README.md
+"RAW formats and cameras"). The work splits into tiers, cheapest first:
+
+1. More DNG-writing cameras (Pentax, Ricoh GR, other Leica bodies,
+   phones). DNG reading already exists, so only preview/EXIF
+   extraction needs verifying on samples.
+2. AF point from MakerNotes that exiftool already decodes (Canon
+   `AFInfo`, Nikon `AFInfo2`, Fujifilm `FocusPixel`, Olympus
+   `AFPointSelected`, Panasonic `AFPointPosition`). Tag meaning and
+   coordinate system are known; samples only confirm. This presupposes
+   the RAW container is readable (tier 3), except for bodies that
+   write DNG.
+3. New RAW containers (CR3 = ISOBMFF, NEF, RAF, ...). Each needs a new
+   parser next to `crates/core/src/arw.rs`; implementation outweighs
+   verification.
+
+AF data exiftool does not decode needs inference from many off-center
+samples, as done for the Sigma BF `0x0147` in
+`docs/plans/_archived/20260924-sigma-bf-af-point/plan.md`. Files:
+`crates/core/src/arw.rs`, `crates/core/src/reader.rs`, `README.md`.
+
+#### TODO
+
+- [ ] Tier 1: verify preview/EXIF extraction on public DNG samples from
+      Pentax, Ricoh GR, other Leica bodies, and phones; add each
+      working body to the README "RAW formats and cameras" list.
+- [ ] Tier 2: read the AF point from the exiftool-decoded MakerNote
+      tags above, confirming on samples, for bodies whose container
+      Riffle can already read.
+- [ ] Tier 3: decide per container (CR3, NEF, RAF, ...) whether a new
+      parser is worth it, given the samples available.
+- [ ] Check the Sigma BF AF point's open assumptions against public BF
+      samples: portrait orientation, manual-focus behavior, and the
+      1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in
+      `crates/core/src/arw.rs` and the archived plan's
+      [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
