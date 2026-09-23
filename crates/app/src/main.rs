@@ -10,13 +10,12 @@ mod update;
 mod watch;
 
 mod app_menu {
-    #[cfg(target_os = "macos")]
     use tauri::image::Image;
     #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
+    use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
     #[cfg(target_os = "macos")]
     use tauri::menu::{IconMenuItem, NativeIcon};
-    use tauri::menu::{Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
     use tauri_plugin_opener::OpenerExt;
 
@@ -59,6 +58,34 @@ mod app_menu {
         // The default menu carries the platform's standard items (Quit, Copy,
         // ...), which setting a menu at all would otherwise replace.
         let menu = Menu::default(handle)?;
+        // The default About's metadata carries no icon, so macOS's About
+        // panel and GTK's About dialog show none; it is rebuilt with the same
+        // metadata plus the app icon (Windows' MessageBox ignores it).
+        let about = PredefinedMenuItem::about(
+            handle,
+            None,
+            Some(AboutMetadata {
+                name: Some(handle.package_info().name.clone()),
+                version: Some(handle.package_info().version.to_string()),
+                copyright: handle.config().bundle.copyright.clone(),
+                authors: handle.config().bundle.publisher.clone().map(|p| vec![p]),
+                icon: Some(Image::from_bytes(include_bytes!("../icons/128x128.png"))?),
+                ..Default::default()
+            }),
+        )?;
+        #[cfg(target_os = "macos")]
+        let about_menu = match menu.items()?.into_iter().next() {
+            Some(MenuItemKind::Submenu(app)) => Some(app),
+            _ => None,
+        };
+        #[cfg(not(target_os = "macos"))]
+        let about_menu = submenu(&menu, "Help")?;
+        if let Some(about_menu) = about_menu {
+            if let Some(MenuItemKind::Predefined(_)) = about_menu.items()?.into_iter().next() {
+                about_menu.remove_at(0)?;
+                about_menu.insert(&about, 0)?;
+            }
+        }
         #[cfg(target_os = "macos")]
         let photolab = IconMenuItem::with_id_and_native_icon(
             handle,
