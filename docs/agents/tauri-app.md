@@ -262,12 +262,12 @@ means quitting. Compiled, not exercised against a real install.
 The menu bar keeps only the platform's default submenus. `app_menu::build`
 finds them in `Menu::default` by title and inserts into them: `Settings...`
 (`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
-`Open in DxO PhotoLab` at the top of `File`. Linux's default has no `File`, so
-one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
+`Open Folder…`, `Reload Folder` and `Move Rejected to Trash` at the top of
+`File`. Linux's default has no `File`, so one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
 that owns `CmdOrCtrl+Z`; the app's `Undo` / `Redo` (emitting `undo` / `redo`
 to the frontend) replace that pair rather than being added next to it. Their
-accelerators come from the keymap's `undo` / `redo` actions, like the two File
-items, so the frontend keydown runs the keys and the menu only mirrors them. The replacement only
+accelerators come from the keymap's `undo` / `redo` actions, like the File menu's
+`Open Folder…`, so the frontend keydown runs the keys and the menu only mirrors them. The replacement only
 fires when the item at position 0 is still `MenuItemKind::Predefined`, so a
 Tauri reordering cannot make it silently remove the wrong item. About (item 0
 of the macOS app menu, of `Help` elsewhere) is rebuilt the same guarded way,
@@ -295,7 +295,7 @@ the whole menu through `AppHandle::set_menu`, because muda's
 `set_accelerator(None)` on an existing item does not clear a stale key
 equivalent. On Windows and Linux `refresh` only calls `set_menu` the first
 time (no menu yet, i.e. `setup`); afterwards it looks up `Open Folder…`,
-`Open in DxO PhotoLab`, `Edit > Undo` and `Edit > Redo` with `Submenu::get` on each top-level submenu
+`Edit > Undo` and `Edit > Redo` with `Submenu::get` on each top-level submenu
 (`Menu::get` does not recurse) and calls `set_accelerator` on them,
 which muda's Windows backend handles correctly (label and `HACCEL` are
 rewritten, `None` removes the entry).
@@ -308,15 +308,13 @@ rewritten, `None` removes the entry).
   Step 1, and `docs/plans/_archived/20260922-windows-dark-menu-bar/learnings.md`
   (unverified on a real device).
 
-### Menu icons: native where one exists, a bundled SF Symbol otherwise (Hit)
+### Menu icons: bundled SF Symbols rather than `NativeIcon` (Hit)
 
-On macOS nine app items carry an icon. `Open in DxO PhotoLab` alone uses
-`IconMenuItem::with_id_and_native_icon`, with
-`NativeIcon::FollowLinkFreestanding`, which is a template image and tints with
-the menu. `NativeIcon` has neither an undo nor a
-modern gear, and `NativeIcon::Folder` and `NativeIcon::TrashFull` are color
-Finder bitmaps rather than template images (`isTemplate == false`), so they
-keep their color while every icon around them tints, so `Settings...`,
+On macOS eight app items carry an icon, and none of them is a `NativeIcon`.
+`NativeIcon` has neither an undo nor a modern gear, and `NativeIcon::Folder`
+and `NativeIcon::TrashFull` are color Finder bitmaps rather than template
+images (`isTemplate == false`), so they would keep their color while every
+icon around them tints. So `Settings...`,
 `Undo`, `Redo`, `Open Folder…`, `Open Log Folder`, `Move Rejected to Trash`,
 `Reload Folder` and `Check for Updates…` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under

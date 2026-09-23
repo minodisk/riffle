@@ -12,7 +12,6 @@ const shortcutLabels: Record<string, string> = {
   extendPrevious: "Extend selection up",
   extendNext: "Extend selection down",
   open: "Open folder",
-  photolab: "Open in DxO PhotoLab",
   undo: "Undo",
   redo: "Redo",
   focus: "Focus mark",

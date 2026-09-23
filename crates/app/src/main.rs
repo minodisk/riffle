@@ -11,17 +11,16 @@ mod watch;
 
 mod app_menu {
     use tauri::image::Image;
+    #[cfg(target_os = "macos")]
+    use tauri::menu::IconMenuItem;
     #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
-    #[cfg(target_os = "macos")]
-    use tauri::menu::{IconMenuItem, NativeIcon};
     use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
     use tauri_plugin_opener::OpenerExt;
 
     const OPEN_FOLDER_ID: &str = "open-folder";
     const RELOAD_FOLDER_ID: &str = "reload-folder";
-    const PHOTOLAB_ID: &str = "open-in-photolab";
     const TRASH_REJECTED_ID: &str = "trash-rejected";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
@@ -41,16 +40,14 @@ mod app_menu {
         Ok(None)
     }
 
-    /// The app menu, with the `Open Folder…`, `Open in DxO PhotoLab`, `Undo`
-    /// and `Redo` accelerators the keymap currently gives those actions.
+    /// The app menu, with the `Open Folder…`, `Undo` and `Redo` accelerators
+    /// the keymap currently gives those actions.
     pub fn build(
         handle: &AppHandle,
         keymap: &crate::shortcuts::Keymap,
     ) -> tauri::Result<Menu<Wry>> {
         let open = keymap.accelerator_for("open");
         let open = open.as_deref();
-        let photolab_key = keymap.accelerator_for("photolab");
-        let photolab_key = photolab_key.as_deref();
         let undo_key = keymap.accelerator_for("undo");
         let undo_key = undo_key.as_deref();
         let redo_key = keymap.accelerator_for("redo");
@@ -86,23 +83,6 @@ mod app_menu {
                 about_menu.insert(&about, 0)?;
             }
         }
-        #[cfg(target_os = "macos")]
-        let photolab = IconMenuItem::with_id_and_native_icon(
-            handle,
-            PHOTOLAB_ID,
-            "Open in DxO PhotoLab",
-            true,
-            Some(NativeIcon::FollowLinkFreestanding),
-            photolab_key,
-        )?;
-        #[cfg(not(target_os = "macos"))]
-        let photolab = MenuItem::with_id(
-            handle,
-            PHOTOLAB_ID,
-            "Open in DxO PhotoLab",
-            true,
-            photolab_key,
-        )?;
         // `folder.png` is deliberately shared with Help > Open Log Folder:
         // the two menus are never open at the same time.
         #[cfg(target_os = "macos")]
@@ -209,7 +189,6 @@ mod app_menu {
             &open_folder,
             &reload_folder,
             &trash_rejected,
-            &photolab,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
         // On macOS both go in the app menu: Check for Updates joins About above
@@ -315,7 +294,6 @@ mod app_menu {
         if let Some(menu) = app.menu() {
             for (id, action) in [
                 (OPEN_FOLDER_ID, "open"),
-                (PHOTOLAB_ID, "photolab"),
                 (UNDO_ID, "undo"),
                 (REDO_ID, "redo"),
             ] {
@@ -344,9 +322,6 @@ mod app_menu {
         }
         if event.id() == RELOAD_FOLDER_ID {
             let _ = app.emit("reload-folder", ());
-        }
-        if event.id() == PHOTOLAB_ID {
-            let _ = app.emit("open-in-photolab", ());
         }
         if event.id() == TRASH_REJECTED_ID {
             let _ = app.emit("trash-rejected", ());
@@ -583,7 +558,6 @@ fn main() {
             commands::remove_shortcut_key,
             commands::reset_shortcut,
             commands::reset_shortcuts,
-            commands::open_in_photolab,
             commands::auto_advance,
             commands::set_auto_advance,
             commands::label_names,

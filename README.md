@@ -117,7 +117,6 @@ the settings:
   writes them. The name written to `xmp:Label` can be set per color in the
   settings.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
-  `File > Open in DxO PhotoLab` opens the folder straight in PhotoLab.
 
 A sidecar created by other software is edited in place: everything except the
 stars, the flag and the label (develop settings, keywords, ...) is left
