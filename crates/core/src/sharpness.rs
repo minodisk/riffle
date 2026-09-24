@@ -5,16 +5,16 @@
 //!    centered on the AF point, its side the AF frame's long side in preview
 //!    pixels clamped to `[EYE_WINDOW_MIN, WINDOW]`. Faces are ignored and
 //!    the scan does not detect them.
-//! 1. A face is found (the best one scoring at least `FACE_CONFIDENCE`) and
-//!    the trustworthy AF point lies inside its box: the `WINDOW`-sized window
-//!    on the AF point, as Eye-AF already put it on the eye.
-//! 2. A face is found and there is no trustworthy AF point (none, or a Sony
-//!    frame shot in manual focus), or it lies outside the face box: a window
-//!    centered between the two eyes, its side the face box's long side clamped
-//!    to `[EYE_WINDOW_MIN, WINDOW]`.
-//! 3. No face: the window on the trustworthy AF point, or without one the
-//!    maximum over a grid of tiles covering the preview, so a frame sharp
-//!    anywhere ranks above one sharp nowhere.
+//! 1. A trustworthy AF point: the `WINDOW`-sized window on it. Faces are
+//!    ignored, even when the point lies outside every face box: the detector
+//!    cannot tell the face the photographer wanted from a bystander, so the
+//!    camera's AF point is trusted over a face it did not land on.
+//! 2. No trustworthy AF point (none, or a Sony frame shot in manual focus)
+//!    and a face found (the best one scoring at least `FACE_CONFIDENCE`): a
+//!    window centered between the two eyes, its side the face box's long side
+//!    clamped to `[EYE_WINDOW_MIN, WINDOW]`.
+//! 3. Neither: the maximum over a grid of tiles covering the preview, so a
+//!    frame sharp anywhere ranks above one sharp nowhere.
 //!
 //! Only meaningful relative to other frames.
 
@@ -156,11 +156,6 @@ fn chosen_face(faces: &[Face]) -> Option<&Face> {
         .max_by(|a, b| a.score.total_cmp(&b.score))
 }
 
-fn inside(face: &Face, (x, y): (usize, usize)) -> bool {
-    let (x, y) = (x as f32, y as f32);
-    x >= face.x && x <= face.x + face.width && y >= face.y && y <= face.y + face.height
-}
-
 /// The window between the eyes of `face`, sized from its box.
 fn eye_window(width: usize, height: usize, face: &Face) -> Window {
     let cx = (face.left_eye.0 + face.right_eye.0) / 2.0;
@@ -213,10 +208,9 @@ fn score(
             window_at(w, h, p.0, p.1, side),
         ));
     }
-    let window = match (chosen_face(faces), point) {
-        (Some(face), Some(p)) if inside(face, p) => window_at(w, h, p.0, p.1, WINDOW),
-        (Some(face), _) => eye_window(w, h, face),
-        (None, Some(p)) => window_at(w, h, p.0, p.1, WINDOW),
+    let window = match (point, chosen_face(faces)) {
+        (Some(p), _) => window_at(w, h, p.0, p.1, WINDOW),
+        (None, Some(face)) => eye_window(w, h, face),
         (None, None) => return Ok(tile_max(&gray, w, h)),
     };
     Ok(laplacian_variance(&gray, w, window))
@@ -490,16 +484,12 @@ mod tests {
     }
 
     #[test]
-    fn a_focus_point_outside_the_face_moves_to_the_eyes() {
+    fn a_focus_point_outside_the_face_keeps_the_af_window() {
         let (w, h) = (1000, 700);
         let sharp = jpeg(&portrait(w, h), w, h);
         let f = [face(100.0, 100.0, 200.0, 0.95)];
         let background = focus_at(w, h, 850, 550);
         assert_eq!(
-            score_preview(&sharp, Some(background), None, &f).unwrap(),
-            score_preview(&sharp, None, None, &f).unwrap()
-        );
-        assert_ne!(
             score_preview(&sharp, Some(background), None, &f).unwrap(),
             score_preview(&sharp, Some(background), None, &[]).unwrap()
         );
