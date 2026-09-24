@@ -138,7 +138,8 @@ impl Companion {
         paths, the view mode (normal, zoom for the 1:1 focus check, or compare), the active \
         compare pane, the sort order, whether a filter is active, and the current photo's \
         burst (empty when it is not part of one) with each frame's sharpness score, stars \
-        (null when unrated), pick / reject flag and color label."
+        (null when unrated), pick / reject flag, color label, and whether the filter shows it \
+        (a frame it hides cannot be shown or selected)."
     )]
     async fn get_view(&self) -> CallToolResult {
         tool_result(

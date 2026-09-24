@@ -2060,9 +2060,7 @@ function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
 }
 
-// Rebuild the EXIF sections from `entries`: one item per label present in the
-// folder. A checked label no longer present is dropped, so a stale selection
-// cannot hide everything.
+// Whether any flag, star, label, orientation or EXIF filter is checked.
 function filterActive(): boolean {
   return (
     shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
@@ -2070,6 +2068,9 @@ function filterActive(): boolean {
   );
 }
 
+// Rebuild the EXIF sections from `entries`: one item per label present in the
+// folder. A checked label no longer present is dropped, so a stale selection
+// cannot hide everything.
 function rebuildExifMenu(): void {
   filterExif.replaceChildren();
   for (const { group, heading } of exifGroups) {

@@ -86,9 +86,54 @@ describe("getView", () => {
     expect(state.current).toEqual({ path: "/d/b", position: 2 });
     expect(state.selected).toEqual(["/d/b", "/d/c"]);
     expect(state.burst).toEqual([
-      { path: "/d/a", position: 1, sharpness: 0.5, rating: null, flag: "none", label: "Red" },
-      { path: "/d/b", position: 2, sharpness: 0.8, rating: 3, flag: "none", label: null },
-      { path: "/d/c", position: 3, sharpness: null, rating: null, flag: "reject", label: null },
+      {
+        path: "/d/a",
+        position: 1,
+        sharpness: 0.5,
+        rating: null,
+        flag: "none",
+        label: "Red",
+        visible: true,
+      },
+      {
+        path: "/d/b",
+        position: 2,
+        sharpness: 0.8,
+        rating: 3,
+        flag: "none",
+        label: null,
+        visible: true,
+      },
+      {
+        path: "/d/c",
+        position: 3,
+        sharpness: null,
+        rating: null,
+        flag: "reject",
+        label: null,
+        visible: true,
+      },
+    ]);
+  });
+
+  test("marks a burst frame the filter hides as not visible", () => {
+    const state = getView(
+      view({
+        folder: "/d",
+        // The filter hides "/d/c", so it is missing from `files` even
+        // though `bursts` still groups it with "/d/a" and "/d/b".
+        files: ["/d/a", "/d/b"],
+        bursts: new Map([
+          ["/d/a", { burst: 0, position: 0, size: 3 }],
+          ["/d/b", { burst: 0, position: 1, size: 3 }],
+          ["/d/c", { burst: 0, position: 2, size: 3 }],
+        ]),
+      }),
+    );
+    expect(state.burst.map(({ path, visible }) => ({ path, visible }))).toEqual([
+      { path: "/d/a", visible: true },
+      { path: "/d/b", visible: true },
+      { path: "/d/c", visible: false },
     ]);
   });
 

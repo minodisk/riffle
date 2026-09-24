@@ -44,6 +44,9 @@ export interface BurstFrame {
   rating: number | null;
   flag: PickFlag;
   label: string | null;
+  // Whether the filter shows this frame; `false` means it is not among
+  // `files`, so it cannot be passed to a tool that shows or selects photos.
+  visible: boolean;
 }
 
 export interface ViewState {
@@ -59,7 +62,9 @@ export interface ViewState {
 }
 
 // The current file's burst in capture order, positions 1-based; empty when
-// the file is a burst of its own.
+// the file is a burst of its own. `bursts` groups over every file the scan
+// found, not just the ones the filter shows, so a frame the filter hides can
+// appear here with `visible: false`.
 function burstOf(view: ViewApi, path: string): BurstFrame[] {
   const member = view.bursts.get(path);
   if (member === undefined || member.size < 2) return [];
@@ -73,6 +78,7 @@ function burstOf(view: ViewApi, path: string): BurstFrame[] {
       rating: view.ratings.get(other) ?? null,
       flag: view.flags.get(other) ?? "none",
       label: view.labels.get(other) ?? null,
+      visible: view.files.includes(other),
     }));
 }
 
