@@ -1366,8 +1366,9 @@ pub fn panels(app: tauri::AppHandle) -> Value {
     panels_setting(store.as_ref().and_then(|s| s.get("panels")).as_ref())
 }
 
-/// Remember which panes are shown. Failing to write it only means starting
-/// with them all shown, so it is logged, not returned.
+/// Remember which panes are shown. Failing to write it only means the next
+/// launch restores the previously saved panes, so it is logged, not
+/// returned.
 #[tauri::command]
 pub fn set_panels(app: tauri::AppHandle, panels: Value) {
     let saved = settings(&app).and_then(|store| {
