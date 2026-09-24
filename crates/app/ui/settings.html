@@ -48,6 +48,16 @@
         Cache
       </button>
       <button
+        id="tab-mcp"
+        type="button"
+        role="tab"
+        aria-controls="mcp"
+        aria-selected="false"
+        tabindex="-1"
+      >
+        MCP
+      </button>
+      <button
         id="tab-debug"
         type="button"
         role="tab"
@@ -103,6 +113,16 @@
       <div class="actions">
         <button id="clear-index" type="button">Clear Cache</button>
       </div>
+    </section>
+    <section id="mcp" role="tabpanel" aria-labelledby="tab-mcp" hidden>
+      <label><input id="mcp-enabled" type="checkbox" /> Let MCP clients connect</label>
+      <p id="mcp-status"></p>
+      <p>Any MCP client that speaks Streamable HTTP connects to this endpoint:</p>
+      <div class="copyable">
+        <pre id="mcp-endpoint"></pre>
+        <button id="mcp-endpoint-copy" type="button">Copy</button>
+      </div>
+      <div id="mcp-examples"></div>
     </section>
     <section id="debug" role="tabpanel" aria-labelledby="tab-debug" hidden>
       <label><input id="debug-timing" type="checkbox" /> Timing logs</label>

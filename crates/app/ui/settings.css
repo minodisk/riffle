@@ -101,3 +101,23 @@ td {
 #label-names > .actions {
   grid-column: 1 / -1;
 }
+
+#mcp-status {
+  color: #aaa;
+}
+
+.copyable {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.copyable pre {
+  flex: 1;
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.5rem;
+  overflow-x: auto;
+  border-radius: 0.3rem;
+  background: #333;
+  user-select: text;
+}
