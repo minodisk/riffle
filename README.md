@@ -63,13 +63,14 @@ DxO PhotoLab.
 - **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.
   Paging keeps the zoom.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
-  its focus point on Sony bodies that record the frame, the crosshair alone
-  when only a point is recorded (SIGMA BF), and nothing without an AF point
-  (M11-P) or on manual-focus shots.
+  its focus point when the camera records the frame, the crosshair alone when
+  it records only a point, and nothing without an AF point or on manual-focus
+  shots (see [What the camera records](./docs/cameras.md)).
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
-  sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
-  face, else around the AF point, else on the subject's eyes when the camera
-  recorded no AF point and a face is found, else the sharpest region.
+  sharpest, scored on the camera's eye-AF frame when the camera recorded face
+  tracking, else around the AF point, else on the subject's eyes when the
+  camera recorded no AF point and a face is found, else the sharpest region
+  (see [What the camera records](./docs/cameras.md)).
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license), run locally with no network access.
@@ -78,7 +79,7 @@ DxO PhotoLab.
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
   its ends, and `Shift+x` rejects the rest of one. Cameras that record no
   sub-second capture time are grouped by whole seconds (see
-  [What the camera records](#what-the-camera-records)).
+  [What the camera records](./docs/cameras.md)).
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
@@ -149,27 +150,8 @@ Discussions. If it does not, open an issue from the
   - [x] SIGMA BF
   - [x] SIGMA fp L
 
-#### What the camera records
-
-Some features depend on what the camera records in the RAW file.
-
-| Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
-|---|---|---|---|---|
-| Sony α7 V | ✓ | ✓ | ✓ | ✓ |
-| SIGMA BF | ✓ | – | – | – |
-| SIGMA fp L | – | – | – | – |
-| Leica M11-P | – | – | – | – |
-
-- **AF point**: the focus mark is drawn there, the 1:1 focus check opens
-  centered on it, and sharpness is scored around it. Without one, there is no
-  focus mark, the 1:1 focus check opens at the frame center, and sharpness is
-  scored between the eyes of a detected face, else on the sharpest region.
-- **AF frame size and face tracking**: with both, sharpness is scored on the
-  camera's eye-AF frame, which is the most reliable because it does not rely
-  on face detection.
-- **Sub-second capture time**: frames within 1 s of the previous one form a
-  burst. Without it, frames are grouped by whole seconds, so a shot taken up
-  to about 2 s after the previous frame can still join its burst.
+What each camera records, and which features that affects, is listed in
+[docs/cameras.md](./docs/cameras.md).
 
 If a camera not on the list works, post in the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)

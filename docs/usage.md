@@ -26,7 +26,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   inside a rectangle of the AF frame the camera used on Sony bodies that
   record it (hidden by default). A body that records only the point, such as
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
-  the M11-P, and manual-focus shots show no mark.
+  the M11-P, and manual-focus shots show no mark (see
+  [What the camera records](./cameras.md)).
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -140,7 +141,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
   no network access. The score ranks a burst rather than judging a frame on
   its own, and it does not replace the 1:1 focus check.
-  The meta pane shows the raw score in its Riffle group.
+  The meta pane shows the raw score in its Riffle group. See
+  [What the camera records](./cameras.md).
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,
   which record no sub-second time, are grouped by whole seconds. The grouping
@@ -156,6 +158,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   one frame at a time within the current burst and stop at its first and last
   displayed frame. `Shift+x` rejects every other frame of the current burst,
   including frames the filter hides, and one `Edit > Undo` restores them all.
+  See [What the camera records](./cameras.md).
 
 ## Keys
 
