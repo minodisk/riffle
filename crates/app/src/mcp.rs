@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn start_binds_the_port_and_stop_frees_it() {
+    fn serve_binds_the_port_and_stop_frees_it() {
         tauri::async_runtime::block_on(async {
             let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
             let port = listener.local_addr().unwrap().port();
@@ -235,6 +235,24 @@ mod tests {
                 .is_err());
             let rebound = bind(port).await.unwrap();
             shut(rebound).await;
+        });
+    }
+
+    #[test]
+    fn start_returns_the_running_port_without_binding_again() {
+        tauri::async_runtime::block_on(async {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let mut status = Status {
+                running: Some(serve(listener).unwrap()),
+                ..Status::default()
+            };
+
+            let started = start(&mut status).await.unwrap();
+            assert_eq!(started, port);
+
+            let running = status.running.take().unwrap();
+            shut(running).await;
         });
     }
 

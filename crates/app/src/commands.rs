@@ -365,7 +365,7 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
                 Keymap::defaults(),
                 auto_advance_setting(None),
                 LabelNames::default(),
-                auto_advance_setting(None),
+                mcp_enabled_setting(None),
             );
         }
     };
@@ -387,12 +387,17 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
     let keymap = Keymap::from_overrides(store.get("shortcuts").as_ref());
     let auto_advance = auto_advance_setting(store.get("autoAdvance").as_ref());
     let names = label_names_setting(store.get("labelNames").as_ref());
-    let mcp_enabled = auto_advance_setting(store.get("mcpEnabled").as_ref());
+    let mcp_enabled = mcp_enabled_setting(store.get("mcpEnabled").as_ref());
     (format, keymap, auto_advance, names, mcp_enabled)
 }
 
 /// The stored `autoAdvance` value; missing or non-boolean means off.
 fn auto_advance_setting(value: Option<&Value>) -> bool {
+    value.and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// The stored `mcpEnabled` value; missing or non-boolean means off.
+fn mcp_enabled_setting(value: Option<&Value>) -> bool {
     value.and_then(Value::as_bool).unwrap_or(false)
 }
 
