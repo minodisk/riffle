@@ -65,7 +65,11 @@ DxO PhotoLab.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
-  shots (see [What the camera records](./docs/cameras.md)).
+  shots (see [What the camera records](./docs/cameras.md)). The mark is green
+  when the camera's face tracking or a face detected under the AF point says
+  the AF caught a face, orange when faces were found near the AF point but it
+  is on none of them, and white when Riffle does not know (no face near the
+  point); the meta pane shows the same as a `Face` row.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the

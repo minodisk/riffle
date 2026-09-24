@@ -113,4 +113,18 @@ describe("metaGroups", () => {
     expect(metaGroups(sony, null).map(({ heading }) => heading)).toEqual([EXIF_HEADING]);
     expect(metaGroups(null, null)).toEqual([]);
   });
+
+  test("shows the face-catch state as a Face row, and none when unknown", () => {
+    const riffle = (state: "caught" | "missed" | "unknown") =>
+      metaGroups(null, 12, state)[0]?.sections[0]?.rows;
+    expect(riffle("caught")).toEqual([
+      { label: "Sharpness", value: "12.0" },
+      { label: "Face", value: "Caught" },
+    ]);
+    expect(riffle("missed")).toEqual([
+      { label: "Sharpness", value: "12.0" },
+      { label: "Face", value: "Missed" },
+    ]);
+    expect(riffle("unknown")).toEqual([{ label: "Sharpness", value: "12.0" }]);
+  });
 });

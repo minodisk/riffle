@@ -23,7 +23,12 @@ describe("focusMark", () => {
   });
 
   test("a point without a frame is a crosshair only", () => {
-    expect(focusMark(point, 700, 468)).toEqual({ x: -175, y: -117, rect: null });
+    expect(focusMark(point, 700, 468)).toEqual({
+      x: -175,
+      y: -117,
+      rect: null,
+      faceCatch: "unknown",
+    });
   });
 
   test("a frame is scaled onto the preview and centered on the point", () => {
@@ -32,6 +37,19 @@ describe("focusMark", () => {
       x: -175,
       y: -117,
       rect: { x: -218.75, y: -146.25, width: 87.5, height: 58.5 },
+      faceCatch: "unknown",
     });
+  });
+
+  test.each(["caught", "missed", "unknown"] as const)(
+    "carries the %s face-catch state",
+    (state) => {
+      expect(focusMark({ ...point, face_catch: state }, 700, 468)?.faceCatch).toBe(state);
+    },
+  );
+
+  test("a manual-focus or missing point stays null whatever the state", () => {
+    expect(focusMark({ ...point, manual_focus: true, face_catch: "caught" }, 700, 468)).toBeNull();
+    expect(focusMark(null, 700, 468)).toBeNull();
   });
 });

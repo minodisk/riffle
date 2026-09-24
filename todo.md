@@ -312,7 +312,7 @@ load (found while implementing burst-grouping Step 2, where the
 
 ### App: face/eye-aware focus check for culling
 
-Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the eyes when a face is found and the AF point is missing or off the face, else on the AF point, else on the sharpest tile (see `docs/plans/_archived/20260922-face-aware-sharpness/`). What remains:
+Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). What remains:
 
 #### TODO
 
@@ -332,8 +332,11 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Decode the preview for detection at a DCT-scaled size instead of a
       full-size RGB decode, to cut the per-file cost on the detector path.
 - [ ] Optionally, detect closed eyes from the landmarks.
-- [ ] Store the face region in the SQLite index and suggest the sharpest-eye
-      frame within a burst group.
+- [x] Store the face-catch state (`caught` / `missed` / `unknown`) in the
+      SQLite index and color the `f` focus mark by it; the face boxes are not
+      stored but detected on demand when the mark is shown
+      (`docs/plans/20260924-face-catch-state/`, Step 5).
+- [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
       instead of YuNet's eye midpoint. Needs a per-file score output

@@ -27,7 +27,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   record it (hidden by default). A body that records only the point, such as
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
   the M11-P, and manual-focus shots show no mark (see
-  [What the camera records](./cameras.md)).
+  [What the camera records](./cameras.md)). The mark's color is the
+  face-catch state computed at scan time: green when the camera's face
+  tracking or a face detected under the AF point says the AF caught a face,
+  orange when faces were found near the AF point but it is on none of them,
+  and white when Riffle does not know (no face near the point). The meta
+  pane shows the same state.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -58,7 +63,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   what it wrote in its vendor MakerNote: the Sony shutter type and the Leica
   focus distance. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Riffle**
-  holds what Riffle computes itself: the sharpness score.
+  holds what Riffle computes itself: the sharpness score, and a `Face` row,
+  `Caught` or `Missed`, with the face-catch state the focus mark is colored
+  by (left out when Riffle does not know: no AF point, manual focus, or no
+  face near the point).
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), camera, lens, aperture, shutter speed,
   ISO and focal length (grouped into ranges such as `24–35 mm`). The color
