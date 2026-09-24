@@ -18,7 +18,7 @@ mod app_menu {
     #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
-    use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
+    use tauri::{AppHandle, Emitter, Manager, Wry};
     use tauri_plugin_opener::OpenerExt;
 
     const OPEN_FOLDER_ID: &str = "open-folder";
@@ -343,9 +343,7 @@ mod app_menu {
             }
         }
         if event.id() == SETTINGS_ID {
-            if let Err(e) = open_settings(app) {
-                log::error!("failed to open the settings window: {e}");
-            }
+            let _ = app.emit("open-settings", ());
         }
     }
 
@@ -359,43 +357,17 @@ mod app_menu {
             .open_path(dir.to_string_lossy(), None::<&str>)?;
         Ok(())
     }
-
-    /// Focus the settings window, or open it when it is not open yet.
-    fn open_settings(app: &AppHandle) -> tauri::Result<()> {
-        if let Some(window) = app.get_webview_window(super::SETTINGS_WINDOW) {
-            return window.set_focus();
-        }
-        let window = WebviewWindowBuilder::new(
-            app,
-            super::SETTINGS_WINDOW,
-            WebviewUrl::App("settings.html".into()),
-        )
-        .title("Settings")
-        .inner_size(480.0, 640.0)
-        .build()?;
-        // On Windows and Linux a window built without `.menu()` inherits the
-        // app-wide menu. Menu events arrive on the main thread, where
-        // `remove_menu` runs inline, so it is gone before the first paint. On
-        // macOS the menu is app-wide and `Window::remove_menu` is unsupported.
-        #[cfg(not(target_os = "macos"))]
-        window.remove_menu()?;
-        #[cfg(target_os = "macos")]
-        let _ = window;
-        Ok(())
-    }
 }
 
 use std::sync::{Arc, Mutex};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent};
 
 use sidecar::SidecarFormat;
 
-const SETTINGS_WINDOW: &str = "settings";
-
-/// Whether timing logs are on; the settings window toggles it and the main
+/// Whether timing logs are on; the settings modal toggles it and the main
 /// window logs by it, so it is kept here where both can reach it.
 struct TimingLogs(AtomicBool);
 
@@ -419,7 +391,7 @@ fn log_timing(line: String) {
     log::info!("{line}");
 }
 
-/// Switch the sidecar format from the settings window. The backend then emits
+/// Switch the sidecar format from the settings modal. The backend then emits
 /// `sidecar-format` so the frontend reopens the folder in the new format.
 #[tauri::command]
 async fn set_sidecar_format(app: AppHandle, format: String) -> Result<(), String> {
@@ -457,7 +429,7 @@ async fn choose_sidecar_format(app: AppHandle, format: String) -> Result<(), Str
     Ok(())
 }
 
-/// Whether this is a development build, which shows the settings window's
+/// Whether this is a development build, which shows the settings modal's
 /// Debug section; a distributable build leaves the `devtools` feature off.
 #[tauri::command]
 fn debug_build() -> bool {
@@ -628,20 +600,6 @@ fn main() {
             // when the user quits, so the exit waits on an explicit drain
             // rather than on the writer's `Drop`, which is not guaranteed to
             // run during teardown.
-            // The settings window serves the main one, so it closes with it
-            // rather than keeping the app running on its own.
-            if let RunEvent::WindowEvent {
-                label,
-                event: WindowEvent::Destroyed,
-                ..
-            } = &event
-            {
-                if label == "main" {
-                    if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
-                        let _ = settings.close();
-                    }
-                }
-            }
             // The folder watcher needs nothing here: it holds nothing
             // pending on disk, and its thread ends with the app.
             if let RunEvent::ExitRequested { .. } = event {

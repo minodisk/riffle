@@ -36,7 +36,7 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
 
 ## Steps
 
-- [ ] Step 1: Replace the settings window with a modal in the main window
+- [x] Step 1: Replace the settings window with a modal in the main window
   - Done when:
     - `Settings...` in the menu and `CmdOrCtrl+,` open a modal overlay inside
       the main window; no OS window is created. Opening it again while open

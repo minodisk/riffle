@@ -22,6 +22,7 @@ import { contextMenuGroups, menuPosition } from "./context.js";
 import { type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
+import { initSettings } from "./settings.js";
 import {
   comparePaneAt,
   comparisonCandidates,
@@ -46,7 +47,7 @@ const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
 const CROP_HEADER_LEN = 32;
 const CROP_KIND_RGBA_V3 = 5;
-// Turned on by the settings window's `Timing logs` item through the `debug`
+// Turned on by the settings modal's `Timing logs` item through the `debug`
 // event. That item only shows in a development build, so elsewhere this stays
 // off.
 let debugLogging = false;
@@ -98,6 +99,7 @@ const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
 const formatDialog = document.getElementById("format-dialog") as HTMLDivElement;
 const formatError = document.getElementById("format-error") as HTMLParagraphElement;
+const settings = initSettings();
 const formatButtons = [...formatDialog.querySelectorAll<HTMLButtonElement>("button[data-format]")];
 
 // Closed until a sidecar format is saved; no folder opens before that.
@@ -1921,12 +1923,16 @@ function openFolder(): void {
     });
 }
 
-void window.__TAURI__.event.listen("open-folder", openFolder);
+// The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
+// of the way while the settings modal is open, as their keys do.
+void window.__TAURI__.event.listen("open-folder", () => {
+  if (!settings.isOpen) openFolder();
+});
 // `File > Reload Folder`, and the main window regaining focus: both rescan
 // the open folder in place. The focus that follows launch finds no folder
 // open yet, or a scan running, so it costs nothing. The focus listener is
-// scoped to this window: a global `event.listen` also receives the settings
-// window's focus, whose rescan collided with Clear Cache.
+// scoped to this window: a global `event.listen` also receives other
+// windows' focus.
 void window.__TAURI__.event.listen("reload-folder", resync);
 void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", resync);
 // The folder watcher's trigger, debounced in Rust. The listener outlives every
@@ -1938,8 +1944,12 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   resync();
 });
 void window.__TAURI__.event.listen("trash-rejected", trashRejected);
-void window.__TAURI__.event.listen("undo", undo);
-void window.__TAURI__.event.listen("redo", redo);
+void window.__TAURI__.event.listen("undo", () => {
+  if (!settings.isOpen) undo();
+});
+void window.__TAURI__.event.listen("redo", () => {
+  if (!settings.isOpen) redo();
+});
 
 // The MCP companion reads the view through this; every getter is live.
 const view: ViewApi = {
@@ -2086,7 +2096,7 @@ void window.__TAURI__.event.listen<{ path: string; message: string }>(
   },
 );
 
-// The settings window switched the format and the backend has reset the index:
+// The settings modal switched the format and the backend has reset the index:
 // reopen the folder so the strip and the meta pane show the newly selected
 // format's judgments. A fresh token drops any open still in flight.
 void window.__TAURI__.event.listen<string>("sidecar-format", () => {
@@ -2098,7 +2108,7 @@ void window.__TAURI__.event.listen<string>("sidecar-format", () => {
   });
 });
 
-// The settings window cleared the index cache: the open folder's thumbnails
+// The settings modal cleared the index cache: the open folder's thumbnails
 // and cached metadata are gone, so reopen it and let the scan fill them in
 // again. A fresh token drops any open still in flight.
 void window.__TAURI__.event.listen("index-cleared", () => {
@@ -2110,7 +2120,7 @@ void window.__TAURI__.event.listen("index-cleared", () => {
   });
 });
 
-// The settings window's "Timing logs" item toggles this through the `debug`
+// The settings modal's "Timing logs" item toggles this through the `debug`
 // event; read the initial state too, so a reloaded main window stays in sync
 // with the backend's `TimingLogs` state.
 void window.__TAURI__.event.listen<boolean>("debug", ({ payload }) => {
@@ -2120,7 +2130,7 @@ void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
   debugLogging = enabled;
 });
 
-// The settings window's Auto-advance checkbox, followed the same way.
+// The settings modal's Auto-advance checkbox, followed the same way.
 let autoAdvance = false;
 void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
   autoAdvance = payload;
@@ -2384,6 +2394,18 @@ void window.__TAURI__.core
     formatGate.whenOpen(reopenLastFolder);
   });
 
+// `Settings...` in the menu. The first-launch dialog is modal already, so the
+// settings wait until it is answered.
+void window.__TAURI__.event.listen("open-settings", () => {
+  if (!formatDialog.hidden) {
+    return;
+  }
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  settings.open();
+});
+
 // Key -> action, from the `shortcuts` command. Empty until it resolves.
 let keymap = new Map<string, string>();
 
@@ -2397,7 +2419,7 @@ function applyKeymap(bindings: Binding[]): void {
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
 
-// The settings window rebinds keys; this window culls with the result.
+// The settings modal rebinds keys; this window culls with the result.
 void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload }) => {
   applyKeymap(payload);
 });
@@ -2414,6 +2436,10 @@ window.addEventListener("keydown", (event) => {
       const next = (from + delta + formatButtons.length) % formatButtons.length;
       formatButtons[next].focus();
     }
+    return;
+  }
+  if (settings.isOpen) {
+    settings.keydown(event);
     return;
   }
   const key = keyName(event);
