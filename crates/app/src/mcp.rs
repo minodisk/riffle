@@ -751,6 +751,7 @@ mod tests {
                 path.display()
             ))
         );
+        drop(index);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
