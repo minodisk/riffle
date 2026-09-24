@@ -56,4 +56,4 @@ keymap.
 
 ## Progress
 
-- (not started)
+- (2026-09-24) Step 1 complete
