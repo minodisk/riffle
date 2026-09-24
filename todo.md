@@ -521,3 +521,13 @@ samples, as done for the Sigma BF `0x0147` in
       1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in
       `crates/core/src/arw.rs` and the archived plan's
       [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
+
+### Docs: note that lychee resolves relative links in `docs/plans/**` from the linking file's own directory
+
+`mise run lint` runs lychee over `docs/plans/**`, and it resolves relative links from the linking file's own directory. An illustrative link such as `./docs/usage.md` written inside a plan.md/learnings.md fails CI as a broken link. Add a short note for agents writing plan/learnings/doc Markdown — either a new `docs/agents/docs-writing.md` or a line in the `develop`/`planner` workflow docs — saying to use a correctly relative path, or wrap an example path in backticks when it is not a real link target.
+
+Source: `docs/plans/_archived/20260924-readme-happy-path/learnings.md`, "Deferred issues (todo candidates)" section, discovered when Step 1's first CI run failed on exactly this.
+
+#### TODO
+
+- [ ] Add the note to `docs/agents/docs-writing.md` (new) or the relevant `develop`/`planner` workflow doc.

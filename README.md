@@ -54,7 +54,7 @@ Judgments are saved to the sidecars as you go, so there is nothing to save.
 When you are done, they are picked up by tools that read XMP sidecars and by
 DxO PhotoLab.
 
-## Features
+## Key features
 
 - **Filmstrip**: thumbnails run down the left edge; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
@@ -62,9 +62,6 @@ DxO PhotoLab.
   whole selection.
 - **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.
   Paging keeps the zoom.
-- **Compare**: `v` shows 2–4 selected shots together, or the current shot
-  beside the sharpest frame in its burst. Click a frame to rate, pick or
-  reject only that one.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
   its focus point on Sony bodies that record the frame, the crosshair alone
   when only a point is recorded (SIGMA BF), and nothing without an AF point
@@ -72,50 +69,23 @@ DxO PhotoLab.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
   face, else on the subject's eyes when a face is found, else around
-  the AF point, else the sharpest region.
-- **Offline face detection**: faces and eyes are found by the bundled
-  [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
-  model (MIT license), run locally with no network access.
+  the AF point, else the sharpest region. Faces and eyes are found locally,
+  with no network access.
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
   its ends, and `Shift+x` rejects the rest of one. Cameras that record no
   sub-second capture time are grouped by whole seconds (see
   [What the camera records](#what-the-camera-records)).
-- **Shooting info**: camera, lens, shutter speed, aperture, ISO and focal
-  length.
-- **Filter and sort**: narrow down by stars, label, orientation, lens and more;
-  sort by file name, capture time or rating.
+- **Compare**: `v` shows 2–4 selected shots together, or the current shot
+  beside the sharpest frame in its burst. Click a frame to rate, pick or
+  reject only that one.
 - **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
   rejected shots to the Trash. Nothing is deleted, so restoring them brings the
   judgments back.
-- **Undo / redo**: `Cmd+Z` / `Ctrl+Z` undoes a judgment; add `Shift` to redo.
-- **Auto-advance**: when turned on in the settings, each judgment moves on to
-  the next shot.
 
-Detailed behavior: [docs/usage.md](./docs/usage.md).
-
-## Keys
-
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` | previous / next shot |
-| `Shift+↑` / `Shift+↓` | extend the selection to the previous / next shot |
-| `1`-`5` | give stars |
-| `0` | clear the stars |
-| `x` | reject (keeps the stars) |
-| `p` | pick (keeps the stars) |
-| `u` | clear the pick / reject |
-| `Ctrl+Alt+1`-`7` | color label (red, orange, yellow, green, blue, pink, purple) |
-| `Ctrl+Alt+0` | clear the color label |
-| `c` | clear everything: stars, pick / reject and color label |
-| `z` | 1:1 focus check |
-| `g` (hold) | grayscale preview |
-| `v` | compare selected shots / the current shot with its burst's sharpest frame |
-| `f` | focus mark |
-| `Cmd+O` / `Ctrl+O` | open a folder |
-
-Keys can be changed in `Riffle > Settings...`.
+Every feature, and the full key reference, is described in
+[docs/usage.md](./docs/usage.md) ([Keys](./docs/usage.md#keys)).
 
 ## Working with other software
 
