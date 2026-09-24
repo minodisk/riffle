@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.1](https://github.com/minodisk/riffle/compare/v0.3.0...v0.3.1) (2026-09-24)
+
+
+### Features
+
+* **app:** ask for the developing software on first launch ([#390](https://github.com/minodisk/riffle/issues/390)) ([66e3075](https://github.com/minodisk/riffle/commit/66e30754452e5e65947e139c13dc9ff0685cae21))
+* **app:** draw the Sony AF frame in the focus mark ([#391](https://github.com/minodisk/riffle/issues/391)) ([933fd29](https://github.com/minodisk/riffle/commit/933fd298aa4704e72eca4e60c870f108a46436d0))
+* **app:** group the meta pane into EXIF and Riffle ([#379](https://github.com/minodisk/riffle/issues/379)) ([1e812f7](https://github.com/minodisk/riffle/commit/1e812f793dc7f2c9e81760312f5bca4987a5c8cf))
+* **app:** persist the face-catch state in the index ([#401](https://github.com/minodisk/riffle/issues/401)) ([1fc8c3f](https://github.com/minodisk/riffle/commit/1fc8c3f1c8f6e3e36112b637c1473b21cb4671ea))
+* **app:** re-extract index rows written by an older extractor ([#382](https://github.com/minodisk/riffle/issues/382)) ([f4c77a8](https://github.com/minodisk/riffle/commit/f4c77a8e7de1179bb4edae13caf432458a6cca9d))
+* **core:** compute the face-catch state through one detection entry point ([#397](https://github.com/minodisk/riffle/issues/397)) ([a2c8d9f](https://github.com/minodisk/riffle/commit/a2c8d9f3458d799d3dde0f9e60619f9211224121))
+* **core:** read the Sigma BF AF point from the Sigma MakerNote ([#378](https://github.com/minodisk/riffle/issues/378)) ([e32f016](https://github.com/minodisk/riffle/commit/e32f01697fb2dd3bde26b35a67e8ce783dd20d83))
+
+
+### Bug Fixes
+
+* **app:** align the label-name inputs on a shared grid ([#389](https://github.com/minodisk/riffle/issues/389)) ([5123d62](https://github.com/minodisk/riffle/commit/5123d6224799fa4ab25db84fd7ba1834926847de))
+* **app:** lower the Linux preview pixel limit to 6 MP ([#385](https://github.com/minodisk/riffle/issues/385)) ([61b1d20](https://github.com/minodisk/riffle/commit/61b1d2030009d4a1923e4711c7b9a8b2307f8695))
+* **app:** remove the inherited menu bar from the settings window ([#388](https://github.com/minodisk/riffle/issues/388)) ([1e84e6a](https://github.com/minodisk/riffle/commit/1e84e6a47efaa489c57961fa4b5ec559f52675c6))
+* **app:** resize oversized previews in the decode worker on Linux ([#383](https://github.com/minodisk/riffle/issues/383)) ([9988d10](https://github.com/minodisk/riffle/commit/9988d100a6d345d690ab8c4b944b70b9cae383a5))
+* **core:** mask SHORT TIFF entries to 16 bits ([#376](https://github.com/minodisk/riffle/issues/376)) ([69cdda1](https://github.com/minodisk/riffle/commit/69cdda17339d1ed5e83d539e3e9d8b144aaf92a9))
+* **core:** score the AF window when the AF point is off the face ([#396](https://github.com/minodisk/riffle/issues/396)) ([4bbdaaa](https://github.com/minodisk/riffle/commit/4bbdaaa44f50eaee8bb19daa78342fdcc12d260b))
+
 ## [0.3.0](https://github.com/minodisk/riffle/compare/v0.2.2...v0.3.0) (2026-09-23)
 
 
