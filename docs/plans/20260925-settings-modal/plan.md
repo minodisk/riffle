@@ -209,4 +209,7 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
 
 ## Progress
 
-- (none yet)
+- Step 1: Replaced the settings window with a modal in the main window
+  (`0352c6a`). Fixed a review finding that the `tauri://focus` resync raced
+  `clear_index` for the Scans lock while the settings modal was open; the
+  listener now skips `resync()` while `settings.isOpen`.

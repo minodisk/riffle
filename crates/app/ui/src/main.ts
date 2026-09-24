@@ -1934,7 +1934,13 @@ void window.__TAURI__.event.listen("open-folder", () => {
 // scoped to this window: a global `event.listen` also receives other
 // windows' focus.
 void window.__TAURI__.event.listen("reload-folder", resync);
-void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", resync);
+void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
+  // Skip while the settings modal is open: closing its Clear Cache confirm
+  // dialog refocuses this window, and a resync here races clear_index for
+  // the Scans lock (`a scan is running`). The folder watcher still catches
+  // on-disk changes, and `index-cleared` reopens the folder after a clear.
+  if (!settings.isOpen) resync();
+});
 // The folder watcher's trigger, debounced in Rust. The listener outlives every
 // folder, so an event for a folder that is no longer open is dropped.
 void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload }) => {

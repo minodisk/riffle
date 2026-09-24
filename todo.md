@@ -31,11 +31,11 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 ### Docs: the "End to end, keypress to pixels" section of docs/performance.md has a stale menu path
 
-The "End to end, keypress to pixels" section of docs/performance.md still says `Debug > Timing logs`, but the toggle lives in the settings window (`crates/app/ui/settings.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
+The "End to end, keypress to pixels" section of docs/performance.md still says `Debug > Timing logs`, but the toggle lives in the settings modal (`crates/app/ui/index.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
 
 #### TODO
 
-- [ ] Update the "End to end, keypress to pixels" section in docs/performance.md to say the `Timing logs` toggle is in the settings window, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
+- [ ] Update the "End to end, keypress to pixels" section in docs/performance.md to say the `Timing logs` toggle is in the settings modal, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
 
 ### App: a scan can be started twice after a cache clear / focus rescan
 
@@ -220,7 +220,7 @@ Mac and a native confirm dialog cannot be driven by an agent. A later manual
 run on Windows passed (1) and showed the dialog in (2) immediately; the
 Cancel half of (2) and checks (3)-(7) were blocked by a Clear Cache refusal
 bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
-`crates/app/src/commands.rs`, `crates/app/ui/settings.html`,
+`crates/app/src/commands.rs`, `crates/app/ui/index.html`,
 `crates/app/ui/src/settings.ts`.
 
 #### TODO
@@ -228,19 +228,20 @@ bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
 - [ ] Run `mise run tauri:release:devtools` and check, in order: (1) after
       a folder's scan finishes, Settings > Cache shows the button enabled
       and the note hidden; (2) pressing Clear Cache shows the confirmation
-      dialog immediately, and Cancel leaves the size and `#status`
+      dialog immediately, and Cancel leaves the size and `#settings-status`
       unchanged with the button re-enabled; (3) Clear Cache then Clear
       shows `Clearing the index cache…` until the size drops and the main
       window rescans; (4) while a scan is running (or opening a large
-      folder with Settings already open), the button is disabled and the
-      note visible without any press, and both clear when the scan ends,
-      and the size figure updates when the scan ends;
-      (5) opening Settings during a large folder's prepare phase (before
-      the first `scanning N / M` line) shows the button already disabled;
-      (6) an error path, if reachable, writes the refusal to `#status` and
-      it stays until the next press; (7) note whether the very first press
-      after opening the settings window ever does nothing, and if so
-      record the window focus state at that moment.
+      folder with the settings modal already open), the button is disabled
+      and the note visible without any press, and both clear when the scan
+      ends, and the size figure updates when the scan ends;
+      (5) opening the settings modal during a large folder's prepare phase
+      (before the first `scanning N / M` line) shows the button already
+      disabled; (6) an error path, if reachable, writes the refusal to
+      `#settings-status` and it stays until the next press; (7) note
+      whether the very first press after opening the settings modal ever
+      does nothing, and if so record the window focus state at that
+      moment.
 
 ### App: a file picked up mid-copy may be scanned from a partial read
 

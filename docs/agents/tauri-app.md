@@ -198,8 +198,10 @@ the global `window.__TAURI__.event.listen`.
 - What broke: when Settings was a separate window, closing the Clear Cache
   dialog refocused it, the main window ran a focus rescan, and `clear_index`
   refused with `a scan is running`, or the clear's own reopen superseded that
-  rescan. Settings is now a modal inside the main window, so there is no
-  second window today; keep the scoped form for the next one.
+  rescan. Settings is now a modal inside the main window, so the same
+  `tauri://focus` event fires on close instead; the `tauri://focus` listener
+  in `main.ts` skips the resync while `settings.isOpen`, to avoid the race.
+  Keep the scoped form for the next window too.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
