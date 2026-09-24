@@ -199,7 +199,7 @@ head, tracking=1, `caught` by design).
       applies, so the display path inherits it.
     - Keep `faces::detect`'s signature; the crop is just a smaller image to it.
 
-- [ ] Step 3: Persist the face-catch state in the index and hand it to the frontend
+- [x] Step 3: Persist the face-catch state in the index and hand it to the frontend
   - Done when:
     - `crates/app/src/index.rs`: `files` gains `face_catch INTEGER NOT NULL
       DEFAULT 0` (`0` unknown, `1` caught, `2` missed, coded like
@@ -400,3 +400,4 @@ head, tracking=1, `caught` by design).
 
 - (2026-09-24) Step 1 complete
 - (2026-09-24) Step 2 complete
+- (2026-09-25) Step 3 complete

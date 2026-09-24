@@ -9,6 +9,7 @@ export interface MarkFocus {
   y: number;
   frame: { width: number; height: number } | null;
   manual_focus: boolean;
+  face_catch: "caught" | "missed" | "unknown";
 }
 
 export interface FocusMark {
