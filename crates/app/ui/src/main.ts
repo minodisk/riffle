@@ -1190,6 +1190,14 @@ function drawFaceMarks(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
   }
+  // `shown` still holds the previous file's bitmap between `show()` and the
+  // new preview's decode. Skip drawing (and requesting) faces until `shown`
+  // belongs to the current file, or a fast response would paint the new
+  // file's boxes on the old bitmap, same as `drawZoom`'s `shown.seq === seq`
+  // guard.
+  if (shown === null || shown.seq !== seq) {
+    return;
+  }
   const path = files[index];
   const found = faceCache.get(path);
   if (found === undefined) {
