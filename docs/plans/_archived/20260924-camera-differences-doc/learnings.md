@@ -18,3 +18,9 @@
   purpose (links only). If the README's camera-neutral wording should extend
   to the detailed doc, reword those bullets. Basis: plan Step 1 trade-off
   "`docs/usage.md` still names cameras". File: `docs/usage.md`.
+- `CLAUDE.md`'s "Layout" paragraph describes the sharpness fallback order as
+  eye-AF frame, then the eyes of a detected face, then the AF point; since
+  #396 `crates/core/src/sharpness.rs` trusts the AF point before faces (eyes
+  of a detected face only when there is no trusted AF point). Update that
+  sentence to match. Basis: the local reviewer's out-of-scope note on this
+  branch. File: `CLAUDE.md`.
