@@ -453,7 +453,19 @@ where
                             },
                         );
                     }
-                    None => on_error(&path, &e),
+                    None => {
+                        on_error(&path, &e.message);
+                        if let Some(stat) = e.partial {
+                            if let Err(e2) = lock(index).mark_partial_write(
+                                &path.to_string_lossy(),
+                                judgment.rating,
+                                judgment.flag,
+                                stat,
+                            ) {
+                                on_error(&path, &e2);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -483,7 +495,23 @@ pub(crate) fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<Path
 /// newest one under `Both`, see `newest`; `None` when there is nothing to
 /// write: clearing a rating on a file that has no sidecar must not litter the
 /// folder with an empty one), alongside the label actually written.
-type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
+type WriteResult = Result<(Option<(i64, i64)>, Option<String>), WriteError>;
+
+/// A failed `write`, carrying the stat of whichever sidecar it did manage to
+/// write under `Both` before the other one failed (`None` for a single-file
+/// format, or when neither write got that far), so a retry-exhausted `flush`
+/// can record it and stop the next folder open from mistaking that write for
+/// an external edit (see `flush`).
+struct WriteError {
+    message: String,
+    partial: Option<(i64, i64)>,
+}
+
+impl std::fmt::Display for WriteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
 
 /// Write one file's sidecar, or under `Both` each of its two sidecars.
 ///
@@ -495,19 +523,29 @@ type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
 ///
 /// Each sidecar is replaced atomically, but under `Both` the two are not
 /// replaced together: a failure (or a crash) between them leaves them
-/// disagreeing, and the row dirty, so the retry or the next folder open
-/// writes both again.
+/// disagreeing, and the row dirty, so an in-session retry writes both again.
+/// Once retries are exhausted, `flush` records the stat of whichever sidecar
+/// this call did write (`WriteError::partial`); the row stays dirty, but the
+/// next folder open then sees an unchanged stat for that sidecar and replays
+/// the judgment into both instead of mistaking the earlier write for an
+/// external edit. A crash between the two renames, with no retry to follow,
+/// still leaves the two disagreeing until the file is judged again.
 fn write(
     arw: &Path,
     judgment: &Judgment,
     format: SidecarFormat,
     names: &LabelNames,
 ) -> WriteResult {
+    let no_partial = |message: String| WriteError {
+        message,
+        partial: None,
+    };
     let mut existing = Vec::new();
     for &kind in format.kinds() {
         if let Some(target) = existing_sidecar(arw, kind) {
-            let bytes = std::fs::read(&target).map_err(|e| format!("{}: {e}", target.display()))?;
-            let mtime_ns = index::stat(&target)?.mtime_ns;
+            let bytes = std::fs::read(&target)
+                .map_err(|e| no_partial(format!("{}: {e}", target.display())))?;
+            let mtime_ns = index::stat(&target).map_err(no_partial)?.mtime_ns;
             existing.push(((kind, target, bytes), mtime_ns));
         }
     }
@@ -520,16 +558,18 @@ fn write(
                 .map(|(sidecar, mtime_ns)| (sidecar, *mtime_ns)),
         )
         .map(|(kind, _, bytes)| kind.read_label(bytes, names))
-        .transpose()?
+        .transpose()
+        .map_err(no_partial)?
         .flatten()
     };
     let mut written = Vec::new();
+    let mut first_err = None;
     for &kind in format.kinds() {
         let current = existing
             .iter()
             .find(|((k, _, _), _)| *k == kind)
             .map(|((_, target, bytes), _)| (target.as_path(), bytes.as_slice()));
-        if let Some(stat) = write_kind(
+        match write_kind(
             arw,
             kind,
             current,
@@ -537,9 +577,19 @@ fn write(
             judgment.flag,
             resolved_label.as_deref(),
             names,
-        )? {
-            written.push((stat, stat.1));
-        }
+        ) {
+            Ok(Some(stat)) => written.push((stat, stat.1)),
+            Ok(None) => {}
+            Err(e) => {
+                first_err.get_or_insert(e);
+            }
+        };
+    }
+    if let Some(message) = first_err {
+        return Err(WriteError {
+            message,
+            partial: newest(written),
+        });
     }
     Ok((newest(written), resolved_label))
 }
@@ -1144,6 +1194,71 @@ mod tests {
         assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
 
         drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_partial_both_write_records_the_xmp_stat_so_a_reopen_still_replays_the_dop() {
+        let dir = temp_dir("both-partial");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let path = arw(&dir, "a.ARW");
+        // Block only the .dop write: `write_kind` writes through a
+        // `TEMP_SUFFIX` temp file before renaming it onto the target, so
+        // pre-creating that temp path as a directory makes `File::create`
+        // fail for the .dop alone, while the XMP (which has no such
+        // obstacle) still gets written.
+        let dop_temp = {
+            let mut p = dop::sidecar_path(&path).into_os_string();
+            p.push(TEMP_SUFFIX);
+            PathBuf::from(p)
+        };
+        std::fs::create_dir_all(&dop_temp).unwrap();
+
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(4),
+            Flag::None,
+            None,
+            SidecarFormat::Both,
+        );
+
+        assert!(!dop::sidecar_path(&path).exists());
+        let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
+        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
+        let dirty = lock(&index).dirty_rows("d").unwrap();
+        assert_eq!(dirty.len(), 1, "the row stays dirty for the .dop retry");
+
+        // Simulate the next folder open: reconciling against the XMP's
+        // actual stat must not treat this write as an external edit (which
+        // would clear `dirty` and strip the .dop's own record), because
+        // `flush` recorded that stat via `mark_partial_write` when the .dop
+        // write exhausted its retries.
+        let xmp_stat = index::stat(&xmp::sidecar_path(&path)).unwrap();
+        let to_parse = lock(&index)
+            .reconcile_sidecars(
+                "d",
+                &[(
+                    path.to_string_lossy().into_owned(),
+                    Some((xmp::sidecar_path(&path), xmp_stat.size, xmp_stat.mtime_ns)),
+                )],
+            )
+            .unwrap();
+        assert!(
+            to_parse.is_empty(),
+            "the XMP's own write must not be mistaken for an external edit"
+        );
+        assert_eq!(
+            lock(&index).dirty_rows("d").unwrap().len(),
+            1,
+            "the row is still dirty, so the writer will replay it into the .dop"
+        );
+
+        drop(writer);
+        std::fs::remove_dir_all(&dop_temp).unwrap();
         remove_temp_dir(&dir);
     }
 

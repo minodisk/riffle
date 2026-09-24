@@ -252,8 +252,11 @@ folder can be opened, and the choice can be changed later in
   back (on a tie, the XMP), so an edit made later in either Lightroom or
   PhotoLab wins. A judgment made without knowing the file's label keeps the
   label of that newest sidecar and writes it to both. The two files are each
-  written atomically, but not together: if one write fails, the judgment is
-  retried into both.
+  written atomically, but not together: if one write fails, an in-session
+  retry writes the judgment into both again; once the retries are exhausted,
+  the sidecar that did get written is remembered, so the next folder open
+  still writes the judgment into both instead of mistaking that earlier write
+  for an external edit.
 
 Clearing a label removes `photoshop:LabelColor` and `xmp:Label`, or the
 `ColorLabel` line; no label is the field being absent. The label is kept as

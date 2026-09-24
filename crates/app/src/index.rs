@@ -864,6 +864,35 @@ impl Index {
         Ok(n > 0)
     }
 
+    /// Record the stat of the sidecar a `Both` write did manage to write
+    /// before its other sidecar failed and the retries ran out, without
+    /// clearing `dirty`: the row still holds a judgment unwritten to that
+    /// other sidecar. Guarded on the row still holding the judgment that was
+    /// written and still being dirty, the same way `mark_written` is, so a
+    /// keypress during the write or a write that already got cleaned up does
+    /// not have its stat overwritten. Without this, the next folder open
+    /// would see the freshly written sidecar's changed stat and mistake it
+    /// for an external edit (see `sidecar::write`), storing it and clearing
+    /// `dirty` while the other sidecar stays stale for good.
+    pub fn mark_partial_write(
+        &mut self,
+        path: &str,
+        rating: Option<i8>,
+        flag: Flag,
+        stat: (i64, i64),
+    ) -> Result<bool, String> {
+        let flag = flag_code(flag);
+        let n = self
+            .conn
+            .execute(
+                "UPDATE ratings SET xmp_size = ?2, xmp_mtime_ns = ?3
+                 WHERE path = ?1 AND rating IS ?4 AND flag = ?5 AND dirty = 1",
+                params![path, stat.0, stat.1, rating, flag],
+            )
+            .map_err(|e| format!("{path}: {e}"))?;
+        Ok(n > 0)
+    }
+
     /// Forget every sidecar the index has seen, for a sidecar format switch:
     /// clean rows are dropped so the next open reads the newly selected
     /// format, and dirty rows keep their judgment but lose the old format's

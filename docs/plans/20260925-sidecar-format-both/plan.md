@@ -156,9 +156,12 @@ picked up. Once done, one culling pass serves both developers.
   `SCHEMA_VERSION` bump; not worth it for the requirement as stated.
 - **Both files are not written atomically together.** A crash between the
   XMP rename and the `.dop` rename leaves the two disagreeing; the row stays
-  dirty (`mark_written` never ran), the next open replays the judgment into
-  both, and until then newest-wins reads the XMP. Say so in the `write` doc
-  comment.
+  dirty (`mark_written` never ran), and until it is judged again newest-wins
+  reads whichever got written. An in-session retry replays the judgment into
+  both; once retries are exhausted, `mark_partial_write` records the stat of
+  the sidecar that did get written (without clearing `dirty`), so the next
+  open does not mistake it for an external edit and still replays the
+  judgment into both. Say so in the `write` doc comment.
 - **Disagreeing sidecars on entering `Both`.** Switching to Both on a folder
   with older sidecars of the other kind reads the newer of the two per file;
   nothing is rewritten until the user judges the file again, so the two files
