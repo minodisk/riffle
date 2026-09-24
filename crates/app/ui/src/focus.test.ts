@@ -8,6 +8,7 @@ const point: MarkFocus = {
   y: 1168,
   frame: null,
   manual_focus: false,
+  face_catch: "unknown",
 };
 
 describe("focusMark", () => {

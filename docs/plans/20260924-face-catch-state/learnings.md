@@ -69,6 +69,21 @@
     model input costs less. The upright rotation of the whole preview is
     still done, as before.
 
+## Step 3: Persist the face-catch state in the index
+
+- `SCHEMA_VERSION` was still 13 and `EXTRACTOR_VERSION` still 3 on the
+  branch base (after #398), so the planned 14 / 4 held without renumbering.
+- Every migration test asserts `user_version` after `Index::open`, including
+  the v2 to v9 ones that drop `files`: all nine asserts moved from 13 to 14,
+  not only the v10 to v13 fixtures. The v10 / v11 / v12 fixtures also drop
+  `face_catch`, or the in-place `ALTER` would fail and the cache be discarded.
+- The v13 fixture sets `extractor = 3` so the test shows the row survives
+  the `ALTER` and is re-extracted by the extractor bump alone.
+- `FaceCatch` moved from the test module's imports to the top of `index.rs`
+  (Step 2 had imported it only for the `entry()` fixture).
+- The round-trip test reads the state through `serde_json::to_value` of
+  `Focus`, so it checks the strings the frontend receives, not just the enum.
+
 ## Deferred issues (todo candidates)
 
 - The "eye-AF frame is caught, else classify the crop" rule is written twice:
