@@ -66,6 +66,23 @@
 - `String.prototype.replaceAll` was avoided in `tree.ts` (a regex `replace`
   instead) because the build targets `safari13`, which lacks it.
 
+## Step 4
+
+- `Keymap::defaults` is asserted in full by `the_defaults_are_the_full_table`,
+  so a new action's default has to be added there as well as in `DEFAULTS`.
+- `#side`, `#film` and `#info` had no `[hidden]` rule, only the UA one, which
+  their author `display: flex` overrides; their rules are now scoped to
+  `:not([hidden])` (the guide's "Scope an id's `display` override").
+- The `panels` command is invoked before `sort_order` and applied when it
+  resolves, not awaited by anything: the last folder's listing and preview
+  come later anyway, and `draw()` reads the canvas size when it runs. A
+  hidden strip renders nothing (width 0), so showing it calls
+  `strip.setCurrent(index)` to render around the current cell. Hiding the
+  strip also closes the filter / sort menus, which live inside `#film`.
+- `set_panels` normalizes the value through the same `panels_setting` parser
+  `panels` reads with, so a malformed value from the frontend is stored as
+  all-shown rather than as-is.
+
 ## Deferred issues (todo candidates)
 
 - With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to

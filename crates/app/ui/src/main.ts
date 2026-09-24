@@ -24,6 +24,7 @@ import { type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { initSettings } from "./settings.js";
+import { type Panels, toggle, toggleSides } from "./panels.js";
 import {
   comparePaneAt,
   comparisonCandidates,
@@ -2403,6 +2404,40 @@ void window.__TAURI__.core.invoke<boolean>("sidecar_format_saved").then(
     formatGate.open();
   },
 );
+const side = document.getElementById("side") as HTMLElement;
+const film = document.getElementById("film") as HTMLElement;
+const info = document.getElementById("info") as HTMLElement;
+let panels: Panels = { left: true, strip: true, right: true };
+
+// Show and hide the panes, then fit the viewer to the space they leave. The
+// strip rendered nothing while hidden (its width was 0), so it renders again
+// around the current cell when it comes back.
+function applyPanels(next: Panels): void {
+  const stripShown = next.strip && !panels.strip;
+  panels = next;
+  side.hidden = !panels.left;
+  film.hidden = !panels.strip;
+  info.hidden = !panels.right;
+  if (!panels.strip) {
+    setFilterMenuOpen(false);
+    setSortMenuOpen(false);
+  }
+  if (stripShown) {
+    strip.setCurrent(index);
+  }
+  draw();
+  if (zoomed) {
+    scheduleCropForResize();
+  }
+}
+
+function changePanels(next: Panels): void {
+  applyPanels(next);
+  void window.__TAURI__.core.invoke("set_panels", { panels });
+}
+
+void window.__TAURI__.core.invoke<Panels>("panels").then(applyPanels, () => {});
+
 // Apply the remembered sort before the last folder opens, so it comes up in
 // that order.
 const sortLoaded = window.__TAURI__.core
@@ -2564,6 +2599,18 @@ function runAction(action: string): boolean {
       break;
     case "redo":
       redo();
+      break;
+    case "toggleLeft":
+      changePanels(toggle(panels, "left"));
+      break;
+    case "toggleRight":
+      changePanels(toggle(panels, "right"));
+      break;
+    case "toggleStrip":
+      changePanels(toggle(panels, "strip"));
+      break;
+    case "toggleSides":
+      changePanels(toggleSides(panels));
       break;
     case "rate1":
     case "rate2":

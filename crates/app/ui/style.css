@@ -36,8 +36,9 @@ body {
 }
 
 /* The left pane: the Open folder button over the folder tree. Its width is
-   fixed, like #info's, since nothing in it has a natural width. */
-#side {
+   fixed, like #info's, since nothing in it has a natural width. Each pane's
+   rule is scoped to :not([hidden]) so the panel toggles can hide it. */
+#side:not([hidden]) {
   flex: 0 0 220px;
   display: flex;
   flex-direction: column;
@@ -50,7 +51,7 @@ body {
    so the viewer takes the rest. Never give this a z-index or an overflow:
    a stacking context here would paint the filter / sort menus, which open
    upward over #main, below #viewer, and an overflow would clip them. */
-#film {
+#film:not([hidden]) {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -844,7 +845,7 @@ body {
   display: none;
 }
 
-#info {
+#info:not([hidden]) {
   display: flex;
   flex: 0 0 220px;
   flex-direction: column;
