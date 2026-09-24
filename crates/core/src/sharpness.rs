@@ -86,10 +86,16 @@ pub fn laplacian_variance(gray: &[u8], width: usize, window: Window) -> f64 {
 /// Sony `FocusMode` value for manual focus.
 const MANUAL_FOCUS: u8 = 0;
 
+/// Whether `shot` was taken in manual focus. DMF and bodies that write no
+/// `FocusMode` count as autofocus.
+pub fn manual_focus(shot: &Shot) -> bool {
+    shot.focus_mode == Some(MANUAL_FOCUS)
+}
+
 /// The focus location of `shot` when the AF point can be trusted: `None`
 /// when there is none or the frame was shot in manual focus.
 pub fn trusted_focus(shot: &Shot) -> Option<FocusLocation> {
-    if shot.focus_mode == Some(MANUAL_FOCUS) {
+    if manual_focus(shot) {
         None
     } else {
         shot.focus
@@ -366,6 +372,18 @@ mod tests {
         let corner = window_at(w, h, w, h, WINDOW);
         let expected = laplacian_variance(&decoded, w, corner);
         assert!((score - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn only_focus_mode_zero_is_manual_focus() {
+        let mode = |focus_mode| Shot {
+            focus_mode,
+            ..Shot::default()
+        };
+        assert!(manual_focus(&mode(Some(0))));
+        assert!(!manual_focus(&mode(Some(3))));
+        assert!(!manual_focus(&mode(Some(6))));
+        assert!(!manual_focus(&mode(None)));
     }
 
     #[test]

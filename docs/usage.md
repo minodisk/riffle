@@ -22,8 +22,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the selection collapses it to that cell; one inside keeps it, so the context
   menu items act on the whole selection. Files the filter hides leave the
   selection.
-- **Focus mark**: `f` draws a crosshair at the camera's recorded focus point
-  (hidden by default; cameras that record none, such as the M11-P, show none).
+- **Focus mark**: `f` draws a crosshair at the camera's recorded focus point,
+  inside a rectangle of the AF frame the camera used on Sony bodies that
+  record it (hidden by default). A body that records only the point, such as
+  the SIGMA BF, shows the crosshair alone; cameras that record none, such as
+  the M11-P, and manual-focus shots show no mark.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.

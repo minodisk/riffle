@@ -82,14 +82,17 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
         .focus
         .ok_or_else(|| anyhow!("no FocusLocation in {path:?}"))?;
     let (fw, fh, fx, fy) = (f.sensor_w, f.sensor_h, f.x, f.y);
-    let frame: u32 = 219;
-    println!("focus: sensor {fw}x{fh} at ({fx},{fy}) frame {frame}");
+    let (frame_w, frame_h) = a
+        .shot
+        .focus_frame
+        .map_or((219, 219), |f| (f.width, f.height));
+    println!("focus: sensor {fw}x{fh} at ({fx},{fy}) frame {frame_w}x{frame_h}");
 
     // FocusLocation is in unrotated sensor coordinates, so draw on the unrotated preview first.
     let sx = w as f64 / fw as f64;
     let sy = h as f64 / fh as f64;
-    let bw = (frame as f64 * sx) as i64;
-    let bh = (frame as f64 * sy) as i64;
+    let bw = (frame_w as f64 * sx) as i64;
+    let bh = (frame_h as f64 * sy) as i64;
     let mut rgb = rgb;
     draw_rect(
         &mut rgb,

@@ -14,6 +14,7 @@ use rusqlite::{params, Connection, OpenFlags};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::scan::{extract_all, Entry};
+use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
 
 use crate::exif::{exif, Exif};
@@ -50,8 +51,11 @@ use crate::exif::{exif, Exif};
 /// v12 added `files.extractor`, the `EXTRACTOR_VERSION` a row was written at;
 /// a v10 or v11 database gains it in place with an `ALTER TABLE`, defaulting
 /// to `0` so every existing row is re-extracted once, and keeps `files`,
-/// `ratings` and `folders`.
-const SCHEMA_VERSION: i64 = 12;
+/// `ratings` and `folders`. v13 added `files.frame_w` / `files.frame_h`, the
+/// Sony AF frame size (`NULL` when not recorded), and `files.manual_focus`; a
+/// v10 to v12 database gains them in place with an `ALTER TABLE` and keeps
+/// `files`, `ratings` and `folders`.
+const SCHEMA_VERSION: i64 = 13;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG parsing or
@@ -61,8 +65,8 @@ const SCHEMA_VERSION: i64 = 12;
 /// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts
 /// every row, error rows included, on the next scan of each folder, and keeps
 /// `ratings`. It starts at `1` so rows from before the column existed (`0`)
-/// are stale.
-const EXTRACTOR_VERSION: i64 = 1;
+/// are stale; `2` fills in the AF frame size and the manual-focus flag.
+const EXTRACTOR_VERSION: i64 = 2;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -192,6 +196,15 @@ pub struct Focus {
     pub sensor_h: u16,
     pub x: u16,
     pub y: u16,
+    /// The AF frame size, in the same sensor coordinates as `x` / `y`.
+    pub frame: Option<FocusSize>,
+    pub manual_focus: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct FocusSize {
+    pub width: u16,
+    pub height: u16,
 }
 
 /// How a finished scan ended.
@@ -286,7 +299,7 @@ impl Index {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SCHEMA_VERSION].contains(&version) {
+        if ![0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, SCHEMA_VERSION].contains(&version) {
             return Err(format!("unsupported index schema version {version}"));
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
@@ -321,7 +334,10 @@ impl Index {
                      focal_num INTEGER,
                      focal_den INTEGER,
                      sharpness REAL,
-                     extractor INTEGER NOT NULL DEFAULT 0
+                     extractor INTEGER NOT NULL DEFAULT 0,
+                     frame_w INTEGER,
+                     frame_h INTEGER,
+                     manual_focus INTEGER NOT NULL DEFAULT 0
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
@@ -394,6 +410,14 @@ impl Index {
         if (10..12).contains(&version) {
             tx.execute_batch("ALTER TABLE files ADD COLUMN extractor INTEGER NOT NULL DEFAULT 0;")
                 .map_err(|e| e.to_string())?;
+        }
+        if (10..13).contains(&version) {
+            tx.execute_batch(
+                "ALTER TABLE files ADD COLUMN frame_w INTEGER;
+                 ALTER TABLE files ADD COLUMN frame_h INTEGER;
+                 ALTER TABLE files ADD COLUMN manual_focus INTEGER NOT NULL DEFAULT 0;",
+            )
+            .map_err(|e| e.to_string())?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
@@ -591,9 +615,11 @@ impl Index {
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
                              make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                             exposure_den, iso, focal_num, focal_den, sharpness, extractor)
+                             exposure_den, iso, focal_num, focal_den, sharpness, extractor,
+                             frame_w, frame_h, manual_focus)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
+                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25,
+                             ?26, ?27, ?28)",
                         params![
                             path,
                             dir,
@@ -620,6 +646,9 @@ impl Index {
                             shot.focal_length.map(|r| r.den),
                             entry.sharpness,
                             EXTRACTOR_VERSION,
+                            shot.focus_frame.map(|f| f.width),
+                            shot.focus_frame.map(|f| f.height),
+                            manual_focus(shot),
                         ],
                     )
                     .map_err(|e| e.to_string())?;
@@ -628,9 +657,9 @@ impl Index {
                     tx.execute(
                         "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
                              capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
-                             sharpness, extractor)
+                             sharpness, extractor, frame_w, frame_h, manual_focus)
                          VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?5,
-                             NULL, ?6)",
+                             NULL, ?6, NULL, NULL, 0)",
                         params![
                             path,
                             dir,
@@ -658,7 +687,7 @@ impl Index {
                         COALESCE(ratings.flag, 0), error IS NOT NULL,
                         make, model, lens, f_num, f_den, f_estimated, exposure_num,
                         exposure_den, iso, focal_num, focal_den, ratings.label,
-                        sharpness
+                        sharpness, frame_w, frame_h, manual_focus
                  FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -670,6 +699,11 @@ impl Index {
                         sensor_h,
                         x: r.get(6)?,
                         y: r.get(7)?,
+                        frame: r
+                            .get::<_, Option<u16>>(26)?
+                            .zip(r.get::<_, Option<u16>>(27)?)
+                            .map(|(width, height)| FocusSize { width, height }),
+                        manual_focus: r.get(28)?,
                     }),
                     _ => None,
                 };
@@ -1105,7 +1139,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riffle_core::arw::{FocusLocation, Shot};
+    use riffle_core::arw::{FocusFrame, FocusLocation, Shot};
     use std::collections::HashSet;
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -1261,7 +1295,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1336,7 +1370,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
 
         remove_temp_dir(&dir);
     }
@@ -1354,6 +1388,9 @@ mod tests {
                 .execute_batch(
                     "ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      ALTER TABLE files DROP COLUMN extractor;
+                     ALTER TABLE files DROP COLUMN frame_w;
+                     ALTER TABLE files DROP COLUMN frame_h;
+                     ALTER TABLE files DROP COLUMN manual_focus;
                      INSERT INTO ratings (path, dir, rating, pick, dirty, xmp_size, xmp_mtime_ns) VALUES
                          ('/rejected.ARW', 'd', -1, 0, 1, 10, 20),
                          ('/picked.ARW', 'd', 3, 1, 0, 10, 20),
@@ -1368,7 +1405,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         let rows: Vec<(String, Option<i8>, i64, i64)> = index
             .conn
@@ -1533,6 +1570,9 @@ mod tests {
                     "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
                          ('/rated.ARW', 'd', 4, 1, 1);
                      ALTER TABLE files DROP COLUMN extractor;
+                     ALTER TABLE files DROP COLUMN frame_w;
+                     ALTER TABLE files DROP COLUMN frame_h;
+                     ALTER TABLE files DROP COLUMN manual_focus;
                      PRAGMA user_version = 11;",
                 )
                 .unwrap();
@@ -1543,13 +1583,88 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         assert_eq!(
             index.dirty_rows("d").unwrap(),
             [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
         assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v12_database_gains_the_frame_and_manual_focus_columns_and_keeps_its_files_and_ratings() {
+        let dir = temp_dir("migrate-v12");
+        let db = dir.join("index.sqlite");
+        let a = file(&dir, "a.ARW", b"a");
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
+                         ('/rated.ARW', 'd', 4, 1, 1);
+                     UPDATE files SET extractor = 1;
+                     ALTER TABLE files DROP COLUMN frame_w;
+                     ALTER TABLE files DROP COLUMN frame_h;
+                     ALTER TABLE files DROP COLUMN manual_focus;
+                     PRAGMA user_version = 12;",
+                )
+                .unwrap();
+        }
+
+        let mut index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 13);
+        let entries = index.entries("d").unwrap();
+        assert_eq!(entries.len(), 1, "files are kept");
+        let focus = entries[0].focus.unwrap();
+        assert!(focus.frame.is_none());
+        assert!(!focus.manual_focus);
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
+        );
+        assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn the_af_frame_and_manual_focus_round_trip() {
+        let dir = temp_dir("frame");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        let mut framed = entry();
+        framed.shot.focus_frame = Some(FocusFrame {
+            width: 832,
+            height: 624,
+        });
+        framed.shot.focus_mode = Some(0);
+        index
+            .write_batch("d", &[(a, Ok(framed)), (b, Ok(entry()))])
+            .unwrap();
+
+        let entries = index.entries("d").unwrap();
+        let framed = entries[0].focus.unwrap();
+        assert_eq!(
+            framed.frame,
+            Some(FocusSize {
+                width: 832,
+                height: 624
+            })
+        );
+        assert!(framed.manual_focus);
+        let plain = entries[1].focus.unwrap();
+        assert!(plain.frame.is_none());
+        assert!(!plain.manual_focus);
 
         remove_temp_dir(&dir);
     }
@@ -1967,7 +2082,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -2582,7 +2697,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), None);
 
@@ -2613,7 +2728,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index
@@ -2651,7 +2766,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index

@@ -59,7 +59,10 @@ sidecars.
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
-- **Focus mark**: `f` draws a crosshair at the focus point the camera recorded.
+- **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
+  its focus point on Sony bodies that record the frame, the crosshair alone
+  when only a point is recorded (SIGMA BF), and nothing without an AF point
+  (M11-P) or on manual-focus shots.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
   face, else on the subject's eyes when a face is found, else around
