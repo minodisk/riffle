@@ -9,13 +9,14 @@ window. Riffle lists the ARW and DNG files in it and pages through their
 embedded previews, rotated by each file's Orientation. With no folder open the
 viewer shows a prompt in its center; click it to open the folder picker.
 
-- **Filmstrip**: thumbnails run down the left edge, follow paging and show the
-  file you click. The `N / M` counter sits under it.
+- **Filmstrip**: thumbnails run along the bottom, under the viewer, follow
+  paging and show the file you click. The mouse wheel scrolls it sideways.
+  Its header bar holds the `N / M` counter and the filter and sort menus.
   Several files can be selected: `Cmd+click` (`Ctrl+click` on Windows and
   Linux) adds or removes one file without changing the file shown (the shown
   file itself always stays selected), `Shift+click` selects every file from the
   last clicked one (the anchor) to the clicked one and shows the clicked file,
-  and `Shift+ArrowUp` / `Shift+ArrowDown` grow or shrink that range one file at
+  and `Shift+ArrowLeft` / `Shift+ArrowRight` grow or shrink that range one file at
   a time. A plain click, or any key that moves to another file (arrows, burst
   jumps), collapses the selection to the new file; a plain arrow at either end
   of the strip, which moves nowhere, keeps it. A right-click on a cell outside
@@ -160,9 +161,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   re-press. A tinted band behind the strip cells joins the frames of a burst of
   two or more. The
   first cell of the band shows the burst's size (`7`), and the current cell
-  shows its position in the burst instead (`3/7`). `ArrowRight` jumps to the first frame of the next burst and
-  `ArrowLeft` to the first frame of the current one, or of the previous one
-  when already there. `Alt+ArrowUp` / `Alt+ArrowDown` (`Option` on macOS) move
+  shows its position in the burst instead (`3/7`). `ArrowDown` jumps to the first frame of the next burst and
+  `ArrowUp` to the first frame of the current one, or of the previous one
+  when already there. `Alt+ArrowLeft` / `Alt+ArrowRight` (`Option` on macOS) move
   one frame at a time within the current burst and stop at its first and last
   displayed frame. `Shift+x` rejects every other frame of the current burst,
   including frames the filter hides, and one `Edit > Undo` restores them all.
@@ -172,14 +173,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
 
 | Key | Action |
 |-----|--------|
-| `ArrowUp` | previous file |
-| `ArrowDown` | next file |
-| `Shift+ArrowUp` | extend the selection to the previous file (or shrink it back towards the anchor) |
-| `Shift+ArrowDown` | extend the selection to the next file (or shrink it back towards the anchor) |
-| `ArrowLeft` | first frame of the current burst, or of the previous burst when already on it |
-| `ArrowRight` | first frame of the next burst |
-| `Alt+ArrowUp` | previous frame in the current burst (stops at its first frame) |
-| `Alt+ArrowDown` | next frame in the current burst (stops at its last frame) |
+| `ArrowLeft` | previous file |
+| `ArrowRight` | next file |
+| `Shift+ArrowLeft` | extend the selection to the previous file (or shrink it back towards the anchor) |
+| `Shift+ArrowRight` | extend the selection to the next file (or shrink it back towards the anchor) |
+| `ArrowUp` | first frame of the current burst, or of the previous burst when already on it |
+| `ArrowDown` | first frame of the next burst |
+| `Alt+ArrowLeft` | previous frame in the current burst (stops at its first frame) |
+| `Alt+ArrowRight` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
