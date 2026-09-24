@@ -196,9 +196,8 @@ Some features depend on what the camera records in the RAW file.
   camera's eye-AF frame, which is the most reliable because it does not rely
   on face detection.
 - **Sub-second capture time**: frames within 1 s of the previous one form a
-  burst. Without it, frames are grouped by whole seconds, so a burst spanning
-  a second boundary can be split, and a shot taken right after a burst can
-  join it.
+  burst. Without it, frames are grouped by whole seconds, so a shot taken up
+  to about 2 s after the previous frame can still join its burst.
 
 If a camera not on the list works, post in the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)
