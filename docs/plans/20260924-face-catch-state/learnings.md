@@ -84,6 +84,18 @@
 - The round-trip test reads the state through `serde_json::to_value` of
   `Focus`, so it checks the strings the frontend receives, not just the enum.
 
+## Step 4: Color the `f` focus mark by the state
+
+- `FocusMark` carries the state (`faceCatch`) rather than a color, and
+  `main.ts` maps it through `FOCUS_MARK_COLORS` next to `FOCUS_MARK_ARM` /
+  `FOCUS_MARK_GAP`, satisfying both the "decision in `focus.ts`" and the
+  "constants next to the arm and gap" wording of the plan. Orange is `#f93`.
+- `metaGroups` gained an optional third argument so the existing call sites
+  in the tests stay unchanged; `unknown` maps to a null row, which `section`
+  already drops.
+- The eye-AF-first scoring rule made the `todo.md` section intro stale since
+  Step 1; it was rewritten here as Step 1 had deferred.
+
 ## Deferred issues (todo candidates)
 
 - The "eye-AF frame is caught, else classify the crop" rule is written twice:

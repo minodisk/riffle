@@ -228,7 +228,7 @@ head, tracking=1, `caught` by design).
     - Audit every `!= SCHEMA_VERSION` guard while bumping, per the guide's
       "Bumping `SCHEMA_VERSION` can strand an old per-version column guard".
 
-- [ ] Step 4: Color the `f` focus mark by the state and show it in the meta pane
+- [x] Step 4: Color the `f` focus mark by the state and show it in the meta pane
   - Done when:
     - `crates/app/ui/src/focus.ts`: `FocusMark` gains `faceCatch` (or the
       color directly, via a pure `focusMarkColor(state)`), tested in

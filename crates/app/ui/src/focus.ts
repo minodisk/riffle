@@ -16,9 +16,11 @@ export interface FocusMark {
   x: number;
   y: number;
   rect: { x: number; y: number; width: number; height: number } | null;
+  faceCatch: MarkFocus["face_catch"];
 }
 
-// `null` for a manual-focus shot, whose recorded point is not trusted.
+// `null` for a manual-focus shot, whose recorded point is not trusted. The
+// face-catch state rides along so the mark's color is read from the mark.
 export function focusMark(
   focus: MarkFocus | null | undefined,
   drawWidth: number,
@@ -30,9 +32,14 @@ export function focusMark(
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
   if (focus.frame === null) {
-    return { x, y, rect: null };
+    return { x, y, rect: null, faceCatch: focus.face_catch };
   }
   const width = (focus.frame.width * drawWidth) / focus.sensor_w;
   const height = (focus.frame.height * drawHeight) / focus.sensor_h;
-  return { x, y, rect: { x: x - width / 2, y: y - height / 2, width, height } };
+  return {
+    x,
+    y,
+    rect: { x: x - width / 2, y: y - height / 2, width, height },
+    faceCatch: focus.face_catch,
+  };
 }

@@ -33,6 +33,19 @@ export const EXIF_HEADING = "EXIF";
 export const MAKER_NOTE_LABEL = "Maker note";
 export const RIFFLE_HEADING = "Riffle";
 
+export type FaceCatch = "caught" | "missed" | "unknown";
+
+function faceCatchLabel(state: FaceCatch | null | undefined): string | null {
+  switch (state) {
+    case "caught":
+      return "Caught";
+    case "missed":
+      return "Missed";
+    default:
+      return null;
+  }
+}
+
 function section(label: string | null, rows: [string, string | null][]): MetaSection {
   return {
     label,
@@ -47,8 +60,13 @@ function group(heading: string, sections: MetaSection[]): MetaGroup {
 // The meta pane's rows grouped by where each value comes from: standard
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The Riffle group needs no `meta`, so a file whose metadata could
-// not be read still shows its score.
-export function metaGroups(meta: Metadata | null, sharpness: number | null): MetaGroup[] {
+// not be read still shows its score. The face-catch state gets a `Face` row
+// only when it is known.
+export function metaGroups(
+  meta: Metadata | null,
+  sharpness: number | null,
+  faceCatch?: FaceCatch | null,
+): MetaGroup[] {
   const groups: MetaGroup[] = [];
   if (meta !== null) {
     groups.push(
@@ -71,7 +89,12 @@ export function metaGroups(meta: Metadata | null, sharpness: number | null): Met
     );
   }
   groups.push(
-    group(RIFFLE_HEADING, [section(null, [["Sharpness", sharpness?.toFixed(1) ?? null]])]),
+    group(RIFFLE_HEADING, [
+      section(null, [
+        ["Sharpness", sharpness?.toFixed(1) ?? null],
+        ["Face", faceCatchLabel(faceCatch)],
+      ]),
+    ]),
   );
   return groups.filter(({ sections }) => sections.length > 0);
 }

@@ -314,6 +314,14 @@ function scheduleCropForResize(): void {
 // lines off the focus point, which is the one pixel the mark exists to show.
 const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
+// The mark's color per face-catch state: green when the AF caught a face,
+// orange when faces were found near the AF point but it is on none of them,
+// white when Riffle does not know.
+const FOCUS_MARK_COLORS = {
+  caught: "#3f3",
+  missed: "#f93",
+  unknown: "#fff",
+} as const;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -379,7 +387,11 @@ function renderMeta(): void {
   metaStatusEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
-    for (const group of metaGroups(meta, sharpness.get(files[index]) ?? null)) {
+    for (const group of metaGroups(
+      meta,
+      sharpness.get(files[index]) ?? null,
+      entries.get(files[index])?.focus?.face_catch,
+    )) {
       metaEl.append(line("group", group.heading));
       for (const section of group.sections) {
         if (section.label !== null) {
@@ -1119,7 +1131,10 @@ function refreshEntries(): void {
 // When Sony `FocusFrameSize` is valid, the AF frame the camera used is drawn
 // around the point as well, in the same sensor coordinates; a body that
 // records only the point gets the crosshair alone, and a manual-focus shot,
-// whose recorded point is not trusted, gets no mark.
+// whose recorded point is not trusted, gets no mark. The mark is green when
+// the camera's face tracking or a face detected under the AF point says the
+// AF caught a face, orange when faces were found near the AF point but it is
+// on none of them, and white when Riffle does not know.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
@@ -1128,10 +1143,10 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (mark === null) {
     return;
   }
-  const { x, y, rect } = mark;
+  const { x, y, rect, faceCatch } = mark;
   const arm = FOCUS_MARK_ARM;
   const gap = FOCUS_MARK_GAP;
-  // A fixed color over a dark outline: the color carries the mark on most
+  // A state color over a dark outline: the color carries the mark on most
   // photos, and the outline still draws its edge where the subject shares the
   // color. The same path is stroked twice, the outline first and wider, and
   // square caps give the arm ends the same 1px outline as their sides.
@@ -1152,7 +1167,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.lineWidth = 4;
   context.stroke();
-  context.strokeStyle = "#3f3";
+  context.strokeStyle = FOCUS_MARK_COLORS[faceCatch];
   context.lineWidth = 2;
   context.stroke();
   context.restore();
