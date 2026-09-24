@@ -171,4 +171,4 @@ picked up. Once done, one culling pass serves both developers.
 
 ## Progress
 
-- (none yet)
+- (2026-09-25) Step 1 complete
