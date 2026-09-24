@@ -42,8 +42,9 @@ next time Riffle starts. For the other packages and the details, see
 
 ### First steps
 
-1. Choose your developing software (Lightroom or DxO PhotoLab) in the dialog
-   Riffle shows on its first launch; it can be changed later in Settings.
+1. Choose your developing software (Lightroom, DxO PhotoLab, or both) in the
+   dialog Riffle shows on its first launch; it can be changed later in
+   Settings.
 2. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
 3. Page through the shots with `←` `→`, give stars with `1`-`5` and reject with
    `x`.
@@ -105,6 +106,11 @@ the first launch and can be changed in the settings:
   writes them. The name written to `xmp:Label` can be set per color in the
   settings.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, which holds picks and rejects too.
+- **Both**: every judgment goes to `FOO.xmp` and `FOO.ARW.dop` alike, for
+  developing in Lightroom and PhotoLab from one culling pass. When a folder
+  opens, whichever of the two was modified last is read back, so a later
+  edit in either tool is picked up. Switching to Both rewrites nothing: a
+  file's two sidecars can disagree until it is judged again.
 
 A sidecar created by other software is edited in place: everything except the
 stars, the flag and the label (develop settings, keywords, ...) is left

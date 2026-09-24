@@ -223,7 +223,9 @@ pub struct SidecarError {
 ///
 /// The sidecar is the source of truth, so anything whose stat changed since
 /// the app last saw it is read back here; a sidecar that cannot be read or
-/// parsed leaves its row as it was rather than erroring the open.
+/// parsed leaves its row as it was rather than erroring the open. Under
+/// `Both` the file's newest sidecar is the one compared and read (see
+/// `sidecar::newest`).
 fn reconcile_sidecars_of(
     dir: &str,
     listed: &[String],
@@ -235,12 +237,15 @@ fn reconcile_sidecars_of(
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
         .map(|path| {
-            let name = format
-                .sidecar_path(Path::new(path))
-                .file_name()
-                .map(|n| n.to_string_lossy().to_lowercase());
-            let stat = name.and_then(|n| sidecars.get(&n)).cloned();
-            (path.clone(), stat)
+            let stats = format.kinds().iter().filter_map(|kind| {
+                let name = kind
+                    .sidecar_path(Path::new(path))
+                    .file_name()?
+                    .to_string_lossy()
+                    .to_lowercase();
+                sidecars.get(&name).map(|stat| (stat, stat.2))
+            });
+            (path.clone(), crate::sidecar::newest(stats).cloned())
         })
         .collect();
 
@@ -275,13 +280,21 @@ fn reconcile_sidecars_of(
             )));
             continue;
         }
+        let kind = if sidecar
+            .file_name()
+            .is_some_and(|n| SidecarFormat::Dop.matches(&n.to_string_lossy()))
+        {
+            SidecarFormat::Dop
+        } else {
+            SidecarFormat::Xmp
+        };
         let read = std::fs::read(sidecar)
             .map_err(|e| e.to_string())
             .and_then(|bytes| {
                 Ok((
-                    format.read_rating(&bytes)?,
-                    format.read_flag(&bytes)?,
-                    format.read_label(&bytes, names)?,
+                    kind.read_rating(&bytes)?,
+                    kind.read_flag(&bytes)?,
+                    kind.read_label(&bytes, names)?,
                 ))
             });
         match read {
@@ -2187,6 +2200,65 @@ mod tests {
     }
 
     #[test]
+    fn under_both_the_newer_of_two_disagreeing_sidecars_is_read() {
+        let root = temp_dir("both-newest");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let xmp = sidecar(&root, "a.xmp", 4);
+        let dop = root.join("a.ARW.dop");
+        std::fs::write(&dop, PHOTOLAB_THREE).unwrap();
+        let listed = list_arw_in(&root).unwrap();
+        let (old, new) = (1_600_000_000_000_000_000, 1_700_000_000_000_000_000);
+
+        for (run, (xmp_ns, dop_ns, expected)) in [
+            (new, old, Some(4)),
+            (old, new, Some(3)),
+            (old, old, Some(4)),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let index = Arc::new(Mutex::new(
+                Index::open(&root.join(format!("index-{run}.sqlite"))).unwrap(),
+            ));
+            restore_mtime(&xmp, xmp_ns);
+            restore_mtime(&dop, dop_ns);
+            reconcile_listed(&dir, &listed, &index, SidecarFormat::Both).unwrap();
+            index_files(&index, &dir, &listed);
+            assert_eq!(
+                rating_of(&index, &dir, &listed[0]),
+                expected,
+                "xmp at {xmp_ns}, dop at {dop_ns}"
+            );
+        }
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn under_both_a_lone_xmp_or_dop_is_read() {
+        let root = temp_dir("both-lone");
+        let dir = root.to_string_lossy().into_owned();
+        for name in ["a.ARW", "b.ARW"] {
+            std::fs::write(root.join(name), b"x").unwrap();
+        }
+        sidecar(&root, "a.xmp", 4);
+        std::fs::write(root.join("b.ARW.dop"), PHOTOLAB_REJECT).unwrap();
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Both).unwrap();
+
+        assert!(dirty.is_empty());
+        index_files(&index, &dir, &listed);
+        assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
+        assert_eq!(flag_of(&index, &dir, &listed[0]), Flag::None);
+        assert_eq!(flag_of(&index, &dir, &listed[1]), Flag::Reject);
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
     fn photolab_ratings_and_rejects_are_read_on_the_first_open_and_xmps_ignored() {
         let root = temp_dir("dop-first-open");
         let dir = root.to_string_lossy().into_owned();
@@ -2660,7 +2732,7 @@ mod tests {
         }
         std::fs::create_dir(dir.join("sub.arw")).unwrap();
 
-        for format in [SidecarFormat::Xmp, SidecarFormat::Dop] {
+        for format in [SidecarFormat::Xmp, SidecarFormat::Dop, SidecarFormat::Both] {
             let (files, sidecars) = list_folder_in(&dir, format).unwrap();
             assert_eq!(files, list_arw_in(&dir).unwrap());
 
@@ -2679,6 +2751,9 @@ mod tests {
             match format {
                 SidecarFormat::Xmp => assert_eq!(names, ["a.xmp", "b.xmp"]),
                 SidecarFormat::Dop => assert_eq!(names, ["a.arw.dop", "c.dng.dop"]),
+                SidecarFormat::Both => {
+                    assert_eq!(names, ["a.arw.dop", "a.xmp", "b.xmp", "c.dng.dop"])
+                }
             }
             assert_eq!(sidecars, expected);
         }
@@ -2985,6 +3060,74 @@ mod tests {
             .unwrap();
         assert_eq!((entry.rating, entry.flag), (Some(4), Flag::Pick));
         assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
+
+        remove_temp_dir(&root);
+    }
+
+    /// Switching to `Both` writes a row left dirty in the old format into
+    /// both sidecars, and stores the stat the next open compares against.
+    #[test]
+    fn a_dirty_row_is_written_to_both_sidecars_after_a_switch_to_both() {
+        let root = temp_dir("switch-both");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        let index = sidecar_index(&root);
+        let writer = switch_writer(index.clone());
+        let listed = list_arw_in(&root).unwrap();
+        let path = listed[0].clone();
+        index::lock(&index)
+            .set_rating(&dir, &path, Some(4), Flag::Pick, None, true)
+            .unwrap();
+        let current = Mutex::new(SidecarFormat::Xmp);
+
+        switch_format(
+            &current,
+            Some(&writer),
+            Some(&index),
+            SidecarFormat::Both,
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(*index::lock(&current), SidecarFormat::Both);
+        let dirty = reconcile_listed(&dir, &listed, &index, SidecarFormat::Both).unwrap();
+        assert_eq!(dirty.len(), 1);
+        for (path, rating, flag, label, label_known) in dirty {
+            writer
+                .set_now(
+                    PathBuf::from(path),
+                    rating,
+                    flag,
+                    label,
+                    label_known,
+                    SidecarFormat::Both,
+                    LabelNames::default(),
+                )
+                .unwrap();
+        }
+        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+
+        for kind in [SidecarFormat::Xmp, SidecarFormat::Dop] {
+            let bytes = std::fs::read(kind.sidecar_path(Path::new(&path))).unwrap();
+            assert_eq!(kind.read_rating(&bytes).unwrap(), Some(4));
+            assert_eq!(kind.read_flag(&bytes).unwrap(), Flag::Pick);
+        }
+        assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
+        let (_, sidecars) = list_folder_in(&root, SidecarFormat::Both).unwrap();
+        let newest = crate::sidecar::newest(
+            ["a.xmp", "a.arw.dop"]
+                .into_iter()
+                .map(|name| (&sidecars[name], sidecars[name].2)),
+        )
+        .unwrap();
+        let stored: (i64, i64) = index::lock(&index)
+            .conn
+            .query_row(
+                "SELECT xmp_size, xmp_mtime_ns FROM ratings WHERE path = ?1",
+                [&path],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(stored, (newest.1, newest.2), "a reopen re-parses nothing");
 
         remove_temp_dir(&root);
     }

@@ -539,6 +539,27 @@ zero `pick` (now `flag`), which lost a pick set during a switch.
 - Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
   Step 1.
 
+### Writing the `Both` sidecar format: one comparator, one stat source (Hit)
+
+`sidecar::newest` is the single newest-wins comparator (larger `mtime_ns`,
+ties go to whichever kind is listed first in `kinds()`, i.e. XMP). `write` uses
+it to pick the label kept when `label_known` is false and the stat handed to
+`mark_written`; `reconcile_sidecars_of` uses the same comparator to pick which
+file's stat is compared against the stored one. Keep any future multi-file
+sidecar logic going through this one comparator rather than re-deriving
+"newest" locally, or a reopen right after writing can re-parse a file that
+was just written.
+
+- The per-kind write body is `write_kind`; the final stat always comes from
+  `index::stat`, the same function the folder listing uses to compute
+  `mtime_ns`, so the write path and the listing path cannot drift in how they
+  measure a file's freshness.
+- Adding a new `SidecarFormat` or kind means updating every exhaustive
+  `match` on it; the compiler catches most, but at least one test's match arms
+  needed a manual addition.
+- Source: `docs/plans/_archived/20260925-sidecar-format-both/learnings.md`,
+  Step 1.
+
 ### Folder-index eviction: lock order and where it runs (Measured)
 
 Eviction (`commands::spawn_eviction`) runs once from `setup`, right after
