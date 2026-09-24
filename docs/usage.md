@@ -138,8 +138,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   The meta pane shows the raw score in its Riffle group.
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,
-  which record no sub-second time, are grouped by whole seconds. A tinted
-  band behind the strip cells joins the frames of a burst of two or more. The
+  which record no sub-second time, are grouped by whole seconds. The grouping
+  deliberately follows time rather than the camera's own per-press sequence
+  numbering: a burst is one moment, and one moment often spans several
+  presses, such as pre-capture frames followed by the full press, or a quick
+  re-press. A tinted band behind the strip cells joins the frames of a burst of
+  two or more. The
   first cell of the band shows the burst's size (`7`), and the current cell
   shows its position in the burst instead (`3/7`). `ArrowRight` jumps to the first frame of the next burst and
   `ArrowLeft` to the first frame of the current one, or of the previous one
