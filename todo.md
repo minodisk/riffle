@@ -304,12 +304,91 @@ A stored `shortcuts` override that still binds `arrowleft` / `arrowright` to
 navigation defaults, and the whole override for that action is ignored at
 load (found while implementing burst-grouping Step 2, where the
 `a_store_from_the_old_defaults_still_loads` test had to drop `arrowleft`).
+It recurred when lightroom-layout Step 1 rotated the defaults: an override
+that binds `arrowup` / `arrowdown` to `previous` / `next` now collides with
+the burst actions' new defaults, and every other key in that override (e.g.
+`w` / `a` / `h` / `k`) is dropped with it.
 
 #### TODO
 
 - [ ] Consider letting a stored override win over a default belonging to
       another action, so an old override does not silently disappear when a
       new action claims its key. Files: `crates/app/src/shortcuts.rs`.
+
+### App: a horizontal strip's scrollbar can grow `#film` and shrink the viewer without a resize event
+
+With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to
+"always show scroll bars", `#strip`'s horizontal scrollbar appears once the
+files outgrow the width and makes `#film` taller, shrinking `#viewer`
+without a window `resize` event, so the canvas is not redrawn until the
+next `draw()`. `scrollbar-gutter: stable` does not cover the block axis.
+
+#### TODO
+
+- [ ] Consider `overflow-x: scroll`, a fixed `#strip` height, or a
+      `ResizeObserver` on `#viewer`. Files: `crates/app/ui/style.css`
+      (`#strip`), `crates/app/ui/src/main.ts` (the `resize` handler).
+
+### App: `folder_roots` lists WSL's internal `/mnt/wsl` and `/mnt/wslg` mounts as roots
+
+On WSL, every child directory of `/mnt` becomes a tree root, including WSL's
+own internal mounts alongside the real drives (`/mnt/c`, `/mnt/d`).
+
+#### TODO
+
+- [ ] Filter these out, e.g. only single-letter drive mounts under `/mnt` on
+      WSL. Files: `crates/app/src/folders.rs` (`volumes`).
+
+### App: the folder tree does not reveal a differently-cased open path
+
+A folder opened with a path whose case differs from the listing's (possible
+on macOS / Windows, e.g. a typed or dropped path) is not revealed past the
+first mismatching level, since `tree.ts` compares paths case-sensitively
+apart from the drive letter.
+
+#### TODO
+
+- [ ] Match children case-insensitively on case-insensitive platforms.
+      Files: `crates/app/ui/src/tree.ts` (`ancestorsWithin`),
+      `crates/app/ui/src/folders.ts` (`reveal`).
+
+### App: an unreadable folder in the tree looks like an unexpanded one
+
+A `list_subfolders` failure collapses the row again and reports through
+`setStatus`; the row itself carries no error mark, so once the status line
+changes, an unreadable folder is indistinguishable from one that was simply
+never expanded.
+
+#### TODO
+
+- [ ] Mark the row itself on error. Files: `crates/app/ui/src/folders.ts`
+      (`toggle`).
+
+### App: the folder tree's roots don't pick up a volume mounted after launch
+
+`folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
+card or drive mounted afterward (a new `/Volumes/*`, `/media/*/*` or drive
+letter) does not appear in the tree until the app restarts.
+
+#### TODO
+
+- [ ] Re-invoke `folder_roots` and `addRoots` on window focus or on each
+      `reveal`. Files: `crates/app/ui/src/folders.ts` (`loadRoots`),
+      `docs/usage.md`.
+
+### App: a folder reachable from two tree roots is expanded and highlighted twice
+
+A folder reachable from two roots (e.g. on Windows, the home root
+`C:\Users\me` and `C:\` > `Users` > `me`, since folder listing keeps both; or
+any root under `/` that `rootOf` adds) shares one `TreeNode`, keyed by path
+alone. Expanding either row expands both, and the subtree and the `.current`
+highlight are drawn twice.
+
+#### TODO
+
+- [ ] Key `expanded` (and the node map itself) by the row's root-plus-path,
+      or stop listing a root's own path as a child of another root. Files:
+      `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).
 
 ### App: face/eye-aware focus check for culling
 
