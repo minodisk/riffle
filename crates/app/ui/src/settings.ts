@@ -128,11 +128,15 @@ async function updateShortcuts(command: string, args?: Record<string, unknown>):
   renderShortcuts();
 }
 
+function writesXmp(format: string): boolean {
+  return format === "xmp" || format === "both";
+}
+
 function showSidecarFormat(format: string): void {
   for (const radio of sidecarRadios) {
     radio.checked = radio.value === format;
   }
-  labelNamesBlock.hidden = format !== "xmp";
+  labelNamesBlock.hidden = !writesXmp(format);
 }
 
 function showLabelNames(names: LabelNames): void {
@@ -222,7 +226,7 @@ void window.__TAURI__.event.listen("index-clearing", () => {
 for (const radio of sidecarRadios) {
   radio.addEventListener("change", () => {
     status.textContent = "";
-    labelNamesBlock.hidden = radio.value !== "xmp";
+    labelNamesBlock.hidden = !writesXmp(radio.value);
     window.__TAURI__.core
       .invoke("set_sidecar_format", { format: radio.value })
       .catch((error: unknown) => {

@@ -231,9 +231,9 @@ These keys are fixed and cannot be changed:
 ## Ratings and sidecars
 
 The RAW file is never written. Judgments go into a sidecar next to it, in one
-of two formats. Riffle asks which one on its first launch, before any folder
-can be opened, and the choice can be changed later in `Riffle > Settings...`
-(`File > Settings...` on Windows and Linux):
+of two formats or in both. Riffle asks which on its first launch, before any
+folder can be opened, and the choice can be changed later in
+`Riffle > Settings...` (`File > Settings...` on Windows and Linux):
 
 - **Lightroom (XMP)**: `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
   the pick / reject flag as `xmpDM:good` (`True` for a pick, `False` for a
@@ -247,6 +247,13 @@ can be opened, and the choice can be changed later in `Riffle > Settings...`
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
   pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
   `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
+- **Both**: every judgment is written to `FOO.xmp` and to `FOO.ARW.dop`, each
+  as above. When a folder opens, the one of the two modified last is read
+  back (on a tie, the XMP), so an edit made later in either Lightroom or
+  PhotoLab wins. A judgment made without knowing the file's label keeps the
+  label of that newest sidecar and writes it to both. The two files are each
+  written atomically, but not together: if one write fails, the judgment is
+  retried into both.
 
 Clearing a label removes `photoshop:LabelColor` and `xmp:Label`, or the
 `ColorLabel` line; no label is the field being absent. The label is kept as
@@ -267,7 +274,9 @@ you dismiss it, and so is any sidecar the app cannot read when a folder opens
 (damaged, or larger than 4 MiB). Sidecars edited by another tool are picked up the next
 time the folder is opened; when both changed, the other tool's edit wins.
 Switching the format keeps unwritten judgments and writes them in the new
-format; the other format's files are left alone.
+format (or both); the files of a format no longer selected are left alone,
+and switching to Both rewrites nothing, so a file's two sidecars can disagree
+until it is judged again.
 
 The folder index is a cache, but it also holds unwritten judgments, so a new
 index schema migrates the previous ones in place instead of discarding them;

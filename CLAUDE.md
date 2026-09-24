@@ -21,7 +21,7 @@ re-extracting rows written by an older `EXTRACTOR_VERSION`,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
-XMP-or-`.dop` setting chosen in the settings window and persisted in the
+XMP, `.dop` or both setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
 `xmp:Label` names per color persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
 the default keys and the

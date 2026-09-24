@@ -343,8 +343,9 @@ impl Index {
                  );
                  CREATE INDEX IF NOT EXISTS files_dir ON files (dir);
                  CREATE INDEX IF NOT EXISTS files_capture ON files (capture_time, subsec);
-                 -- `xmp_size` / `xmp_mtime_ns` are the stat of the sidecar of
-                 -- the selected format (XMP or `.dop`), whatever its name says.
+                 -- `xmp_size` / `xmp_mtime_ns` are the stat of the effective
+                 -- sidecar of the selected format (XMP or `.dop`; the newest
+                 -- one under Both), whatever its name says.
                  -- `flag` is the pick / reject (`0` none, `1` pick, `2`
                  -- reject), kept apart from the `0`-`5` `rating` because the
                  -- two coexist in both an XMP and a `.dop`.

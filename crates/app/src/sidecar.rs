@@ -1,5 +1,6 @@
 //! The single writer thread that turns judgments into sidecars, in the
-//! format selected by the `sidecarFormat` setting (XMP or DxO PhotoLab `.dop`).
+//! format selected by the `sidecarFormat` setting (XMP, DxO PhotoLab `.dop`,
+//! or both).
 //!
 //! A keypress must never wait on disk, so `set_rating` only writes the
 //! `ratings` row and hands the judgment to this thread. Entries are
@@ -15,28 +16,35 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 
 use riffle_core::xmp::LabelNames;
 use riffle_core::{dop, xmp, Flag};
 
-use crate::index::{lock, Index};
+use crate::index::{self, lock, Index};
 
-/// Which sidecar Riffle reads and writes. One format at a time: the other
-/// one's files are neither read nor written.
+/// Which sidecar Riffle reads and writes. `Xmp` and `Dop` are one format
+/// each, whose other format's files are neither read nor written; `Both`
+/// writes every judgment to both and reads back the one modified last.
+///
+/// `Both` names no single file: the per-file methods (`sidecar_path`, the
+/// readers and the writers) panic on it, so call `kinds()` first and use them
+/// on each kind it yields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SidecarFormat {
     #[default]
     Xmp,
     Dop,
+    Both,
 }
 
 impl SidecarFormat {
     /// The format a stored `sidecarFormat` value names; anything but `"dop"`
-    /// (missing, unknown) is `Xmp`.
+    /// or `"both"` (missing, unknown) is `Xmp`.
     pub fn from_setting(value: Option<&str>) -> Self {
         match value {
             Some("dop") => Self::Dop,
+            Some("both") => Self::Both,
             _ => Self::Xmp,
         }
     }
@@ -46,6 +54,17 @@ impl SidecarFormat {
         match self {
             Self::Xmp => "xmp",
             Self::Dop => "dop",
+            Self::Both => "both",
+        }
+    }
+
+    /// The single-file formats this setting covers, XMP first; the order is
+    /// the tie-break of `newest`.
+    pub fn kinds(self) -> &'static [SidecarFormat] {
+        match self {
+            Self::Xmp => &[Self::Xmp],
+            Self::Dop => &[Self::Dop],
+            Self::Both => &[Self::Xmp, Self::Dop],
         }
     }
 
@@ -53,6 +72,7 @@ impl SidecarFormat {
         match self {
             Self::Xmp => xmp::sidecar_path(arw),
             Self::Dop => dop::sidecar_path(arw),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
@@ -61,6 +81,7 @@ impl SidecarFormat {
         match self {
             Self::Xmp => xmp::read_rating(bytes),
             Self::Dop => dop::read_rating(bytes),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
@@ -69,6 +90,7 @@ impl SidecarFormat {
         match self {
             Self::Xmp => xmp::read_flag(bytes),
             Self::Dop => dop::read_flag(bytes),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
@@ -78,6 +100,7 @@ impl SidecarFormat {
         match self {
             Self::Xmp => xmp::read_label(bytes, names),
             Self::Dop => dop::read_label(bytes),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
@@ -99,6 +122,7 @@ impl SidecarFormat {
                 &raw_name(arw),
                 &dop::timestamp(SystemTime::now()),
             ),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
@@ -120,12 +144,13 @@ impl SidecarFormat {
                 &raw_name(arw),
                 &dop::timestamp(SystemTime::now()),
             ),
+            Self::Both => unreachable!("call kinds() first"),
         }
     }
 
     /// Whether a directory entry named `name` is a sidecar of this format:
     /// `*.xmp`, or a RAW file name plus `.dop` (`*.arw.dop`, `*.dng.dop`),
-    /// all case-insensitive.
+    /// all case-insensitive; `Both` matches either.
     pub fn matches(self, name: &str) -> bool {
         let name = name.to_ascii_lowercase();
         match self {
@@ -133,8 +158,27 @@ impl SidecarFormat {
             Self::Dop => name
                 .strip_suffix(".dop")
                 .is_some_and(|raw| riffle_core::scan::is_raw_file(Path::new(raw))),
+            Self::Both => Self::Xmp.matches(&name) || Self::Dop.matches(&name),
         }
     }
+}
+
+/// The effective one of a file's existing sidecars, given as
+/// `(sidecar, mtime_ns)` in `kinds()` order: the one modified last, and on a
+/// tie (an exFAT card keeps mtimes to 2 s) the one listed first. Both the
+/// writer, picking the stat it stores, and the folder open, picking the file
+/// it compares against that stat, go through this, so the two never disagree.
+pub(crate) fn newest<T>(sidecars: impl IntoIterator<Item = (T, i64)>) -> Option<T> {
+    sidecars
+        .into_iter()
+        .fold(
+            None,
+            |best: Option<(T, i64)>, (sidecar, mtime_ns)| match best {
+                Some((_, best_ns)) if best_ns >= mtime_ns => best,
+                _ => Some((sidecar, mtime_ns)),
+            },
+        )
+        .map(|(sidecar, _)| sidecar)
 }
 
 fn raw_name(arw: &Path) -> String {
@@ -435,71 +479,106 @@ pub(crate) fn existing_sidecar(arw: &Path, format: SidecarFormat) -> Option<Path
         })
 }
 
-/// What `write` produces: the sidecar's `(size, mtime_ns)` (or `None` when
-/// there is nothing to write: clearing a rating on a file that has no
-/// sidecar must not litter the folder with an empty one), alongside the
-/// label actually written.
+/// What `write` produces: the effective sidecar's `(size, mtime_ns)` (the
+/// newest one under `Both`, see `newest`; `None` when there is nothing to
+/// write: clearing a rating on a file that has no sidecar must not litter the
+/// folder with an empty one), alongside the label actually written.
 type WriteResult = Result<(Option<(i64, i64)>, Option<String>), String>;
 
-/// Write one file's sidecar.
+/// Write one file's sidecar, or under `Both` each of its two sidecars.
 ///
 /// `judgment.label_known` is false when `judgment.label` was never learned
 /// by the caller (see `Writer::set`); the label is then ignored and the
-/// sidecar's own current label, read from disk, is kept and returned instead,
-/// so an unknown label can never clear one PhotoLab or Lightroom already
-/// wrote.
+/// current label of the newest existing sidecar, read from disk, is kept and
+/// returned instead (and written to every sidecar), so an unknown label can
+/// never clear one PhotoLab or Lightroom already wrote.
+///
+/// Each sidecar is replaced atomically, but under `Both` the two are not
+/// replaced together: a failure (or a crash) between them leaves them
+/// disagreeing, and the row dirty, so the retry or the next folder open
+/// writes both again.
 fn write(
     arw: &Path,
     judgment: &Judgment,
     format: SidecarFormat,
     names: &LabelNames,
 ) -> WriteResult {
-    let Judgment {
-        rating,
-        flag,
-        label,
-        label_known,
-    } = judgment;
-    let (rating, flag, label_known) = (*rating, *flag, *label_known);
-    let existing = existing_sidecar(arw, format);
-    let current = existing
-        .as_ref()
-        .map(|target| std::fs::read(target).map_err(|e| format!("{}: {e}", target.display())))
-        .transpose()?;
-    let resolved_label = if label_known {
-        label.clone()
+    let mut existing = Vec::new();
+    for &kind in format.kinds() {
+        if let Some(target) = existing_sidecar(arw, kind) {
+            let bytes = std::fs::read(&target).map_err(|e| format!("{}: {e}", target.display()))?;
+            let mtime_ns = index::stat(&target)?.mtime_ns;
+            existing.push(((kind, target, bytes), mtime_ns));
+        }
+    }
+    let resolved_label = if judgment.label_known {
+        judgment.label.clone()
     } else {
-        current
-            .as_deref()
-            .map(|bytes| format.read_label(bytes, names))
-            .transpose()?
-            .flatten()
+        newest(
+            existing
+                .iter()
+                .map(|(sidecar, mtime_ns)| (sidecar, *mtime_ns)),
+        )
+        .map(|(kind, _, bytes)| kind.read_label(bytes, names))
+        .transpose()?
+        .flatten()
     };
-    let label = resolved_label.as_deref();
-    let (target, bytes) = match &existing {
+    let mut written = Vec::new();
+    for &kind in format.kinds() {
+        let current = existing
+            .iter()
+            .find(|((k, _, _), _)| *k == kind)
+            .map(|((_, target, bytes), _)| (target.as_path(), bytes.as_slice()));
+        if let Some(stat) = write_kind(
+            arw,
+            kind,
+            current,
+            judgment.rating,
+            judgment.flag,
+            resolved_label.as_deref(),
+            names,
+        )? {
+            written.push((stat, stat.1));
+        }
+    }
+    Ok((newest(written), resolved_label))
+}
+
+/// Write the sidecar of `arw` in the single-file format `kind`, patching
+/// `current` (its path and bytes) when it exists. Returns its new
+/// `(size, mtime_ns)`, or `None` when there was none and nothing to write.
+fn write_kind(
+    arw: &Path,
+    kind: SidecarFormat,
+    current: Option<(&Path, &[u8])>,
+    rating: Option<i8>,
+    flag: Flag,
+    label: Option<&str>,
+    names: &LabelNames,
+) -> Result<Option<(i64, i64)>, String> {
+    let (target, bytes) = match current {
         None => {
             if rating.is_none() && flag == Flag::None && label.is_none() {
-                return Ok((None, resolved_label));
+                return Ok(None);
             }
             let bytes = if rating.is_none() && flag == Flag::None {
-                format.write_label(arw, None, label, names)?
+                kind.write_label(arw, None, label, names)?
             } else {
-                let rated = format.write_rating(arw, None, rating, flag)?;
-                format.write_label(arw, Some(&rated), label, names)?
+                let rated = kind.write_rating(arw, None, rating, flag)?;
+                kind.write_label(arw, Some(&rated), label, names)?
             };
-            (format.sidecar_path(arw), bytes)
+            (kind.sidecar_path(arw), bytes)
         }
-        Some(target) => {
-            let current = current.as_deref().expect("existing sidecar was read above");
-            let rated = format.write_rating(arw, Some(current), rating, flag)?;
+        Some((target, current)) => {
+            let rated = kind.write_rating(arw, Some(current), rating, flag)?;
             // Clearing a label that is not there would still bump the `.dop`
             // timestamps, so it is skipped.
-            let bytes = if label.is_none() && format.read_label(&rated, names)?.is_none() {
+            let bytes = if label.is_none() && kind.read_label(&rated, names)?.is_none() {
                 rated
             } else {
-                format.write_label(arw, Some(&rated), label, names)?
+                kind.write_label(arw, Some(&rated), label, names)?
             };
-            (target.clone(), bytes)
+            (target.to_path_buf(), bytes)
         }
     };
 
@@ -537,13 +616,8 @@ fn write(
         return Err(format!("{}: {e}", target.display()));
     }
 
-    let meta = std::fs::metadata(&target).map_err(|e| format!("{}: {e}", target.display()))?;
-    let mtime_ns = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_nanos() as i64);
-    Ok((Some((meta.len() as i64, mtime_ns)), resolved_label))
+    let stat = index::stat(&target)?;
+    Ok(Some((stat.size, stat.mtime_ns)))
 }
 
 #[cfg(test)]
@@ -987,6 +1061,200 @@ mod tests {
         );
         assert!(!SidecarFormat::Dop.matches("a.dop"));
         assert!(!SidecarFormat::Dop.matches("a.xmp"));
+        assert_eq!(
+            SidecarFormat::from_setting(Some("both")),
+            SidecarFormat::Both
+        );
+        assert_eq!(SidecarFormat::Both.setting(), "both");
+        assert_eq!(
+            SidecarFormat::from_setting(Some(SidecarFormat::Both.setting())),
+            SidecarFormat::Both
+        );
+        assert!(SidecarFormat::Both.matches("A.XMP"));
+        assert!(SidecarFormat::Both.matches("a.ARW.dop"));
+        assert!(!SidecarFormat::Both.matches("a.jpg.dop"));
+    }
+
+    #[test]
+    fn the_newest_sidecar_wins_and_a_tie_goes_to_the_first_listed() {
+        assert_eq!(newest([("xmp", 1), ("dop", 2)]), Some("dop"));
+        assert_eq!(newest([("xmp", 2), ("dop", 1)]), Some("xmp"));
+        assert_eq!(newest([("xmp", 2), ("dop", 2)]), Some("xmp"));
+        assert_eq!(newest([("dop", 2)]), Some("dop"));
+        assert_eq!(newest::<&str>([]), None);
+    }
+
+    fn set_mtime(path: &Path, secs: u64) {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + Duration::from_secs(secs))
+            .unwrap();
+    }
+
+    #[test]
+    fn a_judgment_under_both_lands_in_the_xmp_and_the_dop() {
+        let dir = temp_dir("both-write");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let fresh = arw(&dir, "a.ARW");
+        judge(
+            &index,
+            &writer,
+            &fresh,
+            Some(3),
+            Flag::Pick,
+            Some("Green"),
+            SidecarFormat::Both,
+        );
+        let bytes = std::fs::read(xmp::sidecar_path(&fresh)).unwrap();
+        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(3));
+        assert_eq!(xmp::read_flag(&bytes).unwrap(), Flag::Pick);
+        assert_eq!(
+            xmp::read_label(&bytes, &LabelNames::default())
+                .unwrap()
+                .as_deref(),
+            Some("Green")
+        );
+        let bytes = std::fs::read(dop::sidecar_path(&fresh)).unwrap();
+        assert_eq!(dop::read_rating(&bytes).unwrap(), Some(3));
+        assert_eq!(dop::read_flag(&bytes).unwrap(), Flag::Pick);
+        assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some("Green"));
+
+        // A file with only a PhotoLab sidecar gets it patched and an XMP
+        // minted next to it.
+        let photolab = arw(&dir, "_DSC0003.ARW");
+        std::fs::write(dop::sidecar_path(&photolab), PHOTOLAB_0003).unwrap();
+        judge(
+            &index,
+            &writer,
+            &photolab,
+            Some(5),
+            Flag::None,
+            None,
+            SidecarFormat::Both,
+        );
+        let text = std::fs::read_to_string(dop::sidecar_path(&photolab)).unwrap();
+        assert!(text.contains("\nRating = 5,"), "the .dop is patched");
+        assert!(text.ends_with("}\n\r\n"), "the trailing CRLF survives");
+        let bytes = std::fs::read(xmp::sidecar_path(&photolab)).unwrap();
+        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(5));
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn clearing_under_both_creates_no_sidecar_and_patches_only_the_existing_one() {
+        let dir = temp_dir("both-clear");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let none = arw(&dir, "a.ARW");
+        judge(
+            &index,
+            &writer,
+            &none,
+            None,
+            Flag::None,
+            None,
+            SidecarFormat::Both,
+        );
+        assert!(!xmp::sidecar_path(&none).exists());
+        assert!(!dop::sidecar_path(&none).exists());
+
+        let lightroom = arw(&dir, "b.ARW");
+        std::fs::write(xmp::sidecar_path(&lightroom), lightroom_sidecar(2)).unwrap();
+        judge(
+            &index,
+            &writer,
+            &lightroom,
+            None,
+            Flag::None,
+            None,
+            SidecarFormat::Both,
+        );
+        assert_eq!(
+            std::fs::read_to_string(xmp::sidecar_path(&lightroom)).unwrap(),
+            lightroom_sidecar(0)
+        );
+        assert!(!dop::sidecar_path(&lightroom).exists());
+        assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_unknown_label_under_both_keeps_the_newest_sidecars_label_in_both_files() {
+        let dir = temp_dir("both-label-unknown");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        for (xmp_secs, dop_secs, kept) in [(2_000, 1_000, "Red"), (1_000, 2_000, "Blue")] {
+            let path = arw(&dir, &format!("{kept}.ARW"));
+            let (xmp_path, dop_path) = (xmp::sidecar_path(&path), dop::sidecar_path(&path));
+            std::fs::write(
+                &xmp_path,
+                xmp::write_label(None, Some("Red"), &LabelNames::default()).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                &dop_path,
+                dop::write_label(
+                    Some(PHOTOLAB_0003),
+                    Some("Blue"),
+                    &raw_name(&path),
+                    &dop::timestamp(SystemTime::now()),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            set_mtime(&xmp_path, xmp_secs);
+            set_mtime(&dop_path, dop_secs);
+
+            lock(&index)
+                .set_rating(
+                    "d",
+                    &path.to_string_lossy(),
+                    Some(4),
+                    Flag::None,
+                    None,
+                    false,
+                )
+                .unwrap();
+            writer
+                .set(
+                    path.clone(),
+                    Some(4),
+                    Flag::None,
+                    None,
+                    false,
+                    SidecarFormat::Both,
+                    LabelNames::default(),
+                )
+                .unwrap();
+            writer.flush(DRAIN_TIMEOUT);
+
+            let bytes = std::fs::read(&xmp_path).unwrap();
+            assert_eq!(
+                xmp::read_label(&bytes, &LabelNames::default())
+                    .unwrap()
+                    .as_deref(),
+                Some(kept)
+            );
+            assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
+            let bytes = std::fs::read(&dop_path).unwrap();
+            assert_eq!(dop::read_label(&bytes).unwrap().as_deref(), Some(kept));
+            assert_eq!(dop::read_rating(&bytes).unwrap(), Some(4));
+            assert!(lock(&index).dirty_rows("d").unwrap().is_empty());
+        }
+
+        drop(writer);
+        remove_temp_dir(&dir);
     }
 
     #[test]
