@@ -1298,6 +1298,12 @@ pub async fn mcp_enabled(app: tauri::AppHandle) -> crate::mcp::McpState {
     crate::mcp::state(&app).await
 }
 
+/// The main window's answer to an `mcp-request`.
+#[tauri::command]
+pub fn mcp_reply(app: tauri::AppHandle, id: u64, ok: bool, value: Value) {
+    app.state::<crate::mcp::AppMcp>().reply(id, ok, value);
+}
+
 /// Turn the MCP server on or off and persist it under `mcpEnabled`. A save
 /// failure is logged and the switch stands; a bind error is reported through
 /// the returned state and the `mcp-state` event.

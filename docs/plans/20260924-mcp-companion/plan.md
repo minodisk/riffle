@@ -82,7 +82,7 @@ Desktop appear only as connection examples.
     - Settings tab, checkbox and status follow the existing `auto-advance` pattern (invoke on load, `listen` on the event, `status.textContent` on error). Copy uses `navigator.clipboard.writeText`; verify it works in the Tauri webview on Linux (WebKitGTK) and fall back to selecting the text if not.
     - Commit as `feat(app): embed an MCP server behind a setting`.
 
-- [ ] Step 2: Frontend bridge and `get_view`
+- [x] Step 2: Frontend bridge and `get_view`
   - Done when:
     - `crates/app/src/mcp.rs` gets `bridge::call(app, kind, args) -> Result<Value, String>`: mints an id, stores a `tokio::sync::oneshot::Sender`, emits `mcp-request` to the `main` window (`app.get_webview_window("main")`, error "Riffle's main window is not open" when missing), awaits with a 5 s timeout. New `#[tauri::command] mcp_reply(app, id: u64, ok: bool, value: Value)` completes it.
     - New `crates/app/ui/src/companion.ts`: `handleRequest(kind, args, view: ViewApi): Promise<unknown>` is pure over a small `ViewApi` interface (getters for `files`, `index`, `selection`, `bursts`, `sharpness`, `ratings`, `flags`, `labels`, `entries`, mode flags, and the actions added in later steps) so it is unit-tested without the DOM; `main.ts` implements `ViewApi` over its existing module-level state and registers the `mcp-request` listener next to the other `listen` calls (~line 1827).
