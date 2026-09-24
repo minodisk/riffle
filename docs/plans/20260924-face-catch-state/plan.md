@@ -399,3 +399,4 @@ head, tracking=1, `caught` by design).
 ## Progress
 
 - (2026-09-24) Step 1 complete
+- (2026-09-24) Step 2 complete
