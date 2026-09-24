@@ -142,4 +142,4 @@ Decided direction:
 
 ## Progress
 
-- (none yet)
+- 2026-09-24: Step 1 done (SCHEMA_VERSION 13 / EXTRACTOR_VERSION 2, AF frame + MF flag in the index, frame drawn in the focus mark, focusbox uses the recorded frame)
