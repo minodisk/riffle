@@ -44,6 +44,28 @@
   `c` / `d`; the plan lists every child directory of `/mnt`, so they appear as
   roots.
 
+## Step 3
+
+- The DOM part lives in `crates/app/ui/src/folders.ts` next to the pure
+  `tree.ts`. `reveal` awaits a promise that settles when `folder_roots` has
+  answered, since the launch-time reopen of the last folder can reach
+  `openDirectory` before the roots arrive; the roots are asked for after
+  `Promise.allSettled` of the `sort_order` and `shortcuts` invokes.
+- `reveal` takes a `stillCurrent` closure (`token === folderToken` in
+  `openDirectory`) instead of minting its own counter, per the guide's "one
+  token" rule, and checks it after every `list_subfolders` await.
+- The chain `ancestorsWithin` returns includes the open folder itself, and
+  `reveal` expands it too, so the open folder's own RAW count badge shows and
+  its subfolders are one click away.
+- `ancestorsWithin` builds the chain in the root's spelling plus the path's
+  own segments, which matches the keys `list_subfolders` produces
+  (`dir.join(name)`). On a case-insensitive file system a folder opened with
+  a differently cased path (other than the drive letter) finds no node at
+  the first mismatching level; the reveal then stops expanding there and
+  nothing is highlighted.
+- `String.prototype.replaceAll` was avoided in `tree.ts` (a regex `replace`
+  instead) because the build targets `safari13`, which lacks it.
+
 ## Deferred issues (todo candidates)
 
 - With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to
@@ -68,3 +90,28 @@
   `/mnt` is taken. A filter (e.g. only single-letter drive mounts under
   `/mnt` on WSL) could hide them. Basis: Step 2 implementation. Files:
   `crates/app/src/folders.rs` (`volumes`).
+- A folder opened with a path whose case differs from the listing's (possible
+  on macOS / Windows, e.g. a typed or dropped path) is not revealed past the
+  first mismatching level, since `tree.ts` compares paths case-sensitively
+  apart from the drive letter. `reveal` could match children
+  case-insensitively on those platforms. Basis: Step 3 implementation. Files:
+  `crates/app/ui/src/tree.ts` (`ancestorsWithin`),
+  `crates/app/ui/src/folders.ts` (`reveal`).
+- A `list_subfolders` failure collapses the row again and reports through
+  `setStatus`; the row itself carries no error mark, so an unreadable folder
+  looks like an unexpanded one once the status line changes. Basis: Step 3
+  implementation. Files: `crates/app/ui/src/folders.ts` (`toggle`).
+- `folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
+  card or drive mounted afterward (a new `/Volumes/*`, `/media/*/*` or drive
+  letter) does not appear in the tree until the app restarts. Re-invoking
+  `folder_roots` and `addRoots` on window focus or on each `reveal` would
+  cover it. Basis: review feedback, Round 1 item 2. Files:
+  `crates/app/ui/src/folders.ts` (`loadRoots`), `docs/usage.md`.
+- A folder reachable from two roots (e.g. on Windows, the home root
+  `C:\Users\me` and `C:\` > `Users` > `me`, since Step 2 keeps both; or any
+  root under `/` that `rootOf` adds) shares one `TreeNode`, keyed by path
+  alone. Expanding either row expands both, and the subtree and the
+  `.current` highlight are drawn twice. Keying `expanded` (and the map itself)
+  by the row's root-plus-path, or not listing a root's own path as a child of
+  another root, would fix it. Basis: review feedback, Round 1 item 4. Files:
+  `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).

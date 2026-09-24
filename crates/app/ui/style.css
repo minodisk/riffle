@@ -35,9 +35,10 @@ body {
   min-height: 0;
 }
 
-/* The left pane, holding only the Open folder button for now. */
+/* The left pane: the Open folder button over the folder tree. Its width is
+   fixed, like #info's, since nothing in it has a natural width. */
 #side {
-  flex: none;
+  flex: 0 0 220px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -289,6 +290,63 @@ body {
 
 #open:hover {
   background: #333;
+}
+
+#folders {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 0.5rem;
+  font-size: 0.8rem;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px 2px calc(4px + var(--depth) * 12px);
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #ccc;
+}
+
+.folder:hover {
+  background: #222;
+}
+
+.folder.current {
+  color: #fff;
+  background: #2d4059;
+}
+
+.folder .expander {
+  flex: none;
+  width: 14px;
+  font-size: 0.7rem;
+  text-align: center;
+  color: #888;
+  cursor: pointer;
+}
+
+.folder .name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* The RAW count of an expanded folder. */
+.folder .count {
+  flex: none;
+  margin-left: auto;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  color: #999;
+  background: #2a2a2a;
+  border-radius: 8px;
 }
 
 #strip-inner {

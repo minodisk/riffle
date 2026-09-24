@@ -9,9 +9,23 @@ window. Riffle lists the ARW and DNG files in it and pages through their
 embedded previews, rotated by each file's Orientation. With no folder open the
 viewer shows a prompt in its center; click it to open the folder picker.
 
-- **Filmstrip**: thumbnails run along the bottom, under the viewer, follow
-  paging and show the file you click. The mouse wheel scrolls it sideways.
-  Its header bar holds the `N / M` counter and the filter and sort menus.
+- **Folders**: the left pane, under the `Open folder` button, is a folder
+  tree rooted at the home folder and the mounted volumes (`/Volumes/*` on
+  macOS, the drive letters on Windows, `/mnt/*`, `/media/*/*` and
+  `/run/media/*/*` on Linux; the list of these root volumes is read once at
+  launch, so one mounted afterward does not appear until the app restarts). A
+  folder's arrow lists its subfolders, again on every expand, so a
+  subfolder created since shows up; an expanded folder shows how many RAW
+  files it holds itself. Clicking a folder's name opens it.
+  `Open folder`, `File > Open Folder…` and a drop still open anything the tree
+  does not reach. The open folder is highlighted, and the tree expands down to
+  it whenever a folder opens, however it was opened; one on a volume the tree
+  does not list (a network share, say) adds that volume to the top level for
+  the session.
+- **Filmstrip**: thumbnails run along the bottom, under the viewer and the
+  folder tree, follow paging and show the file you click. The mouse wheel
+  scrolls it sideways. Its header bar holds the `N / M` counter and the
+  filter and sort menus.
   Several files can be selected: `Cmd+click` (`Ctrl+click` on Windows and
   Linux) adds or removes one file without changing the file shown (the shown
   file itself always stays selected), `Shift+click` selects every file from the
