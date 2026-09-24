@@ -47,8 +47,8 @@ const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
 const CROP_HEADER_LEN = 32;
 const CROP_KIND_RGBA_V3 = 5;
-// Turned on by the settings modal's `Timing logs` item. That item only shows in a development build, so elsewhere this stays
-// off.
+// Turned on by the settings modal's `Timing logs` item. That item only
+// shows in a development build, so elsewhere this stays off.
 let debugLogging = false;
 
 function debugLog(...args: unknown[]): void {
