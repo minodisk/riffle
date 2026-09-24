@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 
 use crate::arw::Shot;
-use crate::decode::{apply_orientation, decode_rgb, thumbnail_jpeg};
-use crate::faces::{self, Face};
+use crate::decode::thumbnail_jpeg;
+use crate::faces::{detect_around, face_catch, FaceCatch};
 use crate::reader::read_preview;
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
@@ -32,6 +32,9 @@ pub struct Entry {
     /// `sharpness::score_preview` of the preview; `None` when it could not be
     /// scored, which does not fail the file.
     pub sharpness: Option<f64>,
+    /// Whether the AF caught a face: `Caught` on a Sony face-tracked frame,
+    /// else from the faces around a trusted AF point, else `Unknown`.
+    pub face_catch: FaceCatch,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
@@ -48,19 +51,24 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
     .map_err(|e| e.to_string())?;
     let eye_af = eye_af_frame(&arw.shot);
-    let faces = if eye_af.is_some() {
-        Vec::new()
+    let focus = trusted_focus(&arw.shot);
+    // Faces steer the score only without an AF point, so with one they only
+    // decide the face-catch state. Any detection failure is no face.
+    let (face_catch, faces) = if eye_af.is_some() {
+        (FaceCatch::Caught, Vec::new())
     } else {
-        catch_unwind(AssertUnwindSafe(|| detect_faces(&preview, arw.orientation)))
-            .unwrap_or_default()
+        match catch_unwind(AssertUnwindSafe(|| {
+            detect_around(&preview, arw.orientation, focus)
+        })) {
+            Ok(Ok(d)) => match d.point {
+                Some(point) => (face_catch(&d.faces, point), Vec::new()),
+                None => (FaceCatch::Unknown, d.faces),
+            },
+            _ => (FaceCatch::Unknown, Vec::new()),
+        }
     };
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
-        score_preview(
-            &preview,
-            trusted_focus(&arw.shot),
-            eye_af.map(|(_, frame)| frame),
-            &faces,
-        )
+        score_preview(&preview, focus, eye_af.map(|(_, frame)| frame), &faces)
     }))
     .ok()
     .and_then(Result::ok);
@@ -69,24 +77,8 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
         shot: arw.shot,
         thumbnail,
         sharpness,
+        face_catch,
     })
-}
-
-/// Faces in `preview`, in its stored coordinates. The detector runs on the
-/// upright image; any failure is no face.
-fn detect_faces(preview: &[u8], orientation: u16) -> Vec<Face> {
-    let Ok((rgb, w, h)) = decode_rgb(preview) else {
-        return Vec::new();
-    };
-    let (mut upright, uw, uh) = apply_orientation(&rgb, w, h, orientation);
-    if orientation == 3 {
-        upright = upright.chunks_exact(3).rev().flatten().copied().collect();
-    }
-    faces::detect(&upright, uw, uh)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|f| faces::to_stored(f, orientation, w, h))
-        .collect()
 }
 
 /// Run `extract` over `paths` on a pool of `threads` threads, handing each

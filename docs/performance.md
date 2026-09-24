@@ -227,6 +227,23 @@ Recall: on the same samples the detector found no face in 29 of the 36 DNGs
 people on a swing (`L1005161.DNG`) yielded 2, and a basketball player in
 three-quarter profile was missed.
 
+Files with a trusted AF point but no camera face tracking now search a
+480x480 crop of the upright preview around the AF point instead of the whole
+preview; the scan still runs YuNet at most once per file. Measured on
+2026-09-24 on the same Linux WSL2 machine (24 hardware threads), release
+`riffle-cli scan` on the 2134-ARW α7 V folder (428 files take the crop path)
+read from the Windows NTFS drive, warm page cache (one scan before timing),
+before (the whole-preview detection) and after, runs alternated, four each:
+
+| Threads | Per file mean before | Per file mean after | p95 before -> after |
+|---------|----------------------|---------------------|---------------------|
+| 1 | 22.0 / 22.5 / 22.9 / 22.5ms | 29.5 / 21.8 / 22.1 / 21.9ms | 43-46 -> 42.5-54.5ms |
+| 12 | 36.8 / 38.2 / 36.0 / 35.5ms | 38.3 / 41.8 / 35.1 / 38.2ms | 66.5-71.4 -> 64.8-79.1ms |
+
+On one thread the mean did not rise (the first after run, 29.5ms, was an
+outlier the next three did not repeat); on 12 threads the runs overlap and
+the spread is the drive's, not the detector's.
+
 ## Opening an indexed folder again
 
 The second open of a fully indexed folder does no extraction: it stats every

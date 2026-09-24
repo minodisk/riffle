@@ -4,6 +4,7 @@ use riffle_core::faces;
 use riffle_core::partial;
 use riffle_core::reader;
 use riffle_core::scan;
+use riffle_core::sharpness;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
@@ -111,24 +112,49 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Draw the detected faces and their eyes on the preview.
+/// Print the face-catch state and draw the searched region (the crop around
+/// the AF point, or nothing for the whole image), the AF point and the faces
+/// found with their eyes on the upright preview.
 fn faces(path: &Path, out: &Path) -> Result<()> {
     let (a, jpeg) = reader::read_preview(path)?;
-    let (rgb, w, h) = decode_rgb(&jpeg)?;
-    // YuNet is trained on upright faces, so orient before detecting.
-    let (mut rgb, w, h) = apply_orientation(&rgb, w, h, a.orientation);
+    let focus = sharpness::trusted_focus(&a.shot);
     // The first call builds the model; time a second one too.
     let t = Instant::now();
-    let found = faces::detect(&rgb, w, h)?;
+    let d = faces::detect_around(&jpeg, a.orientation, focus)?;
     let first = t.elapsed();
     let t = Instant::now();
-    faces::detect(&rgb, w, h)?;
+    faces::detect_around(&jpeg, a.orientation, focus)?;
+    let (w, h) = (d.width, d.height);
     println!(
-        "preview {w}x{h}: {} face(s), detection {:?} (first call {first:?})",
-        found.len(),
+        "preview {w}x{h}: {} face(s), decode + detection {:?} (first call {first:?})",
+        d.faces.len(),
         t.elapsed()
     );
-    for f in &found {
+    let state = if sharpness::eye_af_frame(&a.shot).is_some() {
+        "caught (camera face tracking)".to_string()
+    } else {
+        match d.point {
+            Some(p) => format!("{:?}", faces::face_catch(&d.faces, p)).to_lowercase(),
+            None => "unknown (no trusted AF point)".to_string(),
+        }
+    };
+    println!("face catch: {state}");
+    let (mut rgb, _, _) = decode_rgb(&jpeg)?;
+    if let Some((px, py)) = d.point {
+        println!("AF point ({px},{py})");
+        let r = sharpness::window_at(w, h, px, py, faces::CATCH_CROP);
+        draw_rect(
+            &mut rgb,
+            w,
+            h,
+            r.x as i64,
+            r.y as i64,
+            r.width as i64 - 1,
+            r.height as i64 - 1,
+        );
+        draw_rect(&mut rgb, w, h, px as i64 - 10, py as i64 - 10, 20, 20);
+    }
+    for f in &d.faces {
         println!(
             "face ({:.0},{:.0}) {:.0}x{:.0} score {:.2} eyes ({:.0},{:.0}) ({:.0},{:.0})",
             f.x,
@@ -154,6 +180,7 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
             draw_rect(&mut rgb, w, h, x as i64 - 4, y as i64 - 4, 8, 8);
         }
     }
+    let (rgb, w, h) = faces::upright_rgb(&rgb, w, h, a.orientation);
     image::save_buffer(out, &rgb, w as u32, h as u32, image::ColorType::Rgb8)?;
     println!("wrote {out:?} ({w}x{h}, orientation {})", a.orientation);
     Ok(())
