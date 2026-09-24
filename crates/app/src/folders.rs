@@ -33,8 +33,12 @@ pub async fn list_subfolders(dir: String) -> Result<Folder, String> {
 }
 
 /// The home directory, then the mounted volumes. A volume that resolves to
-/// the home directory or one of its ancestors (macOS's `/Volumes/Macintosh
-/// HD` is a link to `/`) is dropped, since home already stands for it.
+/// the home directory (a plain duplicate), or on macOS to one of its
+/// ancestors (`/Volumes/Macintosh HD` is a link to `/`, an ancestor of
+/// home), is dropped, since home already stands for it. On other platforms
+/// only the duplicate is dropped: Windows' `C:\` is a real, independently
+/// browsable root even when home lives under it, unlike macOS's volume
+/// alias.
 fn roots(home: Option<PathBuf>) -> Vec<FolderNode> {
     let home = home.and_then(|h| std::fs::canonicalize(&h).ok().map(|c| (h, c)));
     let mut seen: Vec<PathBuf> = Vec::new();
@@ -47,17 +51,23 @@ fn roots(home: Option<PathBuf>) -> Vec<FolderNode> {
         let Ok(canonical) = std::fs::canonicalize(&path) else {
             continue;
         };
-        if seen.contains(&canonical)
-            || home
-                .as_ref()
-                .is_some_and(|(_, h)| h.starts_with(&canonical))
-        {
+        if seen.contains(&canonical) || is_ancestor_alias(&home, &canonical) {
             continue;
         }
         seen.push(canonical);
         nodes.push(node(&path));
     }
     nodes
+}
+
+#[cfg(target_os = "macos")]
+fn is_ancestor_alias(home: &Option<(PathBuf, PathBuf)>, canonical: &Path) -> bool {
+    home.as_ref().is_some_and(|(_, h)| h.starts_with(canonical))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn is_ancestor_alias(_home: &Option<(PathBuf, PathBuf)>, _canonical: &Path) -> bool {
+    false
 }
 
 #[cfg(target_os = "macos")]
@@ -109,11 +119,14 @@ fn list(dir: &Path) -> Result<Folder, String> {
     let mut children = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
             if !entry.file_name().to_string_lossy().starts_with('.') && !is_hidden(&entry) {
                 children.push(node(&path));
             }
-        } else if path.is_file() && riffle_core::scan::is_raw_file(&path) {
+        } else if file_type.is_file() && riffle_core::scan::is_raw_file(&path) {
             raw_count += 1;
         }
     }

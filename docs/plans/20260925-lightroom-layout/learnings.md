@@ -26,11 +26,15 @@
 
 ## Step 2
 
-- The home volume's duplicate is dropped by "a volume whose canonical path is
-  home or an ancestor of it", not by canonical equality alone:
+- The home volume's duplicate is dropped by canonical equality, plus, on
+  macOS only, by "a volume whose canonical path is an ancestor of home":
   `/Volumes/Macintosh HD` resolves to `/`, which never equals the home
-  directory. A consequence: when home itself lives on an external volume, that
-  volume is not listed separately.
+  directory. That ancestor rule is macOS-specific: on Windows home is
+  `C:\Users\<name>`, an ancestor of which is `C:\` itself, but `C:\` is a
+  real, independently browsable root (unlike macOS's volume alias for `/`),
+  so applying the same rule there would silently drop it from the tree. A
+  consequence of the macOS rule: when home itself lives on an external
+  volume, that volume is not listed separately.
 - Windows skips entries with `FILE_ATTRIBUTE_HIDDEN` (a `MetadataExt`
   one-liner) in addition to dot-names. The `x86_64-pc-windows-gnu` target is
   installed in this WSL environment, so `cargo check --target
