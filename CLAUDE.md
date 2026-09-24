@@ -23,7 +23,8 @@ face-catch state the `f` focus mark is colored by, `src/commands.rs` the
 Tauri commands, including `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
-and the filter menu, and
+and the filter menu, `src/folders.rs` the folder tree's listing commands (the
+home and volume roots, and one folder's subfolders and RAW count), and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable

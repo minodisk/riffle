@@ -120,7 +120,7 @@ them in the PR.
       refresh has to run even when `refilter` short-circuits" are unaffected:
       `setFiles` still bumps `generation`.
 
-- [ ] Step 2: Folder listing commands for the tree (Rust)
+- [x] Step 2: Folder listing commands for the tree (Rust)
   - Done when:
     - New `crates/app/src/folders.rs` (registered in `main.rs`'s
       `generate_handler!`; `commands.rs` is already 3000 lines) with two
@@ -329,3 +329,4 @@ them in the PR.
 ## Progress
 
 - (2026-09-25) Step 1 complete
+- (2026-09-25) Step 2 complete
