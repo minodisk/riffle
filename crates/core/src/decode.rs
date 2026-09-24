@@ -112,7 +112,7 @@ fn preview_jpeg_unguarded(
     let pixels: Vec<[u8; 3]> = d.read_scanlines()?;
     d.finish()?;
     let rgb: Vec<u8> = pixels.into_iter().flatten().collect();
-    let (rgb, w, h) = apply_orientation(&rgb, w, h, orientation);
+    let (rgb, w, h) = crate::faces::upright_rgb(&rgb, w, h, orientation);
 
     let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
     c.set_size(w, h);
@@ -176,6 +176,18 @@ mod tests {
         let top = rgb[(dw / 2) * 3];
         let bottom = rgb[((dh - 1) * dw + dw / 2) * 3];
         assert!(top < 32 && bottom > 224, "top {top}, bottom {bottom}");
+    }
+
+    #[test]
+    fn preview_is_rotated_upright_for_a_half_turn() {
+        let (out, w, h) = preview_jpeg(&jpeg(1616, 1080), 3, 1616, 75.0).unwrap();
+        assert_eq!((w, h), (1616, 1080));
+        let (rgb, dw, dh) = decode_rgb(&out).unwrap();
+        assert_eq!((dw, dh), (1616, 1080));
+        // The source's top edge (green 0) ends up at the bottom after a half turn.
+        let top = rgb[(dw / 2) * 3 + 1];
+        let bottom = rgb[((dh - 1) * dw + dw / 2) * 3 + 1];
+        assert!(top > 224 && bottom < 32, "top {top}, bottom {bottom}");
     }
 
     #[test]
