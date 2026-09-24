@@ -101,3 +101,17 @@
   `setStatus`; the row itself carries no error mark, so an unreadable folder
   looks like an unexpanded one once the status line changes. Basis: Step 3
   implementation. Files: `crates/app/ui/src/folders.ts` (`toggle`).
+- `folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
+  card or drive mounted afterward (a new `/Volumes/*`, `/media/*/*` or drive
+  letter) does not appear in the tree until the app restarts. Re-invoking
+  `folder_roots` and `addRoots` on window focus or on each `reveal` would
+  cover it. Basis: review feedback, Round 1 item 2. Files:
+  `crates/app/ui/src/folders.ts` (`loadRoots`), `docs/usage.md`.
+- A folder reachable from two roots (e.g. on Windows, the home root
+  `C:\Users\me` and `C:\` > `Users` > `me`, since Step 2 keeps both; or any
+  root under `/` that `rootOf` adds) shares one `TreeNode`, keyed by path
+  alone. Expanding either row expands both, and the subtree and the
+  `.current` highlight are drawn twice. Keying `expanded` (and the map itself)
+  by the row's root-plus-path, or not listing a root's own path as a child of
+  another root, would fix it. Basis: review feedback, Round 1 item 4. Files:
+  `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).

@@ -77,8 +77,9 @@ function render(): void {
   container.replaceChildren(fragment);
 }
 
-// Expanding always re-lists, so a card inserted since the last look shows up;
-// the cached children are drawn meanwhile.
+// Expanding always re-lists, so a subfolder created since the last look
+// shows up; the cached children are drawn meanwhile. Roots themselves
+// (`loadRoots`) are read once at launch and not refreshed here.
 function toggle(path: string): void {
   if (tree.nodes.get(path)?.expanded) {
     tree = collapse(tree, path);
@@ -143,6 +144,7 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
     try {
       folder = await list(dir);
     } catch (err) {
+      tree = collapse(tree, dir);
       if (stillCurrent()) {
         reportError(String(err));
       }
@@ -152,6 +154,13 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
       return;
     }
     tree = setChildren(tree, dir, folder.raw_count, folder.children);
+  }
+  // `chain`'s last element is spelled the way the tree's nodes are keyed
+  // (`ancestorsWithin` normalizes separators, case and trailing slashes),
+  // while `path` is the caller's raw spelling; `render` compares `current`
+  // against node keys, so it must be the chain's, not the raw one.
+  if (chain !== null) {
+    current = chain.at(-1) ?? current;
   }
   render();
   container.querySelector(".folder.current")?.scrollIntoView({ block: "nearest" });

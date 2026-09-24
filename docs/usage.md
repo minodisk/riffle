@@ -12,9 +12,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Folders**: the left pane, under the `Open folder` button, is a folder
   tree rooted at the home folder and the mounted volumes (`/Volumes/*` on
   macOS, the drive letters on Windows, `/mnt/*`, `/media/*/*` and
-  `/run/media/*/*` on Linux). A folder's arrow lists its subfolders, again on
-  every expand, so a card inserted since shows up; an expanded folder shows
-  how many RAW files it holds itself. Clicking a folder's name opens it.
+  `/run/media/*/*` on Linux; the list of these root volumes is read once at
+  launch, so one mounted afterward does not appear until the app restarts). A
+  folder's arrow lists its subfolders, again on every expand, so a
+  subfolder created since shows up; an expanded folder shows how many RAW
+  files it holds itself. Clicking a folder's name opens it.
   `Open folder`, `File > Open Folder…` and a drop still open anything the tree
   does not reach. The open folder is highlighted, and the tree expands down to
   it whenever a folder opens, however it was opened; one on a volume the tree
