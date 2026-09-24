@@ -132,13 +132,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
   sharp the frame is next to its neighbors on the strip; the sharpest frame of
   a run is marked in the pick color. The score is computed from the embedded
   preview on the camera's eye-AF frame when a Sony body tracked a face, else
-  between the eyes of a detected face, else around the AF focus point when the
-  camera recorded one, else as the sharpest region of the frame, so it ranks a
-  burst rather than judging a frame on its own, and it does not replace the
-  1:1 focus check. Faces and eyes are found by the bundled
+  around the AF focus point when the camera recorded one, even when a face is
+  found elsewhere in the frame. Only when there is no AF point (manual focus,
+  Leica DNG) does it use the eyes of a detected face, or, failing that, the
+  sharpest region of the frame. Faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
-  no network access.
+  no network access. The score ranks a burst rather than judging a frame on
+  its own, and it does not replace the 1:1 focus check.
   The meta pane shows the raw score in its Riffle group.
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,

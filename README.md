@@ -68,9 +68,11 @@ DxO PhotoLab.
   (M11-P) or on manual-focus shots.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when a Sony body tracked a
-  face, else on the subject's eyes when a face is found, else around
-  the AF point, else the sharpest region. Faces and eyes are found locally,
-  with no network access.
+  face, else around the AF point, else on the subject's eyes when the camera
+  recorded no AF point and a face is found, else the sharpest region.
+- **Offline face detection**: faces and eyes are found by the bundled
+  [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  model (MIT license), run locally with no network access.
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at

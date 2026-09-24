@@ -85,7 +85,7 @@ head, tracking=1, `caught` by design).
 
 ## Steps
 
-- [ ] Step 1: Sharpness scores the AF window when the AF point is off the face
+- [x] Step 1: Sharpness scores the AF window when the AF point is off the face
   - Done when:
     - `crates/core/src/sharpness.rs` `score`: with a trusted AF point
       (`focus` is `Some`) the window is always `window_at(w, h, p.0, p.1,

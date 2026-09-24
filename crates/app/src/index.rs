@@ -65,8 +65,10 @@ const SCHEMA_VERSION: i64 = 13;
 /// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts
 /// every row, error rows included, on the next scan of each folder, and keeps
 /// `ratings`. It starts at `1` so rows from before the column existed (`0`)
-/// are stale; `2` fills in the AF frame size and the manual-focus flag.
-const EXTRACTOR_VERSION: i64 = 2;
+/// are stale; `2` fills in the AF frame size and the manual-focus flag; `3`
+/// scores the AF window instead of a detected face's eyes when the AF point
+/// lies outside the face.
+const EXTRACTOR_VERSION: i64 = 3;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on

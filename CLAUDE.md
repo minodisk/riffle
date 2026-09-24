@@ -13,9 +13,8 @@ sidecar bytes (rating, the tri-state pick / reject flag as `ShouldProcess`,
 and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, and `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
-when the camera tracked a face, else between the eyes of a detected
-face (or on the AF point when it falls inside that face), else around the AF
-point, else from the sharpest tile), `crates/cli` (the
+when the camera tracked a face, else around the AF point, else between
+the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 re-extracting rows written by an older `EXTRACTOR_VERSION`,
