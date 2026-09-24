@@ -67,7 +67,7 @@ Desktop appear only as connection examples.
 
 ## Steps
 
-- [ ] Step 1: Embedded MCP server with an on/off setting and the connection details
+- [x] Step 1: Embedded MCP server with an on/off setting and the connection details
   - Done when:
     - `crates/app/Cargo.toml` adds `rmcp = { version = "3", features = ["server", "macros", "transport-streamable-http-server"] }`, `axum = "0.8"`, `tokio = { version = "1", features = ["net", "sync"] }` and `tokio-util` (already in the lockfile); the exact features are verified against `rmcp` 3.4.1's `Cargo.toml` at implementation time.
     - New `crates/app/src/mcp.rs`: `Companion` handler (`#[tool_router]` impl with an empty router, `ServerHandler::get_info` with `ServerCapabilities::builder().enable_tools()` and a client-neutral `instructions` string that tells the connected assistant what the tools are for), `AppMcp` state, `start(app) -> Result<u16, String>` (binds `127.0.0.1:MCP_PORT`, mounts `StreamableHttpService` at `/mcp`, spawns `axum::serve(..).with_graceful_shutdown(token)`), `stop(&AppMcp)` (cancels the token, waits for the task), and `pub const MCP_PORT: u16` (a fixed port outside common ranges: `41917`).
@@ -149,4 +149,4 @@ Desktop appear only as connection examples.
 
 ## Progress
 
-- (none yet)
+- (2026-09-25) Step 1 complete

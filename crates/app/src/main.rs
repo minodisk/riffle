@@ -3,6 +3,7 @@
 mod commands;
 mod exif;
 mod index;
+mod mcp;
 mod shortcuts;
 mod sidecar;
 mod trash;
@@ -542,7 +543,8 @@ fn main() {
                     );
                 })
             });
-            let (format, keymap, auto_advance, label_names) = commands::load_settings(app.handle());
+            let (format, keymap, auto_advance, label_names, mcp_enabled) =
+                commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppLabelNames(Mutex::new(label_names)));
@@ -560,6 +562,15 @@ fn main() {
             commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
+            app.manage(mcp::AppMcp::default());
+            // A failed bind (the port in use) is reported in the settings
+            // window rather than stopping the app from launching.
+            if mcp_enabled {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    mcp::switch(&handle, true).await;
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -588,6 +599,8 @@ fn main() {
             commands::reset_shortcuts,
             commands::auto_advance,
             commands::set_auto_advance,
+            commands::mcp_enabled,
+            commands::set_mcp_enabled,
             commands::label_names,
             commands::set_label_names,
             commands::scan_running,
@@ -629,6 +642,7 @@ fn main() {
                     writer.flush(sidecar::DRAIN_TIMEOUT);
                 }
                 update::install_pending(app);
+                tauri::async_runtime::block_on(mcp::stop(&app.state::<mcp::AppMcp>()));
             }
         });
 }

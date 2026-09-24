@@ -352,8 +352,9 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
 /// be read is logged and falls back to the defaults, followed by the keymap,
-/// the `autoAdvance` setting and the `labelNames` setting.
-pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, LabelNames) {
+/// the `autoAdvance` setting, the `labelNames` setting and the `mcpEnabled`
+/// setting.
+pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, LabelNames, bool) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
@@ -364,6 +365,7 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
                 Keymap::defaults(),
                 auto_advance_setting(None),
                 LabelNames::default(),
+                mcp_enabled_setting(None),
             );
         }
     };
@@ -385,11 +387,17 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
     let keymap = Keymap::from_overrides(store.get("shortcuts").as_ref());
     let auto_advance = auto_advance_setting(store.get("autoAdvance").as_ref());
     let names = label_names_setting(store.get("labelNames").as_ref());
-    (format, keymap, auto_advance, names)
+    let mcp_enabled = mcp_enabled_setting(store.get("mcpEnabled").as_ref());
+    (format, keymap, auto_advance, names, mcp_enabled)
 }
 
 /// The stored `autoAdvance` value; missing or non-boolean means off.
 fn auto_advance_setting(value: Option<&Value>) -> bool {
+    value.and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// The stored `mcpEnabled` value; missing or non-boolean means off.
+fn mcp_enabled_setting(value: Option<&Value>) -> bool {
     value.and_then(Value::as_bool).unwrap_or(false)
 }
 
@@ -1269,6 +1277,33 @@ pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
         log::warn!("failed to save the auto-advance setting: {e}");
     }
     let _ = app.emit("auto-advance", enabled);
+}
+
+/// Whether the MCP server is on, its port and its last bind error.
+#[tauri::command]
+pub async fn mcp_enabled(app: tauri::AppHandle) -> crate::mcp::McpState {
+    crate::mcp::state(&app).await
+}
+
+/// Turn the MCP server on or off and persist it under `mcpEnabled`. A save
+/// failure is logged and the switch stands; a bind error is reported through
+/// the returned state and the `mcp-state` event.
+#[tauri::command]
+pub async fn set_mcp_enabled(app: tauri::AppHandle, enabled: bool) -> crate::mcp::McpState {
+    let saving = app.clone();
+    let saved = tauri::async_runtime::spawn_blocking(move || {
+        settings(&saving).and_then(|store| {
+            store.set("mcpEnabled", enabled);
+            store.save().map_err(|e| e.to_string())
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|saved| saved);
+    if let Err(e) = saved {
+        log::warn!("failed to save the MCP setting: {e}");
+    }
+    crate::mcp::switch(&app, enabled).await
 }
 
 /// The `xmp:Label` names written for Red ... Purple, in the shape stored

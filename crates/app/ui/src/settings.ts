@@ -1,5 +1,6 @@
 import { type Binding, displayKey, keyName } from "./keys.js";
 import { LABEL_COLORS, type LabelNames, englishLabelNames, labelNamesPayload } from "./labels.js";
+import { type McpState, mcpEndpoint, mcpExamples, mcpStatus } from "./mcp.js";
 import { nextTab } from "./tabs.js";
 
 const shortcutLabels: Record<string, string> = {
@@ -47,6 +48,10 @@ const labelNameInput = (color: string): HTMLInputElement =>
   document.getElementById(`label-name-${color}`) as HTMLInputElement;
 let japaneseLabelNames: LabelNames | null = null;
 const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
+const mcpEnabled = document.getElementById("mcp-enabled") as HTMLInputElement;
+const mcpStatusLine = document.getElementById("mcp-status") as HTMLParagraphElement;
+const mcpEndpointText = document.getElementById("mcp-endpoint") as HTMLPreElement;
+const mcpExamplesBlock = document.getElementById("mcp-examples") as HTMLDivElement;
 const debugTiming = document.getElementById("debug-timing") as HTMLInputElement;
 const indexSize = document.getElementById("index-size") as HTMLParagraphElement;
 const clearIndex = document.getElementById("clear-index") as HTMLButtonElement;
@@ -174,6 +179,54 @@ void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
 void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
   autoAdvance.checked = payload;
 });
+function copyButton(text: HTMLElement): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Copy";
+  button.addEventListener("click", () => {
+    copyText(text);
+  });
+  return button;
+}
+
+// When the webview refuses clipboard access, the text is selected instead so
+// the platform's copy shortcut takes it.
+function copyText(text: HTMLElement): void {
+  status.textContent = "";
+  navigator.clipboard.writeText(text.textContent ?? "").catch(() => {
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    status.textContent = "Could not copy; the text is selected, so copy it with the keyboard.";
+  });
+}
+
+function showMcpState(state: McpState): void {
+  mcpEnabled.checked = state.enabled;
+  mcpStatusLine.textContent = mcpStatus(state);
+  mcpEndpointText.textContent = mcpEndpoint(state.port);
+  mcpExamplesBlock.replaceChildren(
+    ...mcpExamples(state.port).map(({ client, text }) => {
+      const block = document.createElement("div");
+      const title = document.createElement("p");
+      title.textContent = `For example, ${client}:`;
+      const copyable = document.createElement("div");
+      copyable.className = "copyable";
+      const pre = document.createElement("pre");
+      pre.textContent = text;
+      copyable.append(pre, copyButton(pre));
+      block.append(title, copyable);
+      return block;
+    }),
+  );
+}
+
+void window.__TAURI__.core.invoke<McpState>("mcp_enabled").then(showMcpState);
+void window.__TAURI__.event.listen<McpState>("mcp-state", ({ payload }) => {
+  showMcpState(payload);
+});
 void window.__TAURI__.core.invoke<boolean>("debug_build").then((debug) => {
   (document.getElementById("tab-debug") as HTMLButtonElement).hidden = !debug;
 });
@@ -259,6 +312,22 @@ autoAdvance.addEventListener("change", () => {
       status.textContent = String(error);
     });
 });
+
+mcpEnabled.addEventListener("change", () => {
+  status.textContent = "";
+  window.__TAURI__.core
+    .invoke("set_mcp_enabled", { enabled: mcpEnabled.checked })
+    .catch((error: unknown) => {
+      status.textContent = String(error);
+    });
+});
+
+(document.getElementById("mcp-endpoint-copy") as HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    copyText(mcpEndpointText);
+  },
+);
 
 debugTiming.addEventListener("change", () => {
   void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
