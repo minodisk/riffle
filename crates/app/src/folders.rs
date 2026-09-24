@@ -122,11 +122,23 @@ fn list(dir: &Path) -> Result<Folder, String> {
         let Ok(file_type) = entry.file_type() else {
             continue;
         };
-        if file_type.is_dir() {
+        // `file_type()` does not follow symlinks, so a symlinked subfolder or
+        // RAW file is reported as neither a dir nor a file. Fall back to one
+        // `metadata()` call (which does follow the link) only in that rare
+        // case, keeping the common path at a single stat.
+        let (is_dir, is_file) = if file_type.is_symlink() {
+            match std::fs::metadata(&path) {
+                Ok(m) => (m.is_dir(), m.is_file()),
+                Err(_) => continue,
+            }
+        } else {
+            (file_type.is_dir(), file_type.is_file())
+        };
+        if is_dir {
             if !entry.file_name().to_string_lossy().starts_with('.') && !is_hidden(&entry) {
                 children.push(node(&path));
             }
-        } else if file_type.is_file() && riffle_core::scan::is_raw_file(&path) {
+        } else if is_file && riffle_core::scan::is_raw_file(&path) {
             raw_count += 1;
         }
     }
@@ -206,6 +218,26 @@ mod tests {
         let dir = temp_dir("missing").join("nope");
         let err = list(&dir).unwrap_err();
         assert!(err.starts_with(&dir.display().to_string()), "{err}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_dir_and_raw_file_are_counted() {
+        let dir = temp_dir("symlinks");
+        let target_dir = temp_dir("symlinks-target-dir");
+        std::os::unix::fs::symlink(&target_dir, dir.join("linked-dir")).unwrap();
+        let target_file = temp_dir("symlinks-target-file").join("photo.ARW");
+        std::fs::write(&target_file, b"").unwrap();
+        std::os::unix::fs::symlink(&target_file, dir.join("linked.ARW")).unwrap();
+
+        let folder = list(&dir).unwrap();
+        let names: Vec<&str> = folder.children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["linked-dir"]);
+        assert_eq!(folder.raw_count, 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&target_dir);
+        let _ = std::fs::remove_dir_all(target_file.parent().unwrap());
     }
 
     #[test]
