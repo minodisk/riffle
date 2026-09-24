@@ -518,6 +518,82 @@ body {
   cursor: pointer;
 }
 
+/* The first-launch sidecar format question. It covers the whole window, so
+   nothing behind it can be clicked until a format is chosen. */
+#format-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 60%);
+}
+
+#format-dialog[hidden] {
+  display: none;
+}
+
+#format-box {
+  max-width: 420px;
+  padding: 1.25rem 1.5rem;
+  background: #262626;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+#format-box p {
+  margin: 0 0 0.75rem;
+}
+
+#format-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#format-choices {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+#format-choices button {
+  flex: 1;
+  padding: 0.5rem;
+  font: inherit;
+  color: inherit;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#format-choices button:hover {
+  background: #333;
+}
+
+#format-choices button:focus-visible {
+  outline: 2px solid #4a9eff;
+  outline-offset: 1px;
+}
+
+#format-box .note {
+  margin: 0;
+  color: #999;
+}
+
+#format-error {
+  margin: 0.75rem 0 0;
+  color: var(--reject-color);
+}
+
+#format-error[hidden] {
+  display: none;
+}
+
 #info {
   display: flex;
   flex: 0 0 220px;

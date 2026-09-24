@@ -18,6 +18,7 @@ import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
 import { type Metadata, metaGroups } from "./meta.js";
+import { FormatGate } from "./firstrun.js";
 import {
   comparePaneAt,
   comparisonCandidates,
@@ -89,6 +90,12 @@ const metaStatusEl = document.getElementById("meta-status") as HTMLDivElement;
 const openEl = document.getElementById("open") as HTMLButtonElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
+const formatDialog = document.getElementById("format-dialog") as HTMLDivElement;
+const formatError = document.getElementById("format-error") as HTMLParagraphElement;
+const formatButtons = [...formatDialog.querySelectorAll<HTMLButtonElement>("button[data-format]")];
+
+// Closed until a sidecar format is saved; no folder opens before that.
+const formatGate = new FormatGate();
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), {
   type: "module",
@@ -1740,6 +1747,9 @@ function drainResync(): void {
 }
 
 function openDirectory(folder: string, token: number): Promise<void> {
+  if (!formatGate.isOpen) {
+    return Promise.resolve();
+  }
   return window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }).then((found) => {
     if (token !== folderToken) {
       return;
@@ -1791,6 +1801,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
 }
 
 function openFolder(): void {
+  if (!formatGate.isOpen) {
+    return;
+  }
   const token = newFolderToken();
   window.__TAURI__.core
     .invoke<string | null>("pick_folder")
@@ -1849,6 +1862,9 @@ let dropCounter = 0;
 
 void window.__TAURI__.event.listen<{ paths: string[] }>("tauri://drag-drop", ({ payload }) => {
   setDragging(false);
+  if (!formatGate.isOpen) {
+    return;
+  }
   const [path] = payload.paths;
   if (path === undefined || payload.paths.length > 1) {
     setStatus("Drop a single folder or RAW file.");
@@ -2164,12 +2180,63 @@ function setSortKey(key: SortKey): void {
 }
 
 openEl.addEventListener("click", openFolder);
+
+function showFormatDialog(): void {
+  formatDialog.hidden = false;
+  formatButtons[0].focus();
+}
+
+for (const button of formatButtons) {
+  button.addEventListener("click", () => {
+    for (const b of formatButtons) {
+      b.disabled = true;
+    }
+    formatError.hidden = true;
+    window.__TAURI__.core
+      .invoke("choose_sidecar_format", { format: button.dataset.format })
+      .then(
+        () => {
+          formatDialog.hidden = true;
+          formatGate.open();
+        },
+        (err: unknown) => {
+          formatError.textContent = String(err);
+          formatError.hidden = false;
+        },
+      )
+      .finally(() => {
+        for (const b of formatButtons) {
+          b.disabled = false;
+        }
+        if (!formatDialog.hidden) {
+          button.focus();
+        }
+      });
+  });
+}
+
+// Ask for the developing software while no sidecar format is saved. A failed
+// check lets folders open, as the backend does for a store it cannot open.
+void window.__TAURI__.core.invoke<boolean>("sidecar_format_saved").then(
+  (saved) => {
+    if (saved) {
+      formatGate.open();
+    } else {
+      showFormatDialog();
+    }
+  },
+  () => {
+    formatGate.open();
+  },
+);
 // Apply the remembered sort before the last folder opens, so it comes up in
 // that order.
 void window.__TAURI__.core
   .invoke<SortKey>("sort_order")
   .then(setSortKey, () => {})
-  .finally(reopenLastFolder);
+  .finally(() => {
+    formatGate.whenOpen(reopenLastFolder);
+  });
 
 // Key -> action, from the `shortcuts` command. Empty until it resolves.
 let keymap = new Map<string, string>();
@@ -2190,6 +2257,19 @@ void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload })
 });
 
 window.addEventListener("keydown", (event) => {
+  // The dialog's buttons take Enter and Space natively, but Tab would move
+  // focus past them to controls behind the overlay (there is no `inert` on
+  // the `safari13` target), so trap it by cycling within `formatButtons`.
+  if (!formatDialog.hidden) {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const from = formatButtons.indexOf(document.activeElement as HTMLButtonElement);
+      const delta = event.shiftKey ? -1 : 1;
+      const next = (from + delta + formatButtons.length) % formatButtons.length;
+      formatButtons[next].focus();
+    }
+    return;
+  }
   const key = keyName(event);
   if (key === null) {
     return;

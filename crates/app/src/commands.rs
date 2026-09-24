@@ -445,13 +445,47 @@ pub fn switch_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> R
         writer.0.as_ref(),
         index.0.as_ref(),
         format,
-        |format| {
-            settings(app).and_then(|store| {
-                store.set("sidecarFormat", format.setting());
-                store.save().map_err(|e| e.to_string())
-            })
-        },
+        |format| save_sidecar_format(app, format),
     )
+}
+
+/// Switch the sidecar format to `format` as `switch_sidecar_format` does, but
+/// persist it even when it is already the current one, and return a save
+/// failure instead of logging it. The first-launch dialog uses this: choosing
+/// XMP on a fresh store changes nothing in memory, yet it has to be saved so
+/// the dialog does not come back.
+pub fn choose_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> Result<(), String> {
+    let switch_lock = app.state::<AppSwitchLock>();
+    let _guard = index::lock(&switch_lock.0);
+    let current = app.state::<AppSidecarFormat>();
+    let writer = app.state::<AppWriter>();
+    let index = app.state::<AppIndex>();
+    choose_format(
+        &current.0,
+        writer.0.as_ref(),
+        index.0.as_ref(),
+        format,
+        |format| save_sidecar_format(app, format),
+    )
+}
+
+fn save_sidecar_format(app: &tauri::AppHandle, format: SidecarFormat) -> Result<(), String> {
+    settings(app).and_then(|store| {
+        store.set("sidecarFormat", format.setting());
+        store.save().map_err(|e| e.to_string())
+    })
+}
+
+/// The body of `choose_sidecar_format`, without the `AppHandle`.
+fn choose_format(
+    current: &Mutex<SidecarFormat>,
+    writer: Option<&Writer>,
+    index: Option<&Arc<Mutex<Index>>>,
+    format: SidecarFormat,
+    persist: impl FnOnce(SidecarFormat) -> Result<(), String>,
+) -> Result<(), String> {
+    switch_format(current, writer, index, format, |_| Ok(()))?;
+    persist(format)
 }
 
 /// The body of `switch_sidecar_format`, without the `AppHandle`: the state
@@ -1197,6 +1231,21 @@ pub struct AppSwitchLock(pub Mutex<()>);
 #[tauri::command]
 pub fn sidecar_format(app: tauri::AppHandle) -> &'static str {
     index::lock(&app.state::<AppSidecarFormat>().0).setting()
+}
+
+/// Whether a sidecar format has been saved under `sidecarFormat`. The main
+/// window asks for one on launch while this is false. A store that cannot be
+/// opened counts as saved: an answer could not be persisted there anyway.
+#[tauri::command]
+pub fn sidecar_format_saved(app: tauri::AppHandle) -> bool {
+    format_saved(settings(&app).map(|store| store.has("sidecarFormat")))
+}
+
+fn format_saved(has: Result<bool, String>) -> bool {
+    has.unwrap_or_else(|e| {
+        eprintln!("failed to open the settings: {e}");
+        true
+    })
 }
 
 /// Whether auto-advance is on.
@@ -2903,5 +2952,53 @@ mod tests {
         assert!(index::lock(&index).dirty_rows(&dir).unwrap().is_empty());
 
         remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn a_format_counts_as_saved_only_when_the_key_exists_or_the_store_is_broken() {
+        assert!(format_saved(Ok(true)));
+        assert!(!format_saved(Ok(false)));
+        assert!(format_saved(Err("no config dir".into())));
+    }
+
+    #[test]
+    fn choosing_the_current_format_still_persists_it() {
+        let current = Mutex::new(SidecarFormat::Xmp);
+        let saved = Mutex::new(Vec::new());
+
+        choose_format(&current, None, None, SidecarFormat::Xmp, |format| {
+            index::lock(&saved).push(format);
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(*index::lock(&saved), vec![SidecarFormat::Xmp]);
+        assert_eq!(*index::lock(&current), SidecarFormat::Xmp);
+    }
+
+    #[test]
+    fn choosing_another_format_switches_and_persists_it_once() {
+        let current = Mutex::new(SidecarFormat::Xmp);
+        let saved = Mutex::new(Vec::new());
+
+        choose_format(&current, None, None, SidecarFormat::Dop, |format| {
+            index::lock(&saved).push(format);
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(*index::lock(&saved), vec![SidecarFormat::Dop]);
+        assert_eq!(*index::lock(&current), SidecarFormat::Dop);
+    }
+
+    #[test]
+    fn a_failed_save_of_the_chosen_format_is_returned() {
+        let current = Mutex::new(SidecarFormat::Xmp);
+
+        let result = choose_format(&current, None, None, SidecarFormat::Xmp, |_| {
+            Err("read-only".into())
+        });
+
+        assert_eq!(result, Err("read-only".to_string()));
     }
 }

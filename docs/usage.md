@@ -206,9 +206,11 @@ combination an action leaves behind is free for another action.
 ## Ratings and sidecars
 
 The RAW file is never written. Judgments go into a sidecar next to it, in one
-of two formats chosen in `Riffle > Settings...`:
+of two formats. Riffle asks which one on its first launch, before any folder
+can be opened, and the choice can be changed later in `Riffle > Settings...`
+(`File > Settings...` on Windows and Linux):
 
-- **Lightroom (XMP)** (default): `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
+- **Lightroom (XMP)**: `FOO.ARW` gets `FOO.xmp`, holding `xmp:Rating` (`0`-`5`),
   the pick / reject flag as `xmpDM:good` (`True` for a pick, `False` for a
   reject, absent for neither), and the color label as both
   `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.

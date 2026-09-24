@@ -437,6 +437,24 @@ async fn set_sidecar_format(app: AppHandle, format: String) -> Result<(), String
     Ok(())
 }
 
+/// Save the format picked in the main window's first-launch dialog. Unlike
+/// `set_sidecar_format` it saves an unchanged format too, so the dialog does
+/// not come back on the next launch, and a failed save is returned so the
+/// dialog stays up.
+#[tauri::command]
+async fn choose_sidecar_format(app: AppHandle, format: String) -> Result<(), String> {
+    let format = SidecarFormat::from_setting(Some(&format));
+    let unchanged = *index::lock(&app.state::<commands::AppSidecarFormat>().0) == format;
+    let chosen = app.clone();
+    tauri::async_runtime::spawn_blocking(move || commands::choose_sidecar_format(&chosen, format))
+        .await
+        .map_err(|e| e.to_string())??;
+    if !unchanged {
+        let _ = app.emit("sidecar-format", format.setting());
+    }
+    Ok(())
+}
+
 /// Whether this is a development build, which shows the settings window's
 /// Debug section; a distributable build leaves the `devtools` feature off.
 #[tauri::command]
@@ -562,6 +580,7 @@ fn main() {
             commands::focus_crop,
             commands::set_rating,
             commands::sidecar_format,
+            commands::sidecar_format_saved,
             commands::shortcuts,
             commands::add_shortcut_key,
             commands::remove_shortcut_key,
@@ -576,6 +595,7 @@ fn main() {
             commands::clear_index,
             commands::trash_rejected,
             set_sidecar_format,
+            choose_sidecar_format,
             debug_build,
             timing_logs,
             set_timing_logs,
