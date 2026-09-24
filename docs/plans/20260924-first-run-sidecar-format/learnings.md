@@ -16,10 +16,12 @@
   invoke and the `sort_order` chain resolve in either order; `whenOpen`
   covers both.
 - The main window's `keydown` handler returns early (without
-  `preventDefault`) while the dialog is up, so Tab / Enter / Space still reach
-  the dialog's buttons natively and no app shortcut acts. Tab can still move
-  focus to the `Open folder` button behind the overlay (no focus trap / `inert`,
-  given the `safari13` build target), but the gate makes it a no-op.
+  `preventDefault`) while the dialog is up, so Enter / Space still reach the
+  dialog's buttons natively and no app shortcut acts. Tab is trapped
+  explicitly (no `inert` on the `safari13` build target): the handler
+  `preventDefault`s it and cycles focus within `formatButtons`, honoring
+  Shift, so it can no longer reach the filter toggle, the sort toggle, or
+  either menu behind the overlay.
 - The `(default)` marker on Lightroom (XMP) was dropped in README "Working
   with other software" and `docs/usage.md`: with the dialog there is no
   format a user gets without choosing, and the fallback for an unknown stored

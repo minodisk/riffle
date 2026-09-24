@@ -2257,8 +2257,17 @@ void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload })
 });
 
 window.addEventListener("keydown", (event) => {
-  // The dialog's buttons take Tab, Enter and Space natively.
+  // The dialog's buttons take Enter and Space natively, but Tab would move
+  // focus past them to controls behind the overlay (there is no `inert` on
+  // the `safari13` target), so trap it by cycling within `formatButtons`.
   if (!formatDialog.hidden) {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const from = formatButtons.indexOf(document.activeElement as HTMLButtonElement);
+      const delta = event.shiftKey ? -1 : 1;
+      const next = (from + delta + formatButtons.length) % formatButtons.length;
+      formatButtons[next].focus();
+    }
     return;
   }
   const key = keyName(event);
