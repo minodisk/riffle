@@ -24,6 +24,22 @@
   only reserves the inline-axis (vertical scrollbar) gutter, so it has no
   effect on a horizontal scrollbar; see the deferred issue below.
 
+## Step 2
+
+- The home volume's duplicate is dropped by "a volume whose canonical path is
+  home or an ancestor of it", not by canonical equality alone:
+  `/Volumes/Macintosh HD` resolves to `/`, which never equals the home
+  directory. A consequence: when home itself lives on an external volume, that
+  volume is not listed separately.
+- Windows skips entries with `FILE_ATTRIBUTE_HIDDEN` (a `MetadataExt`
+  one-liner) in addition to dot-names. The `x86_64-pc-windows-gnu` target is
+  installed in this WSL environment, so `cargo check --target
+  x86_64-pc-windows-gnu` in `crates/app` verifies the `cfg(windows)` code
+  locally.
+- On Linux `/mnt` also lists WSL's `wsl` and `wslg` directories next to
+  `c` / `d`; the plan lists every child directory of `/mnt`, so they appear as
+  roots.
+
 ## Deferred issues (todo candidates)
 
 - With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to
@@ -43,3 +59,8 @@
   panel shows the truth, but a migration could drop just the colliding keys.
   Basis: Step 1 test `a_store_from_the_old_defaults_still_loads`. Files:
   `crates/app/src/shortcuts.rs` (`Keymap::from_overrides`).
+- `folder_roots` on WSL lists `/mnt/wsl` and `/mnt/wslg` (WSL's internal
+  mounts) as roots next to `/mnt/c` / `/mnt/d`, since every child directory of
+  `/mnt` is taken. A filter (e.g. only single-letter drive mounts under
+  `/mnt` on WSL) could hide them. Basis: Step 2 implementation. Files:
+  `crates/app/src/folders.rs` (`volumes`).

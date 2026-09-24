@@ -2,6 +2,7 @@
 
 mod commands;
 mod exif;
+mod folders;
 mod index;
 mod mcp;
 mod shortcuts;
@@ -583,6 +584,8 @@ fn main() {
             commands::preview,
             commands::preview_pixel_limit,
             commands::dropped_folder,
+            folders::folder_roots,
+            folders::list_subfolders,
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,

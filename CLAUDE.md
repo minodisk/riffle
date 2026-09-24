@@ -21,7 +21,8 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 re-extracting rows written by an older `EXTRACTOR_VERSION` and storing the
 face-catch state the `f` focus mark is colored by,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
-and the filter menu, and
+and the filter menu, `src/folders.rs` the folder tree's listing commands (the
+home and volume roots, and one folder's subfolders and RAW count), and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings window and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
