@@ -95,8 +95,7 @@ Desktop appear only as connection examples.
     - `tauri.d.ts` has no `emitTo` typing; the frontend only needs `listen` and `invoke`, both already declared.
     - Commit as `feat(app): answer MCP get_view from the main window`.
 
-- [ ] Step 3: `get_photo` and `get_preview` (Rust-side reads)
-  <!-- Reverted by review round 1 (docs/plans/review-history/mcp-companion-step-3/review-20260925-0739.md, item 1): get_preview left orientation-3 photos upside down, using apply_orientation instead of the half-turn-aware upright_rgb. Fixed in this same round's addressing commit (crates/core/src/decode.rs now calls crate::faces::upright_rgb, plus a preview_jpeg(.., 3, ..) test); re-check this box once validated. -->
+- [x] Step 3: `get_photo` and `get_preview` (Rust-side reads)
   - Done when:
     - `get_photo(path?: string)` (default: the current path from `get_view`'s bridge) returns the index row for the path (`rating`, `flag`, `label`, `sharpness`, `focus` (AF point, frame, manual_focus), `orientation`, `capture_time`) merged with `commands::read_metadata` (camera, lens, aperture, shutter, ISO, focal length, exposure bias, focus distance, captured_at). Unknown path or a path outside the open folder is a tool error, not a panic. The row lookup adds `Index::entry(path)` (single-row query) to `crates/app/src/index.rs` rather than loading `entries(dir)`.
     - `get_preview(path?: string, long_edge?: u32)` returns one MCP image block (`ContentBlock::image(base64_jpeg, "image/jpeg")`), the embedded preview decoded with mozjpeg's DCT scaling to the largest `n/8` scale whose long edge is `<= long_edge` (default 1024, clamped to 256..=1616), rotated upright with `riffle_core::faces::upright_rgb` (handles the orientation-3 half turn that `apply_orientation` leaves alone), re-encoded at quality ~75. A text block with `{ path, width, height }` accompanies it.
@@ -152,3 +151,4 @@ Desktop appear only as connection examples.
 
 - (2026-09-25) Step 1 complete
 - (2026-09-25) Step 2 complete
+- (2026-09-25) Step 3 complete
