@@ -33,7 +33,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   tracking or a face detected under the AF point says the AF caught a face,
   orange when faces were found near the AF point but it is on none of them,
   and white when Riffle does not know (no face near the point). The meta
-  pane shows the same state.
+  pane shows the same state. The mark also draws the faces Riffle detects
+  near the AF point (anywhere on the preview when there is no AF point) as
+  a cyan box with a dot between the eyes. They appear a moment after `f`,
+  because the detection runs when the frame is shown and is kept only for
+  the session. On Sony face-tracked frames the boxes are informative only:
+  the green color comes from the camera, so a back of a head or an upturned
+  face can be green with no box. The 1:1 view and Compare draw no faces.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.

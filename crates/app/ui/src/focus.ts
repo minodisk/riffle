@@ -43,3 +43,47 @@ export function focusMark(
     faceCatch: focus.face_catch,
   };
 }
+
+// What the `faces_of` command returns: the faces found on one file's preview,
+// in the preview's stored (unrotated) pixel coordinates, `eye` being the
+// midpoint between the eyes.
+export interface Faces {
+  width: number;
+  height: number;
+  faces: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    eye: { x: number; y: number };
+  }[];
+}
+
+export interface FaceMark {
+  rect: { x: number; y: number; width: number; height: number };
+  eye: { x: number; y: number };
+}
+
+// The faces scaled onto the unrotated preview drawn `drawWidth` x
+// `drawHeight` and centered on the origin, like `focusMark`, so the rotation
+// the image got carries them too. The drawn bitmap may be a downscaled copy of
+// the preview, so the scale comes from the preview size, not the bitmap's.
+export function faceMarks(
+  faces: Faces["faces"],
+  previewWidth: number,
+  previewHeight: number,
+  drawWidth: number,
+  drawHeight: number,
+): FaceMark[] {
+  const sx = drawWidth / previewWidth;
+  const sy = drawHeight / previewHeight;
+  return faces.map((face) => ({
+    rect: {
+      x: face.x * sx - drawWidth / 2,
+      y: face.y * sy - drawHeight / 2,
+      width: face.width * sx,
+      height: face.height * sy,
+    },
+    eye: { x: face.eye.x * sx - drawWidth / 2, y: face.eye.y * sy - drawHeight / 2 },
+  }));
+}

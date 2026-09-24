@@ -327,6 +327,63 @@ fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
     Ok((arw.orientation, jpeg))
 }
 
+/// The faces `faces_of` found, in the preview's stored pixel coordinates.
+#[derive(Debug, serde::Serialize)]
+pub struct FacesResponse {
+    width: usize,
+    height: usize,
+    faces: Vec<FaceBox>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct FaceBox {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    /// The midpoint between the eyes.
+    eye: FacePoint,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct FacePoint {
+    x: f32,
+    y: f32,
+}
+
+/// Detect the faces of a file's preview through the scan's own
+/// `detect_around`, so the region and the threshold match the stored
+/// face-catch state. On an eye-AF frame this is the crop detection the scan
+/// skipped, for display only.
+fn read_faces(path: &Path) -> Result<FacesResponse, String> {
+    let (arw, jpeg) =
+        riffle_core::reader::read_preview(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let found = riffle_core::faces::detect_around(
+        &jpeg,
+        arw.orientation,
+        riffle_core::sharpness::trusted_focus(&arw.shot),
+    )
+    .map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(FacesResponse {
+        width: found.width,
+        height: found.height,
+        faces: found
+            .faces
+            .iter()
+            .map(|f| FaceBox {
+                x: f.x,
+                y: f.y,
+                width: f.width,
+                height: f.height,
+                eye: FacePoint {
+                    x: (f.left_eye.0 + f.right_eye.0) / 2.0,
+                    y: (f.left_eye.1 + f.right_eye.1) / 2.0,
+                },
+            })
+            .collect(),
+    })
+}
+
 /// Open the native folder picker and resolve once the user answers, or `None`
 /// if they cancel.
 ///
@@ -728,6 +785,15 @@ pub async fn focus_crop(path: String, width: u32, height: u32) -> Result<Respons
     .await
     .map_err(|e| e.to_string())??;
     Ok(Response::new(crop_payload(orientation, &crop, timing)))
+}
+
+/// The faces the focus mark draws for one file, detected when it is shown
+/// rather than at scan time. Touches neither the index nor the stored state.
+#[tauri::command]
+pub async fn faces_of(path: String) -> Result<FacesResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || read_faces(Path::new(&path)))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The id handed out to each `scan_folder` call, the cancel flag and join
@@ -2925,6 +2991,53 @@ mod tests {
         assert_eq!(crop.crop.x % 16, 0);
         assert_eq!(crop.point_y, 24);
         assert_eq!((crop.crop.image_width, crop.crop.image_height), (400, 300));
+
+        remove_temp_dir(&dir);
+    }
+
+    /// A TIFF shell whose IFD0 carries an Orientation and a preview of `body`,
+    /// as `riffle_core::scan`'s tests build one.
+    fn arw_with_preview(orientation: u16, body: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        buf.extend_from_slice(&3u16.to_le_bytes());
+        let at = 8 + 2 + 3 * 12 + 4;
+        for (tag, ty, value) in [
+            (0x0112u16, 3u16, orientation as u32),
+            (0x0201, 4, at as u32),
+            (0x0202, 4, body.len() as u32),
+        ] {
+            buf.extend_from_slice(&tag.to_le_bytes());
+            buf.extend_from_slice(&ty.to_le_bytes());
+            buf.extend_from_slice(&1u32.to_le_bytes());
+            buf.extend_from_slice(&value.to_le_bytes());
+        }
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        buf.extend_from_slice(body);
+        buf
+    }
+
+    #[test]
+    fn faces_come_back_in_the_stored_preview_size() {
+        let dir = temp_dir("faces");
+        let path = dir.join("a.arw");
+        std::fs::write(&path, arw_with_preview(6, &gradient_jpeg(64, 48))).unwrap();
+
+        let found = read_faces(&path).unwrap();
+        assert_eq!((found.width, found.height), (64, 48));
+        assert!(found.faces.is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_preview_that_is_not_a_jpeg_is_a_faces_error() {
+        let dir = temp_dir("faces-broken");
+        let path = dir.join("a.arw");
+        std::fs::write(&path, arw_with_preview(1, b"not a jpeg")).unwrap();
+
+        assert!(read_faces(&path).is_err());
 
         remove_temp_dir(&dir);
     }

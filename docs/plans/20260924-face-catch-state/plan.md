@@ -260,7 +260,7 @@ head, tracking=1, `caught` by design).
     - Keep the color decision in `focus.ts` (pure, tested); `main.ts` only
       reads it, matching how `focusMark` already carries the geometry.
 
-- [ ] Step 5: Draw the detected faces in the `f` focus mark, detected on demand
+- [x] Step 5: Draw the detected faces in the `f` focus mark, detected on demand
   - Done when:
     - `crates/app/src/commands.rs`: a `faces_of(path: String)` command
       (registered in `crates/app/src/main.rs`'s `generate_handler!`) runs on
@@ -402,3 +402,4 @@ head, tracking=1, `caught` by design).
 - (2026-09-24) Step 2 complete
 - (2026-09-25) Step 3 complete
 - (2026-09-25) Step 4 complete
+- (2026-09-25) Step 5 complete

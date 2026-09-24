@@ -70,7 +70,11 @@ DxO PhotoLab.
   when the camera's face tracking or a face detected under the AF point says
   the AF caught a face, orange when faces were found near the AF point but it
   is on none of them, and white when Riffle does not know (no face near the
-  point); the meta pane shows the same as a `Face` row.
+  point); the meta pane shows the same as a `Face` row. The mark also draws
+  the faces Riffle detects near the AF point as a cyan box with a dot between
+  the eyes, a moment after `f`, since the detection runs when the frame is
+  shown. On Sony face-tracked frames the boxes are informative only: the
+  green color comes from the camera.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the

@@ -19,7 +19,9 @@ the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and storing the
-face-catch state the `f` focus mark is colored by,
+face-catch state the `f` focus mark is colored by, `src/commands.rs` the
+Tauri commands, including `faces_of`, which detects the faces the focus mark
+draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the

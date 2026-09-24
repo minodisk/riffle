@@ -591,6 +591,7 @@ fn main() {
             commands::thumbnail,
             commands::metadata,
             commands::focus_crop,
+            commands::faces_of,
             commands::set_rating,
             commands::sidecar_format,
             commands::sidecar_format_saved,

@@ -244,6 +244,22 @@ On one thread the mean did not rise (the first after run, 29.5ms, was an
 outlier the next three did not repeat); on 12 threads the runs overlap and
 the spread is the drive's, not the detector's.
 
+The faces the `f` focus mark draws are detected on demand by the `faces_of`
+command (read the preview + `detect_around`), not at scan time. Measured once
+on 2026-09-25 on the same Linux WSL2 machine, release build, calling the
+command's body directly (no IPC) on two α7 V ARWs read from the Windows NTFS
+drive, warm page cache, 20 calls each after a first one:
+
+| File | First call | Mean | Median | Max |
+|------|--------------------------|------|--------|-----|
+| `_DSC3113.ARW` (1616x1080 preview, 3 faces) | 70.5ms (with the model build) | 29.9ms | 29.9ms | 34.1ms |
+| `_DSC1942.ARW` (1616x1080 preview, 3 faces) | 34.0ms | 30.6ms | 29.7ms | 37.4ms |
+
+The first call of a session also builds the model. A cold read
+from a card or a slow disk adds its own latency on top; that, and the IPC and
+redraw in the app, are not measured here. The timing ran from a temporary
+`#[ignore]`d test removed before committing.
+
 ## Opening an indexed folder again
 
 The second open of a fully indexed folder does no extraction: it stats every
