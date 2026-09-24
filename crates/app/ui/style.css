@@ -601,6 +601,191 @@ body {
   display: none;
 }
 
+/* Settings, over the whole window like the first-launch dialog. The header
+   and the tabs stay put while a long panel (the shortcuts table) scrolls, so
+   a small window never hides Reset all. */
+#settings-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 60%);
+}
+
+#settings-dialog[hidden] {
+  display: none;
+}
+
+#settings-box {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(640px, 90vw);
+  height: min(640px, 85vh);
+  padding: 0.75rem 1rem;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
+  color: #eee;
+}
+
+#settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+#settings-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#settings-close {
+  padding: 0 0.4rem;
+  border: none;
+  border-radius: 0.3rem;
+  background: none;
+  color: inherit;
+  font-size: 1.2rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+#settings-close:hover {
+  background: #333;
+}
+
+#settings-dialog [role="tablist"] {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #444;
+}
+
+#settings-dialog [role="tab"] {
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+#settings-dialog [role="tab"]:hover {
+  background: #333;
+}
+
+#settings-dialog [role="tab"][aria-selected="true"] {
+  background: #444;
+}
+
+#settings-dialog [role="tabpanel"] {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#settings-dialog label {
+  display: block;
+  padding: 0.1rem 0.5rem;
+}
+
+#settings-dialog td {
+  padding: 0.2rem 0.5rem;
+}
+
+#settings-dialog .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0.1rem 0.3rem 0.1rem 0;
+  padding: 0 0.1rem 0 0.4rem;
+  border-radius: 0.3rem;
+  background: #333;
+}
+
+#settings-dialog .chip button,
+#settings-dialog .keys .add {
+  padding: 0 0.3rem;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+#settings-dialog .chip button:hover,
+#settings-dialog .keys .add:hover {
+  background: #444;
+}
+
+#settings-status {
+  flex: none;
+  min-height: 1.2em;
+  margin: 0.5rem 0 0;
+  color: #f88;
+}
+
+#clear-index-note {
+  margin: 0.5rem 0;
+  color: #aaa;
+}
+
+#settings-dialog .actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+#label-names:not([hidden]) {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.5rem;
+}
+
+#label-names > label {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+}
+
+#label-names > p,
+#label-names > .actions {
+  grid-column: 1 / -1;
+}
+
+#mcp-status {
+  color: #aaa;
+}
+
+#settings-dialog .copyable {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+#settings-dialog .copyable pre {
+  flex: 1;
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.5rem;
+  overflow-x: auto;
+  border-radius: 0.3rem;
+  background: #333;
+  user-select: text;
+}
+
+/* Last, so it wins over the `display` of the rules above at equal
+   specificity. */
+#settings-dialog [hidden] {
+  display: none;
+}
+
 #info {
   display: flex;
   flex: 0 0 220px;

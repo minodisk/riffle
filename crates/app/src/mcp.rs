@@ -1,6 +1,6 @@
 //! The embedded MCP server: a Streamable HTTP endpoint on the loopback
 //! interface that lets any MCP client follow and assist a culling session.
-//! It is off by default and turned on in the settings window.
+//! It is off by default and turned on in the settings modal.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -281,7 +281,7 @@ pub async fn stop(mcp: &AppMcp) {
     }
 }
 
-/// The current state, as the settings window shows it.
+/// The current state, as the settings modal shows it.
 pub async fn state(app: &AppHandle) -> McpState {
     app.state::<AppMcp>().inner().status.lock().await.state()
 }

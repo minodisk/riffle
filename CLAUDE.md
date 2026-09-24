@@ -26,7 +26,7 @@ draws on demand through the scan's `detect_around` without touching the index,
 and the filter menu, `src/folders.rs` the folder tree's listing commands (the
 home and volume roots, and one folder's subfolders and RAW count), and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
-XMP, `.dop` or both setting chosen in the settings window and persisted in the
+XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
 `xmp:Label` names per color persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
 the default keys and the

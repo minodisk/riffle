@@ -36,7 +36,7 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
 
 ## Steps
 
-- [ ] Step 1: Replace the settings window with a modal in the main window
+- [x] Step 1: Replace the settings window with a modal in the main window
   - Done when:
     - `Settings...` in the menu and `CmdOrCtrl+,` open a modal overlay inside
       the main window; no OS window is created. Opening it again while open
@@ -209,4 +209,8 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
 
 ## Progress
 
-- (none yet)
+- Step 1: Replaced the settings window with a modal in the main window
+  (`0352c6a`). Fixed a review finding that the `tauri://focus` resync raced
+  `clear_index` for the Scans lock while the settings modal was open; the
+  listener now skips `resync()` while `settings.isOpen`.
+- (2026-09-25) Step 1 complete

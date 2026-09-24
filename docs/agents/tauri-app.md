@@ -194,10 +194,14 @@ the global `window.__TAURI__.event.listen`.
 
 - Why: the global form registers with `target: { kind: "Any" }`, and Tauri
   2.11 lets an `Any` listener bypass the per-window filter, so the main
-  webview also receives the settings window's focus.
-- What broke: closing the Clear Cache dialog refocused the settings window,
-  the main window ran a focus rescan, and `clear_index` refused with `a scan
-  is running`, or the clear's own reopen superseded that rescan.
+  webview also receives every other window's focus.
+- What broke: when Settings was a separate window, closing the Clear Cache
+  dialog refocused it, the main window ran a focus rescan, and `clear_index`
+  refused with `a scan is running`, or the clear's own reopen superseded that
+  rescan. Settings is now a modal inside the main window, so the same
+  `tauri://focus` event fires on close instead; the `tauri://focus` listener
+  in `main.ts` skips the resync while `settings.isOpen`, to avoid the race.
+  Keep the scoped form for the next window too.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
@@ -273,19 +277,12 @@ Tauri reordering cannot make it silently remove the wrong item. About (item 0
 of the macOS app menu, of `Help` elsewhere) is rebuilt the same guarded way,
 with `Menu::default`'s metadata plus `icons/128x128.png` as `icon`, since the
 default metadata has none and macOS / GTK would show no app icon. Settings themselves (sidecar format, shortcuts, the
-dev-only timing logs) live in a separate `settings` window
-(`ui/settings.html`), not in menu check items, so the menu reads no plugin
-state and is built in `Builder::menu`.
-
-The settings window is its own JS context, so a change reaches the main window
-as a backend event (`shortcuts-changed`, `sidecar-format`, `debug`), and state
-both windows read (timing logs) lives in Rust. The window is listed in
-`capabilities/default.json` so it can invoke, and it is closed when `main` is
-destroyed so it never keeps the app running alone. On Windows and Linux a
-window built without `.menu()` inherits the app menu, so `open_settings` calls
-`remove_menu` right after `build()`. `AppHandle::set_menu` would re-attach the
-app menu to every menu-less window, which is one more reason the non-macOS
-`refresh` patches items in place instead of calling `set_menu` again.
+dev-only timing logs) live in a modal inside the main window
+(`#settings-dialog` in `ui/index.html`, driven by `ui/src/settings.ts`), not
+in menu check items, so the menu reads no plugin state. `Settings...` only
+emits `open-settings`, which `main.ts` answers by opening the modal, the same
+way `open-folder` and `undo` reach the frontend. There is one window, so
+`capabilities/default.json` lists only `main`.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
@@ -305,9 +302,11 @@ which muda's Windows backend handles correctly (label and `HACCEL` are
 rewritten, `None` removes the entry).
 
 - Do not call `set_menu` at runtime on Windows: it turns muda's dark menu
-  bar white. Suspected cause: the Settings window, built without `.menu()`,
-  inherits the app-wide menu, so `set_menu` attaches one `HMENU` to two
-  top-level windows (unproven).
+  bar white. The suspected cause was the separate Settings window, which
+  inherited the app-wide menu, so `set_menu` attached one `HMENU` to two
+  top-level windows (unproven). Settings is now a modal in the main window,
+  so that suspicion no longer applies, but keep the rule until someone
+  verifies `set_menu` on a Windows device.
 - Source: `docs/plans/_archived/20260920-menu-accelerators/learnings.md`,
   Step 1, and `docs/plans/_archived/20260922-windows-dark-menu-bar/learnings.md`
   (unverified on a real device).
@@ -575,7 +574,7 @@ running" (use `ScansState::scanning()` for that, see below). A
 (`page_count - freelist_count`), since a delete only moves pages to the
 freelist until `VACUUM` runs.
 
-`Index::clear` (behind the settings window's Clear Cache button, via
+`Index::clear` (behind the settings modal's Clear Cache button, via
 `commands::clear_index`) is the second caller of `evict_folder` and keeps the
 same order: `Scans` lock first (re-checked under it after the confirmation
 dialog, since the dialog is awaited with no lock held), then the writer lock.
@@ -938,6 +937,12 @@ the elements behind it to keep Tab from reaching them.
 Source: `docs/plans/_archived/20260924-first-run-sidecar-format/learnings.md`
 (`FormatGate` / the format-choice dialog in `crates/app/ui/src/firstrun.ts`).
 
+The settings modal follows the same pattern: while it is open, the keydown
+handler hands every key to `settings.keydown` and returns before the keymap.
+The decision (add the captured key, cancel the capture, close, move focus, or
+leave the key to the focused control) is the DOM-free `SettingsModal.key` in
+`crates/app/ui/src/modal.ts`, so it is unit-tested without a DOM.
+
 ### The strip context menu is HTML, not a native `tauri::menu` popup (Inferred)
 
 Right-clicking a strip cell opens `#context-menu`, an HTML menu built by
@@ -1199,9 +1204,8 @@ them.
 
 ### Vite+ config facts (Measured)
 
-- `settings.html` is a second entry in `build.rollupOptions.input`; both HTML
-  files land at the root of `ui/dist`, so `WebviewUrl::App("settings.html")`
-  is unchanged.
+- `index.html` is the only entry, the default one under `root`, so there is
+  no `build.rollupOptions.input`.
 - `test.include` is relative to the Vite `root` (`crates/app/ui`), so it reads
   `src/**/*.test.ts`.
 - `vp fmt` honors `.gitignore`. Its scope (and `lint.ignorePatterns`) is the

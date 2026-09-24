@@ -237,11 +237,11 @@ These keys are fixed and cannot be changed:
 
 | Key | Action |
 |-----|--------|
-| `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key |
-| `Tab` / `Shift+Tab` | move between the buttons of the first-launch developing-software dialog |
+| `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key, or close the settings |
+| `Tab` / `Shift+Tab` | move between the buttons of the first-launch developing-software dialog, or between the controls of the settings |
 | `CmdOrCtrl+R` | reload the folder (`File > Reload Folder`) |
 | `CmdOrCtrl+,` | open the settings (`Riffle > Settings...`, `File > Settings...` on Windows and Linux) |
-| `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the Settings window's tab strip, the previous / next / first / last tab |
+| `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the settings tab strip, the previous / next / first / last tab |
 
 ## Ratings and sidecars
 

@@ -192,6 +192,147 @@
         <p id="format-error" hidden></p>
       </div>
     </div>
+    <div
+      id="settings-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+      hidden
+    >
+      <div id="settings-box">
+        <div id="settings-header">
+          <h2 id="settings-title">Settings</h2>
+          <button id="settings-close" type="button" aria-label="Close">&#xD7;</button>
+        </div>
+        <div role="tablist" id="settings-tabs" aria-label="Settings">
+          <button
+            id="tab-sidecar"
+            type="button"
+            role="tab"
+            aria-controls="sidecar"
+            aria-selected="true"
+            tabindex="0"
+          >
+            Sidecar
+          </button>
+          <button
+            id="tab-culling"
+            type="button"
+            role="tab"
+            aria-controls="culling"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Culling
+          </button>
+          <button
+            id="tab-shortcuts"
+            type="button"
+            role="tab"
+            aria-controls="shortcuts"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Keyboard Shortcuts
+          </button>
+          <button
+            id="tab-cache"
+            type="button"
+            role="tab"
+            aria-controls="cache"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Cache
+          </button>
+          <button
+            id="tab-mcp"
+            type="button"
+            role="tab"
+            aria-controls="mcp"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            MCP
+          </button>
+          <button
+            id="tab-debug"
+            type="button"
+            role="tab"
+            aria-controls="debug"
+            aria-selected="false"
+            tabindex="-1"
+            hidden
+          >
+            Debug
+          </button>
+        </div>
+        <section id="sidecar" role="tabpanel" aria-labelledby="tab-sidecar">
+          <label><input type="radio" name="sidecar-format" value="xmp" /> Lightroom (.xmp)</label>
+          <label><input type="radio" name="sidecar-format" value="dop" /> PhotoLab (.dop)</label>
+          <label
+            ><input type="radio" name="sidecar-format" value="both" /> Both (.xmp and .dop)</label
+          >
+          <div id="label-names" hidden>
+            <p>
+              The <code>xmp:Label</code> written for each color. These must match the names in
+              Lightroom's color label set. Either edit them here to match your set (the buttons
+              below fill in Lightroom's built-in sets), or change your set to these names in
+              Lightroom Classic under Metadata &gt; Color Label Set &gt; Edit.
+            </p>
+            <label>Red <input id="label-name-red" type="text" /></label>
+            <label>Yellow <input id="label-name-yellow" type="text" /></label>
+            <label>Green <input id="label-name-green" type="text" /></label>
+            <label>Blue <input id="label-name-blue" type="text" /></label>
+            <label>Purple <input id="label-name-purple" type="text" /></label>
+            <div class="actions">
+              <button id="label-names-japanese" type="button">Lightroom default (Japanese)</button>
+              <button id="label-names-english" type="button">Reset to English</button>
+            </div>
+          </div>
+        </section>
+        <section id="culling" role="tabpanel" aria-labelledby="tab-culling" hidden>
+          <label
+            ><input id="auto-advance" type="checkbox" /> Auto-advance after a star, reject or
+            pick</label
+          >
+        </section>
+        <section id="shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts" hidden>
+          <table id="shortcuts-rows"></table>
+          <div class="actions">
+            <button id="shortcuts-reset-all" type="button">Reset all</button>
+          </div>
+        </section>
+        <section id="cache" role="tabpanel" aria-labelledby="tab-cache" hidden>
+          <p id="index-size">Index cache: …</p>
+          <p>
+            Clearing drops every cached thumbnail, so the next open of a folder scans it again; your
+            judgments are kept, because they live in the sidecars.
+          </p>
+          <p id="clear-index-note" hidden>
+            The cache cannot be cleared while a folder is being scanned. The button becomes
+            available when the scan finishes.
+          </p>
+          <div class="actions">
+            <button id="clear-index" type="button">Clear Cache</button>
+          </div>
+        </section>
+        <section id="mcp" role="tabpanel" aria-labelledby="tab-mcp" hidden>
+          <label><input id="mcp-enabled" type="checkbox" /> Let MCP clients connect</label>
+          <p id="mcp-status"></p>
+          <p>Any MCP client that speaks Streamable HTTP connects to this endpoint:</p>
+          <div class="copyable">
+            <pre id="mcp-endpoint"></pre>
+            <button id="mcp-endpoint-copy" type="button">Copy</button>
+          </div>
+          <div id="mcp-examples"></div>
+        </section>
+        <section id="debug" role="tabpanel" aria-labelledby="tab-debug" hidden>
+          <label><input id="debug-timing" type="checkbox" /> Timing logs</label>
+        </section>
+        <div id="settings-status"></div>
+      </div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

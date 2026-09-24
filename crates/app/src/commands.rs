@@ -1211,7 +1211,7 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             // `app.emit` calls interleave freely on separate threads with no
             // ordering guarantee, which is exactly the race that used to let
             // a stale `true` land after this correct `false` and leave the
-            // settings window stuck showing "scanning" forever.
+            // settings modal stuck showing "scanning" forever.
             let scans = app.state::<Scans>();
             let mut state = index::lock(&scans.0);
             state.finish(scan_id);
@@ -1392,7 +1392,7 @@ pub async fn set_mcp_enabled(app: tauri::AppHandle, enabled: bool) -> crate::mcp
 }
 
 /// The `xmp:Label` names written for Red ... Purple, in the shape stored
-/// under `labelNames`, and the Japanese Lightroom preset the settings window
+/// under `labelNames`, and the Japanese Lightroom preset the settings modal
 /// offers, as `{"names": {...}, "japanese": {...}}`.
 #[tauri::command]
 pub fn label_names(app: tauri::AppHandle) -> Value {
@@ -1530,7 +1530,7 @@ fn update_keymap(
         log::warn!("failed to save the shortcuts: {e}");
     }
     let bindings = keymap.bindings();
-    // The settings window edits the keymap; the main window culls with it.
+    // The settings modal edits the keymap; the main window culls with it.
     let _ = app.emit("shortcuts-changed", &bindings);
     Ok(bindings)
 }
@@ -1668,7 +1668,7 @@ fn on_disk_bytes(path: &Path) -> u64 {
     .sum()
 }
 
-/// Whether a scan is in progress right now, for a settings window that opened
+/// Whether a scan is in progress right now, for a settings modal that opened
 /// mid-scan; `scan-state` carries every change from then on.
 #[tauri::command]
 pub async fn scan_running(app: tauri::AppHandle) -> bool {
@@ -1730,7 +1730,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
             "Clear".to_string(),
             "Cancel".to_string(),
         ));
-    if let Some(window) = app.get_webview_window("settings") {
+    if let Some(window) = app.get_webview_window("main") {
         dialog = dialog.parent(&window);
     }
     dialog.show(move |confirmed| {
