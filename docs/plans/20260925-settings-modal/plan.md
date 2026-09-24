@@ -214,3 +214,4 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
   `clear_index` for the Scans lock while the settings modal was open; the
   listener now skips `resync()` while `settings.isOpen`.
 - (2026-09-25) Step 1 complete
+- (2026-09-25) Step 2 complete
