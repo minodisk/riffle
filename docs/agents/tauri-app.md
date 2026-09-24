@@ -804,6 +804,17 @@ rather than by a test.
   `crates/app/ui/src/main.ts`. Source:
   `docs/plans/_archived/20260924-linux-preview-pixel-limit/learnings.md`,
   Step 1.
+- A per-path cache with its own in-flight tracking is a legitimate deviation
+  from "drop on token mismatch": `FaceCache` in `crates/app/ui/src/faces.ts`
+  keys its cache and in-flight `Set<string>` by file path, not by the folder
+  token, because dropping a response on a page-away-and-back would leave the
+  only in-flight request for that path discarded with nothing to redraw the
+  boxes later. Folder staleness is instead handled by a generation counter
+  that `clear()` bumps (folder open, format switch, post-resync
+  `refreshEntries`); a response tagged with a stale generation is dropped, and
+  the draw itself still checks that its path is the current one before
+  painting. Source:
+  `docs/plans/_archived/20260924-face-catch-state/learnings.md`, Step 5.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 
