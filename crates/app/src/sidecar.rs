@@ -441,6 +441,16 @@ where
             }
             Err(e) => {
                 let attempts = entry.attempts + 1;
+                if let Some(stat) = e.partial {
+                    if let Err(e2) = lock(index).mark_partial_write(
+                        &path.to_string_lossy(),
+                        judgment.rating,
+                        judgment.flag,
+                        stat,
+                    ) {
+                        on_error(&path, &e2);
+                    }
+                }
                 match retry_delay(attempts).filter(|_| now.is_some()) {
                     Some(delay) => {
                         on_error(&path, &format!("{e} (retrying in {}s)", delay.as_secs()));
@@ -455,16 +465,6 @@ where
                     }
                     None => {
                         on_error(&path, &e.message);
-                        if let Some(stat) = e.partial {
-                            if let Err(e2) = lock(index).mark_partial_write(
-                                &path.to_string_lossy(),
-                                judgment.rating,
-                                judgment.flag,
-                                stat,
-                            ) {
-                                on_error(&path, &e2);
-                            }
-                        }
                     }
                 }
             }
@@ -524,12 +524,14 @@ impl std::fmt::Display for WriteError {
 /// Each sidecar is replaced atomically, but under `Both` the two are not
 /// replaced together: a failure (or a crash) between them leaves them
 /// disagreeing, and the row dirty, so an in-session retry writes both again.
-/// Once retries are exhausted, `flush` records the stat of whichever sidecar
-/// this call did write (`WriteError::partial`); the row stays dirty, but the
-/// next folder open then sees an unchanged stat for that sidecar and replays
-/// the judgment into both instead of mistaking the earlier write for an
-/// external edit. A crash between the two renames, with no retry to follow,
-/// still leaves the two disagreeing until the file is judged again.
+/// After every failed attempt, including one still queued for a retry,
+/// `flush` records the stat of whichever sidecar this call did write
+/// (`WriteError::partial`); the row stays dirty, so a rescan during the
+/// backoff (or once retries are exhausted) sees an unchanged stat for that
+/// sidecar and keeps the judgment queued to replay into both instead of
+/// mistaking the earlier write for an external edit. A crash between the two
+/// renames, with no retry to follow, still leaves the two disagreeing until
+/// the file is judged again.
 fn write(
     arw: &Path,
     judgment: &Judgment,
@@ -1258,6 +1260,88 @@ mod tests {
         );
 
         drop(writer);
+        std::fs::remove_dir_all(&dop_temp).unwrap();
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_both_write_queued_for_retry_still_records_the_xmp_stat_so_a_rescan_keeps_the_row_dirty() {
+        let dir = temp_dir("both-partial-retry");
+        let index = index(&dir);
+
+        let path = arw(&dir, "a.ARW");
+        // As in the drain case above, block only the .dop write.
+        let dop_temp = {
+            let mut p = dop::sidecar_path(&path).into_os_string();
+            p.push(TEMP_SUFFIX);
+            PathBuf::from(p)
+        };
+        std::fs::create_dir_all(&dop_temp).unwrap();
+
+        lock(&index)
+            .set_rating(
+                "d",
+                &path.to_string_lossy(),
+                Some(4),
+                Flag::None,
+                None,
+                true,
+            )
+            .unwrap();
+        let mut pending = Pending::new();
+        pending.insert(
+            path.clone(),
+            Entry {
+                judgment: Judgment {
+                    rating: Some(4),
+                    flag: Flag::None,
+                    label: None,
+                    label_known: true,
+                },
+                format: SidecarFormat::Both,
+                names: LabelNames::default(),
+                deadline: Instant::now(),
+                attempts: 0,
+            },
+        );
+
+        // `now` is `Some`, so a failed write is queued for a retry instead
+        // of being treated as exhausted.
+        flush(&mut pending, Some(Instant::now()), &index, &|_, _| {});
+        assert!(
+            pending.contains_key(&path),
+            "the entry is requeued for a retry"
+        );
+
+        assert!(!dop::sidecar_path(&path).exists());
+        let bytes = std::fs::read(xmp::sidecar_path(&path)).unwrap();
+        assert_eq!(xmp::read_rating(&bytes).unwrap(), Some(4));
+
+        // Simulate a rescan while the retry is still pending in the backoff
+        // window (e.g. the main window regaining focus): reconciling
+        // against the XMP's actual stat must not treat this write as an
+        // external edit, because `flush` already recorded that stat via
+        // `mark_partial_write` even though the retry has not run out yet.
+        let xmp_stat = index::stat(&xmp::sidecar_path(&path)).unwrap();
+        let to_parse = lock(&index)
+            .reconcile_sidecars(
+                "d",
+                &[(
+                    path.to_string_lossy().into_owned(),
+                    Some((xmp::sidecar_path(&path), xmp_stat.size, xmp_stat.mtime_ns)),
+                )],
+            )
+            .unwrap();
+        assert!(
+            to_parse.is_empty(),
+            "the XMP's own write must not be mistaken for an external edit"
+        );
+        assert_eq!(
+            lock(&index).dirty_rows("d").unwrap().len(),
+            1,
+            "the row is still dirty, so the pending retry still writes the .dop"
+        );
+
         std::fs::remove_dir_all(&dop_temp).unwrap();
         remove_temp_dir(&dir);
     }
