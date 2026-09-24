@@ -15,3 +15,19 @@
 - CI failure: lychee checks `docs/plans/**` too, and resolves relative links
   from the plan's own directory. An example sentence in plan.md containing
   `[docs/usage.md](./docs/usage.md)` failed; wrapping it in backticks fixed it.
+
+## Deferred issues (todo candidates)
+
+- Document that lychee resolves relative links in `docs/plans/**` from the
+  linking file's own directory.
+  - Change: add a short note for agents writing plan / learnings / doc
+    Markdown, either as a new `docs/agents/docs-writing.md` or as a line in the
+    `develop` / `planner` workflow docs. `mise run lint` runs lychee over
+    `docs/plans/**`, so an illustrative link such as `./docs/usage.md` written
+    inside a plan fails CI; use a correctly relative path, or wrap an example
+    path in backticks when it is not a real link target.
+  - Rationale: Step 1's first CI run failed on exactly this (see the last
+    bullet of "## Step 1" above).
+  - Done when: a guide or workflow section that an agent writing a plan.md or
+    learnings.md with a doc-to-doc link would read beforehand carries this
+    note.
