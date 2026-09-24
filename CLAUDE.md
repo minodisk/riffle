@@ -40,7 +40,9 @@ note section, and Riffle).
 **Write everything in the repository in English.** This covers documentation
 (`README.md`, `CLAUDE.md`, `docs/**`, skill and agent definitions), code
 comments, commit messages, PR titles and bodies, and any other text that lands
-in the repository.
+in the repository. The one exception is `README.ja.md`, the Japanese
+translation of `README.md`; its body is Japanese. Keep the two in sync: a PR
+that changes `README.md` updates `README.ja.md` in the same PR, and vice versa.
 
 Conversation with the user stays in Japanese; only what gets committed is
 English.
