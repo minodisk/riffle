@@ -850,6 +850,17 @@ loaded thumbnail (24px above and below a 3:2 one).
 - Source: `docs/plans/_archived/20260920-aspect-independent-strip-cells/learnings.md`,
   Step 1.
 
+### Scope an id's `display` override to `:not([hidden])` when the element can also be hidden (Hit)
+
+An `#label-names { display: grid; }` rule has id specificity, so it overrides
+the global `[hidden] { display: none; }` rule (which only has attribute
+specificity) — the block stays visible even when `hidden` is set (e.g. when
+the sidecar format is `.dop` instead of XMP). Scope the rule as
+`#label-names:not([hidden]) { display: grid; }` instead, so `[hidden]` still
+wins when present.
+
+- Source: `docs/plans/_archived/20260924-label-names-grid/learnings.md`, Step 1.
+
 ### `margin-left: auto` on a flex item only pushes items after it, not the item itself (Hit)
 
 Moving `#filter` to the right edge of `#tools` by adding `margin-left: auto`
