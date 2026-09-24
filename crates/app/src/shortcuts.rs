@@ -37,6 +37,10 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("open", &[OPEN_DEFAULT]),
     ("undo", &[UNDO_DEFAULT]),
     ("redo", &[REDO_DEFAULT]),
+    ("toggleLeft", &["f7"]),
+    ("toggleRight", &["f8"]),
+    ("toggleStrip", &["f6"]),
+    ("toggleSides", &["tab"]),
     ("focus", &["f"]),
     ("zoom", &["z"]),
     ("grayscale", &["g"]),
@@ -576,6 +580,10 @@ mod tests {
             ("open", OPEN_DEFAULT),
             ("undo", UNDO_DEFAULT),
             ("redo", REDO_DEFAULT),
+            ("toggleLeft", "f7"),
+            ("toggleRight", "f8"),
+            ("toggleStrip", "f6"),
+            ("toggleSides", "tab"),
             ("focus", "f"),
             ("zoom", "z"),
             ("grayscale", "g"),
@@ -653,6 +661,17 @@ mod tests {
         ] {
             assert_eq!(accelerator(key), None, "{key}");
         }
+    }
+
+    #[test]
+    fn the_panel_toggles_have_menu_less_defaults() {
+        let keymap = Keymap::defaults();
+        assert_eq!(keys_of(&keymap, "toggleLeft"), vec!["f7"]);
+        assert_eq!(keys_of(&keymap, "toggleRight"), vec!["f8"]);
+        assert_eq!(keys_of(&keymap, "toggleStrip"), vec!["f6"]);
+        assert_eq!(keys_of(&keymap, "toggleSides"), vec!["tab"]);
+        assert_eq!(accelerator("f6"), None);
+        assert_eq!(accelerator("tab"), None);
     }
 
     #[test]

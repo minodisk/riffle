@@ -37,6 +37,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the selection collapses it to that cell; one inside keeps it, so the context
   menu items act on the whole selection. Files the filter hides leave the
   selection.
+- **Panels**: `F7` hides and shows the left pane (the folder tree), `F8` the
+  right pane (the metadata), `F6` the filmstrip, and `Tab` both side panes at
+  once (hiding both when either is shown, as Lightroom does), so the viewer
+  can take the whole height a landscape frame needs. The filmstrip's header
+  bar goes with it, so the filter and sort menus and the `N / M` counter are
+  hidden while the strip is. Which panels are hidden is remembered across
+  restarts.
 - **Focus mark**: `f` draws a crosshair at the camera's recorded focus point,
   inside a rectangle of the AF frame the camera used on Sony bodies that
   record it (hidden by default). A body that records only the point, such as
@@ -215,6 +222,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
 | `CmdOrCtrl+Z` | undo the last judgment (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgment (also `Edit > Redo`, whose accelerator follows this key) |
+| `F6` | show / hide the filmstrip |
+| `F7` | show / hide the left pane |
+| `F8` | show / hide the right pane |
+| `Tab` | show / hide both side panes |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone, while `c` clears it along with
@@ -252,7 +263,7 @@ These keys are fixed and cannot be changed:
 | Key | Action |
 |-----|--------|
 | `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key, or close the settings |
-| `Tab` / `Shift+Tab` | move between the buttons of the first-launch developing-software dialog, or between the controls of the settings |
+| `Tab` / `Shift+Tab` | while the first-launch developing-software dialog or the settings are open, move between the dialog's buttons or the settings' controls (otherwise `Tab` is the side-pane toggle above, which can be rebound) |
 | `CmdOrCtrl+R` | reload the folder (`File > Reload Folder`) |
 | `CmdOrCtrl+,` | open the settings (`Riffle > Settings...`, `File > Settings...` on Windows and Linux) |
 | `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the settings tab strip, the previous / next / first / last tab |

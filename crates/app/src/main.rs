@@ -552,6 +552,8 @@ fn main() {
             commands::last_folder,
             commands::sort_order,
             commands::set_sort_order,
+            commands::panels,
+            commands::set_panels,
             commands::preview,
             commands::preview_pixel_limit,
             commands::dropped_folder,

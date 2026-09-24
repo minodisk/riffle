@@ -62,7 +62,8 @@ DxO PhotoLab.
 - **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
   `Shift+←` / `Shift+→` select a range, and every judgment applies to the
-  whole selection.
+  whole selection. `F6` hides the filmstrip, `F7` the folder tree, `F8` the
+  meta pane and `Tab` both side panes, to give the viewer more room.
 - **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.
   Paging keeps the zoom.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on

@@ -1357,6 +1357,44 @@ pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
     }
 }
 
+/// Which of the left pane, the filmstrip and the right pane are shown, as
+/// stored under `panels`.
+#[tauri::command]
+pub fn panels(app: tauri::AppHandle) -> Value {
+    let store = settings(&app).ok();
+    panels_setting(store.as_ref().and_then(|s| s.get("panels")).as_ref())
+}
+
+/// Remember which panes are shown. Failing to write it only means the next
+/// launch restores the previously saved panes, so it is logged, not
+/// returned.
+#[tauri::command]
+pub fn set_panels(app: tauri::AppHandle, panels: Value) {
+    let saved = settings(&app).and_then(|store| {
+        store.set("panels", panels_setting(Some(&panels)));
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        log::warn!("failed to remember the panels: {e}");
+    }
+}
+
+/// The stored `panels` value as `{"left", "strip", "right"}` booleans; a
+/// missing or non-boolean entry means shown.
+fn panels_setting(value: Option<&Value>) -> Value {
+    let shown = |name: &str| {
+        value
+            .and_then(|v| v.get(name))
+            .and_then(Value::as_bool)
+            .unwrap_or(true)
+    };
+    serde_json::json!({
+        "left": shown("left"),
+        "strip": shown("strip"),
+        "right": shown("right"),
+    })
+}
+
 /// Whether the MCP server is on, its port and its last bind error.
 #[tauri::command]
 pub async fn mcp_enabled(app: tauri::AppHandle) -> crate::mcp::McpState {
@@ -2004,6 +2042,22 @@ mod tests {
         assert_eq!(
             super::label_names_setting(Some(&super::label_names_value(&LabelNames::japanese()))),
             LabelNames::japanese()
+        );
+    }
+
+    #[test]
+    fn panels_setting_falls_back_to_shown() {
+        use serde_json::json;
+        let all = json!({"left": true, "strip": true, "right": true});
+        assert_eq!(super::panels_setting(None), all);
+        assert_eq!(super::panels_setting(Some(&json!("hidden"))), all);
+        assert_eq!(
+            super::panels_setting(Some(&json!({"left": "no", "strip": null}))),
+            all
+        );
+        assert_eq!(
+            super::panels_setting(Some(&json!({"left": false, "right": false, "extra": 1}))),
+            json!({"left": false, "strip": true, "right": false})
         );
     }
 

@@ -212,7 +212,7 @@ them in the PR.
     - `folder-changed` (the watcher) does not touch the tree; a re-expand
       re-lists, which is enough.
 
-- [ ] Step 4: Hide and show the left pane, the filmstrip and the right pane from the keymap, and remember the state
+- [x] Step 4: Hide and show the left pane, the filmstrip and the right pane from the keymap, and remember the state
   - Done when:
     - `crates/app/src/shortcuts.rs` `DEFAULTS` gains, after `open` /
       `undo` / `redo`, `toggleLeft` (`f7`), `toggleRight` (`f8`),
@@ -331,3 +331,4 @@ them in the PR.
 - (2026-09-25) Step 1 complete
 - (2026-09-25) Step 2 complete
 - (2026-09-25) Step 3 complete
+- (2026-09-25) Step 4 complete
