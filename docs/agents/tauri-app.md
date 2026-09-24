@@ -1158,6 +1158,16 @@ them.
   together with (or before) the task change.
 - Source: `docs/plans/20260919-vite-plus/learnings.md`, Steps 1-4.
 
+### A fresh worktree can report `vp` as not found even though it's installed (Hit)
+
+`mise run fmt` failed with `Command "vp" not found` in a freshly created
+worktree, although `node_modules/.bin/vp` already existed on disk.
+
+- Fix: run `pnpm install --frozen-lockfile` (it may report "Already up to
+  date" and still fix it); `mise run ci` then passes.
+- Source: `docs/plans/_archived/20260924-focus-mark-af-frame/learnings.md`,
+  Step 1.
+
 ### On Windows, run `vp` through `node`, not `pnpm exec`, in mise tasks (Hit)
 
 The `test` task calls `node ./node_modules/vite-plus/bin/vp test`.
