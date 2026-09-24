@@ -14,6 +14,7 @@ import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
+import { focusMark } from "./focus.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
@@ -60,6 +61,8 @@ interface Focus {
   sensor_h: number;
   x: number;
   y: number;
+  frame: { width: number; height: number } | null;
+  manual_focus: boolean;
 }
 
 interface IndexedFile {
@@ -1112,19 +1115,19 @@ function refreshEntries(): void {
 // got; drawing it after the rotation would put it on the wrong edge. Mirrors
 // the arithmetic in `riffle-cli focusbox`.
 //
-// The tag records a point, not an area — there is no AF rectangle in it — so
-// the mark is a crosshair pointing at that point rather than a box implying a
-// size the file never stated.
+// When Sony `FocusFrameSize` is valid, the AF frame the camera used is drawn
+// around the point as well, in the same sensor coordinates; a body that
+// records only the point gets the crosshair alone, and a manual-focus shot,
+// whose recorded point is not trusted, gets no mark.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
   }
-  const focus = entries.get(files[index])?.focus;
-  if (focus === undefined || focus === null) {
+  const mark = focusMark(entries.get(files[index])?.focus, drawWidth, drawHeight);
+  if (mark === null) {
     return;
   }
-  const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
-  const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
+  const { x, y, rect } = mark;
   const arm = FOCUS_MARK_ARM;
   const gap = FOCUS_MARK_GAP;
   // A fixed color over a dark outline: the color carries the mark on most
@@ -1142,6 +1145,9 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.lineTo(x, y - gap);
   context.moveTo(x, y + gap);
   context.lineTo(x, y + gap + arm);
+  if (rect !== null) {
+    context.rect(rect.x, rect.y, rect.width, rect.height);
+  }
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.lineWidth = 4;
   context.stroke();
