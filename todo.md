@@ -342,6 +342,16 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       instead of YuNet's eye midpoint. Needs a per-file score output
       (`riffle-cli scan` prints none). Files: `crates/core/src/sharpness.rs`,
       `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
+- [ ] De-duplicate the "eye-AF frame is caught, else classify the crop" rule,
+      currently written separately in `crates/core/src/scan.rs` `extract` and
+      `crates/cli/src/main.rs`'s `faces` subcommand (a core helper taking the
+      shot and a lazy detection would remove the copy; kept separate because
+      the scan must skip detection on eye-AF frames while the CLI always
+      detects). Files: `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
+- [ ] Crop detection can false-positive on printed faces or logos near the AF
+      point (e.g. `_DSC3632`: a shirt logo scored 0.67), yielding a false
+      `missed` face-catch state. Consider a size or aspect filter on crop
+      boxes. Files: `crates/core/src/faces.rs` (`detect_around`).
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 
