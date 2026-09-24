@@ -885,6 +885,23 @@ against `control`/`alt`/`shift`/`meta`.
   `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`, and
   `docs/plans/20260920-ignore-stale-ui-js/learnings.md`.
 
+### A modal dialog needs an explicit Tab trap; `inert` is unavailable (Hit)
+
+The build targets `safari13` (see `vite.config.ts`), which predates the
+`inert` attribute, so a first-run/blocking dialog cannot rely on `inert` on
+the elements behind it to keep Tab from reaching them.
+
+- Instead, the main window's `keydown` handler must return early (without
+  `preventDefault`) while the dialog is open, so Enter/Space still reach the
+  dialog's own buttons natively and no app shortcut fires underneath it.
+- Tab itself needs an explicit trap: `preventDefault` it and cycle focus
+  within the dialog's own button list (honoring Shift for reverse), so focus
+  never reaches controls behind the overlay (e.g. filter toggle, sort
+  toggle, menus).
+
+Source: `docs/plans/_archived/20260924-first-run-sidecar-format/learnings.md`
+(`FormatGate` / the format-choice dialog in `crates/app/ui/src/firstrun.ts`).
+
 ### The strip context menu is HTML, not a native `tauri::menu` popup (Inferred)
 
 Right-clicking a strip cell opens `#context-menu`, an HTML menu built by
