@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type MarkFocus, focusMark } from "./focus.js";
+import { type MarkFocus, faceMarks, focusMark } from "./focus.js";
 
 const point: MarkFocus = {
   sensor_w: 7008,
@@ -51,5 +51,33 @@ describe("focusMark", () => {
   test("a manual-focus or missing point stays null whatever the state", () => {
     expect(focusMark({ ...point, manual_focus: true, face_catch: "caught" }, 700, 468)).toBeNull();
     expect(focusMark(null, 700, 468)).toBeNull();
+  });
+});
+
+describe("faceMarks", () => {
+  const face = (x: number, y: number, eyeX: number, eyeY: number) => ({
+    x,
+    y,
+    width: 100,
+    height: 120,
+    eye: { x: eyeX, y: eyeY },
+  });
+
+  test("a face at the preview's origin sits at the drawn image's corner", () => {
+    expect(faceMarks([face(0, 0, 50, 40)], 1600, 1080, 1600, 1080)).toEqual([
+      { rect: { x: -800, y: -540, width: 100, height: 120 }, eye: { x: -750, y: -500 } },
+    ]);
+  });
+
+  test("a face at the far corner ends at the drawn image's far corner", () => {
+    expect(faceMarks([face(1500, 960, 1550, 1000)], 1600, 1080, 1600, 1080)).toEqual([
+      { rect: { x: 700, y: 420, width: 100, height: 120 }, eye: { x: 750, y: 460 } },
+    ]);
+  });
+
+  test("a preview drawn smaller scales the faces by the preview size", () => {
+    expect(faceMarks([face(400, 200, 450, 240)], 1600, 1080, 800, 540)).toEqual([
+      { rect: { x: -200, y: -170, width: 50, height: 60 }, eye: { x: -175, y: -150 } },
+    ]);
   });
 });

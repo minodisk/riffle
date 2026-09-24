@@ -96,6 +96,43 @@
 - The eye-AF-first scoring rule made the `todo.md` section intro stale since
   Step 1; it was rewritten here as Step 1 had deferred.
 
+## Step 5: Draw the detected faces in the `f` focus mark
+
+- `faces_of` / `read_faces` / `FacesResponse` live in
+  `crates/app/src/commands.rs`; `read_faces` relies on `decode_rgb`'s own
+  `catch_unwind`, so a non-JPEG preview comes back as `Err` without another
+  guard (tested with a synthetic TIFF whose preview is `b"not a jpeg"`).
+- Deviation from the plan's frontend wording: a `faces_of` response is **not**
+  dropped when `current !== seq`. The cache is keyed by path and the request
+  is marked in flight, so dropping it on a page turn would lose the only
+  request for that path: paging away and back before it resolves finds the
+  path still in flight, issues nothing, and the dropped response then leaves
+  the frame without boxes until something else redraws. Instead the response
+  is kept for its path and `draw()` runs only when that path is still
+  current. Folder staleness is handled by a generation token in `FaceCache`
+  (`crates/app/ui/src/faces.ts`): `clear()` (folder open, which covers
+  clear-cache and the format switch, and every `refreshEntries`, which runs
+  after a resync's scan) bumps it, and a response from before the clear is
+  dropped without touching the new generation's in-flight entry.
+- The in-flight set is a `Set<string>` inside `FaceCache` rather than a
+  `Map<string, Promise>`: nothing awaits the promise a second time, so only
+  membership matters.
+- Faces are drawn by a separate `drawFaceMarks` called after `drawFocusMark`
+  in `draw()`'s normal path, so a manual-focus or no-AF frame (no AF mark)
+  still shows the faces of the whole-preview detection.
+- Verified: `read_faces` on `_DSC3113` and `_DSC1942` (temporary `#[ignore]`d
+  release test, removed before committing) returns the same boxes as
+  `riffle-cli faces`. `_DSC3113` (caught, orientation 8): AF point (929,607)
+  lies inside the face box (895,584) 57x47. `_DSC1942` (missed): AF point
+  (762,449) on a jersey number, all three boxes beside it. The CLI's PNGs were
+  checked by eye. Latency: ~30ms mean read + detect, warm cache, recorded in
+  `docs/performance.md`.
+- Not verified: the GUI itself (the canvas drawing, the cyan color over the
+  mark, the redraw after the response, and the rotation carrying the boxes
+  on portrait frames) could not be run here. It needs a manual check in the
+  app with `f` on `_DSC3113` (green mark, box under the crosshair) and
+  `_DSC1942` (orange mark, boxes beside it).
+
 ## Deferred issues (todo candidates)
 
 - The "eye-AF frame is caught, else classify the crop" rule is written twice:

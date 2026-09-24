@@ -14,7 +14,8 @@ import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
-import { focusMark } from "./focus.js";
+import { type Faces, faceMarks, focusMark } from "./focus.js";
+import { FaceCache, NO_FACES } from "./faces.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
@@ -203,6 +204,9 @@ const labels = new Map<string, string>();
 // The sharpness score of every file the index has one for, from
 // `folder_entries`; cleared with `labels`.
 const sharpness = new Map<string, number>();
+// The faces the focus mark draws, detected per file when first shown with
+// the mark on; cleared with `sharpness`.
+const faceCache = new FaceCache();
 // Every file's burst, from `groupBursts` over `allFiles` in capture order
 // whatever the sort; recomputed whenever `entries` is refreshed.
 let bursts = new Map<string, BurstMember>();
@@ -322,6 +326,9 @@ const FOCUS_MARK_COLORS = {
   missed: "#f93",
   unknown: "#fff",
 } as const;
+// The detected faces, apart from every mark color above.
+const FACE_MARK_COLOR = "#3ff";
+const FACE_MARK_EYE_RADIUS = 2.5;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -550,6 +557,7 @@ function draw(): void {
   }
   context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   drawFocusMark(drawWidth, drawHeight);
+  drawFaceMarks(drawWidth, drawHeight);
   context.restore();
 }
 
@@ -1090,6 +1098,7 @@ function refreshEntries(): void {
       }
       entries.clear();
       sharpness.clear();
+      faceCache.clear();
       for (const row of rows) {
         entries.set(row.path, row);
         if (row.sharpness !== null) {
@@ -1171,6 +1180,68 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.lineWidth = 2;
   context.stroke();
   context.restore();
+}
+
+// The faces Riffle detects on the current file's preview, in the same
+// unrotated coordinates as the AF mark: a box per face and a dot between its
+// eyes. They are detected when first drawn and appear once `faces_of`
+// answers; the 1:1 view and Compare do not draw them.
+function drawFaceMarks(drawWidth: number, drawHeight: number): void {
+  if (!showFocus || files.length === 0) {
+    return;
+  }
+  const path = files[index];
+  const found = faceCache.get(path);
+  if (found === undefined) {
+    requestFaces(path);
+    return;
+  }
+  if (found.faces.length === 0) {
+    return;
+  }
+  const marks = faceMarks(found.faces, found.width, found.height, drawWidth, drawHeight);
+  // The same outline-then-color passes as the AF mark.
+  context.save();
+  context.beginPath();
+  for (const { rect } of marks) {
+    context.rect(rect.x, rect.y, rect.width, rect.height);
+  }
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.lineWidth = 4;
+  context.stroke();
+  context.strokeStyle = FACE_MARK_COLOR;
+  context.lineWidth = 2;
+  context.stroke();
+  context.beginPath();
+  for (const { eye } of marks) {
+    context.moveTo(eye.x + FACE_MARK_EYE_RADIUS, eye.y);
+    context.arc(eye.x, eye.y, FACE_MARK_EYE_RADIUS, 0, 2 * Math.PI);
+  }
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.stroke();
+  context.fillStyle = FACE_MARK_COLOR;
+  context.fill();
+  context.restore();
+}
+
+// A failed detection is logged and cached as no faces, so a bad file is not
+// retried on every draw.
+function requestFaces(path: string): void {
+  const token = faceCache.request(path);
+  if (token === null) {
+    return;
+  }
+  void window.__TAURI__.core
+    .invoke<Faces>("faces_of", { path })
+    .catch((err: unknown) => {
+      console.error(err);
+      return NO_FACES;
+    })
+    .then((found) => {
+      if (faceCache.settle(path, token, found) && files[index] === path) {
+        draw();
+      }
+    });
 }
 
 // The 1:1 view: the same rotation `draw()` applies, with the focus point at
@@ -1793,6 +1864,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     flags.clear();
     labels.clear();
     sharpness.clear();
+    faceCache.clear();
     bursts = new Map();
     touched.clear();
     history.clear();
