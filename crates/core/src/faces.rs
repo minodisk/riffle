@@ -4,12 +4,22 @@
 //! padded into an `INPUT` x `INPUT` square; the per-stride outputs are
 //! decoded as OpenCV's `FaceDetectorYN` does, thresholded and merged by NMS.
 //! Results are in the caller's pixel coordinates.
+//!
+//! `detect_around` is the one place that decides which region of a preview
+//! is searched (a `CATCH_CROP` square around a trusted AF point, else the
+//! whole upright image), and `face_catch` turns its result into the
+//! face-catch state.
 
 use std::io::Cursor;
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context, Result};
 use tract_onnx::prelude::*;
+
+use crate::arw::FocusLocation;
+use crate::decode::{apply_orientation, decode_rgb};
+use crate::partial::focus_point;
+use crate::sharpness::{window_at, Window};
 
 const MODEL: &[u8] = include_bytes!("../models/face_detection_yunet_2023mar.onnx");
 
@@ -20,6 +30,34 @@ pub const SCORE_THRESHOLD: f32 = 0.6;
 /// Boxes overlapping a better one by more than this IoU are dropped.
 pub const NMS_THRESHOLD: f32 = 0.3;
 const STRIDES: [usize; 3] = [8, 16, 32];
+/// Side of the square cut out of the upright preview around the AF point,
+/// in pixels. Native resolution keeps a 45-60 px face large enough for the
+/// `INPUT` model input.
+pub const CATCH_CROP: usize = 480;
+/// Minimum detection score of a face `detect_around` returns.
+pub const CATCH_CONFIDENCE: f32 = SCORE_THRESHOLD;
+
+/// Whether the AF caught a face: `Caught` when the AF point lies in a face
+/// (or the camera tracked one), `Missed` when faces were found around the
+/// point but it lies in none, `Unknown` otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FaceCatch {
+    Caught,
+    Missed,
+    #[default]
+    Unknown,
+}
+
+/// What `detect_around` found, in the preview's stored pixel coordinates.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Detection {
+    /// The stored (unrotated) preview size.
+    pub width: usize,
+    pub height: usize,
+    pub faces: Vec<Face>,
+    /// The AF point, when one was given.
+    pub point: Option<(usize, usize)>,
+}
 
 /// A detected face, in the pixel coordinates of the image given to `detect`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -234,6 +272,117 @@ pub fn to_stored(face: Face, orientation: u16, width: usize, height: usize) -> F
     }
 }
 
+/// Map a pixel of the stored `width` x `height` image to the upright image,
+/// the inverse of `to_stored`.
+pub fn to_upright(
+    (x, y): (usize, usize),
+    orientation: u16,
+    width: usize,
+    height: usize,
+) -> (usize, usize) {
+    match orientation {
+        6 => (height - 1 - y, x),
+        8 => (y, width - 1 - x),
+        3 => (width - 1 - x, height - 1 - y),
+        _ => (x, y),
+    }
+}
+
+/// Rotate a stored RGB image to display orientation. `apply_orientation`
+/// leaves orientation 3 alone, so the half turn is done here.
+pub fn upright_rgb(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+) -> (Vec<u8>, usize, usize) {
+    let (mut upright, w, h) = apply_orientation(rgb, width, height, orientation);
+    if orientation == 3 {
+        upright = upright.chunks_exact(3).rev().flatten().copied().collect();
+    }
+    (upright, w, h)
+}
+
+/// Cut a `size` x `size` square centered on `(cx, cy)` out of an RGB image,
+/// clamped inside it (the whole image when it is smaller), with the window
+/// it came from.
+pub fn crop_rgb(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    (cx, cy): (usize, usize),
+    size: usize,
+) -> (Vec<u8>, Window) {
+    let win = window_at(width, height, cx, cy, size);
+    let mut out = Vec::with_capacity(win.width * win.height * 3);
+    for y in win.y..win.y + win.height {
+        let row = (y * width + win.x) * 3;
+        out.extend_from_slice(&rgb[row..row + win.width * 3]);
+    }
+    (out, win)
+}
+
+fn translate(face: Face, dx: f32, dy: f32) -> Face {
+    Face {
+        x: face.x + dx,
+        y: face.y + dy,
+        left_eye: (face.left_eye.0 + dx, face.left_eye.1 + dy),
+        right_eye: (face.right_eye.0 + dx, face.right_eye.1 + dy),
+        ..face
+    }
+}
+
+/// Decode `preview`, rotate it upright and detect faces once: in a
+/// `CATCH_CROP` square around the AF point of `focus`, or on the whole image
+/// when `focus` is `None`. Faces below `CATCH_CONFIDENCE` are dropped.
+pub fn detect_around(
+    preview: &[u8],
+    orientation: u16,
+    focus: Option<FocusLocation>,
+) -> Result<Detection> {
+    let (rgb, width, height) = decode_rgb(preview)?;
+    let (upright, uw, uh) = upright_rgb(&rgb, width, height, orientation);
+    let point = focus.map(|f| focus_point(width, height, Some(f)));
+    let found = match point {
+        Some(p) => {
+            let center = to_upright(p, orientation, width, height);
+            let (sub, win) = crop_rgb(&upright, uw, uh, center, CATCH_CROP);
+            detect(&sub, win.width, win.height)?
+                .into_iter()
+                .map(|f| translate(f, win.x as f32, win.y as f32))
+                .collect()
+        }
+        None => detect(&upright, uw, uh)?,
+    };
+    let faces = found
+        .into_iter()
+        .filter(|f| f.score >= CATCH_CONFIDENCE)
+        .map(|f| to_stored(f, orientation, width, height))
+        .collect();
+    Ok(Detection {
+        width,
+        height,
+        faces,
+        point,
+    })
+}
+
+/// The face-catch state of an AF point among `faces`, both in the same
+/// coordinates; a point on a box edge is inside it.
+pub fn face_catch(faces: &[Face], (x, y): (usize, usize)) -> FaceCatch {
+    let (x, y) = (x as f32, y as f32);
+    if faces.is_empty() {
+        FaceCatch::Unknown
+    } else if faces
+        .iter()
+        .any(|f| x >= f.x && x <= f.x + f.width && y >= f.y && y <= f.y + f.height)
+    {
+        FaceCatch::Caught
+    } else {
+        FaceCatch::Missed
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,6 +424,94 @@ mod tests {
         assert_eq!((f.x, f.y, f.width, f.height), (160.0, 40.0, 30.0, 40.0));
         assert_eq!((f.left_eye, f.right_eye), ((185.0, 75.0), (165.0, 74.0)));
         assert_eq!(to_stored(upright(), 1, 200, 100), upright());
+    }
+
+    #[test]
+    fn to_upright_is_the_inverse_of_to_stored() {
+        let (w, h) = (200, 100);
+        for orientation in [1, 3, 6, 8] {
+            for p in [(0, 0), (199, 0), (0, 99), (199, 99), (37, 61)] {
+                let (ux, uy) = to_upright(p, orientation, w, h);
+                let at = Face {
+                    x: ux as f32,
+                    y: uy as f32,
+                    width: 0.0,
+                    height: 0.0,
+                    score: 1.0,
+                    left_eye: (0.0, 0.0),
+                    right_eye: (0.0, 0.0),
+                };
+                let back = to_stored(at, orientation, w, h);
+                assert!(
+                    (back.x - p.0 as f32).abs() <= 1.0 && (back.y - p.1 as f32).abs() <= 1.0,
+                    "orientation {orientation}: {p:?} -> ({ux}, {uy}) -> ({}, {})",
+                    back.x,
+                    back.y
+                );
+            }
+        }
+    }
+
+    fn gradient(w: usize, h: usize) -> Vec<u8> {
+        (0..w * h)
+            .flat_map(|i| [(i % w) as u8, (i / w) as u8, 7])
+            .collect()
+    }
+
+    #[test]
+    fn a_crop_holds_the_source_pixels_at_its_origin() {
+        let (w, h) = (200, 150);
+        let rgb = gradient(w, h);
+        let (sub, win) = crop_rgb(&rgb, w, h, (100, 70), 40);
+        assert_eq!((win.x, win.y, win.width, win.height), (80, 50, 40, 40));
+        assert_eq!(sub.len(), 40 * 40 * 3);
+        for y in 0..40 {
+            for x in 0..40 {
+                let i = (y * 40 + x) * 3;
+                let j = ((y + win.y) * w + x + win.x) * 3;
+                assert_eq!(sub[i..i + 3], rgb[j..j + 3]);
+            }
+        }
+    }
+
+    #[test]
+    fn a_crop_at_a_corner_is_clamped_inside_the_image() {
+        let (w, h) = (200, 150);
+        let rgb = gradient(w, h);
+        let (sub, win) = crop_rgb(&rgb, w, h, (199, 149), 40);
+        assert_eq!((win.x, win.y, win.width, win.height), (160, 110, 40, 40));
+        assert_eq!(sub[..3], [160, 110, 7]);
+        let (sub, win) = crop_rgb(&rgb, w, h, (0, 0), 480);
+        assert_eq!((win.x, win.y, win.width, win.height), (0, 0, w, h));
+        assert_eq!(sub, rgb);
+    }
+
+    fn boxed(x: f32, y: f32) -> Face {
+        Face {
+            x,
+            y,
+            width: 10.0,
+            height: 10.0,
+            score: 0.9,
+            left_eye: (0.0, 0.0),
+            right_eye: (0.0, 0.0),
+        }
+    }
+
+    #[test]
+    fn classifies_the_af_point_against_the_faces() {
+        let faces = [boxed(0.0, 0.0), boxed(50.0, 50.0)];
+        assert_eq!(face_catch(&faces, (55, 55)), FaceCatch::Caught);
+        assert_eq!(face_catch(&faces, (30, 30)), FaceCatch::Missed);
+        assert_eq!(face_catch(&[], (30, 30)), FaceCatch::Unknown);
+    }
+
+    #[test]
+    fn a_point_on_a_box_edge_is_caught() {
+        let faces = [boxed(50.0, 50.0)];
+        assert_eq!(face_catch(&faces, (60, 55)), FaceCatch::Caught);
+        assert_eq!(face_catch(&faces, (50, 60)), FaceCatch::Caught);
+        assert_eq!(face_catch(&faces, (61, 55)), FaceCatch::Missed);
     }
 
     #[test]

@@ -1142,6 +1142,7 @@ where
 mod tests {
     use super::*;
     use riffle_core::arw::{FocusFrame, FocusLocation, Shot};
+    use riffle_core::faces::FaceCatch;
     use std::collections::HashSet;
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -1192,6 +1193,7 @@ mod tests {
             },
             thumbnail: vec![0xff, 0xd8, 0xff, 0xd9],
             sharpness: None,
+            face_catch: FaceCatch::Unknown,
         }
     }
 

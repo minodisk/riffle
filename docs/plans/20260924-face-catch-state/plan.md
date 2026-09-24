@@ -121,7 +121,7 @@ head, tracking=1, `caught` by design).
     - Follow `docs/agents/tauri-app.md` "Bump `EXTRACTOR_VERSION`, not
       `SCHEMA_VERSION`, when extraction output changes".
 
-- [ ] Step 2: Compute the face-catch state in `riffle-core` through one shared detection entry point
+- [x] Step 2: Compute the face-catch state in `riffle-core` through one shared detection entry point
   - Done when:
     - `crates/core/src/faces.rs` (or a sibling module, the implementer's
       choice; keep the enum out of `lib.rs` unless a second consumer appears)
