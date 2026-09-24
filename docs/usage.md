@@ -131,10 +131,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbors on the strip; the sharpest frame of
   a run is marked in the pick color. The score is computed from the embedded
-  preview around the AF focus point when the camera recorded one, and
-  otherwise (manual focus, Leica DNG) as the sharpest region of the frame, so
-  it ranks a burst rather
-  than judging a frame on its own, and it does not replace the 1:1 focus check.
+  preview on the camera's eye-AF frame when a Sony body tracked a face, else
+  between the eyes of a detected face, else around the AF focus point when the
+  camera recorded one, else as the sharpest region of the frame, so it ranks a
+  burst rather than judging a frame on its own, and it does not replace the
+  1:1 focus check. Faces and eyes are found by the bundled
+  [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  model (MIT license, text in `crates/core/models/LICENSE`), run locally with
+  no network access.
   The meta pane shows the raw score in its Riffle group.
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,
@@ -209,6 +213,16 @@ are the exception: they follow their own action's keys, so unlike `Cmd+,` they c
 rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.
+
+These keys are fixed and cannot be changed:
+
+| Key | Action |
+|-----|--------|
+| `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key |
+| `Tab` / `Shift+Tab` | move between the buttons of the first-launch developing-software dialog |
+| `CmdOrCtrl+R` | reload the folder (`File > Reload Folder`) |
+| `CmdOrCtrl+,` | open the settings (`Riffle > Settings...`, `File > Settings...` on Windows and Linux) |
+| `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the Settings window's tab strip, the previous / next / first / last tab |
 
 ## Ratings and sidecars
 
