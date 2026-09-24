@@ -219,9 +219,13 @@ behavior has been run by a human. GUI automation is unavailable on this
 Mac and a native confirm dialog cannot be driven by an agent. A later manual
 run on Windows passed (1) and showed the dialog in (2) immediately; the
 Cancel half of (2) and checks (3)-(7) were blocked by a Clear Cache refusal
-bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
+bug, since fixed (`focus-rescan-main-window`), and are still to be run.
+`settings-modal` then moved the settings into a modal in the main window,
+parented the confirmation on `main` and dropped the `index-clearing`
+status text; none of that has been run by hand either. Files:
 `crates/app/src/commands.rs`, `crates/app/ui/index.html`,
-`crates/app/ui/src/settings.ts`.
+`crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts` (the
+`tauri://focus` listener).
 
 #### TODO
 
@@ -230,8 +234,10 @@ bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
       and the note hidden; (2) pressing Clear Cache shows the confirmation
       dialog immediately, and Cancel leaves the size and `#settings-status`
       unchanged with the button re-enabled; (3) Clear Cache then Clear
-      shows `Clearing the index cache…` until the size drops and the main
-      window rescans; (4) while a scan is running (or opening a large
+      keeps the button disabled until the size drops and the main window
+      rescans, and never refuses with `a scan is running` (closing the
+      confirmation refocuses `main`, whose focus listener skips `resync()`
+      while the modal is open); (4) while a scan is running (or opening a large
       folder with the settings modal already open), the button is disabled
       and the note visible without any press, and both clear when the scan
       ends, and the size figure updates when the scan ends;
@@ -241,7 +247,8 @@ bug, since fixed (`focus-rescan-main-window`), and are still to be run. Files:
       `#settings-status` and it stays until the next press; (7) note
       whether the very first press after opening the settings modal ever
       does nothing, and if so record the window focus state at that
-      moment.
+      moment; (8) the native confirmation looks right over the settings
+      modal on macOS and Windows.
 
 ### App: a file picked up mid-copy may be scanned from a partial read
 
@@ -575,3 +582,19 @@ that PR.
 - [ ] Update `CLAUDE.md`'s Layout paragraph to state the fallback order as:
       eye-AF frame → AF point → eyes of a detected face (only when no trusted
       AF point) → sharpest region.
+
+### App: decide whether `scan-state` needs a frontend consumer
+
+From `settings-modal` Step 2: the settings modal was the only frontend
+listener of `scan-state`, and it now reads `main.ts`'s `scanRunning`
+instead, which follows `scan-done`. The backend still emits `scan-state`
+under the `Scans` lock, per the rule in `docs/agents/tauri-app.md`, but
+nothing listens. Files: `crates/app/src/commands.rs` (the `scan-state`
+emits), `docs/agents/tauri-app.md`.
+
+#### TODO
+
+- [ ] Either remove the `scan-state` emits and the doc rule that covers
+      them, or give the event a consumer (for instance, have `main.ts`
+      follow it instead of deriving `scanRunning` itself). Done when no
+      event is emitted without a listener, and `mise run ci` passes.
