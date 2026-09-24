@@ -321,7 +321,7 @@ fn reconcile_sidecars_of(
 /// Extract a file's IFD0 preview JPEG along with the Orientation, reading only
 /// the bounded prefix the metadata and the preview need rather than the whole
 /// 48 MB file.
-fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
+pub(crate) fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
     let (arw, jpeg) =
         riffle_core::reader::read_preview(path).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok((arw.orientation, jpeg))
@@ -714,7 +714,7 @@ pub struct Metadata {
     captured_at: Option<String>,
 }
 
-fn read_metadata(path: &Path) -> Result<Metadata, String> {
+pub(crate) fn read_metadata(path: &Path) -> Result<Metadata, String> {
     let name = path
         .file_name()
         .map_or_else(String::new, |n| n.to_string_lossy().into_owned());

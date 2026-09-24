@@ -563,9 +563,10 @@ fn main() {
             commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
-            app.manage(mcp::AppMcp::new(mcp::Bridge::to_main_window(
-                app.handle().clone(),
-            )));
+            app.manage(mcp::AppMcp::new(
+                mcp::Bridge::to_main_window(app.handle().clone()),
+                app.state::<commands::AppIndexReader>().0.clone(),
+            ));
             // A failed bind (the port in use) is reported in the settings
             // window rather than stopping the app from launching.
             if mcp_enabled {

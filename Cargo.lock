@@ -3709,6 +3709,7 @@ name = "riffle-app"
 version = "0.3.1"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "log",
  "mozjpeg",
  "notify",
