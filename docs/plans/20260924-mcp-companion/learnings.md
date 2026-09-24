@@ -41,6 +41,39 @@
   a running app here. The Copy buttons fall back to selecting the text and
   saying so in the status line when the write is refused.
 
+## Step 2: frontend bridge and `get_view`
+
+- The bridge is a `Bridge` struct (pending `oneshot` senders keyed by a
+  counter, plus a boxed `send` closure) rather than a free
+  `bridge::call(app, ..)`. Production builds it with
+  `Bridge::to_main_window(app)`, which emits `mcp-request` with
+  `emit_to("main", ..)`; the tests build it with a closure, so neither the
+  bridge nor the router needs a Tauri `AppHandle` (and no `tauri` `test`
+  feature / `MockRuntime` generics were needed). `Companion` holds an
+  `Arc<Bridge>` instead of the `AppHandle` step 1's note expected; step 3's
+  Rust-side reads will need the `AppHandle` too, so add it to `Companion`
+  then.
+- The bridge lives in `AppMcp` next to (not inside) the tokio status mutex,
+  so `mcp_reply` never waits on a `switch` that holds that mutex across a
+  bind or the 2 s shutdown wait. `mcp_reply` is a sync command: it only
+  locks a std mutex briefly.
+- `CallToolResult::structured(value)` in rmcp 3.4.1 already adds a text
+  block with the same JSON, so no extra text block is built by hand.
+- A tool returning `CallToolResult` directly works with `#[tool]`; a bridge
+  failure becomes `CallToolResult::error` (a tool error the client sees),
+  not a protocol error.
+- The timeout message formats the `Duration` with `{:?}` ("5s"), so the
+  test can use a 20 ms timeout and still check the exact text.
+- `main.ts` exposes the view to `companion.ts` as an object of getters over
+  its module-level `let`s, so the answer always reads the live state. The
+  filter toggle's "is any filter on" expression, duplicated twice, became
+  `filterActive()` so `get_view` can report it too.
+- Burst positions and `current.position` are 1-based, as the strip badge and
+  the position line show them.
+- Not verified by hand: `claude mcp list` showing `get_view` and calling it
+  against a running app (no GUI session in this environment). The tool list
+  is covered by a unit test on `Companion::tool_router()`.
+
 ## Deferred issues (todo candidates)
 
 - Verify by hand whether Claude Desktop accepts a direct `url` entry for a
@@ -51,3 +84,8 @@
 - Verify the settings window's Copy buttons in the Linux (WebKitGTK) and
   Windows / macOS webviews. Basis: step 1 implementation approach asks for it;
   no running app was available. Files: `crates/app/ui/src/settings.ts`.
+- Verify by hand that `get_view` from an MCP client (e.g. Claude Code)
+  returns the open folder's state in a running app. Basis: step 2's
+  acceptance criterion; no GUI session was available. Files:
+  `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
+  `crates/app/ui/src/companion.ts`.

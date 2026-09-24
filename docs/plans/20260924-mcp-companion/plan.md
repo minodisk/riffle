@@ -82,11 +82,11 @@ Desktop appear only as connection examples.
     - Settings tab, checkbox and status follow the existing `auto-advance` pattern (invoke on load, `listen` on the event, `status.textContent` on error). Copy uses `navigator.clipboard.writeText`; verify it works in the Tauri webview on Linux (WebKitGTK) and fall back to selecting the text if not.
     - Commit as `feat(app): embed an MCP server behind a setting`.
 
-- [ ] Step 2: Frontend bridge and `get_view`
+- [x] Step 2: Frontend bridge and `get_view`
   - Done when:
     - `crates/app/src/mcp.rs` gets `bridge::call(app, kind, args) -> Result<Value, String>`: mints an id, stores a `tokio::sync::oneshot::Sender`, emits `mcp-request` to the `main` window (`app.get_webview_window("main")`, error "Riffle's main window is not open" when missing), awaits with a 5 s timeout. New `#[tauri::command] mcp_reply(app, id: u64, ok: bool, value: Value)` completes it.
     - New `crates/app/ui/src/companion.ts`: `handleRequest(kind, args, view: ViewApi): Promise<unknown>` is pure over a small `ViewApi` interface (getters for `files`, `index`, `selection`, `bursts`, `sharpness`, `ratings`, `flags`, `labels`, `entries`, mode flags, and the actions added in later steps) so it is unit-tested without the DOM; `main.ts` implements `ViewApi` over its existing module-level state and registers the `mcp-request` listener next to the other `listen` calls (~line 1827).
-    - Tool `get_view` (no parameters) returns structured JSON: `folder`, `count` (visible files after filter), `current` `{ path, position }`, `selected: [paths]`, `mode: "normal" | "zoom" | "compare"`, `compare_active` (path or null), and `burst: [{ path, position, sharpness, rating, flag, label }]` for the current file's burst (empty when it is alone), plus `sort` and whether a filter is active. Values come from the frontend maps; `rating` is `null` for unrated, `flag` is `"none" | "pick" | "reject"`, `label` the raw name or `null`.
+    - Tool `get_view` (no parameters) returns structured JSON: `folder`, `count` (visible files after filter), `current` `{ path, position }`, `selected: [paths]`, `mode: "normal" | "zoom" | "compare"`, `compare_active` (path or null), and `burst: [{ path, position, sharpness, rating, flag, label, visible }]` for the current file's burst (empty when it is alone; `visible` is false for a frame the filter hides), plus `sort` and whether a filter is active. Values come from the frontend maps; `rating` is `null` for unrated, `flag` is `"none" | "pick" | "reject"`, `label` the raw name or `null`.
     - Tests: `companion.test.ts` covers `get_view` over a fake `ViewApi` (no folder open, single file, burst, compare mode); Rust test that `bridge::call` times out with the expected error when nothing replies and resolves when `mcp_reply` is called.
     - `claude mcp list` shows the `get_view` tool and calling it from Claude Code returns the state of the open folder.
   - Implementation approach:
@@ -150,3 +150,4 @@ Desktop appear only as connection examples.
 ## Progress
 
 - (2026-09-25) Step 1 complete
+- (2026-09-25) Step 2 complete

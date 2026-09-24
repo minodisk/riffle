@@ -20,6 +20,7 @@ import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
 import { type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
+import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import {
   comparePaneAt,
   comparisonCandidates,
@@ -1860,6 +1861,49 @@ void window.__TAURI__.event.listen("trash-rejected", trashRejected);
 void window.__TAURI__.event.listen("undo", undo);
 void window.__TAURI__.event.listen("redo", redo);
 
+// The MCP companion reads the view through this; every getter is live.
+const view: ViewApi = {
+  get folder() {
+    return openDir;
+  },
+  get files() {
+    return files;
+  },
+  get index() {
+    return index;
+  },
+  get selection() {
+    return selection.selected;
+  },
+  get bursts() {
+    return bursts;
+  },
+  sharpness,
+  ratings,
+  flags,
+  labels,
+  get zoomed() {
+    return zoomed;
+  },
+  get comparing() {
+    return comparing;
+  },
+  get compareActive() {
+    return compareActivePath;
+  },
+  get sort() {
+    return sortKey;
+  },
+  get filtered() {
+    return filterActive();
+  },
+};
+void window.__TAURI__.event.listen<McpRequest>("mcp-request", ({ payload }) => {
+  void respond(payload, view).then((reply) =>
+    window.__TAURI__.core.invoke("mcp_reply", { ...reply }),
+  );
+});
+
 // Tauri intercepts HTML5 drag-and-drop, so a DOM `drop` event never carries a
 // usable path; the paths arrive only through these webview events.
 function setDragging(dragging: boolean): void {
@@ -2016,6 +2060,14 @@ function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
 }
 
+// Whether any flag, star, label, orientation or EXIF filter is checked.
+function filterActive(): boolean {
+  return (
+    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
+    exifSelected()
+  );
+}
+
 // Rebuild the EXIF sections from `entries`: one item per label present in the
 // folder. A checked label no longer present is dropped, so a stale selection
 // cannot hide everything.
@@ -2058,11 +2110,7 @@ function rebuildExifMenu(): void {
       filterExif.append(item);
     }
   }
-  filterToggle.classList.toggle(
-    "active",
-    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
-      exifSelected(),
-  );
+  filterToggle.classList.toggle("active", filterActive());
 }
 
 function setFilterMenuOpen(open: boolean): void {
@@ -2089,11 +2137,7 @@ function filterChanged(): void {
     const { group, value } = item.dataset;
     item.setAttribute("aria-checked", String(shownExif.get(group as ExifGroup)!.has(value!)));
   }
-  filterToggle.classList.toggle(
-    "active",
-    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
-      exifSelected(),
-  );
+  filterToggle.classList.toggle("active", filterActive());
   refilter();
 }
 
