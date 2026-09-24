@@ -146,7 +146,7 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
       Do not touch `README.md` / `README.ja.md`: they only say
       "Settings".
 
-- [ ] Step 2: Drop the cross-window sync the modal no longer needs
+- [x] Step 2: Drop the cross-window sync the modal no longer needs
   - Done when:
     - Backend events that only existed to reach the other window are gone:
       `label-names`, `auto-advance`, `debug`, `shortcuts-changed`,
@@ -214,3 +214,4 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
   `clear_index` for the Scans lock while the settings modal was open; the
   listener now skips `resync()` while `settings.isOpen`.
 - (2026-09-25) Step 1 complete
+- (2026-09-25) Step 2 complete

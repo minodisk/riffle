@@ -367,8 +367,8 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent};
 
 use sidecar::SidecarFormat;
 
-/// Whether timing logs are on; the settings modal toggles it and the main
-/// window logs by it, so it is kept here where both can reach it.
+/// Whether timing logs are on; the settings modal toggles it, and it is kept
+/// here so a reloaded main window picks it up again.
 struct TimingLogs(AtomicBool);
 
 #[tauri::command]
@@ -377,11 +377,8 @@ fn timing_logs(state: tauri::State<TimingLogs>) -> bool {
 }
 
 #[tauri::command]
-fn set_timing_logs(app: AppHandle, enabled: bool) {
-    app.state::<TimingLogs>()
-        .0
-        .store(enabled, Ordering::Relaxed);
-    let _ = app.emit("debug", enabled);
+fn set_timing_logs(state: tauri::State<TimingLogs>, enabled: bool) {
+    state.0.store(enabled, Ordering::Relaxed);
 }
 
 /// Write a frontend timing line to `Riffle.log`, so it can be read without
@@ -582,7 +579,6 @@ fn main() {
             commands::mcp_reply,
             commands::label_names,
             commands::set_label_names,
-            commands::scan_running,
             commands::index_size,
             commands::clear_index,
             commands::trash_rejected,
