@@ -160,7 +160,7 @@ them in the PR.
     - Paths are returned as `to_string_lossy` strings like `list_arw`;
       `openDirectory` in `main.ts` takes exactly that.
 
-- [ ] Step 3: The folder tree in the left pane
+- [x] Step 3: The folder tree in the left pane
   - Done when:
     - `crates/app/ui/src/tree.ts` holds the pure tree state, tested in
       `tree.test.ts`: a node map keyed by path with `children:

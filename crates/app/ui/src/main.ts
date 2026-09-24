@@ -1,5 +1,6 @@
 import { type Binding, isModifierCode, keyName } from "./keys.js";
 import * as strip from "./strip.js";
+import * as folders from "./folders.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
 import { History } from "./undo.js";
@@ -1719,6 +1720,16 @@ strip.init(
   },
 );
 
+// A folder clicked in the tree opens the way a drop does.
+folders.init((path) => {
+  if (!formatGate.isOpen) {
+    return;
+  }
+  openDirectory(path, newFolderToken()).catch((err: unknown) => {
+    setStatus(String(err));
+  });
+}, setStatus);
+
 // Reserve the right to be the folder the UI shows. The picker reserves its
 // token before its dialog opens; a drop mints its token only after
 // `dropped_folder` resolves, so an ignored drop cannot cancel an open picker
@@ -1868,6 +1879,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     index = 0;
     selection = single(files[0]);
     openDir = folder;
+    void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
     rebuildExifMenu();
     flags.clear();
@@ -2377,7 +2389,7 @@ void window.__TAURI__.core.invoke<boolean>("sidecar_format_saved").then(
 );
 // Apply the remembered sort before the last folder opens, so it comes up in
 // that order.
-void window.__TAURI__.core
+const sortLoaded = window.__TAURI__.core
   .invoke<SortKey>("sort_order")
   .then(setSortKey, () => {})
   .finally(() => {
@@ -2395,7 +2407,11 @@ function applyKeymap(bindings: Binding[]): void {
   renderEmpty();
 }
 
-void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
+const keymapLoaded = window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
+
+// The tree's roots come after the keymap and the sort order, which the first
+// frame needs more.
+void Promise.allSettled([sortLoaded, keymapLoaded]).then(folders.loadRoots);
 
 // The settings window rebinds keys; this window culls with the result.
 void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload }) => {
