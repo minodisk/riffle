@@ -1,3 +1,7 @@
+<p align="center"><img src="./crates/app/icons/128x128@2x.png" alt="Riffle" width="128"></p>
+
+<p align="center">English | <a href="./README.ja.md">日本語</a></p>
+
 # Riffle
 
 A culling app for going through the RAW files you shot, fast, and deciding what
@@ -75,7 +79,9 @@ DxO PhotoLab.
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
   `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
-  its ends, and `Shift+x` rejects the rest of one.
+  its ends, and `Shift+x` rejects the rest of one. Cameras that record no
+  sub-second capture time are grouped by whole seconds (see
+  [What the camera records](#what-the-camera-records)).
 - **Shooting info**: camera, lens, shutter speed, aperture, ISO and focal
   length.
 - **Filter and sort**: narrow down by stars, label, orientation, lens and more;
@@ -170,6 +176,28 @@ Discussions. If it does not, open an issue from the
   - [x] Leica M11-P
   - [x] SIGMA BF
   - [x] SIGMA fp L
+
+#### What the camera records
+
+Some features depend on what the camera records in the RAW file.
+
+| Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
+|---|---|---|---|---|
+| Sony α7 V | ✓ | ✓ | ✓ | ✓ |
+| SIGMA BF | ✓ | – | – | – |
+| SIGMA fp L | – | – | – | – |
+| Leica M11-P | – | – | – | – |
+
+- **AF point**: the focus mark is drawn there, the 1:1 focus check opens
+  centered on it, and sharpness is scored around it. Without one, there is no
+  focus mark, the 1:1 focus check opens at the frame center, and sharpness is
+  scored between the eyes of a detected face, else on the sharpest region.
+- **AF frame size and face tracking**: with both, sharpness is scored on the
+  camera's eye-AF frame, which is the most reliable because it does not rely
+  on face detection.
+- **Sub-second capture time**: frames within 1 s of the previous one form a
+  burst. Without it, frames are grouped by whole seconds, so a shot taken up
+  to about 2 s after the previous frame can still join its burst.
 
 If a camera not on the list works, post in the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)
