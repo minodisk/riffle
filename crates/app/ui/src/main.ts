@@ -47,8 +47,7 @@ const PREVIEW_KIND_JPEG_V1 = 1;
 // Header layout of a `focus_crop` payload, see `crates/app/src/commands.rs`.
 const CROP_HEADER_LEN = 32;
 const CROP_KIND_RGBA_V3 = 5;
-// Turned on by the settings modal's `Timing logs` item through the `debug`
-// event. That item only shows in a development build, so elsewhere this stays
+// Turned on by the settings modal's `Timing logs` item. That item only shows in a development build, so elsewhere this stays
 // off.
 let debugLogging = false;
 
@@ -99,7 +98,15 @@ const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
 const formatDialog = document.getElementById("format-dialog") as HTMLDivElement;
 const formatError = document.getElementById("format-error") as HTMLParagraphElement;
-const settings = initSettings();
+const settings = initSettings({
+  applyKeymap,
+  setAutoAdvance: (enabled) => {
+    autoAdvance = enabled;
+  },
+  setDebugLogging: (enabled) => {
+    debugLogging = enabled;
+  },
+});
 const formatButtons = [...formatDialog.querySelectorAll<HTMLButtonElement>("button[data-format]")];
 
 // Closed until a sidecar format is saved; no folder opens before that.
@@ -163,6 +170,11 @@ let scanning: string | null = null;
 // True between `start_scan` and its `scan-done`. A rescan asked for while it
 // is true is deferred (`resyncPending`) rather than canceling the scan.
 let scanRunning = false;
+
+function setScanRunning(running: boolean): void {
+  scanRunning = running;
+  settings.setScanRunning(running);
+}
 // Mints a per-call id for `startScan` so its `.then`/`.catch` can tell
 // whether a later call (a re-open of the same folder included) has already
 // superseded it, since `folder !== openDir` can't detect that case.
@@ -1758,7 +1770,7 @@ function startScan(folder: string): Promise<void> {
   // phase (folder listing plus index and sidecar reconcile) is deferred too,
   // not just during `start_scan` — otherwise it starts a second
   // `scan_folder` that stampedes this one's `scanId`.
-  scanRunning = true;
+  setScanRunning(true);
   scanSeq += 1;
   const seq = scanSeq;
   currentScan = seq;
@@ -1792,7 +1804,7 @@ function startScan(folder: string): Promise<void> {
       if (seq !== currentScan) {
         return;
       }
-      scanRunning = false;
+      setScanRunning(false);
       drainResync();
       setStatus(String(err));
     });
@@ -1893,7 +1905,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     draw();
     scanning = null;
     scanId = null;
-    scanRunning = false;
+    setScanRunning(false);
     resyncPending = false;
     void startScan(folder);
     if (files.length === 0) {
@@ -2080,7 +2092,7 @@ void window.__TAURI__.event.listen<{
   if (payload.scan_id !== scanId) {
     return;
   }
-  scanRunning = false;
+  setScanRunning(false);
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   renderMeta();
   strip.refresh();
@@ -2126,21 +2138,14 @@ void window.__TAURI__.event.listen("index-cleared", () => {
   });
 });
 
-// The settings modal's "Timing logs" item toggles this through the `debug`
-// event; read the initial state too, so a reloaded main window stays in sync
-// with the backend's `TimingLogs` state.
-void window.__TAURI__.event.listen<boolean>("debug", ({ payload }) => {
-  debugLogging = payload;
-});
+// The settings modal's "Timing logs" item toggles this; read the backend's
+// `TimingLogs` state too, so a reloaded main window keeps it.
 void window.__TAURI__.core.invoke<boolean>("timing_logs").then((enabled) => {
   debugLogging = enabled;
 });
 
-// The settings modal's Auto-advance checkbox, followed the same way.
+// The settings modal's Auto-advance checkbox sets this.
 let autoAdvance = false;
-void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
-  autoAdvance = payload;
-});
 void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
   autoAdvance = enabled;
 });
@@ -2424,11 +2429,6 @@ function applyKeymap(bindings: Binding[]): void {
 }
 
 void window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(applyKeymap);
-
-// The settings modal rebinds keys; this window culls with the result.
-void window.__TAURI__.event.listen<Binding[]>("shortcuts-changed", ({ payload }) => {
-  applyKeymap(payload);
-});
 
 window.addEventListener("keydown", (event) => {
   // The dialog's buttons take Enter and Space natively, but Tab would move

@@ -48,10 +48,20 @@ export type Settings = {
   open(): void;
   close(): void;
   keydown(event: KeyboardEvent): void;
+  // `main.ts` reports every change of its `scanRunning` here; the Cache tab
+  // refuses to clear while a scan runs.
+  setScanRunning(running: boolean): void;
+};
+
+// What the modal changes in the main view, applied directly.
+export type SettingsHooks = {
+  applyKeymap(bindings: Binding[]): void;
+  setAutoAdvance(enabled: boolean): void;
+  setDebugLogging(enabled: boolean): void;
 };
 
 // Looks up the modal's elements and loads its values; call it once.
-export function initSettings(): Settings {
+export function initSettings(hooks: SettingsHooks): Settings {
   const dialog = document.getElementById("settings-dialog") as HTMLDivElement;
   const box = document.getElementById("settings-box") as HTMLDivElement;
   const modal = new SettingsModal();
@@ -77,9 +87,6 @@ export function initSettings(): Settings {
   let shortcutBindings: Binding[] = [];
   let scanRunning = false;
   let clearInFlight = false;
-  // Set by the first `scan-state`, so the initial `scan_running` answer is not
-  // applied over a newer state that arrived while it was in flight.
-  let scanStateSeen = false;
 
   function renderShortcuts(): void {
     shortcutsRows.replaceChildren(
@@ -135,11 +142,11 @@ export function initSettings(): Settings {
     );
   }
 
-  // The backend also emits `shortcuts-changed`, which the main view culls by.
   async function updateShortcuts(command: string, args?: Record<string, unknown>): Promise<void> {
     modal.capturing = null;
     try {
       shortcutBindings = await window.__TAURI__.core.invoke<Binding[]>(command, args);
+      hooks.applyKeymap(shortcutBindings);
       status.textContent = "";
     } catch (error) {
       status.textContent = String(error);
@@ -188,14 +195,8 @@ export function initSettings(): Settings {
       japaneseLabelNames = japanese;
       showLabelNames(names);
     });
-  void window.__TAURI__.event.listen<LabelNames>("label-names", ({ payload }) => {
-    showLabelNames(payload);
-  });
   void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
     autoAdvance.checked = enabled;
-  });
-  void window.__TAURI__.event.listen<boolean>("auto-advance", ({ payload }) => {
-    autoAdvance.checked = payload;
   });
   function copyButton(text: HTMLElement): HTMLButtonElement {
     const button = document.createElement("button");
@@ -257,10 +258,6 @@ export function initSettings(): Settings {
     indexSize.textContent = `Index cache: ${size}`;
   }
 
-  function showIndexClearing(): void {
-    indexSize.textContent = "Clearing the index cache…";
-  }
-
   void window.__TAURI__.core.invoke<string>("index_size").then(showIndexSize);
 
   function updateClearButton(): void {
@@ -268,27 +265,16 @@ export function initSettings(): Settings {
     clearIndexNote.hidden = !scanRunning;
   }
 
-  void window.__TAURI__.core.invoke<boolean>("scan_running").then((running) => {
-    if (scanStateSeen) {
-      return;
-    }
+  function setScanRunning(running: boolean): void {
+    const scanEnded = scanRunning && !running;
     scanRunning = running;
-    updateClearButton();
-  });
-  void window.__TAURI__.event.listen<boolean>("scan-state", ({ payload }) => {
-    scanStateSeen = true;
-    const scanEnded = scanRunning && !payload;
-    scanRunning = payload;
     if (scanEnded && !clearInFlight) {
       void window.__TAURI__.core.invoke<string>("index_size").then((size) => {
         if (!clearInFlight) showIndexSize(size);
       });
     }
     updateClearButton();
-  });
-  void window.__TAURI__.event.listen("index-clearing", () => {
-    showIndexClearing();
-  });
+  }
 
   for (const radio of sidecarRadios) {
     radio.addEventListener("change", () => {
@@ -324,8 +310,12 @@ export function initSettings(): Settings {
 
   autoAdvance.addEventListener("change", () => {
     status.textContent = "";
+    const enabled = autoAdvance.checked;
     window.__TAURI__.core
-      .invoke("set_auto_advance", { enabled: autoAdvance.checked })
+      .invoke("set_auto_advance", { enabled })
+      .then(() => {
+        hooks.setAutoAdvance(enabled);
+      })
       .catch((error: unknown) => {
         status.textContent = String(error);
       });
@@ -348,6 +338,7 @@ export function initSettings(): Settings {
   );
 
   debugTiming.addEventListener("change", () => {
+    hooks.setDebugLogging(debugTiming.checked);
     void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
   });
 
@@ -364,7 +355,6 @@ export function initSettings(): Settings {
       })
       .catch(async (error: unknown) => {
         status.textContent = String(error);
-        // The clear can fail after `index-clearing`, so put the figure back.
         showIndexSize(await window.__TAURI__.core.invoke<string>("index_size"));
       })
       .finally(() => {
@@ -507,5 +497,6 @@ export function initSettings(): Settings {
     open,
     close,
     keydown,
+    setScanRunning,
   };
 }

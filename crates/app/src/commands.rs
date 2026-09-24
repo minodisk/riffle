@@ -1341,8 +1341,8 @@ pub fn auto_advance(app: tauri::AppHandle) -> bool {
     app.state::<AppAutoAdvance>().0.load(Ordering::Relaxed)
 }
 
-/// Turn auto-advance on or off, persist it under `autoAdvance` and tell both
-/// windows. A save failure is logged and the in-memory change stands.
+/// Turn auto-advance on or off and persist it under `autoAdvance`. A save
+/// failure is logged and the in-memory change stands.
 #[tauri::command]
 pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
     app.state::<AppAutoAdvance>()
@@ -1355,7 +1355,6 @@ pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
     if let Err(e) = saved {
         log::warn!("failed to save the auto-advance setting: {e}");
     }
-    let _ = app.emit("auto-advance", enabled);
 }
 
 /// Whether the MCP server is on, its port and its last bind error.
@@ -1406,9 +1405,9 @@ pub fn label_names(app: tauri::AppHandle) -> Value {
 /// Normalize and apply `names` (see `label_names_setting`), persist them
 /// under `labelNames`, reset the index's sidecar state so the open folder
 /// re-reads its XMP labels under the new names (after draining the writer,
-/// whose queued judgments keep the names they were made under), and emit `label-names` with
-/// the stored names and `sidecar-format` so the main window reopens the
-/// folder. A save failure is logged and the in-memory change stands.
+/// whose queued judgments keep the names they were made under), and emit
+/// `sidecar-format` so the main window reopens the folder. Returns the stored
+/// names. A save failure is logged and the in-memory change stands.
 ///
 /// `async` because the reset touches SQLite, which must not block the main
 /// thread.
@@ -1430,7 +1429,6 @@ pub async fn set_label_names(app: tauri::AppHandle, names: Value) -> Result<Valu
     if let Err(e) = saved {
         log::warn!("failed to save the label names: {e}");
     }
-    let _ = app.emit("label-names", stored.clone());
     if !changed {
         return Ok(stored);
     }
@@ -1529,10 +1527,7 @@ fn update_keymap(
     if let Err(e) = saved {
         log::warn!("failed to save the shortcuts: {e}");
     }
-    let bindings = keymap.bindings();
-    // The settings modal edits the keymap; the main window culls with it.
-    let _ = app.emit("shortcuts-changed", &bindings);
-    Ok(bindings)
+    Ok(keymap.bindings())
 }
 
 /// Record a judgment for one file: `0` unrated and `1`-`5` stars, plus the
@@ -1668,15 +1663,6 @@ fn on_disk_bytes(path: &Path) -> u64 {
     .sum()
 }
 
-/// Whether a scan is in progress right now, for a settings modal that opened
-/// mid-scan; `scan-state` carries every change from then on.
-#[tauri::command]
-pub async fn scan_running(app: tauri::AppHandle) -> bool {
-    let scans = app.state::<Scans>();
-    let scanning = index::lock(&scans.0).scanning();
-    scanning
-}
-
 /// The path the index is opened from, recomputed as `main.rs` does; the path
 /// itself is not kept in any managed state.
 fn index_path(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -1739,7 +1725,6 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     if !rx.recv().await.unwrap_or(false) {
         return Ok(false);
     }
-    let _ = app.emit("index-clearing", ());
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         if let Some(writer) = &handle.state::<AppWriter>().0 {

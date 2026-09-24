@@ -146,7 +146,7 @@ it, is gone. Persisted settings keys and formats (`sidecarFormat`,
       Do not touch `README.md` / `README.ja.md`: they only say
       "Settings".
 
-- [ ] Step 2: Drop the cross-window sync the modal no longer needs
+- [x] Step 2: Drop the cross-window sync the modal no longer needs
   - Done when:
     - Backend events that only existed to reach the other window are gone:
       `label-names`, `auto-advance`, `debug`, `shortcuts-changed`,

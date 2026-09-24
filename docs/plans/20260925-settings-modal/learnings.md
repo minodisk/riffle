@@ -50,6 +50,32 @@
   race, `clear_index` returns `a scan is running` (the same refusal as
   before the listener was scoped). Needs a manual check on macOS / Windows.
 
+## Step 2: Drop the cross-window sync the modal no longer needs
+
+- Removed `label-names`, `auto-advance`, `debug`, `shortcuts-changed`,
+  `index-clearing` and the `scan_running` command. The MCP companion's
+  `mcp-state` / `mcp-request` stay: `mcp-state` is backend-driven (the server
+  binding, failing, or being toggled), not mirroring for the old window.
+- `initSettings` takes `SettingsHooks` (`applyKeymap`, `setAutoAdvance`,
+  `setDebugLogging`) and returns `setScanRunning`; `main.ts` routes every
+  change of its `scanRunning` through a `setScanRunning` helper that also
+  tells the modal, which keeps the Clear Cache button and the post-scan size
+  refresh the `scan-state` listener used to drive. `main.ts`'s `scanRunning`
+  also covers the `scan_folder` prepare phase, so it is at least as wide as
+  the backend's `ScansState::scanning()` for scans this window starts; a
+  mismatch only makes `clear_index` refuse with its own error.
+- `TimingLogs` and `timing_logs` / `set_timing_logs` stay as the Rust-held
+  state that survives a webview reload (`main.ts` still reads it at startup);
+  only the `debug` emit went. `set_timing_logs` now takes the state directly.
+- Without `index-clearing` the modal cannot tell when the native confirmation
+  was accepted, so the "Clearing the index cache…" text is gone; the Clear
+  Cache button stays disabled while the clear runs and the size updates when
+  it finishes. Showing the text at click time would show it while the
+  confirmation is still up, so that was not done.
+- The auto-advance checkbox applies to `main.ts` after `set_auto_advance`
+  resolves; the timing-logs checkbox applies immediately, as the command
+  cannot fail.
+
 ## Deferred issues (todo candidates)
 
 - Manually verify Clear Cache from the settings modal on a real device: the
@@ -61,3 +87,10 @@
   (no display in the implementation environment). Files:
   `crates/app/src/commands.rs` (`clear_index`),
   `crates/app/ui/src/main.ts` (`tauri://focus` listener).
+- `scan-state` has no frontend listener left after Step 2 (the settings
+  modal was its only one; `main.ts` tracks scans through `scan-done`). The
+  plan kept it as a backend-driven state change, so its emits (and the
+  "emit under the `Scans` lock" rule in `docs/agents/tauri-app.md`) stay;
+  decide whether to remove it or give it a consumer. Basis: Step 2
+  implementation. Files: `crates/app/src/commands.rs` (`scan-state` emits),
+  `docs/agents/tauri-app.md`.
