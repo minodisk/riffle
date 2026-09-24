@@ -35,44 +35,50 @@ body {
   min-height: 0;
 }
 
-/* The strip is on the left rather than the bottom: most shots are portrait,
-   and on a 16:10 display both orientations are height-constrained, so the
-   spare space is at the sides. */
+/* The left pane, holding only the Open folder button for now. */
 #side {
-  /* The containing block for the filter fly-out. Never give this a z-index
-     or an overflow: a stacking context here would paint the menu below
-     #viewer, and an overflow would clip it. */
-  position: relative;
-  /* min-content, so the strip's fixed 160px plus its scrollbar gutter sets
-     the width (0 extra with overlay scrollbars) and #position's text wraps
-     instead of widening the column. */
   flex: none;
-  width: min-content;
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: #151515;
 }
 
+/* The filmstrip along the bottom, as in Lightroom, under a header bar with
+   the counter and the filter / sort tools. Its height is fixed by the cell,
+   so the viewer takes the rest. Never give this a z-index or an overflow:
+   a stacking context here would paint the filter / sort menus, which open
+   upward over #main, below #viewer, and an overflow would clip them. */
+#film {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: #151515;
+}
+
+#strip-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
 #tools {
   display: flex;
   flex: none;
+  margin-left: auto;
 }
 
 #filter,
 #sort {
+  position: relative;
   flex: none;
-  padding: 0.5rem 8px 0.25rem;
+  padding: 0.25rem 8px;
 }
 
 #filter {
   order: 1;
   margin-left: auto;
   padding-left: 0;
-}
-
-#sort {
-  position: relative;
 }
 
 #filter-toggle,
@@ -114,17 +120,16 @@ body {
   overflow-y: auto;
 }
 
-/* A fly-out beside the sidebar, so the strip it filters stays visible. */
-#filter-menu {
-  top: 8px;
-  left: calc(100% + 4px);
-  max-height: calc(100vh - 16px);
-}
-
+/* The filter and sort menus open upward from the strip's header bar, over
+   the viewer, so the strip they act on stays visible. They sit at the
+   window's right edge, so each is aligned to its toggle's right edge. The
+   height is bounded by the space above the bar: #film is about 220px tall
+   (the bar plus the 182px strip and its scrollbar). */
+#filter-menu,
 #sort-menu {
-  top: calc(100% - 0.25rem + 2px);
-  left: 8px;
-  max-height: 70vh;
+  bottom: calc(100% + 4px);
+  right: 8px;
+  max-height: calc(100vh - 240px);
 }
 
 #filter-menu[hidden],
@@ -253,9 +258,9 @@ body {
 }
 
 #strip {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: #444 transparent;
@@ -263,9 +268,9 @@ body {
 
 #position {
   flex: none;
-  padding: 0.25rem 0.5rem 0;
+  padding: 0 0.5rem;
   font-size: 0.8rem;
-  text-align: center;
+  white-space: nowrap;
   color: #999;
 }
 
@@ -288,21 +293,23 @@ body {
 
 #strip-inner {
   position: relative;
-  width: 160px;
+  /* A 168px cell with 7px above and below, room for the burst band. */
+  height: 182px;
   /* The single source of truth for cell placement: `strip.ts` reads
-     `--cell-height` once at startup instead of hard-coding it, so this is
-     the only place that needs to change to resize a cell. */
-  --cell-height: 176px;
+     `--cell-width` (the cell's pitch, the cell plus the gap) once at startup
+     instead of hard-coding it, so this is the only place that needs to
+     change to resize a cell. */
+  --cell-width: 154px;
   --cell-gap: 8px;
 }
 
 .cell {
   position: absolute;
-  left: 7px;
+  top: 7px;
   /* The 144px image box plus the 1px border each side: absolute children
      are placed against the padding box. */
-  width: 146px;
-  height: calc(var(--cell-height) - var(--cell-gap));
+  width: calc(var(--cell-width) - var(--cell-gap));
+  height: 168px;
   border: 1px solid transparent;
   border-radius: 3px;
   box-sizing: border-box;
@@ -433,8 +440,8 @@ body {
 }
 
 /* The burst band, a tint behind the cells of a burst that reaches a little
-   outside each cell and, on a member below another, up across the gap, so a
-   burst reads as one block; at a burst's first and last cell it stops
+   outside each cell and, on a member right of another, left across the gap,
+   so a burst reads as one block; at a burst's first and last cell it stops
    short of the neighboring burst's band. `isolation` on `.cell` keeps it
    behind the cell's contents but above the background under the strip. */
 .cell.burst {
@@ -445,22 +452,22 @@ body {
   content: "";
   position: absolute;
   z-index: -1;
-  top: calc(-1px - var(--cell-gap));
-  bottom: -1px;
-  left: -5px;
-  right: -5px;
+  top: -5px;
+  bottom: -5px;
+  left: calc(-1px - var(--cell-gap));
+  right: -1px;
   background: rgba(255, 255, 255, 0.08);
 }
 
 .cell.burst.burst-first::before {
-  top: -2px;
+  left: -2px;
   border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
+  border-bottom-left-radius: 6px;
 }
 
 .cell.burst.burst-last::before {
-  bottom: -2px;
-  border-bottom-left-radius: 6px;
+  right: -2px;
+  border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
 }
 

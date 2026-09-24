@@ -1012,6 +1012,8 @@ content instead: the fixed-width strip (plus its scrollbar gutter) sets the
 width and the text wraps. Absolutely positioned children (the filter / sort
 menus) do not feed into the intrinsic width.
 
+- Update: the strip is now a horizontal row along the bottom (`#film`), so it
+  no longer sizes `#side`; its height is fixed by `#strip-inner`.
 - Source: `docs/plans/_archived/20260922-strip-scrollbar/learnings.md`, Step 1.
 
 ### Paint a full-bleed band under a cell's own background with `isolation: isolate` + negative `z-index` (Inferred)
@@ -1044,6 +1046,9 @@ not the border box, so with `box-sizing: border-box` the cell must be made
 2px wider than the image box (144px image box → 146px cell) for a badge
 positioned from the cell's edge to land flush with the image box's edge.
 
+- Update: the strip is now horizontal; cells are placed by `left`, and
+  `--cell-width` (the 154px pitch) on `#strip-inner` is the source of truth
+  that `strip.ts` reads, replacing `--cell-height`.
 - Source: `docs/plans/_archived/20260922-burst-count-bottom-right/learnings.md`,
   Step 1.
 - Source: `docs/plans/_archived/20260923-strip-cell-geometry/learnings.md`, Step 1.

@@ -8,6 +8,20 @@
   <body>
     <div id="main">
       <div id="side">
+        <button id="open" type="button">Open folder</button>
+      </div>
+      <div id="viewer">
+        <canvas id="canvas"></canvas>
+        <div id="empty" hidden></div>
+      </div>
+      <div id="info">
+        <div id="meta"></div>
+        <div id="meta-status"></div>
+      </div>
+    </div>
+    <div id="film">
+      <div id="strip-bar">
+        <div id="position"></div>
         <div id="tools">
           <div id="filter">
             <button
@@ -161,18 +175,8 @@
             </div>
           </div>
         </div>
-        <div id="strip"><div id="strip-inner"></div></div>
-        <div id="position"></div>
-        <button id="open" type="button">Open folder</button>
       </div>
-      <div id="viewer">
-        <canvas id="canvas"></canvas>
-        <div id="empty" hidden></div>
-      </div>
-      <div id="info">
-        <div id="meta"></div>
-        <div id="meta-status"></div>
-      </div>
+      <div id="strip"><div id="strip-inner"></div></div>
     </div>
     <div id="context-menu" role="menu" hidden></div>
     <div id="format-dialog" role="dialog" aria-modal="true" aria-labelledby="format-title" hidden>

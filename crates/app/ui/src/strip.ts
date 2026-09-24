@@ -1,5 +1,5 @@
-// The thumbnail filmstrip down the left edge: a hand-rolled virtual list over
-// the cached thumbnails the `thumbnail` command serves.
+// The thumbnail filmstrip along the bottom edge: a hand-rolled virtual list
+// over the cached thumbnails the `thumbnail` command serves.
 
 import type { BurstMark } from "./burst.js";
 import type { Modifiers, PickFlag } from "./selection.js";
@@ -12,12 +12,12 @@ const THUMBNAIL_KIND_JPEG_V1 = 2;
 const strip = document.getElementById("strip") as HTMLDivElement;
 const inner = document.getElementById("strip-inner") as HTMLDivElement;
 
-// Cell geometry. The strip column is 160px wide; a cell is a 144x96 image box
-// plus the file name, and 96x144 upright after a quarter turn. Read from the
-// `--cell-height` custom property in `style.css` (the single source of truth
-// for cell placement) rather than duplicated here. A fixed height keeps
-// `scrollTop -> index` arithmetic, which is what makes virtualization cheap.
-const CELL_HEIGHT = Number.parseFloat(getComputedStyle(inner).getPropertyValue("--cell-height"));
+// Cell geometry. A cell is a 144x96 image box plus the file name, and 96x144
+// upright after a quarter turn. The pitch is read from the `--cell-width`
+// custom property in `style.css` (the single source of truth for cell
+// placement) rather than duplicated here. A fixed width keeps
+// `scrollLeft -> index` arithmetic, which is what makes virtualization cheap.
+const CELL_WIDTH = Number.parseFloat(getComputedStyle(inner).getPropertyValue("--cell-width"));
 // Cells kept beyond the visible range, so a short scroll shows an image that
 // is already decoded.
 const RANGE_MARGIN = 4;
@@ -156,7 +156,7 @@ function releaseCell(cell: Cell): void {
 function createCell(index: number): Cell {
   const el = document.createElement("div");
   el.className = "cell";
-  el.style.top = `${index * CELL_HEIGHT}px`;
+  el.style.left = `${index * CELL_WIDTH}px`;
   const img = document.createElement("img");
   el.append(img);
   const name = document.createElement("span");
@@ -202,7 +202,7 @@ function highlight(): void {
 // The cell nearest the middle of the viewport is wanted first, so scrolling
 // fast fills what the user is looking at rather than what it flew past.
 function pickNext(): number | null {
-  const center = (strip.scrollTop + strip.clientHeight / 2) / CELL_HEIGHT;
+  const center = (strip.scrollLeft + strip.clientWidth / 2) / CELL_WIDTH;
   let best: number | null = null;
   let bestDistance = Infinity;
   for (const index of cells.keys()) {
@@ -294,10 +294,10 @@ function pump(): void {
 }
 
 function render(): void {
-  const first = Math.max(0, Math.floor(strip.scrollTop / CELL_HEIGHT) - RANGE_MARGIN);
+  const first = Math.max(0, Math.floor(strip.scrollLeft / CELL_WIDTH) - RANGE_MARGIN);
   const last = Math.min(
     files.length - 1,
-    Math.ceil((strip.scrollTop + strip.clientHeight) / CELL_HEIGHT) + RANGE_MARGIN,
+    Math.ceil((strip.scrollLeft + strip.clientWidth) / CELL_WIDTH) + RANGE_MARGIN,
   );
   for (const [index, cell] of cells) {
     if (index < first || index > last) {
@@ -376,10 +376,10 @@ export function setBurst(index: number, value: BurstMark | null): void {
 
 // Show one cell per file, in `list_arw` order, all of them placeholders.
 // `keepScroll` is for a rescan of the folder already shown: the offset is
-// kept (clamped to the new list's height) instead of jumping back to the top,
+// kept (clamped to the new list's width) instead of jumping back to the top,
 // so files appearing or disappearing elsewhere do not move the view.
 export function setFiles(paths: string[], keepScroll = false): void {
-  const offset = strip.scrollTop;
+  const offset = strip.scrollLeft;
   generation += 1;
   for (const cell of cells.values()) {
     releaseCell(cell);
@@ -399,9 +399,9 @@ export function setFiles(paths: string[], keepScroll = false): void {
   files = paths;
   indexOf = new Map(paths.map((path, index) => [path, index]));
   current = 0;
-  inner.style.height = `${files.length * CELL_HEIGHT}px`;
-  strip.scrollTop = keepScroll
-    ? Math.max(0, Math.min(offset, files.length * CELL_HEIGHT - strip.clientHeight))
+  inner.style.width = `${files.length * CELL_WIDTH}px`;
+  strip.scrollLeft = keepScroll
+    ? Math.max(0, Math.min(offset, files.length * CELL_WIDTH - strip.clientWidth))
     : 0;
   render();
 }
@@ -418,12 +418,12 @@ export function setSelected(indices: Iterable<number>): void {
 // Highlight `index` and scroll it into view, the `block: "nearest"` way.
 export function setCurrent(index: number): void {
   current = index;
-  const top = index * CELL_HEIGHT;
-  const bottom = top + CELL_HEIGHT;
-  if (top < strip.scrollTop) {
-    strip.scrollTop = top;
-  } else if (bottom > strip.scrollTop + strip.clientHeight) {
-    strip.scrollTop = bottom - strip.clientHeight;
+  const left = index * CELL_WIDTH;
+  const right = left + CELL_WIDTH;
+  if (left < strip.scrollLeft) {
+    strip.scrollLeft = left;
+  } else if (right > strip.scrollLeft + strip.clientWidth) {
+    strip.scrollLeft = right - strip.clientWidth;
   }
   render();
 }
@@ -459,6 +459,18 @@ export function init(
   strip.addEventListener("contextmenu", (event) => {
     event.preventDefault();
   });
+  // A vertical wheel scrolls the strip sideways, as Lightroom's filmstrip
+  // does; a trackpad's horizontal swipe already scrolls it natively.
+  strip.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.deltaX === 0 && event.deltaY !== 0) {
+        event.preventDefault();
+        strip.scrollLeft += event.deltaY;
+      }
+    },
+    { passive: false },
+  );
   strip.addEventListener("scroll", render);
   window.addEventListener("resize", render);
 }

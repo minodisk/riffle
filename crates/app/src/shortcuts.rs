@@ -26,14 +26,14 @@ const REDO_DEFAULT: &str = if MACOS {
 /// (`Digit1` -> `1`, `Comma` -> `,`), as Option and Shift change
 /// `event.key`.
 const DEFAULTS: &[(&str, &[&str])] = &[
-    ("previous", &["arrowup"]),
-    ("next", &["arrowdown"]),
-    ("burstPrevious", &["arrowleft"]),
-    ("burstNext", &["arrowright"]),
-    ("burstFramePrevious", &["alt+arrowup"]),
-    ("burstFrameNext", &["alt+arrowdown"]),
-    ("extendPrevious", &["shift+arrowup"]),
-    ("extendNext", &["shift+arrowdown"]),
+    ("previous", &["arrowleft"]),
+    ("next", &["arrowright"]),
+    ("burstPrevious", &["arrowup"]),
+    ("burstNext", &["arrowdown"]),
+    ("burstFramePrevious", &["alt+arrowleft"]),
+    ("burstFrameNext", &["alt+arrowright"]),
+    ("extendPrevious", &["shift+arrowleft"]),
+    ("extendNext", &["shift+arrowright"]),
     ("open", &[OPEN_DEFAULT]),
     ("undo", &[UNDO_DEFAULT]),
     ("redo", &[REDO_DEFAULT]),
@@ -565,14 +565,14 @@ mod tests {
             .map(|b| (b.action, b.keys))
             .collect();
         let expected: Vec<(&str, Vec<String>)> = [
-            ("previous", "arrowup"),
-            ("next", "arrowdown"),
-            ("burstPrevious", "arrowleft"),
-            ("burstNext", "arrowright"),
-            ("burstFramePrevious", "alt+arrowup"),
-            ("burstFrameNext", "alt+arrowdown"),
-            ("extendPrevious", "shift+arrowup"),
-            ("extendNext", "shift+arrowdown"),
+            ("previous", "arrowleft"),
+            ("next", "arrowright"),
+            ("burstPrevious", "arrowup"),
+            ("burstNext", "arrowdown"),
+            ("burstFramePrevious", "alt+arrowleft"),
+            ("burstFrameNext", "alt+arrowright"),
+            ("extendPrevious", "shift+arrowleft"),
+            ("extendNext", "shift+arrowright"),
             ("open", OPEN_DEFAULT),
             ("undo", UNDO_DEFAULT),
             ("redo", REDO_DEFAULT),
@@ -784,8 +784,8 @@ mod tests {
     fn add_rejects_a_key_bound_to_another_action() {
         let mut keymap = Keymap::defaults();
         assert_eq!(
-            keymap.add("reject", "arrowdown"),
-            Err("\"arrowdown\" is bound to next".to_string())
+            keymap.add("reject", "arrowright"),
+            Err("\"arrowright\" is bound to next".to_string())
         );
         assert_eq!(keymap, Keymap::defaults());
     }
@@ -819,7 +819,7 @@ mod tests {
     fn remove_drops_one_key() {
         let mut keymap = Keymap::defaults();
         keymap.add("previous", "k").unwrap();
-        keymap.remove("previous", "arrowup").unwrap();
+        keymap.remove("previous", "arrowleft").unwrap();
         assert_eq!(keys_of(&keymap, "previous"), vec!["k"]);
     }
 
@@ -862,7 +862,7 @@ mod tests {
         keymap.add("reject", "r").unwrap();
         keymap.add("clear", "q").unwrap();
         keymap.add("previous", "k").unwrap();
-        keymap.remove("previous", "arrowup").unwrap();
+        keymap.remove("previous", "arrowleft").unwrap();
         keymap.reset("reject").unwrap();
         assert_eq!(
             keymap.overrides(),
@@ -889,7 +889,7 @@ mod tests {
     fn overrides_round_trip() {
         let mut keymap = Keymap::defaults();
         keymap.add("previous", "q").unwrap();
-        keymap.remove("previous", "arrowup").unwrap();
+        keymap.remove("previous", "arrowleft").unwrap();
         keymap.add("reject", "r").unwrap();
         keymap.remove("reject", "x").unwrap();
         keymap.add("zoom", "space").unwrap();
@@ -901,8 +901,8 @@ mod tests {
     #[test]
     fn the_burst_frame_keys_are_not_forbidden() {
         for macos in [true, false] {
-            assert_eq!(forbidden("alt+arrowup", macos), None);
-            assert_eq!(forbidden("alt+arrowdown", macos), None);
+            assert_eq!(forbidden("alt+arrowleft", macos), None);
+            assert_eq!(forbidden("alt+arrowright", macos), None);
         }
     }
 
@@ -1027,7 +1027,7 @@ mod tests {
             "zoom": ["space", "z"],
             "open": ["o"],
             "red": ["6"],
-            "previous": ["arrowup", "w", "a", "h", "k"],
+            "previous": ["arrowleft", "w", "a", "h", "k"],
         });
         let keymap = Keymap::from_overrides(Some(&stored));
         assert_eq!(keys_of(&keymap, "zoom"), vec!["space", "z"]);
@@ -1036,7 +1036,7 @@ mod tests {
         assert_eq!(keys_of(&keymap, "red"), vec!["6"]);
         assert_eq!(
             keys_of(&keymap, "previous"),
-            vec!["arrowup", "w", "a", "h", "k"]
+            vec!["arrowleft", "w", "a", "h", "k"]
         );
         assert_eq!(keymap.overrides(), stored);
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);

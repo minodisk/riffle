@@ -45,7 +45,7 @@ next time Riffle starts. For the other packages and the details, see
 1. Choose your developing software (Lightroom or DxO PhotoLab) in the dialog
    Riffle shows on its first launch; it can be changed later in Settings.
 2. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
-3. Page through the shots with `↑` `↓`, give stars with `1`-`5` and reject with
+3. Page through the shots with `←` `→`, give stars with `1`-`5` and reject with
    `x`.
 4. When the focus is in doubt, press `z` for the 1:1 view and check the focus
    point.
@@ -56,9 +56,9 @@ DxO PhotoLab.
 
 ## Key features
 
-- **Filmstrip**: thumbnails run down the left edge; click one to show it.
+- **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
-  `Shift+↑` / `Shift+↓` select a range, and every judgment applies to the
+  `Shift+←` / `Shift+→` select a range, and every judgment applies to the
   whole selection.
 - **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.
   Paging keeps the zoom.
@@ -75,8 +75,8 @@ DxO PhotoLab.
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license), run locally with no network access.
 - **Bursts**: frames shot within 1 s of each other share a band and a
-  count badge on the strip; `ArrowLeft` / `ArrowRight` jump between bursts,
-  `Alt+ArrowUp` / `Alt+ArrowDown` step through the frames of one and stop at
+  count badge on the strip; `ArrowUp` / `ArrowDown` jump between bursts,
+  `Alt+ArrowLeft` / `Alt+ArrowRight` step through the frames of one and stop at
   its ends, and `Shift+x` rejects the rest of one. Cameras that record no
   sub-second capture time are grouped by whole seconds (see
   [What the camera records](./docs/cameras.md)).

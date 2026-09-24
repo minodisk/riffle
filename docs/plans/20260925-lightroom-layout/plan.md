@@ -50,7 +50,7 @@ them in the PR.
 
 ## Steps
 
-- [ ] Step 1: Move the filmstrip to a horizontal strip along the bottom, with the filter / sort tools in its header bar, and rotate the arrow keys
+- [x] Step 1: Move the filmstrip to a horizontal strip along the bottom, with the filter / sort tools in its header bar, and rotate the arrow keys
   - Done when:
     - `crates/app/ui/index.html`: `body` is a column of `#main` (the row
       `#side` | `#viewer` | `#info`) and a new `#film` block under it. `#film`
