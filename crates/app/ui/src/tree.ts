@@ -124,6 +124,53 @@ export function step(rows: Row[], cursor: string | null, key: StepKey): string |
   return rows[to].node.path;
 }
 
+export type TreeKey = "left" | "right" | "enter";
+
+export type TreeCommand =
+  | { kind: "focus"; path: string }
+  | { kind: "expand"; path: string }
+  | { kind: "collapse"; path: string }
+  | { kind: "open"; path: string };
+
+function canExpand(node: TreeNode): boolean {
+  return node.children === undefined || node.children.length > 0;
+}
+
+// What `Right` / `Left` / `Enter` do on the cursor row, following the
+// WAI-ARIA tree pattern, or `null` when the key does nothing there (or the
+// cursor is not among `rows`).
+export function treeKey(rows: Row[], cursor: string | null, key: TreeKey): TreeCommand | null {
+  const at = rows.findIndex((row) => row.node.path === cursor);
+  if (at === -1) {
+    return null;
+  }
+  const { node, depth } = rows[at];
+  if (key === "enter") {
+    return { kind: "open", path: node.path };
+  }
+  if (key === "right") {
+    if (!canExpand(node)) {
+      return null;
+    }
+    if (!node.expanded) {
+      return { kind: "expand", path: node.path };
+    }
+    const child = rows[at + 1];
+    return child !== undefined && child.depth > depth
+      ? { kind: "focus", path: child.node.path }
+      : null;
+  }
+  if (node.expanded && canExpand(node)) {
+    return { kind: "collapse", path: node.path };
+  }
+  for (let i = at - 1; i >= 0; i--) {
+    if (rows[i].depth < depth) {
+      return { kind: "focus", path: rows[i].node.path };
+    }
+  }
+  return null;
+}
+
 function isWindowsPath(path: string): boolean {
   return /^[A-Za-z]:/.test(path) || path.startsWith("\\\\");
 }

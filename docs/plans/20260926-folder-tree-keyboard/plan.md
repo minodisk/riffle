@@ -197,7 +197,7 @@ default.
       container, call `container.blur()` from `changePanels` when
       `!panels.left`.
 
-- [ ] Step 2: `Right` / `Left` expand, collapse and step across levels; `Enter` opens the cursor row
+- [x] Step 2: `Right` / `Left` expand, collapse and step across levels; `Enter` opens the cursor row
   - Done when:
     - `tree.ts` grows the pure decision, e.g.
       `treeKey(tree, cursor, key)` returning a command
