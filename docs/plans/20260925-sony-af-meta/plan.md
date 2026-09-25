@@ -149,7 +149,7 @@ module already has a top-level `find(entries, tag)` used a few lines above.
       `reader::read_metadata` reads. Record the observed types in
       `learnings.md`.
 
-- [ ] Step 2: Format the AF fields in `exif.rs` and show them in the meta pane
+- [x] Step 2: Format the AF fields in `exif.rs` and show them in the meta pane
   - Done when:
     - `crates/app/src/exif.rs::Exif` gains `focus_mode: Option<String>`,
       `af_tracking: Option<String>` and `af_area: Option<String>`, filled by

@@ -14,6 +14,9 @@ const empty: Metadata = {
   aperture: null,
   shutter: null,
   shutter_type: null,
+  focus_mode: null,
+  af_area: null,
+  af_tracking: null,
   iso: null,
   focal_length: null,
   exposure_bias: null,
@@ -28,6 +31,9 @@ const sony: Metadata = {
   aperture: "f/2.8",
   shutter: "1/500",
   shutter_type: "Electronic front curtain",
+  focus_mode: "AF-C",
+  af_area: "Custom AF Area",
+  af_tracking: "Face tracking",
   iso: "ISO 100",
   focal_length: "50 mm",
   exposure_bias: "+0.3 EV",
@@ -63,7 +69,12 @@ describe("metaGroups", () => {
           },
           {
             label: MAKER_NOTE_LABEL,
-            rows: [{ label: "Shutter type", value: "Electronic front curtain" }],
+            rows: [
+              { label: "Shutter type", value: "Electronic front curtain" },
+              { label: "Focus mode", value: "AF-C" },
+              { label: "AF area", value: "Custom AF Area" },
+              { label: "AF tracking", value: "Face tracking" },
+            ],
           },
         ],
       },
@@ -92,7 +103,10 @@ describe("metaGroups", () => {
   });
 
   test("leaves out the maker note section when no maker note field is set", () => {
-    const groups = metaGroups({ ...sony, shutter_type: null }, 1);
+    const groups = metaGroups(
+      { ...sony, shutter_type: null, focus_mode: null, af_area: null, af_tracking: null },
+      1,
+    );
     expect(groups[0]?.sections.map(({ label }) => label)).toEqual([null]);
   });
 

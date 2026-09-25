@@ -7,6 +7,9 @@ export interface Metadata {
   aperture: string | null;
   shutter: string | null;
   shutter_type: string | null;
+  focus_mode: string | null;
+  af_area: string | null;
+  af_tracking: string | null;
   iso: string | null;
   focal_length: string | null;
   exposure_bias: string | null;
@@ -83,6 +86,9 @@ export function metaGroups(
         ]),
         section(MAKER_NOTE_LABEL, [
           ["Shutter type", meta.shutter_type],
+          ["Focus mode", meta.focus_mode],
+          ["AF area", meta.af_area],
+          ["AF tracking", meta.af_tracking],
           ["Focus distance", meta.focus_distance],
         ]),
       ]),
