@@ -311,6 +311,16 @@ body {
   background: #2d4059;
 }
 
+#folders:focus {
+  outline: none;
+}
+
+/* The keyboard cursor, shown only while the tree has the keyboard. */
+#folders:focus .folder.cursor {
+  outline: 1px solid #4a9eff;
+  outline-offset: -1px;
+}
+
 .folder .expander {
   flex: none;
   width: 14px;

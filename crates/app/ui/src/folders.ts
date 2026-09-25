@@ -1,10 +1,15 @@
 // The folder tree in the left pane: home and the mounted volumes, expanded
-// lazily through `list_subfolders`. It takes no keyboard focus; the keys stay
-// with culling.
+// lazily through `list_subfolders`. A click in it gives it the keyboard (the
+// container is the one focusable element; the rows are announced through
+// `aria-activedescendant`), and `Escape` or a click elsewhere hands the keys
+// back. Meanwhile `main.ts` routes the keys here first and gates the culling
+// keymap.
 
+import { keyName } from "./keys.js";
 import {
   EMPTY_TREE,
   type FolderNode,
+  type StepKey,
   type Tree,
   addRoots,
   ancestorsWithin,
@@ -13,6 +18,7 @@ import {
   rootOf,
   rows,
   setChildren,
+  step,
 } from "./tree.js";
 
 interface Folder {
@@ -25,6 +31,8 @@ const container = document.getElementById("folders") as HTMLDivElement;
 let tree: Tree = EMPTY_TREE;
 // The open folder, highlighted as `.current`.
 let current: string | null = null;
+// The keyboard cursor, drawn as `.cursor` while the tree has focus.
+let cursor: string | null = null;
 let open: (path: string) => void = () => {};
 let reportError: (message: string) => void = () => {};
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -40,10 +48,16 @@ function list(dir: string): Promise<Folder> {
 
 function render(): void {
   const fragment = document.createDocumentFragment();
-  for (const { node, depth } of rows(tree)) {
+  let active: string | null = null;
+  for (const [index, { node, depth }] of rows(tree).entries()) {
     const row = document.createElement("div");
+    row.id = `folder-row-${index}`;
     row.className = "folder";
     row.classList.toggle("current", node.path === current);
+    if (node.path === cursor) {
+      row.classList.add("cursor");
+      active = row.id;
+    }
     row.setAttribute("role", "treeitem");
     row.setAttribute("aria-level", String(depth + 1));
     row.setAttribute("aria-selected", String(node.path === current));
@@ -76,6 +90,11 @@ function render(): void {
     fragment.append(row);
   }
   container.replaceChildren(fragment);
+  if (active === null) {
+    container.removeAttribute("aria-activedescendant");
+  } else {
+    container.setAttribute("aria-activedescendant", active);
+  }
 }
 
 // Expanding always re-lists, so a subfolder created since the last look
@@ -163,8 +182,46 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
   if (chain !== null) {
     current = chain.at(-1) ?? current;
   }
+  cursor = current;
   render();
   container.querySelector(".folder.current")?.scrollIntoView({ block: "nearest" });
+}
+
+export function hasFocus(): boolean {
+  return container.contains(document.activeElement);
+}
+
+export function blur(): void {
+  container.blur();
+}
+
+const STEPS: Record<string, StepKey> = {
+  arrowup: "up",
+  arrowdown: "down",
+  home: "home",
+  end: "end",
+};
+
+// True when the tree consumed the key.
+export function keydown(event: KeyboardEvent): boolean {
+  const key = keyName(event);
+  if (key === "escape") {
+    container.blur();
+    event.preventDefault();
+    return true;
+  }
+  const move = key === null ? undefined : STEPS[key];
+  if (move === undefined) {
+    return false;
+  }
+  event.preventDefault();
+  const to = step(rows(tree), cursor, move);
+  if (to !== null) {
+    cursor = to;
+    render();
+    container.querySelector(".folder.cursor")?.scrollIntoView({ block: "nearest" });
+  }
+  return true;
 }
 
 export function init(onOpen: (path: string) => void, onError: (message: string) => void): void {

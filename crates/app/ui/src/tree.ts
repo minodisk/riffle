@@ -100,6 +100,30 @@ export function rows(tree: Tree): Row[] {
   return out;
 }
 
+export type StepKey = "up" | "down" | "home" | "end";
+
+// The path of the row the keyboard cursor moves to, or `null` when there is
+// no row. `up` / `down` stop at the ends; a cursor not among `rows` (none
+// yet, or its parent collapsed) lands on the first row.
+export function step(rows: Row[], cursor: string | null, key: StepKey): string | null {
+  if (rows.length === 0) {
+    return null;
+  }
+  const last = rows.length - 1;
+  const at = rows.findIndex((row) => row.node.path === cursor);
+  let to: number;
+  if (key === "home") {
+    to = 0;
+  } else if (key === "end") {
+    to = last;
+  } else if (at === -1) {
+    to = 0;
+  } else {
+    to = key === "up" ? Math.max(at - 1, 0) : Math.min(at + 1, last);
+  }
+  return rows[to].node.path;
+}
+
 function isWindowsPath(path: string): boolean {
   return /^[A-Za-z]:/.test(path) || path.startsWith("\\\\");
 }

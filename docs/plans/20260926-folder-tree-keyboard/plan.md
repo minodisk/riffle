@@ -110,7 +110,7 @@ default.
 
 ## Steps
 
-- [ ] Step 1: Make the tree focusable, move a cursor with `Up` / `Down` / `Home` / `End`, `Escape` leaves, and gate the keymap while the tree is focused
+- [x] Step 1: Make the tree focusable, move a cursor with `Up` / `Down` / `Home` / `End`, `Escape` leaves, and gate the keymap while the tree is focused
   - Done when:
     - `tree.ts` exports a pure step function over the visible rows, e.g.
       `step(rows: Row[], cursor: string | null, key: "up" | "down" | "home" | "end"): string | null`
@@ -351,4 +351,4 @@ default.
 
 ## Progress
 
-- (none yet)
+- 2026-09-26: Step 1 done: tree focusable with a cursor (Up / Down / Home / End, Escape leaves), culling keymap gated by TREE_PASSTHROUGH in treekeys.ts, left pane hide blurs the tree (see learnings.md)

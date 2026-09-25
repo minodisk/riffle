@@ -32,6 +32,7 @@ import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { initSettings } from "./settings.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
+import { treeGate } from "./treekeys.js";
 import {
   COMPARE_NEEDS_FRAMES,
   comparePaneAt,
@@ -2541,6 +2542,10 @@ function applyPanels(next: Panels): void {
 
 function changePanels(next: Panels): void {
   applyPanels(next);
+  // A hidden pane must not keep the keyboard, or the culling keys stay gated.
+  if (!panels.left) {
+    folders.blur();
+  }
   void window.__TAURI__.core.invoke("set_panels", { panels });
 }
 
@@ -2605,6 +2610,18 @@ window.addEventListener("keydown", (event) => {
   const key = keyName(event);
   if (key === null) {
     return;
+  }
+  if (folders.hasFocus()) {
+    if (folders.keydown(event)) {
+      return;
+    }
+    const action = keymap.get(key);
+    if (treeGate(action) === "swallow") {
+      if (action !== undefined) {
+        event.preventDefault();
+      }
+      return;
+    }
   }
   if (key === "escape" && !filterMenu.hidden) {
     setFilterMenuOpen(false);
