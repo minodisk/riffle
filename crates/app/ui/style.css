@@ -35,9 +35,9 @@ body {
   min-height: 0;
 }
 
-/* The left pane: the Open folder button over the folder tree. Its width is
-   fixed, like #info's, since nothing in it has a natural width. Each pane's
-   rule is scoped to :not([hidden]) so the panel toggles can hide it. */
+/* The left pane: the folder tree. Its width is fixed, like #info's, since
+   nothing in it has a natural width. Each pane's rule is scoped to
+   :not([hidden]) so the panel toggles can hide it. */
 #side:not([hidden]) {
   flex: 0 0 220px;
   display: flex;
@@ -274,23 +274,6 @@ body {
   font-size: 0.8rem;
   white-space: nowrap;
   color: #999;
-}
-
-#open {
-  flex: none;
-  margin: 0.5rem;
-  padding: 0.4rem;
-  font: inherit;
-  font-size: 0.85rem;
-  color: inherit;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-#open:hover {
-  background: #333;
 }
 
 #folders {

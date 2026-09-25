@@ -98,7 +98,6 @@ const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 const metaEl = document.getElementById("meta") as HTMLDivElement;
 const metaStatusEl = document.getElementById("meta-status") as HTMLDivElement;
-const openEl = document.getElementById("open") as HTMLButtonElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
 const formatDialog = document.getElementById("format-dialog") as HTMLDivElement;
@@ -2401,8 +2400,6 @@ function setSortKey(key: SortKey): void {
     item.setAttribute("aria-checked", String(item.dataset.sort === key));
   }
 }
-
-openEl.addEventListener("click", openFolder);
 
 function showFormatDialog(): void {
   formatDialog.hidden = false;
