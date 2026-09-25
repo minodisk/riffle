@@ -528,6 +528,7 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            app.manage(commands::AppListing::default());
             app.manage(watch::Watch::spawn(app.handle().clone()));
             commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());

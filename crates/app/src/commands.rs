@@ -154,8 +154,9 @@ fn read_focus_crop(
 
 /// List the RAW (ARW and DNG) files directly in `dir`, sorted by file name. Entries that
 /// cannot be read are skipped; a directory that cannot be read is an error.
+#[cfg(test)]
 fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
-    list_dir(dir, None).map(|(files, _)| files)
+    read_listing(dir, None).map(|listing| listing.files)
 }
 
 /// The RAW files of `dir` as `list_arw_in` lists them, plus the sidecars of
@@ -164,12 +165,25 @@ fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
 ///
 /// One listing of the directory for both, rather than a second `read_dir` or
 /// a `stat` of 5000 guessed names: the second open of a folder is meant to
-/// cost no more than the listing the RAWs already pay for.
+/// cost no more than the listing the RAWs already pay for. `scan_folder` does
+/// the same in two halves around the `AppListing` it may reuse.
+#[cfg(test)]
 fn list_folder_in(
     dir: &Path,
     format: SidecarFormat,
 ) -> Result<(Vec<String>, HashMap<String, SidecarStat>), String> {
-    list_dir(dir, Some(format))
+    let listing = read_listing(dir, Some(format))?;
+    let sidecars = stat_sidecars(&listing.sidecars);
+    Ok((listing.files, sidecars))
+}
+
+/// One `read_dir` of a folder: its RAW files sorted by file name, and the
+/// sidecars of the format it was listed for as `(lower-cased name, path)`,
+/// not yet statted (see `stat_sidecars`).
+#[derive(Debug, PartialEq)]
+struct Listing {
+    files: Vec<String>,
+    sidecars: Vec<(String, PathBuf)>,
 }
 
 /// Tells a RAW file from the entry's `file_type()`, which comes with the
@@ -177,13 +191,10 @@ fn list_folder_in(
 /// contention (a scan reading the same drive) costs seconds for a few hundred
 /// files. A symlinked RAW is still listed: only a symlink pays one extra
 /// `stat` to follow it.
-fn list_dir(
-    dir: &Path,
-    format: Option<SidecarFormat>,
-) -> Result<(Vec<String>, HashMap<String, SidecarStat>), String> {
+fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let mut files: Vec<PathBuf> = Vec::new();
-    let mut sidecars = HashMap::new();
+    let mut sidecars = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if crate::folders::is_file(&entry) && riffle_core::scan::is_raw_file(&path) {
@@ -191,11 +202,8 @@ fn list_dir(
             continue;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !format.is_some_and(|f| f.matches(&name)) {
-            continue;
-        }
-        if let Ok(stat) = index::stat(&path) {
-            sidecars.insert(name.to_lowercase(), (stat.path, stat.size, stat.mtime_ns));
+        if format.is_some_and(|f| f.matches(&name)) {
+            sidecars.push((name.to_lowercase(), path));
         }
     }
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
@@ -203,7 +211,68 @@ fn list_dir(
         .into_iter()
         .map(|p| p.to_string_lossy().into_owned())
         .collect();
-    Ok((files, sidecars))
+    Ok(Listing { files, sidecars })
+}
+
+/// The stats `reconcile_sidecars_of` compares, keyed by lower-cased file
+/// name. A sidecar gone since the listing is left out.
+fn stat_sidecars(sidecars: &[(String, PathBuf)]) -> HashMap<String, SidecarStat> {
+    sidecars
+        .iter()
+        .filter_map(|(name, path)| {
+            let stat = index::stat(path).ok()?;
+            Some((name.clone(), (stat.path, stat.size, stat.mtime_ns)))
+        })
+        .collect()
+}
+
+/// The listing `list_arw` last produced, for the `scan_folder` that follows
+/// it on every folder open and resync, so that the opened directory is read
+/// with `read_dir` once rather than twice (each listing is the slow part of an
+/// open under disk contention).
+///
+/// It is keyed by the canonical dir, the sidecar format it was listed for and
+/// the directory's mtime taken just before the `read_dir`. `scan_folder` stats
+/// the directory once and takes the listing only when all three still match
+/// (`take_listing`); otherwise it lists on its own. The mtime check closes the
+/// window between `list_arw`'s `read_dir` and `scan_folder`'s `watch::set`, in
+/// which a file added or removed would not reach the watcher: such a change
+/// bumps the directory's mtime, so the stale listing is not reused. On a file
+/// system with a coarse mtime (FAT's 2 s) a change within the same tick can
+/// slip past the check; the watcher's `folder-changed` -> resync covers the
+/// changes after `watch::set`.
+#[derive(Default)]
+pub struct AppListing(Mutex<Option<CachedListing>>);
+
+struct CachedListing {
+    dir: String,
+    format: SidecarFormat,
+    mtime: std::time::SystemTime,
+    listing: Listing,
+}
+
+fn dir_mtime(dir: &Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(dir).and_then(|m| m.modified()).ok()
+}
+
+/// The cached listing, taken out of `cached` if it was listed for `dir` and
+/// `format` and the directory's mtime is still `mtime`. A listing is reused
+/// once: a match leaves `cached` empty. One that does not match is left for
+/// the `scan_folder` it may belong to. No mtime (the stat failed) never
+/// matches.
+fn take_listing(
+    cached: &mut Option<CachedListing>,
+    dir: &str,
+    format: SidecarFormat,
+    mtime: Option<std::time::SystemTime>,
+) -> Option<Listing> {
+    let matches = cached
+        .as_ref()
+        .is_some_and(|c| c.dir == dir && c.format == format && Some(c.mtime) == mtime);
+    if !matches {
+        return None;
+    }
+    cached.take().map(|c| c.listing)
 }
 
 /// Largest sidecar the folder-open pass reads. A Lightroom sidecar is tens of
@@ -665,16 +734,25 @@ pub fn set_sort_order(app: tauri::AppHandle, order: String) {
 }
 
 #[tauri::command]
-pub async fn list_arw(dir: String) -> Result<Vec<String>, String> {
+pub async fn list_arw(app: tauri::AppHandle, dir: String) -> Result<Vec<String>, String> {
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     tauri::async_runtime::spawn_blocking(move || {
         let dir = canonicalize(&dir);
         let started = std::time::Instant::now();
-        let files = list_arw_in(Path::new(&dir))?;
+        let mtime = dir_mtime(Path::new(&dir));
+        let listing = read_listing(Path::new(&dir), Some(format))?;
+        let files = listing.files.clone();
         log::info!(
             "open list: dir={dir} raws={} in {}ms",
             files.len(),
             started.elapsed().as_millis()
         );
+        *index::lock(&app.state::<AppListing>().0) = mtime.map(|mtime| CachedListing {
+            dir,
+            format,
+            mtime,
+            listing,
+        });
         Ok(files)
     })
     .await
@@ -1038,14 +1116,30 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let format = *index::lock(&app.state::<AppSidecarFormat>().0);
     let names = index::lock(&app.state::<AppLabelNames>().0).clone();
     let scan_started = std::time::Instant::now();
-    let (listed, sidecars) = {
-        let dir = dir.clone();
-        tauri::async_runtime::spawn_blocking(move || list_folder_in(Path::new(&dir), format))
-            .await
-            .map_err(|e| e.to_string())??
+    let (listed, sidecars, reused) = {
+        let (dir, app) = (dir.clone(), app.clone());
+        tauri::async_runtime::spawn_blocking(move || {
+            let path = Path::new(&dir);
+            let mtime = dir_mtime(path);
+            let cached = take_listing(
+                &mut index::lock(&app.state::<AppListing>().0),
+                &dir,
+                format,
+                mtime,
+            );
+            let reused = cached.is_some();
+            let listing = match cached {
+                Some(listing) => listing,
+                None => read_listing(path, Some(format))?,
+            };
+            let sidecars = stat_sidecars(&listing.sidecars);
+            Ok::<_, String>((listing.files, sidecars, reused))
+        })
+        .await
+        .map_err(|e| e.to_string())??
     };
     log::info!(
-        "scan list: dir={dir} scan_id={scan_id} raws={} sidecars={} in {}ms",
+        "scan list: dir={dir} scan_id={scan_id} raws={} sidecars={} reused={reused} in {}ms",
         listed.len(),
         sidecars.len(),
         scan_started.elapsed().as_millis()
@@ -3102,6 +3196,66 @@ mod tests {
     fn unreadable_directory_is_an_error() {
         let missing = std::env::temp_dir().join("riffle-app-does-not-exist");
         assert!(list_arw_in(&missing).is_err());
+    }
+
+    fn cached_listing(
+        dir: &str,
+        format: SidecarFormat,
+        mtime: std::time::SystemTime,
+    ) -> CachedListing {
+        CachedListing {
+            dir: dir.to_string(),
+            format,
+            mtime,
+            listing: Listing {
+                files: vec![format!("{dir}/a.ARW")],
+                sidecars: vec![("a.xmp".to_string(), PathBuf::from(format!("{dir}/a.xmp")))],
+            },
+        }
+    }
+
+    #[test]
+    fn a_matching_listing_is_reused_once() {
+        let mtime = std::time::UNIX_EPOCH + std::time::Duration::from_secs(100);
+        let mut cached = Some(cached_listing("/photos", SidecarFormat::Xmp, mtime));
+        let expected = cached_listing("/photos", SidecarFormat::Xmp, mtime).listing;
+
+        let taken = take_listing(&mut cached, "/photos", SidecarFormat::Xmp, Some(mtime));
+        assert_eq!(taken, Some(expected));
+        assert!(cached.is_none());
+        assert_eq!(
+            take_listing(&mut cached, "/photos", SidecarFormat::Xmp, Some(mtime)),
+            None
+        );
+    }
+
+    #[test]
+    fn a_listing_of_another_dir_format_or_mtime_is_not_reused() {
+        let mtime = std::time::UNIX_EPOCH + std::time::Duration::from_secs(100);
+        let later = mtime + std::time::Duration::from_secs(1);
+        let mut cached = Some(cached_listing("/photos", SidecarFormat::Xmp, mtime));
+
+        for (dir, format, at) in [
+            ("/other", SidecarFormat::Xmp, Some(mtime)),
+            ("/photos", SidecarFormat::Dop, Some(mtime)),
+            ("/photos", SidecarFormat::Both, Some(mtime)),
+            ("/photos", SidecarFormat::Xmp, Some(later)),
+            ("/photos", SidecarFormat::Xmp, None),
+        ] {
+            assert_eq!(take_listing(&mut cached, dir, format, at), None);
+            assert!(cached.is_some());
+        }
+        assert!(take_listing(&mut cached, "/photos", SidecarFormat::Xmp, Some(mtime)).is_some());
+    }
+
+    #[test]
+    fn nothing_cached_is_not_reused() {
+        let mut cached = None;
+        let mtime = Some(std::time::UNIX_EPOCH);
+        assert_eq!(
+            take_listing(&mut cached, "/photos", SidecarFormat::Xmp, mtime),
+            None
+        );
     }
 
     #[test]

@@ -43,7 +43,7 @@ and two PRs.
 
 ## Steps
 
-- [ ] Step 1: Reuse `list_arw`'s listing in `scan_folder`
+- [x] Step 1: Reuse `list_arw`'s listing in `scan_folder`
   - Done when:
     - Opening a folder (tree click, picker, drop, reopen on
       `sidecar-format` / `index-cleared`, last-folder reopen) and `resync`
