@@ -422,6 +422,31 @@ compilation (`MenuItem` no longer in scope there).
 - Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`,
   "Merge conflict with concurrently-landed macOS menu icon work".
 
+### Sony MakerNote fields: verify each tag's type and model `Condition` in Sony.pm directly (Hit)
+
+Don't infer a new Sony MakerNote tag's type or model gate from a
+similarly-numbered or similarly-named tag; check ExifTool's `Sony.pm` for
+that exact tag.
+
+- Types vary per-tag even among neighbors: `AFAreaModeSetting` (0x201c) is
+  BYTE, count 1, while 0x201a is a LONG. `RAWFileType` (0x2029),
+  `MeteringMode2` (0x202c), `ExposureMode` (0xb041), `ReleaseMode` (0xb049),
+  `SequenceNumber` (0xb04a) are SHORT; `DynamicRangeOptimizer` (0xb025) and
+  `ImageStabilization` (0xb026) are LONG; `CreativeStyle` (0xb020) is ASCII,
+  count 16, out of line.
+- `ReleaseMode`, `SequenceNumber` and `ExposureMode` use 65535 as
+  ExifTool's `RawConv` sentinel for "no value"; match it by having no
+  formatting arm for that value, not by special-casing it.
+- Unlike `FocusMode` / `AFTracking`, none of `AFAreaModeSetting`,
+  `RAWFileType`, `MeteringMode2`, `ExposureMode`, `ReleaseMode`,
+  `SequenceNumber`, `DynamicRangeOptimizer`, `ImageStabilization` or
+  `CreativeStyle` carries a model `Condition` in Sony.pm, so no model gate
+  is needed when formatting them — but check Sony.pm per-tag rather than
+  assuming this applies to the next field you add.
+
+Source: `docs/plans/_archived/20260925-sony-af-meta/learnings.md`, Steps 1
+and 3.
+
 ### A case-insensitive file system makes `exists()` match the wrong spelling (Hit)
 
 On macOS APFS, `sidecar_path(arw).exists()` is true for `H.ARW.DOP` even when
