@@ -55,3 +55,17 @@
   and does not scroll the tree. IME composition was not considered (folder
   names typed through an IME would jump per composed keystroke at best);
   not verified on a real WebView.
+
+## Deferred issues (todo candidates)
+
+- Round 1 review (item 1) of the type-ahead step flagged that a passthrough
+  action (`toggleSides`, `toggleLeft`, `toggleRight`, `toggleStrip`, `open`)
+  rebound to a printable key silently stops working while the tree is
+  focused, since `folders.ts`'s `typeKey` consumes every printable key
+  before `treeGate` is consulted. This was dismissed for now because
+  `plan.md`'s "Trade-offs and risks" section already made this call
+  deliberately (type-ahead wins over the allowlist) and assigned writing it
+  up to Step 4. Step 4 ("Document the tree keys and the gate") must state
+  this rebind edge case explicitly in `docs/usage.md`'s fixed-keys note
+  (`docs/usage.md`, `README.md`, `README.ja.md`), not just the general
+  allowlist wording it already plans to add.
