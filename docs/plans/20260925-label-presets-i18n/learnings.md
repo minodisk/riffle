@@ -34,6 +34,19 @@
 - `riffle_core::i18n::preset(code)` is now used only by tests; it is `pub`,
   so no dead-code warning, and it was left as is.
 
+## Step 3
+
+- `docs/agents/tauri-app.md` has nothing the change makes wrong: it never
+  mentioned the two preset buttons or `LabelNames::japanese()`, so it is
+  unchanged.
+- The i18n README does not claim the per-key fallback to `en.json`: as the
+  `i18n.rs` module doc says, no current key falls back that way (a file
+  without `lightroom.colorLabels` offers no preset rather than English's), so
+  the README only states that every key must exist in `en.json`.
+- The README example of a regional code is `pt-BR.json`, which the
+  file-name test accepts (lower-case 2-3 letter language, alphanumeric
+  subtags).
+
 ## Deferred issues (todo candidates)
 
 - `en.json`'s `lightroom.colorLabels.verified` is `"Lightroom Classic (English
