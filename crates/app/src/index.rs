@@ -1218,6 +1218,11 @@ pub type DirtyRow = (String, Option<i8>, Flag, Option<String>, bool);
 /// reported only once the index can answer for it; a batch whose write failed
 /// is not reported at all.
 ///
+/// Once `cancel` is set, files still in flight are abandoned at their next
+/// pipeline stage: they get no row, are not in `ready` and are not counted in
+/// `done` or the summary's `total`, so the next scan of the folder extracts
+/// them again.
+///
 /// `on_item` runs on rayon worker threads and a panic there would abort the
 /// whole scan, so nothing inside it unwraps: locks are taken with `lock` (which
 /// ignores poisoning) and a failed write is counted like a failed file.
@@ -1321,7 +1326,9 @@ where
 /// trailing flush, where `ready` holds the files a batch committed since the
 /// previous notification. A file `extract_faces` could not read counts as an
 /// error and is stored with no eye sharpness at `FACES_VERSION`, so it is not
-/// retried until that version moves. The same no-panic rule as `run_scan`
+/// retried until that version moves. A file abandoned mid-pipeline by
+/// `cancel` is neither written nor counted, the way `run_scan` treats it, so
+/// it keeps its old `faces_extractor`. The same no-panic rule as `run_scan`
 /// holds for `on_item`.
 pub fn run_faces_scan<P>(
     index: &Mutex<Index>,
@@ -2858,6 +2865,15 @@ mod tests {
         let mut persisted: Vec<String> = written.into_iter().map(|e| e.path).collect();
         persisted.sort();
         assert_eq!(reported, persisted, "the reported paths are the rows kept");
+        let rows: i64 = lock(&index)
+            .conn
+            .query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            rows as usize,
+            persisted.len(),
+            "abandoned files have no row at all"
+        );
 
         remove_temp_dir(&dir);
     }
@@ -2956,6 +2972,13 @@ mod tests {
             .collect();
         written.sort();
         assert_eq!(written.len(), summary.total, "everything done is written");
+        assert!(
+            paths
+                .iter()
+                .filter(|p| !written.contains(p))
+                .all(|p| faces_extractor(&index, Path::new(p)) == 0),
+            "abandoned files keep their old faces_extractor"
+        );
         let mut reported = reported.into_inner().unwrap();
         reported.sort();
         assert_eq!(reported, written, "the trailing flush is reported too");
