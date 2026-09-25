@@ -341,7 +341,19 @@ pub fn detect_around(
     focus: Option<FocusLocation>,
 ) -> Result<Detection> {
     let (rgb, width, height) = decode_rgb(preview)?;
-    let (upright, uw, uh) = upright_rgb(&rgb, width, height, orientation);
+    detect_around_rgb(&rgb, width, height, orientation, focus)
+}
+
+/// `detect_around` on a preview already decoded to stored RGB
+/// (`width` x `height`, before the Orientation tag is applied).
+pub fn detect_around_rgb(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+    focus: Option<FocusLocation>,
+) -> Result<Detection> {
+    let (upright, uw, uh) = upright_rgb(rgb, width, height, orientation);
     let point = focus.map(|f| focus_point(width, height, Some(f)));
     let found = match point {
         Some(p) => {

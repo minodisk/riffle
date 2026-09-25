@@ -77,7 +77,7 @@ ci` passes for every step.
 
 ## Steps
 
-- [ ] Step 1: Compute the focus candidate state and eye sharpness in `riffle-core`, with a CLI check against the labeled folders
+- [x] Step 1: Compute the focus candidate state and eye sharpness in `riffle-core`, with a CLI check against the labeled folders
   - Done when:
     - A core module (suggested: new `crates/core/src/candidate.rs`, registered
       in `lib.rs`; `faces.rs` stays about detection) has:
@@ -437,4 +437,4 @@ ci` passes for every step.
 
 ## Progress
 
-- (none yet)
+- (2026-09-25) Step 1 complete
