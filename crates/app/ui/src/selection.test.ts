@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   type Command,
   type State,
+  all,
   click,
   extend,
   judgments,
@@ -19,6 +20,16 @@ const range = { toggle: false, range: true };
 describe("selectionOf", () => {
   test("selects the paths and anchors on the first", () => {
     expect(selectionOf(["/c", "/a"])).toEqual({ selected: new Set(["/c", "/a"]), anchor: "/c" });
+  });
+});
+
+describe("all", () => {
+  test("selects every file and anchors on the focused one", () => {
+    expect(all(files, 2)).toEqual({ selected: new Set(files), anchor: "/c" });
+  });
+
+  test("an empty list gives an empty selection", () => {
+    expect(all([], 0)).toEqual({ selected: new Set(), anchor: undefined });
   });
 });
 

@@ -63,8 +63,9 @@ DxO PhotoLab.
   folders, with the culling keys off until `Escape`.
 - **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
-  `Shift+←` / `Shift+→` select a range, and every judgment applies to the
-  whole selection. `F6` hides the filmstrip, `F7` the folder tree, `F8` the
+  `Shift+←` / `Shift+→` select a range, `Cmd+A` / `Ctrl+A` selects every
+  file the filter shows, and every judgment applies to the whole selection.
+  `F6` hides the filmstrip, `F7` the folder tree, `F8` the
   meta pane and `Tab` both side panes, to give the viewer more room. The meta
   pane's `Maker note` group shows the Sony AF, drive, stabilization and
   picture settings.

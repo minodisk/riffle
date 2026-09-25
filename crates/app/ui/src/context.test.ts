@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { contextMenuGroups, menuPosition } from "./context.js";
 
 const defaults = [
+  { action: "selectAll", keys: ["meta+a"] },
   { action: "pick", keys: ["p"] },
   { action: "reject", keys: ["x"] },
   { action: "unflag", keys: ["u"] },
@@ -24,9 +25,10 @@ const defaults = [
 const unset = { rating: null, flag: "none" as const, label: null };
 
 describe("contextMenuGroups", () => {
-  test("lists the flag, rating and label items in three groups", () => {
+  test("lists Select All above the flag, rating and label groups", () => {
     const groups = contextMenuGroups(defaults, unset);
     expect(groups.map((group) => group.map(({ action, label }) => [action, label]))).toEqual([
+      [["selectAll", "Select All"]],
       [
         ["pick", "Pick"],
         ["reject", "Reject"],
@@ -58,6 +60,7 @@ describe("contextMenuGroups", () => {
       group.map((item) => item.shortcut),
     );
     expect(shortcuts).toEqual([
+      ["meta+a"],
       ["p", "x", "u"],
       ["1", "2", "3", "4", "5", "0"],
       [
@@ -77,19 +80,30 @@ describe("contextMenuGroups", () => {
     const bindings = defaults.map((binding) =>
       binding.action === "rate3" ? { action: "rate3", keys: ["space"] } : binding,
     );
-    expect(contextMenuGroups(bindings, unset)[1]?.[2]?.shortcut).toBe("Space");
+    expect(contextMenuGroups(bindings, unset)[2]?.[2]?.shortcut).toBe("Space");
+  });
+
+  test("shows an overridden Select All key", () => {
+    const bindings = defaults.map((binding) =>
+      binding.action === "selectAll" ? { action: "selectAll", keys: ["ctrl+alt+a"] } : binding,
+    );
+    expect(contextMenuGroups(bindings, unset)[0]?.[0]?.shortcut).toBe("ctrl+alt+a");
+  });
+
+  test("gives Select All no checked state", () => {
+    expect(contextMenuGroups(defaults, unset)[0]?.[0]?.checked).toBeUndefined();
   });
 
   test("shows the first key when an action has several", () => {
     const bindings = [{ action: "reject", keys: ["d", "x"] }];
-    expect(contextMenuGroups(bindings, unset)[0]?.[1]?.shortcut).toBe("d");
+    expect(contextMenuGroups(bindings, unset)[1]?.[1]?.shortcut).toBe("d");
   });
 
   test("gives an empty shortcut for an unbound action", () => {
     const shortcuts = contextMenuGroups([], unset).flatMap((group) =>
       group.map((item) => item.shortcut),
     );
-    expect(shortcuts).toHaveLength(17);
+    expect(shortcuts).toHaveLength(18);
     expect(shortcuts.every((shortcut) => shortcut === "")).toBe(true);
   });
 

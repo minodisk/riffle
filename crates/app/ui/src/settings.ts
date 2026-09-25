@@ -13,6 +13,7 @@ const shortcutLabels: Record<string, string> = {
   burstFrameNext: "Next frame in burst",
   extendPrevious: "Extend selection left",
   extendNext: "Extend selection right",
+  selectAll: "Select all",
   open: "Open folder",
   undo: "Undo",
   redo: "Redo",
