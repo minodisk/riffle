@@ -40,8 +40,9 @@ export interface MetaGroup {
 }
 
 export const EXIF_HEADING = "EXIF";
+export const STANDARD_LABEL = "Standard";
 export const MAKER_NOTE_LABEL = "Maker note";
-export const RIFFLE_HEADING = "Riffle";
+export const ANALYSIS_HEADING = "Analysis";
 
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 
@@ -76,7 +77,7 @@ function group(heading: string, sections: MetaSection[]): MetaGroup {
 
 // The meta pane's rows grouped by where each value comes from: standard
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
-// analysis. The Riffle group needs no `meta`, so a file whose metadata could
+// analysis. The analysis group needs no `meta`, so a file whose metadata could
 // not be read still shows its score. The focus candidate state gets a `Focus`
 // row only when it is known, and the eye sharpness a row only when there is
 // one.
@@ -89,7 +90,7 @@ export function metaGroups(
   if (meta !== null) {
     groups.push(
       group(EXIF_HEADING, [
-        section(null, [
+        section(STANDARD_LABEL, [
           ["Aperture", meta.aperture],
           ["Shutter", meta.shutter],
           ["ISO", meta.iso],
@@ -117,7 +118,7 @@ export function metaGroups(
     );
   }
   groups.push(
-    group(RIFFLE_HEADING, [
+    group(ANALYSIS_HEADING, [
       section(null, [
         ["Sharpness", sharpness?.toFixed(1) ?? null],
         ["Focus", candidateLabel(focus?.candidate)],
