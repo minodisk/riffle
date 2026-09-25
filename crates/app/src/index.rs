@@ -79,8 +79,9 @@ const SCHEMA_VERSION: i64 = 15;
 /// lies outside the face; `4` fills in the face-catch state. It stayed `4`
 /// when the face-catch state went and `extract` stopped detecting faces
 /// around a trusted AF point: the score already ignored those faces, so
-/// what `extract` stores did not change.
-const EXTRACTOR_VERSION: i64 = 4;
+/// what `extract` stores did not change. `5` reads the Sony AF area, drive,
+/// stabilization and picture settings.
+const EXTRACTOR_VERSION: i64 = 5;
 
 /// The version of what `riffle_core::scan::extract_faces` produces, stored
 /// on every `files` row as `faces_extractor` next to `eye_sharpness`. Bump it

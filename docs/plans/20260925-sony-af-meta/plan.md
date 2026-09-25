@@ -88,7 +88,7 @@ the EXIF twins stay unread.
 
 ## Steps
 
-- [ ] Step 1: Read the new Sony MakerNote tags in core and bump `EXTRACTOR_VERSION`
+- [x] Step 1: Read the new Sony MakerNote tags in core and bump `EXTRACTOR_VERSION`
   - Done when:
     - `riffle_core::arw::Shot` gains raw fields, `None` when the MakerNote
       is absent, non-Sony, or lacks the tag, each with a doc comment
@@ -125,7 +125,8 @@ the EXIF twins stay unread.
     - Populate in `exif()` from the `maker` IFD exactly like `focus_mode` /
       `af_tracking`. With nine lookups, a small local closure
       `find(tag) -> Option<&Entry>` over `maker` keeps it readable; do not
-      restructure the existing reads.
+      restructure the existing reads. Name it `maker_entry` (not `find`), since the
+module already has a top-level `find(entries, tag)` used a few lines above.
     - Keep core a raw dump: no `n/a` (65535 / 0xffffffff) filtering and no
       model gate here; those are display concerns (Steps 2-3). The CLI in
       `crates/cli/src/main.rs` prints `focus_mode`; extending its dump is
@@ -295,4 +296,7 @@ the EXIF twins stay unread.
 
 ## Progress
 
-- (none yet)
+- 2026-09-25: Step 1 landed (`feat(core): read the Sony AF area, drive,
+  stabilization and picture settings`). `riffle_core::arw::Shot` gained the
+  nine raw fields and `EXTRACTOR_VERSION` was bumped by one. See
+  `learnings.md` for the tag types observed on the ILCE-7M5 samples.
