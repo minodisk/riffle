@@ -3,8 +3,9 @@ import {
   EXIF_HEADING,
   type FocusCue,
   MAKER_NOTE_LABEL,
+  STANDARD_LABEL,
   type Metadata,
-  RIFFLE_HEADING,
+  ANALYSIS_HEADING,
   metaGroups,
 } from "./meta.js";
 
@@ -70,7 +71,7 @@ describe("metaGroups", () => {
         heading: EXIF_HEADING,
         sections: [
           {
-            label: null,
+            label: STANDARD_LABEL,
             rows: [
               { label: "Aperture", value: "f/2.8" },
               { label: "Shutter", value: "1/500" },
@@ -101,7 +102,7 @@ describe("metaGroups", () => {
         ],
       },
       {
-        heading: RIFFLE_HEADING,
+        heading: ANALYSIS_HEADING,
         sections: [{ label: null, rows: [{ label: "Sharpness", value: "303.5" }] }],
       },
     ]);
@@ -113,7 +114,7 @@ describe("metaGroups", () => {
       heading: EXIF_HEADING,
       sections: [
         {
-          label: null,
+          label: STANDARD_LABEL,
           rows: [
             { label: "Aperture", value: "f/2.0 (est.)" },
             { label: "Camera", value: "Leica M11-P" },
@@ -142,23 +143,23 @@ describe("metaGroups", () => {
       },
       1,
     );
-    expect(groups[0]?.sections.map(({ label }) => label)).toEqual([null]);
+    expect(groups[0]?.sections.map(({ label }) => label)).toEqual([STANDARD_LABEL]);
   });
 
   test("leaves out the EXIF group when it has no rows", () => {
-    expect(metaGroups(empty, 1).map(({ heading }) => heading)).toEqual([RIFFLE_HEADING]);
+    expect(metaGroups(empty, 1).map(({ heading }) => heading)).toEqual([ANALYSIS_HEADING]);
   });
 
-  test("shows only the Riffle group when the metadata could not be read", () => {
+  test("shows only the analysis group when the metadata could not be read", () => {
     expect(metaGroups(null, 12)).toEqual([
       {
-        heading: RIFFLE_HEADING,
+        heading: ANALYSIS_HEADING,
         sections: [{ label: null, rows: [{ label: "Sharpness", value: "12.0" }] }],
       },
     ]);
   });
 
-  test("leaves out the Riffle group without a score", () => {
+  test("leaves out the analysis group without a score", () => {
     expect(metaGroups(sony, null).map(({ heading }) => heading)).toEqual([EXIF_HEADING]);
     expect(metaGroups(null, null)).toEqual([]);
   });
@@ -183,10 +184,10 @@ describe("metaGroups", () => {
     ).toEqual([{ label: "Sharpness", value: "12.0" }]);
   });
 
-  test("shows the Riffle group for the eye sharpness alone", () => {
+  test("shows the analysis group for the eye sharpness alone", () => {
     expect(metaGroups(null, null, { candidate: "not_candidate", eye_sharpness: 7 })).toEqual([
       {
-        heading: RIFFLE_HEADING,
+        heading: ANALYSIS_HEADING,
         sections: [
           {
             label: null,

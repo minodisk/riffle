@@ -879,7 +879,7 @@ body {
   cursor: pointer;
 }
 
-/* Provenance groups (EXIF, Riffle): the heading carries the gap below the
+/* Provenance groups (EXIF, Analysis): the heading carries the gap below the
    file name that the list used to, so the pane's rhythm is unchanged. */
 #meta .group {
   margin: 0.75rem 0 0.125rem;
@@ -887,11 +887,17 @@ body {
   color: #999;
 }
 
-/* The maker note section inside EXIF, set apart by a thin divider. */
+/* A thin divider where the provenance changes, above every group heading but
+   the first. The pane's lines are all same-tag siblings, so `:first-of-type`
+   cannot pick out the first heading. */
+#meta .group ~ .group {
+  padding-top: 0.25rem;
+  border-top: 1px solid #3a3a3a;
+}
+
+/* A section label inside a group (Standard, Maker note). */
 #meta .section {
   margin-top: 0.25rem;
-  padding-top: 0.125rem;
-  border-top: 1px solid #3a3a3a;
   font-size: 0.65rem;
   color: #999;
 }

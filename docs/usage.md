@@ -92,12 +92,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   pick replaces a reject on every selected file but leaves each file's stars
   as they were). Hidden files
   are never judged.
-- **Meta pane**: grouped by where each value comes from. **EXIF** lists what
-  the camera wrote in the standard tags (aperture, shutter, ISO, focal length,
-  exposure, camera, lens and capture time), then, under a `Maker note` divider,
-  what it wrote in its vendor MakerNote: the Sony shutter type and the Leica
+- **Meta pane**: grouped by where each value comes from, with a thin divider
+  between the groups. **EXIF** lists, under `Standard`, what the camera wrote
+  in the standard tags (aperture, shutter, ISO, focal length, exposure, camera,
+  lens and capture time), then, under `Maker note`, what it wrote in its
+  vendor MakerNote: the Sony shutter type and the Leica
   focus distance. When a lens reports no f-number (the M11-P with an M-mount
-  lens), the aperture is the camera's estimate, marked `(est.)`. **Riffle**
+  lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
   holds what Riffle computes itself: the sharpness score, a `Focus` row,
   `Candidate` or `Not a candidate`, with the focus candidate state the focus
   mark is colored by (left out when Riffle does not know: no AF point, manual
@@ -188,7 +189,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
   no network access. The score ranks a burst rather than judging a frame on
   its own, and it does not replace the 1:1 focus check.
-  The meta pane shows the raw score in its Riffle group. See
+  The meta pane shows the raw score in its Analysis group. See
   [What the camera records](./cameras.md).
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and Leica files,
