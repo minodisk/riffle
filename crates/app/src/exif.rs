@@ -20,6 +20,9 @@ pub struct Exif {
     pub shutter: Option<Labeled>,
     pub iso: Option<Labeled>,
     pub focal_length: Option<Labeled>,
+    pub focus_mode: Option<String>,
+    pub af_tracking: Option<String>,
+    pub af_area: Option<String>,
 }
 
 /// Format a rational as a decimal with at most `places` digits, with trailing
@@ -46,6 +49,86 @@ fn shutter(r: Rational) -> Option<String> {
         return decimal(r, 1).map(|t| format!("{t}\""));
     }
     Some(format!("1/{}", (1.0 / v).round()))
+}
+
+/// The `DSC-` models ExifTool exempts from its model condition on
+/// `FocusMode` (0x201b) and `AFTracking` (0x2021): `($$self{Model} !~
+/// /^DSC-/) or ($$self{Model} =~
+/// /^DSC-(RX10M4|RX100M6|RX100M7|RX100M5A|HX95|HX99|RX0M2|RX1RM3)/)`. On
+/// every other `DSC-` body the tags "don't seem to apply" (ExifTool's
+/// comment) and always read 0.
+const DSC_EXCEPTIONS: [&str; 8] = [
+    "DSC-RX10M4",
+    "DSC-RX100M6",
+    "DSC-RX100M7",
+    "DSC-RX100M5A",
+    "DSC-HX95",
+    "DSC-HX99",
+    "DSC-RX0M2",
+    "DSC-RX1RM3",
+];
+
+/// Whether `model` is a `DSC-` body ExifTool excludes from `FocusMode` /
+/// `AFTracking`. `None` (model unknown) is not excluded.
+fn excluded_dsc(model: Option<&str>) -> bool {
+    let Some(model) = model else {
+        return false;
+    };
+    model.starts_with("DSC-") && !DSC_EXCEPTIONS.iter().any(|m| model.starts_with(m))
+}
+
+/// Sony `FocusMode` (0x201b), labeled as ExifTool's Sony.pm `%Sony::Main`.
+fn focus_mode(model: Option<&str>, v: u8) -> Option<&'static str> {
+    if excluded_dsc(model) {
+        return None;
+    }
+    match v {
+        0 => Some("Manual"),
+        2 => Some("AF-S"),
+        3 => Some("AF-C"),
+        4 => Some("AF-A"),
+        6 => Some("DMF"),
+        7 => Some("AF-D"),
+        _ => None,
+    }
+}
+
+/// Sony `AFTracking` (0x2021), labeled as ExifTool's Sony.pm `%Sony::Main`.
+fn af_tracking(model: Option<&str>, v: u8) -> Option<&'static str> {
+    if excluded_dsc(model) {
+        return None;
+    }
+    match v {
+        0 => Some("Off"),
+        1 => Some("Face tracking"),
+        2 => Some("Lock On AF"),
+        _ => None,
+    }
+}
+
+/// Sony `AFAreaModeSetting` (0x201c), labeled with ExifTool's Sony.pm
+/// NEX/ILCE/ZV table. The SLT/HV and ILCA tables are intentionally not
+/// mapped, and the `ILME-` and RX/HX `DSC-` bodies ExifTool also reads with
+/// this table are deliberately left out.
+fn af_area(model: Option<&str>, v: u8) -> Option<&'static str> {
+    let model = model?;
+    if !["ILCE-", "NEX-", "ZV-"]
+        .iter()
+        .any(|prefix| model.starts_with(prefix))
+    {
+        return None;
+    }
+    match v {
+        0 => Some("Wide"),
+        1 => Some("Center"),
+        3 => Some("Flexible Spot"),
+        4 => Some("Flexible Spot (LA-EA4)"),
+        9 => Some("Center (LA-EA4)"),
+        11 => Some("Zone"),
+        12 => Some("Expanded Flexible Spot"),
+        13 => Some("Custom AF Area"),
+        _ => None,
+    }
 }
 
 pub fn exif(shot: &Shot) -> Exif {
@@ -93,6 +176,18 @@ pub fn exif(shot: &Shot) -> Exif {
                 value: r.value()?,
             })
         }),
+        focus_mode: shot
+            .focus_mode
+            .and_then(|v| focus_mode(shot.model.as_deref(), v))
+            .map(str::to_string),
+        af_tracking: shot
+            .af_tracking
+            .and_then(|v| af_tracking(shot.model.as_deref(), v))
+            .map(str::to_string),
+        af_area: shot
+            .af_area_mode
+            .and_then(|v| af_area(shot.model.as_deref(), v))
+            .map(str::to_string),
     }
 }
 
@@ -168,6 +263,90 @@ mod tests {
         assert_eq!(camera(Some("SONY"), None).as_deref(), Some("SONY"));
         assert_eq!(camera(None, Some("ILCE-7M5")).as_deref(), Some("ILCE-7M5"));
         assert_eq!(camera(None, None), None);
+    }
+
+    #[test]
+    fn the_sony_focus_mode_maps_to_its_label() {
+        for (v, label) in [
+            (0, "Manual"),
+            (2, "AF-S"),
+            (3, "AF-C"),
+            (4, "AF-A"),
+            (6, "DMF"),
+            (7, "AF-D"),
+        ] {
+            assert_eq!(focus_mode(Some("ILCE-7M5"), v), Some(label));
+        }
+        for v in [1, 5, 255] {
+            assert_eq!(focus_mode(Some("ILCE-7M5"), v), None);
+        }
+    }
+
+    #[test]
+    fn the_sony_af_tracking_maps_to_its_label() {
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 0), Some("Off"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 1), Some("Face tracking"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 2), Some("Lock On AF"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 3), None);
+    }
+
+    #[test]
+    fn the_sony_focus_mode_and_af_tracking_are_excluded_on_older_dsc_bodies() {
+        assert_eq!(focus_mode(Some("DSC-RX100M3"), 3), None);
+        assert_eq!(af_tracking(Some("DSC-RX100M3"), 1), None);
+        assert_eq!(focus_mode(Some("DSC-RX100M7"), 3), Some("AF-C"));
+        assert_eq!(af_tracking(Some("DSC-RX100M7"), 1), Some("Face tracking"));
+        assert_eq!(focus_mode(None, 3), Some("AF-C"));
+        assert_eq!(af_tracking(None, 1), Some("Face tracking"));
+    }
+
+    #[test]
+    fn the_sony_af_area_maps_to_its_label_on_ilce_nex_and_zv_bodies() {
+        for model in ["ILCE-7M5", "NEX-7", "ZV-E10"] {
+            for (v, label) in [
+                (0, "Wide"),
+                (1, "Center"),
+                (3, "Flexible Spot"),
+                (4, "Flexible Spot (LA-EA4)"),
+                (9, "Center (LA-EA4)"),
+                (11, "Zone"),
+                (12, "Expanded Flexible Spot"),
+                (13, "Custom AF Area"),
+            ] {
+                assert_eq!(af_area(Some(model), v), Some(label));
+            }
+            for v in [2, 8, 255] {
+                assert_eq!(af_area(Some(model), v), None);
+            }
+        }
+    }
+
+    #[test]
+    fn the_sony_af_area_is_left_out_on_other_bodies() {
+        for model in [
+            Some("ILME-FX3"),
+            Some("ILCA-99M2"),
+            Some("SLT-A99V"),
+            Some("DSC-RX100M7"),
+            Some("LEICA M11-P"),
+            None,
+        ] {
+            assert_eq!(af_area(model, 0), None);
+        }
+    }
+
+    #[test]
+    fn the_af_fields_are_formatted_from_the_shot() {
+        let e = exif(&Shot {
+            model: Some("ILCE-7M5".to_string()),
+            focus_mode: Some(3),
+            af_tracking: Some(1),
+            af_area_mode: Some(13),
+            ..Shot::default()
+        });
+        assert_eq!(e.focus_mode.as_deref(), Some("AF-C"));
+        assert_eq!(e.af_tracking.as_deref(), Some("Face tracking"));
+        assert_eq!(e.af_area.as_deref(), Some("Custom AF Area"));
     }
 
     #[test]

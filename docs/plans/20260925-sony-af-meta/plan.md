@@ -35,12 +35,15 @@ Tag94xx) and, because the MakerNote does not record them (checked with
 ExifTool 13.59), the recognized subject type (human / animal / bird /
 vehicle) and whether the AF locked on an eye or a face.
 
-Value-to-label mappings, from ExifTool's Sony.pm (`%Sony::Main`; none of the
-new tags has a model condition except `AFAreaModeSetting`):
+Value-to-label mappings, from ExifTool's Sony.pm (`%Sony::Main`). Besides
+`AFAreaModeSetting`, `FocusMode` and `AFTracking` also carry a model
+condition: `($$self{Model} !~ /^DSC-/) or ($$self{Model} =~
+/^DSC-(RX10M4|RX100M6|RX100M7|RX100M5A|HX95|HX99|RX0M2|RX1RM3)/)`, so on
+other `DSC-` bodies (older RX / HX compacts) both rows are `None`:
 
 - `FocusMode` (0x201b, int8u): 0 Manual, 2 AF-S, 3 AF-C, 4 AF-A, 6 DMF,
   7 AF-D.
-- `AFTracking` (0x2021, int8u): 0 Off, 1 Face tracking, 2 Lock-On AF.
+- `AFTracking` (0x2021, int8u): 0 Off, 1 Face tracking, 2 Lock On AF.
 - `AFAreaModeSetting` (0x201c, int8u), NEX/ILCE/ZV table only: 0 Wide,
   1 Center, 3 Flexible Spot, 4 Flexible Spot (LA-EA4), 9 Center (LA-EA4),
   11 Zone, 12 Expanded Flexible Spot, 13 Custom AF Area. ExifTool's
@@ -149,7 +152,7 @@ module already has a top-level `find(entries, tag)` used a few lines above.
       `reader::read_metadata` reads. Record the observed types in
       `learnings.md`.
 
-- [ ] Step 2: Format the AF fields in `exif.rs` and show them in the meta pane
+- [x] Step 2: Format the AF fields in `exif.rs` and show them in the meta pane
   - Done when:
     - `crates/app/src/exif.rs::Exif` gains `focus_mode: Option<String>`,
       `af_tracking: Option<String>` and `af_area: Option<String>`, filled by
@@ -191,7 +194,7 @@ module already has a top-level `find(entries, tag)` used a few lines above.
       core compares `Model` with a plain string.
     - No change to `crates/app/src/index.rs` (the `files` table caches only
       what the filter menu needs) or `crates/app/ui/src/filter.ts`.
-    - Label wording follows ExifTool ("Face tracking", "Lock-On AF",
+    - Label wording follows ExifTool ("Face tracking", "Lock On AF",
       "Manual", "AF-C", "Flexible Spot", ...).
 
 - [ ] Step 3: Format the drive, stabilization and picture settings in `exif.rs` and show them in the meta pane
@@ -300,3 +303,4 @@ module already has a top-level `find(entries, tag)` used a few lines above.
   stabilization and picture settings`). `riffle_core::arw::Shot` gained the
   nine raw fields and `EXTRACTOR_VERSION` was bumped by one. See
   `learnings.md` for the tag types observed on the ILCE-7M5 samples.
+- (2026-09-25) Step 2 complete

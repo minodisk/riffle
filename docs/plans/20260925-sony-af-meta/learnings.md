@@ -25,3 +25,31 @@
   2 Advanced Auto, 3 Auto, 8-12 Advanced Lv1-Lv5, 16-23 Lv1-Lv8.
 - Writing `b"Standard\0"` through a bash heredoc into a Python script
   turned the `\0` into a real NUL byte in the Rust source; fixed by hand.
+
+## Step 2: Format the AF fields in `exif.rs` and show them in the meta pane
+
+- `Exif` is also serialized into every `IndexedFile` of the folder listing
+  (`index.rs` rebuilds it from the cached columns with `..Shot::default()`),
+  so the three new fields travel there as `null` for every file. The
+  frontend's `Exif` interface in `crates/app/ui/src/exif.ts` does not mirror
+  them and does not need to; the meta pane reads them from `Metadata`.
+- The Sony fixture in `meta.test.ts` now carries sample labels for the three
+  rows, so the existing "splits Sony-like input" test asserts their order
+  after `Shutter type`.
+
+## Deferred issues (todo candidates)
+
+- The folder listing payload carries `focus_mode` / `af_tracking` / `af_area`
+  (and, after Step 3, seven more Maker note fields) as always-`null` members
+  of `Exif`, since the index does not cache them. Basis: Step 2
+  implementation (the plan puts the fields on `Exif`). Options: move the
+  Maker note formatting out of `Exif` into a separate struct used only by
+  `read_metadata`, or skip serializing `None`. Files:
+  `crates/app/src/exif.rs`, `crates/app/src/index.rs`,
+  `crates/app/ui/src/exif.ts`.
+- `crates/core/src/sharpness.rs`'s `shot.focus_mode == Some(MANUAL_FOCUS)`
+  read (used to decide the sharpness-score strategy) has no model gate, so on
+  the older `DSC-` bodies ExifTool excludes from `FocusMode` (value always
+  0), it is misread as manual focus. Basis: review feedback, Round 1 item 1
+  (`docs/plans/review-history/sony-af-meta-step-2/review-20260925-2138.md`).
+  Pre-existing, out of scope for this plan. File: `crates/core/src/sharpness.rs`.
