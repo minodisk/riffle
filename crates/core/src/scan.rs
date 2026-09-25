@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{focus_cue, Cue};
 use crate::decode::thumbnail_jpeg;
-use crate::faces::{detect_around, face_catch, FaceCatch};
+use crate::faces::detect_around;
 use crate::reader::read_preview;
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
@@ -33,9 +33,6 @@ pub struct Entry {
     /// `sharpness::score_preview` of the preview; `None` when it could not be
     /// scored, which does not fail the file.
     pub sharpness: Option<f64>,
-    /// Whether the AF caught a face: `Caught` on a Sony face-tracked frame,
-    /// else from the faces around a trusted AF point, else `Unknown`.
-    pub face_catch: FaceCatch,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
@@ -53,20 +50,17 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|e| e.to_string())?;
     let eye_af = eye_af_frame(&arw.shot);
     let focus = trusted_focus(&arw.shot);
-    // Faces steer the score only without an AF point, so with one they only
-    // decide the face-catch state. Any detection failure is no face.
-    let (face_catch, faces) = if eye_af.is_some() {
-        (FaceCatch::Caught, Vec::new())
-    } else {
-        match catch_unwind(AssertUnwindSafe(|| {
-            detect_around(&preview, arw.orientation, focus)
-        })) {
-            Ok(Ok(d)) => match d.point {
-                Some(point) => (face_catch(&d.faces, point), Vec::new()),
-                None => (FaceCatch::Unknown, d.faces),
-            },
-            _ => (FaceCatch::Unknown, Vec::new()),
-        }
+    // Faces steer the score only without an AF point, so they are searched for
+    // on the whole image then and not at all otherwise. Any detection failure
+    // is no face.
+    let faces = match focus {
+        Some(_) => Vec::new(),
+        None => catch_unwind(AssertUnwindSafe(|| {
+            detect_around(&preview, arw.orientation, None)
+        }))
+        .ok()
+        .and_then(Result::ok)
+        .map_or_else(Vec::new, |d| d.faces),
     };
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
         score_preview(&preview, focus, eye_af.map(|(_, frame)| frame), &faces)
@@ -78,7 +72,6 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
         shot: arw.shot,
         thumbnail,
         sharpness,
-        face_catch,
     })
 }
 

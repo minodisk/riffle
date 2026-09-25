@@ -7,8 +7,7 @@
 //!
 //! `detect_around` is the one place that decides which region of a preview
 //! is searched (a `CATCH_CROP` square around a trusted AF point, else the
-//! whole upright image), and `face_catch` turns its result into the
-//! face-catch state.
+//! whole upright image).
 
 use std::io::Cursor;
 use std::sync::OnceLock;
@@ -36,17 +35,6 @@ const STRIDES: [usize; 3] = [8, 16, 32];
 pub const CATCH_CROP: usize = 480;
 /// Minimum detection score of a face `detect_around` returns.
 pub const CATCH_CONFIDENCE: f32 = SCORE_THRESHOLD;
-
-/// Whether the AF caught a face: `Caught` when the AF point lies in a face
-/// (or the camera tracked one), `Missed` when faces were found around the
-/// point but it lies in none, `Unknown` otherwise.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum FaceCatch {
-    Caught,
-    Missed,
-    #[default]
-    Unknown,
-}
 
 /// What `detect_around` found, in the preview's stored pixel coordinates.
 #[derive(Debug, Clone, PartialEq)]
@@ -379,22 +367,6 @@ pub fn detect_around_rgb(
     })
 }
 
-/// The face-catch state of an AF point among `faces`, both in the same
-/// coordinates; a point on a box edge is inside it.
-pub fn face_catch(faces: &[Face], (x, y): (usize, usize)) -> FaceCatch {
-    let (x, y) = (x as f32, y as f32);
-    if faces.is_empty() {
-        FaceCatch::Unknown
-    } else if faces
-        .iter()
-        .any(|f| x >= f.x && x <= f.x + f.width && y >= f.y && y <= f.y + f.height)
-    {
-        FaceCatch::Caught
-    } else {
-        FaceCatch::Missed
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,34 +468,6 @@ mod tests {
         let (sub, win) = crop_rgb(&rgb, w, h, (0, 0), 480);
         assert_eq!((win.x, win.y, win.width, win.height), (0, 0, w, h));
         assert_eq!(sub, rgb);
-    }
-
-    fn boxed(x: f32, y: f32) -> Face {
-        Face {
-            x,
-            y,
-            width: 10.0,
-            height: 10.0,
-            score: 0.9,
-            left_eye: (0.0, 0.0),
-            right_eye: (0.0, 0.0),
-        }
-    }
-
-    #[test]
-    fn classifies_the_af_point_against_the_faces() {
-        let faces = [boxed(0.0, 0.0), boxed(50.0, 50.0)];
-        assert_eq!(face_catch(&faces, (55, 55)), FaceCatch::Caught);
-        assert_eq!(face_catch(&faces, (30, 30)), FaceCatch::Missed);
-        assert_eq!(face_catch(&[], (30, 30)), FaceCatch::Unknown);
-    }
-
-    #[test]
-    fn a_point_on_a_box_edge_is_caught() {
-        let faces = [boxed(50.0, 50.0)];
-        assert_eq!(face_catch(&faces, (60, 55)), FaceCatch::Caught);
-        assert_eq!(face_catch(&faces, (50, 60)), FaceCatch::Caught);
-        assert_eq!(face_catch(&faces, (61, 55)), FaceCatch::Missed);
     }
 
     #[test]
