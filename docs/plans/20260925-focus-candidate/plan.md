@@ -441,3 +441,4 @@ ci` passes for every step.
 ## Progress
 
 - (2026-09-25) Step 1 complete
+- (2026-09-25) Step 2 complete
