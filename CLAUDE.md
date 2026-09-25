@@ -22,9 +22,11 @@ when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
-re-extracting rows written by an older `EXTRACTOR_VERSION`, whose
-`eye_sharpness` / `faces_extractor` columns a second pass fills in with the
-focus candidate cue the `f` focus mark is colored by, `src/commands.rs` the
+re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
+passes on the one scan task: `run_scan` (thumbnail, metadata, sharpness),
+then `run_faces_scan`, which fills the `eye_sharpness` / `faces_extractor`
+columns with the focus candidate cue the `f` focus mark is colored by and
+streams it as `faces-progress` / `faces-done` events, `src/commands.rs` the
 Tauri commands, including `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane

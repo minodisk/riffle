@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type MarkFocus, faceMarks, focusMark } from "./focus.js";
+import { type MarkFocus, applyFaceReady, faceMarks, focusMark } from "./focus.js";
 
 const point: MarkFocus = {
   sensor_w: 7008,
@@ -82,5 +82,63 @@ describe("faceMarks", () => {
     expect(faceMarks([face(400, 200, 450, 240)], 1600, 1080, 800, 540)).toEqual([
       { rect: { x: -200, y: -170, width: 50, height: 60 }, eye: { x: -175, y: -150 } },
     ]);
+  });
+});
+
+describe("applyFaceReady", () => {
+  const rows = () =>
+    new Map<string, { focus: MarkFocus | null }>([
+      ["/d/a.ARW", { focus: { ...point } }],
+      ["/d/b.ARW", { focus: { ...point } }],
+      ["/d/c.ARW", { focus: null }],
+    ]);
+
+  test("patches the ready files and reports whether the current one was among them", () => {
+    const entries = rows();
+    const touched = applyFaceReady(
+      entries,
+      [
+        { path: "/d/a.ARW", eye_sharpness: 120, candidate: "candidate" },
+        { path: "/d/b.ARW", eye_sharpness: 40, candidate: "not_candidate" },
+      ],
+      "/d/b.ARW",
+    );
+    expect(touched).toBe(true);
+    expect(entries.get("/d/a.ARW")?.focus).toMatchObject({
+      eye_sharpness: 120,
+      candidate: "candidate",
+    });
+    expect(entries.get("/d/b.ARW")?.focus).toMatchObject({
+      eye_sharpness: 40,
+      candidate: "not_candidate",
+    });
+  });
+
+  test("a current file outside the batch is not touched", () => {
+    const entries = rows();
+    expect(
+      applyFaceReady(
+        entries,
+        [{ path: "/d/a.ARW", eye_sharpness: 120, candidate: "candidate" }],
+        "/d/b.ARW",
+      ),
+    ).toBe(false);
+    expect(entries.get("/d/b.ARW")?.focus?.candidate).toBe("unknown");
+  });
+
+  test("a file with no row or no focus point is skipped", () => {
+    const entries = rows();
+    expect(
+      applyFaceReady(
+        entries,
+        [
+          { path: "/d/c.ARW", eye_sharpness: null, candidate: "unknown" },
+          { path: "/d/missing.ARW", eye_sharpness: 90, candidate: "candidate" },
+        ],
+        "/d/c.ARW",
+      ),
+    ).toBe(false);
+    expect(entries.get("/d/c.ARW")?.focus).toBeNull();
+    expect(entries.has("/d/missing.ARW")).toBe(false);
   });
 });

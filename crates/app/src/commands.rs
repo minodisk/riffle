@@ -947,9 +947,10 @@ fn scan_threads() -> usize {
 }
 
 /// What `scan_folder` returns: the number of files that need scanning and the
-/// id the caller must match against `scan-progress`/`scan-done` events to tell
-/// this scan's events apart from an older, still-draining one for the same
-/// folder. `sidecar_errors` lists the sidecars the open could not read.
+/// id the caller must match against `scan-progress`/`scan-done` and
+/// `faces-progress`/`faces-done` events to tell this scan's events apart from
+/// an older, still-draining one for the same folder. `sidecar_errors` lists
+/// the sidecars the open could not read.
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,
@@ -963,7 +964,7 @@ pub struct ScanStarted {
 /// frontend calls `start_scan` with the returned `scan_id`, so this only
 /// prepares the work; call `start_scan` right after storing the id. A no-op
 /// (nothing to scan) when the index cache is unavailable; `start_scan` still
-/// emits `scan-done` for this `scan_id` in that case.
+/// emits `scan-done` and `faces-done` for this `scan_id` in that case.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
@@ -1114,26 +1115,77 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     })
 }
 
-/// Emit a `scan-done` with no work done, for a `scan_id` `start_scan` is not
-/// going to spawn a real scan for. The frontend keys its `scanRunning` flag
-/// off `scan-done` alone, so every `scan_id` it hands a scan for must
+/// Emit an empty `scan-done` and `faces-done`, for a `scan_id` `start_scan` is
+/// not going to spawn a real scan for. The frontend clears its `scanRunning`
+/// flag off `faces-done`, so every `scan_id` it hands a scan for must
 /// eventually get one, even the ids that turn out to be no-ops here.
-fn emit_empty_scan_done(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
-    let _ = app.emit(
-        "scan-done",
-        Done {
-            dir,
-            scan_id,
-            total: 0,
-            errors: 0,
-        },
-    );
+fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
+    let done = Done {
+        dir,
+        scan_id,
+        total: 0,
+        errors: 0,
+    };
+    let _ = app.emit("scan-done", done.clone());
+    let _ = app.emit("faces-done", done);
+}
+
+/// The second pass of a scan: the eye sharpness of every file of `dir` whose
+/// row is not yet at `FACES_VERSION`. Nothing runs, and nothing is reported,
+/// once `cancel` is set; the rows keep their old `faces_extractor`, so the
+/// next scan of the folder picks them up again.
+fn run_faces_pass<P>(
+    index: &Mutex<Index>,
+    dir: &str,
+    threads: usize,
+    cancel: &AtomicBool,
+    progress: P,
+) -> index::ScanSummary
+where
+    P: Fn(usize, usize, Vec<index::FaceReady>) + Send + Sync,
+{
+    let none = index::ScanSummary {
+        total: 0,
+        errors: 0,
+    };
+    if cancel.load(Ordering::Relaxed) {
+        return none;
+    }
+    let todo = match index::lock(index).faces_todo(dir) {
+        Ok(todo) => todo,
+        Err(e) => {
+            log::error!("failed to list the faces pass of {dir}: {e}");
+            return none;
+        }
+    };
+    index::run_faces_scan(
+        index,
+        dir,
+        &todo,
+        threads,
+        cancel,
+        index::PROGRESS_INTERVAL,
+        progress,
+    )
 }
 
 /// Start the scan `scan_folder` prepared for `scan_id`, in the background.
-/// Still emits `scan-done` (with no work done) when there is no pending work
-/// under that id (the index cache was unavailable, or this scan has since
-/// been superseded), so the frontend's `scanRunning` flag always clears.
+/// Still emits `scan-done` and `faces-done` (with no work done) when there is
+/// no pending work under that id (the index cache was unavailable, or this
+/// scan has since been superseded), so the frontend's `scanRunning` flag
+/// always clears.
+///
+/// The task runs two passes: `run_scan` (thumbnails, metadata, sharpness),
+/// ending in `scan-done`, then, unless canceled, `run_faces_scan` (the eye
+/// sharpness of the focus candidate cue) over what `faces_todo` lists,
+/// reporting `faces-progress` and ending in `faces-done`. Because both passes
+/// share the one `running` entry: `ScansState::scanning()` stays true through
+/// the second pass, so `clear_index` refuses and the settings modal shows
+/// scanning until it ends; `scan_folder` cancels and joins the second pass
+/// like the first, and the rows it had not written yet keep their old
+/// `faces_extractor`, so the next scan of the folder resumes them; and a
+/// resync's `reconcile` runs only after that join, so `write_faces` never
+/// races a row deletion.
 ///
 /// The latest-id check and the store into `running` happen under the same
 /// lock as `scan_folder`'s own id-minting and `running`-taking, so a
@@ -1153,17 +1205,17 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             .map(|pending| pending.dir)
             .unwrap_or_default();
         drop(state);
-        emit_empty_scan_done(&app, &dir, scan_id);
+        emit_empty_scan_events(&app, &dir, scan_id);
         return Ok(());
     }
     let Some(pending) = state.pending.remove(&scan_id) else {
         drop(state);
-        emit_empty_scan_done(&app, "", scan_id);
+        emit_empty_scan_events(&app, "", scan_id);
         return Ok(());
     };
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         drop(state);
-        emit_empty_scan_done(&app, &pending.dir, scan_id);
+        emit_empty_scan_events(&app, &pending.dir, scan_id);
         return Ok(());
     };
     let PendingScan { dir, todo, cancel } = pending;
@@ -1194,6 +1246,33 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             );
             let _ = app.emit(
                 "scan-done",
+                Done {
+                    dir: &dir,
+                    scan_id,
+                    total: summary.total,
+                    errors: summary.errors,
+                },
+            );
+            let summary = run_faces_pass(
+                &index,
+                &dir,
+                scan_threads(),
+                &cancel,
+                |done, total, ready| {
+                    let _ = app.emit(
+                        "faces-progress",
+                        FacesProgress {
+                            dir: &dir,
+                            scan_id,
+                            done,
+                            total,
+                            ready,
+                        },
+                    );
+                },
+            );
+            let _ = app.emit(
+                "faces-done",
                 Done {
                     dir: &dir,
                     scan_id,
@@ -1237,6 +1316,17 @@ struct Progress<'a> {
     /// frontend can request exactly those thumbnails instead of every cell
     /// it has nothing for yet.
     ready: Vec<String>,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct FacesProgress<'a> {
+    dir: &'a str,
+    scan_id: u64,
+    done: usize,
+    total: usize,
+    /// The files the second pass committed since the previous event, with
+    /// their result, so the frontend can patch its entries in place.
+    ready: Vec<index::FaceReady>,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -1944,6 +2034,49 @@ mod tests {
         });
         tauri::async_runtime::block_on(waited).unwrap();
         assert!(!index::lock(&scans.0).scanning());
+    }
+
+    #[test]
+    fn a_finished_faces_pass_leaves_no_scan_in_progress() {
+        let dir = temp_dir("faces-pass");
+        let raw = dir.join("a.ARW");
+        std::fs::write(&raw, b"x").unwrap();
+        let index = sidecar_index(&dir);
+        let dir_name = dir.to_string_lossy().into_owned();
+        index_files(&index, &dir_name, &[raw.to_string_lossy().into_owned()]);
+
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (go, rx) = mpsc::channel::<()>();
+        let (summary_tx, summary_rx) = mpsc::channel();
+        let handle = tauri::async_runtime::spawn_blocking({
+            let (scans, index, dir_name) = (scans.clone(), index.clone(), dir_name.clone());
+            move || {
+                let _ = rx.recv();
+                let summary = super::run_faces_pass(
+                    &index,
+                    &dir_name,
+                    2,
+                    &AtomicBool::new(false),
+                    |_, _, _| {},
+                );
+                let _ = summary_tx.send(summary.errors);
+                index::lock(&scans.0).finish(1);
+            }
+        });
+        index::lock(&scans.0).running = Some((1, Arc::new(AtomicBool::new(false)), handle));
+        let _ = go.send(());
+        assert_eq!(summary_rx.recv().unwrap(), 0);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while index::lock(&scans.0).running.is_some() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(!index::lock(&scans.0).scanning());
+        assert!(index::lock(&index)
+            .faces_todo(&dir_name)
+            .unwrap()
+            .is_empty());
+
+        remove_temp_dir(&dir);
     }
 
     #[test]

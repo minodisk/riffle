@@ -552,6 +552,11 @@ retried.
   scan of each folder, and keeps `ratings`. Stale rows are deleted by
   `reconcile` right away, so the folder shows placeholders until its rescan
   fills them in.
+- The focus candidate cue has its own version, `FACES_VERSION`, stored as
+  `files.faces_extractor`: bump it, not `EXTRACTOR_VERSION`, on a change to
+  what `riffle_core::scan::extract_faces` produces (the threshold, the eye
+  window, the detector: `crates/core/src/candidate.rs`, `faces.rs`). Only the
+  second pass then re-runs; thumbnails are kept.
 - Source: `docs/plans/_archived/20260924-index-extractor-version/learnings.md`,
   Step 1.
 
@@ -919,10 +924,10 @@ folder changed" event has to pick the right one.
   `refilter(currentPath, true)`, which keeps the strip's scroll offset. Use it
   when only the *files* may have changed — the window focus,
   `File > Reload Folder` and `folder-changed` (the watcher) triggers.
-- `resync` defers to `scan-done` while a scan runs (`scanRunning`), because
-  `scan_folder` cancels and joins the running scan first; a focus change
-  during a 5000-file first scan would otherwise restart it. Repeat triggers
-  collapse into the single `resyncPending` flag.
+- `resync` defers to `faces-done` (the end of the second pass) while a scan
+  runs (`scanRunning`), because `scan_folder` cancels and joins the running
+  scan first; a focus change during a 5000-file first scan would otherwise
+  restart it. Repeat triggers collapse into the single `resyncPending` flag.
 
 ### The folder watcher cannot loop on the app's own sidecar writes (Inferred)
 
