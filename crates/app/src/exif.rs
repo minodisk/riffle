@@ -51,8 +51,37 @@ fn shutter(r: Rational) -> Option<String> {
     Some(format!("1/{}", (1.0 / v).round()))
 }
 
+/// The `DSC-` models ExifTool exempts from its model condition on
+/// `FocusMode` (0x201b) and `AFTracking` (0x2021): `($$self{Model} !~
+/// /^DSC-/) or ($$self{Model} =~
+/// /^DSC-(RX10M4|RX100M6|RX100M7|RX100M5A|HX95|HX99|RX0M2|RX1RM3)/)`. On
+/// every other `DSC-` body the tags "don't seem to apply" (ExifTool's
+/// comment) and always read 0.
+const DSC_EXCEPTIONS: [&str; 8] = [
+    "DSC-RX10M4",
+    "DSC-RX100M6",
+    "DSC-RX100M7",
+    "DSC-RX100M5A",
+    "DSC-HX95",
+    "DSC-HX99",
+    "DSC-RX0M2",
+    "DSC-RX1RM3",
+];
+
+/// Whether `model` is a `DSC-` body ExifTool excludes from `FocusMode` /
+/// `AFTracking`. `None` (model unknown) is not excluded.
+fn excluded_dsc(model: Option<&str>) -> bool {
+    let Some(model) = model else {
+        return false;
+    };
+    model.starts_with("DSC-") && !DSC_EXCEPTIONS.iter().any(|m| model.starts_with(m))
+}
+
 /// Sony `FocusMode` (0x201b), labeled as ExifTool's Sony.pm `%Sony::Main`.
-fn focus_mode(v: u8) -> Option<&'static str> {
+fn focus_mode(model: Option<&str>, v: u8) -> Option<&'static str> {
+    if excluded_dsc(model) {
+        return None;
+    }
     match v {
         0 => Some("Manual"),
         2 => Some("AF-S"),
@@ -65,11 +94,14 @@ fn focus_mode(v: u8) -> Option<&'static str> {
 }
 
 /// Sony `AFTracking` (0x2021), labeled as ExifTool's Sony.pm `%Sony::Main`.
-fn af_tracking(v: u8) -> Option<&'static str> {
+fn af_tracking(model: Option<&str>, v: u8) -> Option<&'static str> {
+    if excluded_dsc(model) {
+        return None;
+    }
     match v {
         0 => Some("Off"),
         1 => Some("Face tracking"),
-        2 => Some("Lock-On AF"),
+        2 => Some("Lock On AF"),
         _ => None,
     }
 }
@@ -144,8 +176,14 @@ pub fn exif(shot: &Shot) -> Exif {
                 value: r.value()?,
             })
         }),
-        focus_mode: shot.focus_mode.and_then(focus_mode).map(str::to_string),
-        af_tracking: shot.af_tracking.and_then(af_tracking).map(str::to_string),
+        focus_mode: shot
+            .focus_mode
+            .and_then(|v| focus_mode(shot.model.as_deref(), v))
+            .map(str::to_string),
+        af_tracking: shot
+            .af_tracking
+            .and_then(|v| af_tracking(shot.model.as_deref(), v))
+            .map(str::to_string),
         af_area: shot
             .af_area_mode
             .and_then(|v| af_area(shot.model.as_deref(), v))
@@ -237,19 +275,29 @@ mod tests {
             (6, "DMF"),
             (7, "AF-D"),
         ] {
-            assert_eq!(focus_mode(v), Some(label));
+            assert_eq!(focus_mode(Some("ILCE-7M5"), v), Some(label));
         }
         for v in [1, 5, 255] {
-            assert_eq!(focus_mode(v), None);
+            assert_eq!(focus_mode(Some("ILCE-7M5"), v), None);
         }
     }
 
     #[test]
     fn the_sony_af_tracking_maps_to_its_label() {
-        assert_eq!(af_tracking(0), Some("Off"));
-        assert_eq!(af_tracking(1), Some("Face tracking"));
-        assert_eq!(af_tracking(2), Some("Lock-On AF"));
-        assert_eq!(af_tracking(3), None);
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 0), Some("Off"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 1), Some("Face tracking"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 2), Some("Lock On AF"));
+        assert_eq!(af_tracking(Some("ILCE-7M5"), 3), None);
+    }
+
+    #[test]
+    fn the_sony_focus_mode_and_af_tracking_are_excluded_on_older_dsc_bodies() {
+        assert_eq!(focus_mode(Some("DSC-RX100M3"), 3), None);
+        assert_eq!(af_tracking(Some("DSC-RX100M3"), 1), None);
+        assert_eq!(focus_mode(Some("DSC-RX100M7"), 3), Some("AF-C"));
+        assert_eq!(af_tracking(Some("DSC-RX100M7"), 1), Some("Face tracking"));
+        assert_eq!(focus_mode(None, 3), Some("AF-C"));
+        assert_eq!(af_tracking(None, 1), Some("Face tracking"));
     }
 
     #[test]

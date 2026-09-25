@@ -47,3 +47,9 @@
   `read_metadata`, or skip serializing `None`. Files:
   `crates/app/src/exif.rs`, `crates/app/src/index.rs`,
   `crates/app/ui/src/exif.ts`.
+- `crates/core/src/sharpness.rs`'s `shot.focus_mode == Some(MANUAL_FOCUS)`
+  read (used to decide the sharpness-score strategy) has no model gate, so on
+  the older `DSC-` bodies ExifTool excludes from `FocusMode` (value always
+  0), it is misread as manual focus. Basis: review feedback, Round 1 item 1
+  (`docs/plans/review-history/sony-af-meta-step-2/review-20260925-2138.md`).
+  Pre-existing, out of scope for this plan. File: `crates/core/src/sharpness.rs`.
