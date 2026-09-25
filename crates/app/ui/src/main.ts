@@ -875,12 +875,25 @@ function judge(command: Command, forceLabel = false): number {
   }
   const current = (comparing ? compareActivePath : null) ?? files[index];
   const paths = comparing ? [current] : targets(selection, files, index);
+  return record(paths, current, command, forceLabel) ? paths.length : 0;
+}
+
+// The changes `command` makes to `paths`, its value decided from `focused`,
+// pushed as one undo entry and committed with `anchor` kept current. Returns
+// whether anything changed.
+function record(
+  paths: readonly string[],
+  focused: string,
+  command: Command,
+  forceLabel = false,
+  anchor = focused,
+): boolean {
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless. A forced label still goes out
   // while the file's real label is unknown.
   const changes: Change[] = judgments(
     paths,
-    current,
+    focused,
     (path) => ({
       rating: ratings.get(path) ?? null,
       flag: flagOf(path),
@@ -890,13 +903,13 @@ function judge(command: Command, forceLabel = false): number {
     (path) => forceLabel && !entries.has(path),
   ).map(({ before, after }) => ({ before, ...after, forceLabel }));
   if (changes.length === 0) {
-    return 0;
+    return false;
   }
   const batch = changes.map(({ before }) => before);
   history.push(batch);
   redoable.clear();
-  commit(changes, forgetOnFail(history, batch), () => current);
-  return paths.length;
+  commit(changes, forgetOnFail(history, batch), () => anchor);
+  return true;
 }
 
 // `rejectRest`: reject every other member of the current file's burst, over
@@ -2042,6 +2055,10 @@ const view: ViewApi = {
   setMode(mode) {
     if ((mode === "compare") !== comparing) toggleCompare();
     if (mode !== "compare" && (mode === "zoom") !== zoomed) toggleZoom();
+  },
+  judge(paths, command) {
+    const current = (comparing ? compareActivePath : null) ?? files[index];
+    record(paths, paths.includes(current) ? current : paths[0], command, false, current);
   },
 };
 void window.__TAURI__.event.listen<McpRequest>("mcp-request", ({ payload }) => {

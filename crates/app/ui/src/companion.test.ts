@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { type ViewApi, getView, handleRequest, respond } from "./companion.js";
 import { COMPARE_NEEDS_FRAMES } from "./compare.js";
+import { type Command, type PickFlag, judgments } from "./selection.js";
 
 function view(overrides: Partial<ViewApi> = {}): ViewApi {
   return {
@@ -21,6 +22,7 @@ function view(overrides: Partial<ViewApi> = {}): ViewApi {
     showPhoto: () => {},
     selectPhotos: () => {},
     setMode: () => {},
+    judge: () => {},
     ...overrides,
   };
 }
@@ -279,5 +281,131 @@ describe("set_view", () => {
       "no photo is shown in Riffle",
     );
     expect(calls).toEqual([]);
+  });
+});
+
+// A view over `files` whose `judge` builds the changes with `judgments`, as
+// `main.ts` does, records them and applies them to the maps.
+function judging(files: string[], overrides: Partial<ViewApi> = {}) {
+  const changes: unknown[][] = [];
+  const ratings = new Map<string, number>();
+  const flags = new Map<string, "pick" | "reject">();
+  const labels = new Map<string, string>();
+  const state = view({
+    folder: "/d",
+    files,
+    selection: new Set(files.slice(0, 1)),
+    ratings,
+    flags,
+    labels,
+    ...overrides,
+  });
+  state.judge = (paths: readonly string[], command: Command) => {
+    const built = judgments(
+      paths,
+      paths[0],
+      (path) => ({
+        rating: ratings.get(path) ?? null,
+        flag: flags.get(path) ?? ("none" as PickFlag),
+        label: labels.get(path) ?? null,
+      }),
+      command,
+    );
+    changes.push(built);
+    for (const { before, after } of built) {
+      if (after.rating === null) ratings.delete(before.path);
+      else ratings.set(before.path, after.rating);
+      if (after.flag === "none") flags.delete(before.path);
+      else flags.set(before.path, after.flag);
+      if (after.label === null) labels.delete(before.path);
+      else labels.set(before.path, after.label);
+    }
+  };
+  return { changes, view: state, ratings, flags, labels };
+}
+
+describe("set_judgment", () => {
+  test("changes only the given fields and reports every file", async () => {
+    const { changes, view, flags, labels } = judging(["/d/a", "/d/b"]);
+    flags.set("/d/a", "pick");
+    labels.set("/d/b", "Red");
+    expect(
+      await handleRequest("set_judgment", { paths: ["/d/a", "/d/b"], rating: 3 }, view),
+    ).toEqual([
+      { path: "/d/a", rating: 3, flag: "pick", label: null },
+      { path: "/d/b", rating: 3, flag: "none", label: "Red" },
+    ]);
+    expect(changes).toEqual([
+      [
+        {
+          before: { path: "/d/a", rating: null, flag: "pick", label: null },
+          after: { rating: 3, flag: "pick", label: null },
+        },
+        {
+          before: { path: "/d/b", rating: null, flag: "none", label: "Red" },
+          after: { rating: 3, flag: "none", label: "Red" },
+        },
+      ],
+    ]);
+  });
+
+  test("clears the stars with 0 and the label with null", async () => {
+    const { view, ratings, labels } = judging(["/d/a"]);
+    ratings.set("/d/a", 4);
+    labels.set("/d/a", "Blue");
+    expect(
+      await handleRequest("set_judgment", { rating: 0, flag: "reject", label: null }, view),
+    ).toEqual([{ path: "/d/a", rating: null, flag: "reject", label: null }]);
+  });
+
+  test("builds no change when every file already has the value", async () => {
+    const { changes, view, ratings } = judging(["/d/a"]);
+    ratings.set("/d/a", 2);
+    expect(await handleRequest("set_judgment", { rating: 2 }, view)).toEqual([
+      { path: "/d/a", rating: 2, flag: "none", label: null },
+    ]);
+    expect(changes).toEqual([[]]);
+  });
+
+  test("defaults to the selection, or the active pane in compare", async () => {
+    const selected = judging(["/d/a", "/d/b", "/d/c"], {
+      index: 1,
+      selection: new Set(["/d/b", "/d/c"]),
+    });
+    expect(await handleRequest("set_judgment", { flag: "pick" }, selected.view)).toMatchObject([
+      { path: "/d/b" },
+      { path: "/d/c" },
+    ]);
+    const comparing = judging(["/d/a", "/d/b"], {
+      selection: new Set(["/d/a", "/d/b"]),
+      comparing: true,
+      compareActive: "/d/b",
+    });
+    expect(await handleRequest("set_judgment", { flag: "pick" }, comparing.view)).toMatchObject([
+      { path: "/d/b" },
+    ]);
+  });
+
+  test("refuses a hidden path and bad values without judging", async () => {
+    const { changes, view } = judging(["/d/a"]);
+    await expect(
+      handleRequest("set_judgment", { paths: ["/d/hidden"], rating: 1 }, view),
+    ).rejects.toThrow("/d/hidden is not shown in Riffle");
+    await expect(handleRequest("set_judgment", { rating: 6 }, view)).rejects.toThrow(
+      "rating must be an integer from 0 to 5",
+    );
+    await expect(handleRequest("set_judgment", { flag: "maybe" }, view)).rejects.toThrow(
+      "flag must be one of none, pick, reject",
+    );
+    await expect(handleRequest("set_judgment", { label: "Teal" }, view)).rejects.toThrow(
+      "label must be one of Red, Orange, Yellow, Green, Blue, Pink, Purple, or null",
+    );
+    await expect(handleRequest("set_judgment", {}, view)).rejects.toThrow(
+      "set at least one of rating, flag, label",
+    );
+    await expect(handleRequest("set_judgment", { rating: 1 }, judging([]).view)).rejects.toThrow(
+      "no photo is shown in Riffle",
+    );
+    expect(changes).toEqual([]);
   });
 });

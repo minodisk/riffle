@@ -134,6 +134,30 @@
 - Not verified by hand: driving a running app from an MCP client (no GUI
   session in this environment).
 
+## Step 5: `set_judgment`
+
+- `judge()`'s tail (building the changes with `judgments`, the undo entry,
+  `commit()`) became `record(paths, focused, command, forceLabel, anchor)` in
+  `main.ts`; `judge()` calls it with the same arguments it used inline, so a
+  key press is unchanged. `ViewApi.judge(paths, command)` calls it with the
+  shown file as the anchor (so the view does not jump to a judged file) and
+  the shown file as the focused one when it is among `paths`, else the first
+  path. The command `companion.ts` builds sets fixed values, so the focused
+  file only orders the batch. `labelKnown` comes out of `send()` unchanged,
+  so the sidecar bytes match a key press; auto-advance lives in
+  `runAction`, which the bridge never goes through.
+- An omitted `label` (keep) and a `null` one (clear) must differ, so the
+  Rust argument is `Option<Option<String>>` with a small
+  `deserialize_with = "present"` helper (no `serde_with` dependency).
+- `rating: 0` clears the stars (the map holds `null`), as `set_rating`
+  treats 0. A call with none of rating / flag / label is refused rather than
+  a silent no-op.
+- The seven label names are repeated in `mcp.rs` and `companion.ts` (and
+  already in `context.ts`); not shared, since each is one line.
+- Not verified by hand: that a `set_judgment` from an MCP client writes the
+  same XMP / `.dop` bytes as a key press and that `Cmd+Z` undoes it (no GUI
+  session in this environment). The code path is shared by construction.
+
 ## Deferred issues (todo candidates)
 
 - Verify by hand whether Claude Desktop accepts a direct `url` entry for a
@@ -158,4 +182,9 @@
   strip, the selection and the view mode of a running app from an MCP
   client. Basis: step 4 could not run the app (no GUI session). Files:
   `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
+  `crates/app/ui/src/companion.ts`.
+- Verify by hand that `set_judgment` from an MCP client writes the XMP /
+  `.dop` with the same bytes a key press produces, and that `Cmd+Z` undoes
+  it. Basis: step 5's manual check for the PR; no GUI session was available.
+  Files: `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/companion.ts`.
