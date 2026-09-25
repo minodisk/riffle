@@ -677,3 +677,78 @@ emits), `docs/agents/tauri-app.md`.
       them, or give the event a consumer (for instance, have `main.ts`
       follow it instead of deriving `scanRunning` itself). Done when no
       event is emitted without a listener, and `mise run ci` passes.
+
+### App: Claude Desktop's MCP connection form is unverified
+
+Whether Claude Desktop accepts a direct `url` entry for a local Streamable HTTP
+server was not checked by hand (no Claude Desktop available during
+implementation); the settings window currently shows the `npx -y mcp-remote
+http://127.0.0.1:41917/mcp` fallback form. Files: `crates/app/ui/src/mcp.ts`,
+`crates/app/ui/src/mcp.test.ts`.
+
+#### TODO
+
+- [ ] Verify by hand whether Claude Desktop accepts a direct `url` entry for a
+      local Streamable HTTP server and, if so, replace the `mcp-remote`
+      example.
+
+### App: the settings window's Copy buttons are unverified across webviews
+
+`navigator.clipboard.writeText` for the MCP settings tab's Copy buttons was not
+checked in a running app on Linux (WebKitGTK), Windows, or macOS. Files:
+`crates/app/ui/src/settings.ts`.
+
+#### TODO
+
+- [ ] Verify the settings window's Copy buttons in the Linux (WebKitGTK) and
+      Windows / macOS webviews, and confirm the select-text fallback fires
+      when the write is refused.
+
+### App: the MCP `get_view` tool is unverified against a running app
+
+Calling `get_view` from an MCP client (e.g. Claude Code) and checking it
+returns the open folder's state was not done by hand; no GUI session was
+available during implementation. Files: `crates/app/src/mcp.rs`,
+`crates/app/ui/src/main.ts`, `crates/app/ui/src/companion.ts`.
+
+#### TODO
+
+- [ ] Verify by hand that `get_view` returns the open folder's state
+      (current file, selection, burst, mode) in a running app.
+
+### App: the MCP `get_photo` / `get_preview` tools are unverified against a running app
+
+Checking that `get_photo` returns the index row and shooting settings, and
+that `get_preview` shows the image in an MCP client, was not done against a
+running app with a real ARW / DNG folder (no GUI session or sample file was
+available). Files: `crates/app/src/mcp.rs`, `crates/core/src/decode.rs`.
+
+#### TODO
+
+- [ ] Verify by hand that `get_photo` and `get_preview` work end to end
+      against a running app with a real ARW / DNG folder.
+
+### App: the MCP `show_photo` / `select_photos` / `set_view` tools are unverified against a running app
+
+Whether these tools move the strip, the selection, and the view mode of a
+running app from an MCP client was not checked (no GUI session was
+available). Files: `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
+`crates/app/ui/src/companion.ts`.
+
+#### TODO
+
+- [ ] Verify by hand that `show_photo`, `select_photos` and `set_view` drive
+      a running app's strip, selection and view mode from an MCP client.
+
+### App: `set_judgment` byte-identity with a key press is unverified
+
+Whether a `set_judgment` call from an MCP client writes the XMP / `.dop` with
+the same bytes a key press produces, and that `Cmd+Z` undoes it, was not
+checked by hand (no GUI session was available); the code path is shared by
+construction with the key-press path. Files: `crates/app/src/mcp.rs`,
+`crates/app/ui/src/main.ts`, `crates/app/ui/src/companion.ts`.
+
+#### TODO
+
+- [ ] Verify by hand that `set_judgment` from an MCP client writes the same
+      XMP / `.dop` bytes as a key press, and that `Cmd+Z` undoes it.
