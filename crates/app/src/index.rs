@@ -13,8 +13,8 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
-use riffle_core::candidate::{candidate, FocusCandidate};
-use riffle_core::scan::{extract_all, Entry};
+use riffle_core::candidate::{candidate, Cue, FocusCandidate};
+use riffle_core::scan::{extract_all, extract_faces_all, Entry};
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
 
@@ -87,7 +87,6 @@ const EXTRACTOR_VERSION: i64 = 4;
 /// on any change to the focus candidate cue's computation (the threshold, the
 /// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`); the
 /// second pass then re-runs on every row without redoing the first.
-#[cfg_attr(not(test), expect(dead_code))]
 pub const FACES_VERSION: i64 = 1;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
@@ -256,6 +255,15 @@ pub struct FocusSize {
 pub struct ScanSummary {
     pub total: usize,
     pub errors: usize,
+}
+
+/// One file the second pass has written, as `faces-progress` reports it.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FaceReady {
+    pub path: String,
+    pub eye_sharpness: Option<f64>,
+    #[serde(serialize_with = "serialize_candidate")]
+    pub candidate: FocusCandidate,
 }
 
 /// The columns `indexed_file` reads, before the `WHERE` clause.
@@ -824,9 +832,6 @@ impl Index {
     /// extraction, no AF point, or manual focus, i.e. no
     /// `sharpness::trusted_focus`) are marked done at `FACES_VERSION` with no
     /// eye sharpness first, in the same transaction.
-    // Called by the second pass, which Step 3 of the focus-candidate plan
-    // wires into `start_scan`.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn faces_todo(&mut self, dir: &str) -> Result<Vec<String>, String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute(
@@ -853,7 +858,6 @@ impl Index {
 
     /// Store the eye sharpness of each path, `None` for none, at
     /// `FACES_VERSION`, in a single transaction.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn write_faces(&mut self, rows: &[(String, Option<f64>)]) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         for (path, eye_sharpness) in rows {
@@ -1301,6 +1305,114 @@ where
     };
     log::info!(
         "scan extract: dir={dir} files={total} done={} errors={} threads={threads} canceled={} in {}ms",
+        summary.total,
+        summary.errors,
+        cancel.load(Ordering::Relaxed),
+        started.elapsed().as_millis()
+    );
+    summary
+}
+
+/// Run the second pass (`extract_faces`) over `paths` and store each eye
+/// sharpness in `index`, the way `run_scan` runs the first: `BATCH`-sized
+/// transactions through `write_faces`, `progress(done, total, ready)` at most
+/// every `progress_interval`, always on the first file and once more after the
+/// trailing flush, where `ready` holds the files a batch committed since the
+/// previous notification. A file `extract_faces` could not read counts as an
+/// error and is stored with no eye sharpness at `FACES_VERSION`, so it is not
+/// retried until that version moves. The same no-panic rule as `run_scan`
+/// holds for `on_item`.
+pub fn run_faces_scan<P>(
+    index: &Mutex<Index>,
+    dir: &str,
+    paths: &[String],
+    threads: usize,
+    cancel: &AtomicBool,
+    progress_interval: Duration,
+    progress: P,
+) -> ScanSummary
+where
+    P: Fn(usize, usize, Vec<FaceReady>) + Send + Sync,
+{
+    let total = paths.len();
+    let path_bufs: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+    let pending: Mutex<Vec<(String, Option<f64>, bool)>> = Mutex::new(Vec::new());
+    let done = AtomicUsize::new(0);
+    let errors = AtomicUsize::new(0);
+    let last = Mutex::new(None::<Instant>);
+    let ready: Mutex<Vec<FaceReady>> = Mutex::new(Vec::new());
+
+    let flush = |batch: Vec<(String, Option<f64>, bool)>| {
+        if batch.is_empty() {
+            return;
+        }
+        let rows: Vec<(String, Option<f64>)> = batch
+            .iter()
+            .map(|(path, eye_sharpness, _)| (path.clone(), *eye_sharpness))
+            .collect();
+        if let Err(e) = lock(index).write_faces(&rows) {
+            log::error!("failed to write a faces batch for {dir}: {e}");
+            // Unreadable files are already counted in `on_item`.
+            let newly_failed = batch.iter().filter(|(_, _, ok)| *ok).count();
+            errors.fetch_add(newly_failed, Ordering::Relaxed);
+            return;
+        }
+        lock(&ready).extend(rows.into_iter().map(|(path, eye_sharpness)| FaceReady {
+            path,
+            eye_sharpness,
+            candidate: candidate(eye_sharpness),
+        }));
+    };
+
+    let on_item = |i: usize, result: Result<Cue, String>| {
+        let (eye_sharpness, ok) = match result {
+            Ok(cue) => (cue.eye_sharpness, true),
+            Err(_) => {
+                errors.fetch_add(1, Ordering::Relaxed);
+                (None, false)
+            }
+        };
+        let batch = {
+            let mut pending = lock(&pending);
+            pending.push((paths[i].clone(), eye_sharpness, ok));
+            if pending.len() >= BATCH {
+                std::mem::take(&mut *pending)
+            } else {
+                Vec::new()
+            }
+        };
+        flush(batch);
+
+        let done = done.fetch_add(1, Ordering::Relaxed) + 1;
+        let now = Instant::now();
+        let due = {
+            let mut last = lock(&last);
+            if last.is_none_or(|t| now.duration_since(t) >= progress_interval) {
+                *last = Some(now);
+                true
+            } else {
+                false
+            }
+        };
+        if due {
+            progress(done, total, std::mem::take(&mut *lock(&ready)));
+        }
+    };
+
+    let started = Instant::now();
+    if let Err(e) = extract_faces_all(&path_bufs, threads, on_item, cancel) {
+        log::error!("faces scan of {dir} failed: {e}");
+    }
+    flush(std::mem::take(&mut *lock(&pending)));
+    let done_count = done.load(Ordering::Relaxed);
+    progress(done_count, total, std::mem::take(&mut *lock(&ready)));
+
+    let summary = ScanSummary {
+        total: done_count,
+        errors: errors.load(Ordering::Relaxed),
+    };
+    log::info!(
+        "scan faces: dir={dir} files={total} done={} errors={} threads={threads} canceled={} in {}ms",
         summary.total,
         summary.errors,
         cancel.load(Ordering::Relaxed),
@@ -2745,6 +2857,138 @@ mod tests {
         let mut persisted: Vec<String> = written.into_iter().map(|e| e.path).collect();
         persisted.sort();
         assert_eq!(reported, persisted, "the reported paths are the rows kept");
+
+        remove_temp_dir(&dir);
+    }
+
+    /// Files scanned by the first pass, ready for the second, and their paths.
+    fn faces_fixture(dir: &Path, count: usize) -> (Mutex<Index>, Vec<String>) {
+        let body = jpeg(64, 48);
+        let files: Vec<FileStat> = (0..count)
+            .map(|i| file(dir, &format!("{i:03}.ARW"), &fixture(1, &body)))
+            .collect();
+        let paths = files
+            .iter()
+            .map(|f| f.path.to_string_lossy().into_owned())
+            .collect();
+        let index = Mutex::new(open(dir));
+        run_scan(
+            &index,
+            "d",
+            &files,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, _| {},
+        );
+        (index, paths)
+    }
+
+    #[test]
+    fn the_faces_pass_writes_and_reports_every_path() {
+        let dir = temp_dir("faces-scan");
+        let (index, paths) = faces_fixture(&dir, BATCH * 2 + 3);
+
+        let reported = Mutex::new(Vec::new());
+        let summary = run_faces_scan(
+            &index,
+            "d",
+            &paths,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, ready| reported.lock().unwrap().extend(ready),
+        );
+
+        assert_eq!((summary.total, summary.errors), (paths.len(), 0));
+        let mut reported = reported.into_inner().unwrap();
+        reported.sort_by(|a, b| a.path.cmp(&b.path));
+        let expected: Vec<FaceReady> = paths
+            .iter()
+            .map(|path| FaceReady {
+                path: path.clone(),
+                eye_sharpness: None,
+                candidate: FocusCandidate::Unknown,
+            })
+            .collect();
+        assert_eq!(reported, expected, "every path is reported once");
+        let index = lock(&index);
+        for path in &paths {
+            assert_eq!(faces_extractor(&index, Path::new(path)), FACES_VERSION);
+        }
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn canceling_the_faces_pass_still_reports_what_was_written() {
+        let dir = temp_dir("faces-cancel");
+        let (index, paths) = faces_fixture(&dir, BATCH * 4);
+
+        let cancel = AtomicBool::new(false);
+        let reported = Mutex::new(Vec::new());
+        let summary = run_faces_scan(
+            &index,
+            "d",
+            &paths,
+            2,
+            &cancel,
+            Duration::ZERO,
+            |done, _, ready| {
+                reported
+                    .lock()
+                    .unwrap()
+                    .extend(ready.into_iter().map(|r| r.path));
+                if done >= BATCH {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            },
+        );
+
+        assert!(summary.total >= BATCH, "the first batch ran");
+        assert!(summary.total < paths.len(), "the rest did not");
+        let index = lock(&index);
+        let mut written: Vec<String> = paths
+            .iter()
+            .filter(|p| faces_extractor(&index, Path::new(p)) == FACES_VERSION)
+            .cloned()
+            .collect();
+        written.sort();
+        assert_eq!(written.len(), summary.total, "everything done is written");
+        let mut reported = reported.into_inner().unwrap();
+        reported.sort();
+        assert_eq!(reported, written, "the trailing flush is reported too");
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_unreadable_file_in_the_faces_pass_is_one_error_stored_as_none() {
+        let dir = temp_dir("faces-err");
+        let (index, mut paths) = faces_fixture(&dir, 3);
+        let bad = file(&dir, "bad.ARW", b"not a raw file at all");
+        lock(&index)
+            .write_batch("d", &[(bad.clone(), Ok(entry()))])
+            .unwrap();
+        let bad_path = bad.path.to_string_lossy().into_owned();
+        paths.push(bad_path.clone());
+
+        let summary = run_faces_scan(
+            &index,
+            "d",
+            &paths,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, _| {},
+        );
+
+        assert_eq!((summary.total, summary.errors), (4, 1));
+        let mut index = lock(&index);
+        assert_eq!(faces_extractor(&index, &bad.path), FACES_VERSION);
+        let focus = index.entry(&bad_path).unwrap().unwrap().focus.unwrap();
+        assert_eq!(focus.eye_sharpness, None);
+        assert!(index.faces_todo("d").unwrap().is_empty());
 
         remove_temp_dir(&dir);
     }

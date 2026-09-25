@@ -260,6 +260,41 @@ from a card or a slow disk adds its own latency on top; that, and the IPC and
 redraw in the app, are not measured here. The timing ran from a temporary
 `#[ignore]`d test removed before committing.
 
+#### Focus candidate pass
+
+The focus candidate cue (eye sharpness) runs in a second pass after the scan,
+so pass 1 no longer searches a crop around a trusted AF point: it detects
+faces only without one (for the sharpness score), and pass 2 runs YuNet on
+every trusted-AF file, eye-AF frames included. Measured on 2026-09-25 on a
+Linux WSL2 machine (Intel Core i7-13700, 24 hardware threads, 16 GB),
+release `riffle-cli`, the 2134-ARW α7 V folder `2026-09-19` read from the
+Windows NTFS drive, warm page cache (one scan before timing, which took
+19.0s cold), 24 threads.
+
+Pass 1, `riffle-cli scan <dir> 24`, before (`962a5de`, crop detection in the
+scan) and after (face-catch removed), runs alternated, four each:
+
+| Run | Wall before -> after | Per file mean before -> after | p95 before -> after |
+|-----|----------------------|-------------------------------|---------------------|
+| 1 | 5.32 -> 4.58s | 59.3 -> 51.4ms | 95.0 -> 56.6ms |
+| 2 | 5.81 -> 5.07s | 65.1 -> 56.8ms | 105.7 -> 63.2ms |
+| 3 | 6.06 -> 5.09s | 68.0 -> 57.1ms | 111.0 -> 64.0ms |
+| 4 | 6.01 -> 5.03s | 67.2 -> 56.4ms | 109.0 -> 62.3ms |
+
+Pass 1 got ~0.8s faster and its p95 dropped by ~45ms: the 428 files that
+used to run the crop detection no longer do.
+
+Pass 2, `riffle-cli candidates <dir> 24` (read the preview, decode it once,
+crop detection, eye window), three runs right after: 9.01 / 9.41 / 9.20s for
+all 2134 files (1650 candidates, 302 not, 182 unknown). The command also runs
+on the files without a trusted AF point, which return at once with no
+decode; in the app `faces_todo` skips those before the pass starts. Thumbnails
+therefore appear at pass 1's speed, and the marks fill in over the next ~9s.
+
+The `scan extract` / `scan faces` log lines of an app open of this folder are
+not recorded here yet: that needs the GUI, which was not run for this
+measurement.
+
 ## Opening an indexed folder again
 
 The second open of a fully indexed folder does no extraction: it stats every

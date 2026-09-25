@@ -253,7 +253,7 @@ ci` passes for every step.
       trusted-AF, non-eye-AF files (428 of 2134 in the Sony folder); Step 3
       measures it.
 
-- [ ] Step 3: Run the eye-sharpness pass after the scan and stream it to the frontend
+- [x] Step 3: Run the eye-sharpness pass after the scan and stream it to the frontend
   - Done when:
     - `crates/core/src/scan.rs`: the rayon pool loop of `extract_all` is
       shared with the new `pub fn extract_faces_all<F>(paths, threads,

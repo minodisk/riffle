@@ -113,6 +113,35 @@ pub fn extract_all<F>(
 where
     F: Fn(usize, Result<Entry, String>) + Send + Sync,
 {
+    for_each_path(paths, threads, extract, on_item, cancel)
+}
+
+/// Run `extract_faces` over `paths` the way `extract_all` runs `extract`:
+/// same pool, same `cancel`, same `threads == 0` error, and the same rule
+/// that `on_item` must not panic.
+pub fn extract_faces_all<F>(
+    paths: &[PathBuf],
+    threads: usize,
+    on_item: F,
+    cancel: &AtomicBool,
+) -> Result<(), String>
+where
+    F: Fn(usize, Result<Cue, String>) + Send + Sync,
+{
+    for_each_path(paths, threads, extract_faces, on_item, cancel)
+}
+
+fn for_each_path<T, E, F>(
+    paths: &[PathBuf],
+    threads: usize,
+    per_file: E,
+    on_item: F,
+    cancel: &AtomicBool,
+) -> Result<(), String>
+where
+    E: Fn(&Path) -> Result<T, String> + Send + Sync,
+    F: Fn(usize, Result<T, String>) + Send + Sync,
+{
     if threads == 0 {
         return Err("threads must be at least 1".to_string());
     }
@@ -125,7 +154,7 @@ where
             if cancel.load(Ordering::Relaxed) {
                 return;
             }
-            on_item(i, extract(path));
+            on_item(i, per_file(path));
         })
     });
     Ok(())
@@ -237,6 +266,55 @@ mod tests {
         let done = done.into_inner().unwrap();
         assert!(done >= 4, "the files before the cancel are delivered");
         assert!(done < paths.len(), "the rest are not, got {done}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_faces_pass_delivers_every_index_once_and_stops_on_cancel() {
+        let dir = dir("faces-all");
+        let jpeg = jpeg(64, 48);
+        let paths: Vec<PathBuf> = (0..200)
+            .map(|i| write(&dir, &format!("{i:03}.ARW"), &fixture(1, &jpeg)))
+            .collect();
+
+        let seen = Mutex::new(Vec::new());
+        extract_faces_all(
+            &paths,
+            4,
+            |i, r| seen.lock().unwrap().push((i, r.unwrap().state)),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let mut seen = seen.into_inner().unwrap();
+        seen.sort_by_key(|&(i, _)| i);
+        assert_eq!(
+            seen,
+            (0..200)
+                .map(|i| (i, FocusCandidate::Unknown))
+                .collect::<Vec<_>>(),
+            "each index exactly once"
+        );
+
+        let cancel = AtomicBool::new(false);
+        let done = Mutex::new(0usize);
+        extract_faces_all(
+            &paths,
+            2,
+            |_, _| {
+                let mut done = done.lock().unwrap();
+                *done += 1;
+                if *done >= 4 {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            },
+            &cancel,
+        )
+        .unwrap();
+        let done = done.into_inner().unwrap();
+        assert!(done >= 4, "the files before the cancel are delivered");
+        assert!(done < paths.len(), "the rest are not, got {done}");
+
+        assert!(extract_faces_all(&paths, 0, |_, _| {}, &AtomicBool::new(false)).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

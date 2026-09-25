@@ -54,3 +54,43 @@
   back to after a decode / detection error or a panic.
 - `docs/usage.md` still describes the face-catch colors; the plan leaves the
   user docs to Step 4, and until Step 3 every mark is white.
+
+## Step 3
+
+- main had not moved past Step 2 when this step started, so the plan applied
+  as written. The three `#[cfg_attr(not(test), expect(dead_code))]` from
+  Step 2 (`FACES_VERSION`, `faces_todo`, `write_faces`) are gone now that
+  `run_faces_scan` / `commands::run_faces_pass` call them.
+- `scan::for_each_path` is the shared rayon loop; `extract_all` and
+  `extract_faces_all` are thin wrappers over it.
+- `run_faces_scan` counts a failed `write_faces` batch only for the files
+  whose `extract_faces` succeeded, like `run_scan` does, so an unreadable file
+  in a failed batch is not counted twice.
+- The pass-2 part of the start_scan task lives in `commands::run_faces_pass`
+  (the cancel check, `faces_todo` under the writer lock, `run_faces_scan`) so
+  the scan-state test can drive it without an `AppHandle`; the `start_scan`
+  closure only adds the emits.
+- The frontend keeps the first pass's error count (`scanErrors`) from
+  `scan-done` and shows the sum with the second pass's on `faces-done`, since
+  `scanning` is overwritten by the `focus N / M` phase text in between.
+- The "refilter when the candidate filter is on" part of the
+  `faces-progress` listener is left to Step 4, which adds the filter.
+- Performance (2026-09-25, Intel Core i7-13700, 24 hardware threads, WSL2,
+  release, 2134-ARW folder `2026-09-19` on the NTFS drive, warm cache, 24
+  threads): pass 1 `riffle-cli scan` 5.32-6.06s before (`962a5de`) vs
+  4.58-5.09s after, runs alternated, four each (p95 95-111ms -> 57-64ms);
+  pass 2 `riffle-cli candidates` 9.0-9.4s, three runs. Recorded in
+  `docs/performance.md` "Focus candidate pass".
+- Not verified (needs the GUI, which this agent cannot drive): the manual
+  check in the app (open the Sony folder, thumbnails appear at the old speed,
+  marks turn from white to green / orange while the status shows `focus N /
+  M`, alt-tab during pass 2 does not restart it), and the `scan extract` /
+  `scan faces` log lines of one app open of that folder for
+  `docs/performance.md`.
+
+## Deferred issues (todo candidates)
+
+- Record the `scan extract` / `scan faces` log lines of one app open of the
+  2134-file Sony folder in `docs/performance.md` "Focus candidate pass" (Step 3
+  "Done when" asked for them; the GUI could not be run by the implementing
+  agent). Files: `docs/performance.md`, `crates/app/src/index.rs`.

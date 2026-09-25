@@ -45,6 +45,36 @@ export function focusMark(
   };
 }
 
+// One file the second scan pass has written, as `faces-progress` carries it.
+export interface FaceReady {
+  path: string;
+  eye_sharpness: number | null;
+  candidate: MarkFocus["candidate"];
+}
+
+// Patch the focus of each ready file in `entries` in place, so the marks
+// update without re-reading the whole folder. A file with no row or no focus
+// point is left alone. True when `current` was among the patched files.
+export function applyFaceReady<T extends { focus: MarkFocus | null }>(
+  entries: Map<string, T>,
+  ready: FaceReady[],
+  current: string | undefined,
+): boolean {
+  let touched = false;
+  for (const item of ready) {
+    const focus = entries.get(item.path)?.focus;
+    if (focus === null || focus === undefined) {
+      continue;
+    }
+    focus.eye_sharpness = item.eye_sharpness;
+    focus.candidate = item.candidate;
+    if (item.path === current) {
+      touched = true;
+    }
+  }
+  return touched;
+}
+
 // What the `faces_of` command returns: the faces found on one file's preview,
 // in the preview's stored (unrotated) pixel coordinates, `eye` being the
 // midpoint between the eyes.

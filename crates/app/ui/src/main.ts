@@ -15,7 +15,7 @@ import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
-import { type Faces, faceMarks, focusMark } from "./focus.js";
+import { type FaceReady, type Faces, applyFaceReady, faceMarks, focusMark } from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
@@ -172,9 +172,13 @@ let note: string | undefined;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
-// True between `start_scan` and its `scan-done`. A rescan asked for while it
-// is true is deferred (`resyncPending`) rather than canceling the scan.
+// True between `start_scan` and its `faces-done`, i.e. through both scan
+// passes. A rescan asked for while it is true is deferred (`resyncPending`)
+// rather than canceling the scan.
 let scanRunning = false;
+// The files the first pass failed on, kept for the final status after the
+// second pass.
+let scanErrors = 0;
 
 function setScanRunning(running: boolean): void {
   scanRunning = running;
@@ -1847,7 +1851,7 @@ function resync(): void {
     return;
   }
   // A rescan while a scan runs would cancel and restart it (`scan_folder`
-  // joins the running scan first), so it waits for `scan-done` instead. A
+  // joins the running scan first), so it waits for `faces-done` instead. A
   // burst of triggers collapses into the one pending rescan.
   if (scanRunning || resyncInFlight) {
     resyncPending = true;
@@ -2148,10 +2152,46 @@ void window.__TAURI__.event.listen<{
   if (payload.scan_id !== scanId) {
     return;
   }
-  setScanRunning(false);
+  scanErrors = payload.errors;
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   renderMeta();
   strip.refresh();
+  refreshEntries();
+});
+
+// The second pass: the focus candidate state of the files it has written,
+// patched into `entries` in place rather than re-read.
+void window.__TAURI__.event.listen<{
+  dir: string;
+  scan_id: number;
+  done: number;
+  total: number;
+  ready: FaceReady[];
+}>("faces-progress", ({ payload }) => {
+  if (payload.scan_id !== scanId) {
+    return;
+  }
+  scanning = `focus ${payload.done} / ${payload.total}`;
+  const current = applyFaceReady(entries, payload.ready, files[index]);
+  renderMeta();
+  if (current) {
+    draw();
+  }
+});
+
+void window.__TAURI__.event.listen<{
+  dir: string;
+  scan_id: number;
+  total: number;
+  errors: number;
+}>("faces-done", ({ payload }) => {
+  if (payload.scan_id !== scanId) {
+    return;
+  }
+  setScanRunning(false);
+  const failed = scanErrors + payload.errors;
+  scanning = failed === 0 ? null : `${failed} failed`;
+  renderMeta();
   refreshEntries();
   drainResync();
 });
