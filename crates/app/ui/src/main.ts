@@ -34,6 +34,12 @@ import { initSettings } from "./settings.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import {
+  type ScanDone,
+  refreshOnFacesDone,
+  refreshOnProgress,
+  refreshTimingLine,
+} from "./refresh.js";
+import {
   COMPARE_NEEDS_FRAMES,
   comparePaneAt,
   comparisonCandidates,
@@ -186,6 +192,9 @@ let scanRunning = false;
 // The files the first pass failed on, kept for the final status after the
 // second pass.
 let scanErrors = 0;
+// The first pass's `scan-done` total, so its `faces-done` can skip a re-read
+// when neither pass wrote anything.
+let scanDone: ScanDone | null = null;
 
 function setScanRunning(running: boolean): void {
   scanRunning = running;
@@ -222,6 +231,9 @@ let entriesInFlight = false;
 // is never silently dropped just because a `scan-progress` refresh happened
 // to be outstanding at that moment.
 let entriesPending = false;
+// The current file the last `scan-progress`-triggered refresh was for, so a
+// tick re-reads only when that file's row lands or the current file changes.
+let progressRefreshedFor: string | null = null;
 // The stars of every file that has some: `1`-`5`, and a missing entry is
 // unrated. Filled from `folder_entries` and then owned by the keyboard until
 // the next folder open.
@@ -819,12 +831,13 @@ function ordered(): string[] {
 // passing file after it (in sort order) takes over, or the last one before it,
 // or the empty view. A judgment that drops the current file out of the
 // filter therefore hides it at once and moves on to the next passing file.
-function refilter(anchor: string | undefined = files[index], keepScroll = false): void {
+// Returns whether it rebuilt the strip with `strip.setFiles`.
+function refilter(anchor: string | undefined = files[index], keepScroll = false): boolean {
   const order = ordered();
   const next = order.filter(passes);
   if (next.length === files.length && next.every((path, at) => path === files[at])) {
     if (comparing) void loadCompare();
-    return;
+    return false;
   }
   files = next;
   fileIndex.clear();
@@ -850,7 +863,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
     zoomed = false;
     draw();
     renderMeta();
-    return;
+    return true;
   }
   const target = anchorAfterFilter(order, passes, anchor);
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
@@ -863,6 +876,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   } else {
     show();
   }
+  return true;
 }
 
 // A judgment key over the selection's targets: the command's new value is
@@ -1127,9 +1141,11 @@ function refreshEntries(): void {
   const dir = openDir;
   const token = folderToken;
   entriesInFlight = true;
+  const start = performance.now();
   void window.__TAURI__.core
     .invoke<IndexedFile[]>("folder_entries", { dir })
     .then((rows) => {
+      const invoked = performance.now();
       entriesInFlight = false;
       if (entriesPending) {
         entriesPending = false;
@@ -1150,6 +1166,7 @@ function refreshEntries(): void {
           applyRating(row.path, row.rating, row.flag, row.label);
         }
       }
+      const rebuilt = performance.now();
       bursts = groupBursts(allFiles, (path) => {
         const entry = entries.get(path);
         return {
@@ -1157,13 +1174,38 @@ function refreshEntries(): void {
           subsec: entry?.subsec ?? undefined,
         };
       });
+      const grouped = performance.now();
       rebuildExifMenu();
+      const exifed = performance.now();
       renderMeta();
+      const metaed = performance.now();
       draw();
+      const drawn = performance.now();
       applySharpness();
+      const sharpened = performance.now();
       applyBursts();
+      const bracketed = performance.now();
       applyCandidates();
-      refilter();
+      const marked = performance.now();
+      const setFiles = refilter();
+      const end = performance.now();
+      debugLog(
+        refreshTimingLine({
+          rows: rows.length,
+          invoke: invoked - start,
+          entries: rebuilt - invoked,
+          bursts: grouped - rebuilt,
+          exif: exifed - grouped,
+          meta: metaed - exifed,
+          draw: drawn - metaed,
+          sharpness: sharpened - drawn,
+          applyBursts: bracketed - sharpened,
+          candidates: marked - bracketed,
+          refilter: end - marked,
+          setFiles,
+          total: end - start,
+        }),
+      );
     })
     .catch(() => {
       entriesInFlight = false;
@@ -1939,6 +1981,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
     draw();
     scanning = null;
     scanId = null;
+    scanDone = null;
+    progressRefreshedFor = null;
     setScanRunning(false);
     resyncPending = false;
     void startScan(folder);
@@ -2142,10 +2186,13 @@ void window.__TAURI__.event.listen<{
   scanning = `scanning ${payload.done} / ${payload.total}`;
   renderMeta();
   strip.markReady(payload.ready);
-  // Only when the row the focus mark needs is still missing; `entriesInFlight`
-  // in `refreshEntries` keeps a 10/s progress stream from queuing up a
-  // full re-read on every tick while it stays missing.
-  if (files.length > 0 && !entries.has(files[index])) {
+  // Only when the row the focus mark needs is still missing, and then only on
+  // the tick that commits it or once the current file changed, so a 10/s
+  // progress stream does not re-read every row on every tick while it waits.
+  const current = files.length > 0 ? files[index] : undefined;
+  const hasRow = current !== undefined && entries.has(current);
+  if (refreshOnProgress(current, hasRow, payload.ready, progressRefreshedFor)) {
+    progressRefreshedFor = current ?? null;
     refreshEntries();
   }
 });
@@ -2160,6 +2207,7 @@ void window.__TAURI__.event.listen<{
     return;
   }
   scanErrors = payload.errors;
+  scanDone = { scanId: payload.scan_id, total: payload.total };
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   renderMeta();
   strip.refresh();
@@ -2205,7 +2253,9 @@ void window.__TAURI__.event.listen<{
   const failed = scanErrors + payload.errors;
   scanning = failed === 0 ? null : `${failed} failed`;
   renderMeta();
-  refreshEntries();
+  if (refreshOnFacesDone(scanDone, payload.scan_id, payload.total)) {
+    refreshEntries();
+  }
   drainResync();
 });
 
