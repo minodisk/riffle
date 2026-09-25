@@ -9,6 +9,7 @@ import { keyName } from "./keys.js";
 import {
   EMPTY_TREE,
   type FolderNode,
+  type StepKey,
   type Tree,
   addRoots,
   ancestorsWithin,
@@ -194,7 +195,7 @@ export function blur(): void {
   container.blur();
 }
 
-const STEPS: Record<string, "up" | "down" | "home" | "end"> = {
+const STEPS: Record<string, StepKey> = {
   arrowup: "up",
   arrowdown: "down",
   home: "home",
