@@ -114,16 +114,16 @@ describe("metaGroups", () => {
     expect(metaGroups(null, null)).toEqual([]);
   });
 
-  test("shows the face-catch state as a Face row, and none when unknown", () => {
-    const riffle = (state: "caught" | "missed" | "unknown") =>
+  test("shows the focus candidate state as a Focus row, and none when unknown", () => {
+    const riffle = (state: "candidate" | "not_candidate" | "unknown") =>
       metaGroups(null, 12, state)[0]?.sections[0]?.rows;
-    expect(riffle("caught")).toEqual([
+    expect(riffle("candidate")).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "Face", value: "Caught" },
+      { label: "Focus", value: "Candidate" },
     ]);
-    expect(riffle("missed")).toEqual([
+    expect(riffle("not_candidate")).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "Face", value: "Missed" },
+      { label: "Focus", value: "Not a candidate" },
     ]);
     expect(riffle("unknown")).toEqual([{ label: "Sharpness", value: "12.0" }]);
   });

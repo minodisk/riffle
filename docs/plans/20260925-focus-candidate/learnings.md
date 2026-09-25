@@ -26,3 +26,31 @@
   the private `scan::cue` helper (the `catch_unwind` around `focus_cue`)
   instead, and `extract_faces` itself is tested on the no-AF and the
   unreadable-file cases.
+
+## Step 2
+
+- Version check: main had not moved past the plan's assumptions when this
+  step started (`SCHEMA_VERSION = 14`, `EXTRACTOR_VERSION = 4`), so the
+  schema goes to v15 and the extractor stays at 4 exactly as planned. If a
+  concurrent change lands a v15 first, the `(10..15)` / `version == 14`
+  guards, the `prepare` whitelist and every fixture's `user_version` move up
+  by one on rebase.
+- `EXTRACTOR_VERSION` stays 4: with a trusted AF point, `extract` used to run
+  the crop detection only for the face-catch state and passed an empty face
+  list to `score_preview` either way (both the eye-AF and the crop branch),
+  and `detect_around` returns `point: Some` whenever `focus` is `Some`. The
+  no-AF branch still runs the whole-image detection and passes `d.faces`, so
+  the thumbnail, the metadata and the score are unchanged.
+- `faces_todo`, `write_faces` and `FACES_VERSION` have no caller outside the
+  tests until Step 3, so they carry `#[cfg_attr(not(test), expect(dead_code))]`
+  (the `Index::clear` precedent). `clippy --all-targets -D warnings` reports
+  the constant too, since dead-code analysis does not count uses from dead
+  functions; Step 3 must drop all three attributes, or `expect` fails.
+- The manual-focus fixture in the index tests sets `shot.focus_mode =
+  Some(0)` (`sharpness::MANUAL_FOCUS`), the same as the existing AF-frame
+  round-trip test.
+- Also fixed the Step 1 `Cue::detection` doc comment: it is `None` without an
+  AF point and also in the `Cue::unknown()` default that `scan::cue` falls
+  back to after a decode / detection error or a panic.
+- `docs/usage.md` still describes the face-catch colors; the plan leaves the
+  user docs to Step 4, and until Step 3 every mark is white.

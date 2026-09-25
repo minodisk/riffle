@@ -162,7 +162,10 @@ ci` passes for every step.
       serve the score's no-AF path with different clamps (128..256) and must
       not change, or the score changes.
 
-- [ ] Step 2: Persist the eye sharpness in the index and remove the face-catch state
+- [x] Step 2: Persist the eye sharpness in the index and remove the face-catch state
+  - Version check at implementation time: this branch still had
+    `SCHEMA_VERSION = 14` and `EXTRACTOR_VERSION = 4`, so the numbers below
+    apply unchanged (v15, extractor kept at 4).
   - Done when:
     - `crates/app/src/index.rs`:
       - `SCHEMA_VERSION` is 15. `files` gains `eye_sharpness REAL` (`NULL` =

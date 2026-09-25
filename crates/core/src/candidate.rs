@@ -44,7 +44,8 @@ pub struct Cue {
     pub eye_sharpness: Option<f64>,
     /// The face nearest the AF point, in stored coordinates.
     pub face: Option<Face>,
-    /// The detection the face was picked from; `None` without an AF point.
+    /// The detection the face was picked from; `None` without an AF point,
+    /// and in the `Cue::unknown` a caller falls back to after a failure.
     pub detection: Option<Detection>,
 }
 

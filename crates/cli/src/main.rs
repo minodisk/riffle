@@ -118,10 +118,10 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Print the face-catch state and the focus candidate cue, and draw the
-/// searched region (the crop around the AF point, or nothing for the whole
-/// image), the AF point, the faces found with their eyes and the eye window
-/// of the nearest face on the upright preview.
+/// Print the focus candidate cue, and draw the searched region (the crop
+/// around the AF point, or nothing for the whole image), the AF point, the
+/// faces found with their eyes and the eye window of the nearest face on the
+/// upright preview.
 fn faces(path: &Path, out: &Path) -> Result<()> {
     let (a, jpeg) = reader::read_preview(path)?;
     let focus = sharpness::trusted_focus(&a.shot);
@@ -137,15 +137,6 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
         d.faces.len(),
         t.elapsed()
     );
-    let state = if sharpness::eye_af_frame(&a.shot).is_some() {
-        "caught (camera face tracking)".to_string()
-    } else {
-        match d.point {
-            Some(p) => format!("{:?}", faces::face_catch(&d.faces, p)).to_lowercase(),
-            None => "unknown (no trusted AF point)".to_string(),
-        }
-    };
-    println!("face catch: {state}");
     let cue = candidate::focus_cue(&jpeg, a.orientation, focus)?;
     println!(
         "candidate: {:?}, eye sharpness {}",

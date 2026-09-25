@@ -8,7 +8,8 @@ const point: MarkFocus = {
   y: 1168,
   frame: null,
   manual_focus: false,
-  face_catch: "unknown",
+  candidate: "unknown",
+  eye_sharpness: null,
 };
 
 describe("focusMark", () => {
@@ -27,7 +28,7 @@ describe("focusMark", () => {
       x: -175,
       y: -117,
       rect: null,
-      faceCatch: "unknown",
+      candidate: "unknown",
     });
   });
 
@@ -37,19 +38,21 @@ describe("focusMark", () => {
       x: -175,
       y: -117,
       rect: { x: -218.75, y: -146.25, width: 87.5, height: 58.5 },
-      faceCatch: "unknown",
+      candidate: "unknown",
     });
   });
 
-  test.each(["caught", "missed", "unknown"] as const)(
-    "carries the %s face-catch state",
+  test.each(["candidate", "not_candidate", "unknown"] as const)(
+    "carries the %s focus candidate state",
     (state) => {
-      expect(focusMark({ ...point, face_catch: state }, 700, 468)?.faceCatch).toBe(state);
+      expect(focusMark({ ...point, candidate: state }, 700, 468)?.candidate).toBe(state);
     },
   );
 
   test("a manual-focus or missing point stays null whatever the state", () => {
-    expect(focusMark({ ...point, manual_focus: true, face_catch: "caught" }, 700, 468)).toBeNull();
+    expect(
+      focusMark({ ...point, manual_focus: true, candidate: "candidate" }, 700, 468),
+    ).toBeNull();
     expect(focusMark(null, 700, 468)).toBeNull();
   });
 });

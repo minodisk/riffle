@@ -14,15 +14,17 @@ and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/i18n.rs`
 the per-language values, one JSON file per language in `crates/core/i18n/`
 (so far the Lightroom color label presets) that `build.rs` embeds at build
 time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
-live in `crates/core/models/`, and the per-frame face-catch state (`caught` /
-`missed` / `unknown`: did the AF land on a face), and `src/sharpness.rs` the
+live in `crates/core/models/`, `src/candidate.rs` the focus candidate cue
+(the eye sharpness of the face nearest the AF point, and whether it clears
+the threshold), and `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
-re-extracting rows written by an older `EXTRACTOR_VERSION` and storing the
-face-catch state the `f` focus mark is colored by, `src/commands.rs` the
+re-extracting rows written by an older `EXTRACTOR_VERSION`, whose
+`eye_sharpness` / `faces_extractor` columns a second pass fills in with the
+focus candidate cue the `f` focus mark is colored by, `src/commands.rs` the
 Tauri commands, including `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
