@@ -98,6 +98,11 @@ DxO PhotoLab.
 - **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
   rejected shots to the Trash. Nothing is deleted, so restoring them brings the
   judgments back.
+- **MCP companion**: an MCP client, such as an AI assistant, can follow along
+  while you cull: read what Riffle shows, look at a preview, move the view and
+  record stars, picks / rejects and labels the way the keys do. It is off by
+  default, listens on this computer only and cannot move anything to the
+  Trash (see [MCP companion](#mcp-companion)).
 
 Every feature, and the full key reference, is described in
 [docs/usage.md](./docs/usage.md) ([Keys](./docs/usage.md#keys)).
@@ -138,6 +143,40 @@ untouched.
   to `Red`, `Yellow`, `Green`, `Blue` and `Purple`, or set Riffle's label names
   in the settings to the names in the set (a preset for the Japanese default
   set is provided).
+
+### MCP companion
+
+Riffle can serve an [MCP](https://modelcontextprotocol.io/) endpoint for an
+MCP client (an AI assistant, say) to sit beside you while you cull. Turn on
+`Let MCP clients connect` in the `MCP` tab of the settings (it is off by
+default); the server then listens on this computer only, at:
+
+```text
+http://127.0.0.1:41917/mcp
+```
+
+That URL is all a client that speaks MCP over Streamable HTTP needs. Two
+examples:
+
+- **Claude Code**:
+  `claude mcp add --transport http riffle http://127.0.0.1:41917/mcp`
+- **Claude Desktop**: add this to `claude_desktop_config.json`. It relays
+  through `npx -y mcp-remote`, so it needs Node.js; a direct `url` entry has
+  not been verified.
+
+  ```json
+  {
+    "mcpServers": {
+      "riffle": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "http://127.0.0.1:41917/mcp"]
+      }
+    }
+  }
+  ```
+
+The `MCP` tab shows the URL and these examples with Copy buttons. What the
+tools do is described in [docs/usage.md](./docs/usage.md#mcp-companion).
 
 ## Compatibility
 

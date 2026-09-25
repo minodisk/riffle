@@ -717,6 +717,57 @@ size until the current file's crop arrives.
 
 - Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 2.
 
+### The MCP server runs on Tauri's runtime; `rmcp` 3.4 macro traps (Hit)
+
+`crates/app/src/mcp.rs` serves `rmcp`'s `StreamableHttpService` through
+`axum::serve` on `tauri::async_runtime` (Tauri's tokio multi-thread runtime);
+no dedicated runtime thread was needed. `tokio` is a direct dependency only
+for its `net`, `sync` and `time` features, and the tests drive the server with
+`tauri::async_runtime::block_on`, so no tokio `macros` / `rt` dev features.
+
+- `#[tool_router]` on an impl with no `#[tool]` fn does not compile in 3.4.1;
+  an intentionally empty router needs `#[tool_router(allow_empty)]`.
+- `#[tool_handler]` without `router = ...` calls `Self::tool_router()` per
+  request, so the handler needs no `tool_router` field (an unread one trips
+  `dead_code` under `-D warnings`).
+- `ServerInfo` is deprecated in 3.4 in favor of `ServerConfig`.
+- `CallToolResult::structured(value)` already adds a text block with the same
+  JSON; do not add another. A failure the client should see is
+  `CallToolResult::error`, not a protocol error.
+- Tool arguments are `Parameters<T>` with `#[derive(JsonSchema)]` and
+  `#[schemars(crate = "rmcp::schemars")]`, so no direct `schemars` dependency.
+  To tell an omitted field (keep) from `null` (clear), as `set_judgment`'s
+  `label` does, use `Option<Option<T>>` with a `deserialize_with` helper.
+- `stop` bounds the graceful shutdown with a 2 s timeout and then aborts the
+  task, so a lingering SSE stream cannot hold up the exit. The status is a
+  `tokio::sync::Mutex` held across the bind, so two quick toggles cannot bind
+  twice; a failed bind (port in use) only sets the `error` of `mcp-state`.
+- Source: `docs/plans/_archived/20260924-mcp-companion/learnings.md`, Step 1.
+
+### The MCP bridge: never hold the status lock, always reply (Inferred)
+
+MCP tools that need view state ask the main window: Rust emits `mcp-request`
+`{ id, kind, args }` with `emit_to("main", ..)`, waits up to 5 s on a
+`oneshot` keyed by the id, and the sync `mcp_reply` command completes it.
+
+- The pending senders live in `Bridge`, beside (not inside) the server's
+  status mutex, so `mcp_reply` never waits on a toggle that holds that mutex
+  across a bind or the 2 s shutdown wait.
+- `Bridge` takes its `send` as a closure, so the tests build it without an
+  `AppHandle` or `MockRuntime`; `Companion` holds the bridge and the index
+  reader for the same reason.
+- The frontend listener (`crates/app/ui/src/companion.ts` via `main.ts`) must
+  catch every error and reply `ok: false`; an unanswered request costs the
+  client the whole 5 s timeout.
+- The folder the frontend reports is the one picked, not canonicalized, while
+  the paths come from the canonical folder: compare canonicalized parents to
+  decide "in the open folder", and use canonical parent + file name as the
+  index key.
+- Writes reuse `record()`, the tail of `judge()` (changes, undo entry,
+  `commit()`), so a tool writes the same sidecar bytes a key press does;
+  auto-advance lives in `runAction`, which the bridge never goes through.
+- Source: `docs/plans/_archived/20260924-mcp-companion/learnings.md`, Steps 2-5.
+
 ## Frontend (`crates/app/ui`, Vite+)
 
 ### Undo must re-anchor conditionally, not unconditionally (Hit)

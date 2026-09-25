@@ -325,6 +325,70 @@ The folder index is a cache, but it also holds unwritten judgments, so a new
 index schema migrates the previous ones in place instead of discarding them;
 only a version it cannot migrate is dropped and rebuilt from the sidecars.
 
+## MCP companion
+
+Riffle can serve an [MCP](https://modelcontextprotocol.io/) (Model Context
+Protocol) endpoint, so an MCP client, such as an AI assistant, can follow
+along while you cull: see what Riffle shows, look at a small preview, move the
+view and record judgments. It is off by default; turn it on with
+`Let MCP clients connect` in the `MCP` tab of `Riffle > Settings...`
+(`File > Settings...` on Windows and Linux). The choice is remembered across
+launches.
+
+- **Endpoint**: `http://127.0.0.1:41917/mcp`, served over Streamable HTTP.
+  The tab shows the URL, whether the server is listening, and the error when
+  it could not start (say, another program holds port 41917); Riffle itself
+  keeps running either way.
+- **Local only**: the server listens on the loopback address, so only programs
+  on this computer reach it, and it refuses any request carrying an `Origin`
+  header, which is what a web page's request would carry. There is no token:
+  anything running as you on this computer can connect while it is on.
+- **Nothing is deleted**: no tool moves a file to the Trash or deletes one,
+  and the RAW files are never written. The only writes are judgments, and they
+  go to the sidecars.
+- **The main window answers**: every tool reads or changes the state of the
+  main window, so a folder has to be open there for most of them to be
+  useful, and a call fails if the window does not answer within 5 seconds.
+
+| Tool | What it does |
+|------|--------------|
+| `get_view` | What Riffle is showing: the open folder, how many photos the filter leaves, the current photo and its position, the selection, the view mode (`normal`, `zoom` or `compare`) and the active compare frame, the sort and whether a filter is on, and the current photo's burst with each frame's sharpness score, stars, flag and label |
+| `get_photo` | One photo's stars, flag and label, sharpness score, AF point and frame, manual focus, orientation, capture time and shooting settings (camera, lens, aperture, shutter, ISO, focal length, exposure bias, focus distance); the current photo when no path is given |
+| `get_preview` | A small upright JPEG of one photo, scaled from the embedded preview (never the RAW) to a long edge of 1024 pixels, or of the requested size from 256 to 1616 |
+| `show_photo` | Show one photo, as clicking it in the filmstrip does |
+| `select_photos` | Select a list of photos; the first one is shown |
+| `set_view` | Switch to the fitted view, the 1:1 focus check or Compare, as `z` and `v` do; Compare needs two photos to compare, as with `v` |
+| `set_judgment` | Set the stars (`0` clears them), the flag (`none`, `pick` or `reject`) and the color label (`Red`, `Orange`, `Yellow`, `Green`, `Blue`, `Pink`, `Purple`, or null to clear) of the given photos, or of the selection (the active frame in Compare) when none are given |
+
+A photo has to be in the open folder, and the tools that show, select or
+judge photos refuse one the filter hides. `set_judgment` goes through the
+same path as the judgment keys: fields it is not given keep each photo's own
+value, the strip updates at once, the change is one step for `Edit > Undo`,
+and the sidecar is written as a key press writes it. Auto-advance does not
+apply to it. The server's instructions ask the assistant to suggest
+judgments and to write them only when you ask.
+
+Any client that speaks MCP over Streamable HTTP connects to the endpoint
+above. Two examples, which the `MCP` tab also shows with Copy buttons:
+
+- **Claude Code**:
+  `claude mcp add --transport http riffle http://127.0.0.1:41917/mcp`
+- **Claude Desktop**: add the following to `claude_desktop_config.json`. It
+  relays through `npx -y mcp-remote`, so it needs Node.js; whether Claude
+  Desktop takes a direct `url` entry for a local server has not been
+  verified.
+
+  ```json
+  {
+    "mcpServers": {
+      "riffle": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "http://127.0.0.1:41917/mcp"]
+      }
+    }
+  }
+  ```
+
 ## Installing
 
 Download the installer for your OS from the latest release on the

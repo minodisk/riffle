@@ -30,14 +30,18 @@ XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
 `xmp:Label` names per color persisted in the `labelNames` key, and `src/shortcuts.rs` the keymap:
 the default keys and the
-user's overrides, persisted in the `shortcuts` key).
+user's overrides, persisted in the `shortcuts` key, and `src/mcp.rs` the MCP
+companion: the loopback Streamable HTTP server turned on by the `mcpEnabled`
+key, its tools, and the bridge that asks the main window over the
+`mcp-request` event and the `mcp_reply` command).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
 formatted, linted, type-checked and tested by `mise run ci`; its
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF with its Maker
-note section, and Riffle).
+note section, and Riffle), and `src/companion.ts` answers the MCP bridge's
+requests over the main window's view state.
 
 ## Language
 
