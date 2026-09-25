@@ -4,6 +4,7 @@ pub mod arw;
 pub mod decode;
 pub mod dop;
 pub mod faces;
+pub mod i18n;
 pub mod partial;
 pub mod reader;
 pub mod scan;

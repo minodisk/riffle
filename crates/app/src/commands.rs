@@ -1436,7 +1436,7 @@ pub fn label_names(app: tauri::AppHandle) -> Value {
     let names = index::lock(&app.state::<AppLabelNames>().0).clone();
     serde_json::json!({
         "names": label_names_value(&names),
-        "japanese": label_names_value(&LabelNames::japanese()),
+        "japanese": riffle_core::i18n::preset("ja").map(|preset| label_names_value(&preset.names)),
     })
 }
 
@@ -2040,8 +2040,8 @@ mod tests {
             }
         );
         assert_eq!(
-            super::label_names_setting(Some(&super::label_names_value(&LabelNames::japanese()))),
-            LabelNames::japanese()
+            super::label_names_setting(Some(&super::label_names_value(&japanese()))),
+            japanese()
         );
     }
 
@@ -2073,6 +2073,11 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    /// The names of Lightroom's Japanese default color label set.
+    fn japanese() -> LabelNames {
+        riffle_core::i18n::preset("ja").unwrap().names.clone()
+    }
 
     /// `reconcile_sidecars_of` over a fresh listing of `dir`, as `scan_folder`
     /// hands it the sidecars of its own single listing.
@@ -2463,10 +2468,7 @@ mod tests {
 
     #[test]
     fn an_xmp_label_name_is_read_under_the_configured_names() {
-        for (names, want) in [
-            (LabelNames::japanese(), "Red"),
-            (LabelNames::default(), "レッド"),
-        ] {
+        for (names, want) in [(japanese(), "Red"), (LabelNames::default(), "レッド")] {
             let root = temp_dir("xmp-label-names");
             let dir = root.to_string_lossy().into_owned();
             std::fs::write(root.join("a.ARW"), b"x").unwrap();

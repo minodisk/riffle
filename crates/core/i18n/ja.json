@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "日本語"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 2026 (Windows, Japanese UI)",
+      "red": "レッド",
+      "yellow": "イエロー",
+      "green": "グリーン",
+      "blue": "ブルー",
+      "purple": "パープル"
+    }
+  }
+}

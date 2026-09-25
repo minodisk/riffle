@@ -43,7 +43,7 @@ Decisions made with the user:
 
 ## Steps
 
-- [ ] Step 1: Add the per-language JSON files, a build.rs-generated registry and a `riffle_core::i18n` module that exposes the presets, and drop `LabelNames::japanese()`
+- [x] Step 1: Add the per-language JSON files, a build.rs-generated registry and a `riffle_core::i18n` module that exposes the presets, and drop `LabelNames::japanese()`
   - Done when:
     - `crates/core/i18n/en.json` and `crates/core/i18n/ja.json` exist with the agreed shape (`meta.name`, `lightroom.colorLabels.{verified,red,yellow,green,blue,purple}`); `ja.json` carries exactly today's names (レッド/イエロー/グリーン/ブルー/パープル), `meta.name: "日本語"` and `verified: "Lightroom Classic 2026 (Windows, Japanese UI)"`; `en.json` carries Red/Yellow/Green/Blue/Purple and `meta.name: "English"`.
     - `crates/core/build.rs` lists `crates/core/i18n/*.json`, emits `cargo:rerun-if-changed=i18n` (and per file as needed so adding, removing or editing a file triggers a rebuild), and writes into `OUT_DIR` a generated registry of `(code, include_str!(<absolute path>))` entries sorted by code. Adding a language requires only a new JSON file.
