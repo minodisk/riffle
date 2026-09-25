@@ -20,6 +20,15 @@ export interface FocusMark {
   candidate: MarkFocus["candidate"];
 }
 
+// The mark's color per focus candidate state: green when the eyes of the face
+// nearest the AF point are sharp, orange when they are not, white when Riffle
+// does not know.
+export const FOCUS_MARK_COLORS = {
+  candidate: "#3f3",
+  not_candidate: "#f93",
+  unknown: "#fff",
+} as const satisfies Record<MarkFocus["candidate"], string>;
+
 // `null` for a manual-focus shot, whose recorded point is not trusted. The
 // focus candidate state rides along so the mark's color is read from the mark.
 export function focusMark(

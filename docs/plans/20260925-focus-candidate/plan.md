@@ -331,7 +331,7 @@ ci` passes for every step.
     - Emit `faces-done` before `finish(scan_id)`, under no lock; the
       `scan-state` emit stays under the lock as the guide requires.
 
-- [ ] Step 4: Meta rows, the candidate filter, and the documentation
+- [x] Step 4: Meta rows, the candidate filter, and the documentation
   - Done when:
     - `crates/app/ui/src/meta.ts`: the Riffle section shows `Focus`
       (`Candidate` / `Not a candidate`, omitted when unknown) and `Eye
@@ -443,3 +443,4 @@ ci` passes for every step.
 - (2026-09-25) Step 1 complete
 - (2026-09-25) Step 2 complete
 - (2026-09-25) Step 3 complete
+- (2026-09-25) Step 4 complete

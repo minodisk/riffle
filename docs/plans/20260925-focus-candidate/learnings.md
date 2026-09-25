@@ -88,6 +88,36 @@
   `scan faces` log lines of one app open of that folder for
   `docs/performance.md`.
 
+## Step 4
+
+- main had not moved past Step 3 when this step started: the Sony AF
+  MakerNote rows of `sony-af-meta` were still on an unmerged branch, so
+  `meta.ts` had only the Shutter type / Focus distance maker-note rows and the
+  plan applied as written. Whichever of the two lands second rebases the
+  Riffle section of `meta.test.ts` and the usage.md "Meta pane" bullet.
+- The filter is a `candidates: Set<FocusCandidate>` rather than a boolean, so
+  `filterActive`, `filterChanged`, the click handler and `filter-reset` treat
+  it like the orientation group (`data-candidate="candidate"`). `passes` takes
+  the state as an optional fifth argument; a missing state counts as
+  `unknown`, which keeps the 53 existing four-argument test calls unchanged.
+- `metaGroups` takes the `Focus`-shaped `{ candidate, eye_sharpness }`
+  (`FocusCue` in `meta.ts`) instead of the bare state.
+- `FOCUS_MARK_COLORS` moved from `main.ts` to `focus.ts` (exported, typed
+  with `satisfies Record<candidate state, string>`) so `focus.test.ts` can
+  assert the mapping; Step 2 had left it in `main.ts`.
+- The `faces-progress` listener refilters with `refilter(files[index], true)`
+  while the candidate filter is on, keeping the strip's scroll offset as a
+  resync does; a tick that adds no candidate returns early in `refilter`.
+- README.md has no "Filter menu" bullet (only `docs/usage.md` does), so the
+  README / README.ja Focus mark bullet names the `Focus candidates` item
+  instead. `docs/cameras.md`'s face-tracking wording is about the sharpness
+  score, not the mark's color, so it is unchanged.
+- Not verified (needs the GUI, which this agent cannot drive): open the Sony
+  folder, the marks turn from white to green / orange while the status shows
+  `focus N / M`; the meta pane shows `Focus` and `Eye sharpness` after
+  `Sharpness`; with `Focus candidates` checked during pass 2 the strip fills
+  in without jumping back to the start, and `Reset` clears it.
+
 ## Deferred issues (todo candidates)
 
 - Record the `scan extract` / `scan faces` log lines of one app open of the

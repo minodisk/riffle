@@ -1,4 +1,5 @@
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
+import type { FocusCandidate } from "./meta.js";
 import type { PickFlag } from "./selection.js";
 
 // The filter menu in the strip pane, after PhotoLab's: the checked items of
@@ -6,6 +7,8 @@ import type { PickFlag } from "./selection.js";
 // lets everything through. `0` stars is unrated; a reject keeps its stars,
 // independent of its flag. A label is keyed lowercased, or `none`
 // when there is none; a label outside the menu's colors matches no item.
+// The menu's one candidate item puts `candidate` in `candidates`; a file whose
+// state is not known yet counts as `unknown`.
 export type Flag = "picked" | "untagged" | "rejected";
 
 // The displayed shape, decided by the EXIF Orientation tag alone: every
@@ -21,6 +24,7 @@ export interface FilterState {
   stars: Set<number>;
   labels: Set<string>;
   orientations: Set<Orientation>;
+  candidates: Set<FocusCandidate>;
   exif: Map<ExifGroup, Set<string>>;
 }
 
@@ -35,6 +39,7 @@ export function passes(
   { rating, flag: pickFlag, label }: Judgment,
   exif: Exif | null | undefined,
   orientation: number | undefined,
+  candidate?: FocusCandidate,
 ): boolean {
   const flag: Flag =
     pickFlag === "pick" ? "picked" : pickFlag === "reject" ? "rejected" : "untagged";
@@ -46,6 +51,7 @@ export function passes(
     (state.labels.size === 0 || state.labels.has(labelKey)) &&
     (state.orientations.size === 0 ||
       (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
+    (state.candidates.size === 0 || state.candidates.has(candidate ?? "unknown")) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {
         return true;

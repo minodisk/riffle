@@ -419,26 +419,34 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Decode the preview for detection at a DCT-scaled size instead of a
       full-size RGB decode, to cut the per-file cost on the detector path.
 - [ ] Optionally, detect closed eyes from the landmarks.
-- [x] Store the face-catch state (`caught` / `missed` / `unknown`) in the
-      SQLite index and color the `f` focus mark by it; the face boxes are not
-      stored but detected on demand when the mark is shown
-      (`docs/plans/20260924-face-catch-state/`, Step 5).
+- [x] Replace the face-catch state with the focus candidate cue: the eye
+      sharpness (Laplacian variance of the preview luma between the eyes of
+      the face nearest the AF point) is computed in a second scan pass and
+      stored in the SQLite index; eye sharpness >= 80 is a candidate and
+      colors the `f` focus mark green, and the filter menu's `Focus
+      candidates` shows only those. On 500 hand-labeled ILCE-7M5 frames, 93%
+      of the candidates were in focus (310/335) and 80% of the in-focus frames
+      were candidates; AUC 0.82 against 0.67 for the sharpness score. Sony
+      eye-AF frames are no longer trusted
+      (`docs/plans/20260925-focus-candidate/`).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
       instead of YuNet's eye midpoint. Needs a per-file score output
       (`riffle-cli scan` prints none). Files: `crates/core/src/sharpness.rs`,
       `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
-- [ ] De-duplicate the "eye-AF frame is caught, else classify the crop" rule,
-      currently written separately in `crates/core/src/scan.rs` `extract` and
-      `crates/cli/src/main.rs`'s `faces` subcommand (a core helper taking the
-      shot and a lazy detection would remove the copy; kept separate because
-      the scan must skip detection on eye-AF frames while the CLI always
-      detects). Files: `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
 - [ ] Crop detection can false-positive on printed faces or logos near the AF
       point (e.g. `_DSC3632`: a shirt logo scored 0.67), yielding a false
-      `missed` face-catch state. Consider a size or aspect filter on crop
-      boxes. Files: `crates/core/src/faces.rs` (`detect_around`).
+      candidate (or a false not-a-candidate) when the logo is the face nearest
+      the AF point. Consider a size or aspect filter on crop boxes. Files:
+      `crates/core/src/faces.rs` (`detect_around`),
+      `crates/core/src/candidate.rs`.
+- [ ] AF on a person in the background gives a sharp face and a false focus
+      candidate: the cue says the face nearest the AF point is sharp, not that
+      it is the subject. Files: `crates/core/src/candidate.rs`.
+- [ ] Back-of-head and upturned faces find no face in the crop, so their
+      focus candidate state is unknown (white), even when the camera tracked
+      them. Files: `crates/core/src/candidate.rs`, `crates/core/src/faces.rs`.
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 

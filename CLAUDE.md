@@ -47,7 +47,9 @@ in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
 formatted, linted, type-checked and tested by `mise run ci`; its
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF with its Maker
-note section, and Riffle), and `src/companion.ts` answers the MCP bridge's
+note section, and Riffle, whose rows include the focus candidate state and the
+eye sharpness), `src/filter.ts` decides which files the strip's filter menu
+lets through (including its `Focus candidates` item), and `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state.
 
 ## Language
