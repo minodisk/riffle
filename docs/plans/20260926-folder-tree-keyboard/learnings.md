@@ -37,3 +37,35 @@
   After `Enter`, `reveal` sets the cursor to the opened folder, and the
   container survives `render()`, so focus stays in the tree (not verified
   on a real WebView here).
+
+## Step 3
+
+- `typeAhead` searches past the cursor only for a single (or repeated)
+  character; a longer prefix searches from the cursor row itself. Searching
+  past the cursor for every prefix, as the plan's first rule read, breaks
+  the incremental case: `p` lands on `Pictures`, then `pi` would skip it and
+  go to a later `Pix`. This is the WAI-ARIA / listbox behavior, and it is
+  what makes "typing `pi` lands on `Pictures`" hold with siblings sharing
+  the prefix.
+- The buffer starts as `{ text: "", at: -Infinity }`, so the first key always
+  starts a new buffer without a special case; `blur` of the container resets
+  it to that.
+- Type-ahead is checked with `event.key` (length 1, no Ctrl / Alt / Meta),
+  after the Step 1-2 keys, so `Space` (`event.key === " "`) is consumed too
+  and does not scroll the tree. IME composition was not considered (folder
+  names typed through an IME would jump per composed keystroke at best);
+  not verified on a real WebView.
+
+## Deferred issues (todo candidates)
+
+- Round 1 review (item 1) of the type-ahead step flagged that a passthrough
+  action (`toggleSides`, `toggleLeft`, `toggleRight`, `toggleStrip`, `open`)
+  rebound to a printable key silently stops working while the tree is
+  focused, since `folders.ts`'s `typeKey` consumes every printable key
+  before `treeGate` is consulted. This was dismissed for now because
+  `plan.md`'s "Trade-offs and risks" section already made this call
+  deliberately (type-ahead wins over the allowlist) and assigned writing it
+  up to Step 4. Step 4 ("Document the tree keys and the gate") must state
+  this rebind edge case explicitly in `docs/usage.md`'s fixed-keys note
+  (`docs/usage.md`, `README.md`, `README.ja.md`), not just the general
+  allowlist wording it already plans to add.

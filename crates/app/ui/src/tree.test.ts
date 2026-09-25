@@ -3,6 +3,7 @@ import {
   EMPTY_TREE,
   addRoots,
   ancestorsWithin,
+  appendTyped,
   collapse,
   expand,
   rootOf,
@@ -10,6 +11,7 @@ import {
   setChildren,
   step,
   treeKey,
+  typeAhead,
 } from "./tree.js";
 
 const home = { name: "me", path: "/home/me" };
@@ -212,6 +214,78 @@ describe("treeKey", () => {
       expect(treeKey(collapsed, y2026.path, key)).toBeNull();
       expect(treeKey([], null, key)).toBeNull();
     }
+  });
+});
+
+describe("appendTyped", () => {
+  test("appends within the timeout and starts over after it", () => {
+    const first = appendTyped({ text: "", at: 0 }, "p", 1000);
+    expect(first).toEqual({ text: "p", at: 1000 });
+    expect(appendTyped(first, "i", 1500)).toEqual({ text: "pi", at: 1500 });
+    expect(appendTyped(first, "i", 1501)).toEqual({ text: "i", at: 1501 });
+    expect(appendTyped(first, "i", 1100, 50)).toEqual({ text: "i", at: 1100 });
+  });
+});
+
+describe("typeAhead", () => {
+  // me, (Pictures, Pix, desktop, Downloads, My Photos), card
+  function drawnRows(): ReturnType<typeof rows> {
+    const t = expand(addRoots(EMPTY_TREE, [home, card]), home.path);
+    return rows(
+      setChildren(
+        t,
+        home.path,
+        0,
+        ["Pictures", "Pix", "desktop", "Downloads", "My Photos"].map((name) => ({
+          name,
+          path: `/home/me/${name}`,
+        })),
+      ),
+    );
+  }
+
+  test("a prefix lands on the first folder it starts, case-insensitively", () => {
+    expect(typeAhead(drawnRows(), home.path, "PI")).toBe("/home/me/Pictures");
+    expect(typeAhead(drawnRows(), home.path, "pix")).toBe("/home/me/Pix");
+  });
+
+  test("typing on keeps the row the first letter found", () => {
+    let buffer = appendTyped({ text: "", at: 0 }, "p", 1000);
+    const first = typeAhead(drawnRows(), home.path, buffer.text);
+    expect(first).toBe("/home/me/Pictures");
+    buffer = appendTyped(buffer, "i", 1200);
+    expect(typeAhead(drawnRows(), first, buffer.text)).toBe("/home/me/Pictures");
+  });
+
+  test("a tapped letter cycles through its folders and wraps around", () => {
+    let buffer = appendTyped({ text: "", at: 0 }, "d", 1000);
+    let cursor = typeAhead(drawnRows(), home.path, buffer.text);
+    expect(cursor).toBe("/home/me/desktop");
+    buffer = appendTyped(buffer, "d", 1100);
+    expect(buffer.text).toBe("dd");
+    cursor = typeAhead(drawnRows(), cursor, buffer.text);
+    expect(cursor).toBe("/home/me/Downloads");
+    buffer = appendTyped(buffer, "d", 1200);
+    expect(typeAhead(drawnRows(), cursor, buffer.text)).toBe("/home/me/desktop");
+  });
+
+  test("the search wraps to the top", () => {
+    expect(typeAhead(drawnRows(), card.path, "me")).toBe(home.path);
+  });
+
+  test("a space inside a name", () => {
+    expect(typeAhead(drawnRows(), home.path, "my p")).toBe("/home/me/My Photos");
+  });
+
+  test("no match leaves the cursor", () => {
+    expect(typeAhead(drawnRows(), home.path, "zz")).toBeNull();
+    expect(typeAhead(drawnRows(), home.path, "pic!")).toBeNull();
+    expect(typeAhead([], null, "a")).toBeNull();
+  });
+
+  test("a missing or stale cursor searches from the first row", () => {
+    expect(typeAhead(drawnRows(), null, "m")).toBe(home.path);
+    expect(typeAhead(drawnRows(), "/gone", "m")).toBe(home.path);
   });
 });
 

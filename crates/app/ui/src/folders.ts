@@ -12,8 +12,10 @@ import {
   type StepKey,
   type Tree,
   type TreeKey,
+  type Typed,
   addRoots,
   ancestorsWithin,
+  appendTyped,
   collapse,
   expand,
   rootOf,
@@ -21,6 +23,7 @@ import {
   setChildren,
   step,
   treeKey,
+  typeAhead,
 } from "./tree.js";
 
 interface Folder {
@@ -35,6 +38,8 @@ let tree: Tree = EMPTY_TREE;
 let current: string | null = null;
 // The keyboard cursor, drawn as `.cursor` while the tree has focus.
 let cursor: string | null = null;
+const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
+let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
 let reportError: (message: string) => void = () => {};
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -216,6 +221,20 @@ function moveCursor(to: string): void {
   container.querySelector(".folder.cursor")?.scrollIntoView({ block: "nearest" });
 }
 
+// A printable key, Shift or not, jumps the cursor by name.
+function typeKey(event: KeyboardEvent): boolean {
+  if (event.key.length !== 1 || event.ctrlKey || event.altKey || event.metaKey) {
+    return false;
+  }
+  event.preventDefault();
+  typed = appendTyped(typed, event.key, Date.now());
+  const to = typeAhead(rows(tree), cursor, typed.text);
+  if (to !== null) {
+    moveCursor(to);
+  }
+  return true;
+}
+
 // True when the tree consumed the key.
 export function keydown(event: KeyboardEvent): boolean {
   const key = keyName(event);
@@ -238,7 +257,7 @@ export function keydown(event: KeyboardEvent): boolean {
   }
   const treeMove = TREE_KEYS[key];
   if (treeMove === undefined) {
-    return false;
+    return typeKey(event);
   }
   event.preventDefault();
   const command = treeKey(rows(tree), cursor, treeMove);
@@ -251,6 +270,10 @@ export function keydown(event: KeyboardEvent): boolean {
   }
   return true;
 }
+
+container.addEventListener("blur", () => {
+  typed = NOTHING_TYPED;
+});
 
 export function init(onOpen: (path: string) => void, onError: (message: string) => void): void {
   open = onOpen;
