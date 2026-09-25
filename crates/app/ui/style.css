@@ -117,6 +117,8 @@ body {
   border-radius: 6px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
 }
 
 /* The filter and sort menus open upward from the strip's header bar, over
