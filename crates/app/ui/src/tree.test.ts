@@ -8,6 +8,7 @@ import {
   rootOf,
   rows,
   setChildren,
+  step,
 } from "./tree.js";
 
 const home = { name: "me", path: "/home/me" };
@@ -62,6 +63,61 @@ describe("tree state", () => {
     const tree = addRoots(EMPTY_TREE, [home]);
     expect(expand(tree, "/nope")).toBe(tree);
     expect(setChildren(tree, "/nope", 1, [])).toBe(tree);
+  });
+});
+
+describe("step", () => {
+  // me > (Pictures > 2026), card
+  function tree(): ReturnType<typeof addRoots> {
+    let t = expand(addRoots(EMPTY_TREE, [home, card]), "/home/me");
+    t = setChildren(t, "/home/me", 0, [{ name: "Pictures", path: "/home/me/Pictures" }]);
+    t = expand(t, "/home/me/Pictures");
+    return setChildren(t, "/home/me/Pictures", 0, [
+      { name: "2026", path: "/home/me/Pictures/2026" },
+    ]);
+  }
+
+  test("down and up walk the visible rows across depth", () => {
+    const drawnRows = rows(tree());
+    expect(step(drawnRows, "/home/me", "down")).toBe("/home/me/Pictures");
+    expect(step(drawnRows, "/home/me/Pictures", "down")).toBe("/home/me/Pictures/2026");
+    expect(step(drawnRows, "/home/me/Pictures/2026", "down")).toBe("/media/me/card");
+    expect(step(drawnRows, "/media/me/card", "up")).toBe("/home/me/Pictures/2026");
+    expect(step(drawnRows, "/home/me/Pictures", "up")).toBe("/home/me");
+  });
+
+  test("down and up between siblings", () => {
+    const drawnRows = rows(addRoots(EMPTY_TREE, [home, card]));
+    expect(step(drawnRows, "/home/me", "down")).toBe("/media/me/card");
+    expect(step(drawnRows, "/media/me/card", "up")).toBe("/home/me");
+  });
+
+  test("clamps at both ends", () => {
+    const drawnRows = rows(tree());
+    expect(step(drawnRows, "/home/me", "up")).toBe("/home/me");
+    expect(step(drawnRows, "/media/me/card", "down")).toBe("/media/me/card");
+  });
+
+  test("home and end are the first and last rows", () => {
+    const drawnRows = rows(tree());
+    expect(step(drawnRows, "/home/me/Pictures", "home")).toBe("/home/me");
+    expect(step(drawnRows, "/home/me/Pictures", "end")).toBe("/media/me/card");
+    expect(step(drawnRows, null, "end")).toBe("/media/me/card");
+  });
+
+  test("a missing or stale cursor lands on the first row", () => {
+    const collapsed = rows(collapse(tree(), "/home/me"));
+    for (const key of ["up", "down"] as const) {
+      expect(step(collapsed, null, key)).toBe("/home/me");
+      expect(step(collapsed, "/home/me/Pictures/2026", key)).toBe("/home/me");
+    }
+  });
+
+  test("an empty tree has no row", () => {
+    for (const key of ["up", "down", "home", "end"] as const) {
+      expect(step([], null, key)).toBeNull();
+      expect(step([], "/home/me", key)).toBeNull();
+    }
   });
 });
 
