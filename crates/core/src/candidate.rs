@@ -7,6 +7,8 @@
 //! camera tracking a face does not say whether that face is sharp.
 //! Everything is in the preview's stored (unrotated) coordinates.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use anyhow::Result;
 
 use crate::arw::FocusLocation;
@@ -118,23 +120,48 @@ pub fn candidate(eye_sharpness: Option<f64>) -> FocusCandidate {
 /// and no detection; otherwise the preview is decoded once, faces are
 /// detected around the point and the nearest one's eyes are scored.
 pub fn focus_cue(preview: &[u8], orientation: u16, focus: Option<FocusLocation>) -> Result<Cue> {
+    focus_cue_unless(preview, orientation, focus, &AtomicBool::new(false))
+        .expect("a never-set flag never abandons")
+}
+
+/// `focus_cue`, abandoned (`None`) once `cancel` is set between the decode,
+/// the detection and the eye scoring.
+pub fn focus_cue_unless(
+    preview: &[u8],
+    orientation: u16,
+    focus: Option<FocusLocation>,
+    cancel: &AtomicBool,
+) -> Option<Result<Cue>> {
     if focus.is_none() {
-        return Ok(Cue::unknown());
+        return Some(Ok(Cue::unknown()));
     }
-    let (rgb, width, height) = decode_rgb(preview)?;
+    let canceled = || cancel.load(Ordering::Relaxed);
+    let (rgb, width, height) = match decode_rgb(preview) {
+        Ok(decoded) => decoded,
+        Err(e) => return Some(Err(e)),
+    };
     let gray = luma(&rgb, width, height);
-    let detection = detect_around_rgb(&rgb, width, height, orientation, focus)?;
+    if canceled() {
+        return None;
+    }
+    let detection = match detect_around_rgb(&rgb, width, height, orientation, focus) {
+        Ok(detection) => detection,
+        Err(e) => return Some(Err(e)),
+    };
     let face = detection
         .point
         .and_then(|p| nearest_face(&detection.faces, p))
         .copied();
+    if canceled() {
+        return None;
+    }
     let eye_sharpness = face.map(|f| eye_sharpness(&gray, width, height, &f));
-    Ok(Cue {
+    Some(Ok(Cue {
         state: candidate(eye_sharpness),
         eye_sharpness,
         face,
         detection: Some(detection),
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -250,5 +277,29 @@ mod tests {
     #[test]
     fn no_af_point_is_unknown_without_decoding() {
         assert_eq!(focus_cue(&[0u8; 16], 1, None).unwrap(), Cue::unknown());
+    }
+
+    #[test]
+    fn a_set_flag_abandons_the_cue_after_the_decode() {
+        let rgb = vec![128u8; 64 * 48 * 3];
+        let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+        c.set_size(64, 48);
+        c.set_quality(80.0);
+        let mut c = c.start_compress(Vec::new()).unwrap();
+        c.write_scanlines(&rgb).unwrap();
+        let jpeg = c.finish().unwrap();
+        let focus = Some(FocusLocation {
+            sensor_w: 6000,
+            sensor_h: 4000,
+            x: 3000,
+            y: 2000,
+        });
+        let set = AtomicBool::new(true);
+        assert!(focus_cue_unless(&jpeg, 1, focus, &set).is_none());
+        assert!(
+            focus_cue_unless(&[0u8; 16], 1, focus, &set).is_some_and(|r| r.is_err()),
+            "a decode failure is still an error"
+        );
+        assert!(focus_cue_unless(&jpeg, 1, focus, &AtomicBool::new(false)).is_some());
     }
 }

@@ -809,14 +809,6 @@ pre-existing.
 - [ ] Apply the `DSC-` model gate `exif.rs` uses for `FocusMode` /
       `AFTracking` to the manual-focus check in `crates/core/src/sharpness.rs`.
 
-### App: canceling a scan still lets in-flight files finish (8-15s)
-
-Canceling a scan does not stop files already dispatched to worker threads from completing; the Windows real-folder log showed 8-15s between cancel and the scan actually winding down. Out of scope for the folder-open-off-main-thread plan (docs/plans/_archived/20260925-folder-open-off-main-thread/plan.md), which only moved the open-path commands off the main thread.
-
-#### TODO
-
-- [ ] Make scan cancellation interrupt in-flight file reads (or otherwise shorten the wind-down), verified by timing cancel-to-stop in `Riffle.log`. Files: `crates/app/src/commands.rs` (`scan_folder`).
-
 ### App: opening a folder does two directory listings (`list_arw` then `list_folder_in`)
 
 Opening a folder calls `list_arw` for the immediate listing and then `scan_folder`'s `list_folder_in` for the scan, redundantly listing the same directory twice. Noted as out of scope while fixing the main-thread blocking in docs/plans/_archived/20260925-folder-open-off-main-thread/plan.md.

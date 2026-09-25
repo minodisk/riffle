@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use rayon::prelude::*;
 
 use crate::arw::{FocusLocation, Shot};
-use crate::candidate::{focus_cue, Cue};
+use crate::candidate::{focus_cue_unless, Cue};
 use crate::decode::thumbnail_jpeg;
 use crate::faces::detect_around;
 use crate::reader::read_preview;
@@ -38,16 +38,37 @@ pub struct Entry {
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
 /// `path`, and every failure comes back as `Err` rather than a panic.
 pub fn extract(path: &Path) -> Result<Entry, String> {
-    let (arw, preview) = read_preview(path).map_err(|e| e.to_string())?;
+    extract_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
+}
+
+/// `extract`, abandoned (`None`) once `cancel` is set between its stages.
+fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, String>> {
+    let (arw, preview) = match read_preview(path) {
+        Ok(read) => read,
+        Err(e) => return Some(Err(e.to_string())),
+    };
+    if canceled(cancel) {
+        return None;
+    }
     // mozjpeg aborts through a panic, not an error return, when the bytes are
     // not a JPEG. A single corrupt file out of thousands must cost that file
     // and nothing else, so the decode runs inside `catch_unwind`. Nothing here
     // is shared or observable after a panic, hence `AssertUnwindSafe`.
-    let thumbnail = catch_unwind(AssertUnwindSafe(|| {
+    let thumbnail = match catch_unwind(AssertUnwindSafe(|| {
         thumbnail_jpeg(&preview, THUMBNAIL_QUALITY)
-    }))
-    .map_err(|_| format!("panic while encoding the thumbnail of {}", path.display()))?
-    .map_err(|e| e.to_string())?;
+    })) {
+        Ok(Ok(thumbnail)) => thumbnail,
+        Ok(Err(e)) => return Some(Err(e.to_string())),
+        Err(_) => {
+            return Some(Err(format!(
+                "panic while encoding the thumbnail of {}",
+                path.display()
+            )))
+        }
+    };
+    if canceled(cancel) {
+        return None;
+    }
     let eye_af = eye_af_frame(&arw.shot);
     let focus = trusted_focus(&arw.shot);
     // Faces steer the score only without an AF point, so they are searched for
@@ -62,37 +83,65 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
         .and_then(Result::ok)
         .map_or_else(Vec::new, |d| d.faces),
     };
+    if canceled(cancel) {
+        return None;
+    }
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
         score_preview(&preview, focus, eye_af.map(|(_, frame)| frame), &faces)
     }))
     .ok()
     .and_then(Result::ok);
-    Ok(Entry {
+    Some(Ok(Entry {
         orientation: arw.orientation,
         shot: arw.shot,
         thumbnail,
         sharpness,
-    })
+    }))
 }
 
 /// Compute the focus candidate cue of one file. Only an unreadable file is
 /// `Err`; a decode or detection failure, or a panic in either, is an
 /// unknown cue.
 pub fn extract_faces(path: &Path) -> Result<Cue, String> {
-    let (arw, preview) = read_preview(path).map_err(|e| e.to_string())?;
-    Ok(cue(&preview, arw.orientation, trusted_focus(&arw.shot)))
+    extract_faces_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
 }
 
-fn cue(preview: &[u8], orientation: u16, focus: Option<FocusLocation>) -> Cue {
-    catch_unwind(AssertUnwindSafe(|| focus_cue(preview, orientation, focus)))
-        .ok()
-        .and_then(Result::ok)
-        .unwrap_or_default()
+/// `extract_faces`, abandoned (`None`) once `cancel` is set between its
+/// stages.
+fn extract_faces_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Cue, String>> {
+    let (arw, preview) = match read_preview(path) {
+        Ok(read) => read,
+        Err(e) => return Some(Err(e.to_string())),
+    };
+    if canceled(cancel) {
+        return None;
+    }
+    cue(&preview, arw.orientation, trusted_focus(&arw.shot), cancel).map(Ok)
+}
+
+fn cue(
+    preview: &[u8],
+    orientation: u16,
+    focus: Option<FocusLocation>,
+    cancel: &AtomicBool,
+) -> Option<Cue> {
+    match catch_unwind(AssertUnwindSafe(|| {
+        focus_cue_unless(preview, orientation, focus, cancel)
+    })) {
+        Ok(None) => None,
+        Ok(Some(Ok(cue))) => Some(cue),
+        Ok(Some(Err(_))) | Err(_) => Some(Cue::unknown()),
+    }
+}
+
+fn canceled(cancel: &AtomicBool) -> bool {
+    cancel.load(Ordering::Relaxed)
 }
 
 /// Run `extract` over `paths` on a pool of `threads` threads, handing each
 /// result to `on_item` from the worker thread that produced it. Once `cancel`
-/// is set no further file is started; files already running finish.
+/// is set no further file is started, and files already running stop at their
+/// next stage and are not handed to `on_item` at all.
 /// `threads` must be at least 1; `0` is rejected rather than silently falling
 /// back to rayon's default pool size.
 ///
@@ -113,7 +162,7 @@ pub fn extract_all<F>(
 where
     F: Fn(usize, Result<Entry, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, extract, on_item, cancel)
+    for_each_path(paths, threads, extract_unless, on_item, cancel)
 }
 
 /// Run `extract_faces` over `paths` the way `extract_all` runs `extract`:
@@ -128,7 +177,7 @@ pub fn extract_faces_all<F>(
 where
     F: Fn(usize, Result<Cue, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, extract_faces, on_item, cancel)
+    for_each_path(paths, threads, extract_faces_unless, on_item, cancel)
 }
 
 fn for_each_path<T, E, F>(
@@ -139,7 +188,7 @@ fn for_each_path<T, E, F>(
     cancel: &AtomicBool,
 ) -> Result<(), String>
 where
-    E: Fn(&Path) -> Result<T, String> + Send + Sync,
+    E: Fn(&Path, &AtomicBool) -> Option<Result<T, String>> + Send + Sync,
     F: Fn(usize, Result<T, String>) + Send + Sync,
 {
     if threads == 0 {
@@ -151,10 +200,12 @@ where
         .map_err(|e| e.to_string())?;
     pool.install(|| {
         paths.par_iter().enumerate().for_each(|(i, path)| {
-            if cancel.load(Ordering::Relaxed) {
+            if canceled(cancel) {
                 return;
             }
-            on_item(i, per_file(path));
+            if let Some(result) = per_file(path, cancel) {
+                on_item(i, result);
+            }
         })
     });
     Ok(())
@@ -165,6 +216,7 @@ mod tests {
     use super::*;
     use crate::candidate::FocusCandidate;
     use std::sync::Mutex;
+    use std::time::{Duration, Instant};
 
     fn jpeg(w: usize, h: usize) -> Vec<u8> {
         let rgb = vec![128u8; w * h * 3];
@@ -319,6 +371,56 @@ mod tests {
     }
 
     #[test]
+    fn a_file_canceled_mid_pipeline_is_not_delivered() {
+        let dir = dir("cancel-mid");
+        let path = write(&dir, "a.ARW", &fixture(1, &jpeg(64, 48)));
+        let set = AtomicBool::new(true);
+        assert!(extract_unless(&path, &set).is_none());
+        assert!(extract_faces_unless(&path, &set).is_none());
+        assert!(
+            extract_unless(&dir.join("missing.ARW"), &set).is_some_and(|r| r.is_err()),
+            "an unreadable file is still an error"
+        );
+        let focus = Some(FocusLocation {
+            sensor_w: 6000,
+            sensor_h: 4000,
+            x: 3000,
+            y: 2000,
+        });
+        assert_eq!(cue(&jpeg(64, 48), 1, focus, &set), None);
+
+        // The flag is set while each file is in flight, after the pre-dispatch
+        // check has let it through.
+        let paths: Vec<PathBuf> = (0..8)
+            .map(|i| write(&dir, &format!("{i}.ARW"), &fixture(1, &jpeg(64, 48))))
+            .collect();
+        for faces in [false, true] {
+            let cancel = AtomicBool::new(false);
+            let delivered = Mutex::new(0usize);
+            for_each_path(
+                &paths,
+                2,
+                |path, cancel: &AtomicBool| {
+                    let started = Instant::now();
+                    cancel.store(true, Ordering::Relaxed);
+                    let result = if faces {
+                        extract_faces_unless(path, cancel).map(|r| r.map(|_| ()))
+                    } else {
+                        extract_unless(path, cancel).map(|r| r.map(|_| ()))
+                    };
+                    assert!(started.elapsed() < Duration::from_secs(5));
+                    result
+                },
+                |_, _| *delivered.lock().unwrap() += 1,
+                &cancel,
+            )
+            .unwrap();
+            assert_eq!(delivered.into_inner().unwrap(), 0, "faces pass: {faces}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn a_preview_that_cannot_be_scored_still_yields_a_thumbnail() {
         let dir = dir("unscored");
         let ok = extract(&write(&dir, "ok.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
@@ -343,8 +445,9 @@ mod tests {
             x: 3000,
             y: 2000,
         });
-        assert_eq!(cue(&[0u8; 512], 1, focus), Cue::unknown());
-        let flat = cue(&jpeg(64, 48), 1, focus);
+        let never = AtomicBool::new(false);
+        assert_eq!(cue(&[0u8; 512], 1, focus, &never), Some(Cue::unknown()));
+        let flat = cue(&jpeg(64, 48), 1, focus, &never).unwrap();
         assert_eq!(flat.state, FocusCandidate::Unknown);
         assert!(flat.detection.is_some_and(|d| d.point.is_some()));
         assert!(extract_faces(&dir.join("missing.ARW")).is_err());
