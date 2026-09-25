@@ -86,6 +86,28 @@ item without an accelerator rather than erroring.
   Step 1 (unverified on a real device; see "GUI automation does not work on
   this Mac").
 
+### Volume listing: dedupe home by canonical path, plus a macOS-only ancestor rule (Hit)
+
+`volumes()` in `crates/app/src/folders.rs` drops the home volume's duplicate
+by canonical-path equality, and, on macOS only, also drops "a volume whose
+canonical path is an ancestor of home": `/Volumes/Macintosh HD` resolves to
+`/`, which never equals the home directory itself.
+
+- This rule is macOS-specific: on Windows, home is `C:\Users\<name>`, whose
+  ancestor `C:\` is a real, independently browsable root (unlike macOS's
+  volume alias for `/`), so applying the same ancestor rule there would
+  silently drop it from the tree. Don't port the ancestor check to Windows.
+- Consequence: when home itself lives on an external volume on macOS, that
+  volume is not listed separately.
+- On Linux, `/mnt` lists every child directory as a root, including WSL's
+  own `/mnt/wsl` and `/mnt/wslg` next to real drive mounts like `/mnt/c` —
+  unfiltered by design; see the deferred issue if this needs narrowing.
+- Windows also skips entries with `FILE_ATTRIBUTE_HIDDEN` (a `MetadataExt`
+  one-liner) in addition to dot-names. `cargo check --target
+  x86_64-pc-windows-gnu` in `crates/app` verifies `cfg(windows)` code
+  without a Windows machine, when that target is installed.
+- Source: `docs/plans/_archived/20260925-lightroom-layout/learnings.md`, Step 2.
+
 ### Measure before choosing a JPEG payload over raw pixels (Measured)
 
 `mozjpeg::Compress`'s defaults turn on trellis quantization and optimized
@@ -1307,6 +1329,22 @@ because each branch's own copy of an import/cfg is still in scope on that
 branch. Only building the actual merge/rebase result (not the branch tip)
 catches it; a single-OS failure right after a merge that looks like a
 runner flake is a signal to check the merge ref before assuming flakiness.
+
+### A `Release-As` footer must be on the squash commit itself, not a branch commit (Hit)
+
+`Release-As: 0.4.0` on the last commit of a multi-commit PR branch did not
+reach release-please: this repo squash-merges with
+`squash_merge_commit_message: COMMIT_MESSAGES`, and for a multi-commit PR
+GitHub appends a `---------` separator and the collected `Co-authored-by`
+trailers after the concatenated messages, pushing `Release-As` out of the
+final footer block. The release PR stayed at the old version after merge.
+
+- Fix: squash-merge with an explicit body carrying the footer, e.g. `gh pr
+  merge --squash --body 'Release-As: 0.4.0'`.
+- When a PR needs `Release-As` and has more than one commit, don't rely on
+  a commit message footer; set it on the squash merge itself.
+- Source: `docs/plans/_archived/20260925-lightroom-layout/learnings.md`,
+  "Release-As footer".
 
 ## Verification
 

@@ -132,3 +132,15 @@
   by the row's root-plus-path, or not listing a root's own path as a child of
   another root, would fix it. Basis: review feedback, Round 1 item 4. Files:
   `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).
+
+## Release-As footer
+
+- The `Release-As: 0.4.0` footer on the last commit of the Step 4 branch did
+  not reach release-please: the repository squash-merges with
+  `squash_merge_commit_message: COMMIT_MESSAGES`, and for a multi-commit PR
+  GitHub appends a `---------` separator and the collected `Co-authored-by`
+  trailers after the concatenated messages, so `Release-As` was no longer in
+  the final footer block. The release PR stayed at 0.3.2 after #416 merged.
+  The wrap-up PR was squash-merged with an explicit body
+  (`gh pr merge --squash --body 'Release-As: 0.4.0'`) instead. A `Release-As`
+  footer has to be set on the squash commit itself, not on a branch commit.
