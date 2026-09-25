@@ -92,13 +92,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   pick replaces a reject on every selected file but leaves each file's stars
   as they were). Hidden files
   are never judged.
-- **Meta pane**: grouped by where each value comes from, with a thin divider
-  between the groups. **EXIF** lists, under `Standard`, what the camera wrote
-  in the standard tags (aperture, shutter, ISO, focal length, exposure, camera,
-  lens and capture time), then, under `Maker note`, what it wrote in its
-  vendor MakerNote: on Sony, the shutter type, the focus
-  mode, the AF area (ILCE, NEX and ZV bodies only; not the FX cinema bodies,
-  the compacts, or the A-mount bodies), the AF tracking, such as `Face
+- **Meta pane**: grouped by where each value comes from, in three groups.
+  **EXIF** lists what the camera wrote in the standard tags (aperture,
+  shutter, ISO, focal length, exposure, camera, lens and capture time).
+  **Maker note** lists what it wrote in its vendor MakerNote: on Sony, the
+  shutter type, the focus mode, the AF area (ILCE, NEX and ZV bodies only;
+  not the FX cinema bodies, the compacts, or the A-mount bodies), the AF tracking, such as `Face
   tracking` or `Lock On AF`, the
   drive (the release mode, with the frame number within a burst, as in
   `Continuous, frame 2`), the stabilization, the exposure mode, the metering,

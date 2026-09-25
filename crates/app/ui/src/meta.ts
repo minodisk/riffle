@@ -29,19 +29,13 @@ export interface MetaRow {
   value: string;
 }
 
-export interface MetaSection {
-  label: string | null;
+export interface MetaGroup {
+  heading: string;
   rows: MetaRow[];
 }
 
-export interface MetaGroup {
-  heading: string;
-  sections: MetaSection[];
-}
-
 export const EXIF_HEADING = "EXIF";
-export const STANDARD_LABEL = "Standard";
-export const MAKER_NOTE_LABEL = "Maker note";
+export const MAKER_NOTE_HEADING = "Maker note";
 export const ANALYSIS_HEADING = "Analysis";
 
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
@@ -64,15 +58,11 @@ function candidateLabel(state: FocusCandidate | null | undefined): string | null
   }
 }
 
-function section(label: string | null, rows: [string, string | null][]): MetaSection {
+function group(heading: string, rows: [string, string | null][]): MetaGroup {
   return {
-    label,
-    rows: rows.flatMap(([rowLabel, value]) => (value === null ? [] : [{ label: rowLabel, value }])),
+    heading,
+    rows: rows.flatMap(([label, value]) => (value === null ? [] : [{ label, value }])),
   };
-}
-
-function group(heading: string, sections: MetaSection[]): MetaGroup {
-  return { heading, sections: sections.filter(({ rows }) => rows.length > 0) };
 }
 
 // The meta pane's rows grouped by where each value comes from: standard
@@ -90,41 +80,37 @@ export function metaGroups(
   if (meta !== null) {
     groups.push(
       group(EXIF_HEADING, [
-        section(STANDARD_LABEL, [
-          ["Aperture", meta.aperture],
-          ["Shutter", meta.shutter],
-          ["ISO", meta.iso],
-          ["Focal length", meta.focal_length],
-          ["Exposure", meta.exposure_bias],
-          ["Camera", meta.camera],
-          ["Lens", meta.lens],
-          ["Captured", meta.captured_at],
-        ]),
-        section(MAKER_NOTE_LABEL, [
-          ["Shutter type", meta.shutter_type],
-          ["Focus mode", meta.focus_mode],
-          ["AF area", meta.af_area],
-          ["AF tracking", meta.af_tracking],
-          ["Drive", meta.drive],
-          ["Stabilization", meta.stabilization],
-          ["Exposure mode", meta.exposure_mode],
-          ["Metering", meta.metering],
-          ["Creative style", meta.creative_style],
-          ["DRO", meta.dro],
-          ["RAW type", meta.raw_type],
-          ["Focus distance", meta.focus_distance],
-        ]),
+        ["Aperture", meta.aperture],
+        ["Shutter", meta.shutter],
+        ["ISO", meta.iso],
+        ["Focal length", meta.focal_length],
+        ["Exposure", meta.exposure_bias],
+        ["Camera", meta.camera],
+        ["Lens", meta.lens],
+        ["Captured", meta.captured_at],
+      ]),
+      group(MAKER_NOTE_HEADING, [
+        ["Shutter type", meta.shutter_type],
+        ["Focus mode", meta.focus_mode],
+        ["AF area", meta.af_area],
+        ["AF tracking", meta.af_tracking],
+        ["Drive", meta.drive],
+        ["Stabilization", meta.stabilization],
+        ["Exposure mode", meta.exposure_mode],
+        ["Metering", meta.metering],
+        ["Creative style", meta.creative_style],
+        ["DRO", meta.dro],
+        ["RAW type", meta.raw_type],
+        ["Focus distance", meta.focus_distance],
       ]),
     );
   }
   groups.push(
     group(ANALYSIS_HEADING, [
-      section(null, [
-        ["Sharpness", sharpness?.toFixed(1) ?? null],
-        ["Focus", candidateLabel(focus?.candidate)],
-        ["Eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
-      ]),
+      ["Sharpness", sharpness?.toFixed(1) ?? null],
+      ["Focus", candidateLabel(focus?.candidate)],
+      ["Eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
     ]),
   );
-  return groups.filter(({ sections }) => sections.length > 0);
+  return groups.filter(({ rows }) => rows.length > 0);
 }
