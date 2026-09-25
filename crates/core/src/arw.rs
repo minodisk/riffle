@@ -34,6 +34,24 @@ const TAG_FOCUS_MODE: u16 = 0x201b;
 const TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER: u16 = 0x201a;
 /// Sony `AFTracking`, a BYTE.
 const TAG_AF_TRACKING: u16 = 0x2021;
+/// Sony `AFAreaModeSetting`, a BYTE.
+const TAG_AF_AREA_MODE_SETTING: u16 = 0x201c;
+/// Sony `ReleaseMode`, an int16u.
+const TAG_RELEASE_MODE: u16 = 0xb049;
+/// Sony `SequenceNumber`, an int16u.
+const TAG_SEQUENCE_NUMBER: u16 = 0xb04a;
+/// Sony `ImageStabilization`, an int32u.
+const TAG_IMAGE_STABILIZATION: u16 = 0xb026;
+/// Sony `ExposureMode`, an int16u.
+const TAG_EXPOSURE_MODE: u16 = 0xb041;
+/// Sony `MeteringMode2`, an int16u.
+const TAG_METERING_MODE2: u16 = 0x202c;
+/// Sony `CreativeStyle`, an ASCII string.
+const TAG_CREATIVE_STYLE: u16 = 0xb020;
+/// Sony `DynamicRangeOptimizer`, an int32u.
+const TAG_DYNAMIC_RANGE_OPTIMIZER: u16 = 0xb025;
+/// Sony `RAWFileType`, an int16u.
+const TAG_RAW_FILE_TYPE: u16 = 0x2029;
 /// Sony `FocusFrameSize`: three SHORTs, width, height and a validity flag
 /// (0 when the frame is not available). Bodies write it as `UNDEFINED[6]`.
 const TAG_FOCUS_FRAME_SIZE: u16 = 0x2037;
@@ -123,6 +141,36 @@ pub struct Shot {
     pub af_tracking: Option<u8>,
     /// Raw Sony `ElectronicFrontCurtainShutter`: 1 on, 0 off.
     pub electronic_front_curtain: Option<u32>,
+    /// Raw Sony `AFAreaModeSetting`. On NEX / ILCE / ZV bodies: 0 wide,
+    /// 1 center, 3 flexible spot, 4 flexible spot (LA-EA4), 9 center
+    /// (LA-EA4), 11 zone, 12 expanded flexible spot, 13 custom AF area; other
+    /// families use other tables.
+    pub af_area_mode: Option<u8>,
+    /// Raw Sony `ReleaseMode`: 0 normal, 2 continuous, 5 exposure bracketing,
+    /// 6 white balance bracketing, 8 DRO bracketing, 65535 n/a.
+    pub release_mode: Option<u32>,
+    /// Raw Sony `SequenceNumber`, the shot number within a burst: 0 single,
+    /// 65535 n/a, otherwise the frame number (restarting at 1 per burst).
+    pub sequence_number: Option<u32>,
+    /// Raw Sony `ImageStabilization`: 0 off, 1 on, 0xffffffff n/a.
+    pub image_stabilization: Option<u32>,
+    /// Raw Sony `ExposureMode`: 0 program AE, 7 aperture priority, 8 shutter
+    /// priority, 15 manual, the scene modes in between and above (ExifTool's
+    /// `Sony::Main` table), 65535 n/a.
+    pub exposure_mode: Option<u32>,
+    /// Raw Sony `MeteringMode2`: 0x100 multi-segment, 0x200 center-weighted
+    /// average, 0x301 spot (standard), 0x302 spot (large), 0x400 average,
+    /// 0x500 highlight.
+    pub metering_mode: Option<u32>,
+    /// Raw Sony `CreativeStyle` (the Creative Look on current bodies), as
+    /// recorded: `Standard`, `Vivid`, `ST`, `VV2`, ...
+    pub creative_style: Option<String>,
+    /// Raw Sony `DynamicRangeOptimizer` (0xb025): 0 off, 1 standard,
+    /// 2 advanced auto, 3 auto, 8-12 advanced Lv1-Lv5, 16-23 Lv1-Lv8.
+    pub dynamic_range_optimizer: Option<u32>,
+    /// Raw Sony `RAWFileType`: 0 compressed, 1 uncompressed, 2 lossless
+    /// compressed, 3 compressed RAW 2, 65535 n/a.
+    pub raw_file_type: Option<u32>,
     /// Sony `FocusFrameSize`, `None` when the camera flags it as unavailable.
     pub focus_frame: Option<FocusFrame>,
     pub make: Option<String>,
@@ -386,6 +434,19 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
                 .find(|e| e.0 == TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER)
         })
         .and_then(integer);
+    let find = |tag: u16| maker.as_ref().and_then(|m| m.iter().find(|e| e.0 == tag));
+    shot.af_area_mode = find(TAG_AF_AREA_MODE_SETTING).and_then(byte);
+    shot.release_mode = find(TAG_RELEASE_MODE).and_then(integer);
+    shot.sequence_number = find(TAG_SEQUENCE_NUMBER).and_then(integer);
+    shot.image_stabilization = find(TAG_IMAGE_STABILIZATION).and_then(integer);
+    shot.exposure_mode = find(TAG_EXPOSURE_MODE).and_then(integer);
+    shot.metering_mode = find(TAG_METERING_MODE2).and_then(integer);
+    shot.creative_style = match find(TAG_CREATIVE_STYLE) {
+        Some(e) => ascii(buf, e)?,
+        None => None,
+    };
+    shot.dynamic_range_optimizer = find(TAG_DYNAMIC_RANGE_OPTIMIZER).and_then(integer);
+    shot.raw_file_type = find(TAG_RAW_FILE_TYPE).and_then(integer);
     shot.focus_frame = match maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_FRAME_SIZE))
@@ -771,6 +832,48 @@ mod tests {
         assert!(absent.shot.electronic_front_curtain.is_none());
     }
 
+    #[test]
+    fn reads_the_sony_shooting_setup() {
+        let style = b"Standard\0";
+        let shot = parse(&tiff_with_sony_note(
+            |at| {
+                vec![
+                    (TAG_AF_AREA_MODE_SETTING, TYPE_BYTE, 1, 3),
+                    (TAG_RAW_FILE_TYPE, TYPE_SHORT, 1, 2),
+                    (TAG_METERING_MODE2, TYPE_SHORT, 1, 0x100),
+                    (TAG_CREATIVE_STYLE, TYPE_ASCII, style.len() as u32, at),
+                    (TAG_DYNAMIC_RANGE_OPTIMIZER, TYPE_LONG, 1, 3),
+                    (TAG_IMAGE_STABILIZATION, TYPE_LONG, 1, 1),
+                    (TAG_EXPOSURE_MODE, TYPE_SHORT, 1, 15),
+                    (TAG_RELEASE_MODE, TYPE_SHORT, 1, 2),
+                    (TAG_SEQUENCE_NUMBER, TYPE_SHORT, 1, 3),
+                ]
+            },
+            style,
+        ))
+        .unwrap()
+        .shot;
+        assert_eq!(shot.af_area_mode, Some(3));
+        assert_eq!(shot.release_mode, Some(2));
+        assert_eq!(shot.sequence_number, Some(3));
+        assert_eq!(shot.image_stabilization, Some(1));
+        assert_eq!(shot.exposure_mode, Some(15));
+        assert_eq!(shot.metering_mode, Some(0x100));
+        assert_eq!(shot.creative_style.as_deref(), Some("Standard"));
+        assert_eq!(shot.dynamic_range_optimizer, Some(3));
+        assert_eq!(shot.raw_file_type, Some(2));
+        let absent = parse(&tiff_with_exif(true, None, false)).unwrap().shot;
+        assert!(absent.af_area_mode.is_none());
+        assert!(absent.release_mode.is_none());
+        assert!(absent.sequence_number.is_none());
+        assert!(absent.image_stabilization.is_none());
+        assert!(absent.exposure_mode.is_none());
+        assert!(absent.metering_mode.is_none());
+        assert!(absent.creative_style.is_none());
+        assert!(absent.dynamic_range_optimizer.is_none());
+        assert!(absent.raw_file_type.is_none());
+    }
+
     /// A Sony TIFF whose MakerNote holds exactly `entries`, built by `f` from
     /// the offset at which `data` is appended.
     fn tiff_with_sony_note(f: impl Fn(u32) -> Vec<(u16, u16, u32, u32)>, data: &[u8]) -> Vec<u8> {
@@ -1037,6 +1140,15 @@ mod tests {
         assert!(a.shot.electronic_front_curtain.is_none());
         assert!(a.shot.focus_frame.is_none());
         assert!(a.shot.focus_distance_mm.is_none());
+        assert!(a.shot.af_area_mode.is_none());
+        assert!(a.shot.release_mode.is_none());
+        assert!(a.shot.sequence_number.is_none());
+        assert!(a.shot.image_stabilization.is_none());
+        assert!(a.shot.exposure_mode.is_none());
+        assert!(a.shot.metering_mode.is_none());
+        assert!(a.shot.creative_style.is_none());
+        assert!(a.shot.dynamic_range_optimizer.is_none());
+        assert!(a.shot.raw_file_type.is_none());
         assert_eq!(a.shot.make.as_deref(), Some("Leica Camera AG"));
     }
 
@@ -1202,6 +1314,15 @@ mod tests {
         assert!(shot.af_tracking.is_none());
         assert!(shot.focus_frame.is_none());
         assert!(shot.focus_distance_mm.is_none());
+        assert!(shot.af_area_mode.is_none());
+        assert!(shot.release_mode.is_none());
+        assert!(shot.sequence_number.is_none());
+        assert!(shot.image_stabilization.is_none());
+        assert!(shot.exposure_mode.is_none());
+        assert!(shot.metering_mode.is_none());
+        assert!(shot.creative_style.is_none());
+        assert!(shot.dynamic_range_optimizer.is_none());
+        assert!(shot.raw_file_type.is_none());
     }
 
     #[test]

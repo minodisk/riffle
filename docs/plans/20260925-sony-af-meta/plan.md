@@ -88,7 +88,7 @@ the EXIF twins stay unread.
 
 ## Steps
 
-- [ ] Step 1: Read the new Sony MakerNote tags in core and bump `EXTRACTOR_VERSION`
+- [x] Step 1: Read the new Sony MakerNote tags in core and bump `EXTRACTOR_VERSION`
   - Done when:
     - `riffle_core::arw::Shot` gains raw fields, `None` when the MakerNote
       is absent, non-Sony, or lacks the tag, each with a doc comment
