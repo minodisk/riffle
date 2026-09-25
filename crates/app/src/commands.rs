@@ -947,9 +947,10 @@ fn scan_threads() -> usize {
 }
 
 /// What `scan_folder` returns: the number of files that need scanning and the
-/// id the caller must match against `scan-progress`/`scan-done` events to tell
-/// this scan's events apart from an older, still-draining one for the same
-/// folder. `sidecar_errors` lists the sidecars the open could not read.
+/// id the caller must match against `scan-progress`/`scan-done` and
+/// `faces-progress`/`faces-done` events to tell this scan's events apart from
+/// an older, still-draining one for the same folder. `sidecar_errors` lists
+/// the sidecars the open could not read.
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,
@@ -963,7 +964,7 @@ pub struct ScanStarted {
 /// frontend calls `start_scan` with the returned `scan_id`, so this only
 /// prepares the work; call `start_scan` right after storing the id. A no-op
 /// (nothing to scan) when the index cache is unavailable; `start_scan` still
-/// emits `scan-done` for this `scan_id` in that case.
+/// emits `scan-done` and `faces-done` for this `scan_id` in that case.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
@@ -1114,11 +1115,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     })
 }
 
-/// Emit a `scan-done` with no work done, for a `scan_id` `start_scan` is not
-/// going to spawn a real scan for. The frontend keys its `scanRunning` flag
-/// off `scan-done` alone, so every `scan_id` it hands a scan for must
+/// Emit an empty `scan-done` and `faces-done`, for a `scan_id` `start_scan` is
+/// not going to spawn a real scan for. The frontend clears its `scanRunning`
+/// flag off `faces-done`, so every `scan_id` it hands a scan for must
 /// eventually get one, even the ids that turn out to be no-ops here.
-fn emit_empty_scan_done(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
+fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
     let done = Done {
         dir,
         scan_id,
@@ -1204,17 +1205,17 @@ pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
             .map(|pending| pending.dir)
             .unwrap_or_default();
         drop(state);
-        emit_empty_scan_done(&app, &dir, scan_id);
+        emit_empty_scan_events(&app, &dir, scan_id);
         return Ok(());
     }
     let Some(pending) = state.pending.remove(&scan_id) else {
         drop(state);
-        emit_empty_scan_done(&app, "", scan_id);
+        emit_empty_scan_events(&app, "", scan_id);
         return Ok(());
     };
     let Some(index) = app.state::<AppIndex>().0.clone() else {
         drop(state);
-        emit_empty_scan_done(&app, &pending.dir, scan_id);
+        emit_empty_scan_events(&app, &pending.dir, scan_id);
         return Ok(());
     };
     let PendingScan { dir, todo, cancel } = pending;
