@@ -1,12 +1,13 @@
 //! The self-update flow: check, download and install in the background, with
-//! the new version used on the next launch. The app is never relaunched. On
-//! Windows the install exits the process, so it is deferred to quit.
+//! the new version used on the next launch. On Windows the install exits the
+//! process, so it is deferred to quit. The app is relaunched only when the user
+//! picks `Restart Now` after a check from the menu.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::index;
@@ -44,7 +45,7 @@ async fn run(app: AppHandle, interactive: bool) {
     let state = app.state::<UpdateRun>();
     if let Some(version) = index::lock(&state.installed).clone() {
         if interactive {
-            message(&app, &installed_text(&version), MessageDialogKind::Info);
+            offer_restart(&app, &version);
         }
         return;
     }
@@ -76,7 +77,7 @@ async fn run(app: AppHandle, interactive: bool) {
         Ok(Some(version)) => {
             log::info!("{}", installed_log(&version));
             if interactive {
-                message(&app, &installed_text(&version), MessageDialogKind::Info);
+                offer_restart(&app, &version);
             }
         }
         Err(e) => {
@@ -109,12 +110,16 @@ async fn check_and_update(app: &AppHandle) -> Result<Option<String>, tauri_plugi
 
 #[cfg(windows)]
 fn installed_text(version: &str) -> String {
-    format!("Riffle {version} was downloaded and will be installed when Riffle quits.")
+    format!(
+        "Riffle {version} was downloaded. Restart now to install it, or later to install it when Riffle quits."
+    )
 }
 
 #[cfg(not(windows))]
 fn installed_text(version: &str) -> String {
-    format!("Riffle {version} was installed and will be used the next time Riffle launches.")
+    format!(
+        "Riffle {version} was installed. Restart now to use it, or later to use it the next time Riffle launches."
+    )
 }
 
 #[cfg(windows)]
@@ -125,6 +130,45 @@ fn installed_log(version: &str) -> String {
 #[cfg(not(windows))]
 fn installed_log(version: &str) -> String {
     format!("installed Riffle {version}; it is used on the next launch")
+}
+
+fn offer_restart(app: &AppHandle, version: &str) {
+    let app = app.clone();
+    app.dialog()
+        .message(installed_text(version))
+        .title("Riffle")
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Restart Now".into(),
+            "Later".into(),
+        ))
+        .show(move |restart_now| {
+            if restart_now {
+                restart(&app);
+            }
+        });
+}
+
+/// Windows: the pending install is switched to relaunch the app and runs on
+/// the exit's `ExitRequested`. The flag is set only here so that `Later`
+/// followed by a normal quit does not relaunch.
+#[cfg(windows)]
+fn restart(app: &AppHandle) {
+    {
+        let state = app.state::<UpdateRun>();
+        let mut pending = index::lock(&state.pending);
+        *pending = pending
+            .take()
+            .map(|(update, bytes)| (update.restart_after_install(true), bytes));
+    }
+    app.exit(0);
+}
+
+/// Not `AppHandle::restart`: it never returns and parks this dialog-callback
+/// thread, while `request_restart` goes through `ExitRequested` like a quit.
+#[cfg(not(windows))]
+fn restart(app: &AppHandle) {
+    app.request_restart();
 }
 
 fn message(app: &AppHandle, text: &str, kind: MessageDialogKind) {

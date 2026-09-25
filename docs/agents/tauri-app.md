@@ -273,6 +273,15 @@ every pending write is on disk. The updater is built with
 `restart_after_install(false)` (the Windows default is `true`), so quitting
 means quitting. Compiled, not exercised against a real install.
 
+The menu's check then offers `Restart Now`. On macOS/Linux it calls
+`AppHandle::request_restart` (not `restart`, which is `-> !` and parks the
+dialog-callback thread), so the same `ExitRequested` arm runs. On Windows it
+swaps the pending `Update` for `update.restart_after_install(true)` (a setter
+on `Update` itself, so no re-check or second download) and calls
+`app.exit(0)`; `install_pending` then launches the installer with the
+relaunch arguments. The flag is set only on that click, never at build time:
+building with `true` up front would relaunch after `Later` and a normal quit.
+
 - Why: only Windows needs the exe unlocked before it can overwrite itself;
   macOS/Linux replace files the running process isn't holding open. Deferring
   on macOS would run `install_inner`'s `run_on_main_thread` fallback from the
