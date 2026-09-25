@@ -299,6 +299,7 @@ body {
   line-height: 1.4;
   white-space: nowrap;
   color: #ccc;
+  cursor: pointer;
 }
 
 .folder:hover {
@@ -324,7 +325,6 @@ body {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
 }
 
 /* The RAW count of an expanded folder. */

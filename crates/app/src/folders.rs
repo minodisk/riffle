@@ -119,20 +119,8 @@ fn list(dir: &Path) -> Result<Folder, String> {
     let mut children = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        let Ok(file_type) = entry.file_type() else {
+        let Some((is_dir, is_file)) = kind(&entry) else {
             continue;
-        };
-        // `file_type()` does not follow symlinks, so a symlinked subfolder or
-        // RAW file is reported as neither a dir nor a file. Fall back to one
-        // `metadata()` call (which does follow the link) only in that rare
-        // case, keeping the common path at a single stat.
-        let (is_dir, is_file) = if file_type.is_symlink() {
-            match std::fs::metadata(&path) {
-                Ok(m) => (m.is_dir(), m.is_file()),
-                Err(_) => continue,
-            }
-        } else {
-            (file_type.is_dir(), file_type.is_file())
         };
         if is_dir {
             if !entry.file_name().to_string_lossy().starts_with('.') && !is_hidden(&entry) {
@@ -147,6 +135,28 @@ fn list(dir: &Path) -> Result<Folder, String> {
         raw_count,
         children,
     })
+}
+
+/// Whether `entry` is a directory and whether it is a file, following a
+/// symlink; `None` if that cannot be told (a broken link, say).
+/// `file_type()` does not follow symlinks, so a symlinked folder or RAW file
+/// is reported as neither a dir nor a file. Fall back to one `metadata()`
+/// call (which does follow the link) only in that rare case, keeping the
+/// common path free of a per-entry stat: `file_type()` comes with the
+/// directory listing on Windows.
+fn kind(entry: &DirEntry) -> Option<(bool, bool)> {
+    let file_type = entry.file_type().ok()?;
+    if file_type.is_symlink() {
+        let m = std::fs::metadata(entry.path()).ok()?;
+        Some((m.is_dir(), m.is_file()))
+    } else {
+        Some((file_type.is_dir(), file_type.is_file()))
+    }
+}
+
+/// Whether `entry` is a file, following a symlink, as `kind` tells it.
+pub(crate) fn is_file(entry: &DirEntry) -> bool {
+    kind(entry).is_some_and(|(_, is_file)| is_file)
 }
 
 #[cfg(target_os = "windows")]

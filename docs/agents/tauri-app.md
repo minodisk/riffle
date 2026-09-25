@@ -51,6 +51,18 @@ Rules:
   tiny JSON file, so the blocking cost is negligible. Reach for
   `spawn_blocking` when the IO is unbounded or can block on something other
   than a small local file.
+- Hit again on the folder-open path: `list_arw` was a synchronous command
+  that `stat`ed every entry (`path.is_file()`). With a scan reading the same
+  drive, `open list` took 4.6-7.4 s for a few hundred RAWs on Windows, the
+  main thread was blocked for all of it, and every later click queued behind
+  it. `list_arw`, `remember_folder` and `start_scan` are now `async` commands
+  wrapping their work in `spawn_blocking`, and the listing uses
+  `DirEntry::file_type()` (free from the listing on Windows) with a
+  `metadata()` fallback only for symlinks. Note that
+  `#[tauri::command(async)]` on a non-`async` fn is not `spawn_blocking`:
+  tauri-macros' `body_async` calls the fn inside the future, so it runs on
+  an async runtime worker and stalls it. Source:
+  `docs/plans/20260925-folder-open-off-main-thread/`.
 
 ### Resolve shortcut overrides order-independently, not in a single pass (Hit)
 
@@ -1468,6 +1480,10 @@ forward, and injected keystrokes are dropped silently.
 `cargo test --lib` fails because `crates/app` has no library target.
 
 - Run `cargo test <test_name>` (optionally scoped with `cd crates/app`) instead.
+- A `#[cfg(unix)]` test compiles and runs only on macOS/Linux CI; on a
+  Windows dev machine it's silently absent from the run (not a failure, not
+  a skip you'll see), so a passing `cargo test <name>` there proves nothing
+  about it. Confirm unix-only coverage on CI, not locally on Windows.
 
 ### A rating/pick test needs a scan-populated `files` row before `rating_of` reads back (Hit)
 
