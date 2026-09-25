@@ -836,6 +836,7 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   });
   applySharpness();
   applyBursts();
+  applyCandidates();
   if (files.length === 0) {
     closeContextMenu();
     index = 0;
@@ -1107,6 +1108,13 @@ function applyBursts(): void {
   });
 }
 
+// Hand the strip whether each displayed file is a focus candidate.
+function applyCandidates(): void {
+  files.forEach((path, at) => {
+    strip.setCandidate(at, entries.get(path)?.focus?.candidate === "candidate");
+  });
+}
+
 function refreshEntries(): void {
   if (openDir === null) {
     return;
@@ -1153,6 +1161,7 @@ function refreshEntries(): void {
       draw();
       applySharpness();
       applyBursts();
+      applyCandidates();
       refilter();
     })
     .catch(() => {
@@ -2170,6 +2179,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `focus ${payload.done} / ${payload.total}`;
   const current = applyFaceReady(entries, payload.ready, files[index]);
+  applyCandidates();
   // The candidate filter fills in as the pass runs; the strip keeps its
   // scroll offset, as on a resync.
   if (shownCandidates.size > 0) {

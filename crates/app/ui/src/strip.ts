@@ -2,6 +2,7 @@
 // over the cached thumbnails the `thumbnail` command serves.
 
 import type { BurstMark } from "./burst.js";
+import { FOCUS_MARK_COLORS } from "./focus.js";
 import type { Modifiers, PickFlag } from "./selection.js";
 import type { RelativeSharpness } from "./sharpness.js";
 
@@ -24,6 +25,17 @@ const RANGE_MARGIN = 4;
 // Concurrent `thumbnail` invokes. The IPC hop, not the decode, is the cost.
 const MAX_IN_FLIGHT = 4;
 
+/*! Lucide `scan-face` icon, lucide-static v1.48.0
+ * (https://github.com/lucide-icons/lucide), ISC License,
+ * Copyright (c) 2026 Lucide Icons and Contributors.
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * Full notice in `crates/app/ui/LICENSE-lucide`. */
+const SCAN_FACE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg>`;
+
 interface Cell {
   el: HTMLDivElement;
   img: HTMLImageElement;
@@ -31,6 +43,7 @@ interface Cell {
   flag: HTMLSpanElement;
   sharpness: HTMLSpanElement;
   count: HTMLSpanElement;
+  candidate: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
 }
@@ -77,6 +90,8 @@ const sharpness = new Map<number, RelativeSharpness>();
 // The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
+// The indices whose file is a focus candidate.
+const candidates = new Set<number>();
 // The selected indices besides `current`, mirroring the selection in
 // `main.ts`.
 const selected = new Set<number>();
@@ -140,6 +155,12 @@ function paintBurst(index: number, cell: Cell): void {
           : "";
 }
 
+// A face icon at the image box's bottom-left, in the focus mark's candidate
+// color, on a focus candidate.
+function paintCandidate(index: number, cell: Cell): void {
+  cell.candidate.hidden = !candidates.has(index);
+}
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
@@ -175,6 +196,11 @@ function createCell(index: number): Cell {
   const count = document.createElement("span");
   count.className = "count";
   el.append(count);
+  const candidate = document.createElement("span");
+  candidate.className = "candidate";
+  candidate.innerHTML = SCAN_FACE_SVG;
+  candidate.style.color = FOCUS_MARK_COLORS.candidate;
+  el.append(candidate);
   el.addEventListener("click", (event) => {
     select(index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
   });
@@ -183,10 +209,21 @@ function createCell(index: number): Cell {
     contextMenu(index, event.clientX, event.clientY);
   });
   inner.append(el);
-  const cell: Cell = { el, img, badge, flag, sharpness: sharp, count, name, url: null };
+  const cell: Cell = {
+    el,
+    img,
+    badge,
+    flag,
+    sharpness: sharp,
+    count,
+    candidate,
+    name,
+    url: null,
+  };
   paintRating(index, cell);
   paintSharpness(index, cell);
   paintBurst(index, cell);
+  paintCandidate(index, cell);
   return cell;
 }
 
@@ -374,6 +411,20 @@ export function setBurst(index: number, value: BurstMark | null): void {
   }
 }
 
+// Record whether one file is a focus candidate, repainting its cell when it is
+// on screen.
+export function setCandidate(index: number, candidate: boolean): void {
+  if (candidate) {
+    candidates.add(index);
+  } else {
+    candidates.delete(index);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintCandidate(index, cell);
+  }
+}
+
 // Show one cell per file, in `list_arw` order, all of them placeholders.
 // `keepScroll` is for a rescan of the folder already shown: the offset is
 // kept (clamped to the new list's width) instead of jumping back to the top,
@@ -395,6 +446,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   sharpness.clear();
   bursts.clear();
+  candidates.clear();
   selected.clear();
   files = paths;
   indexOf = new Map(paths.map((path, index) => [path, index]));

@@ -157,21 +157,19 @@ describe("metaGroups", () => {
     expect(metaGroups(null, null)).toEqual([]);
   });
 
-  test("shows the focus candidate state and the eye sharpness after Sharpness", () => {
+  test("shows the AF eye sharpness after Sharpness", () => {
     const riffle = (focus: FocusCue) => metaGroups(null, 12, focus)[0]?.rows;
     expect(riffle({ candidate: "candidate", eye_sharpness: 123.45 })).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "Focus", value: "Candidate" },
-      { label: "Eye sharpness", value: "123.5" },
+      { label: "AF eye sharpness", value: "123.5" },
     ]);
     expect(riffle({ candidate: "not_candidate", eye_sharpness: 42 })).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "Focus", value: "Not a candidate" },
-      { label: "Eye sharpness", value: "42.0" },
+      { label: "AF eye sharpness", value: "42.0" },
     ]);
   });
 
-  test("leaves out both rows when the state is unknown with no value", () => {
+  test("leaves out the row when there is no value", () => {
     expect(metaGroups(null, 12, { candidate: "unknown", eye_sharpness: null })[0]?.rows).toEqual([
       { label: "Sharpness", value: "12.0" },
     ]);
@@ -181,10 +179,7 @@ describe("metaGroups", () => {
     expect(metaGroups(null, null, { candidate: "not_candidate", eye_sharpness: 7 })).toEqual([
       {
         heading: ANALYSIS_HEADING,
-        rows: [
-          { label: "Focus", value: "Not a candidate" },
-          { label: "Eye sharpness", value: "7.0" },
-        ],
+        rows: [{ label: "AF eye sharpness", value: "7.0" }],
       },
     ]);
   });

@@ -47,17 +47,6 @@ export interface FocusCue {
   eye_sharpness: number | null;
 }
 
-function candidateLabel(state: FocusCandidate | null | undefined): string | null {
-  switch (state) {
-    case "candidate":
-      return "Candidate";
-    case "not_candidate":
-      return "Not a candidate";
-    default:
-      return null;
-  }
-}
-
 function group(heading: string, rows: [string, string | null][]): MetaGroup {
   return {
     heading,
@@ -68,9 +57,8 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // The meta pane's rows grouped by where each value comes from: standard
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
-// not be read still shows its score. The focus candidate state gets a `Focus`
-// row only when it is known, and the eye sharpness a row only when there is
-// one.
+// not be read still shows its score. The AF eye sharpness gets a row only when
+// there is one.
 export function metaGroups(
   meta: Metadata | null,
   sharpness: number | null,
@@ -108,8 +96,7 @@ export function metaGroups(
   groups.push(
     group(ANALYSIS_HEADING, [
       ["Sharpness", sharpness?.toFixed(1) ?? null],
-      ["Focus", candidateLabel(focus?.candidate)],
-      ["Eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
+      ["AF eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
     ]),
   );
   return groups.filter(({ rows }) => rows.length > 0);

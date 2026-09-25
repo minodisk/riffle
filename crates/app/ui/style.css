@@ -530,6 +530,29 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
+/* The focus candidate icon, at the image box's bottom-left above the file
+   name, mirroring the burst count; `drop-shadow` gives the SVG strokes the
+   dark halo `text-shadow` gives the other badges. */
+.cell span.candidate {
+  bottom: 26px;
+  left: 2px;
+  right: auto;
+  width: auto;
+  padding: 0;
+  line-height: 0;
+  filter: drop-shadow(0 0 2px #000);
+}
+
+.cell span.candidate svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.cell span.candidate[hidden] {
+  display: none;
+}
+
 .cell.rejected {
   opacity: 0.45;
 }
