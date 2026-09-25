@@ -23,6 +23,13 @@ pub struct Exif {
     pub focus_mode: Option<String>,
     pub af_tracking: Option<String>,
     pub af_area: Option<String>,
+    pub drive: Option<String>,
+    pub stabilization: Option<String>,
+    pub exposure_mode: Option<String>,
+    pub metering: Option<String>,
+    pub creative_style: Option<String>,
+    pub dro: Option<String>,
+    pub raw_type: Option<String>,
 }
 
 /// Format a rational as a decimal with at most `places` digits, with trailing
@@ -131,6 +138,147 @@ fn af_area(model: Option<&str>, v: u8) -> Option<&'static str> {
     }
 }
 
+/// Sony `ReleaseMode` (0xb049), labeled as ExifTool's Sony.pm `%Sony::Main`.
+/// 65535 (n/a) is `None`.
+fn release_mode(v: u32) -> Option<&'static str> {
+    match v {
+        0 => Some("Normal"),
+        2 => Some("Continuous"),
+        5 => Some("Exposure Bracketing"),
+        6 => Some("White Balance Bracketing"),
+        8 => Some("DRO Bracketing"),
+        _ => None,
+    }
+}
+
+/// The drive row: the release mode, followed by the frame number within the
+/// burst when Sony `SequenceNumber` (0xb04a) records one (0 is a single shot,
+/// 65535 n/a).
+fn drive(release: Option<u32>, sequence: Option<u32>) -> Option<String> {
+    let label = release_mode(release?)?;
+    Some(match sequence {
+        Some(n) if n != 0 && n != 65535 => format!("{label}, frame {n}"),
+        _ => label.to_string(),
+    })
+}
+
+/// Sony `ImageStabilization` (0xb026), labeled as ExifTool's Sony.pm
+/// `%Sony::Main`. 0xffffffff (n/a) is `None`.
+fn stabilization(v: u32) -> Option<&'static str> {
+    match v {
+        0 => Some("Off"),
+        1 => Some("On"),
+        _ => None,
+    }
+}
+
+/// Sony `ExposureMode` (0xb041), labeled as ExifTool's Sony.pm
+/// `%Sony::Main`. 65535 (n/a) is `None`.
+fn exposure_mode(v: u32) -> Option<&'static str> {
+    match v {
+        0 => Some("Program AE"),
+        1 => Some("Portrait"),
+        2 => Some("Beach"),
+        3 => Some("Sports"),
+        4 => Some("Snow"),
+        5 => Some("Landscape"),
+        6 => Some("Auto"),
+        7 => Some("Aperture-priority AE"),
+        8 => Some("Shutter speed priority AE"),
+        9 => Some("Night Scene / Twilight"),
+        10 => Some("Hi-Speed Shutter"),
+        11 => Some("Twilight Portrait"),
+        12 => Some("Soft Snap/Portrait"),
+        13 => Some("Fireworks"),
+        14 => Some("Smile Shutter"),
+        15 => Some("Manual"),
+        18 => Some("High Sensitivity"),
+        19 => Some("Macro"),
+        20 => Some("Advanced Sports Shooting"),
+        29 => Some("Underwater"),
+        33 => Some("Food"),
+        34 => Some("Sweep Panorama"),
+        35 => Some("Handheld Night Shot"),
+        36 => Some("Anti Motion Blur"),
+        37 => Some("Pet"),
+        38 => Some("Backlight Correction HDR"),
+        39 => Some("Superior Auto"),
+        40 => Some("Background Defocus"),
+        41 => Some("Soft Skin"),
+        42 => Some("3D Image"),
+        _ => None,
+    }
+}
+
+/// Sony `MeteringMode2` (0x202c), labeled as ExifTool's Sony.pm
+/// `%Sony::Main`. It is finer than EXIF `MeteringMode` (0x9207), which
+/// Riffle does not read.
+fn metering(v: u32) -> Option<&'static str> {
+    match v {
+        0x100 => Some("Multi-segment"),
+        0x200 => Some("Center-weighted average"),
+        0x301 => Some("Spot (Standard)"),
+        0x302 => Some("Spot (Large)"),
+        0x400 => Some("Average"),
+        0x500 => Some("Highlight"),
+        _ => None,
+    }
+}
+
+/// Sony `CreativeStyle` (0xb020), always recorded in English, passed through
+/// with the renames ExifTool's Sony.pm `%Sony::Main` applies.
+fn creative_style(v: &str) -> Option<String> {
+    let label = match v {
+        "" => return None,
+        "AdobeRGB" => "Adobe RGB",
+        "Nightview" => "Night View/Portrait",
+        "BW" => "B&W",
+        "Autumnleaves" => "Autumn Leaves",
+        "VV2" => "Vivid 2",
+        other => other,
+    };
+    Some(label.to_string())
+}
+
+/// Sony `DynamicRangeOptimizer` (0xb025), labeled as ExifTool's Sony.pm
+/// `%Sony::Main`. The other `DynamicRangeOptimizer` tag, 0xb04f, is not
+/// used: ExifTool gives it `Priority => 0`, and it reads Standard where the
+/// body's menu (and 0xb025) says Auto.
+fn dro(v: u32) -> Option<&'static str> {
+    match v {
+        0 => Some("Off"),
+        1 => Some("Standard"),
+        2 => Some("Advanced Auto"),
+        3 => Some("Auto"),
+        8 => Some("Advanced Lv1"),
+        9 => Some("Advanced Lv2"),
+        10 => Some("Advanced Lv3"),
+        11 => Some("Advanced Lv4"),
+        12 => Some("Advanced Lv5"),
+        16 => Some("Lv1"),
+        17 => Some("Lv2"),
+        18 => Some("Lv3"),
+        19 => Some("Lv4"),
+        20 => Some("Lv5"),
+        21 => Some("Lv6"),
+        22 => Some("Lv7"),
+        23 => Some("Lv8"),
+        _ => None,
+    }
+}
+
+/// Sony `RAWFileType` (0x2029), labeled as ExifTool's Sony.pm `%Sony::Main`.
+/// 65535 (n/a) is `None`.
+fn raw_type(v: u32) -> Option<&'static str> {
+    match v {
+        0 => Some("Compressed RAW"),
+        1 => Some("Uncompressed RAW"),
+        2 => Some("Lossless Compressed RAW"),
+        3 => Some("Compressed RAW 2"),
+        _ => None,
+    }
+}
+
 pub fn exif(shot: &Shot) -> Exif {
     // The model usually already starts with the make ("SONY" / "ILCE-7M5"),
     // so the two are joined rather than one being dropped.
@@ -188,6 +336,22 @@ pub fn exif(shot: &Shot) -> Exif {
             .af_area_mode
             .and_then(|v| af_area(shot.model.as_deref(), v))
             .map(str::to_string),
+        drive: drive(shot.release_mode, shot.sequence_number),
+        stabilization: shot
+            .image_stabilization
+            .and_then(stabilization)
+            .map(str::to_string),
+        exposure_mode: shot
+            .exposure_mode
+            .and_then(exposure_mode)
+            .map(str::to_string),
+        metering: shot.metering_mode.and_then(metering).map(str::to_string),
+        creative_style: shot.creative_style.as_deref().and_then(creative_style),
+        dro: shot
+            .dynamic_range_optimizer
+            .and_then(dro)
+            .map(str::to_string),
+        raw_type: shot.raw_file_type.and_then(raw_type).map(str::to_string),
     }
 }
 
@@ -347,6 +511,184 @@ mod tests {
         assert_eq!(e.focus_mode.as_deref(), Some("AF-C"));
         assert_eq!(e.af_tracking.as_deref(), Some("Face tracking"));
         assert_eq!(e.af_area.as_deref(), Some("Custom AF Area"));
+    }
+
+    #[test]
+    fn the_sony_release_mode_maps_to_its_label() {
+        for (v, label) in [
+            (0, "Normal"),
+            (2, "Continuous"),
+            (5, "Exposure Bracketing"),
+            (6, "White Balance Bracketing"),
+            (8, "DRO Bracketing"),
+        ] {
+            assert_eq!(release_mode(v), Some(label));
+        }
+        for v in [1, 3, 65535] {
+            assert_eq!(release_mode(v), None);
+        }
+    }
+
+    #[test]
+    fn the_drive_row_adds_the_frame_number_within_a_burst() {
+        assert_eq!(drive(Some(0), None).as_deref(), Some("Normal"));
+        assert_eq!(drive(Some(0), Some(0)).as_deref(), Some("Normal"));
+        assert_eq!(drive(Some(2), None).as_deref(), Some("Continuous"));
+        assert_eq!(drive(Some(2), Some(65535)).as_deref(), Some("Continuous"));
+        assert_eq!(
+            drive(Some(2), Some(1)).as_deref(),
+            Some("Continuous, frame 1")
+        );
+        assert_eq!(
+            drive(Some(2), Some(2)).as_deref(),
+            Some("Continuous, frame 2")
+        );
+        assert_eq!(drive(None, Some(2)), None);
+        assert_eq!(drive(Some(65535), Some(2)), None);
+        assert_eq!(drive(None, None), None);
+    }
+
+    #[test]
+    fn the_sony_stabilization_maps_to_its_label() {
+        assert_eq!(stabilization(0), Some("Off"));
+        assert_eq!(stabilization(1), Some("On"));
+        assert_eq!(stabilization(2), None);
+        assert_eq!(stabilization(0xffff_ffff), None);
+    }
+
+    #[test]
+    fn the_sony_exposure_mode_maps_to_its_label() {
+        for (v, label) in [
+            (0, "Program AE"),
+            (1, "Portrait"),
+            (2, "Beach"),
+            (3, "Sports"),
+            (4, "Snow"),
+            (5, "Landscape"),
+            (6, "Auto"),
+            (7, "Aperture-priority AE"),
+            (8, "Shutter speed priority AE"),
+            (9, "Night Scene / Twilight"),
+            (10, "Hi-Speed Shutter"),
+            (11, "Twilight Portrait"),
+            (12, "Soft Snap/Portrait"),
+            (13, "Fireworks"),
+            (14, "Smile Shutter"),
+            (15, "Manual"),
+            (18, "High Sensitivity"),
+            (19, "Macro"),
+            (20, "Advanced Sports Shooting"),
+            (29, "Underwater"),
+            (33, "Food"),
+            (34, "Sweep Panorama"),
+            (35, "Handheld Night Shot"),
+            (36, "Anti Motion Blur"),
+            (37, "Pet"),
+            (38, "Backlight Correction HDR"),
+            (39, "Superior Auto"),
+            (40, "Background Defocus"),
+            (41, "Soft Skin"),
+            (42, "3D Image"),
+        ] {
+            assert_eq!(exposure_mode(v), Some(label));
+        }
+        for v in [16, 30, 50, 65535] {
+            assert_eq!(exposure_mode(v), None);
+        }
+    }
+
+    #[test]
+    fn the_sony_metering_mode_maps_to_its_label() {
+        for (v, label) in [
+            (0x100, "Multi-segment"),
+            (0x200, "Center-weighted average"),
+            (0x301, "Spot (Standard)"),
+            (0x302, "Spot (Large)"),
+            (0x400, "Average"),
+            (0x500, "Highlight"),
+        ] {
+            assert_eq!(metering(v), Some(label));
+        }
+        for v in [0, 0x300, 0x600, 65535] {
+            assert_eq!(metering(v), None);
+        }
+    }
+
+    #[test]
+    fn the_sony_creative_style_passes_through_with_exiftool_renames() {
+        for (v, label) in [
+            ("Standard", "Standard"),
+            ("ST", "ST"),
+            ("AdobeRGB", "Adobe RGB"),
+            ("Nightview", "Night View/Portrait"),
+            ("BW", "B&W"),
+            ("Autumnleaves", "Autumn Leaves"),
+            ("VV2", "Vivid 2"),
+        ] {
+            assert_eq!(creative_style(v).as_deref(), Some(label));
+        }
+        assert_eq!(creative_style(""), None);
+    }
+
+    #[test]
+    fn the_sony_dro_maps_to_its_label() {
+        for (v, label) in [
+            (0, "Off"),
+            (1, "Standard"),
+            (2, "Advanced Auto"),
+            (3, "Auto"),
+            (8, "Advanced Lv1"),
+            (9, "Advanced Lv2"),
+            (10, "Advanced Lv3"),
+            (11, "Advanced Lv4"),
+            (12, "Advanced Lv5"),
+            (16, "Lv1"),
+            (17, "Lv2"),
+            (18, "Lv3"),
+            (19, "Lv4"),
+            (20, "Lv5"),
+            (21, "Lv6"),
+            (22, "Lv7"),
+            (23, "Lv8"),
+        ] {
+            assert_eq!(dro(v), Some(label));
+        }
+        for v in [4, 7, 13, 24, 0xffff_ffff] {
+            assert_eq!(dro(v), None);
+        }
+    }
+
+    #[test]
+    fn the_sony_raw_type_maps_to_its_label() {
+        assert_eq!(raw_type(0), Some("Compressed RAW"));
+        assert_eq!(raw_type(1), Some("Uncompressed RAW"));
+        assert_eq!(raw_type(2), Some("Lossless Compressed RAW"));
+        assert_eq!(raw_type(3), Some("Compressed RAW 2"));
+        assert_eq!(raw_type(4), None);
+        assert_eq!(raw_type(65535), None);
+    }
+
+    #[test]
+    fn the_drive_and_picture_fields_are_formatted_from_the_shot() {
+        let e = exif(&Shot {
+            model: Some("ILCE-7M5".to_string()),
+            release_mode: Some(2),
+            sequence_number: Some(3),
+            image_stabilization: Some(1),
+            exposure_mode: Some(15),
+            metering_mode: Some(0x100),
+            creative_style: Some("Standard".to_string()),
+            dynamic_range_optimizer: Some(3),
+            raw_file_type: Some(2),
+            ..Shot::default()
+        });
+        assert_eq!(e.drive.as_deref(), Some("Continuous, frame 3"));
+        assert_eq!(e.stabilization.as_deref(), Some("On"));
+        assert_eq!(e.exposure_mode.as_deref(), Some("Manual"));
+        assert_eq!(e.metering.as_deref(), Some("Multi-segment"));
+        assert_eq!(e.creative_style.as_deref(), Some("Standard"));
+        assert_eq!(e.dro.as_deref(), Some("Auto"));
+        assert_eq!(e.raw_type.as_deref(), Some("Lossless Compressed RAW"));
     }
 
     #[test]

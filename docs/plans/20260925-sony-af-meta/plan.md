@@ -197,7 +197,7 @@ module already has a top-level `find(entries, tag)` used a few lines above.
     - Label wording follows ExifTool ("Face tracking", "Lock On AF",
       "Manual", "AF-C", "Flexible Spot", ...).
 
-- [ ] Step 3: Format the drive, stabilization and picture settings in `exif.rs` and show them in the meta pane
+- [x] Step 3: Format the drive, stabilization and picture settings in `exif.rs` and show them in the meta pane
   - Done when:
     - `Exif` gains `drive: Option<String>`, `stabilization: Option<String>`,
       `exposure_mode: Option<String>`, `metering: Option<String>`,

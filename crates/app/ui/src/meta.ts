@@ -10,6 +10,13 @@ export interface Metadata {
   focus_mode: string | null;
   af_area: string | null;
   af_tracking: string | null;
+  drive: string | null;
+  stabilization: string | null;
+  exposure_mode: string | null;
+  metering: string | null;
+  creative_style: string | null;
+  dro: string | null;
+  raw_type: string | null;
   iso: string | null;
   focal_length: string | null;
   exposure_bias: string | null;
@@ -89,6 +96,13 @@ export function metaGroups(
           ["Focus mode", meta.focus_mode],
           ["AF area", meta.af_area],
           ["AF tracking", meta.af_tracking],
+          ["Drive", meta.drive],
+          ["Stabilization", meta.stabilization],
+          ["Exposure mode", meta.exposure_mode],
+          ["Metering", meta.metering],
+          ["Creative style", meta.creative_style],
+          ["DRO", meta.dro],
+          ["RAW type", meta.raw_type],
           ["Focus distance", meta.focus_distance],
         ]),
       ]),
