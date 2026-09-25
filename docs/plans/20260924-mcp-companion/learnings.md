@@ -158,6 +158,18 @@
   same XMP / `.dop` bytes as a key press and that `Cmd+Z` undoes it (no GUI
   session in this environment). The code path is shared by construction.
 
+## Step 6: documentation
+
+- The settings live in the `MCP` tab of the settings modal in
+  `crates/app/ui/index.html` (the plan's `settings.html` no longer exists
+  after the settings-modal plan); the docs name the tab and its
+  `Let MCP clients connect` checkbox.
+- The docs keep the `npx -y mcp-remote` form for Claude Desktop and say a
+  direct `url` entry is unverified, matching `crates/app/ui/src/mcp.ts`; the
+  existing deferred item covers switching it once checked.
+- README.ja.md links its own subsection as `#mcp-コンパニオン` (GitHub's slug
+  keeps the katakana); lychee's `--include-fragments` accepts it.
+
 ## Deferred issues (todo candidates)
 
 - Verify by hand whether Claude Desktop accepts a direct `url` entry for a

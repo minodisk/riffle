@@ -126,7 +126,7 @@ Desktop appear only as connection examples.
     - Extract the change-building part of `judge()` into a function usable by both key presses and the bridge, or call `judge()` with a synthesized `Command`; pick whichever keeps `judge()`'s behavior byte-identical (see `selection.ts::judgments`).
     - Commit as `feat(app): write judgments from MCP through the UI's commit path`.
 
-- [ ] Step 6: Documentation
+- [x] Step 6: Documentation
   - Done when:
     - `README.md` and `README.ja.md` (same PR) get a short "MCP companion" bullet under Features and a subsection under "Working with other software" with the endpoint URL and the Claude Code / Claude Desktop connection examples, framed as examples of MCP clients rather than the only ones.
     - `docs/usage.md` gets an "MCP companion" section: what each tool does, that it is off by default, loopback only, that trash is never exposed, and the connection examples.
@@ -154,3 +154,4 @@ Desktop appear only as connection examples.
 - (2026-09-25) Step 3 complete
 - (2026-09-25) Step 4 complete
 - (2026-09-25) Step 5 complete
+- (2026-09-25) Step 6 complete

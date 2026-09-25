@@ -52,6 +52,7 @@
 - **連写**: 1 秒以内に撮られたコマはストリップ上で帯と枚数バッジでまとめられます。`ArrowUp` / `ArrowDown` で連写間を移動、`Alt+ArrowLeft` / `Alt+ArrowRight` で連写内のコマを順に移動して端で止まり、`Shift+x` で連写の残りを不採用にします。1 秒未満の撮影時刻を記録しないカメラでは秒単位でまとめます（[カメラが記録する情報](./docs/cameras.md)（英語））。
 - **比較**: `v` で選択した 2〜4 枚を並べて表示するか、表示中の写真とその連写内で最もシャープなコマを並べます。コマをクリックすると、そのコマだけにスターや採用 / 不採用を付けられます。
 - **不採用をゴミ箱へ移動**: `File > Move Rejected to Trash…` で不採用の写真をゴミ箱に移します。削除はしないので、元に戻せば判定も戻ります。
+- **MCP コンパニオン**: AI アシスタントなどの MCP クライアントが、カリングに付き添えます。Riffle が表示している内容を読み、プレビューを見て、表示を動かし、キーと同じ経路でスター、採用 / 不採用、ラベルを付けられます。デフォルトはオフで、このコンピューター内からしか接続できず、ゴミ箱への移動はできません（[MCP コンパニオン](#mcp-コンパニオン)）。
 
 すべての機能と、キーの一覧は [docs/usage.md](./docs/usage.md)（英語）で説明しています（[キー](./docs/usage.md#keys)）。
 
@@ -71,6 +72,33 @@
 - 読み込み後は、Riffle が変更したサイドカーを再読み込みしません（再起動しても同じです）。フォルダーを右クリックして `Synchronize Folder...` を選び、`Scan for metadata updates` にチェックを入れて `Synchronize` をクリックしてください。
 - Lightroom Classic はデフォルトでは XMP を書き出しません。`Ctrl+S`（`Metadata > Save Metadata to File`）で選択中の写真に書き出すか、`Catalog Settings > Metadata > Automatically write changes into XMP` をオンにしてください。
 - カラーラベルは Lightroom Classic のカラーラベルセット（`Metadata > Color Label Set > Edit...`）と名前で照合されます。セットのラベル名を `Red`、`Yellow`、`Green`、`Blue`、`Purple` に変えるか、Riffle の設定でラベル名をセットの名前に合わせてください（日本語版のデフォルトセット用のプリセットを用意しています）。
+
+### MCP コンパニオン
+
+Riffle は [MCP](https://modelcontextprotocol.io/) のエンドポイントを提供でき、MCP クライアント（AI アシスタントなど）をカリングの相棒にできます。設定の `MCP` タブで `Let MCP clients connect` をオンにすると（デフォルトはオフ）、サーバーがこのコンピューター内だけで次の URL を待ち受けます。
+
+```text
+http://127.0.0.1:41917/mcp
+```
+
+Streamable HTTP で MCP を話すクライアントなら、この URL だけで接続できます。例を 2 つ挙げます。
+
+- **Claude Code**:
+  `claude mcp add --transport http riffle http://127.0.0.1:41917/mcp`
+- **Claude Desktop**: `claude_desktop_config.json` に次を追加します。`npx -y mcp-remote` を経由するので Node.js が必要です（`url` を直接書く形は検証していません）。
+
+  ```json
+  {
+    "mcpServers": {
+      "riffle": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "http://127.0.0.1:41917/mcp"]
+      }
+    }
+  }
+  ```
+
+`MCP` タブには URL とこれらの例がコピーボタン付きで表示されます。各ツールの動作は [docs/usage.md](./docs/usage.md#mcp-companion)（英語）で説明しています。
 
 ## 対応状況
 
