@@ -113,7 +113,7 @@ and two PRs.
       it would couple the tree to the open path) and the per-RAW
       `index::stat` in `reconcile` (needed for the mtime/size diff).
 
-- [ ] Step 2: Time `refreshEntries` and drop its redundant runs
+- [x] Step 2: Time `refreshEntries` and drop its redundant runs
   - Done when:
     - With timing logs on, each `refreshEntries` run writes one line to
       `Riffle.log` through `debugLog` -> `log_timing` (never the log

@@ -29,3 +29,47 @@
   sidecar stats plus, when not reused, the `read_dir`.
 - `cargo` is not on the Git Bash PATH here; `mise exec -- cargo test -p
   riffle-app <filter>` works for a quick run.
+
+## Step 2: Time `refreshEntries` and drop its redundant runs
+
+- The decisions and the timing line formatter live in
+  `crates/app/ui/src/refresh.ts` (`refreshOnProgress`, `refreshOnFacesDone`,
+  `refreshTimingLine`), tested in `refresh.test.ts` under the `node`
+  environment. `main.ts` only takes `performance.now()` marks and wires them.
+- The timing line is `refresh entries: rows=... invoke=... entries=...
+  bursts=... exif=... meta=... draw=... sharpness=... apply_bursts=...
+  candidates=... refilter=... set_files=... total=...`, ~190 bytes for a
+  4-digit row count (the test asserts < 220). `applyCandidates` runs between
+  `applyBursts` and `refilter` today, so it is timed as its own `candidates`
+  phase even though the plan's list left it out. `invoke` spans the
+  `folder_entries` round trip; `total` spans invoke start to the end of
+  `refilter`, so it includes the `.then` scheduling delay.
+- `refilter` now returns whether it called `strip.setFiles` (false only on
+  its no-op early return), which is how `set_files` is recorded without a
+  second guard. Its other callers ignore the return value.
+- Progress gating keeps `progressRefreshedFor` (reset in `openDirectory` with
+  `scanDone`), set whenever a progress tick triggers a refresh. The first tick
+  after an open refreshes (nothing recorded yet), then the handler waits until
+  the tick whose `ready` contains the current file, or until the current file
+  changes. When a gated refresh coalesces into an in-flight read,
+  `entriesPending` still re-runs it, so the landing tick is never lost.
+- `faces-done` skip: `scanDone` holds `{ scanId, total }` of the last
+  `scan-done`; the skip requires the same `scan_id` and both totals zero.
+  `emit_empty_scan_events` (a no-op `start_scan`) produces exactly that pair,
+  as does a resync of an unchanged, fully indexed folder. The assumption (a
+  `faces-done` total of zero means no `write_faces`) is on the doc comment of
+  `refreshOnFacesDone`. `setScanRunning(false)`, the status and
+  `drainResync()` still run on a skip.
+- Not done: skipping `rebuildExifMenu`'s DOM rebuild when the per-group label
+  sets are unchanged. There is no measurement yet (the numbers come from the
+  user's machine with `Timing logs` on), and the plan allows it only once a
+  measurement shows it is a clear cost; the new `exif=` field of the timing
+  line is what would justify it.
+
+## Deferred issues (todo candidates)
+
+- Conditional `rebuildExifMenu` in `refreshEntries` (skip the DOM rebuild
+  when the per-group label sets are unchanged). Basis: Step 2 of this plan
+  deferred it pending the user's measurement of the `exif=` phase of the new
+  `refresh entries:` timing line. Files: `crates/app/ui/src/main.ts`
+  (`refreshEntries`, `rebuildExifMenu`).
