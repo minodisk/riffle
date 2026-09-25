@@ -304,3 +304,4 @@ module already has a top-level `find(entries, tag)` used a few lines above.
   nine raw fields and `EXTRACTOR_VERSION` was bumped by one. See
   `learnings.md` for the tag types observed on the ILCE-7M5 samples.
 - (2026-09-25) Step 2 complete
+- (2026-09-25) Step 3 complete
