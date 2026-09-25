@@ -434,19 +434,19 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
                 .find(|e| e.0 == TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER)
         })
         .and_then(integer);
-    let find = |tag: u16| maker.as_ref().and_then(|m| m.iter().find(|e| e.0 == tag));
-    shot.af_area_mode = find(TAG_AF_AREA_MODE_SETTING).and_then(byte);
-    shot.release_mode = find(TAG_RELEASE_MODE).and_then(integer);
-    shot.sequence_number = find(TAG_SEQUENCE_NUMBER).and_then(integer);
-    shot.image_stabilization = find(TAG_IMAGE_STABILIZATION).and_then(integer);
-    shot.exposure_mode = find(TAG_EXPOSURE_MODE).and_then(integer);
-    shot.metering_mode = find(TAG_METERING_MODE2).and_then(integer);
-    shot.creative_style = match find(TAG_CREATIVE_STYLE) {
+    let maker_entry = |tag: u16| maker.as_ref().and_then(|m| m.iter().find(|e| e.0 == tag));
+    shot.af_area_mode = maker_entry(TAG_AF_AREA_MODE_SETTING).and_then(byte);
+    shot.release_mode = maker_entry(TAG_RELEASE_MODE).and_then(integer);
+    shot.sequence_number = maker_entry(TAG_SEQUENCE_NUMBER).and_then(integer);
+    shot.image_stabilization = maker_entry(TAG_IMAGE_STABILIZATION).and_then(integer);
+    shot.exposure_mode = maker_entry(TAG_EXPOSURE_MODE).and_then(integer);
+    shot.metering_mode = maker_entry(TAG_METERING_MODE2).and_then(integer);
+    shot.creative_style = match maker_entry(TAG_CREATIVE_STYLE) {
         Some(e) => ascii(buf, e)?,
         None => None,
     };
-    shot.dynamic_range_optimizer = find(TAG_DYNAMIC_RANGE_OPTIMIZER).and_then(integer);
-    shot.raw_file_type = find(TAG_RAW_FILE_TYPE).and_then(integer);
+    shot.dynamic_range_optimizer = maker_entry(TAG_DYNAMIC_RANGE_OPTIMIZER).and_then(integer);
+    shot.raw_file_type = maker_entry(TAG_RAW_FILE_TYPE).and_then(integer);
     shot.focus_frame = match maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_FRAME_SIZE))
