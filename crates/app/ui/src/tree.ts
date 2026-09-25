@@ -171,6 +171,49 @@ export function treeKey(rows: Row[], cursor: string | null, key: TreeKey): TreeC
   return null;
 }
 
+export interface Typed {
+  text: string;
+  at: number;
+}
+
+export const TYPE_AHEAD_TIMEOUT = 500;
+
+// The type-ahead buffer after typing `char` at `now`: appended while the
+// keys come within `timeout` of each other, else started over.
+export function appendTyped(
+  buffer: Typed,
+  char: string,
+  now: number,
+  timeout = TYPE_AHEAD_TIMEOUT,
+): Typed {
+  return { text: now - buffer.at <= timeout ? buffer.text + char : char, at: now };
+}
+
+// The path of the row whose name starts with `prefix` (case-insensitive),
+// searching down from the cursor and wrapping to the top, or `null` when
+// none does. A single character (or one repeated, as a tapped letter gives)
+// starts past the cursor, so tapping cycles through the matches; a longer
+// prefix starts at the cursor, so it keeps the row its first letter found.
+export function typeAhead(rows: Row[], cursor: string | null, prefix: string): string | null {
+  if (rows.length === 0 || prefix === "") {
+    return null;
+  }
+  let needle = prefix.toLowerCase();
+  const repeated = needle === needle.charAt(0).repeat(needle.length);
+  if (repeated) {
+    needle = needle.charAt(0);
+  }
+  const at = rows.findIndex((row) => row.node.path === cursor);
+  const start = at === -1 ? 0 : repeated ? at + 1 : at;
+  for (let i = 0; i < rows.length; i++) {
+    const { node } = rows[(start + i) % rows.length];
+    if (node.name.toLowerCase().startsWith(needle)) {
+      return node.path;
+    }
+  }
+  return null;
+}
+
 function isWindowsPath(path: string): boolean {
   return /^[A-Za-z]:/.test(path) || path.startsWith("\\\\");
 }
