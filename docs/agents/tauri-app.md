@@ -290,7 +290,9 @@ building with `true` up front would relaunch after `Later` and a normal quit.
   after the flush in `ExitRequested`, and don't assume `install` returns on
   Windows.
 - Source: `docs/plans/_archived/20260919-silent-auto-update/learnings.md`,
-  Step 1; `docs/plans/_archived/20260920-windows-deferred-update/`.
+  Step 1; `docs/plans/_archived/20260920-windows-deferred-update/`;
+  `docs/plans/_archived/20260925-restart-after-update/learnings.md`, Step 1
+  (the `Update::restart_after_install` setter, which avoids a re-check).
 
 ### App items go into the default menu's own submenus (Hit)
 

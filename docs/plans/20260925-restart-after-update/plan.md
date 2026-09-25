@@ -68,22 +68,25 @@ untouched.
     - `docs/usage.md` (the "Updating:" paragraph) describes the new dialog,
       and the "Self-update defers the install to quit on Windows only" entry
       in `docs/agents/tauri-app.md` gets a short note on the interactive
-      restart and why the Windows path re-checks with
-      `restart_after_install(true)` instead of building with `true` up front
-      (that would relaunch after a normal quit following `Later`).
-      `README.md` / `README.ja.md` only describe the startup check; touch
-      them only if their wording becomes wrong, and keep the two in sync.
+      restart and why the Windows path sets `restart_after_install(true)`
+      only on that click, via the `Update` setter, instead of building with
+      `true` up front (that would relaunch after a normal quit following
+      `Later`). `README.md` / `README.ja.md` only describe the startup check;
+      touch them only if their wording becomes wrong, and keep the two in
+      sync.
     - `mise run ci` passes.
   - Implementation approach:
     - `AppHandle::request_restart` (tauri 2.11.6, `app.rs:615`) emits
       `ExitRequested` with `RESTART_EXIT_CODE` and re-execs on `Exit`; do not
       use `AppHandle::restart`, which is `-> !` and parks the calling thread
       when called off the main thread (the dialog callback thread).
-    - On Windows the installer only relaunches the app when the updater was
-      built with `restart_after_install(true)`; the flag is captured in the
-      `Update` at check time (`tauri-plugin-updater-2.12.0/src/updater.rs`
-      ~896), hence the re-check. Keep `restart_after_install(false)` for the
-      initial check so `Later` + a normal quit does not relaunch.
+    - On Windows the installer only relaunches the app when the pending
+      `Update` has `restart_after_install(true)`. `Update` has its own
+      setter (`tauri-plugin-updater-2.12.0/src/updater.rs:783`), so
+      `Restart Now` maps the pending `(Update, Vec<u8>)` to
+      `(update.restart_after_install(true), bytes)`, no re-check. Keep
+      `restart_after_install(false)` for the initial check so `Later` + a
+      normal quit does not relaunch.
     - Add a small helper next to `message()` (e.g. a `confirm` taking the
       text, button labels and an on-ok closure) using
       `.buttons(MessageDialogButtons::OkCancelCustom(..)).show(move |ok| ..)`.
@@ -99,14 +102,19 @@ untouched.
 - Neither `request_restart` nor the Windows installer path is exercised by
   CI; real-install verification on each OS is manual. Record in
   `learnings.md` what was actually tested.
-- The Windows `Restart Now` costs one extra `check()` request (the small
-  update manifest). If the server has published a newer version between the
-  download and the click, the versions differ and the relaunch is declined
-  with an error dialog rather than installing mismatched bytes.
 - The `state.installed` branch (second menu click in the same session) now
   also offers the restart; this is intended, so the user can change their
   mind after choosing `Later`.
 
 ## Progress
 
-- (none yet)
+- Step 1: Replaced the interactive "installed" info dialog with a
+  `Restart Now` / `Later` confirm dialog in `crates/app/src/update.rs`, on
+  both the `state.installed` and `Ok(Some(version))` branches. macOS/Linux
+  `Restart Now` calls `app.request_restart()`; on Windows it drops the
+  planned re-check and swaps the pending `Update` for
+  `update.restart_after_install(true)` (an `Update` setter, same downloaded
+  bytes) before `app.exit(0)`, since `restart_after_install` turned out to be
+  settable on `Update` itself, not just the builder. Updated `update.rs`'s
+  module doc comment, `docs/usage.md` and `docs/agents/tauri-app.md`
+  accordingly. `mise run ci` passes.
