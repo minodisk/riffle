@@ -1429,14 +1429,31 @@ pub async fn set_mcp_enabled(app: tauri::AppHandle, enabled: bool) -> crate::mcp
 }
 
 /// The `xmp:Label` names written for Red ... Purple, in the shape stored
-/// under `labelNames`, and the Japanese Lightroom preset the settings modal
-/// offers, as `{"names": {...}, "japanese": {...}}`.
+/// under `labelNames`, and the Lightroom presets the settings modal offers
+/// (see `label_names_payload`).
 #[tauri::command]
 pub fn label_names(app: tauri::AppHandle) -> Value {
     let names = index::lock(&app.state::<AppLabelNames>().0).clone();
+    label_names_payload(&names)
+}
+
+/// `{"names": {...}, "presets": [{"code", "name", "names": {...}}, ...]}`,
+/// every `names` in the shape stored under `labelNames` and the presets in
+/// `riffle_core::i18n::presets()` order (English first).
+fn label_names_payload(names: &LabelNames) -> Value {
+    let presets: Vec<Value> = riffle_core::i18n::presets()
+        .iter()
+        .map(|preset| {
+            serde_json::json!({
+                "code": preset.code,
+                "name": preset.name,
+                "names": label_names_value(&preset.names),
+            })
+        })
+        .collect();
     serde_json::json!({
-        "names": label_names_value(&names),
-        "japanese": riffle_core::i18n::preset("ja").map(|preset| label_names_value(&preset.names)),
+        "names": label_names_value(names),
+        "presets": presets,
     })
 }
 
@@ -2043,6 +2060,27 @@ mod tests {
             super::label_names_setting(Some(&super::label_names_value(&japanese()))),
             japanese()
         );
+    }
+
+    #[test]
+    fn label_names_payload_lists_the_presets_english_first() {
+        use serde_json::json;
+        let payload = super::label_names_payload(&japanese());
+        assert_eq!(payload["names"], super::label_names_value(&japanese()));
+        let presets = payload["presets"].as_array().unwrap();
+        assert_eq!(
+            presets[0],
+            json!({
+                "code": "en",
+                "name": "English",
+                "names": super::label_names_value(&LabelNames::default()),
+            })
+        );
+        assert!(presets.contains(&json!({
+            "code": "ja",
+            "name": "日本語",
+            "names": super::label_names_value(&japanese()),
+        })));
     }
 
     #[test]

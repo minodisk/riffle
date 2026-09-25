@@ -1,5 +1,5 @@
 import { type Binding, displayKey, keyName } from "./keys.js";
-import { LABEL_COLORS, type LabelNames, englishLabelNames, labelNamesPayload } from "./labels.js";
+import { LABEL_COLORS, type LabelNames, type LabelPreset, labelNamesPayload } from "./labels.js";
 import { type McpState, mcpEndpoint, mcpExamples, mcpStatus } from "./mcp.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { nextTab } from "./tabs.js";
@@ -76,7 +76,8 @@ export function initSettings(hooks: SettingsHooks): Settings {
   const labelNamesBlock = document.getElementById("label-names") as HTMLDivElement;
   const labelNameInput = (color: string): HTMLInputElement =>
     document.getElementById(`label-name-${color}`) as HTMLInputElement;
-  let japaneseLabelNames: LabelNames | null = null;
+  const labelNamesLanguage = document.getElementById("label-names-language") as HTMLSelectElement;
+  let labelPresets: LabelPreset[] = [];
   const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
   const mcpEnabled = document.getElementById("mcp-enabled") as HTMLInputElement;
   const mcpStatusLine = document.getElementById("mcp-status") as HTMLParagraphElement;
@@ -194,9 +195,12 @@ export function initSettings(hooks: SettingsHooks): Settings {
     showSidecarFormat(payload);
   });
   void window.__TAURI__.core
-    .invoke<{ names: LabelNames; japanese: LabelNames }>("label_names")
-    .then(({ names, japanese }) => {
-      japaneseLabelNames = japanese;
+    .invoke<{ names: LabelNames; presets: LabelPreset[] }>("label_names")
+    .then(({ names, presets }) => {
+      labelPresets = presets;
+      labelNamesLanguage.replaceChildren(
+        ...presets.map((preset) => new Option(preset.name, preset.code)),
+      );
       showLabelNames(names);
     });
   void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
@@ -298,17 +302,11 @@ export function initSettings(hooks: SettingsHooks): Settings {
     });
   }
 
-  (document.getElementById("label-names-japanese") as HTMLButtonElement).addEventListener(
+  (document.getElementById("label-names-reset") as HTMLButtonElement).addEventListener(
     "click",
     () => {
-      if (japaneseLabelNames !== null) saveLabelNames(japaneseLabelNames);
-    },
-  );
-
-  (document.getElementById("label-names-english") as HTMLButtonElement).addEventListener(
-    "click",
-    () => {
-      saveLabelNames(englishLabelNames());
+      const preset = labelPresets.find((p) => p.code === labelNamesLanguage.value);
+      if (preset !== undefined) saveLabelNames(preset.names);
     },
   );
 
@@ -398,10 +396,10 @@ export function initSettings(hooks: SettingsHooks): Settings {
   }
 
   function focusables(): HTMLElement[] {
-    return [...box.querySelectorAll<HTMLElement>("button, input, [tabindex]")].filter(
+    return [...box.querySelectorAll<HTMLElement>("button, input, select, [tabindex]")].filter(
       (el) =>
         el.tabIndex >= 0 &&
-        !(el as HTMLButtonElement).disabled &&
+        !(el as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled &&
         !(el instanceof HTMLInputElement && el.type === "radio" && !el.checked) &&
         el.getClientRects().length > 0,
     );
