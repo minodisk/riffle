@@ -59,6 +59,12 @@ artifacts, which need the release signing key.
   developing); `mise run test` runs them once.
 - `mise run ci` runs both, as CI does. Node 24 comes from `mise install`.
 
+## Adding a Lightroom label preset language
+
+The Lightroom color label presets in the settings window come from one JSON
+file per language in `crates/core/i18n/`. See
+[its README](./crates/core/i18n/README.md) for the shape and how to check it.
+
 ## The index
 
 The folder index is a SQLite cache, one row per file keyed by absolute path,

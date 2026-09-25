@@ -141,8 +141,9 @@ untouched.
 - Color labels are matched by name against Lightroom Classic's color label
   set (`Metadata > Color Label Set > Edit...`). Either rename that set's labels
   to `Red`, `Yellow`, `Green`, `Blue` and `Purple`, or set Riffle's label names
-  in the settings to the names in the set (a preset for the Japanese default
-  set is provided).
+  in the settings to the names in the set. Presets for Lightroom's localized
+  default sets are provided (English and Japanese so far); adding a language
+  is [one JSON file](./crates/core/i18n/README.md).
 
 ### MCP companion
 

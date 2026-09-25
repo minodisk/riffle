@@ -10,7 +10,10 @@ whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating`, the
 tri-state pick / reject flag as `xmpDM:good`, and the color label as
 `photoshop:LabelColor` and `xmp:Label`) and `src/dop.rs` DxO PhotoLab `.dop`
 sidecar bytes (rating, the tri-state pick / reject flag as `ShouldProcess`,
-and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
+and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/i18n.rs`
+the per-language values, one JSON file per language in `crates/core/i18n/`
+(so far the Lightroom color label presets) that `build.rs` embeds at build
+time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, and the per-frame face-catch state (`caught` /
 `missed` / `unknown`: did the AF land on a face), and `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame

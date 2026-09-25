@@ -71,7 +71,7 @@
 - Lightroom Classic は、写真を最初に読み込むときに Riffle が書いた XMP を読みます。
 - 読み込み後は、Riffle が変更したサイドカーを再読み込みしません（再起動しても同じです）。フォルダーを右クリックして `Synchronize Folder...` を選び、`Scan for metadata updates` にチェックを入れて `Synchronize` をクリックしてください。
 - Lightroom Classic はデフォルトでは XMP を書き出しません。`Ctrl+S`（`Metadata > Save Metadata to File`）で選択中の写真に書き出すか、`Catalog Settings > Metadata > Automatically write changes into XMP` をオンにしてください。
-- カラーラベルは Lightroom Classic のカラーラベルセット（`Metadata > Color Label Set > Edit...`）と名前で照合されます。セットのラベル名を `Red`、`Yellow`、`Green`、`Blue`、`Purple` に変えるか、Riffle の設定でラベル名をセットの名前に合わせてください（日本語版のデフォルトセット用のプリセットを用意しています）。
+- カラーラベルは Lightroom Classic のカラーラベルセット（`Metadata > Color Label Set > Edit...`）と名前で照合されます。セットのラベル名を `Red`、`Yellow`、`Green`、`Blue`、`Purple` に変えるか、Riffle の設定でラベル名をセットの名前に合わせてください。Lightroom の各言語版のデフォルトセット用のプリセットを用意しています（現在は英語と日本語）。言語の追加は [JSON ファイル 1 つ](./crates/core/i18n/README.md)で済みます。
 
 ### MCP コンパニオン
 

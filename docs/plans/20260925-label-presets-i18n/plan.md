@@ -71,7 +71,7 @@ Decisions made with the user:
     - Keep the Tauri `label-names` event and `set_label_names` unchanged.
     - The block stays hidden unless the format writes XMP, unchanged.
 
-- [ ] Step 3: Contributor guidance and documentation
+- [x] Step 3: Contributor guidance and documentation
   - Done when:
     - `crates/core/i18n/README.md` explains: one file per language named by its code, picked up automatically by the build; the namespaced shape with `en.json` as the reference; that `meta.name` is the language's own name for itself; that `lightroom.colorLabels` values must be copied from a real Lightroom's default color label set in that UI language and `verified` must name the Lightroom version / OS / UI language they were checked against; and that `cargo test -p riffle-core` validates it.
     - `CONTRIBUTING.md` gains a short "Adding a Lightroom label preset language" pointer to that README.
@@ -94,3 +94,4 @@ Decisions made with the user:
 
 - (2026-09-25) Step 1 complete
 - (2026-09-25) Step 2 complete
+- (2026-09-25) Step 3 complete
