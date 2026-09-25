@@ -118,3 +118,5 @@ untouched.
   settable on `Update` itself, not just the builder. Updated `update.rs`'s
   module doc comment, `docs/usage.md` and `docs/agents/tauri-app.md`
   accordingly. `mise run ci` passes.
+
+- (2026-09-25) Step 1 complete
