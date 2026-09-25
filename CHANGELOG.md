@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0](https://github.com/minodisk/riffle/compare/v0.3.1...v0.4.0) (2026-09-25)
+
+
+### Features
+
+* **app:** add a Both sidecar format that writes the XMP and the .dop ([#406](https://github.com/minodisk/riffle/issues/406)) ([746b914](https://github.com/minodisk/riffle/commit/746b9143f7da73b0d31ae3ff115c913fed6bb818))
+* **app:** add folder listing commands for the folder tree ([#410](https://github.com/minodisk/riffle/issues/410)) ([3fb3179](https://github.com/minodisk/riffle/commit/3fb31793422b085682c743f0608c912c36d80f03))
+* **app:** add MCP get_photo and get_preview ([#417](https://github.com/minodisk/riffle/issues/417)) ([9761019](https://github.com/minodisk/riffle/commit/9761019c94c5c41cc5174b95c353c7143a4fde79))
+* **app:** add the folder tree to the left pane ([#414](https://github.com/minodisk/riffle/issues/414)) ([2a0138c](https://github.com/minodisk/riffle/commit/2a0138c7706c0068e06804ae0105e7d80c9a549b))
+* **app:** answer MCP get_view from the main window ([#409](https://github.com/minodisk/riffle/issues/409)) ([9074040](https://github.com/minodisk/riffle/commit/9074040a11bf09042894f4a61095f524fbf9fdba))
+* **app:** color the focus mark by the face-catch state ([#404](https://github.com/minodisk/riffle/issues/404)) ([3c25f87](https://github.com/minodisk/riffle/commit/3c25f877f97d2a5fb589f75c586ebadeeb899cf7))
+* **app:** draw the detected faces in the focus mark, detected on demand ([#411](https://github.com/minodisk/riffle/issues/411)) ([121bd7c](https://github.com/minodisk/riffle/commit/121bd7c73aae9b456da39af87c87ad85aab53980))
+* **app:** drive the view from MCP tools ([#421](https://github.com/minodisk/riffle/issues/421)) ([13bd44d](https://github.com/minodisk/riffle/commit/13bd44d8b430dfe2513636ba2e80c812be7698d6))
+* **app:** embed an MCP server behind a setting ([#402](https://github.com/minodisk/riffle/issues/402)) ([5cb4060](https://github.com/minodisk/riffle/commit/5cb40601acd9ce350b1139e6287b6e7c1fa02bc7))
+* **app:** hide and show the left pane, filmstrip, and right pane from the keymap ([#416](https://github.com/minodisk/riffle/issues/416)) ([3775918](https://github.com/minodisk/riffle/commit/377591899a5a739e4305e5a5a200ce1328a9e792))
+* **app:** move the filmstrip to the bottom and rotate the arrow keys ([#405](https://github.com/minodisk/riffle/issues/405)) ([4239333](https://github.com/minodisk/riffle/commit/4239333cdf3342310c9e4fc539896282c4c3c488))
+* **app:** pick the Lightroom label preset from a language dropdown ([#424](https://github.com/minodisk/riffle/issues/424)) ([5d42d61](https://github.com/minodisk/riffle/commit/5d42d61988cdc97d6cc385bc8428c031171a28ea))
+* **app:** replace the settings window with a modal in the main window ([#412](https://github.com/minodisk/riffle/issues/412)) ([fa57e8f](https://github.com/minodisk/riffle/commit/fa57e8f6eb0d547b7214f71dabc69d1fe2e1a572))
+* **app:** write judgments from MCP through the UI's commit path ([#423](https://github.com/minodisk/riffle/issues/423)) ([9016e1e](https://github.com/minodisk/riffle/commit/9016e1e1a2ffa99e0f79cb61649bf30bbd00052f))
+* **core:** load Lightroom color label presets from per-language JSON ([#422](https://github.com/minodisk/riffle/issues/422)) ([e366d0a](https://github.com/minodisk/riffle/commit/e366d0a5232009fa3f65367ba33f28ac276f3a10))
+
+
+### Miscellaneous Chores
+
+* wrap up lightroom-layout ([#420](https://github.com/minodisk/riffle/issues/420)) ([7c14bc6](https://github.com/minodisk/riffle/commit/7c14bc6042b60575df0d1d0672f5247b5f751232))
+
 ## [0.3.1](https://github.com/minodisk/riffle/compare/v0.3.0...v0.3.1) (2026-09-24)
 
 
