@@ -37,6 +37,22 @@
   rows, so the existing "splits Sony-like input" test asserts their order
   after `Shutter type`.
 
+## Step 3: Format the drive, stabilization and picture settings
+
+- Checked against the current Sony.pm (`%Sony::Main`): none of 0xb049,
+  0xb04a, 0xb026, 0xb041, 0x202c, 0xb020, 0xb025 or 0x2029 carries a model
+  `Condition`, so unlike `FocusMode` / `AFTracking` no model gate applies.
+  Every label in Purpose matches ExifTool's spelling exactly.
+- ExifTool's `RawConv` drops 65535 for `ReleaseMode`, `SequenceNumber` and
+  `ExposureMode`; the formatting functions reach the same result by having no
+  arm for the sentinels. The drive row treats a `SequenceNumber` of 65535
+  like 0 (release mode alone).
+- Of ExifTool's `CreativeStyle` `PrintConv`, only five keys differ from their
+  labels (the normalizations); the rest, and unknown strings, pass through.
+- Writing the edits as a Python script inside a bash heredoc failed
+  (`unexpected EOF while looking for matching '`), probably from the
+  `'static` apostrophes; the Edit tool was used instead.
+
 ## Deferred issues (todo candidates)
 
 - The folder listing payload carries `focus_mode` / `af_tracking` / `af_area`
