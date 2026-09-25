@@ -1353,6 +1353,24 @@ them.
   together with (or before) the task change.
 - Source: `docs/plans/20260919-vite-plus/learnings.md`, Steps 1-4.
 
+### Rolldown drops `/*!` legal comments under minify; an explicit `comments` object replaces Vite's defaults rather than merging (Hit)
+
+Vite 8 (vite-plus-core) sets rolldown's `output.comments` to
+`{ annotation: !minify, jsdoc: !minify, legal: !minify }` by default, so a
+minified build silently drops `/*! ... */` license banners (e.g. a vendored
+icon's license notice).
+
+- Fix: set `build.rolldownOptions.output.comments` in the root
+  `vite.config.ts` explicitly, and restate `annotation` / `jsdoc` too —
+  `{ legal: true }` alone keeps them at their non-minified value, leaving
+  ~700 bytes of `@__PURE__` / `@vite-ignore` comments in the minified bundle.
+  Mirror Vite's own derivation: `annotation: !!process.env.TAURI_ENV_DEBUG`,
+  `jsdoc: !!process.env.TAURI_ENV_DEBUG`, `legal: true`.
+- Verify with `pnpm exec vp build`: check the built JS under
+  `crates/app/ui/dist/assets/` for the expected `/*! ... */` block and the
+  absence of stray annotation comments.
+- Source: `docs/plans/_archived/20260926-af-eye-sharpness-candidate-icon/learnings.md`, Step 1.
+
 ### A fresh worktree can report `vp` as not found even though it's installed (Hit)
 
 `mise run fmt` failed with `Command "vp" not found` in a freshly created

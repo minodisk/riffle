@@ -17,6 +17,18 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    // Keep `/*!` license notices (Lucide's, in `strip.ts`) in the minified JS.
+    // Vite drops them when minifying, and an explicit `comments` object
+    // replaces its defaults, so the other two are restated as Vite sets them.
+    rolldownOptions: {
+      output: {
+        comments: {
+          legal: true,
+          annotation: !!process.env.TAURI_ENV_DEBUG,
+          jsdoc: !!process.env.TAURI_ENV_DEBUG,
+        },
+      },
+    },
   },
   fmt: {
     ignorePatterns: [

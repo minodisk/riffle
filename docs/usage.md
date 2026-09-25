@@ -58,7 +58,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   is judged by the faces Riffle detects like any other. The state is computed
   in a second pass that starts right after the thumbnails and metadata of the
   folder are in, so the marks turn from white to green or orange while the
-  status shows `focus N / M`. On the 500 hand-labeled α7 V frames it was
+  status shows `focus N / M`. The strip marks each candidate with a green
+  face icon (Lucide's `scan-face`, ISC license, text in
+  `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
+  name, filling in as the pass runs. On the 500 hand-labeled α7 V frames it was
   checked on, 93% of the candidates were in focus and 80% of the in-focus
   frames were candidates. It is a cue, not a verdict: AF on a person in the
   background gives a sharp face and a false candidate, and the back of a
@@ -110,11 +113,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   show them, and enciphered values (shutter count, picture profile) are not
   read. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
-  holds what Riffle computes itself: the sharpness score, a `Focus` row,
-  `Candidate` or `Not a candidate`, with the focus candidate state the focus
-  mark is colored by (left out when Riffle does not know: no AF point, manual
-  focus, no face near the point, or not computed yet), and the `Eye
-  sharpness` the state is decided from (left out when there is none).
+  holds what Riffle computes itself: the sharpness score and the `AF eye
+  sharpness`, the sharpness of the eyes of the face nearest the AF point that
+  the focus candidate state is decided from (left out when there is none).
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), focus candidate
   (`Focus candidates`, which shows only the files whose focus mark is green

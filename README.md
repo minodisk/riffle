@@ -77,9 +77,10 @@ DxO PhotoLab.
   white when Riffle does not know (no AF point, manual focus, no face near the
   point, or not computed yet). The camera's face tracking no longer colors
   the mark. The cue is computed in a second pass right after the thumbnails,
-  so the marks turn from white as it runs; the meta pane shows the state as a
-  `Focus` row and the eye sharpness beside it, and the filter menu's
-  `Focus candidates` shows only the candidates. The mark also draws the faces
+  so the marks turn from white as it runs; the strip marks each candidate
+  with a green face icon at the cell's bottom-left, the meta pane shows the
+  `AF eye sharpness`, and the filter menu's `Focus candidates` shows only
+  the candidates. The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
   a moment after `f`, since the detection runs when the frame is shown.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
@@ -89,7 +90,8 @@ DxO PhotoLab.
   (see [What the camera records](./docs/cameras.md)).
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
-  model (MIT license), run locally with no network access.
+  model (MIT license), run locally with no network access. The strip's
+  candidate icon is [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowUp` / `ArrowDown` jump between bursts,
   `Alt+ArrowLeft` / `Alt+ArrowRight` step through the frames of one and stop at
