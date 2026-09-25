@@ -35,6 +35,13 @@ export const RIFFLE_HEADING = "Riffle";
 
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 
+// The second scan pass's result for one file, as `Focus` in `main.ts` carries
+// it.
+export interface FocusCue {
+  candidate: FocusCandidate;
+  eye_sharpness: number | null;
+}
+
 function candidateLabel(state: FocusCandidate | null | undefined): string | null {
   switch (state) {
     case "candidate":
@@ -61,11 +68,12 @@ function group(heading: string, sections: MetaSection[]): MetaGroup {
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The Riffle group needs no `meta`, so a file whose metadata could
 // not be read still shows its score. The focus candidate state gets a `Focus`
-// row only when it is known.
+// row only when it is known, and the eye sharpness a row only when there is
+// one.
 export function metaGroups(
   meta: Metadata | null,
   sharpness: number | null,
-  candidate?: FocusCandidate | null,
+  focus?: FocusCue | null,
 ): MetaGroup[] {
   const groups: MetaGroup[] = [];
   if (meta !== null) {
@@ -92,7 +100,8 @@ export function metaGroups(
     group(RIFFLE_HEADING, [
       section(null, [
         ["Sharpness", sharpness?.toFixed(1) ?? null],
-        ["Focus", candidateLabel(candidate)],
+        ["Focus", candidateLabel(focus?.candidate)],
+        ["Eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
       ]),
     ]),
   );

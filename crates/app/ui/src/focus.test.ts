@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { type MarkFocus, applyFaceReady, faceMarks, focusMark } from "./focus.js";
+import {
+  FOCUS_MARK_COLORS,
+  type MarkFocus,
+  applyFaceReady,
+  faceMarks,
+  focusMark,
+} from "./focus.js";
 
 const point: MarkFocus = {
   sensor_w: 7008,
@@ -54,6 +60,16 @@ describe("focusMark", () => {
       focusMark({ ...point, manual_focus: true, candidate: "candidate" }, 700, 468),
     ).toBeNull();
     expect(focusMark(null, 700, 468)).toBeNull();
+  });
+});
+
+describe("FOCUS_MARK_COLORS", () => {
+  test("green for a candidate, orange for not a candidate, white for unknown", () => {
+    expect(FOCUS_MARK_COLORS).toEqual({
+      candidate: "#3f3",
+      not_candidate: "#f93",
+      unknown: "#fff",
+    });
   });
 });
 

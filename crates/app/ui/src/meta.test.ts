@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   EXIF_HEADING,
+  type FocusCue,
   MAKER_NOTE_LABEL,
   type Metadata,
   RIFFLE_HEADING,
@@ -114,17 +115,40 @@ describe("metaGroups", () => {
     expect(metaGroups(null, null)).toEqual([]);
   });
 
-  test("shows the focus candidate state as a Focus row, and none when unknown", () => {
-    const riffle = (state: "candidate" | "not_candidate" | "unknown") =>
-      metaGroups(null, 12, state)[0]?.sections[0]?.rows;
-    expect(riffle("candidate")).toEqual([
+  test("shows the focus candidate state and the eye sharpness after Sharpness", () => {
+    const riffle = (focus: FocusCue) => metaGroups(null, 12, focus)[0]?.sections[0]?.rows;
+    expect(riffle({ candidate: "candidate", eye_sharpness: 123.45 })).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "Focus", value: "Candidate" },
+      { label: "Eye sharpness", value: "123.5" },
     ]);
-    expect(riffle("not_candidate")).toEqual([
+    expect(riffle({ candidate: "not_candidate", eye_sharpness: 42 })).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "Focus", value: "Not a candidate" },
+      { label: "Eye sharpness", value: "42.0" },
     ]);
-    expect(riffle("unknown")).toEqual([{ label: "Sharpness", value: "12.0" }]);
+  });
+
+  test("leaves out both rows when the state is unknown with no value", () => {
+    expect(
+      metaGroups(null, 12, { candidate: "unknown", eye_sharpness: null })[0]?.sections[0]?.rows,
+    ).toEqual([{ label: "Sharpness", value: "12.0" }]);
+  });
+
+  test("shows the Riffle group for the eye sharpness alone", () => {
+    expect(metaGroups(null, null, { candidate: "not_candidate", eye_sharpness: 7 })).toEqual([
+      {
+        heading: RIFFLE_HEADING,
+        sections: [
+          {
+            label: null,
+            rows: [
+              { label: "Focus", value: "Not a candidate" },
+              { label: "Eye sharpness", value: "7.0" },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Exif, ExifGroup } from "./exif.js";
+import type { FocusCandidate } from "./meta.js";
 import {
   type FilterState,
   type Flag,
@@ -16,12 +17,14 @@ function state(
   exif: [ExifGroup, string[]][] = [],
   labels: string[] = [],
   orientations: Orientation[] = [],
+  candidates: FocusCandidate[] = [],
 ): FilterState {
   return {
     flags: new Set(flags),
     stars: new Set(stars),
     labels: new Set(labels),
     orientations: new Set(orientations),
+    candidates: new Set(candidates),
     exif: new Map(exif.map(([group, values]) => [group, new Set(values)])),
   };
 }
@@ -246,5 +249,31 @@ describe("passes: orientation", () => {
     expect(passes(s, unjudged, undefined, 6)).toBe(true);
     expect(passes(s, unjudged, undefined, 1)).toBe(false);
     expect(passes(s, pickedTwo, undefined, 6)).toBe(false);
+  });
+});
+
+describe("passes: focus candidates", () => {
+  const s = state([], [], [], [], [], ["candidate"]);
+
+  test("off passes every state", () => {
+    for (const candidate of ["candidate", "not_candidate", "unknown", undefined] as const) {
+      expect(passes(state(), unjudged, undefined, 1, candidate)).toBe(true);
+    }
+  });
+
+  test("on passes a candidate only", () => {
+    expect(passes(s, unjudged, undefined, 1, "candidate")).toBe(true);
+    expect(passes(s, unjudged, undefined, 1, "not_candidate")).toBe(false);
+  });
+
+  test("on fails an unknown or not yet computed state", () => {
+    expect(passes(s, unjudged, undefined, 1, "unknown")).toBe(false);
+    expect(passes(s, unjudged, undefined, 1, undefined)).toBe(false);
+  });
+
+  test("ANDs with the other groups", () => {
+    const flagged = state(["untagged"], [], [], [], [], ["candidate"]);
+    expect(passes(flagged, unjudged, undefined, 1, "candidate")).toBe(true);
+    expect(passes(flagged, pickedTwo, undefined, 1, "candidate")).toBe(false);
   });
 });

@@ -48,18 +48,26 @@ viewer shows a prompt in its center; click it to open the folder picker.
   record it (hidden by default). A body that records only the point, such as
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
   the M11-P, and manual-focus shots show no mark (see
-  [What the camera records](./cameras.md)). The mark's color is the
-  face-catch state computed at scan time: green when the camera's face
-  tracking or a face detected under the AF point says the AF caught a face,
-  orange when faces were found near the AF point but it is on none of them,
-  and white when Riffle does not know (no face near the point). The meta
-  pane shows the same state. The mark also draws the faces Riffle detects
-  near the AF point (anywhere on the preview when there is no AF point) as
-  a cyan box with a dot between the eyes. They appear a moment after `f`,
-  because the detection runs when the frame is shown and is kept only for
-  the session. On Sony face-tracked frames the boxes are informative only:
-  the green color comes from the camera, so a back of a head or an upturned
-  face can be green with no box. The 1:1 view and Compare draw no faces.
+  [What the camera records](./cameras.md)). The mark's color is the focus
+  candidate state: green for a focus candidate, where the face nearest the
+  AF point has sharp eyes (its eye sharpness, the Laplacian variance of the
+  preview between the eyes, is at least 80); orange when a face is near the
+  AF point but its eyes are not sharp; and white when Riffle does not know
+  (no AF point, manual focus, no face near the point, or not computed yet).
+  The camera's face tracking no longer colors the mark: a Sony eye-AF frame
+  is judged by the faces Riffle detects like any other. The state is computed
+  in a second pass that starts right after the thumbnails and metadata of the
+  folder are in, so the marks turn from white to green or orange while the
+  status shows `focus N / M`. On the 500 hand-labeled α7 V frames it was
+  checked on, 93% of the candidates were in focus and 80% of the in-focus
+  frames were candidates. It is a cue, not a verdict: AF on a person in the
+  background gives a sharp face and a false candidate, and the back of a
+  head or an upturned face finds no face and stays white. The mark also
+  draws the faces Riffle detects near the AF point (anywhere on the preview
+  when there is no AF point) as a cyan box with a dot between the eyes. They
+  appear a moment after `f`, because the detection runs when the frame is
+  shown and is kept only for the session. The 1:1 view and Compare draw no
+  faces.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -90,13 +98,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   what it wrote in its vendor MakerNote: the Sony shutter type and the Leica
   focus distance. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Riffle**
-  holds what Riffle computes itself: the sharpness score, and a `Face` row,
-  `Caught` or `Missed`, with the face-catch state the focus mark is colored
-  by (left out when Riffle does not know: no AF point, manual focus, or no
-  face near the point).
+  holds what Riffle computes itself: the sharpness score, a `Focus` row,
+  `Candidate` or `Not a candidate`, with the focus candidate state the focus
+  mark is colored by (left out when Riffle does not know: no AF point, manual
+  focus, no face near the point, or not computed yet), and the `Eye
+  sharpness` the state is decided from (left out when there is none).
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
-  orientation (`Portrait` / `Landscape`), camera, lens, aperture, shutter speed,
-  ISO and focal length (grouped into ranges such as `24–35 mm`). The color
+  orientation (`Portrait` / `Landscape`), focus candidate
+  (`Focus candidates`, which shows only the files whose focus mark is green
+  and fills in as the second pass runs),
+  camera, lens, aperture, shutter speed, ISO and focal length (grouped into
+  ranges such as `24–35 mm`). The color
   label group lists the seven colors and `No label`; a label outside those
   seven colors matches no color item (nor `No label`). The orientation is
   decided by the file's EXIF Orientation — a quarter turn is portrait, so a

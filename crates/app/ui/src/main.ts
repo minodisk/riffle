@@ -15,12 +15,19 @@ import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
 import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
-import { type FaceReady, type Faces, applyFaceReady, faceMarks, focusMark } from "./focus.js";
+import {
+  FOCUS_MARK_COLORS,
+  type FaceReady,
+  type Faces,
+  applyFaceReady,
+  faceMarks,
+  focusMark,
+} from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
-import { type Metadata, metaGroups } from "./meta.js";
+import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { initSettings } from "./settings.js";
@@ -255,6 +262,7 @@ const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 const shownLabels = new Set<string>();
 const shownOrientations = new Set<Orientation>();
+const shownCandidates = new Set<FocusCandidate>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -341,14 +349,6 @@ function scheduleCropForResize(): void {
 // lines off the focus point, which is the one pixel the mark exists to show.
 const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
-// The mark's color per focus candidate state: green when the eyes of the face
-// nearest the AF point are sharp, orange when they are not, white when Riffle
-// does not know.
-const FOCUS_MARK_COLORS = {
-  candidate: "#3f3",
-  not_candidate: "#f93",
-  unknown: "#fff",
-} as const;
 // The detected faces, apart from every mark color above.
 const FACE_MARK_COLOR = "#3ff";
 const FACE_MARK_EYE_RADIUS = 2.5;
@@ -420,7 +420,7 @@ function renderMeta(): void {
     for (const group of metaGroups(
       meta,
       sharpness.get(files[index]) ?? null,
-      entries.get(files[index])?.focus?.candidate,
+      entries.get(files[index])?.focus,
     )) {
       metaEl.append(line("group", group.heading));
       for (const section of group.sections) {
@@ -792,6 +792,7 @@ function passes(path: string): boolean {
       stars: shownStars,
       labels: shownLabels,
       orientations: shownOrientations,
+      candidates: shownCandidates,
       exif: shownExif,
     },
     {
@@ -801,6 +802,7 @@ function passes(path: string): boolean {
     },
     entries.get(path)?.exif,
     entries.get(path)?.orientation,
+    entries.get(path)?.focus?.candidate,
   );
 }
 
@@ -1176,10 +1178,11 @@ function refreshEntries(): void {
 // When Sony `FocusFrameSize` is valid, the AF frame the camera used is drawn
 // around the point as well, in the same sensor coordinates; a body that
 // records only the point gets the crosshair alone, and a manual-focus shot,
-// whose recorded point is not trusted, gets no mark. The mark is green when
-// the camera's face tracking or a face detected under the AF point says the
-// AF caught a face, orange when faces were found near the AF point but it is
-// on none of them, and white when Riffle does not know.
+// whose recorded point is not trusted, gets no mark. The mark is green for a
+// focus candidate (the eyes of the face nearest the AF point are sharp),
+// orange when that face's eyes are not sharp, and white when Riffle does not
+// know: no face near the point, or the second scan pass has not reached the
+// file yet.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
@@ -2172,6 +2175,11 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `focus ${payload.done} / ${payload.total}`;
   const current = applyFaceReady(entries, payload.ready, files[index]);
+  // The candidate filter fills in as the pass runs; the strip keeps its
+  // scroll offset, as on a resync.
+  if (shownCandidates.size > 0) {
+    refilter(files[index], true);
+  }
   renderMeta();
   if (current) {
     draw();
@@ -2248,7 +2256,7 @@ void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
-  "[data-flag], [data-stars], [data-label], [data-orientation]",
+  "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 
@@ -2256,11 +2264,16 @@ function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
 }
 
-// Whether any flag, star, label, orientation or EXIF filter is checked.
+// Whether any flag, star, label, orientation, candidate or EXIF filter is
+// checked.
 function filterActive(): boolean {
   return (
-    shownFlags.size + shownStars.size + shownLabels.size + shownOrientations.size > 0 ||
-    exifSelected()
+    shownFlags.size +
+      shownStars.size +
+      shownLabels.size +
+      shownOrientations.size +
+      shownCandidates.size >
+      0 || exifSelected()
   );
 }
 
@@ -2318,7 +2331,7 @@ function setFilterMenuOpen(open: boolean): void {
 // then rebuild the view.
 function filterChanged(): void {
   for (const item of filterItems) {
-    const { flag, stars, label, orientation } = item.dataset;
+    const { flag, stars, label, orientation, candidate } = item.dataset;
     const checked =
       flag !== undefined
         ? shownFlags.has(flag as Flag)
@@ -2326,7 +2339,9 @@ function filterChanged(): void {
           ? shownLabels.has(label)
           : orientation !== undefined
             ? shownOrientations.has(orientation as Orientation)
-            : shownStars.has(Number(stars));
+            : candidate !== undefined
+              ? shownCandidates.has(candidate as FocusCandidate)
+              : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
   for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
@@ -2354,7 +2369,7 @@ document.addEventListener("mousedown", (event) => {
 for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
-    const { flag, stars, label, orientation } = item.dataset;
+    const { flag, stars, label, orientation, candidate } = item.dataset;
     const set: Set<string | number> =
       flag !== undefined
         ? shownFlags
@@ -2362,8 +2377,10 @@ for (const item of filterItems) {
           ? shownLabels
           : orientation !== undefined
             ? shownOrientations
-            : shownStars;
-    const value = flag ?? label ?? orientation ?? Number(stars);
+            : candidate !== undefined
+              ? shownCandidates
+              : shownStars;
+    const value = flag ?? label ?? orientation ?? candidate ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
     } else {
@@ -2397,6 +2414,7 @@ filterExif.addEventListener("click", (event) => {
     shownStars.clear();
     shownLabels.clear();
     shownOrientations.clear();
+    shownCandidates.clear();
     for (const set of shownExif.values()) {
       set.clear();
     }

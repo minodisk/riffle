@@ -70,14 +70,16 @@ DxO PhotoLab.
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
   shots (see [What the camera records](./docs/cameras.md)). The mark is green
-  when the camera's face tracking or a face detected under the AF point says
-  the AF caught a face, orange when faces were found near the AF point but it
-  is on none of them, and white when Riffle does not know (no face near the
-  point); the meta pane shows the same as a `Face` row. The mark also draws
-  the faces Riffle detects near the AF point as a cyan box with a dot between
-  the eyes, a moment after `f`, since the detection runs when the frame is
-  shown. On Sony face-tracked frames the boxes are informative only: the
-  green color comes from the camera.
+  for a focus candidate, where the face nearest the AF point has sharp eyes;
+  orange when a face is near the AF point but its eyes are not sharp; and
+  white when Riffle does not know (no AF point, manual focus, no face near the
+  point, or not computed yet). The camera's face tracking no longer colors
+  the mark. The cue is computed in a second pass right after the thumbnails,
+  so the marks turn from white as it runs; the meta pane shows the state as a
+  `Focus` row and the eye sharpness beside it, and the filter menu's
+  `Focus candidates` shows only the candidates. The mark also draws the faces
+  Riffle detects near the AF point as a cyan box with a dot between the eyes,
+  a moment after `f`, since the detection runs when the frame is shown.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the
