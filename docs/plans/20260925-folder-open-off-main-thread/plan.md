@@ -182,4 +182,13 @@ The user chose a single PR, so the backend and frontend changes are one step.
 
 ## Progress
 
-- (none yet)
+- 2026-09-25: Step 1 done. `list_arw`, `remember_folder` and `start_scan` are
+  now `async fn`s that run their bodies under `tauri::async_runtime::spawn_blocking`
+  instead of as synchronous commands on the main thread. `list_dir` no longer
+  stats every entry; it uses `entry.file_type()` via the new `folders::kind`
+  helper (falling back to `std::fs::metadata` only for symlinks), shared with
+  `folders.rs::list`. In `crates/app/ui/src/folders.ts`, the open handler moved
+  from the `.name` span to the `.folder` row, with the expander stopping
+  propagation so it only toggles. The manual GUI check and the `#[cfg(unix)]`
+  symlink test could not be run on the implementer's Windows machine and are
+  left to the user and to CI.
