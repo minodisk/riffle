@@ -2,6 +2,22 @@
 
 ## Cross-cutting / other
 
+### Docs: the "Focus candidate pass" numbers in docs/performance.md are missing the app's own scan/faces log lines
+
+Step 3 of `docs/plans/_archived/20260925-focus-candidate/plan.md` asked for the
+`scan extract` / `scan faces` log lines of one app open of the 2134-file
+Sony folder to be recorded in `docs/performance.md` "Focus candidate pass",
+alongside the `riffle-cli scan` / `riffle-cli candidates` numbers already
+there. The implementing agent could not drive the GUI, so only the CLI
+numbers are recorded; `docs/performance.md` says so in a note under the
+section.
+
+#### TODO
+
+- [ ] Open the 2134-file Sony folder once in the app and record its
+      `scan extract` / `scan faces` log lines in `docs/performance.md`
+      "Focus candidate pass", next to the existing CLI numbers.
+
 ### Docs: record the practice of verifying platform-workaround thresholds on the production code path
 
 `fix(app): lower the Linux preview pixel limit to 6 MP` was a follow-up to
@@ -419,16 +435,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Decode the preview for detection at a DCT-scaled size instead of a
       full-size RGB decode, to cut the per-file cost on the detector path.
 - [ ] Optionally, detect closed eyes from the landmarks.
-- [x] Replace the face-catch state with the focus candidate cue: the eye
-      sharpness (Laplacian variance of the preview luma between the eyes of
-      the face nearest the AF point) is computed in a second scan pass and
-      stored in the SQLite index; eye sharpness >= 80 is a candidate and
-      colors the `f` focus mark green, and the filter menu's `Focus
-      candidates` shows only those. On 500 hand-labeled ILCE-7M5 frames, 93%
-      of the candidates were in focus (310/335) and 80% of the in-focus frames
-      were candidates; AUC 0.82 against 0.67 for the sharpness score. Sony
-      eye-AF frames are no longer trusted
-      (`docs/plans/20260925-focus-candidate/`).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
