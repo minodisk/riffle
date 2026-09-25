@@ -22,11 +22,7 @@
   The worktree also needed `pnpm install` before `mise run fmt` could find
   `vp`.
 
-## Deferred issues (todo candidates)
-
-- `mise run lint`'s lychee `--exclude-path docs/plans/review-history` does not
-  match on Windows (the path is reported with backslashes), so local
-  `mise run ci` fails on Windows on
-  `docs/plans/review-history/thumbnail-cache-filmstrip-step-8/review-20260918-0253.md`
-  (`#running-the-app` fragment). Found while running the step 1 local checks.
-  Related file: `mise.toml` (`[tasks.lint]`).
+- The same lychee failure blocked committing the local review history. It was
+  fixed in parallel by #435 (`fix(mise): match the lychee review-history
+  exclusion on Windows paths`); after merging `origin/main` into this branch,
+  `mise run ci` passed in full.
