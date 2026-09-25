@@ -396,10 +396,10 @@ export function initSettings(hooks: SettingsHooks): Settings {
   }
 
   function focusables(): HTMLElement[] {
-    return [...box.querySelectorAll<HTMLElement>("button, input, [tabindex]")].filter(
+    return [...box.querySelectorAll<HTMLElement>("button, input, select, [tabindex]")].filter(
       (el) =>
         el.tabIndex >= 0 &&
-        !(el as HTMLButtonElement).disabled &&
+        !(el as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled &&
         !(el instanceof HTMLInputElement && el.type === "radio" && !el.checked) &&
         el.getClientRects().length > 0,
     );
