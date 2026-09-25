@@ -1716,13 +1716,7 @@ strip.init(
   (selected, modifiers) => {
     selection = click(selection, files, index, selected, modifiers);
     paintSelection();
-    if (selected === index || modifiers.toggle) {
-      renderMeta();
-      if (comparing) void loadCompare();
-      return;
-    }
-    index = selected;
-    show();
+    focusFile(files[modifiers.toggle ? index : selected]);
   },
   (selected, x, y) => {
     if (!selection.selected.has(files[selected])) {
