@@ -20,7 +20,10 @@ features themselves, see [usage.md](./usage.md).
   having no AF point; DMF shots and bodies that record no focus mode are not.
 - **AF frame size and face tracking**: with both, sharpness is scored on the
   camera's eye-AF frame, which is the most reliable because it does not rely
-  on face detection.
+  on face detection. On the α7 V, `Face tracking` is also recorded when the
+  AF sits on the back of a head: it means the camera recognized a person's
+  head, not strictly a face or an eye. The meta pane's `AF tracking` row
+  shows this value.
 - **Sub-second capture time**: frames within 1 s of the previous one form a
   burst. Without it, frames are grouped by whole seconds, so a shot taken up
   to about 2 s after the previous frame can still join its burst.

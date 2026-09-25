@@ -96,8 +96,19 @@ viewer shows a prompt in its center; click it to open the folder picker.
   between the groups. **EXIF** lists, under `Standard`, what the camera wrote
   in the standard tags (aperture, shutter, ISO, focal length, exposure, camera,
   lens and capture time), then, under `Maker note`, what it wrote in its
-  vendor MakerNote: the Sony shutter type and the Leica
-  focus distance. When a lens reports no f-number (the M11-P with an M-mount
+  vendor MakerNote: on Sony, the shutter type, the focus
+  mode, the AF area (ILCE, NEX and ZV bodies only; other Sony families use a
+  different table), the AF tracking (`Face tracking` or `Lock On AF`), the
+  drive (the release mode, with the frame number within a burst, as in
+  `Continuous, frame 2`), the stabilization, the exposure mode, the metering,
+  the creative style (on current bodies the Creative Look, which may show as
+  a two-letter code such as `ST`), the DRO and the RAW type; on Leica, the
+  focus distance. The focus mode and AF tracking are left out on the older
+  RX and HX compacts, where ExifTool reads them as not applying. The Sony
+  MakerNote does not record the recognized subject type (human, animal, bird
+  or vehicle) or whether the AF sat on an eye or a face, so Riffle does not
+  show them, and enciphered values (shutter count, picture profile) are not
+  read. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
   holds what Riffle computes itself: the sharpness score, a `Focus` row,
   `Candidate` or `Not a candidate`, with the focus candidate state the focus

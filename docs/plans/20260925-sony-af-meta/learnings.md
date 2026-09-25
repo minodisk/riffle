@@ -53,6 +53,16 @@
   (`unexpected EOF while looking for matching '`), probably from the
   `'static` apostrophes; the Edit tool was used instead.
 
+## Step 4: Document the new rows
+
+- `docs/usage.md` also mentions two behaviors from Steps 2-3 the plan's
+  Done-when list did not spell out: the focus mode and AF tracking rows are
+  hidden on the `DSC-` bodies outside ExifTool's list, and the creative style
+  may show a Creative Look two-letter code (the risk noted in Trade-offs).
+- `README.md` mentions the meta pane in the Filmstrip bullet (`F8`) and the
+  Focus mark bullet; the new sentence went after the `F8` one, the first
+  mention.
+
 ## Deferred issues (todo candidates)
 
 - The folder listing payload carries `focus_mode` / `af_tracking` / `af_area`

@@ -242,7 +242,7 @@ module already has a top-level `find(entries, tag)` used a few lines above.
       "Exposure mode", "Metering", "Creative style", "DRO", "RAW type".
     - No index / filter change.
 
-- [ ] Step 4: Document the new rows in `docs/usage.md`, `docs/cameras.md`, `README.md` and `README.ja.md`
+- [x] Step 4: Document the new rows in `docs/usage.md`, `docs/cameras.md`, `README.md` and `README.ja.md`
   - Done when:
     - `docs/usage.md` (Meta pane bullet) lists the Sony rows next to the
       shutter type: AF tracking, focus mode, AF area (ILCE/NEX/ZV bodies
