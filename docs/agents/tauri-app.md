@@ -673,6 +673,30 @@ A running scan is refused, never canceled.
 - Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
   `docs/plans/20260920-clear-index-cache/learnings.md`, Step 1.
 
+### `AppListing`: reuse `list_arw`'s directory listing in `scan_folder`, keyed by dir + format + mtime (Measured)
+
+`list_arw` (first paint) and `scan_folder` both need a directory listing.
+`AppListing(Mutex<Option<CachedListing>>)` in `commands.rs`, registered next
+to `Scans` in `main.rs`, lets `scan_folder` reuse the listing `list_arw` just
+took instead of re-running `read_dir`.
+
+- `take_listing` is the pure reuse decision: it takes the cached listing only
+  on a full match (canonical dir, sidecar format, directory mtime), and
+  leaves a non-matching one in place for whichever `scan_folder` it may
+  belong to, so a cache entry is consumed at most once.
+- The directory mtime is read **just before** `read_dir`, not after, so a
+  file added or removed during or after the listing bumps the mtime past the
+  cached value and forces a re-list; that closes the window between
+  `list_arw`'s `read_dir` and `scan_folder`'s `watch::set` (changes after
+  `watch::set` reach the watcher instead). A failed directory stat (no mtime)
+  never matches, and nothing is cached when the mtime can't be read.
+- Residual weakness: a coarse mtime (FAT: 2s resolution) can let a same-tick
+  change slip past the check; documented on `AppListing` itself, not solved.
+- Any new consumer of a directory listing in this area should go through the
+  same take-once cache rather than adding its own `read_dir`.
+
+Source: `docs/plans/_archived/20260926-folder-open-single-listing/learnings.md`, Step 1.
+
 ### A per-tick log line can rotate other lines out of the 40 KB default (Measured)
 
 `tauri-plugin-log`'s `DEFAULT_MAX_FILE_SIZE` is 40 KB. A line logged once per

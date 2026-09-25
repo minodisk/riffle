@@ -809,18 +809,10 @@ pre-existing.
 - [ ] Apply the `DSC-` model gate `exif.rs` uses for `FocusMode` /
       `AFTracking` to the manual-focus check in `crates/core/src/sharpness.rs`.
 
-### App: opening a folder does two directory listings (`list_arw` then `list_folder_in`)
+### App: conditionally skip `rebuildExifMenu`'s DOM rebuild in `refreshEntries`
 
-Opening a folder calls `list_arw` for the immediate listing and then `scan_folder`'s `list_folder_in` for the scan, redundantly listing the same directory twice. Noted as out of scope while fixing the main-thread blocking in docs/plans/_archived/20260925-folder-open-off-main-thread/plan.md.
-
-#### TODO
-
-- [ ] Share one directory listing between `list_arw` and `scan_folder`'s `list_folder_in`, or otherwise cut the open path down to one listing. Files: `crates/app/src/commands.rs`.
-
-### App: `refreshEntries`'s per-open frontend cost is unmeasured
-
-The frontend cost of `refreshEntries` (called on every folder open) was not measured or optimized while fixing the open-path main-thread blocking in docs/plans/_archived/20260925-folder-open-off-main-thread/plan.md.
+`refreshEntries`'s `rebuildExifMenu` DOM rebuild runs on every refresh regardless of whether the per-group label sets changed. Step 2 of docs/plans/_archived/20260926-folder-open-single-listing/plan.md added the `exif=` phase to the `refresh entries:` timing line specifically to justify this, but deferred the skip pending the user's measured numbers with `Timing logs` on. Files: `crates/app/ui/src/main.ts` (`refreshEntries`, `rebuildExifMenu`).
 
 #### TODO
 
-- [ ] Measure `refreshEntries`'s cost on a large folder and decide whether it needs work. Files: `crates/app/ui/src/main.ts`.
+- [ ] Once the user reports `exif=` numbers from the new `refresh entries:` timing line, decide whether `rebuildExifMenu`'s DOM rebuild is a clear-enough cost to skip when the per-group label sets are unchanged, and implement the skip if so.
