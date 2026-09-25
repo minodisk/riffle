@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OpenFlags};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::faces::FaceCatch;
@@ -250,6 +250,68 @@ pub struct FocusSize {
 pub struct ScanSummary {
     pub total: usize,
     pub errors: usize,
+}
+
+/// The columns `indexed_file` reads, before the `WHERE` clause.
+const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
+            focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
+            ratings.rating, ratings.xmp_size IS NOT NULL,
+            COALESCE(ratings.flag, 0), error IS NOT NULL,
+            make, model, lens, f_num, f_den, f_estimated, exposure_num,
+            exposure_den, iso, focal_num, focal_den, ratings.label,
+            sharpness, frame_w, frame_h, manual_focus, face_catch
+     FROM files LEFT JOIN ratings USING (path)";
+
+fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
+    let focus = match (r.get::<_, Option<u16>>(4)?, r.get::<_, Option<u16>>(5)?) {
+        (Some(sensor_w), Some(sensor_h)) => Some(Focus {
+            sensor_w,
+            sensor_h,
+            x: r.get(6)?,
+            y: r.get(7)?,
+            frame: r
+                .get::<_, Option<u16>>(26)?
+                .zip(r.get::<_, Option<u16>>(27)?)
+                .map(|(width, height)| FocusSize { width, height }),
+            manual_focus: r.get(28)?,
+            face_catch: face_catch_from_code(r.get(29)?),
+        }),
+        _ => None,
+    };
+    let rational = |num: usize| -> rusqlite::Result<Option<Rational>> {
+        Ok(r.get::<_, Option<i64>>(num)?
+            .zip(r.get::<_, Option<i64>>(num + 1)?)
+            .map(|(num, den)| Rational { num, den }))
+    };
+    let exif = if r.get(12)? {
+        None
+    } else {
+        Some(exif(&Shot {
+            make: r.get(13)?,
+            model: r.get(14)?,
+            lens_model: r.get(15)?,
+            f_number: rational(16)?,
+            estimated_f_number: r.get(18)?,
+            exposure_time: rational(19)?,
+            iso: r.get(21)?,
+            focal_length: rational(22)?,
+            ..Shot::default()
+        }))
+    };
+    Ok(IndexedFile {
+        path: r.get(0)?,
+        orientation: r.get::<_, Option<u16>>(1)?.unwrap_or(1),
+        capture_time: r.get(2)?,
+        subsec: r.get(3)?,
+        focus,
+        has_thumb: r.get(8)?,
+        rating: r.get(9)?,
+        flag: flag_from_code(r.get(11)?),
+        label: r.get(24)?,
+        has_sidecar: r.get(10)?,
+        sharpness: r.get(25)?,
+        exif,
+    })
 }
 
 pub struct Index {
@@ -725,69 +787,10 @@ impl Index {
     pub fn entries(&self, dir: &str) -> Result<Vec<IndexedFile>, String> {
         let mut stmt = self
             .conn
-            .prepare(
-                "SELECT path, orientation, capture_time, subsec,
-                        focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
-                        ratings.rating, ratings.xmp_size IS NOT NULL,
-                        COALESCE(ratings.flag, 0), error IS NOT NULL,
-                        make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                        exposure_den, iso, focal_num, focal_den, ratings.label,
-                        sharpness, frame_w, frame_h, manual_focus, face_catch
-                 FROM files LEFT JOIN ratings USING (path) WHERE files.dir = ?1",
-            )
+            .prepare(&format!("{INDEXED_FILE} WHERE files.dir = ?1"))
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map(params![dir], |r| {
-                let focus = match (r.get::<_, Option<u16>>(4)?, r.get::<_, Option<u16>>(5)?) {
-                    (Some(sensor_w), Some(sensor_h)) => Some(Focus {
-                        sensor_w,
-                        sensor_h,
-                        x: r.get(6)?,
-                        y: r.get(7)?,
-                        frame: r
-                            .get::<_, Option<u16>>(26)?
-                            .zip(r.get::<_, Option<u16>>(27)?)
-                            .map(|(width, height)| FocusSize { width, height }),
-                        manual_focus: r.get(28)?,
-                        face_catch: face_catch_from_code(r.get(29)?),
-                    }),
-                    _ => None,
-                };
-                let rational = |num: usize| -> rusqlite::Result<Option<Rational>> {
-                    Ok(r.get::<_, Option<i64>>(num)?
-                        .zip(r.get::<_, Option<i64>>(num + 1)?)
-                        .map(|(num, den)| Rational { num, den }))
-                };
-                let exif = if r.get(12)? {
-                    None
-                } else {
-                    Some(exif(&Shot {
-                        make: r.get(13)?,
-                        model: r.get(14)?,
-                        lens_model: r.get(15)?,
-                        f_number: rational(16)?,
-                        estimated_f_number: r.get(18)?,
-                        exposure_time: rational(19)?,
-                        iso: r.get(21)?,
-                        focal_length: rational(22)?,
-                        ..Shot::default()
-                    }))
-                };
-                Ok(IndexedFile {
-                    path: r.get(0)?,
-                    orientation: r.get::<_, Option<u16>>(1)?.unwrap_or(1),
-                    capture_time: r.get(2)?,
-                    subsec: r.get(3)?,
-                    focus,
-                    has_thumb: r.get(8)?,
-                    rating: r.get(9)?,
-                    flag: flag_from_code(r.get(11)?),
-                    label: r.get(24)?,
-                    has_sidecar: r.get(10)?,
-                    sharpness: r.get(25)?,
-                    exif,
-                })
-            })
+            .query_map(params![dir], indexed_file)
             .map_err(|e| e.to_string())?;
         let mut entries: Vec<IndexedFile> = rows
             .collect::<rusqlite::Result<_>>()
@@ -798,6 +801,18 @@ impl Index {
                 .cmp(&Path::new(&b.path).file_name())
         });
         Ok(entries)
+    }
+
+    /// The indexed row of one file, `None` when the index has no row for it.
+    pub fn entry(&self, path: &str) -> Result<Option<IndexedFile>, String> {
+        self.conn
+            .query_row(
+                &format!("{INDEXED_FILE} WHERE files.path = ?1"),
+                params![path],
+                indexed_file,
+            )
+            .optional()
+            .map_err(|e| e.to_string())
     }
 
     /// The cached thumbnail of one file with its Orientation.
@@ -1862,6 +1877,31 @@ mod tests {
         index.write_batch("d", &[(a, Ok(entry()))]).unwrap();
         let judged = &index.entries("d").unwrap()[0];
         assert_eq!((judged.rating, judged.flag), (Some(2), Flag::Reject));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn entry_reads_one_row_by_path() {
+        let dir = temp_dir("entry");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let path = b.path.to_string_lossy().into_owned();
+        let mut index = open(&dir);
+        index
+            .write_batch("d", &[(a, Ok(entry())), (b, Ok(entry()))])
+            .unwrap();
+        index
+            .set_rating("d", &path, Some(4), Flag::Pick, Some("Red"), true)
+            .unwrap();
+
+        let row = index.entry(&path).unwrap().unwrap();
+        assert_eq!(row.path, path);
+        assert_eq!(
+            (row.rating, row.flag, row.label.as_deref()),
+            (Some(4), Flag::Pick, Some("Red"))
+        );
+        assert!(index.entry("d/missing.ARW").unwrap().is_none());
 
         remove_temp_dir(&dir);
     }

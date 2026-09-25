@@ -78,6 +78,50 @@ pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
     Ok(c.finish()?)
 }
 
+/// Decode a preview JPEG at the largest `n/8` scale whose long edge is at
+/// most `long_edge` (1/8 when none is), rotate it upright per `orientation`,
+/// and re-encode it. Returns the JPEG with its upright width and height.
+pub fn preview_jpeg(
+    preview: &[u8],
+    orientation: u16,
+    long_edge: usize,
+    quality: f32,
+) -> Result<(Vec<u8>, usize, usize)> {
+    // mozjpeg reports malformed input by panicking, not by returning an error.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        preview_jpeg_unguarded(preview, orientation, long_edge, quality)
+    }))
+    .map_err(|_| anyhow::anyhow!("panic while scaling the JPEG"))?
+}
+
+fn preview_jpeg_unguarded(
+    preview: &[u8],
+    orientation: u16,
+    long_edge: usize,
+    quality: f32,
+) -> Result<(Vec<u8>, usize, usize)> {
+    let mut d = mozjpeg::Decompress::new_mem(preview)?;
+    let native = d.width().max(d.height());
+    let scale = (1..=8u8)
+        .rev()
+        .find(|&n| (native * usize::from(n)).div_ceil(8) <= long_edge)
+        .unwrap_or(1);
+    d.scale(scale);
+    let mut d = d.rgb()?;
+    let (w, h) = (d.width(), d.height());
+    let pixels: Vec<[u8; 3]> = d.read_scanlines()?;
+    d.finish()?;
+    let rgb: Vec<u8> = pixels.into_iter().flatten().collect();
+    let (rgb, w, h) = crate::faces::upright_rgb(&rgb, w, h, orientation);
+
+    let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+    c.set_size(w, h);
+    c.set_quality(quality);
+    let mut c = c.start_compress(Vec::new())?;
+    c.write_scanlines(&rgb)?;
+    Ok((c.finish()?, w, h))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,5 +156,48 @@ mod tests {
         assert!(decode_rgb(b"not a jpeg").is_err());
         let truncated = jpeg(64, 64);
         assert!(decode_rgb(&truncated[..truncated.len() / 2]).is_err());
+    }
+
+    #[test]
+    fn preview_takes_the_largest_eighth_within_the_long_edge() {
+        let (out, w, h) = preview_jpeg(&jpeg(1616, 1080), 1, 1024, 75.0).unwrap();
+        assert_eq!((w, h), (1010, 675));
+        let (_, dw, dh) = decode_rgb(&out).unwrap();
+        assert_eq!((dw, dh), (1010, 675));
+    }
+
+    #[test]
+    fn preview_is_rotated_upright() {
+        let (out, w, h) = preview_jpeg(&jpeg(1616, 1080), 6, 1616, 75.0).unwrap();
+        assert_eq!((w, h), (1080, 1616));
+        let (rgb, dw, dh) = decode_rgb(&out).unwrap();
+        assert_eq!((dw, dh), (1080, 1616));
+        // The source's left edge (red 0) is the top after a 90 degree CW turn.
+        let top = rgb[(dw / 2) * 3];
+        let bottom = rgb[((dh - 1) * dw + dw / 2) * 3];
+        assert!(top < 32 && bottom > 224, "top {top}, bottom {bottom}");
+    }
+
+    #[test]
+    fn preview_is_rotated_upright_for_a_half_turn() {
+        let (out, w, h) = preview_jpeg(&jpeg(1616, 1080), 3, 1616, 75.0).unwrap();
+        assert_eq!((w, h), (1616, 1080));
+        let (rgb, dw, dh) = decode_rgb(&out).unwrap();
+        assert_eq!((dw, dh), (1616, 1080));
+        // The source's top edge (green 0) ends up at the bottom after a half turn.
+        let top = rgb[(dw / 2) * 3 + 1];
+        let bottom = rgb[((dh - 1) * dw + dw / 2) * 3 + 1];
+        assert!(top > 224 && bottom < 32, "top {top}, bottom {bottom}");
+    }
+
+    #[test]
+    fn preview_falls_back_to_an_eighth_below_it() {
+        let (_, w, h) = preview_jpeg(&jpeg(1616, 1080), 1, 100, 75.0).unwrap();
+        assert_eq!((w, h), (202, 135));
+    }
+
+    #[test]
+    fn a_malformed_preview_is_an_error() {
+        assert!(preview_jpeg(b"not a jpeg", 1, 1024, 75.0).is_err());
     }
 }

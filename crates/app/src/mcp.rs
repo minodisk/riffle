@@ -3,20 +3,27 @@
 //! It is off by default and turned on in the settings modal.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use base64::Engine;
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
+use rmcp::schemars::JsonSchema;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
+
+use crate::commands::{read_metadata, read_preview, Metadata};
+use crate::index::{self, Focus, Index};
 
 /// The fixed loopback port, outside the ranges development servers commonly
 /// take, so the connection examples stay the same from launch to launch.
@@ -26,6 +33,14 @@ pub const MCP_PORT: u16 = 41917;
 const BRIDGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 const MAIN_WINDOW: &str = "main";
+
+/// The long edge `get_preview` scales to when none is asked for, and the
+/// range it clamps a request to (the top is the embedded preview's own).
+const PREVIEW_LONG_EDGE: u32 = 1024;
+const PREVIEW_LONG_EDGE_MIN: u32 = 256;
+const PREVIEW_LONG_EDGE_MAX: u32 = 1616;
+
+const PREVIEW_QUALITY: f32 = 75.0;
 
 /// How long `stop` waits for open connections to close before it drops them.
 const STOP_TIMEOUT: Duration = Duration::from_secs(2);
@@ -124,10 +139,142 @@ fn tool_result(reply: Reply) -> CallToolResult {
     }
 }
 
+/// The photo `path` names, or the current one when it is `None`, checked
+/// against the open folder of `view` (a `get_view` answer). The result is
+/// the path the index keys the photo by: the folder resolved, the file name
+/// kept.
+fn resolve(view: &Value, path: Option<String>) -> Result<PathBuf, String> {
+    let folder = view["folder"]
+        .as_str()
+        .ok_or_else(|| "no folder is open in Riffle".to_string())?;
+    let path = match path {
+        Some(path) => path,
+        None => view["current"]["path"]
+            .as_str()
+            .ok_or_else(|| "no photo is shown in Riffle".to_string())?
+            .to_string(),
+    };
+    let outside = || format!("{path} is not in the open folder {folder}");
+    let file = Path::new(&path);
+    let (Some(parent), Some(name)) = (file.parent(), file.file_name()) else {
+        return Err(outside());
+    };
+    let parent = std::fs::canonicalize(parent).map_err(|_| outside())?;
+    let folder_dir = std::fs::canonicalize(folder).map_err(|e| format!("{folder}: {e}"))?;
+    if parent != folder_dir {
+        return Err(outside());
+    }
+    Ok(parent.join(name))
+}
+
+fn long_edge(requested: Option<u32>) -> usize {
+    requested
+        .unwrap_or(PREVIEW_LONG_EDGE)
+        .clamp(PREVIEW_LONG_EDGE_MIN, PREVIEW_LONG_EDGE_MAX) as usize
+}
+
+/// What `get_photo` answers: the index row's judgment and focus with the
+/// shooting settings read from the file.
+#[derive(serde::Serialize)]
+struct Photo {
+    path: String,
+    rating: Option<i8>,
+    flag: &'static str,
+    label: Option<String>,
+    sharpness: Option<f64>,
+    focus: Option<Focus>,
+    orientation: u16,
+    capture_time: Option<String>,
+    #[serde(flatten)]
+    metadata: Metadata,
+}
+
+fn photo(index: &Mutex<Index>, path: &Path) -> Reply {
+    let key = path.to_string_lossy();
+    let row = index::lock(index)
+        .entry(&key)?
+        .ok_or_else(|| format!("{key} is not a photo Riffle has indexed"))?;
+    let photo = Photo {
+        path: row.path,
+        rating: row.rating,
+        flag: index::flag_name(row.flag),
+        label: row.label,
+        sharpness: row.sharpness,
+        focus: row.focus,
+        orientation: row.orientation,
+        capture_time: row.capture_time,
+        metadata: read_metadata(path)?,
+    };
+    serde_json::to_value(photo).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct PhotoArgs {
+    /// The photo's path as `get_view` reports it; the current photo when
+    /// omitted.
+    path: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct PreviewArgs {
+    /// The photo's path as `get_view` reports it; the current photo when
+    /// omitted.
+    path: Option<String>,
+    /// The long edge in pixels, 256 to 1616; 1024 when omitted.
+    long_edge: Option<u32>,
+}
+
 /// The MCP handler each client session gets.
 #[derive(Clone)]
 pub struct Companion {
     bridge: Arc<Bridge>,
+    /// The index reader, `None` when the index cache is unavailable.
+    index: Option<Arc<Mutex<Index>>>,
+}
+
+impl Companion {
+    async fn target(&self, path: Option<String>) -> Result<PathBuf, String> {
+        let view = self
+            .bridge
+            .call("get_view", Value::Object(Default::default()))
+            .await?;
+        resolve(&view, path)
+    }
+
+    async fn photo(&self, path: Option<String>) -> Reply {
+        let path = self.target(path).await?;
+        let index = self
+            .index
+            .clone()
+            .ok_or_else(|| "no index cache available".to_string())?;
+        tauri::async_runtime::spawn_blocking(move || photo(&index, &path))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+
+    async fn preview(&self, args: PreviewArgs) -> Result<CallToolResult, String> {
+        let path = self.target(args.path).await?;
+        let long_edge = long_edge(args.long_edge);
+        let name = path.to_string_lossy().into_owned();
+        let (jpeg, width, height) = tauri::async_runtime::spawn_blocking(move || {
+            let (orientation, preview) = read_preview(&path)?;
+            riffle_core::decode::preview_jpeg(&preview, orientation, long_edge, PREVIEW_QUALITY)
+                .map_err(|e| format!("{}: {e}", path.display()))
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        Ok(CallToolResult::success(vec![
+            ContentBlock::image(
+                base64::engine::general_purpose::STANDARD.encode(jpeg),
+                "image/jpeg",
+            ),
+            ContentBlock::text(
+                json!({ "path": name, "width": width, "height": height }).to_string(),
+            ),
+        ]))
+    }
 }
 
 #[tool_router]
@@ -147,6 +294,30 @@ impl Companion {
                 .call("get_view", Value::Object(Default::default()))
                 .await,
         )
+    }
+
+    #[tool(
+        description = "One photo's details: its stars (null when unrated), pick / reject flag \
+        and color label, its sharpness score, the AF point and frame in sensor coordinates \
+        with whether it was focused manually, its orientation and capture time, and its \
+        shooting settings (camera, lens, aperture, shutter, ISO, focal length, exposure \
+        bias, focus distance). The photo must be in the open folder; omit the path for the \
+        current photo."
+    )]
+    async fn get_photo(&self, Parameters(args): Parameters<PhotoArgs>) -> CallToolResult {
+        tool_result(self.photo(args.path).await)
+    }
+
+    #[tool(
+        description = "A small upright JPEG of one photo, scaled from the camera's embedded \
+        preview (never the RAW) to a long edge of at most `long_edge` pixels (256 to 1616, \
+        1024 by default), followed by its path, width and height. The photo must be in the \
+        open folder; omit the path for the current photo."
+    )]
+    async fn get_preview(&self, Parameters(args): Parameters<PreviewArgs>) -> CallToolResult {
+        self.preview(args)
+            .await
+            .unwrap_or_else(|e| CallToolResult::error(vec![ContentBlock::text(e)]))
     }
 }
 
@@ -174,23 +345,26 @@ struct Status {
 
 /// The server's on/off setting, the running server if any, and the last
 /// bind error (a tokio mutex, since a switch holds it across the bind), and
-/// the bridge every session's tools share.
+/// the handler every session clones.
 pub struct AppMcp {
     status: tokio::sync::Mutex<Status>,
-    bridge: Arc<Bridge>,
+    companion: Companion,
 }
 
 impl AppMcp {
-    pub fn new(bridge: Bridge) -> Self {
+    pub fn new(bridge: Bridge, index: Option<Arc<Mutex<Index>>>) -> Self {
         AppMcp {
             status: Default::default(),
-            bridge: Arc::new(bridge),
+            companion: Companion {
+                bridge: Arc::new(bridge),
+                index,
+            },
         }
     }
 
     /// Complete a bridge call with the main window's answer.
     pub fn reply(&self, id: u64, ok: bool, value: Value) {
-        self.bridge.reply(id, ok, value);
+        self.companion.bridge.reply(id, ok, value);
     }
 }
 
@@ -215,13 +389,9 @@ impl Status {
 /// The `/mcp` route. Host validation keeps its loopback-only default, and
 /// any request carrying an `Origin` header, which only a web page sends, is
 /// refused.
-fn router(token: &CancellationToken, bridge: Arc<Bridge>) -> axum::Router {
+fn router(token: &CancellationToken, companion: Companion) -> axum::Router {
     let service: StreamableHttpService<Companion, LocalSessionManager> = StreamableHttpService::new(
-        move || {
-            Ok(Companion {
-                bridge: bridge.clone(),
-            })
-        },
+        move || Ok(companion.clone()),
         Default::default(),
         StreamableHttpServerConfig::default()
             .with_cancellation_token(token.child_token())
@@ -231,10 +401,10 @@ fn router(token: &CancellationToken, bridge: Arc<Bridge>) -> axum::Router {
 }
 
 /// Serve `/mcp` on `listener` until the returned token is cancelled.
-fn serve(listener: TcpListener, bridge: Arc<Bridge>) -> Result<Running, String> {
+fn serve(listener: TcpListener, companion: Companion) -> Result<Running, String> {
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let token = CancellationToken::new();
-    let app = router(&token, bridge);
+    let app = router(&token, companion);
     let shutdown = token.clone();
     let task = tauri::async_runtime::spawn(async move {
         let served = axum::serve(listener, app)
@@ -247,11 +417,11 @@ fn serve(listener: TcpListener, bridge: Arc<Bridge>) -> Result<Running, String> 
     Ok(Running { port, token, task })
 }
 
-async fn bind(port: u16, bridge: Arc<Bridge>) -> Result<Running, String> {
+async fn bind(port: u16, companion: Companion) -> Result<Running, String> {
     let listener = TcpListener::bind(("127.0.0.1", port))
         .await
         .map_err(|e| format!("could not listen on 127.0.0.1:{port}: {e}"))?;
-    serve(listener, bridge)
+    serve(listener, companion)
 }
 
 async fn shut(running: Running) {
@@ -263,11 +433,11 @@ async fn shut(running: Running) {
 }
 
 /// Start the server on `MCP_PORT` unless it is running, and return its port.
-async fn start(status: &mut Status, bridge: Arc<Bridge>) -> Result<u16, String> {
+async fn start(status: &mut Status, companion: Companion) -> Result<u16, String> {
     if let Some(running) = &status.running {
         return Ok(running.port);
     }
-    let running = bind(MCP_PORT, bridge).await?;
+    let running = bind(MCP_PORT, companion).await?;
     let port = running.port;
     status.running = Some(running);
     Ok(port)
@@ -296,7 +466,7 @@ pub async fn switch(app: &AppHandle, enabled: bool) -> McpState {
         status.enabled = enabled;
         status.error = None;
         if enabled {
-            if let Err(e) = start(&mut status, mcp.bridge.clone()).await {
+            if let Err(e) = start(&mut status, mcp.companion.clone()).await {
                 log::error!("failed to start the MCP server: {e}");
                 status.error = Some(e);
             }
@@ -318,8 +488,11 @@ mod tests {
 
     const INITIALIZE: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#;
 
-    fn silent() -> Arc<Bridge> {
-        Arc::new(Bridge::new(|_| Ok(())))
+    fn silent() -> Companion {
+        Companion {
+            bridge: Arc::new(Bridge::new(|_| Ok(()))),
+            index: None,
+        }
     }
 
     fn initialize(origin: Option<&str>) -> Request<Body> {
@@ -364,7 +537,7 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
             let port = listener.local_addr().unwrap().port();
-            let mcp = AppMcp::new(Bridge::new(|_| Ok(())));
+            let mcp = AppMcp::new(Bridge::new(|_| Ok(())), None);
             mcp.status.lock().await.running = Some(serve(listener, silent()).unwrap());
             assert!(tokio::net::TcpStream::connect(("127.0.0.1", port))
                 .await
@@ -401,20 +574,20 @@ mod tests {
 
     #[test]
     fn get_info_names_riffle_and_enables_tools() {
-        let info = Companion { bridge: silent() }.get_info();
+        let info = silent().get_info();
         assert_eq!(info.server_info.name, "riffle");
         assert!(info.capabilities.tools.is_some());
         assert!(info.instructions.is_some());
     }
 
     #[test]
-    fn the_tools_are_get_view() {
+    fn the_tools_are_the_read_tools() {
         let names: Vec<_> = Companion::tool_router()
             .list_all()
             .into_iter()
             .map(|tool| tool.name.to_string())
             .collect();
-        assert_eq!(names, ["get_view"]);
+        assert_eq!(names, ["get_photo", "get_preview", "get_view"]);
     }
 
     #[test]
@@ -495,5 +668,98 @@ mod tests {
             );
             assert!(bridge.pending.lock().unwrap().is_empty());
         });
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("riffle-mcp-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn view(folder: &Path, current: Option<&Path>) -> Value {
+        serde_json::json!({
+            "folder": folder.to_string_lossy(),
+            "current": current.map(|p| serde_json::json!({ "path": p.to_string_lossy(), "position": 1 })),
+        })
+    }
+
+    #[test]
+    fn resolve_defaults_to_the_current_photo() {
+        let dir = temp_dir("current");
+        let folder = std::fs::canonicalize(&dir).unwrap();
+        let current = folder.join("a.ARW");
+        assert_eq!(resolve(&view(&dir, Some(&current)), None), Ok(current));
+        assert_eq!(
+            resolve(&view(&dir, None), None),
+            Err("no photo is shown in Riffle".to_string())
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn resolve_accepts_a_path_in_the_open_folder() {
+        let dir = temp_dir("inside");
+        let path = dir.join("b.ARW");
+        let resolved = resolve(&view(&dir, None), Some(path.to_string_lossy().into_owned()));
+        assert_eq!(
+            resolved,
+            Ok(std::fs::canonicalize(&dir).unwrap().join("b.ARW"))
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn resolve_refuses_a_path_outside_the_open_folder() {
+        let dir = temp_dir("outside");
+        let sub = dir.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        let view = view(&dir, None);
+        for path in [
+            sub.join("a.ARW"),
+            dir.join("missing").join("a.ARW"),
+            PathBuf::from("a.ARW"),
+            PathBuf::from("/"),
+        ] {
+            let path = path.to_string_lossy().into_owned();
+            let refused = resolve(&view, Some(path.clone())).unwrap_err();
+            assert!(refused.starts_with(&path), "{refused}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn resolve_needs_an_open_folder() {
+        assert_eq!(
+            resolve(
+                &serde_json::json!({ "folder": null }),
+                Some("/a.ARW".into())
+            ),
+            Err("no folder is open in Riffle".to_string())
+        );
+    }
+
+    #[test]
+    fn photo_refuses_a_path_the_index_does_not_know() {
+        let dir = temp_dir("unknown");
+        let index = Mutex::new(Index::open(&dir.join("index.db")).unwrap());
+        let path = dir.join("a.ARW");
+        assert_eq!(
+            photo(&index, &path),
+            Err(format!(
+                "{} is not a photo Riffle has indexed",
+                path.display()
+            ))
+        );
+        drop(index);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn long_edge_defaults_and_clamps() {
+        assert_eq!(long_edge(None), 1024);
+        assert_eq!(long_edge(Some(800)), 800);
+        assert_eq!(long_edge(Some(10)), 256);
+        assert_eq!(long_edge(Some(5000)), 1616);
     }
 }

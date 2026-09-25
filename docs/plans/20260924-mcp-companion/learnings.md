@@ -74,6 +74,41 @@
   against a running app (no GUI session in this environment). The tool list
   is covered by a unit test on `Companion::tool_router()`.
 
+## Step 3: `get_photo` and `get_preview`
+
+- `Companion` got the index reader (`Option<Arc<Mutex<Index>>>`, the same
+  `Arc` `AppIndexReader` holds) instead of the `AppHandle` step 2's note
+  expected: the two reads need nothing else from the app, and the handler
+  stays constructible in tests without a Tauri runtime. `AppMcp` now holds a
+  whole `Companion` that `router` clones per session.
+- "Outside the open folder" is decided on the canonicalized parent directory
+  against the canonicalized `folder` from a `get_view` bridge call (the
+  frontend's `openDir` is the folder as picked, not canonicalized, while the
+  paths come from `list_arw` under the canonical folder). The resolved path
+  (canonical parent + file name) is exactly the index key. A photo the
+  filter hides is still readable. Because the folder comes from the bridge,
+  both tools need the main window, like every other tool.
+- `Index::entry(path)` shares its `SELECT` and row mapping with `entries`
+  (`INDEXED_FILE` / `indexed_file` in `index.rs`) instead of duplicating the
+  30-column mapping.
+- `preview_jpeg` returns `(jpeg, width, height)` rather than the plan's bare
+  `Vec<u8>`, following `decode_rgb`'s tuple, so the tool's text block can
+  report the size without decoding the output again. Like `decode_rgb` it
+  wraps mozjpeg in `catch_unwind`, since the preview bytes come from files.
+  The scale is the largest `n` in 1..=8 with `ceil(native * n / 8) <=
+  long_edge` (libjpeg rounds the scaled size up): 1616 at 1024 gives 5/8,
+  1010x675.
+- Tool parameters use `Parameters<T>` with `#[derive(JsonSchema)]` and
+  `#[schemars(crate = "rmcp::schemars")]`, so no direct `schemars`
+  dependency; `base64 = "0.22"` (already in the lockfile) encodes the image.
+  An `Option<u32>` field shows as `minimum: 0` in the schema; the clamp to
+  256..=1616 is stated in the field's description.
+- Not verified by hand: calling `get_photo` / `get_preview` from an MCP
+  client against a running app, and the client showing the image (no GUI
+  session nor sample ARW / DNG in this environment). Covered by unit tests
+  on the path resolution, the index lookup, the clamp, the tool list and
+  `preview_jpeg`.
+
 ## Deferred issues (todo candidates)
 
 - Verify by hand whether Claude Desktop accepts a direct `url` entry for a
@@ -89,3 +124,8 @@
   acceptance criterion; no GUI session was available. Files:
   `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/companion.ts`.
+- Verify by hand that `get_photo` returns the index row and shooting
+  settings, and that `get_preview` shows the image in an MCP client (e.g.
+  Claude Code), against a running app with a real ARW / DNG folder. Basis:
+  step 3's acceptance criterion; no GUI session or sample file was
+  available. Files: `crates/app/src/mcp.rs`, `crates/core/src/decode.rs`.
