@@ -58,7 +58,7 @@ Decisions made with the user:
     - Add the `i18n` module to `crates/core/src/lib.rs` next to `xmp` / `dop`, with a module doc comment describing the file layout and the fallback rule (a missing key reads as `en.json`'s value; with only `colorLabels` populated this reduces to "a language without `colorLabels` offers no preset").
     - Keep the build script minimal (std only, no build-dependencies).
 
-- [ ] Step 2: Return the preset list from `label_names` and replace the two preset buttons with a language dropdown and a Reset button
+- [x] Step 2: Return the preset list from `label_names` and replace the two preset buttons with a language dropdown and a Reset button
   - Done when:
     - `label_names` returns `{"names": {...}, "presets": [{"code": "en", "name": "English", "names": {...}}, {"code": "ja", "name": "日本語", "names": {...}}]}` (the `names` object in the shape stored under `labelNames`, produced by `label_names_value`); the command's doc comment is updated.
     - `crates/app/ui/settings.html` `#label-names` has a `<select id="label-names-language">` filled from `presets` (option value = code, text = name) and one `<button id="label-names-reset">Reset</button>`; the two old buttons and their ids are gone; the explanatory `<p>` no longer says "the buttons below fill in Lightroom's built-in sets" but describes the dropdown + Reset, and still names the Lightroom Classic menu (Metadata > Color Label Set > Edit).

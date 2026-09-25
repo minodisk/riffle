@@ -1,17 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { englishLabelNames, labelNamesPayload } from "./labels.js";
-
-describe("englishLabelNames", () => {
-  test("capitalizes each color", () => {
-    expect(englishLabelNames()).toEqual({
-      red: "Red",
-      yellow: "Yellow",
-      green: "Green",
-      blue: "Blue",
-      purple: "Purple",
-    });
-  });
-});
+import { labelNamesPayload } from "./labels.js";
 
 describe("labelNamesPayload", () => {
   test("trims every field and keeps blanks for the backend's fallback", () => {

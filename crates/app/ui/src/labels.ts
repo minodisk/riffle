@@ -2,12 +2,8 @@ export const LABEL_COLORS = ["red", "yellow", "green", "blue", "purple"] as cons
 
 export type LabelNames = Record<(typeof LABEL_COLORS)[number], string>;
 
-// The English names, which the backend also falls back to for a blank field.
-export function englishLabelNames(): LabelNames {
-  return Object.fromEntries(
-    LABEL_COLORS.map((color) => [color, color[0].toUpperCase() + color.slice(1)]),
-  ) as LabelNames;
-}
+// A language's Lightroom default color label set, as `label_names` returns it.
+export type LabelPreset = { code: string; name: string; names: LabelNames };
 
 // The `set_label_names` payload from the fields' values, trimmed.
 export function labelNamesPayload(values: (color: string) => string): LabelNames {
