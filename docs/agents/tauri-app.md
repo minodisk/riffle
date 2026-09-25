@@ -1475,6 +1475,10 @@ forward, and injected keystrokes are dropped silently.
   what they should look at. Report unchecked behavior as "not verified"; that
   is more useful than an implied pass.
 
+### `cargo` is not on the Bash tool's PATH (Hit)
+
+- Run it through `mise exec -- cargo ...` instead of bare `cargo ...`.
+
 ### `riffle-app` is bin-only: use `cargo test <name>`, not `--lib` (Hit)
 
 `cargo test --lib` fails because `crates/app` has no library target.
