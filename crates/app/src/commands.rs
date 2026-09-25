@@ -172,6 +172,11 @@ fn list_folder_in(
     list_dir(dir, Some(format))
 }
 
+/// Tells a RAW file from the entry's `file_type()`, which comes with the
+/// directory listing, rather than a `stat` per entry, which under disk
+/// contention (a scan reading the same drive) costs seconds for a few hundred
+/// files. A symlinked RAW is still listed: only a symlink pays one extra
+/// `stat` to follow it.
 fn list_dir(
     dir: &Path,
     format: Option<SidecarFormat>,
@@ -181,7 +186,7 @@ fn list_dir(
     let mut sidecars = HashMap::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() && riffle_core::scan::is_raw_file(&path) {
+        if crate::folders::is_file(&entry) && riffle_core::scan::is_raw_file(&path) {
             files.push(path);
             continue;
         }
@@ -596,11 +601,16 @@ fn switch_format(
 /// Remember `dir` as the folder to reopen on the next launch. Failing to write
 /// it only means starting with nothing open, so it is logged, not returned.
 #[tauri::command]
-pub fn remember_folder(app: tauri::AppHandle, dir: String) {
-    let saved = settings(&app).and_then(|store| {
-        store.set("lastFolder", dir);
-        store.save().map_err(|e| e.to_string())
-    });
+pub async fn remember_folder(app: tauri::AppHandle, dir: String) {
+    let saved = tauri::async_runtime::spawn_blocking(move || {
+        settings(&app).and_then(|store| {
+            store.set("lastFolder", dir);
+            store.save().map_err(|e| e.to_string())
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|saved| saved);
     if let Err(e) = saved {
         eprintln!("failed to remember the folder: {e}");
     }
@@ -655,16 +665,20 @@ pub fn set_sort_order(app: tauri::AppHandle, order: String) {
 }
 
 #[tauri::command]
-pub fn list_arw(dir: String) -> Result<Vec<String>, String> {
-    let dir = canonicalize(&dir);
-    let started = std::time::Instant::now();
-    let files = list_arw_in(Path::new(&dir))?;
-    log::info!(
-        "open list: dir={dir} raws={} in {}ms",
-        files.len(),
-        started.elapsed().as_millis()
-    );
-    Ok(files)
+pub async fn list_arw(dir: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = canonicalize(&dir);
+        let started = std::time::Instant::now();
+        let files = list_arw_in(Path::new(&dir))?;
+        log::info!(
+            "open list: dir={dir} raws={} in {}ms",
+            files.len(),
+            started.elapsed().as_millis()
+        );
+        Ok(files)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The folder a dropped path stands for: a directory is taken as it is, a
@@ -1215,115 +1229,119 @@ where
 /// case it takes the handle this call just stored and joins it before
 /// reconciling.
 #[tauri::command]
-pub fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
-    let scans = app.state::<Scans>();
-    let mut state = index::lock(&scans.0);
-    if state.latest_id != scan_id {
-        let dir = state
-            .pending
-            .remove(&scan_id)
-            .map(|pending| pending.dir)
-            .unwrap_or_default();
-        drop(state);
-        emit_empty_scan_events(&app, &dir, scan_id);
-        return Ok(());
-    }
-    let Some(pending) = state.pending.remove(&scan_id) else {
-        drop(state);
-        emit_empty_scan_events(&app, "", scan_id);
-        return Ok(());
-    };
-    let Some(index) = app.state::<AppIndex>().0.clone() else {
-        drop(state);
-        emit_empty_scan_events(&app, &pending.dir, scan_id);
-        return Ok(());
-    };
-    let PendingScan { dir, todo, cancel } = pending;
-
-    let handle = tauri::async_runtime::spawn_blocking({
-        let cancel = cancel.clone();
-        let app = app.clone();
-        move || {
-            let summary = index::run_scan(
-                &index,
-                &dir,
-                &todo,
-                scan_threads(),
-                &cancel,
-                index::PROGRESS_INTERVAL,
-                |done, total, ready| {
-                    let _ = app.emit(
-                        "scan-progress",
-                        Progress {
-                            dir: &dir,
-                            scan_id,
-                            done,
-                            total,
-                            ready,
-                        },
-                    );
-                },
-            );
-            let _ = app.emit(
-                "scan-done",
-                Done {
-                    dir: &dir,
-                    scan_id,
-                    total: summary.total,
-                    errors: summary.errors,
-                },
-            );
-            let summary = run_faces_pass(
-                &index,
-                &dir,
-                scan_threads(),
-                &cancel,
-                |done, total, ready| {
-                    let _ = app.emit(
-                        "faces-progress",
-                        FacesProgress {
-                            dir: &dir,
-                            scan_id,
-                            done,
-                            total,
-                            ready,
-                        },
-                    );
-                },
-            );
-            let _ = app.emit(
-                "faces-done",
-                Done {
-                    dir: &dir,
-                    scan_id,
-                    total: summary.total,
-                    errors: summary.errors,
-                },
-            );
-            // Emit while still holding the lock: `start_scan` below emits its
-            // own `true` under the same lock, before ever releasing it, so
-            // whichever of the two critical sections runs second (this one,
-            // if the scan finishes fast enough to race the store below) is
-            // guaranteed to emit after the other's `app.emit` call has
-            // returned. Emitting with the lock dropped would let these two
-            // `app.emit` calls interleave freely on separate threads with no
-            // ordering guarantee, which is exactly the race that used to let
-            // a stale `true` land after this correct `false` and leave the
-            // settings modal stuck showing "scanning" forever.
-            let scans = app.state::<Scans>();
-            let mut state = index::lock(&scans.0);
-            state.finish(scan_id);
-            let scanning = state.scanning();
-            let _ = app.emit("scan-state", scanning);
+pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let scans = app.state::<Scans>();
+        let mut state = index::lock(&scans.0);
+        if state.latest_id != scan_id {
+            let dir = state
+                .pending
+                .remove(&scan_id)
+                .map(|pending| pending.dir)
+                .unwrap_or_default();
+            drop(state);
+            emit_empty_scan_events(&app, &dir, scan_id);
+            return Ok(());
         }
-    });
-    state.running = Some((scan_id, cancel, handle));
-    // See the comment above the task's own emit: kept under the same lock
-    // for the same reason. `state` has been held continuously since the top
-    // of this function, so the task cannot have taken the lock (and hence
-    // cannot have emitted) before this call.
-    let _ = app.emit("scan-state", true);
-    Ok(())
+        let Some(pending) = state.pending.remove(&scan_id) else {
+            drop(state);
+            emit_empty_scan_events(&app, "", scan_id);
+            return Ok(());
+        };
+        let Some(index) = app.state::<AppIndex>().0.clone() else {
+            drop(state);
+            emit_empty_scan_events(&app, &pending.dir, scan_id);
+            return Ok(());
+        };
+        let PendingScan { dir, todo, cancel } = pending;
+
+        let handle = tauri::async_runtime::spawn_blocking({
+            let cancel = cancel.clone();
+            let app = app.clone();
+            move || {
+                let summary = index::run_scan(
+                    &index,
+                    &dir,
+                    &todo,
+                    scan_threads(),
+                    &cancel,
+                    index::PROGRESS_INTERVAL,
+                    |done, total, ready| {
+                        let _ = app.emit(
+                            "scan-progress",
+                            Progress {
+                                dir: &dir,
+                                scan_id,
+                                done,
+                                total,
+                                ready,
+                            },
+                        );
+                    },
+                );
+                let _ = app.emit(
+                    "scan-done",
+                    Done {
+                        dir: &dir,
+                        scan_id,
+                        total: summary.total,
+                        errors: summary.errors,
+                    },
+                );
+                let summary = run_faces_pass(
+                    &index,
+                    &dir,
+                    scan_threads(),
+                    &cancel,
+                    |done, total, ready| {
+                        let _ = app.emit(
+                            "faces-progress",
+                            FacesProgress {
+                                dir: &dir,
+                                scan_id,
+                                done,
+                                total,
+                                ready,
+                            },
+                        );
+                    },
+                );
+                let _ = app.emit(
+                    "faces-done",
+                    Done {
+                        dir: &dir,
+                        scan_id,
+                        total: summary.total,
+                        errors: summary.errors,
+                    },
+                );
+                // Emit while still holding the lock: `start_scan` below emits its
+                // own `true` under the same lock, before ever releasing it, so
+                // whichever of the two critical sections runs second (this one,
+                // if the scan finishes fast enough to race the store below) is
+                // guaranteed to emit after the other's `app.emit` call has
+                // returned. Emitting with the lock dropped would let these two
+                // `app.emit` calls interleave freely on separate threads with no
+                // ordering guarantee, which is exactly the race that used to let
+                // a stale `true` land after this correct `false` and leave the
+                // settings modal stuck showing "scanning" forever.
+                let scans = app.state::<Scans>();
+                let mut state = index::lock(&scans.0);
+                state.finish(scan_id);
+                let scanning = state.scanning();
+                let _ = app.emit("scan-state", scanning);
+            }
+        });
+        state.running = Some((scan_id, cancel, handle));
+        // See the comment above the task's own emit: kept under the same lock
+        // for the same reason. `state` has been held continuously since the top
+        // of this function, so the task cannot have taken the lock (and hence
+        // cannot have emitted) before this call.
+        let _ = app.emit("scan-state", true);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -3062,6 +3080,22 @@ mod tests {
         }
 
         remove_temp_dir(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_raw_file_is_listed() {
+        let dir = temp_dir("list-symlinks");
+        let target = temp_dir("list-symlinks-target").join("photo.ARW");
+        std::fs::write(&target, b"x").unwrap();
+        std::os::unix::fs::symlink(&target, dir.join("linked.ARW")).unwrap();
+        std::os::unix::fs::symlink(dir.join("gone.ARW"), dir.join("broken.ARW")).unwrap();
+
+        let files = list_arw_in(&dir).unwrap();
+        assert_eq!(files, [dir.join("linked.ARW").to_string_lossy()]);
+
+        remove_temp_dir(&dir);
+        remove_temp_dir(target.parent().unwrap());
     }
 
     #[test]

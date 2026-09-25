@@ -51,6 +51,18 @@ Rules:
   tiny JSON file, so the blocking cost is negligible. Reach for
   `spawn_blocking` when the IO is unbounded or can block on something other
   than a small local file.
+- Hit again on the folder-open path: `list_arw` was a synchronous command
+  that `stat`ed every entry (`path.is_file()`). With a scan reading the same
+  drive, `open list` took 4.6-7.4 s for a few hundred RAWs on Windows, the
+  main thread was blocked for all of it, and every later click queued behind
+  it. `list_arw`, `remember_folder` and `start_scan` are now `async` commands
+  wrapping their work in `spawn_blocking`, and the listing uses
+  `DirEntry::file_type()` (free from the listing on Windows) with a
+  `metadata()` fallback only for symlinks. Note that
+  `#[tauri::command(async)]` on a non-`async` fn is not `spawn_blocking`:
+  tauri-macros' `body_async` calls the fn inside the future, so it runs on
+  an async runtime worker and stalls it. Source:
+  `docs/plans/20260925-folder-open-off-main-thread/`.
 
 ### Resolve shortcut overrides order-independently, not in a single pass (Hit)
 

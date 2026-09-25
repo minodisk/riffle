@@ -50,21 +50,22 @@ function render(): void {
     row.style.setProperty("--depth", String(depth));
     row.dataset.path = node.path;
     row.title = node.path;
+    row.addEventListener("click", () => {
+      open(node.path);
+    });
     const expander = document.createElement("span");
     expander.className = "expander";
     if (node.children === undefined || node.children.length > 0) {
       row.setAttribute("aria-expanded", String(node.expanded));
       expander.textContent = node.expanded ? "▾" : "▸";
-      expander.addEventListener("click", () => {
+      expander.addEventListener("click", (event) => {
+        event.stopPropagation();
         toggle(node.path);
       });
     }
     const name = document.createElement("span");
     name.className = "name";
     name.textContent = node.name;
-    name.addEventListener("click", () => {
-      open(node.path);
-    });
     row.append(expander, name);
     if (node.expanded && node.rawCount !== undefined && node.rawCount > 0) {
       const count = document.createElement("span");
