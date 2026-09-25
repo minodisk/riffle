@@ -4,7 +4,7 @@
 
 import type { BurstMember } from "./burst.js";
 import { COMPARE_NEEDS_FRAMES } from "./compare.js";
-import type { PickFlag } from "./selection.js";
+import { type Command, type Judged, type PickFlag, targets } from "./selection.js";
 import type { SortKey } from "./sort.js";
 
 // The main window's view state, as `main.ts` exposes it.
@@ -31,6 +31,9 @@ export interface ViewApi {
   // Toggle compare and the 1:1 view until `mode` is reached; compare stays
   // off when there are fewer than two frames to compare.
   setMode(mode: ViewMode): void;
+  // Judge the visible `paths` with `command` as a judgment key does: one
+  // undo entry, the same sidecar writes, no auto-advance.
+  judge(paths: readonly [string, ...string[]], command: Command): void;
 }
 
 export type ViewMode = "normal" | "zoom" | "compare";
@@ -151,6 +154,66 @@ function setView(view: ViewApi, args: unknown): ViewState {
   return getView(view);
 }
 
+const FLAGS: readonly string[] = ["none", "pick", "reject"] satisfies PickFlag[];
+
+// The color labels the judgment keys set.
+const LABELS: readonly string[] = ["Red", "Orange", "Yellow", "Green", "Blue", "Pink", "Purple"];
+
+// The files a judgment applies to when no paths are given, as a key press
+// picks them: the active pane in compare, else the selection.
+function defaultTargets(view: ViewApi): string[] {
+  const current = view.files[view.index] as string | undefined;
+  if (current === undefined) throw new Error("no photo is shown in Riffle");
+  if (view.comparing) return [view.compareActive ?? current];
+  return targets({ selected: new Set(view.selection), anchor: undefined }, view.files, view.index);
+}
+
+function setJudgment(view: ViewApi, args: unknown): Judged[] {
+  const rating = field(args, "rating");
+  const flag = field(args, "flag");
+  const label = field(args, "label");
+  if (
+    rating !== undefined &&
+    !(typeof rating === "number" && Number.isInteger(rating) && rating >= 0 && rating <= 5)
+  ) {
+    throw new Error("rating must be an integer from 0 to 5");
+  }
+  if (flag !== undefined && !(typeof flag === "string" && FLAGS.includes(flag))) {
+    throw new Error(`flag must be one of ${FLAGS.join(", ")}`);
+  }
+  if (
+    label !== undefined &&
+    label !== null &&
+    !(typeof label === "string" && LABELS.includes(label))
+  ) {
+    throw new Error(`label must be one of ${LABELS.join(", ")}, or null`);
+  }
+  if (rating === undefined && flag === undefined && label === undefined) {
+    throw new Error("set at least one of rating, flag, label");
+  }
+  const given = field(args, "paths");
+  let paths: string[];
+  if (given === undefined || given === null) {
+    paths = defaultTargets(view);
+  } else {
+    if (!Array.isArray(given)) throw new Error("paths must be an array of strings");
+    paths = [...new Set(given.map((path: unknown) => visiblePath(view, path)))];
+  }
+  const [first, ...rest] = paths;
+  if (first === undefined) throw new Error("paths must name at least one photo");
+  view.judge([first, ...rest], () => (own) => ({
+    rating: rating === undefined ? own.rating : rating === 0 ? null : (rating as number),
+    flag: flag === undefined ? own.flag : (flag as PickFlag),
+    label: label === undefined ? own.label : (label as string | null),
+  }));
+  return paths.map((path) => ({
+    path,
+    rating: view.ratings.get(path) ?? null,
+    flag: view.flags.get(path) ?? "none",
+    label: view.labels.get(path) ?? null,
+  }));
+}
+
 export async function handleRequest(kind: string, args: unknown, view: ViewApi): Promise<unknown> {
   switch (kind) {
     case "get_view":
@@ -161,6 +224,8 @@ export async function handleRequest(kind: string, args: unknown, view: ViewApi):
       return selectPhotos(view, args);
     case "set_view":
       return setView(view, args);
+    case "set_judgment":
+      return setJudgment(view, args);
     default:
       throw new Error(`unknown request: ${kind}`);
   }

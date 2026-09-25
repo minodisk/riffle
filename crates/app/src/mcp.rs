@@ -258,6 +258,74 @@ pub struct ViewArgs {
     mode: ViewMode,
 }
 
+/// The color labels `set_judgment` accepts: the ones the judgment keys set.
+const LABELS: [&str; 7] = ["Red", "Orange", "Yellow", "Green", "Blue", "Pink", "Purple"];
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+#[schemars(crate = "rmcp::schemars")]
+pub enum PickFlag {
+    None,
+    Pick,
+    Reject,
+}
+
+/// A present field, even `null`, as `Some`, so an omitted label (kept) and
+/// a `null` one (cleared) differ.
+fn present<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<String>>, D::Error> {
+    serde::Deserialize::deserialize(d).map(Some)
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct JudgmentArgs {
+    /// The photos' paths as `get_view` reports them; the selection when
+    /// omitted, or the active pane in compare.
+    paths: Option<Vec<String>>,
+    /// Stars from 1 to 5, or 0 to clear them; kept when omitted.
+    rating: Option<u8>,
+    /// `pick`, `reject` or `none`; kept when omitted.
+    flag: Option<PickFlag>,
+    /// Red, Orange, Yellow, Green, Blue, Pink or Purple, or null to clear
+    /// it; kept when omitted.
+    #[serde(default, deserialize_with = "present")]
+    label: Option<Option<String>>,
+}
+
+/// The `set_judgment` request for the main window, with only the fields
+/// given, checked against what the judgment keys can set.
+fn judgment(args: JudgmentArgs) -> Result<Value, String> {
+    let mut request = serde_json::Map::new();
+    if let Some(paths) = args.paths {
+        request.insert("paths".into(), json!(paths));
+    }
+    if let Some(rating) = args.rating {
+        if rating > 5 {
+            return Err("rating must be an integer from 0 to 5".into());
+        }
+        request.insert("rating".into(), json!(rating));
+    }
+    if let Some(flag) = args.flag {
+        request.insert("flag".into(), json!(flag));
+    }
+    if let Some(label) = args.label {
+        if label.as_deref().is_some_and(|l| !LABELS.contains(&l)) {
+            return Err(format!(
+                "label must be one of {}, or null",
+                LABELS.join(", ")
+            ));
+        }
+        request.insert("label".into(), json!(label));
+    }
+    if !["rating", "flag", "label"]
+        .iter()
+        .any(|key| request.contains_key(*key))
+    {
+        return Err("set at least one of rating, flag, label".into());
+    }
+    Ok(Value::Object(request))
+}
+
 /// The MCP handler each client session gets.
 #[derive(Clone)]
 pub struct Companion {
@@ -393,6 +461,22 @@ impl Companion {
                 .call("set_view", json!({ "mode": args.mode }))
                 .await,
         )
+    }
+
+    #[tool(
+        description = "Record stars, a pick / reject flag and a color label in Riffle, exactly \
+        as the user's judgment keys do: the change is shown at once, is one entry the user can \
+        undo, and is written to each photo's sidecar. Omitted fields keep each photo's own \
+        value; a rating of 0 clears the stars and a null label clears the label. Applies to \
+        the given paths (in the open folder and not hidden by the filter), or to the \
+        selection when omitted (the active pane in compare). Write only when the user asks. \
+        Returns each photo's resulting stars (null when unrated), flag and label."
+    )]
+    async fn set_judgment(&self, Parameters(args): Parameters<JudgmentArgs>) -> CallToolResult {
+        match judgment(args) {
+            Ok(request) => tool_result(self.bridge.call("set_judgment", request).await),
+            Err(e) => CallToolResult::error(vec![ContentBlock::text(e)]),
+        }
     }
 }
 
@@ -656,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn the_tools_are_the_read_and_view_tools() {
+    fn the_tools_are_exactly_the_seven_companion_tools() {
         let names: Vec<_> = Companion::tool_router()
             .list_all()
             .into_iter()
@@ -669,6 +753,7 @@ mod tests {
                 "get_preview",
                 "get_view",
                 "select_photos",
+                "set_judgment",
                 "set_view",
                 "show_photo"
             ]
@@ -846,5 +931,45 @@ mod tests {
         assert_eq!(long_edge(Some(800)), 800);
         assert_eq!(long_edge(Some(10)), 256);
         assert_eq!(long_edge(Some(5000)), 1616);
+    }
+
+    fn judgment_args(value: Value) -> Result<Value, String> {
+        judgment(serde_json::from_value(value).unwrap())
+    }
+
+    #[test]
+    fn judgment_forwards_only_the_given_fields() {
+        assert_eq!(
+            judgment_args(json!({ "rating": 3 })),
+            Ok(json!({ "rating": 3 }))
+        );
+        assert_eq!(
+            judgment_args(json!({ "paths": ["/d/a"], "flag": "reject", "label": null })),
+            Ok(json!({ "paths": ["/d/a"], "flag": "reject", "label": null }))
+        );
+        assert_eq!(
+            judgment_args(json!({ "rating": 0, "label": "Purple" })),
+            Ok(json!({ "rating": 0, "label": "Purple" }))
+        );
+    }
+
+    #[test]
+    fn judgment_refuses_what_the_keys_cannot_set() {
+        assert_eq!(
+            judgment_args(json!({ "rating": 6 })),
+            Err("rating must be an integer from 0 to 5".to_string())
+        );
+        assert_eq!(
+            judgment_args(json!({ "label": "Teal" })),
+            Err(
+                "label must be one of Red, Orange, Yellow, Green, Blue, Pink, Purple, or null"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            judgment_args(json!({ "paths": ["/d/a"] })),
+            Err("set at least one of rating, flag, label".to_string())
+        );
+        assert!(serde_json::from_value::<JudgmentArgs>(json!({ "flag": "maybe" })).is_err());
     }
 }

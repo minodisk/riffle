@@ -116,7 +116,7 @@ Desktop appear only as connection examples.
     - Reuse existing functions only (`show`, `single`, `paintSelection`, `toggleZoom`, `toggleCompare`); do not add a second way to change the selection. `selection` is built with `single()` / the `Selection` helpers in `selection.ts`.
     - Commit as `feat(app): drive the view from MCP tools`.
 
-- [ ] Step 5: `set_judgment` through the UI's commit path
+- [x] Step 5: `set_judgment` through the UI's commit path
   - Done when:
     - `set_judgment(paths?: string[], rating?: 0..5, flag?: "none"|"pick"|"reject", label?: string|null)`: omitted fields keep each file's value; `paths` defaults to the current selection (or the compare-active file in compare mode, as `judge()` does). The frontend builds `Change`s from the current maps, pushes one undo entry, and calls `commit()` exactly as `judge()` does (so `set_rating` → `sidecar::Writer::set` runs unchanged and auto-advance is not applied). Returns the resulting `{ path, rating, flag, label }` per file.
     - `label` accepts the seven color names the keys use (`Red` ... `Purple`); any other string is a tool error (the sidecar keeps raw names, but the companion only sets the UI's vocabulary).
