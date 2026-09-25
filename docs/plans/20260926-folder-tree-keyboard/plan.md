@@ -353,3 +353,4 @@ default.
 
 - 2026-09-26: Step 1 done: tree focusable with a cursor (Up / Down / Home / End, Escape leaves), culling keymap gated by TREE_PASSTHROUGH in treekeys.ts, left pane hide blurs the tree (see learnings.md)
 - (2026-09-26) Step 2 complete
+- (2026-09-26) Step 3 complete
