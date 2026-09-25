@@ -6,9 +6,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use rayon::prelude::*;
 
-use crate::arw::Shot;
+use crate::arw::{FocusLocation, Shot};
+use crate::candidate::{focus_cue, Cue};
 use crate::decode::thumbnail_jpeg;
-use crate::faces::{detect_around, face_catch, FaceCatch};
+use crate::faces::detect_around;
 use crate::reader::read_preview;
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
@@ -32,9 +33,6 @@ pub struct Entry {
     /// `sharpness::score_preview` of the preview; `None` when it could not be
     /// scored, which does not fail the file.
     pub sharpness: Option<f64>,
-    /// Whether the AF caught a face: `Caught` on a Sony face-tracked frame,
-    /// else from the faces around a trusted AF point, else `Unknown`.
-    pub face_catch: FaceCatch,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
@@ -52,20 +50,17 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
     .map_err(|e| e.to_string())?;
     let eye_af = eye_af_frame(&arw.shot);
     let focus = trusted_focus(&arw.shot);
-    // Faces steer the score only without an AF point, so with one they only
-    // decide the face-catch state. Any detection failure is no face.
-    let (face_catch, faces) = if eye_af.is_some() {
-        (FaceCatch::Caught, Vec::new())
-    } else {
-        match catch_unwind(AssertUnwindSafe(|| {
-            detect_around(&preview, arw.orientation, focus)
-        })) {
-            Ok(Ok(d)) => match d.point {
-                Some(point) => (face_catch(&d.faces, point), Vec::new()),
-                None => (FaceCatch::Unknown, d.faces),
-            },
-            _ => (FaceCatch::Unknown, Vec::new()),
-        }
+    // Faces steer the score only without an AF point, so they are searched for
+    // on the whole image then and not at all otherwise. Any detection failure
+    // is no face.
+    let faces = match focus {
+        Some(_) => Vec::new(),
+        None => catch_unwind(AssertUnwindSafe(|| {
+            detect_around(&preview, arw.orientation, None)
+        }))
+        .ok()
+        .and_then(Result::ok)
+        .map_or_else(Vec::new, |d| d.faces),
     };
     let sharpness = catch_unwind(AssertUnwindSafe(|| {
         score_preview(&preview, focus, eye_af.map(|(_, frame)| frame), &faces)
@@ -77,8 +72,22 @@ pub fn extract(path: &Path) -> Result<Entry, String> {
         shot: arw.shot,
         thumbnail,
         sharpness,
-        face_catch,
     })
+}
+
+/// Compute the focus candidate cue of one file. Only an unreadable file is
+/// `Err`; a decode or detection failure, or a panic in either, is an
+/// unknown cue.
+pub fn extract_faces(path: &Path) -> Result<Cue, String> {
+    let (arw, preview) = read_preview(path).map_err(|e| e.to_string())?;
+    Ok(cue(&preview, arw.orientation, trusted_focus(&arw.shot)))
+}
+
+fn cue(preview: &[u8], orientation: u16, focus: Option<FocusLocation>) -> Cue {
+    catch_unwind(AssertUnwindSafe(|| focus_cue(preview, orientation, focus)))
+        .ok()
+        .and_then(Result::ok)
+        .unwrap_or_default()
 }
 
 /// Run `extract` over `paths` on a pool of `threads` threads, handing each
@@ -125,6 +134,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::candidate::FocusCandidate;
     use std::sync::Mutex;
 
     fn jpeg(w: usize, h: usize) -> Vec<u8> {
@@ -238,6 +248,28 @@ mod tests {
         let tiny = extract(&write(&dir, "tiny.ARW", &fixture(1, &jpeg(2, 2)))).unwrap();
         assert_eq!(tiny.sharpness, None);
         assert!(!tiny.thumbnail.is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_cue_is_unknown_without_an_af_point_or_a_decodable_preview() {
+        let dir = dir("faces");
+        let no_af = extract_faces(&write(&dir, "noaf.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
+        assert_eq!(no_af.state, FocusCandidate::Unknown);
+        assert!(no_af.detection.is_none());
+        let bad = extract_faces(&write(&dir, "bad.ARW", &fixture(1, &[0u8; 512]))).unwrap();
+        assert_eq!(bad.state, FocusCandidate::Unknown);
+        let focus = Some(FocusLocation {
+            sensor_w: 6000,
+            sensor_h: 4000,
+            x: 3000,
+            y: 2000,
+        });
+        assert_eq!(cue(&[0u8; 512], 1, focus), Cue::unknown());
+        let flat = cue(&jpeg(64, 48), 1, focus);
+        assert_eq!(flat.state, FocusCandidate::Unknown);
+        assert!(flat.detection.is_some_and(|d| d.point.is_some()));
+        assert!(extract_faces(&dir.join("missing.ARW")).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

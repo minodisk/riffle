@@ -9,18 +9,19 @@ export interface MarkFocus {
   y: number;
   frame: { width: number; height: number } | null;
   manual_focus: boolean;
-  face_catch: "caught" | "missed" | "unknown";
+  candidate: "candidate" | "not_candidate" | "unknown";
+  eye_sharpness: number | null;
 }
 
 export interface FocusMark {
   x: number;
   y: number;
   rect: { x: number; y: number; width: number; height: number } | null;
-  faceCatch: MarkFocus["face_catch"];
+  candidate: MarkFocus["candidate"];
 }
 
 // `null` for a manual-focus shot, whose recorded point is not trusted. The
-// face-catch state rides along so the mark's color is read from the mark.
+// focus candidate state rides along so the mark's color is read from the mark.
 export function focusMark(
   focus: MarkFocus | null | undefined,
   drawWidth: number,
@@ -32,7 +33,7 @@ export function focusMark(
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
   if (focus.frame === null) {
-    return { x, y, rect: null, faceCatch: focus.face_catch };
+    return { x, y, rect: null, candidate: focus.candidate };
   }
   const width = (focus.frame.width * drawWidth) / focus.sensor_w;
   const height = (focus.frame.height * drawHeight) / focus.sensor_h;
@@ -40,7 +41,7 @@ export function focusMark(
     x,
     y,
     rect: { x: x - width / 2, y: y - height / 2, width, height },
-    faceCatch: focus.face_catch,
+    candidate: focus.candidate,
   };
 }
 

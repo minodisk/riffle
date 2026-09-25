@@ -69,7 +69,8 @@ interface Focus {
   y: number;
   frame: { width: number; height: number } | null;
   manual_focus: boolean;
-  face_catch: "caught" | "missed" | "unknown";
+  candidate: "candidate" | "not_candidate" | "unknown";
+  eye_sharpness: number | null;
 }
 
 interface IndexedFile {
@@ -337,12 +338,12 @@ function scheduleCropForResize(): void {
 // lines off the focus point, which is the one pixel the mark exists to show.
 const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
-// The mark's color per face-catch state: green when the AF caught a face,
-// orange when faces were found near the AF point but it is on none of them,
-// white when Riffle does not know.
+// The mark's color per focus candidate state: green when the eyes of the face
+// nearest the AF point are sharp, orange when they are not, white when Riffle
+// does not know.
 const FOCUS_MARK_COLORS = {
-  caught: "#3f3",
-  missed: "#f93",
+  candidate: "#3f3",
+  not_candidate: "#f93",
   unknown: "#fff",
 } as const;
 // The detected faces, apart from every mark color above.
@@ -416,7 +417,7 @@ function renderMeta(): void {
     for (const group of metaGroups(
       meta,
       sharpness.get(files[index]) ?? null,
-      entries.get(files[index])?.focus?.face_catch,
+      entries.get(files[index])?.focus?.candidate,
     )) {
       metaEl.append(line("group", group.heading));
       for (const section of group.sections) {
@@ -1184,7 +1185,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (mark === null) {
     return;
   }
-  const { x, y, rect, faceCatch } = mark;
+  const { x, y, rect, candidate } = mark;
   const arm = FOCUS_MARK_ARM;
   const gap = FOCUS_MARK_GAP;
   // A state color over a dark outline: the color carries the mark on most
@@ -1208,7 +1209,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.lineWidth = 4;
   context.stroke();
-  context.strokeStyle = FOCUS_MARK_COLORS[faceCatch];
+  context.strokeStyle = FOCUS_MARK_COLORS[candidate];
   context.lineWidth = 2;
   context.stroke();
   context.restore();

@@ -1,10 +1,13 @@
 use anyhow::{anyhow, bail, Result};
+use riffle_core::candidate;
 use riffle_core::decode::{apply_orientation, decode_rgb};
 use riffle_core::faces;
 use riffle_core::partial;
 use riffle_core::reader;
 use riffle_core::scan;
 use riffle_core::sharpness;
+use riffle_core::xmp;
+use riffle_core::Flag;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
@@ -23,8 +26,11 @@ fn main() -> Result<()> {
             args.get(3).map(|s| s.parse()).transpose()?,
         ),
         Some("scan") => scan_dir(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?),
+        Some("candidates") => {
+            candidates(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?)
+        }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli <scan|candidates> <dir> [threads]"
         ),
     }
 }
@@ -112,9 +118,10 @@ fn focusbox(path: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Print the face-catch state and draw the searched region (the crop around
-/// the AF point, or nothing for the whole image), the AF point and the faces
-/// found with their eyes on the upright preview.
+/// Print the focus candidate cue, and draw the searched region (the crop
+/// around the AF point, or nothing for the whole image), the AF point, the
+/// faces found with their eyes and the eye window of the nearest face on the
+/// upright preview.
 fn faces(path: &Path, out: &Path) -> Result<()> {
     let (a, jpeg) = reader::read_preview(path)?;
     let focus = sharpness::trusted_focus(&a.shot);
@@ -130,16 +137,30 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
         d.faces.len(),
         t.elapsed()
     );
-    let state = if sharpness::eye_af_frame(&a.shot).is_some() {
-        "caught (camera face tracking)".to_string()
-    } else {
-        match d.point {
-            Some(p) => format!("{:?}", faces::face_catch(&d.faces, p)).to_lowercase(),
-            None => "unknown (no trusted AF point)".to_string(),
-        }
-    };
-    println!("face catch: {state}");
+    let cue = candidate::focus_cue(&jpeg, a.orientation, focus)?;
+    println!(
+        "candidate: {:?}, eye sharpness {}",
+        cue.state,
+        cue.eye_sharpness
+            .map_or("-".to_string(), |s| format!("{s:.1}"))
+    );
     let (mut rgb, _, _) = decode_rgb(&jpeg)?;
+    if let Some(f) = cue.face {
+        println!(
+            "nearest face ({:.0},{:.0}) {:.0}x{:.0}",
+            f.x, f.y, f.width, f.height
+        );
+        let r = candidate::eye_window(w, h, &f);
+        draw_rect(
+            &mut rgb,
+            w,
+            h,
+            r.x as i64,
+            r.y as i64,
+            r.width as i64 - 1,
+            r.height as i64 - 1,
+        );
+    }
     if let Some((px, py)) = d.point {
         println!("AF point ({px},{py})");
         let r = sharpness::window_at(w, h, px, py, faces::CATCH_CROP);
@@ -320,6 +341,85 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
         "thumbnails: {bytes} bytes total, {} bytes mean",
         bytes / n.max(1)
     );
+    Ok(())
+}
+
+/// Compute the focus candidate cue of every RAW file in a folder in parallel
+/// and, where an XMP sidecar holds a pick / reject flag, count how the
+/// candidates line up with it (a pick is in focus).
+fn candidates(dir: &Path, threads: Option<usize>) -> Result<()> {
+    let threads =
+        threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
+    let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| riffle_core::scan::is_raw_file(p))
+        .collect();
+    paths.sort();
+    if paths.is_empty() {
+        bail!("no RAW (ARW/DNG) files in {dir:?}");
+    }
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()?;
+
+    let start = Instant::now();
+    let cues: Vec<_> = pool.install(|| {
+        use rayon::prelude::*;
+        paths.par_iter().map(|p| scan::extract_faces(p)).collect()
+    });
+    let total = start.elapsed();
+
+    // `hits` are candidates in focus: the numerator of both rates.
+    let (mut labeled, mut cands, mut in_focus, mut hits) = (0, 0, 0, 0);
+    let mut errors = 0;
+    for (path, cue) in paths.iter().zip(&cues) {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let flag = std::fs::read(xmp::sidecar_path(path))
+            .ok()
+            .and_then(|b| xmp::read_flag(&b).ok())
+            .filter(|f| *f != Flag::None);
+        let cue = match cue {
+            Ok(c) => c,
+            Err(e) => {
+                errors += 1;
+                println!("{name}  error: {e}");
+                continue;
+            }
+        };
+        let face = cue.face.map_or("-".to_string(), |f| {
+            format!("({:.0},{:.0}) {:.0}x{:.0}", f.x, f.y, f.width, f.height)
+        });
+        println!(
+            "{name}  {:?}  {}  {face}  {}",
+            cue.state,
+            cue.eye_sharpness
+                .map_or("-".to_string(), |s| format!("{s:.1}")),
+            flag.map_or("-".to_string(), |f| format!("{f:?}"))
+        );
+        let Some(flag) = flag else { continue };
+        labeled += 1;
+        let cand = cue.state == candidate::FocusCandidate::Candidate;
+        let pick = flag == Flag::Pick;
+        cands += cand as usize;
+        in_focus += pick as usize;
+        hits += (cand && pick) as usize;
+    }
+    println!(
+        "{} files, {threads} threads, {errors} errors: {:.2}s total",
+        paths.len(),
+        total.as_secs_f64()
+    );
+    if labeled > 0 {
+        let pct = |a: usize, b: usize| 100.0 * a as f64 / b.max(1) as f64;
+        println!(
+            "{labeled} labeled: candidates {cands}, in focus {hits} ({:.0}%); in-focus frames {in_focus}, candidates {hits} ({:.0}%)",
+            pct(hits, cands),
+            pct(hits, in_focus)
+        );
+    }
     Ok(())
 }
 

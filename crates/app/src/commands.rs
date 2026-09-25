@@ -352,9 +352,8 @@ struct FacePoint {
 }
 
 /// Detect the faces of a file's preview through the scan's own
-/// `detect_around`, so the region and the threshold match the stored
-/// face-catch state. On an eye-AF frame this is the crop detection the scan
-/// skipped, for display only.
+/// `detect_around`, so the region and the threshold match the faces the
+/// focus candidate cue picks from, for display only.
 fn read_faces(path: &Path) -> Result<FacesResponse, String> {
     let (arw, jpeg) =
         riffle_core::reader::read_preview(path).map_err(|e| format!("{}: {e}", path.display()))?;
