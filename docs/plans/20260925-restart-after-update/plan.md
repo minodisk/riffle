@@ -90,8 +90,8 @@ untouched.
     - Add a small helper next to `message()` (e.g. a `confirm` taking the
       text, button labels and an on-ok closure) using
       `.buttons(MessageDialogButtons::OkCancelCustom(..)).show(move |ok| ..)`.
-      The Windows re-check is async; spawn it with
-      `tauri::async_runtime::spawn` from the callback. Gate platform code with
+      The Windows path is synchronous (a setter on the pending `Update`, then
+      `app.exit(0)`), so no spawn is needed. Gate platform code with
       `#[cfg(windows)]` like the existing `installed_text` / `installed_log`
       pairs. Match the surrounding style.
     - `installed_text` wording may be adjusted to read naturally above the
