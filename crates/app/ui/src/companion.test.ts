@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { type ViewApi, getView, respond } from "./companion.js";
+import { type ViewApi, getView, handleRequest, respond } from "./companion.js";
+import { COMPARE_NEEDS_FRAMES } from "./compare.js";
 
 function view(overrides: Partial<ViewApi> = {}): ViewApi {
   return {
@@ -17,7 +18,37 @@ function view(overrides: Partial<ViewApi> = {}): ViewApi {
     compareActive: null,
     sort: "name",
     filtered: false,
+    showPhoto: () => {},
+    selectPhotos: () => {},
+    setMode: () => {},
     ...overrides,
+  };
+}
+
+// A view over `files` whose actions record their calls and apply them the
+// way `main.ts` does; `compare` is whether compare can start.
+function driven(files: string[], compare = true) {
+  const calls: unknown[][] = [];
+  const state = view({ folder: "/d", files, selection: new Set(files.slice(0, 1)) });
+  return {
+    calls,
+    view: Object.assign(state, {
+      showPhoto(path: string) {
+        calls.push(["showPhoto", path]);
+        Object.assign(state, { index: files.indexOf(path), selection: new Set([path]) });
+      },
+      selectPhotos(paths: readonly string[]) {
+        calls.push(["selectPhotos", paths]);
+        Object.assign(state, { index: files.indexOf(paths[0]), selection: new Set(paths) });
+      },
+      setMode(mode: string) {
+        calls.push(["setMode", mode]);
+        Object.assign(state, {
+          comparing: mode === "compare" && compare,
+          zoomed: mode === "zoom",
+        });
+      },
+    }),
   };
 }
 
@@ -166,5 +197,87 @@ describe("respond", () => {
       ok: false,
       value: "unknown request: nope",
     });
+  });
+});
+
+describe("show_photo", () => {
+  test("makes a visible path current", async () => {
+    const { calls, view } = driven(["/d/a", "/d/b"]);
+    const state = await handleRequest("show_photo", { path: "/d/b" }, view);
+    expect(calls).toEqual([["showPhoto", "/d/b"]]);
+    expect(state).toMatchObject({ current: { path: "/d/b", position: 2 }, selected: ["/d/b"] });
+  });
+
+  test("refuses a path the strip does not show", async () => {
+    const { calls, view } = driven(["/d/a"]);
+    await expect(handleRequest("show_photo", { path: "/d/x" }, view)).rejects.toThrow(
+      "/d/x is not shown in Riffle: not in the open folder, or hidden by the filter",
+    );
+    await expect(handleRequest("show_photo", {}, view)).rejects.toThrow("path must be a string");
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("select_photos", () => {
+  test("selects the paths without duplicates and makes the first current", async () => {
+    const { calls, view } = driven(["/d/a", "/d/b", "/d/c"]);
+    const state = await handleRequest("select_photos", { paths: ["/d/c", "/d/a", "/d/c"] }, view);
+    expect(calls).toEqual([["selectPhotos", ["/d/c", "/d/a"]]]);
+    expect(state).toMatchObject({
+      current: { path: "/d/c", position: 3 },
+      selected: ["/d/a", "/d/c"],
+    });
+  });
+
+  test("refuses an empty list, a non-list and a hidden path", async () => {
+    const { calls, view } = driven(["/d/a", "/d/b"]);
+    await expect(handleRequest("select_photos", { paths: [] }, view)).rejects.toThrow(
+      "paths must name at least one photo",
+    );
+    await expect(handleRequest("select_photos", { paths: "/d/a" }, view)).rejects.toThrow(
+      "paths must be an array of strings",
+    );
+    await expect(handleRequest("select_photos", { paths: ["/d/a", "/d/x"] }, view)).rejects.toThrow(
+      "/d/x is not shown in Riffle",
+    );
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("set_view", () => {
+  test("asks for the requested mode and reports it", async () => {
+    const { calls, view } = driven(["/d/a", "/d/b"]);
+    expect(await handleRequest("set_view", { mode: "zoom" }, view)).toMatchObject({
+      mode: "zoom",
+    });
+    expect(await handleRequest("set_view", { mode: "compare" }, view)).toMatchObject({
+      mode: "compare",
+    });
+    expect(await handleRequest("set_view", { mode: "normal" }, view)).toMatchObject({
+      mode: "normal",
+    });
+    expect(calls).toEqual([
+      ["setMode", "zoom"],
+      ["setMode", "compare"],
+      ["setMode", "normal"],
+    ]);
+  });
+
+  test("fails with the UI's message when compare cannot start", async () => {
+    const { view } = driven(["/d/a"], false);
+    await expect(handleRequest("set_view", { mode: "compare" }, view)).rejects.toThrow(
+      COMPARE_NEEDS_FRAMES,
+    );
+  });
+
+  test("refuses an unknown mode, and zoom or compare with nothing shown", async () => {
+    const { calls, view } = driven([]);
+    await expect(handleRequest("set_view", { mode: "grid" }, view)).rejects.toThrow(
+      "mode must be one of normal, zoom, compare",
+    );
+    await expect(handleRequest("set_view", { mode: "zoom" }, view)).rejects.toThrow(
+      "no photo is shown in Riffle",
+    );
+    expect(calls).toEqual([]);
   });
 });

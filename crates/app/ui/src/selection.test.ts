@@ -6,6 +6,7 @@ import {
   extend,
   judgments,
   prune,
+  selectionOf,
   single,
   targets,
 } from "./selection.js";
@@ -14,6 +15,12 @@ const files = ["/a", "/b", "/c", "/d", "/e"];
 const plain = { toggle: false, range: false };
 const toggle = { toggle: true, range: false };
 const range = { toggle: false, range: true };
+
+describe("selectionOf", () => {
+  test("selects the paths and anchors on the first", () => {
+    expect(selectionOf(["/c", "/a"])).toEqual({ selected: new Set(["/c", "/a"]), anchor: "/c" });
+  });
+});
 
 describe("click", () => {
   test("a plain click collapses to the file", () => {

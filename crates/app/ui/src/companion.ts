@@ -3,6 +3,7 @@
 // window's view state. Free of DOM and Tauri so it is tested without mocks.
 
 import type { BurstMember } from "./burst.js";
+import { COMPARE_NEEDS_FRAMES } from "./compare.js";
 import type { PickFlag } from "./selection.js";
 import type { SortKey } from "./sort.js";
 
@@ -23,7 +24,16 @@ export interface ViewApi {
   readonly compareActive: string | null;
   readonly sort: SortKey;
   readonly filtered: boolean;
+  // Make a visible `path` current and the only selected file.
+  showPhoto(path: string): void;
+  // Select the visible `paths` and make the first one current.
+  selectPhotos(paths: readonly [string, ...string[]]): void;
+  // Toggle compare and the 1:1 view until `mode` is reached; compare stays
+  // off when there are fewer than two frames to compare.
+  setMode(mode: ViewMode): void;
 }
+
+export type ViewMode = "normal" | "zoom" | "compare";
 
 export interface McpRequest {
   id: number;
@@ -54,7 +64,7 @@ export interface ViewState {
   count: number;
   current: { path: string; position: number } | null;
   selected: string[];
-  mode: "normal" | "zoom" | "compare";
+  mode: ViewMode;
   compare_active: string | null;
   burst: BurstFrame[];
   sort: SortKey;
@@ -97,10 +107,60 @@ export function getView(view: ViewApi): ViewState {
   };
 }
 
-export async function handleRequest(kind: string, _args: unknown, view: ViewApi): Promise<unknown> {
+function field(args: unknown, name: string): unknown {
+  return typeof args === "object" && args !== null
+    ? (args as Record<string, unknown>)[name]
+    : undefined;
+}
+
+// `path` checked to be one of the files the strip shows.
+function visiblePath(view: ViewApi, path: unknown): string {
+  if (typeof path !== "string") throw new Error("path must be a string");
+  if (!view.files.includes(path)) {
+    throw new Error(
+      `${path} is not shown in Riffle: not in the open folder, or hidden by the filter`,
+    );
+  }
+  return path;
+}
+
+function showPhoto(view: ViewApi, args: unknown): ViewState {
+  view.showPhoto(visiblePath(view, field(args, "path")));
+  return getView(view);
+}
+
+function selectPhotos(view: ViewApi, args: unknown): ViewState {
+  const paths = field(args, "paths");
+  if (!Array.isArray(paths)) throw new Error("paths must be an array of strings");
+  const [first, ...rest] = [...new Set(paths.map((path: unknown) => visiblePath(view, path)))];
+  if (first === undefined) throw new Error("paths must name at least one photo");
+  view.selectPhotos([first, ...rest]);
+  return getView(view);
+}
+
+const MODES: readonly string[] = ["normal", "zoom", "compare"] satisfies ViewMode[];
+
+function setView(view: ViewApi, args: unknown): ViewState {
+  const mode = field(args, "mode");
+  if (typeof mode !== "string" || !MODES.includes(mode)) {
+    throw new Error(`mode must be one of ${MODES.join(", ")}`);
+  }
+  if (mode !== "normal" && view.files.length === 0) throw new Error("no photo is shown in Riffle");
+  view.setMode(mode as ViewMode);
+  if (mode === "compare" && !view.comparing) throw new Error(COMPARE_NEEDS_FRAMES);
+  return getView(view);
+}
+
+export async function handleRequest(kind: string, args: unknown, view: ViewApi): Promise<unknown> {
   switch (kind) {
     case "get_view":
       return getView(view);
+    case "show_photo":
+      return showPhoto(view, args);
+    case "select_photos":
+      return selectPhotos(view, args);
+    case "set_view":
+      return setView(view, args);
     default:
       throw new Error(`unknown request: ${kind}`);
   }
