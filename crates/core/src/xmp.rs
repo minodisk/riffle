@@ -162,11 +162,6 @@ impl Default for LabelNames {
 }
 
 impl LabelNames {
-    /// The names of a Japanese Lightroom's default color label set.
-    pub fn japanese() -> Self {
-        Self::from_names(["レッド", "イエロー", "グリーン", "ブルー", "パープル"])
-    }
-
     fn from_names([red, yellow, green, blue, purple]: [&str; 5]) -> Self {
         Self {
             red: red.to_string(),
@@ -510,6 +505,10 @@ fn insert_offset(tag: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn japanese() -> LabelNames {
+        crate::i18n::preset("ja").unwrap().names.clone()
+    }
 
     const BRIDGE: &str = concat!(
         "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n",
@@ -1058,7 +1057,7 @@ mod tests {
 
     #[test]
     fn writes_and_reads_japanese_label_names() {
-        let ja = LabelNames::japanese();
+        let ja = japanese();
         let out = write_label(Some(BRIDGE.as_bytes()), Some("Red"), &ja).unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.contains("xmp:Label=\"レッド\""));
@@ -1073,7 +1072,7 @@ mod tests {
 
     #[test]
     fn maps_english_and_configured_label_names_without_a_label_color() {
-        let ja = LabelNames::japanese();
+        let ja = japanese();
         assert_eq!(
             read_label(with_bridge_label("Red").as_bytes(), &ja).unwrap(),
             Some("Red".to_string())
@@ -1097,7 +1096,7 @@ mod tests {
     fn an_empty_label_name_falls_back_to_english() {
         let names = LabelNames {
             red: String::new(),
-            ..LabelNames::japanese()
+            ..japanese()
         };
         assert_eq!(names.name("Red"), Some("Red"));
         let out = write_label(Some(BRIDGE.as_bytes()), Some("Red"), &names).unwrap();

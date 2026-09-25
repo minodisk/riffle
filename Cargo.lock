@@ -3752,6 +3752,8 @@ dependencies = [
  "mozjpeg-sys",
  "quick-xml",
  "rayon",
+ "serde",
+ "serde_json",
  "tract-onnx",
 ]
 

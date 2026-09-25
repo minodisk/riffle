@@ -678,6 +678,11 @@ mod tests {
     #[cfg(unix)]
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    /// The names of Lightroom's Japanese default color label set.
+    fn japanese() -> LabelNames {
+        riffle_core::i18n::preset("ja").unwrap().names.clone()
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("riffle-sidecar-{name}-{}", std::process::id()));
@@ -1800,7 +1805,7 @@ mod tests {
                 Some("Red".to_string()),
                 true,
                 SidecarFormat::Xmp,
-                LabelNames::japanese(),
+                japanese(),
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);

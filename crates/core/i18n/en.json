@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "English"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic (English UI)",
+      "red": "Red",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "purple": "Purple"
+    }
+  }
+}
