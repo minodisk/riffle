@@ -99,4 +99,4 @@ dropped, as groups and sections are today.
 
 ## Progress
 
-- (none yet)
+- (2026-09-25) Step 1 complete
