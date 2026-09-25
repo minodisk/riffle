@@ -423,16 +423,11 @@ function renderMeta(): void {
       entries.get(files[index])?.focus,
     )) {
       metaEl.append(line("group", group.heading));
-      for (const section of group.sections) {
-        if (section.label !== null) {
-          metaEl.append(line("section", section.label));
-        }
-        const list = document.createElement("dl");
-        for (const { label, value } of section.rows) {
-          row(list, label, value);
-        }
-        metaEl.append(list);
+      const list = document.createElement("dl");
+      for (const { label, value } of group.rows) {
+        row(list, label, value);
       }
+      metaEl.append(list);
     }
   }
   if (note !== undefined) {
