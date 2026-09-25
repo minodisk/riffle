@@ -779,3 +779,32 @@ names were not checked against a specific install when the file was created
 
 - [ ] Confirm the English color label names against a real Lightroom Classic
       install and name the version / OS in `verified`.
+
+### App: the folder listing payload carries always-null Maker note fields
+
+The folder listing's `Exif` struct is also serialized for every `IndexedFile`
+(`index.rs` rebuilds it from cached columns with `..Shot::default()`), so
+`focus_mode`, `af_tracking`, `af_area`, `drive`, `stabilization`,
+`exposure_mode`, `metering`, `creative_style`, `dro` and `raw_type` travel
+there as `null` for every file, since the index does not cache them.
+
+#### TODO
+
+- [ ] Move the Maker note formatting out of `Exif` into a separate struct used
+      only by `read_metadata`, or skip serializing `None` fields. Files:
+      `crates/app/src/exif.rs`, `crates/app/src/index.rs`,
+      `crates/app/ui/src/exif.ts`.
+
+### Core: `sharpness.rs`'s manual-focus check has no model gate
+
+`crates/core/src/sharpness.rs` reads `shot.focus_mode == Some(MANUAL_FOCUS)` to
+pick the sharpness-score strategy with no model gate, so on the older `DSC-`
+bodies ExifTool excludes from `FocusMode` (value always 0) it is misread as
+manual focus. Found in the review of sony-af-meta Step 2
+(`docs/plans/review-history/sony-af-meta-step-2/review-20260925-2138.md`);
+pre-existing.
+
+#### TODO
+
+- [ ] Apply the `DSC-` model gate `exif.rs` uses for `FocusMode` /
+      `AFTracking` to the manual-focus check in `crates/core/src/sharpness.rs`.
