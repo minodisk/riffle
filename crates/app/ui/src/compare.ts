@@ -11,6 +11,9 @@ export function reconcileActive(
   return candidates[0] ?? null;
 }
 
+// What the UI says when compare is asked for with fewer than two candidates.
+export const COMPARE_NEEDS_FRAMES = "Select 2–4 files, or move to a burst with at least two frames";
+
 // Derive the displayed comparison from all of the state that can change it.
 // Keeping this calculation together makes scan-time score updates and
 // selection-only changes use the same rules as the initial comparison.

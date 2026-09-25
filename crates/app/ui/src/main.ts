@@ -26,6 +26,7 @@ import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { initSettings } from "./settings.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import {
+  COMPARE_NEEDS_FRAMES,
   comparePaneAt,
   comparisonCandidates,
   loadComparisonFrames,
@@ -39,6 +40,7 @@ import {
   extend,
   judgments,
   prune,
+  selectionOf,
   single,
   targets,
 } from "./selection.js";
@@ -705,7 +707,7 @@ function toggleCompare(): void {
   }
   const candidates = compareCandidates();
   if (candidates.length < 2) {
-    setStatus("Select 2–4 files, or move to a burst with at least two frames");
+    setStatus(COMPARE_NEEDS_FRAMES);
     return;
   }
   comparing = true;
@@ -1982,7 +1984,22 @@ void window.__TAURI__.event.listen("redo", () => {
   if (!settings.isOpen) redo();
 });
 
-// The MCP companion reads the view through this; every getter is live.
+// Make `path` the focused file after the selection changed, as a strip click
+// does.
+function focusFile(path: string): void {
+  const at = fileIndex.get(path);
+  if (at === undefined) return;
+  if (at === index) {
+    renderMeta();
+    if (comparing) void loadCompare();
+    return;
+  }
+  index = at;
+  show();
+}
+
+// The MCP companion reads and drives the view through this; every getter is
+// live.
 const view: ViewApi = {
   get folder() {
     return openDir;
@@ -2017,6 +2034,20 @@ const view: ViewApi = {
   },
   get filtered() {
     return filterActive();
+  },
+  showPhoto(path) {
+    selection = single(path);
+    paintSelection();
+    focusFile(path);
+  },
+  selectPhotos(paths) {
+    selection = selectionOf(paths);
+    paintSelection();
+    focusFile(paths[0]);
+  },
+  setMode(mode) {
+    if ((mode === "compare") !== comparing) toggleCompare();
+    if (mode !== "compare" && (mode === "zoom") !== zoomed) toggleZoom();
   },
 };
 void window.__TAURI__.event.listen<McpRequest>("mcp-request", ({ payload }) => {

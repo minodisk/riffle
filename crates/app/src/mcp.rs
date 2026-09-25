@@ -226,6 +226,38 @@ pub struct PreviewArgs {
     long_edge: Option<u32>,
 }
 
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct ShowArgs {
+    /// The photo's path as `get_view` reports it.
+    path: String,
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct SelectArgs {
+    /// The photos' paths as `get_view` reports them; the first becomes the
+    /// current photo.
+    paths: Vec<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+#[schemars(crate = "rmcp::schemars")]
+pub enum ViewMode {
+    Normal,
+    Zoom,
+    Compare,
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct ViewArgs {
+    /// `normal` for the fitted preview, `zoom` for the 1:1 focus check, or
+    /// `compare` for side-by-side panes.
+    mode: ViewMode,
+}
+
 /// The MCP handler each client session gets.
 #[derive(Clone)]
 pub struct Companion {
@@ -318,6 +350,49 @@ impl Companion {
         self.preview(args)
             .await
             .unwrap_or_else(|e| CallToolResult::error(vec![ContentBlock::text(e)]))
+    }
+
+    #[tool(
+        description = "Show one photo in Riffle, as clicking it in the filmstrip does: it \
+        becomes the current photo and the only selected one. The path must be one `get_view` \
+        can report, in the open folder and not hidden by the filter. Returns the new view, \
+        as `get_view` does."
+    )]
+    async fn show_photo(&self, Parameters(args): Parameters<ShowArgs>) -> CallToolResult {
+        tool_result(
+            self.bridge
+                .call("show_photo", json!({ "path": args.path }))
+                .await,
+        )
+    }
+
+    #[tool(
+        description = "Select one or more photos in Riffle's filmstrip; the first becomes the \
+        current photo. Judgments and compare apply to the selection (compare shows its first \
+        four). Every path must be in the open folder and not hidden by the filter. Returns \
+        the new view, as `get_view` does."
+    )]
+    async fn select_photos(&self, Parameters(args): Parameters<SelectArgs>) -> CallToolResult {
+        tool_result(
+            self.bridge
+                .call("select_photos", json!({ "paths": args.paths }))
+                .await,
+        )
+    }
+
+    #[tool(
+        description = "Switch Riffle's view mode: `normal` for the fitted preview, `zoom` for \
+        the 1:1 focus check of the current photo, or `compare` for the selected photos (2 to \
+        4) side by side, or the current photo and its burst's sharpest frame when only one is \
+        selected. Compare fails when there are fewer than two photos to compare. Returns the \
+        new view, as `get_view` does."
+    )]
+    async fn set_view(&self, Parameters(args): Parameters<ViewArgs>) -> CallToolResult {
+        tool_result(
+            self.bridge
+                .call("set_view", json!({ "mode": args.mode }))
+                .await,
+        )
     }
 }
 
@@ -581,13 +656,23 @@ mod tests {
     }
 
     #[test]
-    fn the_tools_are_the_read_tools() {
+    fn the_tools_are_the_read_and_view_tools() {
         let names: Vec<_> = Companion::tool_router()
             .list_all()
             .into_iter()
             .map(|tool| tool.name.to_string())
             .collect();
-        assert_eq!(names, ["get_photo", "get_preview", "get_view"]);
+        assert_eq!(
+            names,
+            [
+                "get_photo",
+                "get_preview",
+                "get_view",
+                "select_photos",
+                "set_view",
+                "show_photo"
+            ]
+        );
     }
 
     #[test]

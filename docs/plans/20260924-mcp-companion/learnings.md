@@ -109,6 +109,31 @@
   on the path resolution, the index lookup, the clamp, the tool list and
   `preview_jpeg`.
 
+## Step 4: `show_photo`, `select_photos`, `set_view`
+
+- `ViewApi` gained three actions (`showPhoto`, `selectPhotos`, `setMode`);
+  `companion.ts` validates the arguments (a path must be in `files`, i.e.
+  visible after the filter; `paths` is deduplicated and must be non-empty;
+  `mode` must be one of the three) before calling any of them, and each
+  tool answers with the `get_view` payload read after the action. The Rust
+  side only types the arguments (`ViewMode` is a lowercase serde enum, so the
+  schema lists the three modes) and forwards them over the bridge; the
+  frontend repeats the checks because the bridge carries plain JSON.
+- `main.ts` reuses `single`, `paintSelection`, `show`, `toggleZoom` and
+  `toggleCompare`. The strip click's "focus moved, or only the selection
+  changed" branch became `focusFile(path)`, shared by the two selection
+  actions. The only new selection builder is `selectionOf(paths)` in
+  `selection.ts` (the set, anchored on the first path), since no existing
+  helper builds a selection from an arbitrary list.
+- `set_view compare` reports failure by reading `comparing` after the
+  toggle: `toggleCompare` only sets the status line when there are fewer
+  than two candidates. Its message moved to `COMPARE_NEEDS_FRAMES` in
+  `compare.ts` so the UI and the tool error say the same thing. `zoom` or
+  `compare` with no photo shown is refused up front (`toggleZoom` silently
+  does nothing then).
+- Not verified by hand: driving a running app from an MCP client (no GUI
+  session in this environment).
+
 ## Deferred issues (todo candidates)
 
 - Verify by hand whether Claude Desktop accepts a direct `url` entry for a
@@ -129,3 +154,8 @@
   Claude Code), against a running app with a real ARW / DNG folder. Basis:
   step 3's acceptance criterion; no GUI session or sample file was
   available. Files: `crates/app/src/mcp.rs`, `crates/core/src/decode.rs`.
+- Verify by hand that `show_photo`, `select_photos` and `set_view` move the
+  strip, the selection and the view mode of a running app from an MCP
+  client. Basis: step 4 could not run the app (no GUI session). Files:
+  `crates/app/src/mcp.rs`, `crates/app/ui/src/main.ts`,
+  `crates/app/ui/src/companion.ts`.

@@ -106,7 +106,7 @@ Desktop appear only as connection examples.
     - Faces are not stored in the index (`scan.rs` detects them only to score sharpness), so no face data is returned; see trade-offs.
     - Commit as `feat(app): add MCP get_photo and get_preview`.
 
-- [ ] Step 4: UI-driving tools `show_photo`, `select_photos`, `set_view`
+- [x] Step 4: UI-driving tools `show_photo`, `select_photos`, `set_view`
   - Done when:
     - `show_photo(path)`: makes the path current (like a strip click: collapses the selection to it and calls `show()`); a path hidden by the filter or not in the folder is a tool error.
     - `select_photos(paths: string[])`: sets the selection to the listed visible paths (1..=4 for compare's sake is not enforced; `comparisonCandidates` already slices to 4), makes the first one current, repaints the strip.

@@ -13,6 +13,11 @@ export function single(path: string | undefined): Selection {
   return { selected: new Set(path === undefined ? [] : [path]), anchor: path };
 }
 
+// `paths` selected, the first one the anchor.
+export function selectionOf(paths: readonly string[]): Selection {
+  return { selected: new Set(paths), anchor: paths[0] };
+}
+
 function between(files: readonly string[], from: number, to: number): Set<string> {
   return new Set(files.slice(Math.min(from, to), Math.max(from, to) + 1));
 }
