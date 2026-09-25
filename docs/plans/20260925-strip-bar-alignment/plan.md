@@ -110,4 +110,4 @@ right edge, as in the usual toolbar convention. After this work the bar reads
 
 ## Progress
 
-- (none yet)
+- (2026-09-25) Step 1 complete
