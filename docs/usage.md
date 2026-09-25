@@ -97,8 +97,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   in the standard tags (aperture, shutter, ISO, focal length, exposure, camera,
   lens and capture time), then, under `Maker note`, what it wrote in its
   vendor MakerNote: on Sony, the shutter type, the focus
-  mode, the AF area (ILCE, NEX and ZV bodies only; other Sony families use a
-  different table), the AF tracking (`Face tracking` or `Lock On AF`), the
+  mode, the AF area (ILCE, NEX and ZV bodies only; not the FX cinema bodies,
+  the compacts, or the A-mount bodies), the AF tracking, such as `Face
+  tracking` or `Lock On AF`, the
   drive (the release mode, with the frame number within a burst, as in
   `Continuous, frame 2`), the stabilization, the exposure mode, the metering,
   the creative style (on current bodies the Creative Look, which may show as
