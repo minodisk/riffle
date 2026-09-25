@@ -9,6 +9,7 @@ import {
   rows,
   setChildren,
   step,
+  treeKey,
 } from "./tree.js";
 
 const home = { name: "me", path: "/home/me" };
@@ -117,6 +118,99 @@ describe("step", () => {
     for (const key of ["up", "down", "home", "end"] as const) {
       expect(step([], null, key)).toBeNull();
       expect(step([], "/home/me", key)).toBeNull();
+    }
+  });
+});
+
+describe("treeKey", () => {
+  const pictures = { name: "Pictures", path: "/home/me/Pictures" };
+  const empty = { name: "empty", path: "/home/me/empty" };
+  const y2026 = { name: "2026", path: "/home/me/Pictures/2026" };
+
+  // me > (Pictures > 2026, empty), card
+  function tree(): ReturnType<typeof addRoots> {
+    let t = expand(addRoots(EMPTY_TREE, [home, card]), home.path);
+    t = setChildren(t, home.path, 0, [pictures, empty]);
+    t = setChildren(t, empty.path, 0, []);
+    t = expand(t, pictures.path);
+    return setChildren(t, pictures.path, 0, [y2026]);
+  }
+
+  test("right expands a collapsed row that can expand, listed or not", () => {
+    const collapsed = collapse(tree(), home.path);
+    expect(treeKey(rows(collapsed), home.path, "right")).toEqual({
+      kind: "expand",
+      path: home.path,
+    });
+    expect(treeKey(rows(tree()), card.path, "right")).toEqual({
+      kind: "expand",
+      path: card.path,
+    });
+  });
+
+  test("right on an expanded row enters its first child", () => {
+    expect(treeKey(rows(tree()), home.path, "right")).toEqual({
+      kind: "focus",
+      path: pictures.path,
+    });
+  });
+
+  test("right does nothing on a leaf or an expanded row still listing", () => {
+    expect(treeKey(rows(tree()), empty.path, "right")).toBeNull();
+    const listing = rows(expand(tree(), card.path));
+    expect(treeKey(listing, card.path, "right")).toBeNull();
+  });
+
+  test("left collapses an expanded row, even one still listing", () => {
+    expect(treeKey(rows(tree()), pictures.path, "left")).toEqual({
+      kind: "collapse",
+      path: pictures.path,
+    });
+    expect(treeKey(rows(expand(tree(), card.path)), card.path, "left")).toEqual({
+      kind: "collapse",
+      path: card.path,
+    });
+  });
+
+  test("left on a collapsed row or a leaf goes to the parent", () => {
+    expect(treeKey(rows(tree()), y2026.path, "left")).toEqual({
+      kind: "focus",
+      path: pictures.path,
+    });
+    expect(treeKey(rows(tree()), empty.path, "left")).toEqual({
+      kind: "focus",
+      path: home.path,
+    });
+    const collapsed = rows(collapse(tree(), pictures.path));
+    expect(treeKey(collapsed, pictures.path, "left")).toEqual({
+      kind: "focus",
+      path: home.path,
+    });
+  });
+
+  test("left on an expanded leaf goes to the parent", () => {
+    const opened = rows(expand(tree(), empty.path));
+    expect(treeKey(opened, empty.path, "left")).toEqual({ kind: "focus", path: home.path });
+  });
+
+  test("left does nothing on a collapsed root", () => {
+    expect(treeKey(rows(tree()), card.path, "left")).toBeNull();
+    expect(treeKey(rows(collapse(tree(), home.path)), home.path, "left")).toBeNull();
+  });
+
+  test("enter opens the cursor row", () => {
+    expect(treeKey(rows(tree()), y2026.path, "enter")).toEqual({
+      kind: "open",
+      path: y2026.path,
+    });
+  });
+
+  test("a missing or stale cursor does nothing", () => {
+    const collapsed = rows(collapse(tree(), home.path));
+    for (const key of ["left", "right", "enter"] as const) {
+      expect(treeKey(collapsed, null, key)).toBeNull();
+      expect(treeKey(collapsed, y2026.path, key)).toBeNull();
+      expect(treeKey([], null, key)).toBeNull();
     }
   });
 });

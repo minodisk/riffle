@@ -11,6 +11,7 @@ import {
   type FolderNode,
   type StepKey,
   type Tree,
+  type TreeKey,
   addRoots,
   ancestorsWithin,
   collapse,
@@ -19,6 +20,7 @@ import {
   rows,
   setChildren,
   step,
+  treeKey,
 } from "./tree.js";
 
 interface Folder {
@@ -202,6 +204,18 @@ const STEPS: Record<string, StepKey> = {
   end: "end",
 };
 
+const TREE_KEYS: Record<string, TreeKey> = {
+  arrowleft: "left",
+  arrowright: "right",
+  enter: "enter",
+};
+
+function moveCursor(to: string): void {
+  cursor = to;
+  render();
+  container.querySelector(".folder.cursor")?.scrollIntoView({ block: "nearest" });
+}
+
 // True when the tree consumed the key.
 export function keydown(event: KeyboardEvent): boolean {
   const key = keyName(event);
@@ -210,16 +224,30 @@ export function keydown(event: KeyboardEvent): boolean {
     event.preventDefault();
     return true;
   }
-  const move = key === null ? undefined : STEPS[key];
-  if (move === undefined) {
+  if (key === null) {
+    return false;
+  }
+  const move = STEPS[key];
+  if (move !== undefined) {
+    event.preventDefault();
+    const to = step(rows(tree), cursor, move);
+    if (to !== null) {
+      moveCursor(to);
+    }
+    return true;
+  }
+  const treeMove = TREE_KEYS[key];
+  if (treeMove === undefined) {
     return false;
   }
   event.preventDefault();
-  const to = step(rows(tree), cursor, move);
-  if (to !== null) {
-    cursor = to;
-    render();
-    container.querySelector(".folder.cursor")?.scrollIntoView({ block: "nearest" });
+  const command = treeKey(rows(tree), cursor, treeMove);
+  if (command?.kind === "focus") {
+    moveCursor(command.path);
+  } else if (command?.kind === "expand" || command?.kind === "collapse") {
+    toggle(command.path);
+  } else if (command?.kind === "open") {
+    open(command.path);
   }
   return true;
 }
