@@ -5,10 +5,13 @@
 //! Each file is namespaced: `meta.name` is the language's name in that
 //! language, and `lightroom.colorLabels` the names of Lightroom's default
 //! color label set in that UI language, with `verified` naming the Lightroom
-//! version, OS and UI language they were checked against. `en.json` is the
-//! reference: every key of another file must exist in it, and a missing key
-//! reads as `en.json`'s value. With only `colorLabels` populated this reduces
-//! to "a language without `colorLabels` offers no preset".
+//! version, OS and UI language they were checked against. `meta.name` is
+//! required; a file without it fails to deserialize. `lightroom.colorLabels`
+//! is all-or-nothing: it is either all five colors plus `verified`, or
+//! omitted entirely (defaulting `lightroom` to empty), in which case the
+//! language offers no preset. Falling back to `en.json` per key, treating it
+//! as the reference for any key missing elsewhere, is the intended rule for
+//! future namespaces, but no current key falls back this way.
 
 use std::sync::OnceLock;
 
