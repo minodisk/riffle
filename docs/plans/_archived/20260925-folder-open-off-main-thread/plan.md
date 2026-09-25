@@ -192,3 +192,4 @@ The user chose a single PR, so the backend and frontend changes are one step.
   propagation so it only toggles. The manual GUI check and the `#[cfg(unix)]`
   symlink test could not be run on the implementer's Windows machine and are
   left to the user and to CI.
+- (2026-09-25) Step 1 complete

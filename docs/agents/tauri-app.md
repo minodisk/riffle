@@ -1480,6 +1480,10 @@ forward, and injected keystrokes are dropped silently.
 `cargo test --lib` fails because `crates/app` has no library target.
 
 - Run `cargo test <test_name>` (optionally scoped with `cd crates/app`) instead.
+- A `#[cfg(unix)]` test compiles and runs only on macOS/Linux CI; on a
+  Windows dev machine it's silently absent from the run (not a failure, not
+  a skip you'll see), so a passing `cargo test <name>` there proves nothing
+  about it. Confirm unix-only coverage on CI, not locally on Windows.
 
 ### A rating/pick test needs a scan-populated `files` row before `rating_of` reads back (Hit)
 
