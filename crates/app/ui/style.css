@@ -67,7 +67,6 @@ body {
 #tools {
   display: flex;
   flex: none;
-  margin-left: auto;
 }
 
 #filter,
@@ -78,8 +77,6 @@ body {
 }
 
 #filter {
-  order: 1;
-  margin-left: auto;
   padding-left: 0;
 }
 
@@ -124,14 +121,19 @@ body {
 
 /* The filter and sort menus open upward from the strip's header bar, over
    the viewer, so the strip they act on stays visible. They sit at the
-   window's right edge, so each is aligned to its toggle's right edge. The
-   height is bounded by the space above the bar: #film is about 220px tall
-   (the bar plus the 182px strip and its scrollbar). */
+   window's left edge, so each is aligned to its toggle's left edge, which
+   sits at its wrapper's left padding. The height is bounded by the space
+   above the bar: #film is about 220px tall (the bar plus the 182px strip
+   and its scrollbar). */
 #filter-menu,
 #sort-menu {
   bottom: calc(100% + 4px);
-  right: 8px;
+  left: 8px;
   max-height: calc(100vh - 240px);
+}
+
+#filter-menu {
+  left: 0;
 }
 
 #filter-menu[hidden],
@@ -270,6 +272,7 @@ body {
 
 #position {
   flex: none;
+  margin-left: auto;
   padding: 0 0.5rem;
   font-size: 0.8rem;
   white-space: nowrap;
