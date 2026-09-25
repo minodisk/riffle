@@ -192,4 +192,7 @@ companion are untouched.
 
 ## Progress
 
-- (none yet)
+- 2026-09-26: Step 1 done: meta pane label renamed to `AF eye sharpness` and
+  `Focus` row dropped, strip `scan-face` candidate icon added, Lucide notice
+  kept in the minified JS through `build.rolldownOptions.output.comments.legal`
+  (see learnings.md)
