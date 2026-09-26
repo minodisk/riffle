@@ -18,6 +18,18 @@
 //! `Settings = { Version = "21.0" }`, and any write to an item lacking the
 //! key inserts that block just before the `ShouldProcess` line.
 //!
+//! PhotoLab 10 also displays an image by the item's `Orientation`, not by the
+//! RAW's EXIF, and shows an item without the key unrotated, while a value
+//! taken from another file rotates it wrongly. So the caller passes the RAW's
+//! own EXIF Orientation (tag 0x0112): the template writes it between `Name`
+//! and `Rating`, and a write to an item lacking the key inserts the line at
+//! the start of the `Rating` line (before the item's closing brace without
+//! one). An existing `Orientation` is never touched, and `None` (unknown)
+//! writes no line at all. The caller reads the value from its index, else
+//! from the RAW's head. Edits sharing an offset land in the reverse of their
+//! push order, so the `Orientation` edit is pushed after `Settings` and
+//! before `ColorLabel`, which keeps inserts at the closing brace alphabetical.
+//!
 //! There is no Lua parser: a scanner tracks brace depth (skipping over
 //! double-quoted strings) and matches `Key = value,` lines at the depth of the
 //! table they belong to, which is what keeps nested keys such as the `Label`
@@ -76,7 +88,9 @@ pub fn read_flag(bytes: &[u8]) -> Result<Flag, String> {
 /// With `existing` `None` this is a fresh minimal template for the file
 /// `name`; otherwise the existing bytes with only `Rating`, `ShouldProcess`,
 /// `Date` and `ModificationDate` spliced, each inserted as its own line when
-/// absent. `name` is only used by the template.
+/// absent. `name` is only used by the template; `orientation`, the RAW's
+/// EXIF Orientation, is written by the template and inserted into an item
+/// without one (see the module doc).
 ///
 /// `ShouldProcess` becomes `0` for a pick, `1` for a reject and `2`
 /// otherwise.
@@ -90,6 +104,7 @@ pub fn write_rating(
     rating: Option<i8>,
     flag: Flag,
     name: &str,
+    orientation: Option<u16>,
     now: &str,
 ) -> Result<Vec<u8>, String> {
     let value = rating.unwrap_or(0);
@@ -97,7 +112,7 @@ pub fn write_rating(
         return Err(format!("rating {value} is outside 0..=5"));
     }
     let Some(existing) = existing else {
-        return Ok(template(value, flag, name, now, [uuid(), uuid()]).into_bytes());
+        return Ok(template(value, flag, name, orientation, now, [uuid(), uuid()]).into_bytes());
     };
     let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
     let doc = locate(text)?;
@@ -127,6 +142,7 @@ pub fn write_rating(
         should_process(flag),
     )?);
     edits.extend(doc.insert_settings(text)?);
+    edits.extend(doc.insert_orientation(text, orientation)?);
     edits.sort_by_key(|e| std::cmp::Reverse(e.0));
     let mut out = text.to_string();
     for (start, end, replacement) in edits {
@@ -160,18 +176,20 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
 ///
 /// With `existing` `None`, `Some(label)` is the fresh template for `name`
 /// (unrated, unflagged) plus the label; `None` is an error, as the caller
-/// never mints a sidecar for "no label".
+/// never mints a sidecar for "no label". `orientation` is written as by
+/// [`write_rating`].
 pub fn write_label(
     existing: Option<&[u8]>,
     label: Option<&str>,
     name: &str,
+    orientation: Option<u16>,
     now: &str,
 ) -> Result<Vec<u8>, String> {
     let owned;
     let existing = match (existing, label) {
         (Some(existing), _) => existing,
         (None, Some(_)) => {
-            owned = template(0, Flag::None, name, now, [uuid(), uuid()]);
+            owned = template(0, Flag::None, name, orientation, now, [uuid(), uuid()]);
             owned.as_bytes()
         }
         (None, None) => return Err("no sidecar to clear a label from".to_string()),
@@ -190,6 +208,7 @@ pub fn write_label(
         )?,
     ];
     edits.extend(doc.insert_settings(text)?);
+    edits.extend(doc.insert_orientation(text, orientation)?);
     match (label, doc.color_label) {
         (Some(label), found) => edits.push(doc.edit(
             text,
@@ -264,9 +283,17 @@ fn should_process(flag: Flag) -> &'static str {
     }
 }
 
-fn template(rating: i8, flag: Flag, name: &str, now: &str, uuids: [String; 2]) -> String {
+fn template(
+    rating: i8,
+    flag: Flag,
+    name: &str,
+    orientation: Option<u16>,
+    now: &str,
+    uuids: [String; 2],
+) -> String {
     let flag = should_process(flag);
     let name = name.replace('\\', "\\\\").replace('"', "\\\"");
+    let orientation = orientation.map_or_else(String::new, |n| format!("Orientation = {n},\n"));
     let [item_uuid, source_uuid] = uuids;
     format!(
         "Sidecar = {{\n\
@@ -278,6 +305,7 @@ fn template(rating: i8, flag: Flag, name: &str, now: &str, uuids: [String; 2]) -
          CreationDate = \"{now}\",\n\
          ModificationDate = \"{now}\",\n\
          Name = \"{name}\",\n\
+         {orientation}\
          Rating = {rating},\n\
          Settings = {{\n\
          Version = \"21.0\",\n\
@@ -313,6 +341,7 @@ struct Doc {
     should_process: Option<Range>,
     modification_date: Option<Range>,
     color_label: Option<Range>,
+    orientation: Option<Range>,
     settings: bool,
 }
 
@@ -360,6 +389,26 @@ impl Doc {
         )))
     }
 
+    /// The insertion of an `Orientation = {n},` line at the start of the
+    /// `Rating` line, or before the item's closing brace without one, when
+    /// `orientation` is known and the item has no `Orientation` key.
+    fn insert_orientation(
+        &self,
+        text: &str,
+        orientation: Option<u16>,
+    ) -> Result<Option<(usize, usize, String)>, String> {
+        let Some(n) = orientation.filter(|_| self.orientation.is_none()) else {
+            return Ok(None);
+        };
+        let at = match self.rating {
+            Some((start, _)) => text[..start].rfind('\n').map_or(0, |i| i + 1),
+            None => self.edit(text, None, self.item_close, "Orientation", "")?.0,
+        };
+        let rest = &text[at..];
+        let indent = &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()];
+        Ok(Some((at, at, format!("{indent}Orientation = {n},\n"))))
+    }
+
     /// The removal of the whole line holding `found`, its newline included.
     fn remove_line(text: &str, found: Range) -> (usize, usize, String) {
         let start = text[..found.0].rfind('\n').map_or(0, |i| i + 1);
@@ -404,6 +453,7 @@ fn locate(text: &str) -> Result<Doc, String> {
         should_process: in_item("ShouldProcess"),
         modification_date: in_item("ModificationDate"),
         color_label: in_item("ColorLabel"),
+        orientation: in_item("Orientation"),
         settings: in_item("Settings").is_some(),
     })
 }
@@ -496,9 +546,13 @@ mod tests {
 
     const SETTINGS: &str = "Settings = {\nVersion = \"21.0\",\n}\n,\n";
 
+    const ORIENTATION: Option<u16> = Some(6);
+
     fn patched(source: &str, rating: Option<i8>, flag: Flag) -> String {
-        String::from_utf8(write_rating(Some(source.as_bytes()), rating, flag, "x", NOW).unwrap())
-            .unwrap()
+        String::from_utf8(
+            write_rating(Some(source.as_bytes()), rating, flag, "x", ORIENTATION, NOW).unwrap(),
+        )
+        .unwrap()
     }
 
     fn with_now(source: &str, date: &str, modified: &str) -> String {
@@ -663,7 +717,7 @@ mod tests {
 
     #[test]
     fn a_fresh_pick_is_should_process_zero() {
-        let bytes = write_rating(None, Some(2), Flag::Pick, "a", NOW).unwrap();
+        let bytes = write_rating(None, Some(2), Flag::Pick, "a", None, NOW).unwrap();
         assert!(String::from_utf8_lossy(&bytes)
             .contains(&format!("Rating = 2,\n{SETTINGS}ShouldProcess = 0,\n")));
         assert_eq!(read_flag(&bytes).unwrap(), Flag::Pick);
@@ -696,7 +750,7 @@ mod tests {
         for bytes in cases {
             assert!(read_rating(bytes).is_err());
             assert!(read_flag(bytes).is_err());
-            assert!(write_rating(Some(bytes), Some(1), Flag::None, "x", NOW).is_err());
+            assert!(write_rating(Some(bytes), Some(1), Flag::None, "x", None, NOW).is_err());
         }
     }
 
@@ -704,7 +758,7 @@ mod tests {
     fn a_fresh_template_round_trips() {
         for n in 0..=5 {
             for flag in [Flag::None, Flag::Pick, Flag::Reject] {
-                let bytes = write_rating(None, Some(n), flag, "_DSC0001.ARW", NOW).unwrap();
+                let bytes = write_rating(None, Some(n), flag, "_DSC0001.ARW", None, NOW).unwrap();
                 assert_eq!(read_rating(&bytes).unwrap(), Some(n));
                 assert_eq!(read_flag(&bytes).unwrap(), flag);
             }
@@ -714,42 +768,49 @@ mod tests {
     #[test]
     fn the_fresh_template_is_the_documented_one() {
         let uuids = ["A".to_string(), "B".to_string()];
+        let expected = concat!(
+            "Sidecar = {\n",
+            "Date = \"2026-09-18T11:00:00.0000000Z\",\n",
+            "Software = \"riffle\",\n",
+            "Source = {\n",
+            "Items = {\n",
+            "{\n",
+            "CreationDate = \"2026-09-18T11:00:00.0000000Z\",\n",
+            "ModificationDate = \"2026-09-18T11:00:00.0000000Z\",\n",
+            "Name = \"_DSC0001.ARW\",\n",
+            "Orientation = 8,\n",
+            "Rating = 3,\n",
+            "Settings = {\n",
+            "Version = \"21.0\",\n",
+            "}\n",
+            ",\n",
+            "ShouldProcess = 2,\n",
+            "Uuid = \"A\",\n",
+            "}\n",
+            ",\n",
+            "}\n",
+            ",\n",
+            "Uuid = \"B\",\n",
+            "}\n",
+            ",\n",
+            "Version = \"21.0\",\n",
+            "}\n",
+        );
         assert_eq!(
-            template(3, Flag::None, "_DSC0001.ARW", NOW, uuids),
-            concat!(
-                "Sidecar = {\n",
-                "Date = \"2026-09-18T11:00:00.0000000Z\",\n",
-                "Software = \"riffle\",\n",
-                "Source = {\n",
-                "Items = {\n",
-                "{\n",
-                "CreationDate = \"2026-09-18T11:00:00.0000000Z\",\n",
-                "ModificationDate = \"2026-09-18T11:00:00.0000000Z\",\n",
-                "Name = \"_DSC0001.ARW\",\n",
-                "Rating = 3,\n",
-                "Settings = {\n",
-                "Version = \"21.0\",\n",
-                "}\n",
-                ",\n",
-                "ShouldProcess = 2,\n",
-                "Uuid = \"A\",\n",
-                "}\n",
-                ",\n",
-                "}\n",
-                ",\n",
-                "Uuid = \"B\",\n",
-                "}\n",
-                ",\n",
-                "Version = \"21.0\",\n",
-                "}\n",
-            )
+            template(3, Flag::None, "_DSC0001.ARW", Some(8), NOW, uuids.clone()),
+            expected
+        );
+        assert_eq!(
+            template(3, Flag::None, "_DSC0001.ARW", None, NOW, uuids),
+            expected.replace("Orientation = 8,\n", "")
         );
     }
 
     #[test]
     fn a_fresh_reject_is_should_process_one_and_keeps_the_stars() {
-        let out = String::from_utf8(write_rating(None, Some(3), Flag::Reject, "a", NOW).unwrap())
-            .unwrap();
+        let out =
+            String::from_utf8(write_rating(None, Some(3), Flag::Reject, "a", None, NOW).unwrap())
+                .unwrap();
         assert!(out.contains(&format!("Rating = 3,\n{SETTINGS}ShouldProcess = 1,\n")));
     }
 
@@ -764,8 +825,8 @@ mod tests {
 
     #[test]
     fn a_rating_outside_the_range_is_an_error() {
-        assert!(write_rating(None, Some(6), Flag::None, "a", NOW).is_err());
-        assert!(write_rating(None, Some(-1), Flag::None, "a", NOW).is_err());
+        assert!(write_rating(None, Some(6), Flag::None, "a", None, NOW).is_err());
+        assert!(write_rating(None, Some(-1), Flag::None, "a", None, NOW).is_err());
     }
 
     #[test]
@@ -778,7 +839,10 @@ mod tests {
     }
 
     fn labeled(source: &str, label: Option<&str>) -> String {
-        String::from_utf8(write_label(Some(source.as_bytes()), label, "x", NOW).unwrap()).unwrap()
+        String::from_utf8(
+            write_label(Some(source.as_bytes()), label, "x", ORIENTATION, NOW).unwrap(),
+        )
+        .unwrap()
     }
 
     fn tabbed_with_now(source: &str) -> String {
@@ -904,13 +968,13 @@ mod tests {
 
     #[test]
     fn a_fresh_label_is_the_template_plus_the_line() {
-        let bytes = write_label(None, Some("Red"), "a", NOW).unwrap();
+        let bytes = write_label(None, Some("Red"), "a", None, NOW).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains(&format!(
             "Rating = 0,\n{SETTINGS}ShouldProcess = 2,\nUuid = "
         )));
         assert_eq!(read_label(&bytes).unwrap().as_deref(), Some("Red"));
         assert_eq!(read_rating(&bytes).unwrap(), Some(0));
-        assert!(write_label(None, None, "a", NOW).is_err());
+        assert!(write_label(None, None, "a", None, NOW).is_err());
     }
 
     fn fresh(rating: i8, flag: Flag) -> String {
@@ -918,6 +982,7 @@ mod tests {
             rating,
             flag,
             "_DSC0001.ARW",
+            ORIENTATION,
             NOW,
             ["A".to_string(), "B".to_string()],
         )
@@ -985,6 +1050,97 @@ mod tests {
             );
             let labeled = labeled(source, Some("Green"));
             assert_eq!(labeled.matches("Settings = {").count(), count);
+        }
+    }
+
+    fn pre_orientation(source: &str) -> String {
+        let out = source.replace("Orientation = 6,\n", "");
+        assert!(!out.contains("Orientation"));
+        out
+    }
+
+    #[test]
+    fn rating_an_old_template_adds_the_orientation_once_before_the_rating() {
+        for source in [
+            pre_orientation(&fresh(0, Flag::None)),
+            pre_orientation(&old_template(0, Flag::None)),
+        ] {
+            let out = patched(&source, Some(4), Flag::Pick);
+            assert_eq!(out, fresh(4, Flag::Pick));
+            assert_eq!(out.matches("Orientation = ").count(), 1);
+            assert_eq!(patched(&out, Some(4), Flag::Pick), out);
+        }
+    }
+
+    #[test]
+    fn labeling_an_old_template_adds_the_orientation_once_before_the_rating() {
+        for source in [
+            pre_orientation(&fresh(2, Flag::Reject)),
+            pre_orientation(&old_template(2, Flag::Reject)),
+        ] {
+            let out = labeled(&source, Some("Red"));
+            let expected = fresh(2, Flag::Reject)
+                .replace("Uuid = \"A\",\n", "Uuid = \"A\",\nColorLabel = \"Red\",\n");
+            assert_eq!(out, expected);
+            assert_eq!(out.matches("Orientation = ").count(), 1);
+            assert_eq!(labeled(&out, Some("Red")), out);
+        }
+    }
+
+    #[test]
+    fn an_unknown_orientation_inserts_nothing() {
+        let source = pre_orientation(&fresh(0, Flag::None));
+        let rated =
+            write_rating(Some(source.as_bytes()), Some(1), Flag::None, "x", None, NOW).unwrap();
+        assert_eq!(
+            String::from_utf8(rated).unwrap(),
+            source.replace("Rating = 0,", "Rating = 1,")
+        );
+        let labeled = write_label(Some(source.as_bytes()), Some("Red"), "x", None, NOW).unwrap();
+        assert!(!String::from_utf8_lossy(&labeled).contains("Orientation"));
+    }
+
+    #[test]
+    fn an_item_without_a_rating_gets_the_orientation_at_the_brace_in_key_order() {
+        let source = pre_orientation(&old_template(3, Flag::None))
+            .replace("Rating = 3,\n", "")
+            .replace("ShouldProcess = 2,\n", "");
+        let out = labeled(&source, Some("Blue"));
+        let expected = source.replace(
+            "Uuid = \"A\",\n}",
+            &format!("Uuid = \"A\",\nColorLabel = \"Blue\",\nOrientation = 6,\n{SETTINGS}}}"),
+        );
+        assert_eq!(out, expected);
+        assert_eq!(labeled(&out, Some("Blue")), out);
+
+        let source = pre_orientation(&fresh(3, Flag::None)).replace("Rating = 3,\n", "");
+        let out = patched(&source, Some(3), Flag::None);
+        let expected = source.replace(
+            "Uuid = \"A\",\n}",
+            "Uuid = \"A\",\nOrientation = 6,\nRating = 3,\n}",
+        );
+        assert_eq!(out, expected);
+        assert_eq!(patched(&out, Some(3), Flag::None), out);
+    }
+
+    #[test]
+    fn a_photolab_orientation_is_never_touched() {
+        let sources = [PICK, REJECT, THREE, RED, CLEARED]
+            .into_iter()
+            .chain(LABELED.map(|(source, _, _)| source));
+        for source in sources {
+            let rate = |o| {
+                write_rating(Some(source.as_bytes()), Some(2), Flag::Pick, "x", o, NOW).unwrap()
+            };
+            let label =
+                |o| write_label(Some(source.as_bytes()), Some("Blue"), "x", o, NOW).unwrap();
+            for o in [Some(1), Some(6)] {
+                assert_eq!(rate(o), rate(None));
+                assert_eq!(label(o), label(None));
+            }
+            let out = String::from_utf8(rate(Some(1))).unwrap();
+            assert_eq!(out.matches("Orientation = ").count(), 1);
+            assert!(out.contains("Orientation = 8,"));
         }
     }
 }

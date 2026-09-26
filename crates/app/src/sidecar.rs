@@ -106,13 +106,15 @@ impl SidecarFormat {
 
     /// `existing` (or a fresh sidecar of `arw`) with its color label set to
     /// `label`, or removed when `None`. An XMP label is written under its
-    /// name in `names`.
+    /// name in `names`; `orientation`, the EXIF Orientation of `arw`, only
+    /// goes into a `.dop` (see `dop::write_rating`).
     pub fn write_label(
         self,
         arw: &Path,
         existing: Option<&[u8]>,
         label: Option<&str>,
         names: &LabelNames,
+        orientation: Option<u16>,
     ) -> Result<Vec<u8>, String> {
         match self {
             Self::Xmp => xmp::write_label(existing, label, names),
@@ -120,6 +122,7 @@ impl SidecarFormat {
                 existing,
                 label,
                 &raw_name(arw),
+                orientation,
                 &dop::timestamp(SystemTime::now()),
             ),
             Self::Both => unreachable!("call kinds() first"),
@@ -127,13 +130,14 @@ impl SidecarFormat {
     }
 
     /// The sidecar bytes of `arw` carrying `rating` and `flag`, patched from
-    /// `existing` or freshly minted.
+    /// `existing` or freshly minted; `orientation` as for `write_label`.
     pub fn write_rating(
         self,
         arw: &Path,
         existing: Option<&[u8]>,
         rating: Option<i8>,
         flag: Flag,
+        orientation: Option<u16>,
     ) -> Result<Vec<u8>, String> {
         match self {
             Self::Xmp => xmp::write_rating(existing, rating, flag),
@@ -142,6 +146,7 @@ impl SidecarFormat {
                 rating,
                 flag,
                 &raw_name(arw),
+                orientation,
                 &dop::timestamp(SystemTime::now()),
             ),
             Self::Both => unreachable!("call kinds() first"),
@@ -184,6 +189,19 @@ pub(crate) fn newest<T>(sidecars: impl IntoIterator<Item = (T, i64)>) -> Option<
 fn raw_name(arw: &Path) -> String {
     arw.file_name()
         .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
+}
+
+/// The EXIF Orientation of `arw` for its `.dop`: the index row's, else read
+/// from the file's head when it has no row yet, `None` when neither yields
+/// one. The index lock is released before the file is read.
+fn raw_orientation(index: &Arc<Mutex<Index>>, arw: &Path) -> Option<u16> {
+    let row = lock(index).entry(&arw.to_string_lossy()).ok().flatten();
+    match row {
+        Some(row) => Some(row.orientation),
+        None => riffle_core::reader::read_metadata(arw)
+            .ok()
+            .map(|m| m.orientation),
+    }
 }
 
 /// How long a path's last update is held before its sidecar is written.
@@ -426,7 +444,10 @@ where
     for path in due {
         let entry = pending.remove(&path).expect("just listed");
         let judgment = &entry.judgment;
-        match write(&path, judgment, entry.format, &entry.names) {
+        let orientation = (entry.format != SidecarFormat::Xmp)
+            .then(|| raw_orientation(index, &path))
+            .flatten();
+        match write(&path, judgment, entry.format, &entry.names, orientation) {
             Ok((stat, resolved_label)) => {
                 if let Err(e) = lock(index).mark_written(
                     &path.to_string_lossy(),
@@ -537,6 +558,7 @@ fn write(
     judgment: &Judgment,
     format: SidecarFormat,
     names: &LabelNames,
+    orientation: Option<u16>,
 ) -> WriteResult {
     let no_partial = |message: String| WriteError {
         message,
@@ -579,6 +601,7 @@ fn write(
             judgment.flag,
             resolved_label.as_deref(),
             names,
+            orientation,
         ) {
             Ok(Some(stat)) => written.push((stat, stat.1)),
             Ok(None) => {}
@@ -599,6 +622,7 @@ fn write(
 /// Write the sidecar of `arw` in the single-file format `kind`, patching
 /// `current` (its path and bytes) when it exists. Returns its new
 /// `(size, mtime_ns)`, or `None` when there was none and nothing to write.
+#[allow(clippy::too_many_arguments)]
 fn write_kind(
     arw: &Path,
     kind: SidecarFormat,
@@ -607,6 +631,7 @@ fn write_kind(
     flag: Flag,
     label: Option<&str>,
     names: &LabelNames,
+    orientation: Option<u16>,
 ) -> Result<Option<(i64, i64)>, String> {
     let (target, bytes) = match current {
         None => {
@@ -614,21 +639,21 @@ fn write_kind(
                 return Ok(None);
             }
             let bytes = if rating.is_none() && flag == Flag::None {
-                kind.write_label(arw, None, label, names)?
+                kind.write_label(arw, None, label, names, orientation)?
             } else {
-                let rated = kind.write_rating(arw, None, rating, flag)?;
-                kind.write_label(arw, Some(&rated), label, names)?
+                let rated = kind.write_rating(arw, None, rating, flag, orientation)?;
+                kind.write_label(arw, Some(&rated), label, names, orientation)?
             };
             (kind.sidecar_path(arw), bytes)
         }
         Some((target, current)) => {
-            let rated = kind.write_rating(arw, Some(current), rating, flag)?;
+            let rated = kind.write_rating(arw, Some(current), rating, flag, orientation)?;
             // Clearing a label that is not there would still bump the `.dop`
             // timestamps, so it is skipped.
             let bytes = if label.is_none() && kind.read_label(&rated, names)?.is_none() {
                 rated
             } else {
-                kind.write_label(arw, Some(&rated), label, names)?
+                kind.write_label(arw, Some(&rated), label, names, orientation)?
             };
             (target.to_path_buf(), bytes)
         }
@@ -1412,6 +1437,7 @@ mod tests {
                     Some(PHOTOLAB_0003),
                     Some("Blue"),
                     &raw_name(&path),
+                    None,
                     &dop::timestamp(SystemTime::now()),
                 )
                 .unwrap(),
@@ -1737,6 +1763,56 @@ mod tests {
             )
             .unwrap();
         writer.flush(DRAIN_TIMEOUT);
+    }
+
+    /// A TIFF shell whose IFD0 carries an Orientation and a preview of `body`,
+    /// as `commands`' tests build one.
+    fn arw_with_preview(orientation: u16, body: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"II\x2a\x00");
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        buf.extend_from_slice(&3u16.to_le_bytes());
+        let at = 8 + 2 + 3 * 12 + 4;
+        for (tag, ty, value) in [
+            (0x0112u16, 3u16, orientation as u32),
+            (0x0201, 4, at as u32),
+            (0x0202, 4, body.len() as u32),
+        ] {
+            buf.extend_from_slice(&tag.to_le_bytes());
+            buf.extend_from_slice(&ty.to_le_bytes());
+            buf.extend_from_slice(&1u32.to_le_bytes());
+            buf.extend_from_slice(&value.to_le_bytes());
+        }
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        buf.extend_from_slice(body);
+        buf
+    }
+
+    #[test]
+    fn a_fresh_dop_carries_the_raws_own_orientation() {
+        let dir = temp_dir("dop-orientation");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let path = dir.join("a.ARW");
+        std::fs::write(&path, arw_with_preview(8, b"not a jpeg")).unwrap();
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(2),
+            Flag::None,
+            None,
+            SidecarFormat::Dop,
+        );
+        let text = std::fs::read_to_string(dop::sidecar_path(&path)).unwrap();
+        assert!(
+            text.contains("Name = \"a.ARW\",\nOrientation = 8,\nRating = 2,\n"),
+            "{text}"
+        );
+
+        drop(writer);
+        remove_temp_dir(&dir);
     }
 
     #[test]

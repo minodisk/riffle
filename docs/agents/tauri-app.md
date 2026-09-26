@@ -519,9 +519,19 @@ images in this folder" for that folder, even though the sidecar otherwise
 looks well-formed (`ProcessingStatus`, `Software`, `IPTC`, `CafId` and the
 like do not substitute for it). A brace-balanced
 `Settings = {\nVersion = "21.0",\n}\n,\n` between `Rating` and
-`ShouldProcess` fixes it and keeps the pick and the rotation. Do not copy a
-preset or an `Orientation` from a sample into it: the preset overrides the
-user's default one, and a foreign `Orientation` rotates the image.
+`ShouldProcess` fixes it and keeps the pick. Do not copy a preset from a
+sample into it: the preset overrides the user's default one.
+
+PhotoLab 10 also displays the image by the item's `Orientation`, not by the
+RAW's EXIF: an item without the key shows unrotated, and an `Orientation`
+copied from another file rotates it wrongly. So Riffle writes the file's own
+EXIF Orientation (IFD0 tag 0x0112) as `Orientation = n,` between `Name` and
+`Rating`: in the fresh template, and, for an item lacking the key, at the
+start of the `Rating` line (before the item's closing brace without one). The
+sidecar writer takes the value from the index's `files.orientation` row, or
+from `riffle_core::reader::read_metadata` when the file has no row yet, with
+the index lock released before the file I/O; when neither yields one it
+writes no line at all. An existing `Orientation` is never touched.
 
 - Do not trust the earlier (now corrected) claim that a Settings-less
   template was accepted by PhotoLab; that was most likely because the test
@@ -529,9 +539,13 @@ user's default one, and a foreign `Orientation` rotates the image.
 - Edits queued at the same splice offset apply in the reverse of their push
   order. `write_rating` pushes the `Settings` edit after `ShouldProcess` (so
   `Settings` ends up before it); `write_label` pushes it before `ColorLabel`
-  (so an inserted `ColorLabel` ends up before it, alphabetically). Keep this
-  in mind when adding more keys that share an insertion point.
+  (so an inserted `ColorLabel` ends up before it, alphabetically). Both push
+  the `Orientation` edit after `Settings` (and `write_label` before
+  `ColorLabel`), so at the item's closing brace the inserts come out
+  `ColorLabel`, `Orientation`, `Settings`. Keep this in mind when adding more
+  keys that share an insertion point.
 - Source: `docs/plans/_archived/20260926-dop-settings-block/learnings.md`,
+  Step 1; `docs/plans/_archived/20260926-dop-orientation/learnings.md`,
   Step 1.
 
 ### Removing an XMP element needs its end tag (Hit)
