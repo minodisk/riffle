@@ -49,10 +49,20 @@ export function contextMenuGroups(bindings: Binding[], state: MenuState): MenuIt
   );
 }
 
-// The folder tree's right-click menu: one item, labeled per platform by the
-// `reveal_label` command.
+// The folder tree's right-click menu: the reveal item, labeled per platform by
+// the `reveal_label` command, then the sequencing of the folder's JPEGs.
 export function folderMenuGroups(revealLabel: string): MenuItem[][] {
-  return [[{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }]];
+  return [
+    [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
+    [
+      {
+        action: "sequenceTimestamps",
+        label: "Sequence JPEG Timestamps…",
+        shortcut: "",
+        checked: undefined,
+      },
+    ],
+  ];
 }
 
 export function menuPosition(

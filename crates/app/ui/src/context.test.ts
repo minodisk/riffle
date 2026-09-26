@@ -125,9 +125,17 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the one reveal item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder")).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
+      [
+        {
+          action: "sequenceTimestamps",
+          label: "Sequence JPEG Timestamps…",
+          shortcut: "",
+          checked: undefined,
+        },
+      ],
     ]);
   });
 });

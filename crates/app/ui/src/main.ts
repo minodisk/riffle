@@ -569,9 +569,10 @@ function trashRejected(): void {
     });
 }
 
-// `File > Sequence JPEG Timestamps…`: pick an export folder, preview the
-// times a run would write, then run it with progress and cancel. Its errors
-// join the sticky `errors` list, keyed by path.
+// `File > Sequence JPEG Timestamps…`: pick an export folder (or take the one
+// right-clicked in the folder tree), preview the times a run would write, then
+// run it with progress and cancel. Its errors join the sticky `errors` list,
+// keyed by path.
 const sequenceFlow = new SequenceFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
 const sequenceKeys = new SettingsModal();
@@ -587,8 +588,12 @@ const sequenceRunButton = document.getElementById("sequence-run") as HTMLButtonE
 const sequenceCancelButton = document.getElementById("sequence-cancel") as HTMLButtonElement;
 sequenceRunning.textContent = RUNNING_NOTE;
 
+function startSequence(): boolean {
+  return formatDialog.hidden && !settings.isOpen && sequenceFlow.start();
+}
+
 function sequenceTimestamps(): void {
-  if (!formatDialog.hidden || settings.isOpen || !sequenceFlow.start()) {
+  if (!startSequence()) {
     return;
   }
   window.__TAURI__.core
@@ -597,18 +602,32 @@ function sequenceTimestamps(): void {
       if (!sequenceFlow.picked(dir) || dir === null) {
         return;
       }
-      return window.__TAURI__.core
-        .invoke<SequencePreview>("sequence_preview", { dir })
-        .then((preview) => {
-          if (sequenceFlow.previewed()) {
-            showSequencePreview(dir, preview);
-          }
-        });
+      return previewSequence(dir);
     })
-    .catch((err: unknown) => {
-      sequenceFlow.fail();
-      setStatus(String(err));
+    .catch(failSequence);
+}
+
+// The folder tree's right-click path: the same gate, without the picker.
+function sequenceTimestampsOf(dir: string): void {
+  if (!startSequence() || !sequenceFlow.picked(dir)) {
+    return;
+  }
+  previewSequence(dir).catch(failSequence);
+}
+
+function previewSequence(dir: string): Promise<void> {
+  return window.__TAURI__.core
+    .invoke<SequencePreview>("sequence_preview", { dir })
+    .then((preview) => {
+      if (sequenceFlow.previewed()) {
+        showSequencePreview(dir, preview);
+      }
     });
+}
+
+function failSequence(err: unknown): void {
+  sequenceFlow.fail();
+  setStatus(String(err));
 }
 
 function showSequencePreview(dir: string, preview: SequencePreview): void {
@@ -2004,7 +2023,7 @@ strip.init(
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
 
 // A folder clicked in the tree opens the way a drop does; a right-click
-// offers to reveal it in the OS file manager.
+// offers to reveal it in the OS file manager or to sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2017,10 +2036,17 @@ folders.init(
   setStatus,
   (path, x, y) => {
     void revealLabel.then((label) => {
-      showMenu(folderMenuGroups(label), x, y, () => {
-        window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
-          setStatus(String(err));
-        });
+      showMenu(folderMenuGroups(label), x, y, (action) => {
+        switch (action) {
+          case "revealFolder":
+            window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
+              setStatus(String(err));
+            });
+            break;
+          case "sequenceTimestamps":
+            sequenceTimestampsOf(path);
+            break;
+        }
       });
     });
   },

@@ -1,5 +1,6 @@
 // `File > Sequence JPEG Timestamps…`: the dialog's text and the flow from
-// picking the folder to the run's end. See `crates/app/src/sequence.rs` for
+// picking the folder (or right-clicking it in the folder tree) to the run's
+// end. See `crates/app/src/sequence.rs` for
 // the payloads.
 
 export type SequenceFailure = { path: string; message: string };
