@@ -9,6 +9,7 @@ import {
   type Flag,
   type Orientation,
   anchorAfterFilter,
+  filterListChanged,
   passes as filterPasses,
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
@@ -1057,10 +1058,19 @@ function ordered(): string[] {
 // or the empty view. A judgment that drops the current file out of the
 // filter therefore hides it at once and moves on to the next passing file.
 // Returns whether it rebuilt the strip with `strip.setFiles`.
-function refilter(anchor: string | undefined = files[index], keepScroll = false): boolean {
+//
+// `force` skips the unchanged-list early return: the first `folder_entries`
+// refresh after a folder opens with a pending resume target passes it, since
+// that refresh's list is often identical to the pre-entries one (same name
+// order, no judgment filter), yet `index` still needs to move onto `anchor`.
+function refilter(
+  anchor: string | undefined = files[index],
+  keepScroll = false,
+  force = false,
+): boolean {
   const order = ordered();
   const next = order.filter(passes);
-  if (next.length === files.length && next.every((path, at) => path === files[at])) {
+  if (!filterListChanged(files, next, force)) {
     if (comparing) void loadCompare();
     return false;
   }
@@ -1412,9 +1422,10 @@ function refreshEntries(): void {
       const bracketed = performance.now();
       applyCandidates();
       const marked = performance.now();
+      const hadPendingResume = pendingResume !== undefined;
       const anchor = firstEntriesAnchor(pendingResume, files[index]);
       pendingResume = undefined;
-      const setFiles = refilter(anchor);
+      const setFiles = refilter(anchor, false, hadPendingResume);
       const end = performance.now();
       debugLog(
         refreshTimingLine({
@@ -1440,7 +1451,17 @@ function refreshEntries(): void {
         entriesPending = false;
         refreshEntries();
       }
-      // A folder with no index cache simply has no focus marks.
+      // A folder with no index cache simply has no focus marks. Still
+      // resolve a pending resume target against the already-listed
+      // `files`, and clear it either way: `show()` skips its write while
+      // `pendingResume` is set, and a rejected request otherwise leaves it
+      // stuck, so nothing browsed in this folder gets remembered until a
+      // later `folder_entries` happens to succeed.
+      if (dir === openDir && token === folderToken && pendingResume !== undefined) {
+        const anchor = pendingResume;
+        pendingResume = undefined;
+        refilter(anchor, false, true);
+      }
     });
 }
 

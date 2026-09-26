@@ -7,6 +7,7 @@ import {
   type Judgment,
   type Orientation,
   anchorAfterFilter,
+  filterListChanged,
   orientationOf,
   passes,
 } from "./filter.js";
@@ -164,6 +165,26 @@ describe("anchorAfterFilter", () => {
   test("returns undefined when nothing passes", () => {
     expect(anchorAfterFilter(all, () => false, "b")).toBeUndefined();
     expect(anchorAfterFilter(all, () => true, undefined)).toBeUndefined();
+  });
+});
+
+describe("filterListChanged", () => {
+  const all = ["a", "b", "c"];
+
+  test("an unchanged list without force does not rebuild", () => {
+    expect(filterListChanged(all, ["a", "b", "c"], false)).toBe(false);
+  });
+
+  test("a changed list rebuilds even without force", () => {
+    expect(filterListChanged(all, ["a", "c"], false)).toBe(true);
+  });
+
+  // The first `folder_entries` refresh after an open with a pending resume
+  // target: the name-order list built at open is often identical to the
+  // one after entries load, yet the resume target still must become
+  // current, so the caller passes `force` to rebuild anyway.
+  test("an unchanged list with force rebuilds anyway", () => {
+    expect(filterListChanged(all, ["a", "b", "c"], true)).toBe(true);
   });
 });
 
