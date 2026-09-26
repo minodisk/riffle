@@ -15,8 +15,9 @@ the per-language values, one JSON file per language in `crates/core/i18n/`
 (so far the Lightroom color label presets) that `build.rs` embeds at build
 time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, `src/candidate.rs` the focus candidate cue
-(the eye sharpness of the face nearest the AF point, and whether it clears
-the threshold), `src/sequence.rs` the JPEG timestamp sequencer ported
+(the in-focus probability of the eyes of the face nearest the AF point,
+a logistic combination of their Laplacian variance and mean edge width, and
+whether it clears the threshold), `src/sequence.rs` the JPEG timestamp sequencer ported
 from lapse (orders a folder's JPEGs by capture time and writes copies with
 unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
 `src/sharpness.rs` the
@@ -27,7 +28,7 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
 passes on the one scan task: `run_scan` (thumbnail, metadata, sharpness),
-then `run_faces_scan`, which fills the `eye_sharpness` / `faces_extractor`
+then `run_faces_scan`, which fills the `eye_focus` / `faces_extractor`
 columns with the focus candidate cue the `f` focus mark is colored by and
 streams it as `faces-progress` / `faces-done` events, `src/commands.rs` the
 Tauri commands, including `faces_of`, which detects the faces the focus mark
@@ -55,8 +56,8 @@ in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
 formatted, linted, type-checked and tested by `mise run ci`; its
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
-and Analysis, whose rows include the AF eye sharpness), `src/filter.ts` decides which files the strip's filter menu
-lets through (including its `Focus candidates` item), `src/companion.ts` answers the MCP bridge's
+and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu
+lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, and `src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder picker
 through the preview to the run's end.

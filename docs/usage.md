@@ -71,10 +71,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
   the M11-P, and manual-focus shots show no mark (see
   [What the camera records](./cameras.md)). The mark's color is the focus
-  candidate state: green for a focus candidate, where the face nearest the
-  AF point has sharp eyes (its eye sharpness, the Laplacian variance of the
-  preview between the eyes, is at least 80); orange when a face is near the
-  AF point but its eyes are not sharp; and white when Riffle does not know
+  candidate state: green for a focus candidate, where the eyes of the face
+  nearest the AF point are likely in focus (their in-focus probability, a
+  logistic combination of the Laplacian variance and the mean edge width of
+  the preview between the eyes, is about 77% or more); orange when a face is
+  near the AF point but its eyes are likely not in focus (including a window
+  with no clear edge, which counts as 0%); and white when Riffle does not know
   (no AF point, manual focus, no face near the point, or not computed yet).
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
   is judged by the faces Riffle detects like any other. The state is computed
@@ -83,9 +85,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   status shows `focus N / M`. The strip marks each candidate with a green
   face icon (Lucide's `scan-face`, ISC license, text in
   `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
-  name, filling in as the pass runs. On the 500 hand-labeled α7 V frames it was
-  checked on, 93% of the candidates were in focus and 80% of the in-focus
-  frames were candidates. It is a cue, not a verdict: AF on a person in the
+  name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
+  a face it was fitted on, 93% of the candidates were in focus and 91% of the
+  in-focus frames were candidates; on 400 frames from other shoots it was not
+  fitted on, 89% and 95%. It is a cue, not a verdict: AF on a person in the
   background gives a sharp face and a false candidate, and the back of a
   head or an upturned face finds no face and stays white. The mark also
   draws the faces Riffle detects near the AF point (anywhere on the preview
@@ -135,13 +138,16 @@ viewer shows a prompt in its center; click it to open the folder picker.
   show them, and enciphered values (shutter count, picture profile) are not
   read. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
-  holds what Riffle computes itself: the sharpness score and the `AF eye
-  sharpness`, the sharpness of the eyes of the face nearest the AF point that
-  the focus candidate state is decided from (left out when there is none).
+  holds what Riffle computes itself: the sharpness score and `AF eye in
+  focus`, the in-focus probability (a percentage) of the eyes of the face
+  nearest the AF point that the focus candidate state is decided from (left
+  out when there is none).
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
-  orientation (`Portrait` / `Landscape`), focus candidate
-  (`Focus candidates`, which shows only the files whose focus mark is green
-  and fills in as the second pass runs),
+  orientation (`Portrait` / `Landscape`), the focus candidate state (the
+  `AF eye` section: `Sharp` for a green focus mark, `Soft` for orange and
+  `Unknown` for white, including files the second pass has not reached;
+  checking several shows the files in any of them, and the strip refills as
+  the pass runs),
   camera, lens, aperture, shutter speed, ISO and focal length (grouped into
   ranges such as `24–35 mm`). The color
   label group lists the seven colors and `No label`; a label outside those

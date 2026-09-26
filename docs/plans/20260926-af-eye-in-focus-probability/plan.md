@@ -234,7 +234,7 @@ all under `D:\Photos\tests\`:
       builds the same `hr` + `div.heading` sequence); `#filter-exif` stays
       after this section.
 
-- [ ] Step 4: Update the user-facing docs
+- [x] Step 4: Update the user-facing docs
   - Done when:
     - `README.md` and `README.ja.md` (in sync, same PR): the Focus mark
       bullet says the meta pane shows `AF eye in focus` as a percentage and
