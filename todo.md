@@ -829,15 +829,19 @@ platform. Basis: Step 2 of `docs/plans/_archived/20260926-sequence-jpeg-timestam
 The strip lists ARW / DNG only, and scan, index, sidecars and the focus cue
 all assume RAW. This is needed to let a user check a
 `sequence-jpeg-timestamps` `<folder>-sequenced/` output (order and times)
-inside Riffle. Needs its own plan: decide which features apply to JPEGs.
+inside Riffle. The scope is view-only: the folder opens in the strip with
+thumbnails, the preview and the meta pane's EXIF rows, ordered by capture
+time. Culling does not apply to JPEGs, so rating, the pick / reject flag,
+color label, sidecar (XMP / `.dop`) writes and the focus cue / face detection
+are out of scope.
 Basis: requested by the user during `docs/plans/_archived/20260926-sequence-jpeg-timestamps/plan.md`'s
 planning and deferred as out of scope (plan.md "Follow-ups").
 
 #### TODO
 
-- [ ] Decide which existing RAW-oriented features (thumbnails, metadata,
-      sidecars, focus cue) apply to a JPEG-only folder, and let such a
-      folder open in the strip with thumbnails and the preview.
+- [ ] Let a JPEG-only folder open in the strip with thumbnails, the preview
+      and the meta pane, ordered by capture time, without rating, flag,
+      color label, sidecar writes or the focus cue.
 
 ### App: hand-check the sequence-run output-folder reveal on Windows
 
