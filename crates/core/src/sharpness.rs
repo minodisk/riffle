@@ -9,10 +9,12 @@
 //!    ignored, even when the point lies outside every face box: the detector
 //!    cannot tell the face the photographer wanted from a bystander, so the
 //!    camera's AF point is trusted over a face it did not land on.
-//! 2. No trustworthy AF point (none, or a Sony frame shot in manual focus)
-//!    and a face found (the best one scoring at least `FACE_CONFIDENCE`): a
-//!    window centered between the two eyes, its side the face box's long side
-//!    clamped to `[EYE_WINDOW_MIN, WINDOW]`.
+//! 2. No trustworthy AF point (none, or a Sony frame shot in manual focus;
+//!    an older `DSC-` body whose `FocusMode` always reads 0 is never taken
+//!    as manual focus, see `excluded_dsc`) and a face found (the best one
+//!    scoring at least `FACE_CONFIDENCE`): a window centered between the two
+//!    eyes, its side the face box's long side clamped to
+//!    `[EYE_WINDOW_MIN, WINDOW]`.
 //! 3. Neither: the maximum over a grid of tiles covering the preview, so a
 //!    frame sharp anywhere ranks above one sharp nowhere.
 //!
@@ -22,7 +24,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use anyhow::{anyhow, bail, Result};
 
-use crate::arw::{FocusFrame, FocusLocation, Shot};
+use crate::arw::{excluded_dsc, FocusFrame, FocusLocation, Shot};
 use crate::faces::Face;
 use crate::partial::focus_point;
 
@@ -86,10 +88,11 @@ pub fn laplacian_variance(gray: &[u8], width: usize, window: Window) -> f64 {
 /// Sony `FocusMode` value for manual focus.
 const MANUAL_FOCUS: u8 = 0;
 
-/// Whether `shot` was taken in manual focus. DMF and bodies that write no
-/// `FocusMode` count as autofocus.
+/// Whether `shot` was taken in manual focus. DMF, bodies that write no
+/// `FocusMode` and the `DSC-` bodies whose `FocusMode` always reads 0 count
+/// as autofocus.
 pub fn manual_focus(shot: &Shot) -> bool {
-    shot.focus_mode == Some(MANUAL_FOCUS)
+    shot.focus_mode == Some(MANUAL_FOCUS) && !excluded_dsc(shot.model.as_deref())
 }
 
 /// The focus location of `shot` when the AF point can be trusted: `None`
@@ -378,6 +381,19 @@ mod tests {
         assert!(!manual_focus(&mode(Some(3))));
         assert!(!manual_focus(&mode(Some(6))));
         assert!(!manual_focus(&mode(None)));
+    }
+
+    #[test]
+    fn focus_mode_zero_on_an_excluded_dsc_body_is_not_manual_focus() {
+        let zero_on = |model: Option<&str>| Shot {
+            focus_mode: Some(0),
+            model: model.map(str::to_owned),
+            ..Shot::default()
+        };
+        assert!(!manual_focus(&zero_on(Some("DSC-RX100M3"))));
+        assert!(manual_focus(&zero_on(Some("DSC-RX100M7"))));
+        assert!(manual_focus(&zero_on(Some("ILCE-7M5"))));
+        assert!(manual_focus(&zero_on(None)));
     }
 
     #[test]

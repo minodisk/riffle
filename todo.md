@@ -61,14 +61,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to "Per-page preview read" in docs/performance.md. The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and "Measuring on your own folder" in docs/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
 
-### Docs: the "End to end, keypress to pixels" section of docs/performance.md has a stale menu path
-
-The "End to end, keypress to pixels" section of docs/performance.md still says `Debug > Timing logs`, but the toggle lives in the settings modal (`crates/app/ui/index.html`, `debug-timing`). Found while documenting page-latency-timing's Step 3; out of scope for that step.
-
-#### TODO
-
-- [ ] Update the "End to end, keypress to pixels" section in docs/performance.md to say the `Timing logs` toggle is in the settings modal, matching the wording used in "Measuring on your own folder" and "Per-page preview read".
-
 ### App: a scan can be started twice after a cache clear / focus rescan
 
 In the Windows real-folder measurement, after a cache clear `scan_id` N was superseded by N+1 with no `scan extract` line for N, and two focus rescans once fired at the same instant. It reproduced on 2026-09-22 (Windows 11, v0.2.0): `scan_id=3` and `4` started in the same second at 04:39:40. This may be one bug or two. Files: `crates/app/src/commands.rs` (`scan_folder`), `crates/app/src/watch.rs`, the settings-window clear-cache path.
@@ -378,16 +370,6 @@ next `draw()`. `scrollbar-gutter: stable` does not cover the block axis.
       `ResizeObserver` on `#viewer`. Files: `crates/app/ui/style.css`
       (`#strip`), `crates/app/ui/src/main.ts` (the `resize` handler).
 
-### App: `folder_roots` lists WSL's internal `/mnt/wsl` and `/mnt/wslg` mounts as roots
-
-On WSL, every child directory of `/mnt` becomes a tree root, including WSL's
-own internal mounts alongside the real drives (`/mnt/c`, `/mnt/d`).
-
-#### TODO
-
-- [ ] Filter these out, e.g. only single-letter drive mounts under `/mnt` on
-      WSL. Files: `crates/app/src/folders.rs` (`volumes`).
-
 ### App: the folder tree does not reveal a differently-cased open path
 
 A folder opened with a path whose case differs from the listing's (possible
@@ -676,16 +658,6 @@ samples, as done for the Sigma BF `0x0147` in
       `crates/core/src/arw.rs` and the archived plan's
       [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
 
-### Docs: note that lychee resolves relative links in `docs/plans/**` from the linking file's own directory
-
-`mise run lint` runs lychee over `docs/plans/**`, and it resolves relative links from the linking file's own directory. An illustrative link such as `./docs/usage.md` written inside a plan.md/learnings.md fails CI as a broken link. Add a short note for agents writing plan/learnings/doc Markdown — either a new `docs/agents/docs-writing.md` or a line in the `develop`/`planner` workflow docs — saying to use a correctly relative path, or wrap an example path in backticks when it is not a real link target.
-
-Source: `docs/plans/_archived/20260924-readme-happy-path/learnings.md`, "Deferred issues (todo candidates)" section, discovered when Step 1's first CI run failed on exactly this.
-
-#### TODO
-
-- [ ] Add the note to `docs/agents/docs-writing.md` (new) or the relevant `develop`/`planner` workflow doc.
-
 ### Docs: docs/usage.md still names cameras in the Focus mark, Sharpness cue and Bursts bullets
 
 `docs/usage.md`'s Focus mark, Sharpness cue and Bursts bullets still name
@@ -700,21 +672,6 @@ bullets too.
 - [ ] Reword the Focus mark, Sharpness cue and Bursts bullets in
       `docs/usage.md` to describe behavior by what the camera records rather
       than by camera name, matching the README's approach.
-
-### Docs: CLAUDE.md's sharpness fallback order is stale since #396
-
-`CLAUDE.md`'s "Layout" paragraph describes the sharpness fallback order as
-eye-AF frame, then the eyes of a detected face, then the AF point. Since #396,
-`crates/core/src/sharpness.rs` trusts the AF point before faces (the eyes of
-a detected face are used only when there is no trusted AF point). Flagged by
-the local reviewer on the camera-differences-doc branch as out of scope for
-that PR.
-
-#### TODO
-
-- [ ] Update `CLAUDE.md`'s Layout paragraph to state the fallback order as:
-      eye-AF frame → AF point → eyes of a detected face (only when no trusted
-      AF point) → sharpest region.
 
 ### App: decide whether `scan-state` needs a frontend consumer
 
@@ -834,20 +791,6 @@ there as `null` for every file, since the index does not cache them.
       only by `read_metadata`, or skip serializing `None` fields. Files:
       `crates/app/src/exif.rs`, `crates/app/src/index.rs`,
       `crates/app/ui/src/exif.ts`.
-
-### Core: `sharpness.rs`'s manual-focus check has no model gate
-
-`crates/core/src/sharpness.rs` reads `shot.focus_mode == Some(MANUAL_FOCUS)` to
-pick the sharpness-score strategy with no model gate, so on the older `DSC-`
-bodies ExifTool excludes from `FocusMode` (value always 0) it is misread as
-manual focus. Found in the review of sony-af-meta Step 2
-(`docs/plans/review-history/sony-af-meta-step-2/review-20260925-2138.md`);
-pre-existing.
-
-#### TODO
-
-- [ ] Apply the `DSC-` model gate `exif.rs` uses for `FocusMode` /
-      `AFTracking` to the manual-focus check in `crates/core/src/sharpness.rs`.
 
 ### App: the backend `folder_entries` read is the main cost of the remaining `refreshEntries`
 

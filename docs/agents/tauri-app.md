@@ -128,9 +128,15 @@ canonical path is an ancestor of home": `/Volumes/Macintosh HD` resolves to
   silently drop it from the tree. Don't port the ancestor check to Windows.
 - Consequence: when home itself lives on an external volume on macOS, that
   volume is not listed separately.
-- On Linux, `/mnt` lists every child directory as a root, including WSL's
-  own `/mnt/wsl` and `/mnt/wslg` next to real drive mounts like `/mnt/c` —
-  unfiltered by design; see the deferred issue if this needs narrowing.
+- On Linux, `/mnt` lists every child directory as a root, unfiltered, since
+  plain Linux users mount arbitrary names there. On WSL (`WSL_DISTRO_NAME`
+  set) only the single-letter drive mounts like `/mnt/c` are kept, dropping
+  WSL's own `/mnt/wsl` and `/mnt/wslg` (`wsl_drive_mounts`).
+- `wsl_drive_mounts` is compiled under
+  `cfg(any(test, not(any(target_os = "macos", target_os = "windows"))))`,
+  not plain `cfg(test)`: its test runs on every platform while the function
+  stays out of macOS / Windows builds without a dead-code warning. Reuse this
+  shape for other Linux-only helpers that need tests on non-Linux CI.
 - Windows also skips entries with `FILE_ATTRIBUTE_HIDDEN` (a `MetadataExt`
   one-liner) in addition to dot-names. `cargo check --target
   x86_64-pc-windows-gnu` in `crates/app` verifies `cfg(windows)` code
@@ -1503,7 +1509,9 @@ icon's license notice).
 worktree, although `node_modules/.bin/vp` already existed on disk.
 
 - Fix: run `pnpm install --frozen-lockfile` (it may report "Already up to
-  date" and still fix it); `mise run ci` then passes.
+  date" and still fix it); `mise run ci` then passes. Plain `pnpm` may not be
+  on the Git Bash `PATH` in a fresh worktree, so run it as
+  `mise exec -- pnpm install --frozen-lockfile`.
 - Source: `docs/plans/_archived/20260924-focus-mark-af-frame/learnings.md`,
   Step 1.
 
