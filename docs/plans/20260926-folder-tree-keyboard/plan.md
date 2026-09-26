@@ -279,13 +279,15 @@ default.
     - 500 ms is the timeout most tree implementations use; make it a named
       constant, not configurable.
 
-- [ ] Step 4: Document the tree keys and the gate
+- [x] Step 4: Document the tree keys and the gate
   - Done when:
     - `docs/usage.md`: the "Folders" bullet says that clicking a folder
       gives the tree the keyboard, lists the keys in a sentence or two, and
       states that while the tree has the keyboard the culling keys are off
       and only `Open Folder`, the pane toggles (`F6` / `F7` / `F8` / `Tab`)
-      and the menu accelerators still work, until `Escape` or a click
+      and other native menu accelerators still work (`Edit > Undo` / `Redo`
+      do not, since their keys are mirrored from the rebindable `undo` /
+      `redo` actions the tree gate turns off), until `Escape` or a click
       elsewhere. The "These keys are fixed and cannot be changed" table
       gains rows "in the folder tree" for `ArrowUp` / `ArrowDown` / `Home`
       / `End`, `ArrowRight` / `ArrowLeft`, `Enter`, typing (type-ahead) and
@@ -354,3 +356,4 @@ default.
 - 2026-09-26: Step 1 done: tree focusable with a cursor (Up / Down / Home / End, Escape leaves), culling keymap gated by TREE_PASSTHROUGH in treekeys.ts, left pane hide blurs the tree (see learnings.md)
 - (2026-09-26) Step 2 complete
 - (2026-09-26) Step 3 complete
+- (2026-09-26) Step 4 complete
