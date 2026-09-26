@@ -583,8 +583,8 @@ fn canceled(cancel: &AtomicBool) -> bool {
 
 fn clear_output(dir: &Path, out: &Path) -> Result<(), String> {
     fs::create_dir_all(out).map_err(|e| format!("failed to create: {}: {e}", out.display()))?;
-    // `out` may be a symlink or junction resolving to `dir` (or any other
-    // ancestor holding source files); refuse to delete anything in that case.
+    // `out` may be a symlink or junction resolving to `dir`; refuse to delete
+    // anything in that case, since clearing it would delete the source JPEGs.
     if let (Ok(dir_canon), Ok(out_canon)) = (fs::canonicalize(dir), fs::canonicalize(out)) {
         if dir_canon == out_canon {
             return Err(format!(
