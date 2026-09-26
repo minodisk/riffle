@@ -105,3 +105,11 @@
   to the `IconMenuItem` / `MenuItem` `cfg` split. Basis: Step 2 of this plan
   ("icon on macOS if the neighbours have one"), implemented on Windows where
   the export script cannot run.
+- Open and preview JPEG-only folders in the strip, so the user can check
+  the `<folder>-sequenced/` output (order and times) inside Riffle. Today
+  the strip lists ARW / DNG only, and scan, index, sidecars and the focus
+  cue all assume RAW, so this needs its own plan: decide which features
+  apply to JPEGs. Basis: requested by the user during this plan's
+  planning and deferred as out of scope (plan.md "Follow-ups"). Done when
+  a folder with only JPEGs opens in the strip with thumbnails and the
+  preview.

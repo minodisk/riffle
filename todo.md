@@ -826,3 +826,32 @@ pre-existing.
 #### TODO
 
 - [ ] Once the user reports `exif=` numbers from the new `refresh entries:` timing line, decide whether `rebuildExifMenu`'s DOM rebuild is a clear-enough cost to skip when the per-group label sets are unchanged, and implement the skip if so.
+
+### App: `File > Sequence JPEG Timestamps…` has no macOS menu icon
+
+Its File-menu neighbours get an icon on macOS, but `tools/macos/export-menu-icons.swift`
+cannot run on Windows, so the item was added as a plain `MenuItem` on every
+platform. Basis: Step 2 of `docs/plans/_archived/20260926-sequence-jpeg-timestamps/plan.md`
+("icon on macOS if the neighbours have one").
+
+#### TODO
+
+- [ ] Add an SF Symbol (e.g. `clock.arrow.circlepath`) to
+      `tools/macos/export-menu-icons.swift`, render it on macOS into
+      `crates/app/icons/menu/`, and switch the item in
+      `crates/app/src/main.rs` to the `IconMenuItem` / `MenuItem` `cfg` split.
+
+### App: open and preview JPEG-only folders in the strip
+
+The strip lists ARW / DNG only, and scan, index, sidecars and the focus cue
+all assume RAW. This is needed to let a user check a
+`sequence-jpeg-timestamps` `<folder>-sequenced/` output (order and times)
+inside Riffle. Needs its own plan: decide which features apply to JPEGs.
+Basis: requested by the user during `docs/plans/_archived/20260926-sequence-jpeg-timestamps/plan.md`'s
+planning and deferred as out of scope (plan.md "Follow-ups").
+
+#### TODO
+
+- [ ] Decide which existing RAW-oriented features (thumbnails, metadata,
+      sidecars, focus cue) apply to a JPEG-only folder, and let such a
+      folder open in the strip with thumbnails and the preview.
