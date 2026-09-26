@@ -500,7 +500,12 @@ pub fn plan(dir: &Path) -> Result<Vec<(PathBuf, Result<Planned, String>)>, Strin
 
 fn read_original(path: &Path) -> Result<(ExifDateTime, Option<String>)> {
     let buf = fs::read(path).with_context(|| format!("failed to read: {}", path.display()))?;
-    Ok((read_datetime_original(&buf)?, read_subsec_original(&buf)?))
+    // SubSec is only a tie-break: a malformed entry reads as absent rather
+    // than failing the file.
+    Ok((
+        read_datetime_original(&buf)?,
+        read_subsec_original(&buf).ok().flatten(),
+    ))
 }
 
 /// Sequences the JPEGs in `dir` into [`output_dir`]`(dir)`.
@@ -543,7 +548,7 @@ where
                 canceled: true,
             });
         }
-        clear_output(&out)?;
+        clear_output(dir, &out)?;
     }
 
     let done = Mutex::new(0usize);
@@ -576,8 +581,18 @@ fn canceled(cancel: &AtomicBool) -> bool {
     cancel.load(Ordering::Relaxed)
 }
 
-fn clear_output(out: &Path) -> Result<(), String> {
+fn clear_output(dir: &Path, out: &Path) -> Result<(), String> {
     fs::create_dir_all(out).map_err(|e| format!("failed to create: {}: {e}", out.display()))?;
+    // `out` may be a symlink or junction resolving to `dir` (or any other
+    // ancestor holding source files); refuse to delete anything in that case.
+    if let (Ok(dir_canon), Ok(out_canon)) = (fs::canonicalize(dir), fs::canonicalize(out)) {
+        if dir_canon == out_canon {
+            return Err(format!(
+                "output folder resolves to the source folder: {}",
+                out.display()
+            ));
+        }
+    }
     let entries = fs::read_dir(out)
         .map_err(|e| format!("failed to read directory: {}: {e}", out.display()))?;
     for entry in entries {

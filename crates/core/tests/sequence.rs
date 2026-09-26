@@ -485,6 +485,41 @@ fn test_missing_subsec_sorts_first() {
     assert_eq!(names(&summary), ["b.jpg", "a.jpg"]);
 }
 
+/// A malformed SubSecTimeOriginal (an offset pointing outside the APP1
+/// segment) must not fail the file: it is only a tie-break, so it reads as
+/// absent (`None`) and the file is still assigned by `DateTimeOriginal`.
+#[test]
+fn test_corrupt_subsec_offset_does_not_fail_the_file() {
+    let root = tempfile::tempdir().unwrap();
+    let dt = common::BASE_DATETIME;
+    // A SubSec value longer than 4 bytes is stored via an offset field
+    // (rather than inline), so corrupting that offset is reachable.
+    let mut buf = common::sample_jpeg_with_subsec(dt, Some("300000"));
+    // Locate the 0x9291 (SubSecTimeOriginal), type=2 (ASCII) IFD entry and
+    // corrupt its offset field (the last 4 bytes of the 12-byte entry) to
+    // point far outside the APP1 segment.
+    let pos = buf
+        .windows(4)
+        .position(|w| w == [0x91, 0x92, 0x02, 0x00])
+        .expect("SubSecTimeOriginal entry not found");
+    buf[pos + 8..pos + 12].copy_from_slice(&0xFFFF_FFFFu32.to_le_bytes());
+    write(&root, "a.jpg", buf);
+    let summary = run_all(&src(&root));
+    assert_eq!(names(&summary), ["a.jpg"]);
+    let (_, result) = &summary.results[0];
+    assert_eq!(result.as_ref().unwrap().subsec, None);
+    // The corrupted SubSec entry makes the whole file unparsable by a
+    // strict EXIF reader, so read DateTimeOriginal with the crate's own
+    // (lenient) walker instead of `output_dto`.
+    let out_buf = fs::read(out(&root).join("a.jpg")).unwrap();
+    assert_eq!(
+        sequence::read_datetime_original(&out_buf)
+            .unwrap()
+            .to_string(),
+        dt
+    );
+}
+
 /// The source files are byte-identical after a run.
 #[test]
 fn test_source_untouched() {
@@ -556,6 +591,27 @@ fn test_rebuild_keeps_other_files() {
     assert_eq!(fs::read(out.join("sub").join("keep.jpg")).unwrap(), b"keep");
     assert!(!out.join("stale.JPEG").exists());
     assert!(out.join("a.jpg").exists());
+}
+
+/// If the output folder resolves to the source folder (a symlink or, on
+/// Windows, a junction), the run must refuse rather than delete the source
+/// files.
+#[test]
+fn test_refuses_when_output_resolves_to_source() {
+    let root = setup(&["a.jpg"]);
+    let source = src(&root);
+    let output = out(&root);
+    fs::remove_dir_all(&output).ok();
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&source, &output).unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&source, &output).unwrap();
+
+    let before = listing(&source);
+    let result = run(&source, false, &AtomicBool::new(false), |_, _, _, _| {});
+    assert!(result.is_err(), "expected an error, got {result:?}");
+    assert_eq!(before, listing(&source));
 }
 
 /// Canceling mid-run leaves only complete JPEGs in the output folder, with no
