@@ -71,4 +71,8 @@ Every other open section still has code/doc evidence of being open, or is a manu
 
 ## Progress
 
-- (none yet)
+- 2026-09-26: Step 1 done: fixed the stale `docs/performance.md` wording,
+  added the lychee relative-link note to `.claude/agents/planner.md`, gated
+  `manual_focus` on `excluded_dsc`, filtered WSL's internal `/mnt` mounts,
+  and deleted the resolved `todo.md` section. PR number to be filled in once
+  opened.

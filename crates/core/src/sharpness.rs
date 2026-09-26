@@ -9,11 +9,12 @@
 //!    ignored, even when the point lies outside every face box: the detector
 //!    cannot tell the face the photographer wanted from a bystander, so the
 //!    camera's AF point is trusted over a face it did not land on.
-//! 2. No trustworthy AF point (none, or a Sony frame shot in manual focus,
-//!    which an older `DSC-` body whose `FocusMode` always reads 0 never
-//!    counts as, see `excluded_dsc`) and a face found (the best one scoring at least `FACE_CONFIDENCE`): a
-//!    window centered between the two eyes, its side the face box's long side
-//!    clamped to `[EYE_WINDOW_MIN, WINDOW]`.
+//! 2. No trustworthy AF point (none, or a Sony frame shot in manual focus;
+//!    an older `DSC-` body whose `FocusMode` always reads 0 is never taken
+//!    as manual focus, see `excluded_dsc`) and a face found (the best one
+//!    scoring at least `FACE_CONFIDENCE`): a window centered between the two
+//!    eyes, its side the face box's long side clamped to
+//!    `[EYE_WINDOW_MIN, WINDOW]`.
 //! 3. Neither: the maximum over a grid of tiles covering the preview, so a
 //!    frame sharp anywhere ranks above one sharp nowhere.
 //!
