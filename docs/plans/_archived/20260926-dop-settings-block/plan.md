@@ -151,4 +151,4 @@ migration command.
 
 ## Progress
 
-- (none yet)
+- (2026-09-26) Step 1 complete

@@ -512,6 +512,28 @@ an insert into a keyed table such as `Sidecar`.
   the two timestamps. A caller that wants a true no-op must not call it.
 - Source: `docs/plans/_archived/20260919-color-labels/learnings.md`, Step 2.
 
+### `.dop`'s `Items[0]` needs a minimal `Settings` block, or PhotoLab reports no images (Hit)
+
+An `Items[0]` table without a `Settings` table makes PhotoLab 10 show "no
+images in this folder" for that folder, even though the sidecar otherwise
+looks well-formed (`ProcessingStatus`, `Software`, `IPTC`, `CafId` and the
+like do not substitute for it). A brace-balanced
+`Settings = {\nVersion = "21.0",\n}\n,\n` between `Rating` and
+`ShouldProcess` fixes it and keeps the pick and the rotation. Do not copy a
+preset or an `Orientation` from a sample into it: the preset overrides the
+user's default one, and a foreign `Orientation` rotates the image.
+
+- Do not trust the earlier (now corrected) claim that a Settings-less
+  template was accepted by PhotoLab; that was most likely because the test
+  folder was already in PhotoLab's database, which shadows the sidecar.
+- Edits queued at the same splice offset apply in the reverse of their push
+  order. `write_rating` pushes the `Settings` edit after `ShouldProcess` (so
+  `Settings` ends up before it); `write_label` pushes it before `ColorLabel`
+  (so an inserted `ColorLabel` ends up before it, alphabetically). Keep this
+  in mind when adding more keys that share an insertion point.
+- Source: `docs/plans/_archived/20260926-dop-settings-block/learnings.md`,
+  Step 1.
+
 ### Removing an XMP element needs its end tag (Hit)
 
 `xmp.rs`'s `locate` takes the property's local name (`LocalName` compares
