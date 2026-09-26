@@ -32,8 +32,9 @@ are passed without a mark.
 
 ## Steps
 
-- [ ] Step 1: Remember the current file per folder in the index and restore it on open
-  - Reopened per Round 3 review feedback: the main success path (the
+- [x] Step 1: Remember the current file per folder in the index and restore it on open
+  - Reopened per Round 3 review feedback, then re-checked after Round 4
+    approved the fix with no findings: the main success path (the
     remembered file is still listed and passes the filter) did not actually
     show it, only highlighted it in the strip — `refilter` skipped `show()`
     when the resolved file equaled `anchor`, which is exactly the resume
@@ -188,4 +189,4 @@ are passed without a mark.
 
 ## Progress
 
-- (none yet)
+- (2026-09-27) Step 1 complete

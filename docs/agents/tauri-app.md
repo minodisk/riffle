@@ -631,11 +631,18 @@ that already have the column, and the `ALTER TABLE` fails.
   `version < 12` would also fire for v2-v9, where `files` has just been
   recreated with the column, and the duplicate-column `ALTER` would discard the
   cache, dirty ratings included.
+- Same trap on the v16 -> v17 bump: the `folders` table was introduced at v8
+  and its `CREATE TABLE IF NOT EXISTS` already carries `last_viewed`, so the
+  `ALTER TABLE folders ADD COLUMN last_viewed` guard has to be
+  `(8..17).contains(&version)`, not `version < 17` — the latter would also
+  fire for v2-v7 databases, whose `folders` table has just been created with
+  the column, adding a duplicate and discarding the cache.
 - A migration test fixture built with `open` has the current schema, so faking
   an older version means dropping every column added since then too.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
-  `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1.
+  `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1;
+  `docs/plans/_archived/20260927-resume-last-viewed/learnings.md`, Step 1.
 
 ### Bump `EXTRACTOR_VERSION`, not `SCHEMA_VERSION`, when extraction output changes (Hit)
 
