@@ -279,4 +279,4 @@ all under `D:\Photos\tests\`:
 
 ## Progress
 
-- (none yet)
+- (2026-09-26) Step 1 complete
