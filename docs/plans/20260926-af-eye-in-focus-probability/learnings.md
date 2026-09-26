@@ -27,6 +27,18 @@
   as frozen. If 91.4% must hold exactly, the choice is the user's: lower
   `CANDIDATE_LOGIT` by ~5e-5 (a threshold change, not a refit) or accept
   91.2%.
+- Decision (user, after the first Step 1 commit): lower `CANDIDATE_LOGIT`
+  from the frozen 1.2194865955352432 to 1.2194, just below `_DSC1686.ARW`'s
+  full-precision logit, so the training coverage matches the original
+  definition (the `lap >= 80` coverage, 91.4%). Coefficients unchanged.
+  Before the change, the logits of every training, held-out and reserved
+  frame were printed at full precision: only `_DSC1686.ARW` lies in
+  [1.2, 1.24), so nothing else crosses. Re-run with 1.2194: training
+  candidates 333, in focus 310 (93.1%), coverage 310/339 = 91.4%, AUC 0.816
+  / 0.852; held-out unchanged (366 / 326, 89.1% / 95.3%, AUC 0.635 / 0.754).
+  The plan's Frozen model line records the change; the ulp round-trip clamp
+  and its test are written against `CANDIDATE_LOGIT`, so they follow the new
+  value unchanged.
 - No-edge fallback (`edge_width` is `None` -> `NotCandidate`, probability 0):
   triggered on 0 of 406 training faces, 0 of 400 held-out faces and 0 of 200
   faces in the two reserved folders.
@@ -58,4 +70,3 @@
 ## Deferred issues (todo candidates)
 
 - Run `riffle-cli candidates` on `D:\Photos\tests\2026-08-29-focus-sample` and `D:\Photos\tests\2026-09-13-b-focus-sample` once they carry XMP pick / reject labels, and record AUC / precision / coverage (basis: Step 1 found no XMP sidecars in either; files: `crates/cli/src/main.rs`, `crates/core/src/candidate.rs`).
-- Decide whether the training coverage must read 91.4% exactly: the frozen `CANDIDATE_LOGIT` equals `_DSC1686.ARW`'s logit from the reference CSV's rounded columns, so at full precision that frame falls 4.2e-5 below it and the coverage is 309/339 = 91.2%. Lowering `CANDIDATE_LOGIT` by ~5e-5 would restore it; the coefficients were left frozen (basis: Step 1 validation run; file: `crates/core/src/candidate.rs`).

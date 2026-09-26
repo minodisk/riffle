@@ -37,7 +37,14 @@ pub const LOGIT_EDGE_WIDTH: f64 = -1.1949836425055467;
 /// or above it are in focus 93.1% of the time and cover 91.4% of the
 /// in-focus frames. On 400 held-out frames from 4 other folders it reaches
 /// AUC 0.754 (0.635), precision 89.1% and coverage 95.3%.
-pub const CANDIDATE_LOGIT: f64 = 1.2194865955352432;
+///
+/// The fit put the threshold at 1.2194865955352432, the logit of the boundary
+/// training frame computed from lap and edge width rounded to 2 and 5
+/// decimals. At full precision that frame's logit is 1.2194442..., just
+/// below it, so the threshold is lowered to 1.2194 to keep the frame and the
+/// 91.4% coverage. No other training or held-out frame's logit lies in
+/// between.
+pub const CANDIDATE_LOGIT: f64 = 1.2194;
 /// Smallest side of the eye window, in preview pixels. The combined score was
 /// fitted and validated on this window, the face box's long side, at least
 /// 24 px (the earlier Laplacian-only validation on 500 frames also used it).

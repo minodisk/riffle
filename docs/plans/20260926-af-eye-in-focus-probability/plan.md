@@ -42,8 +42,12 @@ Frozen model (`frozen.json` in this folder; copy the numbers, do not refit):
 - `edge_w` = mean edge width over the eye window (px); `edge_w_rel = edge_w / window side`
 - `logit = c + k1 * ln(lap + 1) + k2 * ln(edge_w_rel)`, `p = sigmoid(logit)`
 - `c = -4.725633355883976`, `k1 = 0.6826458385175557`, `k2 = -1.1949836425055467`
-- Candidate when `logit >= 1.2194865955352432` (p >= ~0.772); this keeps the
-  old `lap >= 80` in-focus coverage on the training set
+- Candidate when `logit >= 1.2194` (p >= ~0.772); this keeps the
+  old `lap >= 80` in-focus coverage on the training set. `frozen.json` has
+  `1.2194865955352432`, the logit of the boundary frame `_DSC1686.ARW` from
+  the reference CSV's rounded columns; at full precision that frame's logit
+  is `1.21944427...`, so Step 1 lowered the threshold to `1.2194` (user
+  decision; coefficients unchanged)
 
 The validation code (`reference-metrics.rs` in this folder, a scratch crate
 depending on `riffle-core`, not part of the workspace) holds the reference
@@ -74,7 +78,7 @@ all under `D:\Photos\tests\`:
 - **Old column**: the v16 migration drops `eye_sharpness` and adds
   `eye_focus` (not a rename), so a stale Laplacian value can never be read as
   a probability; rows are `Unknown` until pass 2 refills them.
-- **Candidate comparison**: compare the logit against `1.2194865955352432`
+- **Candidate comparison**: compare the logit against `CANDIDATE_LOGIT` (`1.2194`)
   directly; derive `p` from the same logit for display and storage. The state
   read back from the index is derived from the stored probability against
   `sigmoid(CANDIDATE_LOGIT)`; make sure a stored `p` produced from a logit at
@@ -121,7 +125,7 @@ all under `D:\Photos\tests\`:
     - Unit tests: a synthetic step edge of known blur width gives the
       expected mean edge width; a flat window gives the fallback; the
       probability / state at the threshold (logit just below / at / above
-      `1.2194865955352432`); existing `candidate.rs` tests updated.
+      `1.2194`); existing `candidate.rs` tests updated.
     - `cargo test -p riffle-core -p riffle-cli` and `mise run ci` pass.
   - Implementation approach:
     - Port the arithmetic of `reference-metrics.rs` as is (integer Sobel on
