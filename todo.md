@@ -572,19 +572,28 @@ checked in isolation in PhotoLab. Files: `crates/core/src/dop.rs` (`template`,
       RAW in PhotoLab 10 and confirm it displays upright with the explicit
       `Orientation = 1,` line present.
 
-### App: SIGMA fp L strip may decode the full-size JPEG per thumbnail
+### App: SIGMA fp L strip thumbnails are about ten times larger than other bodies'
 
-SIGMA fp L DNGs have no strip JPEG between 640x480 and the 9520x6328
-full-size one, so the preview tier falls back to the full-size JPEG (about
-28 MB) and the strip decodes it per thumbnail. Worth checking strip load
-time on SIGMA fp L folders. Files: `crates/core/src/arw.rs`
-(`PREVIEW_MIN_WIDTH`, tier selection).
+SIGMA fp L DNGs have no strip JPEG at or above `PREVIEW_MIN_WIDTH` (1600)
+below the 9520x6328 full-size one, so the preview tier falls back to the
+full-size JPEG. The strip does not decode that per thumbnail: at scan time
+`thumbnail_jpeg` decodes the preview tier at 2/8 scale and re-encodes it,
+the index caches the result, and the strip's `thumbnail` command reads the
+cache. But 2/8 of 9520x6328 is about 2380x1582 (about 3.8 MP), more than
+ten times the pixels of the ~404x270 thumbnail of other bodies, so each
+strip cell costs more to decode and to ship over IPC. Each scan also
+decodes the ~60 MP JPEG (at 2/8 scale) once per file. Files:
+`crates/core/src/decode.rs` (`thumbnail_jpeg`), `crates/core/src/scan.rs`,
+`crates/app/src/index.rs`, `crates/app/src/commands.rs` (`thumbnail`),
+`crates/core/src/arw.rs` (`PREVIEW_MIN_WIDTH`, tier selection).
 
 #### TODO
 
-- [ ] Measure strip scroll/thumbnail load time on a SIGMA fp L folder; if
-      slow, consider downscaling the full-size JPEG for the preview tier
-      instead of using it as-is.
+- [ ] Measure strip thumbnail load time on a SIGMA fp L folder (per-cell
+      decode and IPC).
+- [ ] Candidate fix, not decided: cap the thumbnail size, e.g. pick a
+      larger DCT scale-down (`d.scale(n)`) when the preview is large, or
+      resize to the normal thumbnail width.
 
 ### App: SIGMA fp L main view appears late on Linux
 
@@ -597,8 +606,9 @@ mid-size embedded JPEG, so the `preview` payload is the 9520x6328 (about
 transparent. A MiniBrowser run on a synthetic 60 MP JPEG (not the app) took
 about 200-400 ms per resized decode, on top of the IPC of the ~28 MB
 payload; the real app is unmeasured. Same root cause as "App: SIGMA fp L
-strip may decode the full-size JPEG per thumbnail" (strip side), and the
-Linux/SIGMA-specific case of "App: unmeasured end-to-end per-page latency".
+strip thumbnails are about ten times larger than other bodies'" (strip
+side), and the Linux/SIGMA-specific case of "App: unmeasured end-to-end
+per-page latency".
 Files: `crates/app/ui/src/worker.ts` (resize on decode),
 `crates/app/src/commands.rs` (`PREVIEW_PIXEL_LIMIT`).
 
@@ -609,8 +619,8 @@ Files: `crates/app/ui/src/worker.ts` (resize on decode),
       IPC (invoke) from the decode.
 - [ ] Candidate fixes, none decided: prefetch and decode the neighbouring
       pages ahead; or have the backend downscale and cache a mid-size JPEG
-      for files lacking one, the fix already noted in the SIGMA fp L strip
-      item, which would serve both the strip and the main view.
+      for files lacking one, which would serve the main view and, as a side
+      effect, shrink the thumbnail noted in the SIGMA fp L strip item.
 
 ### Core: widen camera support from public sample RAW files
 
