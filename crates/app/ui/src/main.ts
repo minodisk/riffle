@@ -2582,6 +2582,9 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
   "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
+const sharpFace = filterMenu.querySelector<HTMLElement>('[data-candidate="candidate"] .face')!;
+sharpFace.innerHTML = strip.SCAN_FACE_SVG;
+sharpFace.style.color = FOCUS_MARK_COLORS.candidate;
 
 function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);

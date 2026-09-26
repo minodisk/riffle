@@ -96,6 +96,25 @@
 - `CLAUDE.md` Layout still names the `eye_sharpness` column; that is Step 4's
   doc pass.
 
+## Step 3: `AF eye` filter section
+
+- `passes` in `filter.ts` already ORed `candidates` and counted an undefined
+  state as `unknown`, and the `main.ts` click handler, `aria-checked` sync,
+  Reset, `filterActive` and the `faces-progress` refilter
+  (`shownCandidates.size > 0`) all key on the set, not on one item, so the
+  section needed only the HTML items, the icon injection and tests; the
+  `filter.ts` header comment describing "the menu's one candidate item" was
+  updated.
+- Picked the injection route: `strip.ts` exports `SCAN_FACE_SVG`, `main.ts`
+  fills the `Sharp` item's `<i class="face">` and colors it from
+  `FOCUS_MARK_COLORS.candidate` at startup. Every `[data-candidate]` button
+  starts with an `<i class="face">` 12 px wide, so `Soft` / `Unknown` align
+  with `Sharp` without an icon. `vp build` output carries the `/*!` Lucide
+  notice exactly once.
+- `pnpm exec vp ...` has to run from the repository root (the root
+  `vite.config.ts`); from `crates/app/ui` it fails with
+  `ERR_PNPM_RECURSIVE_EXEC_NO_PACKAGE`.
+
 ## Deferred issues (todo candidates)
 
 - Run `riffle-cli candidates` on `D:\Photos\tests\2026-08-29-focus-sample` and `D:\Photos\tests\2026-09-13-b-focus-sample` once they carry XMP pick / reject labels, and record AUC / precision / coverage (basis: Step 1 found no XMP sidecars in either; files: `crates/cli/src/main.rs`, `crates/core/src/candidate.rs`).

@@ -7,8 +7,8 @@ import type { PickFlag } from "./selection.js";
 // lets everything through. `0` stars is unrated; a reject keeps its stars,
 // independent of its flag. A label is keyed lowercased, or `none`
 // when there is none; a label outside the menu's colors matches no item.
-// The menu's one candidate item puts `candidate` in `candidates`; a file whose
-// state is not known yet counts as `unknown`.
+// The menu's `AF eye` items put `candidate`, `not_candidate` or `unknown` in
+// `candidates`; a file whose state is not known yet counts as `unknown`.
 export type Flag = "picked" | "untagged" | "rejected";
 
 // The displayed shape, decided by the EXIF Orientation tag alone: every
