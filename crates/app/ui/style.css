@@ -943,6 +943,10 @@ body {
   color: #777;
 }
 
+#sequence-rows .changed {
+  color: var(--pick-color);
+}
+
 #sequence-failed {
   margin: 0 0 0.5rem;
   padding-left: 1.2rem;

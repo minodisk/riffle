@@ -36,7 +36,7 @@ import {
   progressStatus,
   rebuildNotice,
   revealAfter,
-  rowText,
+  rowParts,
 } from "./sequence.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
@@ -643,7 +643,14 @@ function showSequencePreview(dir: string, preview: SequencePreview): void {
   sequenceRows.replaceChildren(
     ...preview.rows.map((row) => {
       const item = document.createElement("li");
-      item.textContent = rowText(row);
+      const parts = rowParts(row);
+      item.textContent = parts.head + parts.same;
+      if (parts.diff !== "") {
+        const diff = document.createElement("span");
+        diff.className = "changed";
+        diff.textContent = parts.diff;
+        item.append(diff);
+      }
       item.classList.toggle("unchanged", !row.changed);
       return item;
     }),

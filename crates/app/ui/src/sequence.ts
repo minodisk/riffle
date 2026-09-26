@@ -35,8 +35,23 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-export function rowText(row: SequenceRow): string {
-  return `${baseName(row.path)}  ${row.old} -> ${row.new}`;
+// `same + diff` is the new time; `diff` starts at the first field (split by
+// `:` or a space) that differs from the old time, and is empty when none does.
+export function rowParts(row: SequenceRow): { head: string; same: string; diff: string } {
+  let start = 0;
+  while (start < row.new.length && row.old[start] === row.new[start]) {
+    start += 1;
+  }
+  if (start < row.new.length) {
+    while (start > 0 && row.new[start - 1] !== ":" && row.new[start - 1] !== " ") {
+      start -= 1;
+    }
+  }
+  return {
+    head: `${baseName(row.path)}  ${row.old} -> `,
+    same: row.new.slice(0, start),
+    diff: row.new.slice(start),
+  };
 }
 
 // Null when the output folder does not exist yet.

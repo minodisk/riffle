@@ -8,7 +8,7 @@ import {
   progressStatus,
   rebuildNotice,
   revealAfter,
-  rowText,
+  rowParts,
 } from "./sequence.js";
 
 const row = (path: string, changed: boolean) => ({
@@ -30,13 +30,30 @@ const done = (over: Partial<SequenceDone> = {}): SequenceDone => ({
 });
 
 describe("text", () => {
-  test("a row names the file and its old and new time", () => {
-    expect(rowText(row("/x/export/DSC00001.jpg", true))).toBe(
-      "DSC00001.jpg  2024:01:02 03:04:58 -> 2024:01:02 03:04:59",
-    );
-    expect(rowText(row("C:\\x\\L1000001.JPG", false))).toBe(
-      "L1000001.JPG  2024:01:02 03:04:58 -> 2024:01:02 03:04:58",
-    );
+  test("a row names the file and splits off the changed field of the new time", () => {
+    expect(rowParts(row("/x/export/DSC00001.jpg", true))).toEqual({
+      head: "DSC00001.jpg  2024:01:02 03:04:58 -> ",
+      same: "2024:01:02 03:04:",
+      diff: "59",
+    });
+    expect(rowParts(row("C:\\x\\L1000001.JPG", false))).toEqual({
+      head: "L1000001.JPG  2024:01:02 03:04:58 -> ",
+      same: "2024:01:02 03:04:58",
+      diff: "",
+    });
+  });
+
+  test("a rollover highlights from the first changed field", () => {
+    const at = (old: string, next: string) =>
+      rowParts({ path: "/a.jpg", old, new: next, changed: true });
+    expect(at("2024:01:02 03:04:59", "2024:01:02 03:05:00")).toMatchObject({
+      same: "2024:01:02 03:",
+      diff: "05:00",
+    });
+    expect(at("2024:01:02 03:59:59", "2024:01:02 04:00:00")).toMatchObject({
+      same: "2024:01:02 ",
+      diff: "04:00:00",
+    });
   });
 
   test("the rebuild notice shows only for an existing output folder", () => {
