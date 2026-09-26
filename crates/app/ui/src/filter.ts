@@ -66,7 +66,7 @@ export function passes(
 // passes; otherwise the next passing path after it (in `allFiles` order), or
 // the last one before it.
 export function anchorAfterFilter(
-  allFiles: string[],
+  allFiles: readonly string[],
   pass: (path: string) => boolean,
   anchor: string | undefined,
 ): string | undefined {

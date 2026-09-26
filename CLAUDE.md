@@ -26,6 +26,7 @@ when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
+which also keeps each folder's last viewed file in `folders.last_viewed`,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
 passes on the one scan task: `run_scan` (thumbnail, metadata, sharpness),
 then `run_faces_scan`, which fills the `eye_focus` / `faces_extractor`
@@ -58,7 +59,9 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's
-requests over the main window's view state, and `src/sequence.ts` holds the
+requests over the main window's view state, `src/resume.ts` picks the file a
+folder reopens at and coalesces the writes that remember it, and
+`src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder picker
 through the preview to the run's end.
 

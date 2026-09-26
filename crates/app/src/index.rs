@@ -68,8 +68,11 @@ use crate::exif::{exif, Exif};
 /// v10 to v14 database gains it in place next to `faces_extractor`, a v15
 /// one drops `eye_sharpness` and adds `eye_focus` (not a rename, so a stale
 /// Laplacian variance is never read as a probability), and both keep
-/// `files`, `ratings` and `folders`.
-const SCHEMA_VERSION: i64 = 16;
+/// `files`, `ratings` and `folders`. v17 added `folders.last_viewed`, the
+/// file that was current in the strip when the folder was last viewed
+/// (`NULL` = none); a v8 to v16 database gains it in place with an
+/// `ALTER TABLE` and keeps `files`, `ratings` and `folders`.
+const SCHEMA_VERSION: i64 = 17;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG parsing or
@@ -444,6 +447,7 @@ impl Index {
             13,
             14,
             15,
+            16,
             SCHEMA_VERSION,
         ]
         .contains(&version)
@@ -510,9 +514,12 @@ impl Index {
                  );
                  CREATE INDEX IF NOT EXISTS ratings_dir ON ratings (dir);
                  -- `opened_at` is seconds since the epoch, set by `reconcile`.
+                 -- `last_viewed` is the path of the file that was current
+                 -- in the strip, set by `set_last_viewed`.
                  CREATE TABLE IF NOT EXISTS folders (
                      dir TEXT PRIMARY KEY,
-                     opened_at INTEGER NOT NULL
+                     opened_at INTEGER NOT NULL,
+                     last_viewed TEXT
                  );",
         )
         .map_err(|e| e.to_string())?;
@@ -587,6 +594,11 @@ impl Index {
                  ALTER TABLE files ADD COLUMN eye_focus REAL;",
             )
             .map_err(|e| e.to_string())?;
+        }
+        // Below v8 `folders` was just created with the column.
+        if (8..17).contains(&version) {
+            tx.execute_batch("ALTER TABLE folders ADD COLUMN last_viewed TEXT;")
+                .map_err(|e| e.to_string())?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
@@ -926,6 +938,33 @@ impl Index {
                 indexed_file,
             )
             .optional()
+            .map_err(|e| e.to_string())
+    }
+
+    /// The file that was current in the strip when `dir` was last viewed,
+    /// `None` when none was recorded.
+    pub fn last_viewed(&self, dir: &str) -> Result<Option<String>, String> {
+        self.conn
+            .query_row(
+                "SELECT last_viewed FROM folders WHERE dir = ?1",
+                params![dir],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map(Option::flatten)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Record `path` as the file current in the strip for `dir`, creating
+    /// the `folders` row when `reconcile` has not yet.
+    pub fn set_last_viewed(&mut self, dir: &str, path: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO folders (dir, opened_at, last_viewed) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (dir) DO UPDATE SET last_viewed = excluded.last_viewed",
+                params![dir, now_secs(), path],
+            )
+            .map(|_| ())
             .map_err(|e| e.to_string())
     }
 
@@ -1637,7 +1676,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -1712,7 +1751,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
 
         remove_temp_dir(&dir);
     }
@@ -1739,6 +1778,7 @@ mod tests {
                          ('/rejected.ARW', 'd', -1, 0, 1, 10, 20),
                          ('/picked.ARW', 'd', 3, 1, 0, 10, 20),
                          ('/plain.ARW', 'd', 2, 0, 0, 10, 20);
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 10;",
                 )
                 .unwrap();
@@ -1749,7 +1789,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         let rows: Vec<(String, Option<i8>, i64, i64)> = index
             .conn
@@ -1919,6 +1959,7 @@ mod tests {
                      ALTER TABLE files DROP COLUMN manual_focus;
                      ALTER TABLE files DROP COLUMN eye_focus;
                      ALTER TABLE files DROP COLUMN faces_extractor;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 11;",
                 )
                 .unwrap();
@@ -1929,7 +1970,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         assert_eq!(
             index.dirty_rows("d").unwrap(),
@@ -1959,6 +2000,7 @@ mod tests {
                      ALTER TABLE files DROP COLUMN manual_focus;
                      ALTER TABLE files DROP COLUMN eye_focus;
                      ALTER TABLE files DROP COLUMN faces_extractor;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 12;",
                 )
                 .unwrap();
@@ -1969,7 +2011,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1, "files are kept");
         let focus = entries[0].focus.unwrap();
@@ -2122,6 +2164,7 @@ mod tests {
                      ALTER TABLE files DROP COLUMN faces_extractor;
                      ALTER TABLE files ADD COLUMN face_catch INTEGER NOT NULL DEFAULT 0;
                      UPDATE files SET face_catch = 1;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 14;",
                 )
                 .unwrap();
@@ -2132,7 +2175,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         let columns: Vec<String> = index
             .conn
             .prepare("SELECT name FROM pragma_table_info('files')")
@@ -2176,6 +2219,7 @@ mod tests {
                      ALTER TABLE files DROP COLUMN eye_focus;
                      ALTER TABLE files ADD COLUMN eye_sharpness REAL;
                      UPDATE files SET eye_sharpness = 120.0, faces_extractor = 2;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 15;",
                 )
                 .unwrap();
@@ -2186,7 +2230,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         let columns: Vec<String> = index
             .conn
             .prepare("SELECT name FROM pragma_table_info('files')")
@@ -2239,6 +2283,7 @@ mod tests {
                      UPDATE files SET extractor = 3;
                      ALTER TABLE files DROP COLUMN eye_focus;
                      ALTER TABLE files DROP COLUMN faces_extractor;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 13;",
                 )
                 .unwrap();
@@ -2249,7 +2294,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1, "files are kept");
         let focus = entries[0].focus.unwrap();
@@ -2770,7 +2815,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert_eq!(index.dirty_rows("d").unwrap().len(), 1);
 
         remove_temp_dir(&dir);
@@ -3301,6 +3346,78 @@ mod tests {
     }
 
     #[test]
+    fn set_last_viewed_round_trips_and_an_unknown_dir_has_none() {
+        let dir = temp_dir("last-viewed");
+        let mut index = open(&dir);
+        assert_eq!(index.last_viewed("d").unwrap(), None);
+        index.set_last_viewed("d", "/d/a.ARW").unwrap();
+        index.set_last_viewed("d", "/d/b.ARW").unwrap();
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/b.ARW"));
+        assert_eq!(index.last_viewed("e").unwrap(), None);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn set_last_viewed_before_reconcile_creates_the_row_and_reconcile_keeps_it() {
+        let dir = temp_dir("last-viewed-reconcile");
+        let mut index = open(&dir);
+        let before = now_secs();
+        index.set_last_viewed("d", "/d/a.ARW").unwrap();
+        assert!(opened_at(&index, "d").unwrap() >= before);
+        index.reconcile("d", &[]).unwrap();
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn evicting_a_folder_without_ratings_forgets_its_last_viewed() {
+        let dir = temp_dir("last-viewed-evict");
+        let mut index = open(&dir);
+        index
+            .write_batch("old", &[(synthetic(&dir, 0), Ok(entry()))])
+            .unwrap();
+        set_opened_at(&index, "old", NOW - 31 * DAY);
+        index.set_last_viewed("old", "/old/a.ARW").unwrap();
+
+        assert_eq!(index.evict(NOW, NO_CAP).unwrap().folders, 1);
+        assert_eq!(index.last_viewed("old").unwrap(), None);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v16_database_gains_last_viewed_and_keeps_its_folders() {
+        let dir = temp_dir("migrate-v16");
+        let db = dir.join("index.sqlite");
+        {
+            let index = open(&dir);
+            set_opened_at(&index, "d", 42);
+            index
+                .conn
+                .execute_batch(
+                    "ALTER TABLE folders DROP COLUMN last_viewed;
+                     PRAGMA user_version = 16;",
+                )
+                .unwrap();
+        }
+
+        let mut index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 17);
+        assert_eq!(opened_at(&index, "d"), Some(42), "folders are kept");
+        assert_eq!(index.last_viewed("d").unwrap(), None);
+        index.set_last_viewed("d", "/d/a.ARW").unwrap();
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
     fn an_old_folder_is_evicted_and_a_fresh_one_kept() {
         let dir = temp_dir("evict-age");
         let mut index = open(&dir);
@@ -3533,7 +3650,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), None);
 
@@ -3554,6 +3671,7 @@ mod tests {
                 .execute_batch(
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 8;",
                 )
                 .unwrap();
@@ -3564,7 +3682,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index
@@ -3592,6 +3710,7 @@ mod tests {
                 .execute_batch(
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
+                     ALTER TABLE folders DROP COLUMN last_viewed;
                      PRAGMA user_version = 9;",
                 )
                 .unwrap();
@@ -3602,7 +3721,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(opened_at(&index, "d"), Some(NOW));
         let rating: i64 = index

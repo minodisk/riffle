@@ -75,6 +75,7 @@ import {
   single,
   targets,
 } from "./selection.js";
+import { lastViewedWriter, resumeTarget } from "./resume.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -242,6 +243,10 @@ let folderToken = 0;
 const entries = new Map<string, IndexedFile>();
 // The folder the entries belong to, so `scan-progress` can ask for them again.
 let openDir: string | null = null;
+// Records the current file of the open folder, so the next open resumes there.
+const rememberViewed = lastViewedWriter(({ dir, path }) =>
+  window.__TAURI__.core.invoke("set_last_viewed", { dir, path }),
+);
 // True while a `folder_entries` invoke is outstanding. Keeps at most one
 // request in flight, so a 10/s `scan-progress` stream while the user is
 // paged ahead of the scan does not queue up a full re-read on every tick,
@@ -1816,6 +1821,9 @@ function requestMetadata(): void {
 function show(): void {
   seq += 1;
   metaStale = true;
+  if (openDir !== null && files[index] !== undefined) {
+    rememberViewed({ dir: openDir, path: files[index] });
+  }
   strip.setCurrent(index);
   setStatus();
   requestPreview();
@@ -2201,7 +2209,10 @@ function openDirectory(folder: string, token: number): Promise<void> {
   if (!formatGate.isOpen) {
     return Promise.resolve();
   }
-  return window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }).then((found) => {
+  return Promise.all([
+    window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }),
+    window.__TAURI__.core.invoke<string | null>("last_viewed", { dir: folder }),
+  ]).then(([found, remembered]) => {
     if (token !== folderToken) {
       return;
     }
@@ -2213,9 +2224,11 @@ function openDirectory(folder: string, token: number): Promise<void> {
     allFiles = found;
     entries.clear();
     ratings.clear();
-    files = ordered().filter(passes);
-    index = 0;
-    selection = single(files[0]);
+    const order = ordered();
+    files = order.filter(passes);
+    const target = resumeTarget(remembered, allFiles, order, passes);
+    index = target === undefined ? 0 : files.indexOf(target);
+    selection = single(files[index]);
     openDir = folder;
     void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
