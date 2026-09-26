@@ -26,6 +26,20 @@ export function firstEntriesAnchor(
   return pending ?? provisional;
 }
 
+// Whether `refilter` must call `show()` once it has resolved `anchor` to the
+// new current file. Normally only needed when the resolved file differs from
+// `anchor` (the anchor itself was already on screen), but a pending resume
+// always needs it: `openDirectory` only ever showed `files[0]`, so becoming
+// current is the resume target's first time on screen even when it is its
+// own anchor (`files[index] === anchor`).
+export function mustReshow(
+  hadPendingResume: boolean,
+  current: string | undefined,
+  anchor: string | undefined,
+): boolean {
+  return hadPendingResume || current !== anchor;
+}
+
 export interface LastViewed {
   dir: string;
   path: string;

@@ -76,7 +76,7 @@ import {
   single,
   targets,
 } from "./selection.js";
-import { firstEntriesAnchor, lastViewedWriter, resumeTarget } from "./resume.js";
+import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -1063,6 +1063,9 @@ function ordered(): string[] {
 // refresh after a folder opens with a pending resume target passes it, since
 // that refresh's list is often identical to the pre-entries one (same name
 // order, no judgment filter), yet `index` still needs to move onto `anchor`.
+// It also forces `show()` even when `files[index]` lands on `anchor` itself,
+// since `openDirectory` only ever showed `files[0]`, so a resumed file that
+// is its own anchor still has not been shown yet.
 function refilter(
   anchor: string | undefined = files[index],
   keepScroll = false,
@@ -1104,12 +1107,12 @@ function refilter(
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
   selection = prune(selection, files, index);
   paintSelection();
-  if (files[index] === anchor) {
+  if (mustReshow(force, files[index], anchor)) {
+    show();
+  } else {
     strip.setCurrent(index);
     renderMeta();
     if (comparing) void loadCompare();
-  } else {
-    show();
   }
   return true;
 }

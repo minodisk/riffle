@@ -32,7 +32,13 @@ are passed without a mark.
 
 ## Steps
 
-- [x] Step 1: Remember the current file per folder in the index and restore it on open
+- [ ] Step 1: Remember the current file per folder in the index and restore it on open
+  - Reopened per Round 3 review feedback: the main success path (the
+    remembered file is still listed and passes the filter) did not actually
+    show it, only highlighted it in the strip — `refilter` skipped `show()`
+    when the resolved file equaled `anchor`, which is exactly the resume
+    case. Fixed by making `refilter`'s `force` flag (true only for a pending
+    resume) also force `show()`.
   - Done when:
     - Opening folder A, moving to photo N, opening folder B, and opening A
       again selects N (via the tree, a drop, or the launch reopen).

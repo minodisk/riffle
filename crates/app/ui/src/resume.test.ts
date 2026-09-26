@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { firstEntriesAnchor, type LastViewed, lastViewedWriter, resumeTarget } from "./resume.js";
+import {
+  firstEntriesAnchor,
+  type LastViewed,
+  lastViewedWriter,
+  mustReshow,
+  resumeTarget,
+} from "./resume.js";
 
 describe("resumeTarget", () => {
   const all = ["/a.ARW", "/b.ARW", "/c.ARW"];
@@ -28,6 +34,24 @@ describe("firstEntriesAnchor", () => {
 
   test("neither a pending target nor a provisional anchor", () => {
     expect(firstEntriesAnchor(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe("mustReshow", () => {
+  test("a pending resume always needs show(), even landing on its own anchor", () => {
+    expect(mustReshow(true, "/a.ARW", "/a.ARW")).toBe(true);
+  });
+
+  test("a pending resume that moved off its anchor still needs show()", () => {
+    expect(mustReshow(true, "/b.ARW", "/a.ARW")).toBe(true);
+  });
+
+  test("no pending resume and the current file stayed on its anchor skips show()", () => {
+    expect(mustReshow(false, "/a.ARW", "/a.ARW")).toBe(false);
+  });
+
+  test("no pending resume but the current file moved off its anchor still needs show()", () => {
+    expect(mustReshow(false, "/b.ARW", "/a.ARW")).toBe(true);
   });
 });
 
