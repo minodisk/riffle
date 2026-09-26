@@ -42,4 +42,4 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 ## Progress
 
-- (none yet)
+- Step 1: done (todo.md SIGMA fp L strip item rewritten, Linux item cross-reference aligned)

@@ -572,7 +572,7 @@ checked in isolation in PhotoLab. Files: `crates/core/src/dop.rs` (`template`,
       RAW in PhotoLab 10 and confirm it displays upright with the explicit
       `Orientation = 1,` line present.
 
-### App: SIGMA fp L strip thumbnails are about ten times larger than other bodies'
+### App: SIGMA fp L strip thumbnails have over ten times the pixels of other bodies'
 
 SIGMA fp L DNGs have no strip JPEG at or above `PREVIEW_MIN_WIDTH` (1600)
 below the 9520x6328 full-size one, so the preview tier falls back to the
@@ -606,7 +606,7 @@ mid-size embedded JPEG, so the `preview` payload is the 9520x6328 (about
 transparent. A MiniBrowser run on a synthetic 60 MP JPEG (not the app) took
 about 200-400 ms per resized decode, on top of the IPC of the ~28 MB
 payload; the real app is unmeasured. Same root cause as "App: SIGMA fp L
-strip thumbnails are about ten times larger than other bodies'" (strip
+strip thumbnails have over ten times the pixels of other bodies'" (strip
 side), and the Linux/SIGMA-specific case of "App: unmeasured end-to-end
 per-page latency".
 Files: `crates/app/ui/src/worker.ts` (resize on decode),
