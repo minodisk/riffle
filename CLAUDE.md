@@ -16,7 +16,10 @@ the per-language values, one JSON file per language in `crates/core/i18n/`
 time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, `src/candidate.rs` the focus candidate cue
 (the eye sharpness of the face nearest the AF point, and whether it clears
-the threshold), and `src/sharpness.rs` the
+the threshold), `src/sequence.rs` the JPEG timestamp sequencer ported
+from lapse (orders a folder's JPEGs by capture time and writes copies with
+unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
+`src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
@@ -33,7 +36,10 @@ draws on demand through the scan's `detect_around` without touching the index,
 and the filter menu, `src/folders.rs` the folder tree's commands (the
 home and volume roots, one folder's subfolders and RAW count, and
 `reveal_folder`, the right-click item that reveals a folder in the OS file
-manager under the per-platform `REVEAL_LABEL`), and
+manager under the per-platform `REVEAL_LABEL`), `src/sequence.rs` the
+`File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
+`sequence_run`, `sequence_cancel`) and their `sequence-progress` /
+`sequence-done` events, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
@@ -50,8 +56,10 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye sharpness), `src/filter.ts` decides which files the strip's filter menu
-lets through (including its `Focus candidates` item), and `src/companion.ts` answers the MCP bridge's
-requests over the main window's view state.
+lets through (including its `Focus candidates` item), `src/companion.ts` answers the MCP bridge's
+requests over the main window's view state, and `src/sequence.ts` holds the
+Sequence JPEG Timestamps dialog's text and its flow from the folder picker
+through the preview to the run's end.
 
 ## Language
 

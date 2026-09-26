@@ -175,6 +175,58 @@ viewer shows a prompt in its center; click it to open the folder picker.
   deleted: the file and its sidecars all go to the Trash, so restoring them
   brings back the stars, the flag and the color label. Whatever could not be
   moved is listed as an error and stays in the folder.
+- **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the
+  capture times of exported JPEGs unique at second granularity, so Google
+  Photos, which ignores `SubSecTimeOriginal`, keeps a burst in shooting order.
+  Cull in Riffle, export the keepers as JPEGs from your RAW developer, then
+  pick the export folder here (derived from
+  [lapse](https://github.com/minodisk/lapse) v0.4.0).
+  - **Files**: the `.jpg` / `.jpeg` files (any case) directly in the folder;
+    subfolders are not searched. A folder without any is an error, shown on
+    the status line.
+  - **Order**: by `DateTimeOriginal`, then `SubSecTimeOriginal` (compared as
+    a fraction, so `5` is later than `12`; a missing or malformed value counts
+    as 0, so it sorts first within its second), then natural file name order
+    (`DSC2` before `DSC10`). A folder exported from two bodies, or a Sony
+    series that rolled over from `9999` to `0001`, therefore comes out in
+    shooting order.
+  - **New times**: the first file keeps its time; every next one gets
+    `max(its own time, the previous file's new time + 1 s)`. Only frames
+    collapsed into the same second are pushed, and a later scene keeps its
+    time once the pushed times have caught up.
+  - **Tags**: `DateTimeOriginal` (0x9003) is rewritten, and
+    `DateTimeDigitized` (0x9004) and `DateTime` (0x0132) are set to the same
+    time when the file has them; no tag is ever created. The 19-byte values
+    are overwritten in place, so every other byte, including the image data,
+    stays identical.
+  - **Preview**: a dialog lists every file in the computed order as
+    `old -> new` (files that keep their time are dimmed), how many get a new
+    time, the files that could not be read, and the output folder. When
+    `<folder>-sequenced/` already exists, a notice says it will be rebuilt:
+    its JPEG files are replaced. `Run` writes; `Cancel` or `Escape` closes
+    without touching anything.
+  - **Output**: the source files are never written. Every file is written
+    into `<folder>-sequenced/`, the sibling of the picked folder, under its
+    own name, the unchanged ones too, so the output is a complete copy; each
+    file is written to a temporary file and renamed into place. Running it
+    again rebuilds the output from the original times: the `.jpg` / `.jpeg`
+    files directly in `<folder>-sequenced/` are deleted first (other files and
+    subfolders are left alone), so it always mirrors the source after files
+    were added, removed or renamed. The run is refused when the output folder
+    resolves to the source folder, for instance through a link. The copies do
+    not keep the source's modification time or permissions.
+  - **Progress and cancel**: the status line shows `sequencing done / total`
+    while it runs. `Cancel` or `Escape` stops before the next file; the output
+    folder then holds only the complete files written so far, and the next
+    run rebuilds it. At the end the status line shows
+    `Wrote N of M files to <folder>-sequenced`, or `canceled, N of M written`
+    after a cancel, followed by `, K failed` when some files failed.
+  - **Failures**: a file whose `DateTimeOriginal` cannot be read gets no new
+    time and no copy; the preview lists it below the order with the reason,
+    as `name: reason`, and `Run` is disabled when no file could be read. A
+    file that fails during the run, because it could not be read or written,
+    is listed as `name: reason` in the error list at the bottom of the right
+    pane once the dialog closes, and the other files are still written.
 - **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and color
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).

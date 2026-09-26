@@ -108,6 +108,15 @@ DxO PhotoLab.
 - **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
   rejected shots to the Trash. Nothing is deleted, so restoring them brings the
   judgments back.
+- **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
+  as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the
+  export folder spaces the capture times of a burst one second apart, so Google
+  Photos, which ignores sub-second times, keeps the frames in shooting order.
+  Files are ordered by capture time, then sub-second time, then file name, so a
+  folder exported from two bodies interleaves correctly. A preview shows the
+  new times first. The result is a complete copy in `<folder>-sequenced/` next
+  to the export folder; the originals are never touched, and running it again
+  rebuilds the copy from the original times.
 - **MCP companion**: an MCP client, such as an AI assistant, can follow along
   while you cull: read what Riffle shows, look at a preview, move the view and
   record stars, picks / rejects and labels the way the keys do. It is off by
