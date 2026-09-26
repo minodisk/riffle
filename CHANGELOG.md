@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.4.1](https://github.com/minodisk/riffle/compare/v0.4.0...v0.4.1) (2026-09-26)
+
+
+### Features
+
+* **app:** add sequence commands, run state and File menu item ([#465](https://github.com/minodisk/riffle/issues/465)) ([ce32bc5](https://github.com/minodisk/riffle/commit/ce32bc5638f9900c779d110a9d0c5731316fd0ef))
+* **app:** add the Sequence JPEG Timestamps frontend flow ([#466](https://github.com/minodisk/riffle/issues/466)) ([2c2c287](https://github.com/minodisk/riffle/commit/2c2c287ef75427e368dac51c2bdd505f73ab49ad))
+* **app:** divide the meta pane between groups, label the standard EXIF section, and rename Riffle to Analysis ([#444](https://github.com/minodisk/riffle/issues/444)) ([1292e4f](https://github.com/minodisk/riffle/commit/1292e4f7aa51813e4432b703a21b5ff07d11d0ef))
+* **app:** expand, collapse and open folders with Right, Left and Enter in the tree ([#456](https://github.com/minodisk/riffle/issues/456)) ([f8fd6a4](https://github.com/minodisk/riffle/commit/f8fd6a40cd365ccaedd7563d3cf9fe0067da17af))
+* **app:** flatten the meta pane into EXIF, Maker note and Analysis groups ([#448](https://github.com/minodisk/riffle/issues/448)) ([aae8278](https://github.com/minodisk/riffle/commit/aae827824c4ee6d29975989338ba3aada5e71e30))
+* **app:** format the Sony AF fields and show them in the meta pane ([#440](https://github.com/minodisk/riffle/issues/440)) ([bc3358c](https://github.com/minodisk/riffle/commit/bc3358cf5b84990536390081612a681bbb228632))
+* **app:** format the Sony drive, stabilization and picture settings and show them in the meta pane ([#442](https://github.com/minodisk/riffle/issues/442)) ([89e6b3a](https://github.com/minodisk/riffle/commit/89e6b3a7dfdf2e6a11c57d0c331f4ace3327f092))
+* **app:** give the folder tree the keyboard with a cursor and gate the culling keys ([#454](https://github.com/minodisk/riffle/issues/454)) ([da474ea](https://github.com/minodisk/riffle/commit/da474ea23008e90ffe346732dc34d8542393e40b))
+* **app:** highlight the changed part of the new time in the sequence preview ([#482](https://github.com/minodisk/riffle/issues/482)) ([488523d](https://github.com/minodisk/riffle/commit/488523d3912809be4e5a25c330da673604d2f7d5))
+* **app:** left-align the strip bar tools and right-align the counter ([#438](https://github.com/minodisk/riffle/issues/438)) ([5532967](https://github.com/minodisk/riffle/commit/55329672016f26cf50a27d585c2df78a6918b929))
+* **app:** mark focus candidates on the strip and label the AF eye sharpness ([#450](https://github.com/minodisk/riffle/issues/450)) ([ebc9998](https://github.com/minodisk/riffle/commit/ebc99988a0f04647b2590db154f15bdb7275f772))
+* **app:** offer a restart after a manual update ([#436](https://github.com/minodisk/riffle/issues/436)) ([8a3b7e9](https://github.com/minodisk/riffle/commit/8a3b7e97b0f241ad773ba58e3989ad14638c47e4))
+* **app:** persist the eye sharpness in the index and remove the face-catch state ([#433](https://github.com/minodisk/riffle/issues/433)) ([5a9b340](https://github.com/minodisk/riffle/commit/5a9b340322d430a0eae3e310108a3e57b697797a))
+* **app:** remove the Open folder button from the left pane ([#437](https://github.com/minodisk/riffle/issues/437)) ([6373961](https://github.com/minodisk/riffle/commit/63739616e622819be2569edf3cbccd1a07e3648e))
+* **app:** replace the Focus candidates filter item with an AF eye section ([#477](https://github.com/minodisk/riffle/issues/477)) ([90729bc](https://github.com/minodisk/riffle/commit/90729bcd6920a4d2c7e673c40968255b12b3304e))
+* **app:** reveal a folder in the OS file manager from the folder tree's right-click menu ([#467](https://github.com/minodisk/riffle/issues/467)) ([c8ab036](https://github.com/minodisk/riffle/commit/c8ab036bdce58c6d30ffdcadc4a083f10e6bcd7d))
+* **app:** reveal the sequenced output folder after a run that wrote files ([#481](https://github.com/minodisk/riffle/issues/481)) ([674c7e3](https://github.com/minodisk/riffle/commit/674c7e38f7bfcde3be07234cfa32287e6adf6539))
+* **app:** run the eye-sharpness pass after the scan and stream it to the frontend ([#439](https://github.com/minodisk/riffle/issues/439)) ([db13f7e](https://github.com/minodisk/riffle/commit/db13f7e3b220f4fb37ab2de9fbc3c9ac1812ba33))
+* **app:** select every file in the strip with Cmd/Ctrl+A ([#462](https://github.com/minodisk/riffle/issues/462)) ([944cbc5](https://github.com/minodisk/riffle/commit/944cbc55520e9e630f1ba8257d2fcab1cb36e56a))
+* **app:** sequence JPEG timestamps from the folder tree's right-click menu ([#475](https://github.com/minodisk/riffle/issues/475)) ([065bb23](https://github.com/minodisk/riffle/commit/065bb23067cf149f32550682e91fe29a559e213b))
+* **app:** show meta rows and a filter for the focus candidate ([#441](https://github.com/minodisk/riffle/issues/441)) ([cbf26f9](https://github.com/minodisk/riffle/commit/cbf26f9249e3fea6e881f73a95d38833dc4a9dc0))
+* **app:** store the AF eye in-focus probability as eye_focus and show it in the meta pane ([#476](https://github.com/minodisk/riffle/issues/476)) ([96772ba](https://github.com/minodisk/riffle/commit/96772baf89aa3ad7077380b35479971ed5c1a005))
+* **app:** type-ahead jump to a folder by typing its name prefix ([#459](https://github.com/minodisk/riffle/issues/459)) ([800268b](https://github.com/minodisk/riffle/commit/800268b56c6f3b70c52aa6e4146abd46862f9c22))
+* **core:** compute the focus candidate cue from the eye sharpness ([#430](https://github.com/minodisk/riffle/issues/430)) ([fae80c2](https://github.com/minodisk/riffle/commit/fae80c2ae9060a63327159b43380a4ba2908af47))
+* **core:** port lapse's EXIF date-time patcher as sequence with time order and copy output ([#463](https://github.com/minodisk/riffle/issues/463)) ([16525e3](https://github.com/minodisk/riffle/commit/16525e32471929963978738d43400867c068eb95))
+* **core:** read the Sony AF area, drive, stabilization and picture settings ([#434](https://github.com/minodisk/riffle/issues/434)) ([6d8a941](https://github.com/minodisk/riffle/commit/6d8a941e9da6469e151ad99b8bdaaa1e2f0bab22))
+* **core:** score the AF eye by a combined in-focus probability ([#474](https://github.com/minodisk/riffle/issues/474)) ([256071d](https://github.com/minodisk/riffle/commit/256071d5cd4dfea77fd6c4549109f1fed16de772))
+
+
+### Bug Fixes
+
+* **app:** keep folder opens off the main thread and open on a row click ([#449](https://github.com/minodisk/riffle/issues/449)) ([e0e0114](https://github.com/minodisk/riffle/commit/e0e011417daadc8406ebf4dc4751ad95a2a820a8))
+* **app:** use a thin scrollbar on the strip's menus ([#447](https://github.com/minodisk/riffle/issues/447)) ([509bfe8](https://github.com/minodisk/riffle/commit/509bfe8d290e433b68339923aa4ec2a53d5a0a2f))
+* **core:** add the minimal Settings block PhotoLab 10 needs to .dop sidecars ([#470](https://github.com/minodisk/riffle/issues/470)) ([d233c6f](https://github.com/minodisk/riffle/commit/d233c6fe950ec55fbd971222953220a6548ef853))
+* **core:** gate the manual-focus check on the model and close quick todo items ([#480](https://github.com/minodisk/riffle/issues/480)) ([2e49f0c](https://github.com/minodisk/riffle/commit/2e49f0c140ee7e609d61abf47f66360fb4f1547c))
+* **core:** stop a canceled scan between each file's pipeline stages ([#451](https://github.com/minodisk/riffle/issues/451)) ([db3eec2](https://github.com/minodisk/riffle/commit/db3eec2434a5453e87a702a4ac194d5d4c386f02))
+* **core:** write the RAW's EXIF Orientation into Riffle-made .dop sidecars ([#473](https://github.com/minodisk/riffle/issues/473)) ([7dfe474](https://github.com/minodisk/riffle/commit/7dfe47415315ceb446a4bd77d2c7f68eddda62bd))
+* **mise:** match the lychee review-history exclusion on Windows paths ([#435](https://github.com/minodisk/riffle/issues/435)) ([42b040a](https://github.com/minodisk/riffle/commit/42b040a044c6b14ff914f710364b4389839351b2))
+
+
+### Performance Improvements
+
+* **app:** reuse list_arw's listing in scan_folder ([#455](https://github.com/minodisk/riffle/issues/455)) ([b662449](https://github.com/minodisk/riffle/commit/b662449f729935535a3dd929be022ba4ba8efccb))
+* **app:** skip the scan-done refresh when neither the reconcile nor the scan changed a row ([#471](https://github.com/minodisk/riffle/issues/471)) ([89f4690](https://github.com/minodisk/riffle/commit/89f4690c78ed6e9c07ee41ecc345db05acf85d1e))
+* **app:** time refreshEntries and drop its redundant runs ([#457](https://github.com/minodisk/riffle/issues/457)) ([9441d99](https://github.com/minodisk/riffle/commit/9441d993e044ca8e42b68c3c98225d378e9d1dc7))
+
 ## [0.4.0](https://github.com/minodisk/riffle/compare/v0.3.1...v0.4.0) (2026-09-25)
 
 
