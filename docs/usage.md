@@ -200,8 +200,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
     stays identical.
   - **Preview**: a dialog lists every file in the computed order as
     `old -> new` (files that keep their time are dimmed), how many get a new
-    time, the files that could not be read, and the output folder. `Run`
-    writes; `Cancel` or `Escape` closes without touching anything.
+    time, the files that could not be read, and the output folder. When
+    `<folder>-sequenced/` already exists, a notice says it will be rebuilt:
+    its JPEG files are replaced. `Run` writes; `Cancel` or `Escape` closes
+    without touching anything.
   - **Output**: the source files are never written. Every file is written
     into `<folder>-sequenced/`, the sibling of the picked folder, under its
     own name, the unchanged ones too, so the output is a complete copy; each
@@ -216,11 +218,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
     while it runs. `Cancel` or `Escape` stops before the next file; the output
     folder then holds only the complete files written so far, and the next
     run rebuilds it. At the end the status line shows
-    `Wrote N of M files to <folder>-sequenced`.
+    `Wrote N of M files to <folder>-sequenced`, or `canceled, N of M written`
+    after a cancel, followed by `, K failed` when some files failed.
   - **Failures**: a file whose `DateTimeOriginal` cannot be read gets no new
-    time and no copy; it sorts last in the preview and is listed there. A
-    file that fails, whether it could not be read or written, is listed as an
-    error with the reason, and the other files are still written.
+    time and no copy; the preview lists it below the order with the reason,
+    as `name: reason`, and `Run` is disabled when no file could be read. A
+    file that fails when the run itself writes, whether it could not be read
+    or written, is listed the same way, and the other files are still
+    written.
 - **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and color
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
