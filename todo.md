@@ -560,6 +560,20 @@ plan's "Trade-offs and risks" and the user's session verification. Files:
       rejected in Lightroom Classic; if it does not, decide whether Riffle
       should also write `xmpDM:pick`.
 
+### Core: an explicit `Orientation = 1` line for landscape `.dop` files is unverified in PhotoLab
+
+From `dop-orientation`'s implementation: PhotoLab 10 was verified to display
+correctly with `Orientation = 8` (portrait) written into a Riffle-made `.dop`
+sidecar, but a landscape file's explicit `Orientation = 1` line has not been
+checked in isolation in PhotoLab. Files: `crates/core/src/dop.rs` (`template`,
+`Doc::insert_orientation`).
+
+#### TODO
+
+- [ ] Open a Riffle-made `.dop` sidecar for a landscape (EXIF Orientation 1)
+      RAW in PhotoLab 10 and confirm it displays upright with the explicit
+      `Orientation = 1,` line present.
+
 ### App: SIGMA fp L strip may decode the full-size JPEG per thumbnail
 
 SIGMA fp L DNGs have no strip JPEG between 640x480 and the 9520x6328
