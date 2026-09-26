@@ -29,8 +29,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   jumps to the folder it matches (see the fixed keys under [Keys](#keys)).
   While the tree has the keyboard the culling keys are off: only
   `Open Folder`, the pane toggles (`F6` / `F7` / `F8` / `Tab` by default)
-  and the menu accelerators still work, until `Escape`, a click elsewhere or
-  hiding the left pane hands the keys back.
+  and other native menu accelerators (`CmdOrCtrl+R` Reload Folder,
+  `CmdOrCtrl+,` Settings) still work — `Edit > Undo` / `Redo` do not, since
+  their keys are mirrored from the same rebindable `undo` / `redo` actions
+  the tree gate turns off — until `Escape`, a click elsewhere or hiding the
+  left pane hands the keys back.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the
