@@ -10,7 +10,7 @@ export interface MarkFocus {
   frame: { width: number; height: number } | null;
   manual_focus: boolean;
   candidate: "candidate" | "not_candidate" | "unknown";
-  eye_sharpness: number | null;
+  eye_focus: number | null;
 }
 
 export interface FocusMark {
@@ -57,7 +57,7 @@ export function focusMark(
 // One file the second scan pass has written, as `faces-progress` carries it.
 export interface FaceReady {
   path: string;
-  eye_sharpness: number | null;
+  eye_focus: number | null;
   candidate: MarkFocus["candidate"];
 }
 
@@ -75,7 +75,7 @@ export function applyFaceReady<T extends { focus: MarkFocus | null }>(
     if (focus === null || focus === undefined) {
       continue;
     }
-    focus.eye_sharpness = item.eye_sharpness;
+    focus.eye_focus = item.eye_focus;
     focus.candidate = item.candidate;
     if (item.path === current) {
       touched = true;

@@ -44,7 +44,11 @@ export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 // it.
 export interface FocusCue {
   candidate: FocusCandidate;
-  eye_sharpness: number | null;
+  eye_focus: number | null;
+}
+
+function focusPercent(p: number | null): string | null {
+  return p === null ? null : `${Math.round(p * 100)}%`;
 }
 
 function group(heading: string, rows: [string, string | null][]): MetaGroup {
@@ -57,8 +61,8 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // The meta pane's rows grouped by where each value comes from: standard
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
-// not be read still shows its score. The AF eye sharpness gets a row only when
-// there is one.
+// not be read still shows its score. The AF eye's in-focus probability gets a
+// row, as a percentage, only when there is one.
 export function metaGroups(
   meta: Metadata | null,
   sharpness: number | null,
@@ -96,7 +100,7 @@ export function metaGroups(
   groups.push(
     group(ANALYSIS_HEADING, [
       ["Sharpness", sharpness?.toFixed(1) ?? null],
-      ["AF eye sharpness", focus?.eye_sharpness?.toFixed(1) ?? null],
+      ["AF eye in focus", focusPercent(focus?.eye_focus ?? null)],
     ]),
   );
   return groups.filter(({ rows }) => rows.length > 0);

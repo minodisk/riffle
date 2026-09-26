@@ -157,29 +157,29 @@ describe("metaGroups", () => {
     expect(metaGroups(null, null)).toEqual([]);
   });
 
-  test("shows the AF eye sharpness after Sharpness", () => {
+  test("shows the AF eye in-focus probability as a percentage after Sharpness", () => {
     const riffle = (focus: FocusCue) => metaGroups(null, 12, focus)[0]?.rows;
-    expect(riffle({ candidate: "candidate", eye_sharpness: 123.45 })).toEqual([
+    expect(riffle({ candidate: "candidate", eye_focus: 0.8701 })).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "AF eye sharpness", value: "123.5" },
+      { label: "AF eye in focus", value: "87%" },
     ]);
-    expect(riffle({ candidate: "not_candidate", eye_sharpness: 42 })).toEqual([
+    expect(riffle({ candidate: "not_candidate", eye_focus: 0 })).toEqual([
       { label: "Sharpness", value: "12.0" },
-      { label: "AF eye sharpness", value: "42.0" },
+      { label: "AF eye in focus", value: "0%" },
     ]);
   });
 
   test("leaves out the row when there is no value", () => {
-    expect(metaGroups(null, 12, { candidate: "unknown", eye_sharpness: null })[0]?.rows).toEqual([
+    expect(metaGroups(null, 12, { candidate: "unknown", eye_focus: null })[0]?.rows).toEqual([
       { label: "Sharpness", value: "12.0" },
     ]);
   });
 
-  test("shows the analysis group for the eye sharpness alone", () => {
-    expect(metaGroups(null, null, { candidate: "not_candidate", eye_sharpness: 7 })).toEqual([
+  test("shows the analysis group for the in-focus probability alone", () => {
+    expect(metaGroups(null, null, { candidate: "not_candidate", eye_focus: 0.07 })).toEqual([
       {
         heading: ANALYSIS_HEADING,
-        rows: [{ label: "AF eye sharpness", value: "7.0" }],
+        rows: [{ label: "AF eye in focus", value: "7%" }],
       },
     ]);
   });
