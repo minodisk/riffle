@@ -578,10 +578,15 @@ impl Index {
     /// Drop the rows under `dir` whose file is gone, whose `size`/`mtime_ns`
     /// no longer match, or that were written at an older `EXTRACTOR_VERSION`,
     /// and return the files that have no valid row, in the
-    /// order given. Paths are compared with the same lossy conversion
+    /// order given, along with the number of rows dropped. Paths are compared
+    /// with the same lossy conversion
     /// `write_batch` uses to key rows, so a non-UTF-8 path matches the row it
     /// wrote instead of being rescanned on every open.
-    pub fn reconcile(&mut self, dir: &str, files: &[FileStat]) -> Result<Vec<FileStat>, String> {
+    pub fn reconcile(
+        &mut self,
+        dir: &str,
+        files: &[FileStat],
+    ) -> Result<(Vec<FileStat>, usize), String> {
         let known: Vec<(String, i64, i64, i64)> = {
             let mut stmt = self
                 .conn
@@ -612,11 +617,13 @@ impl Index {
             params![dir, now_secs()],
         )
         .map_err(|e| e.to_string())?;
+        let mut removed = 0;
         for (path, ..) in known
             .iter()
             .filter(|(p, s, m, v)| listed.get(p.as_str()) != Some(&(*s, *m, *v)))
         {
-            tx.execute("DELETE FROM files WHERE path = ?1", params![path])
+            removed += tx
+                .execute("DELETE FROM files WHERE path = ?1", params![path])
                 .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())?;
@@ -625,14 +632,15 @@ impl Index {
             .iter()
             .map(|(p, s, m, v)| (p.as_str(), (*s, *m, *v)))
             .collect();
-        Ok(files
+        let todo = files
             .iter()
             .filter(|f| {
                 let path = f.path.to_string_lossy();
                 known.get(path.as_ref()) != Some(&(f.size, f.mtime_ns, EXTRACTOR_VERSION))
             })
             .cloned()
-            .collect())
+            .collect();
+        Ok((todo, removed))
     }
 
     /// Drop the `files` rows and clean `ratings` rows of folders last opened
@@ -1099,7 +1107,8 @@ impl Index {
     /// writer once the parsed sidecars have been stored.
     ///
     /// Returns the sidecars to read and parse outside the lock, each paired
-    /// with the `dirty` flag observed here; their result goes back through
+    /// with the `dirty` flag observed here, along with the number of rows the
+    /// gone sidecars cleared; the parse result goes back through
     /// `store_sidecar_ratings`, which must only apply the "sidecar wins over
     /// a dirty row" rule to the dirtiness this snapshot actually saw, not to
     /// a `set_rating` that lands while the lock is released for the parse.
@@ -1107,7 +1116,7 @@ impl Index {
         &mut self,
         dir: &str,
         sidecars: &[(String, Option<SidecarStat>)],
-    ) -> Result<Vec<(String, SidecarStat, bool)>, String> {
+    ) -> Result<(Vec<SidecarToParse>, usize), String> {
         let known: std::collections::HashMap<String, RatingRow> = {
             let mut stmt = self
                 .conn
@@ -1129,6 +1138,7 @@ impl Index {
         };
 
         let mut to_parse = Vec::new();
+        let mut cleared = 0;
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         for (path, stat) in sidecars {
             let row = known.get(path);
@@ -1141,19 +1151,20 @@ impl Index {
                 }
                 None => {
                     if !dirty && row.is_some_and(|r| r.stat.0.is_some() || r.stat.1.is_some()) {
-                        tx.execute(
-                            "UPDATE ratings SET rating = NULL, flag = 0, label = NULL,
+                        cleared += tx
+                            .execute(
+                                "UPDATE ratings SET rating = NULL, flag = 0, label = NULL,
                                  label_known = 1, xmp_size = NULL, xmp_mtime_ns = NULL
                                  WHERE path = ?1",
-                            params![path],
-                        )
-                        .map_err(|e| e.to_string())?;
+                                params![path],
+                            )
+                            .map_err(|e| e.to_string())?;
                     }
                 }
             }
         }
         tx.commit().map_err(|e| e.to_string())?;
-        Ok(to_parse)
+        Ok((to_parse, cleared))
     }
 
     /// Store what parsing the sidecars of `dir` found: the rating, flag and label
@@ -1200,6 +1211,10 @@ struct RatingRow {
 /// What one file's sidecar looks like on disk, as seen by the single
 /// directory listing a folder open does.
 pub type SidecarStat = (PathBuf, i64, i64);
+
+/// A sidecar `reconcile_sidecars` hands back to be parsed: `(path, stat,
+/// dirty)`, the last being the `dirty` flag it observed.
+pub type SidecarToParse = (String, SidecarStat, bool);
 
 /// What parsing one file's sidecar found, for `store_sidecar_ratings`:
 /// `(path, rating, flag, label, size, mtime_ns, dirty)`, the last being the
@@ -1498,6 +1513,7 @@ mod tests {
         assert!(index
             .reconcile("d", std::slice::from_ref(&a))
             .unwrap()
+            .0
             .is_empty());
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1);
@@ -1773,14 +1789,14 @@ mod tests {
             mtime_ns: a.mtime_ns + 1,
             ..a.clone()
         };
-        assert_eq!(index.reconcile("d", &[changed]).unwrap().len(), 1);
+        assert_eq!(index.reconcile("d", &[changed]).unwrap().0.len(), 1);
         // The stale row must be gone too, not just reported as "to scan":
         // otherwise `entries` would keep serving it until the rescan finishes.
         assert!(index.entries("d").unwrap().is_empty());
 
         index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
         let bigger = FileStat { size: 99, ..a };
-        assert_eq!(index.reconcile("d", &[bigger]).unwrap().len(), 1);
+        assert_eq!(index.reconcile("d", &[bigger]).unwrap().0.len(), 1);
         assert!(index.entries("d").unwrap().is_empty());
 
         remove_temp_dir(&dir);
@@ -1806,7 +1822,7 @@ mod tests {
             .execute_batch("UPDATE files SET extractor = 0")
             .unwrap();
 
-        let stale = index.reconcile("d", &[a.clone(), b.clone()]).unwrap();
+        let (stale, _) = index.reconcile("d", &[a.clone(), b.clone()]).unwrap();
         assert_eq!(
             stale.iter().map(|f| f.path.clone()).collect::<Vec<_>>(),
             [a.path.clone(), b.path.clone()],
@@ -1824,7 +1840,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(index.entries("d").unwrap().len(), 2);
-        assert!(index.reconcile("d", &[a, b]).unwrap().is_empty());
+        assert!(index.reconcile("d", &[a, b]).unwrap().0.is_empty());
 
         remove_temp_dir(&dir);
     }
@@ -1845,7 +1861,7 @@ mod tests {
             )
             .unwrap();
 
-        assert!(index.reconcile("d", &[a, b]).unwrap().is_empty());
+        assert!(index.reconcile("d", &[a, b]).unwrap().0.is_empty());
         assert_eq!(index.entries("d").unwrap().len(), 2);
 
         remove_temp_dir(&dir);
@@ -1886,7 +1902,7 @@ mod tests {
             index.dirty_rows("d").unwrap(),
             [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
-        assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
+        assert_eq!(index.reconcile("d", &[a]).unwrap().0.len(), 1);
 
         remove_temp_dir(&dir);
     }
@@ -1930,7 +1946,7 @@ mod tests {
             index.dirty_rows("d").unwrap(),
             [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
-        assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
+        assert_eq!(index.reconcile("d", &[a]).unwrap().0.len(), 1);
 
         remove_temp_dir(&dir);
     }
@@ -2093,7 +2109,7 @@ mod tests {
             index.dirty_rows("d").unwrap(),
             [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
-        assert!(index.reconcile("d", &[a]).unwrap().is_empty());
+        assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
 
         remove_temp_dir(&dir);
     }
@@ -2134,7 +2150,7 @@ mod tests {
             index.dirty_rows("d").unwrap(),
             [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
         );
-        assert_eq!(index.reconcile("d", &[a]).unwrap().len(), 1);
+        assert_eq!(index.reconcile("d", &[a]).unwrap().0.len(), 1);
 
         remove_temp_dir(&dir);
     }
@@ -2153,10 +2169,78 @@ mod tests {
         assert!(index
             .reconcile("d", std::slice::from_ref(&a))
             .unwrap()
+            .0
             .is_empty());
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].path, a.path.to_string_lossy());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_deletion_only_reconcile_reports_the_removed_rows() {
+        let dir = temp_dir("removed-count");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let c = file(&dir, "c.ARW", b"c");
+        let mut index = open(&dir);
+        index
+            .write_batch(
+                "d",
+                &[(a.clone(), Ok(entry())), (b, Ok(entry())), (c, Ok(entry()))],
+            )
+            .unwrap();
+
+        let (todo, removed) = index.reconcile("d", &[a]).unwrap();
+        assert!(todo.is_empty());
+        assert_eq!(removed, 2);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_gone_sidecar_over_a_clean_row_reports_one_cleared_row() {
+        let dir = temp_dir("cleared-count");
+        let mut index = open(&dir);
+        index
+            .set_rating("d", "/a.ARW", Some(3), Flag::None, None, true)
+            .unwrap();
+        assert!(index
+            .mark_written("/a.ARW", Some(3), Flag::None, None, true, Some((42, 7)))
+            .unwrap());
+
+        let (to_parse, cleared) = index
+            .reconcile_sidecars("d", &[("/a.ARW".to_string(), None)])
+            .unwrap();
+        assert!(to_parse.is_empty());
+        assert_eq!(cleared, 1);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_unchanged_folder_reports_no_removed_or_cleared_rows() {
+        let dir = temp_dir("unchanged-count");
+        let a = file(&dir, "a.ARW", b"a");
+        let path = a.path.to_string_lossy().into_owned();
+        let mut index = open(&dir);
+        index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+        index
+            .set_rating("d", &path, Some(3), Flag::None, None, true)
+            .unwrap();
+        assert!(index
+            .mark_written(&path, Some(3), Flag::None, None, true, Some((42, 7)))
+            .unwrap());
+
+        let (todo, removed) = index.reconcile("d", &[a]).unwrap();
+        assert!(todo.is_empty());
+        assert_eq!(removed, 0);
+        let (to_parse, cleared) = index
+            .reconcile_sidecars("d", &[(path, Some((dir.join("a.xmp"), 42, 7)))])
+            .unwrap();
+        assert!(to_parse.is_empty());
+        assert_eq!(cleared, 0);
 
         remove_temp_dir(&dir);
     }
@@ -2176,7 +2260,7 @@ mod tests {
 
         // A reconcile that drops the `files` row must leave `ratings` alone:
         // the sidecar, not the scan, is what a rating belongs to.
-        assert!(index.reconcile("d", &[]).unwrap().is_empty());
+        assert!(index.reconcile("d", &[]).unwrap().0.is_empty());
         assert!(index.entries("d").unwrap().is_empty());
         assert_eq!(
             index.dirty_rows("d").unwrap(),
@@ -2669,7 +2753,7 @@ mod tests {
         assert!(!entries[0].has_thumb);
         assert!(entries[0].exif.is_none());
         assert!(index.thumbnail(&entries[0].path).is_err());
-        assert!(index.reconcile("d", &[a]).unwrap().is_empty());
+        assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
 
         remove_temp_dir(&dir);
     }

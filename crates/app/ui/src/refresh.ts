@@ -14,6 +14,28 @@ export function refreshOnProgress(
   return ready.includes(current) || current !== lastRefreshedFor;
 }
 
+// The rows `scan_folder`'s reconcile changed for one scan, kept for its
+// `scan-done`.
+export interface ScanStarted {
+  scanId: number;
+  changed: number;
+}
+
+// Whether `scan-done` should re-read the folder's rows. Skipped only when
+// neither the reconcile nor the scan pass of the same scan wrote anything.
+// Assumes a `scan-done` total of zero means the scan pass wrote no row, and
+// `changed` of zero means the reconcile deleted no `files` row and wrote or
+// cleared no `ratings` row. Both are needed because the open-time
+// `refreshEntries` read is not ordered against `scan_folder`'s reconcile; if
+// either ever writes rows without counting them, this skip would hide them.
+export function refreshOnScanDone(
+  started: ScanStarted | null,
+  scanId: number,
+  total: number,
+): boolean {
+  return !(started?.scanId === scanId && started.changed === 0 && total === 0);
+}
+
 // The `scan-done` total of one scan, kept for its `faces-done`.
 export interface ScanDone {
   scanId: number;

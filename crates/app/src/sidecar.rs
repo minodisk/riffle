@@ -1245,7 +1245,7 @@ mod tests {
         // `flush` recorded that stat via `mark_partial_write` when the .dop
         // write exhausted its retries.
         let xmp_stat = index::stat(&xmp::sidecar_path(&path)).unwrap();
-        let to_parse = lock(&index)
+        let (to_parse, _) = lock(&index)
             .reconcile_sidecars(
                 "d",
                 &[(
@@ -1328,7 +1328,7 @@ mod tests {
         // external edit, because `flush` already recorded that stat via
         // `mark_partial_write` even though the retry has not run out yet.
         let xmp_stat = index::stat(&xmp::sidecar_path(&path)).unwrap();
-        let to_parse = lock(&index)
+        let (to_parse, _) = lock(&index)
             .reconcile_sidecars(
                 "d",
                 &[(
