@@ -1515,6 +1515,43 @@ pub async fn folder_entries(
     Ok(rows)
 }
 
+/// The file that was current in the strip when `dir` was last viewed, as
+/// stored; the frontend decides whether it is still listed. `None` when the
+/// index cache is unavailable or the read fails.
+#[tauri::command]
+pub async fn last_viewed(app: tauri::AppHandle, dir: String) -> Option<String> {
+    let dir = canonicalize(&dir);
+    let index = app.state::<AppIndexReader>().0.clone()?;
+    let read = tauri::async_runtime::spawn_blocking(move || index::lock(&index).last_viewed(&dir))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|read| read);
+    read.unwrap_or_else(|e| {
+        log::warn!("failed to read the last viewed file: {e}");
+        None
+    })
+}
+
+/// Record `path` as the file current in the strip for `dir`. Failing to
+/// write it only means resuming at the first file, so it is logged, not
+/// returned.
+#[tauri::command]
+pub async fn set_last_viewed(app: tauri::AppHandle, dir: String, path: String) {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return;
+    };
+    let written = tauri::async_runtime::spawn_blocking(move || {
+        index::lock(&index).set_last_viewed(&dir, &path)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|written| written);
+    if let Err(e) = written {
+        log::warn!("failed to remember the last viewed file: {e}");
+    }
+}
+
 /// The cached thumbnail of one file, in the same envelope as `preview`.
 #[tauri::command]
 pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {

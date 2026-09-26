@@ -596,6 +596,8 @@ fn main() {
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,
+            commands::last_viewed,
+            commands::set_last_viewed,
             commands::thumbnail,
             commands::metadata,
             commands::focus_crop,

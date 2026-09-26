@@ -9,6 +9,7 @@ import {
   type Flag,
   type Orientation,
   anchorAfterFilter,
+  filterListChanged,
   passes as filterPasses,
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
@@ -75,6 +76,7 @@ import {
   single,
   targets,
 } from "./selection.js";
+import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -242,6 +244,15 @@ let folderToken = 0;
 const entries = new Map<string, IndexedFile>();
 // The folder the entries belong to, so `scan-progress` can ask for them again.
 let openDir: string | null = null;
+// The resume target queued by `openDirectory`, still waiting on entries
+// (capture time, ratings, flags, labels) to resolve where it lands once the
+// filter and sort apply. Consumed, and cleared, by the first `refreshEntries`
+// of the open; cleared again at the start of the next `openDirectory`.
+let pendingResume: string | undefined;
+// Records the current file of the open folder, so the next open resumes there.
+const rememberViewed = lastViewedWriter(({ dir, path }) =>
+  window.__TAURI__.core.invoke("set_last_viewed", { dir, path }),
+);
 // True while a `folder_entries` invoke is outstanding. Keeps at most one
 // request in flight, so a 10/s `scan-progress` stream while the user is
 // paged ahead of the scan does not queue up a full re-read on every tick,
@@ -1047,10 +1058,22 @@ function ordered(): string[] {
 // or the empty view. A judgment that drops the current file out of the
 // filter therefore hides it at once and moves on to the next passing file.
 // Returns whether it rebuilt the strip with `strip.setFiles`.
-function refilter(anchor: string | undefined = files[index], keepScroll = false): boolean {
+//
+// `force` skips the unchanged-list early return: the first `folder_entries`
+// refresh after a folder opens with a pending resume target passes it, since
+// that refresh's list is often identical to the pre-entries one (same name
+// order, no judgment filter), yet `index` still needs to move onto `anchor`.
+// It also forces `show()` even when `files[index]` lands on `anchor` itself,
+// since `openDirectory` only ever showed `files[0]`, so a resumed file that
+// is its own anchor still has not been shown yet.
+function refilter(
+  anchor: string | undefined = files[index],
+  keepScroll = false,
+  force = false,
+): boolean {
   const order = ordered();
   const next = order.filter(passes);
-  if (next.length === files.length && next.every((path, at) => path === files[at])) {
+  if (!filterListChanged(files, next, force)) {
     if (comparing) void loadCompare();
     return false;
   }
@@ -1084,12 +1107,12 @@ function refilter(anchor: string | undefined = files[index], keepScroll = false)
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
   selection = prune(selection, files, index);
   paintSelection();
-  if (files[index] === anchor) {
+  if (mustReshow(force, files[index], anchor)) {
+    show();
+  } else {
     strip.setCurrent(index);
     renderMeta();
     if (comparing) void loadCompare();
-  } else {
-    show();
   }
   return true;
 }
@@ -1402,7 +1425,10 @@ function refreshEntries(): void {
       const bracketed = performance.now();
       applyCandidates();
       const marked = performance.now();
-      const setFiles = refilter();
+      const hadPendingResume = pendingResume !== undefined;
+      const anchor = firstEntriesAnchor(pendingResume, files[index]);
+      pendingResume = undefined;
+      const setFiles = refilter(anchor, false, hadPendingResume);
       const end = performance.now();
       debugLog(
         refreshTimingLine({
@@ -1428,7 +1454,17 @@ function refreshEntries(): void {
         entriesPending = false;
         refreshEntries();
       }
-      // A folder with no index cache simply has no focus marks.
+      // A folder with no index cache simply has no focus marks. Still
+      // resolve a pending resume target against the already-listed
+      // `files`, and clear it either way: `show()` skips its write while
+      // `pendingResume` is set, and a rejected request otherwise leaves it
+      // stuck, so nothing browsed in this folder gets remembered until a
+      // later `folder_entries` happens to succeed.
+      if (dir === openDir && token === folderToken && pendingResume !== undefined) {
+        const anchor = pendingResume;
+        pendingResume = undefined;
+        refilter(anchor, false, true);
+      }
     });
 }
 
@@ -1816,6 +1852,13 @@ function requestMetadata(): void {
 function show(): void {
   seq += 1;
   metaStale = true;
+  // While a resume target is still pending, `files[index]` is only a
+  // provisional anchor picked before entries loaded; writing it here would
+  // overwrite the remembered file with it. The first `refreshEntries` clears
+  // `pendingResume` once it resolves the real anchor.
+  if (openDir !== null && files[index] !== undefined && pendingResume === undefined) {
+    rememberViewed({ dir: openDir, path: files[index] });
+  }
   strip.setCurrent(index);
   setStatus();
   requestPreview();
@@ -2201,7 +2244,10 @@ function openDirectory(folder: string, token: number): Promise<void> {
   if (!formatGate.isOpen) {
     return Promise.resolve();
   }
-  return window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }).then((found) => {
+  return Promise.all([
+    window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }),
+    window.__TAURI__.core.invoke<string | null>("last_viewed", { dir: folder }),
+  ]).then(([found, remembered]) => {
     if (token !== folderToken) {
       return;
     }
@@ -2213,15 +2259,17 @@ function openDirectory(folder: string, token: number): Promise<void> {
     allFiles = found;
     entries.clear();
     ratings.clear();
-    files = ordered().filter(passes);
+    flags.clear();
+    labels.clear();
+    pendingResume = resumeTarget(remembered, allFiles);
+    const order = ordered();
+    files = order.filter(passes);
     index = 0;
-    selection = single(files[0]);
+    selection = single(files[index]);
     openDir = folder;
     void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
     rebuildExifMenu();
-    flags.clear();
-    labels.clear();
     sharpness.clear();
     faceCache.clear();
     bursts = new Map();

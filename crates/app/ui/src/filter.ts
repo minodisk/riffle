@@ -66,7 +66,7 @@ export function passes(
 // passes; otherwise the next passing path after it (in `allFiles` order), or
 // the last one before it.
 export function anchorAfterFilter(
-  allFiles: string[],
+  allFiles: readonly string[],
   pass: (path: string) => boolean,
   anchor: string | undefined,
 ): string | undefined {
@@ -80,4 +80,18 @@ export function anchorAfterFilter(
   const after = allFiles.slice(from + 1).find(pass);
   const before = allFiles.slice(0, from).reverse().find(pass);
   return after ?? before;
+}
+
+// Whether `refilter` must rebuild `files`/`index`: the freshly filtered
+// `next` list differs from the current `files`, or `force` says to rebuild
+// regardless. `force` covers the first `folder_entries` refresh after a
+// folder opens with a pending resume target: that refresh's list is often
+// identical to the pre-entries one (same name order, no judgment filter
+// active), yet the resume target still needs to become current.
+export function filterListChanged(
+  files: readonly string[],
+  next: readonly string[],
+  force: boolean,
+): boolean {
+  return force || next.length !== files.length || next.some((path, at) => path !== files[at]);
 }
