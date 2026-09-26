@@ -92,4 +92,4 @@ files carry the RAW's own EXIF Orientation and PhotoLab shows them upright.
 
 ## Progress
 
-- (none yet)
+- (2026-09-26) Step 1 complete

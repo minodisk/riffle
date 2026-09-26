@@ -192,13 +192,13 @@ fn raw_name(arw: &Path) -> String {
 }
 
 /// The EXIF Orientation of `arw` for its `.dop`: the index row's, else read
-/// from the file's head when it has no row yet, `None` when neither yields
-/// one. The index lock is released before the file is read.
+/// from the file's head when it has no row yet or the row's own Orientation
+/// is unset (an error row), `None` when neither yields one. The index lock
+/// is released before the file is read.
 fn raw_orientation(index: &Arc<Mutex<Index>>, arw: &Path) -> Option<u16> {
-    let row = lock(index).entry(&arw.to_string_lossy()).ok().flatten();
-    match row {
-        Some(row) => Some(row.orientation),
-        None => riffle_core::reader::read_metadata(arw)
+    match lock(index).orientation(&arw.to_string_lossy()) {
+        Ok(Some(Some(orientation))) => Some(orientation),
+        Ok(Some(None)) | Ok(None) | Err(_) => riffle_core::reader::read_metadata(arw)
             .ok()
             .map(|m| m.orientation),
     }
@@ -1796,6 +1796,54 @@ mod tests {
 
         let path = dir.join("a.ARW");
         std::fs::write(&path, arw_with_preview(8, b"not a jpeg")).unwrap();
+        judge(
+            &index,
+            &writer,
+            &path,
+            Some(2),
+            Flag::None,
+            None,
+            SidecarFormat::Dop,
+        );
+        let text = std::fs::read_to_string(dop::sidecar_path(&path)).unwrap();
+        assert!(
+            text.contains("Name = \"a.ARW\",\nOrientation = 8,\nRating = 2,\n"),
+            "{text}"
+        );
+
+        drop(writer);
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn an_error_row_still_falls_back_to_the_raws_own_orientation() {
+        // An extraction failure (e.g. the preview does not decode) writes
+        // a row with `orientation = NULL`, even when IFD0 parsed fine and
+        // carries an Orientation. `raw_orientation` must not read that NULL
+        // as the file's Orientation; it must fall back to `read_metadata`.
+        let dir = temp_dir("dop-orientation-error-row");
+        let index = index(&dir);
+        let writer = writer(index.clone());
+
+        let path = dir.join("a.ARW");
+        std::fs::write(&path, arw_with_preview(8, b"not a jpeg")).unwrap();
+        {
+            let mut guard = lock(&index);
+            guard
+                .write_batch(
+                    &dir.to_string_lossy(),
+                    &[(
+                        index::FileStat {
+                            path: path.clone(),
+                            size: std::fs::metadata(&path).unwrap().len() as i64,
+                            mtime_ns: 0,
+                        },
+                        Err("preview did not decode".to_string()),
+                    )],
+                )
+                .unwrap();
+        }
+
         judge(
             &index,
             &writer,
