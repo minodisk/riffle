@@ -651,9 +651,11 @@ retried.
   fills them in.
 - The focus candidate cue has its own version, `FACES_VERSION`, stored as
   `files.faces_extractor`: bump it, not `EXTRACTOR_VERSION`, on a change to
-  what `riffle_core::scan::extract_faces` produces (the threshold, the eye
-  window, the detector: `crates/core/src/candidate.rs`, `faces.rs`). Only the
-  second pass then re-runs; thumbnails are kept.
+  what `riffle_core::scan::extract_faces` produces (the in-focus probability's
+  coefficients or its threshold, the eye window, the detector:
+  `crates/core/src/candidate.rs`, `faces.rs`). Only the second pass then
+  re-runs; thumbnails are kept. A change to the column it fills
+  (`files.eye_focus`) is a `SCHEMA_VERSION` bump as well.
 - Source: `docs/plans/_archived/20260924-index-extractor-version/learnings.md`,
   Step 1.
 

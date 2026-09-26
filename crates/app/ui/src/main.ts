@@ -100,7 +100,7 @@ interface Focus {
   frame: { width: number; height: number } | null;
   manual_focus: boolean;
   candidate: "candidate" | "not_candidate" | "unknown";
-  eye_sharpness: number | null;
+  eye_focus: number | null;
 }
 
 interface IndexedFile {

@@ -159,7 +159,7 @@ all under `D:\Photos\tests\`:
       `edge_width` (percentile index, the `<` / `<=` pair, the walk bounds);
       do not adjust the coefficients.
 
-- [ ] Step 2: Persist the probability in the index, re-run the second pass on existing rows, and show `AF eye in focus NN%` in the meta pane
+- [x] Step 2: Persist the probability in the index, re-run the second pass on existing rows, and show `AF eye in focus NN%` in the meta pane
   - Done when:
     - `crates/app/src/index.rs` stores the probability in `eye_focus REAL`;
       `SCHEMA_VERSION` is bumped with an in-place migration that drops
@@ -280,3 +280,4 @@ all under `D:\Photos\tests\`:
 ## Progress
 
 - (2026-09-26) Step 1 complete
+- (2026-09-26) Step 2 complete

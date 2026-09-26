@@ -15,7 +15,7 @@ const point: MarkFocus = {
   frame: null,
   manual_focus: false,
   candidate: "unknown",
-  eye_sharpness: null,
+  eye_focus: null,
 };
 
 describe("focusMark", () => {
@@ -114,18 +114,18 @@ describe("applyFaceReady", () => {
     const touched = applyFaceReady(
       entries,
       [
-        { path: "/d/a.ARW", eye_sharpness: 120, candidate: "candidate" },
-        { path: "/d/b.ARW", eye_sharpness: 40, candidate: "not_candidate" },
+        { path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate" },
+        { path: "/d/b.ARW", eye_focus: 0.3, candidate: "not_candidate" },
       ],
       "/d/b.ARW",
     );
     expect(touched).toBe(true);
     expect(entries.get("/d/a.ARW")?.focus).toMatchObject({
-      eye_sharpness: 120,
+      eye_focus: 0.9,
       candidate: "candidate",
     });
     expect(entries.get("/d/b.ARW")?.focus).toMatchObject({
-      eye_sharpness: 40,
+      eye_focus: 0.3,
       candidate: "not_candidate",
     });
   });
@@ -135,7 +135,7 @@ describe("applyFaceReady", () => {
     expect(
       applyFaceReady(
         entries,
-        [{ path: "/d/a.ARW", eye_sharpness: 120, candidate: "candidate" }],
+        [{ path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate" }],
         "/d/b.ARW",
       ),
     ).toBe(false);
@@ -148,8 +148,8 @@ describe("applyFaceReady", () => {
       applyFaceReady(
         entries,
         [
-          { path: "/d/c.ARW", eye_sharpness: null, candidate: "unknown" },
-          { path: "/d/missing.ARW", eye_sharpness: 90, candidate: "candidate" },
+          { path: "/d/c.ARW", eye_focus: null, candidate: "unknown" },
+          { path: "/d/missing.ARW", eye_focus: 0.85, candidate: "candidate" },
         ],
         "/d/c.ARW",
       ),

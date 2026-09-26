@@ -70,6 +70,32 @@
   script (`unexpected EOF`); the Edit tool was simpler for multi-line Rust
   replacements.
 
+## Step 2: `eye_focus` column, `FACES_VERSION` 3, meta pane percentage
+
+- v16 migration: `(10..15)` now adds `eye_focus` (not `eye_sharpness`) next
+  to `faces_extractor`, and a separate `version == 15` block drops
+  `eye_sharpness` and adds `eye_focus`. v15 had to be added to the accepted
+  version list explicitly, since it is no longer `SCHEMA_VERSION`. A v15 row
+  keeps its old `faces_extractor` (e.g. `2`); the `FACES_VERSION` bump to
+  `3` is what makes `faces_todo` pick it up again, and the v15 migration test
+  checks both (the stale value is gone and the row is in `faces_todo`).
+- Every older-version migration test fixture drops the current schema's
+  columns, so the global rename `eye_sharpness` -> `eye_focus` in
+  `index.rs` also fixed their `DROP COLUMN` lines; only the v15 fixture has
+  to re-add `eye_sharpness` itself.
+- The index round-trip test now writes `candidate_probability()` and its
+  `next_down()` through SQLite and checks the read-back state (`Candidate`
+  / `NotCandidate`): a `REAL` column round-trips an `f64` bit for bit, so
+  the Step 1 clamp survives storage.
+- `applyFaceReady` and the frontend `FaceReady` / `MarkFocus` live in
+  `crates/app/ui/src/focus.ts` (tested in `focus.test.ts`), not `faces.ts`
+  as the plan says; `faces.ts` has no `eye_sharpness`.
+- `mcp.rs`'s `get_photo` description never named the eye sharpness (the
+  `focus` object is serialized as is, now with `eye_focus`), and no
+  `companion.test.ts` / `mcp.test.ts` fixture spells it, so neither changed.
+- `CLAUDE.md` Layout still names the `eye_sharpness` column; that is Step 4's
+  doc pass.
+
 ## Deferred issues (todo candidates)
 
 - Run `riffle-cli candidates` on `D:\Photos\tests\2026-08-29-focus-sample` and `D:\Photos\tests\2026-09-13-b-focus-sample` once they carry XMP pick / reject labels, and record AUC / precision / coverage (basis: Step 1 found no XMP sidecars in either; files: `crates/cli/src/main.rs`, `crates/core/src/candidate.rs`).
