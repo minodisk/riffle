@@ -87,8 +87,11 @@ const EXTRACTOR_VERSION: i64 = 5;
 /// on every `files` row as `faces_extractor` next to `eye_sharpness`. Bump it
 /// on any change to the focus candidate cue's computation (the threshold, the
 /// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`); the
-/// second pass then re-runs on every row without redoing the first.
-pub const FACES_VERSION: i64 = 1;
+/// second pass then re-runs on every row without redoing the first. `2`
+/// re-runs pass 2 after `Cue::eye_focus` switched from the Laplacian
+/// variance to the combined in-focus probability, so `eye_sharpness` holds
+/// probabilities everywhere instead of a mix of old and new scales.
+pub const FACES_VERSION: i64 = 2;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on

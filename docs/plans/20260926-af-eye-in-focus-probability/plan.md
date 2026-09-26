@@ -164,9 +164,10 @@ all under `D:\Photos\tests\`:
     - `crates/app/src/index.rs` stores the probability in `eye_focus REAL`;
       `SCHEMA_VERSION` is bumped with an in-place migration that drops
       `eye_sharpness`, adds `eye_focus`, and keeps `files`, `ratings` and
-      `folders`; `FACES_VERSION` is bumped to 2 so every row's second pass
-      re-runs on the next open. `EXTRACTOR_VERSION` is not bumped (pass 1
-      output is unchanged; pass-1 latency must not grow).
+      `folders`; `FACES_VERSION` is bumped to 3 (Step 1 already bumped it to
+      2 for the probability switch) so every row's second pass re-runs on
+      the next open. `EXTRACTOR_VERSION` is not bumped (pass 1 output is
+      unchanged; pass-1 latency must not grow).
     - `Focus` and `FaceReady` (the `faces-progress` payload) serialize the
       probability as `eye_focus` and `candidate` as today; `faces_todo` /
       `write_faces` / `run_faces_scan` / `indexed_file` use the new column;

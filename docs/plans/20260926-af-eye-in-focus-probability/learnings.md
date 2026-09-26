@@ -55,10 +55,13 @@
   the threshold.
 - `riffle-app` had to change in this step too, because `Cue::eye_sharpness`
   is gone: `run_faces_scan` now writes `cue.eye_focus` into the old
-  `eye_sharpness` column, and `candidate()` reads it as a probability. Until
-  Step 2 bumps `FACES_VERSION` and swaps the column, rows filled by the old
-  pass hold Laplacian values (almost all >= 0.772) and read back as
-  `Candidate`. Step 2 must land before a release.
+  `eye_sharpness` column, and `candidate()` reads it as a probability.
+  Round 1 review (local review round 1) found that leaving the
+  `FACES_VERSION` bump to Step 2 was wrong: this step's own commit changes
+  what `extract_faces` produces, and main is wrong between the two steps'
+  merges. This step now bumps `FACES_VERSION` to `2` itself, so pass 2
+  re-runs on every existing row and `eye_sharpness` holds probabilities
+  everywhere. Step 2 bumps it again, to `3`, together with the column swap.
 - The CLI's AUC skips frames with no edge width (as the reference skipped
   non-finite values); precision / coverage count every labeled faced frame
   whose preview decoded. Unfaced labeled frames are no longer counted in the
