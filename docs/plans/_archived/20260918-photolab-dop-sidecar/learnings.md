@@ -96,6 +96,8 @@
 - **The minimal template (no `Settings` block) was accepted by PhotoLab 10**
   and its rating showed, so the fallback template carrying the sample's
   `Settings` block was not needed.
+  - Correction (2026-09-26): wrong; PhotoLab 10 refuses an item without a
+    `Settings` table (see `docs/plans/20260926-dop-settings-block/`).
 - PhotoLab preferring its database over the sidecar was not hit.
 - The README anchor `#ratings-and-xmp-sidecars` became `#ratings-and-sidecars`
   with the section rename; its one in-README link was updated.
