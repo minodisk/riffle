@@ -1067,9 +1067,12 @@ fn scan_threads() -> usize {
 /// the sidecars the open could not read. `changed` counts the index rows the
 /// prepare phase changed: the `files` rows `Index::reconcile` dropped plus
 /// the `ratings` rows `reconcile_sidecars_of` wrote or cleared, plus 1 when a
-/// previous scan of the same folder was still running and got joined here (a
-/// cancelled scan's in-flight batch can still land after this scan's
-/// reconcile read, so its rows must not be assumed unchanged).
+/// previous scan was still running and got joined here, whatever folder it
+/// was scanning (its `dir` is not compared): a cancelled scan's in-flight
+/// batch can still land after this scan's reconcile read, so if it was
+/// scanning the same folder its rows must not be assumed unchanged. Counting
+/// every joined scan, even one of a different folder, is a deliberate
+/// over-count that costs one extra refresh on a folder switch mid-scan.
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,

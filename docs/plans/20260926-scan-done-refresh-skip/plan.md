@@ -145,8 +145,10 @@ connection with no ordering against `scan_folder`).
 ## Progress
 
 - Step 1: Shipped `ScanStarted.changed` (the reconcile's dropped `files` rows
-  plus the sidecar reconcile's written/cleared `ratings` rows), the
-  `refreshOnScanDone` decision in `refresh.ts`, and wired `main.ts` to skip
-  the `scan-done` refresh only when both `changed` and `total` are zero. Fixed
-  a `clippy::type_complexity` CI failure by adding a `SidecarToParse` type
-  alias (recorded in `learnings.md`).
+  plus the sidecar reconcile's written/cleared `ratings` rows, plus 1 when
+  `scan_folder` joined a previous scan that was still running, whatever
+  folder it was scanning), the `refreshOnScanDone` decision in `refresh.ts`,
+  and wired `main.ts` to skip the `scan-done` refresh only when both
+  `changed` and `total` are zero. Fixed a `clippy::type_complexity` CI
+  failure by adding a `SidecarToParse` type alias (recorded in
+  `learnings.md`).
