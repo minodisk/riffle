@@ -9,6 +9,7 @@ pub mod i18n;
 pub mod partial;
 pub mod reader;
 pub mod scan;
+pub mod sequence;
 pub mod sharpness;
 pub mod xmp;
 

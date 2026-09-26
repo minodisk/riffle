@@ -47,7 +47,7 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
 
 ## Steps
 
-- [ ] Step 1: Port lapse's EXIF patcher into `riffle-core` as `sequence.rs`, with time ordering, copy output and cancel/progress hooks
+- [x] Step 1: Port lapse's EXIF patcher into `riffle-core` as `sequence.rs`, with time ordering, copy output and cancel/progress hooks
   - Done when:
     - `crates/core/src/sequence.rs` (exported from `lib.rs`; module doc says
       "derived from minodisk/lapse v0.4.0, MIT" and keeps lapse's
