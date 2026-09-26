@@ -279,10 +279,16 @@ container.addEventListener("blur", () => {
   typed = NOTHING_TYPED;
 });
 
+const isMac = /Mac/.test(navigator.platform);
+
 // A right-click neither gives the tree the keyboard nor takes it away: the
-// culling key gate stays as it was, and the cursor stays put.
+// culling key gate stays as it was, and the cursor stays put. On macOS,
+// Control+click is the other standard way to right-click (common on
+// trackpads); WebKit reports it as a primary-button mousedown with
+// `ctrlKey`, so guard that too. On Windows/Linux, Ctrl+click is an ordinary
+// click that should still focus the tree.
 container.addEventListener("mousedown", (event) => {
-  if (event.button === 2) {
+  if (event.button === 2 || (isMac && event.button === 0 && event.ctrlKey)) {
     event.preventDefault();
   }
 });

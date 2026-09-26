@@ -7,8 +7,14 @@
   right-button `mousedown` would focus it (silently giving the tree the
   keyboard and turning the culling keys off); `folders.ts` now
   `preventDefault()`s a `mousedown` with `button === 2`, which keeps focus
-  wherever it was. The document-level `mousedown` that closes the menu still
-  sees the event, since only the default is prevented.
+  wherever it was. On macOS, Control+click is the other standard way to
+  right-click (common on trackpads); WebKit reports it as a primary-button
+  `mousedown` with `ctrlKey === true` and no `click`, so the guard also
+  `preventDefault()`s a `button === 0` `mousedown` with `ctrlKey` when
+  `navigator.platform` reports macOS (limited to macOS, since Ctrl+click is
+  an ordinary click on Windows/Linux and should still focus the tree). The
+  document-level `mousedown` that closes the menu still sees the event,
+  since only the default is prevented.
 - `Escape` ordering: `folders.keydown` consumes `Escape` to blur the tree, so
   with the tree holding the keyboard the old `Escape`-closes-the-menu branch
   (after the tree block) was never reached. The "any key closes the context
