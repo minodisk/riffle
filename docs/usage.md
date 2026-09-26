@@ -182,7 +182,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   pick the export folder here (derived from
   [lapse](https://github.com/minodisk/lapse) v0.4.0).
   - **Files**: the `.jpg` / `.jpeg` files (any case) directly in the folder;
-    subfolders are not searched. A folder without any is an error.
+    subfolders are not searched. A folder without any is an error, shown on
+    the status line.
   - **Order**: by `DateTimeOriginal`, then `SubSecTimeOriginal` (compared as
     a fraction, so `5` is later than `12`; a missing or malformed value counts
     as 0, so it sorts first within its second), then natural file name order
@@ -223,9 +224,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   - **Failures**: a file whose `DateTimeOriginal` cannot be read gets no new
     time and no copy; the preview lists it below the order with the reason,
     as `name: reason`, and `Run` is disabled when no file could be read. A
-    file that fails when the run itself writes, whether it could not be read
-    or written, is listed the same way, and the other files are still
-    written.
+    file that fails during the run, because it could not be read or written,
+    is listed as `name: reason` in the error list at the bottom of the right
+    pane once the dialog closes, and the other files are still written.
 - **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and color
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
