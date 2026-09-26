@@ -224,6 +224,16 @@ run by hand on any platform yet.
       label in place (no `menu item undo not found` warning in the log) and
       kills the old key; both Edit items work via mouse click. Files: same
       as above, plus `crates/app/src/commands.rs` (`update_keymap`).
+- [ ] On the dev machine, verify Select All: pressing `Cmd/Ctrl+A` once
+      with the strip focused selects every file (the current file stays
+      current); pressing it with the folder tree focused does nothing to
+      the strip; pressing it inside a settings text input selects that
+      input's text. Check `Edit > Select All` shows the accelerator and
+      that rebinding `selectAll` updates it, including in place on
+      Windows. Files: same as above (`crates/app/src/main.rs`
+      (`app_menu`), `crates/app/src/shortcuts.rs`,
+      `crates/app/src/commands.rs`), plus `crates/app/ui/src/main.ts`,
+      `crates/app/ui/src/settings.ts`.
 - [ ] Verify the `Some`/`None` accelerator behavior on Linux (only
       reasoned from muda 0.19.3's sources so far, never run; Windows passed).
 
