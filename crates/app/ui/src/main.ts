@@ -25,12 +25,25 @@ import {
 } from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
+import {
+  RUNNING_NOTE,
+  type SequenceDone,
+  SequenceFlow,
+  type SequencePreview,
+  changedLine,
+  doneStatus,
+  failureText,
+  progressStatus,
+  rebuildNotice,
+  rowText,
+} from "./sequence.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { contextMenuGroups, menuPosition } from "./context.js";
 import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { initSettings } from "./settings.js";
+import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import {
@@ -186,6 +199,8 @@ let note: string | undefined;
 // carry the same `dir`.
 let scanId: number | null = null;
 let scanning: string | null = null;
+// How far the sequencing run got, or null when none runs.
+let sequencing: string | null = null;
 // True between `start_scan` and its `faces-done`, i.e. through both scan
 // passes. A rescan asked for while it is true is deferred (`resyncPending`)
 // rather than canceling the scan.
@@ -450,6 +465,9 @@ function renderMeta(): void {
   if (scanning !== null) {
     metaStatusEl.append(line("note", scanning));
   }
+  if (sequencing !== null) {
+    metaStatusEl.append(line("note", sequencing));
+  }
   // Driven by `zoomed` rather than `note`, so paging or an error does not
   // erase the mode indicator while the 1:1 view is still showing.
   if (zoomed) {
@@ -545,6 +563,164 @@ function trashRejected(): void {
       setStatus(String(err));
     });
 }
+
+// `File > Sequence JPEG Timestamps…`: pick an export folder, preview the
+// times a run would write, then run it with progress and cancel. Its errors
+// join the sticky `errors` list, keyed by path.
+const sequenceFlow = new SequenceFlow();
+// Only its key decisions are used: Escape and Tab, as in the settings modal.
+const sequenceKeys = new SettingsModal();
+const sequenceDialog = document.getElementById("sequence-dialog") as HTMLDivElement;
+const sequenceSource = document.getElementById("sequence-source") as HTMLSpanElement;
+const sequenceOutput = document.getElementById("sequence-output") as HTMLSpanElement;
+const sequenceRebuild = document.getElementById("sequence-rebuild") as HTMLParagraphElement;
+const sequenceRows = document.getElementById("sequence-rows") as HTMLOListElement;
+const sequenceCount = document.getElementById("sequence-count") as HTMLParagraphElement;
+const sequenceFailed = document.getElementById("sequence-failed") as HTMLUListElement;
+const sequenceRunning = document.getElementById("sequence-running") as HTMLParagraphElement;
+const sequenceRunButton = document.getElementById("sequence-run") as HTMLButtonElement;
+const sequenceCancelButton = document.getElementById("sequence-cancel") as HTMLButtonElement;
+sequenceRunning.textContent = RUNNING_NOTE;
+
+function sequenceTimestamps(): void {
+  if (!formatDialog.hidden || settings.isOpen || !sequenceFlow.start()) {
+    return;
+  }
+  window.__TAURI__.core
+    .invoke<string | null>("pick_folder")
+    .then((dir) => {
+      if (!sequenceFlow.picked(dir) || dir === null) {
+        return;
+      }
+      return window.__TAURI__.core
+        .invoke<SequencePreview>("sequence_preview", { dir })
+        .then((preview) => {
+          if (sequenceFlow.previewed()) {
+            showSequencePreview(dir, preview);
+          }
+        });
+    })
+    .catch((err: unknown) => {
+      sequenceFlow.fail();
+      setStatus(String(err));
+    });
+}
+
+function showSequencePreview(dir: string, preview: SequencePreview): void {
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  sequenceSource.textContent = dir;
+  sequenceOutput.textContent = preview.output_dir;
+  const notice = rebuildNotice(preview);
+  sequenceRebuild.textContent = notice ?? "";
+  sequenceRebuild.hidden = notice === null;
+  sequenceRows.replaceChildren(
+    ...preview.rows.map((row) => {
+      const item = document.createElement("li");
+      item.textContent = rowText(row);
+      item.classList.toggle("unchanged", !row.changed);
+      return item;
+    }),
+  );
+  sequenceCount.textContent = changedLine(preview.rows);
+  sequenceFailed.replaceChildren(
+    ...preview.failed.map((failure) => {
+      const item = document.createElement("li");
+      item.textContent = failureText(failure);
+      return item;
+    }),
+  );
+  sequenceRunning.hidden = true;
+  sequenceRunButton.disabled = preview.rows.length === 0;
+  sequenceDialog.hidden = false;
+  (sequenceRunButton.disabled ? sequenceCancelButton : sequenceRunButton).focus();
+}
+
+function closeSequenceDialog(): void {
+  sequenceDialog.hidden = true;
+}
+
+function runSequence(): void {
+  const dir = sequenceFlow.run();
+  if (dir === null) {
+    return;
+  }
+  sequenceRunButton.disabled = true;
+  sequenceRunning.hidden = false;
+  sequenceCancelButton.focus();
+  sequencing = progressStatus(0, 0);
+  renderMeta();
+  window.__TAURI__.core
+    .invoke<number>("sequence_run", { dir })
+    .then((runId) => {
+      const { done, cancel } = sequenceFlow.started(runId);
+      if (done !== null) {
+        finishSequence(done);
+      } else if (cancel) {
+        void window.__TAURI__.core.invoke("sequence_cancel", { runId });
+      }
+    })
+    .catch((err: unknown) => {
+      sequenceFlow.fail();
+      closeSequenceDialog();
+      sequencing = null;
+      setStatus(String(err));
+    });
+}
+
+function finishSequence(payload: SequenceDone): void {
+  if (!sequenceFlow.done(payload)) {
+    return;
+  }
+  closeSequenceDialog();
+  for (const failure of payload.failed) {
+    errors.add(failure.path, failureText(failure));
+  }
+  sequencing = null;
+  setStatus(doneStatus(payload));
+}
+
+function dismissSequence(): void {
+  const decision = sequenceFlow.dismiss();
+  if (decision.kind === "close") {
+    closeSequenceDialog();
+  } else if (decision.kind === "cancel" && decision.runId !== null) {
+    void window.__TAURI__.core.invoke("sequence_cancel", { runId: decision.runId });
+  }
+}
+
+// Every key stops here while the dialog is open, so none reaches the strip.
+function sequenceKeydown(event: KeyboardEvent): void {
+  const decision = sequenceKeys.key(keyName(event));
+  if (decision.kind === "close") {
+    event.preventDefault();
+    dismissSequence();
+  } else if (decision.kind === "focus") {
+    event.preventDefault();
+    const buttons = [sequenceRunButton, sequenceCancelButton].filter((b) => !b.disabled);
+    const from = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    buttons[cycleFocus(buttons.length, from, decision.step)].focus();
+  }
+}
+
+sequenceRunButton.addEventListener("click", runSequence);
+sequenceCancelButton.addEventListener("click", dismissSequence);
+
+void window.__TAURI__.event.listen<{ run_id: number; done: number; total: number }>(
+  "sequence-progress",
+  ({ payload }) => {
+    if (!sequenceFlow.accepts(payload.run_id)) {
+      return;
+    }
+    sequencing = progressStatus(payload.done, payload.total);
+    renderMeta();
+  },
+);
+
+void window.__TAURI__.event.listen<SequenceDone>("sequence-done", ({ payload }) => {
+  finishSequence(payload);
+});
 
 // Set the transient note, or clear it when called with no argument.
 function setStatus(extra?: string): void {
@@ -2030,9 +2206,14 @@ function openFolder(): void {
 }
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
-// of the way while the settings modal is open, as their keys do.
+// of the way while the settings or the sequence modal is open, as their keys
+// do.
+function modalOpen(): boolean {
+  return settings.isOpen || sequenceFlow.isOpen;
+}
+
 void window.__TAURI__.event.listen("open-folder", () => {
-  if (!settings.isOpen) openFolder();
+  if (!modalOpen()) openFolder();
 });
 // `File > Reload Folder`, and the main window regaining focus: both rescan
 // the open folder in place. The focus that follows launch finds no folder
@@ -2056,11 +2237,12 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   resync();
 });
 void window.__TAURI__.event.listen("trash-rejected", trashRejected);
+void window.__TAURI__.event.listen("sequence-timestamps", sequenceTimestamps);
 void window.__TAURI__.event.listen("undo", () => {
-  if (!settings.isOpen) undo();
+  if (!modalOpen()) undo();
 });
 void window.__TAURI__.event.listen("redo", () => {
-  if (!settings.isOpen) redo();
+  if (!modalOpen()) redo();
 });
 // `Edit > Select All` replaces the predefined item, so it selects a focused
 // text input's text itself, and otherwise gates on focus as the keydown path
@@ -2070,7 +2252,7 @@ void window.__TAURI__.event.listen("select-all", () => {
   const active = document.activeElement;
   if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
     active.select();
-  } else if (!settings.isOpen && !folders.hasFocus()) {
+  } else if (!modalOpen() && !folders.hasFocus()) {
     selectAllFiles();
   }
 });
@@ -2641,7 +2823,7 @@ const sortLoaded = window.__TAURI__.core
 // `Settings...` in the menu. The first-launch dialog is modal already, so the
 // settings wait until it is answered.
 void window.__TAURI__.event.listen("open-settings", () => {
-  if (!formatDialog.hidden) {
+  if (!formatDialog.hidden || sequenceFlow.isOpen) {
     return;
   }
   setFilterMenuOpen(false);
@@ -2683,6 +2865,10 @@ window.addEventListener("keydown", (event) => {
   }
   if (settings.isOpen) {
     settings.keydown(event);
+    return;
+  }
+  if (sequenceFlow.isOpen) {
+    sequenceKeydown(event);
     return;
   }
   const key = keyName(event);
