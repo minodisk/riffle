@@ -28,6 +28,9 @@ export interface ScanStarted {
 // cleared no `ratings` row. Both are needed because the open-time
 // `refreshEntries` read is not ordered against `scan_folder`'s reconcile; if
 // either ever writes rows without counting them, this skip would hide them.
+// `changed` also counts 1 when `scan_folder` joined a previous scan of the
+// same folder, since that scan's last in-flight batch can land after the
+// open-time read and would otherwise go unseen here.
 export function refreshOnScanDone(
   started: ScanStarted | null,
   scanId: number,

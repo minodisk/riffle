@@ -1066,7 +1066,10 @@ fn scan_threads() -> usize {
 /// an older, still-draining one for the same folder. `sidecar_errors` lists
 /// the sidecars the open could not read. `changed` counts the index rows the
 /// prepare phase changed: the `files` rows `Index::reconcile` dropped plus
-/// the `ratings` rows `reconcile_sidecars_of` wrote or cleared.
+/// the `ratings` rows `reconcile_sidecars_of` wrote or cleared, plus 1 when a
+/// previous scan of the same folder was still running and got joined here (a
+/// cancelled scan's in-flight batch can still land after this scan's
+/// reconcile read, so its rows must not be assumed unchanged).
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,
@@ -1105,6 +1108,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let dir = canonical;
     let cancel = Arc::new(AtomicBool::new(false));
 
+    let joined_previous = previous.is_some();
     if let Some((_, previous_cancel, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
@@ -1219,7 +1223,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     log::info!(
         "scan sidecars: dir={dir} scan_id={scan_id} dirty={dirty_count} changed={changed} in {sidecars_ms}ms"
     );
-    let changed = removed + changed;
+    let changed = removed + changed + usize::from(joined_previous);
     log::info!(
         "scan prepare: dir={dir} scan_id={scan_id} todo={} in {}ms",
         todo.len(),
