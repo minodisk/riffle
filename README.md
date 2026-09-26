@@ -118,8 +118,9 @@ DxO PhotoLab.
   Files are ordered by capture time, then sub-second time, then file name, so a
   folder exported from two bodies interleaves correctly. A preview shows the
   new times first. The result is a complete copy in `<folder>-sequenced/` next
-  to the export folder; the originals are never touched, and running it again
-  rebuilds the copy from the original times.
+  to the export folder, which is shown in your file manager when the run ends;
+  the originals are never touched, and running it again rebuilds the copy from
+  the original times.
 - **MCP companion**: an MCP client, such as an AI assistant, can follow along
   while you cull: read what Riffle shows, look at a preview, move the view and
   record stars, picks / rejects and labels the way the keys do. It is off by

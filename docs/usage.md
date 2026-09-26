@@ -229,7 +229,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
     folder then holds only the complete files written so far, and the next
     run rebuilds it. At the end the status line shows
     `Wrote N of M files to <folder>-sequenced`, or `canceled, N of M written`
-    after a cancel, followed by `, K failed` when some files failed.
+    after a cancel, followed by `, K failed` when some files failed. After a
+    run that wrote files, `<folder>-sequenced` is revealed in the OS file
+    manager, selected in its parent folder like the folder tree's reveal item;
+    nothing is revealed after a cancel or when no file was written.
   - **Failures**: a file whose `DateTimeOriginal` cannot be read gets no new
     time and no copy; the preview lists it below the order with the reason,
     as `name: reason`, and `Run` is disabled when no file could be read. A

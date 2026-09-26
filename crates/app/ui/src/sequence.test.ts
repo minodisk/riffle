@@ -7,6 +7,7 @@ import {
   failureText,
   progressStatus,
   rebuildNotice,
+  revealAfter,
   rowText,
 } from "./sequence.js";
 
@@ -78,6 +79,24 @@ describe("text", () => {
         }),
       ),
     ).toBe("Wrote 0 of 0 files to /x/export-sequenced, 1 failed");
+  });
+
+  test.each([
+    ["a run that wrote every file", done(), "/x/export-sequenced"],
+    [
+      "a run with a per-file failure",
+      done({ written: 2, failed: [{ path: "/x/export/b.jpg", message: "denied" }] }),
+      "/x/export-sequenced",
+    ],
+    ["a canceled run", done({ written: 1, canceled: true }), null],
+    ["a run that wrote nothing", done({ written: 0 }), null],
+    [
+      "a folder-level error",
+      done({ written: 0, total: 0, failed: [{ path: "/x/export", message: "no JPEG files" }] }),
+      null,
+    ],
+  ])("reveals the output folder after %s", (_name, payload, expected) => {
+    expect(revealAfter(payload)).toBe(expected);
   });
 });
 
