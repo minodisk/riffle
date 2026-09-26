@@ -27,10 +27,21 @@ fn main() -> Result<()> {
         ),
         Some("scan") => scan_dir(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?),
         Some("candidates") => {
-            candidates(Path::new(&args[1]), args.get(2).map(|t| t.parse()).transpose()?)
+            let mut dirs = &args[1..];
+            let threads = match dirs.last().map(|t| t.parse::<usize>()) {
+                Some(Ok(n)) => {
+                    dirs = &dirs[..dirs.len() - 1];
+                    Some(n)
+                }
+                _ => None,
+            };
+            if dirs.is_empty() {
+                bail!("usage: riffle-cli candidates <dir>... [threads]");
+            }
+            candidates(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli <scan|candidates> <dir> [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]"
         ),
     }
 }
@@ -139,16 +150,23 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
     );
     let cue = candidate::focus_cue(&jpeg, a.orientation, focus)?;
     println!(
-        "candidate: {:?}, eye sharpness {}",
+        "candidate: {:?}, in focus {}",
         cue.state,
-        cue.eye_sharpness
-            .map_or("-".to_string(), |s| format!("{s:.1}"))
+        cue.eye_focus
+            .map_or("-".to_string(), |p| format!("{:.0}%", p * 100.0))
     );
     let (mut rgb, _, _) = decode_rgb(&jpeg)?;
     if let Some(f) = cue.face {
         println!(
             "nearest face ({:.0},{:.0}) {:.0}x{:.0}",
             f.x, f.y, f.width, f.height
+        );
+        let m = candidate::eye_focus(&candidate::luma(&rgb, w, h), w, h, &f);
+        println!(
+            "lap {:.1}, edge width {}, logit {}",
+            m.lap,
+            m.edge_width.map_or("-".to_string(), |e| format!("{e:.2}")),
+            m.logit.map_or("-".to_string(), |l| format!("{l:.3}"))
         );
         let r = candidate::eye_window(w, h, &f);
         draw_rect(
@@ -344,22 +362,28 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
     Ok(())
 }
 
-/// Compute the focus candidate cue of every RAW file in a folder in parallel
-/// and, where an XMP sidecar holds a pick / reject flag, count how the
-/// candidates line up with it (a pick is in focus).
-fn candidates(dir: &Path, threads: Option<usize>) -> Result<()> {
+/// Compute the focus candidate cue of every RAW file in one or more folders
+/// in parallel and, over the files with a face whose XMP sidecar holds a
+/// pick / reject flag (a pick is in focus), pooled across the folders, print
+/// the AUC of the Laplacian alone and of the combined logit, and the precision
+/// and coverage of the candidates.
+fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     let threads =
         threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
     if threads == 0 {
         bail!("threads must be at least 1");
     }
-    let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)?
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| riffle_core::scan::is_raw_file(p))
-        .collect();
-    paths.sort();
-    if paths.is_empty() {
-        bail!("no RAW (ARW/DNG) files in {dir:?}");
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for dir in dirs {
+        let mut found: Vec<PathBuf> = std::fs::read_dir(dir)?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| riffle_core::scan::is_raw_file(p))
+            .collect();
+        if found.is_empty() {
+            bail!("no RAW (ARW/DNG) files in {dir:?}");
+        }
+        found.sort();
+        paths.extend(found);
     }
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
@@ -371,11 +395,28 @@ fn candidates(dir: &Path, threads: Option<usize>) -> Result<()> {
         paths.par_iter().map(|p| scan::extract_faces(p)).collect()
     });
     let total = start.elapsed();
+    // The measures behind each face's probability, for the report only.
+    let measures: Vec<Option<candidate::EyeFocus>> = pool.install(|| {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .zip(&cues)
+            .map(|(p, cue)| {
+                let face = cue.as_ref().ok()?.face?;
+                let (_, jpeg) = reader::read_preview(p).ok()?;
+                let (rgb, w, h) = decode_rgb(&jpeg).ok()?;
+                let gray = candidate::luma(&rgb, w, h);
+                Some(candidate::eye_focus(&gray, w, h, &face))
+            })
+            .collect()
+    });
 
     // `hits` are candidates in focus: the numerator of both rates.
     let (mut labeled, mut cands, mut in_focus, mut hits) = (0, 0, 0, 0);
-    let mut errors = 0;
-    for (path, cue) in paths.iter().zip(&cues) {
+    let (mut errors, mut faced, mut no_edge) = (0, 0, 0);
+    // (in focus, lap, logit) of each labeled faced frame.
+    let mut scored: Vec<(bool, f64, Option<f64>)> = Vec::new();
+    for ((path, cue), m) in paths.iter().zip(&cues).zip(&measures) {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
         let flag = std::fs::read(xmp::sidecar_path(path))
             .ok()
@@ -392,35 +433,77 @@ fn candidates(dir: &Path, threads: Option<usize>) -> Result<()> {
         let face = cue.face.map_or("-".to_string(), |f| {
             format!("({:.0},{:.0}) {:.0}x{:.0}", f.x, f.y, f.width, f.height)
         });
+        let opt =
+            |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
         println!(
-            "{name}  {:?}  {}  {face}  {}",
+            "{name}  {:?}  p {}  lap {}  edge {}  {face}  {}",
             cue.state,
-            cue.eye_sharpness
-                .map_or("-".to_string(), |s| format!("{s:.1}")),
+            opt(cue.eye_focus, 3),
+            opt(m.map(|m| m.lap), 1),
+            opt(m.and_then(|m| m.edge_width), 2),
             flag.map_or("-".to_string(), |f| format!("{f:?}"))
         );
-        let Some(flag) = flag else { continue };
+        if cue.face.is_some() {
+            faced += 1;
+            no_edge += m.is_some_and(|m| m.edge_width.is_none()) as usize;
+        }
+        let (Some(flag), Some(m)) = (flag, m) else {
+            continue;
+        };
         labeled += 1;
         let cand = cue.state == candidate::FocusCandidate::Candidate;
         let pick = flag == Flag::Pick;
         cands += cand as usize;
         in_focus += pick as usize;
         hits += (cand && pick) as usize;
+        scored.push((pick, m.lap, m.logit));
     }
     println!(
-        "{} files, {threads} threads, {errors} errors: {:.2}s total",
+        "{} files in {} folder(s), {threads} threads, {errors} errors: {:.2}s total",
         paths.len(),
+        dirs.len(),
         total.as_secs_f64()
     );
+    println!("{faced} with a face, {no_edge} of them with no edge width (probability 0)");
     if labeled > 0 {
         let pct = |a: usize, b: usize| 100.0 * a as f64 / b.max(1) as f64;
         println!(
-            "{labeled} labeled: candidates {cands}, in focus {hits} ({:.0}%); in-focus frames {in_focus}, candidates {hits} ({:.0}%)",
+            "{labeled} labeled with a face ({in_focus} in focus, {} off): candidates {cands}, in focus {hits} ({:.1}%); in-focus frames {in_focus}, candidates {hits} ({:.1}%)",
+            labeled - in_focus,
             pct(hits, cands),
             pct(hits, in_focus)
         );
+        let with_edge: Vec<(bool, f64)> = scored
+            .iter()
+            .filter_map(|&(pick, _, logit)| logit.map(|l| (pick, l)))
+            .collect();
+        println!(
+            "AUC: lap {:.3}, combined {:.3} ({} frames with an edge width)",
+            auc(scored.iter().map(|&(pick, lap, _)| (pick, lap))),
+            auc(with_edge.iter().copied()),
+            with_edge.len()
+        );
     }
     Ok(())
+}
+
+/// The area under the ROC curve of `(in focus, score)` pairs: the share of
+/// (in focus, off) pairs where the in-focus frame scores higher, ties 0.5.
+fn auc(frames: impl Iterator<Item = (bool, f64)>) -> f64 {
+    let (pos, neg): (Vec<_>, Vec<_>) = frames.partition(|(pick, _)| *pick);
+    let mut s = 0.0;
+    for (_, a) in &pos {
+        for (_, b) in &neg {
+            s += if a > b {
+                1.0
+            } else if a == b {
+                0.5
+            } else {
+                0.0
+            };
+        }
+    }
+    s / (pos.len() * neg.len()) as f64
 }
 
 /// Write out the partial decode so it can be checked by eye.
