@@ -1366,6 +1366,34 @@ browser to blur a focused control when you hide its container; call
   holds the keyboard-focused folder tree, ends up hidden). Not reproduced on
   a real WebKit build.
 
+### Right-click on the folder tree must not steal keyboard focus (Hit)
+
+`#folders` is `tabindex="0"`, so a right-button `mousedown` would focus it and
+silently turn the culling keys off. `folders.ts` `preventDefault()`s a
+`mousedown` with `button === 2` to keep focus wherever it was. On macOS,
+Control+click is the other standard way to right-click (common on trackpads);
+WebKit reports it as a primary-button `mousedown` with `ctrlKey === true` and
+no `click`, so the guard also `preventDefault()`s a `button === 0` `mousedown`
+with `ctrlKey` when `navigator.platform` reports macOS — on Windows/Linux
+Ctrl+click is an ordinary click and must still focus the tree. The
+document-level `mousedown` that closes an open menu still sees the event,
+since only the default action is prevented, not propagation.
+
+Keydown ordering: `folders.keydown` consumes `Escape` to blur the tree, so an
+"any key closes the context menu, `Escape` is consumed doing so" check must
+run _before_ the tree's keydown block, not after — placed after, the tree
+swallows `Escape` first and the menu never closes. This also means any menu
+open when the tree has focus closes on any key the tree consumes, not just
+`Escape`.
+
+- Source: `docs/plans/_archived/20260926-folder-reveal/learnings.md`, Step 1.
+- Not verified on a real device: drive roots. `tauri-plugin-opener` 2.5.5's
+  Windows `reveal_items_in_dir` resolves the parent via
+  `windows_shell_path::shell_parent_path` and returns `Error::NoParent` when
+  there is none; no `open_path` fallback was added, so such an error surfaces
+  only via the status line — check on a real drive-root folder before relying
+  on this.
+
 ### Write relative imports with `.js` (Measured)
 
 `import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
