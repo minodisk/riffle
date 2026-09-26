@@ -2,6 +2,22 @@
 
 ## Cross-cutting / other
 
+### Core: validate the combined AF-eye score on the two reserved labeled folders
+
+`docs/plans/_archived/20260926-af-eye-in-focus-probability/plan.md` reserved
+`D:\Photos\tests\2026-08-29-focus-sample` and
+`D:\Photos\tests\2026-09-13-b-focus-sample` (100 ARW each) as a
+post-implementation check, but as of Step 1 neither carried XMP pick/reject
+labels yet, so they were not run.
+
+#### TODO
+
+- [ ] Once `2026-08-29-focus-sample` and `2026-09-13-b-focus-sample` carry XMP
+      pick/reject labels, run
+      `riffle-cli candidates D:\Photos\tests\2026-08-29-focus-sample D:\Photos\tests\2026-09-13-b-focus-sample`
+      and record AUC / precision / coverage. Files: `crates/cli/src/main.rs`,
+      `crates/core/src/candidate.rs`.
+
 ### Docs: the "Focus candidate pass" numbers in docs/performance.md are missing the app's own scan/faces log lines
 
 Step 3 of `docs/plans/_archived/20260925-focus-candidate/plan.md` asked for the
