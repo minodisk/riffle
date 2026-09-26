@@ -293,7 +293,9 @@ pub struct SidecarError {
 
 /// Bring the `ratings` rows of `dir` in line with the sidecars on disk and
 /// return the judgments that still have to be written, along with the
-/// sidecars that could not be used.
+/// sidecars that could not be used and the number of `ratings` rows this
+/// wrote or cleared (every parsed sidecar counts, even one whose row a
+/// `set_rating` in the parse window keeps `store_sidecar_ratings` off).
 ///
 /// The sidecar is the source of truth, so anything whose stat changed since
 /// the app last saw it is read back here; a sidecar that cannot be read or
@@ -307,7 +309,7 @@ fn reconcile_sidecars_of(
     index: &Arc<Mutex<Index>>,
     format: SidecarFormat,
     names: &LabelNames,
-) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
+) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>, usize), String> {
     let pairs: Vec<(String, Option<SidecarStat>)> = listed
         .iter()
         .map(|path| {
@@ -323,7 +325,7 @@ fn reconcile_sidecars_of(
         })
         .collect();
 
-    let to_parse = index::lock(index).reconcile_sidecars(dir, &pairs)?;
+    let (to_parse, cleared) = index::lock(index).reconcile_sidecars(dir, &pairs)?;
     // An oversize sidecar is rejected outright (see `MAX_SIDECAR_BYTES`), so
     // its row cannot be brought in line with it here. Its path is tracked
     // separately so it can be kept out of what the writer is handed below:
@@ -389,7 +391,7 @@ fn reconcile_sidecars_of(
         .into_iter()
         .filter(|(path, _, _, _, _)| !oversize.contains(path.as_str()))
         .collect();
-    Ok((dirty, problems))
+    Ok((dirty, problems, cleared + parsed.len()))
 }
 
 /// Extract a file's IFD0 preview JPEG along with the Orientation, reading only
@@ -1062,12 +1064,21 @@ fn scan_threads() -> usize {
 /// id the caller must match against `scan-progress`/`scan-done` and
 /// `faces-progress`/`faces-done` events to tell this scan's events apart from
 /// an older, still-draining one for the same folder. `sidecar_errors` lists
-/// the sidecars the open could not read.
+/// the sidecars the open could not read. `changed` counts the index rows the
+/// prepare phase changed: the `files` rows `Index::reconcile` dropped plus
+/// the `ratings` rows `reconcile_sidecars_of` wrote or cleared, plus 1 when a
+/// previous scan was still running and got joined here, whatever folder it
+/// was scanning (its `dir` is not compared): a cancelled scan's in-flight
+/// batch can still land after this scan's reconcile read, so if it was
+/// scanning the same folder its rows must not be assumed unchanged. Counting
+/// every joined scan, even one of a different folder, is a deliberate
+/// over-count that costs one extra refresh on a folder switch mid-scan.
 #[derive(serde::Serialize)]
 pub struct ScanStarted {
     total: usize,
     scan_id: u64,
     sidecar_errors: Vec<SidecarError>,
+    changed: usize,
 }
 
 /// Bring the index of `dir` up to date: wait for a previous scan's last write
@@ -1100,6 +1111,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let dir = canonical;
     let cancel = Arc::new(AtomicBool::new(false));
 
+    let joined_previous = previous.is_some();
     if let Some((_, previous_cancel, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
@@ -1110,6 +1122,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
             total: 0,
             scan_id,
             sidecar_errors: Vec::new(),
+            changed: 0,
         });
     };
 
@@ -1146,7 +1159,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     );
 
     let reconcile_started = std::time::Instant::now();
-    let todo = {
+    let (todo, removed) = {
         let (dir, index, listed) = (dir.clone(), index.clone(), listed.clone());
         tauri::async_runtime::spawn_blocking(move || {
             let files: Vec<_> = listed
@@ -1160,7 +1173,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     };
 
     log::info!(
-        "scan reconcile: dir={dir} scan_id={scan_id} todo={} in {}ms",
+        "scan reconcile: dir={dir} scan_id={scan_id} todo={} removed={removed} in {}ms",
         todo.len(),
         reconcile_started.elapsed().as_millis()
     );
@@ -1178,6 +1191,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let sidecars_ms = sidecars_started.elapsed().as_millis();
     let mut sidecar_errors = Vec::new();
     let mut dirty_count = 0;
+    let mut changed = 0;
     match dirty {
         // A dirty row waited out its debounce in an earlier session already,
         // so it goes to the writer with none. Its own `label_known` (see
@@ -1185,9 +1199,10 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // before the app learned the label, and never written before this
         // open (e.g. a crash), must still reach the writer as unknown, or an
         // existing sidecar label would be stripped.
-        Ok((dirty, problems)) => {
+        Ok((dirty, problems, rows)) => {
             sidecar_errors = problems;
             dirty_count = dirty.len();
+            changed = rows;
             if let Some(writer) = &app.state::<AppWriter>().0 {
                 for (path, rating, flag, label, label_known) in dirty {
                     if let Err(e) = writer.set_now(
@@ -1208,7 +1223,10 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // must not stop the folder from opening.
         Err(e) => log::error!("failed to reconcile the sidecars of {dir}: {e}"),
     }
-    log::info!("scan sidecars: dir={dir} scan_id={scan_id} dirty={dirty_count} in {sidecars_ms}ms");
+    log::info!(
+        "scan sidecars: dir={dir} scan_id={scan_id} dirty={dirty_count} changed={changed} in {sidecars_ms}ms"
+    );
+    let changed = removed + changed + usize::from(joined_previous);
     log::info!(
         "scan prepare: dir={dir} scan_id={scan_id} todo={} in {}ms",
         todo.len(),
@@ -1226,6 +1244,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
             total,
             scan_id,
             sidecar_errors,
+            changed,
         });
     }
     // Any entry still here belongs to a scan this one has already superseded
@@ -1240,6 +1259,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         total,
         scan_id,
         sidecar_errors,
+        changed,
     })
 }
 
@@ -2389,7 +2409,7 @@ mod tests {
         index: &Arc<Mutex<Index>>,
         format: SidecarFormat,
     ) -> Result<Vec<index::DirtyRow>, String> {
-        reconcile_listed_with_errors(dir, listed, index, format).map(|(dirty, _)| dirty)
+        reconcile_listed_with_errors(dir, listed, index, format).map(|(dirty, _, _)| dirty)
     }
 
     fn reconcile_listed_with_errors(
@@ -2397,7 +2417,7 @@ mod tests {
         listed: &[String],
         index: &Arc<Mutex<Index>>,
         format: SidecarFormat,
-    ) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>), String> {
+    ) -> Result<(Vec<index::DirtyRow>, Vec<SidecarError>, usize), String> {
         let (_, sidecars) = list_folder_in(Path::new(dir), format)?;
         reconcile_sidecars_of(
             dir,
@@ -2500,6 +2520,25 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), Some(4));
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn a_parsed_sidecar_counts_as_changed_and_an_unchanged_one_does_not() {
+        let root = temp_dir("sidecar-changed-count");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("a.ARW"), b"x").unwrap();
+        sidecar(&root, "a.xmp", 4);
+        let index = sidecar_index(&root);
+        let listed = list_arw_in(&root).unwrap();
+
+        let (_, _, changed) =
+            reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        assert_eq!(changed, 1);
+        let (_, _, changed) =
+            reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
+        assert_eq!(changed, 0);
 
         remove_temp_dir(&root);
     }
@@ -2982,7 +3021,7 @@ mod tests {
             .set_rating(&dir, &listed[0], Some(5), Flag::None, None, true)
             .unwrap();
 
-        let (dirty, problems) =
+        let (dirty, problems, _) =
             reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Dop).unwrap();
 
         assert!(dirty.is_empty(), "the writer must not patch it unread");
@@ -3014,7 +3053,7 @@ mod tests {
         )
         .unwrap();
         for _ in 0..2 {
-            let (_, problems) =
+            let (_, problems, _) =
                 reconcile_listed_with_errors(&dir, &listed, &index, SidecarFormat::Xmp).unwrap();
             assert_eq!(problems.len(), 1);
             assert_eq!(problems[0].path, listed[0]);
@@ -3035,6 +3074,7 @@ mod tests {
                 path: "/d/a.xmp".into(),
                 message: "bad".into(),
             }],
+            changed: 2,
         };
         assert_eq!(
             serde_json::to_value(&started).unwrap(),
@@ -3042,6 +3082,7 @@ mod tests {
                 "total": 3,
                 "scan_id": 7,
                 "sidecar_errors": [{ "path": "/d/a.xmp", "message": "bad" }],
+                "changed": 2,
             })
         );
     }

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { refreshOnFacesDone, refreshOnProgress, refreshTimingLine } from "./refresh.js";
+import {
+  refreshOnFacesDone,
+  refreshOnProgress,
+  refreshOnScanDone,
+  refreshTimingLine,
+} from "./refresh.js";
 
 describe("refreshOnProgress", () => {
   test("no current file", () => {
@@ -24,6 +29,28 @@ describe("refreshOnProgress", () => {
 
   test("a file paged to after its row landed", () => {
     expect(refreshOnProgress("/c.ARW", false, [], "/a.ARW")).toBe(true);
+  });
+});
+
+describe("refreshOnScanDone", () => {
+  test("neither the reconcile nor the scan pass wrote anything", () => {
+    expect(refreshOnScanDone({ scanId: 3, changed: 0 }, 3, 0)).toBe(false);
+  });
+
+  test("the scan pass wrote rows", () => {
+    expect(refreshOnScanDone({ scanId: 3, changed: 0 }, 3, 5)).toBe(true);
+  });
+
+  test("the reconcile changed rows while the scan pass wrote none", () => {
+    expect(refreshOnScanDone({ scanId: 3, changed: 1 }, 3, 0)).toBe(true);
+  });
+
+  test("the started record belongs to another scan", () => {
+    expect(refreshOnScanDone({ scanId: 2, changed: 0 }, 3, 0)).toBe(true);
+  });
+
+  test("no started record", () => {
+    expect(refreshOnScanDone(null, 3, 0)).toBe(true);
   });
 });
 

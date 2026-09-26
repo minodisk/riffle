@@ -48,8 +48,10 @@ import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import {
   type ScanDone,
+  type ScanStarted,
   refreshOnFacesDone,
   refreshOnProgress,
+  refreshOnScanDone,
   refreshTimingLine,
 } from "./refresh.js";
 import {
@@ -211,6 +213,9 @@ let scanErrors = 0;
 // The first pass's `scan-done` total, so its `faces-done` can skip a re-read
 // when neither pass wrote anything.
 let scanDone: ScanDone | null = null;
+// The rows `scan_folder`'s reconcile changed, so its `scan-done` can skip a
+// re-read when neither it nor the scan pass wrote anything.
+let scanStarted: ScanStarted | null = null;
 
 function setScanRunning(running: boolean): void {
   scanRunning = running;
@@ -2067,10 +2072,11 @@ function startScan(folder: string): Promise<void> {
       total: number;
       scan_id: number;
       sidecar_errors: { path: string; message: string }[];
+      changed: number;
     }>("scan_folder", {
       dir: folder,
     })
-    .then(({ scan_id, sidecar_errors }) => {
+    .then(({ scan_id, sidecar_errors, changed }) => {
       if (seq !== currentScan) {
         // A later `startScan` call (a different folder, or a deliberate
         // re-open of this same one) now owns `scanRunning` / `resyncPending`,
@@ -2084,6 +2090,7 @@ function startScan(folder: string): Promise<void> {
         renderMeta();
       }
       scanId = scan_id;
+      scanStarted = { scanId: scan_id, changed };
       return window.__TAURI__.core.invoke<void>("start_scan", {
         scanId: scan_id,
       });
@@ -2195,6 +2202,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanning = null;
     scanId = null;
     scanDone = null;
+    scanStarted = null;
     progressRefreshedFor = null;
     setScanRunning(false);
     resyncPending = false;
@@ -2442,7 +2450,9 @@ void window.__TAURI__.event.listen<{
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
   renderMeta();
   strip.refresh();
-  refreshEntries();
+  if (refreshOnScanDone(scanStarted, payload.scan_id, payload.total)) {
+    refreshEntries();
+  }
 });
 
 // The second pass: the focus candidate state of the files it has written,

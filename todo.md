@@ -819,13 +819,13 @@ pre-existing.
 - [ ] Apply the `DSC-` model gate `exif.rs` uses for `FocusMode` /
       `AFTracking` to the manual-focus check in `crates/core/src/sharpness.rs`.
 
-### App: conditionally skip `rebuildExifMenu`'s DOM rebuild in `refreshEntries`
+### App: the backend `folder_entries` read is the main cost of the remaining `refreshEntries`
 
-`refreshEntries`'s `rebuildExifMenu` DOM rebuild runs on every refresh regardless of whether the per-group label sets changed. Step 2 of docs/plans/_archived/20260926-folder-open-single-listing/plan.md added the `exif=` phase to the `refresh entries:` timing line specifically to justify this, but deferred the skip pending the user's measured numbers with `Timing logs` on. Files: `crates/app/ui/src/main.ts` (`refreshEntries`, `rebuildExifMenu`).
+Now that the `scan-done` refresh is skipped when neither the scan nor the reconcile changed anything (docs/plans/_archived/20260926-scan-done-refresh-skip/plan.md), the one refresh that still runs (the open-time one) is dominated by the backend `folder_entries` read: 321 ms cold on 2134 rows in the user's Windows debug-build measurement. Files: `crates/app/src/index.rs` (`folder_entries` / `AppIndexReader`), `crates/app/ui/src/main.ts` (`refreshEntries`).
 
 #### TODO
 
-- [ ] Once the user reports `exif=` numbers from the new `refresh entries:` timing line, decide whether `rebuildExifMenu`'s DOM rebuild is a clear-enough cost to skip when the per-group label sets are unchanged, and implement the skip if so.
+- [ ] Investigate why the cold `folder_entries` read costs 321 ms on 2134 rows and whether it can be reduced (indexing, query shape, or caching), verified by a measurement with `Timing logs` on before/after.
 
 ### App: `File > Sequence JPEG Timestamps…` has no macOS menu icon
 
