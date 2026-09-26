@@ -64,6 +64,12 @@ export function doneStatus(done: SequenceDone): string {
   return done.failed.length === 0 ? head : `${head}, ${done.failed.length} failed`;
 }
 
+// The folder to reveal in the file manager once a run ends, or null when the
+// run was canceled or wrote nothing.
+export function revealAfter(done: SequenceDone): string | null {
+  return !done.canceled && done.written > 0 ? done.output_dir : null;
+}
+
 export type Phase = "idle" | "picking" | "previewing" | "previewed" | "running" | "done";
 
 // The flow of one sequencing, from the menu item to `sequence-done`. The

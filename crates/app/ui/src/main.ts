@@ -35,6 +35,7 @@ import {
   failureText,
   progressStatus,
   rebuildNotice,
+  revealAfter,
   rowText,
 } from "./sequence.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
@@ -703,6 +704,12 @@ function finishSequence(payload: SequenceDone): void {
   }
   sequencing = null;
   setStatus(doneStatus(payload));
+  const out = revealAfter(payload);
+  if (out !== null) {
+    window.__TAURI__.core.invoke("reveal_folder", { path: out }).catch((err: unknown) => {
+      setStatus(String(err));
+    });
+  }
 }
 
 function dismissSequence(): void {
