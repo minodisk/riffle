@@ -12,7 +12,7 @@ describe("treeGate", () => {
   });
 
   test("swallows the culling actions", () => {
-    for (const action of ["pick", "next", "undo", "rate1", "red"]) {
+    for (const action of ["pick", "next", "undo", "selectAll", "rate1", "red"]) {
       expect(treeGate(action)).toBe("swallow");
     }
   });

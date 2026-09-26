@@ -50,6 +50,7 @@ import {
   type Command,
   type PickFlag,
   type Selection,
+  all,
   click,
   extend,
   judgments,
@@ -1713,6 +1714,17 @@ function extendSelection(delta: -1 | 1): void {
   show();
 }
 
+// Selects every file the strip shows; the focus stays put and anchors it.
+function selectAllFiles(): void {
+  if (files.length === 0) {
+    return;
+  }
+  selection = all(files, index);
+  paintSelection();
+  renderMeta();
+  if (comparing) void loadCompare();
+}
+
 const contextMenu = document.getElementById("context-menu") as HTMLDivElement;
 
 function closeContextMenu(): void {
@@ -1731,8 +1743,12 @@ function openContextMenu(x: number, y: number): void {
       const items: HTMLElement[] = group.map(({ action, label, shortcut, checked }) => {
         const item = document.createElement("button");
         item.type = "button";
-        item.setAttribute("role", "menuitemradio");
-        item.setAttribute("aria-checked", String(checked));
+        if (checked === undefined) {
+          item.setAttribute("role", "menuitem");
+        } else {
+          item.setAttribute("role", "menuitemradio");
+          item.setAttribute("aria-checked", String(checked));
+        }
         const name = document.createElement("span");
         name.textContent = label;
         const key = document.createElement("span");
@@ -2045,6 +2061,18 @@ void window.__TAURI__.event.listen("undo", () => {
 });
 void window.__TAURI__.event.listen("redo", () => {
   if (!settings.isOpen) redo();
+});
+// `Edit > Select All` replaces the predefined item, so it selects a focused
+// text input's text itself, and otherwise gates on focus as the keydown path
+// does. If the accelerator also reaches the keydown handler, the second run
+// is harmless: selecting all is idempotent.
+void window.__TAURI__.event.listen("select-all", () => {
+  const active = document.activeElement;
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+    active.select();
+  } else if (!settings.isOpen && !folders.hasFocus()) {
+    selectAllFiles();
+  }
 });
 
 // Make `path` the focused file after the selection changed, as a strip click
@@ -2750,6 +2778,9 @@ function runAction(action: string): boolean {
       break;
     case "extendNext":
       extendSelection(1);
+      break;
+    case "selectAll":
+      selectAllFiles();
       break;
     case "focus":
       showFocus = !showFocus;

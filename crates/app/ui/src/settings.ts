@@ -13,6 +13,7 @@ const shortcutLabels: Record<string, string> = {
   burstFrameNext: "Next frame in burst",
   extendPrevious: "Extend selection left",
   extendNext: "Extend selection right",
+  selectAll: "Select all",
   open: "Open folder",
   undo: "Undo",
   redo: "Redo",
@@ -464,6 +465,18 @@ export function initSettings(hooks: SettingsHooks): Settings {
       case "native":
         if (tablist.contains(event.target as Node)) {
           tabKey(event);
+          return;
+        }
+        // macOS WKWebView only runs a text input's native Select All through
+        // the Edit menu's key equivalent. The menu binds it to the `selectAll`
+        // action's key, so rebinding that action away from Cmd+A leaves
+        // Cmd+A doing nothing in a focused input here. Cover it directly.
+        if (
+          keyName(event) === "meta+a" &&
+          (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+        ) {
+          event.preventDefault();
+          event.target.select();
         }
     }
   }

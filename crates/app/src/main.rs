@@ -15,7 +15,6 @@ mod app_menu {
     use tauri::image::Image;
     #[cfg(target_os = "macos")]
     use tauri::menu::IconMenuItem;
-    #[cfg(not(target_os = "macos"))]
     use tauri::menu::MenuItem;
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
     use tauri::{AppHandle, Emitter, Manager, Wry};
@@ -28,6 +27,7 @@ mod app_menu {
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
     const REDO_ID: &str = "redo";
+    const SELECT_ALL_ID: &str = "select-all";
     const CHECK_UPDATES_ID: &str = "check-for-updates";
 
     /// The default menu's submenu titled `title`, if the platform has one.
@@ -42,8 +42,8 @@ mod app_menu {
         Ok(None)
     }
 
-    /// The app menu, with the `Open Folder…`, `Undo` and `Redo` accelerators
-    /// the keymap currently gives those actions.
+    /// The app menu, with the `Open Folder…`, `Undo`, `Redo` and `Select All`
+    /// accelerators the keymap currently gives those actions.
     pub fn build(
         handle: &AppHandle,
         keymap: &crate::shortcuts::Keymap,
@@ -54,6 +54,8 @@ mod app_menu {
         let undo_key = undo_key.as_deref();
         let redo_key = keymap.accelerator_for("redo");
         let redo_key = redo_key.as_deref();
+        let select_all_key = keymap.accelerator_for("selectAll");
+        let select_all_key = select_all_key.as_deref();
         // The default menu carries the platform's standard items (Quit, Copy,
         // ...), which setting a menu at all would otherwise replace.
         let menu = Menu::default(handle)?;
@@ -248,7 +250,8 @@ mod app_menu {
             help.prepend_items(&[&open_log_folder, &PredefinedMenuItem::separator(handle)?])?;
         }
         // `Edit` opens with the predefined Undo and Redo, which only act on
-        // editable content (neither window has any) and would own Cmd+Z.
+        // editable content (neither window has any) and would own Cmd+Z, and
+        // ends with the predefined Select All, which would own Cmd+A.
         if let Some(edit) = submenu(&menu, "Edit")? {
             for _ in 0..2 {
                 if let Some(MenuItemKind::Predefined(_)) = edit.items()?.into_iter().next() {
@@ -283,6 +286,13 @@ mod app_menu {
             #[cfg(not(target_os = "macos"))]
             let redo = MenuItem::with_id(handle, REDO_ID, "Redo", true, redo_key)?;
             edit.insert(&redo, 1)?;
+            let items = edit.items()?;
+            if let Some(MenuItemKind::Predefined(_)) = items.last() {
+                edit.remove_at(items.len() - 1)?;
+            }
+            let select_all =
+                MenuItem::with_id(handle, SELECT_ALL_ID, "Select All", true, select_all_key)?;
+            edit.append(&select_all)?;
         }
         Ok(menu)
     }
@@ -298,6 +308,7 @@ mod app_menu {
                 (OPEN_FOLDER_ID, "open"),
                 (UNDO_ID, "undo"),
                 (REDO_ID, "redo"),
+                (SELECT_ALL_ID, "selectAll"),
             ] {
                 let item = menu
                     .items()?
@@ -333,6 +344,9 @@ mod app_menu {
         }
         if event.id() == REDO_ID {
             let _ = app.emit("redo", ());
+        }
+        if event.id() == SELECT_ALL_ID {
+            let _ = app.emit("select-all", ());
         }
         if event.id() == CHECK_UPDATES_ID {
             crate::update::spawn(app.clone(), true);

@@ -98,6 +98,23 @@ item without an accelerator rather than erroring.
   Step 1 (unverified on a real device; see "GUI automation does not work on
   this Mac").
 
+### Rebinding `selectAll` away from Cmd+A breaks native text-input select-all on macOS (Hit)
+
+macOS WKWebView only runs a text input's native Select All through the Edit
+menu's key equivalent. Once the predefined `Select All` menu item is replaced
+by a custom one bound to the `selectAll` keymap action (see "App items go
+into the default menu's own submenus"), rebinding that action away from
+Cmd+A leaves Cmd+A doing nothing in a focused text input, because no menu
+item claims that key equivalent anymore.
+
+- Fix: handle `meta+a` directly in the app's own `keydown` handler for text
+  inputs / textareas (the `native` decision in `crates/app/ui/src/settings.ts`),
+  independent of the current `selectAll` binding.
+- This applies to any future action whose menu item is user-rebindable and
+  whose default key doubles as a macOS-native text-editing shortcut.
+- Source: `docs/plans/_archived/20260926-strip-select-all/learnings.md`,
+  Step 1.
+
 ### Volume listing: dedupe home by canonical path, plus a macOS-only ancestor rule (Hit)
 
 `volumes()` in `crates/app/src/folders.rs` drops the home volume's duplicate
@@ -328,6 +345,13 @@ in menu check items, so the menu reads no plugin state. `Settings...` only
 emits `open-settings`, which `main.ts` answers by opening the modal, the same
 way `open-folder` and `undo` reach the frontend. There is one window, so
 `capabilities/default.json` lists only `main`.
+
+`Edit` also ships a predefined `Select All` on every platform, as the last
+item of the submenu (Undo / Redo sit first). `app_menu::build` removes it the
+same guarded way, only when the last item is still `MenuItemKind::Predefined`,
+and appends a custom `Select All` (a plain `MenuItem`, no macOS icon) whose
+accelerator comes from the keymap's `selectAll` action and which emits
+`select-all` to the frontend like `undo` / `redo`.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.

@@ -43,7 +43,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   file itself always stays selected), `Shift+click` selects every file from the
   last clicked one (the anchor) to the clicked one and shows the clicked file,
   and `Shift+ArrowLeft` / `Shift+ArrowRight` grow or shrink that range one file at
-  a time. A plain click, or any key that moves to another file (arrows, burst
+  a time. `CmdOrCtrl+A`, `Edit > Select All` or the right-click menu's
+  `Select All` selects every file the strip shows (the filter's result); the
+  shown file stays shown and becomes the anchor. A plain click, or any key that moves to another file (arrows, burst
   jumps), collapses the selection to the new file; a plain arrow at either end
   of the strip, which moves nowhere, keeps it. A right-click on a cell outside
   the selection collapses it to that cell; one inside keeps it, so the context
@@ -241,6 +243,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `ArrowRight` | next file |
 | `Shift+ArrowLeft` | extend the selection to the previous file (or shrink it back towards the anchor) |
 | `Shift+ArrowRight` | extend the selection to the next file (or shrink it back towards the anchor) |
+| `CmdOrCtrl+A` | select every file in the strip (also `Edit > Select All`, whose accelerator follows this key) |
 | `ArrowUp` | first frame of the current burst, or of the previous burst when already on it |
 | `ArrowDown` | first frame of the next burst |
 | `Alt+ArrowLeft` | previous frame in the current burst (stops at its first frame) |
@@ -289,8 +292,8 @@ its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
 Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+,`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-The File menu's `Open Folder…` accelerator and the Edit menu's Undo / Redo
-are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
+The File menu's `Open Folder…` accelerator and the Edit menu's Undo / Redo /
+Select All are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
 rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.

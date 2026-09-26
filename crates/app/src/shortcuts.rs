@@ -12,6 +12,9 @@ const OPEN_DEFAULT: &str = if MACOS { "meta+o" } else { "ctrl+o" };
 /// The default key of `undo`, the accelerator of `Edit > Undo`.
 const UNDO_DEFAULT: &str = if MACOS { "meta+z" } else { "ctrl+z" };
 
+/// The default key of `selectAll`, the accelerator of `Edit > Select All`.
+const SELECT_ALL_DEFAULT: &str = if MACOS { "meta+a" } else { "ctrl+a" };
+
 /// The default key of `redo`, the accelerator of `Edit > Redo`.
 const REDO_DEFAULT: &str = if MACOS {
     "shift+meta+z"
@@ -34,6 +37,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("burstFrameNext", &["alt+arrowright"]),
     ("extendPrevious", &["shift+arrowleft"]),
     ("extendNext", &["shift+arrowright"]),
+    ("selectAll", &[SELECT_ALL_DEFAULT]),
     ("open", &[OPEN_DEFAULT]),
     ("undo", &[UNDO_DEFAULT]),
     ("redo", &[REDO_DEFAULT]),
@@ -67,10 +71,10 @@ const DEFAULTS: &[(&str, &[&str])] = &[
 ];
 
 /// macOS combinations owned by the app's menu (`app_menu::build` on top of
-/// `Menu::default`). The `Open Folder…`, `Undo` and `Redo` accelerators are
-/// deliberately absent: each is derived from its own action's keys, so it can
-/// never collide with another action, and once the action moves off a
-/// combination that combination is free again.
+/// `Menu::default`). The `Open Folder…`, `Undo`, `Redo` and `Select All`
+/// accelerators are deliberately absent: each is derived from its own
+/// action's keys, so it can never collide with another action, and once the
+/// action moves off a combination that combination is free again.
 const MACOS_MENU: &[&str] = &[
     "meta+,",
     "meta+q",
@@ -82,7 +86,6 @@ const MACOS_MENU: &[&str] = &[
     "meta+x",
     "meta+c",
     "meta+v",
-    "meta+a",
 ];
 
 /// macOS combinations owned by the OS: app switcher, Spotlight, input
@@ -112,9 +115,7 @@ const MACOS_SYSTEM: &[&str] = &[
 
 /// Windows / Linux combinations owned by the app's menu; the keymap-derived
 /// accelerators are absent, as in `MACOS_MENU`.
-const OTHER_MENU: &[&str] = &[
-    "ctrl+,", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+a", "ctrl+m", "alt+f4",
-];
+const OTHER_MENU: &[&str] = &["ctrl+,", "ctrl+x", "ctrl+c", "ctrl+v", "ctrl+m", "alt+f4"];
 
 /// Windows / Linux combinations owned by the OS; every `meta+` name is too,
 /// as the shell owns the Windows / Super key.
@@ -577,6 +578,7 @@ mod tests {
             ("burstFrameNext", "alt+arrowright"),
             ("extendPrevious", "shift+arrowleft"),
             ("extendNext", "shift+arrowright"),
+            ("selectAll", SELECT_ALL_DEFAULT),
             ("open", OPEN_DEFAULT),
             ("undo", UNDO_DEFAULT),
             ("redo", REDO_DEFAULT),
@@ -621,10 +623,12 @@ mod tests {
             assert_eq!(keys_of(&keymap, "open"), vec!["meta+o"]);
             assert_eq!(keys_of(&keymap, "undo"), vec!["meta+z"]);
             assert_eq!(keys_of(&keymap, "redo"), vec!["shift+meta+z"]);
+            assert_eq!(keys_of(&keymap, "selectAll"), vec!["meta+a"]);
         } else {
             assert_eq!(keys_of(&keymap, "open"), vec!["ctrl+o"]);
             assert_eq!(keys_of(&keymap, "undo"), vec!["ctrl+z"]);
             assert_eq!(keys_of(&keymap, "redo"), vec!["ctrl+shift+z"]);
+            assert_eq!(keys_of(&keymap, "selectAll"), vec!["ctrl+a"]);
         }
     }
 
@@ -689,6 +693,10 @@ mod tests {
             keymap.accelerator_for("redo").as_deref(),
             Some(if MACOS { "Shift+Cmd+Z" } else { "Ctrl+Shift+Z" })
         );
+        assert_eq!(
+            keymap.accelerator_for("selectAll").as_deref(),
+            Some(if MACOS { "Cmd+A" } else { "Ctrl+A" })
+        );
         assert_eq!(keymap.accelerator_for("nope"), None);
         assert_eq!(keymap.accelerator_for("extendPrevious"), None);
         assert_eq!(keymap.accelerator_for("extendNext"), None);
@@ -715,6 +723,8 @@ mod tests {
             };
             assert_eq!(forbidden(undo, macos), None, "{undo}");
             assert_eq!(forbidden(redo, macos), None, "{redo}");
+            let select_all = if macos { "meta+a" } else { "ctrl+a" };
+            assert_eq!(forbidden(select_all, macos), None, "{select_all}");
         }
     }
 

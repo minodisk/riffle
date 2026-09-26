@@ -1,17 +1,24 @@
 import { type Binding, displayKey } from "./keys.js";
 import type { PickFlag } from "./selection.js";
 
-export type MenuItem = { action: string; label: string; shortcut: string; checked: boolean };
+// `checked` is undefined for a plain command, which has no checked state.
+export type MenuItem = {
+  action: string;
+  label: string;
+  shortcut: string;
+  checked: boolean | undefined;
+};
 
 export type MenuState = { rating: number | null; flag: PickFlag; label: string | null };
 
-type Entry = [action: string, label: string, checked: (state: MenuState) => boolean];
+type Entry = [action: string, label: string, checked?: (state: MenuState) => boolean];
 
 const LABEL_ENTRIES: Entry[] = ["Red", "Orange", "Yellow", "Green", "Blue", "Pink", "Purple"].map(
   (name) => [name.toLowerCase(), name, (state) => state.label === name],
 );
 
 const SECTIONS: Entry[][] = [
+  [["selectAll", "Select All"]],
   [
     ["pick", "Pick", (state) => state.flag === "pick"],
     ["reject", "Reject", (state) => state.flag === "reject"],
@@ -36,7 +43,7 @@ export function contextMenuGroups(bindings: Binding[], state: MenuState): MenuIt
         action,
         label,
         shortcut: key === undefined ? "" : displayKey(key),
-        checked: checked(state),
+        checked: checked?.(state),
       };
     }),
   );

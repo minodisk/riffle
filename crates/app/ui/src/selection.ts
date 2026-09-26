@@ -63,6 +63,12 @@ export function extend(
   return { selection: { selected: between(files, files.indexOf(anchor), index), anchor }, index };
 }
 
+// Every file selected, anchored on the focused one.
+export function all(files: readonly string[], focused: number): Selection {
+  if (files.length === 0) return single(undefined);
+  return { selected: new Set(files), anchor: files[focused] };
+}
+
 // Drops the paths no longer in `files`; the anchor falls back to the focused
 // file when it is dropped.
 export function prune(selection: Selection, files: readonly string[], focused: number): Selection {
