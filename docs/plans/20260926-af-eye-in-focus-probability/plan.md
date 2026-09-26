@@ -83,7 +83,7 @@ all under `D:\Photos\tests\`:
 
 ## Steps
 
-- [ ] Step 1: Compute the combined score and in-focus probability in `riffle-core`, and reproduce the validation numbers with `riffle-cli candidates`
+- [x] Step 1: Compute the combined score and in-focus probability in `riffle-core`, and reproduce the validation numbers with `riffle-cli candidates`
   - Done when:
     - `crates/core/src/candidate.rs` computes, for the eye window of the
       nearest face, `lap` (unchanged `laplacian_variance`), the edge width

@@ -1389,7 +1389,7 @@ where
 
     let on_item = |i: usize, result: Result<Cue, String>| {
         let (eye_sharpness, ok) = match result {
-            Ok(cue) => (cue.eye_sharpness, true),
+            Ok(cue) => (cue.eye_focus, true),
             Err(_) => {
                 errors.fetch_add(1, Ordering::Relaxed);
                 (None, false)

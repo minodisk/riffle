@@ -1,6 +1,11 @@
-//! The focus candidate cue: the Laplacian variance of the luma over a window
-//! between the eyes of the face nearest the AF point ("eye sharpness"), and
-//! whether it clears `CANDIDATE_THRESHOLD`.
+//! The focus candidate cue: how likely the eyes of the face nearest the AF
+//! point are in focus, and whether that clears `CANDIDATE_LOGIT`.
+//!
+//! The score combines two measures over a window between the eyes: the
+//! Laplacian variance of the luma (`lap`) and the mean edge width
+//! (`edge_width`) relative to the window side, in a logistic regression
+//! fitted on hand-labeled frames (`LOGIT_INTERCEPT`, `LOGIT_LAP`,
+//! `LOGIT_EDGE_WIDTH`). Its sigmoid is the in-focus probability.
 //!
 //! Faces come from `faces::detect_around_rgb` in a `CATCH_CROP` square around
 //! the trusted AF point. A Sony eye-AF frame gets the same detection: the
@@ -16,14 +21,26 @@ use crate::decode::decode_rgb;
 use crate::faces::{detect_around_rgb, Detection, Face};
 use crate::sharpness::{laplacian_variance, window_at, Window};
 
-/// Eye sharpness at or above which a frame is a focus candidate. On 500
-/// hand-labeled ILCE-7M5 frames, the frames at or above 80 were in focus 93%
-/// of the time (310/335) and covered 80% of the in-focus frames; those below
-/// it were in focus 48% of the time.
-pub const CANDIDATE_THRESHOLD: f64 = 80.0;
-/// Smallest side of the eye window, in preview pixels. The window of the
-/// 500-frame validation behind `CANDIDATE_THRESHOLD` (AUC 0.82 against 0.67
-/// for the sharpness score) was the face box's long side, at least 24 px.
+/// The intercept of the in-focus logit
+/// `LOGIT_INTERCEPT + LOGIT_LAP * ln(lap + 1) + LOGIT_EDGE_WIDTH * ln(edge_width / window side)`,
+/// fitted on 406 hand-labeled faced frames from 5 folders. A coefficient
+/// change is a new model: re-validate it with `riffle-cli candidates`.
+pub const LOGIT_INTERCEPT: f64 = -4.725633355883976;
+/// The weight of `ln(lap + 1)` in the in-focus logit.
+pub const LOGIT_LAP: f64 = 0.6826458385175557;
+/// The weight of `ln(edge_width / window side)` in the in-focus logit.
+pub const LOGIT_EDGE_WIDTH: f64 = -1.1949836425055467;
+/// The logit at or above which a frame is a focus candidate (an in-focus
+/// probability of about 77%), chosen to keep the in-focus coverage of the
+/// earlier Laplacian-only threshold. On the 406 training frames the combined
+/// score reaches AUC 0.852 (0.816 for the Laplacian alone), and the frames at
+/// or above it are in focus 93.1% of the time and cover 91.4% of the
+/// in-focus frames. On 400 held-out frames from 4 other folders it reaches
+/// AUC 0.754 (0.635), precision 89.1% and coverage 95.3%.
+pub const CANDIDATE_LOGIT: f64 = 1.2194865955352432;
+/// Smallest side of the eye window, in preview pixels. The combined score was
+/// fitted and validated on this window, the face box's long side, at least
+/// 24 px (the earlier Laplacian-only validation on 500 frames also used it).
 pub const CANDIDATE_WINDOW_MIN: usize = 24;
 
 /// Whether a frame is a focus candidate.
@@ -43,7 +60,9 @@ pub enum FocusCandidate {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Cue {
     pub state: FocusCandidate,
-    pub eye_sharpness: Option<f64>,
+    /// The in-focus probability of the eyes of `face`
+    /// (`EyeFocus::probability`); `None` when `state` is `Unknown`.
+    pub eye_focus: Option<f64>,
     /// The face nearest the AF point, in stored coordinates.
     pub face: Option<Face>,
     /// The detection the face was picked from; `None` without an AF point,
@@ -91,7 +110,7 @@ pub fn eye_window(width: usize, height: usize, face: &Face) -> Window {
 }
 
 /// The luma `(299 R + 587 G + 114 B) / 1000` of each pixel of a
-/// `width` x `height` RGB image, the formula `CANDIDATE_THRESHOLD` was
+/// `width` x `height` RGB image, the formula the combined score was
 /// validated with.
 pub fn luma(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
     rgb.chunks_exact(3)
@@ -100,17 +119,157 @@ pub fn luma(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
         .collect()
 }
 
-/// The Laplacian variance of `gray` over the `eye_window` of `face`.
-pub fn eye_sharpness(gray: &[u8], width: usize, height: usize, face: &Face) -> f64 {
-    laplacian_variance(gray, width, eye_window(width, height, face))
+/// The Marziliano-style mean edge width of `gray` (`width` pixels per row)
+/// over `window`, in pixels; lower is sharper. The threshold is the 90th
+/// percentile of `max(|gx|, |gy|)` of the Sobel gradient over the window
+/// interior, at least 16. At each local maximum of `|gx|` along a row (and of
+/// `|gy|` along a column) at or above it, the walk goes both ways while the
+/// intensity stays strictly monotonic in the edge's direction, bounded by the
+/// window; the width is the distance between the two extrema. Rows and
+/// columns are pooled into one mean. `None` when no edge qualifies, or the
+/// window is too narrow for the interior loops.
+pub fn edge_width(gray: &[u8], width: usize, window: Window) -> Option<f64> {
+    if window.width < 3 || window.height < 3 {
+        return None;
+    }
+    let p = |x: usize, y: usize| gray[y * width + x] as i32;
+    let (x0, y0) = (window.x + 1, window.y + 1);
+    let (x1, y1) = (window.x + window.width - 1, window.y + window.height - 1);
+    let gx = |x: usize, y: usize| {
+        (p(x + 1, y - 1) + 2 * p(x + 1, y) + p(x + 1, y + 1))
+            - (p(x - 1, y - 1) + 2 * p(x - 1, y) + p(x - 1, y + 1))
+    };
+    let gy = |x: usize, y: usize| {
+        (p(x - 1, y + 1) + 2 * p(x, y + 1) + p(x + 1, y + 1))
+            - (p(x - 1, y - 1) + 2 * p(x, y - 1) + p(x + 1, y - 1))
+    };
+    let mut mags = Vec::with_capacity((x1 - x0) * (y1 - y0));
+    for y in y0..y1 {
+        for x in x0..x1 {
+            mags.push(gx(x, y).abs().max(gy(x, y).abs()));
+        }
+    }
+    mags.sort_unstable();
+    let t = mags[mags.len() * 9 / 10].max(16);
+    let (mut total, mut count) = (0usize, 0usize);
+    for y in y0..y1 {
+        for x in x0 + 1..x1 - 1 {
+            let m = gx(x, y).abs();
+            if m < t || m < gx(x - 1, y).abs() || m <= gx(x + 1, y).abs() {
+                continue;
+            }
+            let up = gx(x, y) > 0;
+            let mut l = x;
+            while l > window.x && (p(l - 1, y) < p(l, y)) == up && p(l - 1, y) != p(l, y) {
+                l -= 1;
+            }
+            let mut r = x;
+            while r + 1 < window.x + window.width
+                && (p(r + 1, y) > p(r, y)) == up
+                && p(r + 1, y) != p(r, y)
+            {
+                r += 1;
+            }
+            total += r - l;
+            count += 1;
+        }
+    }
+    for x in x0..x1 {
+        for y in y0 + 1..y1 - 1 {
+            let m = gy(x, y).abs();
+            if m < t || m < gy(x, y - 1).abs() || m <= gy(x, y + 1).abs() {
+                continue;
+            }
+            let up = gy(x, y) > 0;
+            let mut u = y;
+            while u > window.y && (p(x, u - 1) < p(x, u)) == up && p(x, u - 1) != p(x, u) {
+                u -= 1;
+            }
+            let mut d = y;
+            while d + 1 < window.y + window.height
+                && (p(x, d + 1) > p(x, d)) == up
+                && p(x, d + 1) != p(x, d)
+            {
+                d += 1;
+            }
+            total += d - u;
+            count += 1;
+        }
+    }
+    (count > 0).then(|| total as f64 / count as f64)
 }
 
-/// The state an eye sharpness gives; `None` (no face near the AF point) is
+fn sigmoid(logit: f64) -> f64 {
+    1.0 / (1.0 + (-logit).exp())
+}
+
+/// The in-focus probability at `CANDIDATE_LOGIT`: a probability at or above
+/// it reads back as `Candidate` in `candidate`.
+pub fn candidate_probability() -> f64 {
+    sigmoid(CANDIDATE_LOGIT)
+}
+
+/// The measures behind the cue of one face.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EyeFocus {
+    /// The Laplacian variance of the luma over the eye window.
+    pub lap: f64,
+    /// `edge_width` over the eye window; `None` when no edge qualifies.
+    pub edge_width: Option<f64>,
+    /// `edge_width` divided by the eye window's side.
+    pub edge_width_rel: Option<f64>,
+    /// The in-focus logit; `None` without an edge width.
+    pub logit: Option<f64>,
+    /// The in-focus probability, the sigmoid of `logit`. Without an edge width
+    /// it is 0 and the state `NotCandidate`: a window with no gradient above
+    /// the noise floor has no sharp edge, and a face the detector found is
+    /// never left `Unknown`.
+    pub probability: f64,
+    pub state: FocusCandidate,
+}
+
+/// The `EyeFocus` of `gray` over the `eye_window` of `face`.
+pub fn eye_focus(gray: &[u8], width: usize, height: usize, face: &Face) -> EyeFocus {
+    let window = eye_window(width, height, face);
+    let lap = laplacian_variance(gray, width, window);
+    let edge_width = edge_width(gray, width, window);
+    let edge_width_rel = edge_width.map(|e| e / window.width as f64);
+    let logit = edge_width_rel
+        .map(|rel| LOGIT_INTERCEPT + LOGIT_LAP * (lap + 1.0).ln() + LOGIT_EDGE_WIDTH * rel.ln());
+    let (probability, state) = logit.map_or((0.0, FocusCandidate::NotCandidate), scored);
+    EyeFocus {
+        lap,
+        edge_width,
+        edge_width_rel,
+        logit,
+        probability,
+        state,
+    }
+}
+
+/// The probability and state of `logit`. The state compares the logit with
+/// `CANDIDATE_LOGIT`; below it, a sigmoid that rounds up to
+/// `candidate_probability()` is lowered by one step so `candidate` reads the
+/// probability back into the same state.
+fn scored(logit: f64) -> (f64, FocusCandidate) {
+    let p = sigmoid(logit);
+    if logit >= CANDIDATE_LOGIT {
+        (p, FocusCandidate::Candidate)
+    } else {
+        (
+            p.min(candidate_probability().next_down()),
+            FocusCandidate::NotCandidate,
+        )
+    }
+}
+
+/// The state an in-focus probability gives, against
+/// `candidate_probability()`; `None` (no face near the AF point) is
 /// `Unknown`.
-pub fn candidate(eye_sharpness: Option<f64>) -> FocusCandidate {
-    match eye_sharpness {
+pub fn candidate(eye_focus: Option<f64>) -> FocusCandidate {
+    match eye_focus {
         None => FocusCandidate::Unknown,
-        Some(s) if s >= CANDIDATE_THRESHOLD => FocusCandidate::Candidate,
+        Some(p) if p >= candidate_probability() => FocusCandidate::Candidate,
         Some(_) => FocusCandidate::NotCandidate,
     }
 }
@@ -155,10 +314,10 @@ pub fn focus_cue_unless(
     if canceled() {
         return None;
     }
-    let eye_sharpness = face.map(|f| eye_sharpness(&gray, width, height, &f));
+    let focus = face.map(|f| eye_focus(&gray, width, height, &f));
     Some(Ok(Cue {
-        state: candidate(eye_sharpness),
-        eye_sharpness,
+        state: focus.map_or(FocusCandidate::Unknown, |f| f.state),
+        eye_focus: focus.map(|f| f.probability),
         face,
         detection: Some(detection),
     }))
@@ -266,12 +425,89 @@ mod tests {
         assert_eq!(luma(&rgb, 4, 1), vec![76, 149, 29, 255]);
     }
 
+    /// A 40 x 40 image dark left of column 15 and bright from column
+    /// `15 + blur`, ramping linearly in between.
+    fn ramp(blur: usize) -> Vec<u8> {
+        let row: Vec<u8> = (0..40)
+            .map(|x: usize| (x.saturating_sub(15).min(blur) * 200 / blur) as u8)
+            .collect();
+        row.repeat(40)
+    }
+
+    const WHOLE: Window = Window {
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 40,
+    };
+
     #[test]
-    fn the_threshold_splits_the_states() {
+    fn a_blurred_step_edge_measures_its_blur_width() {
+        assert_eq!(edge_width(&ramp(4), 40, WHOLE), Some(4.0));
+        assert_eq!(edge_width(&ramp(8), 40, WHOLE), Some(8.0));
+    }
+
+    #[test]
+    fn a_flat_window_has_no_edge_and_is_not_a_candidate() {
+        let flat = vec![128u8; 40 * 40];
+        assert_eq!(edge_width(&flat, 40, WHOLE), None);
+        let narrow = Window { width: 2, ..WHOLE };
+        assert_eq!(edge_width(&ramp(4), 40, narrow), None);
+        let f = face(0.0, 0.0, 40.0, (10.0, 20.0), (30.0, 20.0));
+        let focus = eye_focus(&flat, 40, 40, &f);
+        assert_eq!(focus.edge_width, None);
+        assert_eq!(focus.logit, None);
+        assert_eq!(focus.probability, 0.0);
+        assert_eq!(focus.state, FocusCandidate::NotCandidate);
+        assert_eq!(
+            candidate(Some(focus.probability)),
+            FocusCandidate::NotCandidate
+        );
+    }
+
+    #[test]
+    fn the_combined_score_follows_the_frozen_coefficients() {
+        let f = face(0.0, 0.0, 40.0, (10.0, 20.0), (30.0, 20.0));
+        let gray = ramp(4);
+        let focus = eye_focus(&gray, 40, 40, &f);
+        let lap = laplacian_variance(&gray, 40, WHOLE);
+        let logit = LOGIT_INTERCEPT + LOGIT_LAP * (lap + 1.0).ln() + LOGIT_EDGE_WIDTH * 0.1f64.ln();
+        assert_eq!(focus.lap, lap);
+        assert_eq!(focus.edge_width_rel, Some(0.1));
+        assert_eq!(focus.logit, Some(logit));
+        assert_eq!(focus.probability, 1.0 / (1.0 + (-logit).exp()));
+    }
+
+    #[test]
+    fn the_logit_threshold_splits_the_states_and_the_probability_reads_back() {
+        let below = CANDIDATE_LOGIT.next_down();
+        assert_eq!(scored(below).1, FocusCandidate::NotCandidate);
+        assert_eq!(scored(CANDIDATE_LOGIT).1, FocusCandidate::Candidate);
+        assert_eq!(
+            scored(CANDIDATE_LOGIT.next_up()).1,
+            FocusCandidate::Candidate
+        );
+        assert_eq!(scored(CANDIDATE_LOGIT).0, candidate_probability());
+        assert!((candidate_probability() - 0.772).abs() < 0.001);
+        let mut logit = CANDIDATE_LOGIT;
+        let mut ulp_steps = 0;
+        for _ in 0..64 {
+            logit = logit.next_down();
+            ulp_steps += 1;
+        }
+        for _ in 0..128 {
+            let (p, state) = scored(logit);
+            assert_eq!(
+                candidate(Some(p)),
+                state,
+                "logit {logit} ({ulp_steps} ulps)"
+            );
+            logit = logit.next_up();
+            ulp_steps -= 1;
+        }
         assert_eq!(candidate(None), FocusCandidate::Unknown);
-        assert_eq!(candidate(Some(79.99)), FocusCandidate::NotCandidate);
-        assert_eq!(candidate(Some(80.0)), FocusCandidate::Candidate);
-        assert_eq!(candidate(Some(300.0)), FocusCandidate::Candidate);
+        assert_eq!(candidate(Some(0.0)), FocusCandidate::NotCandidate);
+        assert_eq!(candidate(Some(1.0)), FocusCandidate::Candidate);
     }
 
     #[test]
