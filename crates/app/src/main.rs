@@ -5,6 +5,7 @@ mod exif;
 mod folders;
 mod index;
 mod mcp;
+mod sequence;
 mod shortcuts;
 mod sidecar;
 mod trash;
@@ -23,6 +24,7 @@ mod app_menu {
     const OPEN_FOLDER_ID: &str = "open-folder";
     const RELOAD_FOLDER_ID: &str = "reload-folder";
     const TRASH_REJECTED_ID: &str = "trash-rejected";
+    const SEQUENCE_TIMESTAMPS_ID: &str = "sequence-timestamps";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
@@ -123,6 +125,15 @@ mod app_menu {
             true,
             None::<&str>,
         )?;
+        // No macOS icon yet: the menu PNGs are rendered from SF Symbols by
+        // `tools/macos/export-menu-icons.swift`, which only runs on macOS.
+        let sequence_timestamps = MenuItem::with_id(
+            handle,
+            SEQUENCE_TIMESTAMPS_ID,
+            "Sequence JPEG Timestamps…",
+            true,
+            None::<&str>,
+        )?;
         // A fixed accelerator, like Settings: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
         #[cfg(target_os = "macos")]
@@ -193,6 +204,7 @@ mod app_menu {
             &open_folder,
             &reload_folder,
             &trash_rejected,
+            &sequence_timestamps,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
         // On macOS both go in the app menu: Check for Updates joins About above
@@ -338,6 +350,9 @@ mod app_menu {
         }
         if event.id() == TRASH_REJECTED_ID {
             let _ = app.emit("trash-rejected", ());
+        }
+        if event.id() == SEQUENCE_TIMESTAMPS_ID {
+            let _ = app.emit("sequence-timestamps", ());
         }
         if event.id() == UNDO_ID {
             let _ = app.emit("undo", ());
@@ -542,6 +557,7 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            app.manage(sequence::Sequences::default());
             app.manage(commands::AppListing::default());
             app.manage(watch::Watch::spawn(app.handle().clone()));
             commands::spawn_eviction(app.handle().clone());
@@ -600,6 +616,9 @@ fn main() {
             commands::index_size,
             commands::clear_index,
             commands::trash_rejected,
+            sequence::sequence_preview,
+            sequence::sequence_run,
+            sequence::sequence_cancel,
             set_sidecar_format,
             choose_sidecar_format,
             debug_build,
