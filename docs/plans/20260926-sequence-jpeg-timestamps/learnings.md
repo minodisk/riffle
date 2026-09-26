@@ -32,3 +32,38 @@
   keeps that mode, so the copies are owner-only there. This follows the plan's
   "copies do not carry the source permissions"; noted in case it surprises
   someone sharing the output folder.
+
+## Step 2
+
+- The run state is simpler than `Scans`: no `pending` / `preparing`, since a
+  run is spawned in the same call that mints its id. `begin` holds the lock
+  across the spawn, so the task cannot clear its own entry before it is
+  stored; it is a plain function over `&Sequences` so the refusal test does
+  not need an `AppHandle`.
+- The task clears its `running` entry before emitting `sequence-done`, so a
+  frontend that starts a new run in answer to `sequence-done` is not refused.
+- A folder-level error from `sequence::run` (no JPEGs, an output folder that
+  cannot be rebuilt) happens inside the spawned task, after `sequence_run`
+  has returned the id, so it arrives as `sequence-done` with one failure
+  keyed by the source folder, `total: 0`.
+- `sequence_preview` is `sequence::run` with `dry_run`, which gives `changed`
+  per file for free; `plan` alone does not know it.
+- The app-side preview test builds a minimal JPEG (SOI, an Exif APP1 with
+  only the Exif IFD pointer and `DateTimeOriginal`, EOI): the dry run reads
+  nothing else, so the core tests' `image`-encoded builder is not needed.
+- Watcher check: `watch.rs` watches the open folder with
+  `RecursiveMode::NonRecursive`, and the output is a sibling of the picked
+  folder, so a run on the open RAW folder fires no `folder-changed`.
+- The macOS menu icons are PNGs rendered from SF Symbols by
+  `tools/macos/export-menu-icons.swift`, which cannot run on Windows, so the
+  new item is a plain `MenuItem` on every platform for now.
+
+## Deferred issues (todo candidates)
+
+- Give `File > Sequence JPEG Timestamps…` a macOS menu icon like its File
+  neighbours: add an SF Symbol (e.g. `clock.arrow.circlepath`) to
+  `tools/macos/export-menu-icons.swift`, render it on macOS into
+  `crates/app/icons/menu/`, and switch the item in `crates/app/src/main.rs`
+  to the `IconMenuItem` / `MenuItem` `cfg` split. Basis: Step 2 of this plan
+  ("icon on macOS if the neighbours have one"), implemented on Windows where
+  the export script cannot run.

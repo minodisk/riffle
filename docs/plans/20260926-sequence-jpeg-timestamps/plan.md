@@ -126,7 +126,7 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
     - Model the cancel/progress plumbing on `for_each_path` in
       `crates/core/src/scan.rs` (`Ordering::Relaxed`).
 
-- [ ] Step 2: Backend commands, run state, events and the `File` menu item
+- [x] Step 2: Backend commands, run state, events and the `File` menu item
   - Done when:
     - Step 1 is merged.
     - `crates/app/src/sequence.rs` (new; registered in `main.rs`'s
