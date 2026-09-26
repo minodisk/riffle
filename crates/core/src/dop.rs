@@ -13,6 +13,11 @@
 //! line of the same item, absent for "no label"; [`write_label`] splices,
 //! inserts or removes that line the same way.
 //!
+//! PhotoLab 10 refuses an item without a `Settings` table: the folder shows
+//! no images. The fresh template carries the minimal one,
+//! `Settings = { Version = "21.0" }`, and any write to an item lacking the
+//! key inserts that block just before the `ShouldProcess` line.
+//!
 //! There is no Lua parser: a scanner tracks brace depth (skipping over
 //! double-quoted strings) and matches `Key = value,` lines at the depth of the
 //! table they belong to, which is what keeps nested keys such as the `Label`
@@ -121,6 +126,7 @@ pub fn write_rating(
         "ShouldProcess",
         should_process(flag),
     )?);
+    edits.extend(doc.insert_settings(text)?);
     edits.sort_by_key(|e| std::cmp::Reverse(e.0));
     let mut out = text.to_string();
     for (start, end, replacement) in edits {
@@ -183,6 +189,7 @@ pub fn write_label(
             &stamp,
         )?,
     ];
+    edits.extend(doc.insert_settings(text)?);
     match (label, doc.color_label) {
         (Some(label), found) => edits.push(doc.edit(
             text,
@@ -272,6 +279,10 @@ fn template(rating: i8, flag: Flag, name: &str, now: &str, uuids: [String; 2]) -
          ModificationDate = \"{now}\",\n\
          Name = \"{name}\",\n\
          Rating = {rating},\n\
+         Settings = {{\n\
+         Version = \"21.0\",\n\
+         }}\n\
+         ,\n\
          ShouldProcess = {flag},\n\
          Uuid = \"{item_uuid}\",\n\
          }}\n\
@@ -302,6 +313,7 @@ struct Doc {
     should_process: Option<Range>,
     modification_date: Option<Range>,
     color_label: Option<Range>,
+    settings: bool,
 }
 
 impl Doc {
@@ -326,6 +338,26 @@ impl Doc {
         }
         let indent = &text[at..at + text[at..close].len() - text[at..close].trim_start().len()];
         Ok((at, at, format!("{indent}{key} = {value},\n")))
+    }
+
+    /// The insertion of the minimal `Settings` table at the start of the
+    /// `ShouldProcess` line, or before the item's closing brace without one,
+    /// when the item has no `Settings` key.
+    fn insert_settings(&self, text: &str) -> Result<Option<(usize, usize, String)>, String> {
+        if self.settings {
+            return Ok(None);
+        }
+        let at = match self.should_process {
+            Some((start, _)) => text[..start].rfind('\n').map_or(0, |i| i + 1),
+            None => self.edit(text, None, self.item_close, "Settings", "")?.0,
+        };
+        let rest = &text[at..];
+        let indent = &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()];
+        Ok(Some((
+            at,
+            at,
+            format!("{indent}Settings = {{\n{indent}Version = \"21.0\",\n{indent}}}\n{indent},\n"),
+        )))
     }
 
     /// The removal of the whole line holding `found`, its newline included.
@@ -372,6 +404,7 @@ fn locate(text: &str) -> Result<Doc, String> {
         should_process: in_item("ShouldProcess"),
         modification_date: in_item("ModificationDate"),
         color_label: in_item("ColorLabel"),
+        settings: in_item("Settings").is_some(),
     })
 }
 
@@ -460,6 +493,8 @@ mod tests {
     const TABBED: &str = LABELED[0].0;
 
     const NOW: &str = "2026-09-18T11:00:00.0000000Z";
+
+    const SETTINGS: &str = "Settings = {\nVersion = \"21.0\",\n}\n,\n";
 
     fn patched(source: &str, rating: Option<i8>, flag: Flag) -> String {
         String::from_utf8(write_rating(Some(source.as_bytes()), rating, flag, "x", NOW).unwrap())
@@ -629,7 +664,8 @@ mod tests {
     #[test]
     fn a_fresh_pick_is_should_process_zero() {
         let bytes = write_rating(None, Some(2), Flag::Pick, "a", NOW).unwrap();
-        assert!(String::from_utf8_lossy(&bytes).contains("Rating = 2,\nShouldProcess = 0,\n"));
+        assert!(String::from_utf8_lossy(&bytes)
+            .contains(&format!("Rating = 2,\n{SETTINGS}ShouldProcess = 0,\n")));
         assert_eq!(read_flag(&bytes).unwrap(), Flag::Pick);
     }
 
@@ -691,6 +727,10 @@ mod tests {
                 "ModificationDate = \"2026-09-18T11:00:00.0000000Z\",\n",
                 "Name = \"_DSC0001.ARW\",\n",
                 "Rating = 3,\n",
+                "Settings = {\n",
+                "Version = \"21.0\",\n",
+                "}\n",
+                ",\n",
                 "ShouldProcess = 2,\n",
                 "Uuid = \"A\",\n",
                 "}\n",
@@ -710,7 +750,7 @@ mod tests {
     fn a_fresh_reject_is_should_process_one_and_keeps_the_stars() {
         let out = String::from_utf8(write_rating(None, Some(3), Flag::Reject, "a", NOW).unwrap())
             .unwrap();
-        assert!(out.contains("Rating = 3,\nShouldProcess = 1,\n"));
+        assert!(out.contains(&format!("Rating = 3,\n{SETTINGS}ShouldProcess = 1,\n")));
     }
 
     #[test]
@@ -865,11 +905,86 @@ mod tests {
     #[test]
     fn a_fresh_label_is_the_template_plus_the_line() {
         let bytes = write_label(None, Some("Red"), "a", NOW).unwrap();
-        assert!(
-            String::from_utf8_lossy(&bytes).contains("Rating = 0,\nShouldProcess = 2,\nUuid = ")
-        );
+        assert!(String::from_utf8_lossy(&bytes).contains(&format!(
+            "Rating = 0,\n{SETTINGS}ShouldProcess = 2,\nUuid = "
+        )));
         assert_eq!(read_label(&bytes).unwrap().as_deref(), Some("Red"));
         assert_eq!(read_rating(&bytes).unwrap(), Some(0));
         assert!(write_label(None, None, "a", NOW).is_err());
+    }
+
+    fn fresh(rating: i8, flag: Flag) -> String {
+        template(
+            rating,
+            flag,
+            "_DSC0001.ARW",
+            NOW,
+            ["A".to_string(), "B".to_string()],
+        )
+    }
+
+    fn old_template(rating: i8, flag: Flag) -> String {
+        let out = fresh(rating, flag).replace(SETTINGS, "");
+        assert!(!out.contains("Settings"));
+        out
+    }
+
+    #[test]
+    fn rating_an_old_template_adds_the_settings_block_once() {
+        let out = patched(&old_template(0, Flag::None), Some(4), Flag::Pick);
+        assert_eq!(out, fresh(4, Flag::Pick));
+        assert_eq!(out.matches("Settings = {").count(), 1);
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(4));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Pick);
+        assert_eq!(patched(&out, Some(4), Flag::Pick), out);
+    }
+
+    #[test]
+    fn labeling_an_old_template_adds_the_settings_block_once() {
+        let out = labeled(&old_template(2, Flag::Reject), Some("Red"));
+        let expected = fresh(2, Flag::Reject)
+            .replace("Uuid = \"A\",\n", "Uuid = \"A\",\nColorLabel = \"Red\",\n");
+        assert_eq!(out, expected);
+        assert_eq!(read_label(out.as_bytes()).unwrap().as_deref(), Some("Red"));
+        assert_eq!(read_rating(out.as_bytes()).unwrap(), Some(2));
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
+        assert_eq!(labeled(&out, Some("Red")), out);
+        assert_eq!(labeled(&out, None), fresh(2, Flag::Reject));
+    }
+
+    #[test]
+    fn an_old_template_without_should_process_gets_both_before_the_brace() {
+        let source = old_template(3, Flag::None).replace("ShouldProcess = 2,\n", "");
+        let tail = |flag: &str| format!("Uuid = \"A\",\n{SETTINGS}ShouldProcess = {flag},\n}}");
+        let out = patched(&source, Some(3), Flag::Reject);
+        let expected = source.replace("Uuid = \"A\",\n}", &tail("1"));
+        assert_eq!(out, expected);
+        assert_eq!(out.matches("Settings = {").count(), 1);
+        assert_eq!(read_flag(out.as_bytes()).unwrap(), Flag::Reject);
+        assert_eq!(patched(&out, Some(3), Flag::Reject), out);
+
+        let out = labeled(&source, Some("Blue"));
+        let expected = source.replace(
+            "Uuid = \"A\",\n}",
+            &format!("Uuid = \"A\",\nColorLabel = \"Blue\",\n{SETTINGS}}}"),
+        );
+        assert_eq!(out, expected);
+        assert_eq!(read_label(out.as_bytes()).unwrap().as_deref(), Some("Blue"));
+    }
+
+    #[test]
+    fn an_existing_settings_block_is_left_alone() {
+        for source in [THREE, TABBED] {
+            let count = source.matches("Settings = {").count();
+            assert_eq!(count, 1);
+            let rated = patched(source, Some(1), Flag::Pick);
+            assert_eq!(rated.matches("Settings = {").count(), count);
+            assert_eq!(
+                rated.matches("Version = \"21.0\"").count(),
+                source.matches("Version = \"21.0\"").count()
+            );
+            let labeled = labeled(source, Some("Green"));
+            assert_eq!(labeled.matches("Settings = {").count(), count);
+        }
     }
 }
