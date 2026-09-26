@@ -282,3 +282,4 @@ all under `D:\Photos\tests\`:
 - (2026-09-26) Step 1 complete
 - (2026-09-26) Step 2 complete
 - (2026-09-26) Step 3 complete
+- (2026-09-26) Step 4 complete
