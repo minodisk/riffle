@@ -72,4 +72,4 @@ implementation plan does not re-open it.
 
 ## Progress
 
-- (none yet)
+- (2026-09-27) Step 1 complete
