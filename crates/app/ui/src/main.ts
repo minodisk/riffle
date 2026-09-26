@@ -38,7 +38,7 @@ import {
   rowText,
 } from "./sequence.js";
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
-import { contextMenuGroups, menuPosition } from "./context.js";
+import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
 import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
@@ -1914,8 +1914,14 @@ function openContextMenu(x: number, y: number): void {
     flag: flagOf(focused),
     label: labels.get(focused) ?? null,
   };
+  showMenu(contextMenuGroups(keyBindings, state), x, y, runAction);
+}
+
+// Fill `#context-menu` with `groups` at (`x`, `y`); a click on an item
+// closes the menu and hands its action to `run`.
+function showMenu(groups: MenuItem[][], x: number, y: number, run: (action: string) => void): void {
   contextMenu.replaceChildren(
-    ...contextMenuGroups(keyBindings, state).flatMap((group, i) => {
+    ...groups.flatMap((group, i) => {
       const items: HTMLElement[] = group.map(({ action, label, shortcut, checked }) => {
         const item = document.createElement("button");
         item.type = "button";
@@ -1933,7 +1939,7 @@ function openContextMenu(x: number, y: number): void {
         item.append(name, key);
         item.addEventListener("click", () => {
           closeContextMenu();
-          runAction(action);
+          run(action);
         });
         return item;
       });
@@ -1990,15 +1996,30 @@ strip.init(
   },
 );
 
-// A folder clicked in the tree opens the way a drop does.
-folders.init((path) => {
-  if (!formatGate.isOpen) {
-    return;
-  }
-  openDirectory(path, newFolderToken()).catch((err: unknown) => {
-    setStatus(String(err));
-  });
-}, setStatus);
+const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
+
+// A folder clicked in the tree opens the way a drop does; a right-click
+// offers to reveal it in the OS file manager.
+folders.init(
+  (path) => {
+    if (!formatGate.isOpen) {
+      return;
+    }
+    openDirectory(path, newFolderToken()).catch((err: unknown) => {
+      setStatus(String(err));
+    });
+  },
+  setStatus,
+  (path, x, y) => {
+    void revealLabel.then((label) => {
+      showMenu(folderMenuGroups(label), x, y, () => {
+        window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
+          setStatus(String(err));
+        });
+      });
+    });
+  },
+);
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
 // token before its dialog opens; a drop mints its token only after
@@ -2875,6 +2896,14 @@ window.addEventListener("keydown", (event) => {
   if (key === null) {
     return;
   }
+  // Ahead of the tree, whose own `Escape` would hand the keys back instead.
+  if (!contextMenu.hidden) {
+    closeContextMenu();
+    if (key === "escape") {
+      event.preventDefault();
+      return;
+    }
+  }
   if (folders.hasFocus()) {
     if (folders.keydown(event)) {
       return;
@@ -2897,18 +2926,10 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     return;
   }
-  if (key === "escape" && !contextMenu.hidden) {
-    closeContextMenu();
-    event.preventDefault();
-    return;
-  }
   if (key === "escape" && comparing) {
     toggleCompare();
     event.preventDefault();
     return;
-  }
-  if (!contextMenu.hidden) {
-    closeContextMenu();
   }
   const action = keymap.get(key);
   if (action === "grayscale") {

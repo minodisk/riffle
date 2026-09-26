@@ -591,6 +591,8 @@ fn main() {
             commands::dropped_folder,
             folders::folder_roots,
             folders::list_subfolders,
+            folders::reveal_label,
+            folders::reveal_folder,
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,

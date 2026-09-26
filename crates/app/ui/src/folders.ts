@@ -42,6 +42,7 @@ const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
 let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
 let reportError: (message: string) => void = () => {};
+let contextMenu: (path: string, x: number, y: number) => void = () => {};
 // Settles once `folder_roots` has answered (or failed), so a reveal that
 // comes first (the reopen of the last folder at launch) waits for the roots.
 let rootsSettled: () => void = () => {};
@@ -73,6 +74,9 @@ function render(): void {
     row.title = node.path;
     row.addEventListener("click", () => {
       open(node.path);
+    });
+    row.addEventListener("contextmenu", (event) => {
+      contextMenu(node.path, event.clientX, event.clientY);
     });
     const expander = document.createElement("span");
     expander.className = "expander";
@@ -275,7 +279,30 @@ container.addEventListener("blur", () => {
   typed = NOTHING_TYPED;
 });
 
-export function init(onOpen: (path: string) => void, onError: (message: string) => void): void {
+const isMac = /Mac/.test(navigator.platform);
+
+// A right-click neither gives the tree the keyboard nor takes it away: the
+// culling key gate stays as it was, and the cursor stays put. On macOS,
+// Control+click is the other standard way to right-click (common on
+// trackpads); WebKit reports it as a primary-button mousedown with
+// `ctrlKey`, so guard that too. On Windows/Linux, Ctrl+click is an ordinary
+// click that should still focus the tree.
+container.addEventListener("mousedown", (event) => {
+  if (event.button === 2 || (isMac && event.button === 0 && event.ctrlKey)) {
+    event.preventDefault();
+  }
+});
+
+container.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
+export function init(
+  onOpen: (path: string) => void,
+  onError: (message: string) => void,
+  onContextMenu: (path: string, x: number, y: number) => void,
+): void {
   open = onOpen;
   reportError = onError;
+  contextMenu = onContextMenu;
 }

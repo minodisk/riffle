@@ -34,6 +34,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   their keys are mirrored from the same rebindable `undo` / `redo` actions
   the tree gate turns off — until `Escape`, a click elsewhere or hiding the
   left pane hands the keys back.
+  Right-clicking a folder opens a menu with one item that shows the folder
+  selected in its parent in the OS file manager: `Reveal in Finder` on
+  macOS, `Reveal in File Explorer` on Windows, `Open Containing Folder` on
+  Linux. The right-click neither opens the folder nor gives the tree the
+  keyboard (or takes it away); `Escape` or a click elsewhere closes the menu.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the

@@ -1,9 +1,20 @@
-//! The folder tree's listing commands: the top-level roots, and one folder's
-//! subfolders with its own RAW count.
+//! The folder tree's commands: the top-level roots, one folder's subfolders
+//! with its own RAW count, and revealing a folder in the OS file manager.
 
 use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
+
+/// The folder tree's right-click item, worded the way each platform's file
+/// manager is named (VS Code's wording on Linux, where it varies).
+pub const REVEAL_LABEL: &str = if cfg!(target_os = "macos") {
+    "Reveal in Finder"
+} else if cfg!(target_os = "windows") {
+    "Reveal in File Explorer"
+} else {
+    "Open Containing Folder"
+};
 
 #[derive(Debug, serde::Serialize)]
 pub struct FolderNode {
@@ -30,6 +41,23 @@ pub async fn list_subfolders(dir: String) -> Result<Folder, String> {
     tauri::async_runtime::spawn_blocking(move || list(Path::new(&dir)))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn reveal_label() -> &'static str {
+    REVEAL_LABEL
+}
+
+/// Show `path` selected in its parent folder in the OS file manager.
+#[tauri::command]
+pub async fn reveal_folder(app: AppHandle, path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.opener()
+            .reveal_item_in_dir(&path)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The home directory, then the mounted volumes. A volume that resolves to
@@ -248,6 +276,18 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&target_dir);
         let _ = std::fs::remove_dir_all(target_file.parent().unwrap());
+    }
+
+    #[test]
+    fn the_reveal_label_follows_the_platforms_file_manager() {
+        let expected = if cfg!(target_os = "macos") {
+            "Reveal in Finder"
+        } else if cfg!(target_os = "windows") {
+            "Reveal in File Explorer"
+        } else {
+            "Open Containing Folder"
+        };
+        assert_eq!(reveal_label(), expected);
     }
 
     #[test]
