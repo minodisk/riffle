@@ -85,6 +85,17 @@
 - The progress line is a separate `sequencing` field in `renderMeta`, next to
   `scanning`, so a scan and a run can both show their progress.
 
+## Step 4
+
+- The docs describe two behaviors the plan did not spell out, taken from the
+  code: a folder whose output path resolves to the source (through a symlink
+  or junction) is refused before anything is deleted (`clear_output` in
+  `crates/core/src/sequence.rs`), and a malformed `SubSecTimeOriginal` counts
+  as absent (0) rather than failing the file.
+- `docs/usage.md` gives the full behavior as nested bullets under the
+  Features entry; the README entries stay at the workflow level and point
+  nowhere new, since the Key features list already links to `docs/usage.md`.
+
 ## Deferred issues (todo candidates)
 
 - Give `File > Sequence JPEG Timestamps…` a macOS menu icon like its File

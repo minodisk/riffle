@@ -194,7 +194,7 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
     - Ignore progress/done events whose `run_id` differs, as the scan
       listeners do with `scan_id`.
 
-- [ ] Step 4: Document the workflow
+- [x] Step 4: Document the workflow
   - Done when:
     - `README.md` and `README.ja.md` (in sync) add a "Key features" entry:
       cull in Riffle, export JPEGs from the developer, then
