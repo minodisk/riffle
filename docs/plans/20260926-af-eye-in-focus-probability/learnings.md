@@ -115,6 +115,26 @@
   `vite.config.ts`); from `crates/app/ui` it fails with
   `ERR_PNPM_RECURSIVE_EXEC_NO_PACKAGE`.
 
+## Step 4: user-facing docs
+
+- Step 1's pass-2 timings (500 / 400 labeled files, cold vs warm) had no
+  before figure, so they could not say whether the edge width made pass 2
+  slower. Re-measured on the 2134-file `D:\Photos\2026\2026-09-19` folder
+  (Windows 11, i7-13700, 24 threads, warm cache) with release CLIs built at
+  `7dfe474` (before Step 1) and `90729bc`, alternated four times each:
+  9.79-10.33s before, 10.12-10.28s after; no noticeable change, recorded in
+  `docs/performance.md`. The first (cold) run of the old CLI took 38.8s.
+  The `candidates` run on that folder also printed its labeled frames: 309
+  with a face, AUC lap 0.630 / combined 0.759, precision 90.1%, coverage
+  92.5%. Not an independent check: the folder is not one of the plan's sets,
+  and the training set's `2026-09-19-focus-sample*` folders may overlap it.
+- A pre-change CLI can be built in a temporary `git worktree` under the
+  scratchpad with `CARGO_TARGET_DIR` pointed at this worktree's `target`, so
+  only the two workspace crates recompile.
+- The `docs/usage.md` precision / coverage sentence now quotes the training
+  (406 faced frames: 93% / 91%) and held-out (400: 89% / 95%) figures; the
+  old sentence's 80% coverage counted unfaced labeled frames too.
+
 ## Deferred issues (todo candidates)
 
 - Run `riffle-cli candidates` on `D:\Photos\tests\2026-08-29-focus-sample` and `D:\Photos\tests\2026-09-13-b-focus-sample` once they carry XMP pick / reject labels, and record AUC / precision / coverage (basis: Step 1 found no XMP sidecars in either; files: `crates/cli/src/main.rs`, `crates/core/src/candidate.rs`).

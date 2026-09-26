@@ -262,7 +262,7 @@ redraw in the app, are not measured here. The timing ran from a temporary
 
 #### Focus candidate pass
 
-The focus candidate cue (eye sharpness) runs in a second pass after the scan,
+The focus candidate cue (the AF eye in-focus probability) runs in a second pass after the scan,
 so pass 1 no longer searches a crop around a trusted AF point: it detects
 faces only without one (for the sharpness score), and pass 2 runs YuNet on
 every trusted-AF file, eye-AF frames included. Measured on 2026-09-25 on a
@@ -290,6 +290,14 @@ all 2134 files (1650 candidates, 302 not, 182 unknown). The command also runs
 on the files without a trusted AF point, which return at once with no
 decode; in the app `faces_todo` skips those before the pass starts. Thumbnails
 therefore appear at pass 1's speed, and the marks fill in over the next ~9s.
+
+The cue now also takes the mean edge width of the eye window, on the luma it
+already decoded, so pass 2 did not get noticeably slower. Measured on
+2026-09-26 on the same CPU under Windows 11, the same folder read from the
+local NTFS drive, warm page cache, 24 threads, `riffle-cli candidates <dir>
+24` before (`7dfe474`, Laplacian variance only) and after (`90729bc`),
+alternated, four runs each: 9.79 / 10.33 / 10.23 / 10.31s before, 10.21 /
+10.28 / 10.12 / 10.15s after.
 
 The `scan extract` / `scan faces` log lines of an app open of this folder are
 not recorded here yet: that needs the GUI, which was not run for this

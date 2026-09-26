@@ -76,15 +76,17 @@ DxO PhotoLab.
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
   shots (see [What the camera records](./docs/cameras.md)). The mark is green
-  for a focus candidate, where the face nearest the AF point has sharp eyes;
-  orange when a face is near the AF point but its eyes are not sharp; and
+  for a focus candidate, where the eyes of the face nearest the AF point are
+  likely in focus (a probability combining their sharpness and edge width);
+  orange when a face is near the AF point but its eyes are likely not; and
   white when Riffle does not know (no AF point, manual focus, no face near the
   point, or not computed yet). The camera's face tracking no longer colors
   the mark. The cue is computed in a second pass right after the thumbnails,
   so the marks turn from white as it runs; the strip marks each candidate
   with a green face icon at the cell's bottom-left, the meta pane shows the
-  `AF eye sharpness`, and the filter menu's `Focus candidates` shows only
-  the candidates. The mark also draws the faces
+  probability as `AF eye in focus` (a percentage), and the filter menu's
+  `AF eye` section (`Sharp` / `Soft` / `Unknown`) narrows the strip by the
+  state. The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
   a moment after `f`, since the detection runs when the frame is shown.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
@@ -95,7 +97,8 @@ DxO PhotoLab.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license), run locally with no network access. The strip's
-  candidate icon is [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
+  candidate icon, also on the filter menu's `Sharp` item, is
+  [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowUp` / `ArrowDown` jump between bursts,
   `Alt+ArrowLeft` / `Alt+ArrowRight` step through the frames of one and stop at
