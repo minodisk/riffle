@@ -83,6 +83,12 @@ export class SequenceFlow {
     return this.phase === "previewed" || this.phase === "running";
   }
 
+  // True from `start()` through `done()`/`fail()`: the flow is under way even
+  // while its dialog is not shown yet (picking the folder, previewing).
+  get busy(): boolean {
+    return this.phase !== "idle" && this.phase !== "done";
+  }
+
   // False while a sequencing is already under way.
   start(): boolean {
     if (this.phase !== "idle" && this.phase !== "done") {

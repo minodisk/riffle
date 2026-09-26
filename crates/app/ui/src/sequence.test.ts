@@ -111,6 +111,26 @@ describe("SequenceFlow", () => {
     expect(flow.start()).toBe(true);
   });
 
+  test("busy is true from picking through previewing, unlike isOpen", () => {
+    const flow = new SequenceFlow();
+    expect(flow.busy).toBe(false);
+    flow.start();
+    expect(flow.phase).toBe("picking");
+    expect(flow.isOpen).toBe(false);
+    expect(flow.busy).toBe(true);
+    flow.picked("/x/export");
+    expect(flow.phase).toBe("previewing");
+    expect(flow.isOpen).toBe(false);
+    expect(flow.busy).toBe(true);
+    flow.previewed();
+    expect(flow.busy).toBe(true);
+    flow.run();
+    flow.started(1);
+    flow.done(done());
+    expect(flow.phase).toBe("done");
+    expect(flow.busy).toBe(false);
+  });
+
   test("does not start again while under way", () => {
     const flow = new SequenceFlow();
     flow.start();

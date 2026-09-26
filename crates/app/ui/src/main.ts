@@ -2823,7 +2823,7 @@ const sortLoaded = window.__TAURI__.core
 // `Settings...` in the menu. The first-launch dialog is modal already, so the
 // settings wait until it is answered.
 void window.__TAURI__.event.listen("open-settings", () => {
-  if (!formatDialog.hidden || sequenceFlow.isOpen) {
+  if (!formatDialog.hidden || sequenceFlow.busy) {
     return;
   }
   setFilterMenuOpen(false);
