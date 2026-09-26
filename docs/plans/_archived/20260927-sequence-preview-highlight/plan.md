@@ -50,4 +50,4 @@ dimmed; the `N of M files get a new time` count line stays.
 
 ## Progress
 
-- (none yet)
+- (2026-09-27) Step 1 complete
