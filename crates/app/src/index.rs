@@ -911,6 +911,20 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
+    /// The raw `orientation` column of one file, `None` when the index has
+    /// no row for it, `Some(None)` when the row has no Orientation (an
+    /// error row, or a not-yet-extracted one).
+    pub fn orientation(&self, path: &str) -> Result<Option<Option<u16>>, String> {
+        self.conn
+            .query_row(
+                "SELECT orientation FROM files WHERE path = ?1",
+                params![path],
+                |r| r.get::<_, Option<u16>>(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+
     /// The cached thumbnail of one file with its Orientation.
     pub fn thumbnail(&self, path: &str) -> Result<(u16, Vec<u8>), String> {
         self.conn
