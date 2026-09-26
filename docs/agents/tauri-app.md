@@ -1354,6 +1354,18 @@ Linux only, 6 MP), reading the size from the JPEG's SOF (`decode.ts`).
 - Why: decoding on the main thread, or resizing inside the worker, both draw;
   only the large transferred bitmap fails. Windows (WebView2) is unaffected.
 
+### A hidden focused element does not always lose focus itself (Inferred)
+
+Chromium (WebView2) runs a focus fixup when a focused element becomes hidden
+(e.g. `display: none`), but WebKit has not always done so. Don't rely on the
+browser to blur a focused control when you hide its container; call
+`element.blur()` explicitly from the code path that hides it.
+
+- Source: `docs/plans/_archived/20260926-folder-tree-keyboard/learnings.md`,
+  Step 1 (`changePanels` calling `folders.blur()` when the left pane, which
+  holds the keyboard-focused folder tree, ends up hidden). Not reproduced on
+  a real WebKit build.
+
 ### Write relative imports with `.js` (Measured)
 
 `import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
