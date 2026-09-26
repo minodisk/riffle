@@ -828,3 +828,16 @@ planning and deferred as out of scope (plan.md "Follow-ups").
 - [ ] Decide which existing RAW-oriented features (thumbnails, metadata,
       sidecars, focus cue) apply to a JPEG-only folder, and let such a
       folder open in the strip with thumbnails and the preview.
+
+### App: hand-check the sequence-run output-folder reveal on Windows
+
+The automated tests cover only the `revealAfter` decision in
+`crates/app/ui/src/sequence.ts`, not the actual `reveal_folder` opener call
+added to `finishSequence` in `crates/app/ui/src/main.ts`. Basis:
+`docs/plans/_archived/20260927-sequence-reveal-output/learnings.md`.
+
+#### TODO
+
+- [ ] Confirm on Windows that (1) a run that wrote files opens Explorer with
+      `<folder>-sequenced` selected, (2) a cancelled run opens nothing, and
+      (3) a folder with no JPEGs opens nothing; merge any fix needed.

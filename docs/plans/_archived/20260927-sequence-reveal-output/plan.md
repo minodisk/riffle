@@ -102,4 +102,4 @@ error, or a run that wrote nothing reveals nothing.
 
 ## Progress
 
-- (none yet)
+- (2026-09-27) Step 1 complete
