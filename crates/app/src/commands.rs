@@ -1278,7 +1278,7 @@ fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
     let _ = app.emit("faces-done", done);
 }
 
-/// The second pass of a scan: the eye sharpness of every file of `dir` whose
+/// The second pass of a scan: the AF eye's in-focus probability of every file of `dir` whose
 /// row is not yet at `FACES_VERSION`. Nothing runs, and nothing is reported,
 /// once `cancel` is set; the rows keep their old `faces_extractor`, so the
 /// next scan of the folder picks them up again.
