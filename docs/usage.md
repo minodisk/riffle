@@ -34,10 +34,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   their keys are mirrored from the same rebindable `undo` / `redo` actions
   the tree gate turns off — until `Escape`, a click elsewhere or hiding the
   left pane hands the keys back.
-  Right-clicking a folder opens a menu with one item that shows the folder
+  Right-clicking a folder opens a menu whose first item shows the folder
   selected in its parent in the OS file manager: `Reveal in Finder` on
   macOS, `Reveal in File Explorer` on Windows, `Open Containing Folder` on
-  Linux. The right-click neither opens the folder nor gives the tree the
+  Linux. Below it, `Sequence JPEG Timestamps…` starts the same preview as
+  the File menu item on that folder, without the folder picker (see
+  **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
   keyboard (or takes it away); `Escape` or a click elsewhere closes the menu.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
@@ -179,7 +181,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   capture times of exported JPEGs unique at second granularity, so Google
   Photos, which ignores `SubSecTimeOriginal`, keeps a burst in shooting order.
   Cull in Riffle, export the keepers as JPEGs from your RAW developer, then
-  pick the export folder here (derived from
+  pick the export folder here, or right-click it in the folder tree and
+  choose `Sequence JPEG Timestamps…` to skip the picker (derived from
   [lapse](https://github.com/minodisk/lapse) v0.4.0).
   - **Files**: the `.jpg` / `.jpeg` files (any case) directly in the folder;
     subfolders are not searched. A folder without any is an error, shown on

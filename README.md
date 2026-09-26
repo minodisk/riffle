@@ -110,7 +110,7 @@ DxO PhotoLab.
   judgments back.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the
-  export folder spaces the capture times of a burst one second apart, so Google
+  export folder (or right-click it in the folder tree) spaces the capture times of a burst one second apart, so Google
   Photos, which ignores sub-second times, keeps the frames in shooting order.
   Files are ordered by capture time, then sub-second time, then file name, so a
   folder exported from two bodies interleaves correctly. A preview shows the
