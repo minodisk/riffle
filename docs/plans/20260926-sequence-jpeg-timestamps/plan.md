@@ -243,4 +243,4 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
 
 ## Progress
 
-- (none yet)
+- (2026-09-26) Step 1 complete
