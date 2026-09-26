@@ -279,7 +279,7 @@ default.
     - 500 ms is the timeout most tree implementations use; make it a named
       constant, not configurable.
 
-- [ ] Step 4: Document the tree keys and the gate
+- [x] Step 4: Document the tree keys and the gate
   - Done when:
     - `docs/usage.md`: the "Folders" bullet says that clicking a folder
       gives the tree the keyboard, lists the keys in a sentence or two, and

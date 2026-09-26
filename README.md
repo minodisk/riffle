@@ -58,7 +58,9 @@ DxO PhotoLab.
 ## Key features
 
 - **Folder tree**: the left pane browses home and the mounted volumes; click
-  a folder to open it.
+  a folder to open it. The click also gives the tree the keyboard: the
+  arrows, `Home` / `End`, `Enter` and typing a name move through and open
+  folders, with the culling keys off until `Escape`.
 - **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
   `Shift+←` / `Shift+→` select a range, and every judgment applies to the

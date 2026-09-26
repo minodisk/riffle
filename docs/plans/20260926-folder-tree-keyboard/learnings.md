@@ -56,6 +56,19 @@
   names typed through an IME would jump per composed keystroke at best);
   not verified on a real WebView.
 
+## Step 4
+
+- The existing `Escape` row of the fixed-keys table gained the tree case
+  instead of a second `Escape` row, so the table keeps one row per key.
+- The rebind edge case deferred from the Step 3 review is written under the
+  rebindable `Keys` table in `docs/usage.md`, next to the list of actions
+  that keep running with the tree focused: an allowlisted action rebound to
+  a printable character does not fire in the tree, since type-ahead takes
+  every printable character first. The README bullets only give the one
+  sentence on the keys.
+- `docs/usage.md` also says hiding the left pane hands the keys back, which
+  is what Step 1's `folders.blur()` from `changePanels` does.
+
 ## Deferred issues (todo candidates)
 
 - Round 1 review (item 1) of the type-ahead step flagged that a passthrough

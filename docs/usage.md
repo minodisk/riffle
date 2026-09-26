@@ -21,6 +21,16 @@ viewer shows a prompt in its center; click it to open the folder picker.
   is highlighted, and the tree expands down to it whenever a folder opens,
   however it was opened; one on a volume the tree does not list (a network
   share, say) adds that volume to the top level for the session.
+  A click in the tree also gives it the keyboard, with a cursor on the open
+  folder: `ArrowUp` / `ArrowDown` / `Home` / `End` move the cursor without
+  opening anything, `ArrowRight` expands a folder or steps into its first
+  subfolder, `ArrowLeft` collapses it or steps up to its parent, `Enter`
+  opens the cursor's folder as a click does, and typing the start of a name
+  jumps to the folder it matches (see the fixed keys under [Keys](#keys)).
+  While the tree has the keyboard the culling keys are off: only
+  `Open Folder`, the pane toggles (`F6` / `F7` / `F8` / `Tab` by default)
+  and the menu accelerators still work, until `Escape`, a click elsewhere or
+  hiding the left pane hands the keys back.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the
@@ -282,15 +292,28 @@ rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.
 
+While the folder tree has the keyboard, only `open`, `toggleStrip`,
+`toggleLeft`, `toggleRight` and `toggleSides` (by default `Cmd+O` /
+`Ctrl+O`, `F6`, `F7`, `F8` and `Tab`) still run, whatever keys they are bound
+to; every other action is ignored until the tree lets go of the keyboard.
+The tree's own keys below come first, and every printable character is
+type-ahead there, so one of those five actions rebound to a plain character
+(`l`, say) does not fire while the tree has the keyboard.
+
 These keys are fixed and cannot be changed:
 
 | Key | Action |
 |-----|--------|
-| `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key, or close the settings |
+| `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key, or close the settings; in the folder tree, hand the keyboard back to culling |
 | `Tab` / `Shift+Tab` | while the first-launch developing-software dialog or the settings are open, move between the dialog's buttons or the settings' controls (otherwise `Tab` is the side-pane toggle above, which can be rebound) |
 | `CmdOrCtrl+R` | reload the folder (`File > Reload Folder`) |
 | `CmdOrCtrl+,` | open the settings (`Riffle > Settings...`, `File > Settings...` on Windows and Linux) |
 | `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the settings tab strip, the previous / next / first / last tab |
+| `ArrowUp` / `ArrowDown` / `Home` / `End` | in the folder tree, move the cursor to the previous / next / first / last visible folder (without opening it) |
+| `ArrowRight` | in the folder tree, expand the cursor's folder, or move to its first subfolder when already expanded |
+| `ArrowLeft` | in the folder tree, collapse the cursor's folder, or move to its parent when it is collapsed or has no subfolders |
+| `Enter` | in the folder tree, open the cursor's folder |
+| typing (type-ahead) | in the folder tree, jump to the folder whose name starts with the typed characters, case-insensitively and wrapping around; the characters add up until a half-second pause, and repeating one character cycles through the folders starting with it |
 
 ## Ratings and sidecars
 
