@@ -162,7 +162,7 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
       `folder-changed` does not fire for it; verify once and note it in the
       doc comment.
 
-- [ ] Step 3: Frontend: pick the folder, preview, run with progress, cancel and errors
+- [x] Step 3: Frontend: pick the folder, preview, run with progress, cancel and errors
   - Done when:
     - Step 2 is merged.
     - The menu event opens the native folder picker (`pick_folder`, no
@@ -245,3 +245,4 @@ byte); temp file + atomic rename per written file; per-file failure isolation;
 
 - (2026-09-26) Step 1 complete
 - (2026-09-26) Step 2 complete
+- (2026-09-26) Step 3 complete

@@ -202,6 +202,28 @@
       </div>
     </div>
     <div
+      id="sequence-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sequence-title"
+      hidden
+    >
+      <div id="sequence-box">
+        <h2 id="sequence-title">Sequence JPEG Timestamps</h2>
+        <p>Source: <span id="sequence-source"></span></p>
+        <p>Output: <span id="sequence-output"></span></p>
+        <p id="sequence-rebuild" hidden></p>
+        <ol id="sequence-rows"></ol>
+        <p id="sequence-count"></p>
+        <ul id="sequence-failed"></ul>
+        <p id="sequence-running" hidden></p>
+        <div class="actions">
+          <button id="sequence-run" type="button">Run</button>
+          <button id="sequence-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div
       id="settings-dialog"
       role="dialog"
       aria-modal="true"
