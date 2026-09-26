@@ -208,6 +208,18 @@ body {
   background: #666;
 }
 
+#filter-menu .face {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+#filter-menu .face svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
 #filter-menu [data-flag="picked"] .dot {
   background: var(--pick-color);
 }

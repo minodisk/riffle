@@ -198,7 +198,7 @@ all under `D:\Photos\tests\`:
     - Frontend `Focus.candidate` stays `"candidate" | "not_candidate" | "unknown"`,
       derived in Rust from the stored value, exactly as today.
 
-- [ ] Step 3: Replace the `Focus candidates` filter item with an `AF eye` section: `Sharp` (icon) / `Soft` / `Unknown`, OR-ed
+- [x] Step 3: Replace the `Focus candidates` filter item with an `AF eye` section: `Sharp` (icon) / `Soft` / `Unknown`, OR-ed
   - Done when:
     - `crates/app/ui/index.html`: after the orientation `<hr />`, a
       `<div class="heading">AF eye</div>` and three `menuitemcheckbox`
@@ -281,3 +281,4 @@ all under `D:\Photos\tests\`:
 
 - (2026-09-26) Step 1 complete
 - (2026-09-26) Step 2 complete
+- (2026-09-26) Step 3 complete

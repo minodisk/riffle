@@ -271,6 +271,30 @@ describe("passes: focus candidates", () => {
     expect(passes(s, unjudged, undefined, 1, undefined)).toBe(false);
   });
 
+  test("not_candidate passes a soft frame only", () => {
+    const soft = state([], [], [], [], [], ["not_candidate"]);
+    expect(passes(soft, unjudged, undefined, 1, "not_candidate")).toBe(true);
+    expect(passes(soft, unjudged, undefined, 1, "candidate")).toBe(false);
+    expect(passes(soft, unjudged, undefined, 1, "unknown")).toBe(false);
+    expect(passes(soft, unjudged, undefined, 1, undefined)).toBe(false);
+  });
+
+  test("unknown passes an unknown or not yet computed state", () => {
+    const unknown = state([], [], [], [], [], ["unknown"]);
+    expect(passes(unknown, unjudged, undefined, 1, "unknown")).toBe(true);
+    expect(passes(unknown, unjudged, undefined, 1, undefined)).toBe(true);
+    expect(passes(unknown, unjudged, undefined, 1, "candidate")).toBe(false);
+    expect(passes(unknown, unjudged, undefined, 1, "not_candidate")).toBe(false);
+  });
+
+  test("ORs the checked states", () => {
+    const either = state([], [], [], [], [], ["candidate", "unknown"]);
+    expect(passes(either, unjudged, undefined, 1, "candidate")).toBe(true);
+    expect(passes(either, unjudged, undefined, 1, "unknown")).toBe(true);
+    expect(passes(either, unjudged, undefined, 1, undefined)).toBe(true);
+    expect(passes(either, unjudged, undefined, 1, "not_candidate")).toBe(false);
+  });
+
   test("ANDs with the other groups", () => {
     const flagged = state(["untagged"], [], [], [], [], ["candidate"]);
     expect(passes(flagged, unjudged, undefined, 1, "candidate")).toBe(true);
