@@ -152,3 +152,4 @@ connection with no ordering against `scan_folder`).
   `changed` and `total` are zero. Fixed a `clippy::type_complexity` CI
   failure by adding a `SidecarToParse` type alias (recorded in
   `learnings.md`).
+- (2026-09-26) Step 1 complete
