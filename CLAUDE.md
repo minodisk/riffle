@@ -30,8 +30,10 @@ streams it as `faces-progress` / `faces-done` events, `src/commands.rs` the
 Tauri commands, including `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
-and the filter menu, `src/folders.rs` the folder tree's listing commands (the
-home and volume roots, and one folder's subfolders and RAW count), and
+and the filter menu, `src/folders.rs` the folder tree's commands (the
+home and volume roots, one folder's subfolders and RAW count, and
+`reveal_folder`, the right-click item that reveals a folder in the OS file
+manager under the per-platform `REVEAL_LABEL`), and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable

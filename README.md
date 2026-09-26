@@ -60,7 +60,8 @@ DxO PhotoLab.
 - **Folder tree**: the left pane browses home and the mounted volumes; click
   a folder to open it. The click also gives the tree the keyboard: the
   arrows, `Home` / `End`, `Enter` and typing a name move through and open
-  folders, with the culling keys off until `Escape`.
+  folders, with the culling keys off until `Escape`. Right-click a folder
+  to reveal it in Finder / File Explorer / the file manager.
 - **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
   `Shift+←` / `Shift+→` select a range, `Cmd+A` / `Ctrl+A` selects every

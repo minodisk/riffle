@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { contextMenuGroups, menuPosition } from "./context.js";
+import { contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
 
 const defaults = [
   { action: "selectAll", keys: ["meta+a"] },
@@ -121,6 +121,14 @@ describe("contextMenuGroups", () => {
       .filter((item) => item.checked)
       .map((item) => item.action);
     expect(checked).toEqual(["pick", "rate3", "orange"]);
+  });
+});
+
+describe("folderMenuGroups", () => {
+  test("holds the one reveal item, without a shortcut or checked state", () => {
+    expect(folderMenuGroups("Reveal in Finder")).toEqual([
+      [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
+    ]);
   });
 });
 

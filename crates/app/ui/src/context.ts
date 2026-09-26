@@ -49,6 +49,12 @@ export function contextMenuGroups(bindings: Binding[], state: MenuState): MenuIt
   );
 }
 
+// The folder tree's right-click menu: one item, labeled per platform by the
+// `reveal_label` command.
+export function folderMenuGroups(revealLabel: string): MenuItem[][] {
+  return [[{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }]];
+}
+
 export function menuPosition(
   x: number,
   y: number,
