@@ -75,7 +75,7 @@ import {
   single,
   targets,
 } from "./selection.js";
-import { lastViewedWriter, resumeTarget } from "./resume.js";
+import { firstEntriesAnchor, lastViewedWriter, resumeTarget } from "./resume.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -243,6 +243,11 @@ let folderToken = 0;
 const entries = new Map<string, IndexedFile>();
 // The folder the entries belong to, so `scan-progress` can ask for them again.
 let openDir: string | null = null;
+// The resume target queued by `openDirectory`, still waiting on entries
+// (capture time, ratings, flags, labels) to resolve where it lands once the
+// filter and sort apply. Consumed, and cleared, by the first `refreshEntries`
+// of the open; cleared again at the start of the next `openDirectory`.
+let pendingResume: string | undefined;
 // Records the current file of the open folder, so the next open resumes there.
 const rememberViewed = lastViewedWriter(({ dir, path }) =>
   window.__TAURI__.core.invoke("set_last_viewed", { dir, path }),
@@ -1407,7 +1412,9 @@ function refreshEntries(): void {
       const bracketed = performance.now();
       applyCandidates();
       const marked = performance.now();
-      const setFiles = refilter();
+      const anchor = firstEntriesAnchor(pendingResume, files[index]);
+      pendingResume = undefined;
+      const setFiles = refilter(anchor);
       const end = performance.now();
       debugLog(
         refreshTimingLine({
@@ -1821,7 +1828,11 @@ function requestMetadata(): void {
 function show(): void {
   seq += 1;
   metaStale = true;
-  if (openDir !== null && files[index] !== undefined) {
+  // While a resume target is still pending, `files[index]` is only a
+  // provisional anchor picked before entries loaded; writing it here would
+  // overwrite the remembered file with it. The first `refreshEntries` clears
+  // `pendingResume` once it resolves the real anchor.
+  if (openDir !== null && files[index] !== undefined && pendingResume === undefined) {
     rememberViewed({ dir: openDir, path: files[index] });
   }
   strip.setCurrent(index);
@@ -2224,17 +2235,17 @@ function openDirectory(folder: string, token: number): Promise<void> {
     allFiles = found;
     entries.clear();
     ratings.clear();
+    flags.clear();
+    labels.clear();
+    pendingResume = resumeTarget(remembered, allFiles);
     const order = ordered();
     files = order.filter(passes);
-    const target = resumeTarget(remembered, allFiles, order, passes);
-    index = target === undefined ? 0 : files.indexOf(target);
+    index = 0;
     selection = single(files[index]);
     openDir = folder;
     void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
     rebuildExifMenu();
-    flags.clear();
-    labels.clear();
     sharpness.clear();
     faceCache.clear();
     bursts = new Map();

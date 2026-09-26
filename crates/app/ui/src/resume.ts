@@ -1,20 +1,29 @@
-import { anchorAfterFilter } from "./filter.js";
-
-// The file to select when a folder opens: `undefined` (the first file) when
-// nothing was remembered or the remembered file is no longer listed,
-// otherwise the remembered file, or its nearest neighbor passing the filter
-// when the filter hides it, as `refilter` picks when a judgment hides the
-// current file.
+// The remembered file to resume at when a folder opens: `undefined` (the
+// first file) when nothing was remembered or the remembered file is no
+// longer listed, otherwise the remembered file. This is only a candidate:
+// entries (capture time, ratings, flags, labels) are not loaded yet at open,
+// so whether it still passes the strip filter and where its nearest passing
+// neighbor sits is decided later, by `firstEntriesAnchor` once the first
+// `folder_entries` response lands.
 export function resumeTarget(
   remembered: string | null,
   allFiles: readonly string[],
-  order: readonly string[],
-  pass: (path: string) => boolean,
 ): string | undefined {
   if (remembered === null || !allFiles.includes(remembered)) {
     return undefined;
   }
-  return anchorAfterFilter(order, pass, remembered);
+  return remembered;
+}
+
+// The anchor `refilter` should resolve against on the first `folder_entries`
+// refresh after a folder opens: the queued resume target when the open
+// still has one pending, otherwise the provisional current file `refilter`
+// would use on any other refresh.
+export function firstEntriesAnchor(
+  pending: string | undefined,
+  provisional: string | undefined,
+): string | undefined {
+  return pending ?? provisional;
 }
 
 export interface LastViewed {

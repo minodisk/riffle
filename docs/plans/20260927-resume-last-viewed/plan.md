@@ -94,12 +94,17 @@ are passed without a mark.
     - **Frontend**:
       - New module `crates/app/ui/src/resume.ts` (+ `resume.test.ts`) with
         two pure pieces:
-        - `resumeTarget(remembered: string | null, allFiles: readonly string[], order: readonly string[], pass: (path: string) => boolean): string | undefined`:
+        - `resumeTarget(remembered: string | null, allFiles: readonly string[]): string | undefined`:
           `undefined` when `remembered` is `null` or not in `allFiles`
-          (falls back to the first file), otherwise
-          `anchorAfterFilter(order, pass, remembered)` from `filter.ts`
-          (the file itself if it passes the filter, else the nearest passing
-          neighbor).
+          (falls back to the first file), otherwise `remembered`. It only
+          checks membership: at open, entries (capture time, ratings, flags,
+          labels) are not loaded yet, so whether the remembered file passes
+          the strip filter and where its nearest passing neighbor sits cannot
+          be decided from `allFiles` alone.
+        - `firstEntriesAnchor(pending: string | undefined, provisional: string | undefined): string | undefined`:
+          `pending` when set, else `provisional` — the anchor `refilter`
+          should resolve against on the first `folder_entries` refresh after
+          an open.
         - A write coalescer (one `{ dir, path }` in flight at a time, only
           the latest pending value kept, the next send issued when the
           in-flight one settles; the `send` function is injected so tests
@@ -109,18 +114,35 @@ are passed without a mark.
           own `dir`, so a write for the previous folder that is still pending
           at a folder switch is not misattributed.
       - `main.ts`:
-        - In `show()`, when `openDir !== null` and `files[index] !== undefined`,
-          push `{ dir: openDir, path: files[index] }` to the coalescer (whose
-          `send` invokes `set_last_viewed`). Every current-file change goes
-          through `show()`, so no other call site needs a hook.
+        - A module-level `pendingResume: string | undefined` holds the queued
+          resume target for the open until entries make it possible to
+          resolve where it lands.
         - In `openDirectory`, invoke `last_viewed` alongside `list_arw`
           (`Promise.all`; the existing `token !== folderToken` guard covers
-          both), then replace `index = 0; selection = single(files[0])` with
-          the index of `resumeTarget(...)` in `files` (0 when `undefined`).
-          The `show()` at the end of `openDirectory` then displays the
-          restored file (and writes the same value back, which is harmless).
-        - `resync()` and `refilter()` need no change: they anchor on
-          `files[index]`, which is now the restored file.
+          both). `entries`, `ratings`, `flags` and `labels` are all cleared
+          before `files` is computed from `allFiles` (previously `flags` /
+          `labels` were cleared later, so the provisional `files` briefly
+          judged against the previous folder's values). `pendingResume` is
+          set to `resumeTarget(remembered, allFiles)`; `index` starts at `0`
+          (the provisional anchor, since capture time and judgments are not
+          loaded yet).
+        - In `refreshEntries`, the first refresh after an open (this is the
+          only reader of `pendingResume`) calls
+          `refilter(firstEntriesAnchor(pendingResume, files[index]))` instead
+          of the plain `refilter()` every other refresh uses, then clears
+          `pendingResume`. This is where entries (and so capture-time order,
+          ratings, flags and labels) are loaded, so `refilter`'s own
+          `anchorAfterFilter` now resolves the remembered file's nearest
+          passing neighbor correctly, in capture-time order.
+        - In `show()`, when `openDir !== null`, `files[index] !== undefined`
+          and `pendingResume === undefined`, push
+          `{ dir: openDir, path: files[index] }` to the coalescer (whose
+          `send` invokes `set_last_viewed`). The `pendingResume` guard keeps
+          the provisional `show()` call at the end of `openDirectory` (before
+          entries load) from overwriting the remembered file with the
+          provisional anchor.
+        - `resync()` needs no change: it anchors on `files[index]`, which by
+          the time a resync can run has already settled on the restored file.
       - Add `resume.ts` to the frontend list in `CLAUDE.md`'s Layout
         paragraph, and mention `folders.last_viewed` in the `index.rs`
         description there (one clause each; keep the paragraph's style).

@@ -1,37 +1,33 @@
 import { describe, expect, test } from "vitest";
-import { type LastViewed, lastViewedWriter, resumeTarget } from "./resume.js";
+import { firstEntriesAnchor, type LastViewed, lastViewedWriter, resumeTarget } from "./resume.js";
 
 describe("resumeTarget", () => {
   const all = ["/a.ARW", "/b.ARW", "/c.ARW"];
-  const every = (): boolean => true;
 
   test("nothing remembered", () => {
-    expect(resumeTarget(null, all, all, every)).toBeUndefined();
+    expect(resumeTarget(null, all)).toBeUndefined();
   });
 
   test("the remembered file is gone", () => {
-    expect(resumeTarget("/z.ARW", all, all, every)).toBeUndefined();
+    expect(resumeTarget("/z.ARW", all)).toBeUndefined();
   });
 
-  test("the remembered file passes the filter", () => {
-    expect(resumeTarget("/b.ARW", all, all, every)).toBe("/b.ARW");
+  test("the remembered file is still listed", () => {
+    expect(resumeTarget("/b.ARW", all)).toBe("/b.ARW");
+  });
+});
+
+describe("firstEntriesAnchor", () => {
+  test("a pending resume target takes over from the provisional anchor", () => {
+    expect(firstEntriesAnchor("/b.ARW", "/a.ARW")).toBe("/b.ARW");
   });
 
-  test("a filtered-out file resumes at the next passing file", () => {
-    expect(resumeTarget("/b.ARW", all, all, (path) => path !== "/b.ARW")).toBe("/c.ARW");
+  test("no pending resume target falls back to the provisional anchor", () => {
+    expect(firstEntriesAnchor(undefined, "/a.ARW")).toBe("/a.ARW");
   });
 
-  test("a filtered-out last file resumes at the previous passing file", () => {
-    expect(resumeTarget("/c.ARW", all, all, (path) => path === "/a.ARW")).toBe("/a.ARW");
-  });
-
-  test("the neighbor follows the strip order", () => {
-    const order = ["/c.ARW", "/b.ARW", "/a.ARW"];
-    expect(resumeTarget("/b.ARW", all, order, (path) => path !== "/b.ARW")).toBe("/a.ARW");
-  });
-
-  test("nothing passes the filter", () => {
-    expect(resumeTarget("/b.ARW", all, all, () => false)).toBeUndefined();
+  test("neither a pending target nor a provisional anchor", () => {
+    expect(firstEntriesAnchor(undefined, undefined)).toBeUndefined();
   });
 });
 
