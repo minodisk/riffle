@@ -128,9 +128,10 @@ canonical path is an ancestor of home": `/Volumes/Macintosh HD` resolves to
   silently drop it from the tree. Don't port the ancestor check to Windows.
 - Consequence: when home itself lives on an external volume on macOS, that
   volume is not listed separately.
-- On Linux, `/mnt` lists every child directory as a root, including WSL's
-  own `/mnt/wsl` and `/mnt/wslg` next to real drive mounts like `/mnt/c` —
-  unfiltered by design; see the deferred issue if this needs narrowing.
+- On Linux, `/mnt` lists every child directory as a root, unfiltered, since
+  plain Linux users mount arbitrary names there. On WSL (`WSL_DISTRO_NAME`
+  set) only the single-letter drive mounts like `/mnt/c` are kept, dropping
+  WSL's own `/mnt/wsl` and `/mnt/wslg` (`wsl_drive_mounts`).
 - Windows also skips entries with `FILE_ATTRIBUTE_HIDDEN` (a `MetadataExt`
   one-liner) in addition to dot-names. `cargo check --target
   x86_64-pc-windows-gnu` in `crates/app` verifies `cfg(windows)` code

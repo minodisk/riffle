@@ -114,12 +114,28 @@ fn volumes() -> Vec<PathBuf> {
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn volumes() -> Vec<PathBuf> {
     let mut volumes = child_dirs(Path::new("/mnt"));
+    if std::env::var_os("WSL_DISTRO_NAME").is_some() {
+        volumes = wsl_drive_mounts(volumes);
+    }
     for parent in ["/media", "/run/media"] {
         for dir in child_dirs(Path::new(parent)) {
             volumes.extend(child_dirs(&dir));
         }
     }
     volumes
+}
+
+/// The Windows drives WSL mounts under `/mnt` (`/mnt/c`), named by a single
+/// letter, without WSL's own `/mnt/wsl` and `/mnt/wslg`.
+#[cfg(any(test, not(any(target_os = "macos", target_os = "windows"))))]
+fn wsl_drive_mounts(dirs: Vec<PathBuf>) -> Vec<PathBuf> {
+    dirs.into_iter()
+        .filter(|d| {
+            d.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.len() == 1 && n.as_bytes()[0].is_ascii_alphabetic())
+        })
+        .collect()
 }
 
 /// The directories directly under `dir`, sorted by name; none when it cannot
@@ -276,6 +292,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&target_dir);
         let _ = std::fs::remove_dir_all(target_file.parent().unwrap());
+    }
+
+    #[test]
+    fn wsl_keeps_only_the_single_letter_drive_mounts() {
+        let dirs = ["/mnt/c", "/mnt/d", "/mnt/wsl", "/mnt/wslg"].map(PathBuf::from);
+        assert_eq!(
+            wsl_drive_mounts(dirs.to_vec()),
+            [PathBuf::from("/mnt/c"), PathBuf::from("/mnt/d")]
+        );
     }
 
     #[test]

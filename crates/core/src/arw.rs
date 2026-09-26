@@ -126,6 +126,32 @@ impl Rational {
     }
 }
 
+/// The `DSC-` models ExifTool exempts from its model condition on
+/// `FocusMode` (0x201b) and `AFTracking` (0x2021): `($$self{Model} !~
+/// /^DSC-/) or ($$self{Model} =~
+/// /^DSC-(RX10M4|RX100M6|RX100M7|RX100M5A|HX95|HX99|RX0M2|RX1RM3)/)`. On
+/// every other `DSC-` body the tags "don't seem to apply" (ExifTool's
+/// comment) and always read 0.
+const DSC_EXCEPTIONS: [&str; 8] = [
+    "DSC-RX10M4",
+    "DSC-RX100M6",
+    "DSC-RX100M7",
+    "DSC-RX100M5A",
+    "DSC-HX95",
+    "DSC-HX99",
+    "DSC-RX0M2",
+    "DSC-RX1RM3",
+];
+
+/// Whether `model` is a `DSC-` body ExifTool excludes from `FocusMode` /
+/// `AFTracking`. `None` (model unknown) is not excluded.
+pub fn excluded_dsc(model: Option<&str>) -> bool {
+    let Some(model) = model else {
+        return false;
+    };
+    model.starts_with("DSC-") && !DSC_EXCEPTIONS.iter().any(|m| model.starts_with(m))
+}
+
 /// The shooting settings read out of IFD0 and the ExifIFD. Every field is
 /// optional: a body that does not write a tag is not an error.
 #[derive(Debug, Clone, Default)]

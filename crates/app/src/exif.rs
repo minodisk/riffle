@@ -1,7 +1,7 @@
 //! Display formatting of the shooting settings, shared by the metadata pane
 //! and the index.
 
-use riffle_core::arw::{Rational, Shot};
+use riffle_core::arw::{excluded_dsc, Rational, Shot};
 
 /// A numeric setting: `value` to sort by, `label` to show.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -56,32 +56,6 @@ fn shutter(r: Rational) -> Option<String> {
         return decimal(r, 1).map(|t| format!("{t}\""));
     }
     Some(format!("1/{}", (1.0 / v).round()))
-}
-
-/// The `DSC-` models ExifTool exempts from its model condition on
-/// `FocusMode` (0x201b) and `AFTracking` (0x2021): `($$self{Model} !~
-/// /^DSC-/) or ($$self{Model} =~
-/// /^DSC-(RX10M4|RX100M6|RX100M7|RX100M5A|HX95|HX99|RX0M2|RX1RM3)/)`. On
-/// every other `DSC-` body the tags "don't seem to apply" (ExifTool's
-/// comment) and always read 0.
-const DSC_EXCEPTIONS: [&str; 8] = [
-    "DSC-RX10M4",
-    "DSC-RX100M6",
-    "DSC-RX100M7",
-    "DSC-RX100M5A",
-    "DSC-HX95",
-    "DSC-HX99",
-    "DSC-RX0M2",
-    "DSC-RX1RM3",
-];
-
-/// Whether `model` is a `DSC-` body ExifTool excludes from `FocusMode` /
-/// `AFTracking`. `None` (model unknown) is not excluded.
-fn excluded_dsc(model: Option<&str>) -> bool {
-    let Some(model) = model else {
-        return false;
-    };
-    model.starts_with("DSC-") && !DSC_EXCEPTIONS.iter().any(|m| model.starts_with(m))
 }
 
 /// Sony `FocusMode` (0x201b), labeled as ExifTool's Sony.pm `%Sony::Main`.

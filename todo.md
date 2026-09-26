@@ -685,21 +685,6 @@ bullets too.
       `docs/usage.md` to describe behavior by what the camera records rather
       than by camera name, matching the README's approach.
 
-### Docs: CLAUDE.md's sharpness fallback order is stale since #396
-
-`CLAUDE.md`'s "Layout" paragraph describes the sharpness fallback order as
-eye-AF frame, then the eyes of a detected face, then the AF point. Since #396,
-`crates/core/src/sharpness.rs` trusts the AF point before faces (the eyes of
-a detected face are used only when there is no trusted AF point). Flagged by
-the local reviewer on the camera-differences-doc branch as out of scope for
-that PR.
-
-#### TODO
-
-- [ ] Update `CLAUDE.md`'s Layout paragraph to state the fallback order as:
-      eye-AF frame → AF point → eyes of a detected face (only when no trusted
-      AF point) → sharpest region.
-
 ### App: decide whether `scan-state` needs a frontend consumer
 
 From `settings-modal` Step 2: the settings modal was the only frontend
