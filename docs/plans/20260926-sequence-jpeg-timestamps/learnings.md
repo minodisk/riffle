@@ -73,9 +73,13 @@
   same `dismiss` as the Cancel button (close a preview, cancel a run).
 - The menu-accelerator listeners that skipped while the settings modal was
   open (Open Folder, Undo, Redo, Select All) now skip while either modal is
-  open (`modalOpen()`), and `Settings…` is ignored while the sequence dialog
-  is open. The window-focus resync keeps its settings-only gate: the Clear
-  Cache race it guards against is specific to settings.
+  open (`modalOpen()`), and `Settings…` is ignored for as long as
+  `sequenceFlow.busy` — from `start()` until `done()` / `fail()` / a dismissed
+  picker, not only while the dialog is shown. `SequenceFlow.isOpen` is false
+  during `picking` / `previewing`, and a preview that resolves while settings
+  is open would otherwise show both modals at once. The window-focus resync
+  keeps its settings-only gate: the Clear Cache race it guards against is
+  specific to settings.
 - The dialog opens only once the preview is back (no "loading" state); a
   preview with no readable file shows its failures with `Run` disabled.
 - The progress line is a separate `sequencing` field in `renderMeta`, next to
