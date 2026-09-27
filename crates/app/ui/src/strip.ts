@@ -532,6 +532,23 @@ export function markReady(paths: string[]): void {
   pump();
 }
 
+// A rename resolved: the file at `at` (still `oldPath` in `indexOf`, since
+// `main.ts` patches `files` in place by reference before calling this, so
+// `files[at]` is already `newPath`) keeps its place, but `indexOf` and the
+// live cell's name still need to move to `newPath`.
+export function renamePath(oldPath: string, newPath: string): void {
+  const at = indexOf.get(oldPath);
+  if (at === undefined) {
+    return;
+  }
+  indexOf.delete(oldPath);
+  indexOf.set(newPath, at);
+  const cell = cells.get(at);
+  if (cell !== undefined) {
+    cell.name.textContent = baseName(newPath);
+  }
+}
+
 // A click on the focused file's name arms a rename; the edit starts
 // `SLOW_CLICK_DELAY` later unless something disarms it. The cell's own click
 // still runs, which leaves the focused file as it is.

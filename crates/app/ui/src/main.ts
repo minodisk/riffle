@@ -2195,8 +2195,15 @@ function renameFile(path: string, name: string): void {
         fileIndex.delete(path);
         fileIndex.set(newPath, at);
       }
-      if (focused && meta !== null) {
-        meta = { ...meta, name: baseName(newPath) };
+      // `strip.setFiles` may be skipped below (the rescan sees the same list
+      // it already holds), so the strip's own `indexOf` and the live cell's
+      // name need their own update, and so does the meta pane / title bar.
+      strip.renamePath(path, newPath);
+      if (focused) {
+        if (meta !== null) {
+          meta = { ...meta, name: baseName(newPath) };
+        }
+        renderMeta();
       }
       if (warning !== null) {
         setStatus(warning);
