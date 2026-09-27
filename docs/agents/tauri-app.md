@@ -154,6 +154,13 @@ produced it: 49ms at q85 for a 1037x1024 crop, against 21.5ms to decode it.
   rather than a ~180KB JPEG. That trades IPC bytes for CPU; take the
   measurement before trading back, and measure with the optimizations off, not
   with the defaults.
+- Confirmed at full-image scale: a DCT-scaled-and-reboxed re-encode capped at
+  2048px (`decode::thumbnail_jpeg_near` + mozjpeg q85) took 183-535ms on a
+  21.5MP source, slower than shipping and decoding the whole JPEG (~200ms).
+  So `commands::preview` sends the whole JPEG for a JPEG-only folder rather
+  than re-encoding a capped copy; `PREVIEW_PIXEL_LIMIT` still resizes it in
+  the Linux worker. Source:
+  `docs/plans/_archived/20260927-jpeg-view-only/learnings.md`, Step 2.
 
 ### A partial decode's cost is set by its row, not its size (Measured)
 
