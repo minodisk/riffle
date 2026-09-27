@@ -139,7 +139,7 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 
 - XMP
   - [x] Adobe Lightroom（Windows、Lightroom Classic ではないもの）
-  - [ ] Adobe Lightroom Classic（Windows、日本語 UI）
+  - [x] Adobe Lightroom Classic（Windows、日本語 UI）
   - [ ] Capture One
 - DOP
   - [x] DxO PhotoLab 10

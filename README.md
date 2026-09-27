@@ -256,7 +256,7 @@ rotation and the focus mark be checked.
 
 - XMP
   - [x] Adobe Lightroom (Windows; not Lightroom Classic)
-  - [ ] Adobe Lightroom Classic (Windows, Japanese UI)
+  - [x] Adobe Lightroom Classic (Windows, Japanese UI)
   - [ ] Capture One
 - DOP
   - [x] DxO PhotoLab 10

@@ -35,6 +35,13 @@ directions:
   rejects, the five color labels and 5..1 stars) was checked against a copy
   of those files (`D:\photos\tests\lr-check-1-read-lr-xmp`).
 
+The same day the user also verified in Lightroom Classic (Windows, Japanese
+UI) that a Riffle-written reject (`xmpDM:good="False"`, no `xmpDM:pick`)
+shows as rejected, a Riffle-written pick as picked, and an unflagged file as
+unflagged. Picks and the Japanese color label names
+(`crates/core/i18n/ja.json`) had been verified earlier, so Lightroom Classic
+is ticked too, and Riffle does not need to write `xmpDM:pick`.
+
 The README's compatibility checklist still shows Lightroom as unverified,
 the "Working with other software" section only describes Lightroom Classic
 (which needs `Ctrl+S` or auto-write to produce XMP), and `todo.md` still
@@ -48,7 +55,9 @@ changes.
   - Done when:
     - `README.md` "Compatibility > Sidecar formats and software": the line
       `- [ ] Adobe Lightroom (Windows; not Lightroom Classic)` becomes
-      `- [x] ...`. The Lightroom Classic and Capture One boxes stay unticked.
+      `- [x] ...`. The `Adobe Lightroom Classic (Windows, Japanese UI)` box
+      is ticked too (scope extension approved by the user). The Capture One
+      box stays unticked.
     - `README.md` "Working with other software" gains a `### Lightroom`
       subsection placed directly before the existing `### Lightroom Classic`
       one (same order as the checklist). It is a short bullet list in the
@@ -62,7 +71,8 @@ changes.
       instructions; that belongs to the Classic section.
     - `README.ja.md` mirrors both changes in Japanese: the checkbox at
       `- [ ] Adobe Lightroom（Windows、Lightroom Classic ではないもの）`
-      is ticked, and a `### Lightroom` subsection with the same content is
+      and `- [ ] Adobe Lightroom Classic（Windows、日本語 UI）` are ticked,
+      and a `### Lightroom` subsection with the same content is
       inserted before `### Lightroom Classic`, in the same paragraph-per-
       bullet style the Japanese file uses (its bullets are single long lines,
       not wrapped).
@@ -70,10 +80,13 @@ changes.
       still open` (its heading, the paragraph that starts "From
       `lightroom-xmp-flags-labels`'s implementation", its `#### TODO` heading
       and the one `- [ ] Open D:\Photos\2026\2026-09-05 ...` checkbox) is
-      deleted. The neighbouring items "App/Core: unverified whether a
-      Riffle-written pick/reject shows correctly in Lightroom Classic" and
-      "Core: `en.json`'s Lightroom label preset is unverified against a real
-      Lightroom install" are left exactly as they are.
+      deleted. The item "App/Core: unverified whether a Riffle-written
+      pick/reject shows correctly in Lightroom Classic" (heading, paragraph,
+      `#### TODO` and its checkbox) is deleted too (scope extension; Riffle
+      does not need to write `xmpDM:pick`). The item "Core: `en.json`'s
+      Lightroom label preset is unverified against a real Lightroom install"
+      is left exactly as it is. The existing `### Lightroom Classic`
+      subsection's text is unchanged.
     - No other file changes. `mise run ci` passes (Markdown formatting and
       lychee).
   - Implementation approach:

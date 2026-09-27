@@ -527,22 +527,6 @@ is verified only by actionlint; no real release has run through it. Files:
       as Latest with a four-platform `latest.json`, and the next release PR has
       the right changelog base).
 
-### App/Core: unverified whether a Riffle-written pick/reject shows correctly in Lightroom Classic
-
-Lightroom Classic writes a pick as `xmpDM:good="true"` + `xmpDM:pick="1"`;
-Riffle only reads and writes `xmpDM:good`. The user confirmed Lightroom
-Classic 2026 read Riffle-written pick flags (`xmpDM:good` only, no
-`xmpDM:pick`) correctly on first import, but reject display from a
-Riffle-written XMP was not separately checked. Basis: `lightroom-label-names`
-plan's "Trade-offs and risks" and the user's session verification. Files:
-`crates/core/src/xmp.rs`, `README.md`.
-
-#### TODO
-
-- [ ] Verify a Riffle-written reject (no `xmpDM:pick`) shows correctly as
-      rejected in Lightroom Classic; if it does not, decide whether Riffle
-      should also write `xmpDM:pick`.
-
 ### Core: an explicit `Orientation = 1` line for landscape `.dop` files is unverified in PhotoLab
 
 From `dop-orientation`'s implementation: PhotoLab 10 was verified to display
