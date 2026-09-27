@@ -19,6 +19,7 @@ function view(overrides: Partial<ViewApi> = {}): ViewApi {
     compareActive: null,
     sort: "name",
     filtered: false,
+    viewOnly: false,
     showPhoto: () => {},
     selectPhotos: () => {},
     setMode: () => {},
@@ -407,5 +408,30 @@ describe("set_judgment", () => {
       "no photo is shown in Riffle",
     );
     expect(changes).toEqual([]);
+  });
+
+  test("refuses any judgment in a view-only folder", async () => {
+    const { changes, view } = judging(["/d/a.jpg"], { viewOnly: true });
+    await expect(
+      handleRequest("set_judgment", { paths: ["/d/a.jpg"], rating: 3 }, view),
+    ).rejects.toThrow("culling does not apply to a JPEG folder");
+    await expect(handleRequest("set_judgment", { flag: "pick" }, view)).rejects.toThrow(
+      "culling does not apply to a JPEG folder",
+    );
+    expect(changes).toEqual([]);
+  });
+
+  test("leaves the other requests working in a view-only folder", async () => {
+    const view = Object.assign(driven(["/d/a.jpg", "/d/b.jpg"]).view, { viewOnly: true });
+    expect(await handleRequest("get_view", {}, view)).toMatchObject({ count: 2 });
+    expect(await handleRequest("show_photo", { path: "/d/b.jpg" }, view)).toMatchObject({
+      current: { path: "/d/b.jpg", position: 2 },
+    });
+    expect(
+      await handleRequest("select_photos", { paths: ["/d/a.jpg", "/d/b.jpg"] }, view),
+    ).toMatchObject({ selected: ["/d/a.jpg", "/d/b.jpg"] });
+    expect(await handleRequest("set_view", { mode: "zoom" }, view)).toMatchObject({
+      mode: "zoom",
+    });
   });
 });

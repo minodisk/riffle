@@ -98,6 +98,12 @@ body {
   font-size: 0.6rem;
 }
 
+/* Off in a view-only (JPEG) folder, which always shows capture order. */
+#sort-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Lit while any item is checked, so a narrowed strip is never mistaken for
    the whole folder. */
 #filter-toggle.active {
