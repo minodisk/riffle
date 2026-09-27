@@ -263,7 +263,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
     capture time comes last by file name. The sort menu is disabled; the
     order chosen for RAW folders is neither applied nor changed, so the next
     RAW folder opens in it.
-  - **What is off**: the star, flag and color label keys, `clearall`,
+  - **What is off**: the star, flag and color label keys, `c` (clear all),
     `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` do nothing, and
     the strip's right-click menu holds only `Select All`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
