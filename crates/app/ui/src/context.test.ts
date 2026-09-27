@@ -25,7 +25,7 @@ const defaults = [
 const unset = { rating: null, flag: "none" as const, label: null };
 
 describe("contextMenuGroups", () => {
-  test("lists Select All above the flag, rating and label groups", () => {
+  test("lists Select All above the flag, rating and label groups, then Rename…", () => {
     const groups = contextMenuGroups(defaults, unset);
     expect(groups.map((group) => group.map(({ action, label }) => [action, label]))).toEqual([
       [["selectAll", "Select All"]],
@@ -52,6 +52,7 @@ describe("contextMenuGroups", () => {
         ["purple", "Purple"],
         ["clearlabel", "No label"],
       ],
+      [["renameFile", "Rename…"]],
     ]);
   });
 
@@ -73,6 +74,7 @@ describe("contextMenuGroups", () => {
         "ctrl+alt+7",
         "ctrl+alt+0",
       ],
+      [""],
     ]);
   });
 
@@ -103,7 +105,7 @@ describe("contextMenuGroups", () => {
     const shortcuts = contextMenuGroups([], unset).flatMap((group) =>
       group.map((item) => item.shortcut),
     );
-    expect(shortcuts).toHaveLength(18);
+    expect(shortcuts).toHaveLength(19);
     expect(shortcuts.every((shortcut) => shortcut === "")).toBe(true);
   });
 

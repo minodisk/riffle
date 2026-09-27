@@ -78,6 +78,43 @@
 - A case-only rename test asserts on `read_dir`'s names, which carry the
   stored spelling on every file system, rather than on `exists()`.
 
+## Step 4: file rename in the strip
+
+- The strip's editor swaps the cell's `.name` span for the input in place
+  (and back when the edit ends) instead of re-creating the cell as the plan
+  sketched. `Cell.name` keeps pointing at the detached span, so a badge
+  repaint (`setRating`'s label tint) updates the span and leaves the input
+  alone, and a click away that ended the edit through `blur` still reaches
+  the cell it landed on, even the edited cell's own thumbnail, since only
+  the input is detached. `createCell` never has to draw the input: `render`
+  never releases the editing cell and `setFiles` cancels the edit first.
+- `onRename` takes the path the edit started on rather than the index, so
+  the backend call cannot name another file if `files` changed in between.
+- On success `main.ts` moves (rather than only drops) the old path's
+  `ratings`, `flags`, `labels`, `sharpness`, `entries` and `touched` to the
+  new path: the index rows were rewritten with the same values, and with
+  the entries gone the capture-time sort would park the renamed cell at the
+  end until `scan-done`'s `folder_entries` refresh, jumping the strip. Undo /
+  redo batches that only reference the old path are removed, as planned.
+- Round 2 local review found that anchoring the post-rename rescan with an
+  explicit `resync(anchor)` parameter (an earlier version of this change)
+  only held when the rescan ran right away: a scan can start while the
+  `rename_file` invoke is still in flight (the window loses and regains
+  focus, firing `resync()`), and the stored anchor was then applied
+  unconditionally whenever that deferred rescan drained, regardless of
+  where the user had since moved. The fix instead patches `allFiles` /
+  `files` / `fileIndex` in place at resolve time, so `files[index]` is
+  already correct whether the rescan runs immediately or later, and
+  `resync()` needs no anchor parameter at all.
+- The slow click does not arm on a modified click (Cmd / Ctrl / Shift), which
+  is a selection gesture, and `canRename` is `!scanRunning && !viewOnly`, so a
+  JPEG-only folder never arms (its menu already has no `Rename…`).
+- The key handling for a live file rename sits in `main.ts`'s window
+  `keydown` right after the modal branches and before `keyName`'s `null`
+  return, treating `event.isComposing` as native like the tree does. After
+  Enter / Escape the input is removed and focus falls back to the body, which
+  is where the culling keys already work.
+
 ## Deferred issues (todo candidates)
 
 - **Opening a subfolder of a folder whose rename is in flight.** Step 2's

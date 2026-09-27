@@ -71,6 +71,10 @@ DxO PhotoLab.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
   `Shift+←` / `Shift+→` select a range, `Cmd+A` / `Ctrl+A` selects every
   file the filter shows, and every judgment applies to the whole selection.
+  Right-click a file and choose `Rename…`, or click the shown file's name
+  again after a moment, to rename it in place: `Enter` or a click away
+  renames, `Escape` cancels, and its XMP and `.dop` sidecars and its
+  ratings move with it.
   `F6` hides the filmstrip, `F7` the folder tree, `F8` the
   meta pane and `Tab` both side panes, to give the viewer more room. The meta
   pane's `Maker note` group shows the Sony AF, drive, stabilization and

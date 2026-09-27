@@ -1,5 +1,5 @@
 // The inline rename editors' DOM-free decisions, shared by the folder tree
-// and (later) the strip: what a key does to a live edit, which typed name is
+// and the strip: what a key does to a live edit, which typed name is
 // worth sending, and the slow second click that starts an edit.
 
 export type Decision = "confirm" | "cancel";
@@ -36,6 +36,14 @@ export function editKey(key: string | null): Decision | "native" {
 export function confirmName(original: string, value: string): string | null {
   const name = value.trim();
   return name === "" || name === original ? null : name;
+}
+
+// How much of a file name the editor preselects: the stem, up to its last
+// dot, so typing replaces the name and keeps the extension. A name with no
+// dot (or only a leading one) is selected whole.
+export function stemLength(name: string): number {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? dot : name.length;
 }
 
 // The edit's decision, once: the blur that follows an Enter or an Escape

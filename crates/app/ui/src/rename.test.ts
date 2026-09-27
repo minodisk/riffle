@@ -6,6 +6,7 @@ import {
   confirmName,
   editKey,
   inlineRename,
+  stemLength,
 } from "./rename.js";
 
 describe("inlineRename", () => {
@@ -45,6 +46,18 @@ describe("confirmName", () => {
 
   test("a case-only change is a rename", () => {
     expect(confirmName("Photos", "photos")).toBe("photos");
+  });
+});
+
+describe("stemLength", () => {
+  test("selects the name up to its extension", () => {
+    expect(stemLength("DSC01234.ARW")).toBe(8);
+    expect(stemLength("a.b.dng")).toBe(3);
+  });
+
+  test("selects a name with no extension whole", () => {
+    expect(stemLength("DSC01234")).toBe(8);
+    expect(stemLength(".hidden")).toBe(7);
   });
 });
 

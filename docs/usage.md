@@ -76,6 +76,19 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the selection collapses it to that cell; one inside keeps it, so the context
   menu items act on the whole selection. Files the filter hides leave the
   selection.
+  The right-click menu ends with `Rename…` (not offered in a view-only
+  JPEG folder), which acts on the shown file alone, whatever else is
+  selected: its name turns into a text box with the part before the
+  extension selected. A slow second click on the shown file's name (a
+  click, then another about half a second later, not a double-click) does
+  the same. `Enter` renames, `Escape` cancels, and a click anywhere else
+  renames too; an empty or unchanged name just ends the edit, and while
+  the edit is live every key goes to the text box. The new name must keep
+  a RAW extension. The file's `.xmp` and `.dop` sidecars are renamed with
+  it, and its ratings, flags, labels and cached thumbnail and metadata
+  follow it, so the strip keeps its place. The rename is refused while a
+  scan runs, and a name that is invalid, already taken or refused by the
+  OS shows its error in the status line with the file left as it was.
 - **Panels**: `F7` hides and shows the left pane (the folder tree), `F8` the
   right pane (the metadata), `F6` the filmstrip, and `Tab` both side panes at
   once (hiding both when either is shown, as Lightroom does), so the viewer

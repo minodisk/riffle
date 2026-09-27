@@ -30,6 +30,12 @@ export class History<T> {
     this.entries = this.entries.filter((entry) => !match(entry));
   }
 
+  // Rewrite every entry through `fn`, e.g. to move a renamed file's
+  // judgments onto its new path so undo still targets the right file.
+  map(fn: (entry: T) => T): void {
+    this.entries = this.entries.map(fn);
+  }
+
   clear(): void {
     this.entries = [];
   }

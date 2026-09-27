@@ -1,8 +1,20 @@
 // The thumbnail filmstrip along the bottom edge: a hand-rolled virtual list
-// over the cached thumbnails the `thumbnail` command serves.
+// over the cached thumbnails the `thumbnail` command serves. A file is
+// renamed in place: its cell's name becomes a text input until Enter, Escape
+// or a click away ends the edit.
 
 import type { BurstMark } from "./burst.js";
 import { FOCUS_MARK_COLORS } from "./focus.js";
+import {
+  type Decision,
+  type InlineRename,
+  SLOW_CLICK_DELAY,
+  SlowClick,
+  commit,
+  confirmName,
+  inlineRename,
+  stemLength,
+} from "./rename.js";
 import type { Modifiers, PickFlag } from "./selection.js";
 import type { RelativeSharpness } from "./sharpness.js";
 
@@ -99,6 +111,15 @@ const LABEL_COLORS = new Set(["red", "orange", "yellow", "green", "blue", "pink"
 let inFlight = 0;
 let select: (index: number, modifiers: Modifiers) => void = () => {};
 let contextMenu: (index: number, x: number, y: number) => void = () => {};
+let rename: (path: string, name: string) => void = () => {};
+let canRename: () => boolean = () => false;
+// The live inline rename and the index of its cell, which `render` keeps in
+// the DOM even outside the virtual range. The cell's `name` span stays in
+// `Cell` while the input stands in for it, so a badge repaint leaves the
+// input alone.
+let editing: { state: InlineRename; index: number; input: HTMLInputElement } | null = null;
+const slow = new SlowClick();
+let slowTimer: ReturnType<typeof setTimeout> | undefined;
 
 // A rated cell carries its stars in the top-right corner. A picked or
 // rejected cell carries a dot in the top-left corner, green or red (the two
@@ -183,6 +204,12 @@ function createCell(index: number): Cell {
   const name = document.createElement("span");
   name.className = "name";
   name.textContent = baseName(files[index]);
+  name.addEventListener("click", (event) => {
+    if (index === current && !event.metaKey && !event.ctrlKey && !event.shiftKey && canRename()) {
+      armSlowClick(index);
+    }
+  });
+  name.addEventListener("dblclick", cancelSlowClick);
   el.append(name);
   const badge = document.createElement("span");
   badge.className = "rating";
@@ -337,7 +364,7 @@ function render(): void {
     Math.ceil((strip.scrollLeft + strip.clientWidth) / CELL_WIDTH) + RANGE_MARGIN,
   );
   for (const [index, cell] of cells) {
-    if (index < first || index > last) {
+    if ((index < first || index > last) && index !== editing?.index) {
       releaseCell(cell);
       cells.delete(index);
       // The bytes are gone with the object URL, so a cell coming back has to
@@ -430,6 +457,9 @@ export function setCandidate(index: number, candidate: boolean): void {
 // kept (clamped to the new list's width) instead of jumping back to the top,
 // so files appearing or disappearing elsewhere do not move the view.
 export function setFiles(paths: string[], keepScroll = false): void {
+  // The indices may no longer name the same files.
+  finishRename("cancel");
+  cancelSlowClick();
   const offset = strip.scrollLeft;
   generation += 1;
   for (const cell of cells.values()) {
@@ -502,12 +532,117 @@ export function markReady(paths: string[]): void {
   pump();
 }
 
+// A rename resolved: the file at `at` (still `oldPath` in `indexOf`, since
+// `main.ts` patches `files` in place by reference before calling this, so
+// `files[at]` is already `newPath`) keeps its place, but `indexOf` and the
+// live cell's name still need to move to `newPath`.
+export function renamePath(oldPath: string, newPath: string): void {
+  const at = indexOf.get(oldPath);
+  if (at === undefined) {
+    return;
+  }
+  indexOf.delete(oldPath);
+  indexOf.set(newPath, at);
+  const cell = cells.get(at);
+  if (cell !== undefined) {
+    cell.name.textContent = baseName(newPath);
+  }
+}
+
+// A click on the focused file's name arms a rename; the edit starts
+// `SLOW_CLICK_DELAY` later unless something disarms it. The cell's own click
+// still runs, which leaves the focused file as it is.
+function armSlowClick(index: number): void {
+  const path = files[index];
+  slow.click(path, true, performance.now());
+  clearTimeout(slowTimer);
+  slowTimer = setTimeout(() => {
+    if (slow.due(path, performance.now()) && files[index] === path && canRename()) {
+      startRename(index);
+    }
+  }, SLOW_CLICK_DELAY);
+}
+
+export function cancelSlowClick(): void {
+  slow.cancel();
+  clearTimeout(slowTimer);
+}
+
+export function isEditing(): boolean {
+  return editing !== null;
+}
+
+// Turns the file's name into a text input, its stem selected.
+export function startRename(index: number): void {
+  cancelSlowClick();
+  const cell = cells.get(index);
+  if (cell === undefined) {
+    return;
+  }
+  finishRename("confirm");
+  const original = baseName(files[index]);
+  const state = inlineRename("file", files[index], original);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "name";
+  input.value = original;
+  input.spellcheck = false;
+  input.addEventListener("input", () => {
+    state.value = input.value;
+  });
+  // Switching to another app blurs the input too; the edit waits for the
+  // window to come back instead of confirming.
+  input.addEventListener("blur", () => {
+    if (document.hasFocus()) {
+      finishRename("confirm");
+    }
+  });
+  for (const type of ["mousedown", "click", "dblclick", "contextmenu"]) {
+    input.addEventListener(type, (event) => {
+      event.stopPropagation();
+    });
+  }
+  editing = { state, index, input };
+  cell.name.replaceWith(input);
+  input.focus();
+  input.setSelectionRange(0, stemLength(original));
+}
+
+// Ends the edit, once: the blur that follows an Enter or an Escape is a
+// no-op. The input gives way to the name span in place, so a click away that
+// ended the edit still reaches the cell it landed on.
+export function finishRename(decision: Decision): void {
+  if (editing === null || commit(editing.state, decision) === null) {
+    return;
+  }
+  const { state, index, input } = editing;
+  editing = null;
+  const cell = cells.get(index);
+  if (cell === undefined) {
+    input.remove();
+  } else {
+    input.replaceWith(cell.name);
+  }
+  render();
+  const name = decision === "confirm" ? confirmName(state.original, state.value) : null;
+  if (name !== null) {
+    rename(state.path, name);
+  }
+}
+
 export function init(
   onSelect: (index: number, modifiers: Modifiers) => void,
   onContextMenu: (index: number, x: number, y: number) => void,
+  onRename: (path: string, name: string) => void,
+  renameAllowed: () => boolean,
 ): void {
   select = onSelect;
   contextMenu = onContextMenu;
+  rename = onRename;
+  canRename = renameAllowed;
+  // Any click anywhere disarms a pending slow click; the arming click's own
+  // `mousedown` comes before its `click`, so it arms after this.
+  document.addEventListener("mousedown", cancelSlowClick);
   strip.addEventListener("contextmenu", (event) => {
     event.preventDefault();
   });

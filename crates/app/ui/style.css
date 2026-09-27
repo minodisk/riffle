@@ -469,6 +469,27 @@ body {
   text-overflow: ellipsis;
 }
 
+/* The inline rename editor, sitting where the file name does so the cell does
+   not jump. */
+.cell input.name {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0 2px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.65rem;
+  line-height: inherit;
+  text-align: center;
+  color: #fff;
+  background: #111;
+  border: none;
+  outline: 1px solid #4a9eff;
+  cursor: text;
+}
+
 /* A labeled cell's file name sits on a strip of the label's color. */
 .cell span.name.labeled {
   background: var(--label);
