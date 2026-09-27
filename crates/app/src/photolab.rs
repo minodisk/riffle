@@ -146,7 +146,7 @@ fn folder_names(arw: &Path) -> Option<Vec<String>> {
             Component::CurDir | Component::ParentDir => return None,
         }
     }
-    (names.len() > 1 && names[0].ends_with(':')).then_some(names)
+    (!names.is_empty() && names[0].ends_with(':')).then_some(names)
 }
 
 /// Whether `s` has the 8-4-4-4-12 hex shape of a UUID. The `.dop` template
@@ -212,6 +212,22 @@ mod tests {
         let db = fixture("registered", SOURCE);
         assert_eq!(
             lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            uuids(MASTER, SOURCE)
+        );
+    }
+
+    #[test]
+    fn a_file_at_a_drive_root_yields_its_source_and_master_uuids() {
+        let db = fixture("drive_root", SOURCE);
+        Connection::open(&db)
+            .unwrap()
+            .execute_batch(&format!(
+                "INSERT INTO Sources VALUES (30, '_DSC0001.ARW', '{SOURCE}', 7);
+                 INSERT INTO Items VALUES (300, 30, '{MASTER}', '2026-09-27 14:37:23Z', '2026-09-27 14:37:23Z', 0);"
+            ))
+            .unwrap();
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\_DSC0001.ARW")),
             uuids(MASTER, SOURCE)
         );
     }
