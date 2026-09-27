@@ -53,3 +53,12 @@
 - `renameFolder` in `tree.ts` drops stale nodes already keyed under the new
   path, so a folder once listed there (since deleted on disk) cannot
   duplicate the renamed row or overwrite its state.
+
+## Deferred issues (todo candidates)
+
+- **Opening a subfolder of a folder whose rename is in flight.** Step 2's
+  round 4 local reviewer noted, outside the reviewed diff, that clicking a
+  subfolder of the folder being renamed while `rename_folder` is still in
+  flight can open that subfolder under its old path. Done when: the tree
+  refuses (or defers) opening a path under a folder whose rename has not
+  returned yet, or reopens it under the rebased path once it returns.
