@@ -50,7 +50,7 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
 
 ## Steps
 
-- [ ] Step 1: Core: read a JPEG's Exif and thumbnail through the existing `extract` / `read_preview` / `read_metadata` entry points
+- [x] Step 1: Core: read a JPEG's Exif and thumbnail through the existing `extract` / `read_preview` / `read_metadata` entry points
   - Done when:
     - `crates/core/src/jpeg.rs` (new, exported from `lib.rs`) parses a JPEG
       file's APP1 Exif into the same `arw::Arw`-shaped result the app already

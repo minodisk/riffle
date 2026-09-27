@@ -58,13 +58,44 @@ pub fn apply_orientation(
 /// The output keeps the preview's orientation, i.e. it is **unrotated**: the
 /// caller carries the Orientation alongside it, as the preview tier does.
 pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
-    let mut d = mozjpeg::Decompress::new_mem(preview_jpeg)?;
-    d.scale(2);
+    scaled_thumbnail(preview_jpeg, |_| 2, None, quality)
+}
+
+/// Thumbnail a JPEG of any size to a long edge of at most `long_edge`: decode
+/// it at the smallest `n/8` scale whose long edge is not below `long_edge`
+/// (8/8 when the source is smaller), box-average that down to `long_edge`, and
+/// re-encode it as `thumbnail_jpeg` does, unrotated. A 1616-px source takes
+/// the same 2/8 as `thumbnail_jpeg` and no resampling.
+pub fn thumbnail_jpeg_near(jpeg: &[u8], long_edge: usize, quality: f32) -> Result<Vec<u8>> {
+    scaled_thumbnail(
+        jpeg,
+        |native| {
+            (1..=8u8)
+                .find(|&n| (native * usize::from(n)).div_ceil(8) >= long_edge)
+                .unwrap_or(8)
+        },
+        Some(long_edge),
+        quality,
+    )
+}
+
+fn scaled_thumbnail(
+    jpeg: &[u8],
+    scale: impl FnOnce(usize) -> u8,
+    long_edge: Option<usize>,
+    quality: f32,
+) -> Result<Vec<u8>> {
+    let mut d = mozjpeg::Decompress::new_mem(jpeg)?;
+    d.scale(scale(d.width().max(d.height())));
     let mut d = d.rgb()?;
     let (w, h) = (d.width(), d.height());
     let pixels: Vec<[u8; 3]> = d.read_scanlines()?;
     d.finish()?;
     let rgb: Vec<u8> = pixels.into_iter().flatten().collect();
+    let (rgb, w, h) = match long_edge {
+        Some(edge) if w.max(h) > edge => box_down(&rgb, w, h, edge),
+        _ => (rgb, w, h),
+    };
 
     let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
     c.set_size(w, h);
@@ -76,6 +107,36 @@ pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
     let mut c = c.start_compress(Vec::new())?;
     c.write_scanlines(&rgb)?;
     Ok(c.finish()?)
+}
+
+/// Box-average an RGB buffer down so its long edge is `long_edge`.
+fn box_down(rgb: &[u8], w: usize, h: usize, long_edge: usize) -> (Vec<u8>, usize, usize) {
+    let (ow, oh) = if w >= h {
+        (long_edge, (h * long_edge).div_ceil(w).max(1))
+    } else {
+        ((w * long_edge).div_ceil(h).max(1), long_edge)
+    };
+    let mut out = Vec::with_capacity(ow * oh * 3);
+    for oy in 0..oh {
+        let y0 = oy * h / oh;
+        let y1 = ((oy + 1) * h / oh).max(y0 + 1);
+        for ox in 0..ow {
+            let x0 = ox * w / ow;
+            let x1 = ((ox + 1) * w / ow).max(x0 + 1);
+            let mut sum = [0u32; 3];
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let i = (y * w + x) * 3;
+                    sum[0] += u32::from(rgb[i]);
+                    sum[1] += u32::from(rgb[i + 1]);
+                    sum[2] += u32::from(rgb[i + 2]);
+                }
+            }
+            let n = ((y1 - y0) * (x1 - x0)) as u32;
+            out.extend(sum.map(|v| ((v + n / 2) / n) as u8));
+        }
+    }
+    (out, ow, oh)
 }
 
 /// Decode a preview JPEG at the largest `n/8` scale whose long edge is at
@@ -149,6 +210,24 @@ mod tests {
         let (rgb, w, h) = decode_rgb(&out).unwrap();
         assert_eq!((w, h), (404, 270));
         assert_eq!(rgb.len(), w * h * 3);
+    }
+
+    #[test]
+    fn a_jpeg_thumbnail_is_scaled_down_to_the_long_edge() {
+        for ((w, h), want) in [
+            ((1616, 1080), (404, 270)),
+            ((4000, 3000), (404, 303)),
+            ((3000, 4000), (303, 404)),
+            ((200, 100), (200, 100)),
+        ] {
+            let out = thumbnail_jpeg_near(&jpeg(w, h), 404, 80.0).unwrap();
+            let (_, dw, dh) = decode_rgb(&out).unwrap();
+            assert_eq!((dw, dh), want, "{w}x{h}");
+        }
+        assert_eq!(
+            thumbnail_jpeg_near(&jpeg(1616, 1080), 404, 80.0).unwrap(),
+            thumbnail_jpeg(&jpeg(1616, 1080), 80.0).unwrap()
+        );
     }
 
     #[test]

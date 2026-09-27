@@ -8,7 +8,7 @@ use rayon::prelude::*;
 
 use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{focus_cue_unless, Cue};
-use crate::decode::thumbnail_jpeg;
+use crate::decode::{thumbnail_jpeg, thumbnail_jpeg_near};
 use crate::faces::detect_around;
 use crate::reader::read_preview;
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
@@ -16,11 +16,20 @@ use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
 
+/// The long edge a JPEG file's thumbnail aims at: the ARW thumbnail's.
+const JPEG_THUMBNAIL_LONG_EDGE: usize = 404;
+
 /// Whether `path` has a RAW extension Riffle lists: `.ARW` or `.DNG`, in any
 /// case.
 pub fn is_raw_file(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("arw") || e.eq_ignore_ascii_case("dng"))
+}
+
+/// Whether `path` has a JPEG extension: `.jpg` or `.jpeg`, in any case.
+pub fn is_jpeg_file(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("jpg") || e.eq_ignore_ascii_case("jpeg"))
 }
 
 /// What one file contributes to the index.
@@ -31,12 +40,13 @@ pub struct Entry {
     /// Unrotated thumbnail JPEG; the caller carries the Orientation.
     pub thumbnail: Vec<u8>,
     /// `sharpness::score_preview` of the preview; `None` when it could not be
-    /// scored, which does not fail the file.
+    /// scored, which does not fail the file, and always for a JPEG file.
     pub sharpness: Option<f64>,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
-/// `path`, and every failure comes back as `Err` rather than a panic.
+/// `path`, and every failure comes back as `Err` rather than a panic. A JPEG
+/// file gets no sharpness score and no face search.
 pub fn extract(path: &Path) -> Result<Entry, String> {
     extract_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
 }
@@ -50,12 +60,17 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
     if canceled(cancel) {
         return None;
     }
+    let jpeg = is_jpeg_file(path);
     // mozjpeg aborts through a panic, not an error return, when the bytes are
     // not a JPEG. A single corrupt file out of thousands must cost that file
     // and nothing else, so the decode runs inside `catch_unwind`. Nothing here
     // is shared or observable after a panic, hence `AssertUnwindSafe`.
     let thumbnail = match catch_unwind(AssertUnwindSafe(|| {
-        thumbnail_jpeg(&preview, THUMBNAIL_QUALITY)
+        if jpeg {
+            thumbnail_jpeg_near(&preview, JPEG_THUMBNAIL_LONG_EDGE, THUMBNAIL_QUALITY)
+        } else {
+            thumbnail_jpeg(&preview, THUMBNAIL_QUALITY)
+        }
     })) {
         Ok(Ok(thumbnail)) => thumbnail,
         Ok(Err(e)) => return Some(Err(e.to_string())),
@@ -68,6 +83,14 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
     };
     if canceled(cancel) {
         return None;
+    }
+    if jpeg {
+        return Some(Ok(Entry {
+            orientation: arw.orientation,
+            shot: arw.shot,
+            thumbnail,
+            sharpness: None,
+        }));
     }
     let eye_af = eye_af_frame(&arw.shot);
     let focus = trusted_focus(&arw.shot);
@@ -429,6 +452,74 @@ mod tests {
         assert_eq!(tiny.sharpness, None);
         assert!(!tiny.thumbnail.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_jpeg_file_yields_its_exif_and_a_thumbnail_but_no_score() {
+        use crate::jpeg::tests::{plain_jpeg, with_exif, W};
+        let dir = dir("jpeg");
+        let w = W(false);
+        let tiff = w.tiff(
+            &[w.short(0x0112, 6)],
+            &[w.ascii(0x9003, "2026:09:27 12:34:56")],
+        );
+        let e = extract(&write(
+            &dir,
+            "a.jpg",
+            &with_exif(&plain_jpeg(64, 48), &tiff),
+        ))
+        .unwrap();
+        assert_eq!(e.orientation, 6);
+        assert_eq!(e.shot.capture_time.as_deref(), Some("2026:09:27 12:34:56"));
+        assert_eq!(e.sharpness, None);
+        assert_eq!(&e.thumbnail[..2], &[0xFF, 0xD8]);
+        let bare = extract(&write(&dir, "b.JPEG", &plain_jpeg(64, 48))).unwrap();
+        assert_eq!((bare.orientation, bare.sharpness), (1, None));
+        assert!(!bare.thumbnail.is_empty());
+        assert!(extract(&write(&dir, "c.jpg", b"not a jpeg")).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_mixed_list_of_raws_and_jpegs_delivers_every_index() {
+        use crate::jpeg::tests::plain_jpeg;
+        let dir = dir("mixed");
+        let paths: Vec<PathBuf> = (0..8)
+            .map(|i| {
+                if i % 2 == 0 {
+                    write(&dir, &format!("{i}.ARW"), &fixture(3, &jpeg(64, 48)))
+                } else {
+                    write(&dir, &format!("{i}.jpg"), &plain_jpeg(64, 48))
+                }
+            })
+            .collect();
+        let seen = Mutex::new(Vec::new());
+        extract_all(
+            &paths,
+            4,
+            |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let mut seen = seen.into_inner().unwrap();
+        seen.sort();
+        assert_eq!(
+            seen,
+            (0..8)
+                .map(|i| (i, if i % 2 == 0 { 3u16 } else { 1 }))
+                .collect::<Vec<_>>()
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn jpeg_and_raw_extensions_are_told_apart_in_any_case() {
+        for name in ["a.jpg", "a.JPG", "a.jpeg", "a.JpEg"] {
+            assert!(is_jpeg_file(Path::new(name)) && !is_raw_file(Path::new(name)));
+        }
+        for name in ["a.ARW", "a.png", "a.jpg.xmp", "jpg"] {
+            assert!(!is_jpeg_file(Path::new(name)), "{name}");
+        }
     }
 
     #[test]
