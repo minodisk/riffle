@@ -2145,8 +2145,9 @@ function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
 
 // The strip's inline edit confirmed a new name. The session's judgments move
 // to the new path (the index rows already have), so the cell keeps its marks
-// and its place in the sort, and the rescan anchored on the new path shows
-// the new name without moving the strip.
+// and its place in the sort. When the renamed file is still the focused one,
+// the meta pane's name is patched directly and the rescan re-anchors on the
+// new path; otherwise the focus the user has since moved to is left alone.
 function renameFile(path: string, name: string): void {
   if (openDir === null) {
     return;
@@ -2158,6 +2159,9 @@ function renameFile(path: string, name: string): void {
       if (dir !== openDir || token !== folderToken) {
         return;
       }
+      // Read before the maps below are touched: the user may have moved on
+      // to another file while the invoke was in flight.
+      const focused = files[index] === path;
       moveKey(ratings, path, newPath);
       moveKey(flags, path, newPath);
       moveKey(labels, path, newPath);
@@ -2170,15 +2174,21 @@ function renameFile(path: string, name: string): void {
       if (touched.delete(path)) {
         touched.add(newPath);
       }
-      // An undo of the old path would `set_rating` a file that is gone and
-      // mint an orphan sidecar.
-      const gone = (entry: Judgment) => entry.path === path;
-      history.removeWhere((batch) => batch.every(gone));
-      redoable.removeWhere((batch) => batch.every(gone));
+      // Move the renamed file's judgments onto its new path so undo /
+      // redo still targets the file instead of the old, now nonexistent
+      // path (which would `set_rating` a gone file and mint an orphan
+      // sidecar).
+      const moved = (entry: Judgment) =>
+        entry.path === path ? { ...entry, path: newPath } : entry;
+      history.map((batch) => batch.map(moved));
+      redoable.map((batch) => batch.map(moved));
+      if (focused && meta !== null) {
+        meta = { ...meta, name: baseName(newPath) };
+      }
       if (warning !== null) {
         setStatus(warning);
       }
-      resync(newPath);
+      resync(focused ? newPath : undefined);
     },
     (err: unknown) => {
       if (dir !== openDir || token !== folderToken) {
