@@ -939,10 +939,10 @@ pub async fn faces_of(path: String) -> Result<FacesResponse, String> {
 /// tasks with no ordering guarantee between them, and likewise for
 /// `start_scan`).
 #[derive(Default)]
-pub struct Scans(Mutex<ScansState>);
+pub struct Scans(pub(crate) Mutex<ScansState>);
 
 #[derive(Default)]
-struct ScansState {
+pub(crate) struct ScansState {
     next_id: u64,
     /// The id `scan_folder` most recently handed out. Both `scan_folder`
     /// (before inserting into `pending`) and `start_scan` (before storing
@@ -973,7 +973,7 @@ impl ScansState {
     /// its id and not yet returned, a prepared scan waiting for `start_scan`,
     /// or a spawned scan task that has not yet run to completion. The single
     /// definition every guard uses.
-    fn scanning(&self) -> bool {
+    pub(crate) fn scanning(&self) -> bool {
         self.preparing > 0 || self.running.is_some() || !self.pending.is_empty()
     }
 
@@ -1980,7 +1980,7 @@ pub fn preview_pixel_limit() -> Option<u32> {
 
 /// The message shown when the button is pressed while a scan is running. The
 /// clear is refused rather than canceling the scan.
-const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
+pub(crate) const SCAN_RUNNING: &str = "a scan is running; wait for it to finish";
 
 /// Format `bytes` for display with plain `B`/`KB`/`MB`/`GB` labels: whole
 /// bytes below `base`, one decimal above it. Steps up a unit once the

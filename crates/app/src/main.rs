@@ -6,6 +6,7 @@ mod folders;
 mod index;
 mod mcp;
 mod photolab;
+mod rename;
 mod sequence;
 mod shortcuts;
 mod sidecar;
@@ -621,6 +622,7 @@ fn main() {
             commands::index_size,
             commands::clear_index,
             commands::trash_rejected,
+            rename::rename_folder,
             sequence::sequence_preview,
             sequence::sequence_run,
             sequence::sequence_cancel,

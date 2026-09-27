@@ -42,7 +42,7 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 
 ## Steps
 
-- [ ] Step 1: Backend folder rename: name validation, index prefix rewrite, watcher release and the `rename_folder` command
+- [x] Step 1: Backend folder rename: name validation, index prefix rewrite, watcher release and the `rename_folder` command
   - Done when:
     - A new module `crates/app/src/rename.rs` holds a pure
       `check_name(name: &str) -> Result<(), String>` (rejects empty, `.`,

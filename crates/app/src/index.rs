@@ -968,6 +968,65 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
+    /// Move every row of the folder `old` and of the folders under it to
+    /// `new`, in one transaction: the `dir` and `path` of `files` and
+    /// `ratings`, and the `dir` and `last_viewed` of `folders`. Every other
+    /// column is kept, so nothing is re-extracted and no dirty judgment is
+    /// lost. Rows already stored under `new` belong to a folder that no
+    /// longer exists there (the rename's target did not exist) and are
+    /// dropped first, or they would collide with the moved ones. Returns the
+    /// number of `files` rows moved.
+    ///
+    /// "Under" is matched with `substr` on `old` plus the separator rather
+    /// than `LIKE`, whose `_` and `%` are ordinary path characters.
+    pub fn rename_dir(&mut self, old: &str, new: &str) -> Result<usize, String> {
+        if old == new {
+            return Ok(0);
+        }
+        let old_prefix = format!("{old}{}", std::path::MAIN_SEPARATOR);
+        let new_prefix = format!("{new}{}", std::path::MAIN_SEPARATOR);
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        for table in ["files", "ratings", "folders"] {
+            tx.execute(
+                &format!(
+                    "DELETE FROM {table}
+                     WHERE dir = ?1 OR substr(dir, 1, length(?2)) = ?2"
+                ),
+                params![new, new_prefix],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        let mut moved = 0;
+        for table in ["files", "ratings"] {
+            let count = tx
+                .execute(
+                    &format!(
+                        "UPDATE {table}
+                         SET dir = ?2 || substr(dir, length(?1) + 1),
+                             path = ?2 || substr(path, length(?1) + 1)
+                         WHERE dir = ?1 OR substr(dir, 1, length(?3)) = ?3"
+                    ),
+                    params![old, new, old_prefix],
+                )
+                .map_err(|e| e.to_string())?;
+            if table == "files" {
+                moved = count;
+            }
+        }
+        tx.execute(
+            "UPDATE folders
+             SET dir = ?2 || substr(dir, length(?1) + 1),
+                 last_viewed = CASE WHEN substr(last_viewed, 1, length(?3)) = ?3
+                     THEN ?2 || substr(last_viewed, length(?1) + 1)
+                     ELSE last_viewed END
+             WHERE dir = ?1 OR substr(dir, 1, length(?3)) = ?3",
+            params![old, new, old_prefix],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(moved)
+    }
+
     /// The raw `orientation` column of one file, `None` when the index has
     /// no row for it, `Some(None)` when the row has no Orientation (an
     /// error row, or a not-yet-extracted one).
@@ -3475,6 +3534,71 @@ pub(crate) mod tests {
         assert!(opened_at(&index, "d").unwrap() >= before);
         index.reconcile("d", &[]).unwrap();
         assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn rename_dir_moves_the_folder_and_its_subfolders_but_not_a_prefix_sibling() {
+        let dir = temp_dir("rename-dir");
+        let mut index = open(&dir);
+        let photos = dir.join("photos");
+        let sub = photos.join("sub");
+        let sibling = dir.join("photos2");
+        let renamed = dir.join("shoot");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+        for folder in [&photos, &sub, &sibling] {
+            index
+                .write_batch(&s(folder), &[(synthetic(folder, 0), Ok(entry()))])
+                .unwrap();
+        }
+        let a = s(&photos.join("00000.ARW"));
+        let b = s(&sub.join("00000.ARW"));
+        let c = s(&sibling.join("00000.ARW"));
+        index
+            .set_rating(&s(&photos), &a, Some(3), Flag::Pick, Some("Red"), true)
+            .unwrap();
+        index
+            .set_rating(&s(&sibling), &c, Some(1), Flag::None, None, true)
+            .unwrap();
+        index.set_last_viewed(&s(&photos), &a).unwrap();
+        index.set_last_viewed(&s(&sub), &b).unwrap();
+        index.set_last_viewed(&s(&sibling), &c).unwrap();
+
+        assert_eq!(index.rename_dir(&s(&photos), &s(&renamed)).unwrap(), 2);
+
+        assert!(index.entries(&s(&photos)).unwrap().is_empty());
+        assert!(index.entries(&s(&sub)).unwrap().is_empty());
+        let moved = index.entries(&s(&renamed)).unwrap();
+        assert_eq!(moved.len(), 1);
+        assert_eq!(moved[0].path, s(&renamed.join("00000.ARW")));
+        assert!(moved[0].has_thumb);
+        let moved_sub = index.entries(&s(&renamed.join("sub"))).unwrap();
+        assert_eq!(moved_sub[0].path, s(&renamed.join("sub").join("00000.ARW")));
+        assert_eq!(
+            index.dirty_rows(&s(&renamed)).unwrap(),
+            vec![(
+                s(&renamed.join("00000.ARW")),
+                Some(3),
+                Flag::Pick,
+                Some("Red".to_string()),
+                true
+            )]
+        );
+        assert!(index.dirty_rows(&s(&photos)).unwrap().is_empty());
+        assert_eq!(
+            index.last_viewed(&s(&renamed)).unwrap(),
+            Some(s(&renamed.join("00000.ARW")))
+        );
+        assert_eq!(
+            index.last_viewed(&s(&renamed.join("sub"))).unwrap(),
+            Some(s(&renamed.join("sub").join("00000.ARW")))
+        );
+        assert_eq!(index.last_viewed(&s(&photos)).unwrap(), None);
+
+        assert_eq!(index.entries(&s(&sibling)).unwrap()[0].path, c);
+        assert_eq!(index.dirty_rows(&s(&sibling)).unwrap().len(), 1);
+        assert_eq!(index.last_viewed(&s(&sibling)).unwrap(), Some(c));
 
         remove_temp_dir(&dir);
     }
