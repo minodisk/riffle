@@ -716,14 +716,20 @@ http://127.0.0.1:41917/mcp` fallback form. Files: `crates/app/ui/src/mcp.ts`,
 ### App: the settings window's Copy buttons are unverified across webviews
 
 `navigator.clipboard.writeText` for the MCP settings tab's Copy buttons was not
-checked in a running app on Linux (WebKitGTK), Windows, or macOS. Files:
-`crates/app/ui/src/settings.ts`.
+checked in a running app on Linux (WebKitGTK), Windows, or macOS. The same
+unverified call is used by the folder tree's `Copy Path` / `Copy Folder Name`
+context-menu items. Files: `crates/app/ui/src/settings.ts`,
+`crates/app/ui/src/main.ts`.
 
 #### TODO
 
 - [ ] Verify the settings window's Copy buttons in the Linux (WebKitGTK) and
       Windows / macOS webviews, and confirm the select-text fallback fires
       when the write is refused.
+- [ ] Verify the folder tree's `Copy Path` / `Copy Folder Name` items the same
+      way; if a webview refuses the write, switch to
+      `tauri-plugin-clipboard-manager` with a
+      `clipboard-manager:allow-write-text` capability.
 
 ### App: the MCP `get_view` tool is unverified against a running app
 
