@@ -988,3 +988,20 @@ Renaming `a.ARW` carries the DNG's sidecar away.
 
 - [ ] Make a rename (and the trash) leave a `.xmp` another RAW of the same
       stem still uses, or refuse with a message.
+
+### Tooling: `mise run fmt` does not work on Windows
+
+`mise run fmt`'s `[tasks.fmt]` runs `pnpm exec vp fmt`, which hits the same
+`.cmd` shim / POSIX PATH problem on Windows that `[tasks.test]` already works
+around by invoking `node ./node_modules/vite-plus/bin/vp` directly instead of
+`pnpm exec vp`. Found while working the `undo-selection` plan (Windows), where
+`cargo fmt` had to be run instead and formatting was verified via `mise run
+ci`'s lint task.
+
+#### TODO
+
+- [ ] Change `[tasks.fmt]` in `mise.toml` to call
+      `node ./node_modules/vite-plus/bin/vp fmt`, as `[tasks.test]` does for
+      `vp test`.
+- [ ] Done when `mise run fmt` succeeds on Windows without `Command "vp" not
+      found`, and `mise run ci` still passes.

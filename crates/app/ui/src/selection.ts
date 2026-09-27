@@ -81,6 +81,18 @@ export function prune(selection: Selection, files: readonly string[], focused: n
   return { selected, anchor };
 }
 
+// A single-file undo / redo that restores `path` while `shown` was focused:
+// when it moves the focus onto a visible `path`, that file alone is selected,
+// as an arrow key would leave it; otherwise the selection stays.
+export function restore(
+  selection: Selection,
+  files: readonly string[],
+  shown: string | undefined,
+  path: string,
+): Selection {
+  return path !== shown && files.includes(path) ? single(path) : selection;
+}
+
 // The files a judgment applies to, in `files` order.
 export function targets(selection: Selection, files: readonly string[], focused: number): string[] {
   const path = files[focused];
