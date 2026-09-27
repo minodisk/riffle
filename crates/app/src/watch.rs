@@ -119,6 +119,30 @@ pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
     }
 }
 
+/// Drop the watcher when the watched folder is the canonical `dir` or under
+/// it, releasing the directory handle that on Windows keeps `dir` from being
+/// renamed; a watch on any other folder is left alone. Returns the watched
+/// dir and its owner string when one was dropped, so the caller can restore
+/// it with `set` if whatever it released the watch for fails. The next `set`
+/// (with the same or a different dir) watches again.
+pub fn release_under(app: &tauri::AppHandle, dir: &str) -> Option<(String, String)> {
+    let state = app.state::<Watch>();
+    let mut state = crate::index::lock(&state.0);
+    release(&mut state, dir)
+}
+
+fn release(state: &mut State, dir: &str) -> Option<(String, String)> {
+    let watched = state.dir.as_deref()?;
+    if !Path::new(watched).starts_with(dir) {
+        return None;
+    }
+    let watched = watched.to_string();
+    let owner = crate::index::lock(&state.owner).clone();
+    state.watcher = None;
+    state.dir = None;
+    Some((watched, owner))
+}
+
 /// Whether an event over `paths` is worth a rescan: no, only when every path
 /// is a sidecar of either format or a sidecar write temporary, which is what
 /// the app's own writes produce. An event without paths says nothing, so it
@@ -193,6 +217,76 @@ mod tests {
         assert!(triggers(&paths(&["a.dng"])));
         assert!(triggers(&paths(&["a.xmp", "b.arw"])));
         assert!(triggers(&[]));
+    }
+
+    /// A state watching `dir` for real, as `set` leaves it.
+    fn watching(dir: &Path) -> State {
+        let mut watcher = notify::recommended_watcher(|_| {}).unwrap();
+        watcher.watch(dir, RecursiveMode::NonRecursive).unwrap();
+        State {
+            dir: Some(dir.to_string_lossy().into_owned()),
+            watcher: Some(watcher),
+            tx: std::sync::mpsc::channel().0,
+            owner: Arc::new(Mutex::new(String::new())),
+        }
+    }
+
+    #[test]
+    fn release_drops_a_watch_on_the_folder_or_under_it_and_keeps_a_sibling() {
+        let root =
+            std::env::temp_dir().join(format!("riffle-watch-release-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dir = root.join("photos");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(root.join("photos2")).unwrap();
+        let root = std::fs::canonicalize(&root).unwrap();
+        let dir = root.join("photos");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+
+        let mut state = watching(&dir);
+        assert!(release(&mut state, &s(&root.join("photos2"))).is_none());
+        assert!(release(&mut state, &s(&root.join("pho"))).is_none());
+        assert!(state.watcher.is_some());
+        assert_eq!(state.dir, Some(s(&dir)));
+
+        assert_eq!(
+            release(&mut state, &s(&dir)),
+            Some((s(&dir), String::new()))
+        );
+        assert!(state.watcher.is_none());
+        assert_eq!(state.dir, None);
+        assert!(release(&mut state, &s(&dir)).is_none());
+
+        let mut state = watching(&dir);
+        assert_eq!(
+            release(&mut state, &s(&root)),
+            Some((s(&dir), String::new()))
+        );
+        assert!(state.watcher.is_none());
+        assert_eq!(state.dir, None);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn release_returns_the_watched_dir_and_owner() {
+        let root =
+            std::env::temp_dir().join(format!("riffle-watch-release-owner-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dir = root.join("photos");
+        std::fs::create_dir_all(&dir).unwrap();
+        let root = std::fs::canonicalize(&root).unwrap();
+        let dir = root.join("photos");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+
+        let mut state = watching(&dir);
+        *crate::index::lock(&state.owner) = "/OpenDir/photos".to_string();
+        assert_eq!(
+            release(&mut state, &s(&dir)),
+            Some((s(&dir), "/OpenDir/photos".to_string()))
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

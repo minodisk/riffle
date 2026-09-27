@@ -42,7 +42,7 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 
 ## Steps
 
-- [ ] Step 1: Backend folder rename: name validation, index prefix rewrite, watcher release and the `rename_folder` command
+- [x] Step 1: Backend folder rename: name validation, index prefix rewrite, watcher release and the `rename_folder` command
   - Done when:
     - A new module `crates/app/src/rename.rs` holds a pure
       `check_name(name: &str) -> Result<(), String>` (rejects empty, `.`,
@@ -64,10 +64,12 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       the platform separator (not `LIKE`, whose `_` / `%` would match path
       characters). Rows keep their `thumb`, `extractor`, `faces_extractor`,
       `dirty` and `xmp_*` columns untouched.
-    - `watch::release_under(app, dir: &str) -> bool` in
+    - `watch::release_under(app, dir: &str) -> Option<(String, String)>` in
       `crates/app/src/watch.rs` drops the watcher (and clears `State::dir`)
       when the watched canonical folder is `dir` or under it, and leaves it
-      alone otherwise; it returns whether it dropped one. `set` is unchanged.
+      alone otherwise; it returns the watched dir and its owner string when
+      it dropped one, so a caller that could not use the release for what it
+      released it for can put the watch back with `set`. `set` is unchanged.
     - A `rename_folder(app, dir: String, name: String) -> Result<Renamed, String>`
       Tauri command in `rename.rs` (commands live in their feature module, as
       in `sequence.rs` and `folders.rs`), registered in
@@ -76,22 +78,27 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       message (make the constant `pub(crate)`); `folder_target`; in
       `spawn_blocking`: `writer.flush(DRAIN_TIMEOUT)`, take the `Scans` lock
       and re-check `scanning()`, canonicalize `dir` to `old_canonical`,
-      `watch::release_under`, `std::fs::rename` (its error is returned as
-      `"{name}: {io error}"` and nothing else changes), canonicalize the new
-      path to `new_canonical`, then `Index::rename_dir(old_canonical,
-      new_canonical)`. An index failure after a successful rename is logged
-      with `log::warn!` and returned as an error whose text says the folder
-      was renamed but its cache was not (the rows are simply re-extracted on
-      the next open). `Renamed { path: String }` carries the new path spelled
-      the tree's way (`dir`'s parent joined with `name`, not the canonical
-      one), so the frontend can rebase its own strings.
+      `watch::release_under`, `std::fs::rename`. If the rename fails, the
+      released watch (if any) is set back with `watch::set` before the error
+      (`"{name}: {io error}"`) is returned, so a failed rename really changes
+      nothing. On success, canonicalize the new path to `new_canonical`, then
+      `Index::rename_dir(old_canonical, new_canonical)`. An index failure
+      after a successful rename is logged with `log::warn!` but still
+      returned as `Ok`: the disk has already moved, so the caller must rebase
+      and reopen under the new path regardless; the `Ok` carries a warning
+      whose text says the folder was renamed but its cache was not (the rows
+      are simply re-extracted on the next open). `Renamed { path: String,
+      warning: Option<String> }` carries the new path spelled the tree's way
+      (`dir`'s parent joined with `name`, not the canonical one), so the
+      frontend can rebase its own strings, and the warning (if any) for the
+      status line.
     - Tests: `check_name` and `folder_target` (temp-dir collision, case-only
       rename allowed, root refused) in `rename.rs`; `rename_dir` in
       `index.rs` (a folder with a subfolder, a dirty `ratings` row, a
       `last_viewed`, and a sibling folder sharing the prefix as a plain
       string, e.g. `d:\photos` vs `d:\photos2`, which must not move);
-      `release_under` in `watch.rs` (a watched temp dir is released for
-      itself and for its parent, kept for a sibling).
+      `release` in `watch.rs` (a watched temp dir is released for itself and
+      for its parent with its dir and owner returned, kept for a sibling).
     - `CLAUDE.md`'s Layout paragraph names `src/rename.rs`.
     - `mise run ci` passes.
   - Implementation approach:
@@ -180,14 +187,16 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       `scan_folder`. When it is unrelated, nothing but the tree changes.
     - A backend error (collision, invalid name, OS error, scan running) shows
       in the status line via `setStatus(String(err))`; the row shows its old
-      name again.
+      name again. A successful `Renamed` with a `warning` still rebases and
+      reopens as above, and additionally shows the warning via `setStatus`.
     - `README.md` and `README.ja.md` (in sync) and `docs/usage.md`'s
       folder-tree paragraph mention `Rename…`, the slow second click on the
       open folder's name, the keys (Enter / Escape / click away) and the note
       that the open folder is reopened under its new name.
     - `mise run ci` passes.
   - Implementation approach:
-    - Assumes Step 1 is merged (`rename_folder`, `Renamed.path`).
+    - Assumes Step 1 is merged (`rename_folder`, `Renamed.path`,
+      `Renamed.warning`).
     - `folders.ts` keeps `let editing: InlineRename | null`. `render` draws
       the input for the row whose `node.path === editing.path` (an
       `<input type="text" class="name">` in place of the `.name` span,
@@ -449,4 +458,4 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete

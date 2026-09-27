@@ -41,7 +41,9 @@ draws on demand through the scan's `detect_around` without touching the index,
 and the filter menu, `src/folders.rs` the folder tree's commands (the
 home and volume roots, one folder's subfolders and RAW count, and
 `reveal_folder`, the right-click item that reveals a folder in the OS file
-manager under the per-platform `REVEAL_LABEL`), `src/sequence.rs` the
+manager under the per-platform `REVEAL_LABEL`), `src/rename.rs` the
+`rename_folder` command (it checks the new name, releases the folder watcher,
+renames the folder and carries its index rows to the new path), `src/sequence.rs` the
 `File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
