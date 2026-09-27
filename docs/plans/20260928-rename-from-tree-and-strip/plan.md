@@ -329,14 +329,15 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       arriving mid-edit (a `folder-changed` resync, a filter change) cancels
       the edit, since the cell's index may no longer name the same file, and
       disarms a pending slow click.
-    - On success `main.ts` drops the old path from `ratings`, `flags`,
-      `labels`, `sharpness`, `touched` and removes undo / redo batches that
-      only reference it (as `trashRejected` does, `main.ts` around
-      `history.removeWhere`), then calls `resync()` anchored on the new path,
-      so the strip keeps its scroll, the renamed cell shows the new name and
-      its rating / flag / label come back from the rewritten index rows.
-      `resync` takes an optional `anchor` parameter for this; its default
-      stays `files[index]`.
+    - On success `main.ts` moves the old path's `ratings`, `flags`, `labels`,
+      `sharpness`, `touched` entry and any undo / redo batch that references
+      it onto the new path (so undo / redo keeps targeting the file instead
+      of the old, now nonexistent one), and patches `allFiles` / `files` /
+      `fileIndex` in place immediately, before calling `resync()`. The
+      in-place patch keeps `files[index]` correct even when a scan starts
+      while the `rename_file` invoke is in flight (e.g. the window lost and
+      regained focus), so `resync()` needs no explicit anchor: its default,
+      `files[index]` read at the time it actually runs, is already right.
     - Errors show in the status line; the disk and the UI are unchanged (the
       cell shows its old name again).
     - `README.md`, `README.ja.md` and `docs/usage.md`'s filmstrip paragraph

@@ -238,9 +238,6 @@ let currentScan = 0;
 // arrived while one was, the way `refreshEntries` keeps one read in flight.
 let resyncInFlight = false;
 let resyncPending = false;
-// The file a rescan asked for with an explicit anchor (a renamed file's new
-// path) lands on, kept across the rescan's deferral.
-let resyncAnchor: string | undefined;
 // Reserved by the picker before its dialog opens, and minted by a drop only
 // once its dropped path has resolved (see `newFolderToken` and `dropCounter`
 // below). When two folder opens race, the `list_arw` result of the one whose
@@ -2145,9 +2142,15 @@ function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
 
 // The strip's inline edit confirmed a new name. The session's judgments move
 // to the new path (the index rows already have), so the cell keeps its marks
-// and its place in the sort. When the renamed file is still the focused one,
-// the meta pane's name is patched directly and the rescan re-anchors on the
-// new path; otherwise the focus the user has since moved to is left alone.
+// and its place in the sort. `allFiles` / `files` / `fileIndex` are patched
+// in place immediately (not just left to the trailing rescan), because a
+// scan can start while the invoke is in flight (e.g. the window lost and
+// regained focus, firing `resync()`); leaving `files` on the old, now
+// nonexistent path until that scan's `faces-done` would let a judgment key
+// pressed in between rate a gone file. With `files` already current, the
+// rescan needs no special anchor: its default (`files[index]` at the time it
+// actually runs) is already right, whether that is now or after a deferred
+// scan drains.
 function renameFile(path: string, name: string): void {
   if (openDir === null) {
     return;
@@ -2182,13 +2185,23 @@ function renameFile(path: string, name: string): void {
         entry.path === path ? { ...entry, path: newPath } : entry;
       history.map((batch) => batch.map(moved));
       redoable.map((batch) => batch.map(moved));
+      const allAt = allFiles.indexOf(path);
+      if (allAt !== -1) {
+        allFiles[allAt] = newPath;
+      }
+      const at = fileIndex.get(path);
+      if (at !== undefined) {
+        files[at] = newPath;
+        fileIndex.delete(path);
+        fileIndex.set(newPath, at);
+      }
       if (focused && meta !== null) {
         meta = { ...meta, name: baseName(newPath) };
       }
       if (warning !== null) {
         setStatus(warning);
       }
-      resync(focused ? newPath : undefined);
+      resync();
     },
     (err: unknown) => {
       if (dir !== openDir || token !== folderToken) {
@@ -2338,12 +2351,9 @@ function startScan(folder: string): Promise<void> {
 //
 // The same open, so no new folder token is minted: a listing that lands after
 // another folder was opened is dropped by the guard below.
-function resync(anchor?: string): void {
+function resync(): void {
   if (openDir === null) {
     return;
-  }
-  if (anchor !== undefined) {
-    resyncAnchor = anchor;
   }
   // A rescan while a scan runs would cancel and restart it (`scan_folder`
   // joins the running scan first), so it waits for `faces-done` instead. A
@@ -2354,8 +2364,7 @@ function resync(anchor?: string): void {
   }
   const dir = openDir;
   const token = folderToken;
-  const target = resyncAnchor ?? files[index];
-  resyncAnchor = undefined;
+  const target = files[index];
   resyncInFlight = true;
   window.__TAURI__.core
     .invoke<string[]>("list_arw", { dir })
@@ -2440,7 +2449,6 @@ function openDirectory(folder: string, token: number): Promise<void> {
     progressRefreshedFor = null;
     setScanRunning(false);
     resyncPending = false;
-    resyncAnchor = undefined;
     void startScan(folder);
     if (files.length === 0) {
       meta = null;

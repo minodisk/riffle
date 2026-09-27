@@ -96,12 +96,16 @@
   the entries gone the capture-time sort would park the renamed cell at the
   end until `scan-done`'s `folder_entries` refresh, jumping the strip. Undo /
   redo batches that only reference the old path are removed, as planned.
-- `resync(anchor)` keeps an explicit anchor in `resyncAnchor` when the rescan
-  is deferred (a scan or another rescan in flight), so the deferred rescan
-  still lands on the new path rather than on `files[index]`, which is the
-  old path until the listing lands. `openDirectory` clears it with
-  `resyncPending`. Making `resync` take a parameter meant wrapping the
-  `reload-folder` listener, which passed the event object straight in.
+- Round 2 local review found that anchoring the post-rename rescan with an
+  explicit `resync(anchor)` parameter (an earlier version of this change)
+  only held when the rescan ran right away: a scan can start while the
+  `rename_file` invoke is still in flight (the window loses and regains
+  focus, firing `resync()`), and the stored anchor was then applied
+  unconditionally whenever that deferred rescan drained, regardless of
+  where the user had since moved. The fix instead patches `allFiles` /
+  `files` / `fileIndex` in place at resolve time, so `files[index]` is
+  already correct whether the rescan runs immediately or later, and
+  `resync()` needs no anchor parameter at all.
 - The slow click does not arm on a modified click (Cmd / Ctrl / Shift), which
   is a selection gesture, and `canRename` is `!scanRunning && !viewOnly`, so a
   JPEG-only folder never arms (its menu already has no `Rename…`).
