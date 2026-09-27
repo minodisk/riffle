@@ -138,3 +138,4 @@ them, and changing them would touch consistent, working UI.
   stale gray note visible next to the new orange error. Fixed by calling
   `setStatus()` (no argument in `failSequence`; `setStatus(doneStatus(payload)
   ?? undefined)` in `finishSequence`).
+- (2026-09-28) Step 1 complete
