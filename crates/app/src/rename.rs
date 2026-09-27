@@ -244,7 +244,8 @@ pub async fn rename_file(
                 Err(e) => {
                     log::warn!("renamed file {path} -> {new} but not its index rows: {e}");
                     warning = Some(format!(
-                        "the file was renamed but its cache was not ({e});                          it is rebuilt on the next open"
+                        "the file was renamed but its cache was not ({e}); \
+                         it is rebuilt on the next open"
                     ));
                 }
             }
