@@ -941,3 +941,32 @@ is.
       JPEG's embedded Exif thumbnail first. Verify with `Timing logs` in the
       GUI before choosing. Files: `crates/app/src/commands.rs` (`preview`),
       `crates/core/src/decode.rs`, `crates/app/ui/src/` decode worker.
+
+### App: PhotoLab's virtual-copy fix only works on Windows
+
+`crates/app/src/photolab.rs`'s database lookup (added in
+`docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`) is
+`#[cfg(windows)]`; `registered_uuids` returns `None` on macOS because
+PhotoLab's database location there is unknown. A fresh `.dop` for an image
+PhotoLab already registered still gets random Uuids on macOS and PhotoLab
+still imports it as a virtual copy.
+
+#### TODO
+
+- [ ] Find PhotoLab's database path on macOS and extend
+      `crates/app/src/photolab.rs`'s `database_path()` (or equivalent) to
+      cover it.
+
+### App: a busy PhotoLab database silently falls back to random Uuids
+
+`crates/app/src/photolab.rs::lookup` opens PhotoLab's database read-only with
+a 300 ms `busy_timeout`; if PhotoLab is mid-transaction past that window, the
+lookup returns `None` and the fresh `.dop` mints random Uuids, which can still
+produce a virtual copy on a registered image. The failure is logged at
+`log::debug!`, but the writer does not retry the lookup for an
+already-written sidecar.
+
+#### TODO
+
+- [ ] Decide whether to retry the lookup (and re-patch the sidecar) after a
+      busy-database miss, or leave it as a rare, logged edge case.
