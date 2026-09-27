@@ -70,6 +70,14 @@ let editing: InlineRename | null = null;
 // Set while `render` swaps the rows, so the input's removal is not taken for
 // a click away.
 let rendering = false;
+// Set while a mouse button is held, so a redraw triggered mid-press (the
+// blur-path confirm, or `renamed()` landing while the button is still down)
+// waits for the `mouseup`. `click` fires right after `mouseup`, so a render
+// during the press would still detach the row before that `click` reaches it.
+let pointerDown = false;
+// Set when a render was requested while `pointerDown`, so the `mouseup`
+// handler runs it once the press ends.
+let pendingRender = false;
 const slow = new SlowClick();
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -244,7 +252,10 @@ function finish(decision: Decision): void {
 // this ends the edit by swapping the input for a plain name span in place,
 // leaving the rest of the tree untouched, and defers the full `render()`
 // (which redraws the row with its usual listeners) past the current pointer
-// sequence with `setTimeout`.
+// sequence: while the button is still down, `requestRender` waits for the
+// `mouseup` (which comes right before that `click`) instead of a bare
+// `setTimeout`, which would only defer past the current task, not past the
+// user's still-held button.
 function finishInPlace(input: HTMLInputElement): void {
   if (editing === null || commit(editing, "confirm") === null) {
     return;
@@ -259,7 +270,18 @@ function finishInPlace(input: HTMLInputElement): void {
   if (name !== null) {
     rename(path, name);
   }
-  setTimeout(render, 0);
+  requestRender();
+}
+
+// Renders immediately, unless a mouse button is currently held (the blur or
+// the IPC round trip landed mid-press), in which case the render waits for
+// the `mouseup` that ends the pointer sequence, right before its `click`.
+function requestRender(): void {
+  if (pointerDown) {
+    pendingRender = true;
+    return;
+  }
+  render();
 }
 
 export function isEditing(): boolean {
@@ -278,7 +300,10 @@ export function renamed(oldPath: string, newPath: string, newName: string): void
   tree = renameFolder(tree, oldPath, newPath, newName);
   current = current === null ? null : (rebase(current, oldPath, newPath) ?? current);
   cursor = cursor === null ? null : (rebase(cursor, oldPath, newPath) ?? cursor);
-  render();
+  // The `rename_folder` IPC round trip can resolve while the button that
+  // started a click elsewhere is still held; defer to `mouseup` then too, for
+  // the same reason `finishInPlace` does.
+  requestRender();
 }
 
 // Expanding always re-lists, so a subfolder created since the last look
@@ -478,6 +503,23 @@ container.addEventListener("mousedown", (event) => {
 // Any click anywhere disarms a pending slow click; the arming click's own
 // `mousedown` comes before its `click`, so it arms after this.
 document.addEventListener("mousedown", cancelSlowClick);
+
+// Tracks the pointer sequence so `requestRender` can defer a redraw past it:
+// `mouseup` fires right before the `click` that a rebuild mid-press would
+// otherwise lose its target for.
+document.addEventListener("mousedown", () => {
+  pointerDown = true;
+});
+document.addEventListener("mouseup", () => {
+  pointerDown = false;
+  if (pendingRender) {
+    pendingRender = false;
+    // `click` is dispatched right after `mouseup`, before this timer's
+    // callback runs, so the render still lands after the click reaches its
+    // target.
+    setTimeout(render, 0);
+  }
+});
 
 container.addEventListener("contextmenu", (event) => {
   event.preventDefault();
