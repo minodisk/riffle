@@ -99,7 +99,7 @@ Out of scope: cleaning up virtual copies that already exist.
     - `uuid()` stays private and random; PhotoLab's upper-case form is only
       needed for minted values, so pass database values through unchanged.
 
-- [ ] Step 2: Look the RAW up in PhotoLab's database and feed the Uuids to a fresh `.dop`
+- [x] Step 2: Look the RAW up in PhotoLab's database and feed the Uuids to a fresh `.dop`
   - Done when:
     - A new module `crates/app/src/photolab.rs` (declared in `main.rs` next to
       `mod sidecar;`) offers:
@@ -264,3 +264,4 @@ Out of scope: cleaning up virtual copies that already exist.
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete

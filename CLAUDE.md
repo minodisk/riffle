@@ -42,6 +42,9 @@ manager under the per-platform `REVEAL_LABEL`), `src/sequence.rs` the
 `File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
+`src/photolab.rs` the PhotoLab database lookup that gives a fresh `.dop` the
+registered image's Source and master Item Uuids so PhotoLab does not import it
+as a virtual copy, and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
