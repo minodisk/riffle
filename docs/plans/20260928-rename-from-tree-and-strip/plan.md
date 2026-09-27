@@ -458,4 +458,4 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
