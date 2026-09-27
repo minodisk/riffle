@@ -1516,7 +1516,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use riffle_core::arw::{FocusFrame, FocusLocation, Shot};
     use riffle_core::candidate::candidate_probability;
@@ -2935,7 +2935,7 @@ mod tests {
         buf
     }
 
-    fn jpeg(w: usize, h: usize) -> Vec<u8> {
+    pub(crate) fn jpeg(w: usize, h: usize) -> Vec<u8> {
         let rgb = vec![128u8; w * h * 3];
         let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
         c.set_size(w, h);
@@ -2943,6 +2943,114 @@ mod tests {
         let mut c = c.start_compress(Vec::new()).unwrap();
         c.write_scanlines(&rgb).unwrap();
         c.finish().unwrap()
+    }
+
+    /// A `w` x `h` JPEG with an APP1 Exif segment spliced after SOI: a
+    /// little-endian TIFF whose IFD0 holds `orientation` and whose Exif IFD
+    /// holds `DateTimeOriginal` (`capture_time`, 19 characters) and `iso`.
+    pub(crate) fn jpeg_with_exif(
+        w: usize,
+        h: usize,
+        orientation: u16,
+        capture_time: &str,
+        iso: u16,
+    ) -> Vec<u8> {
+        let ifd = |entries: &[(u16, u16, u32, u32)], out: &mut Vec<u8>| {
+            out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+            for (tag, ty, count, value) in entries {
+                out.extend_from_slice(&tag.to_le_bytes());
+                out.extend_from_slice(&ty.to_le_bytes());
+                out.extend_from_slice(&count.to_le_bytes());
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+            out.extend_from_slice(&0u32.to_le_bytes());
+        };
+        let exif_at = 8 + 2 + 2 * 12 + 4;
+        let data_at = exif_at + 2 + 2 * 12 + 4;
+        let mut tiff = b"II\x2a\x00".to_vec();
+        tiff.extend_from_slice(&8u32.to_le_bytes());
+        ifd(
+            &[(0x0112, 3, 1, orientation as u32), (0x8769, 4, 1, exif_at)],
+            &mut tiff,
+        );
+        ifd(
+            &[(0x8827, 3, 1, iso as u32), (0x9003, 2, 20, data_at)],
+            &mut tiff,
+        );
+        tiff.extend_from_slice(capture_time.as_bytes());
+        tiff.push(0);
+
+        let mut app1 = b"Exif\0\0".to_vec();
+        app1.extend_from_slice(&tiff);
+        let body = jpeg(w, h);
+        let mut out = body[..2].to_vec();
+        out.extend_from_slice(&[0xff, 0xe1]);
+        out.extend_from_slice(&((app1.len() + 2) as u16).to_be_bytes());
+        out.extend_from_slice(&app1);
+        out.extend_from_slice(&body[2..]);
+        out
+    }
+
+    #[test]
+    fn a_scanned_jpeg_has_its_exif_and_thumbnail_and_skips_the_faces_pass() {
+        let dir = temp_dir("scan-jpeg");
+        let files = [
+            file(
+                &dir,
+                "a.jpg",
+                &jpeg_with_exif(64, 48, 6, "2026:09:27 10:00:01", 400),
+            ),
+            file(
+                &dir,
+                "b.JPEG",
+                &jpeg_with_exif(64, 48, 1, "2026:09:27 10:00:00", 800),
+            ),
+        ];
+
+        let index = Mutex::new(open(&dir));
+        let summary = run_scan(
+            &index,
+            "d",
+            &files,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, _| {},
+        );
+
+        assert_eq!((summary.total, summary.errors), (2, 0));
+        let mut index = lock(&index);
+        let entries = index.entries("d").unwrap();
+        let summary: Vec<_> = entries
+            .iter()
+            .map(|e| (e.orientation, e.capture_time.as_deref()))
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                (6, Some("2026:09:27 10:00:01")),
+                (1, Some("2026:09:27 10:00:00"))
+            ]
+        );
+        assert!(entries.iter().all(|e| e.has_thumb
+            && e.sharpness.is_none()
+            && e.focus.is_none()
+            && e.exif.is_some()));
+        assert!(index.faces_todo("d").unwrap().is_empty());
+        for file in &files {
+            assert_eq!(faces_extractor(&index, &file.path), FACES_VERSION);
+            let eye_focus: Option<f64> = index
+                .conn
+                .query_row(
+                    "SELECT eye_focus FROM files WHERE path = ?1",
+                    params![file.path.to_string_lossy()],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(eye_focus, None);
+        }
+
+        remove_temp_dir(&dir);
     }
 
     #[test]

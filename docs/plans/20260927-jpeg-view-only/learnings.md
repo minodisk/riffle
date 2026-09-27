@@ -42,6 +42,49 @@
   failing the parse, unlike `arw::exif`, which errors on an out-of-range
   value.
 
+## Step 2: app backend for a JPEG-only folder
+
+- **Preview page-time measurement: backend-only, the GUI was not run.** The
+  implementation agent cannot drive the desktop app, so the `Timing logs`
+  `page invoke= decode= total=` figures were not taken. Instead the backend
+  `preview` path (`reader::read_preview`) and a full `decode::decode_rgb` of
+  its payload, as a stand-in for the webview's decode, were timed in a
+  release build on Windows (median of 5, files in the OS cache). No 24 MP
+  JPEG was on hand; the closest were two DxO exports:
+  - 5349x4012 (21.5 MP), 12.0 MB: read 3.1 ms, decode **197 ms**.
+  - 4444x3333 (14.8 MP), 9.2 MB: read 2.4 ms, decode **141 ms**.
+  - ARW 1616x1080 preview, 248 KB: read 0.6 ms, decode **9.2 ms**; a DNG's
+    1620x1080 preview, 1.07 MB: 0.9 ms / 14.7 ms.
+  So a JPEG page decodes 15-20x longer than an ARW's and ships 50x the bytes
+  over IPC: far above, as the plan anticipated.
+- **The re-encode was measured and not added.** The plan's remedy, a
+  DCT-scaled unrotated re-encode capped at 2048 px, was timed with
+  `decode::thumbnail_jpeg_near` (the same decode at the smallest `n/8`
+  covering the cap, box-average, mozjpeg encode): 2048 px at q85 took
+  **183-535 ms** in the backend (306 ms on the 21.5 MP file; 1616 px: 184-267
+  ms), then 17-34 ms to decode its 450-500 KB output. That is slower than
+  shipping the whole file and decoding it (~200 ms), because mozjpeg's
+  default trellis encode costs more than the decode it saves (the same
+  finding as "Measure before choosing a JPEG payload over raw pixels" in
+  `docs/agents/tauri-app.md`). So `preview` returns the whole JPEG, which
+  also keeps the preview at full detail; Linux's 6 MP worker limit
+  (`PREVIEW_PIXEL_LIMIT`) still resizes it in the worker. A cheaper path
+  needs a different payload, recorded below.
+- The JPEG-or-RAW rule lives in `folders::Media` (collect RAWs and JPEGs in
+  one pass, `listed()` returns the JPEGs only when there is no RAW), which
+  both `commands::read_listing` and `folders::list` use. A JPEG listing
+  clears the sidecars it collected, so `reconcile_sidecars_of` sees no stat
+  for `foo.jpg` even when `foo.xmp` sits next to it (the XMP kind maps
+  `foo.jpg` to `foo.xmp`, so without the clear it would have been parsed).
+- `set_rating` and `read_faces` refuse a non-RAW path through one
+  `raw_only(path, what)` helper; `set_rating` checks it first, before the
+  rating range. The command itself is not unit-testable, so the helper is.
+- The JPEG test fixture with an APP1 Exif (`jpeg_with_exif`) lives in
+  `index.rs`'s test module, now `pub(crate) mod tests`, and `commands.rs`'s
+  tests reuse it. Writing it through a Python heredoc turned `\x00` / `\0`
+  in the Rust byte-string literals into raw NUL bytes once; check test
+  fixtures written that way with `grep -c` for NULs.
+
 ## Deferred issues (todo candidates)
 
 - **CLI `bench` silently measures nothing for a JPEG path.** Basis: Step 1
@@ -50,3 +93,11 @@
   `Some` after `reader::read_metadata`. Either time `read_preview` /
   `read_full` for a JPEG unconditionally or reject non-RAW paths with an
   error. Files: `crates/cli/src/main.rs`, `crates/core/src/jpeg.rs`.
+- **A JPEG folder's preview decodes 15-20x longer than an ARW's.** Basis:
+  Step 2 measurement above; the plan's re-encode was slower than the full
+  decode, so `preview` sends the whole JPEG. A faster first view needs a
+  payload that skips the encode, e.g. a DCT-scaled decode (4/8 or 3/8)
+  sent as raw pixels, or reading a JPEG's embedded Exif thumbnail first. Check
+  it with `Timing logs` in the GUI before choosing. Files:
+  `crates/app/src/commands.rs` (`preview`), `crates/core/src/decode.rs`,
+  `crates/app/ui/src/` decode worker.
