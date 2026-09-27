@@ -122,4 +122,6 @@ changes.
 
 ## Progress
 
-- (none yet)
+- 2026-09-28: Step 1 done — Lightroom and Lightroom Classic ticked in both
+  READMEs, `### Lightroom` subsection added, two todo.md items removed,
+  including the approved Lightroom Classic scope extension.
