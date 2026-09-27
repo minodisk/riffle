@@ -220,8 +220,8 @@ are very welcome.
 
 ### OS
 
-- macOS
-  - [x] 26 (Apple Silicon)
+- macOS (Apple Silicon)
+  - [x] 26
 - Windows
   - [x] 11
 - Linux
@@ -255,11 +255,10 @@ rotation and the focus mark be checked.
 ### Sidecar formats and software
 
 - XMP
-  - [x] Adobe Lightroom (Windows; not Lightroom Classic)
-  - [x] Adobe Lightroom Classic (Windows, Japanese UI)
-  - [ ] Capture One
+  - [x] Adobe Lightroom
+  - [x] Adobe Lightroom Classic
 - DOP
-  - [x] DxO PhotoLab 10
+  - [x] DxO PhotoLab
 
 If the stars, flags and color labels given in Riffle show up correctly in the
 software, post in the

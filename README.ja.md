@@ -113,8 +113,8 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 
 ### OS
 
-- macOS
-  - [x] 26（Apple Silicon）
+- macOS（Apple Silicon）
+  - [x] 26
 - Windows
   - [x] 11
 - Linux
@@ -138,11 +138,10 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 ### サイドカー形式とソフト
 
 - XMP
-  - [x] Adobe Lightroom（Windows、Lightroom Classic ではないもの）
-  - [x] Adobe Lightroom Classic（Windows、日本語 UI）
-  - [ ] Capture One
+  - [x] Adobe Lightroom
+  - [x] Adobe Lightroom Classic
 - DOP
-  - [x] DxO PhotoLab 10
+  - [x] DxO PhotoLab
 
 Riffle で付けたスター、フラグ、カラーラベルがソフト上で正しく表示された場合は、Discussions の[ソフト動作報告スレッド](https://github.com/minodisk/riffle/discussions/288)に投稿してください。表示されない場合は[ソフト用の issue テンプレート](https://github.com/minodisk/riffle/issues/new?template=software.yml)から issue を立ててください。
 
