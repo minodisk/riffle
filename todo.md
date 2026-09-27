@@ -317,9 +317,9 @@ development machine, so several behaviors were never exercised by a human.
 #### TODO
 
 - [ ] Verify the burst band and count badge by hand on a real Sony and Leica
-      burst folder and note the group sizes: band visible, badge shows on
-      the first displayed cell of a burst, the badge switches to
-      `position/size` and follows the current selection, the gap above a
+      burst folder and note the group sizes: band visible, every member cell
+      shows its `position/size` (a two-digit one like `12/15` clear of the
+      sharpness bar and the file name), unchanged by the selection, the gap above a
       non-first member is filled, and the band is distinguishable from
       `.cell.current` and `.cell.failed`. Files: `crates/app/ui/src/burst.ts`,
       `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.

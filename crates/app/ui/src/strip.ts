@@ -3,7 +3,7 @@
 // renamed in place: its cell's name becomes a text input until Enter, Escape
 // or a click away ends the edit.
 
-import type { BurstMark } from "./burst.js";
+import { type BurstMark, burstBadge } from "./burst.js";
 import { FOCUS_MARK_COLORS } from "./focus.js";
 import {
   type Decision,
@@ -159,21 +159,13 @@ function paintSharpness(index: number, cell: Cell): void {
 }
 
 // A band behind the cell, joined to the next and previous member of the same
-// burst. The first displayed cell of a burst run carries the burst's size, and
-// the current cell `position/size` instead.
+// burst. Every member carries its `position/size` in the whole burst.
 function paintBurst(index: number, cell: Cell): void {
   const value = bursts.get(index);
   cell.el.classList.toggle("burst", value !== undefined);
   cell.el.classList.toggle("burst-first", value?.first === true);
   cell.el.classList.toggle("burst-last", value?.last === true);
-  cell.count.textContent =
-    value === undefined
-      ? ""
-      : index === current
-        ? `${value.position + 1}/${value.size}`
-        : value.first
-          ? String(value.size)
-          : "";
+  cell.count.textContent = burstBadge(value ?? null);
 }
 
 // A face icon at the image box's bottom-left, in the focus mark's candidate
@@ -259,7 +251,6 @@ function highlight(): void {
     cell.el.classList.toggle("current", index === current);
     cell.el.classList.toggle("selected", index !== current && selected.has(index));
     cell.el.classList.toggle("failed", failed.has(index));
-    paintBurst(index, cell);
   }
 }
 

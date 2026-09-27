@@ -354,9 +354,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   numbering: a burst is one moment, and one moment often spans several
   presses, such as pre-capture frames followed by the full press, or a quick
   re-press. A tinted band behind the strip cells joins the frames of a burst of
-  two or more. The
-  first cell of the band shows the burst's size (`7`), and the current cell
-  shows its position in the burst instead (`3/7`). `ArrowDown` jumps to the first frame of the next burst and
+  two or more. Every
+  cell of the band shows the frame's position in the burst and the burst's
+  size (`3/7`), counted over the whole burst in capture order, so a filter or
+  sort that hides or separates frames leaves the numbers as they are. `ArrowDown` jumps to the first frame of the next burst and
   `ArrowUp` to the first frame of the current one, or of the previous one
   when already there. `Alt+ArrowLeft` / `Alt+ArrowRight` (`Option` on macOS) move
   one frame at a time within the current burst and stop at its first and last

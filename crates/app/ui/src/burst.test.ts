@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
+import {
+  burstBadge,
+  burstFrameStep,
+  burstMarks,
+  burstStep,
+  groupBursts,
+  type BurstMember,
+} from "./burst.js";
 import type { SortFacts } from "./sort.js";
 
 function lookupFrom(facts: Record<string, SortFacts>): (path: string) => SortFacts {
@@ -99,6 +106,36 @@ describe("burstMarks", () => {
       { first: true, last: true, position: 0, size: 2 },
       { first: true, last: true, position: 1, size: 3 },
     ]);
+  });
+});
+
+describe("burstBadge", () => {
+  const members = new Map<string, BurstMember>([
+    ["a", { burst: 0, position: 0, size: 5 }],
+    ["b", { burst: 0, position: 1, size: 5 }],
+    ["c", { burst: 0, position: 2, size: 5 }],
+    ["d", { burst: 0, position: 3, size: 5 }],
+    ["e", { burst: 0, position: 4, size: 5 }],
+    ["f", { burst: 1, position: 0, size: 1 }],
+  ]);
+
+  test("every member shows its position and the burst's size, the first included", () => {
+    expect(burstMarks(["a", "b", "c", "d", "e"], members).map(burstBadge)).toEqual([
+      "1/5",
+      "2/5",
+      "3/5",
+      "4/5",
+      "5/5",
+    ]);
+  });
+
+  test("a split or partly hidden burst keeps its whole-burst numbering", () => {
+    expect(burstMarks(["a", "c", "e"], members).map(burstBadge)).toEqual(["1/5", "3/5", "5/5"]);
+    expect(burstMarks(["c", "f", "a"], members).map(burstBadge)).toEqual(["3/5", "", "1/5"]);
+  });
+
+  test("a file outside a burst shows nothing", () => {
+    expect(burstBadge(null)).toBe("");
   });
 });
 
