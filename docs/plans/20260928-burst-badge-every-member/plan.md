@@ -108,4 +108,4 @@ After this change every visible member of a burst shows its own `i/n`
 
 ## Progress
 
-- (none yet)
+- Step 1: done (every burst member cell shows whole-burst position/size via burstBadge; paintBurst dropped from highlight()) — https://github.com/minodisk/riffle/commit/64d0b75
