@@ -64,6 +64,21 @@ Rules:
   an async runtime worker and stalls it. Source:
   `docs/plans/20260925-folder-open-off-main-thread/`.
 
+### An index/scan mutation that must not race a rescan holds the `Scans` lock across the disk op and the index write (Hit)
+
+`rename.rs` holds `Scans`' inner mutex across the rename on disk and the
+subsequent index write, the same pattern `trash_rejected` uses. Do the same
+for any new command that both changes what is on disk and writes rows for
+it, so a scan cannot start mid-way and index the half-renamed state.
+
+A blocking-IO step inside such a command (canonicalizing/stat-ing paths)
+still goes in `spawn_blocking`, as the "Synchronous commands run on the main
+thread" entry above requires, but do the refusal checks before anything on
+disk changes and place the blocking step first, before any flush — a
+pending flush can itself create the file the refusal needs to see.
+
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Steps 1 and 3.
+
 ### Resolve shortcut overrides order-independently, not in a single pass (Hit)
 
 `from_overrides` in `crates/app/src/shortcuts.rs` checks each stored override
@@ -610,6 +625,22 @@ for the registered image's Uuids and passes them to `dop::write_rating` /
   one.
 - Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`.
 
+### `photolab::lookup` keys on folder + file `Name`; a rename does not follow through to PhotoLab or a shared sidecar (Hit)
+
+`photolab::lookup` (`crates/app/src/photolab.rs`) finds a RAW's Uuids by its
+folder and file `Name`, and a `.dop` Riffle writes carries that `Name`
+inside. `rename.rs`'s `file_plan` moves a `.dop` unchanged when a RAW is
+renamed, so the sidecar's inner `Name` and PhotoLab's own database still
+say the old name until PhotoLab re-indexes — check this against a real
+PhotoLab install before assuming the moved `.dop` still matches. Likewise,
+`file_plan`, like `trash::plan`, takes `a.xmp` as `a.ARW`'s sidecar even
+when an `a.DNG` in the same folder shares that same `a.xmp`; renaming or
+trashing `a.ARW` alone carries the DNG's sidecar away too. See
+`docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md` for
+the open follow-ups.
+
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 3 and Deferred issues.
+
 ### Removing an XMP element needs its end tag (Hit)
 
 `xmp.rs`'s `locate` takes the property's local name (`LocalName` compares
@@ -1120,6 +1151,16 @@ folder changed" event has to pick the right one.
   runs (`scanRunning`), because `scan_folder` cancels and joins the running
   scan first; a focus change during a 5000-file first scan would otherwise
   restart it. Repeat triggers collapse into the single `resyncPending` flag.
+- Do not anchor a post-mutation rescan with a parameter carrying "where to
+  restore the view" (e.g. a path/index snapshot taken at call time): a scan
+  can start while the mutating command is still in flight (window
+  focus/blur firing `resync()`), and an anchor applied unconditionally
+  whenever that deferred rescan later drains ignores anywhere the user has
+  since moved. Patch the affected arrays (`allFiles`/`files`/`fileIndex`,
+  etc.) in place at the mutation's resolve time instead, so the current
+  view is already correct whether the rescan runs immediately or later —
+  `resync()` itself then needs no anchor parameter.
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4 (round 2).
 
 ### The folder watcher cannot loop on the app's own sidecar writes (Inferred)
 
@@ -1161,6 +1202,19 @@ loaded thumbnail (24px above and below a 3:2 one).
 
 - Source: `docs/plans/_archived/20260920-aspect-independent-strip-cells/learnings.md`,
   Step 1.
+
+### An inline cell editor swaps the element in place, not by re-creating the cell (Hit)
+
+The strip's rename editor swaps a cell's `.name` span for an `<input>` in
+place (and back on end) rather than having `createCell` conditionally draw
+an input. This keeps a stable reference (`Cell.name`) valid for any repaint
+that runs mid-edit (e.g. a rating badge repaint), and lets a click that
+lands on the very cell being edited (even its own thumbnail) still resolve
+normally through `blur`, since only the input itself is detached. Whatever
+drives the render loop must not release the row under active edit and must
+cancel any live edit before a full `setFiles` replacement.
+
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4.
 
 ### Scope an id's `display` override to `:not([hidden])` when the element can also be hidden (Hit)
 
@@ -1211,6 +1265,15 @@ against `control`/`alt`/`shift`/`meta`.
 - Source: `docs/plans/20260919-color-labels/learnings.md`, Step 5,
   `docs/plans/_archived/20260920-ignore-lone-modifier-keys/learnings.md`, and
   `docs/plans/20260920-ignore-stale-ui-js/learnings.md`.
+
+### An inline text editor (rename, etc.) must treat `event.isComposing` as a native key (Hit)
+
+Any `keydown` handler for a live inline edit (folder/file rename input)
+checks `event.isComposing` first and lets the key through natively when
+true, so the `Enter` that commits an IME conversion (Japanese input, etc.)
+does not also confirm/cancel the edit.
+
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Steps 2 and 4.
 
 ### A modal dialog needs an explicit Tab trap; `inert` is unavailable (Hit)
 
