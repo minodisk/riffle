@@ -265,3 +265,4 @@ Out of scope: cleaning up virtual copies that already exist.
 
 - (2026-09-28) Step 1 complete
 - (2026-09-28) Step 2 complete
+- (2026-09-28) Step 3 complete
