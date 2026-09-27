@@ -96,7 +96,7 @@ function editor(state: InlineRename): HTMLInputElement {
   // window to come back instead of confirming.
   input.addEventListener("blur", () => {
     if (!rendering && document.hasFocus()) {
-      finish("confirm");
+      finishInPlace(input);
     }
   });
   for (const type of ["mousedown", "click", "contextmenu"]) {
@@ -140,9 +140,15 @@ function render(): void {
     row.dataset.path = node.path;
     row.title = node.path;
     row.addEventListener("click", () => {
+      if (editing?.path === node.path) {
+        return;
+      }
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
+      if (editing?.path === node.path) {
+        return;
+      }
       contextMenu(node.path, node.name, event.clientX, event.clientY, depth === 0);
     });
     const expander = document.createElement("span");
@@ -230,6 +236,30 @@ function finish(decision: Decision): void {
   if (name !== null) {
     rename(path, name);
   }
+}
+
+// The blur path's confirm: a click on another row moves focus (and so blurs
+// the input) before its own `click` fires, and `render`'s synchronous
+// `replaceChildren` would detach every row in between, losing that click. So
+// this ends the edit by swapping the input for a plain name span in place,
+// leaving the rest of the tree untouched, and defers the full `render()`
+// (which redraws the row with its usual listeners) past the current pointer
+// sequence with `setTimeout`.
+function finishInPlace(input: HTMLInputElement): void {
+  if (editing === null || commit(editing, "confirm") === null) {
+    return;
+  }
+  const { path, original, value } = editing;
+  editing = null;
+  const span = document.createElement("span");
+  span.className = "name";
+  span.textContent = original;
+  input.replaceWith(span);
+  const name = confirmName(original, value);
+  if (name !== null) {
+    rename(path, name);
+  }
+  setTimeout(render, 0);
 }
 
 export function isEditing(): boolean {
