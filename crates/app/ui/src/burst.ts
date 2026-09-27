@@ -88,6 +88,12 @@ export function burstMarks(
   });
 }
 
+// A strip cell's count badge: the file's position in the whole burst and the
+// burst's size, empty outside a burst.
+export function burstBadge(mark: BurstMark | null): string {
+  return mark === null ? "" : `${mark.position + 1}/${mark.size}`;
+}
+
 // The index `burstNext` / `burstPrevious` move to over the displayed files'
 // burst ids: the first displayed file of the next burst, or the first of the
 // current burst unless already there, else the first of the previous one.
