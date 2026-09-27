@@ -7,6 +7,7 @@ import {
   extend,
   judgments,
   prune,
+  restore,
   selectionOf,
   single,
   targets,
@@ -104,6 +105,27 @@ describe("prune", () => {
   test("keeps a visible anchor", () => {
     const multi = { selected: new Set(["/a", "/b"]), anchor: "/a" };
     expect(prune(multi, files, 1).anchor).toBe("/a");
+  });
+});
+
+describe("restore", () => {
+  test("a focus moved onto a visible file selects that file alone", () => {
+    expect(restore(single("/b"), files, "/b", "/a")).toEqual(single("/a"));
+  });
+
+  test("a changed list's pruned selection collapses too", () => {
+    const pruned = { selected: new Set(["/b", "/a"]), anchor: "/b" };
+    expect(restore(pruned, files, "/b", "/a")).toEqual(single("/a"));
+  });
+
+  test("the shown file keeps a multi-selection", () => {
+    const multi = { selected: new Set(["/a", "/b", "/c"]), anchor: "/a" };
+    expect(restore(multi, files, "/a", "/a")).toBe(multi);
+  });
+
+  test("a file the filter hides keeps the selection", () => {
+    const selection = single("/b");
+    expect(restore(selection, files, "/b", "/z")).toBe(selection);
   });
 });
 

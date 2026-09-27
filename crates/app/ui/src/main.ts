@@ -75,6 +75,7 @@ import {
   extend,
   judgments,
   prune,
+  restore,
   selectionOf,
   single,
   targets,
@@ -1292,8 +1293,9 @@ function send(
 
 // `Edit > Undo` and `Edit > Redo`: pop the most recent batch off `from`, push
 // its files' current states onto `to` and restore the popped states. A single
-// file becomes current unless the filter now hides it; a batch leaves the
-// current file where it is.
+// file becomes current unless the filter now hides it, and when the focus
+// moves it also becomes the selection; a batch leaves the current file where
+// it is.
 function step(from: History<Judgment[]>, to: History<Judgment[]>, verb: string): void {
   if (openDir === null) {
     return;
@@ -1324,6 +1326,8 @@ function step(from: History<Judgment[]>, to: History<Judgment[]>, verb: string):
   }
   const { path } = batch[0];
   commit(changes, undefined, () => (passes(path) ? path : shownPath));
+  selection = restore(selection, files, shownPath, path);
+  paintSelection();
   const at = fileIndex.get(path);
   const name = path.split(/[\\/]/).pop();
   if (at === undefined) {
