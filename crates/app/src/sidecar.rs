@@ -22,6 +22,7 @@ use riffle_core::xmp::LabelNames;
 use riffle_core::{dop, xmp, Flag};
 
 use crate::index::{self, lock, Index};
+use crate::photolab;
 
 /// Which sidecar Riffle reads and writes. `Xmp` and `Dop` are one format
 /// each, whose other format's files are neither read nor written; `Both`
@@ -106,8 +107,9 @@ impl SidecarFormat {
 
     /// `existing` (or a fresh sidecar of `arw`) with its color label set to
     /// `label`, or removed when `None`. An XMP label is written under its
-    /// name in `names`; `orientation`, the EXIF Orientation of `arw`, only
-    /// goes into a `.dop` (see `dop::write_rating`).
+    /// name in `names`; `orientation`, the EXIF Orientation of `arw`, and
+    /// `uuids`, the Uuids of a fresh sidecar, only go into a `.dop` (see
+    /// `dop::write_rating`).
     pub fn write_label(
         self,
         arw: &Path,
@@ -115,6 +117,7 @@ impl SidecarFormat {
         label: Option<&str>,
         names: &LabelNames,
         orientation: Option<u16>,
+        uuids: Option<dop::Uuids>,
     ) -> Result<Vec<u8>, String> {
         match self {
             Self::Xmp => xmp::write_label(existing, label, names),
@@ -124,14 +127,15 @@ impl SidecarFormat {
                 &raw_name(arw),
                 orientation,
                 &dop::timestamp(SystemTime::now()),
-                None,
+                uuids,
             ),
             Self::Both => unreachable!("call kinds() first"),
         }
     }
 
     /// The sidecar bytes of `arw` carrying `rating` and `flag`, patched from
-    /// `existing` or freshly minted; `orientation` as for `write_label`.
+    /// `existing` or freshly minted; `orientation` and `uuids` as for
+    /// `write_label`.
     pub fn write_rating(
         self,
         arw: &Path,
@@ -139,6 +143,7 @@ impl SidecarFormat {
         rating: Option<i8>,
         flag: Flag,
         orientation: Option<u16>,
+        uuids: Option<dop::Uuids>,
     ) -> Result<Vec<u8>, String> {
         match self {
             Self::Xmp => xmp::write_rating(existing, rating, flag),
@@ -149,7 +154,7 @@ impl SidecarFormat {
                 &raw_name(arw),
                 orientation,
                 &dop::timestamp(SystemTime::now()),
-                None,
+                uuids,
             ),
             Self::Both => unreachable!("call kinds() first"),
         }
@@ -640,22 +645,25 @@ fn write_kind(
             if rating.is_none() && flag == Flag::None && label.is_none() {
                 return Ok(None);
             }
+            let uuids = (kind == SidecarFormat::Dop)
+                .then(|| photolab::registered_uuids(arw))
+                .flatten();
             let bytes = if rating.is_none() && flag == Flag::None {
-                kind.write_label(arw, None, label, names, orientation)?
+                kind.write_label(arw, None, label, names, orientation, uuids)?
             } else {
-                let rated = kind.write_rating(arw, None, rating, flag, orientation)?;
-                kind.write_label(arw, Some(&rated), label, names, orientation)?
+                let rated = kind.write_rating(arw, None, rating, flag, orientation, uuids)?;
+                kind.write_label(arw, Some(&rated), label, names, orientation, None)?
             };
             (kind.sidecar_path(arw), bytes)
         }
         Some((target, current)) => {
-            let rated = kind.write_rating(arw, Some(current), rating, flag, orientation)?;
+            let rated = kind.write_rating(arw, Some(current), rating, flag, orientation, None)?;
             // Clearing a label that is not there would still bump the `.dop`
             // timestamps, so it is skipped.
             let bytes = if label.is_none() && kind.read_label(&rated, names)?.is_none() {
                 rated
             } else {
-                kind.write_label(arw, Some(&rated), label, names, orientation)?
+                kind.write_label(arw, Some(&rated), label, names, orientation, None)?
             };
             (target.to_path_buf(), bytes)
         }

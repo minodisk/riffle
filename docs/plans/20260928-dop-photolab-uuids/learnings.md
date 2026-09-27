@@ -17,3 +17,55 @@
 - A Python heredoc edit that wrote Rust `"\n"` escapes produced literal
   newlines inside the string; editing Rust string escapes through a second
   language's escaping is error-prone, prefer the Edit tool for those lines.
+
+## Step 2
+
+- What the real database (PhotoLab 10, read from a copy) shows:
+  - A root folder row has `ParentFolderId` NULL (not 0) and `Name` is the bare
+    drive (`D:`, no backslash). `Folders` rows are `FolderTypeDiscriminator =
+    'EFDOPVolume'` at the root.
+  - **The same drive letter can have more than one root row**: two removable
+    volumes were both registered as `E:` (told apart only by `UniqueId`, a
+    volume GUID). Two SD cards both holding `E:\DCIM\100MSDCF\_DSC0001.ARW`
+    would then match two sources. The lookup walks every matching folder chain
+    and, when the path resolves to more than one source, returns `None`
+    (random Uuids, the pre-existing behaviour) rather than guess. Covered by a
+    fixture test.
+  - `(ParentFolderId, Name)` and `(FolderId, Name)` are unique otherwise (0
+    duplicates, case-insensitively), and `Sources.Name` is the file name with
+    its extension (`_DSC0006.ARW`).
+  - `CreationDate` is text like `2026-09-27 14:41:53.855521Z`, with a
+    **variable number of fractional digits** (trailing zeros dropped), so a
+    lexical `ORDER BY CreationDate` can misorder two items within the same
+    second (`.8Z` sorts after `.81Z`). Across all 1772 sources with more than
+    one item, the lowest `Id` is never later than another item's
+    `CreationDate`, so the master query orders by `Id` alone (the plan's
+    "prefer lowest `Id`" fallback), not `CreationDate, Id`.
+  - `journal_mode` is `wal`. A read-only rusqlite open works; when no `-wal` /
+    `-shm` exist (PhotoLab closed), SQLite creates them next to the database
+    even on a read-only connection (the directory is writable). That does not
+    touch the database contents and matches what PhotoLab itself does, so no
+    `immutable=1` fallback was added (it would also ignore a live WAL and read
+    stale data).
+  - Every `Sources.Uuid` and `Items.Uuid` is upper-case 8-4-4-4-12.
+  - A throwaway test run against the copy returned the expected
+    `04B2552F-...` / `E584D7F8-...` pair for
+    `D:\Photos\tests\riffle-dop-test-E-uuid\_DSC0006.ARW`, the master (not the
+    virtual copy) for `D:\Photos\riffle-dop-test\_DSC0006.ARW` (the
+    registered, pre-move path), and `None` for the moved path.
+- Cross-platform choice: everything except the non-Windows
+  `registered_uuids` stub (which returns `None`) and the tests is
+  `#[cfg(windows)]`, and the tests are `#[cfg(all(test, windows))]`. That was
+  smaller than making the path split POSIX-aware (which nothing would use) and
+  avoids dead-code warnings on macOS / Linux. The Windows CI job runs the
+  tests.
+- `folder_names` also accepts a verbatim drive prefix (`\?\D:\...`, what
+  `canonicalize` returns); UNC and other prefixes are a plain miss.
+- Only the first write of a fresh sidecar mints, so the lookup result moves
+  into that call and the follow-up label write passes `None`.
+- A failure is logged with `log::debug!` (open error, busy, missing table);
+  a plain miss is not.
+- **Manual check pending (user)**: a registered image with no `.dop`, judged in
+  Riffle, should show the pick on the master in PhotoLab with no new virtual
+  copy; an unregistered image should still get random Uuids. Not run by the
+  implementation agent.

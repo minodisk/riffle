@@ -5,6 +5,7 @@ mod exif;
 mod folders;
 mod index;
 mod mcp;
+mod photolab;
 mod sequence;
 mod shortcuts;
 mod sidecar;

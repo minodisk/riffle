@@ -1,0 +1,307 @@
+//! The DxO PhotoLab database lookup behind a fresh `.dop`. PhotoLab matches
+//! sidecar items to its database by Uuid, so a fresh sidecar with random
+//! Uuids for an image PhotoLab has already registered is imported as a
+//! virtual copy. Reusing the registered Source Uuid and master Item Uuid makes
+//! it apply to the master instead. Windows only: the database's location on
+//! macOS is unknown, so there every fresh `.dop` gets random Uuids.
+
+use riffle_core::dop::Uuids;
+use std::path::Path;
+
+/// The Uuids PhotoLab registered for `arw`, `None` when PhotoLab's database
+/// cannot be found or does not know the file.
+#[cfg(windows)]
+pub fn registered_uuids(arw: &Path) -> Option<Uuids> {
+    lookup(&database_path()?, arw)
+}
+
+#[cfg(not(windows))]
+pub fn registered_uuids(_arw: &Path) -> Option<Uuids> {
+    None
+}
+
+/// The newest `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` that exists.
+#[cfg(windows)]
+fn database_path() -> Option<std::path::PathBuf> {
+    let dxo = Path::new(&std::env::var_os("APPDATA")?).join("DxO");
+    std::fs::read_dir(&dxo)
+        .ok()?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let version = version(entry.file_name().to_str()?)?;
+            let db = entry.path().join("Database").join("PhotoLab.db");
+            db.is_file().then_some((version, db))
+        })
+        .max_by_key(|(version, _)| *version)
+        .map(|(_, db)| db)
+}
+
+/// `N` of a `DxO PhotoLab N` directory name.
+#[cfg(windows)]
+fn version(name: &str) -> Option<u32> {
+    let n = name.strip_prefix("DxO PhotoLab ")?;
+    if n.is_empty() || !n.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    n.parse().ok()
+}
+
+/// The Source Uuid and master Item Uuid `db` holds for `arw`, `None` on any
+/// failure or when the file is not registered. A failure (rather than a plain
+/// miss) is logged at debug level.
+#[cfg(windows)]
+pub fn lookup(db: &Path, arw: &Path) -> Option<Uuids> {
+    query(db, arw).unwrap_or_else(|e| {
+        log::debug!(
+            "PhotoLab lookup of {} in {} failed: {e}",
+            arw.display(),
+            db.display()
+        );
+        None
+    })
+}
+
+/// The folder is walked from its drive root one `Folders` row per path
+/// component; names compare through the columns' `COLLATE NOCASE`. A path
+/// that maps to more than one source (two removable volumes registered under
+/// the same drive letter) is treated as unregistered.
+#[cfg(windows)]
+fn query(db: &Path, arw: &Path) -> rusqlite::Result<Option<Uuids>> {
+    use rusqlite::{Connection, OpenFlags, OptionalExtension};
+
+    let Some(parts) = folder_names(arw) else {
+        return Ok(None);
+    };
+    let Some(file) = arw.file_name().and_then(|n| n.to_str()) else {
+        return Ok(None);
+    };
+    let conn = Connection::open_with_flags(
+        db,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    conn.busy_timeout(std::time::Duration::from_millis(300))?;
+
+    let mut roots =
+        conn.prepare("SELECT Id FROM Folders WHERE ParentFolderId IS NULL AND Name = ?")?;
+    let mut children =
+        conn.prepare("SELECT Id FROM Folders WHERE ParentFolderId = ? AND Name = ?")?;
+    let mut sources =
+        conn.prepare("SELECT Id, Uuid FROM Sources WHERE FolderId = ? AND Name = ?")?;
+    let mut master =
+        conn.prepare("SELECT Uuid FROM Items WHERE SourceId = ? ORDER BY Id LIMIT 1")?;
+
+    let (root, rest) = parts.split_first().expect("folder_names yields the root");
+    let mut folders = roots
+        .query_map([root], |row| row.get::<_, i64>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for name in rest {
+        let mut next = Vec::new();
+        for parent in &folders {
+            for id in children.query_map(rusqlite::params![parent, name], |row| row.get(0))? {
+                next.push(id?);
+            }
+        }
+        folders = next;
+    }
+    let mut found = Vec::new();
+    for folder in &folders {
+        for source in sources.query_map(rusqlite::params![folder, file], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })? {
+            found.push(source?);
+        }
+    }
+    let [(source_id, source)] = found.as_slice() else {
+        return Ok(None);
+    };
+    let Some(item) = master
+        .query_row([source_id], |row| row.get::<_, String>(0))
+        .optional()?
+    else {
+        return Ok(None);
+    };
+    Ok((is_uuid(&item) && is_uuid(source)).then(|| Uuids {
+        item,
+        source: source.clone(),
+    }))
+}
+
+/// The `Folders` names of `arw`'s parent: the drive (`D:`) then each
+/// directory. `None` for a path not under a plain drive letter.
+#[cfg(windows)]
+fn folder_names(arw: &Path) -> Option<Vec<String>> {
+    use std::path::{Component, Prefix};
+
+    let mut names = Vec::new();
+    for component in arw.parent()?.components() {
+        match component {
+            Component::Prefix(prefix) => match prefix.kind() {
+                Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => {
+                    names.push(format!("{}:", letter as char));
+                }
+                _ => return None,
+            },
+            Component::RootDir => {}
+            Component::Normal(name) => names.push(name.to_str()?.to_owned()),
+            Component::CurDir | Component::ParentDir => return None,
+        }
+    }
+    (names.len() > 1 && names[0].ends_with(':')).then_some(names)
+}
+
+/// Whether `s` has the 8-4-4-4-12 hex shape of a UUID. The `.dop` template
+/// writes the Uuids between quotes unescaped, so a value read from another
+/// program's database must not be able to break the Lua literal.
+#[cfg(windows)]
+fn is_uuid(s: &str) -> bool {
+    let groups: Vec<&str> = s.split('-').collect();
+    groups.len() == 5
+        && groups
+            .iter()
+            .zip([8, 4, 4, 4, 12])
+            .all(|(g, len)| g.len() == len && g.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+    use std::path::PathBuf;
+
+    const SOURCE: &str = "E584D7F8-131A-4EC5-B191-5E5C570A2F9B";
+    const MASTER: &str = "04B2552F-D026-4597-9695-AA245AEB0132";
+    const COPY: &str = "9FEF2691-2E05-4189-9C48-B0EB7C83D320";
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("riffle-app-photolab-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A database holding `D:\Photos\tests\shoot\_DSC0001.ARW` with a master
+    /// and a virtual copy, and `D:\Photos\other\_DSC0001.ARW`'s folder with
+    /// no sources.
+    fn fixture(name: &str, source_uuid: &str) -> PathBuf {
+        let db = temp_dir(name).join("PhotoLab.db");
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(&format!(
+            "CREATE TABLE Folders (Id INTEGER PRIMARY KEY, Name TEXT COLLATE NOCASE, ParentFolderId INTEGER);
+             CREATE TABLE Sources (Id INTEGER PRIMARY KEY, Name TEXT COLLATE NOCASE, Uuid TEXT, FolderId INTEGER);
+             CREATE TABLE Items (Id INTEGER PRIMARY KEY, SourceId INTEGER, Uuid TEXT, CreationDate TEXT, ModificationDate TEXT, StorePickOrReject INTEGER);
+             INSERT INTO Folders VALUES (1, 'C:', NULL), (7, 'D:', NULL), (41, 'Photos', 7), (146, 'tests', 41), (147, 'shoot', 146), (148, 'other', 41);
+             INSERT INTO Sources VALUES (10, '_DSC0001.ARW', '{source_uuid}', 147);
+             INSERT INTO Items VALUES
+               (100, 10, '{MASTER}', '2026-09-27 14:37:23.6297741Z', '2026-09-27 14:37:23.7544221Z', 0),
+               (101, 10, '{COPY}', '2026-09-27 14:39:56.4485575Z', '2026-09-27 14:39:56.4965436Z', 1);"
+        ))
+        .unwrap();
+        db
+    }
+
+    fn uuids(item: &str, source: &str) -> Option<Uuids> {
+        Some(Uuids {
+            item: item.to_owned(),
+            source: source.to_owned(),
+        })
+    }
+
+    #[test]
+    fn a_registered_file_yields_its_source_and_master_uuids() {
+        let db = fixture("registered", SOURCE);
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            uuids(MASTER, SOURCE)
+        );
+    }
+
+    #[test]
+    fn names_match_case_insensitively() {
+        let db = fixture("case", SOURCE);
+        assert_eq!(
+            lookup(&db, Path::new(r"d:\photos\TESTS\shoot\_dsc0001.arw")),
+            uuids(MASTER, SOURCE)
+        );
+    }
+
+    #[test]
+    fn misses_and_failures_yield_none() {
+        let db = fixture("misses", SOURCE);
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0002.ARW")),
+            None
+        );
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\other\_DSC0001.ARW")),
+            None
+        );
+        assert_eq!(
+            lookup(&db, Path::new(r"E:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+        assert_eq!(
+            lookup(&db, Path::new(r"\\server\share\shoot\_DSC0001.ARW")),
+            None
+        );
+        let missing = db.with_file_name("missing.db");
+        assert_eq!(
+            lookup(&missing, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+        let empty = db.with_file_name("empty.db");
+        Connection::open(&empty)
+            .unwrap()
+            .execute_batch("CREATE TABLE Other (Id INTEGER)")
+            .unwrap();
+        assert_eq!(
+            lookup(&empty, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_path_under_two_same_lettered_volumes_yields_none() {
+        let db = fixture("volumes", SOURCE);
+        Connection::open(&db)
+            .unwrap()
+            .execute_batch(&format!(
+                "INSERT INTO Folders VALUES (200, 'D:', NULL), (201, 'Photos', 200), (202, 'tests', 201), (203, 'shoot', 202);
+                 INSERT INTO Sources VALUES (20, '_DSC0001.ARW', '{SOURCE}', 203);
+                 INSERT INTO Items VALUES (200, 20, '{MASTER}', '2026-09-27 14:37:23Z', '2026-09-27 14:37:23Z', 0);"
+            ))
+            .unwrap();
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_uuid_that_could_break_the_dop_literal_yields_none() {
+        let db = fixture("literal", r#"E584D7F8-131A-4EC5-B191-5E5C570A2F9"",x=""#);
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+    }
+
+    #[test]
+    fn uuid_shape() {
+        assert!(is_uuid(SOURCE));
+        assert!(is_uuid(&SOURCE.to_lowercase()));
+        assert!(!is_uuid("E584D7F8131A4EC5B1915E5C570A2F9B"));
+        assert!(!is_uuid("E584D7F8-131A-4EC5-B191-5E5C570A2F9G"));
+        assert!(!is_uuid("E584D7F8-131A-4EC5-B191-5E5C570A2F9B-"));
+    }
+
+    #[test]
+    fn photolab_directory_versions() {
+        assert_eq!(version("DxO PhotoLab 10"), Some(10));
+        assert_eq!(version("DxO PhotoLab 9"), Some(9));
+        assert_eq!(version("DxO PhotoLab"), None);
+        assert_eq!(version("DxO PhotoLab 10 beta"), None);
+        assert_eq!(version("DxO PureRAW 4"), None);
+        assert_eq!(version("DxO PhotoLab +1"), None);
+    }
+}
