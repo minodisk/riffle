@@ -122,6 +122,11 @@ DxO PhotoLab.
   to the export folder, which is shown in your file manager when the run ends;
   the originals are never touched, and running it again rebuilds the copy from
   the original times.
+- **JPEG-only folders**: a folder that holds only JPEGs, such as a
+  `<folder>-sequenced/` output, opens view-only, so its order and capture
+  times can be checked in Riffle: thumbnails, the preview and the EXIF rows,
+  in capture-time order. Stars, flags, color labels, sidecars and the focus
+  cue do not apply there.
 - **MCP companion**: an MCP client, such as an AI assistant, can follow along
   while you cull: read what Riffle shows, look at a preview, move the view and
   record stars, picks / rejects and labels the way the keys do. It is off by
@@ -240,6 +245,10 @@ Discussions. If it does not, open an issue from the
   - [x] Leica M11-P
   - [x] SIGMA BF
   - [x] SIGMA fp L
+
+A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no ARW / DNG opens
+view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
+with no stars, flags, color labels, sidecars or focus cue.
 
 What each camera records, and which features that affects, is listed in
 [docs/cameras.md](./docs/cameras.md).

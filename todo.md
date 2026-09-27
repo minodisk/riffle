@@ -823,25 +823,6 @@ platform. Basis: Step 2 of `docs/plans/_archived/20260926-sequence-jpeg-timestam
       `crates/app/icons/menu/`, and switch the item in
       `crates/app/src/main.rs` to the `IconMenuItem` / `MenuItem` `cfg` split.
 
-### App: open and preview JPEG-only folders in the strip
-
-The strip lists ARW / DNG only, and scan, index, sidecars and the focus cue
-all assume RAW. This is needed to let a user check a
-`sequence-jpeg-timestamps` `<folder>-sequenced/` output (order and times)
-inside Riffle. The scope is view-only: the folder opens in the strip with
-thumbnails, the preview and the meta pane's EXIF rows, ordered by capture
-time. Culling does not apply to JPEGs, so rating, the pick / reject flag,
-color label, sidecar (XMP / `.dop`) writes and the focus cue / face detection
-are out of scope.
-Basis: requested by the user during `docs/plans/_archived/20260926-sequence-jpeg-timestamps/plan.md`'s
-planning and deferred as out of scope (plan.md "Follow-ups").
-
-#### TODO
-
-- [ ] Let a JPEG-only folder open in the strip with thumbnails, the preview
-      and the meta pane, ordered by capture time, without rating, flag,
-      color label, sidecar writes or the focus cue.
-
 ### App: hand-check the sequence-run output-folder reveal on Windows
 
 The automated tests cover only the `revealAfter` decision in

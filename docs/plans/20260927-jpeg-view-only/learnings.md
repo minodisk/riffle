@@ -110,6 +110,15 @@
   item) keeps the user's persisted key, which is read once at startup, and
   the disabled `#sort-toggle` keeps `set_sort_order` from being called.
 
+## Step 4: documentation
+
+- The docs describe the behavior as merged, not as planned: the
+  `JPEG folder: view only` line stays in the status line for as long as the
+  folder is open (Step 3's persistent meta line), the sort menu is disabled
+  rather than hidden, and the preview is the whole JPEG (Step 2 measured the
+  re-encode as slower). `v` is documented for 2-4 selected files only, since
+  a JPEG has no sharpness score to pick a burst's sharpest frame from.
+
 ## Deferred issues (todo candidates)
 
 - **CLI `bench` silently measures nothing for a JPEG path.** Basis: Step 1

@@ -231,7 +231,7 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
       Remember the WebKitGTK and `[hidden]` notes in
       `docs/agents/tauri-app.md`.
 
-- [ ] Step 4: Document the JPEG-only folder and close the todo item
+- [x] Step 4: Document the JPEG-only folder and close the todo item
   - Done when:
     - `README.md` and `README.ja.md` (in sync) say, next to the Sequence JPEG
       Timestamps feature and in "RAW formats and cameras", that a folder
@@ -308,3 +308,4 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
 - (2026-09-27) Step 1 complete
 - (2026-09-28) Step 2 complete
 - (2026-09-28) Step 3 complete
+- (2026-09-28) Step 4 complete

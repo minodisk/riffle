@@ -17,7 +17,10 @@ time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, `src/candidate.rs` the focus candidate cue
 (the in-focus probability of the eyes of the face nearest the AF point,
 a logistic combination of their Laplacian variance and mean edge width, and
-whether it clears the threshold), `src/sequence.rs` the JPEG timestamp sequencer ported
+whether it clears the threshold), `src/jpeg.rs` the Exif reader of a plain
+JPEG file (orientation and the standard shooting tags into the same `Shot`
+the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
+`.jpeg`, `src/sequence.rs` the JPEG timestamp sequencer ported
 from lapse (orders a folder's JPEGs by capture time and writes copies with
 unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
 `src/sharpness.rs` the
@@ -63,7 +66,9 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
-folder reopens at and coalesces the writes that remember it, and
+folder reopens at and coalesces the writes that remember it, `src/viewonly.ts`
+decides from the listed paths whether a folder is JPEG-only and so opens
+view-only (no judgment, capture-time order), and
 `src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder picker
 through the preview to the run's end.
