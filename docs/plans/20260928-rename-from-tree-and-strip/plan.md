@@ -255,7 +255,7 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       strings is stale, and the judgments come back from the rewritten index
       rows. See the guide's "Two folder paths" section.
 
-- [ ] Step 3: Backend file rename: sidecars along, index rows rewritten, `rename_file` command
+- [x] Step 3: Backend file rename: sidecars along, index rows rewritten, `rename_file` command
   - Done when:
     - `rename.rs` gains a pure `file_plan(dir: &Path, path: &str, name: &str)
       -> Result<FilePlan, String>`: the RAW must be a RAW directly in `dir`
@@ -460,3 +460,4 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 
 - (2026-09-28) Step 1 complete
 - (2026-09-28) Step 2 complete
+- (2026-09-28) Step 3 complete
