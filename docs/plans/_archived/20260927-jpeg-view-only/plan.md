@@ -28,7 +28,7 @@ sequenced output can be checked inside Riffle.
 
 The scope is **view-only**, as decided in `todo.md` ("App: open and preview
 JPEG-only folders in the strip") and the archived
-[`20260927-jpeg-view-only-todo`](../_archived/20260927-jpeg-view-only-todo/plan.md)
+[`20260927-jpeg-view-only-todo`](../20260927-jpeg-view-only-todo/plan.md)
 plan: rating, the pick / reject flag, the color label, sidecar (XMP / `.dop`)
 writes, the focus cue and face detection, and the sharpness score do not apply
 to JPEGs. Those actions are no-ops or disabled on a JPEG folder and no sidecar
