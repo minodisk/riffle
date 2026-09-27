@@ -197,7 +197,7 @@ Out of scope: cleaning up virtual copies that already exist.
     - `write_kind` is the single choke point for minting; do not thread the
       Uuids through `Writer::set` or the index.
 
-- [ ] Step 3: Document the PhotoLab virtual-copy behaviour for users and future agents
+- [x] Step 3: Document the PhotoLab virtual-copy behaviour for users and future agents
   - Done when:
     - `README.md` "Working with other software" gets a short
       `### DxO PhotoLab` subsection (placed before `### Lightroom Classic` or

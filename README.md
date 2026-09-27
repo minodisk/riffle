@@ -179,6 +179,24 @@ untouched.
   default sets are provided (English and Japanese so far); adding a language
   is [one JSON file](./crates/core/i18n/README.md).
 
+### DxO PhotoLab
+
+- PhotoLab recognizes an image by the identifiers in its `.dop`. Once
+  PhotoLab has seen an image (opening its folder is enough, even if no `.dop`
+  was written), a new `.dop` with identifiers it does not know is imported as
+  a virtual copy that carries Riffle's judgment, while the master keeps its
+  own.
+- So on Windows, when Riffle creates a `.dop`, it reads the image's
+  identifiers from PhotoLab's database (the newest
+  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`) and writes them
+  into it, and PhotoLab applies the judgment to the master.
+- When the database is not found (on macOS, or without PhotoLab installed)
+  the new `.dop` still works: PhotoLab imports it as the master, unless it
+  had already seen the image, in which case the judgment lands on a virtual
+  copy.
+- A `.dop` that already exists is edited in place as before.
+- Verified with PhotoLab 10.0.1 on Windows.
+
 ### MCP companion
 
 Riffle can serve an [MCP](https://modelcontextprotocol.io/) endpoint for an

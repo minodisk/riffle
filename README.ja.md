@@ -80,6 +80,14 @@
 - Lightroom Classic はデフォルトでは XMP を書き出しません。`Ctrl+S`（`Metadata > Save Metadata to File`）で選択中の写真に書き出すか、`Catalog Settings > Metadata > Automatically write changes into XMP` をオンにしてください。
 - カラーラベルは Lightroom Classic のカラーラベルセット（`Metadata > Color Label Set > Edit...`）と名前で照合されます。セットのラベル名を `Red`、`Yellow`、`Green`、`Blue`、`Purple` に変えるか、Riffle の設定でラベル名をセットの名前に合わせてください。Lightroom の各言語版のデフォルトセット用のプリセットを用意しています（現在は英語と日本語）。言語の追加は [JSON ファイル 1 つ](./crates/core/i18n/README.md)で済みます。
 
+### DxO PhotoLab
+
+- PhotoLab は `.dop` の中の識別子で画像を見分けます。PhotoLab が一度見た画像（`.dop` が書かれていなくても、フォルダーを開くだけで該当します）に、PhotoLab の知らない識別子の `.dop` を新しく作ると、Riffle の判定を持った仮想コピーとして取り込まれ、マスターは元の状態のままになります。
+- そこで Windows では、Riffle は `.dop` を新しく作るときに PhotoLab のデータベース（最も新しい `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`）から画像の識別子を読んで書き込みます。PhotoLab は判定をマスターに反映します。
+- データベースが見つからないとき（macOS、または PhotoLab が入っていないとき）も、新しい `.dop` はそのまま使えます。PhotoLab はマスターとして取り込みますが、すでにその画像を見ていた場合は判定が仮想コピーに入ります。
+- すでにある `.dop` は、これまでどおりその場で編集します。
+- Windows 版の PhotoLab 10.0.1 で確認しています。
+
 ### MCP コンパニオン
 
 Riffle は [MCP](https://modelcontextprotocol.io/) のエンドポイントを提供でき、MCP クライアント（AI アシスタントなど）をカリングの相棒にできます。設定の `MCP` タブで `Let MCP clients connect` をオンにすると（デフォルトはオフ）、サーバーがこのコンピューター内だけで次の URL を待ち受けます。

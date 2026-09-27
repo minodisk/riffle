@@ -541,7 +541,9 @@ writes no line at all. An existing `Orientation` is never touched.
 
 - Do not trust the earlier (now corrected) claim that a Settings-less
   template was accepted by PhotoLab; that was most likely because the test
-  folder was already in PhotoLab's database, which shadows the sidecar.
+  folder was already in PhotoLab's database. The database does not shadow the
+  sidecar: it imports an item with an unknown Uuid as a new item (see the
+  next entry).
 - Edits queued at the same splice offset apply in the reverse of their push
   order. `write_rating` pushes the `Settings` edit after `ShouldProcess` (so
   `Settings` ends up before it); `write_label` pushes it before `ColorLabel`
@@ -553,6 +555,53 @@ writes no line at all. An existing `Orientation` is never touched.
 - Source: `docs/plans/_archived/20260926-dop-settings-block/learnings.md`,
   Step 1; `docs/plans/_archived/20260926-dop-orientation/learnings.md`,
   Step 1.
+
+### PhotoLab matches `.dop` items by Uuid; a fresh sidecar on a registered image becomes a virtual copy (Hit)
+
+DxO PhotoLab keeps its own SQLite database and matches a `.dop`'s items to it
+by `Uuid`. An image is registered as soon as PhotoLab opens its folder, even
+without writing a `.dop`. Hand-run with PhotoLab 10.0.1 on Windows:
+
+- unregistered image + fresh `.dop` with random Uuids: imported as the master
+  (PhotoLab re-mints the Uuids); fine.
+- registered image + fresh `.dop` with random Uuids (with or without an
+  `.xmp`): imported as a virtual copy carrying the pick, the master keeps the
+  database state, and exports of the copy get a `_1` suffix.
+- registered image + `.xmp` only: nothing; PhotoLab ignores the XMP pick.
+- registered image + patching a PhotoLab-written `.dop`: applied to the
+  master.
+- registered image + fresh `.dop` carrying the database's Source Uuid and
+  master Item Uuid: applied to the master, no virtual copy, provided `Date` /
+  `CreationDate` / `ModificationDate` are newer than the database item's
+  `ModificationDate` (older ones make PhotoLab ignore the sidecar; Riffle
+  stamps "now").
+
+So `sidecar::write_kind`, when it mints a `.dop`, asks `photolab::registered_uuids`
+for the registered image's Uuids and passes them to `dop::write_rating` /
+`dop::write_label` (`dop.rs` stays pure; it never looks anything up).
+
+- The database is the highest-numbered
+  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` (Windows only; the
+  macOS location is unknown, so there is no lookup there).
+- Tables: `Folders (Id, Name, ParentFolderId)` is a chain of names from a root
+  row whose `ParentFolderId` is NULL and whose `Name` is the bare drive
+  (`D:`); `Sources (Name, Uuid, FolderId)` has one row per file, `Name`
+  including the extension, `Uuid` = `Sidecar.Source.Uuid`; `Items (Id,
+  SourceId, Uuid, CreationDate, ...)` holds the master and its virtual copies.
+  Names are `COLLATE NOCASE`.
+- The master is the lowest `Id`. Do not order by `CreationDate`: its
+  fractional seconds have a variable number of digits, so a lexical sort can
+  misorder items within one second.
+- The same drive letter can have several root rows (two removable volumes
+  both registered as `E:`). A path that resolves to more than one source is a
+  miss, not a guess.
+- Open read-only with a short `busy_timeout`; the database is WAL and PhotoLab
+  may hold it. Any failure (not found, busy, missing table, a value that is
+  not 8-4-4-4-12 hex, since the template writes it unescaped) falls back to
+  random Uuids, and only an error is logged (`log::debug!`), not a plain miss.
+- An existing `.dop` is patched as before; the lookup only runs for a fresh
+  one.
+- Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`.
 
 ### Removing an XMP element needs its end tag (Hit)
 

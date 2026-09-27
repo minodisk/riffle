@@ -71,3 +71,17 @@
   PhotoLab showed the pick on the master and no virtual copy.
   `riffle-dop-test-G-unregistered\_DSC0009.ARW`, never opened in PhotoLab
   before the pick, was likewise imported as the picked master.
+
+## Step 3
+
+- The README's `### DxO PhotoLab` subsection went after `### Lightroom
+  Classic`, following the format list's order (Lightroom first, PhotoLab
+  second). It says "identifiers" rather than "Uuid" to stay in the README's
+  user-facing voice; the Uuid detail lives in `docs/agents/tauri-app.md`.
+- The guide's new Hit entry sits right after the `Settings` / `Orientation`
+  `.dop` entry, and that entry's "the database shadows the sidecar" line was
+  corrected in place to point at it, rather than deleted, so the history of
+  the wrong claim stays readable.
+- The guide entry documents what Step 2 shipped, not the plan's original
+  wording: master = lowest `Id` (not `CreationDate`), duplicate drive-letter
+  roots are a miss, and the UUID-shape check on database values.
