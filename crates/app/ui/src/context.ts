@@ -50,10 +50,15 @@ export function contextMenuGroups(bindings: Binding[], state: MenuState): MenuIt
 }
 
 // The folder tree's right-click menu: the reveal item, labeled per platform by
-// the `reveal_label` command, then the sequencing of the folder's JPEGs.
+// the `reveal_label` command, then copying the folder's path or name, then the
+// sequencing of the folder's JPEGs.
 export function folderMenuGroups(revealLabel: string): MenuItem[][] {
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
+    [
+      { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
+      { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
+    ],
     [
       {
         action: "sequenceTimestamps",
