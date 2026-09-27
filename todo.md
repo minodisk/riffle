@@ -911,3 +911,33 @@ delete them; deleting sits behind a confirmation dialog. Basis: deferred in
 
 - [ ] Add a sidecar rewrite item and a delete item (behind a confirmation
       dialog) to the folder context menu.
+
+### CLI `bench` silently measures nothing for a JPEG path
+
+`jpeg::parse` leaves `Arw::preview` / `Arw::full` as `None` (the whole file
+is both), and `bench` in `crates/cli/src/main.rs` only times the tiers whose
+field is `Some` after `reader::read_metadata`, so a `.jpg` path times
+nothing without any error.
+
+#### TODO
+
+- [ ] Either time `read_preview` / `read_full` for a JPEG unconditionally, or
+      reject non-RAW paths with an error. Files: `crates/cli/src/main.rs`,
+      `crates/core/src/jpeg.rs`.
+
+### App: a JPEG folder's preview decodes 15-20x longer than an ARW's
+
+Backend measurement (docs/plans/_archived/20260927-jpeg-view-only/learnings.md,
+Step 2): a 21.5 MP JPEG's `read_preview` + full `decode_rgb` took ~197 ms
+and a 14.8 MP one ~141 ms, versus ~9-15 ms for an ARW/DNG preview. The
+plan's remedy (a DCT-scaled, capped re-encode) was measured and found
+slower than shipping the whole file, so `preview` sends the whole JPEG as
+is.
+
+#### TODO
+
+- [ ] Find a payload that skips the full decode/encode round trip, e.g. a
+      DCT-scaled decode (4/8 or 3/8) sent as raw pixels, or reading a
+      JPEG's embedded Exif thumbnail first. Verify with `Timing logs` in the
+      GUI before choosing. Files: `crates/app/src/commands.rs` (`preview`),
+      `crates/core/src/decode.rs`, `crates/app/ui/src/` decode worker.
