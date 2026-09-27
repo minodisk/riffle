@@ -65,7 +65,9 @@
   into that call and the follow-up label write passes `None`.
 - A failure is logged with `log::debug!` (open error, busy, missing table);
   a plain miss is not.
-- **Manual check pending (user)**: a registered image with no `.dop`, judged in
-  Riffle, should show the pick on the master in PhotoLab with no new virtual
-  copy; an unregistered image should still get random Uuids. Not run by the
-  implementation agent.
+- **Manual check (user, 2026-09-28, PhotoLab 10.0.1, `mise run tauri:dev`)**:
+  passed. `D:\Photos\tests\riffle-dop-test-F-registered\_DSC0009.ARW` was
+  opened in PhotoLab first (registered, no `.dop`), then picked in Riffle:
+  PhotoLab showed the pick on the master and no virtual copy.
+  `riffle-dop-test-G-unregistered\_DSC0009.ARW`, never opened in PhotoLab
+  before the pick, was likewise imported as the picked master.
