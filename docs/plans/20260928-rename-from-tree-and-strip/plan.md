@@ -299,7 +299,7 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       any judgment made after the rename goes through `set_rating` with the
       new path.
 
-- [ ] Step 4: File `Rename…` in the strip's context menu, the slow second click, and the inline cell editor
+- [x] Step 4: File `Rename…` in the strip's context menu, the slow second click, and the inline cell editor
   - Done when:
     - The strip's right-click menu ends with a new group holding `Rename…`
       (`contextMenuGroups` in `context.ts`; `context.test.ts` covers it). It

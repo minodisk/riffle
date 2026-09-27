@@ -50,6 +50,7 @@ import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import { rebase } from "./tree.js";
+import { editKey } from "./rename.js";
 import {
   type ScanDone,
   type ScanStarted,
@@ -237,6 +238,9 @@ let currentScan = 0;
 // arrived while one was, the way `refreshEntries` keeps one read in flight.
 let resyncInFlight = false;
 let resyncPending = false;
+// The file a rescan asked for with an explicit anchor (a renamed file's new
+// path) lands on, kept across the rescan's deferral.
+let resyncAnchor: string | undefined;
 // Reserved by the picker before its dialog opens, and minted by a drop only
 // once its dropped path has resolved (see `newFolderToken` and `dropCounter`
 // below). When two folder opens race, the `list_arw` result of the one whose
@@ -2005,7 +2009,15 @@ function openContextMenu(x: number, y: number): void {
     flag: flagOf(focused),
     label: labels.get(focused) ?? null,
   };
-  showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, runAction);
+  showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, (action) => {
+    if (action !== "renameFile") {
+      runAction(action);
+    } else if (scanRunning) {
+      setStatus("a scan is running; wait for it to finish");
+    } else {
+      strip.startRename(index);
+    }
+  });
 }
 
 // Fill `#context-menu` with `groups` at (`x`, `y`); a click on an item
@@ -2085,6 +2097,8 @@ strip.init(
     }
     openContextMenu(x, y);
   },
+  renameFile,
+  () => !scanRunning && !viewOnly,
 );
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
@@ -2116,6 +2130,60 @@ function renameFolder(path: string, name: string): void {
       });
     },
     (err: unknown) => {
+      setStatus(String(err));
+    },
+  );
+}
+
+function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
+  const value = map.get(from);
+  if (value !== undefined) {
+    map.delete(from);
+    map.set(to, value);
+  }
+}
+
+// The strip's inline edit confirmed a new name. The session's judgments move
+// to the new path (the index rows already have), so the cell keeps its marks
+// and its place in the sort, and the rescan anchored on the new path shows
+// the new name without moving the strip.
+function renameFile(path: string, name: string): void {
+  if (openDir === null) {
+    return;
+  }
+  const dir = openDir;
+  const token = folderToken;
+  window.__TAURI__.core.invoke<Renamed>("rename_file", { dir, path, name }).then(
+    ({ path: newPath, warning }) => {
+      if (dir !== openDir || token !== folderToken) {
+        return;
+      }
+      moveKey(ratings, path, newPath);
+      moveKey(flags, path, newPath);
+      moveKey(labels, path, newPath);
+      moveKey(sharpness, path, newPath);
+      const entry = entries.get(path);
+      if (entry !== undefined) {
+        entries.delete(path);
+        entries.set(newPath, { ...entry, path: newPath });
+      }
+      if (touched.delete(path)) {
+        touched.add(newPath);
+      }
+      // An undo of the old path would `set_rating` a file that is gone and
+      // mint an orphan sidecar.
+      const gone = (entry: Judgment) => entry.path === path;
+      history.removeWhere((batch) => batch.every(gone));
+      redoable.removeWhere((batch) => batch.every(gone));
+      if (warning !== null) {
+        setStatus(warning);
+      }
+      resync(newPath);
+    },
+    (err: unknown) => {
+      if (dir !== openDir || token !== folderToken) {
+        return;
+      }
       setStatus(String(err));
     },
   );
@@ -2260,9 +2328,12 @@ function startScan(folder: string): Promise<void> {
 //
 // The same open, so no new folder token is minted: a listing that lands after
 // another folder was opened is dropped by the guard below.
-function resync(): void {
+function resync(anchor?: string): void {
   if (openDir === null) {
     return;
+  }
+  if (anchor !== undefined) {
+    resyncAnchor = anchor;
   }
   // A rescan while a scan runs would cancel and restart it (`scan_folder`
   // joins the running scan first), so it waits for `faces-done` instead. A
@@ -2273,7 +2344,8 @@ function resync(): void {
   }
   const dir = openDir;
   const token = folderToken;
-  const anchor = files[index];
+  const target = resyncAnchor ?? files[index];
+  resyncAnchor = undefined;
   resyncInFlight = true;
   window.__TAURI__.core
     .invoke<string[]>("list_arw", { dir })
@@ -2285,7 +2357,7 @@ function resync(): void {
       }
       allFiles = found;
       setViewOnly(isViewOnly(found));
-      refilter(anchor, true);
+      refilter(target, true);
       return startScan(dir);
     })
     .catch((err: unknown) => {
@@ -2358,6 +2430,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     progressRefreshedFor = null;
     setScanRunning(false);
     resyncPending = false;
+    resyncAnchor = undefined;
     void startScan(folder);
     if (files.length === 0) {
       meta = null;
@@ -2388,9 +2461,9 @@ function openFolder(): void {
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
 // of the way while the settings or the sequence modal is open, or a folder
-// name is being edited, as their keys do.
+// or file name is being edited, as their keys do.
 function modalOpen(): boolean {
-  return settings.isOpen || sequenceFlow.isOpen || folders.isEditing();
+  return settings.isOpen || sequenceFlow.isOpen || folders.isEditing() || strip.isEditing();
 }
 
 void window.__TAURI__.event.listen("open-folder", () => {
@@ -2401,7 +2474,9 @@ void window.__TAURI__.event.listen("open-folder", () => {
 // open yet, or a scan running, so it costs nothing. The focus listener is
 // scoped to this window: a global `event.listen` also receives other
 // windows' focus.
-void window.__TAURI__.event.listen("reload-folder", resync);
+void window.__TAURI__.event.listen("reload-folder", () => {
+  resync();
+});
 void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // Skip while the settings modal is open: closing its Clear Cache confirm
   // dialog refocuses this window, and a resync here races clear_index for
@@ -3053,6 +3128,7 @@ void Promise.allSettled([sortLoaded, keymapLoaded]).then(folders.loadRoots);
 
 window.addEventListener("keydown", (event) => {
   folders.cancelSlowClick();
+  strip.cancelSlowClick();
   // The dialog's buttons take Enter and Space natively, but Tab would move
   // focus past them to controls behind the overlay (there is no `inert` on
   // the `safari13` target), so trap it by cycling within `formatButtons`.
@@ -3072,6 +3148,16 @@ window.addEventListener("keydown", (event) => {
   }
   if (sequenceFlow.isOpen) {
     sequenceKeydown(event);
+    return;
+  }
+  // A live file rename takes every key: Enter and Escape end it, the rest
+  // are the input's own (the `Enter` committing an IME conversion included).
+  if (strip.isEditing()) {
+    const decision = event.isComposing ? "native" : editKey(keyName(event));
+    if (decision !== "native") {
+      event.preventDefault();
+      strip.finishRename(decision);
+    }
     return;
   }
   const key = keyName(event);

@@ -33,9 +33,11 @@ const SECTIONS: Entry[][] = [
     ["clear", "No stars", (state) => !state.rating],
   ],
   [...LABEL_ENTRIES, ["clearlabel", "No label", (state) => state.label === null]],
+  [["renameFile", "Rename…"]],
 ];
 
-// A view-only (JPEG) folder takes no judgment, so only `Select All` is left.
+// A view-only (JPEG) folder takes no judgment and no rename, so only
+// `Select All` is left. `Rename…` acts on the focused file alone.
 export function contextMenuGroups(
   bindings: Binding[],
   state: MenuState,
