@@ -623,6 +623,7 @@ fn main() {
             commands::clear_index,
             commands::trash_rejected,
             rename::rename_folder,
+            rename::rename_file,
             sequence::sequence_preview,
             sequence::sequence_run,
             sequence::sequence_cancel,

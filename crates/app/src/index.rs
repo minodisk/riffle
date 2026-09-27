@@ -1027,6 +1027,36 @@ impl Index {
         Ok(moved)
     }
 
+    /// Move the rows of the file `old` to `new` in the same folder, in one
+    /// transaction: the `path` of `files` and `ratings` (their `dir` stays)
+    /// and `folders.last_viewed` where it names `old`. Every other column is
+    /// kept. Rows already stored under `new` belong to a file that no longer
+    /// exists there and are dropped first, as in `rename_dir`.
+    pub fn rename_file(&mut self, old: &str, new: &str) -> Result<(), String> {
+        if old == new {
+            return Ok(());
+        }
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        for table in ["files", "ratings"] {
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE path = ?1"),
+                params![new],
+            )
+            .map_err(|e| e.to_string())?;
+            tx.execute(
+                &format!("UPDATE {table} SET path = ?2 WHERE path = ?1"),
+                params![old, new],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        tx.execute(
+            "UPDATE folders SET last_viewed = ?2 WHERE last_viewed = ?1",
+            params![old, new],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     /// The raw `orientation` column of one file, `None` when the index has
     /// no row for it, `Some(None)` when the row has no Orientation (an
     /// error row, or a not-yet-extracted one).
@@ -3599,6 +3629,54 @@ pub(crate) mod tests {
         assert_eq!(index.entries(&s(&sibling)).unwrap()[0].path, c);
         assert_eq!(index.dirty_rows(&s(&sibling)).unwrap().len(), 1);
         assert_eq!(index.last_viewed(&s(&sibling)).unwrap(), Some(c));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn rename_file_moves_its_rows_and_last_viewed() {
+        let dir = temp_dir("rename-file");
+        let mut index = open(&dir);
+        let photos = dir.join("photos");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+        index
+            .write_batch(
+                &s(&photos),
+                &[
+                    (synthetic(&photos, 0), Ok(entry())),
+                    (synthetic(&photos, 1), Ok(entry())),
+                ],
+            )
+            .unwrap();
+        let a = s(&photos.join("00000.ARW"));
+        let b = s(&photos.join("00001.ARW"));
+        let renamed = s(&photos.join("shoot.ARW"));
+        index
+            .set_rating(&s(&photos), &a, Some(4), Flag::Reject, Some("Blue"), true)
+            .unwrap();
+        index.set_last_viewed(&s(&photos), &a).unwrap();
+
+        index.rename_file(&a, &renamed).unwrap();
+
+        let mut paths: Vec<_> = index
+            .entries(&s(&photos))
+            .unwrap()
+            .into_iter()
+            .map(|e| (e.path, e.has_thumb))
+            .collect();
+        paths.sort();
+        assert_eq!(paths, vec![(b, true), (renamed.clone(), true)]);
+        assert_eq!(
+            index.dirty_rows(&s(&photos)).unwrap(),
+            vec![(
+                renamed.clone(),
+                Some(4),
+                Flag::Reject,
+                Some("Blue".to_string()),
+                true
+            )]
+        );
+        assert_eq!(index.last_viewed(&s(&photos)).unwrap(), Some(renamed));
 
         remove_temp_dir(&dir);
     }

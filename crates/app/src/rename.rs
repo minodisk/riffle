@@ -1,7 +1,8 @@
-//! Renaming a folder from the folder tree. The name check and the target
-//! planning are pure so they can be tested on temp dirs; `rename_folder`
-//! releases the folder watcher, renames on disk and carries the index rows
-//! along, so nothing is re-extracted and no judgment is lost.
+//! Renaming a folder from the folder tree and a RAW file from the strip. The
+//! name check and the target planning are pure so they can be tested on temp
+//! dirs; `rename_folder` releases the folder watcher, renames on disk and
+//! carries the index rows along, so nothing is re-extracted and no judgment
+//! is lost, and `rename_file` does the same for one RAW and its sidecars.
 
 use std::path::{Path, PathBuf};
 
@@ -10,6 +11,7 @@ use tauri::Manager;
 
 use crate::commands::{AppIndex, AppWriter, Scans, SCAN_RUNNING};
 use crate::index;
+use crate::sidecar::{existing_sidecar, SidecarFormat};
 
 /// What a rename produced: the new path, spelled the caller's way, and a
 /// warning when the disk rename succeeded but something after it (carrying
@@ -128,9 +130,135 @@ pub async fn rename_folder(
     .map_err(|e| e.to_string())?
 }
 
+/// The renames that move one RAW and its sidecars, RAW first, as
+/// `(from, to)` pairs.
+#[derive(Debug, PartialEq, Eq)]
+pub struct FilePlan {
+    pub moves: Vec<(PathBuf, PathBuf)>,
+}
+
+/// Plan renaming the RAW `path`, directly in `dir`, to `name`, carrying the
+/// existing sidecars of both formats along (a format switch can leave both on
+/// disk). A sidecar's target is minted from the new RAW path, since a `.dop`
+/// name embeds the RAW's whole name. Refuses a `path` that is not a RAW in
+/// `dir`, a `name` that is not a valid RAW file name, and any target that
+/// exists as another entry than its source (a target that canonicalizes to
+/// its source is a case-only rename).
+pub fn file_plan(dir: &Path, path: &str, name: &str) -> Result<FilePlan, String> {
+    let raw = PathBuf::from(path);
+    if !riffle_core::scan::is_raw_file(&raw) {
+        return Err(format!("not a RAW file: {path}"));
+    }
+    if raw.parent() != Some(dir) {
+        return Err(format!("not in the open folder: {path}"));
+    }
+    check_name(name)?;
+    let target = dir.join(name);
+    if !riffle_core::scan::is_raw_file(&target) {
+        return Err(format!("{name}: not a RAW file name (.ARW or .DNG)"));
+    }
+    let mut moves = vec![(raw.clone(), target.clone())];
+    for format in [SidecarFormat::Xmp, SidecarFormat::Dop] {
+        if let Some(sidecar) = existing_sidecar(&raw, format) {
+            moves.push((sidecar, format.sidecar_path(&target)));
+        }
+    }
+    for (from, to) in &moves {
+        if to.symlink_metadata().is_ok() {
+            match (std::fs::canonicalize(to), std::fs::canonicalize(from)) {
+                (Ok(a), Ok(b)) if a == b => {}
+                _ => {
+                    let taken = to.file_name().unwrap_or_default().to_string_lossy();
+                    return Err(format!("{taken} already exists"));
+                }
+            }
+        }
+    }
+    Ok(FilePlan { moves })
+}
+
+/// Carry out `plan` with `rename`, RAW first. When a sidecar fails, what
+/// already moved is renamed back (best effort, logged) and the error
+/// returned, so a failure leaves the folder as it was.
+pub fn file_run(
+    plan: FilePlan,
+    mut rename: impl FnMut(&Path, &Path) -> Result<(), String>,
+) -> Result<(), String> {
+    for (i, (from, to)) in plan.moves.iter().enumerate() {
+        if let Err(e) = rename(from, to) {
+            for (from, to) in plan.moves[..i].iter().rev() {
+                if let Err(back) = rename(to, from) {
+                    log::warn!(
+                        "could not rename {} back to {}: {back}",
+                        to.display(),
+                        from.display()
+                    );
+                }
+            }
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+/// Rename the RAW `path` in the folder `dir` to `name`, with its sidecars,
+/// refusing while a scan runs. The guard order is `rename_folder`'s, without
+/// the watcher release: the watcher holds the directory, not its files. The
+/// plan is made after the writer is drained, so a sidecar a pending judgment
+/// has just written moves too. A failed index write after a successful
+/// rename still returns `Ok` with a warning, as in `rename_folder`.
+/// `Renamed.path` is the canonical folder joined with `name`, the spelling
+/// `list_arw` lists.
+#[tauri::command]
+pub async fn rename_file(
+    app: tauri::AppHandle,
+    dir: String,
+    path: String,
+    name: String,
+) -> Result<Renamed, String> {
+    if index::lock(&app.state::<Scans>().0).scanning() {
+        return Err(SCAN_RUNNING.to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let dir = std::fs::canonicalize(&dir).map_err(|e| format!("{dir}: {e}"))?;
+        let plan = file_plan(&dir, &path, &name)?;
+        file_run(plan, |from, to| {
+            std::fs::rename(from, to).map_err(|e| {
+                let from = from.file_name().unwrap_or_default().to_string_lossy();
+                format!("{from}: {e}")
+            })
+        })?;
+        let new = dir.join(&name).to_string_lossy().into_owned();
+        let mut warning = None;
+        if let Some(index) = app.state::<AppIndex>().0.clone() {
+            match index::lock(&index).rename_file(&path, &new) {
+                Ok(()) => log::info!("renamed file: {path} -> {new}"),
+                Err(e) => {
+                    log::warn!("renamed file {path} -> {new} but not its index rows: {e}");
+                    warning = Some(format!(
+                        "the file was renamed but its cache was not ({e});                          it is rebuilt on the next open"
+                    ));
+                }
+            }
+        }
+        drop(state);
+        Ok(Renamed { path: new, warning })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{check_name, folder_target};
+    use super::{check_name, file_plan, file_run, folder_target};
     use std::path::{Path, PathBuf};
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -200,5 +328,98 @@ mod tests {
             Path::new("/")
         };
         assert!(folder_target(root, "x").is_err());
+    }
+
+    fn write(path: &Path) {
+        std::fs::write(path, b"x").unwrap();
+    }
+
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    fn fs_rename(from: &Path, to: &Path) -> Result<(), String> {
+        std::fs::rename(from, to).map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn a_raw_moves_with_the_sidecars_of_both_formats() {
+        let dir = temp_dir("file-all");
+        for name in ["a.ARW", "a.xmp", "a.ARW.dop", "b.ARW"] {
+            write(&dir.join(name));
+        }
+        let path = dir.join("a.ARW").to_string_lossy().into_owned();
+        let plan = file_plan(&dir, &path, "shoot.ARW").unwrap();
+        assert_eq!(
+            plan.moves,
+            vec![
+                (dir.join("a.ARW"), dir.join("shoot.ARW")),
+                (dir.join("a.xmp"), dir.join("shoot.xmp")),
+                (dir.join("a.ARW.dop"), dir.join("shoot.ARW.dop")),
+            ]
+        );
+        file_run(plan, fs_rename).unwrap();
+        assert_eq!(
+            names(&dir),
+            ["b.ARW", "shoot.ARW", "shoot.ARW.dop", "shoot.xmp"]
+        );
+    }
+
+    #[test]
+    fn a_case_only_file_rename_is_allowed() {
+        let dir = temp_dir("file-case");
+        write(&dir.join("a.ARW"));
+        write(&dir.join("a.xmp"));
+        let path = dir.join("a.ARW").to_string_lossy().into_owned();
+        file_run(file_plan(&dir, &path, "A.ARW").unwrap(), fs_rename).unwrap();
+        // The listing carries the names as stored, whatever the file
+        // system's case sensitivity, unlike `exists()`.
+        assert_eq!(names(&dir), ["A.ARW", "A.xmp"]);
+    }
+
+    #[test]
+    fn a_bad_name_an_outside_path_or_a_collision_moves_nothing() {
+        let dir = temp_dir("file-refuse");
+        let outside_dir = temp_dir("file-refuse-outside");
+        for name in ["a.ARW", "a.xmp", "b.ARW", "c.xmp", "d.jpg"] {
+            write(&dir.join(name));
+        }
+        write(&outside_dir.join("e.ARW"));
+        let path = dir.join("a.ARW").to_string_lossy().into_owned();
+        let before = names(&dir);
+        assert!(file_plan(&dir, &path, "a.jpg").is_err());
+        assert!(file_plan(&dir, &path, "a").is_err());
+        assert!(file_plan(&dir, &path, "x/y.ARW").is_err());
+        assert!(file_plan(&dir, &path, "b.ARW").is_err());
+        assert!(file_plan(&dir, &path, "c.ARW").is_err());
+        let outside = outside_dir.join("e.ARW").to_string_lossy().into_owned();
+        assert!(file_plan(&dir, &outside, "f.ARW").is_err());
+        let jpeg = dir.join("d.jpg").to_string_lossy().into_owned();
+        assert!(file_plan(&dir, &jpeg, "f.ARW").is_err());
+        assert_eq!(names(&dir), before);
+        assert!(outside_dir.join("e.ARW").exists());
+    }
+
+    #[test]
+    fn a_failing_sidecar_rolls_the_raw_back() {
+        let dir = temp_dir("file-rollback");
+        for name in ["a.ARW", "a.xmp", "a.ARW.dop"] {
+            write(&dir.join(name));
+        }
+        let path = dir.join("a.ARW").to_string_lossy().into_owned();
+        let plan = file_plan(&dir, &path, "b.ARW").unwrap();
+        let result = file_run(plan, |from, to| {
+            if from.extension().is_some_and(|e| e == "dop") {
+                return Err("refused".to_string());
+            }
+            fs_rename(from, to)
+        });
+        assert_eq!(result, Err("refused".to_string()));
+        assert_eq!(names(&dir), ["a.ARW", "a.ARW.dop", "a.xmp"]);
     }
 }

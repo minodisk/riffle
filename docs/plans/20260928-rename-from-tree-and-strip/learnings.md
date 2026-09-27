@@ -54,6 +54,30 @@
   path, so a folder once listed there (since deleted on disk) cannot
   duplicate the renamed row or overwrite its state.
 
+## Step 3: backend file rename
+
+- `rename_file` makes its `file_plan` after the writer flush and the `Scans`
+  lock, not before the flush as the plan lists: a pending judgment the flush
+  writes can create a sidecar for the old name, and a plan made before it
+  would leave that sidecar behind. The refusals still come before anything
+  moves; the flush only writes what was going to be written anyway.
+- `dir` is canonicalized before `file_plan`, as `trash_rejected` does before
+  `trash::plan`, since `path` comes in `list_arw`'s canonical spelling.
+- JPEG files: main now lists a JPEG-only folder's `.jpg` / `.jpeg` files in
+  the strip, but that folder is view-only (its strip menu holds only
+  `Select All`, nothing writes to it). `file_plan` keeps the plan's
+  `is_raw_file` check on both the source and the new name, as `trash::plan`
+  does, so a JPEG cannot be renamed; Step 4 should not offer `Rename…` in a
+  JPEG folder (it only adds to the menu a JPEG folder does not show).
+- PhotoLab: `photolab::lookup` finds a RAW's Uuids by its folder and file
+  `Name` in PhotoLab's database, and a `.dop` Riffle writes carries
+  `Name = "<RAW name>"` inside. A renamed file's moved `.dop` keeps its old
+  Uuids and old inner `Name`, and the database still lists the old name, so
+  PhotoLab sees the file as new (or unmatched) until it re-indexes. The
+  rename does not touch either; see the deferred item below.
+- A case-only rename test asserts on `read_dir`'s names, which carry the
+  stored spelling on every file system, rather than on `exists()`.
+
 ## Deferred issues (todo candidates)
 
 - **Opening a subfolder of a folder whose rename is in flight.** Step 2's
@@ -62,3 +86,19 @@
   flight can open that subfolder under its old path. Done when: the tree
   refuses (or defers) opening a path under a folder whose rename has not
   returned yet, or reopens it under the rebased path once it returns.
+- **PhotoLab after a file or folder rename.** From Step 3's check of the
+  PhotoLab Uuid lookup (`crates/app/src/photolab.rs` queries `Sources` by
+  `FolderId` and `Name`; `crates/core/src/dop.rs` writes the RAW's `Name`
+  into the `.dop`). `rename_file` (`crates/app/src/rename.rs`) moves the
+  `.dop` unchanged, so its inner `Name` names the old file and PhotoLab's
+  database still holds the old name and folder. Done when: it is known
+  (checked with PhotoLab) whether PhotoLab re-matches a renamed RAW with its
+  moved `.dop` or imports it as a new image / virtual copy, and the rename
+  either patches the `.dop`'s `Name` or the docs say what to expect.
+- **A `.xmp` shared by `a.ARW` and `a.DNG`.** From Step 3's `file_plan`
+  (`crates/app/src/rename.rs`), which, like `trash::plan`
+  (`crates/app/src/trash.rs`), takes `a.xmp` as `a.ARW`'s sidecar even when
+  an `a.DNG` in the same folder uses the same `a.xmp`. Renaming `a.ARW`
+  carries the DNG's sidecar away. Done when: a rename (and the trash) leaves
+  a `.xmp` another RAW of the same stem still uses, or refuses with a
+  message.
