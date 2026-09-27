@@ -78,6 +78,13 @@ let pointerDown = false;
 // Set when a render was requested while `pointerDown`, so the `mouseup`
 // handler runs it once the press ends.
 let pendingRender = false;
+// The path `finishInPlace` just ended the edit of, kept until the next
+// `render()` rebuilds that row. The row stays attached (its full rebuild is
+// deferred past the pointer sequence), so a plain click or right-click that
+// lands on it before that rebuild must still be treated as landing on the
+// row that was mid-edit, not reopen the folder or its menu under the
+// pre-rename path.
+let ended: string | null = null;
 const slow = new SlowClick();
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -128,6 +135,7 @@ function armSlowClick(path: string): void {
 }
 
 function render(): void {
+  ended = null;
   const old = container.querySelector<HTMLInputElement>("input.name");
   const range = old === null ? null : ([old.selectionStart ?? 0, old.selectionEnd ?? 0] as const);
   const fragment = document.createDocumentFragment();
@@ -148,13 +156,13 @@ function render(): void {
     row.dataset.path = node.path;
     row.title = node.path;
     row.addEventListener("click", () => {
-      if (editing?.path === node.path) {
+      if (editing?.path === node.path || ended === node.path) {
         return;
       }
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
-      if (editing?.path === node.path) {
+      if (editing?.path === node.path || ended === node.path) {
         return;
       }
       contextMenu(node.path, node.name, event.clientX, event.clientY, depth === 0);
@@ -166,6 +174,9 @@ function render(): void {
       expander.textContent = node.expanded ? "▾" : "▸";
       expander.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (ended === node.path) {
+          return;
+        }
         toggle(node.path);
       });
     }
@@ -262,6 +273,7 @@ function finishInPlace(input: HTMLInputElement): void {
   }
   const { path, original, value } = editing;
   editing = null;
+  ended = path;
   const span = document.createElement("span");
   span.className = "name";
   span.textContent = original;
