@@ -298,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn raw_count_counts_only_arw_and_dng_files() {
+    fn raw_count_counts_raws_or_else_jpegs() {
         let dir = temp_dir("raw-count");
         for name in ["a.ARW", "b.arw", "c.DNG", "d.jpg", "a.xmp", "e.dop"] {
             std::fs::write(dir.join(name), b"").unwrap();

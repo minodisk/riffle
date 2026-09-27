@@ -188,11 +188,11 @@ struct Listing {
     sidecars: Vec<(String, PathBuf)>,
 }
 
-/// Tells a RAW file from the entry's `file_type()`, which comes with the
-/// directory listing, rather than a `stat` per entry, which under disk
+/// Tells a RAW or JPEG file from the entry's `file_type()`, which comes with
+/// the directory listing, rather than a `stat` per entry, which under disk
 /// contention (a scan reading the same drive) costs seconds for a few hundred
-/// files. A symlinked RAW is still listed: only a symlink pays one extra
-/// `stat` to follow it.
+/// files. A symlinked RAW or JPEG is still listed: only a symlink pays one
+/// extra `stat` to follow it.
 fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let mut media = crate::folders::Media::default();
