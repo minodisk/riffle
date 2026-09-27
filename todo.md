@@ -527,37 +527,6 @@ is verified only by actionlint; no real release has run through it. Files:
       as Latest with a four-platform `latest.json`, and the next release PR has
       the right changelog base).
 
-### App: the Lightroom 9.5.1 round-trip check is still open
-
-From `lightroom-xmp-flags-labels`'s implementation: the tri-state flag and
-color-label read/write for XMP were built and unit-tested against trimmed
-copies of Lightroom-shaped fixtures, but the round-trip was never confirmed
-against real Lightroom. Files: `crates/core/src/xmp.rs`,
-`crates/app/src/sidecar.rs`, `README.md` ("Sidecar formats and software"
-checklist).
-
-#### TODO
-
-- [ ] Open `D:\Photos\2026\2026-09-05` under the XMP format and check L1005439
-      is picked, L1005438 is rejected, L1005428-L1005432 show purple / blue /
-      green / yellow / red, and L1005433-L1005437 show 5..1 stars.
-
-### App/Core: unverified whether a Riffle-written pick/reject shows correctly in Lightroom Classic
-
-Lightroom Classic writes a pick as `xmpDM:good="true"` + `xmpDM:pick="1"`;
-Riffle only reads and writes `xmpDM:good`. The user confirmed Lightroom
-Classic 2026 read Riffle-written pick flags (`xmpDM:good` only, no
-`xmpDM:pick`) correctly on first import, but reject display from a
-Riffle-written XMP was not separately checked. Basis: `lightroom-label-names`
-plan's "Trade-offs and risks" and the user's session verification. Files:
-`crates/core/src/xmp.rs`, `README.md`.
-
-#### TODO
-
-- [ ] Verify a Riffle-written reject (no `xmpDM:pick`) shows correctly as
-      rejected in Lightroom Classic; if it does not, decide whether Riffle
-      should also write `xmpDM:pick`.
-
 ### Core: an explicit `Orientation = 1` line for landscape `.dop` files is unverified in PhotoLab
 
 From `dop-orientation`'s implementation: PhotoLab 10 was verified to display
@@ -780,18 +749,24 @@ construction with the key-press path. Files: `crates/app/src/mcp.rs`,
 - [ ] Verify by hand that `set_judgment` from an MCP client writes the same
       XMP / `.dop` bytes as a key press, and that `Cmd+Z` undoes it.
 
-### Core: `en.json`'s Lightroom label preset is unverified against a real Lightroom install
+### App: the first-launch dialog does not ask for Lightroom's UI language
 
-`crates/core/i18n/en.json`'s `lightroom.colorLabels.verified` is
-`"Lightroom Classic (English UI)"`, with no version or OS, because the English
-names were not checked against a specific install when the file was created
-(they are the long-standing `LabelNames::default()`). Basis:
-`label-presets-i18n` plan's Step 1 learnings. Files: `crates/core/i18n/en.json`.
+The first-launch dialog only asks for the sidecar format. The `xmp:Label`
+names start as the English preset (`Red`, `Yellow`, ...) and can only be
+changed later under Settings > Lightroom language. A user whose Lightroom
+Classic runs in another language (e.g. Japanese, whose default set is
+`レッド`, `イエロー`, ...) who picks XMP or Both gets every Riffle-written color
+label shown as a white, unmatched label, with nothing pointing at the cause.
+Found during the 2026-09-28 manual Lightroom checks (`lightroom-verified`).
+Files: `crates/app/ui/src/main.ts` (`showFormatDialog`),
+`crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`,
+`crates/core/i18n/`.
 
 #### TODO
 
-- [ ] Confirm the English color label names against a real Lightroom Classic
-      install and name the version / OS in `verified`.
+- [ ] When XMP or Both is chosen in the first-launch dialog, require choosing
+      Lightroom's UI language (one of the `crates/core/i18n/` presets) before
+      the dialog closes, and save that preset's names as the label names.
 
 ### App: the folder listing payload carries always-null Maker note fields
 
