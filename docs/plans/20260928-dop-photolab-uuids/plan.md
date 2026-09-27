@@ -64,7 +64,7 @@ Out of scope: cleaning up virtual copies that already exist.
 
 ## Steps
 
-- [ ] Step 1: Let `dop::write_rating` / `dop::write_label` take the Uuids of a fresh sidecar
+- [x] Step 1: Let `dop::write_rating` / `dop::write_label` take the Uuids of a fresh sidecar
   - Done when:
     - `crates/core/src/dop.rs` exports a small `Uuids { item: String, source: String }`
       type and both `write_rating` and `write_label` take `uuids: Option<Uuids>`
