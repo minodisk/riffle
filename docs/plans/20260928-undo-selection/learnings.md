@@ -16,6 +16,16 @@
   ran; the frontend formatting was verified by `mise run ci`'s lint task
   ("All 93 files are correctly formatted").
 
+## Round 1 review (fix/undo-selection)
+
+- Review feedback: the `path !== shownPath` gate alone did not protect compare
+  mode, because there `judge()` records `compareActivePath`, which a pane
+  click can change without moving `index`. A single-file undo in compare mode
+  could therefore collapse a multi-selection `loadCompare()` was using as the
+  comparison set. Fixed by skipping the collapse in `step()`
+  (`crates/app/ui/src/main.ts`) while `comparing` is true, and updated the
+  trade-offs section of `plan.md` to describe the extra guard.
+
 ## Deferred issues (todo candidates)
 
 - `mise run fmt` does not work on Windows: its `pnpm exec vp fmt` hits the

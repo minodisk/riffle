@@ -98,7 +98,12 @@ focus leaves the selection equal to the focused file, as the arrow keys do.
   comparing mode). "Always" would collapse `{A, B, C}` to `{A}` on Ctrl+Z
   even though the focus stayed on A; "only when moved" keeps the user's
   selection there and still fixes both reported cases (unchanged list and
-  changed list) because the gate is `path !== shownPath`.
+  changed list) because the gate is `path !== shownPath`. Comparing mode
+  needed an extra guard: there `judge()` records `compareActivePath`, which a
+  pane click can set without moving `index`, so `path !== shownPath` alone
+  would still collapse the selection `loadCompare()` treats as the
+  comparison set. `step()` therefore also skips the collapse while
+  `comparing` is true.
 - **Testability.** The helper exists because `main.ts` cannot be
   unit-tested, and the helper is the exact decision that was missing.
 
