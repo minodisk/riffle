@@ -768,6 +768,24 @@ Files: `crates/app/ui/src/main.ts` (`showFormatDialog`),
       Lightroom's UI language (one of the `crates/core/i18n/` presets) before
       the dialog closes, and save that preset's names as the label names.
 
+### App: `a_dirty_row_is_written_to_both_sidecars_after_a_switch_to_both` is flaky on Windows
+
+The post-merge CI run for #492 (a docs-only change,
+https://github.com/minodisk/riffle/actions/runs/36330791050) failed on
+`test (windows-latest)` with this test panicking at
+`crates/app/src/commands.rs:3869` on `Os { code: 2, kind: NotFound }`
+("The system cannot find the file specified."). The same test passed on the
+PR's own CI and on a rerun of the failed job, so it is intermittent. The
+cause has not been investigated; one guess is the test reading a sidecar
+before the coalescing writer thread has written it. Files: `crates/app/src/commands.rs` (the test),
+`crates/app/src/sidecar.rs`.
+
+#### TODO
+
+- [ ] Find what the test reads at `commands.rs:3869` before it exists on
+      Windows and make the test wait for the sidecar writer deterministically
+      instead of racing it.
+
 ### App: the folder listing payload carries always-null Maker note fields
 
 The folder listing's `Exif` struct is also serialized for every `IndexedFile`
