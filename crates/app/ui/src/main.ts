@@ -2205,6 +2205,21 @@ function renameFile(path: string, name: string): void {
         }
         renderMeta();
       }
+      // `refilter`'s `prune` would normally repair `selection`, but its
+      // rescan is skipped whenever the renamed file keeps its place in the
+      // list, so the old path would otherwise linger as a selected member
+      // or the anchor.
+      if (selection.selected.has(path) || selection.anchor === path) {
+        const selected = new Set(selection.selected);
+        if (selected.delete(path)) {
+          selected.add(newPath);
+        }
+        selection = {
+          selected,
+          anchor: selection.anchor === path ? newPath : selection.anchor,
+        };
+        paintSelection();
+      }
       if (warning !== null) {
         setStatus(warning);
       }
