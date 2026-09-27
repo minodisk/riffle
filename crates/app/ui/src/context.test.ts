@@ -125,9 +125,13 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the sequence item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the copy items, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder")).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
+      [
+        { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
+        { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
+      ],
       [
         {
           action: "sequenceTimestamps",

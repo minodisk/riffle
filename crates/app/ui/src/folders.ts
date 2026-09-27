@@ -42,7 +42,7 @@ const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
 let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
 let reportError: (message: string) => void = () => {};
-let contextMenu: (path: string, x: number, y: number) => void = () => {};
+let contextMenu: (path: string, name: string, x: number, y: number) => void = () => {};
 // Settles once `folder_roots` has answered (or failed), so a reveal that
 // comes first (the reopen of the last folder at launch) waits for the roots.
 let rootsSettled: () => void = () => {};
@@ -76,7 +76,7 @@ function render(): void {
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
-      contextMenu(node.path, event.clientX, event.clientY);
+      contextMenu(node.path, node.name, event.clientX, event.clientY);
     });
     const expander = document.createElement("span");
     expander.className = "expander";
@@ -300,7 +300,7 @@ container.addEventListener("contextmenu", (event) => {
 export function init(
   onOpen: (path: string) => void,
   onError: (message: string) => void,
-  onContextMenu: (path: string, x: number, y: number) => void,
+  onContextMenu: (path: string, name: string, x: number, y: number) => void,
 ): void {
   open = onOpen;
   reportError = onError;

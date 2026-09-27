@@ -716,14 +716,20 @@ http://127.0.0.1:41917/mcp` fallback form. Files: `crates/app/ui/src/mcp.ts`,
 ### App: the settings window's Copy buttons are unverified across webviews
 
 `navigator.clipboard.writeText` for the MCP settings tab's Copy buttons was not
-checked in a running app on Linux (WebKitGTK), Windows, or macOS. Files:
-`crates/app/ui/src/settings.ts`.
+checked in a running app on Linux (WebKitGTK), Windows, or macOS. The same
+unverified call is used by the folder tree's `Copy Path` / `Copy Folder Name`
+context-menu items. Files: `crates/app/ui/src/settings.ts`,
+`crates/app/ui/src/main.ts`.
 
 #### TODO
 
 - [ ] Verify the settings window's Copy buttons in the Linux (WebKitGTK) and
       Windows / macOS webviews, and confirm the select-text fallback fires
       when the write is refused.
+- [ ] Verify the folder tree's `Copy Path` / `Copy Folder Name` items the same
+      way; if a webview refuses the write, switch to
+      `tauri-plugin-clipboard-manager` with a
+      `clipboard-manager:allow-write-text` capability.
 
 ### App: the MCP `get_view` tool is unverified against a running app
 
@@ -855,3 +861,79 @@ added to `finishSequence` in `crates/app/ui/src/main.ts`. Basis:
 - [ ] Confirm on Windows that (1) a run that wrote files opens Explorer with
       `<folder>-sequenced` selected, (2) a cancelled run opens nothing, and
       (3) a folder with no JPEGs opens nothing; merge any fix needed.
+
+### App: Open in Terminal from the folder tree's context menu
+
+A folder-menu item that opens a terminal in the folder. The terminal has to be
+chosen per platform (Windows Terminal or `cmd` on Windows, Terminal.app on
+macOS); on Linux there is no standard terminal, so the choice is ambiguous and
+needs a fallback or a setting. Basis: deferred in
+`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
+`crates/app/src/folders.rs`, `crates/app/ui/src/context.ts`,
+`crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] Decide the terminal per platform (and the Linux fallback), then add an
+      `Open in Terminal` item to the folder context menu backed by a command
+      in `crates/app/src/folders.rs`.
+
+### App: rename a folder from the folder tree's context menu
+
+Renaming needs the scan stopped and the sidecar writer flushed first; the OS
+rename fails on Windows while handles are open and its error has to be shown.
+The SQLite `files` / `ratings` / `folders` tables are all keyed by absolute
+path, so their path / dir prefixes have to be rewritten, subfolders and dirty
+`ratings` rows included, so unsynced sidecar writes and `last_viewed` survive
+and thumbnails / analysis are not re-extracted. The current folder then
+reopens under its new path, keeping the tree expansion, and the tree row needs
+an inline edit UI. Basis: deferred in
+`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
+`crates/app/src/index.rs`, `crates/app/src/sidecar.rs`,
+`crates/app/src/commands.rs`, `crates/app/ui/src/folders.ts`,
+`crates/app/ui/src/tree.ts`.
+
+#### TODO
+
+- [ ] Add a `Rename…` folder-menu item with inline editing on the tree row
+      that stops the scan, flushes the sidecar writer, renames on disk
+      (showing the OS error on failure), rewrites the index's path prefixes
+      and reopens the current folder under its new path.
+
+### App: Refresh vs Rescan from the folder tree's context menu
+
+Two candidate items: Refresh re-lists the subfolders and RAW counts (light),
+Rescan re-indexes the open folder (heavy). The semantics are undecided; the
+lean is a single Refresh that reloads the tree and runs an incremental scan of
+the open folder. Basis: deferred in
+`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
+`crates/app/ui/src/folders.ts`, `crates/app/ui/src/main.ts`,
+`crates/app/src/index.rs`.
+
+#### TODO
+
+- [ ] Decide between one Refresh and a Refresh / Rescan pair, then add the
+      item(s) to the folder context menu.
+
+### App: expand / collapse all subfolders from the folder tree's context menu
+
+Folder-menu items that expand or collapse every subfolder under the clicked
+folder. Basis: deferred in `docs/plans/20260927-folder-menu-copy/plan.md`
+(Purpose). Files: `crates/app/ui/src/tree.ts`, `crates/app/ui/src/folders.ts`.
+
+#### TODO
+
+- [ ] Add `Expand All` / `Collapse All` items to the folder context menu.
+
+### App: rewrite or delete a folder's sidecars from the folder tree's context menu
+
+Folder-menu items that rewrite every sidecar in the folder from the index, or
+delete them; deleting sits behind a confirmation dialog. Basis: deferred in
+`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
+`crates/app/src/sidecar.rs`, `crates/app/src/commands.rs`,
+`crates/core/src/xmp.rs`, `crates/core/src/dop.rs`.
+
+#### TODO
+
+- [ ] Add a sidecar rewrite item and a delete item (behind a confirmation
+      dialog) to the folder context menu.

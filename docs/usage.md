@@ -37,7 +37,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   Right-clicking a folder opens a menu whose first item shows the folder
   selected in its parent in the OS file manager: `Reveal in Finder` on
   macOS, `Reveal in File Explorer` on Windows, `Open Containing Folder` on
-  Linux. Below it, `Sequence JPEG Timestamps…` starts the same preview as
+  Linux. Below it, `Copy Path` puts the folder's absolute path, unquoted,
+  on the clipboard and `Copy Folder Name` its name as the tree shows it;
+  a refused clipboard write shows its error in the status line. Last,
+  `Sequence JPEG Timestamps…` starts the same preview as
   the File menu item on that folder, without the folder picker (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
   keyboard (or takes it away); `Escape` or a click elsewhere closes the menu.

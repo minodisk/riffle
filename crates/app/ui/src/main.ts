@@ -2080,7 +2080,8 @@ strip.init(
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
 
 // A folder clicked in the tree opens the way a drop does; a right-click
-// offers to reveal it in the OS file manager or to sequence its JPEGs.
+// offers to reveal it in the OS file manager, to copy its path or name, or to
+// sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2091,12 +2092,22 @@ folders.init(
     });
   },
   setStatus,
-  (path, x, y) => {
+  (path, name, x, y) => {
     void revealLabel.then((label) => {
       showMenu(folderMenuGroups(label), x, y, (action) => {
         switch (action) {
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
+              setStatus(String(err));
+            });
+            break;
+          case "copyPath":
+            navigator.clipboard.writeText(path).catch((err: unknown) => {
+              setStatus(String(err));
+            });
+            break;
+          case "copyFolderName":
+            navigator.clipboard.writeText(name).catch((err: unknown) => {
               setStatus(String(err));
             });
             break;
