@@ -16,7 +16,7 @@ export type SequencePreview = {
 };
 
 // The `sequence-done` payload. A folder-level error arrives with `total: 0`
-// and one failure keyed by `dir`.
+// and one failure keyed by `dir`; `folderError` recognizes it.
 export type SequenceDone = {
   run_id: number;
   dir: string;
@@ -72,7 +72,17 @@ export function progressStatus(done: number, total: number): string {
   return `sequencing ${done} / ${total}`;
 }
 
-export function doneStatus(done: SequenceDone): string {
+// The failure of a run that ended on a folder-level error, or null for any
+// other run.
+export function folderError(done: SequenceDone): SequenceFailure | null {
+  return done.total === 0 && !done.canceled ? (done.failed[0] ?? null) : null;
+}
+
+// Null for a folder-level error, which shows as a sticky error instead.
+export function doneStatus(done: SequenceDone): string | null {
+  if (folderError(done) !== null) {
+    return null;
+  }
   const head = done.canceled
     ? `canceled, ${done.written} of ${done.total} written`
     : `Wrote ${done.written} of ${done.total} ${done.total === 1 ? "file" : "files"} to ${done.output_dir}`;
