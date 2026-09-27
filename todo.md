@@ -852,28 +852,6 @@ needs a fallback or a setting. Basis: deferred in
       `Open in Terminal` item to the folder context menu backed by a command
       in `crates/app/src/folders.rs`.
 
-### App: rename a folder from the folder tree's context menu
-
-Renaming needs the scan stopped and the sidecar writer flushed first; the OS
-rename fails on Windows while handles are open and its error has to be shown.
-The SQLite `files` / `ratings` / `folders` tables are all keyed by absolute
-path, so their path / dir prefixes have to be rewritten, subfolders and dirty
-`ratings` rows included, so unsynced sidecar writes and `last_viewed` survive
-and thumbnails / analysis are not re-extracted. The current folder then
-reopens under its new path, keeping the tree expansion, and the tree row needs
-an inline edit UI. Basis: deferred in
-`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
-`crates/app/src/index.rs`, `crates/app/src/sidecar.rs`,
-`crates/app/src/commands.rs`, `crates/app/ui/src/folders.ts`,
-`crates/app/ui/src/tree.ts`.
-
-#### TODO
-
-- [ ] Add a `Rename…` folder-menu item with inline editing on the tree row
-      that stops the scan, flushes the sidecar writer, renames on disk
-      (showing the OS error on failure), rewrites the index's path prefixes
-      and reopens the current folder under its new path.
-
 ### App: Refresh vs Rescan from the folder tree's context menu
 
 Two candidate items: Refresh re-lists the subfolders and RAW counts (light),
@@ -970,3 +948,43 @@ already-written sidecar.
 
 - [ ] Decide whether to retry the lookup (and re-patch the sidecar) after a
       busy-database miss, or leave it as a rare, logged edge case.
+
+### App: opening a subfolder while its parent folder's rename is in flight
+
+Step 2's round 4 local reviewer noted, outside the reviewed diff, that
+clicking a subfolder of the folder being renamed while `rename_folder` is
+still in flight can open that subfolder under its old path.
+
+#### TODO
+
+- [ ] Make the tree refuse (or defer) opening a path under a folder whose
+      rename has not returned yet, or reopen it under the rebased path once
+      it returns.
+
+### App: PhotoLab after a file or folder rename
+
+From Step 3's check of the PhotoLab Uuid lookup (`crates/app/src/photolab.rs`
+queries `Sources` by `FolderId` and `Name`; `crates/core/src/dop.rs` writes
+the RAW's `Name` into the `.dop`). `rename_file`
+(`crates/app/src/rename.rs`) moves the `.dop` unchanged, so its inner `Name`
+still names the old file and PhotoLab's database still holds the old name
+and folder.
+
+#### TODO
+
+- [ ] Find out (checked with PhotoLab) whether PhotoLab re-matches a renamed
+      RAW with its moved `.dop` or imports it as a new image / virtual copy,
+      and either patch the `.dop`'s `Name` on rename or document what to
+      expect.
+
+### App: a rename can carry away an `.xmp` shared by two RAWs of the same stem
+
+From Step 3's `file_plan` (`crates/app/src/rename.rs`), which, like
+`trash::plan` (`crates/app/src/trash.rs`), takes `a.xmp` as `a.ARW`'s
+sidecar even when an `a.DNG` in the same folder uses the same `a.xmp`.
+Renaming `a.ARW` carries the DNG's sidecar away.
+
+#### TODO
+
+- [ ] Make a rename (and the trash) leave a `.xmp` another RAW of the same
+      stem still uses, or refuse with a message.
