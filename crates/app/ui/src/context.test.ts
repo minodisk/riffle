@@ -122,6 +122,12 @@ describe("contextMenuGroups", () => {
       .map((item) => item.action);
     expect(checked).toEqual(["pick", "rate3", "orange"]);
   });
+
+  test("keeps only Select All in a view-only folder", () => {
+    expect(contextMenuGroups(defaults, unset, true)).toEqual([
+      [{ action: "selectAll", label: "Select All", shortcut: "meta+a", checked: undefined }],
+    ]);
+  });
 });
 
 describe("folderMenuGroups", () => {

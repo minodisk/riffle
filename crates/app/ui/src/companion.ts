@@ -6,6 +6,7 @@ import type { BurstMember } from "./burst.js";
 import { COMPARE_NEEDS_FRAMES } from "./compare.js";
 import { type Command, type Judged, type PickFlag, targets } from "./selection.js";
 import type { SortKey } from "./sort.js";
+import { VIEW_ONLY_REFUSAL } from "./viewonly.js";
 
 // The main window's view state, as `main.ts` exposes it.
 export interface ViewApi {
@@ -24,6 +25,8 @@ export interface ViewApi {
   readonly compareActive: string | null;
   readonly sort: SortKey;
   readonly filtered: boolean;
+  // A JPEG folder, where culling does not apply.
+  readonly viewOnly: boolean;
   // Make a visible `path` current and the only selected file.
   showPhoto(path: string): void;
   // Select the visible `paths` and make the first one current.
@@ -169,6 +172,7 @@ function defaultTargets(view: ViewApi): string[] {
 }
 
 function setJudgment(view: ViewApi, args: unknown): Judged[] {
+  if (view.viewOnly) throw new Error(VIEW_ONLY_REFUSAL);
   const rating = field(args, "rating");
   const flag = field(args, "flag");
   const label = field(args, "label");

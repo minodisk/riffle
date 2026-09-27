@@ -85,6 +85,31 @@
   in the Rust byte-string literals into raw NUL bytes once; check test
   fixtures written that way with `grep -c` for NULs.
 
+## Step 3: frontend view-only mode
+
+- **Not verified by hand: the GUI was not run.** The implementation agent
+  cannot drive the desktop app, so "a `-sequenced` folder opens at its last
+  viewed file in capture order" was not checked in the window. It rests on
+  code reading: `openDirectory` sets `viewOnly` before its first `ordered()`,
+  so the provisional list and every later `refilter` use `capture`, and the
+  resume path (`resumeTarget` / `firstEntriesAnchor`) is unchanged. Check it
+  by hand before merging.
+- **The mode line is persistent, not a one-shot `setStatus`.** The plan
+  asked to name the mode once per folder open through `note` / `setStatus`,
+  but `show()` and every decoded preview call `setStatus()` and clear the
+  note, so a note set in `openDirectory` would vanish as soon as the first
+  preview lands. `renderMeta` instead appends `JPEG folder: view only` while
+  `viewOnly` holds, the same way the `1:1` indicator is driven by `zoomed`.
+- The gate sits in `record` (which the keys' `judge` and the MCP
+  `view.judge` both go through) and at the top of `rejectRest`; `runAction`
+  still returns `true` for a gated key. `setViewOnly` also clears the undo
+  and redo history, since a rescan can turn a folder view-only after its
+  RAWs were deleted, and an undo would otherwise `set_rating` a gone path.
+- The effective sort is `sortFor(viewOnly, sortKey)`, used by `ordered()`
+  and the MCP `get_view`'s `sort`; `sortKey` itself (and the menu's checked
+  item) keeps the user's persisted key, which is read once at startup, and
+  the disabled `#sort-toggle` keeps `set_sort_order` from being called.
+
 ## Deferred issues (todo candidates)
 
 - **CLI `bench` silently measures nothing for a JPEG path.** Basis: Step 1

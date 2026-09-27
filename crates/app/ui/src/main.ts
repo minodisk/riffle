@@ -44,6 +44,7 @@ import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from
 import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
 import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
+import { VIEW_ONLY_NOTE, isViewOnly, sortFor } from "./viewonly.js";
 import { initSettings } from "./settings.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
@@ -163,6 +164,8 @@ const previewPixelLimit = window.__TAURI__.core
 let allFiles: string[] = [];
 // The strip order, kept across folder opens within the session.
 let sortKey: SortKey = "name";
+// A JPEG-only folder is open: no judgment, no faces, capture order.
+let viewOnly = false;
 // The files that pass the filter, in `sortKey` order. `index`, the strip and
 // paging all work on this view.
 let files: string[] = [];
@@ -475,6 +478,9 @@ function renderMeta(): void {
       }
       metaEl.append(list);
     }
+  }
+  if (viewOnly) {
+    metaStatusEl.append(line("note", VIEW_ONLY_NOTE));
   }
   if (note !== undefined) {
     metaStatusEl.append(line("note", note));
@@ -1041,7 +1047,7 @@ function passes(path: string): boolean {
 }
 
 function ordered(): string[] {
-  return orderFiles(sortKey, allFiles, (path) => {
+  return orderFiles(sortFor(viewOnly, sortKey), allFiles, (path) => {
     const entry = entries.get(path);
     return {
       captureTime: entry?.capture_time ?? undefined,
@@ -1143,6 +1149,9 @@ function record(
   forceLabel = false,
   anchor = focused,
 ): boolean {
+  if (viewOnly) {
+    return false;
+  }
   // Idempotent: pressing the current value again does nothing at all, which
   // is what makes key auto-repeat harmless. A forced label still goes out
   // while the file's real label is unknown.
@@ -1171,7 +1180,7 @@ function record(
 // `allFiles` so a member the filter hides is rejected too, as one undo entry.
 // Members already rejected are skipped, so the batch holds real changes only.
 function rejectRest(): void {
-  if (files.length === 0) {
+  if (viewOnly || files.length === 0) {
     return;
   }
   const current = files[index];
@@ -1524,7 +1533,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
 // eyes. They are detected when first drawn and appear once `faces_of`
 // answers; the 1:1 view and Compare do not draw them.
 function drawFaceMarks(drawWidth: number, drawHeight: number): void {
-  if (!showFocus || files.length === 0) {
+  if (!showFocus || viewOnly || files.length === 0) {
     return;
   }
   // `shown` still holds the previous file's bitmap between `show()` and the
@@ -1995,7 +2004,7 @@ function openContextMenu(x: number, y: number): void {
     flag: flagOf(focused),
     label: labels.get(focused) ?? null,
   };
-  showMenu(contextMenuGroups(keyBindings, state), x, y, runAction);
+  showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, runAction);
 }
 
 // Fill `#context-menu` with `groups` at (`x`, `y`); a click on an item
@@ -2233,6 +2242,7 @@ function resync(): void {
         return;
       }
       allFiles = found;
+      setViewOnly(isViewOnly(found));
       refilter(anchor, true);
       return startScan(dir);
     })
@@ -2268,6 +2278,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
       set.clear();
     }
     allFiles = found;
+    setViewOnly(isViewOnly(found));
     entries.clear();
     ratings.clear();
     flags.clear();
@@ -2431,7 +2442,10 @@ const view: ViewApi = {
     return compareActivePath;
   },
   get sort() {
-    return sortKey;
+    return sortFor(viewOnly, sortKey);
+  },
+  get viewOnly() {
+    return viewOnly;
   },
   get filtered() {
     return filterActive();
@@ -2849,6 +2863,19 @@ for (const item of sortItems) {
     setSortMenuOpen(false);
     refilter();
   });
+}
+
+// The sort menu is off in a view-only folder, so the user's persisted key is
+// neither shown as in force nor overwritten there. A rescan can turn a folder
+// whose RAWs were all deleted view-only, so the undo history goes too.
+function setViewOnly(next: boolean): void {
+  viewOnly = next;
+  sortToggle.disabled = next;
+  if (next) {
+    setSortMenuOpen(false);
+    history.clear();
+    redoable.clear();
+  }
 }
 
 function setSortKey(key: SortKey): void {

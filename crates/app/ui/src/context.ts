@@ -35,8 +35,13 @@ const SECTIONS: Entry[][] = [
   [...LABEL_ENTRIES, ["clearlabel", "No label", (state) => state.label === null]],
 ];
 
-export function contextMenuGroups(bindings: Binding[], state: MenuState): MenuItem[][] {
-  return SECTIONS.map((section) =>
+// A view-only (JPEG) folder takes no judgment, so only `Select All` is left.
+export function contextMenuGroups(
+  bindings: Binding[],
+  state: MenuState,
+  viewOnly = false,
+): MenuItem[][] {
+  return (viewOnly ? SECTIONS.slice(0, 1) : SECTIONS).map((section) =>
     section.map(([action, label, checked]) => {
       const key = bindings.find((binding) => binding.action === action)?.keys[0];
       return {

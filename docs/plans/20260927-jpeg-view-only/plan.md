@@ -179,7 +179,7 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
       backend's refusal in the status line instead of doing nothing; that is
       the intended safety net, and Step 3 turns it into a no-op.
 
-- [ ] Step 3: Frontend: view-only mode for a JPEG folder
+- [x] Step 3: Frontend: view-only mode for a JPEG folder
   - Done when:
     - Step 2 is merged.
     - A pure helper (new `crates/app/ui/src/viewonly.ts`, with
