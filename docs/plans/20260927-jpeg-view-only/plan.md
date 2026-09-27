@@ -50,7 +50,7 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
 
 ## Steps
 
-- [ ] Step 1: Core: read a JPEG's Exif and thumbnail through the existing `extract` / `read_preview` / `read_metadata` entry points
+- [x] Step 1: Core: read a JPEG's Exif and thumbnail through the existing `extract` / `read_preview` / `read_metadata` entry points
   - Done when:
     - `crates/core/src/jpeg.rs` (new, exported from `lib.rs`) parses a JPEG
       file's APP1 Exif into the same `arw::Arw`-shaped result the app already
@@ -80,13 +80,15 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
       neither `detect_around` nor `score_preview`. `extract_faces` is not
       changed (a JPEG row never reaches it; see Step 2).
     - The JPEG thumbnail is unrotated, baseline, `THUMBNAIL_QUALITY`, and
-      its long edge is close to the ARW thumbnail's (404 px): `thumbnail_jpeg`
-      picks the DCT scale `n/8` from the source size instead of the fixed
-      `2/8` that assumes a 1616-px preview. Measure a 24 MP JPEG's thumbnail
-      bytes and decode time and record them in `learnings.md`; if `1/8` is
-      still far above 404 px and the bytes are well above the ~19 KB ARW
-      figure, a further downsample after the decode is acceptable, but decide
-      that on the measurement, not up front.
+      its long edge is close to the ARW thumbnail's (404 px): a new
+      `decode::thumbnail_jpeg_near` picks the DCT scale `n/8` from the source
+      size and box-averages to 404 px, used only for JPEG files;
+      `thumbnail_jpeg` stays at the fixed `2/8` scale so DNG thumbnails do not
+      change. Measure a 24 MP JPEG's thumbnail bytes and decode time and
+      record them in `learnings.md`; if `1/8` is still far above 404 px and
+      the bytes are well above the ~19 KB ARW figure, a further downsample
+      after the decode is acceptable, but decide that on the measurement, not
+      up front.
     - Tests (`jpeg.rs` unit tests, building JPEGs with `mozjpeg` as
       `scan.rs`'s tests do and splicing a hand-built APP1 after SOI, both
       `II` and `MM`): each field above; sub-second inline (≤ 4 bytes) and at
@@ -303,4 +305,4 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
 
 ## Progress
 
-- (none yet)
+- (2026-09-27) Step 1 complete

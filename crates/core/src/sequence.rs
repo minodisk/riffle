@@ -47,6 +47,8 @@ use anyhow::{bail, ensure, Context, Error, Result};
 use chrono::{Duration, NaiveDateTime};
 use rayon::prelude::*;
 
+use crate::scan::is_jpeg_file;
+
 /// EXIF date-time format (colon-separated, fixed 19 bytes)
 pub const EXIF_DATETIME_FORMAT: &str = "%Y:%m:%d %H:%M:%S";
 
@@ -232,7 +234,7 @@ pub fn patch_datetimes(buf: &mut [u8], offsets: &DateTimeOffsets, new: ExifDateT
 
 /// Walks the JPEG segments and returns the APP1 (Exif) segment's
 /// (absolute offset of the TIFF header, absolute offset of the segment end).
-fn find_exif_tiff(buf: &[u8]) -> Result<(usize, usize)> {
+pub(crate) fn find_exif_tiff(buf: &[u8]) -> Result<(usize, usize)> {
     ensure!(
         buf.len() >= 2 && buf[0] == 0xFF && buf[1] == 0xD8,
         "not a JPEG file (missing SOI marker)"
@@ -275,7 +277,7 @@ fn find_exif_tiff(buf: &[u8]) -> Result<(usize, usize)> {
 
 /// Helper for reading the TIFF structure. All offsets are relative to the
 /// TIFF header (base).
-struct Tiff<'a> {
+pub(crate) struct Tiff<'a> {
     buf: &'a [u8],
     base: usize,
     end: usize,
@@ -284,15 +286,15 @@ struct Tiff<'a> {
 
 /// An IFD entry. `value_field` is the base-relative offset of the 4-byte
 /// value/offset field.
-struct Entry {
-    tag: u16,
-    typ: u16,
-    count: u32,
-    value_field: usize,
+pub(crate) struct Entry {
+    pub(crate) tag: u16,
+    pub(crate) typ: u16,
+    pub(crate) count: u32,
+    pub(crate) value_field: usize,
 }
 
 impl<'a> Tiff<'a> {
-    fn new(buf: &'a [u8], base: usize, end: usize) -> Result<Self> {
+    pub(crate) fn new(buf: &'a [u8], base: usize, end: usize) -> Result<Self> {
         ensure!(end <= buf.len() && end - base >= 8, "TIFF header too short");
         let little_endian = match &buf[base..base + 2] {
             b"II" => true,
@@ -309,7 +311,7 @@ impl<'a> Tiff<'a> {
         Ok(tiff)
     }
 
-    fn bytes(&self, rel: usize, n: usize) -> Result<&[u8]> {
+    pub(crate) fn bytes(&self, rel: usize, n: usize) -> Result<&[u8]> {
         let abs = self.base + rel;
         ensure!(
             abs + n <= self.end,
@@ -318,7 +320,7 @@ impl<'a> Tiff<'a> {
         Ok(&self.buf[abs..abs + n])
     }
 
-    fn u16(&self, rel: usize) -> Result<u16> {
+    pub(crate) fn u16(&self, rel: usize) -> Result<u16> {
         let b = self.bytes(rel, 2)?;
         Ok(if self.little_endian {
             u16::from_le_bytes([b[0], b[1]])
@@ -327,7 +329,7 @@ impl<'a> Tiff<'a> {
         })
     }
 
-    fn u32(&self, rel: usize) -> Result<u32> {
+    pub(crate) fn u32(&self, rel: usize) -> Result<u32> {
         let b = self.bytes(rel, 4)?;
         Ok(if self.little_endian {
             u32::from_le_bytes([b[0], b[1], b[2], b[3]])
@@ -336,7 +338,7 @@ impl<'a> Tiff<'a> {
         })
     }
 
-    fn ifd_entries(&self, ifd: usize) -> Result<Vec<Entry>> {
+    pub(crate) fn ifd_entries(&self, ifd: usize) -> Result<Vec<Entry>> {
         let n = self.u16(ifd)? as usize;
         let mut entries = Vec::with_capacity(n);
         for i in 0..n {
@@ -409,13 +411,6 @@ pub struct Summary {
     pub canceled: bool,
 }
 
-fn is_jpeg(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| matches!(e.to_ascii_lowercase().as_str(), "jpg" | "jpeg"))
-        .unwrap_or(false)
-}
-
 /// Enumerates the JPEGs (.jpg / .jpeg, case-insensitive) directly under the
 /// given directory in natural filename order. Other formats such as RAW are
 /// ignored. Subdirectories are not recursed.
@@ -425,7 +420,7 @@ pub fn collect_jpegs(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let mut named: Vec<(String, PathBuf)> = Vec::new();
     for entry in entries {
         let path = entry.map_err(|e| e.to_string())?.path();
-        if !path.is_file() || !is_jpeg(&path) {
+        if !path.is_file() || !is_jpeg_file(&path) {
             continue;
         }
         let name = path
@@ -597,7 +592,7 @@ fn clear_output(dir: &Path, out: &Path) -> Result<(), String> {
         .map_err(|e| format!("failed to read directory: {}: {e}", out.display()))?;
     for entry in entries {
         let path = entry.map_err(|e| e.to_string())?.path();
-        if path.is_file() && is_jpeg(&path) {
+        if path.is_file() && is_jpeg_file(&path) {
             fs::remove_file(&path)
                 .map_err(|e| format!("failed to delete: {}: {e}", path.display()))?;
         }

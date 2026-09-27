@@ -1,4 +1,5 @@
-//! Read only as much of an ARW as the metadata and the preview need.
+//! Read only as much of an ARW as the metadata and the preview need. A JPEG
+//! file is its own preview and full-resolution JPEG.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -7,6 +8,8 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 
 use crate::arw::{self, Arw};
+use crate::jpeg;
+use crate::scan::is_jpeg_file;
 
 /// How much of a file the bounded read takes.
 ///
@@ -35,6 +38,9 @@ fn head_of(file: &mut File, limit: usize) -> Result<Vec<u8>> {
 /// A prefix too short to parse is an error rather than a wrong answer, so in
 /// that case the whole file is read and parsed instead.
 pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
+    if is_jpeg_file(path) {
+        return read_jpeg(path);
+    }
     read_embedded(path, Kind::Preview)
 }
 
@@ -42,7 +48,15 @@ pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
 /// metadata is in the prefix but the JPEG itself is several MB long, so the
 /// ranged read is the normal path here rather than a fallback.
 pub fn read_full(path: &Path) -> Result<(Arw, Vec<u8>)> {
+    if is_jpeg_file(path) {
+        return read_jpeg(path);
+    }
     read_embedded(path, Kind::Full)
+}
+
+fn read_jpeg(path: &Path) -> Result<(Arw, Vec<u8>)> {
+    let buf = std::fs::read(path)?;
+    Ok((jpeg::parse(&buf)?, buf))
 }
 
 #[derive(Clone, Copy)]
@@ -88,10 +102,17 @@ fn read_embedded(path: &Path, kind: Kind) -> Result<(Arw, Vec<u8>)> {
 
 /// Parse just a file's metadata, reading the same bounded prefix as
 /// `read_preview` and falling back to the whole file when that prefix is too
-/// short to parse.
+/// short to parse. A JPEG's prefix is too short when it holds no complete
+/// Exif segment.
 pub fn read_metadata(path: &Path) -> Result<Arw> {
     let head = read_head(path, HEAD_LIMIT)?;
     let bounded = head.len() == HEAD_LIMIT;
+    if is_jpeg_file(path) {
+        if bounded && !jpeg::has_exif(&head) {
+            return jpeg::parse(&std::fs::read(path)?);
+        }
+        return jpeg::parse(&head);
+    }
     match arw::parse(&head) {
         Ok(arw) => Ok(arw),
         Err(_) if bounded => arw::parse(&std::fs::read(path)?),
@@ -130,7 +151,7 @@ mod tests {
 
     fn temp_file(name: &str, bytes: &[u8]) -> std::path::PathBuf {
         let path =
-            std::env::temp_dir().join(format!("riffle-reader-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("riffle-reader-{}-{name}", std::process::id()));
         std::fs::write(&path, bytes).unwrap();
         path
     }
@@ -226,6 +247,45 @@ mod tests {
     fn a_file_without_a_full_jpeg_is_an_error() {
         let path = temp_file("full-none", &arw_with_preview(64, &[1u8, 2, 3, 4]));
         assert!(read_full(&path).is_err());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_jpeg_is_its_own_preview_and_full_jpeg() {
+        use crate::jpeg::tests::{plain_jpeg, with_exif, W};
+        let w = W(false);
+        let file = with_exif(&plain_jpeg(64, 48), &w.tiff(&[w.short(0x0112, 8)], &[]));
+        let path = temp_file("jpeg.JPG", &file);
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!((a.orientation, out), (8, file.clone()));
+        let (a, out) = read_full(&path).unwrap();
+        assert_eq!((a.orientation, out), (8, file.clone()));
+        assert_eq!(read_metadata(&path).unwrap().orientation, 8);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_jpeg_whose_exif_is_past_the_prefix_reads_the_whole_file() {
+        use crate::jpeg::tests::{plain_jpeg, with_exif, W};
+        let w = W(true);
+        let mut file = plain_jpeg(16, 16)[..2].to_vec();
+        let mut filler = vec![0xFF, 0xE2, 0xFF, 0xFF];
+        filler.resize(0xFFFF + 2, 0);
+        while file.len() < HEAD_LIMIT {
+            file.extend_from_slice(&filler);
+        }
+        let tail = with_exif(&plain_jpeg(16, 16), &w.tiff(&[w.short(0x0112, 6)], &[]));
+        file.extend_from_slice(&tail[2..]);
+        let path = temp_file("far.jpeg", &file);
+        assert_eq!(read_metadata(&path).unwrap().orientation, 6);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_file_named_jpg_that_is_not_a_jpeg_is_an_error() {
+        let path = temp_file("fake.jpg", &arw_with_preview(64, &[1u8, 2, 3, 4]));
+        assert!(read_preview(&path).is_err());
+        assert!(read_metadata(&path).is_err());
         std::fs::remove_file(&path).unwrap();
     }
 
