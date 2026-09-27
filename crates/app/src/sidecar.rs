@@ -124,6 +124,7 @@ impl SidecarFormat {
                 &raw_name(arw),
                 orientation,
                 &dop::timestamp(SystemTime::now()),
+                None,
             ),
             Self::Both => unreachable!("call kinds() first"),
         }
@@ -148,6 +149,7 @@ impl SidecarFormat {
                 &raw_name(arw),
                 orientation,
                 &dop::timestamp(SystemTime::now()),
+                None,
             ),
             Self::Both => unreachable!("call kinds() first"),
         }
@@ -1439,6 +1441,7 @@ mod tests {
                     &raw_name(&path),
                     None,
                     &dop::timestamp(SystemTime::now()),
+                    None,
                 )
                 .unwrap(),
             )

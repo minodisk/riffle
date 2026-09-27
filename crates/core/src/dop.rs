@@ -30,6 +30,15 @@
 //! push order, so the `Orientation` edit is pushed after `Settings` and
 //! before `ColorLabel`, which keeps inserts at the closing brace alphabetical.
 //!
+//! PhotoLab matches a sidecar's items to its database by `Uuid`. Once it has
+//! registered an image (opening the folder is enough, and writes no `.dop`), a
+//! fresh sidecar with unknown Uuids is imported as a new item, a virtual copy,
+//! rather than applied to the master. So the caller may pass the [`Uuids`] the
+//! database holds for the image, which the template writes verbatim; `None`
+//! mints two random ones. PhotoLab also ignores a sidecar whose timestamps are
+//! older than the database item's `ModificationDate`; the caller's `now` is
+//! newer.
+//!
 //! There is no Lua parser: a scanner tracks brace depth (skipping over
 //! double-quoted strings) and matches `Key = value,` lines at the depth of the
 //! table they belong to, which is what keeps nested keys such as the `Label`
@@ -42,6 +51,14 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::Flag;
+
+/// The two Uuids of a fresh sidecar: `item` is `Items[0].Uuid`, `source`
+/// `Sidecar.Source.Uuid`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Uuids {
+    pub item: String,
+    pub source: String,
+}
 
 /// The sidecar path of an ARW: `.dop` appended to the full file name, as
 /// PhotoLab names it (`_DSC0001.ARW` -> `_DSC0001.ARW.dop`).
@@ -90,7 +107,9 @@ pub fn read_flag(bytes: &[u8]) -> Result<Flag, String> {
 /// `Date` and `ModificationDate` spliced, each inserted as its own line when
 /// absent. `name` is only used by the template; `orientation`, the RAW's
 /// EXIF Orientation, is written by the template and inserted into an item
-/// without one (see the module doc).
+/// without one (see the module doc). `uuids` is only used by the template:
+/// `Some` is written as-is, `None` mints two random ones (see the module
+/// doc).
 ///
 /// `ShouldProcess` becomes `0` for a pick, `1` for a reject and `2`
 /// otherwise.
@@ -106,13 +125,14 @@ pub fn write_rating(
     name: &str,
     orientation: Option<u16>,
     now: &str,
+    uuids: Option<Uuids>,
 ) -> Result<Vec<u8>, String> {
     let value = rating.unwrap_or(0);
     if !(0..=5).contains(&value) {
         return Err(format!("rating {value} is outside 0..=5"));
     }
     let Some(existing) = existing else {
-        return Ok(template(value, flag, name, orientation, now, [uuid(), uuid()]).into_bytes());
+        return Ok(template(value, flag, name, orientation, now, fresh_uuids(uuids)).into_bytes());
     };
     let text = std::str::from_utf8(existing).map_err(|e| format!("not UTF-8: {e}"))?;
     let doc = locate(text)?;
@@ -176,20 +196,21 @@ pub fn read_label(bytes: &[u8]) -> Result<Option<String>, String> {
 ///
 /// With `existing` `None`, `Some(label)` is the fresh template for `name`
 /// (unrated, unflagged) plus the label; `None` is an error, as the caller
-/// never mints a sidecar for "no label". `orientation` is written as by
-/// [`write_rating`].
+/// never mints a sidecar for "no label". `orientation` and `uuids` are used
+/// as by [`write_rating`].
 pub fn write_label(
     existing: Option<&[u8]>,
     label: Option<&str>,
     name: &str,
     orientation: Option<u16>,
     now: &str,
+    uuids: Option<Uuids>,
 ) -> Result<Vec<u8>, String> {
     let owned;
     let existing = match (existing, label) {
         (Some(existing), _) => existing,
         (None, Some(_)) => {
-            owned = template(0, Flag::None, name, orientation, now, [uuid(), uuid()]);
+            owned = template(0, Flag::None, name, orientation, now, fresh_uuids(uuids));
             owned.as_bytes()
         }
         (None, None) => return Err("no sidecar to clear a label from".to_string()),
@@ -275,6 +296,13 @@ fn uuid() -> String {
     )
 }
 
+fn fresh_uuids(uuids: Option<Uuids>) -> Uuids {
+    uuids.unwrap_or_else(|| Uuids {
+        item: uuid(),
+        source: uuid(),
+    })
+}
+
 fn should_process(flag: Flag) -> &'static str {
     match flag {
         Flag::Pick => "0",
@@ -289,12 +317,15 @@ fn template(
     name: &str,
     orientation: Option<u16>,
     now: &str,
-    uuids: [String; 2],
+    uuids: Uuids,
 ) -> String {
     let flag = should_process(flag);
     let name = name.replace('\\', "\\\\").replace('"', "\\\"");
     let orientation = orientation.map_or_else(String::new, |n| format!("Orientation = {n},\n"));
-    let [item_uuid, source_uuid] = uuids;
+    let Uuids {
+        item: item_uuid,
+        source: source_uuid,
+    } = uuids;
     format!(
         "Sidecar = {{\n\
          Date = \"{now}\",\n\
@@ -550,7 +581,16 @@ mod tests {
 
     fn patched(source: &str, rating: Option<i8>, flag: Flag) -> String {
         String::from_utf8(
-            write_rating(Some(source.as_bytes()), rating, flag, "x", ORIENTATION, NOW).unwrap(),
+            write_rating(
+                Some(source.as_bytes()),
+                rating,
+                flag,
+                "x",
+                ORIENTATION,
+                NOW,
+                None,
+            )
+            .unwrap(),
         )
         .unwrap()
     }
@@ -717,7 +757,7 @@ mod tests {
 
     #[test]
     fn a_fresh_pick_is_should_process_zero() {
-        let bytes = write_rating(None, Some(2), Flag::Pick, "a", None, NOW).unwrap();
+        let bytes = write_rating(None, Some(2), Flag::Pick, "a", None, NOW, None).unwrap();
         assert!(String::from_utf8_lossy(&bytes)
             .contains(&format!("Rating = 2,\n{SETTINGS}ShouldProcess = 0,\n")));
         assert_eq!(read_flag(&bytes).unwrap(), Flag::Pick);
@@ -750,7 +790,7 @@ mod tests {
         for bytes in cases {
             assert!(read_rating(bytes).is_err());
             assert!(read_flag(bytes).is_err());
-            assert!(write_rating(Some(bytes), Some(1), Flag::None, "x", None, NOW).is_err());
+            assert!(write_rating(Some(bytes), Some(1), Flag::None, "x", None, NOW, None).is_err());
         }
     }
 
@@ -758,7 +798,8 @@ mod tests {
     fn a_fresh_template_round_trips() {
         for n in 0..=5 {
             for flag in [Flag::None, Flag::Pick, Flag::Reject] {
-                let bytes = write_rating(None, Some(n), flag, "_DSC0001.ARW", None, NOW).unwrap();
+                let bytes =
+                    write_rating(None, Some(n), flag, "_DSC0001.ARW", None, NOW, None).unwrap();
                 assert_eq!(read_rating(&bytes).unwrap(), Some(n));
                 assert_eq!(read_flag(&bytes).unwrap(), flag);
             }
@@ -767,7 +808,10 @@ mod tests {
 
     #[test]
     fn the_fresh_template_is_the_documented_one() {
-        let uuids = ["A".to_string(), "B".to_string()];
+        let uuids = Uuids {
+            item: "A".to_string(),
+            source: "B".to_string(),
+        };
         let expected = concat!(
             "Sidecar = {\n",
             "Date = \"2026-09-18T11:00:00.0000000Z\",\n",
@@ -808,25 +852,71 @@ mod tests {
 
     #[test]
     fn a_fresh_reject_is_should_process_one_and_keeps_the_stars() {
-        let out =
-            String::from_utf8(write_rating(None, Some(3), Flag::Reject, "a", None, NOW).unwrap())
-                .unwrap();
+        let out = String::from_utf8(
+            write_rating(None, Some(3), Flag::Reject, "a", None, NOW, None).unwrap(),
+        )
+        .unwrap();
         assert!(out.contains(&format!("Rating = 3,\n{SETTINGS}ShouldProcess = 1,\n")));
     }
 
     #[test]
     fn uuids_are_random_version_4() {
         let a = uuid();
-        assert_eq!(a.len(), 36);
-        assert_eq!(&a[14..15], "4");
-        assert!(matches!(&a[19..20], "8" | "9" | "A" | "B"));
+        assert_random_version_4(&a);
         assert_ne!(a, uuid());
+    }
+
+    fn assert_random_version_4(uuid: &str) {
+        assert_eq!(uuid.len(), 36);
+        assert_eq!(&uuid[14..15], "4");
+        assert!(matches!(&uuid[19..20], "8" | "9" | "A" | "B"));
+    }
+
+    fn first_uuid(text: &str) -> String {
+        let (_, rest) = text.split_once("\nUuid = \"").unwrap();
+        rest.split_once("\",\n").unwrap().0.to_string()
+    }
+
+    fn written_uuids(text: &str) -> (String, String) {
+        let (item, after_items) = text.split_once("}\n,\n}\n,\n").unwrap();
+        (first_uuid(item), first_uuid(&format!("\n{after_items}")))
+    }
+
+    #[test]
+    fn a_fresh_sidecar_carries_the_given_uuids() {
+        let uuids = || {
+            Some(Uuids {
+                item: "ITEM-UUID".to_string(),
+                source: "SOURCE-UUID".to_string(),
+            })
+        };
+        let rated = write_rating(None, Some(2), Flag::Pick, "a", None, NOW, uuids()).unwrap();
+        let labeled = write_label(None, Some("Red"), "a", None, NOW, uuids()).unwrap();
+        for bytes in [rated, labeled] {
+            let text = String::from_utf8(bytes).unwrap();
+            assert_eq!(
+                written_uuids(&text),
+                ("ITEM-UUID".to_string(), "SOURCE-UUID".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn a_fresh_sidecar_without_uuids_mints_two_random_ones() {
+        let rated = write_rating(None, Some(2), Flag::Pick, "a", None, NOW, None).unwrap();
+        let labeled = write_label(None, Some("Red"), "a", None, NOW, None).unwrap();
+        for bytes in [rated, labeled] {
+            let (item, source) = written_uuids(&String::from_utf8(bytes).unwrap());
+            assert_random_version_4(&item);
+            assert_random_version_4(&source);
+            assert_ne!(item, source);
+        }
     }
 
     #[test]
     fn a_rating_outside_the_range_is_an_error() {
-        assert!(write_rating(None, Some(6), Flag::None, "a", None, NOW).is_err());
-        assert!(write_rating(None, Some(-1), Flag::None, "a", None, NOW).is_err());
+        assert!(write_rating(None, Some(6), Flag::None, "a", None, NOW, None).is_err());
+        assert!(write_rating(None, Some(-1), Flag::None, "a", None, NOW, None).is_err());
     }
 
     #[test]
@@ -840,7 +930,7 @@ mod tests {
 
     fn labeled(source: &str, label: Option<&str>) -> String {
         String::from_utf8(
-            write_label(Some(source.as_bytes()), label, "x", ORIENTATION, NOW).unwrap(),
+            write_label(Some(source.as_bytes()), label, "x", ORIENTATION, NOW, None).unwrap(),
         )
         .unwrap()
     }
@@ -968,13 +1058,13 @@ mod tests {
 
     #[test]
     fn a_fresh_label_is_the_template_plus_the_line() {
-        let bytes = write_label(None, Some("Red"), "a", None, NOW).unwrap();
+        let bytes = write_label(None, Some("Red"), "a", None, NOW, None).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains(&format!(
             "Rating = 0,\n{SETTINGS}ShouldProcess = 2,\nUuid = "
         )));
         assert_eq!(read_label(&bytes).unwrap().as_deref(), Some("Red"));
         assert_eq!(read_rating(&bytes).unwrap(), Some(0));
-        assert!(write_label(None, None, "a", None, NOW).is_err());
+        assert!(write_label(None, None, "a", None, NOW, None).is_err());
     }
 
     fn fresh(rating: i8, flag: Flag) -> String {
@@ -984,7 +1074,10 @@ mod tests {
             "_DSC0001.ARW",
             ORIENTATION,
             NOW,
-            ["A".to_string(), "B".to_string()],
+            Uuids {
+                item: "A".to_string(),
+                source: "B".to_string(),
+            },
         )
     }
 
@@ -1090,13 +1183,22 @@ mod tests {
     #[test]
     fn an_unknown_orientation_inserts_nothing() {
         let source = pre_orientation(&fresh(0, Flag::None));
-        let rated =
-            write_rating(Some(source.as_bytes()), Some(1), Flag::None, "x", None, NOW).unwrap();
+        let rated = write_rating(
+            Some(source.as_bytes()),
+            Some(1),
+            Flag::None,
+            "x",
+            None,
+            NOW,
+            None,
+        )
+        .unwrap();
         assert_eq!(
             String::from_utf8(rated).unwrap(),
             source.replace("Rating = 0,", "Rating = 1,")
         );
-        let labeled = write_label(Some(source.as_bytes()), Some("Red"), "x", None, NOW).unwrap();
+        let labeled =
+            write_label(Some(source.as_bytes()), Some("Red"), "x", None, NOW, None).unwrap();
         assert!(!String::from_utf8_lossy(&labeled).contains("Orientation"));
     }
 
@@ -1130,10 +1232,19 @@ mod tests {
             .chain(LABELED.map(|(source, _, _)| source));
         for source in sources {
             let rate = |o| {
-                write_rating(Some(source.as_bytes()), Some(2), Flag::Pick, "x", o, NOW).unwrap()
+                write_rating(
+                    Some(source.as_bytes()),
+                    Some(2),
+                    Flag::Pick,
+                    "x",
+                    o,
+                    NOW,
+                    None,
+                )
+                .unwrap()
             };
             let label =
-                |o| write_label(Some(source.as_bytes()), Some("Blue"), "x", o, NOW).unwrap();
+                |o| write_label(Some(source.as_bytes()), Some("Blue"), "x", o, NOW, None).unwrap();
             for o in [Some(1), Some(6)] {
                 assert_eq!(rate(o), rate(None));
                 assert_eq!(label(o), label(None));

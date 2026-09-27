@@ -64,7 +64,7 @@ Out of scope: cleaning up virtual copies that already exist.
 
 ## Steps
 
-- [ ] Step 1: Let `dop::write_rating` / `dop::write_label` take the Uuids of a fresh sidecar
+- [x] Step 1: Let `dop::write_rating` / `dop::write_label` take the Uuids of a fresh sidecar
   - Done when:
     - `crates/core/src/dop.rs` exports a small `Uuids { item: String, source: String }`
       type and both `write_rating` and `write_label` take `uuids: Option<Uuids>`
@@ -123,6 +123,11 @@ Out of scope: cleaning up virtual copies that already exist.
         directory that holds `Database\PhotoLab.db` (decided by the user, so an
         upgrade to PhotoLab 11 keeps working). The directory-name parsing
         (`DxO PhotoLab N` -> `N`, ignoring non-matching names) is unit-tested.
+      - `lookup` only returns Uuids that look like a UUID (hex digits and
+        hyphens in the 8-4-4-4-12 shape); anything else is `None`. The `.dop`
+        template writes the Uuids between quotes unescaped, so a value read
+        from another program's database must not be able to break the Lua
+        literal (raised by the Step 1 local review). Covered by a fixture test.
     - `crates/app/src/sidecar.rs`: `write_kind`'s `current == None` branch
       computes `uuids` once for a `.dop` kind (`(kind == SidecarFormat::Dop)
       .then(|| photolab::registered_uuids(arw)).flatten()`) and passes it into
@@ -258,4 +263,4 @@ Out of scope: cleaning up virtual copies that already exist.
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
