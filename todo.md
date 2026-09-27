@@ -749,18 +749,24 @@ construction with the key-press path. Files: `crates/app/src/mcp.rs`,
 - [ ] Verify by hand that `set_judgment` from an MCP client writes the same
       XMP / `.dop` bytes as a key press, and that `Cmd+Z` undoes it.
 
-### Core: `en.json`'s Lightroom label preset is unverified against a real Lightroom install
+### App: the first-launch dialog does not ask for Lightroom's UI language
 
-`crates/core/i18n/en.json`'s `lightroom.colorLabels.verified` is
-`"Lightroom Classic (English UI)"`, with no version or OS, because the English
-names were not checked against a specific install when the file was created
-(they are the long-standing `LabelNames::default()`). Basis:
-`label-presets-i18n` plan's Step 1 learnings. Files: `crates/core/i18n/en.json`.
+The first-launch dialog only asks for the sidecar format. The `xmp:Label`
+names start as the English preset (`Red`, `Yellow`, ...) and can only be
+changed later under Settings > Lightroom language. A user whose Lightroom
+Classic runs in another language (e.g. Japanese, whose default set is
+`レッド`, `イエロー`, ...) who picks XMP or Both gets every Riffle-written color
+label shown as a white, unmatched label, with nothing pointing at the cause.
+Found during the 2026-09-28 manual Lightroom checks (`lightroom-verified`).
+Files: `crates/app/ui/src/main.ts` (`showFormatDialog`),
+`crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`,
+`crates/core/i18n/`.
 
 #### TODO
 
-- [ ] Confirm the English color label names against a real Lightroom Classic
-      install and name the version / OS in `verified`.
+- [ ] When XMP or Both is chosen in the first-launch dialog, require choosing
+      Lightroom's UI language (one of the `crates/core/i18n/` presets) before
+      the dialog closes, and save that preset's names as the label names.
 
 ### App: the folder listing payload carries always-null Maker note fields
 

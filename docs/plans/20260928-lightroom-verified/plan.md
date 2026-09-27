@@ -42,12 +42,21 @@ unflagged. Picks and the Japanese color label names
 (`crates/core/i18n/ja.json`) had been verified earlier, so Lightroom Classic
 is ticked too, and Riffle does not need to write `xmpDM:pick`.
 
+Also on 2026-09-28 the user checked Lightroom Classic 15.5.1 on Windows in
+both the English and the Japanese UI: the default color label set names
+match the presets in `crates/core/i18n/` (English: `Red`, `Yellow`, `Green`,
+`Blue`, `Purple`), and Riffle-written English labels displayed correctly
+after the set was switched to "Lightroom Default". The presets' `verified`
+strings now name that version. The same checks found that the first-launch
+dialog never asks for Lightroom's UI language, recorded as a new `todo.md`
+item.
+
 The README's compatibility checklist still shows Lightroom as unverified,
 the "Working with other software" section only describes Lightroom Classic
 (which needs `Ctrl+S` or auto-write to produce XMP), and `todo.md` still
 carries the open round-trip item. This work records the verification so
 users know the non-Classic Lightroom works without an export step. No code
-changes.
+changes beyond the i18n presets' `verified` strings.
 
 ## Steps
 
@@ -85,10 +94,18 @@ changes.
       `#### TODO` and its checkbox) is deleted too (scope extension; Riffle
       does not need to write `xmpDM:pick`). The item "Core: `en.json`'s
       Lightroom label preset is unverified against a real Lightroom install"
-      is left exactly as it is. The existing `### Lightroom Classic`
-      subsection's text is unchanged.
-    - No other file changes. `mise run ci` passes (Markdown formatting and
-      lychee).
+      is deleted too (second scope extension, approved by the user). A new
+      item "App: the first-launch dialog does not ask for Lightroom's UI
+      language" is added. The existing `### Lightroom Classic` subsection's
+      text is unchanged.
+    - `crates/core/i18n/en.json`'s `verified` is
+      `"Lightroom Classic 15.5.1 (Windows, English UI)"`,
+      `crates/core/i18n/ja.json`'s is
+      `"Lightroom Classic 15.5.1 (Windows, Japanese UI)"`, and the example
+      `verified` line in `crates/core/i18n/README.md` matches `ja.json`
+      (second scope extension).
+    - No other file changes. `mise run ci` passes (Markdown formatting,
+      lychee and the Rust tests that load the i18n presets).
   - Implementation approach:
     - Match the existing README style: `### Lightroom Classic` is a bullet
       list wrapped at ~80 columns in `README.md`; `README.ja.md` uses one
@@ -125,3 +142,7 @@ changes.
 - 2026-09-28: Step 1 done — Lightroom and Lightroom Classic ticked in both
   READMEs, `### Lightroom` subsection added, two todo.md items removed,
   including the approved Lightroom Classic scope extension.
+- 2026-09-28: Second scope extension — the i18n presets' `verified` strings
+  name Lightroom Classic 15.5.1 (Windows, English / Japanese UI), the
+  `en.json` todo item is removed, and the first-launch Lightroom language
+  todo item is added.

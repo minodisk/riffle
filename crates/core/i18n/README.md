@@ -14,7 +14,7 @@ Rust change is needed.
   },
   "lightroom": {
     "colorLabels": {
-      "verified": "Lightroom Classic 2026 (Windows, Japanese UI)",
+      "verified": "Lightroom Classic 15.5.1 (Windows, Japanese UI)",
       "red": "レッド",
       "yellow": "イエロー",
       "green": "グリーン",
