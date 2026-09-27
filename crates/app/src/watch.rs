@@ -121,25 +121,26 @@ pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
 
 /// Drop the watcher when the watched folder is the canonical `dir` or under
 /// it, releasing the directory handle that on Windows keeps `dir` from being
-/// renamed; a watch on any other folder is left alone. Returns whether one
-/// was dropped. The next `set` watches again.
-pub fn release_under(app: &tauri::AppHandle, dir: &str) -> bool {
+/// renamed; a watch on any other folder is left alone. Returns the watched
+/// dir and its owner string when one was dropped, so the caller can restore
+/// it with `set` if whatever it released the watch for fails. The next `set`
+/// (with the same or a different dir) watches again.
+pub fn release_under(app: &tauri::AppHandle, dir: &str) -> Option<(String, String)> {
     let state = app.state::<Watch>();
     let mut state = crate::index::lock(&state.0);
     release(&mut state, dir)
 }
 
-fn release(state: &mut State, dir: &str) -> bool {
-    if !state
-        .dir
-        .as_deref()
-        .is_some_and(|watched| Path::new(watched).starts_with(dir))
-    {
-        return false;
+fn release(state: &mut State, dir: &str) -> Option<(String, String)> {
+    let watched = state.dir.as_deref()?;
+    if !Path::new(watched).starts_with(dir) {
+        return None;
     }
+    let watched = watched.to_string();
+    let owner = crate::index::lock(&state.owner).clone();
     state.watcher = None;
     state.dir = None;
-    true
+    Some((watched, owner))
 }
 
 /// Whether an event over `paths` is worth a rescan: no, only when every path
@@ -243,20 +244,47 @@ mod tests {
         let s = |p: &Path| p.to_string_lossy().into_owned();
 
         let mut state = watching(&dir);
-        assert!(!release(&mut state, &s(&root.join("photos2"))));
-        assert!(!release(&mut state, &s(&root.join("pho"))));
+        assert!(release(&mut state, &s(&root.join("photos2"))).is_none());
+        assert!(release(&mut state, &s(&root.join("pho"))).is_none());
         assert!(state.watcher.is_some());
         assert_eq!(state.dir, Some(s(&dir)));
 
-        assert!(release(&mut state, &s(&dir)));
+        assert_eq!(
+            release(&mut state, &s(&dir)),
+            Some((s(&dir), String::new()))
+        );
         assert!(state.watcher.is_none());
         assert_eq!(state.dir, None);
-        assert!(!release(&mut state, &s(&dir)));
+        assert!(release(&mut state, &s(&dir)).is_none());
 
         let mut state = watching(&dir);
-        assert!(release(&mut state, &s(&root)));
+        assert_eq!(
+            release(&mut state, &s(&root)),
+            Some((s(&dir), String::new()))
+        );
         assert!(state.watcher.is_none());
         assert_eq!(state.dir, None);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn release_returns_the_watched_dir_and_owner() {
+        let root =
+            std::env::temp_dir().join(format!("riffle-watch-release-owner-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dir = root.join("photos");
+        std::fs::create_dir_all(&dir).unwrap();
+        let root = std::fs::canonicalize(&root).unwrap();
+        let dir = root.join("photos");
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+
+        let mut state = watching(&dir);
+        *crate::index::lock(&state.owner) = "/OpenDir/photos".to_string();
+        assert_eq!(
+            release(&mut state, &s(&dir)),
+            Some((s(&dir), "/OpenDir/photos".to_string()))
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }

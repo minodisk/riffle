@@ -11,10 +11,13 @@ use tauri::Manager;
 use crate::commands::{AppIndex, AppWriter, Scans, SCAN_RUNNING};
 use crate::index;
 
-/// What a rename produced: the new path, spelled the caller's way.
+/// What a rename produced: the new path, spelled the caller's way, and a
+/// warning when the disk rename succeeded but something after it (carrying
+/// the index rows along) did not.
 #[derive(Debug, Serialize)]
 pub struct Renamed {
     pub path: String,
+    pub warning: Option<String>,
 }
 
 /// Refuse a name that is not a single valid file name component. The
@@ -63,8 +66,11 @@ pub fn folder_target(dir: &Path, name: &str) -> Result<PathBuf, String> {
 /// index write, as in `trash_rejected`. The watcher is released before the
 /// rename (Windows refuses to rename a watched folder or its parent); the
 /// frontend's reopen under the new path sets it again. A failed rename
-/// changes nothing; a failed index write after it only costs a re-extraction
-/// on the next open, and says so.
+/// changes nothing, and puts the released watch back since there is no reopen
+/// to set it again; a failed index write after a successful rename still
+/// returns `Ok` (the disk is the source of truth, so the caller must rebase
+/// and reopen under the new path) with a warning, and only costs a
+/// re-extraction on the next open.
 #[tauri::command]
 pub async fn rename_folder(
     app: tauri::AppHandle,
@@ -88,19 +94,25 @@ pub async fn rename_folder(
             .map_err(|e| format!("{dir}: {e}"))?
             .to_string_lossy()
             .into_owned();
-        crate::watch::release_under(&app, &old);
-        std::fs::rename(&dir, &target).map_err(|e| format!("{name}: {e}"))?;
+        let released = crate::watch::release_under(&app, &old);
+        if let Err(e) = std::fs::rename(&dir, &target) {
+            if let Some((dir, owner)) = released {
+                crate::watch::set(&app, &dir, &owner);
+            }
+            return Err(format!("{name}: {e}"));
+        }
         let new = std::fs::canonicalize(&target).map_or_else(
             |_| target.to_string_lossy().into_owned(),
             |p| p.to_string_lossy().into_owned(),
         );
+        let mut warning = None;
         if let Some(index) = app.state::<AppIndex>().0.clone() {
             match index::lock(&index).rename_dir(&old, &new) {
                 Ok(moved) => log::info!("renamed folder: {old} -> {new} files={moved}"),
                 Err(e) => {
                     log::warn!("renamed folder {old} -> {new} but not its index rows: {e}");
-                    return Err(format!(
-                        "{name}: the folder was renamed but its cache was not ({e}); \
+                    warning = Some(format!(
+                        "the folder was renamed but its cache was not ({e}); \
                          it is rebuilt on the next open"
                     ));
                 }
@@ -109,6 +121,7 @@ pub async fn rename_folder(
         drop(state);
         Ok(Renamed {
             path: target.to_string_lossy().into_owned(),
+            warning,
         })
     })
     .await
