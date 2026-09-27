@@ -20,3 +20,36 @@
   count as under `photos`. The test builds a real `notify` watcher on a temp
   dir; the Windows handle release itself is not asserted, since notify's
   Windows watcher stops its thread asynchronously on drop.
+
+## Step 2: folder rename in the tree
+
+- The input's `blur` is ignored while `render` swaps the rows (a `rendering`
+  flag): Chromium (WebView2) can fire `blur` when the focused input is
+  removed by `replaceChildren`, which would otherwise confirm the edit on
+  every mid-edit re-render. It is also ignored while `document.hasFocus()`
+  is false, so switching to another app does not confirm a half-typed name;
+  the input gets focus back when the window does.
+- `render` drops `editing` when the edited row is no longer drawn (a listing
+  removed the folder); otherwise the live edit would keep swallowing every
+  key with no input on screen.
+- `folders.keydown` treats every key as native while `event.isComposing`,
+  so the `Enter` that commits an IME conversion (Japanese input) does not
+  confirm the rename.
+- The slow-click timer compares `performance.now()` rather than `Date.now()`
+  as the plan sketched: `setTimeout` runs on the monotonic clock, and a
+  coarser or adjusted wall clock could make `due` answer false for a timer
+  that fired on time.
+- The slow click is disarmed by a `mousedown` anywhere in the document, not
+  only in the tree container, so a click on the strip cancels it too (the
+  plan's "another click landed anywhere"). `main.ts`'s window `keydown`
+  calls the exported `folders.cancelSlowClick()` first, whichever element
+  has focus.
+- After Enter / Escape the tree container takes focus back, so the tree
+  keeps the keyboard as Explorer does; a click-away finish leaves the focus
+  where the click put it.
+- A rename warning (`Renamed.warning`) is shown after the reopen resolves,
+  since `openDirectory`'s `show()` clears the status note. The next
+  `show()` / decode clears it again, as it does any other note.
+- `renameFolder` in `tree.ts` drops stale nodes already keyed under the new
+  path, so a folder once listed there (since deleted on disk) cannot
+  duplicate the renamed row or overwrite its state.

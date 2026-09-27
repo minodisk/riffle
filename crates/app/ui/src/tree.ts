@@ -273,3 +273,60 @@ export function rootOf(path: string): string {
   }
   return "/";
 }
+
+// The path under `newDir` that `path` had under `oldDir`, or `null` when
+// `path` is neither `oldDir` nor under it. Compared the way
+// `ancestorsWithin` compares; the rest is joined in `newDir`'s spelling.
+export function rebase(path: string, oldDir: string, newDir: string): string | null {
+  const target = normalize(path);
+  const prefix = normalize(oldDir);
+  if (target === prefix) {
+    return newDir;
+  }
+  if (!target.startsWith(`${prefix}/`)) {
+    return null;
+  }
+  let rebased = newDir;
+  for (const name of segments(path).slice(segments(oldDir).length)) {
+    rebased = join(rebased, name);
+  }
+  return rebased;
+}
+
+// As `list_subfolders` sorts: case-insensitively by name.
+function byName(a: FolderNode, b: FolderNode): number {
+  const x = a.name.toLowerCase();
+  const y = b.name.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
+// The tree after the folder `oldPath` was renamed to `newName` at `newPath`:
+// it and every node under it re-keyed with their state (expansion, listing,
+// count) kept, and its entry in its parent's children replaced and
+// re-sorted. A stale node already under `newPath` is dropped.
+export function renameFolder(tree: Tree, oldPath: string, newPath: string, newName: string): Tree {
+  const renamed = normalize(oldPath);
+  const stale = (path: string): boolean =>
+    rebase(path, oldPath, newPath) === null && rebase(path, newPath, newPath) !== null;
+  const moved = (folder: FolderNode): FolderNode => {
+    const path = rebase(folder.path, oldPath, newPath);
+    if (path === null) {
+      return folder;
+    }
+    return { name: normalize(folder.path) === renamed ? newName : folder.name, path };
+  };
+  const list = (folders: FolderNode[]): FolderNode[] => {
+    const out = folders.filter((folder) => !stale(folder.path)).map(moved);
+    return folders.some((folder) => normalize(folder.path) === renamed) ? out.sort(byName) : out;
+  };
+  const nodes = new Map<string, TreeNode>();
+  for (const node of tree.nodes.values()) {
+    if (stale(node.path)) {
+      continue;
+    }
+    const { name, path } = moved(node);
+    const children = node.children === undefined ? undefined : list(node.children);
+    nodes.set(path, { ...node, name, path, children });
+  }
+  return { roots: tree.roots.map(moved), nodes };
+}

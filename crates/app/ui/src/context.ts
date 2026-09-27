@@ -55,15 +55,19 @@ export function contextMenuGroups(
 }
 
 // The folder tree's right-click menu: the reveal item, labeled per platform by
-// the `reveal_label` command, then copying the folder's path or name, then the
-// sequencing of the folder's JPEGs.
-export function folderMenuGroups(revealLabel: string): MenuItem[][] {
+// the `reveal_label` command, then copying the folder's path or name, then
+// renaming it (not offered on a root: home or a volume), then the sequencing
+// of the folder's JPEGs.
+export function folderMenuGroups(revealLabel: string, canRename: boolean): MenuItem[][] {
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
     [
       { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
       { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
     ],
+    ...(canRename
+      ? [[{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }]]
+      : []),
     [
       {
         action: "sequenceTimestamps",

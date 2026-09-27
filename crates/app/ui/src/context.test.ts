@@ -131,13 +131,14 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the sequence item, without a shortcut or checked state", () => {
-    expect(folderMenuGroups("Reveal in Finder")).toEqual([
+  test("holds the reveal item, then the copy items, then the rename item, then the sequence item, without a shortcut or checked state", () => {
+    expect(folderMenuGroups("Reveal in Finder", true)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
         { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
         { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
       ],
+      [{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }],
       [
         {
           action: "sequenceTimestamps",
@@ -147,6 +148,12 @@ describe("folderMenuGroups", () => {
         },
       ],
     ]);
+  });
+
+  test("leaves the rename item out for a root", () => {
+    expect(
+      folderMenuGroups("Reveal in Finder", false).map((group) => group.map(({ action }) => action)),
+    ).toEqual([["revealFolder"], ["copyPath", "copyFolderName"], ["sequenceTimestamps"]]);
   });
 });
 

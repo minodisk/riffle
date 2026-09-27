@@ -3,9 +3,20 @@
 // container is the one focusable element; the rows are announced through
 // `aria-activedescendant`), and `Escape` or a click elsewhere hands the keys
 // back. Meanwhile `main.ts` routes the keys here first and gates the culling
-// keymap.
+// keymap. A folder is renamed in place: its row's name becomes a text input
+// until Enter, Escape or a click away ends the edit.
 
 import { keyName } from "./keys.js";
+import {
+  type Decision,
+  type InlineRename,
+  SLOW_CLICK_DELAY,
+  SlowClick,
+  commit,
+  confirmName,
+  editKey,
+  inlineRename,
+} from "./rename.js";
 import {
   EMPTY_TREE,
   type FolderNode,
@@ -18,6 +29,8 @@ import {
   appendTyped,
   collapse,
   expand,
+  rebase,
+  renameFolder,
   rootOf,
   rows,
   setChildren,
@@ -42,7 +55,23 @@ const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
 let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
 let reportError: (message: string) => void = () => {};
-let contextMenu: (path: string, name: string, x: number, y: number) => void = () => {};
+let contextMenu: (
+  path: string,
+  name: string,
+  x: number,
+  y: number,
+  root: boolean,
+) => void = () => {};
+let rename: (path: string, name: string) => void = () => {};
+let canRename: () => boolean = () => false;
+// The live inline rename, drawn from here on every `render`, so a re-render
+// mid-edit (a listing landing) rebuilds the same input.
+let editing: InlineRename | null = null;
+// Set while `render` swaps the rows, so the input's removal is not taken for
+// a click away.
+let rendering = false;
+const slow = new SlowClick();
+let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
 // comes first (the reopen of the last folder at launch) waits for the roots.
 let rootsSettled: () => void = () => {};
@@ -54,7 +83,45 @@ function list(dir: string): Promise<Folder> {
   return window.__TAURI__.core.invoke<Folder>("list_subfolders", { dir });
 }
 
+function editor(state: InlineRename): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "name";
+  input.value = state.value;
+  input.spellcheck = false;
+  input.addEventListener("input", () => {
+    state.value = input.value;
+  });
+  // Switching to another app blurs the input too; the edit waits for the
+  // window to come back instead of confirming.
+  input.addEventListener("blur", () => {
+    if (!rendering && document.hasFocus()) {
+      finish("confirm");
+    }
+  });
+  for (const type of ["mousedown", "click", "contextmenu"]) {
+    input.addEventListener(type, (event) => {
+      event.stopPropagation();
+    });
+  }
+  return input;
+}
+
+// A click on the open folder's name arms a rename instead of reopening it;
+// the edit starts `SLOW_CLICK_DELAY` later unless something disarms it.
+function armSlowClick(path: string): void {
+  slow.click(path, true, performance.now());
+  clearTimeout(slowTimer);
+  slowTimer = setTimeout(() => {
+    if (slow.due(path, performance.now()) && canRename()) {
+      startRename(path);
+    }
+  }, SLOW_CLICK_DELAY);
+}
+
 function render(): void {
+  const old = container.querySelector<HTMLInputElement>("input.name");
+  const range = old === null ? null : ([old.selectionStart ?? 0, old.selectionEnd ?? 0] as const);
   const fragment = document.createDocumentFragment();
   let active: string | null = null;
   for (const [index, { node, depth }] of rows(tree).entries()) {
@@ -76,7 +143,7 @@ function render(): void {
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
-      contextMenu(node.path, node.name, event.clientX, event.clientY);
+      contextMenu(node.path, node.name, event.clientX, event.clientY, depth === 0);
     });
     const expander = document.createElement("span");
     expander.className = "expander";
@@ -88,10 +155,23 @@ function render(): void {
         toggle(node.path);
       });
     }
-    const name = document.createElement("span");
-    name.className = "name";
-    name.textContent = node.name;
-    row.append(expander, name);
+    if (editing !== null && node.path === editing.path) {
+      row.append(expander, editor(editing));
+    } else {
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = node.name;
+      name.addEventListener("click", (event) => {
+        if (node.path === current && depth > 0 && canRename()) {
+          event.stopPropagation();
+          armSlowClick(node.path);
+        }
+      });
+      name.addEventListener("dblclick", () => {
+        slow.cancel();
+      });
+      row.append(expander, name);
+    }
     if (node.expanded && node.rawCount !== undefined && node.rawCount > 0) {
       const count = document.createElement("span");
       count.className = "count";
@@ -100,12 +180,75 @@ function render(): void {
     }
     fragment.append(row);
   }
+  rendering = true;
   container.replaceChildren(fragment);
+  rendering = false;
   if (active === null) {
     container.removeAttribute("aria-activedescendant");
   } else {
     container.setAttribute("aria-activedescendant", active);
   }
+  if (editing !== null) {
+    const input = container.querySelector<HTMLInputElement>("input.name");
+    if (input === null) {
+      // The folder is no longer drawn (a listing dropped it); nothing is
+      // left to rename, and a live edit would keep swallowing the keys.
+      editing = null;
+      return;
+    }
+    input.focus();
+    if (range === null) {
+      input.select();
+    } else {
+      input.setSelectionRange(range[0], range[1]);
+    }
+  }
+}
+
+// Turns the folder's name into a text input, its name fully selected.
+export function startRename(path: string): void {
+  cancelSlowClick();
+  const node = tree.nodes.get(path);
+  if (node === undefined) {
+    return;
+  }
+  if (editing !== null) {
+    finish("confirm");
+  }
+  editing = inlineRename("folder", path, node.name);
+  render();
+}
+
+function finish(decision: Decision): void {
+  if (editing === null || commit(editing, decision) === null) {
+    return;
+  }
+  const { path, original, value } = editing;
+  editing = null;
+  render();
+  const name = decision === "confirm" ? confirmName(original, value) : null;
+  if (name !== null) {
+    rename(path, name);
+  }
+}
+
+export function isEditing(): boolean {
+  return editing !== null;
+}
+
+export function cancelSlowClick(): void {
+  slow.cancel();
+  clearTimeout(slowTimer);
+}
+
+// The folder `oldPath` is now `newName` at `newPath`: re-key it in the tree,
+// its expansion and everything under it kept, and move the highlight and the
+// cursor along when they were on it or under it.
+export function renamed(oldPath: string, newPath: string, newName: string): void {
+  tree = renameFolder(tree, oldPath, newPath, newName);
+  current = current === null ? null : (rebase(current, oldPath, newPath) ?? current);
+  cursor = cursor === null ? null : (rebase(cursor, oldPath, newPath) ?? cursor);
+  render();
 }
 
 // Expanding always re-lists, so a subfolder created since the last look
@@ -242,6 +385,15 @@ function typeKey(event: KeyboardEvent): boolean {
 // True when the tree consumed the key.
 export function keydown(event: KeyboardEvent): boolean {
   const key = keyName(event);
+  if (editing !== null) {
+    const decision = event.isComposing ? "native" : editKey(key);
+    if (decision !== "native") {
+      event.preventDefault();
+      finish(decision);
+      container.focus();
+    }
+    return true;
+  }
   if (key === "escape") {
     container.blur();
     event.preventDefault();
@@ -293,6 +445,10 @@ container.addEventListener("mousedown", (event) => {
   }
 });
 
+// Any click anywhere disarms a pending slow click; the arming click's own
+// `mousedown` comes before its `click`, so it arms after this.
+document.addEventListener("mousedown", cancelSlowClick);
+
 container.addEventListener("contextmenu", (event) => {
   event.preventDefault();
 });
@@ -300,9 +456,13 @@ container.addEventListener("contextmenu", (event) => {
 export function init(
   onOpen: (path: string) => void,
   onError: (message: string) => void,
-  onContextMenu: (path: string, name: string, x: number, y: number) => void,
+  onContextMenu: (path: string, name: string, x: number, y: number, root: boolean) => void,
+  onRename: (path: string, name: string) => void,
+  renameAllowed: () => boolean,
 ): void {
   open = onOpen;
   reportError = onError;
   contextMenu = onContextMenu;
+  rename = onRename;
+  canRename = renameAllowed;
 }

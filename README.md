@@ -61,8 +61,12 @@ DxO PhotoLab.
   a folder to open it. The click also gives the tree the keyboard: the
   arrows, `Home` / `End`, `Enter` and typing a name move through and open
   folders, with the culling keys off until `Escape`. Right-click a folder
-  to reveal it in Finder / File Explorer / the file manager, or copy its
-  path or name.
+  to reveal it in Finder / File Explorer / the file manager, copy its
+  path or name, or rename it with `Rename…`; a slow second click on the
+  open folder's name renames it too. The name is edited in place: `Enter`
+  or a click away renames, `Escape` cancels, and the index, the ratings
+  and the remembered position follow the folder, which reopens under its
+  new name when it was the open one.
 - **Filmstrip**: thumbnails run along the bottom; click one to show it.
   `Cmd+click` / `Ctrl+click` adds or removes one, `Shift+click` and
   `Shift+←` / `Shift+→` select a range, `Cmd+A` / `Ctrl+A` selects every
