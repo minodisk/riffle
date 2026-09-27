@@ -1022,6 +1022,16 @@ current view alone.
 - Why: anchoring on the just-undone file after every undo silently jumps the
   view when that file no longer passes the active filter.
 - Source: `docs/plans/_archived/20260919-undo-judgments/learnings.md`, Step 1.
+- A single-file undo / redo that moves the focus (`path !== shownPath`) also
+  collapses the selection to that file, via `restore` in
+  `crates/app/ui/src/selection.ts`. In compare mode that gate is not enough:
+  `judge()` records `compareActivePath`, which a pane click can change without
+  moving the strip's `index`, so the collapse could drop the multi-selection
+  `loadCompare()` still uses as the comparison set. `step()`
+  (`crates/app/ui/src/main.ts`) therefore skips the collapse while
+  `comparing` is true.
+  Source: `docs/plans/_archived/20260928-undo-selection/learnings.md`,
+  Round 1 review.
 - `commit(...)` now takes a *list* of changes (one per file in a batch), not
   a single change: it applies every change locally, refilters once, then
   sends one `set_rating` per file, reverting only that file's own change on

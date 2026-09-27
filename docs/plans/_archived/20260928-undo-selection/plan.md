@@ -109,4 +109,4 @@ focus leaves the selection equal to the focused file, as the arrow keys do.
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete

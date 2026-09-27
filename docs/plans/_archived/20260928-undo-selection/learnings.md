@@ -32,3 +32,6 @@
   `.cmd` shim / POSIX PATH problem that the `test` part of `mise run ci`
   avoids by invoking `node ./node_modules/vite-plus/bin/vp` directly. Basis:
   Step 1's local checks of this plan. Related file: `mise.toml` (`[tasks.fmt]`).
+  Change: call `node ./node_modules/vite-plus/bin/vp fmt` in `[tasks.fmt]` as
+  `[tasks.test]` does. Done when `mise run fmt` succeeds on Windows without
+  "Command \"vp\" not found" and `mise run ci` still passes.
