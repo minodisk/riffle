@@ -152,6 +152,16 @@ A sidecar created by other software is edited in place: everything except the
 stars, the flag and the label (develop settings, keywords, ...) is left
 untouched.
 
+### Lightroom
+
+- Lightroom (not Classic) reads the XMP Riffle wrote when the photos are
+  imported.
+- A rating, flag or color label changed in Lightroom is written back to the
+  `.xmp` next to the RAW by Lightroom itself; unlike Lightroom Classic, no
+  `Ctrl+S` or auto-write setting is needed. Riffle picks the change up when
+  the folder is opened.
+- Verified with Lightroom 9.5.1 on Windows.
+
 ### Lightroom Classic
 
 - Lightroom Classic reads the XMP Riffle wrote when the photos are first
@@ -245,7 +255,7 @@ rotation and the focus mark be checked.
 ### Sidecar formats and software
 
 - XMP
-  - [ ] Adobe Lightroom (Windows; not Lightroom Classic)
+  - [x] Adobe Lightroom (Windows; not Lightroom Classic)
   - [ ] Adobe Lightroom Classic (Windows, Japanese UI)
   - [ ] Capture One
 - DOP

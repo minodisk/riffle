@@ -527,21 +527,6 @@ is verified only by actionlint; no real release has run through it. Files:
       as Latest with a four-platform `latest.json`, and the next release PR has
       the right changelog base).
 
-### App: the Lightroom 9.5.1 round-trip check is still open
-
-From `lightroom-xmp-flags-labels`'s implementation: the tri-state flag and
-color-label read/write for XMP were built and unit-tested against trimmed
-copies of Lightroom-shaped fixtures, but the round-trip was never confirmed
-against real Lightroom. Files: `crates/core/src/xmp.rs`,
-`crates/app/src/sidecar.rs`, `README.md` ("Sidecar formats and software"
-checklist).
-
-#### TODO
-
-- [ ] Open `D:\Photos\2026\2026-09-05` under the XMP format and check L1005439
-      is picked, L1005438 is rejected, L1005428-L1005432 show purple / blue /
-      green / yellow / red, and L1005433-L1005437 show 5..1 stars.
-
 ### App/Core: unverified whether a Riffle-written pick/reject shows correctly in Lightroom Classic
 
 Lightroom Classic writes a pick as `xmpDM:good="true"` + `xmpDM:pick="1"`;

@@ -67,6 +67,12 @@
 
 他のソフトが作ったサイドカーはその場で編集します。スター、フラグ、ラベル以外（現像設定、キーワードなど）には手を触れません。
 
+### Lightroom
+
+- Lightroom（Classic ではないもの）は、写真を読み込むときに Riffle が書いた XMP を読みます。
+- Lightroom で変更したスター、フラグ、カラーラベルは、Lightroom 自身が RAW の隣の `.xmp` に書き戻します。Lightroom Classic と違い、`Ctrl+S` や自動書き出しの設定はいりません。Riffle はフォルダーを開いたときにその変更を読み込みます。
+- Windows 版の Lightroom 9.5.1 で確認しています。
+
 ### Lightroom Classic
 
 - Lightroom Classic は、写真を最初に読み込むときに Riffle が書いた XMP を読みます。
@@ -132,7 +138,7 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 ### サイドカー形式とソフト
 
 - XMP
-  - [ ] Adobe Lightroom（Windows、Lightroom Classic ではないもの）
+  - [x] Adobe Lightroom（Windows、Lightroom Classic ではないもの）
   - [ ] Adobe Lightroom Classic（Windows、日本語 UI）
   - [ ] Capture One
 - DOP
