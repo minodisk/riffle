@@ -40,7 +40,21 @@ viewer shows a prompt in its center; click it to open the folder picker.
   macOS, `Reveal in File Explorer` on Windows, `Open Containing Folder` on
   Linux. Below it, `Copy Path` puts the folder's absolute path, unquoted,
   on the clipboard and `Copy Folder Name` its name as the tree shows it;
-  a refused clipboard write shows its error in the status line. Last,
+  a refused clipboard write shows its error in the status line. Then
+  `Rename…` (not offered on home or a volume at the top level) turns the
+  folder's name into a text box, its name selected; a slow second click on
+  the open folder's name (a click, then another about half a second later,
+  not a double-click) does the same, and that click does not reopen the
+  folder. `Enter` renames, `Escape` cancels, and a click anywhere else
+  renames too; an empty or unchanged name just ends the edit, and while
+  the edit is live every key goes to the text box. The rename is refused
+  while a scan runs, and a name that is invalid, already taken or refused
+  by the OS shows its error in the status line with the folder left as it
+  was. The folder index, ratings, flags, labels and the remembered file
+  follow the folder, so nothing is re-extracted; the tree keeps its
+  expansion; and when the open folder is the renamed one or under it, it
+  reopens under its new path at the file it was on (a reopen, so the undo
+  history and the selection start over). Last,
   `Sequence JPEG Timestamps…` starts the same preview as
   the File menu item on that folder, without the folder picker (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the

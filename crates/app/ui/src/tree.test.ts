@@ -6,6 +6,8 @@ import {
   appendTyped,
   collapse,
   expand,
+  rebase,
+  renameFolder,
   rootOf,
   rows,
   setChildren,
@@ -357,5 +359,66 @@ describe("rootOf", () => {
     for (const path of ["E:\\DCIM", "\\\\nas\\photos\\2026", "/srv/photos"]) {
       expect(ancestorsWithin([rootOf(path)], path)?.at(-1)).toBe(path);
     }
+  });
+});
+
+describe("rebase", () => {
+  test("maps the folder itself and a path under it", () => {
+    expect(rebase("/home/me/a", "/home/me/a", "/home/me/b")).toBe("/home/me/b");
+    expect(rebase("/home/me/a/x/y", "/home/me/a", "/home/me/b")).toBe("/home/me/b/x/y");
+  });
+
+  test("leaves a sibling sharing the prefix as a string alone", () => {
+    expect(rebase("/home/me/a2", "/home/me/a", "/home/me/b")).toBeNull();
+    expect(rebase("/home/me", "/home/me/a", "/home/me/b")).toBeNull();
+  });
+
+  test("compares Windows paths regardless of separators and drive case", () => {
+    expect(rebase("d:/Photos/2026/", "D:\\Photos", "D:\\Shoots")).toBe("D:\\Shoots\\2026");
+  });
+});
+
+describe("renameFolder", () => {
+  const listed = (): ReturnType<typeof addRoots> => {
+    let tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    tree = setChildren(tree, "/home/me", 0, [
+      { name: "a", path: "/home/me/a" },
+      { name: "b", path: "/home/me/b" },
+      { name: "c", path: "/home/me/c" },
+    ]);
+    tree = expand(tree, "/home/me/a");
+    tree = setChildren(tree, "/home/me/a", 2, [{ name: "x", path: "/home/me/a/x" }]);
+    tree = expand(tree, "/home/me/a/x");
+    return setChildren(tree, "/home/me/a/x", 1, []);
+  };
+
+  test("re-keys the folder and everything under it, keeping their state", () => {
+    const tree = renameFolder(listed(), "/home/me/a", "/home/me/a1", "a1");
+    expect(drawn(tree)).toEqual(["0:me", "1:a1", "2:x", "1:b", "1:c"]);
+    expect(tree.nodes.has("/home/me/a")).toBe(false);
+    expect(tree.nodes.get("/home/me/a1")).toEqual({
+      name: "a1",
+      path: "/home/me/a1",
+      children: [{ name: "x", path: "/home/me/a1/x" }],
+      expanded: true,
+      rawCount: 2,
+    });
+    expect(tree.nodes.get("/home/me/a1/x")?.rawCount).toBe(1);
+  });
+
+  test("re-sorts the parent's children case-insensitively", () => {
+    const tree = renameFolder(listed(), "/home/me/a", "/home/me/Bz", "Bz");
+    expect(drawn(tree)).toEqual(["0:me", "1:b", "1:Bz", "2:x", "1:c"]);
+  });
+
+  test("drops a stale node already at the new path", () => {
+    let tree = listed();
+    tree = setChildren(tree, "/home/me", 0, [
+      { name: "a", path: "/home/me/a" },
+      { name: "d", path: "/home/me/d" },
+    ]);
+    tree = renameFolder(tree, "/home/me/a", "/home/me/d", "d");
+    expect(drawn(tree)).toEqual(["0:me", "1:d", "2:x"]);
+    expect(tree.nodes.get("/home/me/d")?.rawCount).toBe(2);
   });
 });

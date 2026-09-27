@@ -49,6 +49,7 @@ import { initSettings } from "./settings.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
+import { rebase } from "./tree.js";
 import {
   type ScanDone,
   type ScanStarted,
@@ -2088,9 +2089,41 @@ strip.init(
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
 
+interface Renamed {
+  path: string;
+  warning: string | null;
+}
+
+// The tree's inline edit confirmed a new name. The tree follows the rename in
+// place; when the open folder is the renamed one or under it, it is reopened
+// under its new path, its judgments coming back from the rewritten index.
+function renameFolder(path: string, name: string): void {
+  window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
+    ({ path: newPath, warning }) => {
+      folders.renamed(path, newPath, name);
+      const warn = (): void => {
+        if (warning !== null) {
+          setStatus(warning);
+        }
+      };
+      const reopen = openDir === null ? null : rebase(openDir, path, newPath);
+      if (reopen === null) {
+        warn();
+        return;
+      }
+      openDirectory(reopen, newFolderToken()).then(warn, (err: unknown) => {
+        setStatus(String(err));
+      });
+    },
+    (err: unknown) => {
+      setStatus(String(err));
+    },
+  );
+}
+
 // A folder clicked in the tree opens the way a drop does; a right-click
-// offers to reveal it in the OS file manager, to copy its path or name, or to
-// sequence its JPEGs.
+// offers to reveal it in the OS file manager, to copy its path or name, to
+// rename it, or to sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2101,9 +2134,9 @@ folders.init(
     });
   },
   setStatus,
-  (path, name, x, y) => {
+  (path, name, x, y, root) => {
     void revealLabel.then((label) => {
-      showMenu(folderMenuGroups(label), x, y, (action) => {
+      showMenu(folderMenuGroups(label, !root), x, y, (action) => {
         switch (action) {
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
@@ -2120,6 +2153,13 @@ folders.init(
               setStatus(String(err));
             });
             break;
+          case "renameFolder":
+            if (scanRunning) {
+              setStatus("a scan is running; wait for it to finish");
+            } else {
+              folders.startRename(path);
+            }
+            break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);
             break;
@@ -2127,6 +2167,8 @@ folders.init(
       });
     });
   },
+  renameFolder,
+  () => !scanRunning,
 );
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
@@ -2345,10 +2387,10 @@ function openFolder(): void {
 }
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
-// of the way while the settings or the sequence modal is open, as their keys
-// do.
+// of the way while the settings or the sequence modal is open, or a folder
+// name is being edited, as their keys do.
 function modalOpen(): boolean {
-  return settings.isOpen || sequenceFlow.isOpen;
+  return settings.isOpen || sequenceFlow.isOpen || folders.isEditing();
 }
 
 void window.__TAURI__.event.listen("open-folder", () => {
@@ -3010,6 +3052,7 @@ const keymapLoaded = window.__TAURI__.core.invoke<Binding[]>("shortcuts").then(a
 void Promise.allSettled([sortLoaded, keymapLoaded]).then(folders.loadRoots);
 
 window.addEventListener("keydown", (event) => {
+  folders.cancelSlowClick();
   // The dialog's buttons take Enter and Space natively, but Tab would move
   // focus past them to controls behind the overlay (there is no `inert` on
   // the `safari13` target), so trap it by cycling within `formatButtons`.

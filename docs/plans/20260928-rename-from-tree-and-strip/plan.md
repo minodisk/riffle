@@ -117,7 +117,7 @@ wrap-up phase's todo-curator removes the todo section; no step edits
       `exists()` match the wrong spelling", tests on a case-only rename
       assert on canonical equality, not on the exact resulting spelling.
 
-- [ ] Step 2: Folder `Rename…` in the tree's context menu, the slow second click, the inline row editor, and reopening under the new path
+- [x] Step 2: Folder `Rename…` in the tree's context menu, the slow second click, the inline row editor, and reopening under the new path
   - Done when:
     - Right-clicking a non-root folder row shows `Rename…` as its own group
       after `Copy Path` / `Copy Folder Name` and before
@@ -459,3 +459,4 @@ wrap-up phase's todo-curator removes the todo section; no step edits
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete
