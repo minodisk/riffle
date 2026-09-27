@@ -154,12 +154,54 @@ fn child_dirs(dir: &Path) -> Vec<PathBuf> {
     dirs
 }
 
-/// One `read_dir` of `dir`: how many RAW files it holds, and its visible
-/// subfolders sorted case-insensitively. Children are not probed for RAW
-/// files, which would cost one more listing each (slow on a network share).
+/// A folder's files as one `read_dir` finds them: its RAW files, and its
+/// JPEGs, which it lists only when it holds no RAW at all, so a RAW+JPEG
+/// folder never doubles its strip. The strip's listing and the tree's count
+/// both go through it, so the two never disagree.
+pub(crate) struct Media<T> {
+    raws: Vec<T>,
+    jpegs: Vec<T>,
+}
+
+impl<T> Default for Media<T> {
+    fn default() -> Self {
+        Self {
+            raws: Vec::new(),
+            jpegs: Vec::new(),
+        }
+    }
+}
+
+impl<T> Media<T> {
+    /// Keep `item` if `path` names a RAW or a JPEG file; whether it did.
+    pub(crate) fn add(&mut self, path: &Path, item: T) -> bool {
+        if riffle_core::scan::is_raw_file(path) {
+            self.raws.push(item);
+        } else if riffle_core::scan::is_jpeg_file(path) {
+            self.jpegs.push(item);
+        } else {
+            return false;
+        }
+        true
+    }
+
+    /// The files the folder lists, and whether they are its JPEGs.
+    pub(crate) fn listed(self) -> (Vec<T>, bool) {
+        if self.raws.is_empty() && !self.jpegs.is_empty() {
+            (self.jpegs, true)
+        } else {
+            (self.raws, false)
+        }
+    }
+}
+
+/// One `read_dir` of `dir`: how many files it lists (its RAW files, or its
+/// JPEGs when it holds no RAW; see `Media`), and its visible subfolders
+/// sorted case-insensitively. Children are not probed for RAW files, which
+/// would cost one more listing each (slow on a network share).
 fn list(dir: &Path) -> Result<Folder, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let mut raw_count = 0;
+    let mut media = Media::default();
     let mut children = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -170,13 +212,13 @@ fn list(dir: &Path) -> Result<Folder, String> {
             if !entry.file_name().to_string_lossy().starts_with('.') && !is_hidden(&entry) {
                 children.push(node(&path));
             }
-        } else if is_file && riffle_core::scan::is_raw_file(&path) {
-            raw_count += 1;
+        } else if is_file {
+            media.add(&path, ());
         }
     }
     children.sort_by_cached_key(|c| c.name.to_lowercase());
     Ok(Folder {
-        raw_count,
+        raw_count: media.listed().0.len(),
         children,
     })
 }
@@ -256,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn raw_count_counts_only_arw_and_dng_files() {
+    fn raw_count_counts_raws_or_else_jpegs() {
         let dir = temp_dir("raw-count");
         for name in ["a.ARW", "b.arw", "c.DNG", "d.jpg", "a.xmp", "e.dop"] {
             std::fs::write(dir.join(name), b"").unwrap();
@@ -264,6 +306,14 @@ mod tests {
         std::fs::create_dir(dir.join("f.ARW")).unwrap();
         let folder = list(&dir).unwrap();
         assert_eq!(folder.raw_count, 3);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let dir = temp_dir("jpeg-count");
+        for name in ["a.jpg", "b.JPEG", "c.Jpg", "d.png", "e.txt", "a.xmp"] {
+            std::fs::write(dir.join(name), b"").unwrap();
+        }
+        std::fs::create_dir(dir.join("f.jpg")).unwrap();
+        assert_eq!(list(&dir).unwrap().raw_count, 3);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

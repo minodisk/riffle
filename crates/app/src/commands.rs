@@ -152,8 +152,9 @@ fn read_focus_crop(
     Ok((arw.orientation, crop, timing))
 }
 
-/// List the RAW (ARW and DNG) files directly in `dir`, sorted by file name. Entries that
-/// cannot be read are skipped; a directory that cannot be read is an error.
+/// List the RAW (ARW and DNG) files directly in `dir`, or its JPEGs when it
+/// holds no RAW, sorted by file name. Entries that cannot be read are
+/// skipped; a directory that cannot be read is an error.
 #[cfg(test)]
 fn list_arw_in(dir: &Path) -> Result<Vec<String>, String> {
     read_listing(dir, None).map(|listing| listing.files)
@@ -177,34 +178,39 @@ fn list_folder_in(
     Ok((listing.files, sidecars))
 }
 
-/// One `read_dir` of a folder: its RAW files sorted by file name, and the
-/// sidecars of the format it was listed for as `(lower-cased name, path)`,
-/// not yet statted (see `stat_sidecars`).
+/// One `read_dir` of a folder: its RAW files (or its JPEGs, see
+/// `folders::Media`) sorted by file name, and the sidecars of the format it
+/// was listed for as `(lower-cased name, path)`, not yet statted (see
+/// `stat_sidecars`), none for a JPEG listing.
 #[derive(Debug, PartialEq)]
 struct Listing {
     files: Vec<String>,
     sidecars: Vec<(String, PathBuf)>,
 }
 
-/// Tells a RAW file from the entry's `file_type()`, which comes with the
-/// directory listing, rather than a `stat` per entry, which under disk
+/// Tells a RAW or JPEG file from the entry's `file_type()`, which comes with
+/// the directory listing, rather than a `stat` per entry, which under disk
 /// contention (a scan reading the same drive) costs seconds for a few hundred
-/// files. A symlinked RAW is still listed: only a symlink pays one extra
-/// `stat` to follow it.
+/// files. A symlinked RAW or JPEG is still listed: only a symlink pays one
+/// extra `stat` to follow it.
 fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let mut files: Vec<PathBuf> = Vec::new();
+    let mut media = crate::folders::Media::default();
     let mut sidecars = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if crate::folders::is_file(&entry) && riffle_core::scan::is_raw_file(&path) {
-            files.push(path);
+        if crate::folders::is_file(&entry) && media.add(&path, path.clone()) {
             continue;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
         if format.is_some_and(|f| f.matches(&name)) {
             sidecars.push((name.to_lowercase(), path));
         }
+    }
+    let (mut files, jpegs) = media.listed();
+    // A JPEG folder is view-only: nothing next to a JPEG is read or written.
+    if jpegs {
+        sidecars.clear();
     }
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     let files = files
@@ -427,10 +433,25 @@ struct FacePoint {
     y: f32,
 }
 
+/// Refuses `what` on a file that is not a RAW file: a JPEG folder is
+/// view-only, so no client can rate it, write a sidecar next to it or run
+/// face detection on its full-size image.
+fn raw_only(path: &Path, what: &str) -> Result<(), String> {
+    if riffle_core::scan::is_raw_file(path) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{}: {what} applies to RAW files only",
+            path.display()
+        ))
+    }
+}
+
 /// Detect the faces of a file's preview through the scan's own
 /// `detect_around`, so the region and the threshold match the faces the
 /// focus candidate cue picks from, for display only.
 fn read_faces(path: &Path) -> Result<FacesResponse, String> {
+    raw_only(path, "face detection")?;
     let (arw, jpeg) =
         riffle_core::reader::read_preview(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let found = riffle_core::faces::detect_around(
@@ -1889,6 +1910,7 @@ pub async fn set_rating(
     label: Option<String>,
     label_known: bool,
 ) -> Result<(), String> {
+    raw_only(Path::new(&path), "culling")?;
     if rating > 5 {
         return Err(format!("rating {rating} is outside 0..=5"));
     }
@@ -3274,6 +3296,127 @@ mod tests {
     fn unreadable_directory_is_an_error() {
         let missing = std::env::temp_dir().join("riffle-app-does-not-exist");
         assert!(list_arw_in(&missing).is_err());
+    }
+
+    fn names_of(files: &[String]) -> Vec<String> {
+        files
+            .iter()
+            .map(|p| {
+                Path::new(p)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_folder_without_raw_files_lists_its_jpegs() {
+        let dir = temp_dir("list-jpegs");
+        for name in ["b.JPEG", "a.jpg", "c.Jpg", "d.png", "e.txt", "a.xmp"] {
+            std::fs::write(dir.join(name), b"x").unwrap();
+        }
+        std::fs::create_dir(dir.join("sub.jpg")).unwrap();
+        assert_eq!(
+            names_of(&list_arw_in(&dir).unwrap()),
+            ["a.jpg", "b.JPEG", "c.Jpg"]
+        );
+
+        std::fs::write(dir.join("f.ARW"), b"x").unwrap();
+        assert_eq!(names_of(&list_arw_in(&dir).unwrap()), ["f.ARW"]);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_jpeg_listing_reads_no_sidecar_and_queues_nothing() {
+        let root = temp_dir("jpeg-sidecars");
+        let dir = root.to_string_lossy().into_owned();
+        std::fs::write(root.join("foo.jpg"), b"x").unwrap();
+        sidecar(&root, "foo.xmp", 4);
+        std::fs::write(root.join("foo.jpg.dop"), b"x").unwrap();
+        let index = sidecar_index(&root);
+
+        let listed = list_arw_in(&root).unwrap();
+        assert_eq!(names_of(&listed), ["foo.jpg"]);
+        for format in [SidecarFormat::Xmp, SidecarFormat::Dop, SidecarFormat::Both] {
+            let (_, sidecars) = list_folder_in(&root, format).unwrap();
+            assert!(sidecars.is_empty(), "{format:?}");
+            let (dirty, errors, _) =
+                reconcile_listed_with_errors(&dir, &listed, &index, format).unwrap();
+            assert!(dirty.is_empty() && errors.is_empty(), "{format:?}");
+        }
+        index::lock(&index)
+            .write_batch(
+                &dir,
+                &[(index::stat(Path::new(&listed[0])).unwrap(), Err("x".into()))],
+            )
+            .unwrap();
+        let entries = index::lock(&index).entries(&dir).unwrap();
+        assert_eq!(entries[0].rating, None);
+        assert!(!entries[0].has_sidecar);
+
+        remove_temp_dir(&root);
+    }
+
+    #[test]
+    fn culling_and_face_detection_refuse_a_jpeg() {
+        let dir = temp_dir("jpeg-refused");
+        let path = dir.join("a.jpg");
+        std::fs::write(
+            &path,
+            crate::index::tests::jpeg_with_exif(64, 48, 1, "2026:09:27 10:00:00", 400),
+        )
+        .unwrap();
+
+        assert!(raw_only(&path, "culling").is_err());
+        assert!(raw_only(Path::new("a.ARW"), "culling").is_ok());
+        assert!(raw_only(Path::new("a.dng"), "culling").is_ok());
+        let err = read_faces(&path).unwrap_err();
+        assert!(err.contains("RAW files only"), "{err}");
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_jpeg_is_served_whole_with_its_exif_and_a_centered_crop() {
+        let dir = temp_dir("jpeg-serve");
+        let path = dir.join("a.jpg");
+        let bytes = crate::index::tests::jpeg_with_exif(64, 48, 6, "2026:09:27 10:00:00", 400);
+        std::fs::write(&path, &bytes).unwrap();
+
+        assert_eq!(read_preview(&path).unwrap(), (6, bytes));
+
+        let meta = read_metadata(&path).unwrap();
+        assert_eq!(meta.name, "a.jpg");
+        assert_eq!(meta.captured_at.as_deref(), Some("2026:09:27 10:00:00"));
+        assert!(meta.iso.is_some());
+        for maker_note in [
+            &meta.shutter_type,
+            &meta.focus_mode,
+            &meta.af_area,
+            &meta.af_tracking,
+            &meta.drive,
+            &meta.stabilization,
+            &meta.exposure_mode,
+            &meta.metering,
+            &meta.creative_style,
+            &meta.dro,
+            &meta.raw_type,
+            &meta.focus_distance,
+        ] {
+            assert_eq!(*maker_note, None);
+        }
+
+        let (orientation, crop, _) = read_focus_crop(&path, 16, 16).unwrap();
+        assert_eq!(orientation, 6);
+        assert_eq!(
+            (crop.crop.x + crop.point_x, crop.crop.y + crop.point_y),
+            (32, 24)
+        );
+
+        remove_temp_dir(&dir);
     }
 
     fn cached_listing(

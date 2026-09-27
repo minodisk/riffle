@@ -116,7 +116,7 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
       by reading the diff that the ARW / DNG path is untouched and say so in
       the PR body; no bump.
 
-- [ ] Step 2: App backend: list, scan and serve a JPEG-only folder; refuse culling on JPEGs
+- [x] Step 2: App backend: list, scan and serve a JPEG-only folder; refuse culling on JPEGs
   - Done when:
     - Step 1 is merged.
     - `read_listing` in `crates/app/src/commands.rs` lists the folder's
@@ -306,3 +306,4 @@ Decisions fixed here (alternatives under "Trade-offs and risks"):
 ## Progress
 
 - (2026-09-27) Step 1 complete
+- (2026-09-28) Step 2 complete
