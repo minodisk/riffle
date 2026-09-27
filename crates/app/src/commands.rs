@@ -557,9 +557,9 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
     (format, keymap, auto_advance, names, mcp_enabled)
 }
 
-/// The stored `autoAdvance` value; missing or non-boolean means off.
+/// The stored `autoAdvance` value; missing or non-boolean means on.
 fn auto_advance_setting(value: Option<&Value>) -> bool {
-    value.and_then(Value::as_bool).unwrap_or(false)
+    value.and_then(Value::as_bool).unwrap_or(true)
 }
 
 /// The stored `mcpEnabled` value; missing or non-boolean means off.
@@ -2443,12 +2443,12 @@ mod tests {
     }
 
     #[test]
-    fn auto_advance_setting_reads_a_boolean_or_defaults_to_off() {
+    fn auto_advance_setting_reads_a_boolean_or_defaults_to_on() {
         use serde_json::json;
-        assert!(!super::auto_advance_setting(None));
+        assert!(super::auto_advance_setting(None));
         assert!(super::auto_advance_setting(Some(&json!(true))));
         assert!(!super::auto_advance_setting(Some(&json!(false))));
-        assert!(!super::auto_advance_setting(Some(&json!("true"))));
+        assert!(super::auto_advance_setting(Some(&json!("true"))));
     }
 
     use std::time::Duration;
