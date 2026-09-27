@@ -15,7 +15,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   root volumes is read once at launch, so one mounted afterward does not
   appear until the app restarts). A folder's arrow lists its subfolders,
   again on every expand, so a subfolder created since shows up; an expanded
-  folder shows how many RAW files it holds itself. Clicking a folder's name
+  folder shows how many RAW files it holds itself, or, for a folder with no
+  RAW file, how many JPEGs (see **JPEG-only folders**). Clicking a folder's name
   opens it. `File > Open Folder…`, the `open` key (or the empty-state hint)
   and a drop still open anything the tree does not reach. The open folder
   is highlighted, and the tree expands down to it whenever a folder opens,
@@ -242,6 +243,35 @@ viewer shows a prompt in its center; click it to open the folder picker.
     file that fails during the run, because it could not be read or written,
     is listed as `name: reason` in the error list at the bottom of the right
     pane once the dialog closes, and the other files are still written.
+- **JPEG-only folders**: a folder that holds only JPEGs, such as a
+  `<folder>-sequenced/` output of **Sequence JPEG Timestamps…**, opens in the
+  strip view-only, so its order and capture times can be checked without
+  another app.
+  - **Which folders**: the `.jpg` / `.jpeg` files (any case) directly in the
+    folder are listed only when it holds no ARW / DNG at all; a folder with
+    any RAW file lists the RAW files only, so a RAW+JPEG shooting folder does
+    not double its strip. The folder tree's count follows the same rule: a
+    JPEG-only folder shows how many JPEGs it holds.
+  - **What shows**: the thumbnails, the preview (the whole JPEG, turned by
+    its EXIF Orientation), `z` 1:1, `v` on 2–4 selected files, and the meta pane's **EXIF**
+    rows read from the JPEG's Exif. There is no **Maker note** row, no
+    sharpness score or sharpness bar, and no focus mark or face detection:
+    `f` draws nothing. The status line shows
+    `JPEG folder: view only` for as long as the folder is open.
+  - **Order**: always capture time (the sort menu's capture-time order:
+    sub-second, then file name, break ties), and a JPEG without Exif or a
+    capture time comes last by file name. The sort menu is disabled; the
+    order chosen for RAW folders is neither applied nor changed, so the next
+    RAW folder opens in it.
+  - **What is off**: the star, flag and color label keys, `clearall`,
+    `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` do nothing, and
+    the strip's right-click menu holds only `Select All`. Navigation,
+    selection, the filter menu and the panel toggles keep working, and the
+    folder reopens at its last viewed file like any other. The MCP
+    `set_judgment` tool is refused with
+    `culling does not apply to a JPEG folder`; the other tools keep working.
+  - **Sidecars**: none is read or written. A `foo.xmp` or `foo.jpg.dop` next
+    to `foo.jpg` is ignored, and nothing is ever written next to a JPEG.
 - **Undo**: `Edit > Undo` (the `undo` key, `CmdOrCtrl+Z` by default) restores the rating, flag and color
   label the last judged file had before, writes that to its sidecar and returns
   to the file (unless the filter now hides it, which the status line says).
