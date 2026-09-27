@@ -133,4 +133,8 @@ them, and changing them would touch consistent, working UI.
 
 ## Progress
 
-- (none yet)
+- Round 1 review: `failSequence` and the `status === null` branch of
+  `finishSequence` called `renderMeta()` instead of `setStatus()`, leaving a
+  stale gray note visible next to the new orange error. Fixed by calling
+  `setStatus()` (no argument in `failSequence`; `setStatus(doneStatus(payload)
+  ?? undefined)` in `finishSequence`).
