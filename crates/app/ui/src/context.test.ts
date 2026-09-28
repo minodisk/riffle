@@ -133,14 +133,28 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the rename item, then the sequence item, without a shortcut or checked state", () => {
-    expect(folderMenuGroups("Reveal in Finder", true)).toEqual([
+  test("holds the reveal item, then the copy items, then the rename item, then the trash items, then the sequence item, without a shortcut or checked state", () => {
+    expect(folderMenuGroups("Reveal in Finder", false)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
         { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
         { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
       ],
       [{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }],
+      [
+        {
+          action: "trashRejected",
+          label: "Move Rejected to Trash…",
+          shortcut: "",
+          checked: undefined,
+        },
+        {
+          action: "trashRejectedTree",
+          label: "Move Rejected to Trash, Including Subfolders…",
+          shortcut: "",
+          checked: undefined,
+        },
+      ],
       [
         {
           action: "sequenceTimestamps",
@@ -152,10 +166,15 @@ describe("folderMenuGroups", () => {
     ]);
   });
 
-  test("leaves the rename item out for a root", () => {
+  test("leaves the rename item and the recursive trash item out for a root", () => {
     expect(
-      folderMenuGroups("Reveal in Finder", false).map((group) => group.map(({ action }) => action)),
-    ).toEqual([["revealFolder"], ["copyPath", "copyFolderName"], ["sequenceTimestamps"]]);
+      folderMenuGroups("Reveal in Finder", true).map((group) => group.map(({ action }) => action)),
+    ).toEqual([
+      ["revealFolder"],
+      ["copyPath", "copyFolderName"],
+      ["trashRejected"],
+      ["sequenceTimestamps"],
+    ]);
   });
 });
 

@@ -62,7 +62,8 @@ DxO PhotoLab.
   arrows, `Home` / `End`, `Enter` and typing a name move through and open
   folders, with the culling keys off until `Escape`. Right-click a folder
   to reveal it in Finder / File Explorer / the file manager, copy its
-  path or name, or rename it with `Rename…`; a slow second click on the
+  path or name, rename it with `Rename…`, or move its rejects to the Trash,
+  with or without its subfolders; a slow second click on the
   open folder's name renames it too. The name is edited in place: `Enter`
   or a click away renames, `Escape` cancels, and the index, the ratings
   and the remembered position follow the folder, which reopens under its
@@ -118,8 +119,11 @@ DxO PhotoLab.
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
 - **Move Rejected to Trash**: `File > Move Rejected in This Folder to Trash…`
-  moves the rejected shots of the open folder to the Trash. Nothing is deleted, so restoring them brings the
-  judgments back.
+  moves the rejected shots of the open folder to the Trash; right-click a
+  folder in the folder tree and choose `Move Rejected to Trash…` or
+  `Move Rejected to Trash, Including Subfolders…` to do the same for a folder
+  you have not opened, or for a whole year folder at once. Nothing is deleted,
+  so restoring them brings the judgments back.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the
   export folder (or right-click it in the folder tree) spaces the capture times of a burst one second apart, so Google

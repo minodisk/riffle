@@ -58,18 +58,37 @@ export function contextMenuGroups(
 
 // The folder tree's right-click menu: the reveal item, labeled per platform by
 // the `reveal_label` command, then copying the folder's path or name, then
-// renaming it (not offered on a root: home or a volume), then the sequencing
-// of the folder's JPEGs.
-export function folderMenuGroups(revealLabel: string, canRename: boolean): MenuItem[][] {
+// renaming it, then moving its rejects to the Trash, with or without its
+// subfolders, then the sequencing of the folder's JPEGs. Renaming and the
+// recursive trash item are not offered on a root (home or a volume).
+export function folderMenuGroups(revealLabel: string, root: boolean): MenuItem[][] {
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
     [
       { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
       { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
     ],
-    ...(canRename
-      ? [[{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }]]
-      : []),
+    ...(root
+      ? []
+      : [[{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }]]),
+    [
+      {
+        action: "trashRejected",
+        label: "Move Rejected to Trash…",
+        shortcut: "",
+        checked: undefined,
+      },
+      ...(root
+        ? []
+        : [
+            {
+              action: "trashRejectedTree",
+              label: "Move Rejected to Trash, Including Subfolders…",
+              shortcut: "",
+              checked: undefined,
+            },
+          ]),
+    ],
     [
       {
         action: "sequenceTimestamps",
