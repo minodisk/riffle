@@ -348,3 +348,4 @@ the cargo registry):
 - (2026-09-28) Step 1 complete
 - (2026-09-29) Step 2 complete
 - (2026-09-29) Step 3 complete
+- (2026-09-29) Step 4 complete
