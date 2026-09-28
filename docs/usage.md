@@ -344,7 +344,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the same units your file manager uses (decimal on macOS, binary on Windows
   and Linux). A press while a scan is running waits for it: a note says the
   cache is cleared as soon as the scan finishes, and the clear then runs by
-  itself. The size figure refreshes each time a scan ends.
+  itself. Closing the modal cancels a held clear, so it only runs while the
+  modal stays open until the scan ends. The size figure refreshes each time a
+  scan ends.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbors on the strip; the sharpest frame of
   a run is marked in the pick color. The score is computed from the embedded

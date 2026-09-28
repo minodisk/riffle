@@ -94,9 +94,9 @@ export function initSettings(hooks: SettingsHooks): Settings {
   let shortcutBindings: Binding[] = [];
   let scanRunning = false;
   let clearInFlight = false;
-  // No `discard()`: the folder cannot change while the modal is open, and the
-  // focus listener skips `resync()` then, so only the scan already running
-  // when the modal opened can hold the clear.
+  // A held clear lasts only while the modal is open: `close()` discards it,
+  // so the scan running when the user asked for it never drains it later
+  // behind the user's back.
   const clearGate = new IdleGate(() => scanRunning);
 
   function renderShortcuts(): void {
@@ -445,6 +445,8 @@ export function initSettings(hooks: SettingsHooks): Settings {
     dialog.hidden = true;
     returnFocus?.focus();
     returnFocus = null;
+    clearGate.discard();
+    updateClearButton();
   }
 
   // Every key stops here while the modal is open, so none reaches the culling
