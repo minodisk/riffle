@@ -1234,8 +1234,8 @@ ancestor-pinning applies to deletion without measuring it.
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 
 `createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`
-and sets `src` only once the thumbnail payload arrives; cells are recreated
-rather than reused on refresh, so `src` is never stale. That makes
+and sets `src` only once the thumbnail payload arrives; a cell is reused
+across a refresh only for the same path, so `src` is never stale. That makes
 `.cell img:not([src])` exactly "placeholder or failed load". Put the gray
 placeholder background there, not on `.cell img` itself: the image box is the
 144px square footprint and `object-fit: contain` letterboxes anything that is

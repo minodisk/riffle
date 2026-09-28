@@ -1148,7 +1148,7 @@ function refilter(
   if (mustReshow(force, files[index], anchor)) {
     show();
   } else {
-    strip.setCurrent(index);
+    strip.setCurrent(index, !keepScroll);
     renderMeta();
     if (comparing) void loadCompare();
   }
@@ -1478,7 +1478,7 @@ function refreshEntries(): void {
       const hadPendingResume = pendingResume !== undefined;
       const anchor = firstEntriesAnchor(pendingResume, files[index]);
       pendingResume = undefined;
-      const setFiles = refilter(anchor, false, hadPendingResume);
+      const setFiles = refilter(anchor, true, hadPendingResume);
       const end = performance.now();
       debugLog(
         refreshTimingLine({
@@ -1513,7 +1513,7 @@ function refreshEntries(): void {
       if (dir === openDir && token === folderToken && pendingResume !== undefined) {
         const anchor = pendingResume;
         pendingResume = undefined;
-        refilter(anchor, false, true);
+        refilter(anchor, true, true);
       }
     });
 }

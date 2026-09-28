@@ -4,6 +4,7 @@
 // or a click away ends the edit.
 
 import { type BurstMark, burstBadge } from "./burst.js";
+import { carriedIndices, carriedOffset } from "./carry.js";
 import { FOCUS_MARK_COLORS } from "./focus.js";
 import {
   type Decision,
@@ -58,6 +59,9 @@ interface Cell {
   candidate: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
+  // Read by the listeners, since `setFiles` moves a cell whose file is still
+  // listed to its new index.
+  index: number;
 }
 
 let files: string[] = [];
@@ -197,8 +201,14 @@ function createCell(index: number): Cell {
   name.className = "name";
   name.textContent = baseName(files[index]);
   name.addEventListener("click", (event) => {
-    if (index === current && !event.metaKey && !event.ctrlKey && !event.shiftKey && canRename()) {
-      armSlowClick(index);
+    if (
+      cell.index === current &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      canRename()
+    ) {
+      armSlowClick(cell.index);
     }
   });
   name.addEventListener("dblclick", cancelSlowClick);
@@ -221,11 +231,11 @@ function createCell(index: number): Cell {
   candidate.style.color = FOCUS_MARK_COLORS.candidate;
   el.append(candidate);
   el.addEventListener("click", (event) => {
-    select(index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
+    select(cell.index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
   });
   el.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    contextMenu(index, event.clientX, event.clientY);
+    contextMenu(cell.index, event.clientX, event.clientY);
   });
   inner.append(el);
   const cell: Cell = {
@@ -238,6 +248,7 @@ function createCell(index: number): Cell {
     candidate,
     name,
     url: null,
+    index,
   };
   paintRating(index, cell);
   paintSharpness(index, cell);
@@ -443,15 +454,17 @@ export function setCandidate(index: number, candidate: boolean): void {
   }
 }
 
-// Show one cell per file, in `list_arw` order, all of them placeholders.
-// `keepScroll` is for a rescan of the folder already shown: the offset is
-// kept (clamped to the new list's width) instead of jumping back to the top,
-// so files appearing or disappearing elsewhere do not move the view.
+// Show one cell per file, in `list_arw` order. A cell with a loaded
+// thumbnail whose file is still listed moves to its new index; the rest are
+// placeholders. `keepScroll` is for a rescan of the folder already shown: the
+// view stays on the same files (see `carriedOffset`) instead of jumping back
+// to the top.
 export function setFiles(paths: string[], keepScroll = false): void {
   // The indices may no longer name the same files, but a rename still being
   // typed survives when its file is still in the new list: it is carried
   // over to its new index below instead of being silently dropped.
   const resume = editing !== null && paths.includes(editing.state.path) ? editing : null;
+  const editedIndex = resume?.index;
   if (resume === null) {
     finishRename("cancel");
   } else {
@@ -460,9 +473,19 @@ export function setFiles(paths: string[], keepScroll = false): void {
   }
   cancelSlowClick();
   const offset = strip.scrollLeft;
+  const scrollLeft = carriedOffset(files, paths, offset, CELL_WIDTH, strip.clientWidth, current);
+  const loaded = [...cells].filter(([index, cell]) => cell.url !== null && index !== editedIndex);
+  const moves = carriedIndices(
+    files,
+    paths,
+    loaded.map(([index]) => index),
+  );
+  const carried = loaded.filter(([index]) => moves.has(index));
   generation += 1;
-  for (const cell of cells.values()) {
-    releaseCell(cell);
+  for (const [index, cell] of cells) {
+    if (!moves.has(index)) {
+      releaseCell(cell);
+    }
   }
   cells.clear();
   requested.clear();
@@ -481,9 +504,17 @@ export function setFiles(paths: string[], keepScroll = false): void {
   indexOf = new Map(paths.map((path, index) => [path, index]));
   current = 0;
   inner.style.width = `${files.length * CELL_WIDTH}px`;
-  strip.scrollLeft = keepScroll
-    ? Math.max(0, Math.min(offset, files.length * CELL_WIDTH - strip.clientWidth))
-    : 0;
+  for (const [index, cell] of carried) {
+    cell.index = moves.get(index) as number;
+    cell.el.style.left = `${cell.index * CELL_WIDTH}px`;
+    cells.set(cell.index, cell);
+    requested.add(cell.index);
+    paintRating(cell.index, cell);
+    paintSharpness(cell.index, cell);
+    paintBurst(cell.index, cell);
+    paintCandidate(cell.index, cell);
+  }
+  strip.scrollLeft = keepScroll ? scrollLeft : 0;
   if (resume !== null) {
     resume.index = indexOf.get(resume.state.path) as number;
     editing = resume;
@@ -511,14 +542,15 @@ export function setSelected(indices: Iterable<number>): void {
   highlight();
 }
 
-// Highlight `index` and scroll it into view, the `block: "nearest"` way.
-export function setCurrent(index: number): void {
+// Highlight `index` and, unless `scroll` is false, scroll it into view, the
+// `block: "nearest"` way.
+export function setCurrent(index: number, scroll = true): void {
   current = index;
   const left = index * CELL_WIDTH;
   const right = left + CELL_WIDTH;
-  if (left < strip.scrollLeft) {
+  if (scroll && left < strip.scrollLeft) {
     strip.scrollLeft = left;
-  } else if (right > strip.scrollLeft + strip.clientWidth) {
+  } else if (scroll && right > strip.scrollLeft + strip.clientWidth) {
     strip.scrollLeft = right - strip.clientWidth;
   }
   render();
