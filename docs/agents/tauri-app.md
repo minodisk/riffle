@@ -1257,8 +1257,8 @@ open has no watch at all.
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 
 `createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`
-and sets `src` only once the thumbnail payload arrives; cells are recreated
-rather than reused on refresh, so `src` is never stale. That makes
+and sets `src` only once the thumbnail payload arrives; a cell is reused
+across a refresh only for the same path, so `src` is never stale. That makes
 `.cell img:not([src])` exactly "placeholder or failed load". Put the gray
 placeholder background there, not on `.cell img` itself: the image box is the
 144px square footprint and `object-fit: contain` letterboxes anything that is
@@ -1279,7 +1279,18 @@ normally through `blur`, since only the input itself is detached. Whatever
 drives the render loop must not release the row under active edit and must
 cancel any live edit before a full `setFiles` replacement.
 
-- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4.
+`setFiles`'s own cell-carrying path (used for `keepScroll` on a rescan of the
+folder already shown) is the one exception: it never carries the cell under a
+resumed inline rename. `setFiles` removes that cell's input while the `name`
+span is still detached, so a carried cell would have no `.name` in its element
+and the resume block's `cell.name.replaceWith(input)` would be a no-op. That
+cell is released and recreated like any other cell outside the carried set,
+and is then repainted with the just-cleared per-index maps (rating, sharpness,
+burst, candidate) until `refilter` re-applies them right after — so it
+briefly matches a fresh cell, whether or not `keepScroll` is set.
+
+- Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4;
+  `docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/learnings.md`, Step 1.
 
 ### Scope an id's `display` override to `:not([hidden])` when the element can also be hidden (Hit)
 
