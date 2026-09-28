@@ -101,8 +101,9 @@ and a README (no code, no CI). `downloads.csv` has the columns
 cumulative totals GitHub reports, so the downloads of a period are the
 difference between two dated rows. Every asset keeps its own row, so the
 installers (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, `.rpm`) can be
-told apart from what the updater fetches (`latest.json`, `.app.tar.gz`, the
-Windows `-setup.exe`) and the `.sig` files.
+told apart from the updater-only artifacts (`latest.json`, `.app.tar.gz`) and
+the `.sig` files; on Windows the updater fetches the same `-setup.exe` users
+install from, so that count covers both.
 
 To take a snapshot now, run the workflow by hand from the Actions tab or with
 `gh workflow run stats.yml`. A second run on the same UTC day replaces that

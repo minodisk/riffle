@@ -172,4 +172,4 @@ Decisions (taken with the user on 2026-09-28):
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
