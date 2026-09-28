@@ -281,3 +281,4 @@ menu item stays, relabeled so its target is unambiguous.
   (`unread`), and the frontend words and counts the two differently.
 - (2026-09-28) Step 1 complete
 - (2026-09-28) Step 2 complete
+- (2026-09-28) Step 3 complete
