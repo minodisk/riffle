@@ -70,3 +70,6 @@
   5. Start an inline rename on a folder, then create a sibling folder in
      Explorer: the text box survives the re-list with its text and
      selection.
+  6. Permanently delete an expanded folder itself (`rm -rf` on Linux/macOS,
+     Shift+Delete in Explorer): no error is shown, and the row disappears
+     once the parent's re-list lands.

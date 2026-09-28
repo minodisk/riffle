@@ -89,6 +89,7 @@ let ended: string | null = null;
 // The watched set last sent to `set_tree_watches`, joined, so a render that
 // leaves it unchanged sends nothing.
 let watched = "";
+let syncing: Promise<void> = Promise.resolve();
 const slow = new SlowClick();
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -244,8 +245,17 @@ function syncWatches(): void {
     return;
   }
   watched = joined;
-  window.__TAURI__.core.invoke("set_tree_watches", { dirs }).catch((err: unknown) => {
-    reportError(String(err));
+  // Chained onto the previous call so two `set_tree_watches` invokes never
+  // run on the backend out of order and leave a stale watch set.
+  syncing = syncing.then(async () => {
+    try {
+      await window.__TAURI__.core.invoke("set_tree_watches", { dirs });
+    } catch (err) {
+      // The call failed, so the backend never applied `dirs`; forget
+      // `watched` so the next render sends the set again.
+      watched = "";
+      reportError(String(err));
+    }
   });
 }
 
@@ -571,7 +581,12 @@ void window.__TAURI__.event.listen<{ dir: string }>("tree-changed", ({ payload }
       requestRender();
     },
     (err: unknown) => {
-      reportError(String(err));
+      // This is a background refresh, not something the user asked for.
+      // A permanent delete of the folder itself removes its entries first
+      // (`rm -rf`, Shift+Delete), so this re-list often fails with the
+      // folder still drawn; the parent's own `tree-changed` is what
+      // removes the row. Reporting this as an error would be spurious.
+      console.warn(err);
     },
   );
 });

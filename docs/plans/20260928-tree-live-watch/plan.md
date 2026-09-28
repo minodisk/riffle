@@ -137,7 +137,17 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       `run(rx, emit)` with a `HashMap<String, Instant>` of deadlines, waiting
       on the nearest one).
 
-- [x] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
+- [ ] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
+  - Incomplete: Round 1 review found two acceptance-criteria gaps: (1)
+    `set_tree_watches` calls were not serialized, so two invokes sent back to
+    back could apply out of order on the backend and leave a stale watch set
+    (fixed by chaining each invoke onto the previous one's promise, and
+    resetting `watched` on rejection so the next render resends the set); (2)
+    the `tree-changed` listener's re-list reported an ordinary external
+    delete of an expanded folder as an error (fixed by quietly warning
+    instead of calling `reportError`, since the parent's own `tree-changed`
+    is what removes the row). Both are fixed in `folders.ts`; the wording
+    below and the manual checks are updated to match.
   - Done when:
     - `crates/app/ui/src/tree.ts` exports a pure
       `watchedFolders(tree: Tree): string[]`: the paths of the nodes that
@@ -152,7 +162,9 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
     - `folders.ts` calls `set_tree_watches` with `watchedFolders(tree)` at
       the end of `render()` whenever the list differs from the last one
       sent (compare the joined string, updated synchronously at send time),
-      swallowing and reporting a rejection through `reportError`. Because
+      chaining each invoke onto the previous one's promise so two calls are
+      never applied out of order on the backend, and resetting `watched` on
+      rejection so the next render resends the set. Because
       `render` is the one place every tree change passes through (`toggle`,
       `reveal`, `renamed`, `loadRoots`, `moveCursor`), this covers expand,
       collapse, the reveal chain at launch, and the re-key after a rename
@@ -165,10 +177,16 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       and applies `setChildren` (which keeps the state of children already
       known), then `requestRender()` (not `render()`, so a re-list landing
       mid-press waits for the `mouseup`, as `renamed()` does). A listing
-      error is reported through `reportError` and does not collapse the
-      node (unlike `toggle`, where the user asked for the expand). A
-      payload for a node that is no longer expanded or drawn is dropped
-      (the collapse's `set_tree_watches` and an in-flight event can cross).
+      error is only `console.warn`ed, not reported through `reportError`:
+      this re-list is a background refresh the user did not ask for, and a
+      permanent delete of the folder itself (`rm -rf`, Shift+Delete) removes
+      its entries first, so this call often fails with the folder still
+      drawn while the parent's own `tree-changed` is what removes the row;
+      surfacing that as an error would be spurious. The listener does not
+      collapse the node either way (unlike `toggle`, where the user asked
+      for the expand). A payload for a node that is no longer expanded or
+      drawn is dropped (the collapse's `set_tree_watches` and an in-flight
+      event can cross).
     - A live inline rename is preserved across the re-list (`render`
       already rebuilds the input from `editing`, and drops the edit when
       the row vanished); nothing extra is needed but it is checked
