@@ -2,10 +2,14 @@
 // once the command comes back.
 
 // The `Summary` that `trash_rejected` returns: the RAWs it moved, which the
-// frontend prunes its state by, and every file or folder that failed.
+// frontend prunes its state by, every file whose move to the Trash failed,
+// and every file or folder `collect` never got to try because it could not
+// be read (an unreadable folder, a sidecar that does not parse, an index
+// query error).
 export type TrashSummary = {
   moved: string[];
   failed: { path: string; message: string }[];
+  unread: { path: string; message: string }[];
 };
 
 export function trashedStatus(summary: TrashSummary): string {

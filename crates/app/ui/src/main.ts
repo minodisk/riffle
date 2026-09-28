@@ -571,6 +571,9 @@ function trashRejected(): void {
       for (const { path, message } of summary.failed) {
         errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
       }
+      for (const { path, message } of summary.unread) {
+        errors.add(path, `${baseName(path)}: could not be read: ${message}`);
+      }
       setStatus(trashedStatus(summary));
       resync();
     })

@@ -51,28 +51,41 @@ pub struct Failure {
     pub message: String,
 }
 
-/// What `run` produces: the RAWs that went to the trash and everything that
-/// did not.
+/// What `run` produces: the RAWs that went to the trash, the ones a move
+/// attempt failed on, and the files or folders `collect` could not even read
+/// (never attempted, so they must not count as a failed move).
 #[derive(Debug, Default, Serialize)]
 pub struct Summary {
     pub moved: Vec<String>,
     pub failed: Vec<Failure>,
+    pub unread: Vec<Failure>,
 }
 
 /// The rejects of `dirs`, each followed by its subfolders depth-first by
 /// name when `recursive`; a folder reached twice is read once. `rows` gives
 /// the index rows of one folder, keyed by the same canonical spelling as
-/// `dirs`. A folder that cannot be read is a failure of that folder and the
-/// others still go on.
+/// `dirs`. `format` is the configured sidecar format: the flag is decided
+/// from its sidecars only, the same rule the folder open applies, so a
+/// leftover sidecar of the other format cannot make the collector disagree
+/// with what the strip shows. A folder that cannot be read is a failure of
+/// that folder and the others still go on.
 pub fn collect(
     dirs: &[String],
     recursive: bool,
+    format: SidecarFormat,
     rows: impl Fn(&str) -> Result<HashMap<String, RowFlag>, String>,
 ) -> Collection {
     let mut collection = Collection::default();
     let mut seen = HashSet::new();
     for dir in dirs {
-        visit(Path::new(dir), recursive, &rows, &mut seen, &mut collection);
+        visit(
+            Path::new(dir),
+            recursive,
+            format,
+            &rows,
+            &mut seen,
+            &mut collection,
+        );
     }
     collection
 }
@@ -80,6 +93,7 @@ pub fn collect(
 fn visit(
     dir: &Path,
     recursive: bool,
+    format: SidecarFormat,
     rows: &impl Fn(&str) -> Result<HashMap<String, RowFlag>, String>,
     seen: &mut HashSet<String>,
     collection: &mut Collection,
@@ -88,7 +102,7 @@ fn visit(
     if !seen.insert(key.clone()) {
         return;
     }
-    match collect_folder(dir, &key, rows) {
+    match collect_folder(dir, &key, format, rows) {
         Ok((groups, failed)) => {
             collection.failed.extend(failed);
             collection.folders.push(FolderPlan { dir: key, groups });
@@ -100,18 +114,21 @@ fn visit(
     }
     if recursive {
         for child in subfolders(dir) {
-            visit(&child, true, rows, seen, collection);
+            visit(&child, true, format, rows, seen, collection);
         }
     }
 }
 
 /// The rejects of the RAWs listed directly in `dir`, grouped with every
 /// sidecar of either format that exists for them (a format switch can leave
-/// both on disk), and the files whose sidecar could not be read. A JPEG-only
-/// folder yields nothing.
+/// both on disk), and the files whose sidecar could not be read. The flag
+/// itself is decided from `format`'s sidecars only, keeping in step with the
+/// folder open; `Both` is used only to gather what gets moved with a reject.
+/// A JPEG-only folder yields nothing.
 fn collect_folder(
     dir: &Path,
     key: &str,
+    format: SidecarFormat,
     rows: &impl Fn(&str) -> Result<HashMap<String, RowFlag>, String>,
 ) -> Result<(Vec<Group>, Vec<Failure>), String> {
     let listing = read_listing(dir, Some(SidecarFormat::Both))?;
@@ -128,19 +145,9 @@ fn collect_folder(
     let sidecars = stat_sidecars(&listing.sidecars);
     let rows = rows(key)?;
     for path in raws {
-        let found: Vec<&SidecarStat> = SidecarFormat::Both
-            .kinds()
-            .iter()
-            .filter_map(|kind| {
-                let name = kind
-                    .sidecar_path(Path::new(path))
-                    .file_name()?
-                    .to_string_lossy()
-                    .to_lowercase();
-                sidecars.get(&name)
-            })
-            .collect();
-        let newest = crate::sidecar::newest(found.iter().map(|stat| (*stat, stat.2)));
+        let found = sidecars_of(SidecarFormat::Both, path, &sidecars);
+        let effective = sidecars_of(format, path, &sidecars);
+        let newest = crate::sidecar::newest(effective.iter().map(|stat| (*stat, stat.2)));
         match flag_of(rows.get(path), newest) {
             Ok(Flag::Reject) => groups.push(Group {
                 raw: PathBuf::from(path),
@@ -154,6 +161,27 @@ fn collect_folder(
         }
     }
     Ok((groups, failed))
+}
+
+/// The sidecars of `format`'s kinds that exist for `path`, from the stats
+/// keyed by lowercase file name.
+fn sidecars_of<'a>(
+    format: SidecarFormat,
+    path: &str,
+    sidecars: &'a HashMap<String, SidecarStat>,
+) -> Vec<&'a SidecarStat> {
+    format
+        .kinds()
+        .iter()
+        .filter_map(|kind| {
+            let name = kind
+                .sidecar_path(Path::new(path))
+                .file_name()?
+                .to_string_lossy()
+                .to_lowercase();
+            sidecars.get(&name)
+        })
+        .collect()
 }
 
 /// The flag of one RAW, by the rule the folder open applies in
@@ -360,7 +388,7 @@ mod tests {
             ),
         ]);
         let wanted = key(&dir);
-        let collection = collect(&[key(&dir)], false, |d| {
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |d| {
             assert_eq!(d, wanted);
             Ok(rows.clone())
         });
@@ -383,7 +411,7 @@ mod tests {
         sidecar(&dir.join("a.ARW"), SidecarFormat::Xmp, Flag::Reject);
         sidecar(&dir.join("b.ARW"), SidecarFormat::Dop, Flag::Reject);
         sidecar(&dir.join("c.ARW"), SidecarFormat::Xmp, Flag::Pick);
-        let collection = collect(&[key(&dir)], false, no_rows);
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, no_rows);
         assert_eq!(
             names(&collection)[0].1,
             ["a.ARW".to_string(), "b.ARW".to_string()]
@@ -407,7 +435,9 @@ mod tests {
                 dirty: true,
             },
         )]);
-        let collection = collect(&[key(&dir)], false, |_| Ok(rows.clone()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows.clone())
+        });
         let [Group { raw, sidecars }] = &collection.folders[0].groups[..] else {
             panic!("expected one group, got {collection:?}");
         };
@@ -445,8 +475,37 @@ mod tests {
                 },
             ),
         ]);
-        let collection = collect(&[key(&dir)], false, |_| Ok(rows.clone()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows.clone())
+        });
         assert_eq!(names(&collection)[0].1, ["b.ARW".to_string()]);
+    }
+
+    #[test]
+    fn a_stray_dop_newer_than_a_matching_xmp_row_is_ignored_under_the_xmp_setting() {
+        let dir = temp_dir("stray-dop");
+        write(&dir.join("a.ARW"));
+        let xmp = sidecar(&dir.join("a.ARW"), SidecarFormat::Xmp, Flag::None);
+        // A leftover reject `.dop`, newer than the clean XMP row: PhotoLab (or
+        // an earlier `Both` setting) could have left this behind. Under the
+        // XMP setting the folder open never looks at it, so the collector
+        // must not either.
+        sidecar(&dir.join("a.ARW"), SidecarFormat::Dop, Flag::Reject);
+        let rows = HashMap::from([(
+            key(&dir.join("a.ARW")),
+            RowFlag {
+                flag: Flag::None,
+                stat: stat(&xmp),
+                dirty: false,
+            },
+        )]);
+        let collection = collect(
+            &[key(&dir)],
+            false,
+            SidecarFormat::Xmp,
+            |_| Ok(rows.clone()),
+        );
+        assert!(collection.folders[0].groups.is_empty());
     }
 
     #[test]
@@ -474,7 +533,9 @@ mod tests {
                 },
             ),
         ]);
-        let collection = collect(&[key(&dir)], false, |_| Ok(rows.clone()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows.clone())
+        });
         assert_eq!(
             names(&collection)[0].1,
             ["a.ARW".to_string(), "b.ARW".to_string()]
@@ -493,7 +554,9 @@ mod tests {
                 dirty: false,
             },
         )]);
-        let collection = collect(&[key(&dir)], false, |_| Ok(rows.clone()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows.clone())
+        });
         assert!(collection.folders[0].groups.is_empty());
     }
 
@@ -502,7 +565,7 @@ mod tests {
         let dir = temp_dir("unparsable");
         write(&dir.join("a.ARW"));
         std::fs::write(dir.join("a.ARW.dop"), b"{ not a dop").unwrap();
-        let collection = collect(&[key(&dir)], false, no_rows);
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, no_rows);
         assert!(collection.folders[0].groups.is_empty());
         assert_eq!(collection.failed.len(), 1);
         assert_eq!(collection.failed[0].path, key(&dir.join("a.ARW")));
@@ -520,7 +583,9 @@ mod tests {
                 dirty: true,
             },
         )]);
-        let collection = collect(&[key(&dir)], false, |_| Ok(rows.clone()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows.clone())
+        });
         assert_eq!(collection.count(), 0);
         assert!(collection.failed.is_empty());
     }
@@ -538,7 +603,7 @@ mod tests {
             write(&dir.join("x.ARW"));
             sidecar(&dir.join("x.ARW"), SidecarFormat::Xmp, Flag::Reject);
         }
-        let collection = collect(&[key(&root)], true, no_rows);
+        let collection = collect(&[key(&root)], true, SidecarFormat::Both, no_rows);
         let root_name = root.file_name().unwrap().to_string_lossy().into_owned();
         assert_eq!(
             names(&collection),
@@ -549,7 +614,7 @@ mod tests {
                 ("inner".to_string(), vec!["x.ARW".to_string()]),
             ]
         );
-        let flat = collect(&[key(&root)], false, no_rows);
+        let flat = collect(&[key(&root)], false, SidecarFormat::Both, no_rows);
         assert_eq!(flat.folders.len(), 1);
         assert_eq!(flat.count(), 0);
     }
@@ -560,7 +625,12 @@ mod tests {
         write(&dir.join("a.ARW"));
         sidecar(&dir.join("a.ARW"), SidecarFormat::Xmp, Flag::Reject);
         let missing = dir.join("missing");
-        let collection = collect(&[key(&missing), key(&dir)], false, no_rows);
+        let collection = collect(
+            &[key(&missing), key(&dir)],
+            false,
+            SidecarFormat::Both,
+            no_rows,
+        );
         assert_eq!(collection.failed.len(), 1);
         assert_eq!(collection.failed[0].path, key(&missing));
         assert_eq!(collection.folders.len(), 1);
@@ -571,7 +641,9 @@ mod tests {
     fn an_index_failure_is_a_failure_of_that_folder() {
         let dir = temp_dir("index-failure");
         write(&dir.join("a.ARW"));
-        let collection = collect(&[key(&dir)], false, |_| Err("locked".to_string()));
+        let collection = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Err("locked".to_string())
+        });
         assert!(collection.folders.is_empty());
         assert_eq!(collection.failed[0].path, key(&dir));
         assert_eq!(collection.failed[0].message, "locked");

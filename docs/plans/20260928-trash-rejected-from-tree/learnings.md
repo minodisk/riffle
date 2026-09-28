@@ -20,7 +20,16 @@
   logged for now; the per-folder summary for the frontend is left to Step 4.
 - `Summary.trashed` was replaced by `Summary.moved` (the RAW paths); the
   count is its length. Collection failures (an unreadable folder, a sidecar
-  that does not parse, an index query error) go first in `Summary.failed`.
+  that does not parse, an index query error) go in `Summary.unread`, kept
+  apart from `Summary.failed` (a move that was attempted and failed): nothing
+  was tried on an unread path, so it must not read as a failed move or count
+  toward `trashedStatus`'s "N failed".
+- The flag `collect_folder` uses is decided from the configured
+  `SidecarFormat`'s kinds only, the same ones the folder open reads; `Both`'s
+  kinds are still gathered to know what sidecars move with a reject, but a
+  leftover sidecar of the other format (e.g. a stale `.dop` from an earlier
+  `Both` setting, or one PhotoLab keeps rewriting) never overrides the
+  configured format's flag.
 - The subfolder walk uses `DirEntry::file_type().is_dir()`, which is false for
   a symlink (and for a Windows junction, which std reports as a symlink), so a
   link is never followed; `folders::is_hidden` became `pub(crate)` for it.

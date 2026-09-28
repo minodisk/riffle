@@ -2199,7 +2199,7 @@ pub async fn trash_rejected(
         let mut summary = trash::run(groups, |path| {
             context.delete(path).map_err(|e| e.to_string())
         });
-        summary.failed.splice(0..0, collection.failed);
+        summary.unread = collection.failed;
         log::info!("moved rejected files to the trash: {summary:?}");
         drop(state);
         Ok(Some(summary))
@@ -2214,7 +2214,8 @@ pub async fn trash_rejected(
 fn collect_rejected(app: &tauri::AppHandle, dirs: &[String], recursive: bool) -> trash::Collection {
     let dirs: Vec<String> = dirs.iter().map(|dir| canonicalize(dir)).collect();
     let index = app.state::<AppIndex>().0.clone();
-    trash::collect(&dirs, recursive, |dir| match &index {
+    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+    trash::collect(&dirs, recursive, format, |dir| match &index {
         Some(index) => index::lock(index).row_flags(dir),
         None => Ok(HashMap::new()),
     })

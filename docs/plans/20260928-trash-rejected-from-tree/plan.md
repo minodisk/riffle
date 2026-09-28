@@ -272,4 +272,10 @@ menu item stays, relabeled so its target is unambiguous.
 
 ## Progress
 
-- (none yet)
+- Step 1: Backend reject collection over folders, and
+  `trash_rejected(dirs, recursive)` implemented. `collect_folder` decides the
+  flag from the configured sidecar format only (still gathering both formats'
+  sidecars to move with a reject), so it agrees with the folder open even
+  when a stale sidecar of the other format sits on disk. `Summary` splits
+  move failures (`failed`) from files/folders `collect` never got to read
+  (`unread`), and the frontend words and counts the two differently.
