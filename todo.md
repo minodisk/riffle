@@ -872,6 +872,22 @@ decided in `docs/plans/20260928-tree-live-watch/plan.md`. Files:
       subfolders and RAW count (optionally offered only, or marked, when its
       watch failed).
 
+### App: measure whether a `notify` watch blocks deleting a folder on Windows
+
+`docs/plans/_archived/20260928-tree-live-watch/plan.md` (Step 1) measured only
+rename on Windows with `notify` 8.2: a watch pins the watched folder's
+ancestors against rename, not the folder itself. Delete was never measured,
+so `docs/usage.md` and the plan's Trade-offs section say "rename" only.
+
+#### TODO
+
+- [ ] Using the same scratch-binary approach as the Step 1 rename
+      measurement, measure on Windows whether deleting a watched folder
+      itself, or a folder with a watched descendant, succeeds with `notify`
+      8.2. Record the result next to the rename measurement and update
+      `docs/usage.md` and `docs/agents/tauri-app.md` to match (or confirm
+      they need no change).
+
 ### App: expand / collapse all subfolders from the folder tree's context menu
 
 Folder-menu items that expand or collapse every subfolder under the clicked
