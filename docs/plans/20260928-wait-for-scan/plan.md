@@ -222,3 +222,4 @@ Decisions taken here (see "Trade-offs and risks" for the alternatives):
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete
