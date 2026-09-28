@@ -808,6 +808,26 @@ change to the header line the plan named.
 - [ ] Update the comment in `crates/app/src/sequence.rs` to describe the
       tree-right-click flow instead of the removed picker.
 
+### App: the manual GUI checks for the resume landing's selection are still open
+
+Step 1 of `docs/plans/_archived/20260928-resume-selection/plan.md` (merged as
+#535) collapsed the selection to the landed file when a pending resume
+resolves. The user found the bug on a real Windows machine; the manual check
+the step specified was not run, since the GUI cannot be driven from an agent
+session. Files: `crates/app/ui/src/selection.ts`, `crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On Windows, in folder A focus a file other than the first, open folder
+      B, then return to A: the status line shows no `selected` suffix, only
+      the landed cell has `.selected`, and a rating key changes only that
+      file.
+- [ ] The same on macOS.
+- [ ] The same with a judgment filter that hides the remembered file, so the
+      landing falls on a neighbor: exactly that neighbor is selected.
+- [ ] The same with a folder that has no index cache (the `catch` branch of
+      `refreshEntries` in `main.ts`).
+
 ### App: Open in Terminal from the folder tree's context menu
 
 A folder-menu item that opens a terminal in the folder. The terminal has to be
