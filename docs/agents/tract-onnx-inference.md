@@ -65,8 +65,6 @@ writes it into the top-left of a zeroed `INPUT` x `INPUT` tensor of shape
 (not normalized), as OpenCV's `FaceDetectorYN` feeds YuNet. `detect` divides
 the decoded boxes and eye points by the same scale.
 
-### One fixed square input (Measured)
-
 - Why a fixed square: the input fact is pinned, so one optimized plan serves
   every file whatever its aspect ratio; a 3:2 preview wastes about a third of
   the input on padding, which was accepted.
