@@ -1,9 +1,9 @@
 name: Stats
 
-# GitHub only keeps release download counts as a running total, so a daily
-# snapshot is what lets the effect of a promotion be read off afterwards. The
-# minute is off the hour because scheduled runs pile up on the hour and get
-# delayed or dropped.
+# GitHub only keeps release download counts as a running total and traffic
+# for the last 14 days, so a daily snapshot is what lets the effect of a
+# promotion be read off afterwards. The minute is off the hour because
+# scheduled runs pile up on the hour and get delayed or dropped.
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -46,9 +46,13 @@ jobs:
           EOF
           fi
 
+      # The traffic API needs a PAT with Administration read access, which
+      # GITHUB_TOKEN cannot be given. The same token serves every call, and a
+      # missing or under-scoped one fails the run instead of skipping traffic,
+      # so the problem shows before the 14-day window rolls past.
       - name: Take the snapshot
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.STATS_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: tools/stats/snapshot.sh stats
 

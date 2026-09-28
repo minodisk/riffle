@@ -114,7 +114,7 @@ Decisions (taken with the user on 2026-09-28):
     - Do not add a `mise` task for the script; running it locally is
       `tools/stats/snapshot.sh <dir>`, documented in `CONTRIBUTING.md`.
 
-- [ ] Step 2: Persist traffic (views, clones, referrers, popular paths) and stars
+- [x] Step 2: Persist traffic (views, clones, referrers, popular paths) and stars
   - Done when:
     - `tools/stats/snapshot.sh` also writes, in the same directory and with the
       same replace-today rule:
@@ -173,3 +173,4 @@ Decisions (taken with the user on 2026-09-28):
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete
