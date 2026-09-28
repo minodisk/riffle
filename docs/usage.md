@@ -122,36 +122,34 @@ viewer shows a prompt in its center; click it to open the folder picker.
   hidden while the strip is. Which panels are hidden is remembered across
   restarts.
 - **Focus mark**: `f` draws a crosshair at the camera's recorded focus point,
-  inside a rectangle of the AF frame the camera used on Sony bodies that
-  record it (hidden by default). A body that records only the point, such as
-  the SIGMA BF, shows the crosshair alone; cameras that record none, such as
-  the M11-P, and manual-focus shots show no mark (see
-  [What the camera records](./cameras.md)). The mark's color is the focus
-  candidate state: green for a focus candidate, where the eyes of the face
-  nearest the AF point are likely in focus (their in-focus probability, a
-  logistic combination of the Laplacian variance and the mean edge width of
+  inside a rectangle of the AF frame the camera used when the camera records
+  that frame (hidden by default). A camera that records only the point shows the
+  crosshair alone; a camera that records no AF point, and manual-focus shots,
+  show no mark (see [What the camera records](./cameras.md)). The mark's color
+  is the focus candidate state: green for a focus candidate, where the eyes of
+  the face nearest the AF point are likely in focus (their in-focus probability,
+  a logistic combination of the Laplacian variance and the mean edge width of
   the preview between the eyes, is about 77% or more); orange when a face is
   near the AF point but its eyes are likely not in focus (including a window
   with no clear edge, which counts as 0%); and white when Riffle does not know
-  (no AF point, manual focus, no face near the point, or not computed yet).
-  The camera's face tracking no longer colors the mark: a Sony eye-AF frame
-  is judged by the faces Riffle detects like any other. The state is computed
-  in a second pass that starts right after the thumbnails and metadata of the
-  folder are in, so the marks turn from white to green or orange while the
-  status shows `focus N / M`. The strip marks each candidate with a green
-  face icon (Lucide's `scan-face`, ISC license, text in
-  `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
-  name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
-  a face it was fitted on, 93% of the candidates were in focus and 91% of the
-  in-focus frames were candidates; on 400 frames from other shoots it was not
-  fitted on, 89% and 95%. It is a cue, not a verdict: AF on a person in the
-  background gives a sharp face and a false candidate, and the back of a
-  head or an upturned face finds no face and stays white. The mark also
-  draws the faces Riffle detects near the AF point (anywhere on the preview
-  when there is no AF point) as a cyan box with a dot between the eyes. They
-  appear a moment after `f`, because the detection runs when the frame is
-  shown and is kept only for the session. The 1:1 view and Compare draw no
-  faces.
+  (no AF point, manual focus, no face near the point, or not computed yet). The
+  camera's face tracking no longer colors the mark: a recorded eye-AF frame is
+  judged by the faces Riffle detects like any other. The state is computed in a
+  second pass that starts right after the thumbnails and metadata of the folder
+  are in, so the marks turn from white to green or orange while the status shows
+  `focus N / M`. The strip marks each candidate with a green face icon (Lucide's
+  `scan-face`, ISC license, text in `crates/app/ui/LICENSE-lucide`) at the
+  cell's bottom-left, above the file name, filling in as the pass runs. On the
+  406 hand-labeled α7 V frames with a face it was fitted on, 93% of the
+  candidates were in focus and 91% of the in-focus frames were candidates; on
+  400 frames from other shoots it was not fitted on, 89% and 95%. It is a cue,
+  not a verdict: AF on a person in the background gives a sharp face and a false
+  candidate, and the back of a head or an upturned face finds no face and stays
+  white. The mark also draws the faces Riffle detects near the AF point
+  (anywhere on the preview when there is no AF point) as a cyan box with a dot
+  between the eyes. They appear a moment after `f`, because the detection runs
+  when the frame is shown and is kept only for the session. The 1:1 view and
+  Compare draw no faces.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -381,11 +379,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbors on the strip; the sharpest frame of
   a run is marked in the pick color. The score is computed from the embedded
-  preview on the camera's eye-AF frame when a Sony body tracked a face, else
-  around the AF focus point when the camera recorded one, even when a face is
-  found elsewhere in the frame. Only when there is no AF point (manual focus,
-  Leica DNG) does it use the eyes of a detected face, or, failing that, the
-  sharpest region of the frame. Faces and eyes are found by the bundled
+  preview on the camera's eye-AF frame when the camera recorded face
+  tracking, else around the AF focus point when the camera recorded one, even
+  when a face is found elsewhere in the frame. Only when there is no AF point
+  (manual focus, or a camera that records none) does it use the eyes of a
+  detected face, or, failing that, the sharpest region of the frame. Faces
+  and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
   no network access. The score ranks a burst rather than judging a frame on
@@ -393,13 +392,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   The meta pane shows the raw score in its Analysis group. See
   [What the camera records](./cameras.md).
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
-  grouping follows capture order whatever the chosen sort, and Leica files,
-  which record no sub-second time, are grouped by whole seconds. The grouping
-  deliberately follows time rather than the camera's own per-press sequence
-  numbering: a burst is one moment, and one moment often spans several
-  presses, such as pre-capture frames followed by the full press, or a quick
-  re-press. A tinted band behind the strip cells joins the frames of a burst of
-  two or more. Every
+  grouping follows capture order whatever the chosen sort, and files from a
+  camera that records no sub-second capture time are grouped by whole
+  seconds. The grouping deliberately follows time rather than the camera's
+  own per-press sequence numbering: a burst is one moment, and one moment
+  often spans several presses, such as pre-capture frames followed by the
+  full press, or a quick re-press. A tinted band behind the strip cells
+  joins the frames of a burst of two or more. Every
   cell of the band shows the frame's position in the burst and the burst's
   size (`3/7`), counted over the whole burst in capture order, so a filter or
   sort that hides or separates frames leaves the numbers as they are. `ArrowDown` jumps to the first frame of the next burst and
