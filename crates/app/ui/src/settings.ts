@@ -1,3 +1,4 @@
+import { IdleGate } from "./idle.js";
 import { type Binding, displayKey, keyName } from "./keys.js";
 import { LABEL_COLORS, type LabelNames, type LabelPreset, labelNamesPayload } from "./labels.js";
 import { type McpState, mcpEndpoint, mcpExamples, mcpStatus } from "./mcp.js";
@@ -54,7 +55,7 @@ export type Settings = {
   close(): void;
   keydown(event: KeyboardEvent): void;
   // `main.ts` reports every change of its `scanRunning` here; the Cache tab
-  // refuses to clear while a scan runs.
+  // holds a clear pressed while a scan runs until it ends.
   setScanRunning(running: boolean): void;
 };
 
@@ -93,6 +94,10 @@ export function initSettings(hooks: SettingsHooks): Settings {
   let shortcutBindings: Binding[] = [];
   let scanRunning = false;
   let clearInFlight = false;
+  // A held clear lasts only while the modal is open: `close()` discards it,
+  // so the scan running when the user asked for it never drains it later
+  // behind the user's back.
+  const clearGate = new IdleGate(() => scanRunning);
 
   function renderShortcuts(): void {
     shortcutsRows.replaceChildren(
@@ -270,13 +275,16 @@ export function initSettings(hooks: SettingsHooks): Settings {
   void window.__TAURI__.core.invoke<string>("index_size").then(showIndexSize);
 
   function updateClearButton(): void {
-    clearIndex.disabled = scanRunning || clearInFlight;
-    clearIndexNote.hidden = !scanRunning;
+    clearIndex.disabled = clearInFlight;
+    clearIndexNote.hidden = clearGate.waiting === null;
   }
 
   function setScanRunning(running: boolean): void {
     const scanEnded = scanRunning && !running;
     scanRunning = running;
+    if (!running) {
+      clearGate.drain();
+    }
     if (scanEnded && !clearInFlight) {
       void window.__TAURI__.core.invoke<string>("index_size").then((size) => {
         if (!clearInFlight) showIndexSize(size);
@@ -345,8 +353,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
     void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
   });
 
-  clearIndex.addEventListener("click", () => {
-    status.textContent = "";
+  function clearCache(): void {
     clearInFlight = true;
     updateClearButton();
     window.__TAURI__.core
@@ -364,6 +371,12 @@ export function initSettings(hooks: SettingsHooks): Settings {
         clearInFlight = false;
         updateClearButton();
       });
+  }
+
+  clearIndex.addEventListener("click", () => {
+    status.textContent = "";
+    clearGate.request("Clear Cache", clearCache);
+    updateClearButton();
   });
 
   (document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener(
@@ -432,6 +445,8 @@ export function initSettings(hooks: SettingsHooks): Settings {
     dialog.hidden = true;
     returnFocus?.focus();
     returnFocus = null;
+    clearGate.discard();
+    updateClearButton();
   }
 
   // Every key stops here while the modal is open, so none reaches the culling

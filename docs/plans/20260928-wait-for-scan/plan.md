@@ -141,7 +141,7 @@ Decisions taken here (see "Trade-offs and risks" for the alternatives):
       show the waiting text briefly and the confirm dialog should follow
       without the error.
 
-- [ ] Step 2: Hold Clear Cache the same way
+- [x] Step 2: Hold Clear Cache the same way
   - Done when:
     - `crates/app/ui/src/settings.ts` no longer disables the `Clear Cache`
       button while a scan runs. A click while `scanRunning` holds the clear
@@ -222,3 +222,4 @@ Decisions taken here (see "Trade-offs and risks" for the alternatives):
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete
