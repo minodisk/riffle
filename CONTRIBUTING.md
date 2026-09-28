@@ -90,3 +90,25 @@ cargo build --release
 ./target/release/riffle-cli bench    <file.ARW|file.DNG>...         # measure decode speed
 ./target/release/riffle-cli scan     <dir> [threads]                # extract a whole folder in parallel
 ```
+
+## Promotion stats
+
+The [Stats workflow](./.github/workflows/stats.yml) runs once a day and
+commits a snapshot to the orphan `stats` branch, which holds only CSV files
+and a README (no code, no CI). `downloads.csv` has the columns
+`date,tag,asset,download_count`: one row per asset of every release
+(prereleases and drafts included) per day, dated in UTC. The counts are the
+cumulative totals GitHub reports, so the downloads of a period are the
+difference between two dated rows. Every asset keeps its own row, so the
+installers (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, `.rpm`) can be
+told apart from what the updater fetches (`latest.json`, `.app.tar.gz`, the
+Windows `-setup.exe`) and the `.sig` files.
+
+To take a snapshot now, run the workflow by hand from the Actions tab or with
+`gh workflow run stats.yml`. A second run on the same UTC day replaces that
+day's rows. To write the file locally instead (with an authenticated `gh`;
+`GH_REPO` defaults to `minodisk/riffle`):
+
+```sh
+tools/stats/snapshot.sh <dir>
+```

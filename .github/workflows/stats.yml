@@ -1,0 +1,67 @@
+name: Stats
+
+# GitHub only keeps release download counts as a running total, so a daily
+# snapshot is what lets the effect of a promotion be read off afterwards. The
+# minute is off the hour because scheduled runs pile up on the hour and get
+# delayed or dropped.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+# Two runs would both push to the stats branch, and the second would be
+# rejected as a non-fast-forward. Queue them instead of canceling: a dispatch
+# made to check a change should still record its snapshot.
+concurrency:
+  group: stats
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Snapshots land on the orphan `stats` branch rather than main, so main's
+  # history, CI and release-please stay free of daily commits.
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # The very first run finds no stats branch, so start it as an orphan with
+      # a README pointing back at the documentation on main.
+      - name: Check out the stats branch
+        run: |
+          if git ls-remote --exit-code --heads origin stats >/dev/null; then
+            git fetch --depth=1 origin stats:stats
+            git worktree add stats stats
+          else
+            git worktree add --orphan -b stats stats
+            cat >stats/README.md <<'EOF'
+          # Riffle promotion stats
+
+          Daily snapshots written by the Stats workflow on main. See the
+          "Promotion stats" section of CONTRIBUTING.md on main for what the
+          files hold and how to run the workflow by hand.
+          EOF
+          fi
+
+      - name: Take the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: tools/stats/snapshot.sh stats
+
+      # A same-day re-run that changed no count has nothing to commit.
+      - name: Commit and push
+        working-directory: stats
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No change since the last snapshot."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "chore(stats): snapshot $(date -u +%F)"
+          git push origin stats

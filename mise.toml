@@ -68,7 +68,7 @@ set -euo pipefail
 pnpm install --frozen-lockfile
 pnpm exec vp check
 cargo fmt --all -- --check
-shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh
+shellcheck -x .claude/skills/*/scripts/*.sh tools/git/*.sh tools/stats/*.sh
 actionlint
 lychee --offline --include-fragments --no-progress --exclude-path 'docs.plans.review-history' '*.md' 'docs/**/*.md' '.claude/**/*.md'
 bash .claude/skills/merge/scripts/check-merge-approval.test.sh
