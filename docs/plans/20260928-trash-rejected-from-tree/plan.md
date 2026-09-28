@@ -279,3 +279,4 @@ menu item stays, relabeled so its target is unambiguous.
   when a stale sidecar of the other format sits on disk. `Summary` splits
   move failures (`failed`) from files/folders `collect` never got to read
   (`unread`), and the frontend words and counts the two differently.
+- (2026-09-28) Step 1 complete
