@@ -1063,19 +1063,17 @@ while the tree-watch work was touching it. Files:
 - [ ] Once the tree-watch work has landed, remove the unused `renameAllowed`
       parameter from `folders.init` and its call site in `main.ts`.
 
-### App: the folder tree's `Move Rejected to Trash` entry must route through `idle.ts`
+### Agents: Bash-tool heredocs on Windows mangle doubled backslashes
 
-#### Background
-
-Only the backend half of the trash-folders work (`trash_rejected`'s `dirs` /
-`recursive`, #518) is on main. When its folder-menu `Move Rejected to Trash`
-entry lands in the frontend, it should wait for a running scan through
-`whenIdle` / `settleIdle` (reading its target folders' rejects at run time),
-not add a new `scanRunning` refusal. Basis: `wait-for-scan` plan "Trade-offs
-and risks" and Step 2's concurrent-work check. Files:
-`crates/app/ui/src/main.ts`, `crates/app/ui/src/folders.ts`.
+During `trash-rejected-from-tree` Step 4, text holding a doubled backslash
+(a Windows path, a verbatim `\\?\` prefix) written through a Bash-tool
+heredoc landed with the backslashes halved, even with a quoted delimiter.
 
 #### TODO
 
-- [ ] Route the folder tree's `Move Rejected to Trash` entry through
-      `whenIdle`, matching the strip's `trashRejected`.
+- [ ] Add a rule (in `CLAUDE.md` or an agent-tooling note) telling agents
+      on Windows to write text holding backslashes (Windows paths,
+      verbatim `\\?\` prefixes, regex escapes) with the Write / Edit
+      tools, or a script file written by them, rather than a Bash
+      heredoc. Confirm the behavior first by writing a doubled-backslash
+      string both ways and diffing the results.
