@@ -569,16 +569,6 @@ function renderTitle(): void {
   void window.__TAURI__.window.getCurrentWindow().setTitle(title);
 }
 
-// `File > Move Rejected in This Folder to Trash…`: have the backend collect
-// the rejects of the open folder, confirm them in the dialog, then move them.
-function trashRejected(): void {
-  if (openDir === null) {
-    setStatus("No folder is open");
-    return;
-  }
-  trashRejectedIn([openDir], false);
-}
-
 // The confirmation of `trashRejectedIn`: the rejects per folder, the folders
 // with none folded into one line, the ones that could not be read, and the
 // total count and size.
@@ -594,8 +584,8 @@ const trashRunButton = document.getElementById("trash-run") as HTMLButtonElement
 const trashCancelButton = document.getElementById("trash-cancel") as HTMLButtonElement;
 
 // Collect the rejects of `dirs` (and their subfolders when `recursive`) and
-// show them in the dialog. The File menu item and the folder tree's items
-// both land here. A second call while one is under way does nothing.
+// show them in the dialog. The folder tree's right-click items land here. A
+// second call while one is under way does nothing.
 function trashRejectedIn(dirs: string[], recursive: boolean): void {
   whenIdle("Move Rejected to Trash", () => {
     if (
@@ -726,9 +716,9 @@ function trashKeydown(event: KeyboardEvent): void {
 trashRunButton.addEventListener("click", runTrash);
 trashCancelButton.addEventListener("click", dismissTrash);
 
-// `File > Sequence JPEG Timestamps…`: pick an export folder (or take the one
-// right-clicked in the folder tree), preview the times a run would write, then
-// run it with progress and cancel. Its errors join the sticky `errors` list,
+// The folder tree's `Sequence JPEG Timestamps…`: take the export folder
+// right-clicked in the tree, preview the times a run would write, then run it
+// with progress and cancel. Its errors join the sticky `errors` list,
 // keyed by path.
 const sequenceFlow = new SequenceFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
@@ -749,22 +739,6 @@ function startSequence(): boolean {
   return formatDialog.hidden && !settings.isOpen && !trashFlow.busy && sequenceFlow.start();
 }
 
-function sequenceTimestamps(): void {
-  if (!startSequence()) {
-    return;
-  }
-  window.__TAURI__.core
-    .invoke<string | null>("pick_folder")
-    .then((dir) => {
-      if (!sequenceFlow.picked(dir) || dir === null) {
-        return;
-      }
-      return previewSequence(dir);
-    })
-    .catch(failSequence);
-}
-
-// The folder tree's right-click path: the same gate, without the picker.
 function sequenceTimestampsOf(dir: string): void {
   if (!startSequence() || !sequenceFlow.picked(dir)) {
     return;
@@ -2701,8 +2675,6 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   }
   resync();
 });
-void window.__TAURI__.event.listen("trash-rejected", trashRejected);
-void window.__TAURI__.event.listen("sequence-timestamps", sequenceTimestamps);
 void window.__TAURI__.event.listen("undo", () => {
   if (!modalOpen()) undo();
 });

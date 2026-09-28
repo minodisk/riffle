@@ -1,4 +1,4 @@
-//! `File > Sequence JPEG Timestamps…`: the commands that preview and run
+//! The folder tree's `Sequence JPEG Timestamps…`: the commands that preview and run
 //! `riffle_core::sequence` on a folder of exported JPEGs, and the state of the
 //! one run that may be in progress.
 //!

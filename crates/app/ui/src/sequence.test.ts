@@ -199,13 +199,6 @@ describe("SequenceFlow", () => {
     expect(running().start()).toBe(false);
   });
 
-  test("a dismissed picker ends the flow", () => {
-    const flow = new SequenceFlow();
-    flow.start();
-    expect(flow.picked(null)).toBe(false);
-    expect(flow.phase).toBe("idle");
-  });
-
   test("a failed preview ends the flow", () => {
     const flow = new SequenceFlow();
     flow.start();

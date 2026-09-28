@@ -926,7 +926,7 @@ body {
   display: none;
 }
 
-/* `File > Sequence JPEG Timestamps…` and the Move Rejected to Trash
+/* The Sequence JPEG Timestamps dialog and the Move Rejected to Trash
    confirmation, over the whole window like Settings. The list scrolls; the
    buttons stay in view. */
 #sequence-dialog,

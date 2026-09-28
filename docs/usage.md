@@ -65,9 +65,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   and `Move Rejected to Trash, Including Subfolders…` (the latter not
   offered on home or a volume at the top level) move the rejects of that
   folder, or of it and every folder below it, to the Trash (see
-  **Move Rejected in This Folder to Trash…**). Last,
-  `Sequence JPEG Timestamps…` starts the same preview as
-  the File menu item on that folder, without the folder picker (see
+  **Move Rejected to Trash…**). Last,
+  `Sequence JPEG Timestamps…` previews and sequences the capture times of
+  the JPEGs in that folder (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
   keyboard (or takes it away); `Escape` or a click elsewhere closes the menu.
   Several folders can be selected together: `Cmd+click` on macOS
@@ -231,12 +231,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
   flags and color labels already given, the current file and the strip's
   position all stay as they were.
-- **Move Rejected in This Folder to Trash…**:
-  `File > Move Rejected in This Folder to Trash…` moves every file of the open
+- **Move Rejected to Trash…**: right-click a folder in the folder tree, open
+  or not, and choose `Move Rejected to Trash…` to move every file of that
   folder marked as a reject to the OS Trash, together with the sidecars
   sitting next to it — both `.xmp` and `.ARW.dop` when both are there, no
-  matter which format is currently selected. A folder's rejects are read from
-  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts too. It asks first in a dialog
+  matter which format is currently selected. `Move Rejected to Trash,
+  Including Subfolders…` does the same for that folder and every visible
+  folder below it (hidden and dot folders are skipped, and a symbolic link is
+  not followed). With several folders selected in the tree, the same two
+  items act on all of them together. A folder's rejects are read from
+  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts
+  too, and a folder never opened in Riffle counts as well. It asks first in a dialog
   that lists each folder holding rejects with how many it holds, folds the
   folders with none into one line ("12 more folders with no rejects"), lists
   any folder or file that could not be read with its error (left out of the
@@ -250,24 +255,15 @@ viewer shows a prompt in its center; click it to open the folder picker.
   brings back the stars, the flag and the color label. Whatever could not be
   moved is listed as an error and stays in the folder. Chosen while a scan
   runs, it waits for the scan, the status line saying so, and asks when the
-  scan ends; opening another folder meanwhile drops it.
-  The folder tree's right-click menu does the same for the right-clicked
-  folder, open or not: `Move Rejected to Trash…` for that folder alone, and
-  `Move Rejected to Trash, Including Subfolders…` for it and every visible
-  folder below it (hidden and dot folders are skipped, and a symbolic link is
-  not followed). A folder never opened in Riffle counts too, its rejects read
-  from its sidecars. With several folders selected in the tree, the same two
-  items act on all of them together. Both wait for a running scan the same
-  way, confirm in the same dialog, and when the folders hold no rejects
-  (and none failed to read) the status line says so instead. When the open folder is
-  among the folders trashed in, the strip is refreshed as with the File menu
-  item.
-- **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the
-  capture times of exported JPEGs unique at second granularity, so Google
-  Photos, which ignores `SubSecTimeOriginal`, keeps a burst in shooting order.
-  Cull in Riffle, export the keepers as JPEGs from your RAW developer, then
-  pick the export folder here, or right-click it in the folder tree and
-  choose `Sequence JPEG Timestamps…` to skip the picker (derived from
+  scan ends; opening another folder meanwhile drops it. When the folders hold
+  no rejects (and none failed to read) the status line says so instead. When
+  the open folder is among the folders trashed in, the strip is refreshed.
+- **Sequence JPEG Timestamps…**: right-click a folder in the folder tree and
+  choose `Sequence JPEG Timestamps…` to make the capture times of the exported
+  JPEGs in it unique at second granularity, so Google Photos, which ignores
+  `SubSecTimeOriginal`, keeps a burst in shooting order. Cull in Riffle,
+  export the keepers as JPEGs from your RAW developer, then right-click the
+  export folder in the tree (derived from
   [lapse](https://github.com/minodisk/lapse) v0.4.0).
   - **Files**: the `.jpg` / `.jpeg` files (any case) directly in the folder;
     subfolders are not searched. A folder without any is an error, shown on
@@ -294,7 +290,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
     its JPEG files are replaced. `Run` writes; `Cancel` or `Escape` closes
     without touching anything.
   - **Output**: the source files are never written. Every file is written
-    into `<folder>-sequenced/`, the sibling of the picked folder, under its
+    into `<folder>-sequenced/`, the sibling of the right-clicked folder, under its
     own name, the unchanged ones too, so the output is a complete copy; each
     file is written to a temporary file and renamed into place. Running it
     again rebuilds the output from the original times: the `.jpg` / `.jpeg`
