@@ -39,7 +39,7 @@ the in-flight work another.
     open `- [ ]`; each OS-split item states in its background that Windows
     passed on 2026-09-28 and lists only the remaining OSes in its TODO; the
     `scan-progress` and partial-read items are gone; no heading is duplicated
-    (`rg -n '^### ' todo.md | sort | uniq -d` prints nothing); `mise run ci`
+    (`rg '^### ' todo.md | sort | uniq -d` prints nothing); `mise run ci`
     passes; the PR is a Conventional Commit such as
     `docs(todo): record the 2026-09-28 Windows GUI check results`.
   - Implementation approach:
@@ -119,32 +119,31 @@ the in-flight work another.
     - **Add new items** under `## Cross-cutting / other`, near the existing
       tree / rename items. `rg` for each feature name first to avoid a
       duplicate heading:
-      1. `### App: Windows real-device check of the merged folder-tree and scan-wait work`
+      1. `### App: Windows real-device check of the merged folder-tree, scan-wait and strip-scroll work`
          Background: merged since the 2026-09-28 Windows run's base:
          `tree-live-watch` (#517, #520, #523), `trash-rejected-from-tree`
-         (#518, #521, #526, #529, #530), `wait-for-scan` (#519, #522, #525).
-         None run by hand. TODOs: (a) tree watch: with a folder expanded,
-         create / delete / rename a subfolder in Explorer and confirm the tree
-         follows; confirm renaming a folder from the app still works on
-         Windows with the watch on; (b) tree trash: right-click a folder, a
-         multi-selection and one with subfolders → Move Rejected to Trash
-         shows per-folder counts and the space freed, Cancel changes nothing,
-         confirming moves the rejects of every listed folder; (c) scan-wait:
-         press Move Rejected to Trash and a rename while a large folder scans,
-         confirm the status line says what is waiting and each runs when the
-         scan ends (cross-reference the Clear Cache item rather than
-         duplicating it).
-      2. `### App: Windows real-device check of the in-flight strip-scroll, resume-selection and undo-trash work`
-         Background: not on `main` yet: strip-scroll (keep the strip's scroll
-         position across a rescan without flicker; the jump-back and flicker
-         were seen on Windows on 2026-09-28 while copying 100 ARWs into an
-         open folder), resume-selection (landing via resume left the first file
-         in the selection, showing `2 selected`), and undo-trash-rejected (Undo
-         of a Move Rejected to Trash). TODOs, each phrased "once ... has
-         merged": (a) repeat the 100-ARW copy and confirm the scroll position
-         holds without flicker; (b) reopen a folder with a remembered file and
-         confirm only that file is selected; (c) trash rejects, then Undo, and
-         confirm the files come back with their judgment.
+         (#518, #521, #526, #529, #530), `wait-for-scan` (#519, #522, #525)
+         and `strip-keep-scroll-on-rescan` (#528, merged after the plan was
+         drafted, so its check moved here). None run by hand. TODOs: (a) tree
+         watch: with a folder expanded, create / delete / rename a subfolder
+         in Explorer and confirm the tree follows; confirm renaming a folder
+         from the app still works on Windows with the watch on; (b) tree
+         trash: right-click a folder, a multi-selection and one with
+         subfolders → Move Rejected to Trash shows per-folder counts and the
+         space freed, Cancel changes nothing, confirming moves the rejects of
+         every listed folder; (c) scan-wait: press Move Rejected to Trash and
+         a rename while a large folder scans, confirm the status line says
+         what is waiting and each runs when the scan ends (cross-reference
+         the Clear Cache item rather than duplicating it); (d) strip-scroll:
+         repeat the 100-ARW copy into an open folder and confirm the strip's
+         scroll position holds without flicker.
+      2. `### App: Windows real-device check of the in-flight resume-selection and undo-trash work`
+         Background: not on `main` yet: resume-selection (landing via resume
+         left the first file in the selection, showing `2 selected`), and
+         undo-trash-rejected (Undo of a Move Rejected to Trash). TODOs, each
+         phrased "once ... has merged": (a) reopen a folder with a remembered
+         file and confirm only that file is selected; (b) trash rejects, then
+         Undo, and confirm the files come back with their judgment.
       3. `### App: a large folder gives no visible loading feedback beyond the status line`
          Background: opening a 500-JPEG folder, the only sign of progress is
          the small bottom-left status text (`JPEG folder: view only`,
@@ -159,9 +158,9 @@ the in-flight work another.
          `wait-for-scan` removes the refusals this caused, but the rescan
          itself is still unthrottled. TODO: throttle the focus rescan, and
          clear `scanRunning` immediately when the scan has 0 files to process.
-    - Verify: `rg -n '^### ' todo.md | sort | uniq -d` is empty;
+    - Verify: `rg '^### ' todo.md | sort | uniq -d` is empty;
       `rg -n '2026-09-28' todo.md` shows every touched item; `mise run ci`.
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
