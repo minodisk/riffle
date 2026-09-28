@@ -2177,16 +2177,84 @@ pub async fn trash_rejected_run(
             .flat_map(|folder| folder.groups)
             .collect();
         let context = trash_context();
-        let mut summary = trash::run(groups, |path| {
-            context.delete(path).map_err(|e| e.to_string())
+        let (mut summary, moved) = trash::run(groups, |path| {
+            context
+                .delete(path)
+                .map(|()| None)
+                .map_err(|e| e.to_string())
         });
         summary.unread = collection.failed;
+        summary.run_id = app.state::<trash::Runs>().record(moved);
         log::info!("moved rejected files to the trash: {summary:?}");
         drop(state);
         Ok(summary)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Move every file the run `run_id` of `trash_rejected_run` moved back to
+/// where it came from, RAW before its sidecars, never overwriting (see
+/// `trash::restore`). An unknown run is an `Err`; a run is forgotten once
+/// undone, whatever came back.
+///
+/// A running scan is refused under the `Scans` lock, which is held across
+/// the moves. The sidecar writer is not drained: nothing pending can target
+/// a file that is in the Trash. No index row is written either; the
+/// frontend re-lists the folder and the scan picks the files up again.
+#[tauri::command]
+pub async fn trash_rejected_undo(
+    app: tauri::AppHandle,
+    run_id: u64,
+) -> Result<trash::Restored, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Restored, String> {
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let run = app
+            .state::<trash::Runs>()
+            .take(run_id)
+            .ok_or_else(|| trash::RUN_GONE.to_string())?;
+        let restored = restore_run(&run);
+        log::info!("restored rejected files from the trash: {restored:?}");
+        drop(state);
+        Ok(restored)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Restore `run` from the Trash listed once, each file matched by its
+/// original path (the newest item of a path) and restored on its own, so one
+/// missing or colliding item cannot fail the others.
+#[cfg(not(target_os = "macos"))]
+fn restore_run(run: &trash::TrashRun) -> trash::Restored {
+    let items = match ::trash::os_limited::list() {
+        Ok(items) => items,
+        Err(e) => return trash::Restored::none(run, &format!("could not list the Trash: {e}")),
+    };
+    let mut items = trash::newest_by_path(items);
+    trash::restore(
+        run,
+        |trashed| items.remove(&trash::trash_key(&trashed.path)),
+        Path::exists,
+        |_, item| {
+            ::trash::os_limited::restore_all([item]).map_err(|e| match e {
+                ::trash::Error::RestoreCollision { .. } => trash::ALREADY_EXISTS.to_string(),
+                e => e.to_string(),
+            })
+        },
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn restore_run(run: &trash::TrashRun) -> trash::Restored {
+    trash::Restored::none(
+        run,
+        "restoring from the Trash is not supported on macOS yet",
+    )
 }
 
 /// The rejects of `dirs` as `trash::collect` finds them. The dirs are

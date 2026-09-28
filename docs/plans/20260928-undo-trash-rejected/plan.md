@@ -57,7 +57,7 @@ the cargo registry):
 
 ## Steps
 
-- [ ] Step 1: Record each run, and `trash_rejected_undo` for Windows / Linux
+- [x] Step 1: Record each run, and `trash_rejected_undo` for Windows / Linux
   - Done when:
     - `trash_rejected_run` records the run: a `TrashRun { id: u64, moved:
       Vec<Trashed> }` where `Trashed` holds the original path (RAW or
@@ -345,4 +345,4 @@ the cargo registry):
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete

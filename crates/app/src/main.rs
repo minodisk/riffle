@@ -521,6 +521,7 @@ fn main() {
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
             app.manage(sequence::Sequences::default());
+            app.manage(trash::Runs::default());
             app.manage(commands::AppListing::default());
             app.manage(watch::Watch::spawn(app.handle().clone()));
             app.manage(treewatch::TreeWatch::spawn(app.handle().clone()));
@@ -586,6 +587,7 @@ fn main() {
             commands::clear_index,
             commands::trash_rejected_preview,
             commands::trash_rejected_run,
+            commands::trash_rejected_undo,
             rename::rename_folder,
             rename::rename_file,
             sequence::sequence_preview,
