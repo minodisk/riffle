@@ -11,6 +11,7 @@ mod sequence;
 mod shortcuts;
 mod sidecar;
 mod trash;
+mod treewatch;
 mod update;
 mod watch;
 
@@ -562,6 +563,7 @@ fn main() {
             app.manage(sequence::Sequences::default());
             app.manage(commands::AppListing::default());
             app.manage(watch::Watch::spawn(app.handle().clone()));
+            app.manage(treewatch::TreeWatch::spawn(app.handle().clone()));
             commands::spawn_eviction(app.handle().clone());
             app.manage(update::UpdateRun::default());
             update::spawn(app.handle().clone(), false);
@@ -595,6 +597,7 @@ fn main() {
             folders::list_subfolders,
             folders::reveal_label,
             folders::reveal_folder,
+            treewatch::set_tree_watches,
             commands::scan_folder,
             commands::start_scan,
             commands::folder_entries,

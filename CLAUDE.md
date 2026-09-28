@@ -43,7 +43,10 @@ home and volume roots, one folder's subfolders and RAW count, and
 `reveal_folder`, the right-click item that reveals a folder in the OS file
 manager under the per-platform `REVEAL_LABEL`), `src/rename.rs` the
 `rename_folder` command (it checks the new name, releases the folder watcher,
-renames the folder and carries its index rows to the new path), `src/sequence.rs` the
+renames the folder and carries its index rows to the new path), `src/watch.rs`
+the open folder's watcher and `src/treewatch.rs` the folder tree's watchers on
+its expanded folders (`set_tree_watches`, per-folder `tree-changed` events),
+`src/sequence.rs` the
 `File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
