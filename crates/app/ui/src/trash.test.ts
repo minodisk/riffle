@@ -1,33 +1,33 @@
 import { describe, expect, test } from "vitest";
-import { rejectedPaths, trashedStatus } from "./trash.js";
-
-describe("rejectedPaths", () => {
-  test("keeps the rejects in the given order", () => {
-    const flags = new Map<string, "pick" | "reject">([
-      ["/a.ARW", "reject"],
-      ["/b.ARW", "pick"],
-      ["/c.ARW", "reject"],
-    ]);
-    expect(rejectedPaths(["/a.ARW", "/b.ARW", "/c.ARW", "/d.ARW"], flags)).toEqual([
-      "/a.ARW",
-      "/c.ARW",
-    ]);
-  });
-
-  test("is empty without a reject", () => {
-    expect(rejectedPaths(["/a.ARW"], new Map([["/a.ARW", "pick"]]))).toEqual([]);
-  });
-});
+import { trashedStatus } from "./trash.js";
 
 describe("trashedStatus", () => {
   test("counts the files it moved", () => {
-    expect(trashedStatus({ trashed: 1, failed: [] })).toBe("Moved 1 file to the Trash");
-    expect(trashedStatus({ trashed: 3, failed: [] })).toBe("Moved 3 files to the Trash");
+    expect(trashedStatus({ moved: ["/a.ARW"], failed: [], unread: [] })).toBe(
+      "Moved 1 file to the Trash",
+    );
+    expect(trashedStatus({ moved: ["/a.ARW", "/b.ARW", "/c.ARW"], failed: [], unread: [] })).toBe(
+      "Moved 3 files to the Trash",
+    );
   });
 
   test("appends the failures", () => {
-    expect(trashedStatus({ trashed: 2, failed: [{ path: "/a.ARW", message: "denied" }] })).toBe(
-      "Moved 2 files to the Trash, 1 failed",
-    );
+    expect(
+      trashedStatus({
+        moved: ["/b.ARW", "/c.ARW"],
+        failed: [{ path: "/a.ARW", message: "denied" }],
+        unread: [],
+      }),
+    ).toBe("Moved 2 files to the Trash, 1 failed");
+  });
+
+  test("does not count a folder that could not be read as a failed move", () => {
+    expect(
+      trashedStatus({
+        moved: [],
+        failed: [],
+        unread: [{ path: "/photos/locked", message: "denied" }],
+      }),
+    ).toBe("Moved 0 files to the Trash");
   });
 });

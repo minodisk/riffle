@@ -1252,6 +1252,33 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
+    /// Every `ratings` row of `dir`, keyed by path: its flag, the sidecar
+    /// stat it was stored with and whether it is dirty, for the reject
+    /// collection of `trash::collect`.
+    pub fn row_flags(
+        &self,
+        dir: &str,
+    ) -> Result<std::collections::HashMap<String, RowFlag>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, flag, xmp_size, xmp_mtime_ns, dirty FROM ratings WHERE dir = ?1")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    RowFlag {
+                        flag: flag_from_code(r.get(1)?),
+                        stat: (r.get(2)?, r.get(3)?),
+                        dirty: r.get::<_, i64>(4)? != 0,
+                    },
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())
+    }
+
     /// Apply the reconciliation rules for the sidecars of `dir` on a folder
     /// open. `sidecars` pairs each listed file with its sidecar's stat, or
     /// `None` when the folder listing found none.
@@ -1366,6 +1393,16 @@ impl Index {
 struct RatingRow {
     stat: (Option<i64>, Option<i64>),
     dirty: bool,
+}
+
+/// The part of a `ratings` row `row_flags` hands out: the flag, the stat of
+/// the sidecar it was stored with (`xmp_size`, `xmp_mtime_ns`) and whether
+/// it is still waiting to be written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RowFlag {
+    pub flag: Flag,
+    pub stat: (Option<i64>, Option<i64>),
+    pub dirty: bool,
 }
 
 /// What one file's sidecar looks like on disk, as seen by the single
@@ -2438,6 +2475,45 @@ pub(crate) mod tests {
         let (todo, removed) = index.reconcile("d", &[a]).unwrap();
         assert!(todo.is_empty());
         assert_eq!(removed, 2);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn row_flags_reads_the_flag_stat_and_dirtiness_of_one_dir() {
+        let dir = temp_dir("row-flags");
+        let mut index = open(&dir);
+        index
+            .set_rating("d", "/d/a.ARW", None, Flag::Reject, None, true)
+            .unwrap();
+        index
+            .mark_written("/d/a.ARW", None, Flag::Reject, None, true, Some((42, 7)))
+            .unwrap();
+        index
+            .set_rating("d", "/d/b.ARW", Some(2), Flag::Pick, None, true)
+            .unwrap();
+        index
+            .set_rating("e", "/e/c.ARW", None, Flag::Reject, None, true)
+            .unwrap();
+
+        let rows = index.row_flags("d").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows["/d/a.ARW"],
+            RowFlag {
+                flag: Flag::Reject,
+                stat: (Some(42), Some(7)),
+                dirty: false,
+            }
+        );
+        assert_eq!(
+            rows["/d/b.ARW"],
+            RowFlag {
+                flag: Flag::Pick,
+                stat: (None, None),
+                dirty: true,
+            }
+        );
 
         remove_temp_dir(&dir);
     }

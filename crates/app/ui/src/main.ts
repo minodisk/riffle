@@ -25,7 +25,7 @@ import {
   focusMark,
 } from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
-import { type TrashSummary, rejectedPaths, trashedStatus } from "./trash.js";
+import { type TrashSummary, trashedStatus } from "./trash.js";
 import {
   RUNNING_NOTE,
   type SequenceDone,
@@ -536,8 +536,8 @@ function renderTitle(): void {
   void window.__TAURI__.window.getCurrentWindow().setTitle(title);
 }
 
-// `File > Move Rejected to Trash…`: hand the rejects of the open folder to the
-// backend, which confirms before moving anything.
+// `File > Move Rejected in This Folder to Trash…`: have the backend collect
+// and move the rejects of the open folder, after it confirms.
 function trashRejected(): void {
   if (openDir === null) {
     setStatus("No folder is open");
@@ -547,24 +547,16 @@ function trashRejected(): void {
     setStatus("a scan is running; wait for it to finish");
     return;
   }
-  const paths = rejectedPaths(allFiles, flags);
-  if (paths.length === 0) {
-    setStatus("No rejected files in this folder");
-    return;
-  }
   const dir = openDir;
   const token = folderToken;
   window.__TAURI__.core
-    .invoke<TrashSummary | null>("trash_rejected", { dir, paths })
+    .invoke<TrashSummary | null>("trash_rejected", { dirs: [dir], recursive: false })
     .then((summary) => {
       if (dir !== openDir || token !== folderToken || summary === null) {
         return;
       }
-      const failed = new Set(summary.failed.map(({ path }) => path));
-      for (const path of paths) {
-        if (failed.has(path)) {
-          continue;
-        }
+      const moved = new Set(summary.moved);
+      for (const path of moved) {
         ratings.delete(path);
         flags.delete(path);
         labels.delete(path);
@@ -573,11 +565,14 @@ function trashRejected(): void {
       }
       // An undo of a trashed file would `set_rating` a path that is gone and
       // mint an orphan sidecar.
-      const gone = (entry: Judgment) => !failed.has(entry.path) && paths.includes(entry.path);
+      const gone = (entry: Judgment) => moved.has(entry.path);
       history.removeWhere((batch) => batch.every(gone));
       redoable.removeWhere((batch) => batch.every(gone));
       for (const { path, message } of summary.failed) {
         errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
+      }
+      for (const { path, message } of summary.unread) {
+        errors.add(path, `${baseName(path)}: could not be read: ${message}`);
       }
       setStatus(trashedStatus(summary));
       resync();
