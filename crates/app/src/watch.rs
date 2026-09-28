@@ -120,11 +120,11 @@ pub fn set(app: &tauri::AppHandle, dir: &str, owner: &str) {
 }
 
 /// Drop the watcher when the watched folder is the canonical `dir` or under
-/// it, releasing the directory handle that on Windows keeps `dir` from being
-/// renamed; a watch on any other folder is left alone. Returns the watched
-/// dir and its owner string when one was dropped, so the caller can restore
-/// it with `set` if whatever it released the watch for fails. The next `set`
-/// (with the same or a different dir) watches again.
+/// it, releasing the directory handle that on Windows blocks renaming `dir`
+/// when the watched folder is under it; a watch on any other folder is left
+/// alone. Returns the watched dir and its owner string when one was dropped,
+/// so the caller can restore it with `set` if whatever it released the watch
+/// for fails. The next `set` (with the same or a different dir) watches again.
 pub fn release_under(app: &tauri::AppHandle, dir: &str) -> Option<(String, String)> {
     let state = app.state::<Watch>();
     let mut state = crate::index::lock(&state.0);
