@@ -256,6 +256,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   scan ends; opening another folder meanwhile drops it. When the folders hold
   no rejects (and none failed to read) the status line says so instead. When
   the open folder is among the folders trashed in, the strip is refreshed.
+  One `Edit > Undo` (`CmdOrCtrl+Z`) takes the whole move back, whichever
+  folder is open (none at all included): every file and sidecar it moved
+  goes back where it came from, the status line says how many came back
+  ("Restored 148 files from the Trash", with how many failed), and when the
+  open folder is among the folders it moved from, the strip shows the files
+  again with their judgments. Nothing is overwritten: a file with the same
+  name back at the original location, a Trash emptied since, or a file
+  already put back by hand is listed as an error and left as it is, and the
+  sidecars of a file that could not come back stay in the Trash too. The
+  move stays undoable after another folder opens; like the move, the undo
+  waits for a running scan. An undone move cannot be redone yet.
 - **Sequence JPEG Timestamps…**: right-click a folder in the folder tree and
   choose `Sequence JPEG Timestamps…` to make the capture times of the exported
   JPEGs in it unique at second granularity, so Google Photos, which ignores
@@ -333,7 +344,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
     order chosen for RAW folders is neither applied nor changed, so the next
     RAW folder opens in it.
   - **What is off**: the star, flag and color label keys, `c` (clear all),
-    `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` do nothing, and
+    `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` of a judgment
+    do nothing (undoing a `Move Rejected to Trash…` still works), and
     the strip's right-click menu holds only `Select All`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
     folder reopens at its last viewed file like any other. The MCP
@@ -346,8 +358,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   to the file (unless the filter now hides it, which the status line says).
   Repeated presses walk further back. A judgment on several selected files
   is undone as one. A reject-rest (`Shift+x`) is undone as
-  one, restoring every frame it rejected and staying on the current file. The history belongs to the open folder
-  and is cleared when another folder opens or the sidecar format changes.
+  one, restoring every frame it rejected and staying on the current file. The judgment history belongs to the open folder
+  and is cleared when another folder opens or the sidecar format changes. A
+  `Move Rejected to Trash…` is one step of the same history and outlives a
+  folder switch: undoing it restores the files from the Trash (see
+  **Move Rejected to Trash…**), after which further presses reach the
+  judgments made before it.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
   undone judgment, the same way round. The redo history is forgotten as soon
   as you judge a file again, and like the undo history it is cleared when
@@ -434,7 +450,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the stars |
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
-| `CmdOrCtrl+Z` | undo the last judgment (also `Edit > Undo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgment (also `Edit > Redo`, whose accelerator follows this key) |
 | `F6` | show / hide the filmstrip |
 | `F7` | show / hide the left pane |

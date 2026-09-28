@@ -127,8 +127,10 @@ DxO PhotoLab.
   folder at once, or select several
   folders with `Cmd+click` / `Ctrl+click` / `Shift+click` and right-click to
   do it for all of them together. A dialog lists the rejects per folder and
-  the total space freed before anything moves. Nothing is deleted,
-  so restoring them brings the judgments back.
+  the total space freed before anything moves. Nothing is deleted, and one
+  `Edit > Undo` brings the whole move back with the judgments; a file with
+  the same name at the original location, an emptied Trash or a file already
+  restored by hand is reported and left as it is.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, right-click the export folder in the
   folder tree and choose `Sequence JPEG Timestamps…` to space the capture

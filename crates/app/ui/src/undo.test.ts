@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { History } from "./undo.js";
+import { type Entry, type TrashEntry, History, isJudgments, mapJudgments } from "./undo.js";
 
 describe("History", () => {
   test("pops in reverse push order and is empty afterwards", () => {
@@ -73,5 +73,37 @@ describe("History", () => {
     history.push(1);
     history.clear();
     expect(history.pop()).toBeUndefined();
+  });
+});
+
+describe("undo entries", () => {
+  type J = { path: string };
+  const run: TrashEntry = { kind: "trash", runId: 1, count: 2, dirs: ["/a"], recursive: false };
+
+  test("pruning judgments keeps the trash entries", () => {
+    const history = new History<Entry<J>>(10);
+    history.push([{ path: "/a/1.ARW" }]);
+    history.push(run);
+    history.push([{ path: "/a/2.ARW" }]);
+    history.removeWhere(isJudgments);
+    expect(history.pop()).toBe(run);
+    expect(history.pop()).toBeUndefined();
+  });
+
+  test("mapping judgments leaves a trash entry alone", () => {
+    const history = new History<Entry<J>>(10);
+    history.push([{ path: "/a/1.ARW" }, { path: "/a/2.ARW" }]);
+    history.push(run);
+    history.map(mapJudgments((j) => (j.path === "/a/1.ARW" ? { path: "/a/9.ARW" } : j)));
+    expect(history.pop()).toBe(run);
+    expect(history.pop()).toEqual([{ path: "/a/9.ARW" }, { path: "/a/2.ARW" }]);
+  });
+
+  test("peek shows the top without popping it", () => {
+    const history = new History<Entry<J>>(10);
+    expect(history.peek()).toBeUndefined();
+    history.push(run);
+    expect(history.peek()).toBe(run);
+    expect(history.pop()).toBe(run);
   });
 });

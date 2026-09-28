@@ -7,7 +7,10 @@ import {
   failureText,
   folderRows,
   opensTarget,
+  restoredInto,
+  restoredStatus,
   shownPath,
+  stillUndoable,
   totalLine,
   trashedStatus,
 } from "./trash.js";
@@ -26,12 +29,17 @@ function preview(counts: number[], sizeText = "23.4 GB"): TrashPreview {
 
 describe("trashedStatus", () => {
   test("counts the files it moved", () => {
-    expect(trashedStatus({ moved: ["/a.ARW"], failed: [], unread: [] })).toBe(
+    expect(trashedStatus({ moved: ["/a.ARW"], failed: [], unread: [], run_id: null })).toBe(
       "Moved 1 file to the Trash",
     );
-    expect(trashedStatus({ moved: ["/a.ARW", "/b.ARW", "/c.ARW"], failed: [], unread: [] })).toBe(
-      "Moved 3 files to the Trash",
-    );
+    expect(
+      trashedStatus({
+        moved: ["/a.ARW", "/b.ARW", "/c.ARW"],
+        failed: [],
+        unread: [],
+        run_id: null,
+      }),
+    ).toBe("Moved 3 files to the Trash");
   });
 
   test("appends the failures", () => {
@@ -40,6 +48,7 @@ describe("trashedStatus", () => {
         moved: ["/b.ARW", "/c.ARW"],
         failed: [{ path: "/a.ARW", message: "denied" }],
         unread: [],
+        run_id: null,
       }),
     ).toBe("Moved 2 files to the Trash, 1 failed");
   });
@@ -50,8 +59,67 @@ describe("trashedStatus", () => {
         moved: [],
         failed: [],
         unread: [{ path: "/photos/locked", message: "denied" }],
+        run_id: null,
       }),
     ).toBe("Moved 0 files to the Trash");
+  });
+});
+
+describe("restoredStatus", () => {
+  test("counts the files that came back", () => {
+    expect(restoredStatus({ restored: ["/a.ARW"], failed: [] })).toBe(
+      "Restored 1 file from the Trash",
+    );
+    expect(restoredStatus({ restored: ["/a.ARW", "/b.ARW"], failed: [] })).toBe(
+      "Restored 2 files from the Trash",
+    );
+  });
+
+  test("appends the failures", () => {
+    expect(
+      restoredStatus({
+        restored: ["/b.ARW"],
+        failed: [
+          { path: "/a.ARW", message: "already exists at the original location" },
+          { path: "/a.xmp", message: "left in the Trash: its RAW could not be restored" },
+        ],
+      }),
+    ).toBe("Restored 1 file from the Trash, 2 failed");
+  });
+});
+
+describe("restoredInto", () => {
+  test("keeps the RAWs directly in the open folder that are not listed yet", () => {
+    expect(
+      restoredInto(
+        "/photos/a",
+        ["/photos/a/1.ARW", "/photos/a/2.ARW", "/photos/a/sub/3.ARW", "/photos/b/4.ARW"],
+        ["/photos/a/2.ARW"],
+      ),
+    ).toEqual(["/photos/a/1.ARW"]);
+  });
+
+  test("compares Windows paths the way the folder tree does", () => {
+    expect(restoredInto("C:\\photos", ["c:\\photos\\1.ARW"], [])).toEqual(["c:\\photos\\1.ARW"]);
+  });
+
+  test("matches a canonical path against an open folder spelled without the verbatim prefix", () => {
+    expect(restoredInto("C:\\photos", ["\\\\?\\C:\\photos\\1.ARW"], [])).toEqual([
+      "\\\\?\\C:\\photos\\1.ARW",
+    ]);
+    expect(
+      restoredInto("\\\\?\\C:\\photos", ["\\\\?\\C:\\photos\\1.ARW"], ["\\\\?\\C:\\photos\\1.ARW"]),
+    ).toEqual([]);
+  });
+});
+
+describe("stillUndoable", () => {
+  test("keeps a run the backend refused while a scan ran", () => {
+    expect(stillUndoable("a scan is running; wait for it to finish")).toBe(true);
+  });
+
+  test("drops a run the backend no longer holds", () => {
+    expect(stillUndoable("this run can no longer be undone")).toBe(false);
   });
 });
 
