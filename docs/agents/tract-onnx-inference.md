@@ -57,13 +57,15 @@ new model's ops load with this setting before turning the defaults back on.
 
 ## Input and output
 
-### Input layout: BGR NCHW, raw 0..255 floats, one fixed square (Hit)
+### Input layout: BGR NCHW, raw 0..255 floats (Inferred)
 
 `input_tensor` box-averages the image so its long edge is `INPUT` pixels and
 writes it into the top-left of a zeroed `INPUT` x `INPUT` tensor of shape
 `[1, 3, INPUT, INPUT]`, channels in BGR order, values as raw 0..255 floats
 (not normalized), as OpenCV's `FaceDetectorYN` feeds YuNet. `detect` divides
 the decoded boxes and eye points by the same scale.
+
+### One fixed square input (Measured)
 
 - Why a fixed square: the input fact is pinned, so one optimized plan serves
   every file whatever its aspect ratio; a 3:2 preview wastes about a third of
@@ -87,7 +89,7 @@ AF point (`partial::focus_point`) live in stored coordinates.
 
 ## Sharing
 
-### Build the plan once in a `OnceLock` shared by rayon workers (Hit)
+### Build the plan once in a `OnceLock` shared by rayon workers (Inferred)
 
 The scan runs `scan::extract` and `scan::extract_faces` on rayon workers. `detector()` builds the plan once
 in a `static OnceLock` and hands every worker the same `&'static Detector`;
