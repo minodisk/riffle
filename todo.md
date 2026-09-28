@@ -818,17 +818,9 @@ docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the front
 
 ### App: `File > Sequence JPEG Timestamps…` has no macOS menu icon
 
-Its File-menu neighbours get an icon on macOS, but `tools/macos/export-menu-icons.swift`
-cannot run on Windows, so the item was added as a plain `MenuItem` on every
-platform. Basis: Step 2 of `docs/plans/_archived/20260926-sequence-jpeg-timestamps/plan.md`
-("icon on macOS if the neighbours have one").
-
-#### TODO
-
-- [ ] Add an SF Symbol (e.g. `clock.arrow.circlepath`) to
-      `tools/macos/export-menu-icons.swift`, render it on macOS into
-      `crates/app/icons/menu/`, and switch the item in
-      `crates/app/src/main.rs` to the `IconMenuItem` / `MenuItem` `cfg` split.
+Closed: `docs/plans/20260928-file-menu-folder-items/plan.md` removed the
+`File > Sequence JPEG Timestamps…` menu item entirely (it moved to the
+folder tree's right-click menu only), so this TODO no longer applies.
 
 ### App: hand-check the sequence-run output-folder reveal on Windows
 
