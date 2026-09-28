@@ -87,7 +87,7 @@ Current state the plan is based on:
 
 ## Steps
 
-- [ ] Step 1: Replace `source.png` with the approved render and regenerate the bundled icons
+- [x] Step 1: Replace `source.png` with the approved render and regenerate the bundled icons
   - Done when:
     - `crates/app/icons/source.png` is byte-identical to the scratchpad render
       above (`cmp` exits 0; sha256
