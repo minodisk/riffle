@@ -668,9 +668,11 @@ function runTrash(): void {
         const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
         if (refresh) {
           for (const path of summary.moved) {
-            ratings.delete(path);
-            flags.delete(path);
-            labels.delete(path);
+            // `ratings` / `flags` / `labels` are kept: they are keyed by
+            // path and never iterated, so leaving them stale does no harm
+            // while the file is out of `allFiles`, and `undoTrash` needs
+            // them intact for an undo landing before the rescan repopulates
+            // them from the restored sidecar.
             sharpness.delete(path);
             touched.delete(path);
           }
