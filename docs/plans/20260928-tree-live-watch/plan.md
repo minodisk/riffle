@@ -262,4 +262,8 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
 
 ## Progress
 
-- (none yet)
+- Step 1: one `RecommendedWatcher` shared by the whole tree, `watch` /
+  `unwatch` per folder, shape (a) chosen after measuring on Windows that
+  `unwatch` releases the handle at once and that a watched *descendant*, not
+  the watched folder itself, is what blocks a rename. See `learnings.md` for
+  the measurements and the deadlock-safety argument.

@@ -98,13 +98,13 @@ pub async fn rename_folder(
             .to_string_lossy()
             .into_owned();
         let released = crate::watch::release_under(&app, &old);
-        let released_tree = crate::treewatch::release_under(&app, &old);
-        if let Err(e) = std::fs::rename(&dir, &target) {
+        if let Err(e) = crate::treewatch::with_released(&app, &old, || {
+            std::fs::rename(&dir, &target).map_err(|e| format!("{name}: {e}"))
+        }) {
             if let Some((dir, owner)) = released {
                 crate::watch::set(&app, &dir, &owner);
             }
-            crate::treewatch::restore(&app, released_tree);
-            return Err(format!("{name}: {e}"));
+            return Err(e);
         }
         let new = std::fs::canonicalize(&target).map_or_else(
             |_| target.to_string_lossy().into_owned(),

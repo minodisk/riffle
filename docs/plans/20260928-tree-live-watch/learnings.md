@@ -29,3 +29,12 @@
 - The shared map's lock is never held across `watch` / `unwatch`, so the
   event handler (which takes it on the watcher's thread) cannot deadlock
   against a removal.
+- Round 1 review: `release_under` and `restore` used to each take and release
+  the `TreeWatch` lock separately, leaving a window between the release and
+  `std::fs::rename` (and again after a failed rename) where a concurrent
+  `set_tree_watches` could re-watch the path being renamed and make the
+  rename fail with `PermissionDenied`. Replaced both with
+  `treewatch::with_released`, which holds the `TreeWatch` lock for the whole
+  release/rename/restore-on-failure sequence. Still deadlock-safe: the notify
+  handler only ever takes the separate `keys` lock, never the `TreeWatch`
+  state lock.

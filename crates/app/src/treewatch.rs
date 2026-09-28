@@ -10,9 +10,11 @@
 //!
 //! On Windows a watch pins its folder's ancestors: renaming a folder with a
 //! watched descendant is refused, while a watch on the parent does not block
-//! renaming a child. `rename_folder` therefore releases the watches on the
-//! renamed folder and under it (`release_under`) and restores them if the
-//! rename fails (`restore`).
+//! renaming a child. `rename_folder` therefore renames through
+//! `with_released`, which releases the watches on the renamed folder and
+//! under it, runs the rename while still holding the `TreeWatch` lock (so a
+//! concurrent `set_tree_watches` cannot re-watch a path being renamed), and
+//! restores them if the rename fails.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -211,19 +213,30 @@ pub async fn set_tree_watches(app: tauri::AppHandle, dirs: Vec<String>) -> Resul
     .map_err(|e| e.to_string())
 }
 
-/// Release the tree watches on the canonical `dir` and under it, returning
-/// their tree paths so `restore` can put them back.
-pub fn release_under(app: &tauri::AppHandle, dir: &str) -> Vec<String> {
-    crate::index::lock(&app.state::<TreeWatch>().0).release_under(dir)
-}
-
-/// Watch the tree paths `dirs` again, as `release_under` returned them.
-pub fn restore(app: &tauri::AppHandle, dirs: Vec<String>) {
-    let state = app.state::<TreeWatch>();
-    let mut state = crate::index::lock(&state.0);
-    for dir in &dirs {
-        state.add(dir);
+/// Release the tree watches on the canonical `dir` and under it, run `f`
+/// while still holding the `TreeWatch` lock, and put the released watches
+/// back if `f` fails. Holding the lock across `f` keeps `set_tree_watches`
+/// from re-watching a path `f` (a rename) is about to touch: without it, a
+/// tree re-render landing in that window could send a set that still
+/// contains the released paths, which `apply` would watch again and make the
+/// rename fail with `PermissionDenied` on Windows. This is safe from
+/// deadlock: the notify handler only takes the separate `keys` lock, never
+/// this one.
+pub fn with_released<T>(
+    app: &tauri::AppHandle,
+    dir: &str,
+    f: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let tree_watch = app.state::<TreeWatch>();
+    let mut state = crate::index::lock(&tree_watch.0);
+    let released = state.release_under(dir);
+    let result = f();
+    if result.is_err() {
+        for dir in &released {
+            state.add(dir);
+        }
     }
+    result
 }
 
 /// Collapse bursts on `rx` into one `emit` per tree path, `DEBOUNCE` after
