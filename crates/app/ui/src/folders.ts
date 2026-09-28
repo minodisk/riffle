@@ -60,6 +60,10 @@ let current: string | null = null;
 let cursor: string | null = null;
 // The folders a right-click acts on, drawn as `.selected`.
 let selection: TreeSelection = NO_SELECTION;
+// Bumped every time a click or `menuTargets` assigns `selection` on the
+// user's behalf, so `reveal` can tell that apart from the selection merely
+// being pruned to what is drawn.
+let selectionEdits = 0;
 const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
 let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
@@ -163,6 +167,7 @@ function modifiers(event: MouseEvent): { toggle: boolean; range: boolean } {
 function menuTargets(path: string): { targets: string[]; root: boolean } {
   if (!selection.selected.has(path)) {
     selection = selectOnly(path);
+    selectionEdits++;
     render();
   }
   const chosen = rows(tree).filter(({ node }) => selection.selected.has(node.path));
@@ -203,6 +208,7 @@ function render(): void {
       const mods = modifiers(event);
       if (mods.toggle || mods.range) {
         selection = clickSelect(selection, rows(tree), node.path, mods);
+        selectionEdits++;
         render();
         return;
       }
@@ -240,6 +246,7 @@ function render(): void {
           event.stopPropagation();
           if (selection.selected.size !== 1 || !selection.selected.has(node.path)) {
             selection = selectOnly(node.path);
+            selectionEdits++;
             render();
           }
           armSlowClick(node.path);
@@ -451,6 +458,7 @@ export function loadRoots(): void {
 export async function reveal(path: string, stillCurrent: () => boolean): Promise<void> {
   current = path;
   selection = selectOnly(path);
+  const editsAtStart = selectionEdits;
   render();
   await rootsLoaded;
   if (!stillCurrent()) {
@@ -493,7 +501,7 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
     current = chain.at(-1) ?? current;
   }
   cursor = current;
-  if (selection.selected.size === 1 && selection.selected.has(path)) {
+  if (selectionEdits === editsAtStart) {
     selection = selectOnly(current);
   }
   render();
