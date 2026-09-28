@@ -377,18 +377,6 @@ apart from the drive letter.
       Files: `crates/app/ui/src/tree.ts` (`ancestorsWithin`),
       `crates/app/ui/src/folders.ts` (`reveal`).
 
-### App: an unreadable folder in the tree looks like an unexpanded one
-
-A `list_subfolders` failure collapses the row again and reports through
-`setStatus`; the row itself carries no error mark, so once the status line
-changes, an unreadable folder is indistinguishable from one that was simply
-never expanded.
-
-#### TODO
-
-- [ ] Mark the row itself on error. Files: `crates/app/ui/src/folders.ts`
-      (`toggle`).
-
 ### App: the folder tree's roots don't pick up a volume mounted after launch
 
 `folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
@@ -717,22 +705,6 @@ bullets too.
       `docs/usage.md` to describe behavior by what the camera records rather
       than by camera name, matching the README's approach.
 
-### App: decide whether `scan-state` needs a frontend consumer
-
-From `settings-modal` Step 2: the settings modal was the only frontend
-listener of `scan-state`, and it now reads `main.ts`'s `scanRunning`
-instead, which follows `scan-done`. The backend still emits `scan-state`
-under the `Scans` lock, per the rule in `docs/agents/tauri-app.md`, but
-nothing listens. Files: `crates/app/src/commands.rs` (the `scan-state`
-emits), `docs/agents/tauri-app.md`.
-
-#### TODO
-
-- [ ] Either remove the `scan-state` emits and the doc rule that covers
-      them, or give the event a consumer (for instance, have `main.ts`
-      follow it instead of deriving `scanRunning` itself). Done when no
-      event is emitted without a listener, and `mise run ci` passes.
-
 ### App: Claude Desktop's MCP connection form is unverified
 
 Whether Claude Desktop accepts a direct `url` entry for a local Streamable HTTP
@@ -965,19 +937,6 @@ delete them; deleting sits behind a confirmation dialog. Basis: deferred in
 - [ ] Add a sidecar rewrite item and a delete item (behind a confirmation
       dialog) to the folder context menu.
 
-### CLI `bench` silently measures nothing for a JPEG path
-
-`jpeg::parse` leaves `Arw::preview` / `Arw::full` as `None` (the whole file
-is both), and `bench` in `crates/cli/src/main.rs` only times the tiers whose
-field is `Some` after `reader::read_metadata`, so a `.jpg` path times
-nothing without any error.
-
-#### TODO
-
-- [ ] Either time `read_preview` / `read_full` for a JPEG unconditionally, or
-      reject non-RAW paths with an error. Files: `crates/cli/src/main.rs`,
-      `crates/core/src/jpeg.rs`.
-
 ### App: a JPEG folder's preview decodes 15-20x longer than an ARW's
 
 Backend measurement (docs/plans/_archived/20260927-jpeg-view-only/learnings.md,
@@ -1064,23 +1023,6 @@ Renaming `a.ARW` carries the DNG's sidecar away.
 - [ ] Make a rename (and the trash) leave a `.xmp` another RAW of the same
       stem still uses, or refuse with a message.
 
-### Tooling: `mise run fmt` does not work on Windows
-
-`mise run fmt`'s `[tasks.fmt]` runs `pnpm exec vp fmt`, which hits the same
-`.cmd` shim / POSIX PATH problem on Windows that `[tasks.test]` already works
-around by invoking `node ./node_modules/vite-plus/bin/vp` directly instead of
-`pnpm exec vp`. Found while working the `undo-selection` plan (Windows), where
-`cargo fmt` had to be run instead and formatting was verified via `mise run
-ci`'s lint task.
-
-#### TODO
-
-- [ ] Change `[tasks.fmt]` in `mise.toml` to call
-      `node ./node_modules/vite-plus/bin/vp fmt`, as `[tasks.test]` does for
-      `vp test`.
-- [ ] Done when `mise run fmt` succeeds on Windows without `Command "vp" not
-      found`, and `mise run ci` still passes.
-
 ### App: a pending rename waits silently with no visible pending state
 
 #### Background
@@ -1098,21 +1040,6 @@ new name until the rename actually runs is an open UX question. Basis:
 - [ ] Decide whether the folder tree / strip cell should show the pending
       new name while a rename waits for a scan to finish, and implement it
       if so.
-
-### App: `folders.init`'s `renameAllowed` parameter is now always `() => true`
-
-#### Background
-
-`wait-for-scan` Step 1 made tree renames wait for the scan instead of being
-refused, so the `renameAllowed` callback passed to `folders.init` became the
-constant `() => true`. The parameter was kept to stay out of `folders.ts`
-while the tree-watch work was touching it. Files:
-`crates/app/ui/src/folders.ts`, `crates/app/ui/src/main.ts`.
-
-#### TODO
-
-- [ ] Once the tree-watch work has landed, remove the unused `renameAllowed`
-      parameter from `folders.init` and its call site in `main.ts`.
 
 ### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open
 
@@ -1183,3 +1110,17 @@ heredoc landed with the backslashes halved, even with a quoted delimiter.
       tools, or a script file written by them, rather than a Bash
       heredoc. Confirm the behavior first by writing a doubled-backslash
       string both ways and diffing the results.
+
+### App: `reveal`'s listing failures in the folder tree don't get the failed mark
+
+`toggle`'s `list_subfolders` failures mark the row with the `failed` class
+(red name, error as the tooltip) via `TreeNode.failed` in
+`crates/app/ui/src/tree.ts`, cleared by the next successful listing. `reveal`'s
+own listing failures in `crates/app/ui/src/folders.ts` do not set this mark,
+as scoped out of
+`docs/plans/_archived/20260928-todo-sweep-small-fixes/plan.md` Step 1 item (4).
+
+#### TODO
+
+- [ ] Decide whether `reveal`'s listing failures should also set the `failed`
+      mark, and implement it if so.

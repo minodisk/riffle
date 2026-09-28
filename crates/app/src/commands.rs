@@ -1026,16 +1026,6 @@ impl Drop for Preparing {
         let scans = self.app.state::<Scans>();
         let mut state = index::lock(&scans.0);
         state.preparing -= 1;
-        let scanning = state.scanning();
-        // Every `scan-state` emit in this file happens under the `Scans`
-        // lock, at the moment the state changes, so the mutex serializes
-        // them in the order the state actually changed; releasing the lock
-        // first (or emitting a value read earlier) would let two emits from
-        // different threads interleave with no ordering guarantee. Holding
-        // the lock across `emit` is safe here: no Rust-side `listen` handler in this
-        // codebase takes the `Scans` lock, and `emit` only queues the event
-        // to the webviews rather than running their listeners synchronously.
-        let _ = self.app.emit("scan-state", scanning);
     }
 }
 
@@ -1118,13 +1108,6 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         state.latest_id = scan_id;
         let previous = state.running.take();
         let preparing = Preparing::start(app.clone(), &mut state);
-        let scanning = state.scanning();
-        // Emit while still holding the lock, for the same reason as
-        // `Preparing::drop` and `start_scan` (see the comment in
-        // `Preparing::drop`): whichever of this and a concurrent
-        // `Preparing::drop` runs second is guaranteed to emit after the
-        // other's `app.emit` call has returned.
-        let _ = app.emit("scan-state", scanning);
         (scan_id, previous, preparing)
     };
     let canonical = canonicalize(&dir);
@@ -1450,29 +1433,12 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                         errors: summary.errors,
                     },
                 );
-                // Emit while still holding the lock: `start_scan` below emits its
-                // own `true` under the same lock, before ever releasing it, so
-                // whichever of the two critical sections runs second (this one,
-                // if the scan finishes fast enough to race the store below) is
-                // guaranteed to emit after the other's `app.emit` call has
-                // returned. Emitting with the lock dropped would let these two
-                // `app.emit` calls interleave freely on separate threads with no
-                // ordering guarantee, which is exactly the race that used to let
-                // a stale `true` land after this correct `false` and leave the
-                // settings modal stuck showing "scanning" forever.
                 let scans = app.state::<Scans>();
                 let mut state = index::lock(&scans.0);
                 state.finish(scan_id);
-                let scanning = state.scanning();
-                let _ = app.emit("scan-state", scanning);
             }
         });
         state.running = Some((scan_id, cancel, handle));
-        // See the comment above the task's own emit: kept under the same lock
-        // for the same reason. `state` has been held continuously since the top
-        // of this function, so the task cannot have taken the lock (and hence
-        // cannot have emitted) before this call.
-        let _ = app.emit("scan-state", true);
         Ok(())
     })
     .await

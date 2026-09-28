@@ -30,7 +30,8 @@ shell = "bash -c"
 run = """
 set -euo pipefail
 cargo fmt --all
-pnpm exec vp fmt
+# Direct node entry point, not `pnpm exec`: see the comment in [tasks.test].
+node ./node_modules/vite-plus/bin/vp fmt
 """
 
 [tasks."tauri:dev"]

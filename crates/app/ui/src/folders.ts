@@ -33,6 +33,7 @@ import {
   clickSelect,
   collapse,
   expand,
+  markFailed,
   pruneSelection,
   rebase,
   renameFolder,
@@ -77,7 +78,6 @@ let contextMenu: (
   targets: string[],
 ) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
-let canRename: () => boolean = () => false;
 // The live inline rename, drawn from here on every `render`, so a re-render
 // mid-edit (a listing landing) rebuilds the same input.
 let editing: InlineRename | null = null;
@@ -146,7 +146,7 @@ function armSlowClick(path: string): void {
   slow.click(path, true, performance.now());
   clearTimeout(slowTimer);
   slowTimer = setTimeout(() => {
-    if (slow.due(path, performance.now()) && canRename()) {
+    if (slow.due(path, performance.now())) {
       startRename(path);
     }
   }, SLOW_CLICK_DELAY);
@@ -200,7 +200,8 @@ function render(): void {
     row.setAttribute("aria-selected", String(selection.selected.has(node.path)));
     row.style.setProperty("--depth", String(depth));
     row.dataset.path = node.path;
-    row.title = node.path;
+    row.title = node.failed ?? node.path;
+    row.classList.toggle("failed", node.failed !== undefined);
     row.addEventListener("click", (event) => {
       if (editing?.path === node.path || ended === node.path) {
         return;
@@ -242,7 +243,7 @@ function render(): void {
       name.textContent = node.name;
       name.addEventListener("click", (event) => {
         const mods = modifiers(event);
-        if (node.path === current && depth > 0 && !mods.toggle && !mods.range && canRename()) {
+        if (node.path === current && depth > 0 && !mods.toggle && !mods.range) {
           event.stopPropagation();
           if (selection.selected.size !== 1 || !selection.selected.has(node.path)) {
             selection = selectOnly(node.path);
@@ -429,7 +430,7 @@ function toggle(path: string): void {
       render();
     },
     (err: unknown) => {
-      tree = collapse(tree, path);
+      tree = markFailed(collapse(tree, path), path, String(err));
       render();
       reportError(String(err));
     },
@@ -678,11 +679,9 @@ export function init(
     targets: string[],
   ) => void,
   onRename: (path: string, name: string) => void,
-  renameAllowed: () => boolean,
 ): void {
   open = onOpen;
   reportError = onError;
   contextMenu = onContextMenu;
   rename = onRename;
-  canRename = renameAllowed;
 }

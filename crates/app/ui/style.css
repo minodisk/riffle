@@ -335,6 +335,11 @@ body {
   background: #2d4059;
 }
 
+/* A folder whose last listing failed; its title carries the error. */
+.folder.failed .name {
+  color: #d66;
+}
+
 #folders:focus {
   outline: none;
 }

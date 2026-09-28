@@ -2414,7 +2414,6 @@ folders.init(
     });
   },
   renameFolder,
-  () => true,
 );
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
