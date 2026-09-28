@@ -187,7 +187,7 @@ menu item stays, relabeled so its target is unambiguous.
     - Keyboard range selection (Shift+Arrow) is out of scope; say so in
       `docs/usage.md`'s keys table only if the reviewer asks.
 
-- [ ] Step 4: Confirmation dialog with per-folder counts and the total space freed
+- [x] Step 4: Confirmation dialog with per-folder counts and the total space freed
   - Done when:
     - The backend splits into `trash_rejected_preview(dirs, recursive)`
       (drains the writer, refuses a running scan, collects, and returns per
@@ -282,3 +282,4 @@ menu item stays, relabeled so its target is unambiguous.
 - (2026-09-28) Step 1 complete
 - (2026-09-28) Step 2 complete
 - (2026-09-28) Step 3 complete
+- (2026-09-28) Step 4 complete

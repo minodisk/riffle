@@ -89,3 +89,35 @@
   selected folder is a root". The context-menu callback gained a `targets`
   argument (the selection in drawn order) that `main.ts` passes to
   `trashRejectedIn`.
+
+## Step 4: Confirmation dialog
+
+- `trash_rejected_preview` still returns the Step 1 `Err` ("No rejected
+  files in …") when nothing is rejected and nothing failed to read, so the
+  plain empty case stays a status line; the dialog opens with zero rejects
+  only when some folder or file could not be read, and then lists those with
+  `Move to Trash` disabled.
+- The preview's bytes are summed per folder by `trash::preview` from
+  `std::fs::metadata` on each RAW and each sidecar in its group; the size
+  text is formatted by the command (`format_bytes(bytes, SIZE_BASE)`) and
+  passed in as a closure, so `trash.rs` does not depend on `commands.rs`'s
+  formatter and its test can pass a trivial one.
+- The canonical dirs the backend returns carry the verbatim `\\?\` prefix on
+  Windows; `trash.ts`'s `shownPath` strips it (and turns `\\?\UNC\` back
+  into `\\`) for the dialog rows.
+- `TrashFlow` is a smaller `SequenceFlow`: no run id or early event, since
+  `trash_rejected_run` returns the summary itself. A running move cannot be
+  canceled, so both buttons are disabled while it runs and Escape does
+  nothing; the Tab trap returns early when no button is enabled.
+- The dialog, the sequence dialog and the settings modal exclude each other
+  (`trashFlow.busy` in `startSequence` and the `open-settings` guard, and
+  `sequenceFlow.busy` / `settings.isOpen` in `trashRejectedIn`), since the
+  window's keydown handler routes to only one of them.
+- The run is not deferred through `whenIdle` (a folder switch would discard
+  it and leave the dialog open in `running`); a scan that started while the
+  dialog was up is refused by the backend under the `Scans` lock and the
+  error shows in the status line.
+- Bash heredocs through the agent's Bash tool on this Windows machine halve
+  doubled backslashes even with a quoted delimiter (`"\\\\?"` lands as
+  `"\\?"`); write text holding backslashes with the Write / Edit tools, or
+  a script file written by them, instead.

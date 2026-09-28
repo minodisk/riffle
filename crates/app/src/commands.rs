@@ -2104,23 +2104,21 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Move the rejected files of `dirs` (and of their subfolders when
-/// `recursive`) to the OS trash after a native confirmation, together with
-/// the `.xmp` and `.dop` sidecars that exist on disk for them; `None` when the
-/// user canceled. The rejects are collected here (see `trash::collect`), once
-/// for the count the dialog shows and again under the `Scans` lock for the
-/// move, so folders never opened count too.
+/// The rejects of `dirs` (and of their subfolders when `recursive`) that
+/// `trash_rejected_run` would move, per folder with the bytes they free, for
+/// the confirmation dialog. The rejects are collected here (see
+/// `trash::collect`), so folders never opened count too. No rejects and
+/// nothing unreadable is an `Err` the status line shows.
 ///
-/// A running scan is refused before the dialog and again under the `Scans`
-/// lock, and the sidecar writer is drained first, as in `clear_index`: a
-/// judgment still inside its debounce window would otherwise mint a sidecar
-/// for a file that is already gone.
+/// A running scan is refused and the sidecar writer is drained first, so the
+/// rows read are the flushed ones. The `Scans` lock is not held: the dialog
+/// stays open for as long as the user wants, and the run collects again.
 #[tauri::command]
-pub async fn trash_rejected(
+pub async fn trash_rejected_preview(
     app: tauri::AppHandle,
     dirs: Vec<String>,
     recursive: bool,
-) -> Result<Option<trash::Summary>, String> {
+) -> Result<trash::Preview, String> {
     {
         let scans = app.state::<Scans>();
         let state = index::lock(&scans.0);
@@ -2128,65 +2126,48 @@ pub async fn trash_rejected(
             return Err(SCAN_RUNNING.to_string());
         }
     }
-    let handle = app.clone();
-    let targets = dirs.clone();
-    let count = tauri::async_runtime::spawn_blocking(move || -> Result<usize, String> {
-        if let Some(writer) = &handle.state::<AppWriter>().0 {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Preview, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
             writer.flush(crate::sidecar::DRAIN_TIMEOUT);
         }
-        let collection = collect_rejected(&handle, &targets, recursive);
-        let count = collection.count();
-        if count == 0 {
-            let nothing = trash::nothing_to_trash(&targets, recursive);
-            return Err(match collection.failed.first() {
-                Some(first) => format!(
-                    "{nothing}; {} could not be read ({}: {})",
-                    collection.failed.len(),
-                    first.path,
-                    first.message
-                ),
-                None => nothing,
-            });
+        let collection = collect_rejected(&app, &dirs, recursive);
+        if collection.count() == 0 && collection.failed.is_empty() {
+            return Err(trash::nothing_to_trash(&dirs, recursive));
         }
-        Ok(count)
+        Ok(trash::preview(collection, |bytes| {
+            format_bytes(bytes, SIZE_BASE)
+        }))
     })
     .await
-    .map_err(|e| e.to_string())??;
-    let (tx, mut rx) = tauri::async_runtime::channel(1);
-    let message = if count == 1 {
-        "Move 1 rejected file to the Trash?".to_string()
-    } else {
-        format!("Move {count} rejected files to the Trash?")
-    };
-    let mut dialog = app
-        .dialog()
-        .message(message)
-        .title("Move Rejected to Trash")
-        .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Move to Trash".to_string(),
-            "Cancel".to_string(),
-        ));
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.parent(&window);
-    }
-    dialog.show(move |confirmed| {
-        let _ = tx.try_send(confirmed);
-    });
-    if !rx.recv().await.unwrap_or(false) {
-        return Ok(None);
-    }
-    let handle = app.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<Option<trash::Summary>, String> {
-        if let Some(writer) = &handle.state::<AppWriter>().0 {
+    .map_err(|e| e.to_string())?
+}
+
+/// Move the rejected files of `dirs` (and of their subfolders when
+/// `recursive`) to the OS trash, together with the `.xmp` and `.dop`
+/// sidecars that exist on disk for them, once the dialog
+/// `trash_rejected_preview` fed was confirmed. The rejects are collected
+/// again under the `Scans` lock, which is held across the moves.
+///
+/// A running scan is refused under the `Scans` lock, and the sidecar writer
+/// is drained first, as in `clear_index`: a judgment still inside its
+/// debounce window would otherwise mint a sidecar for a file that is already
+/// gone.
+#[tauri::command]
+pub async fn trash_rejected_run(
+    app: tauri::AppHandle,
+    dirs: Vec<String>,
+    recursive: bool,
+) -> Result<trash::Summary, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Summary, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
             writer.flush(crate::sidecar::DRAIN_TIMEOUT);
         }
-        let scans = handle.state::<Scans>();
+        let scans = app.state::<Scans>();
         let state = index::lock(&scans.0);
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
-        let collection = collect_rejected(&handle, &dirs, recursive);
+        let collection = collect_rejected(&app, &dirs, recursive);
         for folder in collection.folders.iter().filter(|f| !f.groups.is_empty()) {
             log::info!("rejected files in {}: {}", folder.dir, folder.groups.len());
         }
@@ -2202,7 +2183,7 @@ pub async fn trash_rejected(
         summary.unread = collection.failed;
         log::info!("moved rejected files to the trash: {summary:?}");
         drop(state);
-        Ok(Some(summary))
+        Ok(summary)
     })
     .await
     .map_err(|e| e.to_string())?

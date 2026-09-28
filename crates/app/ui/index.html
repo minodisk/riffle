@@ -246,6 +246,19 @@
         </div>
       </div>
     </div>
+    <div id="trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" hidden>
+      <div id="trash-box">
+        <h2 id="trash-title">Move Rejected to Trash</h2>
+        <ul id="trash-rows"></ul>
+        <p id="trash-empty" hidden></p>
+        <ul id="trash-failed"></ul>
+        <p id="trash-total"></p>
+        <div class="actions">
+          <button id="trash-run" type="button">Move to Trash</button>
+          <button id="trash-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
     <div
       id="settings-dialog"
       role="dialog"
