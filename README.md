@@ -79,7 +79,8 @@ DxO PhotoLab.
   renames, `Escape` cancels, and its XMP and `.dop` sidecars and its
   ratings move with it.
   `F6` hides the filmstrip, `F7` the folder tree, `F8` the
-  meta pane and `Tab` both side panes, to give the viewer more room. The meta
+  meta pane and `Tab` both side panes, to give the viewer more room (also in
+  the `View` menu, with the focus mark, 1:1 and Compare). The meta
   pane's `Maker note` group shows the Sony AF, drive, stabilization and
   picture settings.
 - **1:1 focus check**: `z` shows the image at 1:1, centered on the focus point.

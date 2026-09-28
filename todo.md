@@ -165,6 +165,21 @@ opt-in `set_icon_as_template` API, against muda `dev`.
 Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 `tools/macos/export-menu-icons.swift`.
 
+### App: the View menu items have no macOS SF Symbol icons
+
+`view-menu` added the `View` items (`Left Pane`, `Right Pane`,
+`Both Side Panes`, `Filmstrip`, `Focus Mark`, `1:1 Zoom`, `Compare`) as plain
+`MenuItem`s, unlike the File / Help items, which carry SF Symbol PNGs on
+macOS. The PNGs are exported by `tools/macos/export-menu-icons.swift`, which
+needs macOS, and the change was made on Windows.
+
+#### TODO
+
+- [ ] On macOS, export SF Symbol PNGs for the seven View items and turn them
+      into `IconMenuItem`s under `#[cfg(target_os = "macos")]`. Files:
+      `crates/app/src/main.rs` (`app_menu`, `VIEW_ITEMS`),
+      `crates/app/icons/menu/`, `tools/macos/export-menu-icons.swift`.
+
 ### App: the real-device checks for the File menu accelerators are still open
 
 From `menu-accelerators`'s implementation: the GUI could not be driven from

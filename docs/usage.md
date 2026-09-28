@@ -120,44 +120,47 @@ viewer shows a prompt in its center; click it to open the folder picker.
   can take the whole height a landscape frame needs. The filmstrip's header
   bar goes with it, so the filter and sort menus and the `N / M` counter are
   hidden while the strip is. Which panels are hidden is remembered across
-  restarts.
-- **Focus mark**: `f` draws a crosshair at the camera's recorded focus point,
-  inside a rectangle of the AF frame the camera used when the camera records
-  that frame (hidden by default). A camera that records only the point shows the
-  crosshair alone; a camera that records no AF point, and manual-focus shots,
-  show no mark (see [What the camera records](./cameras.md)). The mark's color
-  is the focus candidate state: green for a focus candidate, where the eyes of
-  the face nearest the AF point are likely in focus (their in-focus probability,
-  a logistic combination of the Laplacian variance and the mean edge width of
+  restarts. The `View` menu's `Left Pane`, `Right Pane`, `Both Side Panes`
+  and `Filmstrip` do the same, for a keyboard without function keys.
+- **Focus mark**: `f` (or `View > Focus Mark`) draws a crosshair at the camera's recorded focus point,
+  inside a rectangle of the AF frame the camera used on Sony bodies that
+  record it (hidden by default). A body that records only the point, such as
+  the SIGMA BF, shows the crosshair alone; cameras that record none, such as
+  the M11-P, and manual-focus shots show no mark (see
+  [What the camera records](./cameras.md)). The mark's color is the focus
+  candidate state: green for a focus candidate, where the eyes of the face
+  nearest the AF point are likely in focus (their in-focus probability, a
+  logistic combination of the Laplacian variance and the mean edge width of
   the preview between the eyes, is about 77% or more); orange when a face is
   near the AF point but its eyes are likely not in focus (including a window
   with no clear edge, which counts as 0%); and white when Riffle does not know
-  (no AF point, manual focus, no face near the point, or not computed yet). The
-  camera's face tracking no longer colors the mark: a recorded eye-AF frame is
-  judged by the faces Riffle detects like any other. The state is computed in a
-  second pass that starts right after the thumbnails and metadata of the folder
-  are in, so the marks turn from white to green or orange while the status shows
-  `focus N / M`. The strip marks each candidate with a green face icon (Lucide's
-  `scan-face`, ISC license, text in `crates/app/ui/LICENSE-lucide`) at the
-  cell's bottom-left, above the file name, filling in as the pass runs. On the
-  406 hand-labeled α7 V frames with a face it was fitted on, 93% of the
-  candidates were in focus and 91% of the in-focus frames were candidates; on
-  400 frames from other shoots it was not fitted on, 89% and 95%. It is a cue,
-  not a verdict: AF on a person in the background gives a sharp face and a false
-  candidate, and the back of a head or an upturned face finds no face and stays
-  white. The mark also draws the faces Riffle detects near the AF point
-  (anywhere on the preview when there is no AF point) as a cyan box with a dot
-  between the eyes. They appear a moment after `f`, because the detection runs
-  when the frame is shown and is kept only for the session. The 1:1 view and
-  Compare draw no faces.
-- **1:1 focus check**: `z` shows the full-resolution image at one pixel per
+  (no AF point, manual focus, no face near the point, or not computed yet).
+  The camera's face tracking no longer colors the mark: a Sony eye-AF frame
+  is judged by the faces Riffle detects like any other. The state is computed
+  in a second pass that starts right after the thumbnails and metadata of the
+  folder are in, so the marks turn from white to green or orange while the
+  status shows `focus N / M`. The strip marks each candidate with a green
+  face icon (Lucide's `scan-face`, ISC license, text in
+  `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
+  name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
+  a face it was fitted on, 93% of the candidates were in focus and 91% of the
+  in-focus frames were candidates; on 400 frames from other shoots it was not
+  fitted on, 89% and 95%. It is a cue, not a verdict: AF on a person in the
+  background gives a sharp face and a false candidate, and the back of a
+  head or an upturned face finds no face and stays white. The mark also
+  draws the faces Riffle detects near the AF point (anywhere on the preview
+  when there is no AF point) as a cyan box with a dot between the eyes. They
+  appear a moment after `f`, because the detection runs when the frame is
+  shown and is kept only for the session. The 1:1 view and Compare draw no
+  faces.
+- **1:1 focus check**: `z` (or `View > 1:1 Zoom`) shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
 - **Grayscale preview**: holding `g` shows the viewed image in grayscale to
   judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
-- **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
+- **Compare**: `v` (or `View > Compare`) lays 2–4 selected files out in the viewer. With only one
   file selected, it instead puts that file beside the highest-scoring
   frame in its burst (the same file appears twice when it is already the
   highest-scoring one). Each frame is labeled with its file name and score, and
@@ -446,10 +449,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `Alt+ArrowLeft` | previous frame in the current burst (stops at its first frame) |
 | `Alt+ArrowRight` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
-| `f` | toggle the focus mark |
-| `z` | toggle the 1:1 focus check |
+| `f` | toggle the focus mark (also `View > Focus Mark`, whose accelerator follows this key) |
+| `z` | toggle the 1:1 focus check (also `View > 1:1 Zoom`, whose accelerator follows this key) |
 | `g` (hold) | grayscale preview |
-| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
+| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame (also `View > Compare`, whose accelerator follows this key) |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
@@ -459,10 +462,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
 | `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move Rejected to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
-| `F6` | show / hide the filmstrip |
-| `F7` | show / hide the left pane |
-| `F8` | show / hide the right pane |
-| `Tab` | show / hide both side panes |
+| `F6` | show / hide the filmstrip (also `View > Filmstrip`, whose accelerator follows this key) |
+| `F7` | show / hide the left pane (also `View > Left Pane`, whose accelerator follows this key) |
+| `F8` | show / hide the right pane (also `View > Right Pane`, whose accelerator follows this key) |
+| `Tab` | show / hide both side panes (also `View > Both Side Panes`, whose accelerator follows this key) |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone, while `c` clears it along with
@@ -489,8 +492,8 @@ its physical key, so `ctrl+alt+1` stays `1` though Option changes the typed
 character on macOS. Shift counts, so Shift+J is a different key from J.
 Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+,`,
 `Cmd+Tab`, `Ctrl+C` on Windows, any Windows-key combination, ...) are refused.
-The File menu's `Open Folder…` accelerator and the Edit menu's Undo / Redo /
-Select All are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
+The File menu's `Open Folder…` accelerator, the Edit menu's Undo / Redo /
+Select All and the View menu's items are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
 rebound, and the
 combination an action leaves behind is free for another action.
 `Reset all` restores the defaults.

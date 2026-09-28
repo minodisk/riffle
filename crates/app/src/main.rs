@@ -33,6 +33,38 @@ mod app_menu {
     const SELECT_ALL_ID: &str = "select-all";
     const CHECK_UPDATES_ID: &str = "check-for-updates";
 
+    /// The `View` items: `(menu id, keymap action, label)`. A click emits
+    /// `menu-action` with the action, which the frontend runs as its key.
+    const VIEW_ITEMS: &[(&str, &str, &str)] = &[
+        ("toggle-left", "toggleLeft", "Left Pane"),
+        ("toggle-right", "toggleRight", "Right Pane"),
+        ("toggle-sides", "toggleSides", "Both Side Panes"),
+        ("toggle-strip", "toggleStrip", "Filmstrip"),
+        ("focus-mark", "focus", "Focus Mark"),
+        ("zoom", "zoom", "1:1 Zoom"),
+        ("compare", "compare", "Compare"),
+    ];
+    /// Where the separator goes among `VIEW_ITEMS`: after the panel toggles.
+    const VIEW_PANELS: usize = 4;
+
+    /// The menu ids and actions of the items whose accelerator mirrors the
+    /// action's keys.
+    fn keyed_items() -> impl Iterator<Item = (&'static str, &'static str)> {
+        [
+            (OPEN_FOLDER_ID, "open"),
+            (UNDO_ID, "undo"),
+            (REDO_ID, "redo"),
+            (SELECT_ALL_ID, "selectAll"),
+        ]
+        .into_iter()
+        .chain(VIEW_ITEMS.iter().map(|&(id, action, _)| (id, action)))
+    }
+
+    /// The actions a menu item mirrors the accelerator of.
+    pub fn keyed_actions() -> impl Iterator<Item = &'static str> {
+        keyed_items().map(|(_, action)| action)
+    }
+
     /// The default menu's submenu titled `title`, if the platform has one.
     fn submenu(menu: &Menu<Wry>, title: &str) -> tauri::Result<Option<Submenu<Wry>>> {
         for item in menu.items()? {
@@ -45,8 +77,8 @@ mod app_menu {
         Ok(None)
     }
 
-    /// The app menu, with the `Open Folder…`, `Undo`, `Redo` and `Select All`
-    /// accelerators the keymap currently gives those actions.
+    /// The app menu, with the `Open Folder…`, `Undo`, `Redo`, `Select All`
+    /// and `View` accelerators the keymap currently gives those actions.
     pub fn build(
         handle: &AppHandle,
         keymap: &crate::shortcuts::Keymap,
@@ -275,6 +307,45 @@ mod app_menu {
                 MenuItem::with_id(handle, SELECT_ALL_ID, "Select All", true, select_all_key)?;
             edit.append(&select_all)?;
         }
+        let view_items = VIEW_ITEMS
+            .iter()
+            .map(|&(id, action, label)| {
+                let key = keymap.accelerator_for(action);
+                MenuItem::with_id(handle, id, label, true, key.as_deref())
+            })
+            .collect::<tauri::Result<Vec<_>>>()?;
+        let separator = PredefinedMenuItem::separator(handle)?;
+        let mut view_kinds: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = Vec::new();
+        for (i, item) in view_items.iter().enumerate() {
+            if i == VIEW_PANELS {
+                view_kinds.push(&separator);
+            }
+            view_kinds.push(item);
+        }
+        // macOS's default `View` holds Enter Full Screen, kept below a
+        // separator; elsewhere there is no `View`, so one goes after `Edit`.
+        #[cfg(target_os = "macos")]
+        if let Some(view) = submenu(&menu, "View")? {
+            view.prepend_items(&view_kinds)?;
+            view.insert(&PredefinedMenuItem::separator(handle)?, view_kinds.len())?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let view = Submenu::new(handle, "View", true)?;
+            view.append_items(&view_kinds)?;
+            let mut after_edit = None;
+            for (i, item) in menu.items()?.into_iter().enumerate() {
+                if let MenuItemKind::Submenu(submenu) = item {
+                    if submenu.text()? == "Edit" {
+                        after_edit = Some(i + 1);
+                    }
+                }
+            }
+            match after_edit {
+                Some(at) => menu.insert(&view, at)?,
+                None => menu.append(&view)?,
+            }
+        }
         Ok(menu)
     }
 
@@ -285,12 +356,7 @@ mod app_menu {
     pub fn refresh(app: &AppHandle, keymap: &crate::shortcuts::Keymap) -> tauri::Result<()> {
         #[cfg(not(target_os = "macos"))]
         if let Some(menu) = app.menu() {
-            for (id, action) in [
-                (OPEN_FOLDER_ID, "open"),
-                (UNDO_ID, "undo"),
-                (REDO_ID, "redo"),
-                (SELECT_ALL_ID, "selectAll"),
-            ] {
+            for (id, action) in keyed_items() {
                 let item = menu
                     .items()?
                     .iter()
@@ -337,6 +403,9 @@ mod app_menu {
         if event.id() == SETTINGS_ID {
             let _ = app.emit("open-settings", ());
         }
+        if let Some(&(_, action, _)) = VIEW_ITEMS.iter().find(|&&(id, _, _)| event.id() == id) {
+            let _ = app.emit("menu-action", action);
+        }
     }
 
     /// Show the folder holding `Riffle.log` in the platform's file manager.
@@ -348,6 +417,64 @@ mod app_menu {
         app.opener()
             .open_path(dir.to_string_lossy(), None::<&str>)?;
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// Actions with no menu item: `previous`, `next` and the burst moves
+        /// are cursor moves the strip offers by click and wheel, on arrow keys
+        /// every keyboard has; `extendPrevious` / `extendNext` are the
+        /// keyboard's `Shift+click`; `grayscale` is held down, which a menu
+        /// click cannot be; the judgments are in the strip's right-click menu
+        /// and on plain keys.
+        const MENU_LESS: &[&str] = &[
+            "previous",
+            "next",
+            "burstPrevious",
+            "burstNext",
+            "burstFramePrevious",
+            "burstFrameNext",
+            "extendPrevious",
+            "extendNext",
+            "grayscale",
+            "rate1",
+            "rate2",
+            "rate3",
+            "rate4",
+            "rate5",
+            "reject",
+            "rejectRest",
+            "pick",
+            "unflag",
+            "clear",
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "pink",
+            "purple",
+            "clearlabel",
+            "clearall",
+        ];
+
+        #[test]
+        fn menu_covers_every_action() {
+            let mut placed: Vec<&str> = keyed_actions().chain(MENU_LESS.iter().copied()).collect();
+            let count = placed.len();
+            placed.sort_unstable();
+            placed.dedup();
+            assert_eq!(placed.len(), count, "an action is placed twice");
+            let mut actions: Vec<&str> = crate::shortcuts::Keymap::defaults()
+                .bindings()
+                .into_iter()
+                .map(|b| b.action)
+                .collect();
+            actions.sort_unstable();
+            assert_eq!(placed, actions);
+        }
     }
 }
 
