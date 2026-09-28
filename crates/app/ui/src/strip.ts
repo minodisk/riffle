@@ -455,8 +455,8 @@ export function setFiles(paths: string[], keepScroll = false): void {
   if (resume === null) {
     finishRename("cancel");
   } else {
-    resume.input.remove();
     editing = null;
+    resume.input.remove();
   }
   cancelSlowClick();
   const offset = strip.scrollLeft;
