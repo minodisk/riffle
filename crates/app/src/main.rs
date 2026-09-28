@@ -588,6 +588,7 @@ fn main() {
             commands::trash_rejected_preview,
             commands::trash_rejected_run,
             commands::trash_rejected_undo,
+            commands::trash_rejected_redo,
             rename::rename_folder,
             rename::rename_file,
             sequence::sequence_preview,

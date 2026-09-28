@@ -266,7 +266,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   already put back by hand is listed as an error and left as it is, and the
   sidecars of a file that could not come back stay in the Trash too. The
   move stays undoable after another folder opens; like the move, the undo
-  waits for a running scan. An undone move cannot be redone yet.
+  waits for a running scan. `Edit > Redo` (`CmdOrCtrl+Shift+Z`) then moves
+  the files that came back, with their sidecars, to the Trash again without
+  the dialog (a file that could not come back is not touched, and one gone
+  from its place since is listed as an error), and that move is undoable in
+  turn.
 - **Sequence JPEG Timestamps…**: right-click a folder in the folder tree and
   choose `Sequence JPEG Timestamps…` to make the capture times of the exported
   JPEGs in it unique at second granularity, so Google Photos, which ignores
@@ -345,7 +349,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
     RAW folder opens in it.
   - **What is off**: the star, flag and color label keys, `c` (clear all),
     `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` of a judgment
-    do nothing (undoing a `Move Rejected to Trash…` still works), and
+    do nothing (undoing and redoing a `Move Rejected to Trash…` still
+    work), and
     the strip's right-click menu holds only `Select All`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
     folder reopens at its last viewed file like any other. The MCP
@@ -365,9 +370,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   **Move Rejected to Trash…**), after which further presses reach the
   judgments made before it.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
-  undone judgment, the same way round. The redo history is forgotten as soon
-  as you judge a file again, and like the undo history it is cleared when
-  another folder opens or the sidecar format changes.
+  undone judgment, the same way round. After an undone
+  `Move Rejected to Trash…` it moves the files that came back to the Trash
+  again, without the dialog. The redo history is forgotten as soon as you
+  judge a file again, and like the undo history its judgments are cleared
+  when another folder opens or the sidecar format changes.
 - **Open Log Folder**: `Help > Open Log Folder` reveals the folder holding
   `Riffle.log`, the app's log file (capped at 1 MB; on rotation the previous
   contents are discarded, not kept as a separate file). It lives in the app
@@ -451,7 +458,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `0` | clear the stars |
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
 | `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
-| `CmdOrCtrl+Shift+Z` | redo the last undone judgment (also `Edit > Redo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move Rejected to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
 | `F6` | show / hide the filmstrip |
 | `F7` | show / hide the left pane |
 | `F8` | show / hide the right pane |

@@ -3,7 +3,14 @@ import * as strip from "./strip.js";
 import * as folders from "./folders.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
-import { type Entry, type TrashEntry, History, isJudgments, mapJudgments } from "./undo.js";
+import {
+  type Entry,
+  type TrashEntry,
+  History,
+  isJudgments,
+  mapJudgments,
+  undoneTrash,
+} from "./undo.js";
 import { ErrorList } from "./errors.js";
 import {
   type Flag,
@@ -37,7 +44,7 @@ import {
   opensTarget,
   restoredInto,
   restoredStatus,
-  stillUndoable,
+  stillHeld,
   totalLine,
   trashedStatus,
 } from "./trash.js";
@@ -341,12 +348,13 @@ const fileIndex = new Map<string, number>();
 // since it may span folders and needs none open.
 type Judgment = { path: string; rating: number | null; flag: PickFlag; label: string | null };
 const history = new History<Entry<Judgment>>(100);
-// The pre-undo state of each undone batch, for `Edit > Redo`. A new
-// judgment forgets it, as every editor does.
+// The pre-undo state of each undone batch, for `Edit > Redo`, and each
+// undone trash run, redone by moving what came back to the Trash again. A
+// new judgment forgets it, as every editor does.
 const redoable = new History<Entry<Judgment>>(100);
-// The trash run whose restore is out, so a second undo does not pop the
-// judgments beneath it before its files are back.
-let restoring: TrashEntry | null = null;
+// The trash run whose restore or redo is out, so a second undo does not pop
+// the judgments beneath it before its files are back.
+let trashStep: TrashEntry | null = null;
 // Sidecar problems, kept until dismissed rather than in the transient `note`.
 const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
@@ -665,47 +673,56 @@ function runTrash(): void {
       .invoke<TrashSummary>("trash_rejected_run", { dirs, recursive })
       .then((summary) => {
         closeTrashDialog();
-        const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
-        if (refresh) {
-          for (const path of summary.moved) {
-            // `ratings` / `flags` / `labels` are kept: they are keyed by
-            // path and never iterated, so leaving them stale does no harm
-            // while the file is out of `allFiles`, and `undoTrash` needs
-            // them intact for an undo landing before the rescan repopulates
-            // them from the restored sidecar.
-            sharpness.delete(path);
-            touched.delete(path);
-          }
-        }
-        // The judgments of the trashed files stay: this entry sits above
-        // them, so undo reaches them only once the files are back, and
-        // `step` skips a file that did not come back.
         if (summary.run_id !== null) {
-          history.push({
-            kind: "trash",
-            runId: summary.run_id,
-            count: summary.moved.length,
-            dirs,
-            recursive,
-          });
           redoable.clear();
         }
-        for (const { path, message } of summary.failed) {
-          errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
-        }
-        for (const { path, message } of summary.unread) {
-          errors.add(path, `${baseName(path)}: could not be read: ${message}`);
-        }
-        setStatus(trashedStatus(summary));
-        if (refresh) {
-          resync();
-        }
+        trashed(summary, dirs, recursive);
       })
       .catch((err: unknown) => {
         closeTrashDialog();
         setStatus(String(err));
       }),
   );
+}
+
+// What a run or a redo does once its files went to the Trash: prune the open
+// folder's state when it was among `dirs`, push the recorded run for undo,
+// report the failures, and re-list the folder.
+function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): void {
+  const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
+  if (refresh) {
+    for (const path of summary.moved) {
+      // `ratings` / `flags` / `labels` are kept: they are keyed by
+      // path and never iterated, so leaving them stale does no harm
+      // while the file is out of `allFiles`, and `undoTrash` needs
+      // them intact for an undo landing before the rescan repopulates
+      // them from the restored sidecar.
+      sharpness.delete(path);
+      touched.delete(path);
+    }
+  }
+  // The judgments of the trashed files stay: this entry sits above
+  // them, so undo reaches them only once the files are back, and
+  // `step` skips a file that did not come back.
+  if (summary.run_id !== null) {
+    history.push({
+      kind: "trash",
+      runId: summary.run_id,
+      count: summary.moved.length,
+      dirs,
+      recursive,
+    });
+  }
+  for (const { path, message } of summary.failed) {
+    errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
+  }
+  for (const { path, message } of summary.unread) {
+    errors.add(path, `${baseName(path)}: could not be read: ${message}`);
+  }
+  setStatus(trashedStatus(summary));
+  if (refresh) {
+    resync();
+  }
 }
 
 function dismissTrash(): void {
@@ -1431,14 +1448,19 @@ function send(
 // file becomes current unless the filter now hides it, and when the focus
 // moves it also becomes the selection, unless compare mode is holding the
 // selection as its comparison set; a batch leaves the current file where it
-// is. A trash run is restored instead; see `undoTrash`.
+// is. A trash run is restored or moved to the Trash again instead; see
+// `undoTrash` and `redoTrash`.
 function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb: string): void {
-  if (restoring !== null) {
+  if (trashStep !== null) {
     return;
   }
   const top = from.peek();
   if (top !== undefined && !isJudgments(top)) {
-    undoTrash(top);
+    if (from === history) {
+      undoTrash(top);
+    } else {
+      redoTrash(top);
+    }
     return;
   }
   if (openDir === null) {
@@ -1496,23 +1518,27 @@ function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb
 // Restore the trash run `entry` from the Trash. It waits for a running scan
 // like the run does, and stays on the history until the backend has
 // restored it, so a refusal (a scan that slipped in) leaves it undoable. An
-// undone run is dropped rather than made redoable. When the open folder was
+// undone run goes onto `redoable` when anything came back. When the open folder was
 // among its folders, the restored RAWs go into `allFiles` at once, so an
 // undo pressed before the rescan lands still reaches their judgments, and
 // the rescan brings their thumbnails and judgments back. The current file
 // and the selection stay.
 function undoTrash(entry: TrashEntry): void {
   whenIdle("Undo Move Rejected to Trash", () => {
-    if (restoring !== null || history.peek() !== entry) {
+    if (trashStep !== null || history.peek() !== entry) {
       return;
     }
-    restoring = entry;
+    trashStep = entry;
     settleIdle(
       window.__TAURI__.core
         .invoke<TrashRestored>("trash_rejected_undo", { runId: entry.runId })
         .then((result) => {
-          restoring = null;
+          trashStep = null;
           history.remove(entry);
+          const redo = undoneTrash(entry, result.restored);
+          if (redo !== null) {
+            redoable.push(redo);
+          }
           for (const { path, message } of result.failed) {
             errors.add(path, `${baseName(path)}: could not restore from the Trash: ${message}`);
           }
@@ -1528,9 +1554,38 @@ function undoTrash(entry: TrashEntry): void {
           }
         })
         .catch((err: unknown) => {
-          restoring = null;
-          if (!stillUndoable(String(err))) {
+          trashStep = null;
+          if (!stillHeld(String(err))) {
             history.remove(entry);
+          }
+          setStatus(String(err));
+        }),
+    );
+  });
+}
+
+// Move what the undo of `entry` brought back to the Trash again, with no
+// dialog, as a new run that goes onto the history. It waits for a running
+// scan like the run does, and stays on `redoable` until the backend has
+// moved the files, so a refusal leaves it redoable.
+function redoTrash(entry: TrashEntry): void {
+  whenIdle("Redo Move Rejected to Trash", () => {
+    if (trashStep !== null || redoable.peek() !== entry) {
+      return;
+    }
+    trashStep = entry;
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashSummary>("trash_rejected_redo", { runId: entry.runId })
+        .then((summary) => {
+          trashStep = null;
+          redoable.remove(entry);
+          trashed(summary, entry.dirs, entry.recursive);
+        })
+        .catch((err: unknown) => {
+          trashStep = null;
+          if (!stillHeld(String(err))) {
+            redoable.remove(entry);
           }
           setStatus(String(err));
         }),

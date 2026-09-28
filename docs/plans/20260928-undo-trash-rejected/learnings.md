@@ -129,6 +129,51 @@
   - After a restore, the index picks the reject judgments back up on the
     `resync` (the plan's "no index code" assumption for Step 1).
 
+## Step 4
+
+- The backend keeps what an undo brought back, not the frontend:
+  `trash_rejected_undo` stores the restored files (RAW and sidecars, in the
+  recorded order; `Restored.back`, `#[serde(skip)]`) in `Runs` under the
+  undone run's id (`Runs::undone`, bounded to `MAX_RUNS` like the runs),
+  and `trash_rejected_redo(run_id)` takes them (`Runs::take_undone`) and
+  moves them with `trash::redo`, which groups each RAW with the sidecars
+  that follow it and runs them through `trash::run`, a file gone meanwhile
+  failing as "no longer at its location" before the mover. No command takes
+  arbitrary paths to trash from the frontend, and the sidecars that came
+  back need not travel through the IPC. So the plan's TS test "the undone
+  entry carries the restored paths only" became: `undoneTrash` (undo.ts)
+  builds the redo entry with the count of the restored RAWs and yields
+  nothing when none came back; the "only what came back" rule itself is
+  tested in Rust (`only_what_came_back_is_kept_for_a_redo`).
+- An unknown undone run is `this run can no longer be redone`;
+  `stillUndoable` became `stillHeld`, dropping the entry on either
+  "no longer" message and keeping it on any other refusal, for undo and
+  redo alike. The `restoring` guard became `trashStep` and covers the redo
+  too.
+- `step` tells undo from redo of a trash entry by `from === history`.
+  `runTrash`'s success handling moved into `trashed(summary, dirs,
+  recursive)`, shared with `redoTrash`; only the run clears `redoable` (a
+  redo must keep the redo entries beneath it). Like `runTrash`, the redo
+  prunes `sharpness` / `touched` and relies on the `resync` to drop the
+  files from `allFiles`, rather than patching `allFiles` in place as the
+  plan's wording suggests: the new trash entry sits on top of the history,
+  so no judgment of the re-trashed files is reachable before the rescan.
+- Backend check against the real Recycle Bin (Windows 11, a throwaway
+  `#[ignore]` test in `commands.rs`, not committed): three RAW + `.xmp`
+  pairs were trashed with `trash_one`, `R2.ARW` was recreated by hand, and
+  the undo (108 ms) brought back `R1` and `R3` with their sidecars, `back`
+  listing the four files. `R3.xmp` was then deleted by hand; the redo moved
+  `R1.ARW`, `R1.xmp`, `R3.ARW` to the bin, reported `R3.xmp` "no longer at
+  its location", left the hand-made `R2.ARW` alone and recorded a new run.
+  Undoing that new run brought the three files back. The test's leftovers
+  were purged from the bin.
+- Manual GUI checks on Windows, pending for the user (a subagent cannot
+  drive the app): trash rejects in the open folder, `Ctrl+Z` (files back),
+  `Ctrl+Shift+Z` (moved to the Trash again without the dialog, strip
+  refreshed, status "Moved N files to the Trash"), `Ctrl+Z` again (back
+  again); the same from the tree with no folder open; a judgment made after
+  the undo makes the redo do nothing.
+
 ## Deferred issues (todo candidates)
 
 - A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run

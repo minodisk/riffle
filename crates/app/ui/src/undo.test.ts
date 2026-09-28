@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { type Entry, type TrashEntry, History, isJudgments, mapJudgments } from "./undo.js";
+import {
+  type Entry,
+  type TrashEntry,
+  History,
+  isJudgments,
+  mapJudgments,
+  undoneTrash,
+} from "./undo.js";
 
 describe("History", () => {
   test("pops in reverse push order and is empty afterwards", () => {
@@ -105,5 +112,10 @@ describe("undo entries", () => {
     history.push(run);
     expect(history.peek()).toBe(run);
     expect(history.pop()).toBe(run);
+  });
+
+  test("an undone run is redone over the RAWs that came back only", () => {
+    expect(undoneTrash(run, ["/a/1.ARW"])).toEqual({ ...run, count: 1 });
+    expect(undoneTrash(run, [])).toBeNull();
   });
 });

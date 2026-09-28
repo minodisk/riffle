@@ -5,7 +5,9 @@
 //! supply the index rows and the mover that calls into the `trash` crate.
 //! Each run that moved something is recorded in `Runs`, and `restore` puts
 //! a recorded run back for `commands::trash_rejected_undo`, again through
-//! closures so the tests never touch the real Trash.
+//! closures so the tests never touch the real Trash. What an undo brought
+//! back is kept in `Runs` too, and `redo` moves exactly those files to the
+//! Trash again for `commands::trash_rejected_redo`.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -96,9 +98,16 @@ pub const MAX_RUNS: usize = 100;
 
 /// The error `trash_rejected_undo` returns for a run `Runs` no longer holds.
 pub const RUN_GONE: &str = "this run can no longer be undone";
+/// The error `trash_rejected_redo` returns for an undone run `Runs` no longer
+/// holds.
+pub const UNDONE_GONE: &str = "this run can no longer be redone";
+/// The failure of a file redo finds gone from where the undo put it back.
+pub const GONE: &str = "no longer at its location";
 
-/// The recorded runs, the newest `MAX_RUNS`, managed as app state. The ids
-/// come from a counter, so a forgotten run's id is never handed out again.
+/// The recorded runs, the newest `MAX_RUNS`, managed as app state, and as
+/// many undone runs, each holding only the files its undo brought back. The
+/// ids come from a counter, so a forgotten run's id is never handed out
+/// again.
 #[derive(Default)]
 pub struct Runs(Mutex<RunsState>);
 
@@ -106,6 +115,7 @@ pub struct Runs(Mutex<RunsState>);
 struct RunsState {
     next_id: u64,
     runs: Vec<TrashRun>,
+    undone: Vec<(u64, Vec<PathBuf>)>,
 }
 
 impl Runs {
@@ -132,6 +142,28 @@ impl Runs {
         let at = state.runs.iter().position(|run| run.id == id)?;
         Some(state.runs.remove(at))
     }
+
+    /// Keep the files the undo of run `id` brought back, in the recorded
+    /// order, for its redo, dropping the oldest past `MAX_RUNS`. Nothing
+    /// back keeps nothing.
+    pub fn undone(&self, id: u64, back: Vec<PathBuf>) {
+        if back.is_empty() {
+            return;
+        }
+        let mut state = crate::index::lock(&self.0);
+        state.undone.push((id, back));
+        if state.undone.len() > MAX_RUNS {
+            state.undone.remove(0);
+        }
+    }
+
+    /// Remove and return the files the undo of run `id` brought back: a
+    /// redone run is forgotten, whatever the outcome of its move.
+    pub fn take_undone(&self, id: u64) -> Option<Vec<PathBuf>> {
+        let mut state = crate::index::lock(&self.0);
+        let at = state.undone.iter().position(|(undone, _)| *undone == id)?;
+        Some(state.undone.remove(at).1)
+    }
 }
 
 /// What `trash_rejected_undo` returns: the RAWs that came back and every
@@ -140,6 +172,10 @@ impl Runs {
 pub struct Restored {
     pub restored: Vec<String>,
     pub failed: Vec<Failure>,
+    /// Every file, RAW or sidecar, that came back, in the recorded order:
+    /// what a redo moves to the Trash again.
+    #[serde(skip)]
+    pub back: Vec<PathBuf>,
 }
 
 impl Restored {
@@ -157,6 +193,7 @@ impl Restored {
                     message: message.to_string(),
                 })
                 .collect(),
+            back: Vec::new(),
         }
     }
 }
@@ -518,12 +555,44 @@ pub fn restore<I>(
             raw_back = result.is_ok();
         }
         match result {
-            Ok(()) if is_raw => restored.restored.push(path),
-            Ok(()) => {}
+            Ok(()) => {
+                restored.back.push(trashed.path.clone());
+                if is_raw {
+                    restored.restored.push(path);
+                }
+            }
             Err(message) => restored.failed.push(Failure { path, message }),
         }
     }
     restored
+}
+
+/// Move `paths`, what an undo brought back (each RAW followed by its
+/// sidecars), to the Trash again with `run`, so its rule holds: a sidecar
+/// moves only after its RAW. No reject is collected again; a file that no
+/// longer `exists` fails without reaching `mover`.
+pub fn redo(
+    paths: Vec<PathBuf>,
+    exists: impl Fn(&Path) -> bool,
+    mut mover: impl FnMut(&Path) -> Result<Option<PathBuf>, String>,
+) -> (Summary, Vec<Trashed>) {
+    let mut groups: Vec<Group> = Vec::new();
+    for path in paths {
+        match groups.last_mut() {
+            Some(group) if !riffle_core::scan::is_raw_file(&path) => group.sidecars.push(path),
+            _ => groups.push(Group {
+                raw: path,
+                sidecars: Vec::new(),
+            }),
+        }
+    }
+    run(groups, |path| {
+        if exists(path) {
+            mover(path)
+        } else {
+            Err(GONE.to_string())
+        }
+    })
 }
 
 /// Put `run` back from where each file went, as recorded at trash time
@@ -629,9 +698,9 @@ pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes, collect, newest_by_path, nothing_to_trash, preview, restore, restore_recorded, run,
-        trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed,
-        ALREADY_EXISTS, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+        bytes, collect, newest_by_path, nothing_to_trash, preview, redo, restore, restore_recorded,
+        run, trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed,
+        ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
     };
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
@@ -771,6 +840,20 @@ mod tests {
         assert_eq!(restored.restored, ["a.ARW", "b.DNG"]);
         assert!(restored.failed.is_empty());
         assert_eq!(asked, ["a.ARW", "a.xmp", "a.ARW.dop", "b.DNG"]);
+        assert_eq!(
+            restored.back,
+            ["a.ARW", "a.xmp", "a.ARW.dop", "b.DNG"].map(PathBuf::from)
+        );
+    }
+
+    #[test]
+    fn only_what_came_back_is_kept_for_a_redo() {
+        let run = trash_run(&["a.ARW", "a.xmp", "b.ARW", "b.xmp", "c.ARW", "c.xmp"]);
+        let (restored, _) = restore_with(&run, &["a.ARW", "b.ARW", "b.xmp", "c.ARW"], &["a.ARW"]);
+        assert_eq!(
+            restored.back,
+            ["b.ARW", "b.xmp", "c.ARW"].map(PathBuf::from)
+        );
     }
 
     #[test]
@@ -992,6 +1075,19 @@ mod tests {
         assert_eq!(runs.take(last).unwrap().moved, [trashed("a.ARW")]);
         assert_eq!(runs.take(last), None);
         assert!(runs.record(vec![trashed("b.ARW")]).unwrap() > last);
+    }
+
+    #[test]
+    fn undone_runs_keep_the_newest_and_forget_a_redone_one() {
+        let runs = Runs::default();
+        runs.undone(1, Vec::new());
+        assert_eq!(runs.take_undone(1), None);
+        for id in 0..=MAX_RUNS as u64 {
+            runs.undone(id, vec![PathBuf::from("a.ARW")]);
+        }
+        assert_eq!(runs.take_undone(0), None);
+        assert_eq!(runs.take_undone(1), Some(vec![PathBuf::from("a.ARW")]));
+        assert_eq!(runs.take_undone(1), None);
     }
 
     #[test]
@@ -1449,5 +1545,34 @@ mod tests {
         assert_eq!(summary.failed[0].path, key(&dir.join("fail.xmp")));
         assert!(trash.join("d.ARW").exists());
         assert!(trash.join("d.ARW.dop").exists());
+    }
+
+    #[test]
+    fn a_redo_reports_a_file_gone_meanwhile_and_moves_the_rest() {
+        let dir = temp_dir("redo");
+        let trash = dir.join("trash");
+        std::fs::create_dir(&trash).unwrap();
+        for name in ["a.ARW", "a.xmp", "c.ARW", "c.ARW.dop"] {
+            write(&dir.join(name));
+        }
+        let paths = ["a.ARW", "a.xmp", "b.ARW", "b.xmp", "c.ARW", "c.ARW.dop"]
+            .map(|name| dir.join(name))
+            .to_vec();
+        let (summary, moved) = redo(paths, Path::exists, mover(trash.clone()));
+        assert_eq!(
+            summary.moved,
+            [key(&dir.join("a.ARW")), key(&dir.join("c.ARW"))]
+        );
+        assert_eq!(summary.failed.len(), 1);
+        assert_eq!(summary.failed[0].path, key(&dir.join("b.ARW")));
+        assert_eq!(summary.failed[0].message, GONE);
+        assert_eq!(
+            moved.iter().map(|t| t.path.clone()).collect::<Vec<_>>(),
+            ["a.ARW", "a.xmp", "c.ARW", "c.ARW.dop"].map(|name| dir.join(name))
+        );
+        for name in ["a.ARW", "a.xmp", "c.ARW", "c.ARW.dop"] {
+            assert!(trash.join(name).exists());
+            assert!(!dir.join(name).exists());
+        }
     }
 }
