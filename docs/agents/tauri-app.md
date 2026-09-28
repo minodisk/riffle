@@ -358,7 +358,8 @@ building with `true` up front would relaunch after `Later` and a normal quit.
 
 ### App items go into the default menu's own submenus (Hit)
 
-The menu bar keeps only the platform's default submenus. `app_menu::build`
+The menu bar keeps the platform's default submenus, plus a `View` where the
+default has none. `app_menu::build`
 finds them in `Menu::default` by title and inserts into them: `Settings...`
 (`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
 `Open Folder…` and `Reload Folder` at the top of
@@ -397,6 +398,8 @@ accelerator, and all emit one `menu-action` event with the action name, which
 `modalOpen()`, `treeGate`, the first-launch format dialog, and closing the
 strip's context menu first. A test (`menu_covers_every_action`)
 requires every keymap action to be in the menu or in its `MENU_LESS` list.
+
+- Why: a keyboard without function keys can still reach the panel toggles.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
