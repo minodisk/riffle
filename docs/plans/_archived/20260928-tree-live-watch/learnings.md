@@ -73,3 +73,15 @@
   6. Permanently delete an expanded folder itself (`rm -rf` on Linux/macOS,
      Shift+Delete in Explorer): no error is shown, and the row disappears
      once the parent's re-list lands.
+
+## Deferred issues (todo candidates)
+
+- **Measure whether a `notify` watch blocks deleting a folder on Windows.**
+  Step 1 measured only rename (a watch pins the watched folder's ancestors,
+  not the folder itself); delete was never measured, so `docs/usage.md` and
+  the plan say "rename" only. Measure, with the same scratch-binary approach
+  as Step 1, whether deleting a watched folder itself, or a folder with a
+  watched descendant, succeeds on Windows with `notify` 8.2. Done when the
+  delete result is recorded next to the rename measurement and
+  `docs/usage.md` and `docs/agents/tauri-app.md` match it (or are confirmed
+  unchanged).

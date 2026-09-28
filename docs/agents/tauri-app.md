@@ -1204,6 +1204,33 @@ drops the previous watcher before creating the new one, so leaving a folder
 releases it. A watch that cannot be set (SMB, say) is `log::warn!`ed and
 ignored: the focus rescan is the fallback and the open must not fail.
 
+### A `notify` watch on Windows pins the watched folder's ancestors, not the folder itself (Hit)
+
+Measured with `notify` 8.2 on Windows 11 (`RecommendedWatcher` =
+`ReadDirectoryChangesWatcher`, `RecursiveMode::NonRecursive`): renaming a
+watched folder itself **succeeds**; renaming a folder that has a watched
+**descendant** fails with `PermissionDenied` (os error 5). So a watch's
+`ReadDirectoryChangesW` handle blocks renaming any ancestor of the watched
+path, not the watched path itself.
+
+`crates/app/src/treewatch.rs` uses this to watch the whole folder tree with
+one `RecommendedWatcher`, `watch`/`unwatch` per expanded folder, mapped
+through a shared canonical-path -> tree-key list (several tree paths can
+canonicalize to the same folder, e.g. a symlink; the last key's `unwatch`
+is what actually drops the OS watch). Renaming a folder that has a watched
+descendant needs `release_under` (unwatch everything at or below the
+renamed path) before the rename and `restore` after — see
+`treewatch::with_released`, which holds the `TreeWatch` lock for the whole
+release/rename/restore-on-failure sequence so a concurrent
+`set_tree_watches` cannot re-watch the path mid-rename. The notify event
+handler only ever takes the separate canonical-path map's lock, never the
+`TreeWatch` state lock, so this cannot deadlock.
+
+Only rename was measured this way, not delete: don't assume the same
+ancestor-pinning applies to deletion without measuring it.
+
+- Source: `docs/plans/_archived/20260928-tree-live-watch/learnings.md`, Step 1.
+
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 
 `createCell` in `crates/app/ui/src/strip.ts` appends an `<img>` with no `src`
