@@ -51,14 +51,11 @@ other 35 are sorted as follows:
 
 ## Steps
 
-- [ ] Step 1: Add a `View` menu with the panel and view toggles, its tests and docs
-  - Reopened after Round 1 review: the `menu-action` listener did not run
-    under the full set of gates the keydown path uses (it missed the
+- [x] Step 1: Add a `View` menu with the panel and view toggles, its tests and docs
+  - Reopened after Round 1 review (the `menu-action` listener missed the
     first-launch format dialog check and did not close the strip's context
-    menu first), so the "under the same gates as the key" acceptance
-    criterion was unmet. Fixed in the same Round 1 addressal commit (no
-    remaining work); left unchecked here so the next review round confirms
-    the gate list is now complete before re-closing this step.
+    menu first); fixed in the Round 1 addressal commit, and Rounds 2–4 raised
+    nothing further on the gates, so the step is closed again.
   - Done when:
     - The menu bar has a `View` submenu with, in this order: `Left Pane`,
       `Right Pane`, `Both Side Panes`, `Filmstrip`, a separator, `Focus Mark`,
@@ -159,4 +156,4 @@ wrap-up files it in `todo.md`.
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
