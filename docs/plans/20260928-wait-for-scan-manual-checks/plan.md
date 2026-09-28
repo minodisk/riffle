@@ -45,8 +45,9 @@ lost, in the file's item format, without duplicating the Clear Cache item.
       parameter is now always `() => true``, for the exact shape).
     - The Background says what the feature does, that the frontend `IdleGate`
       holds one operation (a second press replaces it), that the backend
-      `SCAN_RUNNING` refusals (`crates/app/src/commands.rs`) remain as the
-      last line of defense, that nothing has been run by hand (the user's
+      `SCAN_RUNNING` refusals (`crates/app/src/commands.rs` for trash,
+      `crates/app/src/rename.rs` for renames) remain as the last line of
+      defense, that nothing has been run by hand (the user's
       Windows setup is where they will first be run), and that the Clear
       Cache checks live in `### App: the Clear Cache button's manual GUI
       verification is still open` (referenced by heading, not repeated).
@@ -75,8 +76,10 @@ lost, in the file's item format, without duplicating the Clear Cache item.
       5. Rename a folder (tree inline edit) and a file (strip inline edit)
          during a scan: the edit starts at once, the status line shows
          `Rename…: waiting for the scan to finish`, the rename runs when the
-         scan ends, and the folder reopens at the new path; an inline edit
-         still being typed survives the strip being rebuilt by the scan's
+         scan ends, and, when the renamed folder is the open one (or
+         contains it), the folder reopens at the new path; a file rename
+         keeps the cell's marks under the new name; an inline edit still
+         being typed survives the strip being rebuilt by the scan's
          `setFiles` without losing typed text or confirming early.
       6. Pressing `Move to Trash` in the trash dialog (`trash_rejected_run`
          through `settleIdle`) and confirming a rename never make the
@@ -119,4 +122,8 @@ lost, in the file's item format, without duplicating the Clear Cache item.
 
 ## Progress
 
-- (none yet)
+- 2026-09-28: Step 1 landed: added the `### App: the wait-for-scan manual
+  checks for Move Rejected to Trash and Rename are still open` item to
+  `todo.md`, updated the now-false clause in the existing trash item
+  (commit `27c620a`, `docs(todo): record the wait-for-scan manual checks`).
+  PR: not yet opened.

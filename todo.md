@@ -1076,9 +1076,10 @@ while the tree-watch work was touching it. Files:
 instead of refusing with `a scan is running; wait for it to finish`: the
 frontend's `IdleGate` holds one pressed operation (a second press replaces
 it), the status line names what is waiting, and the held operation runs when
-the scan ends. The backend `SCAN_RUNNING` refusals in
-`crates/app/src/commands.rs` remain as the last line of defense. None of it
-has been run by hand; the user's Windows setup is where these checks will
+the scan ends. The backend `SCAN_RUNNING` refusals (`crates/app/src/commands.rs`
+for trash, `crates/app/src/rename.rs` for renames) remain as the last line of
+defense. None of it has been run by hand; the user's Windows setup is where
+these checks will
 first be run. The trash confirmation is now an in-window HTML dialog
 (`trash-rejected-from-tree`, #529), so the archived plan's "closing the
 confirm dialog refocuses the window" race no longer applies to trash, only to
@@ -1110,9 +1111,11 @@ a rebuild).
 - [ ] Rename a folder (tree inline edit) and a file (strip inline edit)
       during a scan: the edit starts at once, the status line shows
       `Rename…: waiting for the scan to finish`, the rename runs when the
-      scan ends, and the folder reopens at the new path; an inline edit still
-      being typed survives the strip being rebuilt by the scan's `setFiles`
-      without losing typed text or confirming early.
+      scan ends, and, when the renamed folder is the open one (or contains
+      it), the folder reopens at the new path; a file rename keeps the
+      cell's marks under the new name; an inline edit still being typed
+      survives the strip being rebuilt by the scan's `setFiles` without
+      losing typed text or confirming early.
 - [ ] Pressing `Move to Trash` in the trash dialog (`trash_rejected_run`
       through `settleIdle`) and confirming a rename never make the backend
       refuse with `a scan is running`; the native-confirm refocus case
