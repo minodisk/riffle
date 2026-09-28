@@ -386,15 +386,16 @@ and appends a custom `Select All` (a plain `MenuItem`, no macOS icon) whose
 accelerator comes from the keymap's `selectAll` action and which emits
 `select-all` to the frontend like `undo` / `redo`.
 
-`View` is the one submenu the app creates: on Windows and Linux the default
-menu has none, so `app_menu::build` builds one and inserts it right after
-`Edit` (appended when `Edit` is missing); on macOS the default `View` exists
-and the items are prepended above its Enter Full Screen, with a separator
-between. Its plain items (panel toggles, a separator, then Focus Mark, 1:1
-Zoom and Compare) come from the `VIEW_ITEMS` table of `(id, action, label)`,
-take the action's accelerator, and all emit one `menu-action` event with the
-action name, which `main.ts` runs through `runAction` under the keydown's
-`modalOpen()` and `treeGate` gates. A test (`menu_covers_every_action`)
+`View` is created on Windows and Linux (the default menu has none there), so
+`app_menu::build` builds one and inserts it right after `Edit` (appended when
+`Edit` is missing); on macOS the default `View` exists and the items are
+prepended above its Enter Full Screen, with a separator between. Its plain
+items (panel toggles, a separator, then Focus Mark, 1:1 Zoom and Compare)
+come from the `VIEW_ITEMS` table of `(id, action, label)`, take the action's
+accelerator, and all emit one `menu-action` event with the action name, which
+`main.ts` runs through `runAction` under the same gates as the keydown path:
+`modalOpen()`, `treeGate`, the first-launch format dialog, and closing the
+strip's context menu first. A test (`menu_covers_every_action`)
 requires every keymap action to be in the menu or in its `MENU_LESS` list.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put

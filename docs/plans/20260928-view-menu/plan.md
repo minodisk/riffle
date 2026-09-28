@@ -51,7 +51,14 @@ other 35 are sorted as follows:
 
 ## Steps
 
-- [x] Step 1: Add a `View` menu with the panel and view toggles, its tests and docs
+- [ ] Step 1: Add a `View` menu with the panel and view toggles, its tests and docs
+  - Reopened after Round 1 review: the `menu-action` listener did not run
+    under the full set of gates the keydown path uses (it missed the
+    first-launch format dialog check and did not close the strip's context
+    menu first), so the "under the same gates as the key" acceptance
+    criterion was unmet. Fixed in the same Round 1 addressal commit (no
+    remaining work); left unchecked here so the next review round confirms
+    the gate list is now complete before re-closing this step.
   - Done when:
     - The menu bar has a `View` submenu with, in this order: `Left Pane`,
       `Right Pane`, `Both Side Panes`, `Filmstrip`, a separator, `Focus Mark`,

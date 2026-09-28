@@ -2814,9 +2814,14 @@ void window.__TAURI__.event.listen("redo", () => {
 });
 // The `View` items: each runs its action as the key does, under the same gates.
 void window.__TAURI__.event.listen<string>("menu-action", ({ payload }) => {
-  if (modalOpen() || (folders.hasFocus() && treeGate(payload) === "swallow")) {
+  if (
+    !formatDialog.hidden ||
+    modalOpen() ||
+    (folders.hasFocus() && treeGate(payload) === "swallow")
+  ) {
     return;
   }
+  closeContextMenu();
   runAction(payload);
 });
 // `Edit > Select All` replaces the predefined item, so it selects a focused
