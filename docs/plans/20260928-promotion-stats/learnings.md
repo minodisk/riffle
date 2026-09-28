@@ -19,3 +19,26 @@
   row dated the day before survived a re-run in place.
 - Every day adds new dated rows, so a scheduled run always commits; the
   no-change skip only matters for a second run on the same UTC day.
+
+## Step 2
+
+- `@csv` quotes strings, so the views / clones rows are built with jq string
+  interpolation (`"\(.timestamp[:10]),\(.count),\(.uniques)"`) to keep the
+  date column unquoted; the line-start `^<date>,` match that drops a day's
+  rows depends on it. Referrer and path values keep `@csv` quoting.
+- The per-file rewrite became one `upsert` helper that takes the dates to
+  drop explicitly (today for the snapshot files, the window's dates for views
+  and clones) rather than deriving them from the new rows, so an empty
+  referrer or path list on a re-run still clears that day's earlier rows.
+- Each file is now sorted as a whole (date first), not only the new block.
+  For `downloads.csv` that is the same order Step 1 produced, since its older
+  days were already sorted and precede today.
+- All six API calls run before any file is written, so a 403 from the traffic
+  endpoints aborts under `set -e` with every file untouched.
+- Local verification against `minodisk/riffle` on 2026-09-28: two runs gave
+  byte-identical files (307 / 15 / 15 / 2 / 11 / 2 lines for downloads,
+  views, clones, referrers, paths, stars). A hand-edited in-window views day
+  was restored from the API, an out-of-window day (2026-09-01) survived, and a
+  referrer row dated the day before was kept.
+- `paths.csv` rows are sorted by path, not by the API's rank; the rank is
+  recoverable from `count`.

@@ -105,10 +105,31 @@ told apart from the updater-only artifacts (`latest.json`, `.app.tar.gz`) and
 the `.sig` files; on Windows the updater fetches the same `-setup.exe` users
 install from, so that count covers both.
 
+The other files come from the repository's traffic and metadata, which GitHub
+keeps for 14 days at most:
+
+- `views.csv` and `clones.csv`: `date,count,uniques`, the page views (or
+  clones) and unique visitors (or cloners) of each UTC day. Every run rewrites
+  the days of the 14-day window GitHub returns, so a missed run is filled in
+  by the next one, and the latest day is partial until the next day's run.
+- `referrers.csv` and `paths.csv`: `date,referrer,count,uniques` and
+  `date,path,count,uniques`, the top referring sites and most viewed paths
+  over the 14 days before `date`, with their views and unique visitors.
+  GitHub gives no per-day breakdown of these, so each date is a rolling
+  aggregate and a missed day is lost.
+- `stars.csv`: `date,stargazers_count,forks_count`, the totals on that day.
+
+The workflow reads all of them with the `STATS_TOKEN` repository secret, a
+fine-grained personal access token for this repository with
+`Contents: Read and write` and `Administration: Read-only` (the traffic API
+needs the latter, which `GITHUB_TOKEN` cannot be granted). A missing, expired
+or under-scoped secret fails the run, downloads included, rather than
+silently skipping traffic; renew it before the 14-day window runs out.
+
 To take a snapshot now, run the workflow by hand from the Actions tab or with
 `gh workflow run stats.yml`. A second run on the same UTC day replaces that
-day's rows. To write the file locally instead (with an authenticated `gh`;
-`GH_REPO` defaults to `minodisk/riffle`):
+day's rows. To write the files locally instead (with a `gh` login that can
+read the repository's traffic; `GH_REPO` defaults to `minodisk/riffle`):
 
 ```sh
 tools/stats/snapshot.sh <dir>
