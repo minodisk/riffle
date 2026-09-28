@@ -267,3 +267,4 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
   `unwatch` releases the handle at once and that a watched *descendant*, not
   the watched folder itself, is what blocks a rename. See `learnings.md` for
   the measurements and the deadlock-safety argument.
+- (2026-09-28) Step 1 complete
