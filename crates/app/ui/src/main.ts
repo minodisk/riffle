@@ -647,8 +647,13 @@ function previewSequence(dir: string): Promise<void> {
 }
 
 function failSequence(err: unknown): void {
+  const dir = sequenceFlow.dir;
   sequenceFlow.fail();
-  setStatus(String(err));
+  errors.add(
+    dir ?? "sequence",
+    dir === null ? String(err) : failureText({ path: dir, message: String(err) }),
+  );
+  setStatus();
 }
 
 function showSequencePreview(dir: string, preview: SequencePreview): void {
@@ -714,10 +719,9 @@ function runSequence(): void {
       }
     })
     .catch((err: unknown) => {
-      sequenceFlow.fail();
       closeSequenceDialog();
       sequencing = null;
-      setStatus(String(err));
+      failSequence(err);
     });
 }
 
@@ -730,7 +734,7 @@ function finishSequence(payload: SequenceDone): void {
     errors.add(failure.path, failureText(failure));
   }
   sequencing = null;
-  setStatus(doneStatus(payload));
+  setStatus(doneStatus(payload) ?? undefined);
   const out = revealAfter(payload);
   if (out !== null) {
     window.__TAURI__.core.invoke("reveal_folder", { path: out }).catch((err: unknown) => {

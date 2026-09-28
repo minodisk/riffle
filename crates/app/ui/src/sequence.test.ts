@@ -5,6 +5,7 @@ import {
   changedLine,
   doneStatus,
   failureText,
+  folderError,
   progressStatus,
   rebuildNotice,
   revealAfter,
@@ -95,7 +96,31 @@ describe("text", () => {
           failed: [{ path: "/x/export", message: "no JPEG files" }],
         }),
       ),
-    ).toBe("Wrote 0 of 0 files to /x/export-sequenced, 1 failed");
+    ).toBeNull();
+  });
+
+  test.each([
+    ["a run that wrote every file", done(), null],
+    [
+      "a run with a per-file failure",
+      done({ written: 2, failed: [{ path: "/x/export/b.jpg", message: "denied" }] }),
+      null,
+    ],
+    [
+      "a run whose every file failed",
+      done({ written: 0, total: 1, failed: [{ path: "/x/export/a.jpg", message: "denied" }] }),
+      null,
+    ],
+    ["a canceled run", done({ written: 1, canceled: true }), null],
+    ["a canceled run before any file", done({ written: 0, total: 0, canceled: true }), null],
+    ["a run that wrote nothing", done({ written: 0, total: 3 }), null],
+    [
+      "a folder-level error",
+      done({ written: 0, total: 0, failed: [{ path: "/x/export", message: "no JPEG files" }] }),
+      { path: "/x/export", message: "no JPEG files" },
+    ],
+  ])("the folder-level error of %s", (_name, payload, expected) => {
+    expect(folderError(payload)).toEqual(expected);
   });
 
   test.each([

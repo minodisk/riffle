@@ -1574,6 +1574,20 @@ open when the tree has focus closes on any key the tree consumes, not just
   only via the status line — check on a real drive-root folder before relying
   on this.
 
+### `renderMeta()` redraws the status line but does not clear `note` (Hit)
+
+`setStatus()` and `renderMeta()` are not interchangeable: `renderMeta()` only
+re-renders from the current state, while `note` (an older gray status line)
+is cleared only by calling `setStatus()` with no argument. Calling
+`renderMeta()` after a new error leaves a stale `note` on screen next to it
+(e.g. Sequence succeeds on folder A leaving its gray note, then fails on
+folder B — A's note stays visible above B's orange error). When a code path
+needs to guarantee the status line reflects only the latest event, call
+`setStatus()` with no argument, not `renderMeta()`.
+
+- Source: `docs/plans/_archived/20260928-sequence-folder-error/learnings.md`,
+  Review feedback round 1.
+
 ### Write relative imports with `.js` (Measured)
 
 `import { x } from "./foo.js"`; Vite resolves the `.js` suffix to the `.ts`
