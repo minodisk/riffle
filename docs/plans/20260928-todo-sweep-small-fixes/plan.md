@@ -135,15 +135,16 @@ event nobody listens to.
 
 ## Progress
 
-- **Step 1**: Landed the five fixes: skip an unreadable folder in the tree
-  scan and mark it `failed` in the UI instead of stopping the listing,
-  remove the dead `scan-state` emits (and the stale lock-comment / doc
-  bullet that described them), make `riffle-cli bench` reject a JPEG input
-  with an error instead of silently decoding it, fix `mise run fmt` to work
-  on Windows by calling `vp fmt` directly, and stop `renameAllowed` from
-  allowing a rename to the folder's own current name. Also removed the five
-  corresponding sections from `todo.md`. Verified with `mise run fmt` on
-  this Windows machine, then `mise run ci`, and by running
-  `cargo run -p riffle-cli -- bench <some.jpg>` to see it error. See
-  `learnings.md` for the deferred `reveal` failed-mark gap (item 4 covers
-  `toggle` only, per the todo item's wording).
+- **Step 1**: Landed the five fixes: mark a folder whose `toggle` listing
+  failed (red name, the error as tooltip, cleared on the next successful
+  listing) instead of leaving the row unlabeled, remove the unused
+  `scan-state` emits (and their ordering comments / doc bullet), make
+  `riffle-cli bench` reject a non-ARW/DNG input with an error instead of
+  silently decoding it, fix `mise run fmt` to work on Windows by running
+  `vp fmt` through its node entry point, and drop the always-true
+  `renameAllowed` parameter from `folders.init` and its `canRename()`
+  checks. Also removed the five corresponding sections from `todo.md`.
+  Verified with `mise run fmt` on this Windows machine, then `mise run ci`,
+  and by running `cargo run -p riffle-cli -- bench <some.jpg>` to see it
+  error. See `learnings.md` for the deferred `reveal` failed-mark gap (item 4
+  covers `toggle` only, per the todo item's wording).
