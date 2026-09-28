@@ -60,8 +60,28 @@ export function contextMenuGroups(
 // the `reveal_label` command, then copying the folder's path or name, then
 // renaming it, then moving its rejects to the Trash, with or without its
 // subfolders, then the sequencing of the folder's JPEGs. Renaming and the
-// recursive trash item are not offered on a root (home or a volume).
-export function folderMenuGroups(revealLabel: string, root: boolean): MenuItem[][] {
+// recursive trash item are not offered on a root (home or a volume). With
+// `count` folders selected, only the trash items are offered, naming the
+// count; `root` then says whether any of them is a root.
+export function folderMenuGroups(revealLabel: string, root: boolean, count = 1): MenuItem[][] {
+  if (count > 1) {
+    const label = `Move Rejected in ${count} Folders to Trash`;
+    return [
+      [
+        { action: "trashRejected", label: `${label}…`, shortcut: "", checked: undefined },
+        ...(root
+          ? []
+          : [
+              {
+                action: "trashRejectedTree",
+                label: `${label}, Including Subfolders…`,
+                shortcut: "",
+                checked: undefined,
+              },
+            ]),
+      ],
+    ];
+  }
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
     [

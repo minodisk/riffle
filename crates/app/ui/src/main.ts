@@ -2281,7 +2281,8 @@ function renameFile(path: string, name: string): void {
 
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
-// rename it, to move its rejects to the Trash, or to sequence its JPEGs.
+// rename it, to move its rejects to the Trash, or to sequence its JPEGs. On a
+// selection of several folders it offers only to move their rejects.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2292,9 +2293,9 @@ folders.init(
     });
   },
   setStatus,
-  (path, name, x, y, root) => {
+  (path, name, x, y, root, targets) => {
     void revealLabel.then((label) => {
-      showMenu(folderMenuGroups(label, root), x, y, (action) => {
+      showMenu(folderMenuGroups(label, root, targets.length), x, y, (action) => {
         switch (action) {
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
@@ -2315,10 +2316,10 @@ folders.init(
             folders.startRename(path);
             break;
           case "trashRejected":
-            trashRejectedIn([path], false);
+            trashRejectedIn(targets, false);
             break;
           case "trashRejectedTree":
-            trashRejectedIn([path], true);
+            trashRejectedIn(targets, true);
             break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);

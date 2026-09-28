@@ -62,3 +62,30 @@
   re-listed. The status line and the failures are now always shown, even
   when the user switched folders meanwhile (the File menu path used to drop
   them).
+
+## Step 3: Multi-selection in the folder tree
+
+- The selection model lives in `tree.ts` (`TreeSelection`, `selectOnly`,
+  `clickSelect`, `pruneSelection`) rather than reusing `selection.ts`: the
+  strip's model always keeps the focused file selected, while the tree's has
+  no such member (the open folder can be toggled off, and the selection can
+  go empty). The transitions mirror `click` otherwise.
+- Pruning runs at the top of `folders.ts`'s `render()` against the drawn
+  rows, so a collapse, a `tree-changed` re-list and a reveal all drop what is
+  no longer drawn in one place. `renamed()` rebases the selected paths
+  first, or the renamed folder would fall out of the selection.
+- The selection is reset to the opened folder in `reveal()`, which every
+  open goes through (tree click, Enter, drop, File > Open, the reopen at
+  launch), once at its start (the raw spelling) and again at its end (the
+  tree's spelling of the chain), so `aria-selected` follows the open folder.
+- The toggle modifier is `metaKey` on macOS and `ctrlKey` elsewhere (the
+  strip accepts either on every platform; the tree cannot, since macOS
+  Ctrl+click is the right-click `folders.ts` already guards). A Shift+click
+  `mousedown` is `preventDefault`ed so the webview does not select the rows'
+  text, and focuses the container by hand to keep "a click gives the tree the
+  keyboard".
+- `folderMenuGroups` gained a `count` parameter (default 1); with more than
+  one folder it returns only the trash group, and `root` then means "any
+  selected folder is a root". The context-menu callback gained a `targets`
+  argument (the selection in drawn order) that `main.ts` passes to
+  `trashRejectedIn`.

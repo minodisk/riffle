@@ -146,7 +146,7 @@ menu item stays, relabeled so its target is unambiguous.
       items are always offered; an empty result surfaces as the Step 1
       status message.
 
-- [ ] Step 3: Multi-selection in the folder tree, and trashing the selected folders together
+- [x] Step 3: Multi-selection in the folder tree, and trashing the selected folders together
   - Done when:
     - `tree.ts` gains a pure selection state alongside the cursor
       (`selected: ReadonlySet<string>`, `anchor: string | null`) and the
@@ -281,3 +281,4 @@ menu item stays, relabeled so its target is unambiguous.
   (`unread`), and the frontend words and counts the two differently.
 - (2026-09-28) Step 1 complete
 - (2026-09-28) Step 2 complete
+- (2026-09-28) Step 3 complete

@@ -70,6 +70,18 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the File menu item on that folder, without the folder picker (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
   keyboard (or takes it away); `Escape` or a click elsewhere closes the menu.
+  Several folders can be selected together: `Cmd+click` on macOS
+  (`Ctrl+click` elsewhere) adds a folder to the selection or removes it, and
+  `Shift+click` selects the visible folders between the last one clicked and
+  this one; neither opens a folder. A plain click, or opening a folder any
+  other way, selects that folder alone, and collapsing a folder drops the
+  folders under it from the selection. Right-clicking a selected folder acts
+  on the whole selection, right-clicking another selects it alone first.
+  With several folders selected the menu offers only
+  `Move Rejected in N Folders to Trash…` and
+  `Move Rejected in N Folders to Trash, Including Subfolders…` (the latter
+  not offered when a selected folder is home or a volume at the top level),
+  which trash the rejects of every selected folder in one go.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the
@@ -236,8 +248,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Move Rejected to Trash, Including Subfolders…` for it and every visible
   folder below it (hidden and dot folders are skipped, and a symbolic link is
   not followed). A folder never opened in Riffle counts too, its rejects read
-  from its sidecars. Both wait for a running scan the same way, and when the
-  folder holds no rejects the status line says so. When the open folder is
+  from its sidecars. With several folders selected in the tree, the same two
+  items act on all of them together. Both wait for a running scan the same
+  way, and when the folders hold no rejects the status line says so. When the open folder is
   among the folders trashed in, the strip is refreshed as with the File menu
   item.
 - **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the
