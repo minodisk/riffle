@@ -136,7 +136,7 @@ the cargo registry):
       watched folder is what the watcher is for; its `folder-changed` for
       the open folder coalesces with the explicit `resync`.
 
-- [ ] Step 2: macOS: keep the trashed URL and move the file back
+- [x] Step 2: macOS: keep the trashed URL and move the file back
   - Done when:
     - On macOS the mover in `commands.rs` no longer goes through
       `TrashContext::delete`; a `trash::macos` (or a `cfg`'d block in

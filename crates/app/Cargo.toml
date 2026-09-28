@@ -34,6 +34,16 @@ base64 = "0.22"
 axum = "0.8"
 tokio = { version = "1", features = ["net", "sync", "time"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "NSError",
+  "NSFileManager",
+  "NSString",
+  "NSURL",
+] }
+percent-encoding = "2.3.1"
+
 [dev-dependencies]
 mozjpeg = "0.10"
 tower = { version = "0.5", features = ["util"] }
