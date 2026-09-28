@@ -52,8 +52,10 @@ reject collection and the move behind the `trash_rejected_preview` and
 optionally with their subfolders, from the index rows or else the sidecars on
 disk, so a folder never opened counts too, counts them and their bytes per
 folder for the confirmation dialog, and moves each RAW and its sidecars to
-the OS trash), `src/sequence.rs` the
-`Sequence JPEG Timestamps…` commands (`sequence_preview`,
+the OS trash, recording every run that moved something in `Runs`, the newest
+100, which `trash_rejected_undo` takes one from to restore its files, RAW
+before its sidecars, never overwriting), `src/sequence.rs` the
+`File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
 `src/photolab.rs` the PhotoLab database lookup that gives a fresh `.dop` the

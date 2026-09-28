@@ -3,9 +3,13 @@
 //! pure so they can be tested without touching the real Trash; only
 //! `commands::trash_rejected_preview` and `commands::trash_rejected_run`
 //! supply the index rows and the mover that calls into the `trash` crate.
+//! Each run that moved something is recorded in `Runs`, and `restore` puts
+//! a recorded run back for `commands::trash_rejected_undo`, again through
+//! closures so the tests never touch the real Trash.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use riffle_core::Flag;
 use serde::Serialize;
@@ -59,6 +63,95 @@ pub struct Summary {
     pub moved: Vec<String>,
     pub failed: Vec<Failure>,
     pub unread: Vec<Failure>,
+    /// The recorded run `trash_rejected_undo` takes back, `None` when nothing
+    /// moved.
+    pub run_id: Option<u64>,
+}
+
+/// One file a run moved to the Trash: where it came from and, when the
+/// platform tells, where it went (`None` on Windows / Linux, where the
+/// Trash is listed at undo time instead).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Trashed {
+    pub path: PathBuf,
+    pub trashed_at: Option<PathBuf>,
+}
+
+/// One recorded run: every file it moved, each RAW followed by its sidecars
+/// in the order they were moved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrashRun {
+    pub id: u64,
+    pub moved: Vec<Trashed>,
+}
+
+/// How many runs `Runs` keeps, the frontend's undo history limit.
+pub const MAX_RUNS: usize = 100;
+
+/// The error `trash_rejected_undo` returns for a run `Runs` no longer holds.
+pub const RUN_GONE: &str = "this run can no longer be undone";
+
+/// The recorded runs, the newest `MAX_RUNS`, managed as app state. The ids
+/// come from a counter, so a forgotten run's id is never handed out again.
+#[derive(Default)]
+pub struct Runs(Mutex<RunsState>);
+
+#[derive(Default)]
+struct RunsState {
+    next_id: u64,
+    runs: Vec<TrashRun>,
+}
+
+impl Runs {
+    /// Record a run that moved `moved`, dropping the oldest past `MAX_RUNS`.
+    /// Nothing moved records nothing.
+    pub fn record(&self, moved: Vec<Trashed>) -> Option<u64> {
+        if moved.is_empty() {
+            return None;
+        }
+        let mut state = crate::index::lock(&self.0);
+        state.next_id += 1;
+        let id = state.next_id;
+        state.runs.push(TrashRun { id, moved });
+        if state.runs.len() > MAX_RUNS {
+            state.runs.remove(0);
+        }
+        Some(id)
+    }
+
+    /// Remove and return the run `id`: an undone run is forgotten, whatever
+    /// the outcome of its restore.
+    pub fn take(&self, id: u64) -> Option<TrashRun> {
+        let mut state = crate::index::lock(&self.0);
+        let at = state.runs.iter().position(|run| run.id == id)?;
+        Some(state.runs.remove(at))
+    }
+}
+
+/// What `trash_rejected_undo` returns: the RAWs that came back and every
+/// file, RAW or sidecar, that did not, with the reason.
+#[derive(Debug, Default, Serialize)]
+pub struct Restored {
+    pub restored: Vec<String>,
+    pub failed: Vec<Failure>,
+}
+
+impl Restored {
+    /// Every file of `run` failed with `message`, for a Trash that cannot be
+    /// read or restored from at all.
+    pub fn none(run: &TrashRun, message: &str) -> Self {
+        Restored {
+            restored: Vec::new(),
+            failed: run
+                .moved
+                .iter()
+                .map(|trashed| Failure {
+                    path: trashed.path.to_string_lossy().into_owned(),
+                    message: message.to_string(),
+                })
+                .collect(),
+        }
+    }
 }
 
 /// One folder's row in the confirmation dialog: how many RAWs are rejected
@@ -318,31 +411,139 @@ pub fn nothing_to_trash(dirs: &[String], recursive: bool) -> String {
 
 /// Move every group with `mover`, never stopping at a failure. The RAW goes
 /// first: when it fails its sidecars are left alone, so the judgment stays
-/// with the file.
-pub fn run(groups: Vec<Group>, mut mover: impl FnMut(&Path) -> Result<(), String>) -> Summary {
+/// with the file. `mover` returns where the file went when the platform
+/// tells; every file moved is listed, in order, next to the summary.
+pub fn run(
+    groups: Vec<Group>,
+    mut mover: impl FnMut(&Path) -> Result<Option<PathBuf>, String>,
+) -> (Summary, Vec<Trashed>) {
     let mut summary = Summary::default();
+    let mut moved = Vec::new();
     for group in groups {
         let raw = group.raw.to_string_lossy().into_owned();
-        if let Err(message) = mover(&group.raw) {
-            summary.failed.push(Failure { path: raw, message });
-            continue;
+        match mover(&group.raw) {
+            Ok(trashed_at) => moved.push(Trashed {
+                path: group.raw,
+                trashed_at,
+            }),
+            Err(message) => {
+                summary.failed.push(Failure { path: raw, message });
+                continue;
+            }
         }
         summary.moved.push(raw);
-        for sidecar in &group.sidecars {
-            if let Err(message) = mover(sidecar) {
-                summary.failed.push(Failure {
+        for sidecar in group.sidecars {
+            match mover(&sidecar) {
+                Ok(trashed_at) => moved.push(Trashed {
+                    path: sidecar,
+                    trashed_at,
+                }),
+                Err(message) => summary.failed.push(Failure {
                     path: sidecar.to_string_lossy().into_owned(),
                     message,
-                });
+                }),
             }
         }
     }
-    summary
+    (summary, moved)
+}
+
+/// The failure of a file whose original location holds a file again.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub const ALREADY_EXISTS: &str = "already exists at the original location";
+/// The failure of a file the Trash no longer holds.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub const NOT_IN_TRASH: &str = "not in the Trash (emptied or restored by hand)";
+/// The failure of a sidecar left in the Trash because its RAW did not come
+/// back.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub const RAW_NOT_RESTORED: &str = "left in the Trash: its RAW could not be restored";
+
+/// Put the files of `run` back in the recorded order, never stopping at a
+/// failure and never overwriting: a file whose original path `exists` fails,
+/// as does one `in_trash` finds no item for; otherwise `mover` restores the
+/// item. The RAW goes first, and when it does not come back its sidecars stay
+/// in the Trash (each reported), the mirror of `run`'s rule: a reject sidecar
+/// restored next to a different file that took the RAW's name would pin the
+/// judgment on that file.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn restore<I>(
+    run: &TrashRun,
+    mut in_trash: impl FnMut(&Trashed) -> Option<I>,
+    exists: impl Fn(&Path) -> bool,
+    mut mover: impl FnMut(&Trashed, I) -> Result<(), String>,
+) -> Restored {
+    let mut restored = Restored::default();
+    let mut raw_back = true;
+    for trashed in &run.moved {
+        let is_raw = riffle_core::scan::is_raw_file(&trashed.path);
+        let path = trashed.path.to_string_lossy().into_owned();
+        let result = if !is_raw && !raw_back {
+            Err(RAW_NOT_RESTORED.to_string())
+        } else if exists(&trashed.path) {
+            Err(ALREADY_EXISTS.to_string())
+        } else {
+            match in_trash(trashed) {
+                Some(item) => mover(trashed, item),
+                None => Err(NOT_IN_TRASH.to_string()),
+            }
+        };
+        if is_raw {
+            raw_back = result.is_ok();
+        }
+        match result {
+            Ok(()) if is_raw => restored.restored.push(path),
+            Ok(()) => {}
+            Err(message) => restored.failed.push(Failure { path, message }),
+        }
+    }
+    restored
+}
+
+/// `path` spelled the way the Trash's listing is matched against: without
+/// the Windows verbatim prefix the app's canonical paths carry (the listing
+/// has none) and, on Windows, lowercase, since its file names are
+/// case-insensitive.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn trash_key(path: &Path) -> String {
+    let path = path.to_string_lossy();
+    let path = if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(&path).to_string()
+    };
+    if cfg!(windows) {
+        path.to_lowercase()
+    } else {
+        path
+    }
+}
+
+/// The items of the Trash keyed by `trash_key` of their original path, the
+/// newest `time_deleted` winning when the same path was trashed more than
+/// once.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash::TrashItem> {
+    let mut newest: HashMap<String, ::trash::TrashItem> = HashMap::new();
+    for item in items {
+        let key = trash_key(&item.original_path());
+        if newest
+            .get(&key)
+            .is_none_or(|kept| kept.time_deleted < item.time_deleted)
+        {
+            newest.insert(key, item);
+        }
+    }
+    newest
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{bytes, collect, nothing_to_trash, preview, run, Collection, FolderCount, Group};
+    use super::{
+        bytes, collect, newest_by_path, nothing_to_trash, preview, restore, run, trash_key,
+        Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed, ALREADY_EXISTS,
+        MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+    };
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
     use riffle_core::Flag;
@@ -416,14 +617,201 @@ mod tests {
 
     /// A mover that renames into `trash` instead of the real Trash, and fails
     /// for any path whose file name contains `fail`.
-    fn mover(trash: PathBuf) -> impl FnMut(&Path) -> Result<(), String> {
+    fn mover(trash: PathBuf) -> impl FnMut(&Path) -> Result<Option<PathBuf>, String> {
         move |path: &Path| {
             let name = path.file_name().unwrap();
             if name.to_string_lossy().contains("fail") {
                 return Err("refused".to_string());
             }
-            std::fs::rename(path, trash.join(name)).map_err(|e| e.to_string())
+            let to = trash.join(name);
+            std::fs::rename(path, &to).map_err(|e| e.to_string())?;
+            Ok(Some(to))
         }
+    }
+
+    fn trashed(path: &str) -> Trashed {
+        Trashed {
+            path: PathBuf::from(path),
+            trashed_at: None,
+        }
+    }
+
+    fn trash_run(paths: &[&str]) -> TrashRun {
+        TrashRun {
+            id: 1,
+            moved: paths.iter().map(|p| trashed(p)).collect(),
+        }
+    }
+
+    /// Restore `run` against a Trash holding `in_trash` and a disk holding
+    /// `on_disk`, recording the paths the mover was asked to restore.
+    fn restore_with(
+        run: &TrashRun,
+        in_trash: &[&str],
+        on_disk: &[&str],
+    ) -> (Restored, Vec<String>) {
+        let mut asked = Vec::new();
+        let restored = restore(
+            run,
+            |t| {
+                let path = t.path.to_string_lossy().into_owned();
+                in_trash.contains(&path.as_str()).then_some(path)
+            },
+            |p| on_disk.contains(&p.to_string_lossy().as_ref()),
+            |_, item| {
+                asked.push(item);
+                Ok(())
+            },
+        );
+        (restored, asked)
+    }
+
+    fn failures(restored: &Restored) -> Vec<(&str, &str)> {
+        restored
+            .failed
+            .iter()
+            .map(|f| (f.path.as_str(), f.message.as_str()))
+            .collect()
+    }
+
+    #[test]
+    fn a_full_run_is_restored_raw_first() {
+        let run = trash_run(&["a.ARW", "a.xmp", "a.ARW.dop", "b.DNG"]);
+        let (restored, asked) = restore_with(&run, &["a.ARW", "a.xmp", "a.ARW.dop", "b.DNG"], &[]);
+        assert_eq!(restored.restored, ["a.ARW", "b.DNG"]);
+        assert!(restored.failed.is_empty());
+        assert_eq!(asked, ["a.ARW", "a.xmp", "a.ARW.dop", "b.DNG"]);
+    }
+
+    #[test]
+    fn a_raw_back_already_keeps_its_sidecars_in_the_trash() {
+        let run = trash_run(&["a.ARW", "a.xmp", "b.ARW", "b.xmp"]);
+        let (restored, asked) =
+            restore_with(&run, &["a.ARW", "a.xmp", "b.ARW", "b.xmp"], &["a.ARW"]);
+        assert_eq!(restored.restored, ["b.ARW"]);
+        assert_eq!(
+            failures(&restored),
+            [("a.ARW", ALREADY_EXISTS), ("a.xmp", RAW_NOT_RESTORED)]
+        );
+        assert_eq!(asked, ["b.ARW", "b.xmp"]);
+    }
+
+    #[test]
+    fn a_raw_whose_restore_fails_keeps_its_sidecars_in_the_trash() {
+        let run = trash_run(&["a.ARW", "a.xmp", "b.ARW"]);
+        let mut asked = Vec::new();
+        let restored = restore(
+            &run,
+            |t| Some(t.path.clone()),
+            |_| false,
+            |t, _| {
+                asked.push(t.path.clone());
+                if t.path == Path::new("a.ARW") {
+                    Err("refused".to_string())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(restored.restored, ["b.ARW"]);
+        assert_eq!(
+            failures(&restored),
+            [("a.ARW", "refused"), ("a.xmp", RAW_NOT_RESTORED)]
+        );
+        assert_eq!(asked, [PathBuf::from("a.ARW"), PathBuf::from("b.ARW")]);
+    }
+
+    #[test]
+    fn a_sidecar_missing_from_the_trash_is_reported_and_its_raw_comes_back() {
+        let run = trash_run(&["a.ARW", "a.xmp", "a.ARW.dop"]);
+        let (restored, asked) = restore_with(&run, &["a.ARW", "a.ARW.dop"], &[]);
+        assert_eq!(restored.restored, ["a.ARW"]);
+        assert_eq!(failures(&restored), [("a.xmp", NOT_IN_TRASH)]);
+        assert_eq!(asked, ["a.ARW", "a.ARW.dop"]);
+    }
+
+    #[test]
+    fn an_emptied_trash_reports_every_file() {
+        let run = trash_run(&["a.ARW", "a.xmp", "b.ARW"]);
+        let (restored, asked) = restore_with(&run, &[], &[]);
+        assert!(restored.restored.is_empty());
+        assert_eq!(
+            failures(&restored),
+            [
+                ("a.ARW", NOT_IN_TRASH),
+                ("a.xmp", RAW_NOT_RESTORED),
+                ("b.ARW", NOT_IN_TRASH)
+            ]
+        );
+        assert!(asked.is_empty());
+    }
+
+    #[test]
+    fn an_unreadable_trash_fails_every_file() {
+        let run = trash_run(&["a.ARW", "a.xmp"]);
+        assert_eq!(
+            failures(&Restored::none(&run, "no Trash")),
+            [("a.ARW", "no Trash"), ("a.xmp", "no Trash")]
+        );
+    }
+
+    fn item(parent: &str, name: &str, time_deleted: i64) -> ::trash::TrashItem {
+        ::trash::TrashItem {
+            id: format!("{parent}/{name}@{time_deleted}").into(),
+            name: name.into(),
+            original_parent: PathBuf::from(parent),
+            time_deleted,
+        }
+    }
+
+    #[test]
+    fn the_newest_item_of_a_path_wins() {
+        let items = newest_by_path(vec![
+            item("/photos", "a.ARW", 10),
+            item("/photos", "a.ARW", 30),
+            item("/photos", "a.ARW", 20),
+            item("/photos", "b.ARW", 5),
+        ]);
+        assert_eq!(items.len(), 2);
+        let a = &items[&trash_key(&Path::new("/photos").join("a.ARW"))];
+        assert_eq!(a.time_deleted, 30);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_plain_path_keys_as_it_is_spelled_off_windows() {
+        assert_eq!(trash_key(Path::new("/photos/A.ARW")), "/photos/A.ARW");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_verbatim_path_matches_the_listing_whatever_the_case() {
+        assert_eq!(
+            trash_key(Path::new(r"\\?\C:\Photos\A.ARW")),
+            trash_key(Path::new(r"C:\photos\a.arw"))
+        );
+        assert_eq!(
+            trash_key(Path::new(r"\\?\UNC\nas\share\A.ARW")),
+            trash_key(Path::new(r"\\NAS\share\a.ARW"))
+        );
+        assert_eq!(trash_key(Path::new(r"\\?\C:\A.ARW")), r"c:\a.arw");
+        let items = newest_by_path(vec![item(r"C:\Photos", "A.ARW", 1)]);
+        assert!(items.contains_key(&trash_key(Path::new(r"\\?\C:\photos\a.ARW"))));
+    }
+
+    #[test]
+    fn runs_keep_the_newest_and_forget_an_undone_one() {
+        let runs = Runs::default();
+        assert_eq!(runs.record(Vec::new()), None);
+        let ids: Vec<u64> = (0..=MAX_RUNS)
+            .map(|_| runs.record(vec![trashed("a.ARW")]).unwrap())
+            .collect();
+        assert_eq!(runs.take(ids[0]), None);
+        let last = *ids.last().unwrap();
+        assert_eq!(runs.take(ids[1]).unwrap().id, ids[1]);
+        assert_eq!(runs.take(last).unwrap().moved, [trashed("a.ARW")]);
+        assert_eq!(runs.take(last), None);
+        assert!(runs.record(vec![trashed("b.ARW")]).unwrap() > last);
     }
 
     #[test]
@@ -835,7 +1223,20 @@ mod tests {
                 sidecars: vec![dir.join(format!("{name}.xmp"))],
             })
             .collect();
-        let summary = run(groups, mover(trash.clone()));
+        let (summary, moved) = run(groups, mover(trash.clone()));
+        assert_eq!(
+            moved,
+            [
+                Trashed {
+                    path: dir.join("ok.ARW"),
+                    trashed_at: Some(trash.join("ok.ARW")),
+                },
+                Trashed {
+                    path: dir.join("ok.xmp"),
+                    trashed_at: Some(trash.join("ok.xmp")),
+                },
+            ]
+        );
         assert_eq!(summary.moved, [key(&dir.join("ok.ARW"))]);
         assert_eq!(summary.failed.len(), 1);
         assert_eq!(summary.failed[0].path, key(&dir.join("fail.ARW")));
@@ -856,7 +1257,11 @@ mod tests {
             raw: dir.join("d.ARW"),
             sidecars: vec![dir.join("fail.xmp"), dir.join("d.ARW.dop")],
         }];
-        let summary = run(groups, mover(trash.clone()));
+        let (summary, moved) = run(groups, mover(trash.clone()));
+        assert_eq!(
+            moved.iter().map(|t| t.path.clone()).collect::<Vec<_>>(),
+            [dir.join("d.ARW"), dir.join("d.ARW.dop")]
+        );
         assert_eq!(summary.moved, [key(&dir.join("d.ARW"))]);
         assert_eq!(summary.failed.len(), 1);
         assert_eq!(summary.failed[0].path, key(&dir.join("fail.xmp")));
