@@ -159,7 +159,7 @@ learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
       right count (and the singular for one file) with `Move to Trash` /
       `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
       plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
-      next passing file; the zero-reject, no-folder and mid-scan cases each
+      next passing file; the zero-reject and no-folder cases each
       write their message to `#status`; a "Put Back" from the Trash restores
       the file with its judgment, and if no "Put Back" entry exists, that
       dragging it out does.
@@ -1066,6 +1066,58 @@ while the tree-watch work was touching it. Files:
 
 - [ ] Once the tree-watch work has landed, remove the unused `renameAllowed`
       parameter from `folders.init` and its call site in `main.ts`.
+
+### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open
+
+#### Background
+
+`wait-for-scan` made `File > Move Rejected to Trash…`, the folder / file
+`Rename…` and the settings modal's `Clear Cache` wait for a running scan
+instead of refusing with `a scan is running; wait for it to finish`: the
+frontend's `IdleGate` holds one pressed operation (a second press replaces
+it), the status line names what is waiting, and the held operation runs when
+the scan ends. The backend `SCAN_RUNNING` refusals in
+`crates/app/src/commands.rs` remain as the last line of defense. None of it
+has been run by hand; the user's Windows setup is where these checks will
+first be run. The trash confirmation is now an in-window HTML dialog
+(`trash-rejected-from-tree`, #529), so the archived plan's "closing the
+confirm dialog refocuses the window" race no longer applies to trash, only to
+Clear Cache's native confirm. The Clear Cache checks live in
+`### App: the Clear Cache button's manual GUI verification is still open`
+and are not repeated here. Basis: `wait-for-scan`
+(`docs/plans/_archived/20260928-wait-for-scan/plan.md`, #519 and #522).
+Files: `crates/app/ui/src/idle.ts`, `crates/app/ui/src/main.ts` (`whenIdle`,
+`settleIdle`, `trashRejectedIn`, `renameFolder`, `renameFile`, the
+`faces-done` `idle.drain()` and the `openDirectory` `idle.discard()`),
+`crates/app/ui/src/strip.ts` (`setFiles` carrying the live inline edit across
+a rebuild).
+
+#### TODO
+
+- [ ] In an ARW folder, reject a file, switch to a terminal and straight back
+      (the `tauri://focus` `resync()` starts a rescan), press
+      `File > Move Rejected to Trash…`: the status line briefly shows
+      `Move Rejected to Trash: waiting for the scan to finish` and the
+      in-window trash dialog (`#trash-dialog`) follows with no error.
+- [ ] During a long first scan (thousands of files) press Move Rejected to
+      Trash: the status line stays visible for the whole scan and the dialog
+      appears when the scan ends.
+- [ ] Un-reject a file while the trash waits: it is absent from the dialog's
+      counts and is not trashed (the held closure calls
+      `trash_rejected_preview` at run time, not press time).
+- [ ] Switch folders while an operation waits: it is dropped
+      (`idle.discard()` in `openDirectory`) and the status line clears.
+- [ ] Rename a folder (tree inline edit) and a file (strip inline edit)
+      during a scan: the edit starts at once, the status line shows
+      `Rename…: waiting for the scan to finish`, the rename runs when the
+      scan ends, and the folder reopens at the new path; an inline edit still
+      being typed survives the strip being rebuilt by the scan's `setFiles`
+      without losing typed text or confirming early.
+- [ ] Pressing `Move to Trash` in the trash dialog (`trash_rejected_run`
+      through `settleIdle`) and confirming a rename never make the backend
+      refuse with `a scan is running`; the native-confirm refocus case
+      (closing a dialog refocuses `main` and `resync()` starts a scan) is
+      Clear Cache's and is covered by that item's check (3).
 
 ### Agents: Bash-tool heredocs on Windows mangle doubled backslashes
 
