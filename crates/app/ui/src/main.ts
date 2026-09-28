@@ -2812,6 +2812,18 @@ void window.__TAURI__.event.listen("undo", () => {
 void window.__TAURI__.event.listen("redo", () => {
   if (!modalOpen()) redo();
 });
+// The `View` items: each runs its action as the key does, under the same gates.
+void window.__TAURI__.event.listen<string>("menu-action", ({ payload }) => {
+  if (
+    !formatDialog.hidden ||
+    modalOpen() ||
+    (folders.hasFocus() && treeGate(payload) === "swallow")
+  ) {
+    return;
+  }
+  closeContextMenu();
+  runAction(payload);
+});
 // `Edit > Select All` replaces the predefined item, so it selects a focused
 // text input's text itself, and otherwise gates on focus as the keydown path
 // does. If the accelerator also reaches the keydown handler, the second run

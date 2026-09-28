@@ -165,6 +165,43 @@ opt-in `set_icon_as_template` API, against muda `dev`.
 Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 `tools/macos/export-menu-icons.swift`.
 
+### App: real-device checks for the View menu
+
+`view-menu` (docs/plans/_archived/20260928-view-menu/plan.md) added a native
+`View` menu (`Left Pane`, `Right Pane`, `Both Side Panes`, `Filmstrip`,
+`Focus Mark`, `1:1 Zoom`, `Compare`) that emits `menu-action` and mirrors each
+action's rebindable accelerator. CI covers the build and the keymap coverage
+test, but the menu itself was never exercised on a real machine, and the macOS
+`cfg` branch of `app_menu::build` was only reviewed by reading.
+
+#### TODO
+
+- [ ] On Windows, click each View item with the mouse and confirm it does what
+      its key does (the filmstrip / side panes toggle, the focus mark, 1:1
+      zoom and compare switch).
+- [ ] On Windows, rebind `Show / hide the filmstrip` to a modified key (e.g.
+      `ctrl+alt+s`) in the settings modal: the `Filmstrip` item shows it, one
+      press toggles the filmstrip exactly once (no double fire from keydown
+      plus the accelerator), and `Reset` blanks the item's accelerator again.
+      If it double-fires, pass `None` as the View items' accelerator.
+- [ ] On macOS, confirm the View items sit above `Enter Full Screen` with a
+      separator and work the same way.
+
+### App: the View menu items have no macOS SF Symbol icons
+
+`view-menu` added the `View` items (`Left Pane`, `Right Pane`,
+`Both Side Panes`, `Filmstrip`, `Focus Mark`, `1:1 Zoom`, `Compare`) as plain
+`MenuItem`s, unlike the File / Help items, which carry SF Symbol PNGs on
+macOS. The PNGs are exported by `tools/macos/export-menu-icons.swift`, which
+needs macOS, and the change was made on Windows.
+
+#### TODO
+
+- [ ] On macOS, export SF Symbol PNGs for the seven View items and turn them
+      into `IconMenuItem`s under `#[cfg(target_os = "macos")]`. Files:
+      `crates/app/src/main.rs` (`app_menu`, `VIEW_ITEMS`),
+      `crates/app/icons/menu/`, `tools/macos/export-menu-icons.swift`.
+
 ### App: the real-device checks for the File menu accelerators are still open
 
 From `menu-accelerators`'s implementation: the GUI could not be driven from
@@ -1090,3 +1127,11 @@ as scoped out of
 
 - [ ] Decide whether `reveal`'s listing failures should also set the `failed`
       mark, and implement it if so.
+
+### App: deleting the focused file from outside the app moves focus to the first file, not its neighbour
+
+Found while verifying docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md on Windows. When the focused file is deleted from outside the app, `resync` in `crates/app/ui/src/main.ts` looks the vanished anchor up in the newly listed files; `anchorAfterFilter` in `crates/app/ui/src/filter.ts` gets index `-1` for the missing anchor and so picks the first passing file instead of the deleted file's former neighbour. The strip then scrolls to the first file.
+
+#### TODO
+
+- [ ] Fall back to the vanished anchor's neighbour in the previous list (the next file, else the previous one) instead of the first passing file, with a Vitest case in `filter.test.ts`. Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/filter.ts`.
