@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.1.0](https://github.com/minodisk/riffle/compare/v1.0.0...v1.1.0) (2026-09-28)
+
+
+### Features
+
+* **app:** add file rename from the strip's context menu ([#507](https://github.com/minodisk/riffle/issues/507)) ([101114d](https://github.com/minodisk/riffle/commit/101114d39cf09280de870553c24f1a294924d58f))
+* **app:** add the rename_file backend command ([#505](https://github.com/minodisk/riffle/issues/505)) ([d1efbeb](https://github.com/minodisk/riffle/commit/d1efbeb44351cdac91a4847e81ff1ad3e53f9d0c))
+* **app:** add trash-rejected right-click items to the folder tree ([#521](https://github.com/minodisk/riffle/issues/521)) ([8e3f4a9](https://github.com/minodisk/riffle/commit/8e3f4a950b18156eefd33458698e4a585226dd78))
+* **app:** collect rejects over folders for trash_rejected ([#518](https://github.com/minodisk/riffle/issues/518)) ([2d80038](https://github.com/minodisk/riffle/commit/2d8003853fef9111da463a27e0dee7d516521760))
+* **app:** confirm trashing rejects in a dialog with per-folder counts and the space freed ([#529](https://github.com/minodisk/riffle/issues/529)) ([52ea0d9](https://github.com/minodisk/riffle/commit/52ea0d9a9053a3213fa55570ef6db2489822501c))
+* **app:** hold Clear Cache until the scan ends ([#522](https://github.com/minodisk/riffle/issues/522)) ([a253780](https://github.com/minodisk/riffle/commit/a2537809c8034fc5d3c83f5fb707f74708ec3675))
+* **app:** hold Move Rejected to Trash and renames until the scan ends ([#519](https://github.com/minodisk/riffle/issues/519)) ([175b159](https://github.com/minodisk/riffle/commit/175b1594d0ac8e87376b842ece52f8197952d030))
+* **app:** record each trash run and restore it on Windows and Linux ([#540](https://github.com/minodisk/riffle/issues/540)) ([7756f79](https://github.com/minodisk/riffle/commit/7756f792e411a216a79c907525e2cd4295b704d8))
+* **app:** remove the folder-targeted items from the File menu ([#537](https://github.com/minodisk/riffle/issues/537)) ([d778edf](https://github.com/minodisk/riffle/commit/d778edf29818d67ad16de7bb84ce043c4d7a7655))
+* **app:** replace the app icon with the film-frame design ([#532](https://github.com/minodisk/riffle/issues/532)) ([f0b3e8b](https://github.com/minodisk/riffle/commit/f0b3e8b01c6710b626ddf353126161473fdd0ba1))
+* **app:** select several folders in the tree and trash their rejects together ([#526](https://github.com/minodisk/riffle/issues/526)) ([cf72d6f](https://github.com/minodisk/riffle/commit/cf72d6faff74549d86eb4cd7176431915e653141))
+* **app:** show position/count on every burst member cell ([#510](https://github.com/minodisk/riffle/issues/510)) ([6c41ad0](https://github.com/minodisk/riffle/commit/6c41ad067c503832554bd5ecd6fb2f2643564e1c))
+* **app:** sync the folder tree's watched set and re-list on tree-changed ([#520](https://github.com/minodisk/riffle/issues/520)) ([0a7c6d6](https://github.com/minodisk/riffle/commit/0a7c6d6b856261dc72cc0ebea1b19baff92cb151))
+* **app:** undo a Move Rejected to Trash run with Edit &gt; Undo ([#549](https://github.com/minodisk/riffle/issues/549)) ([f91c7b8](https://github.com/minodisk/riffle/commit/f91c7b8b55b21bebc108a02a93271a72c84c7d8f))
+* **app:** watch the folder tree's expanded folders from the backend ([#517](https://github.com/minodisk/riffle/issues/517)) ([b652608](https://github.com/minodisk/riffle/commit/b6526082f39ee7bca32476e6ab14bbb2dde3d33b))
+* **skills:** add the delegate skill that hands a task to a new herdr worktree ([#511](https://github.com/minodisk/riffle/issues/511)) ([38a1e0d](https://github.com/minodisk/riffle/commit/38a1e0d580c4979c188de2802f98193406d06058))
+* **stats:** snapshot release download counts daily to the stats branch ([#533](https://github.com/minodisk/riffle/issues/533)) ([243d578](https://github.com/minodisk/riffle/commit/243d5781b32abec25c87db8efa5a332d0a71565f))
+
+
+### Bug Fixes
+
+* **app:** keep the strip's scroll and thumbnails across a rescan ([#528](https://github.com/minodisk/riffle/issues/528)) ([05099f3](https://github.com/minodisk/riffle/commit/05099f351f49d67acc90b82ee2418d3189aeb211))
+* **app:** keep the trashed URL on macOS and restore a run from it ([#547](https://github.com/minodisk/riffle/issues/547)) ([64b8bc8](https://github.com/minodisk/riffle/commit/64b8bc80aeebed52bbcbaca7e658c03f1f8d733d))
+* **app:** move the selection with the focus on a single-file undo / redo ([#509](https://github.com/minodisk/riffle/issues/509)) ([3c0342e](https://github.com/minodisk/riffle/commit/3c0342e73b0e9a643b94d5ad6c4c59f158aff967))
+* **app:** select only the resumed file when a folder reopens ([#535](https://github.com/minodisk/riffle/issues/535)) ([6e48e5d](https://github.com/minodisk/riffle/commit/6e48e5da9517ecd6bda8144a7d97c5ba89f5470c))
+* **app:** show the Sequence folder-level error as a sticky error ([#512](https://github.com/minodisk/riffle/issues/512)) ([b77412c](https://github.com/minodisk/riffle/commit/b77412c80dcb8e178d4fea5b4b223060cd74d2d9))
+* land five small todo fixes ([#543](https://github.com/minodisk/riffle/issues/543)) ([7aaab7a](https://github.com/minodisk/riffle/commit/7aaab7a67d8ed79397f87cfa83594af5c39ff175))
+
 ## [1.0.0](https://github.com/minodisk/riffle/compare/v0.4.0...v1.0.0) (2026-09-27)
 
 
