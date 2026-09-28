@@ -147,7 +147,7 @@ fn release(state: &mut State, dir: &str) -> Option<(String, String)> {
 /// is a sidecar of either format or a sidecar write temporary, which is what
 /// the app's own writes produce. An event without paths says nothing, so it
 /// triggers.
-fn triggers(paths: &[PathBuf]) -> bool {
+pub(crate) fn triggers(paths: &[PathBuf]) -> bool {
     paths.is_empty()
         || !paths.iter().all(|path| {
             let Some(name) = path.file_name().map(|n| n.to_string_lossy()) else {

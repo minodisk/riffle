@@ -51,7 +51,7 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
 
 ## Steps
 
-- [ ] Step 1: Backend tree watchers: `set_tree_watches` command, per-folder debounced `tree-changed`, release / restore around `rename_folder`
+- [x] Step 1: Backend tree watchers: `set_tree_watches` command, per-folder debounced `tree-changed`, release / restore around `rename_folder`
   - Done when:
     - A new module `crates/app/src/treewatch.rs` holds a managed state
       `TreeWatch` (registered in `main.rs`'s `setup` next to

@@ -65,11 +65,12 @@ pub fn folder_target(dir: &Path, name: &str) -> Result<PathBuf, String> {
 
 /// Rename the folder `dir` to `name`, refusing while a scan runs. The sidecar
 /// writer is drained first and the `Scans` lock held across the rename and the
-/// index write, as in `trash_rejected`. The watcher is released before the
-/// rename (Windows refuses to rename a watched folder or its parent); the
-/// frontend's reopen under the new path sets it again. A failed rename
-/// changes nothing, and puts the released watch back since there is no reopen
-/// to set it again; a failed index write after a successful rename still
+/// index write, as in `trash_rejected`. The watcher and the folder tree's
+/// watches on the folder and under it are released before the rename
+/// (Windows refuses to rename a folder with a watched descendant); the
+/// frontend's reopen and tree re-render under the new path set them again. A
+/// failed rename changes nothing, and puts the released watches back since
+/// there is no reopen to set them again; a failed index write after a successful rename still
 /// returns `Ok` (the disk is the source of truth, so the caller must rebase
 /// and reopen under the new path) with a warning, and only costs a
 /// re-extraction on the next open.
@@ -97,10 +98,12 @@ pub async fn rename_folder(
             .to_string_lossy()
             .into_owned();
         let released = crate::watch::release_under(&app, &old);
+        let released_tree = crate::treewatch::release_under(&app, &old);
         if let Err(e) = std::fs::rename(&dir, &target) {
             if let Some((dir, owner)) = released {
                 crate::watch::set(&app, &dir, &owner);
             }
+            crate::treewatch::restore(&app, released_tree);
             return Err(format!("{name}: {e}"));
         }
         let new = std::fs::canonicalize(&target).map_or_else(
