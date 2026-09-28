@@ -57,7 +57,7 @@ items.
 
 ## Steps
 
-- [ ] Step 1: Write the two new `docs/agents/` guides and the threshold-verification note, and cross-link the guides
+- [x] Step 1: Write the two new `docs/agents/` guides and the threshold-verification note, and cross-link the guides
   - Done when:
     - `docs/agents/raw-metadata-parsing.md` exists and covers, each checked
       against the current `crates/core/src/arw.rs`: (a) the Sony MakerNote
@@ -190,4 +190,4 @@ items.
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete
