@@ -816,11 +816,18 @@ docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the front
 
 - [ ] Investigate why the cold `folder_entries` read costs 321 ms on 2134 rows and whether it can be reduced (indexing, query shape, or caching), verified by a measurement with `Timing logs` on before/after.
 
-### App: `File > Sequence JPEG Timestamps…` has no macOS menu icon
+### App: `crates/app/src/sequence.rs`'s comment still describes a picker-based flow
 
-Closed: `docs/plans/20260928-file-menu-folder-items/plan.md` removed the
-`File > Sequence JPEG Timestamps…` menu item entirely (it moved to the
-folder tree's right-click menu only), so this TODO no longer applies.
+The header comment says the sequenced output goes to "a sibling of the
+picked folder", but since `docs/plans/_archived/20260928-file-menu-folder-items/plan.md`
+removed the File-menu picker path, the folder is now always the one
+right-clicked in the tree. Left as-is when the plan closed to keep the
+change to the header line the plan named.
+
+#### TODO
+
+- [ ] Update the comment in `crates/app/src/sequence.rs` to describe the
+      tree-right-click flow instead of the removed picker.
 
 ### App: hand-check the sequence-run output-folder reveal on Windows
 
