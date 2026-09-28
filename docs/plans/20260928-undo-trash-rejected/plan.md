@@ -258,7 +258,7 @@ the cargo registry):
     - Keep the `errors` wording parallel to the run's ("could not move to
       the Trash" / "could not restore from the Trash").
 
-- [ ] Step 4: `Edit > Redo` moves the restored files to the Trash again
+- [x] Step 4: `Edit > Redo` moves the restored files to the Trash again
   - Done when:
     - New command `trash_rejected_redo(run_id)` (or `trash_paths`): moves
       the exact RAW and sidecar paths the undone run restored back to the

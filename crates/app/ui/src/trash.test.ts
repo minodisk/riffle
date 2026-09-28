@@ -10,7 +10,7 @@ import {
   restoredInto,
   restoredStatus,
   shownPath,
-  stillUndoable,
+  stillHeld,
   totalLine,
   trashedStatus,
 } from "./trash.js";
@@ -113,13 +113,14 @@ describe("restoredInto", () => {
   });
 });
 
-describe("stillUndoable", () => {
+describe("stillHeld", () => {
   test("keeps a run the backend refused while a scan ran", () => {
-    expect(stillUndoable("a scan is running; wait for it to finish")).toBe(true);
+    expect(stillHeld("a scan is running; wait for it to finish")).toBe(true);
   });
 
-  test("drops a run the backend no longer holds", () => {
-    expect(stillUndoable("this run can no longer be undone")).toBe(false);
+  test("drops a run the backend no longer holds, to undo or to redo", () => {
+    expect(stillHeld("this run can no longer be undone")).toBe(false);
+    expect(stillHeld("this run can no longer be redone")).toBe(false);
   });
 });
 

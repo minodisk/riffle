@@ -15,6 +15,13 @@ export function isJudgments<J>(entry: Entry<J>): entry is J[] {
   return Array.isArray(entry);
 }
 
+// The redo entry of the undone trash run `entry`: the backend keeps only the
+// files that came back, so it counts the `restored` RAWs alone, and there is
+// nothing to redo when none came back.
+export function undoneTrash(entry: TrashEntry, restored: string[]): TrashEntry | null {
+  return restored.length === 0 ? null : { ...entry, count: restored.length };
+}
+
 // Rewrite every judgment of a batch through `fn`, leaving a trash entry as is.
 export function mapJudgments<J>(fn: (judgment: J) => J): (entry: Entry<J>) => Entry<J> {
   return (entry) => (isJudgments(entry) ? entry.map(fn) : entry);

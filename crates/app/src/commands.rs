@@ -2156,7 +2156,8 @@ pub async fn trash_rejected_run(
 /// Move every file the run `run_id` of `trash_rejected_run` moved back to
 /// where it came from, RAW before its sidecars, never overwriting (see
 /// `trash::restore`). An unknown run is an `Err`; a run is forgotten once
-/// undone, whatever came back.
+/// undone, whatever came back, and what came back is kept for
+/// `trash_rejected_redo` under the same id.
 ///
 /// A running scan is refused under the `Scans` lock, which is held across
 /// the moves. The sidecar writer is not drained: nothing pending can target
@@ -2177,10 +2178,49 @@ pub async fn trash_rejected_undo(
             .state::<trash::Runs>()
             .take(run_id)
             .ok_or_else(|| trash::RUN_GONE.to_string())?;
-        let restored = restore_run(&run);
+        let mut restored = restore_run(&run);
         log::info!("restored rejected files from the trash: {restored:?}");
+        app.state::<trash::Runs>()
+            .undone(run.id, std::mem::take(&mut restored.back));
         drop(state);
         Ok(restored)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Move the files the undo of run `run_id` brought back to the Trash again,
+/// exactly those, RAW before its sidecars, with no dialog and no new
+/// collection (see `trash::redo`); a file gone meanwhile is a failure. The
+/// move is recorded as a new run, whose id the `Summary` carries. An
+/// unknown run is an `Err`; it is forgotten once redone.
+///
+/// The guards are `trash_rejected_run`'s: the sidecar writer is drained
+/// first, and a running scan is refused under the `Scans` lock, which is
+/// held across the moves.
+#[tauri::command]
+pub async fn trash_rejected_redo(
+    app: tauri::AppHandle,
+    run_id: u64,
+) -> Result<trash::Summary, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Summary, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let runs = app.state::<trash::Runs>();
+        let paths = runs
+            .take_undone(run_id)
+            .ok_or_else(|| trash::UNDONE_GONE.to_string())?;
+        let (mut summary, moved) = trash::redo(paths, Path::exists, trash_one);
+        summary.run_id = runs.record(moved);
+        log::info!("moved restored files to the trash again: {summary:?}");
+        drop(state);
+        Ok(summary)
     })
     .await
     .map_err(|e| e.to_string())?

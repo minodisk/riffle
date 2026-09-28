@@ -35,7 +35,8 @@ export type TrashSummary = {
 };
 
 // What `trash_rejected_undo` returns: the RAWs that came back, and every
-// file (RAW or sidecar) that did not, with the reason.
+// file (RAW or sidecar) that did not, with the reason. The backend keeps
+// what came back, sidecars included, for `trash_rejected_redo`.
 export type TrashRestored = {
   restored: string[];
   failed: TrashFailure[];
@@ -111,12 +112,13 @@ export function restoredInto(openDir: string, restored: string[], allFiles: stri
   );
 }
 
-// The backend's refusal of a run it no longer holds; any other failure (a
-// scan that slipped in) leaves the run undoable later.
-const RUN_GONE = "this run can no longer be undone";
+// The backend's refusals of a run it no longer holds, to undo or to redo;
+// any other failure (a scan that slipped in) leaves the run undoable or
+// redoable later.
+const RUN_GONE = ["this run can no longer be undone", "this run can no longer be redone"];
 
-export function stillUndoable(err: string): boolean {
-  return err !== RUN_GONE;
+export function stillHeld(err: string): boolean {
+  return !RUN_GONE.includes(err);
 }
 
 // Whether `openDir` is one of `dirs`, or under one of them when the command

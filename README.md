@@ -130,7 +130,8 @@ DxO PhotoLab.
   the total space freed before anything moves. Nothing is deleted, and one
   `Edit > Undo` brings the whole move back with the judgments; a file with
   the same name at the original location, an emptied Trash or a file already
-  restored by hand is reported and left as it is.
+  restored by hand is reported and left as it is. `Edit > Redo` then moves
+  what came back to the Trash again.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, right-click the export folder in the
   folder tree and choose `Sequence JPEG Timestamps…` to space the capture
