@@ -506,6 +506,45 @@ compilation (`MenuItem` no longer in scope there).
 - Source: `docs/plans/_archived/20260920-scan-timing-logs/learnings.md`,
   "Merge conflict with concurrently-landed macOS menu icon work".
 
+### This machine cannot compile the macOS target; check `objc2` code in a scratch crate (Hit)
+
+`cargo check --target aarch64-apple-darwin` fails here because
+`objc2-exception-helper`'s build script needs a C compiler for that target;
+the macOS `cfg` branches of `crates/app` are verified only by CI's macOS
+job. To partially self-check new macOS-only code (e.g. `objc2-foundation`
+calls) before pushing, copy just that code into a scratch crate depending
+on the same `objc2-foundation` / `percent-encoding` versions pinned in
+`Cargo.lock`, and run `cargo check` / `cargo clippy -D warnings --target
+aarch64-apple-darwin` on the scratch crate. This does not compile the rest
+of the macOS cfg (command wiring, `dead_code` attributes elsewhere), so
+still expect CI's macOS job to catch anything outside the copied slice.
+
+- `objc2-foundation` 0.3.2's `trashItemAtURL_resultingItemURL_error` is a
+  safe fn (no `unsafe` block needed); letting the out-pointer argument's
+  `None` infer its type avoids a direct `objc2` dependency for `Retained`.
+- Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`,
+  Step 2.
+
+### Trash restore: plan and perform in one pass, and re-verify identity before renaming back (Hit)
+
+A restore plan computed before any file is moved cannot know whether a
+given RAW's move will actually succeed, but a sidecar's fate depends on it:
+sidecars only come back when their RAW does (mirroring `trash::run`'s own
+rule), otherwise a reject sidecar could land next to an unrelated file that
+took the RAW's freed name. So `trash::restore` plans and performs the
+restore in one pure function taking `(run, in_trash, exists, mover)`,
+rather than returning a plan struct to execute later.
+
+Also, a file existing at the recorded trashed-to path is not enough to call
+it "still in the Trash and safe to restore": the OS trash can hand a freed
+name to an unrelated file trashed later from elsewhere (e.g. repeating
+camera file names like `DSC00001.ARW` across cards). Record the file's
+identity at trash time (on Unix, `(dev, ino)` via `MetadataExt`) alongside
+its trashed-to path, and require it to still match before renaming back.
+
+- Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`,
+  Steps 1-2.
+
 ### Sony MakerNote fields: verify each tag's type and model `Condition` in Sony.pm directly (Hit)
 
 Don't infer a new Sony MakerNote tag's type or model gate from a

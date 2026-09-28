@@ -1135,3 +1135,33 @@ Found while verifying docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/
 #### TODO
 
 - [ ] Fall back to the vanished anchor's neighbour in the previous list (the next file, else the previous one) instead of the first passing file, with a Vitest case in `filter.test.ts`. Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/filter.ts`.
+
+### App: renaming a folder after a Move Rejected to Trash run leaves the trash run pointing at the old path
+
+A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run leaves
+the recorded run pointing at the old path, so undoing it restores into the
+old, now missing, folder (on Windows the Recycle Bin may recreate the
+folder). The frontend's rename handler rewrites judgment entries
+(`mapJudgments`) but not a trash entry's `dirs`, and the backend's
+`TrashRun` is not rebased either. Basis: `undo-trash-rejected` Step 3
+implementation. Files: `crates/app/ui/src/main.ts` (rename handler),
+`crates/app/src/rename.rs`, `crates/app/src/trash.rs` (`Runs`).
+
+#### TODO
+
+- [ ] Rebase a trash run's recorded paths (and the frontend's trash undo
+      entry `dirs`) when the folder they point into is renamed, so undoing
+      or redoing the run after a rename still targets the right folder.
+
+### App: `treewatch::tests::release_under_releases_the_folder_and_below_and_restore_puts_them_back` is flaky on Windows CI
+
+This test panicked at `crates/app/src/treewatch.rs:355` in the post-merge CI
+of #540 (run 36432825515) and of #551 (run 36497782763), both PRs not
+touching `treewatch.rs`, and passed on a rerun each time. Basis:
+`undo-trash-rejected` learnings. Files: `crates/app/src/treewatch.rs`.
+
+#### TODO
+
+- [ ] Find the race (likely waiting on a watcher event or a handle release)
+      and make the test deterministic. Done when the cause is identified
+      and the test passes repeatedly on the Windows runner.
