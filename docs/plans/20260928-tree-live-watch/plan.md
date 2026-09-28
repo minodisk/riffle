@@ -137,7 +137,7 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       `run(rx, emit)` with a `HashMap<String, Instant>` of deadlines, waiting
       on the nearest one).
 
-- [ ] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
+- [x] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
   - Done when:
     - `crates/app/ui/src/tree.ts` exports a pure
       `watchedFolders(tree: Tree): string[]`: the paths of the nodes that
@@ -215,9 +215,9 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
 
 - **Watching an expanded folder pins it on Windows (accepted by the user).**
   `ReadDirectoryChangesW` holds a handle, so while a folder is expanded in
-  the tree Explorer (or another app) cannot rename or delete *that* folder or
-  its ancestors; the folders *under* it stay free. Today only the open folder
-  is pinned. The tree's own `Rename…` is unaffected (Step 1 releases first).
+  the tree Explorer (or another app) cannot rename its *ancestors*; the
+  folder itself and the folders *under* it stay free (measured in Step 1, see
+  `learnings.md`). Today only the open folder's ancestors are pinned. The tree's own `Rename…` is unaffected (Step 1 releases first).
   The alternatives (watching only the open folder's parent, or polling) were
   rejected: the first misses the reported case, the second costs a
   `read_dir` per expanded node per tick on a network share.

@@ -14,6 +14,7 @@ import {
   step,
   treeKey,
   typeAhead,
+  watchedFolders,
 } from "./tree.js";
 
 const home = { name: "me", path: "/home/me" };
@@ -68,6 +69,43 @@ describe("tree state", () => {
     const tree = addRoots(EMPTY_TREE, [home]);
     expect(expand(tree, "/nope")).toBe(tree);
     expect(setChildren(tree, "/nope", 1, [])).toBe(tree);
+  });
+});
+
+describe("watchedFolders", () => {
+  const a = { name: "a", path: "/home/me/a" };
+
+  test("a collapsed tree watches nothing", () => {
+    expect(watchedFolders(addRoots(EMPTY_TREE, [home, card]))).toEqual([]);
+  });
+
+  test("an expanded root is watched", () => {
+    const tree = expand(addRoots(EMPTY_TREE, [home, card]), "/home/me");
+    expect(watchedFolders(tree)).toEqual(["/home/me"]);
+  });
+
+  test("an expanded child under an expanded parent is watched", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    tree = expand(setChildren(tree, "/home/me", 0, [a]), "/home/me/a");
+    expect(watchedFolders(tree)).toEqual(["/home/me", "/home/me/a"]);
+  });
+
+  test("an expanded child under a collapsed parent is not watched", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    tree = expand(setChildren(tree, "/home/me", 0, [a]), "/home/me/a");
+    expect(watchedFolders(collapse(tree, "/home/me"))).toEqual([]);
+  });
+
+  test("an expanded folder not listed yet is watched", () => {
+    const tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    expect(tree.nodes.get("/home/me")?.children).toBeUndefined();
+    expect(watchedFolders(tree)).toEqual(["/home/me"]);
+  });
+
+  test("the paths are sorted, whatever the drawing order", () => {
+    let tree = addRoots(EMPTY_TREE, [card, home]);
+    tree = expand(expand(tree, "/media/me/card"), "/home/me");
+    expect(watchedFolders(tree)).toEqual(["/home/me", "/media/me/card"]);
   });
 });
 
