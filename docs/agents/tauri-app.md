@@ -512,6 +512,9 @@ that exact tag.
   `CreativeStyle` carries a model `Condition` in Sony.pm, so no model gate
   is needed when formatting them — but check Sony.pm per-tag rather than
   assuming this applies to the next field you add.
+- The MakerNote parsing itself (the Sony gate, the stored type of
+  `FocusFrameSize`, the Leica and Sigma notes) is covered in
+  [`raw-metadata-parsing.md`](./raw-metadata-parsing.md).
 
 Source: `docs/plans/_archived/20260925-sony-af-meta/learnings.md`, Steps 1
 and 3.
@@ -1629,6 +1632,9 @@ Linux only, 6 MP), reading the size from the JPEG's SOF (`decode.ts`).
 
 - Why: decoding on the main thread, or resizing inside the worker, both draw;
   only the large transferred bitmap fails. Windows (WebView2) is unaffected.
+- The first limit shipped (12 MP) was a secondhand number that did not hold;
+  see [Verify a platform workaround's threshold on the production code path](#verify-a-platform-workarounds-threshold-on-the-production-code-path-hit)
+  before changing this one.
 
 ### A hidden focused element does not always lose focus itself (Inferred)
 
@@ -1865,6 +1871,26 @@ single file.
   claim and copied forward as one.
 - State what was actually measured next to the number, and say plainly what
   still needs a real-folder measurement.
+
+### Verify a platform workaround's threshold on the production code path (Hit)
+
+Before shipping a numeric threshold for a platform workaround, measure it on
+the exact code path production runs, not on a quoted or secondhand number or
+a simpler reproduction.
+
+- What broke: #383 shipped a 12 MP Linux preview limit (see
+  [WebKitGTK draws a large transferred `ImageBitmap` transparent](#webkitgtk-draws-a-large-transferred-imagebitmap-transparent-hit))
+  from "12.3 MP drew, 16 MP did not", which was never measured on the shipped
+  path. The user's manual check still showed a blank main view, and a
+  follow-up had to lower it to 6 MP.
+- How it was measured: a MiniBrowser bisect that reproduced the real path (a
+  worker `createImageBitmap` with resize options, the bitmap transferred,
+  `drawImage` to a canvas, the center pixel read), with each result POSTed to
+  a local Python HTTP server so the run could be logged outside the webview.
+  It put the threshold at ~6.87 MP by pixel count, independent of shape.
+- Rule: build the harness around the same API calls and transfer steps the
+  app uses, bisect the number, and write the harness down with the result.
+- Source: [linux-preview-pixel-limit-6mp learnings, Step 1](../plans/_archived/20260924-linux-preview-pixel-limit-6mp/learnings.md#step-1).
 
 ### GUI automation does not work on this Mac (Hit)
 
