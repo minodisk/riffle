@@ -864,15 +864,31 @@ mod tests {
         let taken = recorded("b.ARW");
         write(&taken.path);
         let emptied = Trashed {
+            // Nothing is ever written at this path, so this covers the
+            // Trash-emptied case: no file at `trashed_at` at all.
             path: dir.join("c.ARW"),
             trashed_at: Some(trash.join("c.ARW")),
-            // Never written, so this stands in for the id recorded at trash
-            // time not matching what (if anything) is at the path now.
             trashed_id: Some((0, 0)),
         };
+        let reused = Trashed {
+            // A different file now occupies the recorded name (macOS Trash
+            // name reuse), so this covers the id-mismatch case: something
+            // exists at `trashed_at`, but its id does not match what was
+            // recorded at trash time.
+            path: dir.join("d.ARW"),
+            trashed_at: Some(trash.join("d.ARW")),
+            trashed_id: Some((0, 0)),
+        };
+        write(&reused.trashed_at.clone().unwrap());
         let run = TrashRun {
             id: 1,
-            moved: vec![back.clone(), back_sidecar.clone(), taken.clone(), emptied],
+            moved: vec![
+                back.clone(),
+                back_sidecar.clone(),
+                taken.clone(),
+                emptied,
+                reused.clone(),
+            ],
         };
         let restored = restore_recorded(&run);
         assert_eq!(
@@ -891,12 +907,18 @@ mod tests {
                 (
                     dir.join("c.ARW").to_string_lossy().into_owned(),
                     NOT_IN_TRASH
+                ),
+                (
+                    dir.join("d.ARW").to_string_lossy().into_owned(),
+                    NOT_IN_TRASH
                 )
             ]
         );
         assert!(back.path.exists() && back_sidecar.path.exists());
         assert!(!back.trashed_at.unwrap().exists());
         assert!(taken.trashed_at.unwrap().exists());
+        assert!(reused.trashed_at.unwrap().exists());
+        assert!(!reused.path.exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
