@@ -206,7 +206,6 @@ function render(): void {
         render();
         return;
       }
-      selection = selectOnly(node.path);
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
@@ -494,7 +493,9 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
     current = chain.at(-1) ?? current;
   }
   cursor = current;
-  selection = selectOnly(current);
+  if (selection.selected.size === 1 && selection.selected.has(path)) {
+    selection = selectOnly(current);
+  }
   render();
   container.querySelector(".folder.current")?.scrollIntoView({ block: "nearest" });
 }
