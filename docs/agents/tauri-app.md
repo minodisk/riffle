@@ -1198,11 +1198,14 @@ The price is that an *external* sidecar edit (PhotoLab writing a `.dop`) is not
 picked up live; it lands on the next focus / `Reload Folder` rescan, as it did
 on reopen before.
 
-On Windows, `ReadDirectoryChangesW` keeps a handle on the watched directory, so
-the open folder cannot be deleted or renamed while Riffle has it open. `set`
-drops the previous watcher before creating the new one, so leaving a folder
-releases it. A watch that cannot be set (SMB, say) is `log::warn!`ed and
-ignored: the focus rescan is the fallback and the open must not fail.
+On Windows, `ReadDirectoryChangesW` keeps a handle on the watched directory,
+which pins the watched folder's ancestors against rename while Riffle has it
+open; renaming the open folder itself succeeds (measured in the next entry).
+Whether the watch blocks deleting the folder was not measured (an open item in
+`todo.md`). `set` drops the previous watcher before creating the new one, so
+leaving a folder releases it. A watch that cannot be set (SMB, say) is
+`log::warn!`ed and ignored: the focus rescan is the fallback and the open must
+not fail.
 
 ### A `notify` watch on Windows pins the watched folder's ancestors, not the folder itself (Hit)
 
