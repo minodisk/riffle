@@ -9,6 +9,7 @@ import {
   prune,
   restore,
   selectionOf,
+  settle,
   single,
   targets,
 } from "./selection.js";
@@ -105,6 +106,28 @@ describe("prune", () => {
   test("keeps a visible anchor", () => {
     const multi = { selected: new Set(["/a", "/b"]), anchor: "/a" };
     expect(prune(multi, files, 1).anchor).toBe("/a");
+  });
+
+  test("keeps the old focused file next to a new one", () => {
+    expect(prune(single("/a"), files, 1).selected).toEqual(new Set(["/a", "/b"]));
+  });
+});
+
+describe("settle", () => {
+  test("a resume landing selects the landed file alone", () => {
+    expect(settle(single("/a"), files, 1, true)).toEqual(single("/b"));
+  });
+
+  test("a resume whose file is hidden selects the neighbor it landed on", () => {
+    expect(settle(single("/a"), ["/a", "/c", "/d"], 1, true)).toEqual(single("/c"));
+  });
+
+  test("a plain refresh prunes the selection", () => {
+    const multi = { selected: new Set(["/a", "/b", "/z"]), anchor: "/a" };
+    expect(settle(multi, files, 2, false)).toEqual({
+      selected: new Set(["/a", "/b", "/c"]),
+      anchor: "/a",
+    });
   });
 });
 

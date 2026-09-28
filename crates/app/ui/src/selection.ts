@@ -81,6 +81,19 @@ export function prune(selection: Selection, files: readonly string[], focused: n
   return { selected, anchor };
 }
 
+// The selection `refilter` ends with. A refresh that resolved a pending resume
+// target selects the landed file alone, as an arrow key would leave it:
+// `openDirectory` selected `files[0]` before the remembered file was known,
+// and `prune` would keep it next to the landed one.
+export function settle(
+  selection: Selection,
+  files: readonly string[],
+  focused: number,
+  resumed: boolean,
+): Selection {
+  return resumed ? single(files[focused]) : prune(selection, files, focused);
+}
+
 // A single-file undo / redo that restores `path` while `shown` was focused:
 // when it moves the focus onto a visible `path`, that file alone is selected,
 // as an arrow key would leave it; otherwise the selection stays.
