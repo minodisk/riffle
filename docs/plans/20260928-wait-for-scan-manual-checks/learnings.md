@@ -7,8 +7,10 @@
   (`crates/app/ui/src/main.ts`) as
   `` `${idle.waiting}: waiting for the scan to finish` ``, `idle.drain()` runs
   on both `faces-done` and the scan's error path, `idle.discard()` runs in
-  `openDirectory`, and `SCAN_RUNNING` in `crates/app/src/commands.rs` still
-  guards four commands.
+  `openDirectory`, and `SCAN_RUNNING` still guards `clear_index`,
+  `trash_rejected_preview` and `trash_rejected_run` in
+  `crates/app/src/commands.rs` and `rename_folder` / `rename_file` in
+  `crates/app/src/rename.rs`.
 - The archived plan path is written in backticks rather than as a link, since
   `todo.md` sits at the repository root and a plain path reads fine there.
 
