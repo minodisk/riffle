@@ -1019,6 +1019,13 @@ body {
   color: var(--reject-color);
 }
 
+#trash-failed {
+  flex: 0 1 auto;
+  max-height: 30vh;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 #sequence-failed:empty,
 #trash-failed:empty {
   display: none;

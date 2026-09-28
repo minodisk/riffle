@@ -60,7 +60,8 @@ export function emptyFoldersLine(preview: TrashPreview): string | null {
   if (empty === 0) {
     return null;
   }
-  return `${empty} more ${empty === 1 ? "folder" : "folders"} with no rejects`;
+  const more = folderRows(preview).length > 0 ? "more " : "";
+  return `${empty} ${more}${empty === 1 ? "folder" : "folders"} with no rejects`;
 }
 
 export function totalLine(preview: TrashPreview): string {

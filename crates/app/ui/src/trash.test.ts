@@ -98,6 +98,11 @@ describe("the confirmation dialog", () => {
     );
   });
 
+  test('drops "more" when no folder row is shown above it', () => {
+    expect(emptyFoldersLine(preview([0]))).toBe("1 folder with no rejects");
+    expect(emptyFoldersLine(preview([0, 0]))).toBe("2 folders with no rejects");
+  });
+
   test("asks with the total count and size", () => {
     expect(totalLine(preview([100, 48]))).toBe("Move 148 rejected files (23.4 GB) to the Trash?");
     expect(totalLine(preview([1], "24.0 MB"))).toBe("Move 1 rejected file (24.0 MB) to the Trash?");
