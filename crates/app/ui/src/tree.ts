@@ -110,6 +110,65 @@ export function watchedFolders(tree: Tree): string[] {
     .sort();
 }
 
+// The folders a right-click acts on together, apart from the open folder
+// (`current` in `folders.ts`) and the keyboard cursor. The anchor is where a
+// Shift+click range starts.
+export interface TreeSelection {
+  selected: ReadonlySet<string>;
+  anchor: string | null;
+}
+
+export const NO_SELECTION: TreeSelection = { selected: new Set(), anchor: null };
+
+export function selectOnly(path: string): TreeSelection {
+  return { selected: new Set([path]), anchor: path };
+}
+
+// A click on the row of `path`: `range` selects the drawn rows from the
+// anchor to it, `toggle` adds or removes it, and a plain click selects it
+// alone. A range whose anchor is not drawn selects `path` alone.
+export function clickSelect(
+  selection: TreeSelection,
+  rows: Row[],
+  path: string,
+  { toggle, range }: { toggle: boolean; range: boolean },
+): TreeSelection {
+  if (range) {
+    const paths = rows.map(({ node }) => node.path);
+    const from = selection.anchor === null ? -1 : paths.indexOf(selection.anchor);
+    const to = paths.indexOf(path);
+    if (from === -1 || to === -1) {
+      return selectOnly(path);
+    }
+    return {
+      selected: new Set(paths.slice(Math.min(from, to), Math.max(from, to) + 1)),
+      anchor: selection.anchor,
+    };
+  }
+  if (toggle) {
+    const selected = new Set(selection.selected);
+    if (selected.has(path)) {
+      selected.delete(path);
+    } else {
+      selected.add(path);
+    }
+    return { selected, anchor: path };
+  }
+  return selectOnly(path);
+}
+
+// Drops the folders no longer drawn (a parent collapsed, or a re-listing
+// removed them); the anchor goes too when it is dropped.
+export function pruneSelection(selection: TreeSelection, rows: Row[]): TreeSelection {
+  const drawn = new Set(rows.map(({ node }) => node.path));
+  const selected = [...selection.selected].filter((path) => drawn.has(path));
+  const anchor = selection.anchor !== null && drawn.has(selection.anchor) ? selection.anchor : null;
+  if (selected.length === selection.selected.size && anchor === selection.anchor) {
+    return selection;
+  }
+  return { selected: new Set(selected), anchor };
+}
+
 export type StepKey = "up" | "down" | "home" | "end";
 
 // The path of the row the keyboard cursor moves to, or `null` when there is

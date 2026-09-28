@@ -178,6 +178,39 @@ describe("folderMenuGroups", () => {
   });
 });
 
+describe("folderMenuGroups with several folders selected", () => {
+  test("offers only the trash items, naming the count", () => {
+    expect(folderMenuGroups("Reveal in Finder", false, 3)).toEqual([
+      [
+        {
+          action: "trashRejected",
+          label: "Move Rejected in 3 Folders to Trash…",
+          shortcut: "",
+          checked: undefined,
+        },
+        {
+          action: "trashRejectedTree",
+          label: "Move Rejected in 3 Folders to Trash, Including Subfolders…",
+          shortcut: "",
+          checked: undefined,
+        },
+      ],
+    ]);
+  });
+
+  test("leaves the recursive item out when any of them is a root", () => {
+    expect(
+      folderMenuGroups("Reveal in Finder", true, 2).map((group) => group.map(({ label }) => label)),
+    ).toEqual([["Move Rejected in 2 Folders to Trash…"]]);
+  });
+
+  test("keeps the one-folder labels for a single selection", () => {
+    expect(folderMenuGroups("Reveal in Finder", false, 1)).toEqual(
+      folderMenuGroups("Reveal in Finder", false),
+    );
+  });
+});
+
 describe("menuPosition", () => {
   test("leaves an interior point alone", () => {
     expect(menuPosition(100, 100, 50, 40, 800, 600)).toEqual({ left: 100, top: 100 });

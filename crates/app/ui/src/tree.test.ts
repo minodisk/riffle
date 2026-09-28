@@ -1,15 +1,20 @@
 import { describe, expect, test } from "vitest";
 import {
   EMPTY_TREE,
+  NO_SELECTION,
+  type TreeSelection,
   addRoots,
   ancestorsWithin,
   appendTyped,
+  clickSelect,
   collapse,
   expand,
+  pruneSelection,
   rebase,
   renameFolder,
   rootOf,
   rows,
+  selectOnly,
   setChildren,
   step,
   treeKey,
@@ -106,6 +111,75 @@ describe("watchedFolders", () => {
     let tree = addRoots(EMPTY_TREE, [card, home]);
     tree = expand(expand(tree, "/media/me/card"), "/home/me");
     expect(watchedFolders(tree)).toEqual(["/home/me", "/media/me/card"]);
+  });
+});
+
+describe("tree selection", () => {
+  const a = { name: "a", path: "/home/me/a" };
+  const b = { name: "b", path: "/home/me/b" };
+  const c = { name: "c", path: "/home/me/c" };
+  let tree = expand(addRoots(EMPTY_TREE, [home, card]), "/home/me");
+  tree = setChildren(tree, "/home/me", 0, [a, b, c]);
+  const plain = { toggle: false, range: false };
+  const toggle = { toggle: true, range: false };
+  const range = { toggle: false, range: true };
+
+  function paths(selection: TreeSelection): string[] {
+    return [...selection.selected].sort();
+  }
+
+  test("a toggle adds a folder, then removes it, and moves the anchor", () => {
+    const added = clickSelect(selectOnly(a.path), rows(tree), c.path, toggle);
+    expect(paths(added)).toEqual([a.path, c.path]);
+    expect(added.anchor).toBe(c.path);
+    const removed = clickSelect(added, rows(tree), a.path, toggle);
+    expect(paths(removed)).toEqual([c.path]);
+    expect(removed.anchor).toBe(a.path);
+  });
+
+  test("a range selects the drawn rows between the anchor and the click, either way", () => {
+    const down = clickSelect(selectOnly(a.path), rows(tree), card.path, range);
+    expect(paths(down)).toEqual([a.path, b.path, c.path, card.path].sort());
+    expect(down.anchor).toBe(a.path);
+    const up = clickSelect(selectOnly(c.path), rows(tree), home.path, range);
+    expect(paths(up)).toEqual([home.path, a.path, b.path, c.path].sort());
+  });
+
+  test("a range skips the folders under a collapsed parent", () => {
+    const hidden = { name: "x", path: "/home/me/a/x" };
+    const nested = setChildren(tree, a.path, 0, [hidden]);
+    const selection = clickSelect(selectOnly(home.path), rows(nested), b.path, range);
+    expect(paths(selection)).toEqual([home.path, a.path, b.path].sort());
+  });
+
+  test("a range from no drawn anchor selects the clicked folder alone", () => {
+    expect(paths(clickSelect(NO_SELECTION, rows(tree), b.path, range))).toEqual([b.path]);
+  });
+
+  test("a plain click resets the selection to the clicked folder", () => {
+    const several = clickSelect(selectOnly(a.path), rows(tree), c.path, range);
+    const clicked = clickSelect(several, rows(tree), b.path, plain);
+    expect(clicked).toEqual(selectOnly(b.path));
+  });
+
+  test("collapsing a parent drops the folders under it and the anchor", () => {
+    const several = clickSelect(selectOnly(a.path), rows(tree), card.path, range);
+    const pruned = pruneSelection(several, rows(collapse(tree, home.path)));
+    expect(paths(pruned)).toEqual([card.path]);
+    expect(pruned.anchor).toBeNull();
+  });
+
+  test("a re-listing that drops a folder drops it from the selection", () => {
+    const several = clickSelect(selectOnly(a.path), rows(tree), c.path, range);
+    const relisted = setChildren(tree, home.path, 0, [a, c]);
+    const pruned = pruneSelection(several, rows(relisted));
+    expect(paths(pruned)).toEqual([a.path, c.path]);
+    expect(pruned.anchor).toBe(a.path);
+  });
+
+  test("pruning a selection that is all drawn keeps it as it is", () => {
+    const several = clickSelect(selectOnly(a.path), rows(tree), c.path, range);
+    expect(pruneSelection(several, rows(tree))).toBe(several);
   });
 });
 

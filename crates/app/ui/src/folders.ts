@@ -4,7 +4,8 @@
 // `aria-activedescendant`), and `Escape` or a click elsewhere hands the keys
 // back. Meanwhile `main.ts` routes the keys here first and gates the culling
 // keymap. A folder is renamed in place: its row's name becomes a text input
-// until Enter, Escape or a click away ends the edit.
+// until Enter, Escape or a click away ends the edit. Cmd/Ctrl+click and
+// Shift+click select several folders, which a right-click then acts on.
 
 import { keyName } from "./keys.js";
 import {
@@ -21,18 +22,23 @@ import {
   EMPTY_TREE,
   type FolderNode,
   type StepKey,
+  NO_SELECTION,
   type Tree,
   type TreeKey,
+  type TreeSelection,
   type Typed,
   addRoots,
   ancestorsWithin,
   appendTyped,
+  clickSelect,
   collapse,
   expand,
+  pruneSelection,
   rebase,
   renameFolder,
   rootOf,
   rows,
+  selectOnly,
   setChildren,
   step,
   treeKey,
@@ -52,6 +58,8 @@ let tree: Tree = EMPTY_TREE;
 let current: string | null = null;
 // The keyboard cursor, drawn as `.cursor` while the tree has focus.
 let cursor: string | null = null;
+// The folders a right-click acts on, drawn as `.selected`.
+let selection: TreeSelection = NO_SELECTION;
 const NOTHING_TYPED: Typed = { text: "", at: -Infinity };
 let typed = NOTHING_TYPED;
 let open: (path: string) => void = () => {};
@@ -62,6 +70,7 @@ let contextMenu: (
   x: number,
   y: number,
   root: boolean,
+  targets: string[],
 ) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
 let canRename: () => boolean = () => false;
@@ -139,38 +148,73 @@ function armSlowClick(path: string): void {
   }, SLOW_CLICK_DELAY);
 }
 
+const isMac = /Mac/.test(navigator.platform);
+
+// The modifiers of a click in the tree: Cmd (macOS) or Ctrl (elsewhere)
+// toggles a folder, Shift selects a range; either leaves the open folder as
+// it is.
+function modifiers(event: MouseEvent): { toggle: boolean; range: boolean } {
+  return { toggle: isMac ? event.metaKey : event.ctrlKey, range: event.shiftKey };
+}
+
+// The folders a right-click on `path` acts on, in drawn order: the whole
+// selection when `path` is in it, else `path` alone (which becomes the
+// selection).
+function menuTargets(path: string): { targets: string[]; root: boolean } {
+  if (!selection.selected.has(path)) {
+    selection = selectOnly(path);
+    render();
+  }
+  const chosen = rows(tree).filter(({ node }) => selection.selected.has(node.path));
+  return {
+    targets: chosen.map(({ node }) => node.path),
+    root: chosen.some(({ depth }) => depth === 0),
+  };
+}
+
 function render(): void {
   ended = null;
   const old = container.querySelector<HTMLInputElement>("input.name");
   const range = old === null ? null : ([old.selectionStart ?? 0, old.selectionEnd ?? 0] as const);
   const fragment = document.createDocumentFragment();
   let active: string | null = null;
-  for (const [index, { node, depth }] of rows(tree).entries()) {
+  const drawn = rows(tree);
+  selection = pruneSelection(selection, drawn);
+  for (const [index, { node, depth }] of drawn.entries()) {
     const row = document.createElement("div");
     row.id = `folder-row-${index}`;
     row.className = "folder";
     row.classList.toggle("current", node.path === current);
+    row.classList.toggle("selected", selection.selected.has(node.path));
     if (node.path === cursor) {
       row.classList.add("cursor");
       active = row.id;
     }
     row.setAttribute("role", "treeitem");
     row.setAttribute("aria-level", String(depth + 1));
-    row.setAttribute("aria-selected", String(node.path === current));
+    row.setAttribute("aria-selected", String(selection.selected.has(node.path)));
     row.style.setProperty("--depth", String(depth));
     row.dataset.path = node.path;
     row.title = node.path;
-    row.addEventListener("click", () => {
+    row.addEventListener("click", (event) => {
       if (editing?.path === node.path || ended === node.path) {
         return;
       }
+      const mods = modifiers(event);
+      if (mods.toggle || mods.range) {
+        selection = clickSelect(selection, rows(tree), node.path, mods);
+        render();
+        return;
+      }
+      selection = selectOnly(node.path);
       open(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
       if (editing?.path === node.path || ended === node.path) {
         return;
       }
-      contextMenu(node.path, node.name, event.clientX, event.clientY, depth === 0);
+      const { targets, root } = menuTargets(node.path);
+      contextMenu(node.path, node.name, event.clientX, event.clientY, root, targets);
     });
     const expander = document.createElement("span");
     expander.className = "expander";
@@ -192,8 +236,13 @@ function render(): void {
       name.className = "name";
       name.textContent = node.name;
       name.addEventListener("click", (event) => {
-        if (node.path === current && depth > 0 && canRename()) {
+        const mods = modifiers(event);
+        if (node.path === current && depth > 0 && !mods.toggle && !mods.range && canRename()) {
           event.stopPropagation();
+          if (selection.selected.size !== 1 || !selection.selected.has(node.path)) {
+            selection = selectOnly(node.path);
+            render();
+          }
           armSlowClick(node.path);
         }
       });
@@ -341,6 +390,15 @@ export function renamed(oldPath: string, newPath: string, newName: string): void
   tree = renameFolder(tree, oldPath, newPath, newName);
   current = current === null ? null : (rebase(current, oldPath, newPath) ?? current);
   cursor = cursor === null ? null : (rebase(cursor, oldPath, newPath) ?? cursor);
+  selection = {
+    selected: new Set(
+      [...selection.selected].map((path) => rebase(path, oldPath, newPath) ?? path),
+    ),
+    anchor:
+      selection.anchor === null
+        ? null
+        : (rebase(selection.anchor, oldPath, newPath) ?? selection.anchor),
+  };
   // The `rename_folder` IPC round trip can resolve while the button that
   // started a click elsewhere is still held; defer to `mouseup` then too, for
   // the same reason `finishInPlace` does.
@@ -390,8 +448,10 @@ export function loadRoots(): void {
 // Expands the chain down to the open folder, highlights it and scrolls it
 // into view. `stillCurrent` is the caller's folder-token check: the listings
 // along the chain can outlive a second open, which then owns the tree.
+// Opening a folder, by whatever route, makes it the selection.
 export async function reveal(path: string, stillCurrent: () => boolean): Promise<void> {
   current = path;
+  selection = selectOnly(path);
   render();
   await rootsLoaded;
   if (!stillCurrent()) {
@@ -434,6 +494,7 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
     current = chain.at(-1) ?? current;
   }
   cursor = current;
+  selection = selectOnly(current);
   render();
   container.querySelector(".folder.current")?.scrollIntoView({ block: "nearest" });
 }
@@ -528,8 +589,6 @@ container.addEventListener("blur", () => {
   typed = NOTHING_TYPED;
 });
 
-const isMac = /Mac/.test(navigator.platform);
-
 // A right-click neither gives the tree the keyboard nor takes it away: the
 // culling key gate stays as it was, and the cursor stays put. On macOS,
 // Control+click is the other standard way to right-click (common on
@@ -539,6 +598,13 @@ const isMac = /Mac/.test(navigator.platform);
 container.addEventListener("mousedown", (event) => {
   if (event.button === 2 || (isMac && event.button === 0 && event.ctrlKey)) {
     event.preventDefault();
+    return;
+  }
+  // Shift+click would otherwise select the rows' text; the tree still takes
+  // the keyboard.
+  if (event.button === 0 && event.shiftKey) {
+    event.preventDefault();
+    container.focus();
   }
 });
 
@@ -594,7 +660,14 @@ void window.__TAURI__.event.listen<{ dir: string }>("tree-changed", ({ payload }
 export function init(
   onOpen: (path: string) => void,
   onError: (message: string) => void,
-  onContextMenu: (path: string, name: string, x: number, y: number, root: boolean) => void,
+  onContextMenu: (
+    path: string,
+    name: string,
+    x: number,
+    y: number,
+    root: boolean,
+    targets: string[],
+  ) => void,
   onRename: (path: string, name: string) => void,
   renameAllowed: () => boolean,
 ): void {

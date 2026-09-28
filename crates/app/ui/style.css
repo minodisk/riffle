@@ -324,6 +324,12 @@ body {
   background: #222;
 }
 
+/* A folder in the multi-selection: weaker than `.current`, the open one. */
+.folder.selected {
+  color: #fff;
+  background: #2a2f36;
+}
+
 .folder.current {
   color: #fff;
   background: #2d4059;
