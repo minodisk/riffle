@@ -71,4 +71,4 @@ a user who changed a few files in Riffle does not have to re-scan the folder.
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
