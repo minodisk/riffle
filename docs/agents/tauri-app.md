@@ -356,7 +356,7 @@ building with `true` up front would relaunch after `Later` and a normal quit.
 The menu bar keeps only the platform's default submenus. `app_menu::build`
 finds them in `Menu::default` by title and inserts into them: `Settings...`
 (`CmdOrCtrl+,`) after About in the macOS app menu (in `File` elsewhere), and
-`Open Folder…`, `Reload Folder` and `Move Rejected to Trash` at the top of
+`Open Folder…`, `Reload Folder` and `Move Rejected in This Folder to Trash…` at the top of
 `File`. Linux's default has no `File`, so one is prepended there. `Edit` ships a predefined Undo/Redo pair at its top
 that owns `CmdOrCtrl+Z`; the app's `Undo` / `Redo` (emitting `undo` / `redo`
 to the frontend) replace that pair rather than being added next to it. Their
@@ -415,7 +415,7 @@ On macOS eight app items carry an icon, and none of them is a `NativeIcon`.
 and `NativeIcon::TrashFull` are color Finder bitmaps rather than template
 images (`isTemplate == false`), so they would keep their color while every
 icon around them tints. So `Settings...`,
-`Undo`, `Redo`, `Open Folder…`, `Open Log Folder`, `Move Rejected to Trash`,
+`Undo`, `Redo`, `Open Folder…`, `Open Log Folder`, `Move Rejected in This Folder to Trash…`,
 `Reload Folder` and `Check for Updates…` use `IconMenuItem::with_id` with an
 `Image::from_bytes(include_bytes!(...))` of a PNG committed under
 `crates/app/icons/menu/` (which is why `crates/app/Cargo.toml` enables Tauri's

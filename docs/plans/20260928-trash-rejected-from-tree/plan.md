@@ -35,7 +35,7 @@ menu item stays, relabeled so its target is unambiguous.
 
 ## Steps
 
-- [ ] Step 1: Backend reject collection over folders, and `trash_rejected(dirs, recursive)`
+- [x] Step 1: Backend reject collection over folders, and `trash_rejected(dirs, recursive)`
   - Done when:
     - `crates/app/src/trash.rs` collects the rejects of a list of folders
       itself, optionally recursing into subfolders, and returns them grouped

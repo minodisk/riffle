@@ -206,10 +206,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
   flags and color labels already given, the current file and the strip's
   position all stay as they were.
-- **Move Rejected to Trash…**: `File > Move Rejected to Trash…` moves every
-  file of the open folder marked as a reject to the OS Trash, together with the
-  sidecars sitting next to it — both `.xmp` and `.ARW.dop` when both are there,
-  no matter which format is currently selected. It asks first, showing how many files
+- **Move Rejected in This Folder to Trash…**:
+  `File > Move Rejected in This Folder to Trash…` moves every file of the open
+  folder marked as a reject to the OS Trash, together with the sidecars
+  sitting next to it — both `.xmp` and `.ARW.dop` when both are there, no
+  matter which format is currently selected. A folder's rejects are read from
+  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts too. It asks first, showing how many files
   it is about to move, and `Cancel` leaves the folder untouched. Nothing is
   deleted: the file and its sidecars all go to the Trash, so restoring them
   brings back the stars, the flag and the color label. Whatever could not be

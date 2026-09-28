@@ -183,9 +183,9 @@ fn list_folder_in(
 /// was listed for as `(lower-cased name, path)`, not yet statted (see
 /// `stat_sidecars`), none for a JPEG listing.
 #[derive(Debug, PartialEq)]
-struct Listing {
-    files: Vec<String>,
-    sidecars: Vec<(String, PathBuf)>,
+pub(crate) struct Listing {
+    pub(crate) files: Vec<String>,
+    pub(crate) sidecars: Vec<(String, PathBuf)>,
 }
 
 /// Tells a RAW or JPEG file from the entry's `file_type()`, which comes with
@@ -193,7 +193,7 @@ struct Listing {
 /// contention (a scan reading the same drive) costs seconds for a few hundred
 /// files. A symlinked RAW or JPEG is still listed: only a symlink pays one
 /// extra `stat` to follow it.
-fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, String> {
+pub(crate) fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let mut media = crate::folders::Media::default();
     let mut sidecars = Vec::new();
@@ -222,7 +222,7 @@ fn read_listing(dir: &Path, format: Option<SidecarFormat>) -> Result<Listing, St
 
 /// The stats `reconcile_sidecars_of` compares, keyed by lower-cased file
 /// name. A sidecar gone since the listing is left out.
-fn stat_sidecars(sidecars: &[(String, PathBuf)]) -> HashMap<String, SidecarStat> {
+pub(crate) fn stat_sidecars(sidecars: &[(String, PathBuf)]) -> HashMap<String, SidecarStat> {
     sidecars
         .iter()
         .filter_map(|(name, path)| {
@@ -284,7 +284,7 @@ fn take_listing(
 /// Largest sidecar the folder-open pass reads. A Lightroom sidecar is tens of
 /// KB; anything past this is not a sidecar this app should be parsing, and is
 /// left alone rather than failing the open.
-const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
+pub(crate) const MAX_SIDECAR_BYTES: i64 = 4 * 1024 * 1024;
 
 /// A sidecar the folder-open pass could not use, reported to the frontend.
 #[derive(Debug, serde::Serialize)]
@@ -2104,11 +2104,12 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Move the rejected files of `dir` to the OS trash after a native
-/// confirmation, together with the `.xmp` and `.dop` sidecars that exist on
-/// disk for them; `None` when the user canceled. `paths` is the frontend's
-/// list of rejects and every path is validated against `dir` before anything
-/// is moved.
+/// Move the rejected files of `dirs` (and of their subfolders when
+/// `recursive`) to the OS trash after a native confirmation, together with
+/// the `.xmp` and `.dop` sidecars that exist on disk for them; `None` when the
+/// user canceled. The rejects are collected here (see `trash::collect`), once
+/// for the count the dialog shows and again under the `Scans` lock for the
+/// move, so folders never opened count too.
 ///
 /// A running scan is refused before the dialog and again under the `Scans`
 /// lock, and the sidecar writer is drained first, as in `clear_index`: a
@@ -2117,8 +2118,8 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
 #[tauri::command]
 pub async fn trash_rejected(
     app: tauri::AppHandle,
-    dir: String,
-    paths: Vec<String>,
+    dirs: Vec<String>,
+    recursive: bool,
 ) -> Result<Option<trash::Summary>, String> {
     {
         let scans = app.state::<Scans>();
@@ -2127,14 +2128,35 @@ pub async fn trash_rejected(
             return Err(SCAN_RUNNING.to_string());
         }
     }
-    if paths.is_empty() {
-        return Err("no rejected files to move".to_string());
-    }
+    let handle = app.clone();
+    let targets = dirs.clone();
+    let count = tauri::async_runtime::spawn_blocking(move || -> Result<usize, String> {
+        if let Some(writer) = &handle.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let collection = collect_rejected(&handle, &targets, recursive);
+        let count = collection.count();
+        if count == 0 {
+            let nothing = trash::nothing_to_trash(&targets, recursive);
+            return Err(match collection.failed.first() {
+                Some(first) => format!(
+                    "{nothing}; {} could not be read ({}: {})",
+                    collection.failed.len(),
+                    first.path,
+                    first.message
+                ),
+                None => nothing,
+            });
+        }
+        Ok(count)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     let (tx, mut rx) = tauri::async_runtime::channel(1);
-    let message = if paths.len() == 1 {
+    let message = if count == 1 {
         "Move 1 rejected file to the Trash?".to_string()
     } else {
-        format!("Move {} rejected files to the Trash?", paths.len())
+        format!("Move {count} rejected files to the Trash?")
     };
     let mut dialog = app
         .dialog()
@@ -2164,18 +2186,38 @@ pub async fn trash_rejected(
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
-        let dir = canonicalize(&dir);
-        let groups = trash::plan(Path::new(&dir), &paths)?;
+        let collection = collect_rejected(&handle, &dirs, recursive);
+        for folder in collection.folders.iter().filter(|f| !f.groups.is_empty()) {
+            log::info!("rejected files in {}: {}", folder.dir, folder.groups.len());
+        }
+        let groups = collection
+            .folders
+            .into_iter()
+            .flat_map(|folder| folder.groups)
+            .collect();
         let context = trash_context();
-        let summary = trash::run(groups, |path| {
+        let mut summary = trash::run(groups, |path| {
             context.delete(path).map_err(|e| e.to_string())
         });
+        summary.failed.splice(0..0, collection.failed);
         log::info!("moved rejected files to the trash: {summary:?}");
         drop(state);
         Ok(Some(summary))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The rejects of `dirs` as `trash::collect` finds them. The dirs are
+/// canonicalized first: the index keys its rows by that spelling. The caller
+/// drains the sidecar writer before, so the rows read are the flushed ones.
+fn collect_rejected(app: &tauri::AppHandle, dirs: &[String], recursive: bool) -> trash::Collection {
+    let dirs: Vec<String> = dirs.iter().map(|dir| canonicalize(dir)).collect();
+    let index = app.state::<AppIndex>().0.clone();
+    trash::collect(&dirs, recursive, |dir| match &index {
+        Some(index) => index::lock(index).row_flags(dir),
+        None => Ok(HashMap::new()),
+    })
 }
 
 /// The trash context the mover uses. On macOS the crate defaults to driving
@@ -2197,7 +2239,7 @@ fn trash_context() -> ::trash::TrashContext {
 /// `/tmp` vs `/private/tmp` on macOS) shares one row set in the index. Falls
 /// back to the original string when canonicalization fails (e.g. the folder
 /// was removed between picking and scanning).
-fn canonicalize(dir: &str) -> String {
+pub(crate) fn canonicalize(dir: &str) -> String {
     std::fs::canonicalize(dir)
         .map_or_else(|_| dir.to_string(), |p| p.to_string_lossy().into_owned())
 }

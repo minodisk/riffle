@@ -46,7 +46,11 @@ manager under the per-platform `REVEAL_LABEL`), `src/rename.rs` the
 renames the folder and carries its index rows to the new path), `src/watch.rs`
 the open folder's watcher and `src/treewatch.rs` the folder tree's watchers on
 its expanded folders (`set_tree_watches`, per-folder `tree-changed` events),
-`src/sequence.rs` the
+`src/trash.rs` the
+reject collection and the move behind the `trash_rejected` command (it finds
+the rejects of a list of folders, optionally with their subfolders, from the
+index rows or else the sidecars on disk, so a folder never opened counts too,
+and moves each RAW and its sidecars to the OS trash), `src/sequence.rs` the
 `File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and

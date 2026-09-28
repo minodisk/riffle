@@ -246,7 +246,7 @@ pub(crate) fn is_file(entry: &DirEntry) -> bool {
 }
 
 #[cfg(target_os = "windows")]
-fn is_hidden(entry: &DirEntry) -> bool {
+pub(crate) fn is_hidden(entry: &DirEntry) -> bool {
     use std::os::windows::fs::MetadataExt;
     const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
     entry
@@ -255,7 +255,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn is_hidden(_: &DirEntry) -> bool {
+pub(crate) fn is_hidden(_: &DirEntry) -> bool {
     false
 }
 

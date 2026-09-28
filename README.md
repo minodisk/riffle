@@ -117,8 +117,8 @@ DxO PhotoLab.
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
-- **Move Rejected to Trash**: `File > Move Rejected to Trash…` moves the
-  rejected shots to the Trash. Nothing is deleted, so restoring them brings the
+- **Move Rejected to Trash**: `File > Move Rejected in This Folder to Trash…`
+  moves the rejected shots of the open folder to the Trash. Nothing is deleted, so restoring them brings the
   judgments back.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the

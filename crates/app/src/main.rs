@@ -113,7 +113,7 @@ mod app_menu {
         let trash_rejected = IconMenuItem::with_id(
             handle,
             TRASH_REJECTED_ID,
-            "Move Rejected to Trash…",
+            "Move Rejected in This Folder to Trash…",
             true,
             Some(Image::from_bytes(include_bytes!(
                 "../icons/menu/trash.png"
@@ -124,7 +124,7 @@ mod app_menu {
         let trash_rejected = MenuItem::with_id(
             handle,
             TRASH_REJECTED_ID,
-            "Move Rejected to Trash…",
+            "Move Rejected in This Folder to Trash…",
             true,
             None::<&str>,
         )?;
