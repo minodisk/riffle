@@ -75,7 +75,9 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
-folder reopens at and coalesces the writes that remember it, `src/viewonly.ts`
+folder reopens at and coalesces the writes that remember it, `src/idle.ts`
+holds an operation pressed during a scan (Move Rejected to Trash, the
+renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens
 view-only (no judgment, capture-time order), and
 `src/sequence.ts` holds the

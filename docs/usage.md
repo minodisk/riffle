@@ -47,10 +47,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   not a double-click) does the same, and that click does not reopen the
   folder. `Enter` renames, `Escape` cancels, and a click anywhere else
   renames too; an empty or unchanged name just ends the edit, and while
-  the edit is live every key goes to the text box. The rename is refused
-  while a scan runs, and a name that is invalid, already taken or refused
-  by the OS shows its error in the status line with the folder left as it
-  was. The folder index, ratings, flags, labels and the remembered file
+  the edit is live every key goes to the text box. A rename confirmed
+  while a scan runs waits for the scan, the status line saying so, and
+  happens when it ends; opening another folder meanwhile drops it. A name
+  that is invalid, already taken or refused by the OS shows its error in
+  the status line with the folder left as it was. The folder index, ratings, flags, labels and the remembered file
   follow the folder, so nothing is re-extracted; the tree keeps its
   expansion; and when the open folder is the renamed one or under it, it
   reopens under its new path at the file it was on (a reopen, so the undo
@@ -86,9 +87,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the edit is live every key goes to the text box. The new name must keep
   a RAW extension. The file's `.xmp` and `.dop` sidecars are renamed with
   it, and its ratings, flags, labels and cached thumbnail and metadata
-  follow it, so the strip keeps its place. The rename is refused while a
-  scan runs, and a name that is invalid, already taken or refused by the
-  OS shows its error in the status line with the file left as it was.
+  follow it, so the strip keeps its place. A rename confirmed while a scan
+  runs waits for the scan, the status line saying so, and happens when it
+  ends; opening another folder meanwhile drops it. A name that is invalid,
+  already taken or refused by the OS shows its error in the status line
+  with the file left as it was.
 - **Panels**: `F7` hides and shows the left pane (the folder tree), `F8` the
   right pane (the metadata), `F6` the filmstrip, and `Tab` both side panes at
   once (hiding both when either is shown, as Lightroom does), so the viewer
@@ -215,7 +218,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   it is about to move, and `Cancel` leaves the folder untouched. Nothing is
   deleted: the file and its sidecars all go to the Trash, so restoring them
   brings back the stars, the flag and the color label. Whatever could not be
-  moved is listed as an error and stays in the folder.
+  moved is listed as an error and stays in the folder. Chosen while a scan
+  runs, it waits for the scan, the status line saying so, and asks when the
+  scan ends; opening another folder meanwhile drops it.
 - **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the
   capture times of exported JPEGs unique at second granularity, so Google
   Photos, which ignores `SubSecTimeOriginal`, keeps a burst in shooting order.
