@@ -25,7 +25,18 @@ import {
   focusMark,
 } from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
-import { type TrashSummary, opensTarget, trashedStatus } from "./trash.js";
+import {
+  type TrashPreview,
+  type TrashSummary,
+  TrashFlow,
+  canRun,
+  emptyFoldersLine,
+  failureText as trashFailureText,
+  folderRows,
+  opensTarget,
+  totalLine,
+  trashedStatus,
+} from "./trash.js";
 import {
   RUNNING_NOTE,
   type SequenceDone,
@@ -558,7 +569,7 @@ function renderTitle(): void {
 }
 
 // `File > Move Rejected in This Folder to Trash…`: have the backend collect
-// and move the rejects of the open folder, after it confirms.
+// the rejects of the open folder, confirm them in the dialog, then move them.
 function trashRejected(): void {
   if (openDir === null) {
     setStatus("No folder is open");
@@ -567,53 +578,152 @@ function trashRejected(): void {
   trashRejectedIn([openDir], false);
 }
 
-// Collect and move the rejects of `dirs` (and their subfolders when
-// `recursive`), after the backend confirms. The File menu item and the folder
-// tree's items both land here. When the open folder was among them, its state
-// is pruned by the moved paths and it is re-listed.
+// The confirmation of `trashRejectedIn`: the rejects per folder, the folders
+// with none folded into one line, the ones that could not be read, and the
+// total count and size.
+const trashFlow = new TrashFlow();
+// Only its key decisions are used: Escape and Tab, as in the settings modal.
+const trashKeys = new SettingsModal();
+const trashDialog = document.getElementById("trash-dialog") as HTMLDivElement;
+const trashRows = document.getElementById("trash-rows") as HTMLUListElement;
+const trashEmpty = document.getElementById("trash-empty") as HTMLParagraphElement;
+const trashFailed = document.getElementById("trash-failed") as HTMLUListElement;
+const trashTotal = document.getElementById("trash-total") as HTMLParagraphElement;
+const trashRunButton = document.getElementById("trash-run") as HTMLButtonElement;
+const trashCancelButton = document.getElementById("trash-cancel") as HTMLButtonElement;
+
+// Collect the rejects of `dirs` (and their subfolders when `recursive`) and
+// show them in the dialog. The File menu item and the folder tree's items
+// both land here. A second call while one is under way does nothing.
 function trashRejectedIn(dirs: string[], recursive: boolean): void {
-  // Read at run time: the open folder may change while it waits.
   whenIdle("Move Rejected to Trash", () => {
-    settleIdle(
-      window.__TAURI__.core
-        .invoke<TrashSummary | null>("trash_rejected", { dirs, recursive })
-        .then((summary) => {
-          if (summary === null) {
-            return;
-          }
-          const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
-          if (refresh) {
-            const moved = new Set(summary.moved);
-            for (const path of moved) {
-              ratings.delete(path);
-              flags.delete(path);
-              labels.delete(path);
-              sharpness.delete(path);
-              touched.delete(path);
-            }
-            // An undo of a trashed file would `set_rating` a path that is gone
-            // and mint an orphan sidecar.
-            const gone = (entry: Judgment) => moved.has(entry.path);
-            history.removeWhere((batch) => batch.every(gone));
-            redoable.removeWhere((batch) => batch.every(gone));
-          }
-          for (const { path, message } of summary.failed) {
-            errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
-          }
-          for (const { path, message } of summary.unread) {
-            errors.add(path, `${baseName(path)}: could not be read: ${message}`);
-          }
-          setStatus(trashedStatus(summary));
-          if (refresh) {
-            resync();
-          }
-        })
-        .catch((err: unknown) => {
-          setStatus(String(err));
-        }),
-    );
+    if (
+      !formatDialog.hidden ||
+      settings.isOpen ||
+      sequenceFlow.busy ||
+      !trashFlow.start({ dirs, recursive })
+    ) {
+      return;
+    }
+    window.__TAURI__.core
+      .invoke<TrashPreview>("trash_rejected_preview", { dirs, recursive })
+      .then((preview) => {
+        if (trashFlow.previewed()) {
+          showTrashPreview(preview);
+        }
+      })
+      .catch((err: unknown) => {
+        trashFlow.end();
+        setStatus(String(err));
+      });
   });
 }
+
+function listItem(text: string): HTMLLIElement {
+  const item = document.createElement("li");
+  item.textContent = text;
+  return item;
+}
+
+function showTrashPreview(preview: TrashPreview): void {
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  trashRows.replaceChildren(...folderRows(preview).map(listItem));
+  const empty = emptyFoldersLine(preview);
+  trashEmpty.textContent = empty ?? "";
+  trashEmpty.hidden = empty === null;
+  trashFailed.replaceChildren(
+    ...preview.failed.map((failure) => listItem(trashFailureText(failure))),
+  );
+  trashTotal.textContent = totalLine(preview);
+  trashRunButton.disabled = !canRun(preview);
+  trashCancelButton.disabled = false;
+  trashDialog.hidden = false;
+  (trashRunButton.disabled ? trashCancelButton : trashRunButton).focus();
+}
+
+function closeTrashDialog(): void {
+  trashFlow.end();
+  trashDialog.hidden = true;
+}
+
+// The run collects again under the backend's `Scans` lock, so a folder that
+// could not be read in the preview is left out again. When the open folder
+// was among the targets, its state is pruned by the moved paths and it is
+// re-listed; read at the end, since the open folder may change meanwhile.
+function runTrash(): void {
+  const target = trashFlow.run();
+  if (target === null) {
+    return;
+  }
+  const { dirs, recursive } = target;
+  trashRunButton.disabled = true;
+  trashCancelButton.disabled = true;
+  settleIdle(
+    window.__TAURI__.core
+      .invoke<TrashSummary>("trash_rejected_run", { dirs, recursive })
+      .then((summary) => {
+        closeTrashDialog();
+        const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
+        if (refresh) {
+          const moved = new Set(summary.moved);
+          for (const path of moved) {
+            ratings.delete(path);
+            flags.delete(path);
+            labels.delete(path);
+            sharpness.delete(path);
+            touched.delete(path);
+          }
+          // An undo of a trashed file would `set_rating` a path that is gone
+          // and mint an orphan sidecar.
+          const gone = (entry: Judgment) => moved.has(entry.path);
+          history.removeWhere((batch) => batch.every(gone));
+          redoable.removeWhere((batch) => batch.every(gone));
+        }
+        for (const { path, message } of summary.failed) {
+          errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
+        }
+        for (const { path, message } of summary.unread) {
+          errors.add(path, `${baseName(path)}: could not be read: ${message}`);
+        }
+        setStatus(trashedStatus(summary));
+        if (refresh) {
+          resync();
+        }
+      })
+      .catch((err: unknown) => {
+        closeTrashDialog();
+        setStatus(String(err));
+      }),
+  );
+}
+
+function dismissTrash(): void {
+  if (trashFlow.dismiss()) {
+    trashDialog.hidden = true;
+  }
+}
+
+// Every key stops here while the dialog is open, so none reaches the strip.
+function trashKeydown(event: KeyboardEvent): void {
+  const decision = trashKeys.key(keyName(event));
+  if (decision.kind === "close") {
+    event.preventDefault();
+    dismissTrash();
+  } else if (decision.kind === "focus") {
+    event.preventDefault();
+    const buttons = [trashRunButton, trashCancelButton].filter((b) => !b.disabled);
+    if (buttons.length === 0) {
+      return;
+    }
+    const from = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    buttons[cycleFocus(buttons.length, from, decision.step)].focus();
+  }
+}
+
+trashRunButton.addEventListener("click", runTrash);
+trashCancelButton.addEventListener("click", dismissTrash);
 
 // `File > Sequence JPEG Timestamps…`: pick an export folder (or take the one
 // right-clicked in the folder tree), preview the times a run would write, then
@@ -635,7 +745,7 @@ const sequenceCancelButton = document.getElementById("sequence-cancel") as HTMLB
 sequenceRunning.textContent = RUNNING_NOTE;
 
 function startSequence(): boolean {
-  return formatDialog.hidden && !settings.isOpen && sequenceFlow.start();
+  return formatDialog.hidden && !settings.isOpen && !trashFlow.busy && sequenceFlow.start();
 }
 
 function sequenceTimestamps(): void {
@@ -2552,10 +2662,16 @@ function openFolder(): void {
 }
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
-// of the way while the settings or the sequence modal is open, or a folder
+// of the way while the settings, the sequence or the trash modal is open, or a folder
 // or file name is being edited, as their keys do.
 function modalOpen(): boolean {
-  return settings.isOpen || sequenceFlow.isOpen || folders.isEditing() || strip.isEditing();
+  return (
+    settings.isOpen ||
+    sequenceFlow.isOpen ||
+    trashFlow.isOpen ||
+    folders.isEditing() ||
+    strip.isEditing()
+  );
 }
 
 void window.__TAURI__.event.listen("open-folder", () => {
@@ -3193,7 +3309,7 @@ const sortLoaded = window.__TAURI__.core
 // `Settings...` in the menu. The first-launch dialog is modal already, so the
 // settings wait until it is answered.
 void window.__TAURI__.event.listen("open-settings", () => {
-  if (!formatDialog.hidden || sequenceFlow.busy) {
+  if (!formatDialog.hidden || sequenceFlow.busy || trashFlow.busy) {
     return;
   }
   setFilterMenuOpen(false);
@@ -3241,6 +3357,10 @@ window.addEventListener("keydown", (event) => {
   }
   if (sequenceFlow.isOpen) {
     sequenceKeydown(event);
+    return;
+  }
+  if (trashFlow.isOpen) {
+    trashKeydown(event);
     return;
   }
   // A live file rename takes every key: Enter and Escape end it, the rest

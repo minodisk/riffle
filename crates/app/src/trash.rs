@@ -1,8 +1,8 @@
 //! Moving the rejected files of folders to the OS trash, RAW first and its
 //! sidecars after. The collection of the rejects and the per-file loop are
 //! pure so they can be tested without touching the real Trash; only
-//! `commands::trash_rejected` supplies the index rows and the mover that
-//! calls into the `trash` crate.
+//! `commands::trash_rejected_preview` and `commands::trash_rejected_run`
+//! supply the index rows and the mover that calls into the `trash` crate.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -59,6 +59,60 @@ pub struct Summary {
     pub moved: Vec<String>,
     pub failed: Vec<Failure>,
     pub unread: Vec<Failure>,
+}
+
+/// One folder's row in the confirmation dialog: how many RAWs are rejected
+/// there and the bytes they and their sidecars take.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct FolderCount {
+    pub dir: String,
+    pub count: usize,
+    pub bytes: u64,
+}
+
+/// What `trash_rejected_preview` returns: every folder read, in visiting
+/// order (those without rejects included, the dialog folds them into one
+/// line), the files and folders that could not be read, and the totals, the
+/// size already formatted for display.
+#[derive(Debug, Serialize)]
+pub struct Preview {
+    pub folders: Vec<FolderCount>,
+    pub failed: Vec<Failure>,
+    pub total_files: usize,
+    pub total_bytes: u64,
+    pub size_text: String,
+}
+
+/// The preview of `collection`, `size_text` formatting the total bytes.
+pub fn preview(collection: Collection, size_text: impl Fn(u64) -> String) -> Preview {
+    let folders: Vec<FolderCount> = collection
+        .folders
+        .iter()
+        .map(|folder| FolderCount {
+            dir: folder.dir.clone(),
+            count: folder.groups.len(),
+            bytes: bytes(&folder.groups),
+        })
+        .collect();
+    let total_files = folders.iter().map(|f| f.count).sum();
+    let total_bytes = folders.iter().map(|f| f.bytes).sum();
+    Preview {
+        folders,
+        failed: collection.failed,
+        total_files,
+        total_bytes,
+        size_text: size_text(total_bytes),
+    }
+}
+
+/// The bytes the RAWs of `groups` and their sidecars take on disk. A file
+/// gone since the collection counts as zero.
+fn bytes(groups: &[Group]) -> u64 {
+    groups
+        .iter()
+        .flat_map(|group| std::iter::once(&group.raw).chain(&group.sidecars))
+        .map(|path| std::fs::metadata(path).map_or(0, |m| m.len()))
+        .sum()
 }
 
 /// The rejects of `dirs`, each followed by its subfolders depth-first by
@@ -247,7 +301,7 @@ fn subfolders(dir: &Path) -> Vec<PathBuf> {
     dirs
 }
 
-/// The error `trash_rejected` returns when `dirs` hold no reject at all.
+/// The error `trash_rejected_preview` returns when `dirs` hold no reject at all.
 pub fn nothing_to_trash(dirs: &[String], recursive: bool) -> String {
     let [dir] = dirs else {
         return format!("No rejected files in {} folders", dirs.len());
@@ -288,7 +342,7 @@ pub fn run(groups: Vec<Group>, mut mover: impl FnMut(&Path) -> Result<(), String
 
 #[cfg(test)]
 mod tests {
-    use super::{collect, nothing_to_trash, run, Collection, Group};
+    use super::{bytes, collect, nothing_to_trash, preview, run, Collection, FolderCount, Group};
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
     use riffle_core::Flag;
@@ -673,6 +727,82 @@ mod tests {
         assert!(collection.folders.is_empty());
         assert_eq!(collection.failed[0].path, key(&dir));
         assert_eq!(collection.failed[0].message, "locked");
+    }
+
+    #[test]
+    fn the_byte_sum_counts_the_raw_and_both_sidecars_and_skips_a_missing_file() {
+        let dir = temp_dir("bytes");
+        std::fs::write(dir.join("a.ARW"), [0; 100]).unwrap();
+        std::fs::write(dir.join("a.xmp"), [0; 20]).unwrap();
+        std::fs::write(dir.join("a.ARW.dop"), [0; 3]).unwrap();
+        let groups = [
+            Group {
+                raw: dir.join("a.ARW"),
+                sidecars: vec![dir.join("a.xmp"), dir.join("a.ARW.dop")],
+            },
+            Group {
+                raw: dir.join("gone.ARW"),
+                sidecars: vec![dir.join("gone.xmp")],
+            },
+        ];
+        assert_eq!(bytes(&groups), 123);
+    }
+
+    #[test]
+    fn the_preview_counts_each_folder_as_the_collection_does() {
+        let root = temp_dir("preview");
+        let nested = root.join("b");
+        let empty = root.join("a");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&empty).unwrap();
+        let len = |path: &Path| std::fs::metadata(path).unwrap().len();
+        let mut nested_bytes = 0;
+        for name in ["x.ARW", "y.ARW"] {
+            std::fs::write(nested.join(name), [0; 10]).unwrap();
+            let xmp = sidecar(&nested.join(name), SidecarFormat::Xmp, Flag::Reject);
+            nested_bytes += 10 + len(&xmp);
+        }
+        std::fs::write(root.join("z.ARW"), [0; 10]).unwrap();
+        let xmp = sidecar(&root.join("z.ARW"), SidecarFormat::Xmp, Flag::Reject);
+        let root_bytes = 10 + len(&xmp);
+        let collection = collect(&[key(&root)], true, SidecarFormat::Both, no_rows);
+        let counts: Vec<usize> = collection
+            .folders
+            .iter()
+            .map(|folder| folder.groups.len())
+            .collect();
+        let preview = preview(collection, |b| format!("{b} bytes"));
+        assert_eq!(
+            preview.folders,
+            [
+                FolderCount {
+                    dir: key(&root),
+                    count: 1,
+                    bytes: root_bytes,
+                },
+                FolderCount {
+                    dir: key(&empty),
+                    count: 0,
+                    bytes: 0,
+                },
+                FolderCount {
+                    dir: key(&nested),
+                    count: 2,
+                    bytes: nested_bytes,
+                },
+            ]
+        );
+        assert_eq!(
+            preview.folders.iter().map(|f| f.count).collect::<Vec<_>>(),
+            counts
+        );
+        assert_eq!(preview.total_files, 3);
+        assert_eq!(preview.total_bytes, root_bytes + nested_bytes);
+        assert_eq!(
+            preview.size_text,
+            format!("{} bytes", root_bytes + nested_bytes)
+        );
+        assert!(preview.failed.is_empty());
     }
 
     #[test]

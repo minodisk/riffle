@@ -236,8 +236,16 @@ viewer shows a prompt in its center; click it to open the folder picker.
   folder marked as a reject to the OS Trash, together with the sidecars
   sitting next to it — both `.xmp` and `.ARW.dop` when both are there, no
   matter which format is currently selected. A folder's rejects are read from
-  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts too. It asks first, showing how many files
-  it is about to move, and `Cancel` leaves the folder untouched. Nothing is
+  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts too. It asks first in a dialog
+  that lists each folder holding rejects with how many it holds, folds the
+  folders with none into one line ("12 more folders with no rejects"), lists
+  any folder or file that could not be read with its error (left out of the
+  move), and ends with the total and the space it frees ("Move 148 rejected
+  files (23.4 GB) to the Trash?", sizes counted the way the platform's file
+  manager counts them). `Move to Trash` moves them, `Cancel` or `Escape`
+  leaves everything untouched; `Move to Trash` is disabled when nothing was
+  found to move. Once the move ends the dialog closes and the status line
+  says how many files went. Nothing is
   deleted: the file and its sidecars all go to the Trash, so restoring them
   brings back the stars, the flag and the color label. Whatever could not be
   moved is listed as an error and stays in the folder. Chosen while a scan
@@ -250,7 +258,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   not followed). A folder never opened in Riffle counts too, its rejects read
   from its sidecars. With several folders selected in the tree, the same two
   items act on all of them together. Both wait for a running scan the same
-  way, and when the folders hold no rejects the status line says so. When the open folder is
+  way, confirm in the same dialog, and when the folders hold no rejects
+  (and none failed to read) the status line says so instead. When the open folder is
   among the folders trashed in, the strip is refreshed as with the File menu
   item.
 - **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the

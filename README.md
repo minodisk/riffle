@@ -126,7 +126,8 @@ DxO PhotoLab.
   `Move Rejected to Trash, Including Subfolders…` to do the same for a folder
   you have not opened, or for a whole year folder at once, or select several
   folders with `Cmd+click` / `Ctrl+click` / `Shift+click` and right-click to
-  do it for all of them together. Nothing is deleted,
+  do it for all of them together. A dialog lists the rejects per folder and
+  the total space freed before anything moves. Nothing is deleted,
   so restoring them brings the judgments back.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the

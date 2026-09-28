@@ -67,7 +67,7 @@ Rules:
 ### An index/scan mutation that must not race a rescan holds the `Scans` lock across the disk op and the index write (Hit)
 
 `rename.rs` holds `Scans`' inner mutex across the rename on disk and the
-subsequent index write, the same pattern `trash_rejected` uses. Do the same
+subsequent index write, the same pattern `trash_rejected_run` uses. Do the same
 for any new command that both changes what is on disk and writes rows for
 it, so a scan cannot start mid-way and index the half-renamed state.
 

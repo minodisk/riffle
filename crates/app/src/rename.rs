@@ -65,7 +65,7 @@ pub fn folder_target(dir: &Path, name: &str) -> Result<PathBuf, String> {
 
 /// Rename the folder `dir` to `name`, refusing while a scan runs. The sidecar
 /// writer is drained first and the `Scans` lock held across the rename and the
-/// index write, as in `trash_rejected`. The watcher and the folder tree's
+/// index write, as in `trash_rejected_run`. The watcher and the folder tree's
 /// watches on the folder and under it are released before the rename
 /// (Windows refuses to rename a folder with a watched descendant); the
 /// frontend's reopen and tree re-render under the new path set them again. A

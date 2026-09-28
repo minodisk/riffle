@@ -926,9 +926,11 @@ body {
   display: none;
 }
 
-/* `File > Sequence JPEG Timestamps…`, over the whole window like Settings.
-   The file list scrolls; the buttons stay in view. */
-#sequence-dialog {
+/* `File > Sequence JPEG Timestamps…` and the Move Rejected to Trash
+   confirmation, over the whole window like Settings. The list scrolls; the
+   buttons stay in view. */
+#sequence-dialog,
+#trash-dialog {
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -938,11 +940,13 @@ body {
   background: rgb(0 0 0 / 60%);
 }
 
-#sequence-dialog[hidden] {
+#sequence-dialog[hidden],
+#trash-dialog[hidden] {
   display: none;
 }
 
-#sequence-box {
+#sequence-box,
+#trash-box {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -958,23 +962,27 @@ body {
   line-height: 1.5;
 }
 
-#sequence-title {
+#sequence-title,
+#trash-title {
   margin: 0 0 0.5rem;
   font-size: 1rem;
   font-weight: 600;
 }
 
-#sequence-box p {
+#sequence-box p,
+#trash-box p {
   margin: 0 0 0.5rem;
   overflow-wrap: anywhere;
 }
 
 #sequence-rebuild,
-#sequence-running {
+#sequence-running,
+#trash-empty {
   color: #aaa;
 }
 
-#sequence-rows {
+#sequence-rows,
+#trash-rows {
   flex: 1;
   min-height: 0;
   margin: 0 0 0.5rem;
@@ -987,6 +995,15 @@ body {
   white-space: pre;
 }
 
+#trash-rows {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#trash-rows:empty {
+  display: none;
+}
+
 #sequence-rows .unchanged {
   color: #777;
 }
@@ -995,23 +1012,27 @@ body {
   color: var(--pick-color);
 }
 
-#sequence-failed {
+#sequence-failed,
+#trash-failed {
   margin: 0 0 0.5rem;
   padding-left: 1.2rem;
   color: var(--reject-color);
 }
 
-#sequence-failed:empty {
+#sequence-failed:empty,
+#trash-failed:empty {
   display: none;
 }
 
-#sequence-box .actions {
+#sequence-box .actions,
+#trash-box .actions {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
 }
 
-#sequence-box [hidden] {
+#sequence-box [hidden],
+#trash-box [hidden] {
   display: none;
 }
 
