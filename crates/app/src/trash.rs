@@ -75,6 +75,12 @@ pub struct Summary {
 pub struct Trashed {
     pub path: PathBuf,
     pub trashed_at: Option<PathBuf>,
+    /// `(dev, ino)` of the file at `trashed_at`, taken right after the move
+    /// (macOS only; `None` elsewhere or when the file could not be stat'd).
+    /// The Trash can reuse a name once it is free, so `restore_recorded`
+    /// checks this against the file it is about to rename back, not just
+    /// that a file exists at `trashed_at`.
+    pub trashed_id: Option<(u64, u64)>,
 }
 
 /// One recorded run: every file it moved, each RAW followed by its sidecars
@@ -139,6 +145,7 @@ pub struct Restored {
 impl Restored {
     /// Every file of `run` failed with `message`, for a Trash that cannot be
     /// read or restored from at all.
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
     pub fn none(run: &TrashRun, message: &str) -> Self {
         Restored {
             restored: Vec::new(),
@@ -422,10 +429,14 @@ pub fn run(
     for group in groups {
         let raw = group.raw.to_string_lossy().into_owned();
         match mover(&group.raw) {
-            Ok(trashed_at) => moved.push(Trashed {
-                path: group.raw,
-                trashed_at,
-            }),
+            Ok(trashed_at) => {
+                let trashed_id = trashed_at.as_deref().and_then(file_id);
+                moved.push(Trashed {
+                    path: group.raw,
+                    trashed_at,
+                    trashed_id,
+                });
+            }
             Err(message) => {
                 summary.failed.push(Failure { path: raw, message });
                 continue;
@@ -434,10 +445,14 @@ pub fn run(
         summary.moved.push(raw);
         for sidecar in group.sidecars {
             match mover(&sidecar) {
-                Ok(trashed_at) => moved.push(Trashed {
-                    path: sidecar,
-                    trashed_at,
-                }),
+                Ok(trashed_at) => {
+                    let trashed_id = trashed_at.as_deref().and_then(file_id);
+                    moved.push(Trashed {
+                        path: sidecar,
+                        trashed_at,
+                        trashed_id,
+                    });
+                }
                 Err(message) => summary.failed.push(Failure {
                     path: sidecar.to_string_lossy().into_owned(),
                     message,
@@ -446,6 +461,21 @@ pub fn run(
         }
     }
     (summary, moved)
+}
+
+/// `(dev, ino)` of `path`, `None` when it cannot be stat'd or the platform is
+/// not Unix. A rename within the same volume keeps this identity, but the
+/// Trash reusing a freed name after emptying does not.
+#[cfg(unix)]
+fn file_id(path: &Path) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = std::fs::metadata(path).ok()?;
+    Some((metadata.dev(), metadata.ino()))
+}
+
+#[cfg(not(unix))]
+fn file_id(_path: &Path) -> Option<(u64, u64)> {
+    None
 }
 
 /// The failure of a file whose original location holds a file again.
@@ -501,12 +531,22 @@ pub fn restore<I>(
 /// the file put back by hand) is "not in the Trash", else it is renamed back,
 /// within the volume its Trash lives on. `std::fs::rename` replaces an
 /// existing file on Unix, so `restore`'s `exists` check is the only guard
-/// against overwriting.
+/// against overwriting. A file existing at the recorded location is not
+/// enough: the Trash can hand the same name to a different file once the
+/// original is gone (the Trash emptied, then something else trashed under
+/// the same name), so this also requires the file's `(dev, ino)` to still
+/// match the one recorded right after the move.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn restore_recorded(run: &TrashRun) -> Restored {
     restore(
         run,
-        |trashed| trashed.trashed_at.clone().filter(|at| at.exists()),
+        |trashed| {
+            let at = trashed.trashed_at.clone()?;
+            if file_id(&at) != trashed.trashed_id {
+                return None;
+            }
+            Some(at)
+        },
         Path::exists,
         |trashed, at| std::fs::rename(at, &trashed.path).map_err(|e| e.to_string()),
     )
@@ -682,6 +722,7 @@ mod tests {
         Trashed {
             path: PathBuf::from(path),
             trashed_at: None,
+            trashed_id: None,
         }
     }
 
@@ -814,7 +855,8 @@ mod tests {
             write(&at);
             Trashed {
                 path: dir.join(name),
-                trashed_at: Some(at),
+                trashed_at: Some(at.clone()),
+                trashed_id: super::file_id(&at),
             }
         };
         let back = recorded("a.ARW");
@@ -824,6 +866,9 @@ mod tests {
         let emptied = Trashed {
             path: dir.join("c.ARW"),
             trashed_at: Some(trash.join("c.ARW")),
+            // Never written, so this stands in for the id recorded at trash
+            // time not matching what (if anything) is at the path now.
+            trashed_id: Some((0, 0)),
         };
         let run = TrashRun {
             id: 1,
@@ -1343,10 +1388,12 @@ mod tests {
                 Trashed {
                     path: dir.join("ok.ARW"),
                     trashed_at: Some(trash.join("ok.ARW")),
+                    trashed_id: super::file_id(&trash.join("ok.ARW")),
                 },
                 Trashed {
                     path: dir.join("ok.xmp"),
                     trashed_at: Some(trash.join("ok.xmp")),
+                    trashed_id: super::file_id(&trash.join("ok.xmp")),
                 },
             ]
         );

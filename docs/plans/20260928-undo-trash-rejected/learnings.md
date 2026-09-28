@@ -60,7 +60,20 @@
   texts and the new `restore_recorded` are used on macOS; `trash_key`
   and `newest_by_path` keep their macOS `allow(dead_code)`, and
   `restore_recorded` gets the mirror attribute off macOS (it is used
-  there only by its test).
+  there only by its test). `Restored::none` was missed in this pass: its
+  only non-test caller left after this commit is the
+  `#[cfg(not(target_os = "macos"))]` `restore_run`, so it also needs
+  `#[cfg_attr(target_os = "macos", allow(dead_code))]` (added in review
+  round 1; this Windows machine cannot compile the macOS cfg to catch it
+  itself).
+- A file existing at the recorded `trashed_at` is not enough to call it
+  "still in the Trash": the Trash can hand a freed name to an unrelated
+  file trashed later from elsewhere (camera file names like
+  `DSC00001.ARW` repeat across cards). `Trashed` now also records
+  `trashed_id`, the `(dev, ino)` of the file at `trashed_at` taken right
+  after the move (`std::os::unix::fs::MetadataExt`, `None` on
+  non-Unix), and `restore_recorded`'s `in_trash` requires it to still
+  match before renaming back (added in review round 1).
 - The `#[cfg(target_os = "macos")]` test `ns_file_manager_tells_where_the_file_went`
   trashes a real temp file; it is not `#[ignore]`d. If the CI runner's
   Trash turns out to be unusable, mark it `#[ignore]` and record it here.
