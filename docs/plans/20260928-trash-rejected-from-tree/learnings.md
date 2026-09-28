@@ -45,3 +45,20 @@
   `FILE_SHARE_DELETE`); `rename.rs` still releases the watcher first, which
   is harmless. The GUI check (the File menu item on an open folder, the
   status line and the refreshed strip) remains a manual check for the user.
+
+## Step 2: Folder tree right-click items
+
+- `folderMenuGroups`' second parameter changed from `canRename` to `root`,
+  since it now gates both `Rename…` and the recursive trash item; the only
+  caller already had `root` at hand.
+- `tree.ts` exports `relation(path, dir)` (`"same"` / `"under"` / `null`),
+  comparing the way `ancestorsWithin` / `rebase` do; `trash.ts`'s
+  `opensTarget` builds on it. `rebase` was left as it is rather than rewritten
+  over `relation`.
+- `trashRejectedIn` decides whether to prune and `resync()` from the open
+  folder at the time the command returns, not the one when it started, so
+  the old `folderToken` guard is gone: the pruning only touches the moved
+  paths, and a folder opened mid-run that turns out to be a target is
+  re-listed. The status line and the failures are now always shown, even
+  when the user switched folders meanwhile (the File menu path used to drop
+  them).

@@ -61,7 +61,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   follow the folder, so nothing is re-extracted; the tree keeps its
   expansion; and when the open folder is the renamed one or under it, it
   reopens under its new path at the file it was on (a reopen, so the undo
-  history and the selection start over). Last,
+  history and the selection start over). Then `Move Rejected to Trash…`
+  and `Move Rejected to Trash, Including Subfolders…` (the latter not
+  offered on home or a volume at the top level) move the rejects of that
+  folder, or of it and every folder below it, to the Trash (see
+  **Move Rejected in This Folder to Trash…**). Last,
   `Sequence JPEG Timestamps…` starts the same preview as
   the File menu item on that folder, without the folder picker (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
@@ -227,6 +231,15 @@ viewer shows a prompt in its center; click it to open the folder picker.
   moved is listed as an error and stays in the folder. Chosen while a scan
   runs, it waits for the scan, the status line saying so, and asks when the
   scan ends; opening another folder meanwhile drops it.
+  The folder tree's right-click menu does the same for the right-clicked
+  folder, open or not: `Move Rejected to Trash…` for that folder alone, and
+  `Move Rejected to Trash, Including Subfolders…` for it and every visible
+  folder below it (hidden and dot folders are skipped, and a symbolic link is
+  not followed). A folder never opened in Riffle counts too, its rejects read
+  from its sidecars. Both wait for a running scan the same way, and when the
+  folder holds no rejects the status line says so. When the open folder is
+  among the folders trashed in, the strip is refreshed as with the File menu
+  item.
 - **Sequence JPEG Timestamps…**: `File > Sequence JPEG Timestamps…` makes the
   capture times of exported JPEGs unique at second granularity, so Google
   Photos, which ignores `SubSecTimeOriginal`, keeps a burst in shooting order.

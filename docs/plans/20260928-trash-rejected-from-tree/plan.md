@@ -112,7 +112,7 @@ menu item stays, relabeled so its target is unambiguous.
       watched directory without releasing it; Windows only refuses to
       rename or delete the watched directory itself.
 
-- [ ] Step 2: Folder tree right-click items, this folder and including subfolders
+- [x] Step 2: Folder tree right-click items, this folder and including subfolders
   - Done when:
     - `folderMenuGroups` (`crates/app/ui/src/context.ts`) gains a group with
       `trashRejected` ("Move Rejected to Trash…") and, when the folder is
@@ -280,3 +280,4 @@ menu item stays, relabeled so its target is unambiguous.
   move failures (`failed`) from files/folders `collect` never got to read
   (`unread`), and the frontend words and counts the two differently.
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete

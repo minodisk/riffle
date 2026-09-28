@@ -284,6 +284,17 @@ export function rootOf(path: string): string {
   return "/";
 }
 
+// Whether `path` is `dir` itself or a folder under it, compared the way
+// `ancestorsWithin` compares.
+export function relation(path: string, dir: string): "same" | "under" | null {
+  const target = normalize(path);
+  const prefix = normalize(dir);
+  if (target === prefix) {
+    return "same";
+  }
+  return target.startsWith(`${prefix}/`) ? "under" : null;
+}
+
 // The path under `newDir` that `path` had under `oldDir`, or `null` when
 // `path` is neither `oldDir` nor under it. Compared the way
 // `ancestorsWithin` compares; the rest is joined in `newDir`'s spelling.

@@ -25,7 +25,7 @@ import {
   focusMark,
 } from "./focus.js";
 import { FaceCache, NO_FACES } from "./faces.js";
-import { type TrashSummary, trashedStatus } from "./trash.js";
+import { type TrashSummary, opensTarget, trashedStatus } from "./trash.js";
 import {
   RUNNING_NOTE,
   type SequenceDone,
@@ -564,33 +564,39 @@ function trashRejected(): void {
     setStatus("No folder is open");
     return;
   }
-  // Read at run time: the folder may change while it waits.
+  trashRejectedIn([openDir], false);
+}
+
+// Collect and move the rejects of `dirs` (and their subfolders when
+// `recursive`), after the backend confirms. The File menu item and the folder
+// tree's items both land here. When the open folder was among them, its state
+// is pruned by the moved paths and it is re-listed.
+function trashRejectedIn(dirs: string[], recursive: boolean): void {
+  // Read at run time: the open folder may change while it waits.
   whenIdle("Move Rejected to Trash", () => {
-    if (openDir === null) {
-      return;
-    }
-    const dir = openDir;
-    const token = folderToken;
     settleIdle(
       window.__TAURI__.core
-        .invoke<TrashSummary | null>("trash_rejected", { dirs: [dir], recursive: false })
+        .invoke<TrashSummary | null>("trash_rejected", { dirs, recursive })
         .then((summary) => {
-          if (dir !== openDir || token !== folderToken || summary === null) {
+          if (summary === null) {
             return;
           }
-          const moved = new Set(summary.moved);
-          for (const path of moved) {
-            ratings.delete(path);
-            flags.delete(path);
-            labels.delete(path);
-            sharpness.delete(path);
-            touched.delete(path);
+          const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
+          if (refresh) {
+            const moved = new Set(summary.moved);
+            for (const path of moved) {
+              ratings.delete(path);
+              flags.delete(path);
+              labels.delete(path);
+              sharpness.delete(path);
+              touched.delete(path);
+            }
+            // An undo of a trashed file would `set_rating` a path that is gone
+            // and mint an orphan sidecar.
+            const gone = (entry: Judgment) => moved.has(entry.path);
+            history.removeWhere((batch) => batch.every(gone));
+            redoable.removeWhere((batch) => batch.every(gone));
           }
-          // An undo of a trashed file would `set_rating` a path that is gone and
-          // mint an orphan sidecar.
-          const gone = (entry: Judgment) => moved.has(entry.path);
-          history.removeWhere((batch) => batch.every(gone));
-          redoable.removeWhere((batch) => batch.every(gone));
           for (const { path, message } of summary.failed) {
             errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
           }
@@ -598,12 +604,11 @@ function trashRejected(): void {
             errors.add(path, `${baseName(path)}: could not be read: ${message}`);
           }
           setStatus(trashedStatus(summary));
-          resync();
+          if (refresh) {
+            resync();
+          }
         })
         .catch((err: unknown) => {
-          if (dir !== openDir || token !== folderToken) {
-            return;
-          }
           setStatus(String(err));
         }),
     );
@@ -2276,7 +2281,7 @@ function renameFile(path: string, name: string): void {
 
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
-// rename it, or to sequence its JPEGs.
+// rename it, to move its rejects to the Trash, or to sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2289,7 +2294,7 @@ folders.init(
   setStatus,
   (path, name, x, y, root) => {
     void revealLabel.then((label) => {
-      showMenu(folderMenuGroups(label, !root), x, y, (action) => {
+      showMenu(folderMenuGroups(label, root), x, y, (action) => {
         switch (action) {
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
@@ -2308,6 +2313,12 @@ folders.init(
             break;
           case "renameFolder":
             folders.startRename(path);
+            break;
+          case "trashRejected":
+            trashRejectedIn([path], false);
+            break;
+          case "trashRejectedTree":
+            trashRejectedIn([path], true);
             break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);
