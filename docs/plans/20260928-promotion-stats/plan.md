@@ -63,7 +63,7 @@ Decisions (taken with the user on 2026-09-28):
 
 ## Steps
 
-- [ ] Step 1: Daily snapshot of release download counts to the `stats` branch
+- [x] Step 1: Daily snapshot of release download counts to the `stats` branch
   - Done when:
     - `tools/stats/snapshot.sh` exists, runs locally with an authenticated
       `gh` (`GH_REPO` defaulting to `minodisk/riffle`), and writes
@@ -172,4 +172,4 @@ Decisions (taken with the user on 2026-09-28):
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete
