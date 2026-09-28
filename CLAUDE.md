@@ -53,7 +53,7 @@ optionally with their subfolders, from the index rows or else the sidecars on
 disk, so a folder never opened counts too, counts them and their bytes per
 folder for the confirmation dialog, and moves each RAW and its sidecars to
 the OS trash), `src/sequence.rs` the
-`File > Sequence JPEG Timestamps…` commands (`sequence_preview`,
+`Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
 `src/photolab.rs` the PhotoLab database lookup that gives a fresh `.dop` the
@@ -83,7 +83,7 @@ renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens
 view-only (no judgment, capture-time order), and
 `src/sequence.ts` holds the
-Sequence JPEG Timestamps dialog's text and its flow from the folder picker
+Sequence JPEG Timestamps dialog's text and its flow from the folder tree's right-click
 through the preview to the run's end.
 
 ## Language

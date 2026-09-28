@@ -26,8 +26,6 @@ mod app_menu {
 
     const OPEN_FOLDER_ID: &str = "open-folder";
     const RELOAD_FOLDER_ID: &str = "reload-folder";
-    const TRASH_REJECTED_ID: &str = "trash-rejected";
-    const SEQUENCE_TIMESTAMPS_ID: &str = "sequence-timestamps";
     const OPEN_LOG_FOLDER_ID: &str = "open-log-folder";
     const SETTINGS_ID: &str = "open-settings";
     const UNDO_ID: &str = "undo";
@@ -107,36 +105,6 @@ mod app_menu {
         )?;
         #[cfg(not(target_os = "macos"))]
         let open_folder = MenuItem::with_id(handle, OPEN_FOLDER_ID, "Open Folder…", true, open)?;
-        // No accelerator: a destructive action, reached deliberately through
-        // the menu and its confirmation.
-        #[cfg(target_os = "macos")]
-        let trash_rejected = IconMenuItem::with_id(
-            handle,
-            TRASH_REJECTED_ID,
-            "Move Rejected in This Folder to Trash…",
-            true,
-            Some(Image::from_bytes(include_bytes!(
-                "../icons/menu/trash.png"
-            ))?),
-            None::<&str>,
-        )?;
-        #[cfg(not(target_os = "macos"))]
-        let trash_rejected = MenuItem::with_id(
-            handle,
-            TRASH_REJECTED_ID,
-            "Move Rejected in This Folder to Trash…",
-            true,
-            None::<&str>,
-        )?;
-        // No macOS icon yet: the menu PNGs are rendered from SF Symbols by
-        // `tools/macos/export-menu-icons.swift`, which only runs on macOS.
-        let sequence_timestamps = MenuItem::with_id(
-            handle,
-            SEQUENCE_TIMESTAMPS_ID,
-            "Sequence JPEG Timestamps…",
-            true,
-            None::<&str>,
-        )?;
         // A fixed accelerator, like Settings: reloading is not a
         // culling action, so it is not part of the rebindable keymap.
         #[cfg(target_os = "macos")]
@@ -206,8 +174,6 @@ mod app_menu {
         file.prepend_items(&[
             &open_folder,
             &reload_folder,
-            &trash_rejected,
-            &sequence_timestamps,
             &PredefinedMenuItem::separator(handle)?,
         ])?;
         // On macOS both go in the app menu: Check for Updates joins About above
@@ -350,12 +316,6 @@ mod app_menu {
         }
         if event.id() == RELOAD_FOLDER_ID {
             let _ = app.emit("reload-folder", ());
-        }
-        if event.id() == TRASH_REJECTED_ID {
-            let _ = app.emit("trash-rejected", ());
-        }
-        if event.id() == SEQUENCE_TIMESTAMPS_ID {
-            let _ = app.emit("sequence-timestamps", ());
         }
         if event.id() == UNDO_ID {
             let _ = app.emit("undo", ());

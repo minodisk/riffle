@@ -120,18 +120,19 @@ DxO PhotoLab.
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
-- **Move Rejected to Trash**: `File > Move Rejected in This Folder to Trash…`
-  moves the rejected shots of the open folder to the Trash; right-click a
-  folder in the folder tree and choose `Move Rejected to Trash…` or
-  `Move Rejected to Trash, Including Subfolders…` to do the same for a folder
-  you have not opened, or for a whole year folder at once, or select several
+- **Move Rejected to Trash**: right-click a folder in the folder tree and
+  choose `Move Rejected to Trash…` to move its rejected shots to the Trash,
+  even a folder you have not opened, or
+  `Move Rejected to Trash, Including Subfolders…` to do it for a whole year
+  folder at once, or select several
   folders with `Cmd+click` / `Ctrl+click` / `Shift+click` and right-click to
   do it for all of them together. A dialog lists the rejects per folder and
   the total space freed before anything moves. Nothing is deleted,
   so restoring them brings the judgments back.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
-  as JPEGs from your RAW developer, `File > Sequence JPEG Timestamps…` on the
-  export folder (or right-click it in the folder tree) spaces the capture times of a burst one second apart, so Google
+  as JPEGs from your RAW developer, right-click the export folder in the
+  folder tree and choose `Sequence JPEG Timestamps…` to space the capture
+  times of a burst one second apart, so Google
   Photos, which ignores sub-second times, keeps the frames in shooting order.
   Files are ordered by capture time, then sub-second time, then file name, so a
   folder exported from two bodies interleaves correctly. A preview shows the

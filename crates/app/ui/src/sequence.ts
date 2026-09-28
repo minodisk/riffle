@@ -1,6 +1,5 @@
-// `File > Sequence JPEG Timestamps…`: the dialog's text and the flow from
-// picking the folder (or right-clicking it in the folder tree) to the run's
-// end. See `crates/app/src/sequence.rs` for
+// The folder tree's `Sequence JPEG Timestamps…`: the dialog's text and the
+// flow from right-clicking the folder to the run's end. See `crates/app/src/sequence.rs` for
 // the payloads.
 
 export type SequenceFailure = { path: string; message: string };
@@ -97,7 +96,7 @@ export function revealAfter(done: SequenceDone): string | null {
 
 export type Phase = "idle" | "picking" | "previewing" | "previewed" | "running" | "done";
 
-// The flow of one sequencing, from the menu item to `sequence-done`. The
+// The flow of one sequencing, from the tree's menu item to `sequence-done`. The
 // dialog is open while previewed and while running.
 //
 // `sequence_run` returns the run id after the run has started, so its events
@@ -134,13 +133,9 @@ export class SequenceFlow {
     return true;
   }
 
-  // True when `dir` should be previewed; a dismissed picker ends the flow.
-  picked(dir: string | null): boolean {
+  // True when `dir` should be previewed.
+  picked(dir: string): boolean {
     if (this.phase !== "picking") {
-      return false;
-    }
-    if (dir === null) {
-      this.phase = "idle";
       return false;
     }
     this.dir = dir;

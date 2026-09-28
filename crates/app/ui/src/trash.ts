@@ -1,9 +1,8 @@
 import { relation } from "./tree.js";
 
-// `File > Move Rejected in This Folder to Trash…` and the folder tree's
-// `Move Rejected to Trash…` items: the confirmation dialog's text and flow,
-// what the status line says once the run comes back, and whether the open
-// folder was among the folders it trashed in.
+// The folder tree's `Move Rejected to Trash…` items: the confirmation
+// dialog's text and flow, what the status line says once the run comes back,
+// and whether the open folder was among the folders it trashed in.
 
 export type TrashFailure = { path: string; message: string };
 
