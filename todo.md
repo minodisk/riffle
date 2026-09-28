@@ -1110,3 +1110,17 @@ heredoc landed with the backslashes halved, even with a quoted delimiter.
       tools, or a script file written by them, rather than a Bash
       heredoc. Confirm the behavior first by writing a doubled-backslash
       string both ways and diffing the results.
+
+### App: `reveal`'s listing failures in the folder tree don't get the failed mark
+
+`toggle`'s `list_subfolders` failures mark the row with the `failed` class
+(red name, error as the tooltip) via `TreeNode.failed` in
+`crates/app/ui/src/tree.ts`, cleared by the next successful listing. `reveal`'s
+own listing failures in `crates/app/ui/src/folders.ts` do not set this mark,
+as scoped out of
+`docs/plans/_archived/20260928-todo-sweep-small-fixes/plan.md` Step 1 item (4).
+
+#### TODO
+
+- [ ] Decide whether `reveal`'s listing failures should also set the `failed`
+      mark, and implement it if so.

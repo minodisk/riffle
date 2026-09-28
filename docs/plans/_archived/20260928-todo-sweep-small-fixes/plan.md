@@ -148,3 +148,4 @@ event nobody listens to.
   and by running `cargo run -p riffle-cli -- bench <some.jpg>` to see it
   error. See `learnings.md` for the deferred `reveal` failed-mark gap (item 4
   covers `toggle` only, per the todo item's wording).
+- (2026-09-28) Step 1 complete

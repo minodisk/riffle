@@ -1763,7 +1763,10 @@ worktree, although `node_modules/.bin/vp` already existed on disk.
 
 ### On Windows, run `vp` through `node`, not `pnpm exec`, in mise tasks (Hit)
 
-The `test` task calls `node ./node_modules/vite-plus/bin/vp test`.
+The `test` task calls `node ./node_modules/vite-plus/bin/vp test`; `fmt`
+does the same (`node ./node_modules/vite-plus/bin/vp fmt`). `lint` still
+calls `pnpm exec vp check` (unconverted; it works today but carries the same
+risk this note describes).
 
 - Why: the mise task shell is bash; `pnpm exec vp` there resolves to the `.cmd`
   shim, which runs under cmd.exe with bash's POSIX-style `PATH` and cannot find
