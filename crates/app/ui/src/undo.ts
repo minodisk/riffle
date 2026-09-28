@@ -1,5 +1,27 @@
-// A bounded stack of judgment states, used for both undo and redo: pushing
-// past `limit` drops the oldest.
+// One `Move Rejected to Trash` run, undone by restoring it from the Trash:
+// its backend `run_id`, the RAWs it moved, and the folders it ran on.
+export type TrashEntry = {
+  kind: "trash";
+  runId: number;
+  count: number;
+  dirs: string[];
+  recursive: boolean;
+};
+
+// An undo entry: a batch of judgment states, or a trash run.
+export type Entry<J> = J[] | TrashEntry;
+
+export function isJudgments<J>(entry: Entry<J>): entry is J[] {
+  return Array.isArray(entry);
+}
+
+// Rewrite every judgment of a batch through `fn`, leaving a trash entry as is.
+export function mapJudgments<J>(fn: (judgment: J) => J): (entry: Entry<J>) => Entry<J> {
+  return (entry) => (isJudgments(entry) ? entry.map(fn) : entry);
+}
+
+// A bounded stack of undo entries, used for both undo and redo: pushing past
+// `limit` drops the oldest.
 export class History<T> {
   private entries: T[] = [];
 
@@ -14,6 +36,10 @@ export class History<T> {
 
   pop(): T | undefined {
     return this.entries.pop();
+  }
+
+  peek(): T | undefined {
+    return this.entries.at(-1);
   }
 
   // Drop `entry` wherever it sits; later entries may have been pushed since.

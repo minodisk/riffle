@@ -185,7 +185,7 @@ the cargo registry):
     - `NSURL::path()` gives the file system path of the trashed item; keep
       it as a `PathBuf`, not a URL string.
 
-- [ ] Step 3: `Edit > Undo` restores the run; the open folder refreshes
+- [x] Step 3: `Edit > Undo` restores the run; the open folder refreshes
   - Done when:
     - The undo history holds two kinds of entry: the existing judgment
       batch and a trash run (`{ kind: "trash", runId, count, dirs,

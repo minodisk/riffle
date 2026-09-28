@@ -3,7 +3,7 @@ import * as strip from "./strip.js";
 import * as folders from "./folders.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import { advancesAfter } from "./advance.js";
-import { History } from "./undo.js";
+import { type Entry, type TrashEntry, History, isJudgments, mapJudgments } from "./undo.js";
 import { ErrorList } from "./errors.js";
 import {
   type Flag,
@@ -27,6 +27,7 @@ import {
 import { FaceCache, NO_FACES } from "./faces.js";
 import {
   type TrashPreview,
+  type TrashRestored,
   type TrashSummary,
   TrashFlow,
   canRun,
@@ -34,6 +35,9 @@ import {
   failureText as trashFailureText,
   folderRows,
   opensTarget,
+  restoredInto,
+  restoredStatus,
+  stillUndoable,
   totalLine,
   trashedStatus,
 } from "./trash.js";
@@ -331,13 +335,18 @@ let selection: Selection = single(undefined);
 // The index of each path in `files`, for handing a rating to the strip.
 const fileIndex = new Map<string, number>();
 // A judgment's file and its state before it, for `Edit > Undo`. An entry is
-// a batch, undone as one: a single key judges one file, reject-rest several.
-// Per folder: `openDirectory` clears it.
+// a batch, undone as one: a single key judges one file, reject-rest several;
+// or a `Move Rejected to Trash` run, undone by restoring it from the Trash.
+// Judgments are per folder: `openDirectory` drops them. A trash run stays,
+// since it may span folders and needs none open.
 type Judgment = { path: string; rating: number | null; flag: PickFlag; label: string | null };
-const history = new History<Judgment[]>(100);
+const history = new History<Entry<Judgment>>(100);
 // The pre-undo state of each undone batch, for `Edit > Redo`. A new
 // judgment forgets it, as every editor does.
-const redoable = new History<Judgment[]>(100);
+const redoable = new History<Entry<Judgment>>(100);
+// The trash run whose restore is out, so a second undo does not pop the
+// judgments beneath it before its files are back.
+let restoring: TrashEntry | null = null;
 // Sidecar problems, kept until dismissed rather than in the transient `note`.
 const errors = new ErrorList();
 const shownFlags = new Set<Flag>();
@@ -658,19 +667,26 @@ function runTrash(): void {
         closeTrashDialog();
         const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
         if (refresh) {
-          const moved = new Set(summary.moved);
-          for (const path of moved) {
+          for (const path of summary.moved) {
             ratings.delete(path);
             flags.delete(path);
             labels.delete(path);
             sharpness.delete(path);
             touched.delete(path);
           }
-          // An undo of a trashed file would `set_rating` a path that is gone
-          // and mint an orphan sidecar.
-          const gone = (entry: Judgment) => moved.has(entry.path);
-          history.removeWhere((batch) => batch.every(gone));
-          redoable.removeWhere((batch) => batch.every(gone));
+        }
+        // The judgments of the trashed files stay: this entry sits above
+        // them, so undo reaches them only once the files are back, and
+        // `step` skips a file that did not come back.
+        if (summary.run_id !== null) {
+          history.push({
+            kind: "trash",
+            runId: summary.run_id,
+            count: summary.moved.length,
+            dirs,
+            recursive,
+          });
+          redoable.clear();
         }
         for (const { path, message } of summary.failed) {
           errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
@@ -1333,7 +1349,10 @@ function rejectRest(): void {
 
 // A failed write drops its file from `batch`, and the batch from `from` once
 // every file of it has failed: the rest still changed and stay undoable.
-function forgetOnFail(from: History<Judgment[]>, batch: Judgment[]): (failed: Judgment) => void {
+function forgetOnFail(
+  from: History<Entry<Judgment>>,
+  batch: Judgment[],
+): (failed: Judgment) => void {
   return (failed) => {
     const at = batch.indexOf(failed);
     if (at !== -1) {
@@ -1410,13 +1429,24 @@ function send(
 // file becomes current unless the filter now hides it, and when the focus
 // moves it also becomes the selection, unless compare mode is holding the
 // selection as its comparison set; a batch leaves the current file where it
-// is.
-function step(from: History<Judgment[]>, to: History<Judgment[]>, verb: string): void {
+// is. A trash run is restored instead; see `undoTrash`.
+function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb: string): void {
+  if (restoring !== null) {
+    return;
+  }
+  const top = from.peek();
+  if (top !== undefined && !isJudgments(top)) {
+    undoTrash(top);
+    return;
+  }
   if (openDir === null) {
     return;
   }
   const popped = from.pop();
-  const batch = popped?.filter((entry) => allFiles.includes(entry.path)) ?? [];
+  const batch =
+    popped !== undefined && isJudgments(popped)
+      ? popped.filter((entry) => allFiles.includes(entry.path))
+      : [];
   if (batch.length === 0) {
     return;
   }
@@ -1459,6 +1489,51 @@ function step(from: History<Judgment[]>, to: History<Judgment[]>, verb: string):
     show();
   }
   setStatus(`${verb} ${name}`);
+}
+
+// Restore the trash run `entry` from the Trash. It waits for a running scan
+// like the run does, and stays on the history until the backend has
+// restored it, so a refusal (a scan that slipped in) leaves it undoable. An
+// undone run is dropped rather than made redoable. When the open folder was
+// among its folders, the restored RAWs go into `allFiles` at once, so an
+// undo pressed before the rescan lands still reaches their judgments, and
+// the rescan brings their thumbnails and judgments back. The current file
+// and the selection stay.
+function undoTrash(entry: TrashEntry): void {
+  whenIdle("Undo Move Rejected to Trash", () => {
+    if (restoring !== null || history.peek() !== entry) {
+      return;
+    }
+    restoring = entry;
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashRestored>("trash_rejected_undo", { runId: entry.runId })
+        .then((result) => {
+          restoring = null;
+          history.remove(entry);
+          for (const { path, message } of result.failed) {
+            errors.add(path, `${baseName(path)}: could not restore from the Trash: ${message}`);
+          }
+          setStatus(restoredStatus(result));
+          if (openDir !== null && opensTarget(openDir, entry.dirs, entry.recursive)) {
+            const back = restoredInto(openDir, result.restored, allFiles);
+            if (back.length > 0) {
+              allFiles = [...allFiles, ...back];
+              setViewOnly(isViewOnly(allFiles));
+              refilter();
+            }
+            resync();
+          }
+        })
+        .catch((err: unknown) => {
+          restoring = null;
+          if (!stillUndoable(String(err))) {
+            history.remove(entry);
+          }
+          setStatus(String(err));
+        }),
+    );
+  });
 }
 
 function undo(): void {
@@ -2311,8 +2386,8 @@ function renameFile(path: string, name: string): void {
           // sidecar).
           const moved = (entry: Judgment) =>
             entry.path === path ? { ...entry, path: newPath } : entry;
-          history.map((batch) => batch.map(moved));
-          redoable.map((batch) => batch.map(moved));
+          history.map(mapJudgments(moved));
+          redoable.map(mapJudgments(moved));
           const allAt = allFiles.indexOf(path);
           if (allAt !== -1) {
             allFiles[allAt] = newPath;
@@ -2586,8 +2661,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
     faceCache.clear();
     bursts = new Map();
     touched.clear();
-    history.clear();
-    redoable.clear();
+    history.removeWhere(isJudgments);
+    redoable.removeWhere(isJudgments);
     errors.clear();
     fileIndex.clear();
     files.forEach((path, at) => {
@@ -3165,14 +3240,15 @@ for (const item of sortItems) {
 
 // The sort menu is off in a view-only folder, so the user's persisted key is
 // neither shown as in force nor overwritten there. A rescan can turn a folder
-// whose RAWs were all deleted view-only, so the undo history goes too.
+// whose RAWs were all deleted view-only, so its judgments leave the undo
+// history too; a trash run stays, to bring the RAWs back.
 function setViewOnly(next: boolean): void {
   viewOnly = next;
   sortToggle.disabled = next;
   if (next) {
     setSortMenuOpen(false);
-    history.clear();
-    redoable.clear();
+    history.removeWhere(isJudgments);
+    redoable.removeWhere(isJudgments);
   }
 }
 

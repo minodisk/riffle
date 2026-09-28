@@ -81,3 +81,61 @@
   folder, then `Edit > Undo` once Step 3 lands; the files come back and a
   file with the same name at the original location is reported, not
   overwritten.
+
+## Step 3
+
+- The trash entry is not popped when `Ctrl+Z` is pressed: `step` peeks
+  (`History.peek`, new) and `undoTrash` removes the entry only once
+  `trash_rejected_undo` has returned. A refusal (a scan that slipped in
+  under the lock) therefore leaves the entry where it was, even if a
+  judgment was pushed above it meanwhile, and `openDirectory`'s
+  `idle.discard()` of a held undo loses nothing. The one error that drops
+  the entry is the backend's `this run can no longer be undone`
+  (`stillUndoable` in `trash.ts`); keeping it would make every later
+  `Ctrl+Z` hit the same error and never reach the judgments beneath.
+- While the restore is out (`restoring`), `step` does nothing, for undo and
+  redo alike: a second `Ctrl+Z` would otherwise pop the judgment batch of
+  the trashed files beneath while they are not yet in `allFiles`, and
+  `step` drops a batch whose files are all missing.
+- `trash_rejected_undo` returns the recorded paths in the backend's
+  canonical spelling (`\\?\C:\...` on Windows), which is how `list_arw`
+  spells `allFiles`, but `openDir` may come from the tree without the
+  prefix. `relation` (tree.ts) does not strip the verbatim prefix, so
+  `restoredInto` compares through `shownPath` on both sides.
+- Backend check against the real Recycle Bin (Windows 11, a throwaway
+  `#[ignore]` test in `commands.rs`, not committed): three RAW + `.xmp`
+  pairs in a canonicalized temp folder were moved with `trash_one`, then
+  `DSC2.ARW` was recreated by hand and `DSC3.xmp` purged from the bin with
+  `os_limited::purge_all`. `restore_run` took 61 ms and returned
+  `DSC1.ARW` and `DSC3.ARW` restored; `DSC2.ARW` "already exists at the
+  original location" (the hand-made file kept its content), `DSC2.xmp`
+  "left in the Trash: its RAW could not be restored", `DSC3.xmp` "not in
+  the Trash (emptied or restored by hand)". `DSC1.xmp` came back next to
+  `DSC1.ARW`, and the run was gone from `Runs` afterwards.
+- Manual GUI checks on Windows, pending for the user (a subagent cannot
+  drive the app):
+  - Trash rejects in the open folder, `Ctrl+Z`: the files come back, the
+    strip shows them again with the reject flag (from the sidecars), and
+    the folder tree's count follows on its next re-list.
+  - The same from the tree for a folder that is not open: only the status
+    line changes ("Restored N files from the Trash").
+  - A multi-folder run undone as one `Ctrl+Z`.
+  - A conflict (copy a trashed RAW back by hand first): the status line
+    says "…, N failed" and the error list shows "could not restore from the
+    Trash: already exists at the original location" (backend side verified
+    above).
+  - An emptied Recycle Bin: every file is reported "not in the Trash"
+    (backend side verified above for one purged item).
+  - After a restore, the index picks the reject judgments back up on the
+    `resync` (the plan's "no index code" assumption for Step 1).
+
+## Deferred issues (todo candidates)
+
+- A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run
+  leaves the recorded run pointing at the old path, so undoing it restores
+  into the old, now missing, folder (on Windows the Recycle Bin may
+  recreate the folder). The frontend's rename handler rewrites judgment
+  entries (`mapJudgments`) but not a trash entry's `dirs`, and the
+  backend's `TrashRun` is not rebased either. Basis: Step 3
+  implementation. Files: `crates/app/ui/src/main.ts` (rename handler),
+  `crates/app/src/rename.rs`, `crates/app/src/trash.rs` (`Runs`).

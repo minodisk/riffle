@@ -25,11 +25,20 @@ export type TrashPreview = {
 // frontend prunes its state by, every file whose move to the Trash failed,
 // and every file or folder `collect` never got to try because it could not
 // be read (an unreadable folder, a sidecar that does not parse, an index
-// query error).
+// query error), and the recorded run `trash_rejected_undo` takes back (null
+// when nothing moved).
 export type TrashSummary = {
   moved: string[];
   failed: TrashFailure[];
   unread: TrashFailure[];
+  run_id: number | null;
+};
+
+// What `trash_rejected_undo` returns: the RAWs that came back, and every
+// file (RAW or sidecar) that did not, with the reason.
+export type TrashRestored = {
+  restored: string[];
+  failed: TrashFailure[];
 };
 
 function files(count: number): string {
@@ -83,6 +92,31 @@ export function trashedStatus(summary: TrashSummary): string {
   const count = summary.moved.length;
   const moved = `Moved ${count} ${files(count)} to the Trash`;
   return summary.failed.length === 0 ? moved : `${moved}, ${summary.failed.length} failed`;
+}
+
+export function restoredStatus(result: TrashRestored): string {
+  const count = result.restored.length;
+  const restored = `Restored ${count} ${files(count)} from the Trash`;
+  return result.failed.length === 0 ? restored : `${restored}, ${result.failed.length} failed`;
+}
+
+// The restored RAWs that sit directly in `openDir`, not yet in `allFiles`.
+// The backend spells them canonically (with the verbatim prefix on Windows),
+// as `list_arw` spells `allFiles`, while `openDir` may lack the prefix.
+export function restoredInto(openDir: string, restored: string[], allFiles: string[]): string[] {
+  return restored.filter(
+    (path) =>
+      relation(shownPath(path.replace(/[\\/][^\\/]*$/, "")), shownPath(openDir)) === "same" &&
+      !allFiles.includes(path),
+  );
+}
+
+// The backend's refusal of a run it no longer holds; any other failure (a
+// scan that slipped in) leaves the run undoable later.
+const RUN_GONE = "this run can no longer be undone";
+
+export function stillUndoable(err: string): boolean {
+  return err !== RUN_GONE;
 }
 
 // Whether `openDir` is one of `dirs`, or under one of them when the command
