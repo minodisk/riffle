@@ -51,6 +51,7 @@ import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import { rebase } from "./tree.js";
 import { editKey } from "./rename.js";
+import { IdleGate } from "./idle.js";
 import {
   type ScanDone,
   type ScanStarted,
@@ -229,6 +230,23 @@ let scanStarted: ScanStarted | null = null;
 function setScanRunning(running: boolean): void {
   scanRunning = running;
   settings.setScanRunning(running);
+}
+// An operation pressed while a scan runs waits here for the scan's end; a
+// folder switch drops it.
+const idle = new IdleGate(() => scanRunning);
+
+function whenIdle(label: string, run: () => void): void {
+  idle.request(label, run);
+  renderMeta();
+}
+
+// Marks a deferred operation's invoke as in flight so `resync()` waits for it.
+function settleIdle<T>(promise: Promise<T>): void {
+  idle.enterInFlight();
+  void promise.finally(() => {
+    idle.leaveInFlight();
+    drainResync();
+  });
 }
 // Mints a per-call id for `startScan` so its `.then`/`.catch` can tell
 // whether a later call (a re-open of the same folder included) has already
@@ -494,6 +512,9 @@ function renderMeta(): void {
   if (sequencing !== null) {
     metaStatusEl.append(line("note", sequencing));
   }
+  if (idle.waiting !== null) {
+    metaStatusEl.append(line("note", `${idle.waiting}: waiting for the scan to finish`));
+  }
   // Driven by `zoomed` rather than `note`, so paging or an error does not
   // erase the mode indicator while the 1:1 view is still showing.
   if (zoomed) {
@@ -543,46 +564,50 @@ function trashRejected(): void {
     setStatus("No folder is open");
     return;
   }
-  if (scanRunning) {
-    setStatus("a scan is running; wait for it to finish");
-    return;
-  }
-  const dir = openDir;
-  const token = folderToken;
-  window.__TAURI__.core
-    .invoke<TrashSummary | null>("trash_rejected", { dirs: [dir], recursive: false })
-    .then((summary) => {
-      if (dir !== openDir || token !== folderToken || summary === null) {
-        return;
-      }
-      const moved = new Set(summary.moved);
-      for (const path of moved) {
-        ratings.delete(path);
-        flags.delete(path);
-        labels.delete(path);
-        sharpness.delete(path);
-        touched.delete(path);
-      }
-      // An undo of a trashed file would `set_rating` a path that is gone and
-      // mint an orphan sidecar.
-      const gone = (entry: Judgment) => moved.has(entry.path);
-      history.removeWhere((batch) => batch.every(gone));
-      redoable.removeWhere((batch) => batch.every(gone));
-      for (const { path, message } of summary.failed) {
-        errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
-      }
-      for (const { path, message } of summary.unread) {
-        errors.add(path, `${baseName(path)}: could not be read: ${message}`);
-      }
-      setStatus(trashedStatus(summary));
-      resync();
-    })
-    .catch((err: unknown) => {
-      if (dir !== openDir || token !== folderToken) {
-        return;
-      }
-      setStatus(String(err));
-    });
+  // Read at run time: the folder may change while it waits.
+  whenIdle("Move Rejected to Trash", () => {
+    if (openDir === null) {
+      return;
+    }
+    const dir = openDir;
+    const token = folderToken;
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashSummary | null>("trash_rejected", { dirs: [dir], recursive: false })
+        .then((summary) => {
+          if (dir !== openDir || token !== folderToken || summary === null) {
+            return;
+          }
+          const moved = new Set(summary.moved);
+          for (const path of moved) {
+            ratings.delete(path);
+            flags.delete(path);
+            labels.delete(path);
+            sharpness.delete(path);
+            touched.delete(path);
+          }
+          // An undo of a trashed file would `set_rating` a path that is gone and
+          // mint an orphan sidecar.
+          const gone = (entry: Judgment) => moved.has(entry.path);
+          history.removeWhere((batch) => batch.every(gone));
+          redoable.removeWhere((batch) => batch.every(gone));
+          for (const { path, message } of summary.failed) {
+            errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
+          }
+          for (const { path, message } of summary.unread) {
+            errors.add(path, `${baseName(path)}: could not be read: ${message}`);
+          }
+          setStatus(trashedStatus(summary));
+          resync();
+        })
+        .catch((err: unknown) => {
+          if (dir !== openDir || token !== folderToken) {
+            return;
+          }
+          setStatus(String(err));
+        }),
+    );
+  });
 }
 
 // `File > Sequence JPEG Timestamps…`: pick an export folder (or take the one
@@ -2018,8 +2043,6 @@ function openContextMenu(x: number, y: number): void {
   showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, (action) => {
     if (action !== "renameFile") {
       runAction(action);
-    } else if (scanRunning) {
-      setStatus("a scan is running; wait for it to finish");
     } else {
       strip.startRename(index);
     }
@@ -2104,7 +2127,7 @@ strip.init(
     openContextMenu(x, y);
   },
   renameFile,
-  () => !scanRunning && !viewOnly,
+  () => !viewOnly,
 );
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
@@ -2118,27 +2141,31 @@ interface Renamed {
 // place; when the open folder is the renamed one or under it, it is reopened
 // under its new path, its judgments coming back from the rewritten index.
 function renameFolder(path: string, name: string): void {
-  window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
-    ({ path: newPath, warning }) => {
-      folders.renamed(path, newPath, name);
-      const warn = (): void => {
-        if (warning !== null) {
-          setStatus(warning);
-        }
-      };
-      const reopen = openDir === null ? null : rebase(openDir, path, newPath);
-      if (reopen === null) {
-        warn();
-        return;
-      }
-      openDirectory(reopen, newFolderToken()).then(warn, (err: unknown) => {
-        setStatus(String(err));
-      });
-    },
-    (err: unknown) => {
-      setStatus(String(err));
-    },
-  );
+  whenIdle("Rename…", () => {
+    settleIdle(
+      window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
+        ({ path: newPath, warning }) => {
+          folders.renamed(path, newPath, name);
+          const warn = (): void => {
+            if (warning !== null) {
+              setStatus(warning);
+            }
+          };
+          const reopen = openDir === null ? null : rebase(openDir, path, newPath);
+          if (reopen === null) {
+            warn();
+            return;
+          }
+          return openDirectory(reopen, newFolderToken()).then(warn, (err: unknown) => {
+            setStatus(String(err));
+          });
+        },
+        (err: unknown) => {
+          setStatus(String(err));
+        },
+      ),
+    );
+  });
 }
 
 function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
@@ -2161,86 +2188,90 @@ function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
 // actually runs) is already right, whether that is now or after a deferred
 // scan drains.
 function renameFile(path: string, name: string): void {
-  if (openDir === null) {
-    return;
-  }
-  const dir = openDir;
-  const token = folderToken;
-  window.__TAURI__.core.invoke<Renamed>("rename_file", { dir, path, name }).then(
-    ({ path: newPath, warning }) => {
-      if (dir !== openDir || token !== folderToken) {
-        return;
-      }
-      // Read before the maps below are touched: the user may have moved on
-      // to another file while the invoke was in flight.
-      const focused = files[index] === path;
-      moveKey(ratings, path, newPath);
-      moveKey(flags, path, newPath);
-      moveKey(labels, path, newPath);
-      moveKey(sharpness, path, newPath);
-      const entry = entries.get(path);
-      if (entry !== undefined) {
-        entries.delete(path);
-        entries.set(newPath, { ...entry, path: newPath });
-      }
-      if (touched.delete(path)) {
-        touched.add(newPath);
-      }
-      // Move the renamed file's judgments onto its new path so undo /
-      // redo still targets the file instead of the old, now nonexistent
-      // path (which would `set_rating` a gone file and mint an orphan
-      // sidecar).
-      const moved = (entry: Judgment) =>
-        entry.path === path ? { ...entry, path: newPath } : entry;
-      history.map((batch) => batch.map(moved));
-      redoable.map((batch) => batch.map(moved));
-      const allAt = allFiles.indexOf(path);
-      if (allAt !== -1) {
-        allFiles[allAt] = newPath;
-      }
-      const at = fileIndex.get(path);
-      if (at !== undefined) {
-        files[at] = newPath;
-        fileIndex.delete(path);
-        fileIndex.set(newPath, at);
-      }
-      // `strip.setFiles` may be skipped below (the rescan sees the same list
-      // it already holds), so the strip's own `indexOf` and the live cell's
-      // name need their own update, and so does the meta pane / title bar.
-      strip.renamePath(path, newPath);
-      if (focused) {
-        if (meta !== null) {
-          meta = { ...meta, name: baseName(newPath) };
-        }
-        renderMeta();
-      }
-      // `refilter`'s `prune` would normally repair `selection`, but its
-      // rescan is skipped whenever the renamed file keeps its place in the
-      // list, so the old path would otherwise linger as a selected member
-      // or the anchor.
-      if (selection.selected.has(path) || selection.anchor === path) {
-        const selected = new Set(selection.selected);
-        if (selected.delete(path)) {
-          selected.add(newPath);
-        }
-        selection = {
-          selected,
-          anchor: selection.anchor === path ? newPath : selection.anchor,
-        };
-        paintSelection();
-      }
-      if (warning !== null) {
-        setStatus(warning);
-      }
-      resync();
-    },
-    (err: unknown) => {
-      if (dir !== openDir || token !== folderToken) {
-        return;
-      }
-      setStatus(String(err));
-    },
-  );
+  whenIdle("Rename…", () => {
+    if (openDir === null) {
+      return;
+    }
+    const dir = openDir;
+    const token = folderToken;
+    settleIdle(
+      window.__TAURI__.core.invoke<Renamed>("rename_file", { dir, path, name }).then(
+        ({ path: newPath, warning }) => {
+          if (dir !== openDir || token !== folderToken) {
+            return;
+          }
+          // Read before the maps below are touched: the user may have moved on
+          // to another file while the invoke was in flight.
+          const focused = files[index] === path;
+          moveKey(ratings, path, newPath);
+          moveKey(flags, path, newPath);
+          moveKey(labels, path, newPath);
+          moveKey(sharpness, path, newPath);
+          const entry = entries.get(path);
+          if (entry !== undefined) {
+            entries.delete(path);
+            entries.set(newPath, { ...entry, path: newPath });
+          }
+          if (touched.delete(path)) {
+            touched.add(newPath);
+          }
+          // Move the renamed file's judgments onto its new path so undo /
+          // redo still targets the file instead of the old, now nonexistent
+          // path (which would `set_rating` a gone file and mint an orphan
+          // sidecar).
+          const moved = (entry: Judgment) =>
+            entry.path === path ? { ...entry, path: newPath } : entry;
+          history.map((batch) => batch.map(moved));
+          redoable.map((batch) => batch.map(moved));
+          const allAt = allFiles.indexOf(path);
+          if (allAt !== -1) {
+            allFiles[allAt] = newPath;
+          }
+          const at = fileIndex.get(path);
+          if (at !== undefined) {
+            files[at] = newPath;
+            fileIndex.delete(path);
+            fileIndex.set(newPath, at);
+          }
+          // `strip.setFiles` may be skipped below (the rescan sees the same list
+          // it already holds), so the strip's own `indexOf` and the live cell's
+          // name need their own update, and so does the meta pane / title bar.
+          strip.renamePath(path, newPath);
+          if (focused) {
+            if (meta !== null) {
+              meta = { ...meta, name: baseName(newPath) };
+            }
+            renderMeta();
+          }
+          // `refilter`'s `prune` would normally repair `selection`, but its
+          // rescan is skipped whenever the renamed file keeps its place in the
+          // list, so the old path would otherwise linger as a selected member
+          // or the anchor.
+          if (selection.selected.has(path) || selection.anchor === path) {
+            const selected = new Set(selection.selected);
+            if (selected.delete(path)) {
+              selected.add(newPath);
+            }
+            selection = {
+              selected,
+              anchor: selection.anchor === path ? newPath : selection.anchor,
+            };
+            paintSelection();
+          }
+          if (warning !== null) {
+            setStatus(warning);
+          }
+          resync();
+        },
+        (err: unknown) => {
+          if (dir !== openDir || token !== folderToken) {
+            return;
+          }
+          setStatus(String(err));
+        },
+      ),
+    );
+  });
 }
 
 // A folder clicked in the tree opens the way a drop does; a right-click
@@ -2276,11 +2307,7 @@ folders.init(
             });
             break;
           case "renameFolder":
-            if (scanRunning) {
-              setStatus("a scan is running; wait for it to finish");
-            } else {
-              folders.startRename(path);
-            }
+            folders.startRename(path);
             break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);
@@ -2290,7 +2317,7 @@ folders.init(
     });
   },
   renameFolder,
-  () => !scanRunning,
+  () => true,
 );
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
@@ -2367,6 +2394,7 @@ function startScan(folder: string): Promise<void> {
         return;
       }
       setScanRunning(false);
+      idle.drain();
       drainResync();
       setStatus(String(err));
     });
@@ -2388,8 +2416,10 @@ function resync(): void {
   }
   // A rescan while a scan runs would cancel and restart it (`scan_folder`
   // joins the running scan first), so it waits for `faces-done` instead. A
-  // burst of triggers collapses into the one pending rescan.
-  if (scanRunning || resyncInFlight) {
+  // burst of triggers collapses into the one pending rescan. It also waits
+  // out a deferred operation's invoke, whose confirm dialog closing refocuses
+  // the window, so the backend does not see that rescan and refuse it.
+  if (scanRunning || resyncInFlight || idle.inFlight) {
     resyncPending = true;
     return;
   }
@@ -2480,6 +2510,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     progressRefreshedFor = null;
     setScanRunning(false);
     resyncPending = false;
+    idle.discard();
     void startScan(folder);
     if (files.length === 0) {
       meta = null;
@@ -2770,6 +2801,7 @@ void window.__TAURI__.event.listen<{
     return;
   }
   setScanRunning(false);
+  idle.drain();
   const failed = scanErrors + payload.errors;
   scanning = failed === 0 ? null : `${failed} failed`;
   renderMeta();

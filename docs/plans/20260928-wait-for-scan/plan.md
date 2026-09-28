@@ -54,7 +54,7 @@ Decisions taken here (see "Trade-offs and risks" for the alternatives):
 
 ## Steps
 
-- [ ] Step 1: Hold Move Rejected to Trash and the two renames until the scan ends
+- [x] Step 1: Hold Move Rejected to Trash and the two renames until the scan ends
   - Done when:
     - A new pure module `crates/app/ui/src/idle.ts` holds the deferral. Its
       shape is up to the implementation, but it must be testable without the
@@ -221,4 +221,4 @@ Decisions taken here (see "Trade-offs and risks" for the alternatives):
 
 ## Progress
 
-- (none yet)
+- (2026-09-28) Step 1 complete

@@ -448,8 +448,16 @@ export function setCandidate(index: number, candidate: boolean): void {
 // kept (clamped to the new list's width) instead of jumping back to the top,
 // so files appearing or disappearing elsewhere do not move the view.
 export function setFiles(paths: string[], keepScroll = false): void {
-  // The indices may no longer name the same files.
-  finishRename("cancel");
+  // The indices may no longer name the same files, but a rename still being
+  // typed survives when its file is still in the new list: it is carried
+  // over to its new index below instead of being silently dropped.
+  const resume = editing !== null && paths.includes(editing.state.path) ? editing : null;
+  if (resume === null) {
+    finishRename("cancel");
+  } else {
+    editing = null;
+    resume.input.remove();
+  }
   cancelSlowClick();
   const offset = strip.scrollLeft;
   generation += 1;
@@ -476,7 +484,22 @@ export function setFiles(paths: string[], keepScroll = false): void {
   strip.scrollLeft = keepScroll
     ? Math.max(0, Math.min(offset, files.length * CELL_WIDTH - strip.clientWidth))
     : 0;
+  if (resume !== null) {
+    resume.index = indexOf.get(resume.state.path) as number;
+    editing = resume;
+  }
   render();
+  if (resume !== null) {
+    let cell = cells.get(resume.index);
+    if (cell === undefined) {
+      // Outside the range `render` just populated: the resumed edit still
+      // needs a cell to live in.
+      cell = createCell(resume.index);
+      cells.set(resume.index, cell);
+    }
+    cell.name.replaceWith(resume.input);
+    resume.input.focus();
+  }
 }
 
 // Mark the selected indices; `highlight` paints them unless one is current.

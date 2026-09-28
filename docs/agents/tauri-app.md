@@ -1161,6 +1161,11 @@ folder changed" event has to pick the right one.
   runs (`scanRunning`), because `scan_folder` cancels and joins the running
   scan first; a focus change during a 5000-file first scan would otherwise
   restart it. Repeat triggers collapse into the single `resyncPending` flag.
+  It defers the same way while an operation held by `idle.ts`'s `IdleGate`
+  (Move Rejected to Trash, the two renames) has its invoke out
+  (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
+  confirm dialog closing refocuses the window, and a rescan started then
+  would make the command's own scan guard refuse it.
 - Do not anchor a post-mutation rescan with a parameter carrying "where to
   restore the view" (e.g. a path/index snapshot taken at call time): a scan
   can start while the mutating command is still in flight (window
