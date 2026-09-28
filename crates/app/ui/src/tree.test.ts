@@ -9,6 +9,7 @@ import {
   clickSelect,
   collapse,
   expand,
+  markFailed,
   pruneSelection,
   rebase,
   renameFolder,
@@ -55,6 +56,13 @@ describe("tree state", () => {
     tree = collapse(tree, "/home/me");
     expect(drawn(tree)).toEqual(["0:me"]);
     expect(drawn(expand(tree, "/home/me"))).toEqual(["0:me", "1:a"]);
+  });
+
+  test("a failed listing marks the folder until a later listing succeeds", () => {
+    let tree = markFailed(addRoots(EMPTY_TREE, [home]), "/home/me", "access denied");
+    expect(tree.nodes.get("/home/me")?.failed).toBe("access denied");
+    tree = setChildren(expand(tree, "/home/me"), "/home/me", 0, []);
+    expect(tree.nodes.get("/home/me")?.failed).toBeUndefined();
   });
 
   test("re-listing keeps the state of a child already known", () => {

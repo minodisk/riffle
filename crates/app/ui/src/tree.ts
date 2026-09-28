@@ -13,6 +13,9 @@ export interface TreeNode {
   children: FolderNode[] | undefined;
   expanded: boolean;
   rawCount: number | undefined;
+  // The error of the last `list_subfolders` that failed for this folder,
+  // until a later listing succeeds.
+  failed?: string;
 }
 
 export interface Tree {
@@ -63,6 +66,10 @@ export function collapse(tree: Tree, path: string): Tree {
   return update(tree, path, { expanded: false });
 }
 
+export function markFailed(tree: Tree, path: string, error: string): Tree {
+  return update(tree, path, { failed: error });
+}
+
 // A child already known keeps its own state, so re-listing a folder does not
 // collapse the folders open under it.
 export function setChildren(
@@ -76,7 +83,7 @@ export function setChildren(
     return tree;
   }
   const nodes = withNodes(new Map(tree.nodes), children);
-  nodes.set(path, { ...node, children, rawCount });
+  nodes.set(path, { ...node, children, rawCount, failed: undefined });
   return { roots: tree.roots, nodes };
 }
 

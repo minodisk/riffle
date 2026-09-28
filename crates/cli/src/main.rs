@@ -247,6 +247,9 @@ fn bench(paths: &[String]) -> Result<()> {
 
     for p in paths {
         let path = Path::new(p);
+        if !scan::is_raw_file(path) {
+            bail!("{p}: not a RAW file (bench times .ARW / .DNG only)");
+        }
         let a = reader::read_metadata(path)?;
 
         if a.preview.is_some() {

@@ -933,14 +933,6 @@ every press of `Clear Cache` after the first folder open.
   after a scan ended. It is covered now (`commands.rs`'s `tests`: a finished
   scan leaves nothing in progress, a superseded scan does not clear the newer
   one, `preparing` alone counts).
-- **A `scan-state` emit must happen while *holding* the `Scans` lock**, not
-  after releasing it. `start_scan` and the task it spawns race for the same
-  lock, and on a fast or empty scan both reach an emit; computing the bool
-  under the lock and emitting after it is dropped leaves the two `app.emit`
-  calls unordered, so a stale `true` can land after the correct `false` and
-  leave the listener stuck — the same class of stuck state this whole fix is
-  about. Every emit site in `commands.rs` emits under the lock, which makes
-  the mutex itself serialize them in the order the state changed.
 - Source: `docs/plans/_archived/20260920-clear-cache-stuck-guard/learnings.md`,
   Steps 1-2.
 
