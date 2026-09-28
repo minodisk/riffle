@@ -326,6 +326,15 @@ mod tests {
         (Some(stat.size), Some(stat.mtime_ns))
     }
 
+    fn set_mtime(path: &Path, secs: u64) {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs))
+            .unwrap();
+    }
+
     fn no_rows(_: &str) -> Result<HashMap<String, RowFlag>, String> {
         Ok(HashMap::new())
     }
@@ -486,11 +495,13 @@ mod tests {
         let dir = temp_dir("stray-dop");
         write(&dir.join("a.ARW"));
         let xmp = sidecar(&dir.join("a.ARW"), SidecarFormat::Xmp, Flag::None);
+        set_mtime(&xmp, 1_000);
         // A leftover reject `.dop`, newer than the clean XMP row: PhotoLab (or
         // an earlier `Both` setting) could have left this behind. Under the
         // XMP setting the folder open never looks at it, so the collector
         // must not either.
-        sidecar(&dir.join("a.ARW"), SidecarFormat::Dop, Flag::Reject);
+        let dop = sidecar(&dir.join("a.ARW"), SidecarFormat::Dop, Flag::Reject);
+        set_mtime(&dop, 1_010);
         let rows = HashMap::from([(
             key(&dir.join("a.ARW")),
             RowFlag {
@@ -506,6 +517,21 @@ mod tests {
             |_| Ok(rows.clone()),
         );
         assert!(collection.folders[0].groups.is_empty());
+
+        // The same setup under `Both` is collected: the `.dop` is the newer
+        // sidecar of the pair, so the format argument is what decides.
+        let rows_both = HashMap::from([(
+            key(&dir.join("a.ARW")),
+            RowFlag {
+                flag: Flag::None,
+                stat: stat(&xmp),
+                dirty: false,
+            },
+        )]);
+        let collection_both = collect(&[key(&dir)], false, SidecarFormat::Both, |_| {
+            Ok(rows_both.clone())
+        });
+        assert_eq!(collection_both.folders[0].groups.len(), 1);
     }
 
     #[test]
