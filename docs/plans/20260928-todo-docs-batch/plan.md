@@ -152,7 +152,7 @@ items.
       learnings' Step 1 heading has a suffix, so link that file without a
       fragment unless the slug is confirmed with lychee locally.
 
-- [ ] Step 2: Reword the Focus mark, Sharpness cue and Bursts bullets in `docs/usage.md` camera-neutrally
+- [x] Step 2: Reword the Focus mark, Sharpness cue and Bursts bullets in `docs/usage.md` camera-neutrally
   - Done when:
     - The Focus mark bullet (`docs/usage.md` around lines 124-145), the
       Sharpness cue bullet (around 385-398) and the Bursts bullet (around
@@ -191,3 +191,4 @@ items.
 ## Progress
 
 - (2026-09-29) Step 1 complete
+- (2026-09-29) Step 2 complete
