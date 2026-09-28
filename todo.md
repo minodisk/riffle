@@ -34,25 +34,6 @@ section.
       `scan extract` / `scan faces` log lines in `docs/performance.md`
       "Focus candidate pass", next to the existing CLI numbers.
 
-### Docs: record the practice of verifying platform-workaround thresholds on the production code path
-
-`fix(app): lower the Linux preview pixel limit to 6 MP` was a follow-up to
-#383, whose original 12 MP limit was based on a secondhand claim ("12.3 MP
-drew, 16 MP did not") never measured on the shipped code path; the user's
-manual check still showed a blank main view. A MiniBrowser bisect (worker
-`createImageBitmap` with resize options, the bitmap transferred, `drawImage`
-to a canvas, the center pixel read, results POSTed to a local Python HTTP
-server) found the real threshold was ~6.87 MP by pixel count, shape-independent.
-
-#### TODO
-
-- [ ] Decide whether this belongs as a note in the `docs/agents/tauri-app.md`
-      WebKitGTK "draws a large transferred `ImageBitmap` transparent" Hit item
-      (with the MiniBrowser + POST-logging harness as the method), or as a
-      broader practice elsewhere, and write it into the chosen guide: verify a
-      platform workaround's numeric threshold on the exact production code
-      path before shipping it, instead of taking a quoted/secondhand number.
-
 ### App: unmeasured end-to-end per-page latency
 
 End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in docs/performance.md.
@@ -104,17 +85,6 @@ The Updating paragraph in `docs/usage.md` describes a background download and in
 - [x] Background update flow on Windows (Windows 11, 0.1.10 -> 0.2.0, 2026-09-22): downloaded, installed on quit, launched as 0.2.0.
 - [ ] Verify the **Check for Updates…** menu item reports the up-to-date / installed / already-installed outcomes correctly on macOS, Windows, and Linux AppImage.
 - [ ] Verify the background flow on macOS and Linux AppImage: install the current release, publish the next one, then launch the installed build. Done when the newer release is installed after the signature check and used on the next launch.
-
-### Docs: write a guide for RAW metadata parsing (`docs/agents/raw-metadata-parsing.md`)
-
-Leica DNG support found several non-obvious facts in `crates/core/src/{arw,reader}.rs`'s MakerNote/TIFF parsing that cost time in Steps 1 and 3: the Sony gate skips only when the note lacks `SONY` *and* `Make` is present and non-Sony, so non-Sony test fixtures must set `Make`; a `SubIFDs` entry with `count == 1` stores the IFD offset inline, not an offset to an array; the Leica MakerNote is `LEICA\0` + `02 00` then a little-endian IFD at note offset 8, with `FocusDistance` at tag 0x0304 (LONG, millimeters); `ApertureValue` (APEX) converts via `2^(AV/2)`; and a "non-Sony note is skipped" test needs a valid empty IFD in the fixture, not a `0xffff` sentinel count. Sony's α7 V MakerNote also stores `FocusFrameSize` (tag 0x2037) as `UNDEFINED[6]` (type 7, count 6), not `SHORT[3]` — exiftool only reinterprets it as `int16u[3]`. A reader that only accepts `SHORT[3]` returns `None` on real files (verified on `_DSC3590.ARW`); the parser now accepts both encodings.
-
-#### TODO
-
-- [ ] When the next feature touches the MakerNote/TIFF parsing in `crates/core/src/{arw,reader}.rs` (another maker's MakerNote, or a new synthetic-TIFF fixture), create `docs/agents/raw-metadata-parsing.md` capturing the points above, linking `docs/plans/_archived/20260918-leica-dng-support/learnings.md` for the underlying measurements instead of duplicating them.
-- [ ] Also cover the `FocusFrameSize` `UNDEFINED[6]`-vs-`SHORT[3]` quirk, linking `docs/plans/_archived/20260922-sony-eye-af-window/learnings.md` (Step 1) alongside the Leica one.
-- [ ] Also cover the count-1 `SHORT` TIFF-entry padding quirk (the unused high 16 bits of the 4-byte value field can carry nonzero per-file garbage, as seen on SIGMA fp L DNGs) and that `integer()` in `crates/core/src/arw.rs` now masks it, linking `docs/plans/_archived/20260924-tiff-short-padding/learnings.md` (Step 1) alongside the Leica and Sony eye-AF ones.
-- [ ] Also cover the Sigma MakerNote conventions found while adding the Sigma BF AF point: a MakerNote entry whose `count` fits inside the entry (`<= 4` for a `SHORT[2]`, generally `<= header_len`) stores its value inline rather than as an offset into `buf`, so the offset/range check must come after that case; and `Make` differs by body within one vendor (Sigma BF writes `Sigma`/`Sigma BF`, Sigma fp L writes `SIGMA`/`SIGMA fp L`), so a vendor gate needs a case-insensitive prefix on `Make` plus an exact match on `Model`. Link `docs/plans/_archived/20260924-sigma-bf-af-point/learnings.md` (Step 1) alongside the Leica, Sony eye-AF, and TIFF-short-padding ones.
 
 ### Docs: consider a guide for verifying Pillow pixel edits
 
@@ -535,15 +505,6 @@ conventions.
       includes a note to avoid jq keywords as variable names, or judge it not
       worth a guide and close this with no action
 
-### Docs: write a guide for tract-onnx inference (`docs/agents/tract-onnx-inference.md`)
-
-`crates/core/src/faces.rs` (face-aware-sharpness feature) worked out several tract 0.23 / ONNX pitfalls that no existing guide covers: `with_ignore_value_info` / `with_ignore_output_shapes` for models whose fixed-size shape annotations don't match a different input size, finding outputs by outlet label (`model.outlet_label`) rather than ONNX node name, the `Arc<TypedRunnableModel>` / `try_as_plain_ram` API, trimming with `default-features = false`, feeding an upright input and mapping detections back to stored (possibly rotated) coordinates, and sharing a built model across rayon workers via `OnceLock`.
-
-#### TODO
-
-- [ ] Write `docs/agents/tract-onnx-inference.md` covering the points above.
-- [ ] Link it from `CLAUDE.md` or `docs/agents/`.
-
 ### Agents: confirm the long-wait timeout fix on a real `/pr` or `/merge` run
 
 The `long-wait-timeouts` plan added explicit `timeout: 600000` to every
@@ -689,21 +650,6 @@ samples, as done for the Sigma BF `0x0147` in
       1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in
       `crates/core/src/arw.rs` and the archived plan's
       [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
-
-### Docs: docs/usage.md still names cameras in the Focus mark, Sharpness cue and Bursts bullets
-
-`docs/usage.md`'s Focus mark, Sharpness cue and Bursts bullets still name
-specific cameras (Sony, SIGMA BF, M11-P, Leica), unlike the now camera-neutral
-README bullets. The camera-differences-doc plan kept this on purpose (only
-adding links to `docs/cameras.md` there), but if the READMEs'
-camera-neutral wording should extend to this detailed doc, reword those
-bullets too.
-
-#### TODO
-
-- [ ] Reword the Focus mark, Sharpness cue and Bursts bullets in
-      `docs/usage.md` to describe behavior by what the camera records rather
-      than by camera name, matching the README's approach.
 
 ### App: Claude Desktop's MCP connection form is unverified
 
