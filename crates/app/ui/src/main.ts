@@ -242,9 +242,9 @@ function whenIdle(label: string, run: () => void): void {
 
 // Marks a deferred operation's invoke as in flight so `resync()` waits for it.
 function settleIdle<T>(promise: Promise<T>): void {
-  idle.inFlight = true;
+  idle.enterInFlight();
   void promise.finally(() => {
-    idle.inFlight = false;
+    idle.leaveInFlight();
     drainResync();
   });
 }
