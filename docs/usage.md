@@ -449,10 +449,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `Alt+ArrowLeft` | previous frame in the current burst (stops at its first frame) |
 | `Alt+ArrowRight` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
-| `f` | toggle the focus mark (also `View > Focus Mark`, whose accelerator follows this key) |
-| `z` | toggle the 1:1 focus check (also `View > 1:1 Zoom`, whose accelerator follows this key) |
+| `f` | toggle the focus mark (also `View > Focus Mark`) |
+| `z` | toggle the 1:1 focus check (also `View > 1:1 Zoom`) |
 | `g` (hold) | grayscale preview |
-| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame (also `View > Compare`, whose accelerator follows this key) |
+| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame (also `View > Compare`) |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
@@ -495,7 +495,10 @@ Combinations the system or the app's menu already use (`Cmd+Q`, `Cmd+,`,
 The File menu's `Open Folder…` accelerator, the Edit menu's Undo / Redo /
 Select All and the View menu's items are the exception: they follow their own action's keys, so unlike `Cmd+,` they can be
 rebound, and the
-combination an action leaves behind is free for another action.
+combination an action leaves behind is free for another action. A View item
+shows its action's key as its accelerator only when that key includes Ctrl,
+Alt or Cmd; none of the View items' default keys do, so they show no
+accelerator until rebound to a combination that does.
 `Reset all` restores the defaults.
 
 While the folder tree has the keyboard, only `open`, `toggleStrip`,
