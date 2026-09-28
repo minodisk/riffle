@@ -301,7 +301,11 @@ leaves `tauri.conf.json` alone, but it also creates `icons/ios/` and
 `icons/android/`, which the app has no use for.
 
 - Delete those two folders before committing.
-- Source: `docs/plans/_archived/20260920-app-icon/learnings.md`, Step 1.
+- `gen.py`'s headless Chrome prints `CVDisplayLinkCreateWithCGDisplay failed`
+  and `task_policy_set` errors to stderr on every run; they are harmless and
+  the screenshot is still written.
+- Source: `docs/plans/_archived/20260920-app-icon/learnings.md`, Step 1;
+  `docs/plans/_archived/20260928-film-frame-icon/learnings.md`, Step 2.
 
 ### Enabling the updater plugin pulls in `serde_json` at compile time (Hit)
 
