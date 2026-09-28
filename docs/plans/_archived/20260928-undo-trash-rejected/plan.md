@@ -20,7 +20,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 `Move Rejected to Trash` (the File menu item, the folder tree's items and the
 multi-folder selection; see
-[the archived plan](../_archived/20260928-trash-rejected-from-tree/plan.md))
+[the archived plan](../../_archived/20260928-trash-rejected-from-tree/plan.md))
 moves hundreds of files in one confirmed run. The user asked whether a run
 can be taken back. Today the only way is the OS Trash's own "Restore" /
 "Put Back", file by file, and Riffle's undo history forgets the judgments of
