@@ -165,6 +165,28 @@ opt-in `set_icon_as_template` API, against muda `dev`.
 Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 `tools/macos/export-menu-icons.swift`.
 
+### App: real-device checks for the View menu
+
+`view-menu` (docs/plans/_archived/20260928-view-menu/plan.md) added a native
+`View` menu (`Left Pane`, `Right Pane`, `Both Side Panes`, `Filmstrip`,
+`Focus Mark`, `1:1 Zoom`, `Compare`) that emits `menu-action` and mirrors each
+action's rebindable accelerator. CI covers the build and the keymap coverage
+test, but the menu itself was never exercised on a real machine, and the macOS
+`cfg` branch of `app_menu::build` was only reviewed by reading.
+
+#### TODO
+
+- [ ] On Windows, click each View item with the mouse and confirm it does what
+      its key does (the filmstrip / side panes toggle, the focus mark, 1:1
+      zoom and compare switch).
+- [ ] On Windows, rebind `Show / hide the filmstrip` to a modified key (e.g.
+      `ctrl+alt+s`) in the settings modal: the `Filmstrip` item shows it, one
+      press toggles the filmstrip exactly once (no double fire from keydown
+      plus the accelerator), and `Reset` blanks the item's accelerator again.
+      If it double-fires, pass `None` as the View items' accelerator.
+- [ ] On macOS, confirm the View items sit above `Enter Full Screen` with a
+      separator and work the same way.
+
 ### App: the View menu items have no macOS SF Symbol icons
 
 `view-menu` added the `View` items (`Left Pane`, `Right Pane`,
