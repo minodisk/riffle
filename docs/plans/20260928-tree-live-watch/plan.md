@@ -137,17 +137,7 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       `run(rx, emit)` with a `HashMap<String, Instant>` of deadlines, waiting
       on the nearest one).
 
-- [ ] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
-  - Incomplete: Round 1 review found two acceptance-criteria gaps: (1)
-    `set_tree_watches` calls were not serialized, so two invokes sent back to
-    back could apply out of order on the backend and leave a stale watch set
-    (fixed by chaining each invoke onto the previous one's promise, and
-    resetting `watched` on rejection so the next render resends the set); (2)
-    the `tree-changed` listener's re-list reported an ordinary external
-    delete of an expanded folder as an error (fixed by quietly warning
-    instead of calling `reportError`, since the parent's own `tree-changed`
-    is what removes the row). Both are fixed in `folders.ts`; the wording
-    below and the manual checks are updated to match.
+- [x] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
   - Done when:
     - `crates/app/ui/src/tree.ts` exports a pure
       `watchedFolders(tree: Tree): string[]`: the paths of the nodes that
