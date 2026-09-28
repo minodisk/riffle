@@ -173,3 +173,4 @@ Decisions (taken with the user on 2026-09-28):
 ## Progress
 
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete
