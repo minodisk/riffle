@@ -1166,6 +1166,16 @@ folder changed" event has to pick the right one.
   (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
   confirm dialog closing refocuses the window, and a rescan started then
   would make the command's own scan guard refuse it.
+- Rename's success handler must return the reopen's `openDirectory(...)`
+  promise so `settleIdle`'s `.finally` (which calls `drainResync()`) runs
+  after the reopen lands, not before — otherwise a rescan deferred during
+  the invoke drains too early and runs `list_arw` on the old, renamed-away
+  path.
+- `settings.ts` owns a separate `IdleGate` (`clearGate`) for Clear Cache:
+  `setScanRunning(false)` drains it before the scan-end `index_size`
+  refresh, so a drained clear wins over that refresh and the button stays
+  enabled while a clear is held (a second press replaces the held clear,
+  same one-slot rule as the rename/trash gate).
 - Do not anchor a post-mutation rescan with a parameter carrying "where to
   restore the view" (e.g. a path/index snapshot taken at call time): a scan
   can start while the mutating command is still in flight (window

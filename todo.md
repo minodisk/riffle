@@ -259,7 +259,9 @@ parented the confirmation on `main` and dropped the `index-clearing`
 status text; none of that has been run by hand either. Files:
 `crates/app/src/commands.rs`, `crates/app/ui/index.html`,
 `crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts` (the
-`tauri://focus` listener).
+`tauri://focus` listener). `wait-for-scan` then replaced the disabled
+button during a scan with holding the clear until the scan ends (checks
+(4) and (5) below were rewritten for it).
 
 #### TODO
 
@@ -271,13 +273,14 @@ status text; none of that has been run by hand either. Files:
       keeps the button disabled until the size drops and the main window
       rescans, and never refuses with `a scan is running` (closing the
       confirmation refocuses `main`, whose focus listener skips `resync()`
-      while the modal is open); (4) while a scan is running (or opening a large
-      folder with the settings modal already open), the button is disabled
-      and the note visible without any press, and both clear when the scan
-      ends, and the size figure updates when the scan ends;
-      (5) opening the settings modal during a large folder's prepare phase
-      (before the first `scanning N / M` line) shows the button already
-      disabled; (6) an error path, if reachable, writes the refusal to
+      while the modal is open); (4) pressing Clear Cache while a scan is
+      running (or with a large folder opening under the settings modal)
+      holds it: the button stays enabled, `#clear-index-note` shows the
+      waiting text, and the clear runs by itself when the scan ends, after
+      which the size figure updates; closing the modal while it is held
+      drops it; (5) pressing Clear Cache during a large folder's prepare
+      phase (before the first `scanning N / M` line) holds it the same
+      way; (6) an error path, if reachable, writes the refusal to
       `#settings-status` and it stays until the next press; (7) note
       whether the very first press after opening the settings modal ever
       does nothing, and if so record the window focus state at that
@@ -1010,3 +1013,53 @@ ci`'s lint task.
       `vp test`.
 - [ ] Done when `mise run fmt` succeeds on Windows without `Command "vp" not
       found`, and `mise run ci` still passes.
+
+### App: a pending rename waits silently with no visible pending state
+
+#### Background
+
+The inline rename edit (folder tree and strip) now always starts immediately,
+even during a scan, and a confirmed name is held by `idle.ts`'s `IdleGate`
+and runs once the scan ends; the cell keeps showing the old name and only the
+status line names what is waiting. Whether the cell should show the pending
+new name until the rename actually runs is an open UX question. Basis:
+`wait-for-scan` Step 1. Files: `crates/app/ui/src/main.ts`,
+`crates/app/ui/src/strip.ts`, `crates/app/ui/src/folders.ts`.
+
+#### TODO
+
+- [ ] Decide whether the folder tree / strip cell should show the pending
+      new name while a rename waits for a scan to finish, and implement it
+      if so.
+
+### App: `folders.init`'s `renameAllowed` parameter is now always `() => true`
+
+#### Background
+
+`wait-for-scan` Step 1 made tree renames wait for the scan instead of being
+refused, so the `renameAllowed` callback passed to `folders.init` became the
+constant `() => true`. The parameter was kept to stay out of `folders.ts`
+while the tree-watch work was touching it. Files:
+`crates/app/ui/src/folders.ts`, `crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] Once the tree-watch work has landed, remove the unused `renameAllowed`
+      parameter from `folders.init` and its call site in `main.ts`.
+
+### App: the folder tree's `Move Rejected to Trash` entry must route through `idle.ts`
+
+#### Background
+
+Only the backend half of the trash-folders work (`trash_rejected`'s `dirs` /
+`recursive`, #518) is on main. When its folder-menu `Move Rejected to Trash`
+entry lands in the frontend, it should wait for a running scan through
+`whenIdle` / `settleIdle` (reading its target folders' rejects at run time),
+not add a new `scanRunning` refusal. Basis: `wait-for-scan` plan "Trade-offs
+and risks" and Step 2's concurrent-work check. Files:
+`crates/app/ui/src/main.ts`, `crates/app/ui/src/folders.ts`.
+
+#### TODO
+
+- [ ] Route the folder tree's `Move Rejected to Trash` entry through
+      `whenIdle`, matching the strip's `trashRejected`.
