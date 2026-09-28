@@ -342,10 +342,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   removes the cached thumbnails and metadata of every folder ever opened; your
   judgments are not touched, because they live in the sidecars. The size is in
   the same units your file manager uses (decimal on macOS, binary on Windows
-  and Linux). A scan has to finish before the cache can be cleared: while one is
-  running the button is unavailable, with a note saying so, and it becomes
-  available again by itself when the scan ends. The size figure refreshes each
-  time a scan ends.
+  and Linux). A press while a scan is running waits for it: a note says the
+  cache is cleared as soon as the scan finishes, and the clear then runs by
+  itself. The size figure refreshes each time a scan ends.
 - **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
   sharp the frame is next to its neighbors on the strip; the sharpest frame of
   a run is marked in the pick color. The score is computed from the embedded

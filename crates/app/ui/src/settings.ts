@@ -1,3 +1,4 @@
+import { IdleGate } from "./idle.js";
 import { type Binding, displayKey, keyName } from "./keys.js";
 import { LABEL_COLORS, type LabelNames, type LabelPreset, labelNamesPayload } from "./labels.js";
 import { type McpState, mcpEndpoint, mcpExamples, mcpStatus } from "./mcp.js";
@@ -54,7 +55,7 @@ export type Settings = {
   close(): void;
   keydown(event: KeyboardEvent): void;
   // `main.ts` reports every change of its `scanRunning` here; the Cache tab
-  // refuses to clear while a scan runs.
+  // holds a clear pressed while a scan runs until it ends.
   setScanRunning(running: boolean): void;
 };
 
@@ -93,6 +94,10 @@ export function initSettings(hooks: SettingsHooks): Settings {
   let shortcutBindings: Binding[] = [];
   let scanRunning = false;
   let clearInFlight = false;
+  // No `discard()`: the folder cannot change while the modal is open, and the
+  // focus listener skips `resync()` then, so only the scan already running
+  // when the modal opened can hold the clear.
+  const clearGate = new IdleGate(() => scanRunning);
 
   function renderShortcuts(): void {
     shortcutsRows.replaceChildren(
@@ -270,13 +275,16 @@ export function initSettings(hooks: SettingsHooks): Settings {
   void window.__TAURI__.core.invoke<string>("index_size").then(showIndexSize);
 
   function updateClearButton(): void {
-    clearIndex.disabled = scanRunning || clearInFlight;
-    clearIndexNote.hidden = !scanRunning;
+    clearIndex.disabled = clearInFlight;
+    clearIndexNote.hidden = clearGate.waiting === null;
   }
 
   function setScanRunning(running: boolean): void {
     const scanEnded = scanRunning && !running;
     scanRunning = running;
+    if (!running) {
+      clearGate.drain();
+    }
     if (scanEnded && !clearInFlight) {
       void window.__TAURI__.core.invoke<string>("index_size").then((size) => {
         if (!clearInFlight) showIndexSize(size);
@@ -345,8 +353,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
     void window.__TAURI__.core.invoke("set_timing_logs", { enabled: debugTiming.checked });
   });
 
-  clearIndex.addEventListener("click", () => {
-    status.textContent = "";
+  function clearCache(): void {
     clearInFlight = true;
     updateClearButton();
     window.__TAURI__.core
@@ -364,6 +371,12 @@ export function initSettings(hooks: SettingsHooks): Settings {
         clearInFlight = false;
         updateClearButton();
       });
+  }
+
+  clearIndex.addEventListener("click", () => {
+    status.textContent = "";
+    clearGate.request("Clear Cache", clearCache);
+    updateClearButton();
   });
 
   (document.getElementById("shortcuts-reset-all") as HTMLButtonElement).addEventListener(
