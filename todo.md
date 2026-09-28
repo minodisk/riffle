@@ -151,7 +151,12 @@ PNG, confirmed tinting with the menu appearance — see `menu-icon-template`'s
 learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
 `crates/app/src/commands.rs` (`trash_rejected`, `trash_context`),
 `crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
-`crates/app/ui/src/main.ts`.
+`crates/app/ui/src/main.ts`. A manual run on Windows on 2026-09-28
+(`mise run tauri:dev`) passed: the confirmation shows the count and the
+button labels, Cancel changes nothing, confirming moves the RAW, its `.xmp`
+and `.ARW.dop` to the Recycle Bin with the right original location, the
+strip moves to the next file, restoring all three shows the file still as a
+reject, and a folder with 0 rejects gets a message.
 
 #### TODO
 
@@ -159,12 +164,13 @@ learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
       right count (and the singular for one file) with `Move to Trash` /
       `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
       plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
-      next passing file; the zero-reject and no-folder cases each
-      write their message to `#status`; a "Put Back" from the Trash restores
+      next passing file; the zero-reject and no-folder cases each write their
+      message to `#status`, and a press during a scan is held until the scan
+      ends (`crates/app/ui/src/idle.ts`); a "Put Back" from the Trash restores
       the file with its judgment, and if no "Put Back" entry exists, that
       dragging it out does.
-- [ ] Verify the same flow on Windows and Linux (the `trash` crate's other
-      backends have never been run here).
+- [ ] Verify the same flow on Linux (the `trash` crate's freedesktop backend
+      has never been run here).
 
 ### App: the muda template-icon fork is a temporary bridge
 
@@ -209,8 +215,18 @@ Since `undo-redo-keymap`, `Edit > Undo` / `Edit > Redo` are keymap actions
 too (`Cmd+Z` / `Shift+Cmd+Z` on macOS, `Ctrl+Z` / `Ctrl+Shift+Z`
 elsewhere), run by the frontend keydown with keymap-derived menu
 accelerators. Before that change, `Ctrl+Z` did nothing on Windows 11
-(v0.2.0) while clicking the Edit items worked. The new keys have not been
-run by hand on any platform yet.
+(v0.2.0) while clicking the Edit items worked. A manual run on Windows on
+2026-09-28 (`mise run tauri:dev`) passed: `Ctrl+Z` / `Ctrl+Shift+Z` each
+fire exactly once, the Edit menu shows the accelerators, rebinding `undo`
+updates the menu in place and kills the old key with no `menu item undo not
+found` in the log, and both Edit items work by mouse. Select All passed the
+same run: `Ctrl+A` with the strip focused selects every file and keeps the
+current one, it does nothing to the strip with the folder tree focused,
+inside a settings text input it selects the input's text, and `Edit > Select
+All` shows the accelerator and updates in place when `selectAll` is
+rebound. (`Ctrl+A` first did nothing because of a global PowerToys Keyboard
+Manager remap of left `Ctrl+A` to `Home`, not the app; the tell-tale is a
+keydown sequence of `Unidentified` then `Home`.) macOS is still unrun.
 
 #### TODO
 
@@ -228,22 +244,13 @@ run by hand on any platform yet.
       menu accelerator and kills the old key; both Edit items work via mouse
       click. Files: `crates/app/src/main.rs` (`app_menu`),
       `crates/app/src/shortcuts.rs`, `crates/app/ui/src/main.ts`.
-- [ ] On Windows (`mise run tauri:dev`), verify: one `Ctrl+Z` press undoes
-      exactly once and one `Ctrl+Shift+Z` redoes exactly once; the Edit menu
-      shows the accelerators; rebinding `undo`/`redo` updates the Edit menu
-      label in place (no `menu item undo not found` warning in the log) and
-      kills the old key; both Edit items work via mouse click. Files: same
-      as above, plus `crates/app/src/commands.rs` (`update_keymap`).
-- [ ] On the dev machine, verify Select All: pressing `Cmd/Ctrl+A` once
-      with the strip focused selects every file (the current file stays
-      current); pressing it with the folder tree focused does nothing to
-      the strip; pressing it inside a settings text input selects that
-      input's text. Check `Edit > Select All` shows the accelerator and
-      that rebinding `selectAll` updates it, including in place on
-      Windows. Files: same as above (`crates/app/src/main.rs`
-      (`app_menu`), `crates/app/src/shortcuts.rs`,
-      `crates/app/src/commands.rs`), plus `crates/app/ui/src/main.ts`,
-      `crates/app/ui/src/settings.ts`.
+- [ ] On macOS, verify Select All: pressing `Cmd+A` once with the strip
+      focused selects every file (the current file stays current); pressing
+      it with the folder tree focused does nothing to the strip; pressing it
+      inside a settings text input selects that input's text. Check
+      `Edit > Select All` shows the accelerator and that rebinding
+      `selectAll` updates it. Files: same as above, plus
+      `crates/app/src/commands.rs`, `crates/app/ui/src/settings.ts`.
 - [ ] Verify the `Some`/`None` accelerator behavior on Linux (only
       reasoned from muda 0.19.3's sources so far, never run; Windows passed).
 
@@ -263,7 +270,9 @@ status text; none of that has been run by hand either. Files:
 `crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts` (the
 `tauri://focus` listener). `wait-for-scan` then replaced the disabled
 button during a scan with holding the clear until the scan ends (checks
-(4) and (5) below were rewritten for it).
+(4) and (5) below were rewritten for it). A run on Windows was attempted
+on 2026-09-28 with `mise run tauri:release:devtools` but not carried out:
+the process was killed for low memory on the PC before the checks ran.
 
 #### TODO
 
@@ -289,40 +298,20 @@ button during a scan with holding the clear until the scan ends (checks
       moment; (8) the native confirmation looks right over the settings
       modal on macOS and Windows.
 
-### App: a file picked up mid-copy may be scanned from a partial read
-
-The folder watcher (`crates/app/src/watch.rs`, `crates/app/src/commands.rs`) can fire a rescan while a file is still being copied into the open folder, extracting a partial preview and writing that size/mtime into the index; the copy's completion later fires another event and `reconcile` re-extracts. The plan accepted this as expected behavior but it was never observed either way.
-
-#### TODO
-
-- [ ] Verify by hand (copy a large ARW/DNG into an open, watched folder) whether a partial mid-copy read ever produces a visibly wrong thumbnail/rating before the follow-up event corrects it, and whether any guard is warranted.
-
-### App: the manual GUI check of `scan-progress` `ready` is outstanding
-
-Steps 2 and 3 of `docs/plans/_archived/20260921-scan-progress-ready-paths/plan.md`
-each specified a check in `mise run tauri:dev` that no agent session could run,
-since the GUI cannot be driven from one. Files: `crates/app/ui/src/strip.ts`,
-`crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`.
-
-#### TODO
-
-- [ ] On a folder with a cold index, confirm thumbnails fill in while the scan
-      runs rather than only at `scan-done`, and that devtools shows no burst of
-      `thumbnail` invokes per `scan-progress` beyond the newly ready cells.
-      Note the observed payload sizes, which were reasoned rather than measured.
-- [ ] On a large folder, confirm the un-throttled `scan-done` `refresh()` does
-      not visibly starve the IPC channel: at most `MAX_IN_FLIGHT` invokes for
-      the still-missing visible cells, issued once.
-
 ### App: burst grouping's manual checks are still open
 
 From `burst-grouping`'s implementation: GUI automation is unavailable on this
 development machine, so several behaviors were never exercised by a human.
+The Sony half of the band and badge check passed on Windows on 2026-09-28
+with an ILCE-7M5 folder: band visible, the `position/count` badge on every
+member and tracking the position, the gap filled, and the band
+distinguishable from `.cell.current` and `.cell.failed` (`.failed` was
+produced with an ARW truncated to its first 2 KB).
 
 #### TODO
 
-- [ ] Verify the burst band and count badge by hand on a real Sony and Leica
-      burst folder and note the group sizes: band visible, every member cell
+- [ ] Verify the burst band and count badge by hand on a real Leica burst
+      folder and note the group sizes: band visible, every member cell
       shows its `position/size` (a two-digit one like `12/15` clear of the
       sharpness bar and the file name), unchanged by the selection, the gap above a
       non-first member is filled, and the band is distinguishable from
@@ -425,6 +414,77 @@ highlight are drawn twice.
 - [ ] Key `expanded` (and the node map itself) by the row's root-plus-path,
       or stop listing a root's own path as a child of another root. Files:
       `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).
+
+### App: Windows real-device check of the merged folder-tree, scan-wait and strip-scroll work
+
+Merged since the base of the 2026-09-28 Windows GUI check run and not run by
+hand on any platform: `tree-live-watch` (#517, #520, #523),
+`trash-rejected-from-tree` (#518, #521, #526, #529, #530), `wait-for-scan`
+(#519, #522, #525) and `strip-keep-scroll-on-rescan` (#528). The last one
+fixes the scroll jump-back and flicker seen on Windows on 2026-09-28 while
+copying 100 ARWs into an open folder. Files: `crates/app/src/treewatch.rs`,
+`crates/app/src/trash.rs`, `crates/app/ui/src/folders.ts`,
+`crates/app/ui/src/idle.ts`, `crates/app/ui/src/strip.ts`,
+`crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] Tree watch on Windows: with a folder expanded, create, delete and
+      rename a subfolder in Explorer and confirm the tree follows; confirm
+      renaming a folder from the app still works with the watch on.
+- [ ] Tree trash on Windows: right-click a folder, a multi-selection, and a
+      folder with subfolders, then Move Rejected to Trash; confirm the
+      dialog shows per-folder counts and the space freed, Cancel changes
+      nothing, and confirming moves the rejects of every listed folder.
+- [ ] Scan-wait on Windows: press Move Rejected to Trash and a rename while
+      a large folder scans; confirm the status line says what is waiting and
+      each runs when the scan ends. The Clear Cache hold is covered by
+      checks (4) and (5) of "the Clear Cache button's manual GUI
+      verification is still open".
+- [ ] Strip scroll on Windows: repeat the 100-ARW copy into an open folder
+      and confirm the strip's scroll position holds without flicker.
+
+### App: Windows real-device check of the in-flight resume-selection and undo-trash work
+
+Not on `main` yet: `resume-selection` (landing on a folder's remembered
+file left the first file in the selection too, showing `2 selected`) and
+`undo-trash-rejected` (Undo of a Move Rejected to Trash). Files:
+`crates/app/ui/src/resume.ts`, `crates/app/ui/src/main.ts`,
+`crates/app/src/trash.rs`.
+
+#### TODO
+
+- [ ] Once `resume-selection` has merged, reopen a folder with a remembered
+      file on Windows and confirm only that file is selected.
+- [ ] Once `undo-trash-rejected` has merged, trash the rejects on Windows,
+      then Undo, and confirm the files come back with their judgment.
+
+### App: a large folder gives no visible loading feedback beyond the status line
+
+Opening a 500-JPEG folder on Windows on 2026-09-28, the only sign of
+progress was the small bottom-left status text (`JPEG folder: view only`,
+`scanning 223 / 500`), so it was unclear whether loading had started.
+Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`,
+`crates/app/ui/style.css`.
+
+#### TODO
+
+- [ ] Consider a progress bar in the strip or the main view during the scan
+      and/or a loading indicator in cells with no thumbnail yet; decide and
+      implement.
+
+### App: every main-window focus runs resync() and holds scanRunning until faces-done
+
+The `tauri://focus` listener in `crates/app/ui/src/main.ts` calls `resync()`
+on every focus; even with 0 files to process, `scanRunning` stays true until
+`faces-done`. `wait-for-scan` removed the refusals this caused, but the
+rescan itself is still unthrottled. Seen on Windows on 2026-09-28.
+
+#### TODO
+
+- [ ] Throttle the focus rescan, and clear `scanRunning` immediately when
+      the scan has 0 files to process. Files: `crates/app/ui/src/main.ts`,
+      `crates/app/src/commands.rs` (`scan_folder`).
 
 ### App: face/eye-aware focus check for culling
 
@@ -690,18 +750,19 @@ http://127.0.0.1:41917/mcp` fallback form. Files: `crates/app/ui/src/mcp.ts`,
 ### App: the settings window's Copy buttons are unverified across webviews
 
 `navigator.clipboard.writeText` for the MCP settings tab's Copy buttons was not
-checked in a running app on Linux (WebKitGTK), Windows, or macOS. The same
-unverified call is used by the folder tree's `Copy Path` / `Copy Folder Name`
-context-menu items. Files: `crates/app/ui/src/settings.ts`,
+checked in a running app on Linux (WebKitGTK) or macOS. The same call is used
+by the folder tree's `Copy Path` / `Copy Folder Name` context-menu items. A
+manual run on Windows (WebView2) on 2026-09-28 passed for the MCP tab's Copy
+button and both tree items. Files: `crates/app/ui/src/settings.ts`,
 `crates/app/ui/src/main.ts`.
 
 #### TODO
 
 - [ ] Verify the settings window's Copy buttons in the Linux (WebKitGTK) and
-      Windows / macOS webviews, and confirm the select-text fallback fires
-      when the write is refused.
+      macOS webviews, and confirm the select-text fallback fires when the
+      write is refused.
 - [ ] Verify the folder tree's `Copy Path` / `Copy Folder Name` items the same
-      way; if a webview refuses the write, switch to
+      way on Linux and macOS; if a webview refuses the write, switch to
       `tauri-plugin-clipboard-manager` with a
       `clipboard-manager:allow-write-text` capability.
 
@@ -828,19 +889,6 @@ change to the header line the plan named.
 
 - [ ] Update the comment in `crates/app/src/sequence.rs` to describe the
       tree-right-click flow instead of the removed picker.
-
-### App: hand-check the sequence-run output-folder reveal on Windows
-
-The automated tests cover only the `revealAfter` decision in
-`crates/app/ui/src/sequence.ts`, not the actual `reveal_folder` opener call
-added to `finishSequence` in `crates/app/ui/src/main.ts`. Basis:
-`docs/plans/_archived/20260927-sequence-reveal-output/learnings.md`.
-
-#### TODO
-
-- [ ] Confirm on Windows that (1) a run that wrote files opens Explorer with
-      `<folder>-sequenced` selected, (2) a cancelled run opens nothing, and
-      (3) a folder with no JPEGs opens nothing; merge any fix needed.
 
 ### App: Open in Terminal from the folder tree's context menu
 
