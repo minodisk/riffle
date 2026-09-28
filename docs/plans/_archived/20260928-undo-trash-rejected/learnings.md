@@ -184,3 +184,11 @@
   backend's `TrashRun` is not rebased either. Basis: Step 3
   implementation. Files: `crates/app/ui/src/main.ts` (rename handler),
   `crates/app/src/rename.rs`, `crates/app/src/trash.rs` (`Runs`).
+- `treewatch::tests::release_under_releases_the_folder_and_below_and_restore_puts_them_back`
+  is flaky on Windows CI: it panicked at `crates/app/src/treewatch.rs:355`
+  in the post-merge CI of #540 (run 36432825515) and of #551
+  (run 36497782763), both PRs not touching `treewatch.rs`, and passed on a
+  rerun each time. Change: find the race (likely waiting on a watcher
+  event or a handle release) and make the test deterministic. Done when:
+  the cause is identified and the test passes repeatedly on the Windows
+  runner.
