@@ -140,7 +140,7 @@ event nobody listens to.
   listing) instead of leaving the row unlabeled, remove the unused
   `scan-state` emits (and their ordering comments / doc bullet), make
   `riffle-cli bench` reject a non-ARW/DNG input with an error instead of
-  silently decoding it, fix `mise run fmt` to work on Windows by running
+  silently measuring nothing, fix `mise run fmt` to work on Windows by running
   `vp fmt` through its node entry point, and drop the always-true
   `renameAllowed` parameter from `folders.init` and its `canRename()`
   checks. Also removed the five corresponding sections from `todo.md`.
