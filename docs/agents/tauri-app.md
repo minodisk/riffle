@@ -294,12 +294,11 @@ the Vite output under the sibling `ui/` is `"frontendDist": "ui/dist"`.
 
 ### `tauri icon` also writes `ios/` and `android/` icons (Hit)
 
-Regenerate the icon set with
+`source.png` is rendered by `python3 tools/macos/app-icon/gen.py` (macOS
+only; see its header). Regenerate the icon set with
 `pnpm exec tauri icon crates/app/icons/source.png -o crates/app/icons`. It
 leaves `tauri.conf.json` alone, but it also creates `icons/ios/` and
 `icons/android/`, which the app has no use for.
-`source.png` itself is rendered by
-`python3 tools/macos/app-icon/gen.py` (macOS only; see its header).
 
 - Delete those two folders before committing.
 - Source: `docs/plans/_archived/20260920-app-icon/learnings.md`, Step 1.
