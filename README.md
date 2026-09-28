@@ -180,7 +180,9 @@ untouched.
 - Lightroom Classic reads the XMP Riffle wrote when the photos are first
   imported.
 - After import it does not re-read a sidecar Riffle changed, not even on
-  restart. Right-click the folder, choose `Synchronize Folder...`, check
+  restart. For the selected photos, right-click them in the Library grid and
+  choose `Metadata > Read Metadata from File`. For a whole folder, right-click
+  the folder, choose `Synchronize Folder...`, check
   `Scan for metadata updates` and click `Synchronize`.
 - Lightroom Classic does not write XMP by default. `Ctrl+S`
   (`Metadata > Save Metadata to File`) writes it for the selected photos, or
