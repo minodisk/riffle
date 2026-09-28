@@ -120,10 +120,12 @@ Current state the plan is based on:
       then `rm -r crates/app/icons/ios crates/app/icons/android`.
     - Commit as `feat(app): replace the app icon with the film-frame design`.
 
-- [ ] Step 2: Commit the icon generator under `tools/macos/app-icon/`
+- [x] Step 2: Commit the icon generator under `tools/macos/app-icon/`
   - Done when:
-    - `tools/macos/app-icon/gen.py` and `tools/macos/app-icon/photo.png`
-      exist; `icon.svg` is not committed (it is derived).
+    - `tools/macos/app-icon/gen.py`, `tools/macos/app-icon/photo.png` and
+      `tools/macos/app-icon/icon.svg` exist. `icon.svg` is committed so the
+      design can be reviewed and opened without running Python (user
+      request); it must be exactly what the committed `gen.py` writes.
     - `gen.py` has a header comment in the style of
       `tools/macos/export-menu-icons.swift`: what it produces, how to run
       it (`python3 tools/macos/app-icon/gen.py`), that it runs on macOS
@@ -134,9 +136,9 @@ Current state the plan is based on:
       and that `pnpm exec tauri icon` must be rerun afterwards (with the
       `ios/` / `android/` removal). All text is English.
     - `gen.py` resolves its paths from its own location (`Path(__file__)`):
-      it reads `photo.png` next to itself (the SVG `href` is an absolute
-      `file://` URL or the SVG is written next to `photo.png`), writes the
-      SVG to a temporary location, runs Chrome, and writes the render to
+      it writes `icon.svg` next to itself (with the photo referenced by the
+      relative `href="photo.png"`, so the SVG opens in a browser as-is),
+      runs Chrome on it, and writes the render to
       `crates/app/icons/source.png` relative to the repository root
       (`Path(__file__).resolve().parents[3]`). Running it from any cwd works.
     - The unused `stickerfill` and `stickershadow` defs are removed; the
@@ -176,8 +178,10 @@ Current state the plan is based on:
   installed Chrome; and Chrome / font rasterization may change between
   versions, so the render is not guaranteed byte-stable (hence "committed
   PNGs are the source of truth", the same stance the swift tool takes).
-- **Whether to commit `icon.svg`**: not committed, since `gen.py` regenerates
-  it and a committed copy would drift.
+- **Whether to commit `icon.svg`**: committed at the user's request (after
+  the plan PR), so the design is reviewable without running Python. The risk
+  of drift is handled by having `gen.py` write it in place: a design change
+  reruns `gen.py`, which updates `icon.svg` and `source.png` together.
 - **Reproducibility of the render**: Step 2 measures it. If Chrome produces
   pixel differences from the approved render, the approved bytes from Step 1
   stay, and the script is still useful for future tweaks (which would go
