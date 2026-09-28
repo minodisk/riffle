@@ -121,3 +121,17 @@
   doubled backslashes even with a quoted delimiter (`"\\\\?"` lands as
   `"\\?"`); write text holding backslashes with the Write / Edit tools, or
   a script file written by them, instead.
+
+## Deferred issues (todo candidates)
+
+- **Bash heredocs on this Windows machine mangle doubled backslashes**
+  (candidate for promotion into `CLAUDE.md`, or an agent-tooling note).
+  - Basis: in Step 4, text holding a doubled backslash written through a
+    Bash-tool heredoc, even with a quoted delimiter, landed with the
+    backslashes halved (see the Step 4 note above).
+  - Change: add a rule telling agents on Windows to write text holding
+    backslashes (Windows paths, verbatim `\\?\` prefixes, regex escapes) with
+    the Write / Edit tools, or a script file written by them, not a heredoc.
+  - Done when: the rule is where future sessions read it before editing, and
+    writing a doubled-backslash string both ways and diffing the results
+    confirms the behavior it describes.

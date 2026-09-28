@@ -1242,7 +1242,17 @@ handler only ever takes the separate canonical-path map's lock, never the
 Only rename was measured this way, not delete: don't assume the same
 ancestor-pinning applies to deletion without measuring it.
 
-- Source: `docs/plans/_archived/20260928-tree-live-watch/learnings.md`, Step 1.
+Trashing (not renaming) a file inside a watched folder needs no such care: a
+throwaway test put a `notify::recommended_watcher` `NonRecursive` watch on a
+canonical temp dir (as `watch.rs` does for the open folder) and ran
+`trash::run` with `TrashContext::default()` over a RAW and its `.xmp` inside
+it — both went to the Recycle Bin with no failure, so trashing the rejects of
+the open (watched) folder needs no watcher change, and a folder that is not
+open has no watch at all.
+
+- Source: `docs/plans/_archived/20260928-tree-live-watch/learnings.md`, Step 1;
+  the trash check is from
+  `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`, Step 1.
 
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
 
@@ -1353,6 +1363,20 @@ The decision (add the captured key, cancel the capture, close, move focus, or
 leave the key to the focused control) is the DOM-free `SettingsModal.key` in
 `crates/app/ui/src/modal.ts`, so it is unit-tested without a DOM.
 
+A dialog that runs a real backend operation (not just local state) should
+also declare mutual exclusion with the other blocking dialogs explicitly,
+rather than relying on only one keydown route existing: the trash
+confirmation dialog (`TrashFlow`) and the sequence dialog exclude each other
+and the settings modal (`trashFlow.busy` / `sequenceFlow.busy` /
+`settings.isOpen` checked at every one of their open points), since the
+window's keydown handler can only route to one of them at a time. A dialog
+whose run cannot be canceled should disable every button and make Escape a
+no-op while it runs, rather than leaving a race between the in-flight command
+and a close.
+
+Source: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
+Step 4.
+
 ### The strip context menu is HTML, not a native `tauri::menu` popup (Inferred)
 
 Right-clicking a strip cell opens `#context-menu`, an HTML menu built by
@@ -1438,6 +1462,21 @@ might otherwise assume:
 
 - Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
   Steps 1-4.
+
+The folder tree has its own, separate selection model (`TreeSelection` in
+`crates/app/ui/src/tree.ts`: `selectOnly`, `clickSelect`, `pruneSelection`)
+rather than reusing `selection.ts`: the tree's selection has no
+always-selected member (the open folder can be toggled off, and the selection
+can go empty), unlike the strip's focused-file invariant above. Don't assume
+both share one selection model when extending either. Pruning runs at the top
+of the tree's `render()` against the drawn rows, so a collapse, a
+`tree-changed` re-list and a reveal all drop what is no longer drawn in one
+place, and the toggle modifier is `metaKey` on macOS / `ctrlKey` elsewhere
+(the tree cannot accept either on every platform like the strip does, since
+macOS Ctrl+click is the right-click the tree already guards).
+
+- Source: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
+  Step 3.
 
 ### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
 
