@@ -63,11 +63,13 @@ tick them off. This work adds that entry; nothing else changes.
       indent the other entries use. Platform-specific checks are separate
       checkboxes, as in the burst grouping and Clear Cache entries, so the
       Windows and macOS runs can be ticked independently.
-    - Position: insert the entry directly after `### App: hand-check the
-      sequence-run output-folder reveal on Windows` (before `### App: Open
-      in Terminal from the folder tree's context menu`), which is the
-      nearest entry of the same kind (a GUI check left to a human, Windows
-      first, with a `Files:` list). Do not reorder or edit any other entry.
+    - Position: insert the entry directly before `### App: Open in Terminal
+      from the folder tree's context menu`, which leaves it after the
+      `crates/app/src/sequence.rs` comment entry (the `### App: hand-check
+      the sequence-run output-folder reveal on Windows` entry the plan
+      originally anchored on had already been resolved and removed from
+      `todo.md` before this work; see `learnings.md`). Do not reorder or
+      edit any other entry.
     - Refer to the archived plan by path in backticks, as the
       `scan-progress` entry does, rather than as a Markdown link, so lychee
       has nothing to resolve.
@@ -77,14 +79,16 @@ tick them off. This work adds that entry; nothing else changes.
 
 ## Trade-offs and risks
 
-- **Position of the entry.** Placing it after the `sequence-run reveal`
-  entry (chosen) keeps it next to the most similar Windows manual-check
-  item; appending at the end of the file would follow the "newest last"
-  habit of the most recent entries.
+- **Position of the entry.** Placing it directly before `### App: Open in
+  Terminal from the folder tree's context menu` (chosen) keeps it next to
+  the most similar Windows manual-check item, after the
+  `crates/app/src/sequence.rs` comment entry that now occupies the spot the
+  `sequence-run reveal` entry originally held; appending at the end of the
+  file would follow the "newest last" habit of the most recent entries.
 - **Platform split.** Listing macOS as its own checkbox records a check
   nobody may run soon; folding it into the Windows item would lose the
   ability to tick Windows alone. The split follows the existing entries.
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete
