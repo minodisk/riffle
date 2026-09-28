@@ -81,6 +81,8 @@ A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs 
 
 In the Windows real-folder measurement, the log showed two `open entries` lines (56ms and 76ms on 2677 files) for one folder open. A later run (Windows 11, v0.2.0, 2026-09-22) showed a plain folder open logs one `open entries` (seen at 03:15 and 04:00); the extra call appears after scan-done when a follow-up rescan runs (`scan_id=2` immediately after the cold scan finished at 04:39:37).
 
+docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the follow-up refresh invisible in the UI (no scroll snap, no thumbnail reload), but did not remove the extra `folder_entries` read or its timing cost; this item is still about that.
+
 #### TODO
 
 - [ ] Find why a follow-up rescan starts right after a cold scan finishes and whether its `open entries` is needed (`crates/app/src/commands.rs` `scan_folder`, `crates/app/ui/src/main.ts`); remove it or document why it is needed.
@@ -804,6 +806,8 @@ there as `null` for every file, since the index does not cache them.
 ### App: the backend `folder_entries` read is the main cost of the remaining `refreshEntries`
 
 Now that the `scan-done` refresh is skipped when neither the scan nor the reconcile changed anything (docs/plans/_archived/20260926-scan-done-refresh-skip/plan.md), the one refresh that still runs (the open-time one) is dominated by the backend `folder_entries` read: 321 ms cold on 2134 rows in the user's Windows debug-build measurement. Files: `crates/app/src/index.rs` (`folder_entries` / `AppIndexReader`), `crates/app/ui/src/main.ts` (`refreshEntries`).
+
+docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the frontend `set_files=true` share of the `refresh entries:` timing line cheaper (no cell teardown and reload on a kept-scroll update), but this item is about the backend read, which is untouched.
 
 #### TODO
 
