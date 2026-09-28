@@ -1458,7 +1458,11 @@ might otherwise assume:
 - Pruning the selection after a filter/sort/judgment change happens only in
   `refilter`, which re-adds the focused file so the invariant holds; other
   paths (`resync`, `trashRejected`, `strip.setFiles`) all route through it
-  rather than pruning themselves.
+  rather than pruning themselves. The one exception is the resume landing:
+  when `refilter`'s `force` marks a refresh that resolved a pending resume
+  target, `settle` in `crates/app/ui/src/selection.ts` selects the landed file
+  alone instead of pruning, since `openDirectory` had already selected
+  `files[0]` (the same class of bug `restore` fixes for undo / redo).
 
 - Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
   Steps 1-4.

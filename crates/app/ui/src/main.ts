@@ -89,6 +89,7 @@ import {
   prune,
   restore,
   selectionOf,
+  settle,
   single,
   targets,
 } from "./selection.js";
@@ -1253,7 +1254,7 @@ function refilter(
   }
   const target = anchorAfterFilter(order, passes, anchor);
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
-  selection = prune(selection, files, index);
+  selection = settle(selection, files, index, force);
   paintSelection();
   if (mustReshow(force, files[index], anchor)) {
     show();
