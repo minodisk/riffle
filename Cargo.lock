@@ -3738,6 +3738,8 @@ dependencies = [
  "log",
  "mozjpeg",
  "notify",
+ "objc2-foundation",
+ "percent-encoding",
  "riffle-core",
  "rmcp",
  "rusqlite",

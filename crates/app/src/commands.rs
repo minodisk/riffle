@@ -2142,13 +2142,7 @@ pub async fn trash_rejected_run(
             .into_iter()
             .flat_map(|folder| folder.groups)
             .collect();
-        let context = trash_context();
-        let (mut summary, moved) = trash::run(groups, |path| {
-            context
-                .delete(path)
-                .map(|()| None)
-                .map_err(|e| e.to_string())
-        });
+        let (mut summary, moved) = trash::run(groups, trash_one);
         summary.unread = collection.failed;
         summary.run_id = app.state::<trash::Runs>().record(moved);
         log::info!("moved rejected files to the trash: {summary:?}");
@@ -2215,12 +2209,29 @@ fn restore_run(run: &trash::TrashRun) -> trash::Restored {
     )
 }
 
+/// Restore `run` from the locations its files got in the Trash, recorded by
+/// `trash_one`.
 #[cfg(target_os = "macos")]
 fn restore_run(run: &trash::TrashRun) -> trash::Restored {
-    trash::Restored::none(
-        run,
-        "restoring from the Trash is not supported on macOS yet",
-    )
+    trash::restore_recorded(run)
+}
+
+/// The mover of `trash_rejected_run`. On macOS it goes through
+/// `NSFileManager` itself to keep where the file went; the crate's default
+/// there drives the Finder through AppleScript, which needs Automation
+/// permission.
+#[cfg(target_os = "macos")]
+fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
+    trash::trash_file(path).map(Some)
+}
+
+/// The mover of `trash_rejected_run`: the Trash is listed at undo time, so
+/// where the file went is not kept.
+#[cfg(not(target_os = "macos"))]
+fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
+    ::trash::delete(path)
+        .map(|()| None)
+        .map_err(|e| e.to_string())
 }
 
 /// The rejects of `dirs` as `trash::collect` finds them. The dirs are
@@ -2234,20 +2245,6 @@ fn collect_rejected(app: &tauri::AppHandle, dirs: &[String], recursive: bool) ->
         Some(index) => index::lock(index).row_flags(dir),
         None => Ok(HashMap::new()),
     })
-}
-
-/// The trash context the mover uses. On macOS the crate defaults to driving
-/// the Finder through AppleScript, which needs Automation permission; the
-/// `NSFileManager` route needs none.
-fn trash_context() -> ::trash::TrashContext {
-    #[allow(unused_mut)]
-    let mut context = ::trash::TrashContext::default();
-    #[cfg(target_os = "macos")]
-    {
-        use ::trash::macos::{DeleteMethod, TrashContextExtMacos};
-        context.set_delete_method(DeleteMethod::NsFileManager);
-    }
-    context
 }
 
 /// Resolve symlinks and normalize a folder path so the same folder reached

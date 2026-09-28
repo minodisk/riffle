@@ -75,6 +75,12 @@ pub struct Summary {
 pub struct Trashed {
     pub path: PathBuf,
     pub trashed_at: Option<PathBuf>,
+    /// `(dev, ino)` of the file at `trashed_at`, taken right after the move
+    /// (macOS only; `None` elsewhere or when the file could not be stat'd).
+    /// The Trash can reuse a name once it is free, so `restore_recorded`
+    /// checks this against the file it is about to rename back, not just
+    /// that a file exists at `trashed_at`.
+    pub trashed_id: Option<(u64, u64)>,
 }
 
 /// One recorded run: every file it moved, each RAW followed by its sidecars
@@ -139,6 +145,7 @@ pub struct Restored {
 impl Restored {
     /// Every file of `run` failed with `message`, for a Trash that cannot be
     /// read or restored from at all.
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
     pub fn none(run: &TrashRun, message: &str) -> Self {
         Restored {
             restored: Vec::new(),
@@ -422,10 +429,14 @@ pub fn run(
     for group in groups {
         let raw = group.raw.to_string_lossy().into_owned();
         match mover(&group.raw) {
-            Ok(trashed_at) => moved.push(Trashed {
-                path: group.raw,
-                trashed_at,
-            }),
+            Ok(trashed_at) => {
+                let trashed_id = trashed_at.as_deref().and_then(file_id);
+                moved.push(Trashed {
+                    path: group.raw,
+                    trashed_at,
+                    trashed_id,
+                });
+            }
             Err(message) => {
                 summary.failed.push(Failure { path: raw, message });
                 continue;
@@ -434,10 +445,14 @@ pub fn run(
         summary.moved.push(raw);
         for sidecar in group.sidecars {
             match mover(&sidecar) {
-                Ok(trashed_at) => moved.push(Trashed {
-                    path: sidecar,
-                    trashed_at,
-                }),
+                Ok(trashed_at) => {
+                    let trashed_id = trashed_at.as_deref().and_then(file_id);
+                    moved.push(Trashed {
+                        path: sidecar,
+                        trashed_at,
+                        trashed_id,
+                    });
+                }
                 Err(message) => summary.failed.push(Failure {
                     path: sidecar.to_string_lossy().into_owned(),
                     message,
@@ -448,15 +463,27 @@ pub fn run(
     (summary, moved)
 }
 
+/// `(dev, ino)` of `path`, `None` when it cannot be stat'd or the platform is
+/// not Unix. A rename within the same volume keeps this identity, but the
+/// Trash reusing a freed name after emptying does not.
+#[cfg(unix)]
+fn file_id(path: &Path) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = std::fs::metadata(path).ok()?;
+    Some((metadata.dev(), metadata.ino()))
+}
+
+#[cfg(not(unix))]
+fn file_id(_path: &Path) -> Option<(u64, u64)> {
+    None
+}
+
 /// The failure of a file whose original location holds a file again.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub const ALREADY_EXISTS: &str = "already exists at the original location";
 /// The failure of a file the Trash no longer holds.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub const NOT_IN_TRASH: &str = "not in the Trash (emptied or restored by hand)";
 /// The failure of a sidecar left in the Trash because its RAW did not come
 /// back.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub const RAW_NOT_RESTORED: &str = "left in the Trash: its RAW could not be restored";
 
 /// Put the files of `run` back in the recorded order, never stopping at a
@@ -466,7 +493,6 @@ pub const RAW_NOT_RESTORED: &str = "left in the Trash: its RAW could not be rest
 /// in the Trash (each reported), the mirror of `run`'s rule: a reject sidecar
 /// restored next to a different file that took the RAW's name would pin the
 /// judgment on that file.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn restore<I>(
     run: &TrashRun,
     mut in_trash: impl FnMut(&Trashed) -> Option<I>,
@@ -498,6 +524,69 @@ pub fn restore<I>(
         }
     }
     restored
+}
+
+/// Put `run` back from where each file went, as recorded at trash time
+/// (macOS): a file whose recorded location is gone (the Trash was emptied or
+/// the file put back by hand) is "not in the Trash", else it is renamed back,
+/// within the volume its Trash lives on. `std::fs::rename` replaces an
+/// existing file on Unix, so `restore`'s `exists` check is the only guard
+/// against overwriting. A file existing at the recorded location is not
+/// enough: the Trash can hand the same name to a different file once the
+/// original is gone (the Trash emptied, then something else trashed under
+/// the same name), so this also requires the file's `(dev, ino)` to still
+/// match the one recorded right after the move.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn restore_recorded(run: &TrashRun) -> Restored {
+    restore(
+        run,
+        |trashed| {
+            let at = trashed.trashed_at.clone()?;
+            if file_id(&at) != trashed.trashed_id {
+                return None;
+            }
+            Some(at)
+        },
+        Path::exists,
+        |trashed, at| std::fs::rename(at, &trashed.path).map_err(|e| e.to_string()),
+    )
+}
+
+/// Move `path` to the Trash through `NSFileManager`, as the `trash` crate's
+/// `DeleteMethod::NsFileManager` does (no Automation permission needed),
+/// but keep the URL the file got inside the Trash, which the crate discards.
+#[cfg(target_os = "macos")]
+pub fn trash_file(path: &Path) -> Result<PathBuf, String> {
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+
+    let bytes = path.as_os_str().as_encoded_bytes();
+    let path = match std::str::from_utf8(bytes) {
+        Ok(utf8) => NSString::from_str(utf8),
+        Err(_) => NSString::from_str(&percent_encode(bytes)),
+    };
+    let url = NSURL::fileURLWithPath(&path);
+    let mut resulting = None;
+    NSFileManager::defaultManager()
+        .trashItemAtURL_resultingItemURL_error(&url, Some(&mut resulting))
+        .map_err(|e| format!("`trashItemAtURL` failed: {e}"))?;
+    resulting
+        .and_then(|url| url.path())
+        .map(|path| PathBuf::from(path.to_string()))
+        .ok_or_else(|| "the Trash did not tell where the file went".to_string())
+}
+
+/// `input` with every byte that is not part of valid UTF-8 percent-encoded,
+/// the `trash` crate's spelling of a non-UTF-8 path.
+#[cfg(target_os = "macos")]
+fn percent_encode(input: &[u8]) -> String {
+    let mut encoded = String::with_capacity(input.len());
+    for chunk in input.utf8_chunks() {
+        encoded.push_str(chunk.valid());
+        for byte in chunk.invalid() {
+            encoded.push_str(percent_encoding::percent_encode_byte(*byte));
+        }
+    }
+    encoded
 }
 
 /// `path` spelled the way the Trash's listing is matched against: without
@@ -540,9 +629,9 @@ pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes, collect, newest_by_path, nothing_to_trash, preview, restore, run, trash_key,
-        Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed, ALREADY_EXISTS,
-        MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+        bytes, collect, newest_by_path, nothing_to_trash, preview, restore, restore_recorded, run,
+        trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed,
+        ALREADY_EXISTS, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
     };
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
@@ -633,6 +722,7 @@ mod tests {
         Trashed {
             path: PathBuf::from(path),
             trashed_at: None,
+            trashed_id: None,
         }
     }
 
@@ -753,6 +843,96 @@ mod tests {
             failures(&Restored::none(&run, "no Trash")),
             [("a.ARW", "no Trash"), ("a.xmp", "no Trash")]
         );
+    }
+
+    #[test]
+    fn a_recorded_run_is_renamed_back_never_over_a_file() {
+        let dir = temp_dir("recorded");
+        let trash = dir.join("trash");
+        std::fs::create_dir(&trash).unwrap();
+        let recorded = |name: &str| {
+            let at = trash.join(name);
+            write(&at);
+            Trashed {
+                path: dir.join(name),
+                trashed_at: Some(at.clone()),
+                trashed_id: super::file_id(&at),
+            }
+        };
+        let back = recorded("a.ARW");
+        let back_sidecar = recorded("a.xmp");
+        let taken = recorded("b.ARW");
+        write(&taken.path);
+        let emptied = Trashed {
+            // Nothing is ever written at this path, so this covers the
+            // Trash-emptied case: no file at `trashed_at` at all.
+            path: dir.join("c.ARW"),
+            trashed_at: Some(trash.join("c.ARW")),
+            trashed_id: Some((0, 0)),
+        };
+        let reused = Trashed {
+            // A different file now occupies the recorded name (macOS Trash
+            // name reuse), so this covers the id-mismatch case: something
+            // exists at `trashed_at`, but its id does not match what was
+            // recorded at trash time.
+            path: dir.join("d.ARW"),
+            trashed_at: Some(trash.join("d.ARW")),
+            trashed_id: Some((0, 0)),
+        };
+        write(&reused.trashed_at.clone().unwrap());
+        let run = TrashRun {
+            id: 1,
+            moved: vec![
+                back.clone(),
+                back_sidecar.clone(),
+                taken.clone(),
+                emptied,
+                reused.clone(),
+            ],
+        };
+        let restored = restore_recorded(&run);
+        assert_eq!(
+            restored.restored,
+            [back.path.to_string_lossy().into_owned()]
+        );
+        let failed: Vec<(String, &str)> = restored
+            .failed
+            .iter()
+            .map(|f| (f.path.clone(), f.message.as_str()))
+            .collect();
+        assert_eq!(
+            failed,
+            [
+                (taken.path.to_string_lossy().into_owned(), ALREADY_EXISTS),
+                (
+                    dir.join("c.ARW").to_string_lossy().into_owned(),
+                    NOT_IN_TRASH
+                ),
+                (
+                    dir.join("d.ARW").to_string_lossy().into_owned(),
+                    NOT_IN_TRASH
+                )
+            ]
+        );
+        assert!(back.path.exists() && back_sidecar.path.exists());
+        assert!(!back.trashed_at.unwrap().exists());
+        assert!(taken.trashed_at.unwrap().exists());
+        assert!(reused.trashed_at.unwrap().exists());
+        assert!(!reused.path.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn ns_file_manager_tells_where_the_file_went() {
+        let dir = temp_dir("nsfilemanager");
+        let file = dir.join("a.ARW");
+        write(&file);
+        let at = super::trash_file(&file).unwrap();
+        assert!(!file.exists());
+        assert!(at.exists());
+        std::fs::rename(&at, &file).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn item(parent: &str, name: &str, time_deleted: i64) -> ::trash::TrashItem {
@@ -1230,10 +1410,12 @@ mod tests {
                 Trashed {
                     path: dir.join("ok.ARW"),
                     trashed_at: Some(trash.join("ok.ARW")),
+                    trashed_id: super::file_id(&trash.join("ok.ARW")),
                 },
                 Trashed {
                     path: dir.join("ok.xmp"),
                     trashed_at: Some(trash.join("ok.xmp")),
+                    trashed_id: super::file_id(&trash.join("ok.xmp")),
                 },
             ]
         );

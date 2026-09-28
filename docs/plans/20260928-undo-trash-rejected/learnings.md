@@ -32,3 +32,52 @@
   failure texts `#[cfg_attr(target_os = "macos", allow(dead_code))]`; Step 2
   should drop the attributes it no longer needs (`restore` and the texts
   become used there).
+
+## Step 2
+
+- The macOS compile is verified only by CI's macOS job. This Windows
+  machine cannot `cargo check --target aarch64-apple-darwin` the app
+  (`objc2-exception-helper`'s build script needs a C compiler for the
+  target). As a partial check, the new `trash_file` / `percent_encode`
+  code was copied into a scratch crate depending on `objc2-foundation`
+  0.3.2 (the version `trash` 5.2.9 pins in `Cargo.lock`) and
+  `percent-encoding`, which `cargo check` and `cargo clippy -D warnings`
+  pass for `aarch64-apple-darwin`. The rest of the macOS cfg (the
+  `commands.rs` mover and `restore_run`, the remaining `dead_code`
+  attributes) is not compiled here.
+- `objc2-foundation` 0.3.2's signature, read from the registry after
+  `cargo fetch` (which downloads every platform's crates):
+  `pub fn trashItemAtURL_resultingItemURL_error(&self, url: &NSURL,
+  out_resulting_url: Option<&mut Option<Retained<NSURL>>>) -> Result<(),
+  Retained<NSError>>`. It is a safe fn in 0.3 (no `unsafe` block), and
+  `NSURL::path()` is `Option<Retained<NSString>>`. Letting `None` infer
+  the out pointer's type avoids a direct `objc2` dependency for
+  `Retained`.
+- `percent-encoding` is added as a macOS-only dependency too (the crate's
+  own path handling uses it; already in `Cargo.lock` through `trash`).
+- On Windows / Linux the mover is now `::trash::delete` (the default
+  context) and `trash_context()` is gone. `restore`, the three failure
+  texts and the new `restore_recorded` are used on macOS; `trash_key`
+  and `newest_by_path` keep their macOS `allow(dead_code)`, and
+  `restore_recorded` gets the mirror attribute off macOS (it is used
+  there only by its test). `Restored::none` was missed in this pass: its
+  only non-test caller left after this commit is the
+  `#[cfg(not(target_os = "macos"))]` `restore_run`, so it also needs
+  `#[cfg_attr(target_os = "macos", allow(dead_code))]` (added in review
+  round 1; this Windows machine cannot compile the macOS cfg to catch it
+  itself).
+- A file existing at the recorded `trashed_at` is not enough to call it
+  "still in the Trash": the Trash can hand a freed name to an unrelated
+  file trashed later from elsewhere (camera file names like
+  `DSC00001.ARW` repeat across cards). `Trashed` now also records
+  `trashed_id`, the `(dev, ino)` of the file at `trashed_at` taken right
+  after the move (`std::os::unix::fs::MetadataExt`, `None` on
+  non-Unix), and `restore_recorded`'s `in_trash` requires it to still
+  match before renaming back (added in review round 1).
+- The `#[cfg(target_os = "macos")]` test `ns_file_manager_tells_where_the_file_went`
+  trashes a real temp file; it is not `#[ignore]`d. If the CI runner's
+  Trash turns out to be unusable, mark it `#[ignore]` and record it here.
+- Manual check on a Mac (not possible on this machine): trash rejects in a
+  folder, then `Edit > Undo` once Step 3 lands; the files come back and a
+  file with the same name at the original location is reported, not
+  overwritten.
