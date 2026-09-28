@@ -137,7 +137,7 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       `run(rx, emit)` with a `HashMap<String, Instant>` of deadlines, waiting
       on the nearest one).
 
-- [ ] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
+- [x] Step 2: The tree syncs its watched set and re-lists on `tree-changed`; docs and `todo.md`
   - Done when:
     - `crates/app/ui/src/tree.ts` exports a pure
       `watchedFolders(tree: Tree): string[]`: the paths of the nodes that
@@ -152,7 +152,9 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
     - `folders.ts` calls `set_tree_watches` with `watchedFolders(tree)` at
       the end of `render()` whenever the list differs from the last one
       sent (compare the joined string, updated synchronously at send time),
-      swallowing and reporting a rejection through `reportError`. Because
+      chaining each invoke onto the previous one's promise so two calls are
+      never applied out of order on the backend, and resetting `watched` on
+      rejection so the next render resends the set. Because
       `render` is the one place every tree change passes through (`toggle`,
       `reveal`, `renamed`, `loadRoots`, `moveCursor`), this covers expand,
       collapse, the reveal chain at launch, and the re-key after a rename
@@ -165,10 +167,16 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
       and applies `setChildren` (which keeps the state of children already
       known), then `requestRender()` (not `render()`, so a re-list landing
       mid-press waits for the `mouseup`, as `renamed()` does). A listing
-      error is reported through `reportError` and does not collapse the
-      node (unlike `toggle`, where the user asked for the expand). A
-      payload for a node that is no longer expanded or drawn is dropped
-      (the collapse's `set_tree_watches` and an in-flight event can cross).
+      error is only `console.warn`ed, not reported through `reportError`:
+      this re-list is a background refresh the user did not ask for, and a
+      permanent delete of the folder itself (`rm -rf`, Shift+Delete) removes
+      its entries first, so this call often fails with the folder still
+      drawn while the parent's own `tree-changed` is what removes the row;
+      surfacing that as an error would be spurious. The listener does not
+      collapse the node either way (unlike `toggle`, where the user asked
+      for the expand). A payload for a node that is no longer expanded or
+      drawn is dropped (the collapse's `set_tree_watches` and an in-flight
+      event can cross).
     - A live inline rename is preserved across the re-list (`render`
       already rebuilds the input from `editing`, and drops the edit when
       the row vanished); nothing extra is needed but it is checked
@@ -215,9 +223,9 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
 
 - **Watching an expanded folder pins it on Windows (accepted by the user).**
   `ReadDirectoryChangesW` holds a handle, so while a folder is expanded in
-  the tree Explorer (or another app) cannot rename or delete *that* folder or
-  its ancestors; the folders *under* it stay free. Today only the open folder
-  is pinned. The tree's own `Rename…` is unaffected (Step 1 releases first).
+  the tree Explorer (or another app) cannot rename its *ancestors*; the
+  folder itself and the folders *under* it stay free (measured in Step 1, see
+  `learnings.md`). Today only the open folder's ancestors are pinned. The tree's own `Rename…` is unaffected (Step 1 releases first).
   The alternatives (watching only the open folder's parent, or polling) were
   rejected: the first misses the reported case, the second costs a
   `read_dir` per expanded node per tick on a network share.
@@ -268,3 +276,4 @@ item to a manual Refresh as the fallback for a folder whose watch failed.
   the watched folder itself, is what blocks a rename. See `learnings.md` for
   the measurements and the deadlock-safety argument.
 - (2026-09-28) Step 1 complete
+- (2026-09-28) Step 2 complete

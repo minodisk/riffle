@@ -38,3 +38,38 @@
   release/rename/restore-on-failure sequence. Still deadlock-safe: the notify
   handler only ever takes the separate `keys` lock, never the `TreeWatch`
   state lock.
+
+## Step 2
+
+- The watched-set sync sits in `render()` before the inline-rename block,
+  since that block returns early when the edited row vanished; placing it at
+  the literal end would skip the sync on that path.
+- The `tree-changed` listener checks membership with `watchedFolders(tree)`
+  itself, so "expanded and drawn" has one definition for both the watched set
+  and the drop rule. The re-list result is applied with `setChildren` even if
+  the node was collapsed or re-keyed meanwhile: `setChildren` on an unknown
+  key is a no-op and on a collapsed node only refreshes the cache.
+- The Step 1 measurement (a watch pins the watched folder's ancestors, not
+  the folder itself) was carried into `docs/usage.md`'s Folders paragraph and
+  the plan's Trade-offs bullet, which had said "that folder or its
+  ancestors". Only rename was measured, so the docs say "rename", not
+  "rename or delete".
+- **Manual Windows GUI check: pending, to be run by the user** (the agent
+  cannot drive the GUI). Checks:
+  1. With a folder expanded in the tree, create a subfolder in Explorer: it
+     appears within about a second. Rename it in Explorer: the row follows.
+     Delete it: the row goes.
+  2. Run `Sequence JPEG Timestamps…` on a folder whose parent is expanded:
+     `<folder>-sequenced` appears under the parent.
+  3. Rename an expanded folder from the tree (`Rename…`), and a folder whose
+     ancestor is expanded: the rename succeeds, and creating a subfolder
+     under the renamed folder in Explorer afterwards still shows up.
+  4. Make a tree rename fail (a sibling with the target name exists): the
+     error shows, and creating a subfolder under the old folder still shows
+     up.
+  5. Start an inline rename on a folder, then create a sibling folder in
+     Explorer: the text box survives the re-list with its text and
+     selection.
+  6. Permanently delete an expanded folder itself (`rm -rf` on Linux/macOS,
+     Shift+Delete in Explorer): no error is shown, and the row disappears
+     once the parent's re-list lands.

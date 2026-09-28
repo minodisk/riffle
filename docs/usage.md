@@ -14,7 +14,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `/mnt/*`, `/media/*/*` and `/run/media/*/*` on Linux; the list of these
   root volumes is read once at launch, so one mounted afterward does not
   appear until the app restarts). A folder's arrow lists its subfolders,
-  again on every expand, so a subfolder created since shows up; an expanded
+  and an expanded folder follows the disk: a subfolder created, deleted or
+  renamed under it, by the file manager, another app or Riffle itself,
+  appears or goes within about a second (a folder the app cannot watch, a
+  network share say, is re-listed only when it is expanded again). On
+  Windows, while a folder is expanded, the file manager cannot rename the
+  folders that hold it (the folder itself and those under it stay free);
+  collapse it first. An expanded
   folder shows how many RAW files it holds itself, or, for a folder with no
   RAW file, how many JPEGs (see **JPEG-only folders**). Clicking a folder's name
   opens it. `File > Open Folder…`, the `open` key (or the empty-state hint)

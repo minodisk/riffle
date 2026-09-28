@@ -37,6 +37,7 @@ import {
   step,
   treeKey,
   typeAhead,
+  watchedFolders,
 } from "./tree.js";
 
 interface Folder {
@@ -85,6 +86,10 @@ let pendingRender = false;
 // row that was mid-edit, not reopen the folder or its menu under the
 // pre-rename path.
 let ended: string | null = null;
+// The watched set last sent to `set_tree_watches`, joined, so a render that
+// leaves it unchanged sends nothing.
+let watched = "";
+let syncing: Promise<void> = Promise.resolve();
 const slow = new SlowClick();
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
@@ -213,6 +218,7 @@ function render(): void {
   } else {
     container.setAttribute("aria-activedescendant", active);
   }
+  syncWatches();
   if (editing !== null) {
     const input = container.querySelector<HTMLInputElement>("input.name");
     if (input === null) {
@@ -228,6 +234,29 @@ function render(): void {
       input.setSelectionRange(range[0], range[1]);
     }
   }
+}
+
+// Every expanded, drawn folder follows the disk through a backend watcher,
+// which answers with `tree-changed`.
+function syncWatches(): void {
+  const dirs = watchedFolders(tree);
+  const joined = dirs.join("\n");
+  if (joined === watched) {
+    return;
+  }
+  watched = joined;
+  // Chained onto the previous call so two `set_tree_watches` invokes never
+  // run on the backend out of order and leave a stale watch set.
+  syncing = syncing.then(async () => {
+    try {
+      await window.__TAURI__.core.invoke("set_tree_watches", { dirs });
+    } catch (err) {
+      // The call failed, so the backend never applied `dirs`; forget
+      // `watched` so the next render sends the set again.
+      watched = "";
+      reportError(String(err));
+    }
+  });
 }
 
 // Turns the folder's name into a text input, its name fully selected.
@@ -318,8 +347,9 @@ export function renamed(oldPath: string, newPath: string, newName: string): void
   requestRender();
 }
 
-// Expanding always re-lists, so a subfolder created since the last look
-// shows up; the cached children are drawn meanwhile. Roots themselves
+// Expanding re-lists, so a subfolder created while the folder was collapsed
+// shows up; the cached children are drawn meanwhile. While expanded, the
+// folder follows the disk through `tree-changed`. Roots themselves
 // (`loadRoots`) are read once at launch and not refreshed here.
 function toggle(path: string): void {
   if (tree.nodes.get(path)?.expanded) {
@@ -535,6 +565,30 @@ document.addEventListener("mouseup", () => {
 
 container.addEventListener("contextmenu", (event) => {
   event.preventDefault();
+});
+
+// A folder's watcher's trigger, debounced in Rust. A folder collapsed or
+// hidden since (the event and the new watched set can cross) is dropped, and
+// a failed re-list leaves the folder expanded with what it showed.
+void window.__TAURI__.event.listen<{ dir: string }>("tree-changed", ({ payload }) => {
+  const { dir } = payload;
+  if (!watchedFolders(tree).includes(dir)) {
+    return;
+  }
+  list(dir).then(
+    (folder) => {
+      tree = setChildren(tree, dir, folder.raw_count, folder.children);
+      requestRender();
+    },
+    (err: unknown) => {
+      // This is a background refresh, not something the user asked for.
+      // A permanent delete of the folder itself removes its entries first
+      // (`rm -rf`, Shift+Delete), so this re-list often fails with the
+      // folder still drawn; the parent's own `tree-changed` is what
+      // removes the row. Reporting this as an error would be spurious.
+      console.warn(err);
+    },
+  );
 });
 
 export function init(

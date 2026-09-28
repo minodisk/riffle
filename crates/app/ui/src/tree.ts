@@ -100,6 +100,16 @@ export function rows(tree: Tree): Row[] {
   return out;
 }
 
+// The folders the tree watches: the expanded ones among the drawn rows,
+// sorted. A node left expanded under a collapsed parent is not drawn, so it
+// is not watched.
+export function watchedFolders(tree: Tree): string[] {
+  return rows(tree)
+    .filter(({ node }) => node.expanded)
+    .map(({ node }) => node.path)
+    .sort();
+}
+
 export type StepKey = "up" | "down" | "home" | "end";
 
 // The path of the row the keyboard cursor moves to, or `null` when there is
