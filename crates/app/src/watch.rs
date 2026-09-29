@@ -138,7 +138,10 @@ fn release(state: &mut State, dir: &str) -> Option<(String, String)> {
     }
     let watched = watched.to_string();
     let owner = crate::index::lock(&state.owner).clone();
-    state.watcher = None;
+    if let Some(mut watcher) = state.watcher.take() {
+        let _ = watcher.unwatch(Path::new(&watched));
+        crate::treewatch::settle(&mut watcher);
+    }
     state.dir = None;
     Some((watched, owner))
 }

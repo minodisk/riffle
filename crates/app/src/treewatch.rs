@@ -162,6 +162,7 @@ impl State {
             if let Err(e) = watcher.unwatch(&canonical) {
                 log::warn!("failed to unwatch {dir}: {e}");
             }
+            settle(watcher);
         }
     }
 
@@ -180,6 +181,19 @@ impl State {
         }
         released
     }
+}
+
+/// Return only once `watcher` has carried out every `unwatch` sent to it
+/// before. On Windows `unwatch` (and dropping the watcher) only queues the
+/// request to notify's server thread, which closes the directory handle later,
+/// so an ancestor rename issued at once can still fail with
+/// `PermissionDenied`. notify 8.2's server handles its queued actions in
+/// order and `configure` blocks on the server's reply, so it returns after
+/// the handles of the earlier `unwatch`es are closed. Elsewhere the release is
+/// already synchronous and this is a no-op round trip. The result is ignored:
+/// it is an error only when the server is gone, and so is every handle.
+pub(crate) fn settle(watcher: &mut RecommendedWatcher) {
+    let _ = watcher.configure(notify::Config::default());
 }
 
 /// The tree paths an event over `paths` belongs to: those of each path's
@@ -352,19 +366,7 @@ mod tests {
         assert_eq!(keys(&state), all);
 
         state.release_under(&canonical);
-        // On Windows, `unwatch` returning does not guarantee the OS releases
-        // the folder handle synchronously, so the very next rename can still
-        // see it held; retry briefly rather than flaking.
-        let renamed = root.join("renamed");
-        let mut last = Ok(());
-        for _ in 0..50 {
-            last = std::fs::rename(&photos, &renamed);
-            if last.is_ok() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        last.unwrap();
+        std::fs::rename(&photos, root.join("renamed")).unwrap();
         assert_eq!(keys(&state), [photos2]);
 
         let _ = std::fs::remove_dir_all(&root);
