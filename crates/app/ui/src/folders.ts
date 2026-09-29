@@ -415,7 +415,7 @@ export function renamed(oldPath: string, newPath: string, newName: string): void
 // Expanding re-lists, so a subfolder created while the folder was collapsed
 // shows up; the cached children are drawn meanwhile. While expanded, the
 // folder follows the disk through `tree-changed`. Roots themselves
-// (`loadRoots`) are read once at launch and not refreshed here.
+// (`loadRoots`) are read at launch and again when the window gains focus.
 function toggle(path: string): void {
   if (tree.nodes.get(path)?.expanded) {
     tree = collapse(tree, path);
@@ -437,20 +437,31 @@ function toggle(path: string): void {
   );
 }
 
+function fetchRoots(): Promise<void> {
+  return window.__TAURI__.core.invoke<FolderNode[]>("folder_roots").then((roots) => {
+    tree = addRoots(tree, roots);
+    requestRender();
+  });
+}
+
 export function loadRoots(): void {
-  window.__TAURI__.core
-    .invoke<FolderNode[]>("folder_roots")
-    .then(
-      (roots) => {
-        tree = addRoots(tree, roots);
-        render();
-      },
-      (err: unknown) => {
-        reportError(String(err));
-      },
-    )
+  fetchRoots()
+    .catch((err: unknown) => {
+      reportError(String(err));
+    })
     .finally(rootsSettled);
 }
+
+// A volume mounted after launch shows up the next time the window gains
+// focus; `addRoots` skips the roots already shown, and one unmounted since
+// stays listed. Scoped to this window, like `main.ts`'s resync on focus: a
+// global `event.listen` also receives other windows' focus. A failure here is
+// a background refresh's, so it is not reported.
+void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
+  void rootsLoaded.then(fetchRoots).catch((err: unknown) => {
+    console.warn(err);
+  });
+});
 
 // Expands the chain down to the open folder, highlights it and scrolls it
 // into view. `stillCurrent` is the caller's folder-token check: the listings
@@ -483,7 +494,7 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
     try {
       folder = await list(dir);
     } catch (err) {
-      tree = collapse(tree, dir);
+      tree = markFailed(collapse(tree, dir), dir, String(err));
       if (stillCurrent()) {
         reportError(String(err));
       }

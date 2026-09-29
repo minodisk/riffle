@@ -11,7 +11,9 @@ pub struct Labeled {
 }
 
 /// The shooting settings of one file, formatted for display. Fields the file
-/// does not carry are `None`.
+/// does not carry are `None`. The Maker note fields are left out of the JSON
+/// when `None`: the folder listing sends one per file and the frontend never
+/// reads them off it.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
 pub struct Exif {
     pub camera: Option<String>,
@@ -20,15 +22,25 @@ pub struct Exif {
     pub shutter: Option<Labeled>,
     pub iso: Option<Labeled>,
     pub focal_length: Option<Labeled>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub focus_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub af_tracking: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub af_area: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub drive: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub stabilization: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub exposure_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metering: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub creative_style: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dro: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_type: Option<String>,
 }
 
@@ -668,5 +680,26 @@ mod tests {
     #[test]
     fn a_shot_without_settings_formats_to_nothing() {
         assert_eq!(exif(&Shot::default()), Exif::default());
+    }
+
+    #[test]
+    fn absent_maker_note_fields_are_left_out_of_the_json() {
+        let json = serde_json::to_value(exif(&Shot::default())).unwrap();
+        let object = json.as_object().unwrap();
+        for key in [
+            "focus_mode",
+            "af_tracking",
+            "af_area",
+            "drive",
+            "stabilization",
+            "exposure_mode",
+            "metering",
+            "creative_style",
+            "dro",
+            "raw_type",
+        ] {
+            assert!(!object.contains_key(key), "{key}");
+        }
+        assert_eq!(object.get("camera"), Some(&serde_json::Value::Null));
     }
 }

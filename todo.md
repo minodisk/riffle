@@ -357,20 +357,6 @@ the burst actions' new defaults, and every other key in that override (e.g.
       another action, so an old override does not silently disappear when a
       new action claims its key. Files: `crates/app/src/shortcuts.rs`.
 
-### App: a horizontal strip's scrollbar can grow `#film` and shrink the viewer without a resize event
-
-With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to
-"always show scroll bars", `#strip`'s horizontal scrollbar appears once the
-files outgrow the width and makes `#film` taller, shrinking `#viewer`
-without a window `resize` event, so the canvas is not redrawn until the
-next `draw()`. `scrollbar-gutter: stable` does not cover the block axis.
-
-#### TODO
-
-- [ ] Consider `overflow-x: scroll`, a fixed `#strip` height, or a
-      `ResizeObserver` on `#viewer`. Files: `crates/app/ui/style.css`
-      (`#strip`), `crates/app/ui/src/main.ts` (the `resize` handler).
-
 ### App: the folder tree does not reveal a differently-cased open path
 
 A folder opened with a path whose case differs from the listing's (possible
@@ -383,18 +369,6 @@ apart from the drive letter.
 - [ ] Match children case-insensitively on case-insensitive platforms.
       Files: `crates/app/ui/src/tree.ts` (`ancestorsWithin`),
       `crates/app/ui/src/folders.ts` (`reveal`).
-
-### App: the folder tree's roots don't pick up a volume mounted after launch
-
-`folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
-card or drive mounted afterward (a new `/Volumes/*`, `/media/*/*` or drive
-letter) does not appear in the tree until the app restarts.
-
-#### TODO
-
-- [ ] Re-invoke `folder_roots` and `addRoots` on window focus or on each
-      `reveal`. Files: `crates/app/ui/src/folders.ts` (`loadRoots`),
-      `docs/usage.md`.
 
 ### App: a folder reachable from two tree roots is expanded and highlighted twice
 
@@ -807,21 +781,6 @@ before the coalescing writer thread has written it. Files: `crates/app/src/comma
       Windows and make the test wait for the sidecar writer deterministically
       instead of racing it.
 
-### App: the folder listing payload carries always-null Maker note fields
-
-The folder listing's `Exif` struct is also serialized for every `IndexedFile`
-(`index.rs` rebuilds it from cached columns with `..Shot::default()`), so
-`focus_mode`, `af_tracking`, `af_area`, `drive`, `stabilization`,
-`exposure_mode`, `metering`, `creative_style`, `dro` and `raw_type` travel
-there as `null` for every file, since the index does not cache them.
-
-#### TODO
-
-- [ ] Move the Maker note formatting out of `Exif` into a separate struct used
-      only by `read_metadata`, or skip serializing `None` fields. Files:
-      `crates/app/src/exif.rs`, `crates/app/src/index.rs`,
-      `crates/app/ui/src/exif.ts`.
-
 ### App: the backend `folder_entries` read is the main cost of the remaining `refreshEntries`
 
 Now that the `scan-done` refresh is skipped when neither the scan nor the reconcile changed anything (docs/plans/_archived/20260926-scan-done-refresh-skip/plan.md), the one refresh that still runs (the open-time one) is dominated by the backend `folder_entries` read: 321 ms cold on 2134 rows in the user's Windows debug-build measurement. Files: `crates/app/src/index.rs` (`folder_entries` / `AppIndexReader`), `crates/app/ui/src/main.ts` (`refreshEntries`).
@@ -1113,20 +1072,6 @@ heredoc landed with the backslashes halved, even with a quoted delimiter.
       tools, or a script file written by them, rather than a Bash
       heredoc. Confirm the behavior first by writing a doubled-backslash
       string both ways and diffing the results.
-
-### App: `reveal`'s listing failures in the folder tree don't get the failed mark
-
-`toggle`'s `list_subfolders` failures mark the row with the `failed` class
-(red name, error as the tooltip) via `TreeNode.failed` in
-`crates/app/ui/src/tree.ts`, cleared by the next successful listing. `reveal`'s
-own listing failures in `crates/app/ui/src/folders.ts` do not set this mark,
-as scoped out of
-`docs/plans/_archived/20260928-todo-sweep-small-fixes/plan.md` Step 1 item (4).
-
-#### TODO
-
-- [ ] Decide whether `reveal`'s listing failures should also set the `failed`
-      mark, and implement it if so.
 
 ### App: deleting the focused file from outside the app moves focus to the first file, not its neighbour
 
