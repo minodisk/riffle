@@ -159,3 +159,4 @@ Precedence rule options considered; the user chose (B):
 - Step 1: Implemented in `crates/app/src/shortcuts.rs`; fixed in local review
   round 1 to also recover a key freed by a later partial application. See
   `learnings.md`.
+- (2026-09-29) Step 1 complete
