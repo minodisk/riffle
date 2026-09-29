@@ -308,4 +308,4 @@ What the repository already gives us (investigated 2026-09-29):
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete
