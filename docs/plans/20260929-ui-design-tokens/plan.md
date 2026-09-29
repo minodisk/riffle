@@ -145,7 +145,7 @@ Ground truth gathered at planning time (2026-09-29):
 
 ## Steps
 
-- [ ] Step 1: Add the tokens and the shared component classes, and migrate the settings modal
+- [x] Step 1: Add the tokens and the shared component classes, and migrate the settings modal
   - Done when:
     - `:root` in `crates/app/ui/style.css` defines every token in the
       Decisions table with the listed value and a one-line comment naming

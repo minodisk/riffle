@@ -1,4 +1,60 @@
 :root {
+  /* shadcn/ui's Neutral dark theme, converted from oklch to hex / rgb for the
+     safari13 build target. */
+  /* The window behind everything. */
+  --background: #0a0a0a;
+  /* Text on the window. */
+  --foreground: #fafafa;
+  /* The dialog boxes. */
+  --card: #171717;
+  /* Text on a dialog box. */
+  --card-foreground: #fafafa;
+  /* The menus. */
+  --popover: #171717;
+  /* Text in a menu. */
+  --popover-foreground: #fafafa;
+  /* The primary button. */
+  --primary: #e5e5e5;
+  /* Text on the primary button. */
+  --primary-foreground: #171717;
+  /* The secondary button. */
+  --secondary: #262626;
+  /* Text on the secondary button. */
+  --secondary-foreground: #fafafa;
+  /* Quiet surfaces: chips, code blocks, lists, a hovered tab. */
+  --muted: #262626;
+  /* Secondary text: notes, labels, hints. */
+  --muted-foreground: #a1a1a1;
+  /* A hovered or selected control. */
+  --accent: #262626;
+  /* Text on a hovered or selected control. */
+  --accent-foreground: #fafafa;
+  /* The destructive button and error text. */
+  --destructive: #ff6467;
+  /* Hairline borders and separators. */
+  --border: rgb(255 255 255 / 10%);
+  /* The border of an input, a select and an outline button. */
+  --input: rgb(255 255 255 / 15%);
+  /* The keyboard focus ring. */
+  --ring: #737373;
+  /* The side panes: the folder tree, the filmstrip and the info pane. */
+  --sidebar: #171717;
+  /* Text on a side pane. */
+  --sidebar-foreground: #fafafa;
+  /* A hovered or selected row in a side pane. */
+  --sidebar-accent: #262626;
+  /* Borders inside a side pane. */
+  --sidebar-border: rgb(255 255 255 / 10%);
+  /* The focus ring inside a side pane. */
+  --sidebar-ring: #737373;
+  /* The base corner radius. */
+  --radius: 0.625rem;
+  /* Chips, code blocks, menu items. */
+  --radius-sm: calc(var(--radius) * 0.6);
+  /* Buttons, inputs, selects, menus. */
+  --radius-md: calc(var(--radius) * 0.8);
+  /* Dialog boxes. */
+  --radius-lg: var(--radius);
   /* One color each for stars, a reject and a pick in the strip cell. */
   --stars-color: #ffd050;
   --reject-color: #ff6b6b;
@@ -14,14 +70,156 @@
   --label-other: #808080;
 }
 
+/* Components
+
+   The shared control classes, in shadcn/ui's variants. They are the only
+   rules that set a control's colors, border and radius; an id rule may set
+   its size and placement. The CSS features they rely on, and why each is
+   safe in WebView2 (Windows), WKWebView (macOS) and WebKitGTK (Linux):
+
+   - Custom properties, and calc() inside one: in every engine.
+   - rgb() space syntax with a slash alpha, and `inset`: already used
+     throughout this file; Lightning CSS down-levels them for safari13.
+   - :not([hidden]): in every engine.
+   - :focus-visible: Chromium 86+, Safari 15.4+, WebKitGTK 2.36+. An older
+     WebKit never matches the rule and shows its own focus ring instead.
+   - accent-color: Chromium 93+, Safari 15.4+, WebKitGTK 2.36+. An older
+     engine ignores it and draws the native control.
+
+   Nothing here uses anchor positioning, @layer, :has(), nesting,
+   color-mix(), oklch() or `appearance: base-select`. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.button.primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+/* --primary at 90% over --card. */
+.button.primary:hover:enabled {
+  background: #d0d0d0;
+}
+
+.button.destructive {
+  color: #fafafa;
+  background: var(--destructive);
+}
+
+/* --destructive at 90% over --card. */
+.button.destructive:hover:enabled {
+  background: #e85c5f;
+}
+
+.button.outline {
+  background: rgb(255 255 255 / 4.5%);
+  border-color: var(--input);
+}
+
+.button.outline:hover:enabled,
+.button.ghost:hover:enabled {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.input,
+.select {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--foreground);
+  background: rgb(255 255 255 / 4.5%);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  padding: 0.2rem 0.5rem;
+}
+
+.input:focus-visible,
+.select:focus-visible {
+  border-color: var(--ring);
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+
+/* The native list of a select, which otherwise keeps the OS's light colors
+   under the select's light text. */
+.select option {
+  color: var(--popover-foreground);
+  background: var(--popover);
+}
+
+.checkbox {
+  accent-color: var(--primary);
+}
+
+/* A label wrapping its control. */
+.field {
+  display: block;
+  padding: 0.1rem 0.5rem;
+}
+
+.dialog:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 60%);
+}
+
+.dialog-box {
+  padding: 0.75rem 1rem;
+  color: var(--card-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
   font-family: system-ui, sans-serif;
-  background: #1c1c1c;
-  color: #f0f0f0;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
@@ -43,7 +241,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #151515;
+  background: var(--sidebar);
 }
 
 /* The filmstrip along the bottom, as in Lightroom, under a header bar with
@@ -55,7 +253,7 @@ body {
   flex: none;
   display: flex;
   flex-direction: column;
-  background: #151515;
+  background: var(--sidebar);
 }
 
 #strip-bar {
@@ -749,32 +947,12 @@ body {
 /* Settings, over the whole window like the first-launch dialog. The header
    and the tabs stay put while a long panel (the shortcuts table) scrolls, so
    a small window never hides Reset all. */
-#settings-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(0 0 0 / 60%);
-}
-
-#settings-dialog[hidden] {
-  display: none;
-}
-
 #settings-box {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   width: min(640px, 90vw);
   height: min(640px, 85vh);
-  padding: 0.75rem 1rem;
-  background: #222;
-  border: 1px solid #444;
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 50%);
-  color: #eee;
 }
 
 #settings-header {
@@ -784,25 +962,10 @@ body {
   margin-bottom: 0.5rem;
 }
 
-#settings-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
 #settings-close {
   padding: 0 0.4rem;
-  border: none;
-  border-radius: 0.3rem;
-  background: none;
-  color: inherit;
   font-size: 1.2rem;
   line-height: 1.4;
-  cursor: pointer;
-}
-
-#settings-close:hover {
-  background: #333;
 }
 
 #settings-dialog [role="tablist"] {
@@ -810,35 +973,31 @@ body {
   flex: none;
   gap: 0.25rem;
   margin-bottom: 0.75rem;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border);
 }
 
 #settings-dialog [role="tab"] {
   padding: 0.3rem 0.75rem;
   border: none;
-  border-radius: 0.3rem 0.3rem 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: none;
   color: inherit;
   cursor: pointer;
 }
 
 #settings-dialog [role="tab"]:hover {
-  background: #333;
+  background: var(--muted);
 }
 
 #settings-dialog [role="tab"][aria-selected="true"] {
-  background: #444;
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 #settings-dialog [role="tabpanel"] {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-#settings-dialog label {
-  display: block;
-  padding: 0.1rem 0.5rem;
 }
 
 #settings-dialog td {
@@ -851,40 +1010,25 @@ body {
   gap: 0.2rem;
   margin: 0.1rem 0.3rem 0.1rem 0;
   padding: 0 0.1rem 0 0.4rem;
-  border-radius: 0.3rem;
-  background: #333;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
 }
 
 #settings-dialog .chip button,
 #settings-dialog .keys .add {
   padding: 0 0.3rem;
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-#settings-dialog .chip button:hover,
-#settings-dialog .keys .add:hover {
-  background: #444;
 }
 
 #settings-status {
   flex: none;
   min-height: 1.2em;
   margin: 0.5rem 0 0;
-  color: #f88;
+  color: var(--destructive);
 }
 
 #clear-index-note {
   margin: 0.5rem 0;
-  color: #aaa;
-}
-
-#settings-dialog .actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
+  color: var(--muted-foreground);
 }
 
 #label-names:not([hidden]) {
@@ -901,12 +1045,12 @@ body {
 }
 
 #label-names > p,
-#label-names > .actions {
+#label-names > .dialog-actions {
   grid-column: 1 / -1;
 }
 
 #mcp-status {
-  color: #aaa;
+  color: var(--muted-foreground);
 }
 
 #settings-dialog .copyable {
@@ -920,8 +1064,8 @@ body {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.5rem;
   overflow-x: auto;
-  border-radius: 0.3rem;
-  background: #333;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
   user-select: text;
 }
 
@@ -1055,7 +1199,7 @@ body {
   min-height: 0;
   padding: 0.75rem;
   box-sizing: border-box;
-  background: #151515;
+  background: var(--sidebar);
   font-size: 0.8rem;
   line-height: 1.5;
 }

@@ -115,6 +115,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
           chip.textContent = displayKey(key);
           const remove = document.createElement("button");
           remove.type = "button";
+          remove.className = "button ghost";
           remove.textContent = "×";
           remove.setAttribute("aria-label", `Remove ${displayKey(key)}`);
           remove.addEventListener("click", () => {
@@ -131,7 +132,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
         } else {
           const add = document.createElement("button");
           add.type = "button";
-          add.className = "add";
+          add.className = "button ghost add";
           add.textContent = "+";
           add.setAttribute("aria-label", "Add a key");
           add.addEventListener("click", () => {
@@ -143,6 +144,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
         }
         const reset = document.createElement("button");
         reset.type = "button";
+        reset.className = "button outline";
         reset.textContent = "Reset";
         reset.addEventListener("click", () => {
           void updateShortcuts("reset_shortcut", { action });
@@ -215,6 +217,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
   function copyButton(text: HTMLElement): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "button outline";
     button.textContent = "Copy";
     button.addEventListener("click", () => {
       copyText(text);
