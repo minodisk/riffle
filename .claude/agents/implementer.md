@@ -44,6 +44,15 @@ You are given:
      implementation or review comment it came from), and the related file paths
      clear. A later stage picks that heading up mechanically, so use exactly
      that string
+   - When a Done-when criterion needs a hands-on check on a real machine or
+     platform that you cannot perform (it says so explicitly: "this check is
+     the user's", a platform not built here, a native dialog), record it under
+     the same `## Deferred issues (todo candidates)` heading as a **pending
+     manual check**: what to verify, on which platform, the steps and the
+     expected result, and that the step's checkbox was ticked on the automated
+     criteria. Do not write it only as a free-form "Pending:" bullet elsewhere
+     in `learnings.md` (that is how `strip-keep-scroll-on-rescan` and
+     `view-menu` recorded theirs, and both got dropped)
    - **Do not edit `todo.md` directly.** In the develop flow, "out-of-scope
      issues go into `todo.md`" is satisfied via learnings.md; reflecting them
      into `todo.md` is the wrap-up phase's job
@@ -119,7 +128,8 @@ Report to the caller:
 - The commit hash (`null` for `LOCAL_CHECK_FAILED`)
 - Whether the acceptance criteria are met
 - Where you appended to learnings.md, if anything (including whether and how
-  many items you recorded under `## Deferred issues (todo candidates)`)
+  many items you recorded under `## Deferred issues (todo candidates)`,
+  counting pending manual checks separately)
 - For `LOCAL_CHECK_FAILED`, the give-up report format from "When the local
   checks fail" verbatim (attempts, last error output, the basis for calling it
   environmental or an implementation mistake, and what is left uncommitted)
