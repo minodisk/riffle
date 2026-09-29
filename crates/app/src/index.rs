@@ -75,9 +75,9 @@ use crate::exif::{exif, Exif};
 const SCHEMA_VERSION: i64 = 17;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
-/// `files` row. Bump it on any change to that output: ARW/DNG/NEF parsing or
-/// embedded JPEG tier selection (`crates/core/src/arw.rs`, `nef.rs`, the
-/// shared Exif fields in `exif.rs`), which preview
+/// `files` row. Bump it on any change to that output: ARW/DNG/NEF/CR3 parsing
+/// or embedded JPEG tier selection (`crates/core/src/arw.rs`, `nef.rs`,
+/// `cr3.rs`, the shared Exif fields in `exif.rs`), which preview
 /// bytes are read (`crates/core/src/reader.rs`), thumbnail generation
 /// (`crates/core/src/decode.rs`), face detection or the sharpness score
 /// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts

@@ -1,4 +1,4 @@
-//! Read only as much of an ARW, DNG or NEF as the metadata and the preview
+//! Read only as much of an ARW, DNG, NEF or CR3 as the metadata and the preview
 //! need. A JPEG file is its own preview and full-resolution JPEG.
 
 use std::fs::File;
@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use crate::arw::{self, Arw};
 use crate::scan::is_jpeg_file;
-use crate::{jpeg, nef};
+use crate::{cr3, jpeg, nef};
 
 /// How much of a file the bounded read takes.
 ///
@@ -46,11 +46,14 @@ pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
 
 /// Parse `buf` with the parser for `path`'s container, chosen by extension.
 fn parse_raw(path: &Path, buf: &[u8]) -> Result<Arw> {
-    if path
-        .extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("nef"))
-    {
+    let is = |ext: &str| {
+        path.extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case(ext))
+    };
+    if is("nef") {
         nef::parse(buf)
+    } else if is("cr3") {
+        cr3::parse(buf)
     } else {
         arw::parse(buf)
     }
@@ -365,6 +368,40 @@ mod tests {
         let (a, out) = read_full(&path).unwrap();
         assert_eq!((a.orientation, out), (3, jpeg.to_vec()));
         assert!(read_metadata(&path).unwrap().full.is_some());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_cr3_reads_its_prvw_and_jpeg_track_by_range_past_the_prefix() {
+        use crate::cr3::tests::{jpeg_bytes, Cr3};
+        let c = Cr3 {
+            preview: Some(jpeg_bytes(HEAD_LIMIT, 6)),
+            ..Cr3::new()
+        };
+        let file = c.build();
+        let path = temp_file("far.CR3", &file);
+        let (_, out) = read_preview(&path).unwrap();
+        assert_eq!(Some(out), c.preview);
+        let (_, out) = read_full(&path).unwrap();
+        assert_eq!(out, c.full);
+        assert!(read_metadata(&path).unwrap().preview.is_some());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_cr3_whose_moov_is_past_the_prefix_reads_the_whole_file() {
+        use crate::cr3::tests::Cr3;
+        use crate::jpeg::tests::W;
+        let w = W(true);
+        let c = Cr3 {
+            ifd0: vec![w.short(0x0112, 6)],
+            pad: HEAD_LIMIT,
+            ..Cr3::new()
+        };
+        let path = temp_file("deep.cr3", &c.build());
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!((a.orientation, Some(out)), (6, c.preview.clone()));
+        assert_eq!(read_metadata(&path).unwrap().orientation, 6);
         std::fs::remove_file(&path).unwrap();
     }
 
