@@ -9,7 +9,7 @@
 //!
 //! The AF point comes from the MakerNote's `AFInfo2` on the Z bodies.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::arw::{Arw, Embedded, FocusFrame, FocusLocation, Shot};
 use crate::exif::{self, integer};
@@ -46,7 +46,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         // The next-IFD link ends the IFD, so the inline values are in `buf` too.
         tiff.u32(at + 2 + 12 * entries.len())?;
         exif::read_exif_ifd(&tiff, &entries, &mut shot);
-        if let Some((focus, frame)) = af_point(buf, &tiff, &entries) {
+        if let Some((focus, frame)) = af_point(buf, &tiff, &entries)? {
             shot.focus = Some(focus);
             shot.focus_frame = frame;
         }
@@ -98,44 +98,79 @@ fn af_point(
     buf: &[u8],
     tiff: &Tiff,
     exif: &[Entry],
-) -> Option<(FocusLocation, Option<FocusFrame>)> {
-    let e = exif.iter().find(|e| e.tag == TAG_MAKER_NOTE)?;
+) -> Result<Option<(FocusLocation, Option<FocusFrame>)>> {
+    let Some(e) = exif.iter().find(|e| e.tag == TAG_MAKER_NOTE) else {
+        return Ok(None);
+    };
     let len = e.count as usize;
     if len <= NIKON_HEADER_LEN {
-        return None;
+        return Ok(None);
     }
-    let at = tiff.u32(e.value_field).ok()? as usize;
-    if tiff.bytes(at, NIKON_HEADER.len()).ok()? != NIKON_HEADER {
-        return None;
+    let Ok(at) = tiff.u32(e.value_field) else {
+        return Ok(None);
+    };
+    let at = at as usize;
+    // The MakerNote's declared length running past `buf` (including the
+    // header itself, when `buf` is a prefix too short to hold it) is an
+    // error, not a note to silently skip: the header can be a Nikon one that
+    // is simply cut off, and treating a cut-off note as "no AF point" would
+    // let the reader cache that miss under the current `EXTRACTOR_VERSION`
+    // instead of retrying with the whole file.
+    let end = at
+        .checked_add(len)
+        .filter(|&end| end <= buf.len())
+        .ok_or_else(|| anyhow!("Nikon MakerNote out of range"))?;
+    if &buf[at..at + NIKON_HEADER.len()] != NIKON_HEADER {
+        return Ok(None);
     }
-    let note = Tiff::new(buf, at + NIKON_HEADER_LEN, at.checked_add(len)?).ok()?;
-    let entries = note.ifd_entries(note.u32(4).ok()? as usize).ok()?;
-    let e = entries.iter().find(|e| e.tag == TAG_AF_INFO2)?;
-    let info = note.u32(e.value_field).ok()? as usize;
-    let base = match note.bytes(info, 4).ok()? {
+    let note = Tiff::new(buf, at + NIKON_HEADER_LEN, end)?;
+    let Ok(entries) = note.u32(4).and_then(|ifd0| note.ifd_entries(ifd0 as usize)) else {
+        return Ok(None);
+    };
+    let Some(e) = entries.iter().find(|e| e.tag == TAG_AF_INFO2) else {
+        return Ok(None);
+    };
+    let Ok(info) = note.u32(e.value_field) else {
+        return Ok(None);
+    };
+    let info = info as usize;
+    let Ok(version) = note.bytes(info, 4) else {
+        return Ok(None);
+    };
+    let base = match version {
         b"0300" | b"0301" => 0x2a,
         b"0400" | b"0401" | b"0402" => 0x3e,
-        _ => return None,
+        _ => return Ok(None),
     };
-    if (e.count as usize) < base + 12 || note.bytes(info + AF_COORDINATES_AVAILABLE, 1).ok()? != [1]
-    {
-        return None;
+    if (e.count as usize) < base + 12 {
+        return Ok(None);
+    }
+    let Ok(available) = note.bytes(info + AF_COORDINATES_AVAILABLE, 1) else {
+        return Ok(None);
+    };
+    if available != [1] {
+        return Ok(None);
     }
     let v = |i: usize| note.u16(info + base + 2 * i).ok();
-    let (sensor_w, sensor_h, x, y) = (v(0)?, v(1)?, v(2)?, v(3)?);
+    let (Some(sensor_w), Some(sensor_h), Some(x), Some(y)) = (v(0), v(1), v(2), v(3)) else {
+        return Ok(None);
+    };
     if sensor_w == 0 || sensor_h == 0 || (x == 0 && y == 0) {
-        return None;
+        return Ok(None);
     }
-    let (width, height) = (v(4)?, v(5)?);
-    Some((
+    let (width, height) = (v(4), v(5));
+    Ok(Some((
         FocusLocation {
             sensor_w,
             sensor_h,
             x,
             y,
         },
-        (width > 0 && height > 0).then_some(FocusFrame { width, height }),
-    ))
+        width
+            .zip(height)
+            .filter(|&(w, h)| w > 0 && h > 0)
+            .map(|(width, height)| FocusFrame { width, height }),
+    )))
 }
 
 fn jpeg(tiff: &Tiff, entries: &[Entry]) -> Option<Embedded> {
@@ -168,7 +203,7 @@ pub(crate) mod tests {
 
     /// An `AFInfo2` of `version` with the AF image size, the area center and
     /// the area size at `base`, and `AFCoordinatesAvailable` set to `available`.
-    fn af_info2(w: &W, version: &[u8; 4], available: u8, values: [u16; 6]) -> Field {
+    pub(crate) fn af_info2(w: &W, version: &[u8; 4], available: u8, values: [u16; 6]) -> Field {
         let base = if version[1] == b'4' { 0x3e } else { 0x2a };
         let mut v = vec![0u8; base + 12 + 8];
         v[..4].copy_from_slice(version);
@@ -182,7 +217,7 @@ pub(crate) mod tests {
 
     /// A Nikon MakerNote: the header, then a TIFF in `w`'s byte order holding
     /// `fields` in its IFD0.
-    fn maker_note(w: &W, fields: &[Field]) -> Field {
+    pub(crate) fn maker_note(w: &W, fields: &[Field]) -> Field {
         let mut v = NIKON_HEADER.to_vec();
         v.extend_from_slice(&[0x02, 0x10, 0, 0]);
         v.extend_from_slice(&w.tiff(fields, &[]));
