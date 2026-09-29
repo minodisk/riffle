@@ -108,39 +108,60 @@ must be wider than the source crop.
 
 ### App: the manual GUI checks for Move Rejected to Trash are still open
 
-From `trash-rejected`'s implementation: GUI automation is unavailable on this
-Mac and a native confirmation dialog cannot be driven by an agent, so nothing
-of the menu item's visible behavior has been run by a human. One point is
-specifically unverified: whether the Trash's "Put Back" entry is actually
-created — the command pins
-`DeleteMethod::NsFileManager` to avoid the Finder route's Automation
-permission, and the `trash` crate documents that on some macOS systems files
-moved that way get no "Put Back" entry (trash-rs#14); dragging them out of the
-Trash still restores them. (The menu item's icon is now a bundled template
-PNG, confirmed tinting with the menu appearance — see `menu-icon-template`'s
-learnings.) Files: `crates/app/src/main.rs` (`app_menu`),
-`crates/app/src/commands.rs` (`trash_rejected`, `trash_context`),
-`crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
-`crates/app/ui/src/main.ts`. A manual run on Windows on 2026-09-28
-(`mise run tauri:dev`) passed: the confirmation shows the count and the
-button labels, Cancel changes nothing, confirming moves the RAW, its `.xmp`
-and `.ARW.dop` to the Recycle Bin with the right original location, the
-strip moves to the next file, restoring all three shows the file still as a
-reject, and a folder with 0 rejects gets a message.
+From `trash-rejected`'s implementation and its follow-ups: GUI automation is
+unavailable on this Mac, so nothing of the action's visible behavior has been
+run by a human on macOS or Linux. The action is now only the folder tree's
+right-click items (`Move Rejected to Trash…`,
+`Move Rejected to Trash, Including Subfolders…`, and the
+`Move Rejected in N Folders to Trash…` pair for a multi-selection); the File
+menu item, and with it its template icon, was removed by
+`file-menu-folder-items` (#537). The confirmation is the in-window
+`#trash-dialog` (`crates/app/ui/index.html`, `crates/app/ui/src/trash.ts`),
+driven by the `trash_rejected_preview` / `trash_rejected_run` commands
+(`crates/app/src/commands.rs`). On macOS the mover is `trash::trash_file`
+(`crates/app/src/trash.rs`, `undo-trash-rejected` #547), which calls
+`NSFileManager.trashItemAtURL` directly rather than the `trash` crate's
+`DeleteMethod::NsFileManager`; one point is specifically unverified: whether
+the Trash's "Put Back" entry is actually created, since the `trash` crate
+documents that on some macOS systems files moved through `NSFileManager` get
+no "Put Back" entry (trash-rs#14); dragging them out of the Trash still
+restores them. Files: `crates/app/src/commands.rs`, `crates/app/src/trash.rs`,
+`crates/app/ui/src/trash.ts`, `crates/app/ui/src/main.ts`. A manual run on
+Windows on 2026-09-28 (`mise run tauri:dev`) passed for the earlier flow with
+the OS's own confirm dialog (it predates the in-window dialog of #529): the
+confirmation showed the count and the button labels, Cancel changed nothing,
+confirming moved the RAW, its `.xmp` and `.ARW.dop` to the Recycle Bin with
+the right original location, the strip moved to the next file, restoring all
+three showed the file still as a reject, and a folder with 0 rejects got a
+message. The Windows checks of the tree items and the dialog are in
+`### App: Windows real-device check of the merged folder-tree, scan-wait and strip-scroll work`.
+Sources: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`
+(#518, #521, #526, #529) and
+`docs/plans/_archived/20260928-undo-trash-rejected/learnings.md` Step 2
+(#547).
 
 #### TODO
 
-- [ ] On macOS, verify: the confirmation names the
-      right count (and the singular for one file) with `Move to Trash` /
-      `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
-      plus its `.xmp` and `.ARW.dop` to the Trash and the strip updates to the
-      next passing file; the zero-reject and no-folder cases each write their
-      message to `#status`, and a press during a scan is held until the scan
-      ends (`crates/app/ui/src/idle.ts`); a "Put Back" from the Trash restores
-      the file with its judgment, and if no "Put Back" entry exists, that
-      dragging it out does.
+- [ ] On macOS, right-click a folder in the tree and pick
+      `Move Rejected to Trash…`: `#trash-dialog` names the right count (and
+      the singular for one file) with `Move to Trash` / `Cancel`; Cancel
+      leaves the folder untouched; confirming moves the RAW plus its `.xmp`
+      and `.ARW.dop` to the Trash and the strip shows the next passing file;
+      a folder with zero rejects writes its message to `#status` with no
+      dialog; a press during a scan is held by `whenIdle` until the scan
+      ends (`crates/app/ui/src/idle.ts`); a "Put Back" from the Trash
+      restores the file with its judgment, and if no "Put Back" entry
+      exists, dragging it out does. (Source:
+      `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
+      #521, #529.)
 - [ ] Verify the same flow on Linux (the `trash` crate's freedesktop backend
       has never been run here).
+- [ ] On macOS, trash the rejects of a folder, then `Edit > Undo`: the files
+      come back with the reject flag, and a file with the same name placed
+      at the original location beforehand is reported
+      (`already exists at the original location`) and not overwritten.
+      (Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`
+      Step 2, #547.)
 
 ### App: the muda template-icon fork is a temporary bridge
 
@@ -420,17 +441,55 @@ fixes the scroll jump-back and flicker seen on Windows on 2026-09-28 while
 copying 100 ARWs into an open folder. Files: `crates/app/src/treewatch.rs`,
 `crates/app/src/trash.rs`, `crates/app/ui/src/folders.ts`,
 `crates/app/ui/src/idle.ts`, `crates/app/ui/src/strip.ts`,
-`crates/app/ui/src/main.ts`.
+`crates/app/ui/src/main.ts`. #518's check of the relabeled File menu item is
+not listed: that item was removed by `file-menu-folder-items` (#537). The
+tree trash checks come from
+`docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`
+Steps 2–4 and the bodies of #521, #526 and #529; the undo / redo checks are in
+`### App: the manual GUI checks for Undo and Redo of Move Rejected to Trash are still open`.
 
 #### TODO
 
 - [ ] Tree watch on Windows: with a folder expanded, create, delete and
       rename a subfolder in Explorer and confirm the tree follows; confirm
       renaming a folder from the app still works with the watch on.
-- [ ] Tree trash on Windows: right-click a folder, a multi-selection, and a
-      folder with subfolders, then Move Rejected to Trash; confirm the
-      dialog shows per-folder counts and the space freed, Cancel changes
-      nothing, and confirming moves the rejects of every listed folder.
+- [ ] Tree trash items on Windows (#521): a non-root folder offers
+      `Move Rejected to Trash…` and
+      `Move Rejected to Trash, Including Subfolders…`; the home root and a
+      volume root offer only the first; the recursive item trashes the
+      rejects of the folder and every visible subfolder (dot and hidden
+      folders skipped); when the open folder is a target, the strip
+      refreshes; when it is not, only the status line and the error list
+      change.
+- [ ] Tree multi-selection on Windows (#526): `Ctrl+click` toggles a folder
+      in and out of the selection (the open folder can be toggled off, and
+      the selection can go empty); `Shift+click` selects the range from the
+      anchor without selecting the rows' text; a plain click selects only
+      the clicked folder; opening a folder any other way (Enter, drop,
+      `File > Open Folder…`, the reopen at launch) resets the selection to
+      it; selected rows draw `.selected` distinct from `.current` /
+      `.cursor`; the container has `aria-multiselectable` and each row
+      `aria-selected` following the selection; collapsing a parent or a
+      `tree-changed` re-list drops folders no longer drawn; right-clicking a
+      selected folder acts on the whole selection, and the menu offers only
+      `Move Rejected in N Folders to Trash…` and its `Including Subfolders`
+      twin (the latter hidden when any selected folder is a root);
+      right-clicking an unselected folder selects it alone first.
+- [ ] Trash confirmation dialog on Windows (#529): `#trash-dialog` lists one
+      row per folder with its reject count (the verbatim `\\?\` prefix
+      stripped), hides zero-reject folders behind a summary line, shows the
+      total count and the space freed, and opens with `Move to Trash`
+      focused so Enter runs it; Escape and `Cancel` close it with nothing
+      moved; a folder that cannot be read (for example one removed after the
+      right-click, or a sidecar that does not parse) appears in the failure
+      list with its error and is excluded from the run, and when every
+      folder has zero rejects but one failed, the dialog still opens with
+      `Move to Trash` disabled; a folder with zero rejects and no failure
+      writes `No rejected files in …` to the status line with no dialog; the
+      dialog, the sequence dialog and the settings modal never open on top
+      of each other (`Ctrl+,` and the tree's `Sequence JPEG Timestamps…` do
+      nothing while it is up); confirming shows `Moved N files to the Trash`
+      and the failures, if any, in the error list.
 - [ ] Scan-wait on Windows: press Move Rejected to Trash and a rename while
       a large folder scans; confirm the status line says what is waiting and
       each runs when the scan ends. The Clear Cache hold is covered by
@@ -439,20 +498,51 @@ copying 100 ARWs into an open folder. Files: `crates/app/src/treewatch.rs`,
 - [ ] Strip scroll on Windows: repeat the 100-ARW copy into an open folder
       and confirm the strip's scroll position holds without flicker.
 
-### App: Windows real-device check of the in-flight resume-selection and undo-trash work
+### App: the manual GUI checks for Undo and Redo of Move Rejected to Trash are still open
 
-Not on `main` yet: `resume-selection` (landing on a folder's remembered
-file left the first file in the selection too, showing `2 selected`) and
-`undo-trash-rejected` (Undo of a Move Rejected to Trash). Files:
-`crates/app/ui/src/resume.ts`, `crates/app/ui/src/main.ts`,
-`crates/app/src/trash.rs`.
+`undo-trash-rejected` merged as #540, #547, #549 and #551: a Move Rejected to
+Trash run is one undo unit; `Edit > Undo` / `Ctrl+Z` restores it through
+`trash_rejected_undo`, and `Edit > Redo` / `Ctrl+Shift+Z` moves the restored
+files to the Trash again through `trash_rejected_redo`, without the dialog.
+The backend side was verified against the real Recycle Bin with throwaway
+tests; the GUI side has not been run at all, since an agent session cannot
+drive the app. The resume-selection check that used to sit here is in
+`### App: the manual GUI checks for the resume landing's selection are still open`
+(#553); the macOS undo check is in
+`### App: the manual GUI checks for Move Rejected to Trash are still open`.
+Files: `crates/app/src/trash.rs`, `crates/app/src/commands.rs`,
+`crates/app/ui/src/undo.ts`, `crates/app/ui/src/trash.ts`,
+`crates/app/ui/src/main.ts`. Source:
+`docs/plans/_archived/20260928-undo-trash-rejected/learnings.md` Steps 3
+and 4 (#549, #551).
 
 #### TODO
 
-- [ ] Once `resume-selection` has merged, reopen a folder with a remembered
-      file on Windows and confirm only that file is selected.
-- [ ] Once `undo-trash-rejected` has merged, trash the rejects on Windows,
-      then Undo, and confirm the files come back with their judgment.
+- [ ] On Windows, trash the rejects in the open folder, then `Ctrl+Z`: the
+      files come back, the strip shows them again with the reject flag (read
+      from the sidecars), the status line says
+      `Restored N files from the Trash`, and the folder tree's count follows
+      on its next re-list.
+- [ ] The same from the tree for a folder that is not open: only the status
+      line changes.
+- [ ] A run over several selected folders is undone by one `Ctrl+Z`.
+- [ ] A conflict: copy a trashed RAW back by hand before the undo; the
+      status line says `…, N failed`, the error list shows
+      `could not restore from the Trash: already exists at the original location`,
+      and the RAW's sidecars stay in the Trash, reported as
+      `left in the Trash: its RAW could not be restored`.
+- [ ] An emptied Recycle Bin: every file is reported
+      `not in the Trash (emptied or restored by hand)` and the entry leaves
+      the undo history.
+- [ ] After a restore, the index picks the reject judgments back up on the
+      `resync` (a following `Ctrl+Z` undoes the judgment batch beneath, not
+      the trash run again).
+- [ ] `Ctrl+Z` (files back), `Ctrl+Shift+Z` (moved to the Trash again with
+      no dialog, the strip refreshed, status `Moved N files to the Trash`),
+      then `Ctrl+Z` again (back again).
+- [ ] The same undo / redo / undo from the tree with no folder open.
+- [ ] A judgment made after the undo clears the redo: `Ctrl+Shift+Z` does
+      nothing.
 
 ### App: a large folder gives no visible loading feedback beyond the status line
 
@@ -1048,7 +1138,9 @@ new name until the rename actually runs is an open UX question. Basis:
 
 #### Background
 
-`wait-for-scan` made `File > Move Rejected to Trash…`, the folder / file
+`wait-for-scan` made Move Rejected to Trash (now the folder tree's
+`Move Rejected to Trash…` item; the File menu item was removed by
+`file-menu-folder-items`, #537), the folder / file
 `Rename…` and the settings modal's `Clear Cache` wait for a running scan
 instead of refusing with `a scan is running; wait for it to finish`: the
 frontend's `IdleGate` holds one pressed operation (a second press replaces
@@ -1074,7 +1166,9 @@ a rebuild).
 
 - [ ] In an ARW folder, reject a file, switch to a terminal and straight back
       (the `tauri://focus` `resync()` starts a rescan), press
-      `File > Move Rejected to Trash…`: the status line briefly shows
+      the folder tree's `Move Rejected to Trash…` on that folder (the File
+      menu item was removed by `file-menu-folder-items`, #537): the status
+      line briefly shows
       `Move Rejected to Trash: waiting for the scan to finish` and the
       in-window trash dialog (`#trash-dialog`) follows with no error.
 - [ ] During a long first scan (thousands of files) press Move Rejected to
