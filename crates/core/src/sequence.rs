@@ -295,20 +295,43 @@ pub(crate) struct Entry {
 
 impl<'a> Tiff<'a> {
     pub(crate) fn new(buf: &'a [u8], base: usize, end: usize) -> Result<Self> {
+        Self::new_with_magic(buf, base, end, &[42])
+    }
+
+    /// Opens a TIFF-shaped header whose magic is one of `magic`, such as an
+    /// Olympus ORF's 0x4f52 (`RO`) or 0x5352 (`RS`).
+    pub(crate) fn new_with_magic(
+        buf: &'a [u8],
+        base: usize,
+        end: usize,
+        magic: &[u16],
+    ) -> Result<Self> {
         ensure!(end <= buf.len() && end - base >= 8, "TIFF header too short");
         let little_endian = match &buf[base..base + 2] {
             b"II" => true,
             b"MM" => false,
             _ => bail!("invalid TIFF byte order"),
         };
-        let tiff = Tiff {
+        let tiff = Self::with_order(buf, base, end, little_endian)?;
+        ensure!(magic.contains(&tiff.u16(2)?), "invalid TIFF magic number");
+        Ok(tiff)
+    }
+
+    /// A walker over a segment that carries no TIFF header, such as the
+    /// Olympus MakerNote, whose offsets are relative to the note start.
+    pub(crate) fn with_order(
+        buf: &'a [u8],
+        base: usize,
+        end: usize,
+        little_endian: bool,
+    ) -> Result<Self> {
+        ensure!(base <= end && end <= buf.len(), "segment out of range");
+        Ok(Tiff {
             buf,
             base,
             end,
             little_endian,
-        };
-        ensure!(tiff.u16(2)? == 42, "invalid TIFF magic number");
-        Ok(tiff)
+        })
     }
 
     pub(crate) fn bytes(&self, rel: usize, n: usize) -> Result<&[u8]> {
@@ -677,6 +700,46 @@ mod tests {
         assert_eq!(cmp_subsec(Some("5"), Some("50")), CmpOrdering::Equal);
         assert_eq!(cmp_subsec(None, Some("0")), CmpOrdering::Equal);
         assert_eq!(cmp_subsec(None, Some("01")), CmpOrdering::Less);
+    }
+
+    #[test]
+    fn new_with_magic_accepts_only_the_given_magics() {
+        let orf = [b'I', b'I', b'R', b'O', 8, 0, 0, 0];
+        let tiff = Tiff::new_with_magic(&orf, 0, 8, &[0x4f52, 0x5352]).unwrap();
+        assert_eq!(tiff.u32(4).unwrap(), 8);
+        let rs = [b'M', b'M', b'S', b'R', 0, 0, 0, 8];
+        let tiff = Tiff::new_with_magic(&rs, 0, 8, &[0x4f52, 0x5352]).unwrap();
+        assert_eq!(tiff.u32(4).unwrap(), 8);
+        assert!(Tiff::new(&orf, 0, 8).is_err());
+
+        let std = [b'I', b'I', 42, 0, 8, 0, 0, 0];
+        assert!(Tiff::new(&std, 0, 8).is_ok());
+        assert!(Tiff::new_with_magic(&std, 0, 8, &[42, 0x4f52]).is_ok());
+
+        let other = [b'I', b'I', 0x55, 0, 8, 0, 0, 0];
+        assert!(Tiff::new_with_magic(&other, 0, 8, &[0x4f52, 0x5352]).is_err());
+        assert!(Tiff::new(&other, 0, 8).is_err());
+    }
+
+    #[test]
+    fn with_order_reads_a_headerless_segment() {
+        let mut buf = vec![0xAA; 3];
+        buf.extend_from_slice(&[1, 0, 0x10, 0x20, 3, 0, 1, 0, 0, 0, 7, 0, 0, 0]);
+        let le = Tiff::with_order(&buf, 3, buf.len(), true).unwrap();
+        let e = le.ifd_entries(0).unwrap();
+        assert_eq!((e[0].tag, e[0].typ, e[0].count), (0x2010, 3, 1));
+        assert_eq!(le.u16(e[0].value_field).unwrap(), 7);
+
+        let mut buf = vec![0xAA; 3];
+        buf.extend_from_slice(&[0, 1, 0x20, 0x10, 0, 3, 0, 0, 0, 1, 0, 7, 0, 0]);
+        let be = Tiff::with_order(&buf, 3, buf.len(), false).unwrap();
+        let e = be.ifd_entries(0).unwrap();
+        assert_eq!((e[0].tag, e[0].typ, e[0].count), (0x2010, 3, 1));
+        assert_eq!(be.u16(e[0].value_field).unwrap(), 7);
+
+        assert!(be.u32(12).is_err());
+        assert!(Tiff::with_order(&buf, 3, buf.len() + 1, false).is_err());
+        assert!(Tiff::with_order(&buf, 5, 4, false).is_err());
     }
 
     #[test]
