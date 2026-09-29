@@ -90,9 +90,10 @@ Recent Sony bodies (the α1, α9 III, α7 IV, α7R V, α7S III, α7C II, α7CR,
 α6700 and ZV-E1 samples) write a 1616x1080 preview in IFD0, a 160x120
 thumbnail in IFD1 and the full-size JPEG in IFD2. Older bodies (the α9 II,
 α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 samples) write no IFD2, so the
-largest JPEG besides the preview is the 160x120 thumbnail. Riffle has no
-full-size JPEG to show at 1:1 on those bodies, so they are not listed as
-supported yet.
+largest JPEG besides the preview is the 160x120 thumbnail. These files still
+open, but Riffle takes that thumbnail as the full-size JPEG, so the 1:1 view
+enlarges the 160x120 thumbnail and looks blurry. These bodies are not listed
+as supported until that is fixed.
 
 ### NEF: two JPEGs besides the thumbnail, told apart by order
 
