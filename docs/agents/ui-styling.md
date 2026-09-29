@@ -29,7 +29,10 @@ variants (no Tailwind, no React, nothing added to `package.json`).
   sidebar-item"`, `count.className = "count badge"`).
 - Canvas drawing cannot use `var()`: read the token once at startup with
   `token()` from `src/theme.ts` (`main.ts`'s `THEME`), with a CSS keyword
-  fallback, never per frame and never a new hex.
+  fallback (`black`, `white`, `gray`), never per frame and never a new hex.
+  The fallback matters: a canvas ignores an empty color string and keeps the
+  previous fillStyle / strokeStyle, so a misspelled token would silently
+  draw in the last color instead of transparent (Hit).
 - A component rule that sets `display` must stay above
   `.dialog-box [hidden] { display: none }`, which is kept last in the block,
   and an id rule that sets `display` on something that can be hidden is
@@ -104,6 +107,10 @@ ring is always `--ring` (`--sidebar-ring` in a side pane).
 - **Strip cells:** `.cell.current` has a `--primary` border on `--accent`,
   `.cell.selected` a `--ring` border on `--muted` (the same fill, so the
   border is the difference).
+- **Dimmed elements on a hover fill:** dim with `--muted-foreground` plus
+  `opacity`, never with `--muted`. `--muted` is the hover fill `#262626`, so
+  the element vanishes on a hovered row (the unlit filter stars are
+  `--muted-foreground` at `opacity: 0.4`).
 
 ## Icons
 
