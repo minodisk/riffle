@@ -398,17 +398,17 @@ export function cancelSlowClick(): void {
 // its expansion and everything under it kept, and move the highlight and the
 // cursor along when they were on it or under it.
 export function renamed(oldPath: string, newPath: string, newName: string): void {
-  tree = renameFolder(tree, oldPath, newPath, newName);
-  current = current === null ? null : (rebase(current, oldPath, newPath) ?? current);
-  cursor = cursor === null ? null : (rebase(cursor, oldPath, newPath) ?? cursor);
+  tree = renameFolder(tree, oldPath, newPath, newName, ignoreCase);
+  current = current === null ? null : (rebase(current, oldPath, newPath, ignoreCase) ?? current);
+  cursor = cursor === null ? null : (rebase(cursor, oldPath, newPath, ignoreCase) ?? cursor);
   selection = {
     selected: new Set(
-      [...selection.selected].map((path) => rebase(path, oldPath, newPath) ?? path),
+      [...selection.selected].map((path) => rebase(path, oldPath, newPath, ignoreCase) ?? path),
     ),
     anchor:
       selection.anchor === null
         ? null
-        : (rebase(selection.anchor, oldPath, newPath) ?? selection.anchor),
+        : (rebase(selection.anchor, oldPath, newPath, ignoreCase) ?? selection.anchor),
   };
   // The `rename_folder` IPC round trip can resolve while the button that
   // started a click elsewhere is still held; defer to `mouseup` then too, for

@@ -379,7 +379,10 @@ export function respell(
   if (child === undefined) {
     return chain;
   }
-  return [...chain.slice(0, at), ...chain.slice(at).map((p) => rebase(p, dir, child.path) ?? p)];
+  return [
+    ...chain.slice(0, at),
+    ...chain.slice(at).map((p) => rebase(p, dir, child.path, ignoreCase) ?? p),
+  ];
 }
 
 // The root to add for a folder no root holds: its drive (`D:\`), its UNC
@@ -397,9 +400,9 @@ export function rootOf(path: string): string {
 
 // Whether `path` is `dir` itself or a folder under it, compared the way
 // `ancestorsWithin` compares.
-export function relation(path: string, dir: string): "same" | "under" | null {
-  const target = normalize(path);
-  const prefix = normalize(dir);
+export function relation(path: string, dir: string, ignoreCase = false): "same" | "under" | null {
+  const target = fold(path, ignoreCase);
+  const prefix = fold(dir, ignoreCase);
   if (target === prefix) {
     return "same";
   }
@@ -409,9 +412,14 @@ export function relation(path: string, dir: string): "same" | "under" | null {
 // The path under `newDir` that `path` had under `oldDir`, or `null` when
 // `path` is neither `oldDir` nor under it. Compared the way
 // `ancestorsWithin` compares; the rest is joined in `newDir`'s spelling.
-export function rebase(path: string, oldDir: string, newDir: string): string | null {
-  const target = normalize(path);
-  const prefix = normalize(oldDir);
+export function rebase(
+  path: string,
+  oldDir: string,
+  newDir: string,
+  ignoreCase = false,
+): string | null {
+  const target = fold(path, ignoreCase);
+  const prefix = fold(oldDir, ignoreCase);
   if (target === prefix) {
     return newDir;
   }
@@ -436,20 +444,29 @@ function byName(a: FolderNode, b: FolderNode): number {
 // it and every node under it re-keyed with their state (expansion, listing,
 // count) kept, and its entry in its parent's children replaced and
 // re-sorted. A stale node already under `newPath` is dropped.
-export function renameFolder(tree: Tree, oldPath: string, newPath: string, newName: string): Tree {
-  const renamed = normalize(oldPath);
+export function renameFolder(
+  tree: Tree,
+  oldPath: string,
+  newPath: string,
+  newName: string,
+  ignoreCase = false,
+): Tree {
+  const renamed = fold(oldPath, ignoreCase);
   const stale = (path: string): boolean =>
-    rebase(path, oldPath, newPath) === null && rebase(path, newPath, newPath) !== null;
+    rebase(path, oldPath, newPath, ignoreCase) === null &&
+    rebase(path, newPath, newPath, ignoreCase) !== null;
   const moved = (folder: FolderNode): FolderNode => {
-    const path = rebase(folder.path, oldPath, newPath);
+    const path = rebase(folder.path, oldPath, newPath, ignoreCase);
     if (path === null) {
       return folder;
     }
-    return { name: normalize(folder.path) === renamed ? newName : folder.name, path };
+    return { name: fold(folder.path, ignoreCase) === renamed ? newName : folder.name, path };
   };
   const list = (folders: FolderNode[]): FolderNode[] => {
     const out = folders.filter((folder) => !stale(folder.path)).map(moved);
-    return folders.some((folder) => normalize(folder.path) === renamed) ? out.sort(byName) : out;
+    return folders.some((folder) => fold(folder.path, ignoreCase) === renamed)
+      ? out.sort(byName)
+      : out;
   };
   const nodes = new Map<string, TreeNode>();
   for (const node of tree.nodes.values()) {
