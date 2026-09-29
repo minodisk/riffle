@@ -156,4 +156,6 @@ Precedence rule options considered; the user chose (B):
 
 ## Progress
 
-- (none yet)
+- Step 1: Implemented in `crates/app/src/shortcuts.rs`; fixed in local review
+  round 1 to also recover a key freed by a later partial application. See
+  `learnings.md`.

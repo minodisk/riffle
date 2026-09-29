@@ -92,8 +92,13 @@ because `reject` comes before `pick`, so `p` still looked taken.
 - When two overrides genuinely want the same key, the first in action order
   keeps it; only after the retries settle does the later override apply its
   other keys without it (skipped only if no key is left), and the retries run
-  again, as that replaces the action's keys and may free one.
+  again, as that replaces the action's keys and may free one. Applying a
+  partial override can itself free a key an earlier partial override
+  dropped, so once the outer retry settles, recompute every partly applied
+  action's keys as its originally requested keys filtered by what is free
+  at that point (never a conflict, since only free keys are added).
 - Source: `docs/plans/_archived/20260920-pick-shortcut-editable/learnings.md`,
+  Step 1; `docs/plans/20260929-shortcut-override-partial-conflict/learnings.md`,
   Step 1.
 
 ### An accelerator string is not validated until Tauri parses it (Inferred)
