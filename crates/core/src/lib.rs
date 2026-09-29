@@ -4,6 +4,7 @@ pub mod arw;
 pub mod candidate;
 pub mod decode;
 pub mod dop;
+mod exif;
 pub mod faces;
 pub mod i18n;
 pub mod jpeg;

@@ -4,28 +4,8 @@
 
 use anyhow::{ensure, Result};
 
-use crate::arw::{Arw, Rational, Shot};
-use crate::sequence::{find_exif_tiff, Entry, Tiff};
-
-const TAG_MAKE: u16 = 0x010f;
-const TAG_MODEL: u16 = 0x0110;
-const TAG_ORIENTATION: u16 = 0x0112;
-const TAG_EXIF_IFD: u16 = 0x8769;
-const TAG_EXPOSURE_TIME: u16 = 0x829a;
-const TAG_F_NUMBER: u16 = 0x829d;
-const TAG_ISO: u16 = 0x8827;
-const TAG_DATE_TIME_ORIGINAL: u16 = 0x9003;
-const TAG_APERTURE_VALUE: u16 = 0x9202;
-const TAG_EXPOSURE_BIAS: u16 = 0x9204;
-const TAG_FOCAL_LENGTH: u16 = 0x920a;
-const TAG_SUB_SEC_TIME_ORIGINAL: u16 = 0x9291;
-const TAG_LENS_MODEL: u16 = 0xa434;
-
-const TYPE_ASCII: u16 = 2;
-const TYPE_SHORT: u16 = 3;
-const TYPE_LONG: u16 = 4;
-const TYPE_RATIONAL: u16 = 5;
-const TYPE_SRATIONAL: u16 = 10;
+use crate::arw::{Arw, Shot};
+use crate::sequence::{find_exif_tiff, Tiff};
 
 /// Whether `buf` holds a complete Exif segment, i.e. a prefix of a file this
 /// long already parses the same as the whole file.
@@ -55,122 +35,31 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
 }
 
 fn exif(buf: &[u8]) -> (u16, Shot) {
-    let mut shot = Shot::default();
-    let Some(tiff) = find_exif_tiff(buf)
+    find_exif_tiff(buf)
         .ok()
         .and_then(|(base, end)| Tiff::new(buf, base, end).ok())
-    else {
-        return (1, shot);
-    };
-    let Some(ifd0) = tiff
-        .u32(4)
-        .ok()
-        .and_then(|at| tiff.ifd_entries(at as usize).ok())
-    else {
-        return (1, shot);
-    };
-
-    let mut orientation = 1;
-    let mut exif_ifd = None;
-    for e in &ifd0 {
-        match e.tag {
-            TAG_ORIENTATION => orientation = integer(&tiff, e).map_or(1, |v| v as u16),
-            TAG_MAKE => shot.make = ascii(&tiff, e),
-            TAG_MODEL => shot.model = ascii(&tiff, e),
-            TAG_EXIF_IFD => exif_ifd = tiff.u32(e.value_field).ok(),
-            _ => {}
-        }
-    }
-
-    let entries = exif_ifd
-        .and_then(|at| tiff.ifd_entries(at as usize).ok())
-        .unwrap_or_default();
-    for e in &entries {
-        match e.tag {
-            TAG_DATE_TIME_ORIGINAL => shot.capture_time = ascii(&tiff, e),
-            TAG_SUB_SEC_TIME_ORIGINAL => shot.subsec = ascii(&tiff, e),
-            TAG_LENS_MODEL => shot.lens_model = ascii(&tiff, e),
-            TAG_EXPOSURE_TIME => shot.exposure_time = rational(&tiff, e),
-            TAG_F_NUMBER => shot.f_number = rational(&tiff, e),
-            TAG_APERTURE_VALUE => {
-                shot.estimated_f_number = rational(&tiff, e)
-                    .and_then(Rational::value)
-                    .map(|av| 2f64.powf(av / 2.0))
-            }
-            TAG_FOCAL_LENGTH => shot.focal_length = rational(&tiff, e),
-            TAG_EXPOSURE_BIAS => shot.exposure_bias = rational(&tiff, e),
-            TAG_ISO => shot.iso = integer(&tiff, e),
-            _ => {}
-        }
-    }
-    if shot.f_number.is_some() {
-        shot.estimated_f_number = None;
-    }
-    (orientation, shot)
-}
-
-/// An ASCII entry's text without its NUL terminator. Values of up to 4 bytes
-/// sit in the entry itself; longer ones live at the offset it carries.
-fn ascii(tiff: &Tiff, e: &Entry) -> Option<String> {
-    if e.typ != TYPE_ASCII {
-        return None;
-    }
-    let count = e.count as usize;
-    let bytes = if count <= 4 {
-        tiff.bytes(e.value_field, count).ok()?
-    } else {
-        tiff.bytes(tiff.u32(e.value_field).ok()? as usize, count)
-            .ok()?
-    };
-    Some(
-        String::from_utf8_lossy(bytes)
-            .trim_end_matches('\0')
-            .to_string(),
-    )
-}
-
-/// A single RATIONAL / SRATIONAL, always at the offset the entry carries.
-fn rational(tiff: &Tiff, e: &Entry) -> Option<Rational> {
-    if (e.typ != TYPE_RATIONAL && e.typ != TYPE_SRATIONAL) || e.count != 1 {
-        return None;
-    }
-    let at = tiff.u32(e.value_field).ok()? as usize;
-    let (num, den) = (tiff.u32(at).ok()?, tiff.u32(at + 4).ok()?);
-    Some(if e.typ == TYPE_SRATIONAL {
-        Rational {
-            num: i64::from(num as i32),
-            den: i64::from(den as i32),
-        }
-    } else {
-        Rational {
-            num: i64::from(num),
-            den: i64::from(den),
-        }
-    })
-}
-
-/// A single SHORT or LONG, which always rides inside the entry itself.
-fn integer(tiff: &Tiff, e: &Entry) -> Option<u32> {
-    match (e.typ, e.count) {
-        (TYPE_SHORT, 1) => tiff.u16(e.value_field).ok().map(u32::from),
-        (TYPE_LONG, 1) => tiff.u32(e.value_field).ok(),
-        _ => None,
-    }
+        .and_then(|tiff| {
+            let ifd0 = tiff.u32(4).ok()?;
+            Some(crate::exif::read(&tiff, ifd0 as usize))
+        })
+        .unwrap_or((1, Shot::default()))
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::arw::Rational;
+    use crate::exif::*;
 
     /// A TIFF field: tag, type, count and its value bytes, already in the
     /// file's byte order.
-    type Field = (u16, u16, u32, Vec<u8>);
+    pub(crate) type Field = (u16, u16, u32, Vec<u8>);
 
     /// Writes TIFF values in one byte order.
     pub(crate) struct W(pub(crate) bool);
 
     impl W {
-        fn u16(&self, v: u16) -> [u8; 2] {
+        pub(crate) fn u16(&self, v: u16) -> [u8; 2] {
             if self.0 {
                 v.to_le_bytes()
             } else {
@@ -178,7 +67,7 @@ pub(crate) mod tests {
             }
         }
 
-        fn u32(&self, v: u32) -> [u8; 4] {
+        pub(crate) fn u32(&self, v: u32) -> [u8; 4] {
             if self.0 {
                 v.to_le_bytes()
             } else {
@@ -196,17 +85,17 @@ pub(crate) mod tests {
             (tag, TYPE_SHORT, 1, self.u16(v).to_vec())
         }
 
-        fn long(&self, tag: u16, v: u32) -> Field {
+        pub(crate) fn long(&self, tag: u16, v: u32) -> Field {
             (tag, TYPE_LONG, 1, self.u32(v).to_vec())
         }
 
-        fn rational(&self, tag: u16, num: u32, den: u32) -> Field {
+        pub(crate) fn rational(&self, tag: u16, num: u32, den: u32) -> Field {
             let mut v = self.u32(num).to_vec();
             v.extend_from_slice(&self.u32(den));
             (tag, TYPE_RATIONAL, 1, v)
         }
 
-        fn srational(&self, tag: u16, num: i32, den: i32) -> Field {
+        pub(crate) fn srational(&self, tag: u16, num: i32, den: i32) -> Field {
             let mut v = self.u32(num as u32).to_vec();
             v.extend_from_slice(&self.u32(den as u32));
             (tag, TYPE_SRATIONAL, 1, v)
