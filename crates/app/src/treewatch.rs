@@ -352,7 +352,19 @@ mod tests {
         assert_eq!(keys(&state), all);
 
         state.release_under(&canonical);
-        std::fs::rename(&photos, root.join("renamed")).unwrap();
+        // On Windows, `unwatch` returning does not guarantee the OS releases
+        // the folder handle synchronously, so the very next rename can still
+        // see it held; retry briefly rather than flaking.
+        let renamed = root.join("renamed");
+        let mut last = Ok(());
+        for _ in 0..50 {
+            last = std::fs::rename(&photos, &renamed);
+            if last.is_ok() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        last.unwrap();
         assert_eq!(keys(&state), [photos2]);
 
         let _ = std::fs::remove_dir_all(&root);
