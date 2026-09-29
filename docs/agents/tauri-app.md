@@ -90,7 +90,9 @@ because `reject` comes before `pick`, so `p` still looked taken.
 - Fix: apply the non-conflicting overrides first, then retry the conflicting
   ones until no more apply.
 - When two overrides genuinely want the same key, the first in action order
-  still wins.
+  keeps it; only after the retries settle does the later override apply its
+  other keys without it (skipped only if no key is left), and the retries run
+  again, as that replaces the action's keys and may free one.
 - Source: `docs/plans/_archived/20260920-pick-shortcut-editable/learnings.md`,
   Step 1.
 

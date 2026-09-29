@@ -339,23 +339,19 @@ produced with an ARW truncated to its first 2 KB).
 - [ ] On macOS, confirm the strip looks unchanged (160px wide). Files:
       `crates/app/ui/style.css`.
 
-### App: an old shortcut override for `previous`/`next` can silently conflict with new burst defaults
+### App: a horizontal strip's scrollbar can grow `#film` and shrink the viewer without a resize event
 
-A stored `shortcuts` override that still binds `arrowleft` / `arrowright` to
-`previous` / `next` (older defaults) now conflicts with the new burst
-navigation defaults, and the whole override for that action is ignored at
-load (found while implementing burst-grouping Step 2, where the
-`a_store_from_the_old_defaults_still_loads` test had to drop `arrowleft`).
-It recurred when lightroom-layout Step 1 rotated the defaults: an override
-that binds `arrowup` / `arrowdown` to `previous` / `next` now collides with
-the burst actions' new defaults, and every other key in that override (e.g.
-`w` / `a` / `h` / `k`) is dropped with it.
+With classic (non-overlay) scrollbars, e.g. on Windows or macOS set to
+"always show scroll bars", `#strip`'s horizontal scrollbar appears once the
+files outgrow the width and makes `#film` taller, shrinking `#viewer`
+without a window `resize` event, so the canvas is not redrawn until the
+next `draw()`. `scrollbar-gutter: stable` does not cover the block axis.
 
 #### TODO
 
-- [ ] Consider letting a stored override win over a default belonging to
-      another action, so an old override does not silently disappear when a
-      new action claims its key. Files: `crates/app/src/shortcuts.rs`.
+- [ ] Consider `overflow-x: scroll`, a fixed `#strip` height, or a
+      `ResizeObserver` on `#viewer`. Files: `crates/app/ui/style.css`
+      (`#strip`), `crates/app/ui/src/main.ts` (the `resize` handler).
 
 ### App: the folder tree does not reveal a differently-cased open path
 
