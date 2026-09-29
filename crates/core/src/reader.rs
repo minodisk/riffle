@@ -1,5 +1,5 @@
-//! Read only as much of an ARW as the metadata and the preview need. A JPEG
-//! file is its own preview and full-resolution JPEG.
+//! Read only as much of an ARW, DNG or NEF as the metadata and the preview
+//! need. A JPEG file is its own preview and full-resolution JPEG.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -8,8 +8,8 @@ use std::path::Path;
 use anyhow::{anyhow, Result};
 
 use crate::arw::{self, Arw};
-use crate::jpeg;
 use crate::scan::is_jpeg_file;
+use crate::{jpeg, nef};
 
 /// How much of a file the bounded read takes.
 ///
@@ -42,6 +42,18 @@ pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
         return read_jpeg(path);
     }
     read_embedded(path, Kind::Preview)
+}
+
+/// Parse `buf` with the parser for `path`'s container, chosen by extension.
+fn parse_raw(path: &Path, buf: &[u8]) -> Result<Arw> {
+    if path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("nef"))
+    {
+        nef::parse(buf)
+    } else {
+        arw::parse(buf)
+    }
 }
 
 /// The same bounded read for the full-resolution JPEG (JpgFromRaw). Its
@@ -87,14 +99,14 @@ fn read_embedded(path: &Path, kind: Kind) -> Result<(Arw, Vec<u8>)> {
     // Anything past the prefix exists only if the file is longer than it.
     let bounded = head.len() == HEAD_LIMIT;
 
-    match embedded_from(&head, &mut file, bounded, kind) {
+    match embedded_from(path, &head, &mut file, bounded, kind) {
         Ok(found) => Ok(found),
         Err(_) if bounded => {
             let buf = std::fs::read(path)?;
             // The prefix error only explains a truncated read; once the whole
             // file is in memory, an error there describes what is actually
             // wrong with the file, so surface that one instead.
-            embedded_from(&buf, &mut file, false, kind)
+            embedded_from(path, &buf, &mut file, false, kind)
         }
         Err(e) => Err(e),
     }
@@ -113,15 +125,21 @@ pub fn read_metadata(path: &Path) -> Result<Arw> {
         }
         return jpeg::parse(&head);
     }
-    match arw::parse(&head) {
+    match parse_raw(path, &head) {
         Ok(arw) => Ok(arw),
-        Err(_) if bounded => arw::parse(&std::fs::read(path)?),
+        Err(_) if bounded => parse_raw(path, &std::fs::read(path)?),
         Err(e) => Err(e),
     }
 }
 
-fn embedded_from(buf: &[u8], file: &mut File, bounded: bool, kind: Kind) -> Result<(Arw, Vec<u8>)> {
-    let arw = arw::parse(buf)?;
+fn embedded_from(
+    path: &Path,
+    buf: &[u8],
+    file: &mut File,
+    bounded: bool,
+    kind: Kind,
+) -> Result<(Arw, Vec<u8>)> {
+    let arw = parse_raw(path, buf)?;
     let e = kind
         .pick(&arw)
         .ok_or_else(|| anyhow!("no embedded {}", kind.name()))?;
@@ -286,6 +304,67 @@ mod tests {
         let path = temp_file("fake.jpg", &arw_with_preview(64, &[1u8, 2, 3, 4]));
         assert!(read_preview(&path).is_err());
         assert!(read_metadata(&path).is_err());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_nef_reads_its_sub_ifd_jpegs_by_range_past_the_prefix() {
+        use crate::jpeg::tests::W;
+        use crate::nef::tests::{jpeg_sub, nef};
+        let w = W(false);
+        let (preview, full) = ([6u8; 64], [7u8; 4096]);
+        let (preview_at, full_at) = (4096, HEAD_LIMIT + 4096);
+        let mut file = nef(
+            &w,
+            &[w.short(0x0112, 6)],
+            &[],
+            &[
+                jpeg_sub(&w, full_at, full.len()),
+                jpeg_sub(&w, preview_at, preview.len()),
+            ],
+        );
+        file.resize(preview_at, 0);
+        file.extend_from_slice(&preview);
+        file.resize(full_at, 0);
+        file.extend_from_slice(&full);
+        let path = temp_file("far.NEF", &file);
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!((a.orientation, out), (6, preview.to_vec()));
+        let (_, out) = read_full(&path).unwrap();
+        assert_eq!(out, full);
+        assert_eq!(read_metadata(&path).unwrap().orientation, 6);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_nef_whose_sub_ifds_are_past_the_prefix_reads_the_whole_file() {
+        use crate::jpeg::tests::W;
+        use crate::nef::tests::{jpeg_sub, nef};
+        let w = W(true);
+        let jpeg = [8u8; 16];
+        let jpeg_at = HEAD_LIMIT + 8192;
+        let tiff = nef(
+            &w,
+            &[w.short(0x0112, 3)],
+            &[],
+            &[jpeg_sub(&w, jpeg_at, jpeg.len())],
+        );
+        // Move the lone SubIFD past the prefix and point IFD0's entry at it.
+        let sub_at = tiff.len() - (2 + 12 * 4 + 4);
+        let entry = tiff
+            .windows(4)
+            .position(|b| b == w.u32(sub_at as u32))
+            .unwrap();
+        let mut file = tiff[..sub_at].to_vec();
+        file[entry..entry + 4].copy_from_slice(&w.u32((HEAD_LIMIT + 16) as u32));
+        file.resize(HEAD_LIMIT + 16, 0);
+        file.extend_from_slice(&tiff[sub_at..]);
+        file.resize(jpeg_at, 0);
+        file.extend_from_slice(&jpeg);
+        let path = temp_file("deep.nef", &file);
+        let (a, out) = read_full(&path).unwrap();
+        assert_eq!((a.orientation, out), (3, jpeg.to_vec()));
+        assert!(read_metadata(&path).unwrap().full.is_some());
         std::fs::remove_file(&path).unwrap();
     }
 

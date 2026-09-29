@@ -96,7 +96,7 @@ What the repository already gives us (investigated 2026-09-29):
     - Add the new module to `docs/agents/raw-metadata-parsing.md` in the
       step that first uses it for a RAW (Step 2), not here.
 
-- [ ] Step 2: NEF parser (`crates/core/src/nef.rs`) wired into the reader and the listing
+- [x] Step 2: NEF parser (`crates/core/src/nef.rs`) wired into the reader and the listing
   - Done when:
     - `nef::parse(buf) -> Result<Arw>` reads a big-endian (or little-endian)
       TIFF: IFD0's `Make`, `Model`, `Orientation`, the ExifIFD through
@@ -148,6 +148,15 @@ What the repository already gives us (investigated 2026-09-29):
       with `riffle-cli bench` / `scan` on the samples and note it.
     - Reader dispatch: a `fn parse_raw(path, buf)` (or an enum) in
       `reader.rs` chosen by extension, so Step 3 adds one arm.
+  - Changed during implementation (measured on 24 raw.pixls.us bodies,
+    see `learnings.md`): the MakerNote `PreviewIFD` JPEG is 640x424 on
+    every body (570x375 on older ones), so it would never clear
+    `PREVIEW_MIN_WIDTH`. Every body since about the D800 instead carries a
+    second JPEG SubIFD of 1620x1080 after the JpgFromRaw one. `preview` is
+    therefore that later JPEG SubIFD (else `full`) and the MakerNote is not
+    read; its preview test and the ISO fallback were dropped (every sample
+    has ExifIFD 0x8827). Most samples are little-endian; older bodies are
+    big-endian, and both are tested.
 
 - [ ] Step 3: CR3 parser (`crates/core/src/cr3.rs`) wired into the reader and the listing
   - Done when:
