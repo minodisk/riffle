@@ -71,7 +71,7 @@ What the repository already gives us (investigated 2026-09-29):
 
 ## Steps
 
-- [ ] Step 1: Share the Exif `Shot` reader between `jpeg.rs` and the new parsers
+- [x] Step 1: Share the Exif `Shot` reader between `jpeg.rs` and the new parsers
   - Done when:
     - A crate-internal module (e.g. `crates/core/src/exif.rs`) exposes the
       IFD0 + ExifIFD reading `jpeg.rs::exif` does today over
