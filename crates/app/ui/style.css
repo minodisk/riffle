@@ -669,7 +669,6 @@ body {
 }
 
 .folder .expander {
-  flex: none;
   width: 14px;
   font-size: 0.7rem;
   text-align: center;
@@ -680,6 +679,9 @@ body {
 .folder .name {
   justify-self: start;
   min-width: 0;
+  /* A grid item is fit-content wide, so cap it at its column for the
+     ellipsis to fire. */
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -697,11 +699,6 @@ body {
   border: none;
   outline: 1px solid var(--sidebar-ring);
   cursor: text;
-}
-
-/* The RAW count of an expanded folder. */
-.folder .count {
-  flex: none;
 }
 
 #strip-inner {

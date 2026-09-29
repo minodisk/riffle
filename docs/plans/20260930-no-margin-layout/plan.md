@@ -234,4 +234,4 @@ Made by the user on 2026-09-30, before implementation:
 
 ## Progress
 
-- (not started)
+- 2026-09-30 Step 1 done: the frontend is laid out with flex / grid and gap instead of margin. The Windows / macOS / Linux GUI passes are deferred to `learnings.md`.
