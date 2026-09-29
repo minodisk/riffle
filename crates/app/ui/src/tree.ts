@@ -399,7 +399,8 @@ export function rootOf(path: string): string {
 }
 
 // Whether `path` is `dir` itself or a folder under it, compared the way
-// `ancestorsWithin` compares.
+// `ancestorsWithin` compares: with `ignoreCase` (macOS, Windows) the
+// comparison ignores case.
 export function relation(path: string, dir: string, ignoreCase = false): "same" | "under" | null {
   const target = fold(path, ignoreCase);
   const prefix = fold(dir, ignoreCase);
@@ -410,8 +411,9 @@ export function relation(path: string, dir: string, ignoreCase = false): "same" 
 }
 
 // The path under `newDir` that `path` had under `oldDir`, or `null` when
-// `path` is neither `oldDir` nor under it. Compared the way
-// `ancestorsWithin` compares; the rest is joined in `newDir`'s spelling.
+// `path` is neither `oldDir` nor under it. With `ignoreCase` (macOS,
+// Windows) the comparison ignores case; the rest of `path` is joined onto
+// `newDir` in `path`'s own spelling.
 export function rebase(
   path: string,
   oldDir: string,
