@@ -60,8 +60,9 @@ documented in the READMEs with the workaround, and its todo item is closed.
   Rejected to Trash bullet, but the cause is the sidecar naming, so the
   sidecar-format section is the one place that covers both operations.
 - The `.dop` workaround only holds with `.dop` alone, since **Both** still
-  writes the shared `.xmp`; the note says so.
+  writes the shared `.xmp`, and an existing `FOO.xmp` is moved along whichever
+  format is chosen; the note says so.
 
 ## Progress
 
-- (none yet)
+- Step 1 done: added the shared-`.xmp` unsupported note to the sidecar-format section of README.md and README.ja.md. Review round 1: the `.dop` workaround now says it needs `.dop` alone from the start with no existing `FOO.xmp`, since rename and trash move an existing `FOO.xmp` whichever format is chosen.
