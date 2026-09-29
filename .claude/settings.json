@@ -7,7 +7,8 @@
       "Bash(bash .claude/skills/merge/scripts/*)",
       "Bash(bash .claude/skills/pr/scripts/*)",
       "Bash(date *)",
-      "Bash(mise run *)"
+      "Bash(mise run *)",
+      "Bash(gh pr view:*)"
     ]
   }
 }

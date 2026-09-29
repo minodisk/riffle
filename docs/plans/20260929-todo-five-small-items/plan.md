@@ -37,7 +37,7 @@ step hits is resolved by the rule it adds.
 
 ## Steps
 
-- [ ] Step 1: Add the "keep deleted `todo.md` sections deleted" rule to `pr-conflict-resolver`
+- [x] Step 1: Add the "keep deleted `todo.md` sections deleted" rule to `pr-conflict-resolver`
   - Done when: `.claude/agents/pr-conflict-resolver.md` "2. Manual resolution"
     tells the agent that in `todo.md` (and similar tracking docs) a `###`
     section one side deleted stays deleted rather than keeping both sides,
@@ -229,4 +229,4 @@ step hits is resolved by the rule it adds.
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete
