@@ -214,4 +214,6 @@ Sources:
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 done: rewrote the three trash / undo / redo items in
+  `todo.md` so every pending check appears once, with the stale background
+  fixed.
