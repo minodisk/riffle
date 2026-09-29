@@ -19,8 +19,8 @@ pub const THUMBNAIL_QUALITY: f32 = 80.0;
 /// The long edge a JPEG file's thumbnail aims at: the ARW thumbnail's.
 const JPEG_THUMBNAIL_LONG_EDGE: usize = 404;
 
-/// Whether `path` has a RAW extension Riffle lists: `.ARW`, `.DNG` or `.NEF`,
-/// in any case.
+/// Whether `path` has a RAW extension Riffle lists: `.ARW`, `.CR3`, `.DNG`
+/// or `.NEF`, in any case.
 pub fn is_raw_file(path: &Path) -> bool {
     path.extension().is_some_and(|e| {
         ["arw", "cr3", "dng", "nef"]
