@@ -1,11 +1,12 @@
 //! The folder tree's `Sequence JPEG Timestamps…`: the commands that preview and run
-//! `riffle_core::sequence` on a folder of exported JPEGs, and the state of the
-//! one run that may be in progress.
+//! `riffle_core::sequence` on the folder of exported JPEGs right-clicked in the
+//! folder tree, and the state of the one run that may be in progress.
 //!
 //! JPEGs are not indexed, so nothing here touches the index, and a run is not
 //! refused while a scan is in progress. The output is written to a sibling of
-//! the picked folder, so even when that folder is the open RAW folder the
-//! watcher, which watches it non-recursively, sees no `folder-changed` for it.
+//! the right-clicked folder, so even when that folder is the open RAW folder
+//! the watcher, which watches it non-recursively, sees no `folder-changed` for
+//! it.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
