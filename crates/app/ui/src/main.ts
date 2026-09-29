@@ -452,6 +452,7 @@ const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
 // The detected faces, apart from every mark color above.
 const FACE_MARK_COLOR = "#3ff";
+const FACE_MARK_EYE_RADIUS = 2.5;
 
 // The neutral colors the canvas overlays draw with, read from the stylesheet's
 // tokens once: the module runs after the `<head>` stylesheet has applied.
@@ -462,7 +463,6 @@ const THEME = {
   border: token(rootStyle, "--border", "gray"),
   primary: token(rootStyle, "--primary", "white"),
 };
-const FACE_MARK_EYE_RADIUS = 2.5;
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
