@@ -695,6 +695,25 @@ sample survey of `docs/plans/20260929-canon-nikon-raw/plan.md`. Files:
       size cost) to show HEIF CR3 previews, or keep them unsupported with a
       clearer message than "no embedded preview".
 
+### Core: Nikon DX-crop and non-standard-crop AF point mapping is unverified
+
+`nef::parse`'s Nikon `AFInfo2` AF point is read as top-left coordinates in
+the `AFImageWidth` / `AFImageHeight` frame, assumed to already match the
+JPEG's crop. No DX-crop NEF sample was available to confirm this: exiftool's
+`Nikon.pm` hints that some DX-mode results are reported in FX (full-frame)
+coordinates, in which case the point would land off by the crop factor when
+`AFImageWidth` stays the FX size while the JPEG is the DX crop. Found in the
+Step 5 sample survey of
+`docs/plans/_archived/20260929-canon-nikon-raw/plan.md`. Files:
+`crates/core/src/nef.rs`.
+
+#### TODO
+
+- [ ] Find a Nikon DX-crop NEF sample (or a full-frame Z body shot in DX
+      crop mode) and confirm whether the AF point position and
+      `AFImageWidth` / `AFImageHeight` are already in DX coordinates or
+      need scaling by the crop factor; fix `nef.rs` if the latter.
+
 ### Core: widen camera support from public sample RAW files
 
 The user no longer owns the Sigma fp L or BF and cannot shoot new
