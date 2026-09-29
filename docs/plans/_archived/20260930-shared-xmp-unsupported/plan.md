@@ -65,4 +65,4 @@ documented in the READMEs with the workaround, and its todo item is closed.
 
 ## Progress
 
-- Step 1 done: added the shared-`.xmp` unsupported note to the sidecar-format section of README.md and README.ja.md. Review round 1: the `.dop` workaround now says it needs `.dop` alone from the start with no existing `FOO.xmp`, since rename and trash move an existing `FOO.xmp` whichever format is chosen.
+- (2026-09-30) Step 1 complete: added the shared-`.xmp` unsupported note to the sidecar-format section of README.md and README.ja.md. Review round 1: the `.dop` workaround now says it needs `.dop` alone from the start with no existing `FOO.xmp`, since rename and trash move an existing `FOO.xmp` whichever format is chosen.
