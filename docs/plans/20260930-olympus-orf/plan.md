@@ -126,7 +126,7 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
     - Pure addition. Keep `Tiff`'s fields private; the new constructors live
       in the same `impl`. Do not touch `arw.rs`.
 
-- [ ] Step 2: ORF parser (`crates/core/src/orf.rs`) wired into the reader and the listing
+- [x] Step 2: ORF parser (`crates/core/src/orf.rs`) wired into the reader and the listing
   - Done when:
     - `orf::parse(buf) -> Result<Arw>` reads the ORF TIFF (both byte orders
       through Step 1's constructor): IFD0's `Make`, `Model`, `Orientation`

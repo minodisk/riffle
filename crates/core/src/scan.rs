@@ -24,7 +24,7 @@ const JPEG_THUMBNAIL_LONG_EDGE: usize = 404;
 /// `.NEF` or `.RAF`, in any case.
 pub fn is_raw_file(path: &Path) -> bool {
     path.extension().is_some_and(|e| {
-        ["arw", "cr3", "dng", "nef", "raf"]
+        ["arw", "cr3", "dng", "nef", "orf", "raf"]
             .iter()
             .any(|raw| e.eq_ignore_ascii_case(raw))
     })
@@ -545,11 +545,21 @@ mod tests {
             assert!(!is_jpeg_file(Path::new(name)), "{name}");
         }
         for name in [
-            "a.ARW", "a.dng", "a.NEF", "a.nef", "a.CR3", "a.cr3", "a.RAF", "a.raf",
+            "a.ARW", "a.dng", "a.NEF", "a.nef", "a.CR3", "a.cr3", "a.RAF", "a.raf", "a.ORF",
+            "a.orf",
         ] {
             assert!(is_raw_file(Path::new(name)), "{name}");
         }
-        for name in ["a.nef.xmp", "nef", "a.cr3.dop", "cr3", "a.RAF.dop", "raf"] {
+        for name in [
+            "a.nef.xmp",
+            "nef",
+            "a.cr3.dop",
+            "cr3",
+            "a.RAF.dop",
+            "raf",
+            "a.ORF.xmp",
+            "orf",
+        ] {
             assert!(!is_raw_file(Path::new(name)), "{name}");
         }
     }

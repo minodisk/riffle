@@ -1,5 +1,5 @@
-//! Read only as much of an ARW, DNG, NEF, CR3 or RAF as the metadata and the preview
-//! need. A JPEG file is its own preview and full-resolution JPEG.
+//! Read only as much of an ARW, DNG, NEF, CR3, RAF or ORF as the metadata and
+//! the preview need. A JPEG file is its own preview and full-resolution JPEG.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use crate::arw::{self, Arw};
 use crate::scan::is_jpeg_file;
-use crate::{cr3, jpeg, nef, raf};
+use crate::{cr3, jpeg, nef, orf, raf};
 
 /// How much of a file the bounded read takes.
 ///
@@ -56,6 +56,8 @@ fn parse_raw(path: &Path, buf: &[u8]) -> Result<Arw> {
         cr3::parse(buf)
     } else if is("raf") {
         raf::parse(buf)
+    } else if is("orf") {
+        orf::parse(buf)
     } else {
         arw::parse(buf)
     }
@@ -475,6 +477,65 @@ mod tests {
         let (a, out) = read_preview(&path).unwrap();
         assert_eq!(a.orientation, 8);
         assert!(out == jpeg);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn an_orf_reads_its_maker_note_preview_by_range_past_the_prefix() {
+        use crate::jpeg::tests::W;
+        use crate::orf::tests::{maker_note, note_at, orf, preview_fields};
+        let w = W(true);
+        let jpeg = [5u8; 4096];
+        let jpeg_at = HEAD_LIMIT + 4096;
+        let build = |start: u32| {
+            orf(
+                &w,
+                &[w.short(0x0112, 6)],
+                &[maker_note(
+                    &w,
+                    false,
+                    0,
+                    &preview_fields(&w, start, jpeg.len() as u32),
+                )],
+            )
+        };
+        let mut file = build((jpeg_at - note_at(&build(0))) as u32);
+        file.resize(jpeg_at, 0);
+        file.extend_from_slice(&jpeg);
+        let path = temp_file("far.ORF", &file);
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!((a.orientation, out), (6, jpeg.to_vec()));
+        let (_, out) = read_full(&path).unwrap();
+        assert_eq!(out, jpeg);
+        assert!(read_metadata(&path).unwrap().preview.is_some());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn an_orf_whose_camera_settings_are_past_the_prefix_reads_the_whole_file() {
+        use crate::jpeg::tests::W;
+        use crate::orf::tests::{maker_note, note_at, orf, preview_fields};
+        let w = W(false);
+        let jpeg = [6u8; 64];
+        let build = |start: u32| {
+            orf(
+                &w,
+                &[w.short(0x0112, 3)],
+                &[maker_note(
+                    &w,
+                    true,
+                    HEAD_LIMIT,
+                    &preview_fields(&w, start, jpeg.len() as u32),
+                )],
+            )
+        };
+        let probe = build(0);
+        let mut file = build((probe.len() - note_at(&probe)) as u32);
+        file.extend_from_slice(&jpeg);
+        let path = temp_file("deep.orf", &file);
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!((a.orientation, out), (3, jpeg.to_vec()));
+        assert!(read_metadata(&path).unwrap().preview.is_some());
         std::fs::remove_file(&path).unwrap();
     }
 
