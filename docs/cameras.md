@@ -11,34 +11,37 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 | SIGMA BF | ✓ | – | – | – |
 | SIGMA fp L | – | – | – | – |
 | Leica M11-P | – | – | – | – |
-| Canon EOS R | – | – | – | ✓ |
-| Canon EOS RP | – | – | – | ✓ |
-| Canon EOS R3 | – | – | – | ✓ |
-| Canon EOS R5 | – | – | – | ✓ |
-| Canon EOS R5 Mark II | – | – | – | ✓ |
+| Canon EOS R | ✓ | ✓ | – | ✓ |
+| Canon EOS RP | ✓ | ✓ | – | ✓ |
+| Canon EOS R3 | ✓ | ✓ | – | ✓ |
+| Canon EOS R5 | ✓ | ✓ | – | ✓ |
+| Canon EOS R5 Mark II | ✓ | ✓ | – | ✓ |
 | Canon EOS R6 | – | – | – | ✓ |
-| Canon EOS R6 Mark II | – | – | – | ✓ |
-| Canon EOS R6 Mark III | – | – | – | ✓ |
-| Canon EOS R7 | – | – | – | ✓ |
-| Canon EOS R10 | – | – | – | ✓ |
-| Canon EOS R50 | – | – | – | ✓ |
-| Canon EOS R50 V | – | – | – | ✓ |
-| Canon EOS R100 | – | – | – | ✓ |
-| Nikon Z 9 | – | – | – | ✓ |
+| Canon EOS R6 Mark II | ✓ | ✓ | – | ✓ |
+| Canon EOS R6 Mark III | ✓ | ✓ | – | ✓ |
+| Canon EOS R7 | ✓ | ✓ | – | ✓ |
+| Canon EOS R10 | ✓ | ✓ | – | ✓ |
+| Canon EOS R50 | ✓ | ✓ | – | ✓ |
+| Canon EOS R50 V | ✓ | ✓ | – | ✓ |
+| Canon EOS R100 | ✓ | ✓ | – | ✓ |
+| Nikon Z 9 | ✓ | ✓ | – | ✓ |
 | Nikon Z 8 | – | – | – | ✓ |
-| Nikon Z 7II | – | – | – | ✓ |
-| Nikon Z 6II | – | – | – | ✓ |
-| Nikon Z 6 | – | – | – | ✓ |
-| Nikon Z 5 | – | – | – | ✓ |
-| Nikon Z f | – | – | – | ✓ |
-| Nikon Z fc | – | – | – | ✓ |
-| Nikon Z 50 | – | – | – | ✓ |
-| Nikon Z 30 | – | – | – | ✓ |
+| Nikon Z 7II | ✓ | ✓ | – | ✓ |
+| Nikon Z 6II | ✓ | ✓ | – | ✓ |
+| Nikon Z 6 | ✓ | ✓ | – | ✓ |
+| Nikon Z 5 | ✓ | ✓ | – | ✓ |
+| Nikon Z f | ✓ | ✓ | – | ✓ |
+| Nikon Z fc | ✓ | ✓ | – | ✓ |
+| Nikon Z 50 | ✓ | ✓ | – | ✓ |
+| Nikon Z 30 | ✓ | ✓ | – | ✓ |
 | Nikon D850 | – | – | – | ✓ |
 | Nikon D500 | – | – | – | ✓ |
 
-The Canon and Nikon bodies do record an AF point in their MakerNote, but
-Riffle does not read it yet, so they behave as bodies without one.
+On the Canon and Nikon bodies, Riffle reads the AF point from the MakerNote
+(`AFInfo2`); with several AF points in focus, the mark covers them all. The
+Nikon Z 8 and Canon EOS R6 samples carried no AF position (an automatic area
+that never locked, and manual focus), so those two are unconfirmed; the Nikon
+D850 and D500 write an older `AFInfo2` that Riffle does not read.
 
 - **AF point**: the focus mark is drawn there, the 1:1 focus check opens
   centered on it, and sharpness is scored around it. Faces are then ignored,

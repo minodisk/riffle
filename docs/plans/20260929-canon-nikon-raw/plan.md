@@ -272,7 +272,7 @@ What the repository already gives us (investigated 2026-09-29):
       (that stays in `docs/agents/raw-metadata-parsing.md`), and GitHub
       renders the Mermaid blocks.
 
-- [ ] Step 5 (optional, see Trade-offs): AF point from Nikon `AFInfo2` and Canon `AFInfo2`
+- [x] Step 5 (optional, see Trade-offs): AF point from Nikon `AFInfo2` and Canon `AFInfo2`
   - Done when:
     - NEF: the Nikon MakerNote tag 0x00b7 `AFInfo2` (UNDEFINED) is read for
       the versions the Z bodies write (`0300` / `0301`: `AFImageWidth` /
@@ -308,6 +308,17 @@ What the repository already gives us (investigated 2026-09-29):
     - The consumers (`sharpness.rs`, `partial.rs`, the focus mark) treat
       `FocusLocation` as unrotated sensor coordinates and clamp into the
       JPEG, like the Sigma BF grid; no consumer change is expected.
+  - Changed during implementation (measured on the Step 2 / 3 raw.pixls.us
+    samples, see `learnings.md`): the Nikon offsets above are the
+    `AFInfo2V0100` layout; the Z bodies' `0300` / `0301` put the six fields
+    at 0x2a and the `0400` / `0401` / `0402` bodies (Z 9, Z 8, Z f) at 0x3e,
+    and the position is valid only when byte 7 (`AFCoordinatesAvailable`)
+    is 1. On Canon, zone and whole-area modes flag many points in focus, so
+    the focus is the center of their bounding box rather than the first
+    point; with none in focus, only a single selected point is used. Canon
+    is read only for `EOS` models (PowerShots have Y down). Both makers
+    were confirmed on off-center landscape and portrait samples from
+    raw.pixls.us, so no review-site gallery was needed.
 
 ## Trade-offs and risks
 
@@ -352,3 +363,4 @@ What the repository already gives us (investigated 2026-09-29):
 - (2026-09-29) Step 2 complete
 - (2026-09-29) Step 3 complete
 - (2026-09-29) Step 4 complete
+- (2026-09-29) Step 5 complete

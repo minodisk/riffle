@@ -372,6 +372,42 @@ mod tests {
     }
 
     #[test]
+    fn a_nef_whose_maker_note_is_past_the_prefix_reads_the_whole_file() {
+        use crate::jpeg::tests::W;
+        use crate::nef::tests::{af_info2, jpeg_sub, maker_note, nef};
+        let w = W(true);
+        let values = [5568, 3712, 3776, 1741, 552, 540];
+        let note = maker_note(&w, &[af_info2(&w, b"0402", 1, values)]);
+        let (_, _, note_len, note_bytes) = note.clone();
+        let tiff = nef(
+            &w,
+            &[w.short(0x0112, 6)],
+            &[note],
+            &[jpeg_sub(&w, 1000, 900)],
+        );
+        // Find where IFD0's TIFF header (the entry's inline value field, four
+        // bytes holding the MakerNote's offset) points, then move the
+        // MakerNote past the prefix so `at + count` in `nef::af_point` runs
+        // past the prefix `buf` while still inside the whole file.
+        let old_at = tiff.windows(6).position(|b| b == b"Nikon\0").unwrap();
+        let entry = tiff
+            .windows(4)
+            .position(|b| b == w.u32(old_at as u32))
+            .unwrap();
+        let new_at = HEAD_LIMIT + 4096;
+        // Leave the original bytes at `old_at` in place (harmless, unused
+        // once the pointer is retargeted) and grow the file so the note also
+        // lives at `new_at`, past the prefix `read_metadata` bounds itself to.
+        let mut file = tiff.clone();
+        file[entry..entry + 4].copy_from_slice(&w.u32(new_at as u32));
+        file.resize(new_at, 0);
+        file.extend_from_slice(&note_bytes[..note_len as usize]);
+        let path = temp_file("deep-note.nef", &file);
+        assert!(read_metadata(&path).unwrap().shot.focus.is_some());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
     fn a_cr3_reads_its_prvw_and_jpeg_track_by_range_past_the_prefix() {
         use crate::cr3::tests::{jpeg_bytes, Cr3};
         let c = Cr3 {

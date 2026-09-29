@@ -9,10 +9,12 @@
 //! top-level preview `uuid` holds `PRVW`, a 1620x1080 JPEG. Bodies shooting
 //! HDR PQ (HEIF) store HEVC in `PRVW`, `THMB` and the first track instead, and
 //! those are skipped: only data starting with a JPEG SOI is taken.
+//!
+//! The AF point comes from `AFInfo2` in `CMT3`, the Canon MakerNote TIFF.
 
 use anyhow::{anyhow, bail, ensure, Result};
 
-use crate::arw::{Arw, Embedded, Shot};
+use crate::arw::{Arw, Embedded, FocusFrame, FocusLocation, Shot};
 use crate::exif;
 use crate::sequence::Tiff;
 
@@ -30,6 +32,10 @@ const IMAGE_HEADER_LEN: usize = 16;
 /// The sub-boxes of a `CRAW` sample entry start 82 bytes into its payload.
 const SAMPLE_ENTRY_BOXES: usize = 82;
 const SOI: [u8; 2] = [0xFF, 0xD8];
+const TAG_AF_INFO2: u16 = 0x0026;
+/// `AFInfo2` starts with eight `int16u`: size, AF area mode, the number of AF
+/// points, the number of valid ones, the image size and the `AFImage` size.
+const AF_INFO2_HEADER: usize = 8;
 
 /// One box: its type, where its payload starts and where it ends (which may
 /// lie past the buffer for a top-level box).
@@ -153,6 +159,12 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
             let entries = tiff.ifd_entries(tiff.u32(4)? as usize)?;
             exif::read_exif_ifd(&tiff, &entries, &mut shot);
         }
+        if let Some(cmt3) = child(&inner, b"CMT3") {
+            if let Some((focus, frame)) = af_point(buf, cmt3, shot.model.as_deref()) {
+                shot.focus = Some(focus);
+                shot.focus_frame = Some(frame);
+            }
+        }
         if let Some(thmb) = child(&inner, b"THMB") {
             let length = u32_at(buf, thmb.payload + 8)? as usize;
             thumbnail = image(buf, thmb, length)?;
@@ -173,6 +185,80 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         orientation,
         shot,
     })
+}
+
+/// The AF area of `AFInfo2` in the MakerNote box `cmt3`: the bounding box of
+/// the AF points in focus, else of the one selected point, converted from
+/// `AFInfo2`'s center-origin, Y-up coordinates to the top-left origin of the
+/// `AFImage` frame (the unrotated image). Only for EOS bodies: ExifTool notes
+/// the Y axis points down on PowerShots. `None` when no point is in focus and
+/// the selection is not a single point (manual focus, or an automatic area
+/// that never locked).
+fn af_point(buf: &[u8], cmt3: Bx, model: Option<&str>) -> Option<(FocusLocation, FocusFrame)> {
+    if !model?.contains("EOS") {
+        return None;
+    }
+    let tiff = Tiff::new(buf, cmt3.payload, cmt3.end).ok()?;
+    let entries = tiff.ifd_entries(tiff.u32(4).ok()? as usize).ok()?;
+    let e = entries.iter().find(|e| e.tag == TAG_AF_INFO2)?;
+    let count = e.count as usize;
+    if e.typ != exif::TYPE_SHORT || count < AF_INFO2_HEADER {
+        return None;
+    }
+    let at = tiff.u32(e.value_field).ok()? as usize;
+    let v = |i: usize| tiff.u16(at + 2 * i).ok();
+    let n = v(2)? as usize;
+    let masks = n.div_ceil(16);
+    if count < AF_INFO2_HEADER + 4 * n + 2 * masks {
+        return None;
+    }
+    let (sensor_w, sensor_h) = (v(6)?, v(7)?);
+    let valid = n.min(v(3)? as usize);
+    let bit = |mask: usize, i: usize| {
+        v(AF_INFO2_HEADER + 4 * n + mask * masks + i / 16).map(|m| m >> (i % 16) & 1 == 1)
+    };
+    let indices = |mask: usize| -> Option<Vec<usize>> {
+        let mut out = Vec::new();
+        for i in 0..valid {
+            if bit(mask, i)? {
+                out.push(i);
+            }
+        }
+        Some(out)
+    };
+    let mut points = indices(0)?;
+    if points.is_empty() {
+        points = indices(1)?;
+        if points.len() != 1 {
+            return None;
+        }
+    }
+    if sensor_w == 0 || sensor_h == 0 {
+        return None;
+    }
+    let s =
+        |array: usize, i: usize| v(AF_INFO2_HEADER + array * n + i).map(|x| i32::from(x as i16));
+    let (mut left, mut right, mut top, mut bottom) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
+    for &i in &points {
+        let (w, h, x, y) = (s(0, i)?, s(1, i)?, s(2, i)?, s(3, i)?);
+        left = left.min(x - w / 2);
+        right = right.max(x + w / 2);
+        top = top.min(-y - h / 2);
+        bottom = bottom.max(-y + h / 2);
+    }
+    let coord = |c: i32, size: u16| (i32::from(size) / 2 + c).clamp(0, i32::from(size) - 1) as u16;
+    Some((
+        FocusLocation {
+            sensor_w,
+            sensor_h,
+            x: coord((left + right) / 2, sensor_w),
+            y: coord((top + bottom) / 2, sensor_h),
+        },
+        FocusFrame {
+            width: (right - left).clamp(0, i32::from(u16::MAX)) as u16,
+            height: (bottom - top).clamp(0, i32::from(u16::MAX)) as u16,
+        },
+    ))
 }
 
 /// The `PRVW` JPEG of the preview `uuid` box `b`, whose header must lie in
@@ -316,6 +402,8 @@ pub(crate) mod tests {
     pub(crate) struct Cr3 {
         pub(crate) ifd0: Vec<Field>,
         pub(crate) exif: Vec<Field>,
+        /// The IFD0 of `CMT3`, the Canon MakerNote.
+        pub(crate) makernote: Vec<Field>,
         pub(crate) thumbnail: Option<Vec<u8>>,
         pub(crate) preview: Option<Vec<u8>>,
         pub(crate) full: Vec<u8>,
@@ -335,6 +423,7 @@ pub(crate) mod tests {
             Cr3 {
                 ifd0: vec![w.short(TAG_ORIENTATION, 1)],
                 exif: Vec::new(),
+                makernote: Vec::new(),
                 thumbnail: Some(jpeg_bytes(16, 1)),
                 preview: Some(jpeg_bytes(64, 2)),
                 full: jpeg_bytes(256, 3),
@@ -350,6 +439,7 @@ pub(crate) mod tests {
                     CANON_UUID.to_vec(),
                     bx(b"CMT1", &w.tiff(&self.ifd0, &[])),
                     bx(b"CMT2", &w.tiff(&self.exif, &[])),
+                    bx(b"CMT3", &w.tiff(&self.makernote, &[])),
                 ]);
                 if let Some(t) = &self.thumbnail {
                     canon.extend_from_slice(&image_box(b"THMB", 8, t));
@@ -473,6 +563,153 @@ pub(crate) mod tests {
         assert_eq!(s.f_number, Some(Rational { num: 28, den: 10 }));
         assert_eq!(s.iso, Some(100));
         assert!(s.focus.is_none() && s.focus_frame.is_none());
+    }
+
+    /// One AF point of `AFInfo2`: width, height, and the center relative to
+    /// the image center with Y up.
+    type Point = (i16, i16, i16, i16);
+
+    /// An `AFInfo2` of `n` points on a 6000x4000 `AFImage`, `points` filling
+    /// the first ones, with the points at `in_focus` and `selected` flagged.
+    fn af_info2(n: usize, points: &[Point], in_focus: &[usize], selected: &[usize]) -> Field {
+        let masks = n.div_ceil(16);
+        let mut v = vec![0u16; AF_INFO2_HEADER + 4 * n + 2 * masks];
+        v[..AF_INFO2_HEADER].copy_from_slice(&[
+            0,
+            9,
+            n as u16,
+            points.len() as u16,
+            6000,
+            4000,
+            6000,
+            4000,
+        ]);
+        v[0] = (v.len() * 2) as u16;
+        for (i, (w, h, x, y)) in points.iter().enumerate() {
+            for (array, value) in [w, h, x, y].into_iter().enumerate() {
+                v[AF_INFO2_HEADER + array * n + i] = *value as u16;
+            }
+        }
+        for (mask, flagged) in [in_focus, selected].into_iter().enumerate() {
+            for i in flagged {
+                v[AF_INFO2_HEADER + 4 * n + mask * masks + i / 16] |= 1 << (i % 16);
+            }
+        }
+        let bytes = v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
+        (TAG_AF_INFO2, TYPE_SHORT, v.len() as u32, bytes)
+    }
+
+    fn af(model: &str, orientation: u16, info: Field) -> Shot {
+        let w = W(true);
+        let mut c = Cr3::new();
+        c.ifd0 = vec![
+            w.ascii(TAG_MODEL, model),
+            w.short(TAG_ORIENTATION, orientation),
+        ];
+        c.makernote = vec![info];
+        parse(&c.build()).unwrap().shot
+    }
+
+    fn focus(x: u16, y: u16) -> Option<FocusLocation> {
+        Some(FocusLocation {
+            sensor_w: 6000,
+            sensor_h: 4000,
+            x,
+            y,
+        })
+    }
+
+    #[test]
+    fn the_af_point_in_focus_is_taken_with_y_up_from_the_image_center() {
+        let s = af(
+            "Canon EOS R10",
+            1,
+            af_info2(651, &[(224, 224, -470, 30)], &[0], &[0]),
+        );
+        assert_eq!(s.focus, focus(2530, 1970));
+        assert_eq!(
+            s.focus_frame,
+            Some(FocusFrame {
+                width: 224,
+                height: 224,
+            })
+        );
+
+        let s = af(
+            "Canon EOS R10",
+            8,
+            af_info2(651, &[(1790, 1793, 749, 640)], &[0], &[0]),
+        );
+        assert_eq!(
+            s.focus,
+            focus(3749, 1360),
+            "a portrait frame stays unrotated"
+        );
+        assert_eq!(
+            s.focus_frame,
+            Some(FocusFrame {
+                width: 1790,
+                height: 1792,
+            })
+        );
+    }
+
+    #[test]
+    fn several_points_in_focus_give_their_bounding_box() {
+        let points = [
+            (100, 100, -1000, 500),
+            (100, 100, 0, 0),
+            (100, 100, 1000, -300),
+            (100, 100, 2000, 1500),
+        ];
+        let s = af(
+            "Canon EOS R6m2",
+            1,
+            af_info2(143, &points, &[0, 2, 17], &[0, 1, 2, 3]),
+        );
+        assert_eq!(s.focus, focus(3000, 1900));
+        assert_eq!(
+            s.focus_frame,
+            Some(FocusFrame {
+                width: 2100,
+                height: 900,
+            })
+        );
+    }
+
+    #[test]
+    fn a_lone_selected_point_stands_in_when_none_is_in_focus() {
+        let s = af(
+            "Canon EOS RP",
+            1,
+            af_info2(143, &[(480, 480, 1302, -173)], &[], &[0]),
+        );
+        assert_eq!(s.focus, focus(4302, 2173));
+
+        let points = [(100, 100, -1000, 500), (100, 100, 1000, -300)];
+        let s = af("Canon EOS R100", 1, af_info2(143, &points, &[], &[0, 1]));
+        assert!(
+            s.focus.is_none() && s.focus_frame.is_none(),
+            "an area that never locked"
+        );
+    }
+
+    #[test]
+    fn no_af_point_without_a_valid_one_or_on_a_powershot() {
+        let s = af("Canon EOS R6", 1, af_info2(1053, &[], &[], &[]));
+        assert!(s.focus.is_none(), "manual focus");
+
+        let s = af(
+            "Canon PowerShot G7 X Mark III",
+            1,
+            af_info2(9, &[(100, 100, 10, 10)], &[0], &[0]),
+        );
+        assert!(s.focus.is_none(), "PowerShot Y points down");
+
+        let (tag, typ, _, mut bytes) = af_info2(143, &[(480, 480, 1302, -173)], &[0], &[0]);
+        bytes.truncate(bytes.len() - 2);
+        let s = af("Canon EOS RP", 1, (tag, typ, bytes.len() as u32 / 2, bytes));
+        assert!(s.focus.is_none(), "an AFInfo2 shorter than its points");
     }
 
     #[test]

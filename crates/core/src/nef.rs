@@ -6,10 +6,12 @@
 //! first is the full-size JpgFromRaw, and recent bodies add a later ~1620x1080
 //! one, which is the preview. IFD0's own JPEG is a 160x120 thumbnail and the
 //! MakerNote's `PreviewIFD` JPEG is at most 640 wide, so neither is used.
+//!
+//! The AF point comes from the MakerNote's `AFInfo2` on the Z bodies.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
-use crate::arw::{Arw, Embedded, Shot};
+use crate::arw::{Arw, Embedded, FocusFrame, FocusLocation, Shot};
 use crate::exif::{self, integer};
 use crate::sequence::{Entry, Tiff};
 
@@ -18,6 +20,15 @@ const TAG_COMPRESSION: u16 = 0x0103;
 const TAG_JPEG_OFFSET: u16 = 0x0201;
 const TAG_JPEG_LENGTH: u16 = 0x0202;
 const COMPRESSION_OLD_JPEG: u32 = 6;
+const TAG_MAKER_NOTE: u16 = 0x927c;
+/// A Nikon MakerNote is `Nikon\0` plus four bytes, then a TIFF whose offsets
+/// are relative to its own header.
+const NIKON_HEADER: &[u8] = b"Nikon\0";
+const NIKON_HEADER_LEN: usize = 10;
+const TAG_AF_INFO2: u16 = 0x00b7;
+/// `AFInfo2`'s `AFCoordinatesAvailable` byte: 1 when the AF area position is
+/// filled in.
+const AF_COORDINATES_AVAILABLE: usize = 7;
 
 /// Parse a NEF (or a prefix of one). A structure that points past `buf` is an
 /// error, so a prefix too short to hold IFD0, the Exif IFD (when IFD0 points
@@ -35,6 +46,10 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         // The next-IFD link ends the IFD, so the inline values are in `buf` too.
         tiff.u32(at + 2 + 12 * entries.len())?;
         exif::read_exif_ifd(&tiff, &entries, &mut shot);
+        if let Some((focus, frame)) = af_point(buf, &tiff, &entries)? {
+            shot.focus = Some(focus);
+            shot.focus_frame = frame;
+        }
     }
 
     let mut jpegs = Vec::new();
@@ -74,6 +89,92 @@ fn sub_ifds(tiff: &Tiff, ifd0: &[Entry]) -> Result<Vec<usize>> {
         .collect()
 }
 
+/// The AF area of the MakerNote's `AFInfo2`, as written by the Z bodies
+/// (versions `03xx` and `04xx`): its center and size in the `AFImage` frame,
+/// which is the unrotated image with the origin at the top left. `None` when
+/// the body wrote no position (auto-area before a focus lock, or an older
+/// version, whose position is only a grid point name).
+fn af_point(
+    buf: &[u8],
+    tiff: &Tiff,
+    exif: &[Entry],
+) -> Result<Option<(FocusLocation, Option<FocusFrame>)>> {
+    let Some(e) = exif.iter().find(|e| e.tag == TAG_MAKER_NOTE) else {
+        return Ok(None);
+    };
+    let len = e.count as usize;
+    if len <= NIKON_HEADER_LEN {
+        return Ok(None);
+    }
+    let Ok(at) = tiff.u32(e.value_field) else {
+        return Ok(None);
+    };
+    let at = at as usize;
+    // The MakerNote's declared length running past `buf` (including the
+    // header itself, when `buf` is a prefix too short to hold it) is an
+    // error, not a note to silently skip: the header can be a Nikon one that
+    // is simply cut off, and treating a cut-off note as "no AF point" would
+    // let the reader cache that miss under the current `EXTRACTOR_VERSION`
+    // instead of retrying with the whole file.
+    let end = at
+        .checked_add(len)
+        .filter(|&end| end <= buf.len())
+        .ok_or_else(|| anyhow!("Nikon MakerNote out of range"))?;
+    if &buf[at..at + NIKON_HEADER.len()] != NIKON_HEADER {
+        return Ok(None);
+    }
+    let Ok(note) = Tiff::new(buf, at + NIKON_HEADER_LEN, end) else {
+        return Ok(None);
+    };
+    let Ok(entries) = note.u32(4).and_then(|ifd0| note.ifd_entries(ifd0 as usize)) else {
+        return Ok(None);
+    };
+    let Some(e) = entries.iter().find(|e| e.tag == TAG_AF_INFO2) else {
+        return Ok(None);
+    };
+    let Ok(info) = note.u32(e.value_field) else {
+        return Ok(None);
+    };
+    let info = info as usize;
+    let Ok(version) = note.bytes(info, 4) else {
+        return Ok(None);
+    };
+    let base = match version {
+        b"0300" | b"0301" => 0x2a,
+        b"0400" | b"0401" | b"0402" => 0x3e,
+        _ => return Ok(None),
+    };
+    if (e.count as usize) < base + 12 {
+        return Ok(None);
+    }
+    let Ok(available) = note.bytes(info + AF_COORDINATES_AVAILABLE, 1) else {
+        return Ok(None);
+    };
+    if available != [1] {
+        return Ok(None);
+    }
+    let v = |i: usize| note.u16(info + base + 2 * i).ok();
+    let (Some(sensor_w), Some(sensor_h), Some(x), Some(y)) = (v(0), v(1), v(2), v(3)) else {
+        return Ok(None);
+    };
+    if sensor_w == 0 || sensor_h == 0 || (x == 0 && y == 0) {
+        return Ok(None);
+    }
+    let (width, height) = (v(4), v(5));
+    Ok(Some((
+        FocusLocation {
+            sensor_w,
+            sensor_h,
+            x,
+            y,
+        },
+        width
+            .zip(height)
+            .filter(|&(w, h)| w > 0 && h > 0)
+            .map(|(width, height)| FocusFrame { width, height }),
+    )))
+}
+
 fn jpeg(tiff: &Tiff, entries: &[Entry]) -> Option<Embedded> {
     let int = |tag| {
         entries
@@ -100,6 +201,40 @@ pub(crate) mod tests {
 
     const TAG_NEW_SUBFILE_TYPE: u16 = 0x00fe;
     const COMPRESSION_NEF: u16 = 34713;
+    const TYPE_UNDEFINED: u16 = 7;
+
+    /// An `AFInfo2` of `version` with the AF image size, the area center and
+    /// the area size at `base`, and `AFCoordinatesAvailable` set to `available`.
+    pub(crate) fn af_info2(w: &W, version: &[u8; 4], available: u8, values: [u16; 6]) -> Field {
+        let base = if version[1] == b'4' { 0x3e } else { 0x2a };
+        let mut v = vec![0u8; base + 12 + 8];
+        v[..4].copy_from_slice(version);
+        v[4] = 2;
+        v[AF_COORDINATES_AVAILABLE] = available;
+        for (i, x) in values.iter().enumerate() {
+            v[base + 2 * i..base + 2 * i + 2].copy_from_slice(&w.u16(*x));
+        }
+        (TAG_AF_INFO2, TYPE_UNDEFINED, v.len() as u32, v)
+    }
+
+    /// A Nikon MakerNote: the header, then a TIFF in `w`'s byte order holding
+    /// `fields` in its IFD0.
+    pub(crate) fn maker_note(w: &W, fields: &[Field]) -> Field {
+        let mut v = NIKON_HEADER.to_vec();
+        v.extend_from_slice(&[0x02, 0x10, 0, 0]);
+        v.extend_from_slice(&w.tiff(fields, &[]));
+        (TAG_MAKER_NOTE, TYPE_UNDEFINED, v.len() as u32, v)
+    }
+
+    fn af(file: &W, note: &W, fields: &[Field]) -> Shot {
+        let buf = nef(
+            file,
+            &[file.short(TAG_ORIENTATION, 8)],
+            &[maker_note(note, fields)],
+            &[jpeg_sub(file, 1000, 900)],
+        );
+        parse(&buf).unwrap().shot
+    }
 
     /// One IFD whose values all fit in their entries, with no next IFD.
     fn ifd(w: &W, fields: &[Field]) -> Vec<u8> {
@@ -232,6 +367,102 @@ pub(crate) mod tests {
             assert_eq!(s.iso, Some(64));
             assert!(s.focus.is_none() && s.focus_frame.is_none());
         }
+    }
+
+    #[test]
+    fn reads_the_af_area_of_a_z_body_s_af_info2() {
+        for (file, note) in [(true, true), (true, false), (false, false)] {
+            let (file, note) = (W(file), W(note));
+            for version in [b"0300", b"0301", b"0400", b"0401", b"0402"] {
+                let values = [5568, 3712, 3776, 1741, 552, 540];
+                let s = af(&file, &note, &[af_info2(&note, version, 1, values)]);
+                assert_eq!(
+                    s.focus,
+                    Some(FocusLocation {
+                        sensor_w: 5568,
+                        sensor_h: 3712,
+                        x: 3776,
+                        y: 1741,
+                    }),
+                    "{version:?} le {}/{}",
+                    file.0,
+                    note.0
+                );
+                assert_eq!(
+                    s.focus_frame,
+                    Some(FocusFrame {
+                        width: 552,
+                        height: 540,
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_af_area_without_a_size_has_no_frame() {
+        let w = W(true);
+        let s = af(
+            &w,
+            &w,
+            &[af_info2(&w, b"0301", 1, [6048, 4024, 3024, 1160, 0, 0])],
+        );
+        assert!(s.focus.is_some());
+        assert!(s.focus_frame.is_none());
+    }
+
+    #[test]
+    fn an_af_info2_without_a_position_gives_no_af_point() {
+        let w = W(true);
+        let values = [8256, 5504, 4905, 2461, 291, 323];
+        for fields in [
+            vec![af_info2(&w, b"0400", 0, values)],
+            vec![af_info2(&w, b"0301", 1, [8256, 5504, 0, 0, 291, 323])],
+            vec![af_info2(&w, b"0301", 1, [0, 0, 4905, 2461, 291, 323])],
+            vec![af_info2(&w, b"0101", 1, values)],
+            vec![w.short(TAG_ORIENTATION, 1)],
+        ] {
+            let s = af(&w, &w, &fields);
+            assert!(s.focus.is_none() && s.focus_frame.is_none());
+        }
+
+        let mut short = af_info2(&w, b"0301", 1, values);
+        short.3.truncate(0x2a + 10);
+        short.2 = short.3.len() as u32;
+        assert!(af(&w, &w, &[short]).focus.is_none(), "a short AFInfo2");
+
+        let (tag, typ, _, mut v) = maker_note(&w, &[af_info2(&w, b"0301", 1, values)]);
+        v[..6].copy_from_slice(b"Other\0");
+        let buf = nef(
+            &w,
+            &[],
+            &[(tag, typ, v.len() as u32, v)],
+            &[jpeg_sub(&w, 1000, 900)],
+        );
+        assert!(
+            parse(&buf).unwrap().shot.focus.is_none(),
+            "not a Nikon note"
+        );
+    }
+
+    #[test]
+    fn a_maker_note_with_a_bad_inner_tiff_header_has_no_af_point() {
+        let w = W(true);
+        let (tag, typ, count, mut v) = maker_note(&w, &[af_info2(&w, b"0301", 1, values())]);
+        // Corrupt the inner TIFF's byte order marker, right after the
+        // `Nikon\0` header and its four following bytes, so the note is
+        // fully inside `buf` but `Tiff::new` fails to construct it.
+        v[NIKON_HEADER_LEN] = b'X';
+        v[NIKON_HEADER_LEN + 1] = b'X';
+        let buf = nef(&w, &[], &[(tag, typ, count, v)], &[jpeg_sub(&w, 1000, 900)]);
+        let a = parse(&buf).unwrap();
+        assert!(a.shot.focus.is_none() && a.shot.focus_frame.is_none());
+        assert_eq!(at(a.full), Some((1000, 900)));
+        assert_eq!(at(a.preview), Some((1000, 900)));
+    }
+
+    fn values() -> [u16; 6] {
+        [5568, 3712, 3776, 1741, 552, 540]
     }
 
     #[test]

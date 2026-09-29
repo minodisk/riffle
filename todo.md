@@ -732,12 +732,13 @@ samples, as done for the Sigma BF `0x0147` in
       working body to the README "RAW formats and cameras" list.
 - [ ] Tier 2: read the AF point from the exiftool-decoded MakerNote
       tags above, confirming on samples, for bodies whose container
-      Riffle can already read. Next up: Canon `AFInfo2` (`CMT3` tag
-      0x0026) and Nikon `AFInfo2` (MakerNote tag 0x00b7, versions
-      `0300` / `0301` on the Z bodies) for the CR3 / NEF bodies in the
-      README list, as sketched in Step 5 of
-      `docs/plans/20260929-canon-nikon-raw/plan.md`; it needs off-center
-      landscape and portrait samples per maker.
+      Riffle can already read. Canon `AFInfo2` (EOS bodies) and Nikon
+      `AFInfo2` versions `03xx` / `04xx` (Z bodies) are done
+      (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`). Left: the
+      Nikon DSLRs' `AFInfo2` `0100` / `0101` (D850, D500), whose AF point
+      is a grid point name rather than a position, and a sample with an
+      AF position from the Nikon Z 8 and the Canon EOS R6 (their
+      raw.pixls.us samples carry none).
 - [ ] Tier 3: decide per container whether a new parser is worth it,
       given the samples available. CR3 and NEF are done
       (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`); RAF and the

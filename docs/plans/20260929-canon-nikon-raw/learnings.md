@@ -194,6 +194,74 @@ full JPEG); its full-frame samples are HEIF and fail as described above.
   numbers; it does not link the plan's learnings, since the plan folder moves
   under `_archived/` at wrap-up.
 
+## Step 5: AF point from Nikon and Canon `AFInfo2`
+
+- ExifTool's `Nikon.pm` / `Canon.pm` were fetched from GitHub (exiftool is
+  still not installed). The plan's Nikon byte offsets 16-26 are the
+  `AFInfo2V0100` table; the Z bodies use `AFInfo2V0300` (fields at 0x2a) and
+  `AFInfo2V0400` (at 0x3e), both gated on byte 7 `AFCoordinatesAvailable`.
+  The Z 9 / Z 8 / Z f write `0400` / `0401`, not `030x` as the plan assumed.
+- An independent Python dump (plus Pillow, in a venv outside the repo)
+  drew both makers' points on the `PRVW` / preview JPEG before the Rust code
+  existed; `riffle-cli focusbox` then reproduced the same coordinates from
+  `reader::read_preview` on every file.
+- Bash-tool pitfall again: `\0` inside a heredoc'd Python or Perl
+  replacement string became a literal NUL in `nef.rs` (`b"Nikon\0"`).
+  Fixed with `perl -pi -e 'my $z=chr(0); my $b=chr(92); s/Nikon$z/Nikon${b}0/g'`;
+  the Edit tool is the safe route for such text.
+- Canon zone / whole-area frames (R50, R50 V, R6 Mark II, R8) flag tens to
+  hundreds of points in focus; the first flagged one is the cluster's
+  top-left corner, so the bounding-box center is used instead (a deviation
+  from the plan, recorded there). The R100 sample flags all 143 points
+  selected and one in focus, which the rule handles; several selected and
+  none in focus gives `None` so sharpness keeps its face / tile fallback
+  rather than scoring the frame center.
+- `focus_frame` is filled for both makers as the plan asked, but it only
+  feeds `eye_af_frame`, which also needs Sony's `af_tracking`, so today it
+  is just stored in the index (`frame_w` / `frame_h`).
+
+### Sample verification (2026-09-29, local only, not committed)
+
+Same raw.pixls.us files as Steps 2 / 3. Decoded point in `AFImage`
+coordinates and what it lands on in the preview:
+
+| Body           | Version / tag | AFImage   | Point (top-left)      | On the subject                     |
+| -------------- | ------------- | --------- | --------------------- | ---------------------------------- |
+| Nikon Z 9      | 0400          | 8256x5504 | (4905, 2461)          | yes, the sculpture, off-center     |
+| Nikon Z 8      | 0400          | –         | none (coords flag 0)  | auto-area, no position written     |
+| Nikon Z 7II    | 0301          | 8256x5504 | (1268, 4504)          | yes, the shrub, off-center         |
+| Nikon Z 6II    | 0301          | 6048x4024 | (3024, 2012)          | centered                           |
+| Nikon Z 6      | 0300          | 6048x4024 | (3024, 1160)          | yes, the toy's eye, off-center Y   |
+| Nikon Z 5      | 0301          | 6016x4016 | (3008, 2008)          | centered, the motorbike            |
+| Nikon Z f      | 0401          | 6048x4032 | (3023, 2016)          | centered, wide area                |
+| Nikon Z fc     | 0301          | 5568x3712 | (1296, 1856)          | yes, the flower, off-center X      |
+| Nikon Z 50     | 0300          | 5568x3712 | (2784, 1856)          | centered                           |
+| Nikon Z 30     | 0301          | 5568x3712 | (3776, 1741)          | yes, portrait (Orientation 8)      |
+| Nikon D850     | 0101          | –         | none                  | grid-point version, not read       |
+| Nikon D500     | 0101          | –         | none                  | grid-point version, not read       |
+| Canon EOS R    | 0x26, n 143   | 6720x4480 | (3014, 2305)          | yes, the bud                       |
+| Canon EOS RP   | 0x26, n 143   | 6240x4160 | (4422, 2253) selected | yes, the can, off-center           |
+| Canon EOS R3   | 0x26, n 1053  | 6000x4000 | (3093, 1989)          | near center, the street            |
+| Canon EOS R5   | 0x26, n 1053  | 8192x5464 | (4562, 2232)          | yes, the lemon                     |
+| Canon R5 Mk II | 0x26, n 1053  | 5088x3392 | (2706, 878)           | yes, the tomato, off-center Y (crop) |
+| Canon EOS R6   | 0x26, n 1053  | –         | none (manual focus)   | –                                  |
+| Canon R6 Mk II | 0x26, n 1053  | 6000x4000 | (4656, 2219) 62 pts   | yes, the shed, off-center          |
+| Canon R6 Mk III| 0x26, n 1053  | 6960x4640 | (4988, 1914) selected | yes, the windmill, off-center      |
+| Canon EOS R7   | 0x26, n 651   | 6960x4640 | (3153, 2472)          | the trees, one large area          |
+| Canon EOS R10  | 0x26, n 651   | 6000x4000 | (2530, 1970)          | next to the cow (landscape)        |
+| Canon EOS R10  | 0x26, n 651   | 6000x4000 | (3749, 1360)          | yes, the head, portrait (Orient. 8) |
+| Canon EOS R50  | 0x26, n 651   | 6000x4000 | (2190, 2552) many pts | the hedge, whole area              |
+| Canon R50 V    | 0x26, n 651   | 6000x4000 | (3450, 2000) many pts | yes, the bench                     |
+| Canon EOS R100 | 0x26, n 143   | 6000x4000 | (4170, 2682)          | yes, the flower, off-center        |
+
+- Confirmed per maker (off-center landscape and portrait): Nikon on the
+  Z fc / Z 6 / Z 9 and the Z 30 portrait; Canon on the R5 Mark II crop /
+  R6 Mark III / R6 Mark II and the R10 portrait, where Y up and Y down land
+  on different things. No review-site gallery was downloaded.
+- `docs/cameras.md` flips AF point and AF frame size to `✓` for every body
+  above with a point on its sample; the Z 8, R6, D850 and D500 stay `–`.
+- R8 samples (HEIF) also carry `AFInfo2`, but the file cannot be opened.
+
 ## Deferred issues (todo candidates)
 
 The three items below were handled in Step 4 (the first two added to
@@ -217,3 +285,23 @@ The three items below were handled in Step 4 (the first two added to
   backticks (meant as `Nikon\0`), which makes grep treat the file as
   binary. Basis: noticed while editing the CR3 section in Step 3. File:
   `docs/agents/raw-metadata-parsing.md`.
+
+Step 5 items (the first two are already in `todo.md`'s Tier 2 checkbox,
+updated in Step 5 as the plan asked):
+
+- Nikon DSLRs write `AFInfo2` `0100` / `0101` (D850, D500 samples), whose AF
+  point is a grid point name (plus a contrast-detect position only in live
+  view), so they get no AF point. Basis: Step 5 sample survey and
+  `Nikon.pm` `AFInfo2V0101`. File: `crates/core/src/nef.rs`.
+- The Nikon Z 8 and Canon EOS R6 raw.pixls.us samples carry no AF position
+  (auto-area with `AFCoordinatesAvailable` 0; manual focus), so the mapping
+  is unconfirmed on those two bodies and `docs/cameras.md` keeps `–`.
+  Basis: Step 5 sample survey. Files: `crates/core/src/nef.rs`,
+  `crates/core/src/cr3.rs`, `docs/cameras.md`.
+- Unverified: a Nikon Z body shooting in DX crop (or a Canon body in 1.6x
+  crop on a full-frame sensor other than the R5 Mark II sample, which was
+  fine). `Nikon.pm` hints that some DX results are reported in FX
+  coordinates; if `AFImageWidth` stays the FX size while the JPEG is the DX
+  crop, the point would land off by the crop factor. No DX-crop NEF sample
+  was available. Basis: Step 5, `Nikon.pm` near its `$DX` handling. File:
+  `crates/core/src/nef.rs`.
