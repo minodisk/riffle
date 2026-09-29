@@ -1079,18 +1079,6 @@ and folder.
       and either patch the `.dop`'s `Name` on rename or document what to
       expect.
 
-### App: a rename can carry away an `.xmp` shared by two RAWs of the same stem
-
-From Step 3's `file_plan` (`crates/app/src/rename.rs`), which, like
-`trash::plan` (`crates/app/src/trash.rs`), takes `a.xmp` as `a.ARW`'s
-sidecar even when an `a.DNG` in the same folder uses the same `a.xmp`.
-Renaming `a.ARW` carries the DNG's sidecar away.
-
-#### TODO
-
-- [ ] Make a rename (and the trash) leave a `.xmp` another RAW of the same
-      stem still uses, or refuse with a message.
-
 ### App: a pending rename waits silently with no visible pending state
 
 #### Background
