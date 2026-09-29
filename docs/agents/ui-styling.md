@@ -140,8 +140,14 @@ chrome):
   `--label-*` set (ratings, pick / reject, color labels).
 - The two hover-at-90% hexes in the component block: `#d0d0d0`
   (`.button.primary`) and `#e85c5f` (`.button.destructive`).
+- The component block's translucent fills and black overlays, which have no
+  shadcn token: the `rgb(255 255 255 / 4.5%)` fill of `.button.outline`,
+  `.input` and `.select` (shadcn's `input/30` over the dark background), the
+  `.dialog` backdrop's `rgb(0 0 0 / 60%)`, and the `rgb(0 0 0 / 50%)` shadows
+  of `.dialog-box` and `.menu`.
 - The strip cell's per-cell semantics: `.cell.failed`'s `#402020`, the burst
-  band tint, and the `#000` `text-shadow` / `drop-shadow` halos.
+  band tint (`.cell.burst::before`'s `rgba(255, 255, 255, 0.08)`), and the
+  `#000` `text-shadow` / `drop-shadow` halos.
 - In `src/*.ts`: `focus.ts`'s `FOCUS_MARK_COLORS` (and `focus.test.ts`),
   `main.ts`'s `FACE_MARK_COLOR`, the compare best-frame pair (`#244c31`,
   `#6bdc8a`) and the `rgba(0, 0, 0, 0.8)` mark halo.
@@ -151,7 +157,7 @@ chrome):
 Run both greps and check every match is `:root` or listed above:
 
 ```sh
-grep -nE '#[0-9a-f]{3,6}\b' crates/app/ui/style.css
+grep -nE '#[0-9a-f]{3,6}\b|rgba?\(' crates/app/ui/style.css
 grep -nE '#[0-9a-f]{3,6}\b|rgba?\(' crates/app/ui/src/*.ts
 ```
 
