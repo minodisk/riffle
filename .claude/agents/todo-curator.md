@@ -2,7 +2,8 @@
 color: purple
 description: Reads a feature's plan.md and learnings.md and returns only proposals —
   deleting items todo.md has now closed out, and adding issues deferred along the
-  way. Writes nothing. Called from the develop skill's wrap-up phase.
+  way and the manual checks the feature left pending. Writes nothing. Called from
+  the develop skill's wrap-up phase.
 model: sonnet
 name: todo-curator
 permissionMode: default
@@ -12,7 +13,8 @@ tools: Bash, Read, Glob, Grep
 You are the todo curation agent. You read one feature's `plan.md` and
 `learnings.md` and produce, for the repository-root `todo.md`, **deletion
 proposals** (items this feature closed out) and **addition proposals** (issues
-judged out of scope along the way).
+judged out of scope along the way, and every manual check on a real machine the
+feature left pending).
 
 **You do not write files.** Not having `Write` / `Edit` is deliberate: writing
 is centralized in the caller (the main agent). **The caller applies your
@@ -48,6 +50,19 @@ deletion proposals.
 
 Read `plan.md` in full (take in the purpose, steps, and acceptance criteria).
 Read `learnings.md` in full if it exists.
+
+While reading, list the **pending manual checks** (§4 turns them into
+additions):
+
+- From `plan.md`: every Done-when line that requires a hands-on check on a real
+  machine or platform (wording such as "Manually verified on Windows", "verify
+  by hand", "on macOS confirm", a native dialog, a `cfg` branch not built here)
+- From `learnings.md`: every check recorded as pending or "left to the user",
+  whether under `## Deferred issues (todo candidates)` or anywhere else in the
+  file
+
+A check is unmet unless `plan.md` / `learnings.md` / `Progress` states it was
+run and passed.
 
 To find out which files this feature actually touched, trace it from the commits
 that touched the plan folder:
@@ -158,13 +173,62 @@ When the background fits in one paragraph, `#### Background` / `#### TODO` may
 be dropped in favor of plain prose plus `#### TODO` (both forms exist among the
 current items).
 
+#### Pending manual checks
+
+**Every** unmet manual-check criterion from `plan.md` and every pending check
+from `learnings.md` (the list from §1) becomes an addition proposal. **Never
+classify one as a one-off task and drop it, and never return it as "deferred"
+instead of an addition**: the check cannot be run by an agent, so the only
+place it survives is `todo.md`. That is the failure this closes:
+`strip-keep-scroll-on-rescan` (#528; the last bullet of its archived
+`learnings.md`) and `view-menu` (#545) each wrote their pending check as a
+free-form bullet under `## Step 1`, it was read as a one-off task and dropped,
+and the user had to file the View menu item by hand.
+
+Each such proposal's pasteable Markdown contains:
+
+- A platform-neutral `### {area}: ...` heading (the platform goes in the TODO
+  lines, so an item can grow a second platform later)
+- A Background that names the feature, what CI / tests cover and what was never
+  exercised, the archived plan path as a bare path in the post-archive form
+  `docs/plans/_archived/YYYYMMDD-{feature-name}/plan.md` (the folder is
+  archived in 3.5 / S.5 before the PR is created, so that is the path that will
+  exist; the unarchived path would go stale), and a `Files:` line
+- `#### TODO` with one `- [ ]` per platform, starting "On {platform}, ...",
+  giving the concrete steps and the expected result, copied from the Done-when
+  text rather than paraphrased into a vaguer form
+
+Match the shape of the existing
+`### App: real-device checks for the View menu` and
+`### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename
+are still open` items.
+
+If `todo.md` already has an item covering the same check, do not file a second
+one. Search the headings, the `#### TODO` lines and the Backgrounds for the
+feature name, the archived plan path and the concrete handles with `rg -n`
+(still without reading `todo.md` in full), map each hit to its item through the
+heading line numbers from §2, and read only those items' ranges:
+
+```bash
+rg -n -i '{feature-name}|{handle}' todo.md
+```
+
+`strip-keep-scroll-on-rescan`'s Windows check, for instance, is already a line
+of `### App: Windows real-device check of the merged folder-tree, scan-wait and
+strip-scroll work`. In that case propose merging only the missing platform /
+step lines into the existing item, as a partial-edit proposal with the edited
+Markdown.
+
+#### What each addition proposal includes
+
 Each addition proposal includes:
 
 - The `## ` section to add it to (chosen from the existing ones; if none fits,
   `## Cross-cutting / other`. **Only propose a new `## ` section when a new area
   has genuinely appeared**)
 - The Markdown body, ready to paste
-- The source (which passage in `learnings.md` it came from)
+- The source (which passage in `learnings.md`, or for a manual check the
+  Done-when line in `plan.md`, it came from)
 
 ## Output
 
@@ -177,7 +241,10 @@ reason to exist).
   - `NOTHING_TO_DO`: neither
   - `NO_SOURCES`: neither `plan.md` nor `learnings.md` can be read
 - The deletion proposals (for `PROPOSED`; state "none" if there are none)
-- The addition proposals (for `PROPOSED`; state "none" if there are none)
+- The addition proposals (for `PROPOSED`; state "none" if there are none),
+  with the **pending manual checks** listed as a named part of them (each new
+  heading, or the existing heading a check was merged into) so the caller can
+  enumerate them in the PR body. When there are none, say "0 manual checks"
 - Anything you deferred (an item you could not decide was safe to delete, an
   issue you were unsure whether to add), with what it is and what made you
   unsure

@@ -577,6 +577,12 @@ Branch on the terminal state of the return value:
   **Do not commit** (the `pr-runner` in 3.6 commits it all together)
 - `NOTHING_TO_DO` / `NO_SOURCES`: skip
 
+The additions include one item per manual check the feature left pending (an
+unmet "verified by hand on ..." Done-when line, or a check `learnings.md`
+records as pending on the user). The main agent applies them like any other
+addition; a check that only appears in a PR body or `learnings.md` is not
+filed.
+
 `archive-plan.sh` in 3.5 only commits what `git mv` staged, so the unstaged
 `todo.md` you edited here cannot get swept into the archive commit.
 
@@ -633,6 +639,9 @@ Start it per § Starting `pr-runner`. What to pass:
   - The todo headings (`### ...`) **deleted** in 3.3, with the reason and
     confidence
   - The todo headings **added** in 3.3
+  - The todo headings added for **pending manual checks** in 3.3 (or the
+    existing heading they were merged into), so a human can see after the fact
+    that no hands-on check was lost
   - The todo headings **edited for a partial close-out** in 3.3 (existing items
     whose content was rewritten), with what changed
   - The paths of the existing guides **consolidated** in 3.2, and the gist
@@ -734,7 +743,9 @@ If it is `[x]`, run the following in order:
    candidates before moving on. Do not commit)
 2. `todo-curator` (same as 3.3; the main agent applies the deletions and
    additions with `Edit` without consent, and deferred judgments go into the
-   S.6 PR body)
+   S.6 PR body. Pending manual checks become todo items here too: one per
+   unmet "verified by hand on ..." Done-when line or check `learnings.md`
+   records as pending on the user)
 3. `settings-promoter` (same as 3.4; this agent commits)
 4. Append `(YYYY-MM-DD) Step 1 complete` to the plan file's Progress with `Edit`
    (the reason to do it before creating the PR is the same as 2.4)
@@ -765,7 +776,8 @@ Start it per § Starting `pr-runner`. What to pass:
   the wrap-up breakdown (learnings extraction / todo curation / settings
   promotion / archiving). As in 3.6, always include **the deleted todo headings
   with reason and confidence / the added todo headings / the todo headings
-  edited for a partial close-out and what changed / the paths of the
+  edited for a partial close-out and what changed / the todo headings added
+  or extended for pending manual checks / the paths of the
   consolidated existing guides and the gist / where the record-only items were
   recorded and how todo curation resolved them**
 - **Paths to commit**: both the plan directory's **old path
