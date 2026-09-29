@@ -426,7 +426,6 @@ effective one is set by the frontend's `set_panels` a moment later.
 keys with no menu item. A test (`menu_covers_every_action`) requires every
 keymap action to be in the menu or in its `MENU_LESS` list.
 
-- Why: a keyboard without function keys can still reach the panel toggles.
 - Why only the pane toggles: they have a state a check mark can show, and
   a modifier default that can be an accelerator; the main-view keys had
   neither and showed an empty accelerator column.
