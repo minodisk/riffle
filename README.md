@@ -282,7 +282,16 @@ Discussions. If it does not, open an issue from the
 ### RAW formats and cameras
 
 - ARW
+  - [x] Sony α1
+  - [x] Sony α9 III
   - [x] Sony α7 V
+  - [x] Sony α7 IV
+  - [x] Sony α7R V
+  - [x] Sony α7S III
+  - [x] Sony α7C II
+  - [x] Sony α7CR
+  - [x] Sony α6700
+  - [x] Sony ZV-E1
 - CR3
   - [x] Canon EOS R
   - [x] Canon EOS RP

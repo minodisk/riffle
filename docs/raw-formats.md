@@ -84,6 +84,16 @@ of a detected face or the sharpest region (see
 | Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure |
 | AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) |
 
+### ARW: no full-size JPEG on older bodies
+
+Recent Sony bodies (the α1, α9 III, α7 IV, α7R V, α7S III, α7C II, α7CR,
+α6700 and ZV-E1 samples) write a 1616x1080 preview in IFD0, a 160x120
+thumbnail in IFD1 and the full-size JPEG in IFD2. Older bodies (the α9 II,
+α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 samples) write no IFD2, so the
+largest JPEG besides the preview is the 160x120 thumbnail. Riffle has no
+full-size JPEG to show at 1:1 on those bodies, so they are not listed as
+supported yet.
+
 ### NEF: two JPEGs besides the thumbnail, told apart by order
 
 A NEF carries a 160x120 thumbnail in IFD0 on some bodies, a small preview
