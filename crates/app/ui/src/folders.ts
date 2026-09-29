@@ -32,6 +32,7 @@ import {
   appendTyped,
   clickSelect,
   collapse,
+  drawnChildren,
   expand,
   markFailed,
   pruneSelection,
@@ -224,7 +225,8 @@ function render(): void {
     });
     const expander = document.createElement("span");
     expander.className = "expander";
-    if (node.children === undefined || node.children.length > 0) {
+    const children = drawnChildren(tree, node);
+    if (children === undefined || children.length > 0) {
       row.setAttribute("aria-expanded", String(node.expanded));
       expander.textContent = node.expanded ? "▾" : "▸";
       expander.addEventListener("click", (event) => {
@@ -595,7 +597,7 @@ export function keydown(event: KeyboardEvent): boolean {
     return typeKey(event);
   }
   event.preventDefault();
-  const command = treeKey(rows(tree), cursor, treeMove);
+  const command = treeKey(tree, cursor, treeMove);
   if (command?.kind === "focus") {
     moveCursor(command.path);
   } else if (command?.kind === "expand" || command?.kind === "collapse") {

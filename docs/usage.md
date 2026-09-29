@@ -14,11 +14,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `/mnt/*`, `/media/*/*` and `/run/media/*/*` on Linux; the list of these
   root volumes is read again each time the window gains focus, so one
   mounted after launch appears once you switch back to Riffle). A folder's
-  arrow lists its subfolders, and an expanded folder follows the disk: a
-  subfolder created, deleted or renamed under it, by the file manager,
-  another app or Riffle itself, appears or goes within about a second (a
-  folder the app cannot watch, a network share say, is re-listed only when
-  it is expanded again). On
+  arrow lists its subfolders (but for one already at the top level, so home
+  is not repeated under the volume it lives on), and an expanded folder
+  follows the disk: a subfolder created, deleted or renamed under it, by
+  the file manager, another app or Riffle itself, appears or goes within
+  about a second (a folder the app cannot watch, a network share say, is
+  re-listed only when it is expanded again). On
   Windows, while a folder is expanded, the file manager cannot rename the
   folders that hold it (the folder itself and those under it stay free);
   collapse it first. An expanded
