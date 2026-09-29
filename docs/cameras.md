@@ -7,7 +7,16 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 
 | Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
 |---|---|---|---|---|
+| Sony α1 | ✓ | ✓ | – | ✓ |
+| Sony α9 III | – | – | – | ✓ |
 | Sony α7 V | ✓ | ✓ | ✓ | ✓ |
+| Sony α7 IV | ✓ | ✓ | – | ✓ |
+| Sony α7R V | ✓ | ✓ | – | ✓ |
+| Sony α7S III | ✓ | ✓ | – | ✓ |
+| Sony α7C II | ✓ | ✓ | – | ✓ |
+| Sony α7CR | – | – | – | ✓ |
+| Sony α6700 | ✓ | ✓ | – | ✓ |
+| Sony ZV-E1 | ✓ | ✓ | – | ✓ |
 | SIGMA BF | ✓ | – | – | – |
 | SIGMA fp L | – | – | – | – |
 | Leica M11-P | – | – | – | – |
@@ -42,6 +51,12 @@ On the Canon and Nikon bodies, Riffle reads the AF point from the MakerNote
 Nikon Z 8 and Canon EOS R6 samples carried no AF position (an automatic area
 that never locked, and manual focus), so those two are unconfirmed; the Nikon
 D850 and D500 write an older `AFInfo2` that Riffle does not read.
+
+The Sony α9 III and α7CR samples were all shot in manual focus, which Riffle
+treats as having no AF point, so those two are unconfirmed. On the Sony bodies
+other than the α7 V, `–` under Face tracking means face tracking was not
+recorded on the sample, whose subjects hold no face; it does not mean the body
+lacks it.
 
 - **AF point**: the focus mark is drawn there, the 1:1 focus check opens
   centered on it, and sharpness is scored around it. Faces are then ignored,

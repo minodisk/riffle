@@ -47,6 +47,20 @@ and the like). `integer()` masks a count-1 `SHORT` with `& 0xFFFF`.
   high half.
 - Source: [tiff-short-padding learnings, Step 1](../plans/_archived/20260924-tiff-short-padding/learnings.md#step-1).
 
+### Older Sony ARW bodies carry no full-size JPEG, so `parse` takes the 160x120 thumbnail as `full` (Measured)
+
+On the α9 II, α7R IV / IVA, α7C, α6400, α6600 and ZV-E10 the IFD chain holds
+only IFD0 (the 1616x1080 preview, 1920x1080 on the ZV-E10) and IFD1 (a 160x120
+thumbnail); the SubIFD is the raw data. Recent bodies add IFD2, the full-size
+JPEG. `arw::parse` picks the largest JPEG in the chain and the SubIFDs, so on
+the older bodies `full` is the thumbnail: the `bench` full decode takes 0.2 ms
+and the 1:1 view (`read_focus_crop`) would crop an upscaled 160x120 image.
+
+- Rule: do not add a Sony body to the README's supported list from a clean
+  `info` / `scan` run alone. Check that the file has a full-size JPEG, that is,
+  a `bench` full decode of tens of milliseconds or more and an IFD2.
+- Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification).
+
 ## MakerNotes
 
 ### The Sony MakerNote gate skips only a known non-Sony `Make` (Hit)
@@ -97,6 +111,25 @@ accepts a genuine `SHORT[3]`. A zero validity SHORT gives `None`.
 - Rule: check a tag's type on a real file, not only in ExifTool's table; the
   table can describe the decoded value rather than the stored type.
 - Source: [sony-eye-af-window learnings, Step 1](../plans/_archived/20260922-sony-eye-af-window/learnings.md#step-1).
+
+### Sony `FocusLocation` frame: crop and reduced RAW sizes need no per-body handling (Measured)
+
+`FocusLocation` is in the frame of the file's own image, not always the sensor
+frame. In crop modes (α7 IV APS-C, α7R V S35) it is already in the crop frame
+and matches the full JPEG (4608x3072, 6240x4160). For reduced RAW sizes the
+bodies differ. The α7 IV M / S keep 7008x4672 while the full JPEG is smaller.
+The α7R V, α9 III and α7CR M / S write the reduced size. The aspect ratio
+always matches the preview, and the consumers scale by `sensor_w` /
+`sensor_h` against the JPEG, so both work: no parser change and no
+`EXTRACTOR_VERSION` bump.
+
+- Manual focus: `FocusMode` 0 with the point at the exact center and
+  `FocusFrameSize` validity 0 is dropped by `trusted_focus`. The α9 III and
+  α7CR samples are all MF, so they prove nothing about the AF mapping.
+- Sample limits: the raw.pixls.us Sony samples hold no `AFTracking` 1 (face
+  tracking) and no portrait frame, so those are unverified on every body. An
+  `AFTracking` of 2 is lock-on AF, not face tracking.
+- Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification).
 
 ### Sigma: inline values first, and `Make` differs by body (Hit)
 
