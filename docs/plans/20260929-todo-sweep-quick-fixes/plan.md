@@ -116,4 +116,4 @@ without a redraw; and ten always-`null` Maker note fields sent for every
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete
