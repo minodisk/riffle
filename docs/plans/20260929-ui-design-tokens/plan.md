@@ -327,7 +327,7 @@ Ground truth gathered at planning time (2026-09-29):
       around `formatButtons`, `trashRunButton`, `sequenceRunButton` and
       with `pnpm exec vp test`.
 
-- [ ] Step 3: Migrate the menus, the strip bar and the filmstrip cells
+- [x] Step 3: Migrate the menus, the strip bar and the filmstrip cells
   - Done when:
     - `.menu` (surface `--popover` / `--popover-foreground`, `1px solid
       var(--border)`, `--radius-md`, the shadow, `padding: 4px`) and

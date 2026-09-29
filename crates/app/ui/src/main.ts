@@ -68,6 +68,7 @@ import { FormatGate } from "./firstrun.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { VIEW_ONLY_NOTE, isViewOnly, sortFor } from "./viewonly.js";
 import { initSettings } from "./settings.js";
+import { CHECK_SVG, SCAN_FACE_SVG } from "./icons.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
@@ -2271,6 +2272,25 @@ function openContextMenu(x: number, y: number): void {
   });
 }
 
+// Give a menu item the check mark its leading column shows while it is
+// `aria-checked`.
+function addMenuCheck(item: HTMLElement): void {
+  const mark = document.createElement("span");
+  mark.className = "menu-check";
+  mark.innerHTML = CHECK_SVG;
+  item.prepend(mark);
+}
+
+function menuSeparator(): HTMLHRElement {
+  const hr = document.createElement("hr");
+  hr.className = "menu-separator";
+  return hr;
+}
+
+for (const item of document.querySelectorAll<HTMLElement>('.menu-item[role^="menuitem"]')) {
+  addMenuCheck(item);
+}
+
 // Fill `#context-menu` with `groups` at (`x`, `y`); a click on an item
 // closes the menu and hands its action to `run`.
 function showMenu(groups: MenuItem[][], x: number, y: number, run: (action: string) => void): void {
@@ -2279,6 +2299,7 @@ function showMenu(groups: MenuItem[][], x: number, y: number, run: (action: stri
       const items: HTMLElement[] = group.map(({ action, label, shortcut, checked }) => {
         const item = document.createElement("button");
         item.type = "button";
+        item.className = "menu-item";
         if (checked === undefined) {
           item.setAttribute("role", "menuitem");
         } else {
@@ -2291,13 +2312,14 @@ function showMenu(groups: MenuItem[][], x: number, y: number, run: (action: stri
         key.className = "shortcut";
         key.textContent = shortcut;
         item.append(name, key);
+        addMenuCheck(item);
         item.addEventListener("click", () => {
           closeContextMenu();
           run(action);
         });
         return item;
       });
-      return i === 0 ? items : [document.createElement("hr"), ...items];
+      return i === 0 ? items : [menuSeparator(), ...items];
     }),
   );
   contextMenu.hidden = false;
@@ -3112,7 +3134,7 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 const sharpFace = filterMenu.querySelector<HTMLElement>('[data-candidate="candidate"] .face')!;
-sharpFace.innerHTML = strip.SCAN_FACE_SVG;
+sharpFace.innerHTML = SCAN_FACE_SVG;
 sharpFace.style.color = FOCUS_MARK_COLORS.candidate;
 
 function exifSelected(): boolean {
@@ -3160,17 +3182,19 @@ function rebuildExifMenu(): void {
         : String(x).localeCompare(String(y)),
     );
     const title = document.createElement("div");
-    title.className = "heading";
+    title.className = "menu-label";
     title.textContent = heading;
-    filterExif.append(document.createElement("hr"), title);
+    filterExif.append(menuSeparator(), title);
     for (const [label] of sorted) {
       const item = document.createElement("button");
       item.type = "button";
+      item.className = "menu-item";
       item.setAttribute("role", "menuitemcheckbox");
       item.setAttribute("aria-checked", String(set.has(label)));
       item.dataset.group = group;
       item.dataset.value = label;
       item.textContent = label;
+      addMenuCheck(item);
       filterExif.append(item);
     }
   }

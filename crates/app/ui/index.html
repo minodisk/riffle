@@ -31,6 +31,7 @@
           <div id="sort">
             <button
               id="sort-toggle"
+              class="button outline"
               type="button"
               title="Sort"
               aria-haspopup="menu"
@@ -47,14 +48,32 @@
               </svg>
               <span class="caret">&#x25BE;</span>
             </button>
-            <div id="sort-menu" role="menu" hidden>
-              <button type="button" role="menuitemradio" aria-checked="false" data-sort="capture">
+            <div id="sort-menu" class="menu scrollarea" role="menu" hidden>
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemradio"
+                aria-checked="false"
+                data-sort="capture"
+              >
                 Capture time
               </button>
-              <button type="button" role="menuitemradio" aria-checked="true" data-sort="name">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemradio"
+                aria-checked="true"
+                data-sort="name"
+              >
                 File name
               </button>
-              <button type="button" role="menuitemradio" aria-checked="false" data-sort="rating">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemradio"
+                aria-checked="false"
+                data-sort="rating"
+              >
                 Rating
               </button>
             </div>
@@ -62,6 +81,7 @@
           <div id="filter">
             <button
               id="filter-toggle"
+              class="button outline"
               type="button"
               title="Filter"
               aria-haspopup="menu"
@@ -78,13 +98,22 @@
               </svg>
               <span class="caret">&#x25BE;</span>
             </button>
-            <div id="filter-menu" role="menu" hidden>
-              <button type="button" role="menuitem" id="filter-reset">Reset</button>
-              <hr />
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-flag="picked">
+            <div id="filter-menu" class="menu scrollarea" role="menu" hidden>
+              <button type="button" class="menu-item" role="menuitem" id="filter-reset">
+                Reset
+              </button>
+              <hr class="menu-separator" />
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-flag="picked"
+              >
                 <i class="dot"></i>Picked
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -93,6 +122,7 @@
                 <i class="dot"></i>Untagged
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -100,30 +130,73 @@
               >
                 <i class="dot"></i>Rejected
               </button>
-              <hr />
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="0">
+              <hr class="menu-separator" />
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="0"
+              >
                 <span class="on"></span><span class="off">★★★★★</span>
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="1">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="1"
+              >
                 <span class="on">★</span><span class="off">★★★★</span>
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="2">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="2"
+              >
                 <span class="on">★★</span><span class="off">★★★</span>
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="3">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="3"
+              >
                 <span class="on">★★★</span><span class="off">★★</span>
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="4">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="4"
+              >
                 <span class="on">★★★★</span><span class="off">★</span>
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-stars="5">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-stars="5"
+              >
                 <span class="on">★★★★★</span><span class="off"></span>
               </button>
-              <hr />
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-label="red">
+              <hr class="menu-separator" />
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-label="red"
+              >
                 <i class="dot"></i>Red
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -132,6 +205,7 @@
                 <i class="dot"></i>Orange
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -139,16 +213,35 @@
               >
                 <i class="dot"></i>Yellow
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-label="green">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-label="green"
+              >
                 <i class="dot"></i>Green
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-label="blue">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-label="blue"
+              >
                 <i class="dot"></i>Blue
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-label="pink">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-label="pink"
+              >
                 <i class="dot"></i>Pink
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -156,11 +249,18 @@
               >
                 <i class="dot"></i>Purple
               </button>
-              <button type="button" role="menuitemcheckbox" aria-checked="false" data-label="none">
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemcheckbox"
+                aria-checked="false"
+                data-label="none"
+              >
                 <i class="dot"></i>No label
               </button>
-              <hr />
+              <hr class="menu-separator" />
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -169,6 +269,7 @@
                 Portrait
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -176,9 +277,10 @@
               >
                 Landscape
               </button>
-              <hr />
-              <div class="heading">AF eye</div>
+              <hr class="menu-separator" />
+              <div class="menu-label">AF eye</div>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -187,6 +289,7 @@
                 <i class="face"></i>Sharp
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -195,6 +298,7 @@
                 <i class="face"></i>Soft
               </button>
               <button
+                class="menu-item"
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked="false"
@@ -208,9 +312,9 @@
         </div>
         <div id="position"></div>
       </div>
-      <div id="strip"><div id="strip-inner"></div></div>
+      <div id="strip" class="scrollarea"><div id="strip-inner"></div></div>
     </div>
-    <div id="context-menu" role="menu" hidden></div>
+    <div id="context-menu" class="menu scrollarea" role="menu" hidden></div>
     <div
       id="format-dialog"
       class="dialog"
