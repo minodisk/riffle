@@ -13,3 +13,18 @@
   in a "keep both sides" conflict resolution; checking that command after a
   conflicted `todo.md` merge would catch duplicates, though not a resurrected
   single copy.
+
+## Deferred issues (todo candidates)
+
+- Agents: `pr-conflict-resolver` resurrects deleted `todo.md` sections.
+  Four parallel `develop` runs on 2026-09-29 each hit a `todo.md` rebase
+  conflict and resolved it by keeping both sides, which brought back `###`
+  sections that already-merged PRs (#558, #560, #562) had deleted.
+  - Change: add a rule to `.claude/agents/pr-conflict-resolver.md` ("2.
+    Manual resolution"): in `todo.md` (and similar tracking docs), when one
+    side deleted a `###` section, keep it deleted rather than keeping both
+    sides; after resolving, check `grep '^### ' todo.md | sort | uniq -d` for
+    duplicated headings and compare the branch's deleted headings against
+    `origin/main`.
+  - Done when: the rule is merged into
+    `.claude/agents/pr-conflict-resolver.md`.
