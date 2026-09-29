@@ -449,7 +449,7 @@ Ground truth gathered at planning time (2026-09-29):
     - Keep the id-scoped `#folders` rules for size and padding; only the
       colors move to the classes.
 
-- [ ] Step 5: Migrate the viewer overlays, the meta pane, the empty states and the status lines
+- [x] Step 5: Migrate the viewer overlays, the meta pane, the empty states and the status lines
   - Done when:
     - `.empty` exists in the component block (shadcn Empty: centered,
       `--muted-foreground`, `0.9rem`) and `#empty` carries it in

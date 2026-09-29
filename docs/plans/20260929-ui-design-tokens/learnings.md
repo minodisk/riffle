@@ -117,6 +117,48 @@
 - `.sidebar-item[data-active]` is in the rule alongside `.current` per the
   plan (shadcn's marker); nothing sets `data-active` yet.
 
+## Step 5: viewer overlays, meta pane, empty states, status lines
+
+- `.empty` is scoped `.empty:not([hidden])` (it sets `display: flex`), so
+  `#empty[hidden]` went away; `#empty` keeps only its absolute inset,
+  padding and box sizing, and the `data-state` cursor rule stays.
+- No `.kbd`: Step 3 kept `.shortcut` as a muted text span, so the
+  `openHint` keys stay text.
+- The error row went from the amber `#e0a040` to `--destructive`
+  (`#ff6467`); no app-semantic `--warning` was added. Its dismiss `×` is
+  `button ghost` (set in `renderMeta`); the id rule keeps `flex: none`,
+  `padding: 0 0.25rem` and adds `font-size: inherit` so the `×` stays at
+  the pane's `0.8rem` instead of the button's `0.85rem`. The button's
+  transparent 1px border makes the row up to 2px taller than before.
+- The canvas colors come from `token()` in the new `src/theme.ts` (with
+  `theme.test.ts`), read once into `THEME` at `main.ts`'s top level. The
+  fallbacks are CSS keywords (`black`, `white`, `gray`) so a misspelled
+  token still draws something visible without adding a palette hex; a
+  canvas ignores an empty color string and keeps the previous one, not
+  transparent as the plan guessed. `--border` reaches the canvas as
+  Lightning CSS's 8-digit hex in a build, which Canvas 2D accepts. The
+  compare label bar moved from `#252525` to `--card` (`#171717`), its
+  text from `#ddd` to `#fafafa`, the frame from `#444` to the 10% white
+  hairline, the active ring from `#fff` to `#e5e5e5`.
+- `.button.destructive`'s text was a literal `#fafafa` since Step 1; it
+  became `var(--foreground)` (the same value) so the component block holds
+  only the two hover hexes.
+- The hex grep's remaining matches, each a deliberate exception:
+  - `style.css`: the `:root` block (the tokens and the app-semantic
+    `--stars-color`, `--reject-color`, `--pick-color`, `--label-*`); the
+    hover-at-90% hexes `#d0d0d0` (`.button.primary`) and `#e85c5f`
+    (`.button.destructive`); `.cell.failed`'s `#402020`; the `#000`
+    `text-shadow` halos on the cell badges / name and the `drop-shadow`
+    halo on the cell's focus candidate icon.
+  - `src/*.ts`: `focus.ts`'s `FOCUS_MARK_COLORS` (`#3f3`, `#f93`, `#fff`)
+    and `focus.test.ts`, which asserts on them; `main.ts`'s compare
+    best-frame pair (`#244c31`, `#6bdc8a`); the `rgba(0, 0, 0, 0.8)` halo
+    under the AF mark and the face marks (three matches); and
+    `FACE_MARK_COLOR` (`#3ff`), the detected-face mark, which the plan did
+    not list but is the same app-semantic mark family as
+    `FOCUS_MARK_COLORS` ("apart from every mark color above"). No
+    `--label-*` / `--pick-color` string is read by name.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Windows, Step 1 of ui-design-tokens):** the user
@@ -187,18 +229,40 @@
   checkbox was ticked on the automated criteria only. Basis: plan Step 4
   "Done when"; files `crates/app/ui/style.css`, `crates/app/ui/index.html`,
   `crates/app/ui/src/folders.ts`.
+- **Pending manual check (Windows, Step 5 of ui-design-tokens):** the user
+  runs `mise run tauri:dev`; starts with no folder open, then opens an
+  empty folder and a folder whose files are all filtered out; opens a fresh
+  folder and watches it scan; makes a sidecar write fail (mark a sidecar
+  read-only and rate the file) and dismisses the error; reads the meta
+  pane of a RAW file; toggles 1:1 zoom; opens Compare with three frames.
+  Expected: the empty hints (`Drop a folder…`, `This folder has no RAW or
+  JPEG files.`, `No files match the current filter.`) are centered in
+  `#a1a1a1`; the `scanning N / M` then `focus N / M` notes, `1:1` and
+  `Compare · N frames` are `#a1a1a1`; the error row is `#ff6467` (not the
+  old amber) with a ghost `×` that hovers on `#262626` and dismisses; the
+  meta pane's EXIF / Maker note / Analysis headings and keys are
+  `#a1a1a1`, the values `#fafafa`, and its scrollbar is thin; Compare's
+  label bars are `#171717` with `#fafafa` text, the frames have a faint
+  hairline border, the best frame keeps its green bar, text and border,
+  and the active frame shows a light `#e5e5e5` inner ring. Step 5's
+  checkbox was ticked on the automated criteria only. Basis: plan Step 5
+  "Done when"; files `crates/app/ui/style.css`,
+  `crates/app/ui/index.html`, `crates/app/ui/src/main.ts`,
+  `crates/app/ui/src/theme.ts`.
 - **Pending manual check (macOS WKWebView and Linux WebKitGTK, Steps 1 to
-  4):** the same Settings walk-through as the Step 1 Windows check, the
+  5):** the same Settings walk-through as the Step 1 Windows check, the
   same first-run / trash / sequence dialog pass as the Step 2 Windows check,
-  the same menu / strip bar / cell pass as the Step 3 Windows check, and
-  the same folder tree pass as the Step 4 Windows check, on
+  the same menu / strip bar / cell pass as the Step 3 Windows check, the
+  same folder tree pass as the Step 4 Windows check, and the same empty
+  state / meta pane / status line / Compare pass as the Step 5 Windows
+  check, on
   each platform (no device here); also that `scrollbar-color` is honored or
   harmlessly ignored. Also confirm that the native
   checkboxes / radios take `accent-color` (Safari 15.4+ / WebKitGTK 2.36+;
   older engines show the UA control) and that `:focus-visible` rings
-  appear. The four steps' checkboxes were ticked on the automated criteria
-  only. Basis: plan Steps 1 to 4 "Done when"; files
+  appear. The five steps' checkboxes were ticked on the automated criteria
+  only. Basis: plan Steps 1 to 5 "Done when"; files
   `crates/app/ui/style.css`, `crates/app/ui/index.html`,
   `crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/icons.ts`, `crates/app/ui/src/strip.ts`,
-  `crates/app/ui/src/folders.ts`.
+  `crates/app/ui/src/folders.ts`, `crates/app/ui/src/theme.ts`.

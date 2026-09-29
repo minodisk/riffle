@@ -12,6 +12,7 @@ import {
   undoneTrash,
 } from "./undo.js";
 import { ErrorList } from "./errors.js";
+import { token } from "./theme.js";
 import {
   type Flag,
   type Orientation,
@@ -451,6 +452,16 @@ const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
 // The detected faces, apart from every mark color above.
 const FACE_MARK_COLOR = "#3ff";
+
+// The neutral colors the canvas overlays draw with, read from the stylesheet's
+// tokens once: the module runs after the `<head>` stylesheet has applied.
+const rootStyle = getComputedStyle(document.documentElement);
+const THEME = {
+  card: token(rootStyle, "--card", "black"),
+  foreground: token(rootStyle, "--foreground", "white"),
+  border: token(rootStyle, "--border", "gray"),
+  primary: token(rootStyle, "--primary", "white"),
+};
 const FACE_MARK_EYE_RADIUS = 2.5;
 
 function baseName(path: string): string {
@@ -556,6 +567,7 @@ function renderMeta(): void {
   for (const { key, message } of errors.list()) {
     const el = line("error", message);
     const dismiss = document.createElement("button");
+    dismiss.className = "button ghost";
     dismiss.textContent = "\u00d7";
     dismiss.title = "Dismiss";
     dismiss.addEventListener("click", () => {
@@ -1034,20 +1046,20 @@ function drawCompare(): void {
     const score = sharpness.get(path);
     const isBest = score !== undefined && score === best && compareFrames.length > 1;
     const isActive = path === compareActivePath;
-    context.fillStyle = isBest ? "#244c31" : "#252525";
+    context.fillStyle = isBest ? "#244c31" : THEME.card;
     context.fillRect(x, y + cellHeight - labelHeight, cellWidth, labelHeight);
-    context.fillStyle = isBest ? "#6bdc8a" : "#ddd";
+    context.fillStyle = isBest ? "#6bdc8a" : THEME.foreground;
     context.font = "12px system-ui, sans-serif";
     context.textBaseline = "middle";
     const suffix =
       (score === undefined ? "" : `  ·  ${score.toFixed(1)}`) +
       `${isBest ? "  BEST" : ""}${isActive ? "  ACTIVE" : ""}`;
     context.fillText(`${baseName(path)}${suffix}`, x + 8, y + cellHeight - labelHeight / 2);
-    context.strokeStyle = isBest ? "#6bdc8a" : "#444";
+    context.strokeStyle = isBest ? "#6bdc8a" : THEME.border;
     context.lineWidth = isBest ? 2 : 1;
     context.strokeRect(x + 0.5, y + 0.5, cellWidth - 1, cellHeight - 1);
     if (isActive) {
-      context.strokeStyle = "#fff";
+      context.strokeStyle = THEME.primary;
       context.lineWidth = 2;
       context.strokeRect(x + 3.5, y + 3.5, cellWidth - 7, cellHeight - 7);
     }
