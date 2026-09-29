@@ -135,14 +135,43 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 
 - ARW
   - [x] Sony α7 V
+- CR3
+  - [x] Canon EOS R
+  - [x] Canon EOS RP
+  - [x] Canon EOS R3
+  - [x] Canon EOS R5
+  - [x] Canon EOS R5 Mark II
+  - [x] Canon EOS R6
+  - [x] Canon EOS R6 Mark II
+  - [x] Canon EOS R6 Mark III
+  - [x] Canon EOS R7
+  - [x] Canon EOS R10
+  - [x] Canon EOS R50
+  - [x] Canon EOS R50 V
+  - [x] Canon EOS R100
 - DNG
   - [x] Leica M11-P
   - [x] SIGMA BF
   - [x] SIGMA fp L
+- NEF
+  - [x] Nikon Z 9
+  - [x] Nikon Z 8
+  - [x] Nikon Z 7II
+  - [x] Nikon Z 6II
+  - [x] Nikon Z 6
+  - [x] Nikon Z 5
+  - [x] Nikon Z f
+  - [x] Nikon Z fc
+  - [x] Nikon Z 50
+  - [x] Nikon Z 30
+  - [x] Nikon D850
+  - [x] Nikon D500
 
-JPEG（`.jpg` / `.jpeg`）だけが入り、ARW / DNG を含まないフォルダーは閲覧専用で開きます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示し、スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
+HDR PQ（HEIF）で撮影した CR3 には JPEG のプレビューがなく、まだ開けません。
 
-カメラごとに記録している情報と、それによって変わる機能は [docs/cameras.md](./docs/cameras.md)（英語）にまとめています。
+JPEG（`.jpg` / `.jpeg`）だけが入り、RAW ファイルを含まないフォルダーは閲覧専用で開きます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示し、スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
+
+カメラごとに記録している情報と、それによって変わる機能は [docs/cameras.md](./docs/cameras.md)（英語）にまとめています。対応状況を形式ごとではなくカメラごとに載せている理由は [docs/raw-formats.md](./docs/raw-formats.md)（英語）で説明しています。
 
 リストにないカメラで動いた場合は Discussions の[カメラ動作報告スレッド](https://github.com/minodisk/riffle/discussions/287)に投稿してください。動かない場合は[カメラ用の issue テンプレート](https://github.com/minodisk/riffle/issues/new?template=camera.yml)から issue を立ててください。調査にはサンプルファイルが必要なので、添付（またはリンク）をお願いします。1 枚で十分ですが、できれば横位置と縦位置の 2 枚があると、回転とフォーカスマークも確認できます。
 

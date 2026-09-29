@@ -2,7 +2,8 @@
 
 Some features depend on what the camera records in the RAW file. For the
 tested cameras, see [Compatibility](../README.md#compatibility); for the
-features themselves, see [usage.md](./usage.md).
+features themselves, see [usage.md](./usage.md); for why these differ by body
+even within one RAW format, see [How RAW files differ](./raw-formats.md).
 
 | Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
 |---|---|---|---|---|
@@ -10,6 +11,34 @@ features themselves, see [usage.md](./usage.md).
 | SIGMA BF | ✓ | – | – | – |
 | SIGMA fp L | – | – | – | – |
 | Leica M11-P | – | – | – | – |
+| Canon EOS R | – | – | – | ✓ |
+| Canon EOS RP | – | – | – | ✓ |
+| Canon EOS R3 | – | – | – | ✓ |
+| Canon EOS R5 | – | – | – | ✓ |
+| Canon EOS R5 Mark II | – | – | – | ✓ |
+| Canon EOS R6 | – | – | – | ✓ |
+| Canon EOS R6 Mark II | – | – | – | ✓ |
+| Canon EOS R6 Mark III | – | – | – | ✓ |
+| Canon EOS R7 | – | – | – | ✓ |
+| Canon EOS R10 | – | – | – | ✓ |
+| Canon EOS R50 | – | – | – | ✓ |
+| Canon EOS R50 V | – | – | – | ✓ |
+| Canon EOS R100 | – | – | – | ✓ |
+| Nikon Z 9 | – | – | – | ✓ |
+| Nikon Z 8 | – | – | – | ✓ |
+| Nikon Z 7II | – | – | – | ✓ |
+| Nikon Z 6II | – | – | – | ✓ |
+| Nikon Z 6 | – | – | – | ✓ |
+| Nikon Z 5 | – | – | – | ✓ |
+| Nikon Z f | – | – | – | ✓ |
+| Nikon Z fc | – | – | – | ✓ |
+| Nikon Z 50 | – | – | – | ✓ |
+| Nikon Z 30 | – | – | – | ✓ |
+| Nikon D850 | – | – | – | ✓ |
+| Nikon D500 | – | – | – | ✓ |
+
+The Canon and Nikon bodies do record an AF point in their MakerNote, but
+Riffle does not read it yet, so they behave as bodies without one.
 
 - **AF point**: the focus mark is drawn there, the 1:1 focus check opens
   centered on it, and sharpness is scored around it. Faces are then ignored,

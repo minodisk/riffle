@@ -2,7 +2,7 @@ import { type Binding, displayKey } from "./keys.js";
 
 export type EmptyState = "none" | "no-folder" | "no-files" | "filtered";
 
-export const NO_FILES_TEXT = "This folder has no ARW or DNG files.";
+export const NO_FILES_TEXT = "This folder has no RAW or JPEG files.";
 export const FILTERED_TEXT = "No files match the current filter.";
 
 const OPEN_TEXT = "Drop a folder onto the window, or click here to choose one.";

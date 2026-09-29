@@ -283,17 +283,48 @@ Discussions. If it does not, open an issue from the
 
 - ARW
   - [x] Sony α7 V
+- CR3
+  - [x] Canon EOS R
+  - [x] Canon EOS RP
+  - [x] Canon EOS R3
+  - [x] Canon EOS R5
+  - [x] Canon EOS R5 Mark II
+  - [x] Canon EOS R6
+  - [x] Canon EOS R6 Mark II
+  - [x] Canon EOS R6 Mark III
+  - [x] Canon EOS R7
+  - [x] Canon EOS R10
+  - [x] Canon EOS R50
+  - [x] Canon EOS R50 V
+  - [x] Canon EOS R100
 - DNG
   - [x] Leica M11-P
   - [x] SIGMA BF
   - [x] SIGMA fp L
+- NEF
+  - [x] Nikon Z 9
+  - [x] Nikon Z 8
+  - [x] Nikon Z 7II
+  - [x] Nikon Z 6II
+  - [x] Nikon Z 6
+  - [x] Nikon Z 5
+  - [x] Nikon Z f
+  - [x] Nikon Z fc
+  - [x] Nikon Z 50
+  - [x] Nikon Z 30
+  - [x] Nikon D850
+  - [x] Nikon D500
 
-A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no ARW / DNG opens
+CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview and cannot be
+opened yet.
+
+A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no RAW file opens
 view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
 with no stars, flags, color labels, sidecars or focus cue.
 
 What each camera records, and which features that affects, is listed in
-[docs/cameras.md](./docs/cameras.md).
+[docs/cameras.md](./docs/cameras.md). Why support is listed per camera rather
+than per format is explained in [docs/raw-formats.md](./docs/raw-formats.md).
 
 If a camera not on the list works, post in the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)

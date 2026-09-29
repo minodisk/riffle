@@ -150,7 +150,7 @@ the last as `preview`; with one, it is both.
 - The Z bodies are little-endian; older ones (D90, D3, D7000, Df, D800) are
   big-endian.
 - Every Nikon MakerNote offset is relative to the TIFF header at note offset
-  10 (after `Nikon `, two version bytes and two more). Nothing in the note
+  10 (after `Nikon\0`, two version bytes and two more). Nothing in the note
   is read today; a future reader (e.g. `AFInfo2`) must build a second
   `Tiff::new(buf, note + 10, note_end)`.
 

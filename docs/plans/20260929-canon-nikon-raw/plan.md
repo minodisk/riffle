@@ -228,7 +228,7 @@ What the repository already gives us (investigated 2026-09-29):
     every sample, so `HEAD_LIMIT` stays 1 MiB. The `CRAW` sample entry's
     sub-boxes start 82 bytes into its payload.
 
-- [ ] Step 4: App strings, CLI text, docs and the compatibility lists
+- [x] Step 4: App strings, CLI text, docs and the compatibility lists
   - Done when:
     - `crates/app/ui/src/empty.ts` `NO_FILES_TEXT` and the CLI bench error
       in `crates/cli/src/main.rs` name the four formats (or say "RAW
@@ -249,10 +249,28 @@ What the repository already gives us (investigated 2026-09-29):
       `AFInfo2` for these bodies as the follow-up unless Step 5 is taken.
     - `docs/performance.md` gets a short section only if Steps 2 / 3
       measured something worth recording (prefix fit, per-page read).
+    - A new user-facing `docs/raw-formats.md` (added at the user's request,
+      2026-09-29) explains, with Mermaid diagrams and tables, the layers of
+      a RAW file and what each depends on: the container (TIFF / ISOBMFF,
+      depends on the format), the standard Exif (shared across makers), where
+      the embedded previews live (depends on the maker; sizes vary by body)
+      and the MakerNote (depends on the maker, with per-generation / per-body
+      versions, e.g. Nikon `AFInfo2` versions, Canon `AFInfo2` vs `AFInfo3`,
+      Sony per-model offsets, SIGMA BF vs fp L within DNG). It covers how
+      ARW, DNG, NEF and CR3 differ at each layer (from what Steps 2 / 3
+      found: NEF's 1620x1080 preview SubIFD vs the small MakerNote preview,
+      CR3's PRVW and JPEG track, HEIF CR3s), which layers Riffle reads for
+      which feature (preview / 1:1 / meta pane / bursts vs the AF point), and
+      why the compatibility list is per body rather than per format or
+      maker. `README.md` / `README.ja.md` (Compatibility) and
+      `docs/cameras.md` link to it.
     - `mise run ci` passes (lychee checks the links).
   - Implementation approach:
     - Assumes Steps 2 and 3 are merged. Keep the compatibility list
       honest: a body not opened on a real sample stays unlisted.
+    - `docs/raw-formats.md` is for readers, not agents: no pitfall list
+      (that stays in `docs/agents/raw-metadata-parsing.md`), and GitHub
+      renders the Mermaid blocks.
 
 - [ ] Step 5 (optional, see Trade-offs): AF point from Nikon `AFInfo2` and Canon `AFInfo2`
   - Done when:
@@ -333,3 +351,4 @@ What the repository already gives us (investigated 2026-09-29):
 - (2026-09-29) Step 1 complete
 - (2026-09-29) Step 2 complete
 - (2026-09-29) Step 3 complete
+- (2026-09-29) Step 4 complete
