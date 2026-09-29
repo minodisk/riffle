@@ -1573,6 +1573,10 @@ pub struct AppKeymap(pub Mutex<Keymap>);
 /// Whether the selection moves to the next file after a judgment.
 pub struct AppAutoAdvance(pub AtomicBool);
 
+/// The panels last passed to `set_panels`, seeded from the store at launch,
+/// which the `View` checks follow.
+pub struct AppPanels(pub Mutex<Value>);
+
 /// Serializes `switch_sidecar_format` calls, so two quick clicks cannot run
 /// concurrent switches whose drain, save, state write and reset would
 /// otherwise interleave. `set_label_names` takes it for its drain and reset.
@@ -1626,17 +1630,25 @@ pub fn set_auto_advance(app: tauri::AppHandle, enabled: bool) {
 /// stored under `panels`.
 #[tauri::command]
 pub fn panels(app: tauri::AppHandle) -> Value {
-    let store = settings(&app).ok();
+    stored_panels(&app)
+}
+
+/// The panels stored under `panels`, all shown when the store cannot be read.
+pub fn stored_panels(app: &tauri::AppHandle) -> Value {
+    let store = settings(app).ok();
     panels_setting(store.as_ref().and_then(|s| s.get("panels")).as_ref())
 }
 
-/// Remember which panes are shown. Failing to write it only means the next
-/// launch restores the previously saved panes, so it is logged, not
-/// returned.
+/// Remember which panes are shown and check the `View` items to match.
+/// Failing to write it only means the next launch restores the previously
+/// saved panes, so it is logged, not returned.
 #[tauri::command]
 pub fn set_panels(app: tauri::AppHandle, panels: Value) {
+    let panels = panels_setting(Some(&panels));
+    *index::lock(&app.state::<AppPanels>().0) = panels.clone();
+    crate::app_menu::apply_panels(&app, &panels);
     let saved = settings(&app).and_then(|store| {
-        store.set("panels", panels_setting(Some(&panels)));
+        store.set("panels", panels);
         store.save().map_err(|e| e.to_string())
     });
     if let Err(e) = saved {

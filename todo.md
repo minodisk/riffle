@@ -188,40 +188,51 @@ Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 
 ### App: real-device checks for the View menu
 
-`view-menu` (docs/plans/_archived/20260928-view-menu/plan.md) added a native
-`View` menu (`Left Pane`, `Right Pane`, `Both Side Panes`, `Filmstrip`,
-`Focus Mark`, `1:1 Zoom`, `Compare`) that emits `menu-action` and mirrors each
-action's rebindable accelerator. CI covers the build and the keymap coverage
-test, but the menu itself was never exercised on a real machine, and the macOS
-`cfg` branch of `app_menu::build` was only reviewed by reading.
+`view-menu-panes` (docs/plans/_archived/20260930-view-menu-panes/plan.md) cut the native
+`View` menu down to three `CheckMenuItem`s (`Left Pane`, `Right Pane`,
+`Filmstrip`) whose checks follow the shown panes, with the pane toggles moved
+to modifier defaults (`Ctrl+Alt+Arrow` on Windows / Linux, `Alt+Cmd+Arrow` on
+macOS) so they show an accelerator. CI covers the build and the tests, but the
+macOS `cfg` branch of `app_menu::build` / `refresh` was only reviewed by
+reading, and the Windows GUI checks (the menu, the checks, the accelerators)
+were never run: the step was ticked on the automated criteria only. Reverting
+muda's native toggle on click relies on muda toggling the check before it
+sends the event, which was confirmed only by reading its source.
+
+Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
+`crates/app/src/commands.rs` (`set_panels`, `AppPanels`),
+`crates/app/src/shortcuts.rs` (defaults).
 
 #### TODO
 
-- [ ] On Windows, click each View item with the mouse and confirm it does what
-      its key does (the filmstrip / side panes toggle, the focus mark, 1:1
-      zoom and compare switch).
-- [ ] On Windows, rebind `Show / hide the filmstrip` to a modified key (e.g.
-      `ctrl+alt+s`) in the settings modal: the `Filmstrip` item shows it, one
-      press toggles the filmstrip exactly once (no double fire from keydown
-      plus the accelerator), and `Reset` blanks the item's accelerator again.
-      If it double-fires, pass `None` as the View items' accelerator.
-- [ ] On macOS, confirm the View items sit above `Enter Full Screen` with a
-      separator and work the same way.
-
-### App: the View menu items have no macOS SF Symbol icons
-
-`view-menu` added the `View` items (`Left Pane`, `Right Pane`,
-`Both Side Panes`, `Filmstrip`, `Focus Mark`, `1:1 Zoom`, `Compare`) as plain
-`MenuItem`s, unlike the File / Help items, which carry SF Symbol PNGs on
-macOS. The PNGs are exported by `tools/macos/export-menu-icons.swift`, which
-needs macOS, and the change was made on Windows.
-
-#### TODO
-
-- [ ] On macOS, export SF Symbol PNGs for the seven View items and turn them
-      into `IconMenuItem`s under `#[cfg(target_os = "macos")]`. Files:
-      `crates/app/src/main.rs` (`app_menu`, `VIEW_ITEMS`),
-      `crates/app/icons/menu/`, `tools/macos/export-menu-icons.swift`.
+- [ ] On Windows, run `mise run tauri:dev` and confirm at launch that `View`
+      shows `Left Pane`, `Right Pane`, `Filmstrip` with `Ctrl+Alt+ArrowLeft` /
+      `ArrowRight` / `ArrowDown` and checks matching the panes the last
+      session left.
+- [ ] On Windows, press each of the three keys once: the pane toggles exactly
+      once (no double fire) and the check follows. `Tab`, `f`, `z`, `v` still
+      work and are not in `View`. `F6` / `F7` / `F8` now do nothing.
+- [ ] On Windows, click `View > Filmstrip` twice: hides, shows, check right
+      each time. Open Settings, click `View > Left Pane`: nothing changes and
+      the check stays.
+- [ ] On Windows, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it,
+      `Ctrl+Alt+S` toggles once, and `Reset` restores `Ctrl+Alt+ArrowDown`.
+      With the folder tree focused, `Ctrl+Alt+ArrowLeft` still hides the tree
+      (tree passthrough).
+- [ ] On Windows, watch for an Intel graphics hotkey taking `Ctrl+Alt+Arrow`
+      (screen rotation). If it does, note it in `docs/usage.md` as a driver
+      setting to turn off (not a blocker; do not change the default).
+- [ ] On macOS, confirm the three items sit above `Enter Full Screen` with a
+      separator between, show `Alt+Cmd+ArrowLeft` / `ArrowRight` /
+      `ArrowDown`, and have checks matching the panes the last session left.
+- [ ] On macOS, press each of the three keys once: the pane toggles exactly
+      once (no double fire from keydown plus the accelerator) and the check
+      follows. Click `View > Filmstrip` twice: hides, shows, check right each
+      time. With Settings open, click `View > Left Pane`: nothing changes and
+      the check stays.
+- [ ] On macOS, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it (the
+      menu is rebuilt), the checks survive the rebuild, `Ctrl+Alt+S` toggles
+      once, and `Reset` restores `Alt+Cmd+ArrowDown`.
 
 ### App: the real-device checks for the File menu accelerators are still open
 

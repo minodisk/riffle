@@ -408,16 +408,27 @@ accelerator comes from the keymap's `selectAll` action and which emits
 `View` is created on Windows and Linux (the default menu has none there), so
 `app_menu::build` builds one and inserts it right after `Edit` (appended when
 `Edit` is missing); on macOS the default `View` exists and the items are
-prepended above its Enter Full Screen, with a separator between. Its plain
-items (panel toggles, a separator, then Focus Mark, 1:1 Zoom and Compare)
-come from the `VIEW_ITEMS` table of `(id, action, label)`, take the action's
-accelerator, and all emit one `menu-action` event with the action name, which
-`main.ts` runs through `runAction` under the same gates as the keydown path:
-`modalOpen()`, `treeGate`, the first-launch format dialog, and closing the
-strip's context menu first. A test (`menu_covers_every_action`)
-requires every keymap action to be in the menu or in its `MENU_LESS` list.
+prepended above its Enter Full Screen, with a separator between. It holds
+only `Left Pane`, `Right Pane` and `Filmstrip`, `CheckMenuItem`s from the
+`VIEW_ITEMS` table of `(id, action, label)`; each takes the action's
+accelerator (`toggleLeft` / `toggleRight` / `toggleStrip`, whose defaults
+are `Alt+Cmd+Arrow` on macOS and `Ctrl+Alt+Arrow` elsewhere), and all emit
+one `menu-action` event with the action name, which `main.ts` runs through
+`runAction` under the same gates as the keydown path: `modalOpen()`,
+`treeGate`, the first-launch format dialog, and closing the strip's context
+menu first. The checks follow `AppPanels`, the panels `set_panels` last
+received (seeded from the store in `setup` before the first `refresh`):
+`set_panels` calls `app_menu::apply_panels`, and a click on an item first
+re-applies the stored panels, undoing muda's native toggle-on-click, before
+emitting `menu-action`, so a gated click leaves the check as it was and an
+effective one is set by the frontend's `set_panels` a moment later.
+`toggleSides` (`Tab`), `focus`, `zoom` and `compare` are main-view / strip
+keys with no menu item. A test (`menu_covers_every_action`) requires every
+keymap action to be in the menu or in its `MENU_LESS` list.
 
-- Why: a keyboard without function keys can still reach the panel toggles.
+- Why only the pane toggles: they have a state a check mark can show, and
+  a modifier default that can be an accelerator; the main-view keys had
+  neither and showed an empty accelerator column.
 
 - Why: a submenu per setting cluttered the menu bar; macOS apps put
   `Settings...` in the app menu.
@@ -432,9 +443,12 @@ the whole menu through `AppHandle::set_menu`, because muda's
 equivalent. On Windows and Linux `refresh` only calls `set_menu` the first
 time (no menu yet, i.e. `setup`); afterwards it looks up `Open Folder…`,
 `Edit > Undo`, `Edit > Redo`, `Edit > Select All` and the `View` items with `Submenu::get` on each top-level submenu
-(`Menu::get` does not recurse) and calls `set_accelerator` on them,
+(`Menu::get` does not recurse) and calls `set_accelerator` on them (a
+`MenuItemKind::MenuItem` or, for `View`, a `MenuItemKind::Check`),
 which muda's Windows backend handles correctly (label and `HACCEL` are
-rewritten, `None` removes the entry).
+rewritten, `None` removes the entry). On every platform `refresh` ends by
+re-applying the `View` checks from `AppPanels`, since a macOS rebuild
+creates the check items afresh.
 
 - Do not call `set_menu` at runtime on Windows: it turns muda's dark menu
   bar white. The suspected cause was the separate Settings window, which
@@ -502,6 +516,22 @@ truth. The script never runs at build or run time.
   `docs/plans/_archived/20260920-dependency-refresh/learnings.md` for the
   original observation, whose muda-based explanation is superseded by this
   bullet.
+
+### What a new menu item needs (Inferred)
+
+- A plain item is an `IconMenuItem` on macOS, with an SF Symbol PNG exported
+  by `tools/macos/export-menu-icons.swift` (which needs a Mac), plus a
+  `MenuItem` twin elsewhere, behind the `cfg` split below.
+- If it mirrors a keymap action, it goes into `keyed_items()` (so `refresh`
+  keeps its accelerator current) and the action's default key carries
+  `ctrl`, `alt` or `meta`: a menu accelerator is app-global, so it would fire
+  while typing in a text field, and `shortcuts::accelerator` shows nothing
+  for a modifier-less key. The pane toggles moved off `F6` / `F7` / `F8` to
+  `Ctrl+Alt+Arrow` / `Alt+Cmd+Arrow` for this.
+- A `CheckMenuItem` cannot carry an icon (muda / Tauri have no icon-bearing
+  check item), so it needs no `cfg` twin. Its state is applied by
+  `app_menu::apply_panels` and re-applied at the end of `refresh`.
+- Source: `docs/plans/20260930-view-menu-panes/plan.md`, Step 1.
 
 ### Adding a macOS menu item needs the same `cfg` split as its siblings (Hit)
 

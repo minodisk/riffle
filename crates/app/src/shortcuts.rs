@@ -23,6 +23,27 @@ const REDO_DEFAULT: &str = if MACOS {
     "ctrl+shift+z"
 };
 
+/// The default key of `toggleLeft`, the accelerator of `View > Left Pane`.
+const TOGGLE_LEFT_DEFAULT: &str = if MACOS {
+    "alt+meta+arrowleft"
+} else {
+    "ctrl+alt+arrowleft"
+};
+
+/// The default key of `toggleRight`, the accelerator of `View > Right Pane`.
+const TOGGLE_RIGHT_DEFAULT: &str = if MACOS {
+    "alt+meta+arrowright"
+} else {
+    "ctrl+alt+arrowright"
+};
+
+/// The default key of `toggleStrip`, the accelerator of `View > Filmstrip`.
+const TOGGLE_STRIP_DEFAULT: &str = if MACOS {
+    "alt+meta+arrowdown"
+} else {
+    "ctrl+alt+arrowdown"
+};
+
 /// Every action in the order the shortcuts panel shows them, with its
 /// default keys. A plain key is `event.key` lower-cased, with `" "` as
 /// `"space"`. With a modifier held, the name is `ctrl+alt+shift+meta+` (only
@@ -42,9 +63,9 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("open", &[OPEN_DEFAULT]),
     ("undo", &[UNDO_DEFAULT]),
     ("redo", &[REDO_DEFAULT]),
-    ("toggleLeft", &["f7"]),
-    ("toggleRight", &["f8"]),
-    ("toggleStrip", &["f6"]),
+    ("toggleLeft", &[TOGGLE_LEFT_DEFAULT]),
+    ("toggleRight", &[TOGGLE_RIGHT_DEFAULT]),
+    ("toggleStrip", &[TOGGLE_STRIP_DEFAULT]),
     ("toggleSides", &["tab"]),
     ("focus", &["f"]),
     ("zoom", &["z"]),
@@ -625,9 +646,9 @@ mod tests {
             ("open", OPEN_DEFAULT),
             ("undo", UNDO_DEFAULT),
             ("redo", REDO_DEFAULT),
-            ("toggleLeft", "f7"),
-            ("toggleRight", "f8"),
-            ("toggleStrip", "f6"),
+            ("toggleLeft", TOGGLE_LEFT_DEFAULT),
+            ("toggleRight", TOGGLE_RIGHT_DEFAULT),
+            ("toggleStrip", TOGGLE_STRIP_DEFAULT),
             ("toggleSides", "tab"),
             ("focus", "f"),
             ("zoom", "z"),
@@ -711,14 +732,53 @@ mod tests {
     }
 
     #[test]
-    fn the_panel_toggles_have_menu_less_defaults() {
+    fn the_panel_toggles_have_modifier_defaults() {
         let keymap = Keymap::defaults();
-        assert_eq!(keys_of(&keymap, "toggleLeft"), vec!["f7"]);
-        assert_eq!(keys_of(&keymap, "toggleRight"), vec!["f8"]);
-        assert_eq!(keys_of(&keymap, "toggleStrip"), vec!["f6"]);
+        let (modifiers, shown) = if MACOS {
+            ("alt+meta+", "Alt+Cmd+")
+        } else {
+            ("ctrl+alt+", "Ctrl+Alt+")
+        };
+        for (action, arrow, name) in [
+            ("toggleLeft", "arrowleft", "ArrowLeft"),
+            ("toggleRight", "arrowright", "ArrowRight"),
+            ("toggleStrip", "arrowdown", "ArrowDown"),
+        ] {
+            assert_eq!(
+                keys_of(&keymap, action),
+                vec![format!("{modifiers}{arrow}")]
+            );
+            assert_eq!(
+                keymap.accelerator_for(action),
+                Some(format!("{shown}{name}")),
+                "{action}"
+            );
+        }
+        assert_eq!(
+            accelerator("ctrl+alt+arrowleft").as_deref(),
+            Some("Ctrl+Alt+ArrowLeft")
+        );
+        assert_eq!(
+            accelerator("alt+meta+arrowleft").as_deref(),
+            Some("Alt+Cmd+ArrowLeft")
+        );
         assert_eq!(keys_of(&keymap, "toggleSides"), vec!["tab"]);
-        assert_eq!(accelerator("f6"), None);
         assert_eq!(accelerator("tab"), None);
+        for key in ["f6", "f7", "f8"] {
+            assert!(
+                keymap
+                    .bindings()
+                    .iter()
+                    .all(|b| !b.keys.iter().any(|k| k == key)),
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stored_f7_override_still_applies() {
+        let keymap = Keymap::from_overrides(Some(&json!({"toggleLeft": ["f7"]})));
+        assert_eq!(keys_of(&keymap, "toggleLeft"), vec!["f7"]);
     }
 
     #[test]
@@ -768,6 +828,14 @@ mod tests {
             assert_eq!(forbidden(redo, macos), None, "{redo}");
             let select_all = if macos { "meta+a" } else { "ctrl+a" };
             assert_eq!(forbidden(select_all, macos), None, "{select_all}");
+            for arrow in ["arrowleft", "arrowright", "arrowdown"] {
+                let toggle = if macos {
+                    format!("alt+meta+{arrow}")
+                } else {
+                    format!("ctrl+alt+{arrow}")
+                };
+                assert_eq!(forbidden(&toggle, macos), None, "{toggle}");
+            }
         }
     }
 
