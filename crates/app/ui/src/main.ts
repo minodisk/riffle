@@ -3686,12 +3686,17 @@ function runAction(action: string): boolean {
   return true;
 }
 
-window.addEventListener("resize", () => {
+function fitViewer(): void {
   draw();
   if (zoomed) {
     scheduleCropForResize();
   }
-});
+}
+
+window.addEventListener("resize", fitViewer);
+// The strip's horizontal scrollbar coming or going grows or shrinks `#film`,
+// and so `#viewer`, without a window `resize`.
+new ResizeObserver(fitViewer).observe(document.getElementById("viewer") as HTMLElement);
 
 renderMeta();
 draw();
