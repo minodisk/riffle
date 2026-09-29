@@ -93,6 +93,22 @@ git diff --name-only --diff-filter=U
 - **Generated metadata** (migration journals, snapshots): taking one side is
   forbidden (an append-only journal pinned to ours silently drops the other
   side's registration). **Renumber the conflicting entry and regenerate**
+- **`todo.md` and similar tracking docs**: a `###` section that one side
+  deleted **stays deleted**; do not keep both sides. Keeping both brings back
+  sections an already-merged PR closed (four parallel runs did exactly that;
+  see `docs/plans/_archived/20260929-todo-drop-resurrected-sections/learnings.md`).
+  After resolving, check for duplicated headings (must print nothing) and
+  compare the headings against `origin/main` (every `+### ` must be one this
+  branch added, every `-### ` one this branch closed)
+
+  ```bash
+  grep '^### ' todo.md | sort | uniq -d
+  ```
+
+  ```bash
+  git diff origin/main -- todo.md | grep '^[-+]### '
+  ```
+
 - **Only for ordinary source code** do you understand both branches' intent and
   resolve by hand
 

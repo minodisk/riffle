@@ -1234,24 +1234,6 @@ that PR scoped to the todo item it closed.
       or confirm no user-visible path exists where this currently causes a
       mismatch.
 
-### Agents: `pr-conflict-resolver` resurrects deleted `todo.md` sections
-
-#### Background
-
-Four parallel `develop` runs on 2026-09-29 (#558, #560, #562, #563) each hit
-a `todo.md` rebase conflict and resolved it by keeping both sides, which
-brought back `###` sections that already-merged PRs had deleted. See
-`docs/plans/_archived/20260929-todo-drop-resurrected-sections/learnings.md`.
-
-#### TODO
-
-- [ ] In `.claude/agents/pr-conflict-resolver.md`'s "2. Manual resolution"
-      section, add a rule: in `todo.md` (and similar tracking docs), when one
-      side deleted a `###` section, keep it deleted rather than keeping both
-      sides; after resolving, check `grep '^### ' todo.md | sort | uniq -d`
-      for duplicated headings and compare the branch's deleted headings
-      against `origin/main`.
-
 ### App: real-device check of the File menu separator on Windows
 
 `file-menu-separator` (docs/plans/_archived/20260929-file-menu-separator/plan.md)
