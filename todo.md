@@ -188,15 +188,40 @@ Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 
 ### App: real-device checks for the View menu
 
-`view-menu-panes` (docs/plans/20260930-view-menu-panes/plan.md) cut the native
+`view-menu-panes` (docs/plans/_archived/20260930-view-menu-panes/plan.md) cut the native
 `View` menu down to three `CheckMenuItem`s (`Left Pane`, `Right Pane`,
 `Filmstrip`) whose checks follow the shown panes, with the pane toggles moved
-to modifier defaults (`Alt+Cmd+Arrow` on macOS) so they show an accelerator.
-CI covers the build and the tests, but the macOS `cfg` branch of
-`app_menu::build` / `refresh` was only reviewed by reading.
+to modifier defaults (`Ctrl+Alt+Arrow` on Windows / Linux, `Alt+Cmd+Arrow` on
+macOS) so they show an accelerator. CI covers the build and the tests, but the
+macOS `cfg` branch of `app_menu::build` / `refresh` was only reviewed by
+reading, and the Windows GUI checks (the menu, the checks, the accelerators)
+were never run: the step was ticked on the automated criteria only. Reverting
+muda's native toggle on click relies on muda toggling the check before it
+sends the event, which was confirmed only by reading its source.
+
+Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
+`crates/app/src/commands.rs` (`set_panels`, `AppPanels`),
+`crates/app/src/shortcuts.rs` (defaults).
 
 #### TODO
 
+- [ ] On Windows, run `mise run tauri:dev` and confirm at launch that `View`
+      shows `Left Pane`, `Right Pane`, `Filmstrip` with `Ctrl+Alt+ArrowLeft` /
+      `ArrowRight` / `ArrowDown` and checks matching the panes the last
+      session left.
+- [ ] On Windows, press each of the three keys once: the pane toggles exactly
+      once (no double fire) and the check follows. `Tab`, `f`, `z`, `v` still
+      work and are not in `View`. `F6` / `F7` / `F8` now do nothing.
+- [ ] On Windows, click `View > Filmstrip` twice: hides, shows, check right
+      each time. Open Settings, click `View > Left Pane`: nothing changes and
+      the check stays.
+- [ ] On Windows, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it,
+      `Ctrl+Alt+S` toggles once, and `Reset` restores `Ctrl+Alt+ArrowDown`.
+      With the folder tree focused, `Ctrl+Alt+ArrowLeft` still hides the tree
+      (tree passthrough).
+- [ ] On Windows, watch for an Intel graphics hotkey taking `Ctrl+Alt+Arrow`
+      (screen rotation). If it does, note it in `docs/usage.md` as a driver
+      setting to turn off (not a blocker; do not change the default).
 - [ ] On macOS, confirm the three items sit above `Enter Full Screen` with a
       separator between, show `Alt+Cmd+ArrowLeft` / `ArrowRight` /
       `ArrowDown`, and have checks matching the panes the last session left.
