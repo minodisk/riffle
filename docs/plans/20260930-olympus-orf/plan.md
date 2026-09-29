@@ -104,7 +104,7 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
 
 ## Steps
 
-- [ ] Step 1: Let `sequence::Tiff` open an ORF header and a header-less MakerNote
+- [x] Step 1: Let `sequence::Tiff` open an ORF header and a header-less MakerNote
   - Done when:
     - `crates/core/src/sequence.rs` gains crate-private constructors next
       to `Tiff::new`: one that opens a TIFF-shaped buffer whose magic is
@@ -300,4 +300,4 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete
