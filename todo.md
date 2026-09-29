@@ -689,7 +689,7 @@ and the viewer show. Every EOS R8 sample and the full-frame EOS R5 Mark II
 samples on raw.pixls.us are like this, which is why the EOS R8 is not in the
 README list. Found in the Step 3 sample survey of
 `docs/plans/20260929-canon-nikon-raw/plan.md`; the clearer message came with
-`docs/plans/20260930-heif-cr3-message/plan.md`. Files:
+`docs/plans/_archived/20260930-heif-cr3-message/plan.md`. Files:
 `crates/core/src/cr3.rs`, `crates/core/src/reader.rs`,
 `crates/core/src/decode.rs`, `crates/app/src/index.rs`.
 
@@ -1289,3 +1289,26 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 - [ ] On Windows, Step 6, settings side-nav (a debug build so Debug shows, a 1280x720 window): open Settings. Expect the modal wider and taller (`min(860px, 90vw)` x `min(720px, 80vh)`) and fitting; the left nav listing Sidecar, Culling, Keyboard Shortcuts, Cache, MCP and Debug, each with its 16px icon, `#a1a1a1` at rest, hovering on `#262626`, the active one bold `#fafafa` on `#262626`; all six items fit without the nav scrolling and "Keyboard Shortcuts" reads acceptably (one line preferred); the nav's right hairline is visible (if not, raise `.sidenav`'s border to `--input`); `ArrowUp` / `ArrowDown` move and activate with wrapping, `Home` / `End` go to the first / last, `ArrowLeft` / `ArrowRight` do nothing, the focused item shows the `#737373` ring, Tab moves into the content, Shift+Tab back, Escape closes; the shortcuts table scrolls inside the content pane (thin scrollbar) while the header and nav stay put, and a status error shows under the content pane.
 - [ ] On macOS (WKWebView), repeat the six Windows passes above (Settings, first-run / trash / sequence dialogs, menus / strip bar / cells, folder tree, empty states / meta pane / status lines / Compare, settings side-nav). Also confirm that `scrollbar-color` is honored or harmlessly ignored, that native checkboxes / radios take `accent-color` (Safari 15.4+; an older engine shows the UA control), and that `:focus-visible` rings appear.
 - [ ] On Linux (WebKitGTK), repeat the six Windows passes above and the same three extra confirmations (`scrollbar-color`, `accent-color` on checkboxes / radios with WebKitGTK 2.36+, `:focus-visible` rings).
+
+### App: real-device check of the HDR PQ (HEIF) CR3 message in the strip, viewer, meta pane and sidecars
+
+`mise run ci` and `riffle-cli candidates` confirmed the new HDR PQ (HEIF) CR3
+message (unit tests in `cr3.rs` / `reader.rs` / `index.rs`, and a CLI run on
+the two local samples), but the GUI itself was never exercised. See
+`docs/plans/_archived/20260930-heif-cr3-message/plan.md` (Step 1). Files:
+`crates/app/src/index.rs`, `crates/app/ui/src/strip.ts`,
+`crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On Windows, open the folder containing `D:\photos\samples\CR3\R8.CR3`
+      and `R5m2.CR3` (never committed) in the app and check that (1) the
+      strip cells of the two files are the failed color and show "HDR PQ
+      (HEIF) CR3: its HEVC preview is not supported yet" over the image box,
+      with the same text as the cell's tooltip; (2) the viewer's note reads
+      `<path>: HDR PQ (HEIF) CR3: its HEVC preview is not supported yet`;
+      (3) the meta pane shows the EXIF rows (camera, lens, exposure, capture
+      time); (4) a star, a flag and a color label each write a sidecar next
+      to the file; (5) if either file was scanned before the
+      `EXTRACTOR_VERSION` bump to 8, it re-extracts once and picks up the
+      new text.
