@@ -150,9 +150,36 @@ the last as `preview`; with one, it is both.
 - The Z bodies are little-endian; older ones (D90, D3, D7000, Df, D800) are
   big-endian.
 - Every Nikon MakerNote offset is relative to the TIFF header at note offset
-  10 (after `Nikon\0`, two version bytes and two more). Nothing in the note
-  is read today; a future reader (e.g. `AFInfo2`) must build a second
-  `Tiff::new(buf, note + 10, note_end)`.
+  10 (after `Nikon\0`, two version bytes and two more). `af_point` builds a
+  second `Tiff::new(buf, note + 10, note_end)` for it; only `AFInfo2` is read
+  (see below).
+
+### `AFInfo2`: the offsets depend on the version, top-left origin (Measured)
+
+`nef::af_point` reads MakerNote tag 0x00b7 `AFInfo2` (UNDEFINED, in the
+note's own byte order) into `Shot.focus` and, when the area size is nonzero,
+`Shot.focus_frame`. The fields are `int16u`: `AFImageWidth`, `AFImageHeight`,
+`AFAreaXPosition`, `AFAreaYPosition`, `AFAreaWidth`, `AFAreaHeight`, starting
+at byte 0x2a for versions `0300` / `0301` and at 0x3e for `0400` / `0401` /
+`0402` (ExifTool's `Nikon.pm` `AFInfo2V0300` / `AFInfo2V0400`).
+
+- The plan first assumed bytes 16-26; that is the `AFInfo2V0100` layout of
+  older DSLRs (contrast-detect AF only). Read the version's own table.
+- The position is valid only when byte 7, `AFCoordinatesAvailable`, is 1.
+  The Z 8 sample, in auto-area AF that never locked, writes 0 and zeros; the
+  D850 / D500 write `0101`, whose position is a grid point name. Both give
+  `None`, as does a zero position or a zero `AFImage` size.
+- The position is the AF area's center in the unrotated image, origin at the
+  top left, Y down, in the `AFImage` frame, which is the full image size
+  (8256x5504 on the Z 9, 5568x3712 on the Z 30). So it maps directly to
+  `FocusLocation { sensor_w: AFImageWidth, sensor_h: AFImageHeight, x, y }`,
+  and the consumers' scaling handles a reduced-size JpgFromRaw.
+- Checked on raw.pixls.us samples by drawing the point on the preview:
+  off-center landscapes (the Z fc flower, the Z 6 eye at y 1160 of 4024, the
+  Z 7II, the Z 9) and a portrait frame (Z 30, Orientation 8: the point lands
+  on the subject after rotation). Versions seen: `0300` Z 6, Z 50; `0301`
+  Z 5, Z 6II, Z 7II, Z fc, Z 30; `0400` Z 8, Z 9; `0401` Z f. All
+  little-endian.
 
 ## CR3
 
@@ -184,6 +211,37 @@ lenient but errors on any box that runs past the buffer or its parent.
   ~90 KB and the `PRVW` box by ~940 KB, so the 1 MiB `HEAD_LIMIT` prefix
   parses and slices the preview without a ranged read or a whole-file
   retry.
+
+### `AFInfo2`: center origin, Y up, several points (Measured)
+
+`cr3::af_point` reads `CMT3` (the Canon MakerNote as a little-endian TIFF,
+whose IFD0 is the MakerNote IFD) tag 0x0026 `AFInfo2`, an `int16u` array
+(ExifTool's `Canon.pm` `AFInfo2`): `AFInfoSize`, `AFAreaMode`,
+`NumAFPoints` (n), `ValidAFPoints`, `CanonImageWidth` / `Height`,
+`AFImageWidth` / `Height`, then four `int16s[n]` arrays (`AFAreaWidths`,
+`AFAreaHeights`, `AFAreaXPositions`, `AFAreaYPositions`) and two bitmasks of
+`ceil(n / 16)` words (`AFPointsInFocus`, `AFPointsSelected`).
+
+- Positions are the area centers relative to the image center with **Y
+  up**, as ExifTool notes for EOS models. PowerShots, which also write CR3,
+  have Y down, so only a `Model` containing `EOS` is read. Settled on samples
+  where the two directions land on different things: an R10 portrait
+  (Orientation 8, y 640: Y up lands on the head, Y down on the blurred
+  background), an R5 Mark II crop (y 818 of 3392: the tomato vs the plate)
+  and an R6 Mark III (y 406: the windmill).
+- `AFImage` equals `CanonImage` on every sample, which is the recorded image
+  size (5088x3392 for the R5 Mark II APS-C crop), so it is the
+  `FocusLocation` frame once the origin moves to the top left
+  (`x = w / 2 + X`, `y = h / 2 - Y`).
+- n is 143, 651 or 1053 by body, but in single-point modes only one point is
+  valid. Zone and whole-area modes flag many points in focus (up to a few
+  hundred), so the focus is the center of their bounding box and the frame
+  its size, not the first point (the top-left corner of the cluster). With
+  none in focus, a single selected point is used (the RP and R6 Mark III
+  samples); several selected and none in focus (an area that never locked)
+  gives `None`, as does manual focus (`ValidAFPoints` 0 on the R6 sample).
+  Only indices below `ValidAFPoints` are read.
+- Every sample writes 0x0026, not 0x003c `AFInfo3`.
 
 ### HDR PQ (HEIF) files carry no JPEG (Measured)
 

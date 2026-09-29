@@ -82,7 +82,7 @@ of a detected face or the sharpest region (see
 | MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box |
 | Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) |
 | Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure |
-| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Not yet | Not yet |
+| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) |
 
 ### NEF: two JPEGs besides the thumbnail, told apart by order
 
@@ -121,10 +121,13 @@ it between generations and even between bodies:
 - **Leica**: a `LEICA` header, then an IFD; the M11-P records no AF point.
 - **Nikon**: a `Nikon` header followed by a whole TIFF of its own. The AF
   data (`AFInfo2`) starts with a version number, and each version lays its
-  fields out differently.
+  fields out differently: the Z bodies write `03xx` or `04xx` with the AF
+  area's position in pixels from the top left, while DSLRs such as the D850
+  write `0101`, which names a grid point instead.
 - **Canon**: the AF data has been written as `AFInfo`, `AFInfo2` and
   `AFInfo3` over the generations, with positions relative to the image center
-  and per-body AF-point counts.
+  (Y pointing up on EOS bodies, down on PowerShots) and per-body AF-point
+  counts.
 
 The container and Exif are the same for every body of a format, but the
 embedded JPEG sizes and, above all, the MakerNote are not. A new body can move

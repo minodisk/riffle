@@ -90,8 +90,10 @@ const SCHEMA_VERSION: i64 = 17;
 /// around a trusted AF point: the score already ignored those faces, so
 /// what `extract` stores did not change. `5` reads the Sony AF area, drive,
 /// stabilization and picture settings; `6` stops reading `FocusMode` 0 as
-/// manual focus on the `DSC-` bodies whose `FocusMode` always reads 0.
-const EXTRACTOR_VERSION: i64 = 6;
+/// manual focus on the `DSC-` bodies whose `FocusMode` always reads 0; `7`
+/// reads the AF point of NEF (Nikon `AFInfo2`) and CR3 (Canon `AFInfo2`)
+/// files.
+const EXTRACTOR_VERSION: i64 = 7;
 
 /// The version of what `riffle_core::scan::extract_faces` produces, stored
 /// on every `files` row as `faces_extractor` next to `eye_focus`. Bump it
