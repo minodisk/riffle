@@ -926,19 +926,6 @@ docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the front
 
 - [ ] Investigate why the cold `folder_entries` read costs 321 ms on 2134 rows and whether it can be reduced (indexing, query shape, or caching), verified by a measurement with `Timing logs` on before/after.
 
-### App: `crates/app/src/sequence.rs`'s comment still describes a picker-based flow
-
-The header comment says the sequenced output goes to "a sibling of the
-picked folder", but since `docs/plans/_archived/20260928-file-menu-folder-items/plan.md`
-removed the File-menu picker path, the folder is now always the one
-right-clicked in the tree. Left as-is when the plan closed to keep the
-change to the header line the plan named.
-
-#### TODO
-
-- [ ] Update the comment in `crates/app/src/sequence.rs` to describe the
-      tree-right-click flow instead of the removed picker.
-
 ### App: the manual GUI checks for the resume landing's selection are still open
 
 Step 1 of `docs/plans/_archived/20260928-resume-selection/plan.md` (merged as

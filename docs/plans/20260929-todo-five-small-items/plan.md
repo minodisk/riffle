@@ -61,7 +61,7 @@ step hits is resolved by the rule it adds.
     - Edits under `.claude/` need the sandbox override the agent files
       describe (`.claude/` is on the write deny list).
 
-- [ ] Step 2: Update `crates/app/src/sequence.rs`'s header comment to the folder-tree flow
+- [x] Step 2: Update `crates/app/src/sequence.rs`'s header comment to the folder-tree flow
   - Done when: the `//!` header of `crates/app/src/sequence.rs` no longer
     says "a sibling of the picked folder" and instead describes that the
     folder is the one right-clicked in the folder tree (the output is
@@ -230,3 +230,4 @@ step hits is resolved by the rule it adds.
 ## Progress
 
 - (2026-09-30) Step 1 complete
+- (2026-09-30) Step 2 complete

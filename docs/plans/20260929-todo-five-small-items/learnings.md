@@ -15,3 +15,14 @@
   the first time; check the seam after deleting.
 - The user-approved `.claude/settings.json` change (`Bash(gh pr view:*)`) rode
   along in this step's commit as instructed.
+
+## Step 2
+
+- Comment-only change: the header's first paragraph now names the folder as
+  the one right-clicked in the folder tree, and the second says the output
+  goes to a sibling of "the right-clicked folder" instead of "the picked
+  folder". No code touched.
+- The doubled-blank-line seam from Step 1 happened again when removing the
+  `todo.md` section with `sed -i 'N,Md'` (the range stopped at the section's
+  last text line, leaving its trailing blank next to the previous section's);
+  check the seam every time.
