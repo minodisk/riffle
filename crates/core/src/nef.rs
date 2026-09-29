@@ -9,7 +9,7 @@
 
 use anyhow::Result;
 
-use crate::arw::{Arw, Embedded};
+use crate::arw::{Arw, Embedded, Shot};
 use crate::exif::{self, integer};
 use crate::sequence::{Entry, Tiff};
 
@@ -20,14 +20,22 @@ const TAG_JPEG_LENGTH: u16 = 0x0202;
 const COMPRESSION_OLD_JPEG: u32 = 6;
 
 /// Parse a NEF (or a prefix of one). A structure that points past `buf` is an
-/// error, so a prefix too short to hold IFD0 and the SubIFDs is never taken
-/// for a file without embedded JPEGs. The Exif fields stay lenient: an
-/// unreadable one is just `None`.
+/// error, so a prefix too short to hold IFD0, the Exif IFD (when IFD0 points
+/// to one) and the SubIFDs is never taken for a file without embedded JPEGs
+/// or with fields silently gone missing. The individual Exif fields stay
+/// lenient: an unreadable one is just `None`.
 pub fn parse(buf: &[u8]) -> Result<Arw> {
     let tiff = Tiff::new(buf, 0, buf.len())?;
     let ifd0_at = tiff.u32(4)? as usize;
     let ifd0 = tiff.ifd_entries(ifd0_at)?;
-    let (orientation, shot) = exif::read(&tiff, ifd0_at);
+    let mut shot = Shot::default();
+    let (orientation, exif_ifd) = exif::read_ifd0(&tiff, &ifd0, &mut shot);
+    if let Some(at) = exif_ifd {
+        let entries = tiff.ifd_entries(at)?;
+        // The next-IFD link ends the IFD, so the inline values are in `buf` too.
+        tiff.u32(at + 2 + 12 * entries.len())?;
+        exif::read_exif_ifd(&tiff, &entries, &mut shot);
+    }
 
     let mut jpegs = Vec::new();
     for at in sub_ifds(&tiff, &ifd0)? {
@@ -251,6 +259,23 @@ pub(crate) mod tests {
         let mut far = one.clone();
         far[entry..entry + 4].copy_from_slice(&w.u32(0xFFFF));
         assert!(parse(&far).is_err(), "a SubIFD past the end");
+
+        let with_exif = nef(
+            &w,
+            &[],
+            &[w.ascii(TAG_DATE_TIME_ORIGINAL, "2022:02:05 13:48:11")],
+            &subs,
+        );
+        let mut prefix = w.u16(TAG_EXIF_IFD).to_vec();
+        prefix.extend_from_slice(&w.u16(TYPE_LONG));
+        prefix.extend_from_slice(&w.u32(1));
+        let exif_entry = with_exif
+            .windows(prefix.len())
+            .position(|b| b == prefix)
+            .unwrap();
+        let mut far = with_exif.clone();
+        far[exif_entry + 8..exif_entry + 12].copy_from_slice(&w.u32(0xFFFF));
+        assert!(parse(&far).is_err(), "the Exif IFD past the end");
 
         assert!(parse(b"not a tiff").is_err());
     }

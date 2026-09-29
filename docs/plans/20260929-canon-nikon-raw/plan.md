@@ -62,9 +62,13 @@ What the repository already gives us (investigated 2026-09-29):
   the tree counts, `commands::raw_only`, `sidecar::SidecarFormat::matches`
   for `*.<raw>.dop`, `rename.rs`, `trash.rs`, `watch.rs`, the CLI). Adding
   `.cr3` / `.nef` there lists, counts, sidecars and trashes them. The UI's
-  `viewonly.ts` tests only for `.jpe?g`, so it needs no change; the only
+  `viewonly.ts` tests only for `.jpe?g`, so it needs no change; the
   user-facing strings are `crates/app/ui/src/empty.ts` (`NO_FILES_TEXT`),
-  the CLI's bench error text and the docs.
+  the CLI's bench error text, `rename.rs`'s "not a RAW file name" error,
+  `commands.rs`'s `list_arw_in` doc comment, and the docs. The two error /
+  doc strings already use generic "RAW" wording (fixed in Round 1 review of
+  Step 2), so only `NO_FILES_TEXT`, the CLI bench error and the docs remain
+  for Step 4.
 - The index (`crates/app/src/index.rs`, `EXTRACTOR_VERSION = 6`) keys rows
   by path; `.CR3` / `.NEF` files were never listed, so they have no rows and
   no bump is needed as long as ARW / DNG / JPEG output is unchanged.

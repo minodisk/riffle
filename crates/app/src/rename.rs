@@ -158,7 +158,7 @@ pub fn file_plan(dir: &Path, path: &str, name: &str) -> Result<FilePlan, String>
     check_name(name)?;
     let target = dir.join(name);
     if !riffle_core::scan::is_raw_file(&target) {
-        return Err(format!("{name}: not a RAW file name (.ARW or .DNG)"));
+        return Err(format!("{name}: not a RAW file name"));
     }
     let mut moves = vec![(raw.clone(), target.clone())];
     for format in [SidecarFormat::Xmp, SidecarFormat::Dop] {
