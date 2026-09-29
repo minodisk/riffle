@@ -170,7 +170,34 @@ full JPEG); its full-frame samples are HEIF and fail as described above.
   raw.pixls.us). The Model string of the R5 Mark II and R6 Mark II is
   `Canon EOS R5m2` / `Canon EOS R6m2`.
 
+## Step 4: strings, docs and the compatibility lists
+
+- The README lists 13 CR3 and 12 NEF bodies, exactly the whole-file rows of
+  the Step 2 / 3 tables. The EOS R5 Mark II is listed on the strength of its
+  APS-C crop JPEG sample; the HEIF limitation is a README sentence rather
+  than a per-body caveat, since it follows the HDR PQ setting, not the body.
+  The EOS R8 stays unlisted (HEIF samples only).
+- `docs/cameras.md` rows show AF point `–` for Canon / Nikon although the
+  bodies record one; a sentence under the table says Riffle does not read it
+  yet, since the page is titled "What the camera records".
+- `NO_FILES_TEXT` became "This folder has no RAW or JPEG files.": a
+  JPEG-only folder lists its JPEGs, so the empty state only shows when both
+  are absent.
+- The literal NUL in `docs/agents/raw-metadata-parsing.md` was fixed here
+  (now `Nikon\0`). Neither Python's `bytes.replace` nor `perl -pe
+  's/\x00/.../'` passed through the Bash tool changed it (the `\x00` escape
+  seems to be mangled on the way); `perl -pi -e 'my $z=chr(0); ...'` worked.
+- The two deferred Step 2 / 3 items (pre-2012 NEF preview fallback, HEIF
+  CR3) were added to `todo.md` as their own sections in this step, as the
+  caller asked, alongside the Tier 2 / Tier 3 update.
+- `docs/performance.md` gained a short NEF / CR3 section from the Step 2 / 3
+  numbers; it does not link the plan's learnings, since the plan folder moves
+  under `_archived/` at wrap-up.
+
 ## Deferred issues (todo candidates)
+
+The three items below were handled in Step 4 (the first two added to
+`todo.md`, the NUL byte fixed directly); they are kept here for the record.
 
 - NEFs from bodies older than about 2012 (D3, D40, D70, D90, D7000 on the
   samples) carry one JPEG SubIFD, so `preview` falls back to the full-size

@@ -661,6 +661,40 @@ Files: `crates/app/ui/src/worker.ts` (resize on decode),
       for files lacking one, which would serve the main view and, as a side
       effect, shrink the thumbnail noted in the SIGMA fp L strip item.
 
+### Core: pre-2012 NEFs fall back to the full-size JPEG for the preview
+
+NEFs from bodies older than about 2012 (D3, D40, D70, D90, D7000 on the
+raw.pixls.us samples) carry one JPEG SubIFD, so `nef::parse` uses the
+full-size JpgFromRaw as the preview too: each page turn decodes a
+3000-5000 px JPEG and the fixed 2/8 thumbnail scale gives large thumbnails,
+the same issue recorded above for the SIGMA fp L. Found in the Step 2
+sample survey of `docs/plans/20260929-canon-nikon-raw/plan.md`. Files:
+`crates/core/src/nef.rs`, `crates/core/src/decode.rs` (`thumbnail_jpeg`),
+`crates/core/src/scan.rs`.
+
+#### TODO
+
+- [ ] Decide whether older NEFs are worth a smaller preview (the MakerNote
+      `PreviewIFD` JPEG is 570x375, below `PREVIEW_MIN_WIDTH`) or a scaled
+      decode of the full JPEG, and fold it into the SIGMA fp L thumbnail
+      fix if that lands first.
+
+### Core: HDR PQ (HEIF) CR3 files cannot be opened
+
+CR3 files shot with HDR PQ on carry only HEVC images (`PRVW`, `THMB` and
+the first track), so `cr3::parse` finds no JPEG and the reader errors "no
+embedded preview"; the strip shows the file as failed. Every EOS R8 sample
+and the full-frame EOS R5 Mark II samples on raw.pixls.us are like this,
+which is why the EOS R8 is not in the README list. Found in the Step 3
+sample survey of `docs/plans/20260929-canon-nikon-raw/plan.md`. Files:
+`crates/core/src/cr3.rs`, `crates/core/src/decode.rs`.
+
+#### TODO
+
+- [ ] Decide whether to add an HEVC decoder (and its license and binary
+      size cost) to show HEIF CR3 previews, or keep them unsupported with a
+      clearer message than "no embedded preview".
+
 ### Core: widen camera support from public sample RAW files
 
 The user no longer owns the Sigma fp L or BF and cannot shoot new
@@ -670,7 +704,7 @@ often flat test scenes that are weak for AF-point checks; CC0 means a
 small file could be committed as a fixture, but tests prefer synthetic
 bytes as in `crates/core/src/arw.rs`) and review-site sample galleries
 (real scenes, good for AF checks, but not redistributable, so local
-verification only). Riffle reads only ARW and DNG today (README.md
+verification only). Riffle reads ARW, DNG, NEF and CR3 today (README.md
 "RAW formats and cameras"). The work splits into tiers, cheapest first:
 
 1. More DNG-writing cameras (Pentax, Ricoh GR, other Leica bodies,
@@ -698,9 +732,16 @@ samples, as done for the Sigma BF `0x0147` in
       working body to the README "RAW formats and cameras" list.
 - [ ] Tier 2: read the AF point from the exiftool-decoded MakerNote
       tags above, confirming on samples, for bodies whose container
-      Riffle can already read.
-- [ ] Tier 3: decide per container (CR3, NEF, RAF, ...) whether a new
-      parser is worth it, given the samples available.
+      Riffle can already read. Next up: Canon `AFInfo2` (`CMT3` tag
+      0x0026) and Nikon `AFInfo2` (MakerNote tag 0x00b7, versions
+      `0300` / `0301` on the Z bodies) for the CR3 / NEF bodies in the
+      README list, as sketched in Step 5 of
+      `docs/plans/20260929-canon-nikon-raw/plan.md`; it needs off-center
+      landscape and portrait samples per maker.
+- [ ] Tier 3: decide per container whether a new parser is worth it,
+      given the samples available. CR3 and NEF are done
+      (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`); RAF and the
+      rest remain.
 - [ ] Check the Sigma BF AF point's open assumptions against public BF
       samples: portrait orientation, manual-focus behavior, and the
       1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in

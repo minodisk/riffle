@@ -37,6 +37,24 @@ decode only, not keypress to pixels.
 Thumbnails (528x352): 30,231 bytes per file on average (967,419 bytes over
 32 files), against ~19KB on the α7 V.
 
+## Nikon NEF and Canon CR3 (raw.pixls.us samples, Windows)
+
+Measured with `riffle-cli bench` / `scan` on one raw.pixls.us sample per body
+(12 NEF bodies, 13 CR3 bodies, the ones listed in
+[Compatibility](../README.md#compatibility)).
+
+| | NEF | CR3 |
+|---|---|---|
+| Preview | 1620x1080 on every body | 1620x1080 on every body |
+| Preview decode | 14-26ms | 20-30ms |
+| Full-size JPEG decode | 27-260ms (Z 9 8256x5504: 260ms) | 178-607ms (EOS R5 8192x5464: 607ms) |
+| Metadata within the 1MiB prefix | every body (ends by ~300KB) | every body (`moov` ends by ~90KB) |
+| Preview within the 1MiB prefix | all but the Z 6 and Z 50 samples | every body (`PRVW` ends by ~880KB) |
+
+A preview past the prefix costs one ranged read, not a whole-file read. The
+full-size JPEG is always a ranged read; on CR3 it sits at the start of `mdat`.
+The thumbnails come out ~405x270 as on ARW.
+
 ## Per-page preview read
 
 The per-page cost on the Rust side only, on an Apple Silicon Mac.

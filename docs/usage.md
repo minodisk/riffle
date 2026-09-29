@@ -5,8 +5,8 @@ The detailed behavior of Riffle. For a quick start, see [README.md](../README.md
 ## Features
 
 Open a folder from the picker, or drop a folder or any file in it onto the
-window. Riffle lists the ARW and DNG files in it and pages through their
-embedded previews, rotated by each file's Orientation. With no folder open the
+window. Riffle lists the RAW files (ARW, CR3, DNG and NEF) in it and pages
+through their embedded previews, rotated by each file's Orientation. With no folder open the
 viewer shows a prompt in its center; click it to open the folder picker.
 
 - **Folders**: the left pane is a folder tree rooted at the home folder and
@@ -337,7 +337,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   strip view-only, so its order and capture times can be checked without
   another app.
   - **Which folders**: the `.jpg` / `.jpeg` files (any case) directly in the
-    folder are listed only when it holds no ARW / DNG at all; a folder with
+    folder are listed only when it holds no RAW file at all; a folder with
     any RAW file lists the RAW files only, so a RAW+JPEG shooting folder does
     not double its strip. The folder tree's count follows the same rule: a
     JPEG-only folder shows how many JPEGs it holds.
@@ -542,7 +542,8 @@ folder can be opened, and the choice can be changed later in
   `photoshop:LabelColor` the lowercase English color (`red`, ...). A sidecar
   whose `xmp:Label` matches a configured name or the English name is shown in
   that color.
-- **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop`, holding the stars, the
+- **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop` (and `FOO.NEF`
+  `FOO.NEF.dop`, keeping the RAW extension), holding the stars, the
   pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
   `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
 - **Both**: every judgment is written to `FOO.xmp` and to `FOO.ARW.dop`, each

@@ -6,7 +6,7 @@ describe("emptyState", () => {
     expect(emptyState(null, 0, 0)).toBe("no-folder");
   });
 
-  test("a folder without ARW or DNG files", () => {
+  test("a folder without RAW or JPEG files", () => {
     expect(emptyState("/photos", 0, 0)).toBe("no-files");
   });
 
