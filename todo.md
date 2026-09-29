@@ -1238,21 +1238,6 @@ would rediscover these points from
       plus `git diff --cached --quiet` for a commit-only-when-changed guard.
 - [ ] Link the archived learnings.md above from the guide.
 
-### App: tree.ts's `relation`/`rebase`/`renameFolder` stay case-sensitive on case-insensitive filesystems
-
-`relation`, `rebase` and `renameFolder` in `crates/app/ui/src/tree.ts` still
-compare paths case-sensitively (apart from the drive letter), so a rename or
-watcher event whose path differs in case from the tree's keys on macOS /
-Windows would not match. Left out of the tree-reveal-ignore-case step to keep
-that PR scoped to the todo item it closed.
-
-#### TODO
-
-- [ ] Widen `relation`, `rebase` and `renameFolder` in `crates/app/ui/src/tree.ts`
-      to ignore case on macOS / Windows (same platform flag used by `reveal`),
-      or confirm no user-visible path exists where this currently causes a
-      mismatch.
-
 ### App: real-device check of the File menu separator on Windows
 
 `file-menu-separator` (docs/plans/_archived/20260929-file-menu-separator/plan.md)

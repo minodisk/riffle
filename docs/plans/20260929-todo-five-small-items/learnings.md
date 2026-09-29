@@ -49,6 +49,29 @@
 - The `todo.md` section removal (`sed -i '1190,1197d'`, heading through the
   blank line after its TODO) left a clean seam this time.
 
+## Step 4
+
+- `relation`, `rebase` and `renameFolder` in `crates/app/ui/src/tree.ts` now
+  take a trailing `ignoreCase = false` and compare through `fold`; `rebase`
+  still joins the caller's own remaining segments onto `newDir`, so the
+  spelling below the renamed folder is preserved. `respell` passes its
+  `ignoreCase` to `rebase`, and `folders.ts`'s `renamed` passes the module
+  flag to `renameFolder` and to each of its four `rebase` calls (`current`,
+  `cursor`, the selection and its anchor).
+- Untouched callers, case-sensitive by decision (option (a)):
+  `crates/app/ui/src/main.ts`'s post-rename `rebase(openDir, path, newPath)`
+  in `renameFolder`, and `crates/app/ui/src/trash.ts`'s `relation` calls in
+  `restoredInto` and `opensTarget`.
+- With `ignoreCase`, a case-only rename (`/home/me/a` to `/home/me/A`) is not
+  treated as stale: `rebase(path, oldPath, newPath)` matches first, so the
+  node moves with its state. A pre-existing node at the new path in another
+  case (`D` when renaming `a` to `d`) is dropped as stale; both are tested.
+- Hit the Step 5 pitfall while writing the tests: a Bash-tool heredoc fed to
+  `python -` turned the test file's `\\` into `\`, so the replacement's
+  anchor text no longer matched (the assertion caught it before any write).
+  Writing the script with the Write tool and running it from the scratchpad
+  worked.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Step 3, deleted focused file keeps a neighbour).**
@@ -63,3 +86,13 @@
   `crates/app/ui/src/filter.test.ts`, `mise run ci`). Files:
   `crates/app/ui/src/main.ts` (`resync`, `refilter`),
   `crates/app/ui/src/filter.ts` (`anchorAfterFilter`).
+- **Step 4 scope: `main.ts` / `trash.ts` path comparisons stay
+  case-sensitive.** Source: this plan's Step 4 (option (a) in "Trade-offs and
+  risks"). `crates/app/ui/src/main.ts`'s `renameFolder` reopens the folder
+  through `rebase(openDir, path, newPath)` and `crates/app/ui/src/trash.ts`'s
+  `restoredInto` / `opensTarget` call `relation`, all without `ignoreCase`, so
+  on macOS / Windows an `openDir` that differs in case from the tree key would
+  not be rebased (the open folder not reopened after a rename) or matched.
+  Rare, since both spellings come from the same tree / `list_arw` listings;
+  threading `folders.ts`'s platform flag (or an exported equivalent) through
+  would close it.

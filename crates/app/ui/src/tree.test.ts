@@ -13,6 +13,7 @@ import {
   markFailed,
   pruneSelection,
   rebase,
+  relation,
   renameFolder,
   respell,
   rootOf,
@@ -612,6 +613,15 @@ describe("rootOf", () => {
   });
 });
 
+describe("relation", () => {
+  test("ignores case only when asked", () => {
+    expect(relation("D:\\photos\\2026", "d:/Photos", true)).toBe("under");
+    expect(relation("D:\\photos\\2026", "d:/Photos")).toBeNull();
+    expect(relation("/Users/me/pictures", "/Users/me/Pictures", true)).toBe("same");
+    expect(relation("/Users/me/pictures", "/Users/me/Pictures")).toBeNull();
+  });
+});
+
 describe("rebase", () => {
   test("maps the folder itself and a path under it", () => {
     expect(rebase("/home/me/a", "/home/me/a", "/home/me/b")).toBe("/home/me/b");
@@ -625,6 +635,13 @@ describe("rebase", () => {
 
   test("compares Windows paths regardless of separators and drive case", () => {
     expect(rebase("d:/Photos/2026/", "D:\\Photos", "D:\\Shoots")).toBe("D:\\Shoots\\2026");
+  });
+
+  test("ignoring case, joins the rest of the path in its own spelling onto newDir", () => {
+    expect(rebase("d:/photos/2026/Raw", "D:\\Photos", "D:\\Shoots", true)).toBe(
+      "D:\\Shoots\\2026\\Raw",
+    );
+    expect(rebase("d:/photos/2026/Raw", "D:\\Photos", "D:\\Shoots")).toBeNull();
   });
 });
 
@@ -669,6 +686,33 @@ describe("renameFolder", () => {
     ]);
     tree = renameFolder(tree, "/home/me/a", "/home/me/d", "d");
     expect(drawn(tree)).toEqual(["0:me", "1:d", "2:x"]);
+    expect(tree.nodes.get("/home/me/d")?.rawCount).toBe(2);
+  });
+
+  test("ignoring case, re-keys a node whose key differs in case from oldPath", () => {
+    const tree = renameFolder(listed(), "/home/me/A", "/home/me/a1", "a1", true);
+    expect(drawn(tree)).toEqual(["0:me", "1:a1", "2:x", "1:b", "1:c"]);
+    expect(tree.nodes.has("/home/me/a")).toBe(false);
+    expect(tree.nodes.get("/home/me/a1/x")?.rawCount).toBe(1);
+    expect(renameFolder(listed(), "/home/me/A", "/home/me/a1", "a1")).toEqual(listed());
+  });
+
+  test("ignoring case, a case-only rename keeps the folder's state", () => {
+    const tree = renameFolder(listed(), "/home/me/a", "/home/me/A", "A", true);
+    expect(drawn(tree)).toEqual(["0:me", "1:A", "2:x", "1:b", "1:c"]);
+    expect(tree.nodes.has("/home/me/a")).toBe(false);
+    expect(tree.nodes.get("/home/me/A")?.rawCount).toBe(2);
+  });
+
+  test("ignoring case, drops a stale node at the new path in another case", () => {
+    let tree = listed();
+    tree = setChildren(tree, "/home/me", 0, [
+      { name: "a", path: "/home/me/a" },
+      { name: "D", path: "/home/me/D" },
+    ]);
+    tree = renameFolder(tree, "/home/me/a", "/home/me/d", "d", true);
+    expect(drawn(tree)).toEqual(["0:me", "1:d", "2:x"]);
+    expect(tree.nodes.has("/home/me/D")).toBe(false);
     expect(tree.nodes.get("/home/me/d")?.rawCount).toBe(2);
   });
 });

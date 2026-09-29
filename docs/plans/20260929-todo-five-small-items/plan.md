@@ -126,7 +126,7 @@ step hits is resolved by the rule it adds.
       the next file; record the result (or that it was not run) in
       `learnings.md`.
 
-- [ ] Step 4: Make `relation` / `rebase` / `renameFolder` ignore case on macOS and Windows
+- [x] Step 4: Make `relation` / `rebase` / `renameFolder` ignore case on macOS and Windows
   - Done when: `relation`, `rebase` and `renameFolder` in
     `crates/app/ui/src/tree.ts` take an `ignoreCase = false` parameter
     (the same shape as `ancestorsWithin` / `respell`) and compare through
@@ -232,3 +232,4 @@ step hits is resolved by the rule it adds.
 - (2026-09-30) Step 1 complete
 - (2026-09-30) Step 2 complete
 - (2026-09-30) Step 3 complete
+- (2026-09-30) Step 4 complete
