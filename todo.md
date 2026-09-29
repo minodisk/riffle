@@ -768,6 +768,35 @@ samples, as done for the Sigma BF `0x0147` in
       `crates/core/src/arw.rs` and the archived plan's
       [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
 
+### Core: older Sony ARW bodies take the 160x120 thumbnail as the full-size JPEG
+
+#### Background
+
+The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in the README. These seven bodies are left off the README until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `README.md`, `README.ja.md`, `docs/cameras.md`, `docs/raw-formats.md`.
+
+#### TODO
+
+- [ ] Decide what 1:1 shows without a full-size JPEG (refuse, fall back to the 1616x1080 preview, or decode the raw data), and implement it with a synthetic-TIFF unit test next to the existing ones in `arw.rs`.
+- [ ] Add the seven bodies to `README.md`, `README.ja.md` and `docs/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
+
+### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
+
+#### Background
+
+The `sony-arw-coverage` verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) marks these `–` in `docs/cameras.md` because the raw.pixls.us samples don't show them:
+
+- Every α9 III and α7CR sample is manual focus (`FocusMode` 0, point at the exact center, `FocusFrameSize` invalid). `trusted_focus` drops the point as designed, so both bodies show `–` for AF point and AF frame size.
+- No sample records `AFTracking` 1 (face tracking) on any body.
+- No sample is a portrait frame (Orientation 1 on all 66 files), so orientation is unverified on every listed Sony body.
+
+Files: `docs/cameras.md`.
+
+#### TODO
+
+- [ ] Find an AF-C sample of a person from the α9 III and α7CR (portrait orientation if possible), and turn their `–` for AF point / AF frame size into `✓` if the point lands on the subject.
+- [ ] Find a sample that records `AFTracking` 1 on any listed Sony body, and mark Face tracking `✓` for it.
+- [ ] Confirm orientation on a portrait ARW sample and record the result in `docs/cameras.md`.
+
 ### App: Claude Desktop's MCP connection form is unverified
 
 Whether Claude Desktop accepts a direct `url` entry for a local Streamable HTTP

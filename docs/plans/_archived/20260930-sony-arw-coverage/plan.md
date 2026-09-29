@@ -151,4 +151,4 @@ Bodies that read correctly are added to `README.md` / `README.ja.md` and
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete
