@@ -42,3 +42,37 @@
   referrer row dated the day before was kept.
 - `paths.csv` rows are sorted by path, not by the API's rank; the rank is
   recoverable from `count`.
+
+## After the Step 2 merge
+
+- The first `workflow_dispatch` after the Step 2 merge failed with
+  `gh: To use GitHub CLI in a GitHub Actions workflow, set the GH_TOKEN
+  environment variable` and the log showed `GH_TOKEN:` empty, although
+  `gh secret list` listed `STATS_TOKEN`. The secret had been registered
+  with an empty value (`read -rs T && printf '%s' "$T" | gh secret set ...`
+  in Git Bash, with nothing pasted before Enter). `gh secret list` cannot
+  tell an empty secret from a set one; the run log's empty `GH_TOKEN:` line
+  is the tell. The user regenerated the fine-grained PAT and pasted it into
+  the secret's page on github.com, and the next dispatch
+  (run 36500846205) succeeded and wrote every CSV.
+- Pushing a branch that adds `.github/workflows/*` needs the `workflow`
+  scope on the gh token (`gh auth refresh -h github.com -s workflow`);
+  without it the push is rejected with "refusing to allow an OAuth App to
+  create or update workflow".
+
+## Deferred issues (todo candidates)
+
+- **Docs: add a guide for GitHub Actions workflows and `gh` secrets.**
+  Change: create `docs/agents/github-actions-workflows.md` (read before
+  writing or debugging a `.github/workflows/*.yml` that uses `gh`, secrets,
+  or a dedicated branch as a data store, like `stats`). Points: an empty
+  secret is indistinguishable in `gh secret list` and shows as an empty
+  `GH_TOKEN:` in the run log (set secrets on github.com, or check the value
+  is non-empty before `gh secret set`); pushing `.github/workflows/*` needs
+  the `workflow` scope (`gh auth refresh -h github.com -s workflow`);
+  `shellcheck` / `actionlint` run ad hoc through `mise exec --`;
+  `git worktree add --orphan` (git 2.42+, present on `ubuntu-latest`) plus
+  `git diff --cached --quiet` for a commit-only-when-changed guard.
+  Rationale: no guide under `docs/agents/` covers workflows or secrets, so
+  the next workflow change would rediscover these. Done when: the guide
+  exists with these points and links this plan's archived learnings.md.
