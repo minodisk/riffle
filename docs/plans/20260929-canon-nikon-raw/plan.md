@@ -162,7 +162,7 @@ What the repository already gives us (investigated 2026-09-29):
     has ExifIFD 0x8827). Most samples are little-endian; older bodies are
     big-endian, and both are tested.
 
-- [ ] Step 3: CR3 parser (`crates/core/src/cr3.rs`) wired into the reader and the listing
+- [x] Step 3: CR3 parser (`crates/core/src/cr3.rs`) wired into the reader and the listing
   - Done when:
     - `cr3::parse(buf) -> Result<Arw>` walks the ISOBMFF top-level boxes
       (`ftyp` with brand `crx `, `moov`, the `uuid` boxes, stopping at
@@ -218,6 +218,15 @@ What the repository already gives us (investigated 2026-09-29):
       405x270 thumbnails, the same as ARW; nothing to change.
     - Also check the Canon `CTBO` box as a cross-check of the PRVW offset,
       but do not depend on it.
+  - Changed during implementation (measured on 14 raw.pixls.us bodies,
+    see `learnings.md`): files shot with HDR PQ (HEIF) carry HEVC, not
+    JPEG, in `PRVW`, `THMB` and the first track (every R8 sample, two of the
+    four R5 Mark II ones). `PRVW` / `THMB` are therefore taken only when
+    their data starts with a JPEG SOI, so such a file parses with no
+    preview and no full JPEG and the reader reports "no embedded preview";
+    HEVC decoding is left to `todo.md`. `moov` + `PRVW` end by ~940 KB on
+    every sample, so `HEAD_LIMIT` stays 1 MiB. The `CRAW` sample entry's
+    sub-boxes start 82 bytes into its payload.
 
 - [ ] Step 4: App strings, CLI text, docs and the compatibility lists
   - Done when:

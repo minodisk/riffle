@@ -92,6 +92,84 @@ Whole files (preview decoded, 1:1 decoded, capture time with sub-second):
   D3, D7000, D90, D40, D70 (one JPEG SubIFD, so the preview is the full
   JPEG). Only the 12 whole-file bodies above count as verified.
 
+## Step 3: CR3 parser
+
+- Layout confirmed on every sample: `ftyp` (`crx `), `moov`, the XMP `uuid`
+  (`be7acfcb...`), the preview `uuid` (`eaf42b5e...`, 16 uuid bytes + 8
+  bytes, then `PRVW`), sometimes `free`, then `mdat` with a 64-bit
+  `largesize` header. `CMT1` / `CMT2` are little-endian TIFFs on every body.
+- `PRVW` payload: u32 0, u16 1, u16 1620, u16 1080, u16, u32 JPEG length,
+  then the JPEG (so the JPEG starts 24 bytes into the box). `THMB`: version
+  byte + 3 flag bytes, u16 160, u16 120, u32 length, 4 bytes, then the JPEG.
+- The `CRAW` sample entry in `stsd` is a VisualSampleEntry plus Canon
+  fields; its sub-boxes (`JPEG`, or `CMP1` / `CDI1` / `IAD1` on the raw
+  tracks) start 82 bytes into its payload. `stsz` gives the JPEG size in
+  its `sample_size` field (count 1); `co64` the offset, which is the start
+  of `mdat`'s data on every sample (the JPEG track is first).
+- HDR PQ (HEIF) files: `PRVW` starts `01 00 00 00 00 02` and holds HEVC
+  (`CISZ`...), `THMB` is version 1 with HEVC, and the first track's entry
+  carries `HEVC` / `hvcC` / `GRID` instead of `JPEG`. All four R8 samples
+  and R5 Mark II `CRAW.CR3` / `RAW.CR3` are like this; `parse` returns no
+  preview and no full JPEG for them (the SOI check), so the reader errors
+  "no embedded preview". R5 Mark II's `APS-C_CRAW.CR3` is a JPEG file.
+- `CTBO` index 2 (the preview `uuid`'s offset) matched the box walk on every
+  sample; it is not read.
+- Top-level walk rule: `moov` must lie wholly in the buffer, and the walk is
+  complete once it reaches `mdat` or has seen both `moov` and the `PRVW`
+  header (its JPEG may run past a prefix). Anything else that runs out of
+  buffer is an error, so a short prefix gets the reader's whole-file retry
+  instead of a silent `THMB` fallback.
+- Test fixture: `cr3::tests::Cr3` builds a whole file (largesize `free` pad
+  before `moov` and a largesize `mdat`); `reader` tests reuse it, with a
+  `HEAD_LIMIT`-sized preview for the ranged read and a `HEAD_LIMIT` pad for
+  the whole-file retry.
+- exiftool is still not installed; the EXIF rows were cross-checked against
+  an independent Python dump of `CMT1` / `CMT2` (Model, Orientation,
+  DateTimeOriginal, SubSecTimeOriginal, LensModel, ExposureTime, FNumber,
+  FocalLength, ExposureBiasValue, ISO): all matched `parse`'s `Shot`.
+
+### Sample verification (2026-09-29, local only, not committed)
+
+Downloaded from raw.pixls.us (CC0) into the system temp dir. Checked with
+`riffle-cli info` / `faces` / `bench` / `scan` and a scratch binary calling
+`reader::read_metadata` / `read_preview` / `read_full` and decoding both
+JPEGs. `read_metadata` also succeeded on a 1 MiB truncated copy of each
+file. `scan` over the files: thumbnails ~17 KB mean, the only errors the two
+HEIF files.
+
+Whole files (preview decoded, 1:1 decoded, capture time with sub-second):
+
+| Body              | Preview   | Full      | moov end | PRVW end | Full decode |
+| ----------------- | --------- | --------- | -------- | -------- | ----------- |
+| EOS R             | 1620x1080 | 6720x4480 | 31 KB    | 331 KB   | 422 ms      |
+| EOS RP            | 1620x1080 | 6240x4160 | 26 KB    | 377 KB   | 370 ms      |
+| EOS R3            | 1620x1080 | 6000x4000 | 39 KB    | 684 KB   | 364 ms      |
+| EOS R5            | 1620x1080 | 8192x5464 | 35 KB    | 393 KB   | 607 ms      |
+| EOS R5 Mark II \* | 1620x1080 | 5088x3392 | 55 KB    | 321 KB   | 178 ms      |
+| EOS R6            | 1620x1080 | 5472x3648 | 37 KB    | 544 KB   | 294 ms      |
+| EOS R6 Mark II    | 1620x1080 | 6000x4000 | 59 KB    | 703 KB   | 381 ms      |
+| EOS R6 Mark III   | 1620x1080 | 6960x4640 | 49 KB    | 657 KB   | 506 ms      |
+| EOS R7            | 1620x1080 | 6960x4640 | 38 KB    | 374 KB   | 415 ms      |
+| EOS R10           | 1620x1080 | 6000x4000 | 52 KB    | 597 KB   | 380 ms      |
+| EOS R50           | 1620x1080 | 6000x4000 | 37 KB    | 877 KB   | 437 ms      |
+| EOS R50 V         | 1620x1080 | 6000x4000 | 44 KB    | 625 KB   | 386 ms      |
+| EOS R100          | 1620x1080 | 6000x4000 | 28 KB    | 331 KB   | 330 ms      |
+
+\* The R5 Mark II row is `APS-C_CRAW.CR3` (an APS-C crop, hence the smaller
+full JPEG); its full-frame samples are HEIF and fail as described above.
+
+- Portrait: the R10 `IMG_4361.CR3` sample is Orientation 8; `riffle-cli
+  faces` wrote it upright at 1080x1620 and found the face.
+- Preview decode is 20-30 ms on every body, so thumbnails come out ~405x270
+  as on ARW.
+- `moov` ends by 90 KB and the `PRVW` box by 941 KB (the HEIF R8 sample; the
+  JPEG ones by 877 KB), so every sample's metadata and preview come from the
+  1 MiB prefix. `HEAD_LIMIT` stays 1 MiB; the full JPEG is always a ranged
+  read (it starts at `mdat`).
+- Not verified: EOS R8 (every raw.pixls.us sample is HEIF), EOS R1 (not on
+  raw.pixls.us). The Model string of the R5 Mark II and R6 Mark II is
+  `Canon EOS R5m2` / `Canon EOS R6m2`.
+
 ## Deferred issues (todo candidates)
 
 - NEFs from bodies older than about 2012 (D3, D40, D70, D90, D7000 on the
@@ -100,3 +178,15 @@ Whole files (preview decoded, 1:1 decoded, capture time with sub-second):
   thumbnail scale gives large thumbnails, the same issue recorded for the
   SIGMA fp L. Basis: Step 2 sample survey. Files: `crates/core/src/nef.rs`,
   `crates/core/src/scan.rs` (`thumbnail_jpeg`).
+- CR3 files shot with HDR PQ (HEIF) carry only HEVC images (`PRVW`, `THMB`
+  and the first track), so Riffle cannot show them: the reader errors "no
+  embedded preview" and the strip shows the file as failed. Every EOS R8
+  sample and the full-frame EOS R5 Mark II samples on raw.pixls.us are
+  like this. Supporting them needs an HEVC decoder (or the camera's JPEG
+  track, which these files do not have). Basis: Step 3 sample survey.
+  Files: `crates/core/src/cr3.rs`, `crates/core/src/decode.rs`.
+- `docs/agents/raw-metadata-parsing.md` line "10 (after `Nikon `, ..." in
+  the NEF section (from Step 2) contains a literal NUL byte inside the
+  backticks (meant as `Nikon\0`), which makes grep treat the file as
+  binary. Basis: noticed while editing the CR3 section in Step 3. File:
+  `docs/agents/raw-metadata-parsing.md`.

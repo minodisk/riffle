@@ -3,7 +3,8 @@
 Read this before touching the TIFF / MakerNote parsing in
 `crates/core/src/arw.rs`, which reads both ARW and DNG files (IFD0, the
 SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
-`crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)). It lists the
+`crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)), or in
+`crates/core/src/cr3.rs`, which reads Canon CR3 files (see [CR3](#cr3)). It lists the
 pitfalls this repository has already hit, each with the reason it happens.
 `crates/core/src/reader.rs` only picks which bytes to read; no maker-specific
 parsing lives there. For a new Sony MakerNote field, also read
@@ -152,6 +153,48 @@ the last as `preview`; with one, it is both.
   10 (after `Nikon `, two version bytes and two more). Nothing in the note
   is read today; a future reader (e.g. `AFInfo2`) must build a second
   `Tiff::new(buf, note + 10, note_end)`.
+
+## CR3
+
+`crates/core/src/cr3.rs` walks a Canon CR3's ISOBMFF boxes (big-endian sizes,
+a 64-bit `largesize` after the type when the 32-bit size is 1) up to `mdat`,
+and reads the two Exif TIFFs through `crates/core/src/exif.rs`: `CMT1`
+(IFD0: `Make`, `Model`, `Orientation`) with `read_ifd0` and `CMT2` (whose
+IFD0 *is* the Exif IFD) with `read_exif_ifd`, each over
+`Tiff::new(buf, payload, box_end)`. Like `nef.rs`, it keeps the Exif fields
+lenient but errors on any box that runs past the buffer or its parent.
+
+### Where the JPEGs are (Measured)
+
+- `preview`: the `PRVW` box inside the top-level `uuid`
+  `eaf42b5e-1c98-4b88-b9fb-b7dc406e4d16`, after the 16 uuid bytes and 8
+  more. Its payload is a 16-byte header (the data length is the big-endian
+  u32 at 12) and then a 1620x1080 JPEG. Fallback: `THMB` in the Canon `uuid`
+  (`85c0b687-820f-11e0-8111-f4ce462b6a48`, inside `moov`), 160x120, length
+  at 8, data at 16; then `full`.
+- `full`: the `trak` whose `stsd` sample entry (`CRAW`) carries a `JPEG`
+  sub-box; the raw tracks carry `CMP1`. The sub-boxes start 82 bytes into the
+  sample entry's payload. The size is `stsz`'s `sample_size` (or its first
+  entry when that is 0) and the offset the first `co64` (or `stco`) entry.
+  It is the full-resolution JPEG on every sample (8192x5464 on the R5).
+- The Canon `CTBO` box lists the top-level offsets (index 2 is the preview
+  `uuid`); it matched the walk on every sample and is not read.
+- Measured on raw.pixls.us CR3s of 14 bodies (EOS R, RP, R3, R5, R5 Mark II,
+  R6, R6 Mark II, R6 Mark III, R7, R8, R10, R50, R50 V, R100): `moov` ends by
+  ~90 KB and the `PRVW` box by ~940 KB, so the 1 MiB `HEAD_LIMIT` prefix
+  parses and slices the preview without a ranged read or a whole-file
+  retry.
+
+### HDR PQ (HEIF) files carry no JPEG (Measured)
+
+With HDR PQ on, the body writes HEVC instead of JPEG in `PRVW`, `THMB` and
+the first track (whose sample entry carries `HEVC` / `hvcC` instead of
+`JPEG`). The `PRVW` / `THMB` headers differ too (`PRVW`'s first u32 is 1,
+`THMB`'s version is 1). `parse` takes `PRVW` / `THMB` only when their data
+starts with a JPEG SOI (`FF D8`), and a track only with a `JPEG` sub-box, so
+such a file parses with no `preview` and no `full`, and the reader reports
+"no embedded preview". Every R8 sample and two of the four R5 Mark II samples
+on raw.pixls.us are like this.
 
 ## Related
 
