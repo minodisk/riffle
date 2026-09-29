@@ -1081,6 +1081,9 @@ MCP tools that need view state ask the main window: Rust emits `mcp-request`
 
 ## Frontend (`crates/app/ui`, Vite+)
 
+For colors, radii, borders and the shared control classes, see
+[`ui-styling.md`](./ui-styling.md).
+
 ### Undo must re-anchor conditionally, not unconditionally (Hit)
 
 `refilter(anchor)` re-anchors the view on the given file when it is still

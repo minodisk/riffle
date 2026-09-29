@@ -579,7 +579,7 @@ Ground truth gathered at planning time (2026-09-29):
       SCAN_FACE_SVG`), `aria-hidden` on the SVG as the Lucide strings
       already carry.
 
-- [ ] Step 7: Write the styling guide and point CLAUDE.md at it
+- [x] Step 7: Write the styling guide and point CLAUDE.md at it
   - Done when:
     - `docs/agents/ui-styling.md` exists, opens like the other guides
       ("Read this before touching `crates/app/ui/style.css`, `index.html`
