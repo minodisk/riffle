@@ -319,6 +319,10 @@ function normalize(path: string): string {
   return isWindowsPath(path) ? slashed.replace(/^[A-Za-z]:/, (d) => d.toLowerCase()) : slashed;
 }
 
+function fold(path: string, ignoreCase: boolean): string {
+  return ignoreCase ? normalize(path).toLowerCase() : normalize(path);
+}
+
 function join(parent: string, name: string): string {
   if (parent.endsWith("/") || parent.endsWith("\\")) {
     return parent + name;
@@ -330,12 +334,18 @@ function join(parent: string, name: string): string {
 // way `list_subfolders` spells its children (the root's own spelling, then
 // one separator per level), or `null` when no root holds it. The deepest
 // root wins, so a folder under home is reached through home rather than
-// through the volume home lives on.
-export function ancestorsWithin(roots: string[], path: string): string[] | null {
-  const target = normalize(path);
+// through the volume home lives on. With `ignoreCase` (macOS, Windows) a root
+// holds the path whatever the case of either; the chain still takes the
+// caller's segments, which `respell` corrects from the listings.
+export function ancestorsWithin(
+  roots: string[],
+  path: string,
+  ignoreCase = false,
+): string[] | null {
+  const target = fold(path, ignoreCase);
   let best: string | null = null;
   for (const root of roots) {
-    const prefix = normalize(root);
+    const prefix = fold(root, ignoreCase);
     const holds = target === prefix || target.startsWith(`${prefix}/`);
     if (holds && (best === null || prefix.length > normalize(best).length)) {
       best = root;
@@ -349,6 +359,27 @@ export function ancestorsWithin(roots: string[], path: string): string[] | null 
     chain.push(join(chain[chain.length - 1], name));
   }
   return chain;
+}
+
+// `chain` with `chain[at]` and everything after it rebased onto the listed
+// child that is `chain[at]` (ignoring case when asked), so the rest of the
+// chain is spelled the way the tree keys its nodes; unchanged when no child
+// matches.
+export function respell(
+  chain: string[],
+  at: number,
+  children: FolderNode[],
+  ignoreCase: boolean,
+): string[] {
+  if (at >= chain.length) {
+    return chain;
+  }
+  const dir = chain[at];
+  const child = children.find((c) => fold(c.path, ignoreCase) === fold(dir, ignoreCase));
+  if (child === undefined) {
+    return chain;
+  }
+  return [...chain.slice(0, at), ...chain.slice(at).map((p) => rebase(p, dir, child.path) ?? p)];
 }
 
 // The root to add for a folder no root holds: its drive (`D:\`), its UNC

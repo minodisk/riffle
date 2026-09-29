@@ -38,6 +38,7 @@ import {
   pruneSelection,
   rebase,
   renameFolder,
+  respell,
   rootOf,
   rows,
   selectOnly,
@@ -154,6 +155,7 @@ function armSlowClick(path: string): void {
 }
 
 const isMac = /Mac/.test(navigator.platform);
+const ignoreCase = isMac || /Win/.test(navigator.platform);
 
 // The modifiers of a click in the tree: Cmd (macOS) or Ctrl (elsewhere)
 // toggles a folder, Shift selects a range; either leaves the open folder as
@@ -481,13 +483,15 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
   let chain = ancestorsWithin(
     tree.roots.map((root) => root.path),
     path,
+    ignoreCase,
   );
   if (chain === null) {
     const root = rootOf(path);
     tree = addRoots(tree, [{ name: root, path: root }]);
-    chain = ancestorsWithin([root], path);
+    chain = ancestorsWithin([root], path, ignoreCase);
   }
-  for (const dir of chain ?? []) {
+  for (let i = 0; chain !== null && i < chain.length; i++) {
+    const dir = chain[i];
     if (!tree.nodes.has(dir)) {
       break;
     }
@@ -506,10 +510,11 @@ export async function reveal(path: string, stillCurrent: () => boolean): Promise
       return;
     }
     tree = setChildren(tree, dir, folder.raw_count, folder.children);
+    chain = respell(chain, i + 1, folder.children, ignoreCase);
   }
   // `chain`'s last element is spelled the way the tree's nodes are keyed
-  // (`ancestorsWithin` normalizes separators, case and trailing slashes),
-  // while `path` is the caller's raw spelling; `render` compares `current`
+  // (the root's spelling, then each level as its parent's listing spells
+  // it), while `path` is the caller's raw spelling; `render` compares `current`
   // against node keys, so it must be the chain's, not the raw one.
   if (chain !== null) {
     current = chain.at(-1) ?? current;

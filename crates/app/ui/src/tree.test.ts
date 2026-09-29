@@ -14,6 +14,7 @@ import {
   pruneSelection,
   rebase,
   renameFolder,
+  respell,
   rootOf,
   rows,
   selectOnly,
@@ -521,6 +522,79 @@ describe("ancestorsWithin", () => {
   test("no root holds the folder", () => {
     expect(ancestorsWithin(["C:\\"], "\\\\nas\\photos")).toBeNull();
     expect(ancestorsWithin([], "/home/me")).toBeNull();
+  });
+});
+
+// Re-spells the chain level by level the way `reveal` does, from each
+// level's listing.
+function walk(
+  chain: string[],
+  listings: Record<string, { name: string; path: string }[]>,
+  ignoreCase: boolean,
+): string[] {
+  let out = chain;
+  for (let i = 0; i < out.length; i++) {
+    out = respell(out, i + 1, listings[out[i]] ?? [], ignoreCase);
+  }
+  return out;
+}
+
+describe("ancestorsWithin ignoring case", () => {
+  test("a Windows path in another case resolves to the listed spelling", () => {
+    const chain = ancestorsWithin(["C:\\Users\\me"], "c:\\users\\ME\\pictures\\RAW", true);
+    expect(chain).toEqual([
+      "C:\\Users\\me",
+      "C:\\Users\\me\\pictures",
+      "C:\\Users\\me\\pictures\\RAW",
+    ]);
+    expect(
+      walk(
+        chain ?? [],
+        {
+          "C:\\Users\\me": [{ name: "Pictures", path: "C:\\Users\\me\\Pictures" }],
+          "C:\\Users\\me\\Pictures": [{ name: "raw", path: "C:\\Users\\me\\Pictures\\raw" }],
+        },
+        true,
+      ),
+    ).toEqual(["C:\\Users\\me", "C:\\Users\\me\\Pictures", "C:\\Users\\me\\Pictures\\raw"]);
+  });
+
+  test("a macOS path in another case resolves with the flag on", () => {
+    const chain = ancestorsWithin(["/Users/me"], "/users/ME/pictures", true);
+    expect(chain).toEqual(["/Users/me", "/Users/me/pictures"]);
+    expect(
+      walk(chain ?? [], { "/Users/me": [{ name: "Pictures", path: "/Users/me/Pictures" }] }, true),
+    ).toEqual(["/Users/me", "/Users/me/Pictures"]);
+  });
+
+  test("with the flag off (Linux) the case must match", () => {
+    expect(ancestorsWithin(["/home/me"], "/home/ME/x")).toBeNull();
+    const chain = ancestorsWithin(["/home/me"], "/home/me/pictures") ?? [];
+    expect(
+      walk(chain, { "/home/me": [{ name: "Pictures", path: "/home/me/Pictures" }] }, false),
+    ).toEqual(["/home/me", "/home/me/pictures"]);
+  });
+});
+
+describe("respell", () => {
+  const children = [
+    { name: "Pictures", path: "/Users/me/Pictures" },
+    { name: "Music", path: "/Users/me/Music" },
+  ];
+  const chain = ["/Users/me", "/Users/me/pictures", "/Users/me/pictures/2026"];
+
+  test("rebases the rest of the chain onto the listed child ignoring case", () => {
+    expect(respell(chain, 1, children, true)).toEqual([
+      "/Users/me",
+      "/Users/me/Pictures",
+      "/Users/me/Pictures/2026",
+    ]);
+  });
+
+  test("leaves the chain as it is when case matters or nothing matches", () => {
+    expect(respell(chain, 1, children, false)).toBe(chain);
+    expect(respell(chain, 1, [], true)).toBe(chain);
+    expect(respell(chain, 3, children, true)).toBe(chain);
   });
 });
 

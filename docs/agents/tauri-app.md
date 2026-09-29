@@ -1554,6 +1554,19 @@ macOS Ctrl+click is the right-click the tree already guards).
 - Source: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
   Step 3.
 
+### Case-insensitive path matching must be corrected level by level (Hit)
+
+`relation`/`rebase` in `crates/app/ui/src/tree.ts` join the remaining path
+segments in the caller's own spelling, not the tree's. When correcting a
+path's case against the tree's listings, re-apply `respell` after each
+listing rather than once at the end: only the level just matched against a
+listing takes that listing's case, and the deeper segments are corrected
+only when their own parent is later listed. Assuming one pass suffices will
+leave deeper segments in the caller's original case.
+
+- Source: `docs/plans/_archived/20260929-tree-reveal-ignore-case/learnings.md`,
+  Step 1.
+
 ### `flex: none; width: min-content` to size a column by its fixed-width child (Hit)
 
 Sizing `#side` with plain `flex: none` lets a long `#position` line
