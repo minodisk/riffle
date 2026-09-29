@@ -123,7 +123,9 @@ fn af_point(
     if &buf[at..at + NIKON_HEADER.len()] != NIKON_HEADER {
         return Ok(None);
     }
-    let note = Tiff::new(buf, at + NIKON_HEADER_LEN, end)?;
+    let Ok(note) = Tiff::new(buf, at + NIKON_HEADER_LEN, end) else {
+        return Ok(None);
+    };
     let Ok(entries) = note.u32(4).and_then(|ifd0| note.ifd_entries(ifd0 as usize)) else {
         return Ok(None);
     };
@@ -441,6 +443,26 @@ pub(crate) mod tests {
             parse(&buf).unwrap().shot.focus.is_none(),
             "not a Nikon note"
         );
+    }
+
+    #[test]
+    fn a_maker_note_with_a_bad_inner_tiff_header_has_no_af_point() {
+        let w = W(true);
+        let (tag, typ, count, mut v) = maker_note(&w, &[af_info2(&w, b"0301", 1, values())]);
+        // Corrupt the inner TIFF's byte order marker, right after the
+        // `Nikon\0` header and its four following bytes, so the note is
+        // fully inside `buf` but `Tiff::new` fails to construct it.
+        v[NIKON_HEADER_LEN] = b'X';
+        v[NIKON_HEADER_LEN + 1] = b'X';
+        let buf = nef(&w, &[], &[(tag, typ, count, v)], &[jpeg_sub(&w, 1000, 900)]);
+        let a = parse(&buf).unwrap();
+        assert!(a.shot.focus.is_none() && a.shot.focus_frame.is_none());
+        assert_eq!(at(a.full), Some((1000, 900)));
+        assert_eq!(at(a.preview), Some((1000, 900)));
+    }
+
+    fn values() -> [u16; 6] {
+        [5568, 3712, 3776, 1741, 552, 540]
     }
 
     #[test]

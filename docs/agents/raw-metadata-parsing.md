@@ -127,7 +127,13 @@ byte-order-aware walker, and reads IFD0 and the Exif IFD through the shared
 crate-private `crates/core/src/exif.rs` (also used by `jpeg.rs`); unlike
 `arw.rs`, it keeps its own Exif fields lenient (an unreadable one is `None`)
 but errors on any IFD or SubIFD that runs past the buffer, so a short prefix
-triggers the reader's whole-file retry instead of a file with no JPEGs.
+triggers the reader's whole-file retry instead of a file with no JPEGs. The
+same range-vs-contents split applies to the MakerNote (0x927c) that
+`af_point` reads: a declared range running past the buffer is an error too
+(so a truncated prefix retries with the whole file instead of caching a
+missing AF point), while a note fully inside the buffer whose contents are
+malformed (a bad inner TIFF header, an unreadable IFD entry, ...) is lenient
+and yields `None`.
 
 ### The preview is a SubIFD JPEG, not IFD0's or the MakerNote's (Measured)
 
