@@ -449,7 +449,7 @@ Ground truth gathered at planning time (2026-09-29):
     - Keep the id-scoped `#folders` rules for size and padding; only the
       colors move to the classes.
 
-- [ ] Step 5: Migrate the viewer overlays, the meta pane, the empty states and the status lines
+- [x] Step 5: Migrate the viewer overlays, the meta pane, the empty states and the status lines
   - Done when:
     - `.empty` exists in the component block (shadcn Empty: centered,
       `--muted-foreground`, `0.9rem`) and `#empty` carries it in
@@ -706,3 +706,4 @@ Ground truth gathered at planning time (2026-09-29):
 - (2026-09-29) Step 2 complete; the plan was extended to every view (audit.md) and a settings side-nav step, at the user's request
 - (2026-09-29) Step 3 complete
 - (2026-09-29) Step 4 complete
+- (2026-09-30) Step 5 complete
