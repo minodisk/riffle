@@ -329,6 +329,61 @@
   color: var(--muted-foreground);
 }
 
+/* A vertical settings navigation: the selected item is bold on the accent
+   surface, the same scheme as the folder tree. */
+.sidenav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--border);
+}
+
+.sidenav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--muted-foreground);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sidenav-item:hover {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.sidenav-item[aria-selected="true"] {
+  font-weight: 600;
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.sidenav-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+
+/* An inlined Lucide icon, 16px in the text color. */
+.icon {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 /* Last, so it wins over the `display` of the component rules above at equal
    specificity. */
 .dialog-box [hidden] {
@@ -928,14 +983,14 @@ body {
 }
 
 /* Settings, over the whole window like the first-launch dialog. The header
-   and the tabs stay put while a long panel (the shortcuts table) scrolls, so
-   a small window never hides Reset all. */
+   and the side navigation stay put while a long panel (the shortcuts table)
+   scrolls, so a small window never hides Reset all. */
 #settings-box {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  width: min(640px, 90vw);
-  height: min(640px, 85vh);
+  width: min(860px, 90vw);
+  height: min(720px, 80vh);
 }
 
 #settings-header {
@@ -951,30 +1006,23 @@ body {
   line-height: 1.4;
 }
 
-#settings-dialog [role="tablist"] {
+#settings-body {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 0.75rem;
+}
+
+#settings-tabs {
   flex: none;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
+  width: 180px;
 }
 
-#settings-dialog [role="tab"] {
-  padding: 0.3rem 0.75rem;
-  border: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-#settings-dialog [role="tab"]:hover {
-  background: var(--muted);
-}
-
-#settings-dialog [role="tab"][aria-selected="true"] {
-  color: var(--accent-foreground);
-  background: var(--accent);
+#settings-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
 }
 
 #settings-dialog [role="tabpanel"] {

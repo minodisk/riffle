@@ -159,6 +159,36 @@
     `FOCUS_MARK_COLORS` ("apart from every mark color above"). No
     `--label-*` / `--pick-color` string is read by name.
 
+## Step 6: settings side navigation
+
+- `nextTab` now takes a required `orientation` (`"horizontal"` |
+  `"vertical"`) rather than a second function; the settings modal passes
+  `"vertical"`, so ArrowLeft / ArrowRight fall through to `native`. The
+  hidden Debug tab is excluded by `settings.ts`'s visible filter as before;
+  `tabs.test.ts` covers it through the list with and without `debug`.
+- The six icons were taken verbatim from `lucide-static@1.48.0` on unpkg
+  (the version the existing header names), reduced to the same one-line
+  shape as `SCAN_FACE_SVG` (no `class` / `width` / `height`, plus
+  `aria-hidden`). `database` is in `LICENSE-lucide`'s Feather-derived list,
+  so the header now names it next to `check`.
+- An SVG with only a `viewBox` sizes to 300x150 unless constrained, so
+  `.icon svg { width: 100%; height: 100% }` goes with the 16px `.icon`
+  box. `.icon` is in the component block for Step 7's guide.
+- `.sidenav-item` sets `display: flex`, which would override `#tab-debug`'s
+  `hidden`; `.dialog-box [hidden]` (0,1,1) still wins over it (0,1,0), and
+  the component stays above that rule as its comment asks.
+- `#settings-tabs` gets the fixed `width: 180px` (content box, so the
+  `0.75rem` right padding and border sit outside it); `.sidenav` keeps
+  only the column look. "Keyboard Shortcuts" in bold at `0.85rem` next to
+  the icon is close to the item's text width, so it may wrap to two lines;
+  part of the manual check.
+- Every `[role="tabpanel"]` section carries `scrollarea`; the id rule's
+  `flex: 1; min-height: 0; overflow-y: auto` now lays out inside
+  `#settings-content`, and `#settings-status` moved into it, under the
+  panels.
+- The Step 5 hex grep still matches only the listed exceptions (no new hex
+  in `style.css` or `src/*.ts`).
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Windows, Step 1 of ui-design-tokens):** the user
@@ -249,20 +279,41 @@
   "Done when"; files `crates/app/ui/style.css`,
   `crates/app/ui/index.html`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/theme.ts`.
+- **Pending manual check (Windows, Step 6 of ui-design-tokens):** the user
+  runs `mise run tauri:dev` (a debug build, so Debug shows) and opens
+  Settings in a 1280x720 window. Expected: the modal is wider and taller
+  (`min(860px, 90vw)` x `min(720px, 80vh)`) and fits; the left nav lists
+  Sidecar, Culling, Keyboard Shortcuts, Cache, MCP and Debug, each with its
+  16px icon, in `#a1a1a1` at rest, hovering on `#262626`, the active one
+  bold `#fafafa` on `#262626`; all six items fit without the nav scrolling
+  and "Keyboard Shortcuts" reads acceptably (one line preferred); the nav's
+  right hairline is visible (if not, raise `.sidenav`'s border to
+  `--input`); `ArrowUp` / `ArrowDown` move and activate with wrapping,
+  `Home` / `End` go to the first / last, `ArrowLeft` / `ArrowRight` do
+  nothing, the focused item shows the `#737373` ring, Tab moves into the
+  content, Shift+Tab back, Escape closes; the shortcuts table scrolls inside
+  the content pane (thin scrollbar) while the header and nav stay put, and
+  a status error shows under the content pane. Step 6's checkbox was ticked
+  on the automated criteria only. Basis: plan Step 6 "Done when"; files
+  `crates/app/ui/style.css`, `crates/app/ui/index.html`,
+  `crates/app/ui/src/settings.ts`, `crates/app/ui/src/tabs.ts`,
+  `crates/app/ui/src/icons.ts`.
 - **Pending manual check (macOS WKWebView and Linux WebKitGTK, Steps 1 to
-  5):** the same Settings walk-through as the Step 1 Windows check, the
+  6):** the same Settings walk-through as the Step 1 Windows check, the
   same first-run / trash / sequence dialog pass as the Step 2 Windows check,
   the same menu / strip bar / cell pass as the Step 3 Windows check, the
   same folder tree pass as the Step 4 Windows check, and the same empty
   state / meta pane / status line / Compare pass as the Step 5 Windows
-  check, on
+  check, and the same settings side-nav pass as the Step 6 Windows check,
+  on
   each platform (no device here); also that `scrollbar-color` is honored or
   harmlessly ignored. Also confirm that the native
   checkboxes / radios take `accent-color` (Safari 15.4+ / WebKitGTK 2.36+;
   older engines show the UA control) and that `:focus-visible` rings
-  appear. The five steps' checkboxes were ticked on the automated criteria
-  only. Basis: plan Steps 1 to 5 "Done when"; files
+  appear. The six steps' checkboxes were ticked on the automated criteria
+  only. Basis: plan Steps 1 to 6 "Done when"; files
   `crates/app/ui/style.css`, `crates/app/ui/index.html`,
   `crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/icons.ts`, `crates/app/ui/src/strip.ts`,
-  `crates/app/ui/src/folders.ts`, `crates/app/ui/src/theme.ts`.
+  `crates/app/ui/src/folders.ts`, `crates/app/ui/src/theme.ts`,
+  `crates/app/ui/src/tabs.ts`.

@@ -1,3 +1,11 @@
+import {
+  BUG_SVG,
+  DATABASE_SVG,
+  FILE_TEXT_SVG,
+  KEYBOARD_SVG,
+  PLUG_SVG,
+  SLIDERS_HORIZONTAL_SVG,
+} from "./icons.js";
 import { IdleGate } from "./idle.js";
 import { type Binding, displayKey, keyName } from "./keys.js";
 import { LABEL_COLORS, type LabelNames, type LabelPreset, labelNamesPayload } from "./labels.js";
@@ -91,6 +99,20 @@ export function initSettings(hooks: SettingsHooks): Settings {
   const clearIndexNote = document.getElementById("clear-index-note") as HTMLParagraphElement;
   const tablist = document.getElementById("settings-tabs") as HTMLDivElement;
   const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const tabIcons: Record<string, string> = {
+    "tab-sidecar": FILE_TEXT_SVG,
+    "tab-culling": SLIDERS_HORIZONTAL_SVG,
+    "tab-shortcuts": KEYBOARD_SVG,
+    "tab-cache": DATABASE_SVG,
+    "tab-mcp": PLUG_SVG,
+    "tab-debug": BUG_SVG,
+  };
+  for (const tab of tabs) {
+    const icon = document.createElement("span");
+    icon.className = "icon";
+    icon.innerHTML = tabIcons[tab.id] ?? "";
+    tab.prepend(icon);
+  }
   let shortcutBindings: Binding[] = [];
   let scanRunning = false;
   let clearInFlight = false;
@@ -507,7 +529,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
       tabs
         .find((tab) => tab.getAttribute("aria-selected") === "true")
         ?.getAttribute("aria-controls") ?? "";
-    const target = nextTab(visible, current, event.key);
+    const target = nextTab(visible, current, event.key, "vertical");
     if (target !== current) {
       event.preventDefault();
       selectTab(target);

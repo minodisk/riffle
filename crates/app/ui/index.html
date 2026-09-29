@@ -396,156 +396,200 @@
             &#xD7;
           </button>
         </div>
-        <div role="tablist" id="settings-tabs" aria-label="Settings">
-          <button
-            id="tab-sidecar"
-            type="button"
-            role="tab"
-            aria-controls="sidecar"
-            aria-selected="true"
-            tabindex="0"
+        <div id="settings-body">
+          <div
+            role="tablist"
+            id="settings-tabs"
+            class="sidenav"
+            aria-label="Settings"
+            aria-orientation="vertical"
           >
-            Sidecar
-          </button>
-          <button
-            id="tab-culling"
-            type="button"
-            role="tab"
-            aria-controls="culling"
-            aria-selected="false"
-            tabindex="-1"
-          >
-            Culling
-          </button>
-          <button
-            id="tab-shortcuts"
-            type="button"
-            role="tab"
-            aria-controls="shortcuts"
-            aria-selected="false"
-            tabindex="-1"
-          >
-            Keyboard Shortcuts
-          </button>
-          <button
-            id="tab-cache"
-            type="button"
-            role="tab"
-            aria-controls="cache"
-            aria-selected="false"
-            tabindex="-1"
-          >
-            Cache
-          </button>
-          <button
-            id="tab-mcp"
-            type="button"
-            role="tab"
-            aria-controls="mcp"
-            aria-selected="false"
-            tabindex="-1"
-          >
-            MCP
-          </button>
-          <button
-            id="tab-debug"
-            type="button"
-            role="tab"
-            aria-controls="debug"
-            aria-selected="false"
-            tabindex="-1"
-            hidden
-          >
-            Debug
-          </button>
+            <button
+              id="tab-sidecar"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="sidecar"
+              aria-selected="true"
+              tabindex="0"
+            >
+              Sidecar
+            </button>
+            <button
+              id="tab-culling"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="culling"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Culling
+            </button>
+            <button
+              id="tab-shortcuts"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="shortcuts"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Keyboard Shortcuts
+            </button>
+            <button
+              id="tab-cache"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="cache"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Cache
+            </button>
+            <button
+              id="tab-mcp"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="mcp"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              MCP
+            </button>
+            <button
+              id="tab-debug"
+              type="button"
+              class="sidenav-item"
+              role="tab"
+              aria-controls="debug"
+              aria-selected="false"
+              tabindex="-1"
+              hidden
+            >
+              Debug
+            </button>
+          </div>
+          <div id="settings-content">
+            <section id="sidecar" class="scrollarea" role="tabpanel" aria-labelledby="tab-sidecar">
+              <label class="field"
+                ><input class="checkbox" type="radio" name="sidecar-format" value="xmp" /> Lightroom
+                (.xmp)</label
+              >
+              <label class="field"
+                ><input class="checkbox" type="radio" name="sidecar-format" value="dop" /> PhotoLab
+                (.dop)</label
+              >
+              <label class="field"
+                ><input class="checkbox" type="radio" name="sidecar-format" value="both" /> Both
+                (.xmp and .dop)</label
+              >
+              <div id="label-names" hidden>
+                <p>
+                  The <code>xmp:Label</code> written for each color. These must match the names in
+                  Lightroom's color label set. Either edit them here to match your set (Reset fills
+                  in Lightroom's default set for the language chosen below), or change your set to
+                  these names in Lightroom Classic under Metadata &gt; Color Label Set &gt; Edit.
+                </p>
+                <label class="field"
+                  >Red <input id="label-name-red" class="input" type="text"
+                /></label>
+                <label class="field"
+                  >Yellow <input id="label-name-yellow" class="input" type="text"
+                /></label>
+                <label class="field"
+                  >Green <input id="label-name-green" class="input" type="text"
+                /></label>
+                <label class="field"
+                  >Blue <input id="label-name-blue" class="input" type="text"
+                /></label>
+                <label class="field"
+                  >Purple <input id="label-name-purple" class="input" type="text"
+                /></label>
+                <div class="dialog-actions">
+                  <select
+                    id="label-names-language"
+                    class="select"
+                    aria-label="Lightroom language"
+                  ></select>
+                  <button id="label-names-reset" class="button outline" type="button">Reset</button>
+                </div>
+              </div>
+            </section>
+            <section
+              id="culling"
+              class="scrollarea"
+              role="tabpanel"
+              aria-labelledby="tab-culling"
+              hidden
+            >
+              <label class="field"
+                ><input id="auto-advance" class="checkbox" type="checkbox" /> Auto-advance after a
+                star, reject or pick</label
+              >
+            </section>
+            <section
+              id="shortcuts"
+              class="scrollarea"
+              role="tabpanel"
+              aria-labelledby="tab-shortcuts"
+              hidden
+            >
+              <table id="shortcuts-rows"></table>
+              <div class="dialog-actions">
+                <button id="shortcuts-reset-all" class="button outline" type="button">
+                  Reset all
+                </button>
+              </div>
+            </section>
+            <section
+              id="cache"
+              class="scrollarea"
+              role="tabpanel"
+              aria-labelledby="tab-cache"
+              hidden
+            >
+              <p id="index-size">Index cache: …</p>
+              <p>
+                Clearing drops every cached thumbnail, so the next open of a folder scans it again;
+                your judgments are kept, because they live in the sidecars.
+              </p>
+              <p id="clear-index-note" hidden>
+                The cache is cleared as soon as the running scan finishes.
+              </p>
+              <div class="dialog-actions">
+                <button id="clear-index" class="button outline" type="button">Clear Cache</button>
+              </div>
+            </section>
+            <section id="mcp" class="scrollarea" role="tabpanel" aria-labelledby="tab-mcp" hidden>
+              <label class="field"
+                ><input id="mcp-enabled" class="checkbox" type="checkbox" /> Let MCP clients
+                connect</label
+              >
+              <p id="mcp-status"></p>
+              <p>Any MCP client that speaks Streamable HTTP connects to this endpoint:</p>
+              <div class="copyable">
+                <pre id="mcp-endpoint"></pre>
+                <button id="mcp-endpoint-copy" class="button outline" type="button">Copy</button>
+              </div>
+              <div id="mcp-examples"></div>
+            </section>
+            <section
+              id="debug"
+              class="scrollarea"
+              role="tabpanel"
+              aria-labelledby="tab-debug"
+              hidden
+            >
+              <label class="field"
+                ><input id="debug-timing" class="checkbox" type="checkbox" /> Timing logs</label
+              >
+            </section>
+            <div id="settings-status"></div>
+          </div>
         </div>
-        <section id="sidecar" role="tabpanel" aria-labelledby="tab-sidecar">
-          <label class="field"
-            ><input class="checkbox" type="radio" name="sidecar-format" value="xmp" /> Lightroom
-            (.xmp)</label
-          >
-          <label class="field"
-            ><input class="checkbox" type="radio" name="sidecar-format" value="dop" /> PhotoLab
-            (.dop)</label
-          >
-          <label class="field"
-            ><input class="checkbox" type="radio" name="sidecar-format" value="both" /> Both (.xmp
-            and .dop)</label
-          >
-          <div id="label-names" hidden>
-            <p>
-              The <code>xmp:Label</code> written for each color. These must match the names in
-              Lightroom's color label set. Either edit them here to match your set (Reset fills in
-              Lightroom's default set for the language chosen below), or change your set to these
-              names in Lightroom Classic under Metadata &gt; Color Label Set &gt; Edit.
-            </p>
-            <label class="field">Red <input id="label-name-red" class="input" type="text" /></label>
-            <label class="field"
-              >Yellow <input id="label-name-yellow" class="input" type="text"
-            /></label>
-            <label class="field"
-              >Green <input id="label-name-green" class="input" type="text"
-            /></label>
-            <label class="field"
-              >Blue <input id="label-name-blue" class="input" type="text"
-            /></label>
-            <label class="field"
-              >Purple <input id="label-name-purple" class="input" type="text"
-            /></label>
-            <div class="dialog-actions">
-              <select
-                id="label-names-language"
-                class="select"
-                aria-label="Lightroom language"
-              ></select>
-              <button id="label-names-reset" class="button outline" type="button">Reset</button>
-            </div>
-          </div>
-        </section>
-        <section id="culling" role="tabpanel" aria-labelledby="tab-culling" hidden>
-          <label class="field"
-            ><input id="auto-advance" class="checkbox" type="checkbox" /> Auto-advance after a star,
-            reject or pick</label
-          >
-        </section>
-        <section id="shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts" hidden>
-          <table id="shortcuts-rows"></table>
-          <div class="dialog-actions">
-            <button id="shortcuts-reset-all" class="button outline" type="button">Reset all</button>
-          </div>
-        </section>
-        <section id="cache" role="tabpanel" aria-labelledby="tab-cache" hidden>
-          <p id="index-size">Index cache: …</p>
-          <p>
-            Clearing drops every cached thumbnail, so the next open of a folder scans it again; your
-            judgments are kept, because they live in the sidecars.
-          </p>
-          <p id="clear-index-note" hidden>
-            The cache is cleared as soon as the running scan finishes.
-          </p>
-          <div class="dialog-actions">
-            <button id="clear-index" class="button outline" type="button">Clear Cache</button>
-          </div>
-        </section>
-        <section id="mcp" role="tabpanel" aria-labelledby="tab-mcp" hidden>
-          <label class="field"
-            ><input id="mcp-enabled" class="checkbox" type="checkbox" /> Let MCP clients
-            connect</label
-          >
-          <p id="mcp-status"></p>
-          <p>Any MCP client that speaks Streamable HTTP connects to this endpoint:</p>
-          <div class="copyable">
-            <pre id="mcp-endpoint"></pre>
-            <button id="mcp-endpoint-copy" class="button outline" type="button">Copy</button>
-          </div>
-          <div id="mcp-examples"></div>
-        </section>
-        <section id="debug" role="tabpanel" aria-labelledby="tab-debug" hidden>
-          <label class="field"
-            ><input id="debug-timing" class="checkbox" type="checkbox" /> Timing logs</label
-          >
-        </section>
-        <div id="settings-status"></div>
       </div>
     </div>
     <script type="module" src="./src/main.ts"></script>

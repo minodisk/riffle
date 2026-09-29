@@ -504,7 +504,7 @@ Ground truth gathered at planning time (2026-09-29):
       the script is `type="module"` at the end of `<body>`); do not read
       them per frame.
 
-- [ ] Step 6: Enlarge the settings modal and replace its tabs with a side navigation
+- [x] Step 6: Enlarge the settings modal and replace its tabs with a side navigation
   - Done when:
     - `#settings-box` is `width: min(860px, 90vw); height: min(720px,
       80vh)` and lays out as header row, then a two-column body: a
@@ -707,3 +707,4 @@ Ground truth gathered at planning time (2026-09-29):
 - (2026-09-29) Step 3 complete
 - (2026-09-29) Step 4 complete
 - (2026-09-30) Step 5 complete
+- (2026-09-30) Step 6 complete
