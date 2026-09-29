@@ -87,7 +87,18 @@ export function setChildren(
   return { roots: tree.roots, nodes };
 }
 
-// The rows to draw, depth first: the roots, and the children of every
+// The children of `node` the tree draws, or `undefined` until it is listed.
+// A folder that is itself a root is drawn as that root only, so home is not
+// repeated under the volume it lives on.
+export function drawnChildren(tree: Tree, node: TreeNode): FolderNode[] | undefined {
+  if (node.children === undefined) {
+    return undefined;
+  }
+  const roots = new Set(tree.roots.map(({ path }) => normalize(path)));
+  return node.children.filter(({ path }) => !roots.has(normalize(path)));
+}
+
+// The rows to draw, depth first: the roots, and the drawn children of every
 // expanded folder that has been listed.
 export function rows(tree: Tree): Row[] {
   const out: Row[] = [];
@@ -98,8 +109,9 @@ export function rows(tree: Tree): Row[] {
         continue;
       }
       out.push({ node, depth });
-      if (node.expanded && node.children !== undefined) {
-        walk(node.children, depth + 1);
+      const children = drawnChildren(tree, node);
+      if (node.expanded && children !== undefined) {
+        walk(children, depth + 1);
       }
     }
   };
@@ -208,40 +220,42 @@ export type TreeCommand =
   | { kind: "collapse"; path: string }
   | { kind: "open"; path: string };
 
-function canExpand(node: TreeNode): boolean {
-  return node.children === undefined || node.children.length > 0;
+function canExpand(tree: Tree, node: TreeNode): boolean {
+  const children = drawnChildren(tree, node);
+  return children === undefined || children.length > 0;
 }
 
 // What `Right` / `Left` / `Enter` do on the cursor row, following the
 // WAI-ARIA tree pattern, or `null` when the key does nothing there (or the
-// cursor is not among `rows`).
-export function treeKey(rows: Row[], cursor: string | null, key: TreeKey): TreeCommand | null {
-  const at = rows.findIndex((row) => row.node.path === cursor);
+// cursor is not among the drawn rows).
+export function treeKey(tree: Tree, cursor: string | null, key: TreeKey): TreeCommand | null {
+  const drawn = rows(tree);
+  const at = drawn.findIndex((row) => row.node.path === cursor);
   if (at === -1) {
     return null;
   }
-  const { node, depth } = rows[at];
+  const { node, depth } = drawn[at];
   if (key === "enter") {
     return { kind: "open", path: node.path };
   }
   if (key === "right") {
-    if (!canExpand(node)) {
+    if (!canExpand(tree, node)) {
       return null;
     }
     if (!node.expanded) {
       return { kind: "expand", path: node.path };
     }
-    const child = rows[at + 1];
+    const child = drawn[at + 1];
     return child !== undefined && child.depth > depth
       ? { kind: "focus", path: child.node.path }
       : null;
   }
-  if (node.expanded && canExpand(node)) {
+  if (node.expanded && canExpand(tree, node)) {
     return { kind: "collapse", path: node.path };
   }
   for (let i = at - 1; i >= 0; i--) {
-    if (rows[i].depth < depth) {
-      return { kind: "focus", path: rows[i].node.path };
+    if (drawn[i].depth < depth) {
+      return { kind: "focus", path: drawn[i].node.path };
     }
   }
   return null;

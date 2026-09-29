@@ -1840,6 +1840,16 @@ risk this note describes).
   `node`.
 - Source: `docs/plans/20260919-vite-plus/learnings.md`, Step 5.
 
+### On Windows, editing files with a Python heredoc can corrupt line endings and escapes (Hit)
+
+A Python heredoc edit in text mode writes CRLF into this LF repository
+(`core.autocrlf=false`), and a `'''...'''` string silently eats `\U` / `\\`
+sequences — a risk for Windows-path test fixtures.
+
+- Fix: open/write with `newline=""` to keep LF, and re-check backslashes in
+  any Windows-path string literals afterward.
+- Source: `docs/plans/_archived/20260929-tree-root-dedup/learnings.md`, Step 1.
+
 ## CI
 
 ### Do not hard-code the pnpm store path (Inferred)

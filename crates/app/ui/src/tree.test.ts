@@ -8,6 +8,7 @@ import {
   appendTyped,
   clickSelect,
   collapse,
+  drawnChildren,
   expand,
   markFailed,
   pruneSelection,
@@ -119,6 +120,61 @@ describe("watchedFolders", () => {
     let tree = addRoots(EMPTY_TREE, [card, home]);
     tree = expand(expand(tree, "/media/me/card"), "/home/me");
     expect(watchedFolders(tree)).toEqual(["/home/me", "/media/me/card"]);
+  });
+});
+
+describe("a root under another root", () => {
+  const winHome = { name: "me", path: "C:\\Users\\me" };
+  const drive = { name: "C:\\", path: "C:\\" };
+  const users = { name: "Users", path: "C:\\Users" };
+  const pub = { name: "Public", path: "C:\\Users\\Public" };
+  const root = { name: "/", path: "/" };
+  const homes = { name: "home", path: "/home" };
+
+  function windows(listed: typeof winHome): ReturnType<typeof addRoots> {
+    let tree = expand(addRoots(EMPTY_TREE, [winHome, drive]), drive.path);
+    tree = expand(setChildren(tree, drive.path, 0, [users]), users.path);
+    return setChildren(tree, users.path, 0, [listed, pub]);
+  }
+
+  test("home is drawn as its root only on Windows", () => {
+    expect(drawn(windows(winHome))).toEqual(["0:me", "0:C:\\", "1:Users", "2:Public"]);
+  });
+
+  test("home is drawn as its root only on Linux", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [home, root]), root.path);
+    tree = expand(setChildren(tree, root.path, 0, [homes]), homes.path);
+    tree = setChildren(tree, homes.path, 0, [home]);
+    expect(drawn(tree)).toEqual(["0:me", "0:/", "1:home"]);
+  });
+
+  test("a child spelled differently from the root is still hidden", () => {
+    const spelled = { name: "me", path: "c:/Users/me/" };
+    expect(drawn(windows(spelled))).toEqual(["0:me", "0:C:\\", "1:Users", "2:Public"]);
+  });
+
+  test("a root added after its parent was listed is hidden too", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [root]), root.path);
+    tree = expand(setChildren(tree, root.path, 0, [homes]), homes.path);
+    tree = setChildren(tree, homes.path, 0, [home]);
+    expect(drawn(tree)).toEqual(["0:/", "1:home", "2:me"]);
+    expect(drawn(addRoots(tree, [home]))).toEqual(["0:/", "1:home", "0:me"]);
+  });
+
+  test("a parent holding only roots has nothing to expand", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [winHome, drive]), drive.path);
+    tree = setChildren(tree, drive.path, 0, [users]);
+    tree = setChildren(tree, users.path, 0, [winHome]);
+    const node = tree.nodes.get(users.path);
+    expect(node?.children).toEqual([winHome]);
+    expect(node === undefined ? undefined : drawnChildren(tree, node)).toEqual([]);
+    expect(treeKey(tree, users.path, "right")).toBeNull();
+  });
+
+  test("the folder is drawn and watched once when its root row is expanded", () => {
+    const tree = expand(windows(winHome), winHome.path);
+    expect(rows(tree).filter(({ node }) => node.path === winHome.path)).toHaveLength(1);
+    expect(watchedFolders(tree)).toEqual([drive.path, users.path, winHome.path]);
   });
 });
 
@@ -262,50 +318,50 @@ describe("treeKey", () => {
 
   test("right expands a collapsed row that can expand, listed or not", () => {
     const collapsed = collapse(tree(), home.path);
-    expect(treeKey(rows(collapsed), home.path, "right")).toEqual({
+    expect(treeKey(collapsed, home.path, "right")).toEqual({
       kind: "expand",
       path: home.path,
     });
-    expect(treeKey(rows(tree()), card.path, "right")).toEqual({
+    expect(treeKey(tree(), card.path, "right")).toEqual({
       kind: "expand",
       path: card.path,
     });
   });
 
   test("right on an expanded row enters its first child", () => {
-    expect(treeKey(rows(tree()), home.path, "right")).toEqual({
+    expect(treeKey(tree(), home.path, "right")).toEqual({
       kind: "focus",
       path: pictures.path,
     });
   });
 
   test("right does nothing on a leaf or an expanded row still listing", () => {
-    expect(treeKey(rows(tree()), empty.path, "right")).toBeNull();
-    const listing = rows(expand(tree(), card.path));
+    expect(treeKey(tree(), empty.path, "right")).toBeNull();
+    const listing = expand(tree(), card.path);
     expect(treeKey(listing, card.path, "right")).toBeNull();
   });
 
   test("left collapses an expanded row, even one still listing", () => {
-    expect(treeKey(rows(tree()), pictures.path, "left")).toEqual({
+    expect(treeKey(tree(), pictures.path, "left")).toEqual({
       kind: "collapse",
       path: pictures.path,
     });
-    expect(treeKey(rows(expand(tree(), card.path)), card.path, "left")).toEqual({
+    expect(treeKey(expand(tree(), card.path), card.path, "left")).toEqual({
       kind: "collapse",
       path: card.path,
     });
   });
 
   test("left on a collapsed row or a leaf goes to the parent", () => {
-    expect(treeKey(rows(tree()), y2026.path, "left")).toEqual({
+    expect(treeKey(tree(), y2026.path, "left")).toEqual({
       kind: "focus",
       path: pictures.path,
     });
-    expect(treeKey(rows(tree()), empty.path, "left")).toEqual({
+    expect(treeKey(tree(), empty.path, "left")).toEqual({
       kind: "focus",
       path: home.path,
     });
-    const collapsed = rows(collapse(tree(), pictures.path));
+    const collapsed = collapse(tree(), pictures.path);
     expect(treeKey(collapsed, pictures.path, "left")).toEqual({
       kind: "focus",
       path: home.path,
@@ -313,28 +369,28 @@ describe("treeKey", () => {
   });
 
   test("left on an expanded leaf goes to the parent", () => {
-    const opened = rows(expand(tree(), empty.path));
+    const opened = expand(tree(), empty.path);
     expect(treeKey(opened, empty.path, "left")).toEqual({ kind: "focus", path: home.path });
   });
 
   test("left does nothing on a collapsed root", () => {
-    expect(treeKey(rows(tree()), card.path, "left")).toBeNull();
-    expect(treeKey(rows(collapse(tree(), home.path)), home.path, "left")).toBeNull();
+    expect(treeKey(tree(), card.path, "left")).toBeNull();
+    expect(treeKey(collapse(tree(), home.path), home.path, "left")).toBeNull();
   });
 
   test("enter opens the cursor row", () => {
-    expect(treeKey(rows(tree()), y2026.path, "enter")).toEqual({
+    expect(treeKey(tree(), y2026.path, "enter")).toEqual({
       kind: "open",
       path: y2026.path,
     });
   });
 
   test("a missing or stale cursor does nothing", () => {
-    const collapsed = rows(collapse(tree(), home.path));
+    const collapsed = collapse(tree(), home.path);
     for (const key of ["left", "right", "enter"] as const) {
       expect(treeKey(collapsed, null, key)).toBeNull();
       expect(treeKey(collapsed, y2026.path, key)).toBeNull();
-      expect(treeKey([], null, key)).toBeNull();
+      expect(treeKey(EMPTY_TREE, null, key)).toBeNull();
     }
   });
 });
