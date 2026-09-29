@@ -95,6 +95,28 @@
   shadcn's outline button does; `.active` is `--primary` for color and
   border and wins over the outline hover by id specificity.
 
+## Step 4: folder tree pane
+
+- `.folder` rows are `folder sidebar-item` and the count is `count badge`
+  (`folders.ts`); the state classes (`current`, `selected`, `cursor`,
+  `failed`) are unchanged, so no test changed. `.sidebar-item` owns the
+  row's `display: flex; align-items: center`, its colors, radius and
+  cursor; `.folder` keeps only its gap, depth padding, line height and
+  `white-space`. `.folder .count` keeps only `flex: none; margin-left:
+  auto`.
+- The rest color of a tree row went from `#ccc` to `--sidebar-foreground`
+  (`#fafafa`), as shadcn's sidebar item does; hover, `.selected` and
+  `.current` share `--sidebar-accent`, and `.current` alone is `600`.
+- `600` on `.current` widens the name a little; `.name` is `flex: 0 1 auto;
+  min-width: 0` with an ellipsis, so a long name ellipsizes a few characters
+  earlier on the open row and nothing wraps or pushes the count out.
+- The `.badge` (`--secondary`, `#262626`) has the same fill as a hovered,
+  selected or open row (`--sidebar-accent`), so on those rows only the
+  count's text shows, not its pill. This is Neutral's own sameness (see the
+  Trade-offs); watch it in the manual check.
+- `.sidebar-item[data-active]` is in the rule alongside `.current` per the
+  plan (shadcn's marker); nothing sets `data-active` yet.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Windows, Step 1 of ui-design-tokens):** the user
@@ -148,16 +170,35 @@
   Step 3 "Done when"; files `crates/app/ui/style.css`,
   `crates/app/ui/index.html`, `crates/app/ui/src/main.ts`,
   `crates/app/ui/src/icons.ts`, `crates/app/ui/src/strip.ts`.
+- **Pending manual check (Windows, Step 4 of ui-design-tokens):** the user
+  runs `mise run tauri:dev`; expands a few roots, hovers rows, selects two
+  folders and opens one, moves the keyboard cursor while the tree has
+  focus, expands a folder with RAW files, finds (or makes, e.g. an
+  unreadable folder) a failed folder, renames a folder inline, and drags a
+  folder over the window. Expected: rows are `#fafafa` text with rounded
+  `#262626` hover; the selected folders and the open one share `#262626`,
+  the open one bold and the selected ones normal weight; the keyboard
+  cursor shows a `#737373` ring only while the tree has focus; the count is
+  a pill badge (its fill merges into a hovered / selected / open row, only
+  the number shows there); a failed folder's name is `#ff6467`; a long name
+  on the open row ellipsizes without wrapping or pushing the count out; the
+  inline rename field is `#0a0a0a` with a `#737373` outline; the drop
+  outline is `#737373`; the tree scrollbar is thin and visible. Step 4's
+  checkbox was ticked on the automated criteria only. Basis: plan Step 4
+  "Done when"; files `crates/app/ui/style.css`, `crates/app/ui/index.html`,
+  `crates/app/ui/src/folders.ts`.
 - **Pending manual check (macOS WKWebView and Linux WebKitGTK, Steps 1 to
-  3):** the same Settings walk-through as the Step 1 Windows check, the
+  4):** the same Settings walk-through as the Step 1 Windows check, the
   same first-run / trash / sequence dialog pass as the Step 2 Windows check,
-  and the same menu / strip bar / cell pass as the Step 3 Windows check, on
+  the same menu / strip bar / cell pass as the Step 3 Windows check, and
+  the same folder tree pass as the Step 4 Windows check, on
   each platform (no device here); also that `scrollbar-color` is honored or
   harmlessly ignored. Also confirm that the native
   checkboxes / radios take `accent-color` (Safari 15.4+ / WebKitGTK 2.36+;
   older engines show the UA control) and that `:focus-visible` rings
-  appear. The three steps' checkboxes were ticked on the automated criteria
-  only. Basis: plan Steps 1 to 3 "Done when"; files
+  appear. The four steps' checkboxes were ticked on the automated criteria
+  only. Basis: plan Steps 1 to 4 "Done when"; files
   `crates/app/ui/style.css`, `crates/app/ui/index.html`,
   `crates/app/ui/src/settings.ts`, `crates/app/ui/src/main.ts`,
-  `crates/app/ui/src/icons.ts`, `crates/app/ui/src/strip.ts`.
+  `crates/app/ui/src/icons.ts`, `crates/app/ui/src/strip.ts`,
+  `crates/app/ui/src/folders.ts`.

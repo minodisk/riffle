@@ -285,6 +285,40 @@
   scrollbar-color: var(--border) transparent;
 }
 
+/* A side pane row. The open item is bold on the accent surface; a
+   multi-selected one shares the surface at normal weight. */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  color: var(--sidebar-foreground);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sidebar-item:hover,
+.sidebar-item.selected {
+  color: var(--sidebar-foreground);
+  background: var(--sidebar-accent);
+}
+
+.sidebar-item[data-active],
+.sidebar-item.current {
+  font-weight: 600;
+  color: var(--sidebar-foreground);
+  background: var(--sidebar-accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  border-radius: 9999px;
+}
+
 /* Last, so it wins over the `display` of the component rules above at equal
    specificity. */
 .dialog-box [hidden] {
@@ -520,39 +554,18 @@ body {
   overflow: auto;
   padding-bottom: 0.5rem;
   font-size: 0.8rem;
-  scrollbar-width: thin;
-  scrollbar-color: #444 transparent;
 }
 
 .folder {
-  display: flex;
-  align-items: center;
   gap: 2px;
   padding: 2px 8px 2px calc(4px + var(--depth) * 12px);
   line-height: 1.4;
   white-space: nowrap;
-  color: #ccc;
-  cursor: pointer;
-}
-
-.folder:hover {
-  background: #222;
-}
-
-/* A folder in the multi-selection: weaker than `.current`, the open one. */
-.folder.selected {
-  color: #fff;
-  background: #2a2f36;
-}
-
-.folder.current {
-  color: #fff;
-  background: #2d4059;
 }
 
 /* A folder whose last listing failed; its title carries the error. */
 .folder.failed .name {
-  color: #d66;
+  color: var(--destructive);
 }
 
 #folders:focus {
@@ -561,7 +574,7 @@ body {
 
 /* The keyboard cursor, shown only while the tree has the keyboard. */
 #folders:focus .folder.cursor {
-  outline: 1px solid #4a9eff;
+  outline: 1px solid var(--sidebar-ring);
   outline-offset: -1px;
 }
 
@@ -570,7 +583,7 @@ body {
   width: 14px;
   font-size: 0.7rem;
   text-align: center;
-  color: #888;
+  color: var(--muted-foreground);
   cursor: pointer;
 }
 
@@ -589,10 +602,10 @@ body {
   padding: 0;
   font: inherit;
   line-height: inherit;
-  color: #fff;
-  background: #111;
+  color: var(--foreground);
+  background: var(--background);
   border: none;
-  outline: 1px solid #4a9eff;
+  outline: 1px solid var(--sidebar-ring);
   cursor: text;
 }
 
@@ -600,11 +613,6 @@ body {
 .folder .count {
   flex: none;
   margin-left: auto;
-  padding: 0 5px;
-  font-size: 0.7rem;
-  color: #999;
-  background: #2a2a2a;
-  border-radius: 8px;
 }
 
 #strip-inner {
@@ -1201,6 +1209,6 @@ body {
 /* Drop feedback. The webview's own drag events drive this class, since Tauri
    intercepts HTML5 drag-and-drop and no DOM `drop` event reaches the page. */
 body.dragging #main {
-  outline: 3px solid #4a9eff;
+  outline: 3px solid var(--ring);
   outline-offset: -3px;
 }
