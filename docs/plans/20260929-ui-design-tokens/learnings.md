@@ -37,6 +37,32 @@
   manual check; if it reads badly, a later step can lift the chip `×` hover
   to `--input` rather than invent a color.
 
+## Step 2: first-run format dialog, trash confirmation, sequence dialog
+
+- No TypeScript change was needed: `main.ts` finds the format buttons by
+  `button[data-format]` and the others by id, and nothing selects the old
+  `.actions` class, so the two `.actions` rows became `.dialog-actions`.
+- `#sequence-title` / `#trash-title` keep a `margin-bottom: 0.5rem` rule:
+  `.dialog-title` sets `margin: 0` (the settings title gets its spacing
+  from `#settings-header`), and dropping the per-id rule entirely would put
+  the title flush against the first line. It is spacing only, no color.
+  `#format-title` needs none because `#format-box p` already gives it
+  `margin: 0 0 0.75rem` (it is a `<p>`).
+- `#format-box` keeps its own `padding: 1.25rem 1.5rem` and `max-width`,
+  which override `.dialog-box`'s padding by id specificity;
+  `#format-choices button` keeps `flex: 1; padding: 0.5rem` over `.button`.
+- `.dialog-box [hidden]` has specificity (0,2,0), lower than the
+  `#settings-dialog [hidden]` (1,1,0) it replaces, so it no longer beats an
+  id-scoped `display`. Checked every element that is ever `hidden` inside a
+  dialog box (`#format-error`, `#sequence-rebuild`, `#sequence-running`,
+  `#trash-empty`, `#label-names`, `#clear-index-note`, `#tab-debug`, the
+  tab panels): none has an id rule that sets `display` on its hidden state
+  (`#label-names` is scoped `:not([hidden])`), so the fold is safe. A later
+  id rule that sets `display` on something inside a dialog box must scope
+  itself `:not([hidden])` the same way.
+- The failed lists and `#format-error` moved from `--reject-color` to
+  `--destructive`; `#sequence-rows .changed` stays on `--pick-color`.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Windows, Step 1 of ui-design-tokens):** the user
@@ -53,10 +79,27 @@
   checkbox was ticked on the automated criteria only. Basis: plan Step 1
   "Done when"; files `crates/app/ui/style.css`, `crates/app/ui/index.html`,
   `crates/app/ui/src/settings.ts`.
-- **Pending manual check (macOS WKWebView and Linux WebKitGTK, Step 1):**
-  the same Settings walk-through as above on each platform (no device
-  here). Also confirm that the native checkboxes / radios take
-  `accent-color` (Safari 15.4+ / WebKitGTK 2.36+; older engines show the UA
-  control) and that `:focus-visible` rings appear. Step 1's checkbox was
-  ticked on the automated criteria only. Basis: plan Step 1 "Done when";
-  same files.
+- **Pending manual check (Windows, Step 2 of ui-design-tokens):** the user
+  runs `mise run tauri:dev`; clears the `sidecarFormat` key (or uses a fresh
+  profile) to see the first-run dialog and picks a format; opens `Move
+  Rejected to Trash` from the folder tree's right-click on a folder with
+  rejects and one without; opens `Sequence JPEG Timestamps…` on a JPEG
+  folder and runs it. Expected: the format dialog is on the `#171717` card
+  with three outline choices; the trash dialog shows its rows on `--muted`,
+  the total, a red destructive `Move to Trash` and an outline `Cancel`; the
+  sequence preview rows show changed (pick color) and unchanged
+  (`#a1a1a1`) lines, a light primary `Run` and an outline `Cancel`; the
+  disabled buttons during a run read as disabled (half opacity); all four
+  dialogs (with Settings) look like one family. Step 2's checkbox was
+  ticked on the automated criteria only. Basis: plan Step 2 "Done when";
+  files `crates/app/ui/style.css`, `crates/app/ui/index.html`.
+- **Pending manual check (macOS WKWebView and Linux WebKitGTK, Steps 1 and
+  2):** the same Settings walk-through as the Step 1 Windows check, and the
+  same first-run / trash / sequence dialog pass as the Step 2 Windows check,
+  on each platform (no device here). Also confirm that the native
+  checkboxes / radios take `accent-color` (Safari 15.4+ / WebKitGTK 2.36+;
+  older engines show the UA control) and that `:focus-visible` rings
+  appear. Both steps' checkboxes were ticked on the automated criteria
+  only. Basis: plan Steps 1 and 2 "Done when"; files
+  `crates/app/ui/style.css`, `crates/app/ui/index.html`,
+  `crates/app/ui/src/settings.ts`.

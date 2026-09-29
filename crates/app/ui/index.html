@@ -211,14 +211,23 @@
       <div id="strip"><div id="strip-inner"></div></div>
     </div>
     <div id="context-menu" role="menu" hidden></div>
-    <div id="format-dialog" role="dialog" aria-modal="true" aria-labelledby="format-title" hidden>
-      <div id="format-box">
-        <p id="format-title">Which software do you develop your photos in?</p>
+    <div
+      id="format-dialog"
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="format-title"
+      hidden
+    >
+      <div id="format-box" class="dialog-box">
+        <p id="format-title" class="dialog-title">Which software do you develop your photos in?</p>
         <p>Riffle writes your ratings, picks and labels to the sidecar files it reads.</p>
         <div id="format-choices">
-          <button type="button" data-format="xmp">Lightroom (XMP)</button>
-          <button type="button" data-format="dop">DxO PhotoLab (.dop)</button>
-          <button type="button" data-format="both">Both</button>
+          <button class="button outline" type="button" data-format="xmp">Lightroom (XMP)</button>
+          <button class="button outline" type="button" data-format="dop">
+            DxO PhotoLab (.dop)
+          </button>
+          <button class="button outline" type="button" data-format="both">Both</button>
         </div>
         <p class="note">You can change this later in Settings.</p>
         <p id="format-error" hidden></p>
@@ -226,13 +235,14 @@
     </div>
     <div
       id="sequence-dialog"
+      class="dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby="sequence-title"
       hidden
     >
-      <div id="sequence-box">
-        <h2 id="sequence-title">Sequence JPEG Timestamps</h2>
+      <div id="sequence-box" class="dialog-box">
+        <h2 id="sequence-title" class="dialog-title">Sequence JPEG Timestamps</h2>
         <p>Source: <span id="sequence-source"></span></p>
         <p>Output: <span id="sequence-output"></span></p>
         <p id="sequence-rebuild" hidden></p>
@@ -240,22 +250,29 @@
         <p id="sequence-count"></p>
         <ul id="sequence-failed"></ul>
         <p id="sequence-running" hidden></p>
-        <div class="actions">
-          <button id="sequence-run" type="button">Run</button>
-          <button id="sequence-cancel" type="button">Cancel</button>
+        <div class="dialog-actions">
+          <button id="sequence-run" class="button primary" type="button">Run</button>
+          <button id="sequence-cancel" class="button outline" type="button">Cancel</button>
         </div>
       </div>
     </div>
-    <div id="trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" hidden>
-      <div id="trash-box">
-        <h2 id="trash-title">Move Rejected to Trash</h2>
+    <div
+      id="trash-dialog"
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trash-title"
+      hidden
+    >
+      <div id="trash-box" class="dialog-box">
+        <h2 id="trash-title" class="dialog-title">Move Rejected to Trash</h2>
         <ul id="trash-rows"></ul>
         <p id="trash-empty" hidden></p>
         <ul id="trash-failed"></ul>
         <p id="trash-total"></p>
-        <div class="actions">
-          <button id="trash-run" type="button">Move to Trash</button>
-          <button id="trash-cancel" type="button">Cancel</button>
+        <div class="dialog-actions">
+          <button id="trash-run" class="button destructive" type="button">Move to Trash</button>
+          <button id="trash-cancel" class="button outline" type="button">Cancel</button>
         </div>
       </div>
     </div>
