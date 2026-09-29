@@ -18,7 +18,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 ## Purpose
 
-The `View` menu from [view-menu](../_archived/20260928-view-menu/plan.md)
+The `View` menu from [view-menu](../20260928-view-menu/plan.md)
 mixes pane toggles with main-view keys, shows no state, and shows no
 accelerator because its default keys (`F6`, `F7`, `F8`, `Tab`, `f`, `z`,
 `v`) are modifier-less and `shortcuts::accelerator` refuses to register a
