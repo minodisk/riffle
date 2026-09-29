@@ -1,5 +1,6 @@
 //! The culling keymap: each action's default keys and the user's overrides
-//! from the `shortcuts` settings key, merged so no key is bound twice.
+//! from the `shortcuts` settings key, merged so no key is bound twice: an
+//! override loses only the keys another action already holds.
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -241,10 +242,12 @@ impl Keymap {
     }
 
     /// Merge the stored `shortcuts` value over the defaults. Every entry that
-    /// cannot be used is logged and the action keeps its default; an override
-    /// whose key is already bound to another action is skipped, so the
-    /// earlier action wins. A conflicting override is kept in the stored
-    /// value (`overrides`), minus any modifier-only keys.
+    /// cannot be used is logged and the action keeps its default. A key
+    /// already bound to another action is dropped from the override (logged)
+    /// and the rest apply, so the earlier action keeps that key and
+    /// `overrides` stores only the rest. An override whose every key is bound
+    /// elsewhere is skipped and kept in the stored value (`overrides`), minus
+    /// any modifier-only keys.
     pub fn from_overrides(overrides: Option<&Value>) -> Keymap {
         let mut keymap = Keymap::defaults();
         let Some(overrides) = overrides else {
@@ -280,34 +283,65 @@ impl Keymap {
         }
         // An override may need a key that a later override releases (`p` on
         // reject once pick moves off it), so retry until nothing applies.
+        // Only then does the first override with some free keys apply in
+        // part, dropping the keys another action holds. That replaces the
+        // action's current keys and so may free one, hence the outer retry.
+        // A partly applied action's requested keys are kept in `partial` so
+        // that, once the outer loop settles, any key freed by a later
+        // partial application on another action can still be recovered.
+        let mut partial: Vec<(usize, Vec<String>)> = Vec::new();
         loop {
-            let before = pending.len();
-            pending.retain(|(i, keys)| {
-                let action = keymap.bindings[*i].action;
-                let free = keys.iter().all(|key| {
-                    !keymap
-                        .bindings
-                        .iter()
-                        .any(|b| b.action != action && b.keys.contains(key))
+            loop {
+                let before = pending.len();
+                pending.retain(|(i, keys)| {
+                    let free = keys.iter().all(|key| keymap.holder(*i, key).is_none());
+                    if free {
+                        keymap.bindings[*i].keys = keys.clone();
+                    }
+                    !free
                 });
-                if free {
-                    keymap.bindings[*i].keys = keys.clone();
+                if pending.len() == before {
+                    break;
                 }
-                !free
-            });
-            if pending.len() == before {
-                break;
             }
+            let Some(p) = pending
+                .iter()
+                .position(|(i, keys)| keys.iter().any(|key| keymap.holder(*i, key).is_none()))
+            else {
+                break;
+            };
+            let (i, keys) = pending.remove(p);
+            let action = keymap.bindings[i].action;
+            let mut rest = Vec::new();
+            for key in &keys {
+                match keymap.holder(i, key) {
+                    Some(other) => log::warn!(
+                        "dropping {key:?} from the shortcut for {action}: it is bound to {other}"
+                    ),
+                    None => rest.push(key.clone()),
+                }
+            }
+            keymap.bindings[i].keys = rest;
+            partial.push((i, keys));
+        }
+        // Recompute each partly applied action's keys as its requested keys
+        // filtered by what is free now that the outer loop has settled. This
+        // only ever adds keys that are free at this point, so it cannot
+        // create a conflict, and it recovers a key freed by a later partial
+        // application (e.g. `arrowup` freed by `burstPrevious`'s partial
+        // application after `previous`'s own partial application dropped it).
+        for (i, keys) in &partial {
+            keymap.bindings[*i].keys = keys
+                .iter()
+                .filter(|key| keymap.holder(*i, key).is_none())
+                .cloned()
+                .collect();
         }
         for (i, keys) in pending {
             let action = keymap.bindings[i].action;
-            let conflict = keys.iter().find_map(|key| {
-                keymap
-                    .bindings
-                    .iter()
-                    .find(|b| b.action != action && b.keys.contains(key))
-                    .map(|b| (key, b.action))
-            });
+            let conflict = keys
+                .iter()
+                .find_map(|key| keymap.holder(i, key).map(|other| (key, other)));
             if let Some((key, other)) = conflict {
                 log::warn!("ignoring the shortcut for {action}: {key:?} is bound to {other}");
                 keymap
@@ -316,6 +350,15 @@ impl Keymap {
             }
         }
         keymap
+    }
+
+    /// The action other than the `i`th that holds `key`, if any.
+    fn holder(&self, i: usize, key: &str) -> Option<&'static str> {
+        let action = self.bindings[i].action;
+        self.bindings
+            .iter()
+            .find(|b| b.action != action && b.keys.iter().any(|k| k == key))
+            .map(|b| b.action)
     }
 
     /// The accelerator of `action`'s menu item: the first of its keys, in
@@ -1067,6 +1110,45 @@ mod tests {
             keys_of(&keymap, "previous"),
             vec!["arrowleft", "w", "a", "h", "k"]
         );
+        assert_eq!(keymap.overrides(), stored);
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn a_stale_default_in_an_old_store_drops_only_that_key() {
+        let keymap = Keymap::from_overrides(Some(&json!({
+            "previous": ["arrowup", "w", "a", "h", "k"],
+            "next": ["arrowdown", "s", "d", "l", "j"],
+        })));
+        assert_eq!(keys_of(&keymap, "previous"), vec!["w", "a", "h", "k"]);
+        assert_eq!(keys_of(&keymap, "next"), vec!["s", "d", "l", "j"]);
+        assert_eq!(keys_of(&keymap, "burstPrevious"), vec!["arrowup"]);
+        assert_eq!(keys_of(&keymap, "burstNext"), vec!["arrowdown"]);
+        assert_eq!(
+            keymap.overrides(),
+            json!({"previous": ["w", "a", "h", "k"], "next": ["s", "d", "l", "j"]})
+        );
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn a_partly_applied_override_frees_its_default_for_another() {
+        let keymap = Keymap::from_overrides(Some(&json!({
+            "previous": ["arrowup", "w"],
+            "burstFramePrevious": ["arrowleft"],
+        })));
+        assert_eq!(keys_of(&keymap, "previous"), vec!["w"]);
+        assert_eq!(keys_of(&keymap, "burstPrevious"), vec!["arrowup"]);
+        assert_eq!(keys_of(&keymap, "burstFramePrevious"), vec!["arrowleft"]);
+        assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
+    }
+
+    #[test]
+    fn a_key_freed_by_a_later_partial_application_is_recovered() {
+        let stored = json!({"previous": ["w", "arrowup"], "burstPrevious": ["arrowleft"]});
+        let keymap = Keymap::from_overrides(Some(&stored));
+        assert_eq!(keys_of(&keymap, "previous"), vec!["w", "arrowup"]);
+        assert_eq!(keys_of(&keymap, "burstPrevious"), vec!["arrowleft"]);
         assert_eq!(keymap.overrides(), stored);
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
     }
