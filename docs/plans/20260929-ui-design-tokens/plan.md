@@ -255,7 +255,7 @@ Ground truth gathered at planning time (2026-09-29):
       `#settings-dialog .keys .add` is selected by it, or drop that rule
       if `.button.ghost` now covers it. No behavior change, no new test.
 
-- [ ] Step 2: Migrate the first-run format dialog, the trash confirmation and the sequence dialog
+- [x] Step 2: Migrate the first-run format dialog, the trash confirmation and the sequence dialog
   - Done when:
     - `#format-dialog`, `#sequence-dialog`, `#trash-dialog` and their boxes,
       titles and `.actions` rows in `index.html` carry the dialog classes,
