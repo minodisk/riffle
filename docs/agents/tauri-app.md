@@ -1300,6 +1300,26 @@ release/rename/restore-on-failure sequence so a concurrent
 handler only ever takes the separate canonical-path map's lock, never the
 `TreeWatch` state lock, so this cannot deadlock.
 
+Releasing a watch is **asynchronous** on Windows: in notify 8.2's
+`ReadDirectoryChangesWatcher`, `watch` waits for the server thread's ack,
+but `unwatch` only queues `Action::Unwatch` and `Drop` only queues
+`Action::Stop`; the `CancelIo` + `CloseHandle` of the directory handle run
+later on the `notify-rs windows loop` thread. So the handle is not released
+the moment `unwatch` returns or the watcher is dropped (an earlier
+measurement of 20/20 immediate renames was luck), and a rename issued at once
+fails with `PermissionDenied` now and then (about 5 in 300 test runs under
+full CPU load). `treewatch::settle` is the barrier: it calls
+`watcher.configure(notify::Config::default())`, which goes through the same
+action queue the server drains in order and blocks on its reply, so it
+returns only after every earlier `unwatch` closed its handle (about 0.02 ms
+when idle). `treewatch::State::remove` runs it after each real `unwatch`, and
+`watch::release` unwatches the open folder and runs it before dropping the
+watcher, so `rename_folder` needs no retry. `watch::set`'s plain drop of the
+previous watcher (its comment says that releases the handle) is still only
+eventually true; it is not on a rename path. A notify upgrade must re-check
+that `configure` still queues behind `Unwatch` (loop the `treewatch` tests
+under load).
+
 Only rename was measured this way, not delete: don't assume the same
 ancestor-pinning applies to deletion without measuring it.
 
@@ -1312,7 +1332,9 @@ the open (watched) folder needs no watcher change, and a folder that is not
 open has no watch at all.
 
 - Source: `docs/plans/_archived/20260928-tree-live-watch/learnings.md`, Step 1;
-  the trash check is from
+  the asynchronous release is from
+  `docs/plans/_archived/20260929-treewatch-unwatch-barrier/learnings.md`,
+  Step 1; the trash check is from
   `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`, Step 1.
 
 ### Style the strip placeholder on `.cell img:not([src])`, never on `.cell img` (Hit)
