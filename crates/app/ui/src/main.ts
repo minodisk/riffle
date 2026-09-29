@@ -1237,10 +1237,14 @@ function ordered(): string[] {
 // It also forces `show()` even when `files[index]` lands on `anchor` itself,
 // since `openDirectory` only ever showed `files[0]`, so a resumed file that
 // is its own anchor still has not been shown yet.
+//
+// `previous` is `resync`'s list from before the re-listing, so an anchor
+// deleted from outside the app gives way to its neighbour there.
 function refilter(
   anchor: string | undefined = files[index],
   keepScroll = false,
   force = false,
+  previous?: readonly string[],
 ): boolean {
   const order = ordered();
   const next = order.filter(passes);
@@ -1274,7 +1278,7 @@ function refilter(
     renderMeta();
     return true;
   }
-  const target = anchorAfterFilter(order, passes, anchor);
+  const target = anchorAfterFilter(order, passes, anchor, previous);
   index = (target === undefined ? undefined : fileIndex.get(target)) ?? 0;
   selection = settle(selection, files, index, force);
   paintSelection();
@@ -2687,6 +2691,7 @@ function resync(): void {
   }
   const dir = openDir;
   const token = folderToken;
+  const previous = files;
   const target = files[index];
   resyncInFlight = true;
   window.__TAURI__.core
@@ -2699,7 +2704,7 @@ function resync(): void {
       }
       allFiles = found;
       setViewOnly(isViewOnly(found));
-      refilter(target, true);
+      refilter(target, true, false, previous);
       return startScan(dir);
     })
     .catch((err: unknown) => {

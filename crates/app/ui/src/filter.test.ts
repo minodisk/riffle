@@ -168,6 +168,35 @@ describe("anchorAfterFilter", () => {
   });
 });
 
+describe("anchorAfterFilter with the anchor deleted from the listing", () => {
+  const previous = ["a", "b", "c", "d"];
+
+  test("moves to the next file in the previous list", () => {
+    expect(anchorAfterFilter(["a", "c", "d"], () => true, "b", previous)).toBe("c");
+  });
+
+  test("moves to the previous file when the last one was deleted", () => {
+    expect(anchorAfterFilter(["a", "b", "c"], () => true, "d", previous)).toBe("c");
+  });
+
+  test("skips a neighbour that does not pass the filter", () => {
+    expect(anchorAfterFilter(["a", "c", "d"], (path) => path !== "c", "b", previous)).toBe("d");
+  });
+
+  test("skips a run of consecutive deletions", () => {
+    expect(anchorAfterFilter(["a", "d"], () => true, "b", previous)).toBe("d");
+    expect(anchorAfterFilter(["a"], () => true, "b", previous)).toBe("a");
+  });
+
+  test("returns undefined when nothing survives", () => {
+    expect(anchorAfterFilter([], () => true, "b", previous)).toBeUndefined();
+  });
+
+  test("keeps the anchor when it is still listed", () => {
+    expect(anchorAfterFilter(previous, () => true, "b", previous)).toBe("b");
+  });
+});
+
 describe("filterListChanged", () => {
   const all = ["a", "b", "c"];
 

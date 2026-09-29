@@ -65,13 +65,30 @@ export function passes(
 // The path that becomes current after a refilter: `anchor` if it still
 // passes; otherwise the next passing path after it (in `allFiles` order), or
 // the last one before it.
+//
+// `previous` is the list the user was looking at before `allFiles` was
+// re-listed. When given and `anchor` is gone from `allFiles` (deleted from
+// outside the app), the anchor's next surviving passing neighbour in
+// `previous` wins, else its previous one, whether or not the anchor itself
+// still passes.
 export function anchorAfterFilter(
   allFiles: readonly string[],
   pass: (path: string) => boolean,
   anchor: string | undefined,
+  previous?: readonly string[],
 ): string | undefined {
   if (anchor === undefined) {
     return undefined;
+  }
+  if (previous !== undefined) {
+    const present = new Set(allFiles);
+    if (!present.has(anchor)) {
+      const survives = (path: string) => present.has(path) && pass(path);
+      const from = previous.indexOf(anchor);
+      const after = previous.slice(from + 1).find(survives);
+      const before = previous.slice(0, Math.max(from, 0)).reverse().find(survives);
+      return after ?? before;
+    }
   }
   if (pass(anchor)) {
     return anchor;

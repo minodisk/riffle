@@ -80,7 +80,7 @@ step hits is resolved by the rule it adds.
       naturally around it.
     - Files: `crates/app/src/sequence.rs`, `todo.md`.
 
-- [ ] Step 3: Fall back to the vanished anchor's neighbour when the focused file is deleted from outside the app
+- [x] Step 3: Fall back to the vanished anchor's neighbour when the focused file is deleted from outside the app
   - Done when: after `resync` re-lists the folder and the current file is
     gone from the listing, the current index lands on the deleted file's
     next passing survivor in the previous list, else its previous one, else
@@ -231,3 +231,4 @@ step hits is resolved by the rule it adds.
 
 - (2026-09-30) Step 1 complete
 - (2026-09-30) Step 2 complete
+- (2026-09-30) Step 3 complete
