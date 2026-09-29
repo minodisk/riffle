@@ -25,7 +25,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         buf.starts_with(&[0xFF, 0xD8]),
         "not a JPEG file (missing SOI marker)"
     );
-    let (orientation, shot) = exif(buf);
+    let (orientation, shot) = read_exif(buf).unwrap_or((1, Shot::default()));
     Ok(Arw {
         preview: None,
         full: None,
@@ -34,15 +34,19 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     })
 }
 
-fn exif(buf: &[u8]) -> (u16, Shot) {
-    find_exif_tiff(buf)
+/// The orientation and `Shot` of the Exif segment of the JPEG in `buf`. An
+/// error when `buf` holds no complete Exif segment (none at all, or one cut
+/// off by the end of `buf`); a complete segment whose TIFF is malformed is
+/// orientation 1 and a default `Shot`.
+pub(crate) fn read_exif(buf: &[u8]) -> Result<(u16, Shot)> {
+    let (base, end) = find_exif_tiff(buf)?;
+    Ok(Tiff::new(buf, base, end)
         .ok()
-        .and_then(|(base, end)| Tiff::new(buf, base, end).ok())
         .and_then(|tiff| {
             let ifd0 = tiff.u32(4).ok()?;
             Some(crate::exif::read(&tiff, ifd0 as usize))
         })
-        .unwrap_or((1, Shot::default()))
+        .unwrap_or((1, Shot::default())))
 }
 
 #[cfg(test)]

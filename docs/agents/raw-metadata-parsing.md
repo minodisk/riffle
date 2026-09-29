@@ -4,7 +4,8 @@ Read this before touching the TIFF / MakerNote parsing in
 `crates/core/src/arw.rs`, which reads both ARW and DNG files (IFD0, the
 SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
 `crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)), or in
-`crates/core/src/cr3.rs`, which reads Canon CR3 files (see [CR3](#cr3)). It lists the
+`crates/core/src/cr3.rs`, which reads Canon CR3 files (see [CR3](#cr3)), or in
+`crates/core/src/raf.rs`, which reads Fujifilm RAF files (see [RAF](#raf)). It lists the
 pitfalls this repository has already hit, each with the reason it happens.
 `crates/core/src/reader.rs` only picks which bytes to read; no maker-specific
 parsing lives there. For a new Sony MakerNote field, also read
@@ -292,6 +293,59 @@ starts with a JPEG SOI (`FF D8`), and a track only with a `JPEG` sub-box, so
 such a file parses with no `preview` and no `full`, and the reader reports
 "no embedded preview". Every R8 sample and two of the four R5 Mark II samples
 on raw.pixls.us are like this.
+
+## RAF
+
+`crates/core/src/raf.rs` reads a Fujifilm RAF's fixed header and then the one
+embedded JPEG it points at; the file's Exif is that JPEG's APP1 segment, read
+by `jpeg::read_exif` (the path `jpeg::parse` uses, but an error when the
+buffer holds no complete Exif segment). The RAF directory, the FujiIFD and
+the sensor data are not read.
+
+### Header words and the JPEG (Measured)
+
+All header words are big-endian `int32u` (ExifTool's `FujiFilm.pm`
+`ProcessRAF` / `RAFHeader`): `0x00` the magic `FUJIFILMCCD-RAW ` and a
+version (`0201` on every sample), `0x1c` the model name, `0x48` / `0x4c` the
+M-RAW header offset / length (0 unless multi-image), `0x54` / `0x58` the
+embedded JPEG's offset / length, `0x5c` / `0x60` the RAF directory (tags
+`0x100` `RawImageFullSize`, `0x111` `RawImageCroppedSize`, height first).
+
+- `parse` errors on a zero offset or length, on an offset with bit `0x8000`
+  set (ExifTool rejects those too), and on an offset past the buffer.
+  `preview` and `full` are both that JPEG: no sample carries a second one
+  (no MPF segment either).
+- Measured on raw.pixls.us RAFs of 22 bodies (2018 X-T3 to 2025 X-T30 III,
+  GFX 100 to GFX100RF): the JPEG always starts at `0x94`, is 4416x2944 on the
+  X bodies and 4000x3000 on the GFX bodies whatever the sensor (26 to 102 MP)
+  or the crop, and is 1.3 to 5.5 MiB, so it never fits the 1 MiB prefix and
+  every open costs one ranged read. Its Exif segment ends at byte 65,600, so
+  `read_metadata` always parses from the prefix.
+- The JPEG is 2.5 to 2.7 times the ARW preview's long edge, so `scan`
+  thumbnails a RAF with `thumbnail_jpeg_near` (404 px) as it does a JPEG
+  file; the fixed 2/8 scale gave 1000 to 1104 px and ~110 KB thumbnails.
+- The Exif carries `Make` `FUJIFILM`, `Orientation` (6 and 8 on the X-H2 and
+  X100VI portrait samples) and `SubSecTimeOriginal` only on bodies from about
+  2023 (GFX100 II, X100VI, X-T50, X-M5, X-E5, X-T30 III, GFX100RF and
+  GFX100S II; not the X-H2, X-H2S, X-S20 or X-T5).
+
+### The prefix / truncation rule (Measured)
+
+The JPEG normally runs past a 1 MiB prefix, so a JPEG that ends past the
+buffer is not an error; only its Exif segment has to be there. When the
+buffer ends before the Exif segment does (or before the JPEG's segment walk
+reaches it), `parse` errors so the reader retries with the whole file; a JPEG
+wholly inside the buffer without Exif is orientation 1 and a default `Shot`,
+as in `jpeg::parse`.
+
+### The Fujifilm MakerNote (Inferred)
+
+Exif IFD tag 0x927c of the embedded JPEG: `FUJIFILM` (8 bytes), then a
+little-endian `int32u` offset of its IFD relative to the note start; every
+offset in the note is relative to the note start and little-endian, with no
+TIFF header (ExifTool's `MakerNotes.pm` `MakerNoteFujiFilm`), so
+`sequence::Tiff::new` cannot read it as is. `raf.rs` reads nothing from it
+yet; `FocusPixel` (0x1023, `int16u[2]`) is the candidate AF-point source.
 
 ## Related
 

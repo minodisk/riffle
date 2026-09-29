@@ -16,14 +16,15 @@ use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
 pub const THUMBNAIL_QUALITY: f32 = 80.0;
 
-/// The long edge a JPEG file's thumbnail aims at: the ARW thumbnail's.
+/// The long edge a JPEG file's or a RAF's thumbnail aims at: the ARW
+/// thumbnail's.
 const JPEG_THUMBNAIL_LONG_EDGE: usize = 404;
 
-/// Whether `path` has a RAW extension Riffle lists: `.ARW`, `.CR3`, `.DNG`
-/// or `.NEF`, in any case.
+/// Whether `path` has a RAW extension Riffle lists: `.ARW`, `.CR3`, `.DNG`,
+/// `.NEF` or `.RAF`, in any case.
 pub fn is_raw_file(path: &Path) -> bool {
     path.extension().is_some_and(|e| {
-        ["arw", "cr3", "dng", "nef"]
+        ["arw", "cr3", "dng", "nef", "raf"]
             .iter()
             .any(|raw| e.eq_ignore_ascii_case(raw))
     })
@@ -64,12 +65,18 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
         return None;
     }
     let jpeg = is_jpeg_file(path);
+    // A RAF's one embedded JPEG is 4000 to 4416 px wide, which 2/8 would
+    // leave at over 1000.
+    let near = jpeg
+        || path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("raf"));
     // mozjpeg aborts through a panic, not an error return, when the bytes are
     // not a JPEG. A single corrupt file out of thousands must cost that file
     // and nothing else, so the decode runs inside `catch_unwind`. Nothing here
     // is shared or observable after a panic, hence `AssertUnwindSafe`.
     let thumbnail = match catch_unwind(AssertUnwindSafe(|| {
-        if jpeg {
+        if near {
             thumbnail_jpeg_near(&preview, JPEG_THUMBNAIL_LONG_EDGE, THUMBNAIL_QUALITY)
         } else {
             thumbnail_jpeg(&preview, THUMBNAIL_QUALITY)
@@ -484,6 +491,20 @@ mod tests {
     }
 
     #[test]
+    fn a_raf_thumbnail_aims_at_the_arw_long_edge() {
+        use crate::jpeg::tests::{plain_jpeg, with_exif, W};
+        use crate::raf::tests::{raf, JPEG_AT};
+        let dir = dir("raf");
+        let w = W(true);
+        let jpeg = with_exif(&plain_jpeg(2400, 1600), &w.tiff(&[w.short(0x0112, 8)], &[]));
+        let e = extract(&write(&dir, "a.RAF", &raf(JPEG_AT, &jpeg))).unwrap();
+        assert_eq!(e.orientation, 8);
+        let d = mozjpeg::Decompress::new_mem(&e.thumbnail).unwrap();
+        assert_eq!((d.width(), d.height()), (JPEG_THUMBNAIL_LONG_EDGE, 270));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn a_mixed_list_of_raws_and_jpegs_delivers_every_index() {
         use crate::jpeg::tests::plain_jpeg;
         let dir = dir("mixed");
@@ -523,10 +544,12 @@ mod tests {
         for name in ["a.ARW", "a.png", "a.jpg.xmp", "jpg"] {
             assert!(!is_jpeg_file(Path::new(name)), "{name}");
         }
-        for name in ["a.ARW", "a.dng", "a.NEF", "a.nef", "a.CR3", "a.cr3"] {
+        for name in [
+            "a.ARW", "a.dng", "a.NEF", "a.nef", "a.CR3", "a.cr3", "a.RAF", "a.raf",
+        ] {
             assert!(is_raw_file(Path::new(name)), "{name}");
         }
-        for name in ["a.nef.xmp", "nef", "a.cr3.dop", "cr3"] {
+        for name in ["a.nef.xmp", "nef", "a.cr3.dop", "cr3", "a.RAF.dop", "raf"] {
             assert!(!is_raw_file(Path::new(name)), "{name}");
         }
     }

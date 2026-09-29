@@ -1,4 +1,4 @@
-//! Read only as much of an ARW, DNG, NEF or CR3 as the metadata and the preview
+//! Read only as much of an ARW, DNG, NEF, CR3 or RAF as the metadata and the preview
 //! need. A JPEG file is its own preview and full-resolution JPEG.
 
 use std::fs::File;
@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 
 use crate::arw::{self, Arw};
 use crate::scan::is_jpeg_file;
-use crate::{cr3, jpeg, nef};
+use crate::{cr3, jpeg, nef, raf};
 
 /// How much of a file the bounded read takes.
 ///
@@ -54,6 +54,8 @@ fn parse_raw(path: &Path, buf: &[u8]) -> Result<Arw> {
         nef::parse(buf)
     } else if is("cr3") {
         cr3::parse(buf)
+    } else if is("raf") {
+        raf::parse(buf)
     } else {
         arw::parse(buf)
     }
@@ -438,6 +440,41 @@ mod tests {
         let (a, out) = read_preview(&path).unwrap();
         assert_eq!((a.orientation, Some(out)), (6, c.preview.clone()));
         assert_eq!(read_metadata(&path).unwrap().orientation, 6);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_raf_reads_its_jpeg_by_range_past_the_prefix() {
+        use crate::jpeg::tests::W;
+        use crate::raf::tests::{exif_jpeg, raf, JPEG_AT};
+        let mut jpeg = exif_jpeg(&W(false), 6);
+        jpeg.resize(HEAD_LIMIT + 4096, 7);
+        let path = temp_file("far.RAF", &raf(JPEG_AT, &jpeg));
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!(a.orientation, 6);
+        assert!(out == jpeg);
+        let (_, out) = read_full(&path).unwrap();
+        assert!(out == jpeg);
+        assert_eq!(read_metadata(&path).unwrap().orientation, 6);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_raf_whose_exif_is_past_the_prefix_reads_the_whole_file() {
+        use crate::jpeg::tests::{plain_jpeg, W};
+        use crate::raf::tests::{exif_jpeg, raf, JPEG_AT};
+        let mut jpeg = plain_jpeg(16, 16)[..2].to_vec();
+        let mut filler = vec![0xFF, 0xE2, 0xFF, 0xFF];
+        filler.resize(0xFFFF + 2, 0);
+        while jpeg.len() < HEAD_LIMIT {
+            jpeg.extend_from_slice(&filler);
+        }
+        jpeg.extend_from_slice(&exif_jpeg(&W(true), 8)[2..]);
+        let path = temp_file("deep.raf", &raf(JPEG_AT, &jpeg));
+        assert_eq!(read_metadata(&path).unwrap().orientation, 8);
+        let (a, out) = read_preview(&path).unwrap();
+        assert_eq!(a.orientation, 8);
+        assert!(out == jpeg);
         std::fs::remove_file(&path).unwrap();
     }
 
