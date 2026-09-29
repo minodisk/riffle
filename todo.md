@@ -387,6 +387,32 @@ apart from the drive letter.
       Files: `crates/app/ui/src/tree.ts` (`ancestorsWithin`),
       `crates/app/ui/src/folders.ts` (`reveal`).
 
+### App: the folder tree's roots don't pick up a volume mounted after launch
+
+`folder_roots` is invoked once at launch (`loadRoots`) and never again, so a
+card or drive mounted afterward (a new `/Volumes/*`, `/media/*/*` or drive
+letter) does not appear in the tree until the app restarts.
+
+#### TODO
+
+- [ ] Re-invoke `folder_roots` and `addRoots` on window focus or on each
+      `reveal`. Files: `crates/app/ui/src/folders.ts` (`loadRoots`),
+      `docs/usage.md`.
+
+### App: a folder reachable from two tree roots is expanded and highlighted twice
+
+A folder reachable from two roots (e.g. on Windows, the home root
+`C:\Users\me` and `C:\` > `Users` > `me`, since folder listing keeps both; or
+any root under `/` that `rootOf` adds) shares one `TreeNode`, keyed by path
+alone. Expanding either row expands both, and the subtree and the `.current`
+highlight are drawn twice.
+
+#### TODO
+
+- [ ] Key `expanded` (and the node map itself) by the row's root-plus-path,
+      or stop listing a root's own path as a child of another root. Files:
+      `crates/app/ui/src/tree.ts` (`TreeNode`, `Tree.nodes`).
+
 ### App: Windows real-device check of the merged folder-tree, scan-wait and strip-scroll work
 
 Merged since the base of the 2026-09-28 Windows GUI check run and not run by
