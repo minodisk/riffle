@@ -534,12 +534,14 @@ function renderMeta(): void {
       sharpness.get(files[index]) ?? null,
       entries.get(files[index])?.focus,
     )) {
-      metaEl.append(line("group", group.heading));
+      const block = document.createElement("div");
+      block.className = "group";
       const list = document.createElement("dl");
       for (const { label, value } of group.rows) {
         row(list, label, value);
       }
-      metaEl.append(list);
+      block.append(line("group-title", group.heading), list);
+      metaEl.append(block);
     }
   }
   if (viewOnly) {

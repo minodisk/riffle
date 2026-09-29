@@ -128,7 +128,9 @@ export function initSettings(hooks: SettingsHooks): Settings {
         const label = document.createElement("td");
         label.textContent = shortcutLabels[action] ?? action;
         const keysCell = document.createElement("td");
-        keysCell.className = "keys";
+        const keyList = document.createElement("div");
+        keyList.className = "keys";
+        keysCell.append(keyList);
         const resetCell = document.createElement("td");
         row.append(label, keysCell, resetCell);
         for (const key of keys) {
@@ -144,13 +146,13 @@ export function initSettings(hooks: SettingsHooks): Settings {
             void updateShortcuts("remove_shortcut_key", { action, key });
           });
           chip.append(remove);
-          keysCell.append(chip);
+          keyList.append(chip);
         }
         if (modal.capturing === action) {
           const prompt = document.createElement("span");
           prompt.className = "capturing";
           prompt.textContent = "Press a key...";
-          keysCell.append(prompt);
+          keyList.append(prompt);
         } else {
           const add = document.createElement("button");
           add.type = "button";
@@ -162,7 +164,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
             status.textContent = "";
             renderShortcuts();
           });
-          keysCell.append(add);
+          keyList.append(add);
         }
         const reset = document.createElement("button");
         reset.type = "button";
@@ -268,6 +270,7 @@ export function initSettings(hooks: SettingsHooks): Settings {
     mcpExamplesBlock.replaceChildren(
       ...mcpExamples(state.port).map(({ client, text }) => {
         const block = document.createElement("div");
+        block.className = "example";
         const title = document.createElement("p");
         title.textContent = `For example, ${client}:`;
         const copyable = document.createElement("div");
