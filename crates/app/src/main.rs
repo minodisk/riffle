@@ -19,8 +19,8 @@ mod app_menu {
     use tauri::image::Image;
     #[cfg(target_os = "macos")]
     use tauri::menu::IconMenuItem;
-    use tauri::menu::MenuItem;
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItemKind, PredefinedMenuItem, Submenu};
+    use tauri::menu::{CheckMenuItem, MenuItem};
     use tauri::{AppHandle, Emitter, Manager, Wry};
     use tauri_plugin_opener::OpenerExt;
 
@@ -33,19 +33,62 @@ mod app_menu {
     const SELECT_ALL_ID: &str = "select-all";
     const CHECK_UPDATES_ID: &str = "check-for-updates";
 
-    /// The `View` items: `(menu id, keymap action, label)`. A click emits
-    /// `menu-action` with the action, which the frontend runs as its key.
+    /// The `View` check items: `(menu id, keymap action, label)`. A click
+    /// emits `menu-action` with the action, which the frontend runs as its
+    /// key; the check follows the stored panels (`apply_panels`).
     const VIEW_ITEMS: &[(&str, &str, &str)] = &[
         ("toggle-left", "toggleLeft", "Left Pane"),
         ("toggle-right", "toggleRight", "Right Pane"),
-        ("toggle-sides", "toggleSides", "Both Side Panes"),
         ("toggle-strip", "toggleStrip", "Filmstrip"),
-        ("focus-mark", "focus", "Focus Mark"),
-        ("zoom", "zoom", "1:1 Zoom"),
-        ("compare", "compare", "Compare"),
     ];
-    /// Where the separator goes among `VIEW_ITEMS`: after the panel toggles.
-    const VIEW_PANELS: usize = 4;
+
+    /// Whether the `View` item of `action` is checked for the stored
+    /// `panels`, or `None` for an action that is not a pane toggle. A missing
+    /// or non-boolean entry means shown, as `panels_setting` reads it.
+    fn panel_checked(panels: &serde_json::Value, action: &str) -> Option<bool> {
+        let name = match action {
+            "toggleLeft" => "left",
+            "toggleRight" => "right",
+            "toggleStrip" => "strip",
+            _ => return None,
+        };
+        Some(
+            panels
+                .get(name)
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true),
+        )
+    }
+
+    /// Set the `View` checks from `panels`.
+    pub fn apply_panels(app: &AppHandle, panels: &serde_json::Value) {
+        let Some(menu) = app.menu() else {
+            return;
+        };
+        let Ok(items) = menu.items() else {
+            return;
+        };
+        for &(id, action, _) in VIEW_ITEMS {
+            let item = items
+                .iter()
+                .filter_map(|kind| kind.as_submenu()?.get(id))
+                .find_map(|kind| kind.as_check_menuitem().cloned());
+            if let (Some(item), Some(checked)) = (item, panel_checked(panels, action)) {
+                if let Err(e) = item.set_checked(checked) {
+                    log::warn!("failed to set the {id} check: {e}");
+                }
+            }
+        }
+    }
+
+    /// Set the `View` checks from the panels in `AppPanels`.
+    fn apply_stored_panels(app: &AppHandle) {
+        let Some(state) = app.try_state::<crate::commands::AppPanels>() else {
+            return;
+        };
+        let panels = crate::index::lock(&state.0).clone();
+        apply_panels(app, &panels);
+    }
 
     /// The menu ids and actions of the items whose accelerator mirrors the
     /// action's keys.
@@ -306,21 +349,18 @@ mod app_menu {
                 MenuItem::with_id(handle, SELECT_ALL_ID, "Select All", true, select_all_key)?;
             edit.append(&select_all)?;
         }
+        // A check item has no icon variant, so there is no macOS twin.
         let view_items = VIEW_ITEMS
             .iter()
             .map(|&(id, action, label)| {
                 let key = keymap.accelerator_for(action);
-                MenuItem::with_id(handle, id, label, true, key.as_deref())
+                CheckMenuItem::with_id(handle, id, label, true, true, key.as_deref())
             })
             .collect::<tauri::Result<Vec<_>>>()?;
-        let separator = PredefinedMenuItem::separator(handle)?;
-        let mut view_kinds: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = Vec::new();
-        for (i, item) in view_items.iter().enumerate() {
-            if i == VIEW_PANELS {
-                view_kinds.push(&separator);
-            }
-            view_kinds.push(item);
-        }
+        let view_kinds: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = view_items
+            .iter()
+            .map(|item| item as &dyn tauri::menu::IsMenuItem<Wry>)
+            .collect();
         // macOS's default `View` holds Enter Full Screen, kept below a
         // separator; elsewhere there is no `View`, so one goes after `Edit`.
         #[cfg(target_os = "macos")]
@@ -348,29 +388,36 @@ mod app_menu {
         Ok(menu)
     }
 
-    /// Make the keymap-derived accelerators match the keymap. muda's macOS
-    /// `set_accelerator(None)` does not clear a key equivalent, so macOS
-    /// replaces the whole menu. Elsewhere a runtime `set_menu` turns the
-    /// Windows dark menu bar white, so an existing menu is patched in place.
+    /// Make the keymap-derived accelerators match the keymap, then re-apply
+    /// the `View` checks. muda's macOS `set_accelerator(None)` does not clear
+    /// a key equivalent, so macOS replaces the whole menu. Elsewhere a
+    /// runtime `set_menu` turns the Windows dark menu bar white, so an
+    /// existing menu is patched in place.
     pub fn refresh(app: &AppHandle, keymap: &crate::shortcuts::Keymap) -> tauri::Result<()> {
         #[cfg(not(target_os = "macos"))]
         if let Some(menu) = app.menu() {
             for (id, action) in keyed_items() {
+                let key = keymap.accelerator_for(action);
+                let key = key.as_deref();
                 let item = menu
                     .items()?
                     .iter()
-                    .filter_map(|kind| kind.as_submenu()?.get(id))
-                    .find_map(|kind| kind.as_menuitem().cloned());
-                let Some(item) = item else {
-                    log::warn!("menu item {id} not found; accelerator not updated");
-                    return Ok(());
-                };
-                item.set_accelerator(keymap.accelerator_for(action).as_deref())?;
+                    .find_map(|kind| kind.as_submenu()?.get(id));
+                match item {
+                    Some(MenuItemKind::MenuItem(item)) => item.set_accelerator(key)?,
+                    Some(MenuItemKind::Check(item)) => item.set_accelerator(key)?,
+                    _ => {
+                        log::warn!("menu item {id} not found; accelerator not updated");
+                        return Ok(());
+                    }
+                }
             }
+            apply_stored_panels(app);
             return Ok(());
         }
         let menu = build(app, keymap)?;
         app.set_menu(menu)?;
+        apply_stored_panels(app);
         Ok(())
     }
 
@@ -403,6 +450,10 @@ mod app_menu {
             let _ = app.emit("open-settings", ());
         }
         if let Some(&(_, action, _)) = VIEW_ITEMS.iter().find(|&&(id, _, _)| event.id() == id) {
+            // muda toggles a check item on click; that is undone from the
+            // stored panels, so a click the frontend gates leaves the check
+            // as it was and an effective one is set by `set_panels`.
+            apply_stored_panels(app);
             let _ = app.emit("menu-action", action);
         }
     }
@@ -427,7 +478,9 @@ mod app_menu {
         /// every keyboard has; `extendPrevious` / `extendNext` are the
         /// keyboard's `Shift+click`; `grayscale` is held down, which a menu
         /// click cannot be; the judgments are in the strip's right-click menu
-        /// and on plain keys.
+        /// and on plain keys; `toggleSides`, `focus`, `zoom` and `compare`
+        /// are main-view / strip keys, not menu items (`View` holds only the
+        /// pane check items).
         const MENU_LESS: &[&str] = &[
             "previous",
             "next",
@@ -438,6 +491,10 @@ mod app_menu {
             "extendPrevious",
             "extendNext",
             "grayscale",
+            "toggleSides",
+            "focus",
+            "zoom",
+            "compare",
             "rate1",
             "rate2",
             "rate3",
@@ -458,6 +515,34 @@ mod app_menu {
             "clearlabel",
             "clearall",
         ];
+
+        #[test]
+        fn panel_checked_maps_the_pane_toggles() {
+            let panels = serde_json::json!({"left": false, "strip": true, "right": false});
+            assert_eq!(panel_checked(&panels, "toggleLeft"), Some(false));
+            assert_eq!(panel_checked(&panels, "toggleRight"), Some(false));
+            assert_eq!(panel_checked(&panels, "toggleStrip"), Some(true));
+            assert_eq!(panel_checked(&panels, "toggleSides"), None);
+            assert_eq!(panel_checked(&panels, "open"), None);
+            let odd = serde_json::json!({"left": "no", "strip": null});
+            assert_eq!(panel_checked(&odd, "toggleLeft"), Some(true));
+            assert_eq!(panel_checked(&odd, "toggleRight"), Some(true));
+            assert_eq!(panel_checked(&odd, "toggleStrip"), Some(true));
+            assert_eq!(
+                panel_checked(&serde_json::Value::Null, "toggleLeft"),
+                Some(true)
+            );
+        }
+
+        #[test]
+        fn every_view_item_has_a_check() {
+            for &(id, action, _) in VIEW_ITEMS {
+                assert!(
+                    panel_checked(&serde_json::json!({}), action).is_some(),
+                    "{id}"
+                );
+            }
+        }
 
         #[test]
         fn menu_covers_every_action() {
@@ -637,6 +722,9 @@ fn main() {
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppLabelNames(Mutex::new(label_names)));
             app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
+            app.manage(commands::AppPanels(Mutex::new(commands::stored_panels(
+                app.handle(),
+            ))));
             if let Err(e) = app_menu::refresh(app.handle(), &keymap) {
                 log::error!("failed to set the app menu: {e}");
             }

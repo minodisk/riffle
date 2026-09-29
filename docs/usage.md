@@ -37,7 +37,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   opens the cursor's folder as a click does, and typing the start of a name
   jumps to the folder it matches (see the fixed keys under [Keys](#keys)).
   While the tree has the keyboard the culling keys are off: only
-  `Open Folder`, the pane toggles (`F6` / `F7` / `F8` / `Tab` by default)
+  `Open Folder`, the pane toggles (`Alt+Cmd+Arrow` / `Ctrl+Alt+Arrow` and
+  `Tab` by default)
   and other native menu accelerators (`CmdOrCtrl+R` Reload Folder,
   `CmdOrCtrl+,` Settings) still work — `Edit > Undo` / `Redo` do not, since
   their keys are mirrored from the same rebindable `undo` / `redo` actions
@@ -116,15 +117,19 @@ viewer shows a prompt in its center; click it to open the folder picker.
   ends; opening another folder meanwhile drops it. A name that is invalid,
   already taken or refused by the OS shows its error in the status line
   with the file left as it was.
-- **Panels**: `F7` hides and shows the left pane (the folder tree), `F8` the
-  right pane (the metadata), `F6` the filmstrip, and `Tab` both side panes at
-  once (hiding both when either is shown, as Lightroom does), so the viewer
-  can take the whole height a landscape frame needs. The filmstrip's header
-  bar goes with it, so the filter and sort menus and the `N / M` counter are
-  hidden while the strip is. Which panels are hidden is remembered across
-  restarts. The `View` menu's `Left Pane`, `Right Pane`, `Both Side Panes`
-  and `Filmstrip` do the same, for a keyboard without function keys.
-- **Focus mark**: `f` (or `View > Focus Mark`) draws a crosshair at the camera's recorded focus point,
+- **Panels**: `Alt+Cmd+ArrowLeft` on macOS (`Ctrl+Alt+ArrowLeft` on
+  Windows and Linux) hides and shows the left pane (the folder tree),
+  `…ArrowRight` the right pane (the metadata), `…ArrowDown` the filmstrip,
+  and `Tab` both side panes at once (hiding both when either is shown, as
+  Lightroom does), so the viewer can take the whole height a landscape frame
+  needs. The filmstrip's header bar goes with it, so the filter and sort
+  menus and the `N / M` counter are hidden while the strip is. Which panels
+  are hidden is remembered across restarts. The `View` menu's `Left Pane`,
+  `Right Pane` and `Filmstrip` do the same, and their check marks show which
+  panes are shown. Earlier versions used `F7`, `F8` and `F6`; bind them
+  back per action in Settings if you prefer them (a binding you already
+  saved keeps working).
+- **Focus mark**: `f` draws a crosshair at the camera's recorded focus point,
   inside a rectangle of the AF frame the camera used on Sony bodies that
   record it (hidden by default). A body that records only the point, such as
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
@@ -155,14 +160,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
   appear a moment after `f`, because the detection runs when the frame is
   shown and is kept only for the session. The 1:1 view and Compare draw no
   faces.
-- **1:1 focus check**: `z` (or `View > 1:1 Zoom`) shows the full-resolution image at one pixel per
+- **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
   There is no panning or free zoom.
 - **Grayscale preview**: holding `g` shows the viewed image in grayscale to
   judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
-- **Compare**: `v` (or `View > Compare`) lays 2–4 selected files out in the viewer. With only one
+- **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
   file selected, it instead puts that file beside the highest-scoring
   frame in its burst (the same file appears twice when it is already the
   highest-scoring one). Each frame is labeled with its file name and score, and
@@ -451,10 +456,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `Alt+ArrowLeft` | previous frame in the current burst (stops at its first frame) |
 | `Alt+ArrowRight` | next frame in the current burst (stops at its last frame) |
 | `Cmd+O` / `Ctrl+O` | open a folder (`File > Open Folder…`) |
-| `f` | toggle the focus mark (also `View > Focus Mark`) |
-| `z` | toggle the 1:1 focus check (also `View > 1:1 Zoom`) |
+| `f` | toggle the focus mark |
+| `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
-| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame (also `View > Compare`) |
+| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |
@@ -464,10 +469,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
 | `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move Rejected to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
-| `F6` | show / hide the filmstrip (also `View > Filmstrip`, whose accelerator follows this key) |
-| `F7` | show / hide the left pane (also `View > Left Pane`, whose accelerator follows this key) |
-| `F8` | show / hide the right pane (also `View > Right Pane`, whose accelerator follows this key) |
-| `Tab` | show / hide both side panes (also `View > Both Side Panes`, whose accelerator follows this key) |
+| `Alt+Cmd+ArrowLeft` / `Ctrl+Alt+ArrowLeft` | show / hide the left pane (also `View > Left Pane`, whose accelerator follows this key) |
+| `Alt+Cmd+ArrowRight` / `Ctrl+Alt+ArrowRight` | show / hide the right pane (also `View > Right Pane`, whose accelerator follows this key) |
+| `Alt+Cmd+ArrowDown` / `Ctrl+Alt+ArrowDown` | show / hide the filmstrip (also `View > Filmstrip`, whose accelerator follows this key) |
+| `Tab` | show / hide both side panes |
 
 Pressing the key of the label the file already has clears it; the stars, the
 flag and `0` leave the label alone, while `c` clears it along with
@@ -499,13 +504,13 @@ Select All and the View menu's items are the exception: they follow their own ac
 rebound, and the
 combination an action leaves behind is free for another action. A View item
 shows its action's key as its accelerator only when that key includes Ctrl,
-Alt or Cmd; none of the View items' default keys do, so they show no
-accelerator until rebound to a combination that does.
+Alt or Cmd, which the defaults do; rebound to a key without one (`F7`, say),
+the key still works but the item shows no accelerator.
 `Reset all` restores the defaults.
 
 While the folder tree has the keyboard, only `open`, `toggleStrip`,
 `toggleLeft`, `toggleRight` and `toggleSides` (by default `Cmd+O` /
-`Ctrl+O`, `F6`, `F7`, `F8` and `Tab`) still run, whatever keys they are bound
+`Ctrl+O`, `Alt+Cmd+Arrow` / `Ctrl+Alt+Arrow` and `Tab`) still run, whatever keys they are bound
 to; every other action is ignored until the tree lets go of the keyboard.
 The tree's own keys below come first, and every printable character is
 type-ahead there, so one of those five actions rebound to a plain character
