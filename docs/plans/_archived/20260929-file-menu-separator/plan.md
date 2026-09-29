@@ -75,4 +75,4 @@ ties the insertion point to the prepended items so it cannot drift again.
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete

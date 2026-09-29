@@ -387,6 +387,17 @@ emits `open-settings`, which `main.ts` answers by opening the modal, the same
 way `open-folder` and `undo` reach the frontend. There is one window, so
 `capabilities/default.json` lists only `main`.
 
+On Windows and Linux the items prepended to `File` (`Open Folder…`,
+`Reload Folder` and the separator after them) are bound to one local array
+typed `[&dyn tauri::menu::IsMenuItem<Wry>; N]`, the same trait-object form
+the View menu's `view_kinds` uses, since the elements differ in concrete type
+and the separator must outlive both the `prepend_items` and `insert_items`
+calls. `Settings...` and `Check for Updates…` are inserted at `own.len()`, so
+they land after File's own items however that list grows. A literal index
+went stale when #537 removed two File items and left two separators in a row.
+
+- Source: `docs/plans/_archived/20260929-file-menu-separator/learnings.md`, Step 1.
+
 `Edit` also ships a predefined `Select All` on every platform, as the last
 item of the submenu (Undo / Redo sit first). `app_menu::build` removes it the
 same guarded way, only when the last item is still `MenuItemKind::Predefined`,

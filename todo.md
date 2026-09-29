@@ -1243,3 +1243,23 @@ brought back `###` sections that already-merged PRs had deleted. See
       sides; after resolving, check `grep '^### ' todo.md | sort | uniq -d`
       for duplicated headings and compare the branch's deleted headings
       against `origin/main`.
+
+### App: real-device check of the File menu separator on Windows
+
+`file-menu-separator` (docs/plans/_archived/20260929-file-menu-separator/plan.md)
+fixed the doubled separator in the Windows and Linux File menu by inserting
+Settings... and Check for Updates… at `own.len()`, the index right after the
+prepended File items, in `app_menu::build`. CI (`mise run ci`) covers the build,
+but the rendered menu was never looked at on a real machine, and Step 1 was
+ticked on the automated criteria only. Linux follows the same code path but was
+not built here.
+
+Files: `crates/app/src/main.rs` (`app_menu::build`).
+
+#### TODO
+
+- [ ] On Windows, run the app and open the File menu: it reads Open Folder,
+      Reload Folder, ─, Settings..., Check for Updates…, ─, Close Window, Quit,
+      with a single separator between each group (no doubled separator).
+- [ ] On Linux, open the File menu and confirm the same order and the single
+      separators.
