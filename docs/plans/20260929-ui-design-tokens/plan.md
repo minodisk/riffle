@@ -410,7 +410,7 @@ Ground truth gathered at planning time (2026-09-29):
       so the border is what distinguishes them (`--primary` `#e5e5e5` vs
       `--ring` `#737373`); confirm in the manual check that it reads.
 
-- [ ] Step 4: Migrate the folder tree pane to the sidebar scheme
+- [x] Step 4: Migrate the folder tree pane to the sidebar scheme
   - Done when:
     - `.sidebar-item` exists in the component block (shadcn
       `SidebarMenuButton`: a flex row, `--radius-sm`, hover on
@@ -705,3 +705,4 @@ Ground truth gathered at planning time (2026-09-29):
 - (2026-09-29) Step 1 complete
 - (2026-09-29) Step 2 complete; the plan was extended to every view (audit.md) and a settings side-nav step, at the user's request
 - (2026-09-29) Step 3 complete
+- (2026-09-29) Step 4 complete

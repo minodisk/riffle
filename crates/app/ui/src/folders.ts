@@ -191,7 +191,7 @@ function render(): void {
   for (const [index, { node, depth }] of drawn.entries()) {
     const row = document.createElement("div");
     row.id = `folder-row-${index}`;
-    row.className = "folder";
+    row.className = "folder sidebar-item";
     row.classList.toggle("current", node.path === current);
     row.classList.toggle("selected", selection.selected.has(node.path));
     if (node.path === cursor) {
@@ -264,7 +264,7 @@ function render(): void {
     }
     if (node.expanded && node.rawCount !== undefined && node.rawCount > 0) {
       const count = document.createElement("span");
-      count.className = "count";
+      count.className = "count badge";
       count.textContent = String(node.rawCount);
       row.append(count);
     }
