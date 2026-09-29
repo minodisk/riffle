@@ -203,11 +203,10 @@ mod app_menu {
                 file
             }
         };
-        file.prepend_items(&[
-            &open_folder,
-            &reload_folder,
-            &PredefinedMenuItem::separator(handle)?,
-        ])?;
+        let separator = PredefinedMenuItem::separator(handle)?;
+        let own: [&dyn tauri::menu::IsMenuItem<Wry>; 3] =
+            [&open_folder, &reload_folder, &separator];
+        file.prepend_items(&own)?;
         // On macOS both go in the app menu: Check for Updates joins About above
         // the default menu's first separator, since both are app-identity
         // items, and Settings gets a section of its own below it, as the
@@ -225,7 +224,7 @@ mod app_menu {
                 &check_updates,
                 &PredefinedMenuItem::separator(handle)?,
             ],
-            2,
+            own.len(),
         )?;
         // `Help` may be missing from the default menu (Linux), in which case
         // it's created here; empty on macOS; holding About elsewhere, where
