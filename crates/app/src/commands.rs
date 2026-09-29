@@ -152,7 +152,7 @@ fn read_focus_crop(
     Ok((arw.orientation, crop, timing))
 }
 
-/// List the RAW (ARW and DNG) files directly in `dir`, or its JPEGs when it
+/// List the RAW files directly in `dir`, or its JPEGs when it
 /// holds no RAW, sorted by file name. Entries that cannot be read are
 /// skipped; a directory that cannot be read is an error.
 #[cfg(test)]

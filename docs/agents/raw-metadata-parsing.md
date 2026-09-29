@@ -2,7 +2,8 @@
 
 Read this before touching the TIFF / MakerNote parsing in
 `crates/core/src/arw.rs`, which reads both ARW and DNG files (IFD0, the
-SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes). It lists the
+SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
+`crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)). It lists the
 pitfalls this repository has already hit, each with the reason it happens.
 `crates/core/src/reader.rs` only picks which bytes to read; no maker-specific
 parsing lives there. For a new Sony MakerNote field, also read
@@ -117,6 +118,40 @@ that fits in the entry and so is read from the value field
   `Sigma BF` (`SIGMA_BF_MODEL`).
 - Source: [sigma-bf-af-point learnings, Step 1](../plans/_archived/20260924-sigma-bf-af-point/learnings.md#step-1)
   (the exiftool comparison and the grid check).
+
+## NEF
+
+`crates/core/src/nef.rs` parses a Nikon NEF over `sequence::Tiff`, the
+byte-order-aware walker, and reads IFD0 and the Exif IFD through the shared
+crate-private `crates/core/src/exif.rs` (also used by `jpeg.rs`); unlike
+`arw.rs`, it keeps its own Exif fields lenient (an unreadable one is `None`)
+but errors on any IFD or SubIFD that runs past the buffer, so a short prefix
+triggers the reader's whole-file retry instead of a file with no JPEGs.
+
+### The preview is a SubIFD JPEG, not IFD0's or the MakerNote's (Measured)
+
+The embedded JPEGs are the SubIFDs (0x014a) with `Compression = 6` and
+`JPEGInterchangeFormat` / `JPEGInterchangeFormatLength` (0x0201 / 0x0202).
+`parse` takes the first as `full` (the JpgFromRaw) and, when there are more,
+the last as `preview`; with one, it is both.
+
+- Measured on raw.pixls.us NEFs of 24 bodies (Z 9 back to D70): the first
+  JPEG SubIFD is always the full-size JPEG, and every body since about the
+  D800 / Df adds a later one of 1620x1080 (1632x1080 on the D800). The
+  MakerNote `PreviewIFD` (0x0011) JPEG is only 640x424 (570x375 on older
+  bodies), below `PREVIEW_MIN_WIDTH`, so it is not read at all.
+- IFD0 of the Z 9, Z 8 and Z f carries its own 0x0201 / 0x0202: a 160x120
+  thumbnail. Taking IFD0's JPEG as the preview, as `arw.rs` does for ARW,
+  would show a thumbnail; only SubIFDs are searched.
+- Size or byte count cannot tell the two JPEGs apart: the JPEG SubIFDs carry
+  no `ImageWidth`, and a Z 6 sample's full JPEG (3024x2016) is smaller in
+  bytes than its 1620x1080 preview. Hence the order rule.
+- The Z bodies are little-endian; older ones (D90, D3, D7000, Df, D800) are
+  big-endian.
+- Every Nikon MakerNote offset is relative to the TIFF header at note offset
+  10 (after `Nikon `, two version bytes and two more). Nothing in the note
+  is read today; a future reader (e.g. `AFInfo2`) must build a second
+  `Tiff::new(buf, note + 10, note_end)`.
 
 ## Related
 

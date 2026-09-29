@@ -313,7 +313,7 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
         .collect();
     paths.sort();
     if paths.is_empty() {
-        bail!("no RAW (ARW/DNG) files in {dir:?}");
+        bail!("no RAW files in {dir:?}");
     }
 
     let start = Instant::now();
@@ -383,7 +383,7 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
             .filter(|p| riffle_core::scan::is_raw_file(p))
             .collect();
         if found.is_empty() {
-            bail!("no RAW (ARW/DNG) files in {dir:?}");
+            bail!("no RAW files in {dir:?}");
         }
         found.sort();
         paths.extend(found);

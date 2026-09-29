@@ -19,11 +19,14 @@ pub const THUMBNAIL_QUALITY: f32 = 80.0;
 /// The long edge a JPEG file's thumbnail aims at: the ARW thumbnail's.
 const JPEG_THUMBNAIL_LONG_EDGE: usize = 404;
 
-/// Whether `path` has a RAW extension Riffle lists: `.ARW` or `.DNG`, in any
-/// case.
+/// Whether `path` has a RAW extension Riffle lists: `.ARW`, `.DNG` or `.NEF`,
+/// in any case.
 pub fn is_raw_file(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("arw") || e.eq_ignore_ascii_case("dng"))
+    path.extension().is_some_and(|e| {
+        ["arw", "dng", "nef"]
+            .iter()
+            .any(|raw| e.eq_ignore_ascii_case(raw))
+    })
 }
 
 /// Whether `path` has a JPEG extension: `.jpg` or `.jpeg`, in any case.
@@ -519,6 +522,12 @@ mod tests {
         }
         for name in ["a.ARW", "a.png", "a.jpg.xmp", "jpg"] {
             assert!(!is_jpeg_file(Path::new(name)), "{name}");
+        }
+        for name in ["a.ARW", "a.dng", "a.NEF", "a.nef"] {
+            assert!(is_raw_file(Path::new(name)), "{name}");
+        }
+        for name in ["a.nef.xmp", "nef"] {
+            assert!(!is_raw_file(Path::new(name)), "{name}");
         }
     }
 

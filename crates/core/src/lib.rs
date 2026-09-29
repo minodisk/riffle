@@ -8,6 +8,7 @@ mod exif;
 pub mod faces;
 pub mod i18n;
 pub mod jpeg;
+pub mod nef;
 pub mod partial;
 pub mod reader;
 pub mod scan;

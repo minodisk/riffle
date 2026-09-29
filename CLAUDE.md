@@ -20,7 +20,9 @@ a logistic combination of their Laplacian variance and mean edge width, and
 whether it clears the threshold), `src/jpeg.rs` the Exif reader of a plain
 JPEG file (orientation and the standard shooting tags into the same `Shot`
 the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
-`.jpeg`, `src/sequence.rs` the JPEG timestamp sequencer ported
+`.jpeg`, `src/exif.rs` the crate-private IFD0 + Exif IFD reader `jpeg.rs`
+and `nef.rs` share, `src/nef.rs` the Nikon NEF parser (the full-size and
+preview JPEGs from the SubIFDs), which `reader` dispatches to for a `.nef`, `src/sequence.rs` the JPEG timestamp sequencer ported
 from lapse (orders a folder's JPEGs by capture time and writes copies with
 unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
 `src/sharpness.rs` the
