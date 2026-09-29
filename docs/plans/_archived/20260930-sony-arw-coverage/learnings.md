@@ -6,9 +6,16 @@
 
 - All 66 `.ARW` files of the 16 candidate folders on raw.pixls.us (CC0) were
   downloaded with `curl -L` from the Apache listings into
-  `D:\photos\samples\ARW\<MODEL>\` (one folder per model, next to the CR3 and
-  NEF samples). The A9 II names need `(`, `)` and `:` URL-encoded; the α7C
-  `DSC00107%5b1%5d.ARW` is saved as `DSC00107[1].ARW`.
+  `D:\photos\samples\ARW\<MODEL>\` (one folder per model), which is how the
+  verification below ran. The A9 II names need `(`, `)` and `:` URL-encoded.
+  After the verification the files were flattened into
+  `D:\photos\samples\ARW\` (next to the CR3 and NEF samples), each renamed
+  `<Model>_<original name>` from the EXIF Model string (e.g.
+  `ILCE-6700_DSC00002.ARW`), because default names such as `DSC00002.ARW`
+  collide across bodies. The prefix is skipped when the original name already
+  starts with `<Model>_` (the α7 IV files, e.g.
+  `ILCE-7M4_DSC06673_FullFrame-Raw-Uncompressed.ARW`); the α7C
+  `DSC00107%5b1%5d.ARW` is `ILCE-7C_DSC00107[1].ARW`.
 - Each file went through `riffle-cli info`, `focusbox` and `bench` (per
   folder), `riffle-cli scan` ran over every folder, and `faces` over one
   file per listed body. exiftool is still not installed; an independent
