@@ -187,3 +187,5 @@ feedback under that heading, not an acceptance criterion it could not verify.
   scope here.
 
 ## Progress
+
+- (2026-09-29) Step 1 complete
