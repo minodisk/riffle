@@ -20,6 +20,10 @@ use crate::{cr3, jpeg, nef, raf};
 /// ranged re-read in `read_preview`.
 pub const HEAD_LIMIT: usize = 1 << 20;
 
+/// The error of a CR3 whose embedded images are all HEVC (shot with HDR PQ
+/// on), which has no JPEG to show.
+pub const HEVC_UNSUPPORTED: &str = "HDR PQ (HEIF) CR3: its HEVC preview is not supported yet";
+
 /// Read at most `limit` bytes from the start of `path`.
 pub fn read_head(path: &Path, limit: usize) -> Result<Vec<u8>> {
     head_of(&mut File::open(path)?, limit)
@@ -145,9 +149,13 @@ fn embedded_from(
     kind: Kind,
 ) -> Result<(Arw, Vec<u8>)> {
     let arw = parse_raw(path, buf)?;
-    let e = kind
-        .pick(&arw)
-        .ok_or_else(|| anyhow!("no embedded {}", kind.name()))?;
+    let e = kind.pick(&arw).ok_or_else(|| {
+        if arw.hevc {
+            anyhow!(HEVC_UNSUPPORTED)
+        } else {
+            anyhow!("no embedded {}", kind.name())
+        }
+    })?;
     let end = e
         .offset
         .checked_add(e.length)
@@ -440,6 +448,46 @@ mod tests {
         let (a, out) = read_preview(&path).unwrap();
         assert_eq!((a.orientation, Some(out)), (6, c.preview.clone()));
         assert_eq!(read_metadata(&path).unwrap().orientation, 6);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn an_hdr_pq_cr3_names_its_hevc_preview_and_keeps_its_metadata() {
+        use crate::cr3::tests::Cr3;
+        use crate::jpeg::tests::W;
+        let w = W(true);
+        let c = Cr3 {
+            ifd0: vec![w.short(0x0112, 6)],
+            exif: vec![w.ascii(0x9003, "2026:09:30 10:00:00")],
+            thumbnail: Some(vec![0; 16]),
+            preview: Some(vec![0; 64]),
+            full: vec![0; 256],
+            full_sub: *b"HEVC",
+            ..Cr3::new()
+        };
+        let path = temp_file("hdr.CR3", &c.build());
+        for err in [read_preview(&path), read_full(&path)] {
+            assert_eq!(err.unwrap_err().to_string(), HEVC_UNSUPPORTED);
+        }
+        let a = read_metadata(&path).unwrap();
+        assert_eq!(a.orientation, 6);
+        assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:30 10:00:00"));
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_cr3_without_any_image_has_no_embedded_preview() {
+        use crate::cr3::tests::Cr3;
+        let c = Cr3 {
+            thumbnail: None,
+            preview: None,
+            full: vec![0; 256],
+            full_sub: *b"CMP1",
+            ..Cr3::new()
+        };
+        let path = temp_file("empty.CR3", &c.build());
+        let err = read_preview(&path).unwrap_err().to_string();
+        assert_eq!(err, "no embedded preview");
         std::fs::remove_file(&path).unwrap();
     }
 

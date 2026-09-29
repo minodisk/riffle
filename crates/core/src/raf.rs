@@ -56,6 +56,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         full: embedded,
         orientation,
         shot,
+        hevc: false,
     })
 }
 

@@ -920,6 +920,26 @@ body {
   opacity: 0.45;
 }
 
+/* Why the scan failed, over the image box of a failed cell only; the cell's
+   tooltip carries the text in full. */
+.cell span.reason {
+  display: none;
+}
+
+.cell.failed span.reason {
+  display: -webkit-box;
+  top: 24px;
+  bottom: auto;
+  max-height: 96px;
+  padding: 0 6px;
+  font-size: 0.6rem;
+  color: var(--muted-foreground);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
 #viewer {
   position: relative;
   flex: 1;

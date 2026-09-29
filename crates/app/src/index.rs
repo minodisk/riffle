@@ -92,8 +92,8 @@ const SCHEMA_VERSION: i64 = 17;
 /// stabilization and picture settings; `6` stops reading `FocusMode` 0 as
 /// manual focus on the `DSC-` bodies whose `FocusMode` always reads 0; `7`
 /// reads the AF point of NEF (Nikon `AFInfo2`) and CR3 (Canon `AFInfo2`)
-/// files.
-const EXTRACTOR_VERSION: i64 = 7;
+/// files; `8` names an HDR PQ (HEIF) CR3 in the error row.
+const EXTRACTOR_VERSION: i64 = 8;
 
 /// The version of what `riffle_core::scan::extract_faces` produces, stored
 /// on every `files` row as `faces_extractor` next to `eye_focus`. Bump it
@@ -186,6 +186,8 @@ pub struct IndexedFile {
     pub sharpness: Option<f64>,
     /// `None` for a file whose extraction failed.
     pub exif: Option<Exif>,
+    /// Why the extraction failed; `None` for a file whose extraction worked.
+    pub error: Option<String>,
 }
 
 /// The name the frontend uses for `flag`.
@@ -287,7 +289,7 @@ pub struct FaceReady {
 const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
             focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
             ratings.rating, ratings.xmp_size IS NOT NULL,
-            COALESCE(ratings.flag, 0), error IS NOT NULL,
+            COALESCE(ratings.flag, 0), error,
             make, model, lens, f_num, f_den, f_estimated, exposure_num,
             exposure_den, iso, focal_num, focal_den, ratings.label,
             sharpness, frame_w, frame_h, manual_focus, eye_focus
@@ -318,7 +320,8 @@ fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
             .zip(r.get::<_, Option<i64>>(num + 1)?)
             .map(|(num, den)| Rational { num, den }))
     };
-    let exif = if r.get(12)? {
+    let error: Option<String> = r.get(12)?;
+    let exif = if error.is_some() {
         None
     } else {
         Some(exif(&Shot {
@@ -346,6 +349,7 @@ fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
         has_sidecar: r.get(10)?,
         sharpness: r.get(25)?,
         exif,
+        error,
     })
 }
 
@@ -1724,6 +1728,7 @@ pub(crate) mod tests {
         assert!(entries[0].has_thumb);
         assert_eq!(index.thumbnail(&entries[0].path).unwrap().0, 6);
         assert_eq!(entries[0].exif, Some(exif(&entry().shot)));
+        assert!(entries[0].error.is_none());
         let e = entries[0].exif.as_ref().unwrap();
         assert_eq!(e.camera.as_deref(), Some("SONY ILCE-7M5"));
         assert_eq!(e.lens.as_deref(), Some("FE 50mm F1.4 GM"));
@@ -3074,6 +3079,7 @@ pub(crate) mod tests {
         let entries = index.entries("d").unwrap();
         assert!(!entries[0].has_thumb);
         assert!(entries[0].exif.is_none());
+        assert_eq!(entries[0].error.as_deref(), Some("broken"));
         assert!(index.thumbnail(&entries[0].path).is_err());
         assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
 

@@ -47,6 +47,7 @@ interface Cell {
   sharpness: HTMLSpanElement;
   count: HTMLSpanElement;
   candidate: HTMLSpanElement;
+  reason: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
   // Read by the listeners, since `setFiles` moves a cell whose file is still
@@ -98,6 +99,8 @@ const sharpness = new Map<number, RelativeSharpness>();
 const bursts = new Map<number, BurstMark>();
 // The indices whose file is a focus candidate.
 const candidates = new Set<number>();
+// Why the scan failed on a file, per index, from the index's error row.
+const failures = new Map<number, string>();
 // The selected indices besides `current`, mirroring the selection in
 // `main.ts`.
 const selected = new Set<number>();
@@ -168,6 +171,14 @@ function paintCandidate(index: number, cell: Cell): void {
   cell.candidate.hidden = !candidates.has(index);
 }
 
+// The scan's error text of a failed file, in the cell's tooltip and, on a
+// `failed` cell, where the thumbnail would be.
+function paintFailure(index: number, cell: Cell): void {
+  const message = failures.get(index) ?? "";
+  cell.el.title = message;
+  cell.reason.textContent = message;
+}
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
@@ -220,6 +231,9 @@ function createCell(index: number): Cell {
   candidate.innerHTML = SCAN_FACE_SVG;
   candidate.style.color = FOCUS_MARK_COLORS.candidate;
   el.append(candidate);
+  const reason = document.createElement("span");
+  reason.className = "reason";
+  el.append(reason);
   el.addEventListener("click", (event) => {
     select(cell.index, { toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
   });
@@ -236,6 +250,7 @@ function createCell(index: number): Cell {
     sharpness: sharp,
     count,
     candidate,
+    reason,
     name,
     url: null,
     index,
@@ -244,6 +259,7 @@ function createCell(index: number): Cell {
   paintSharpness(index, cell);
   paintBurst(index, cell);
   paintCandidate(index, cell);
+  paintFailure(index, cell);
   return cell;
 }
 
@@ -444,6 +460,20 @@ export function setCandidate(index: number, candidate: boolean): void {
   }
 }
 
+// Record why the scan failed on one file, repainting its cell when it is on
+// screen. `null` is a file that did not fail.
+export function setFailure(index: number, message: string | null): void {
+  if (message === null) {
+    failures.delete(index);
+  } else {
+    failures.set(index, message);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintFailure(index, cell);
+  }
+}
+
 // Show one cell per file, in `list_arw` order. A cell with a loaded
 // thumbnail whose file is still listed moves to its new index; the rest are
 // placeholders. `keepScroll` is for a rescan of the folder already shown: the
@@ -489,6 +519,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   sharpness.clear();
   bursts.clear();
   candidates.clear();
+  failures.clear();
   selected.clear();
   files = paths;
   indexOf = new Map(paths.map((path, index) => [path, index]));

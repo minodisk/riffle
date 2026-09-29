@@ -332,8 +332,9 @@ Discussions. If it does not, open an issue from the
   - [x] Nikon D850
   - [x] Nikon D500
 
-CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview and cannot be
-opened yet.
+CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview, so their preview
+cannot be shown yet: the strip and the viewer say so, while the meta pane
+still shows their EXIF rows.
 
 A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no RAW file opens
 view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
