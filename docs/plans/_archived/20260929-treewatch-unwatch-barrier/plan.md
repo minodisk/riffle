@@ -150,4 +150,4 @@ The user chose the `configure` barrier alone (no rename retry).
 
 ## Progress
 
-- (none yet)
+- (2026-09-29) Step 1 complete

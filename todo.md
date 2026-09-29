@@ -1200,19 +1200,6 @@ implementation. Files: `crates/app/ui/src/main.ts` (rename handler),
       entry `dirs`) when the folder they point into is renamed, so undoing
       or redoing the run after a rename still targets the right folder.
 
-### App: `treewatch::tests::release_under_releases_the_folder_and_below_and_restore_puts_them_back` is flaky on Windows CI
-
-This test panicked at `crates/app/src/treewatch.rs:355` in the post-merge CI
-of #540 (run 36432825515) and of #551 (run 36497782763), both PRs not
-touching `treewatch.rs`, and passed on a rerun each time. Basis:
-`undo-trash-rejected` learnings. Files: `crates/app/src/treewatch.rs`.
-
-#### TODO
-
-- [ ] Find the race (likely waiting on a watcher event or a handle release)
-      and make the test deterministic. Done when the cause is identified
-      and the test passes repeatedly on the Windows runner.
-
 ### Docs: add a guide for GitHub Actions workflows and `gh` secrets
 
 #### Background
