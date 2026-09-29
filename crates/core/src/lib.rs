@@ -11,6 +11,7 @@ pub mod i18n;
 pub mod jpeg;
 pub mod nef;
 pub mod partial;
+pub mod raf;
 pub mod reader;
 pub mod scan;
 pub mod sequence;

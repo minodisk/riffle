@@ -111,7 +111,7 @@ too. The samples are still never committed to the repository.
 
 ## Steps
 
-- [ ] Step 1: RAF parser (`crates/core/src/raf.rs`) wired into the reader and the listing
+- [x] Step 1: RAF parser (`crates/core/src/raf.rs`) wired into the reader and the listing
   - Done when:
     - `raf::parse(buf) -> Result<Arw>` checks the `FUJIFILMCCD-RAW` magic,
       reads the JPEG offset / length at `0x54` / `0x58` (big-endian), errors

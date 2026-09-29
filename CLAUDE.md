@@ -25,7 +25,9 @@ the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
 preview JPEGs from the SubIFDs), which `reader` dispatches to for a `.nef`,
 `src/cr3.rs` the Canon CR3 parser (the ISOBMFF boxes: Exif from `CMT1` /
 `CMT2`, the preview from `PRVW`, the full-size JPEG from its track), which
-`reader` dispatches to for a `.cr3`, `src/sequence.rs` the JPEG timestamp sequencer ported
+`reader` dispatches to for a `.cr3`, `src/raf.rs` the Fujifilm RAF parser (the
+fixed header's offset of the one embedded JPEG, whose Exif is the file's),
+which `reader` dispatches to for a `.raf`, `src/sequence.rs` the JPEG timestamp sequencer ported
 from lapse (orders a folder's JPEGs by capture time and writes copies with
 unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
 `src/sharpness.rs` the
