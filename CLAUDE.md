@@ -80,6 +80,9 @@ key, its tools, and the bridge that asks the main window over the
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
 formatted, linted, type-checked and tested by `mise run ci`; its
+`style.css` holds shadcn/ui's Neutral dark tokens and the shared component
+classes every control uses (see `docs/agents/ui-styling.md`),
+`src/icons.ts` the inlined Lucide icons,
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu

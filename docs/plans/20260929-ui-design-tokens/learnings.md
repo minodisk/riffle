@@ -189,6 +189,18 @@
 - The Step 5 hex grep still matches only the listed exceptions (no new hex
   in `style.css` or `src/*.ts`).
 
+## Step 7: styling guide
+
+- `docs/agents/ui-styling.md` points at the plan folder by its archived path
+  `docs/plans/_archived/20260929-ui-design-tokens/` in backticks, not as a
+  link: the folder only moves under `_archived/` at wrap-up, and lychee
+  (`--offline`) would reject a link to a path that does not exist yet. This
+  matches how `tauri-app.md` cites archived learnings.
+- The guide's exception list adds `FACE_MARK_COLOR` (`#3ff`), which Step 5
+  found next to `FOCUS_MARK_COLORS` but the plan's Step 7 list did not name.
+- The macOS / Linux manual check the step asks to file was already under
+  the deferred heading (the Steps 1 to 6 entry); no new item was needed.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Windows, Step 1 of ui-design-tokens):** the user
