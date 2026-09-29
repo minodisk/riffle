@@ -1187,14 +1187,6 @@ heredoc landed with the backslashes halved, even with a quoted delimiter.
       heredoc. Confirm the behavior first by writing a doubled-backslash
       string both ways and diffing the results.
 
-### App: deleting the focused file from outside the app moves focus to the first file, not its neighbour
-
-Found while verifying docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md on Windows. When the focused file is deleted from outside the app, `resync` in `crates/app/ui/src/main.ts` looks the vanished anchor up in the newly listed files; `anchorAfterFilter` in `crates/app/ui/src/filter.ts` gets index `-1` for the missing anchor and so picks the first passing file instead of the deleted file's former neighbour. The strip then scrolls to the first file.
-
-#### TODO
-
-- [ ] Fall back to the vanished anchor's neighbour in the previous list (the next file, else the previous one) instead of the first passing file, with a Vitest case in `filter.test.ts`. Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/filter.ts`.
-
 ### App: renaming a folder after a Move Rejected to Trash run leaves the trash run pointing at the old path
 
 A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run leaves
