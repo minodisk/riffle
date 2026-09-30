@@ -112,6 +112,32 @@ ring is always `--ring` (`--sidebar-ring` in a side pane).
   the element vanishes on a hovered row (the unlit filter stars are
   `--muted-foreground` at `opacity: 0.4`).
 
+## Layout
+
+Source: `docs/plans/_archived/20260930-no-margin-layout/` (`plan.md`, `audit.md`, the
+margin-by-margin table and what replaced each).
+
+- Layout is flex or grid. Siblings are spaced with `gap` on the parent;
+  spacing inside a component is `padding`. `margin` and `float` are not used
+  for layout, in `style.css` or through `.style` in TypeScript.
+- The `/* Reset */` block before the component block zeroes the UA margins
+  of `body`, `h1`, `h2`, `h3`, `p`, `dl`, `dd`, `ul`, `ol`, `hr`, `pre`,
+  `figure`, `table`, `input`, `button` and `select`, so no spacing is
+  implicit. A dialog or settings panel is a flex column with a `gap`; a
+  `hidden` or `:empty` child is `display: none` and adds no gap, which is
+  why one `gap` reproduces the old per-element margins.
+- A right-aligned item is pushed by `justify-content: space-between` on the
+  parent (`#strip-bar`), a `flex: 1` spacer, or a grid column (`.folder`'s
+  `14px minmax(0, 1fr) max-content`, whose name column keeps the name span
+  hugging its text so the click target does not grow), never
+  `margin-left: auto`.
+- A wrapped row of inline items is a flex wrapper with a two-value `gap`
+  (the shortcut row's `div.keys` inside its `td`: a `display: flex` `td`
+  loses its table-cell box, so the flex box goes inside the cell; Inferred).
+- The one exception is `.menu-separator`'s `margin: 4px -4px`: the negative
+  inline margin bleeds the `hr` across `.menu`'s 4px padding so the line
+  runs edge to edge, which `gap` and `padding` cannot express.
+
 ## Icons
 
 Icons are Lucide SVG strings in `src/icons.ts` (`SCAN_FACE_SVG`,
@@ -128,15 +154,27 @@ The build target is `safari13` on macOS / Linux and `chrome105` on Windows
 WebView2 (Windows), WKWebView (macOS) and WebKitGTK (Linux).
 
 - In use: custom properties and `calc()` in them; `rgb()` space syntax with a
-  slash alpha (emitted as 8-digit hex) and `inset`; `:not([hidden])`;
+  slash alpha (emitted as 8-digit hex) and `inset`; `:not([hidden])`; flex
+  `gap` (Safari 14.1, that is macOS 11 or 10.15 with the Safari 14.1 update,
+  and WebKitGTK 2.32, the app's real WebKit floor; grid `gap` is older and
+  safe everywhere);
   `:focus-visible` and `accent-color` (Chromium 86+ / 93+, Safari 15.4+,
   WebKitGTK 2.36+; an older WebKit shows its own focus ring and native
   control); `scrollbar-width` / `scrollbar-color` (ignored where
   unsupported).
+- `safari13` is a syntax target: Lightning CSS neither down-levels nor warns
+  on a layout feature such as flex `gap`, so the target does not mean
+  Safari 13 works.
 - Avoid: `oklch()` and `color-mix()` (not down-levelled with full fidelity
   at `safari13`), CSS nesting, `:has()`, `@layer`, anchor positioning and
   `appearance: base-select` (Chromium-only). A hover shade is a second
   solid hex, not `color-mix()`.
+- `grid-template-columns: subgrid` (Chromium 117+, Safari 16+) is beyond
+  both build targets and the Safari 14.1 / WebKitGTK 2.32 floor above. Its
+  only use is `#label-names > label` in `style.css`, and where it is
+  unsupported the row's columns do not line up with the parent grid. Do not
+  add another; when touching that rule, check it on macOS / Linux or replace
+  it with explicit columns (Inferred).
 
 ## Exceptions
 
@@ -170,3 +208,15 @@ grep -nE '#[0-9a-f]{3,6}\b|rgba?\(' crates/app/ui/src/*.ts
 
 A new match is a new ad-hoc color: use a token or a component class
 instead, or, if it is truly app-semantic, add it to the exceptions here.
+
+Then run the layout greps:
+
+```sh
+grep -nE 'margin|float' crates/app/ui/style.css
+grep -nE '\.style\.(margin|float)|margin|float' crates/app/ui/src/*.ts crates/app/ui/index.html
+```
+
+The first matches only the `/* Reset */` block (its comment and
+`margin: 0`) and `.menu-separator`'s `margin: 4px -4px`; the second matches
+nothing. A new match is a margin used for layout: move the spacing to `gap`
+on the parent or `padding`, as in "Layout" above.
