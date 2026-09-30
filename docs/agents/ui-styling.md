@@ -73,10 +73,10 @@ by weight, border or a check mark (below), not by a new color.
 | --- | --- | --- |
 | `button` + `primary` | `<button>` | only the sequence dialog's `Run` |
 | `button` + `destructive` | `<button>` | `Move to Trash` |
-| `button` + `outline` | `<button>` | `Cancel`, `Reset`, `Reset all`, `Clear Cache`, `Copy`, `#label-names-reset`, the three format choices, the strip bar's filter / sort toggles |
+| `button` + `outline` | `<button>` | `Cancel`, `Reset`, `Reset all`, `Clear Cache`, `Copy`, `#label-names-reset`, the three format choices and the first-launch dialog's `Continue`, the strip bar's filter / sort toggles |
 | `button` + `ghost` | `<button>` | icon-only buttons: `#settings-close`, the shortcut chip `×`, the `+` key adder, the meta status dismiss `×` |
 | `input` | text `<input>` | the `#label-name-*` fields |
-| `select` | `<select>` | `#label-names-language` (native arrow; its `option`s on `--popover`) |
+| `select` | `<select>` | `#label-names-language` and `#format-language-select` (native arrow; its `option`s on `--popover`) |
 | `checkbox` | native checkbox / radio | the settings checkboxes and the sidecar format radios (`accent-color`) |
 | `field` | a `<label>` wrapping its control | the settings labels |
 | `dialog` | the fixed backdrop | `#format-dialog`, `#trash-dialog`, `#sequence-dialog`, `#settings-dialog` |

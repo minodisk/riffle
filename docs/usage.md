@@ -528,7 +528,7 @@ These keys are fixed and cannot be changed:
 | Key | Action |
 |-----|--------|
 | `Escape` | close the filter, sort or right-click menu, or leave Compare; in Settings, cancel adding a key, or close the settings; in the folder tree, hand the keyboard back to culling |
-| `Tab` / `Shift+Tab` | while the first-launch developing-software dialog or the settings are open, move between the dialog's buttons or the settings' controls (otherwise `Tab` is the side-pane toggle above, which can be rebound) |
+| `Tab` / `Shift+Tab` | while the first-launch developing-software dialog or the settings are open, move between the dialog's visible buttons and language list or the settings' controls (otherwise `Tab` is the side-pane toggle above, which can be rebound) |
 | `CmdOrCtrl+R` | reload the folder (`File > Reload Folder`) |
 | `CmdOrCtrl+,` | open the settings (`Riffle > Settings...`, `File > Settings...` on Windows and Linux) |
 | `ArrowLeft` / `ArrowRight` / `Home` / `End` | in the settings tab strip, the previous / next / first / last tab |
@@ -551,7 +551,10 @@ folder can be opened, and the choice can be changed later in
   `photoshop:LabelColor` and `xmp:Label`, the way Lightroom writes them.
   `xmp:Label` carries the name configured for the color in the settings
   (English by default: `Red`, `Yellow`, `Green`, `Blue`, `Purple`) and
-  `photoshop:LabelColor` the lowercase English color (`red`, ...). A sidecar
+  `photoshop:LabelColor` the lowercase English color (`red`, ...). Choosing
+  Lightroom (XMP) or Both in the first-launch dialog also asks for the
+  language Lightroom's menus are in and sets the names to that language's
+  Lightroom defaults (`レッド` ... `パープル` for Japanese). A sidecar
   whose `xmp:Label` matches a configured name or the English name is shown in
   that color.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop` (and `FOO.NEF`

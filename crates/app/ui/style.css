@@ -1010,6 +1010,23 @@ body {
   padding: 0.5rem;
 }
 
+/* Shown once XMP or Both is chosen: Lightroom's UI language decides the
+   `xmp:Label` names. */
+#format-language:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#format-language-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#format-language-select {
+  flex: 1;
+}
+
 #format-box .note {
   color: var(--muted-foreground);
 }

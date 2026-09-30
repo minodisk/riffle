@@ -454,6 +454,10 @@ export function initSettings(hooks: SettingsHooks): Settings {
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     status.textContent = "";
     void window.__TAURI__.core.invoke<string>("sidecar_format").then(showSidecarFormat);
+    // The first-launch dialog may have saved names since the modal was built.
+    void window.__TAURI__.core
+      .invoke<{ names: LabelNames }>("label_names")
+      .then(({ names }) => showLabelNames(names));
     if (!clearInFlight) {
       void window.__TAURI__.core.invoke<string>("index_size").then((size) => {
         if (!clearInFlight) showIndexSize(size);

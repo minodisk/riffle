@@ -210,7 +210,7 @@ adjacent-line noise; resolve it by keeping both sides.
       back with the clicked folder still open; a folder that fails to
       list shows its error and the rest still expand.
 
-- [ ] Step 4: Ask for Lightroom's UI language in the first-launch dialog when XMP or Both is chosen
+- [x] Step 4: Ask for Lightroom's UI language in the first-launch dialog when XMP or Both is chosen
   - Done when: choosing `Lightroom (XMP)` or `Both` in `#format-dialog`
     reveals, inside the same dialog box, a second block (a one-line
     question, a `select.select` listing the `crates/core/i18n/` presets by

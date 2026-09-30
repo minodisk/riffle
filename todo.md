@@ -899,25 +899,6 @@ construction with the key-press path. Files: `crates/app/src/mcp.rs`,
 - [ ] Verify by hand that `set_judgment` from an MCP client writes the same
       XMP / `.dop` bytes as a key press, and that `Cmd+Z` undoes it.
 
-### App: the first-launch dialog does not ask for Lightroom's UI language
-
-The first-launch dialog only asks for the sidecar format. The `xmp:Label`
-names start as the English preset (`Red`, `Yellow`, ...) and can only be
-changed later under Settings > Lightroom language. A user whose Lightroom
-Classic runs in another language (e.g. Japanese, whose default set is
-`レッド`, `イエロー`, ...) who picks XMP or Both gets every Riffle-written color
-label shown as a white, unmatched label, with nothing pointing at the cause.
-Found during the 2026-09-28 manual Lightroom checks (`lightroom-verified`).
-Files: `crates/app/ui/src/main.ts` (`showFormatDialog`),
-`crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`,
-`crates/core/i18n/`.
-
-#### TODO
-
-- [ ] When XMP or Both is chosen in the first-launch dialog, require choosing
-      Lightroom's UI language (one of the `crates/core/i18n/` presets) before
-      the dialog closes, and save that preset's names as the label names.
-
 ### App: the backend `folder_entries` read is the main cost of the remaining `refreshEntries`
 
 Now that the `scan-done` refresh is skipped when neither the scan nor the reconcile changed anything (docs/plans/_archived/20260926-scan-done-refresh-skip/plan.md), the one refresh that still runs (the open-time one) is dominated by the backend `folder_entries` read: 321 ms cold on 2134 rows in the user's Windows debug-build measurement. Files: `crates/app/src/index.rs` (`folder_entries` / `AppIndexReader`), `crates/app/ui/src/main.ts` (`refreshEntries`).

@@ -43,8 +43,9 @@ next time Riffle starts. For the other packages and the details, see
 ### First steps
 
 1. Choose your developing software (Lightroom, DxO PhotoLab, or both) in the
-   dialog Riffle shows on its first launch; it can be changed later in
-   Settings.
+   dialog Riffle shows on its first launch, and for Lightroom also the
+   language its menus are in, so the color labels match its names; both can
+   be changed later in Settings.
 2. Drop a folder onto the window (or open one with `Cmd+O` / `Ctrl+O`).
 3. Page through the shots with `←` `→`, give stars with `1`-`5` and reject with
    `x`.

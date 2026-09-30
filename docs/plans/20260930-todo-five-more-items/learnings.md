@@ -90,6 +90,30 @@
   `folderMenuGroups with several folders selected` case compares the whole
   menu with `toEqual`, so it already asserts the two items are absent.
 
+## Step 4: Lightroom's UI language in the first-launch dialog
+
+- The language block (`#format-language`) sits in `#format-box` between
+  `#format-choices` and the note, hidden with `hidden`; its id rule is
+  scoped `:not([hidden])` because an id rule outranks
+  `.dialog-box [hidden] { display: none }` (`docs/agents/ui-styling.md`).
+  `ui-styling.md`'s component table now lists `#format-language-select`
+  under `select` and `Continue` under `button outline`.
+- `saveFormat` in `main.ts` chains `choose_sidecar_format` and then
+  `set_label_names`; a rejection of either lands in `#format-error` and
+  re-enables every control. If the format saved but the names did not,
+  the next launch skips the dialog (the format is what gates it) and the
+  names stay English; `Continue` again in the same session retries both
+  (re-choosing the same format is a no-op in `choose_format`).
+- A click on XMP / Both while the language block is shown just replaces
+  `chosenFormat`; a click on DxO saves at once from either phase. The
+  chosen button gets no visual state (there is no pressed style in the
+  component classes); the question text stays generic.
+- If `label_names` fails the select stays empty and `Continue` saves the
+  format alone (the names keep the backend's English default).
+- The Tab trap now filters `button, select` by `closest("[hidden]")` and
+  reuses `modal.ts`'s `cycleFocus`, so both phases cycle over what is
+  visible.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Step 2, Windows, the user's):** verify the idle
@@ -122,3 +146,17 @@
   `context.test.ts`, `mise run ci`). Basis: plan Step 3 "Manual check" and
   its watcher-count bullet. Files: `crates/app/ui/src/folders.ts`,
   `crates/app/ui/src/tree.ts`, `crates/app/ui/src/main.ts`.
+- **Pending manual check (Step 4, Windows, the user's):** run the
+  first-launch dialog with a fresh settings store (delete the app-data
+  settings store or use a fresh app-data dir). Steps: launch, pick
+  `Lightroom (XMP)`: the language block appears with the select
+  preselected by the OS language; pick 日本語, `Continue`; open Settings >
+  Sidecars: the Lightroom-language fields show レッド … パープル; relaunch:
+  no dialog. With another fresh store pick `DxO PhotoLab (.dop)`: the
+  dialog closes at once, no language block. In both phases Tab /
+  Shift+Tab stay inside the dialog and reach the select and `Continue`
+  only once they are shown. Not run by the implementation agent (no GUI
+  session); Step 4's checkbox was ticked on the automated criteria
+  (Vitest cases in `firstrun.test.ts`, `mise run ci`). Basis: plan Step 4
+  "Manual check". Files: `crates/app/ui/src/main.ts`,
+  `crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`.
