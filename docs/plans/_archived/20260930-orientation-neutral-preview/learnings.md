@@ -37,3 +37,6 @@
   Completion criteria: all three views are upright for the GFX 100 RAF and
   the ARW and JPEG-only folders show no regression; the "(Hit)" entry in
   `docs/agents/tauri-app.md` then stands as is, and is corrected if not.
+  - Done: the user ran the check on Windows on 2026-09-30. The GFX 100 RAF
+    shows upright in the main preview, and the ARW and JPEG-only folders show
+    no regression, so the "(Hit)" entry stands as is.
