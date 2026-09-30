@@ -395,7 +395,10 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     let start = Instant::now();
     let cues: Vec<_> = pool.install(|| {
         use rayon::prelude::*;
-        paths.par_iter().map(|p| scan::extract_faces(p)).collect()
+        paths
+            .par_iter()
+            .map(|p| scan::extract_analysis(p).map(|a| a.cue))
+            .collect()
     });
     let total = start.elapsed();
     // The measures behind each face's probability, for the report only.

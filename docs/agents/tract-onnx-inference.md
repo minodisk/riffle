@@ -89,7 +89,7 @@ AF point (`partial::focus_point`) live in stored coordinates.
 
 ### Build the plan once in a `OnceLock` shared by rayon workers (Inferred)
 
-The scan runs `scan::extract` and `scan::extract_faces` on rayon workers. `detector()` builds the plan once
+The scan runs `scan::extract` and `scan::extract_analysis` on rayon workers. `detector()` builds the plan once
 in a `static OnceLock` and hands every worker the same `&'static Detector`;
 nothing is rebuilt per file. The lock caches a `Result<Detector, String>`
 (the error formatted with `{e:#}`), so a model that fails to build fails

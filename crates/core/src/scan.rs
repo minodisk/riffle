@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{focus_cue_unless, Cue};
 use crate::decode::{thumbnail_jpeg, thumbnail_jpeg_near};
-use crate::faces::detect_around;
+use crate::faces::{detect_around, Face};
 use crate::reader::read_preview;
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
@@ -102,28 +102,17 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
             sharpness: None,
         }));
     }
-    let eye_af = eye_af_frame(&arw.shot);
     let focus = trusted_focus(&arw.shot);
     // Faces steer the score only without an AF point, so they are searched for
-    // on the whole image then and not at all otherwise. Any detection failure
-    // is no face.
+    // on the whole image then and not at all otherwise.
     let faces = match focus {
         Some(_) => Vec::new(),
-        None => catch_unwind(AssertUnwindSafe(|| {
-            detect_around(&preview, arw.orientation, None)
-        }))
-        .ok()
-        .and_then(Result::ok)
-        .map_or_else(Vec::new, |d| d.faces),
+        None => whole_image_faces(&preview, arw.orientation),
     };
     if canceled(cancel) {
         return None;
     }
-    let sharpness = catch_unwind(AssertUnwindSafe(|| {
-        score_preview(&preview, focus, eye_af.map(|(_, frame)| frame), &faces)
-    }))
-    .ok()
-    .and_then(Result::ok);
+    let sharpness = score(&preview, &arw.shot, focus, &faces);
     Some(Ok(Entry {
         orientation: arw.orientation,
         shot: arw.shot,
@@ -132,16 +121,29 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
     }))
 }
 
-/// Compute the focus candidate cue of one file. Only an unreadable file is
-/// `Err`; a decode or detection failure, or a panic in either, is an
-/// unknown cue.
-pub fn extract_faces(path: &Path) -> Result<Cue, String> {
-    extract_faces_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
+/// What the analysis pass contributes to the index for one file.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Analysis {
+    pub cue: Cue,
+    /// `sharpness::score_preview` of the preview, the same score `extract`
+    /// gives; `None` when it could not be scored, and always for a JPEG file.
+    pub sharpness: Option<f64>,
 }
 
-/// `extract_faces`, abandoned (`None`) once `cancel` is set between its
+/// Compute the focus candidate cue and the sharpness score of one file from
+/// one read of its preview. Only an unreadable file is `Err`; a decode,
+/// detection or scoring failure, or a panic in any of them, is an unknown
+/// cue or no score. A JPEG file gets neither, and is not read.
+pub fn extract_analysis(path: &Path) -> Result<Analysis, String> {
+    extract_analysis_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
+}
+
+/// `extract_analysis`, abandoned (`None`) once `cancel` is set between its
 /// stages.
-fn extract_faces_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Cue, String>> {
+fn extract_analysis_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Analysis, String>> {
+    if is_jpeg_file(path) {
+        return Some(Ok(Analysis::default()));
+    }
     let (arw, preview) = match read_preview(path) {
         Ok(read) => read,
         Err(e) => return Some(Err(e.to_string())),
@@ -149,7 +151,39 @@ fn extract_faces_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Cue, 
     if canceled(cancel) {
         return None;
     }
-    cue(&preview, arw.orientation, trusted_focus(&arw.shot), cancel).map(Ok)
+    let focus = trusted_focus(&arw.shot);
+    // With an AF point the cue's detection runs around it and the score needs
+    // no faces; without one the cue is unknown and the faces the score falls
+    // back to are searched for on the whole image.
+    let (cue, faces) = match focus {
+        Some(_) => (cue(&preview, arw.orientation, focus, cancel)?, Vec::new()),
+        None => (Cue::unknown(), whole_image_faces(&preview, arw.orientation)),
+    };
+    if canceled(cancel) {
+        return None;
+    }
+    let sharpness = score(&preview, &arw.shot, focus, &faces);
+    Some(Ok(Analysis { cue, sharpness }))
+}
+
+/// The faces of the whole preview; any detection failure or panic is no face.
+fn whole_image_faces(preview: &[u8], orientation: u16) -> Vec<Face> {
+    catch_unwind(AssertUnwindSafe(|| {
+        detect_around(preview, orientation, None)
+    }))
+    .ok()
+    .and_then(Result::ok)
+    .map_or_else(Vec::new, |d| d.faces)
+}
+
+/// `score_preview` of `preview`; a failure or panic is no score.
+fn score(preview: &[u8], shot: &Shot, focus: Option<FocusLocation>, faces: &[Face]) -> Option<f64> {
+    let eye_af = eye_af_frame(shot);
+    catch_unwind(AssertUnwindSafe(|| {
+        score_preview(preview, focus, eye_af.map(|(_, frame)| frame), faces)
+    }))
+    .ok()
+    .and_then(Result::ok)
 }
 
 fn cue(
@@ -198,19 +232,19 @@ where
     for_each_path(paths, threads, extract_unless, on_item, cancel)
 }
 
-/// Run `extract_faces` over `paths` the way `extract_all` runs `extract`:
+/// Run `extract_analysis` over `paths` the way `extract_all` runs `extract`:
 /// same pool, same `cancel`, same `threads == 0` error, and the same rule
 /// that `on_item` must not panic.
-pub fn extract_faces_all<F>(
+pub fn extract_analysis_all<F>(
     paths: &[PathBuf],
     threads: usize,
     on_item: F,
     cancel: &AtomicBool,
 ) -> Result<(), String>
 where
-    F: Fn(usize, Result<Cue, String>) + Send + Sync,
+    F: Fn(usize, Result<Analysis, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, extract_faces_unless, on_item, cancel)
+    for_each_path(paths, threads, extract_analysis_unless, on_item, cancel)
 }
 
 fn for_each_path<T, E, F>(
@@ -355,18 +389,18 @@ mod tests {
     }
 
     #[test]
-    fn the_faces_pass_delivers_every_index_once_and_stops_on_cancel() {
-        let dir = dir("faces-all");
+    fn the_analysis_pass_delivers_every_index_once_and_stops_on_cancel() {
+        let dir = dir("analysis-all");
         let jpeg = jpeg(64, 48);
         let paths: Vec<PathBuf> = (0..200)
             .map(|i| write(&dir, &format!("{i:03}.ARW"), &fixture(1, &jpeg)))
             .collect();
 
         let seen = Mutex::new(Vec::new());
-        extract_faces_all(
+        extract_analysis_all(
             &paths,
             4,
-            |i, r| seen.lock().unwrap().push((i, r.unwrap().state)),
+            |i, r| seen.lock().unwrap().push((i, r.unwrap().cue.state)),
             &AtomicBool::new(false),
         )
         .unwrap();
@@ -382,7 +416,7 @@ mod tests {
 
         let cancel = AtomicBool::new(false);
         let done = Mutex::new(0usize);
-        extract_faces_all(
+        extract_analysis_all(
             &paths,
             2,
             |_, _| {
@@ -399,7 +433,7 @@ mod tests {
         assert!(done >= 4, "the files before the cancel are delivered");
         assert!(done < paths.len(), "the rest are not, got {done}");
 
-        assert!(extract_faces_all(&paths, 0, |_, _| {}, &AtomicBool::new(false)).is_err());
+        assert!(extract_analysis_all(&paths, 0, |_, _| {}, &AtomicBool::new(false)).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -409,7 +443,7 @@ mod tests {
         let path = write(&dir, "a.ARW", &fixture(1, &jpeg(64, 48)));
         let set = AtomicBool::new(true);
         assert!(extract_unless(&path, &set).is_none());
-        assert!(extract_faces_unless(&path, &set).is_none());
+        assert!(extract_analysis_unless(&path, &set).is_none());
         assert!(
             extract_unless(&dir.join("missing.ARW"), &set).is_some_and(|r| r.is_err()),
             "an unreadable file is still an error"
@@ -427,7 +461,7 @@ mod tests {
         let paths: Vec<PathBuf> = (0..8)
             .map(|i| write(&dir, &format!("{i}.ARW"), &fixture(1, &jpeg(64, 48))))
             .collect();
-        for faces in [false, true] {
+        for analysis in [false, true] {
             let cancel = AtomicBool::new(false);
             let delivered = Mutex::new(0usize);
             for_each_path(
@@ -436,8 +470,8 @@ mod tests {
                 |path, cancel: &AtomicBool| {
                     let started = Instant::now();
                     cancel.store(true, Ordering::Relaxed);
-                    let result = if faces {
-                        extract_faces_unless(path, cancel).map(|r| r.map(|_| ()))
+                    let result = if analysis {
+                        extract_analysis_unless(path, cancel).map(|r| r.map(|_| ()))
                     } else {
                         extract_unless(path, cancel).map(|r| r.map(|_| ()))
                     };
@@ -448,7 +482,11 @@ mod tests {
                 &cancel,
             )
             .unwrap();
-            assert_eq!(delivered.into_inner().unwrap(), 0, "faces pass: {faces}");
+            assert_eq!(
+                delivered.into_inner().unwrap(),
+                0,
+                "analysis pass: {analysis}"
+            );
         }
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -456,11 +494,11 @@ mod tests {
     #[test]
     fn a_preview_that_cannot_be_scored_still_yields_a_thumbnail() {
         let dir = dir("unscored");
-        let ok = extract(&write(&dir, "ok.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
+        let ok = extract_analysis(&write(&dir, "ok.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
         assert!(ok.sharpness.is_some());
-        let tiny = extract(&write(&dir, "tiny.ARW", &fixture(1, &jpeg(2, 2)))).unwrap();
-        assert_eq!(tiny.sharpness, None);
-        assert!(!tiny.thumbnail.is_empty());
+        let tiny_path = write(&dir, "tiny.ARW", &fixture(1, &jpeg(2, 2)));
+        assert_eq!(extract_analysis(&tiny_path).unwrap().sharpness, None);
+        assert!(!extract(&tiny_path).unwrap().thumbnail.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -473,19 +511,22 @@ mod tests {
             &[w.short(0x0112, 6)],
             &[w.ascii(0x9003, "2026:09:27 12:34:56")],
         );
-        let e = extract(&write(
-            &dir,
-            "a.jpg",
-            &with_exif(&plain_jpeg(64, 48), &tiff),
-        ))
-        .unwrap();
+        let a = write(&dir, "a.jpg", &with_exif(&plain_jpeg(64, 48), &tiff));
+        let e = extract(&a).unwrap();
         assert_eq!(e.orientation, 6);
         assert_eq!(e.shot.capture_time.as_deref(), Some("2026:09:27 12:34:56"));
-        assert_eq!(e.sharpness, None);
         assert_eq!(&e.thumbnail[..2], &[0xFF, 0xD8]);
-        let bare = extract(&write(&dir, "b.JPEG", &plain_jpeg(64, 48))).unwrap();
-        assert_eq!((bare.orientation, bare.sharpness), (1, None));
+        assert_eq!(extract_analysis(&a).unwrap(), Analysis::default());
+        let b = write(&dir, "b.JPEG", &plain_jpeg(64, 48));
+        let bare = extract(&b).unwrap();
+        assert_eq!(bare.orientation, 1);
         assert!(!bare.thumbnail.is_empty());
+        assert_eq!(extract_analysis(&b).unwrap().sharpness, None);
+        assert_eq!(
+            extract_analysis(&dir.join("missing.jpg")).unwrap(),
+            Analysis::default(),
+            "a JPEG file is not read"
+        );
         assert!(extract(&write(&dir, "c.jpg", b"not a jpeg")).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -567,11 +608,13 @@ mod tests {
     #[test]
     fn the_cue_is_unknown_without_an_af_point_or_a_decodable_preview() {
         let dir = dir("faces");
-        let no_af = extract_faces(&write(&dir, "noaf.ARW", &fixture(1, &jpeg(64, 48)))).unwrap();
+        let no_af = extract_analysis(&write(&dir, "noaf.ARW", &fixture(1, &jpeg(64, 48))))
+            .unwrap()
+            .cue;
         assert_eq!(no_af.state, FocusCandidate::Unknown);
         assert!(no_af.detection.is_none());
-        let bad = extract_faces(&write(&dir, "bad.ARW", &fixture(1, &[0u8; 512]))).unwrap();
-        assert_eq!(bad.state, FocusCandidate::Unknown);
+        let bad = extract_analysis(&write(&dir, "bad.ARW", &fixture(1, &[0u8; 512]))).unwrap();
+        assert_eq!(bad, Analysis::default());
         let focus = Some(FocusLocation {
             sensor_w: 6000,
             sensor_h: 4000,
@@ -583,7 +626,33 @@ mod tests {
         let flat = cue(&jpeg(64, 48), 1, focus, &never).unwrap();
         assert_eq!(flat.state, FocusCandidate::Unknown);
         assert!(flat.detection.is_some_and(|d| d.point.is_some()));
-        assert!(extract_faces(&dir.join("missing.ARW")).is_err());
+        assert!(extract_analysis(&dir.join("missing.ARW")).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_analysis_score_is_the_one_extract_gives() {
+        let dir = dir("same-score");
+        let (w, h) = (64, 48);
+        let rgb: Vec<u8> = (0..w * h)
+            .flat_map(|i| {
+                let v = ((i % w) * 37 + (i / w) * 91 % 256) as u8 ^ ((i * 13) as u8);
+                [v, v, v]
+            })
+            .collect();
+        let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
+        c.set_size(w, h);
+        c.set_quality(90.0);
+        let mut c = c.start_compress(Vec::new()).unwrap();
+        c.write_scanlines(&rgb).unwrap();
+        let textured = c.finish().unwrap();
+        for (name, body) in [("flat.ARW", jpeg(64, 48)), ("textured.ARW", textured)] {
+            let path = write(&dir, name, &fixture(1, &body));
+            let first = extract(&path).unwrap().sharpness;
+            let second = extract_analysis(&path).unwrap().sharpness;
+            assert!(first.is_some(), "{name}");
+            assert_eq!(first.map(f64::to_bits), second.map(f64::to_bits), "{name}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -13,8 +13,8 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
-use riffle_core::candidate::{candidate, Cue, FocusCandidate};
-use riffle_core::scan::{extract_all, extract_faces_all, Entry};
+use riffle_core::candidate::{candidate, FocusCandidate};
+use riffle_core::scan::{extract_all, extract_analysis_all, Analysis, Entry};
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
 
@@ -98,7 +98,7 @@ const SCHEMA_VERSION: i64 = 17;
 /// Olympus MakerNote.
 const EXTRACTOR_VERSION: i64 = 11;
 
-/// The version of what `riffle_core::scan::extract_faces` produces, stored
+/// The version of the cue `riffle_core::scan::extract_analysis` produces, stored
 /// on every `files` row as `faces_extractor` next to `eye_focus`. Bump it
 /// on any change to the focus candidate cue's computation (the threshold, the
 /// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`); the
@@ -1541,12 +1541,12 @@ where
     summary
 }
 
-/// Run the second pass (`extract_faces`) over `paths` and store each
+/// Run the second pass (`extract_analysis`) over `paths` and store each
 /// in-focus probability in `index`, the way `run_scan` runs the first:
 /// `BATCH`-sized transactions through `write_faces`, `progress(done, total,
 /// ready)` at most every `progress_interval`, always on the first file and once more after the
 /// trailing flush, where `ready` holds the files a batch committed since the
-/// previous notification. A file `extract_faces` could not read counts as an
+/// previous notification. A file `extract_analysis` could not read counts as an
 /// error and is stored with no probability at `FACES_VERSION`, so it is not
 /// retried until that version moves. A file abandoned mid-pipeline by
 /// `cancel` is neither written nor counted, the way `run_scan` treats it, so
@@ -1594,9 +1594,9 @@ where
         }));
     };
 
-    let on_item = |i: usize, result: Result<Cue, String>| {
+    let on_item = |i: usize, result: Result<Analysis, String>| {
         let (eye_focus, ok) = match result {
-            Ok(cue) => (cue.eye_focus, true),
+            Ok(analysis) => (analysis.cue.eye_focus, true),
             Err(_) => {
                 errors.fetch_add(1, Ordering::Relaxed);
                 (None, false)
@@ -1630,7 +1630,7 @@ where
     };
 
     let started = Instant::now();
-    if let Err(e) = extract_faces_all(&path_bufs, threads, on_item, cancel) {
+    if let Err(e) = extract_analysis_all(&path_bufs, threads, on_item, cancel) {
         log::error!("faces scan of {dir} failed: {e}");
     }
     flush(std::mem::take(&mut *lock(&pending)));
