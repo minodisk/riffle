@@ -35,7 +35,7 @@ way they do for the Leica M11-P and SIGMA fp L; Step 3 tries to read the
 Fujifilm `FocusPixel` so the Fujifilm bodies get the focus mark too.
 
 Precedent: the CR3 / NEF work in
-[`../_archived/20260929-canon-nikon-raw/plan.md`](../_archived/20260929-canon-nikon-raw/plan.md)
+[`../20260929-canon-nikon-raw/plan.md`](../20260929-canon-nikon-raw/plan.md)
 and its `learnings.md` (PRs #555, #559, #564, #566, #569, #575, #577).
 
 What the repository already gives us (investigated 2026-09-30):
