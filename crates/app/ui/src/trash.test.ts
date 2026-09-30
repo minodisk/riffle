@@ -111,6 +111,13 @@ describe("restoredInto", () => {
       restoredInto("\\\\?\\C:\\photos", ["\\\\?\\C:\\photos\\1.ARW"], ["\\\\?\\C:\\photos\\1.ARW"]),
     ).toEqual([]);
   });
+
+  test("matches an open folder spelled in another case only when the case is ignored", () => {
+    expect(restoredInto("c:\\Photos", ["C:\\photos\\1.ARW"], [], true)).toEqual([
+      "C:\\photos\\1.ARW",
+    ]);
+    expect(restoredInto("c:\\Photos", ["C:\\photos\\1.ARW"], [])).toEqual([]);
+  });
 });
 
 describe("stillHeld", () => {
@@ -142,6 +149,13 @@ describe("opensTarget", () => {
     expect(opensTarget("/photos/2025", ["/photos/2026"], true)).toBe(false);
     expect(opensTarget("/photos/2026b", ["/photos/2026"], true)).toBe(false);
     expect(opensTarget("/photos", ["/photos/2026"], true)).toBe(false);
+  });
+
+  test("holds for an open folder spelled in another case only when the case is ignored", () => {
+    expect(opensTarget("d:\\photos\\2026", ["D:\\Photos\\2026"], false, true)).toBe(true);
+    expect(opensTarget("d:\\photos\\2026", ["D:\\Photos\\2026"], false)).toBe(false);
+    expect(opensTarget("/Photos/2026/0101", ["/photos/2026"], true, true)).toBe(true);
+    expect(opensTarget("/Photos/2026/0101", ["/photos/2026"], true)).toBe(false);
   });
 });
 

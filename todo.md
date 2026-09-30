@@ -1278,18 +1278,6 @@ Files: `crates/app/ui/src/main.ts` (`resync`, `refilter`), `crates/app/ui/src/fi
 - [ ] On Windows, open a folder of RAW files, focus a file in the middle of the strip, delete it in Explorer, and switch back to the app. Expected: the strip stays on the deleted file's next file (the previous one if it was the last), not the first file, and the preview shows that file. Repeat with a filter active whose next neighbour is filtered out. Expected: focus lands on the next passing file.
 - [ ] On macOS, the same steps with Finder.
 
-### App: `main.ts` / `trash.ts` path comparisons stay case-sensitive on case-insensitive filesystems
-
-#### Background
-
-The `todo-five-small-items` feature (Step 4) made `relation`, `rebase` and `renameFolder` in `crates/app/ui/src/tree.ts` take `ignoreCase`, and `folders.ts`'s `renamed` passes it. By decision (option (a) in the plan), these callers were left case-sensitive: `crates/app/ui/src/main.ts`'s `renameFolder`, which reopens the folder through `rebase(openDir, path, newPath)`, and `crates/app/ui/src/trash.ts`'s `restoredInto` / `opensTarget`, which call `relation`. On macOS / Windows, an `openDir` that differs in case from the tree key would then not be rebased (the open folder is not reopened after a rename) or matched. This is rare, since both spellings come from the same tree / `list_arw` listings. Plan: `docs/plans/_archived/20260929-todo-five-small-items/plan.md`.
-
-Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/trash.ts`, `crates/app/ui/src/folders.ts` (the `ignoreCase` flag).
-
-#### TODO
-
-- [ ] Export the platform flag from `folders.ts` (or an equivalent) and pass it to `rebase(openDir, ...)` in `main.ts` and to the `relation` calls in `trash.ts`, with `tree.test.ts` / `trash` test cases for a differently cased path.
-
 ### App: real-device check of the focus-rescan throttle (todo-five-more-items Step 2)
 
 #### Background

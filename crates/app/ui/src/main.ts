@@ -720,7 +720,7 @@ function runTrash(): void {
 // folder's state when it was among `dirs`, push the recorded run for undo,
 // report the failures, and re-list the folder.
 function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): void {
-  const refresh = openDir !== null && opensTarget(openDir, dirs, recursive);
+  const refresh = openDir !== null && opensTarget(openDir, dirs, recursive, folders.ignoreCase);
   if (refresh) {
     for (const path of summary.moved) {
       // `ratings` / `flags` / `labels` are kept: they are keyed by
@@ -1579,8 +1579,11 @@ function undoTrash(entry: TrashEntry): void {
             errors.add(path, `${baseName(path)}: could not restore from the Trash: ${message}`);
           }
           setStatus(restoredStatus(result));
-          if (openDir !== null && opensTarget(openDir, entry.dirs, entry.recursive)) {
-            const back = restoredInto(openDir, result.restored, allFiles);
+          if (
+            openDir !== null &&
+            opensTarget(openDir, entry.dirs, entry.recursive, folders.ignoreCase)
+          ) {
+            const back = restoredInto(openDir, result.restored, allFiles, folders.ignoreCase);
             if (back.length > 0) {
               allFiles = [...allFiles, ...back];
               setViewOnly(isViewOnly(allFiles));
@@ -2434,7 +2437,8 @@ function renameFolder(path: string, name: string): void {
       window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
         ({ path: newPath, warning }) => {
           folders.renamed(path, newPath, name);
-          const moved = (dir: string): string => rebase(dir, path, newPath) ?? dir;
+          const moved = (dir: string): string =>
+            rebase(dir, path, newPath, folders.ignoreCase) ?? dir;
           history.map(mapTrashDirs(moved));
           redoable.map(mapTrashDirs(moved));
           const warn = (): void => {
@@ -2442,7 +2446,8 @@ function renameFolder(path: string, name: string): void {
               setStatus(warning);
             }
           };
-          const reopen = openDir === null ? null : rebase(openDir, path, newPath);
+          const reopen =
+            openDir === null ? null : rebase(openDir, path, newPath, folders.ignoreCase);
           if (reopen === null) {
             warn();
             return;

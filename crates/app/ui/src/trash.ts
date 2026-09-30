@@ -104,11 +104,16 @@ export function restoredStatus(result: TrashRestored): string {
 // The restored RAWs that sit directly in `openDir`, not yet in `allFiles`.
 // The backend spells them canonically (with the verbatim prefix on Windows),
 // as `list_arw` spells `allFiles`, while `openDir` may lack the prefix.
-export function restoredInto(openDir: string, restored: string[], allFiles: string[]): string[] {
+export function restoredInto(
+  openDir: string,
+  restored: string[],
+  allFiles: string[],
+  ignoreCase = false,
+): string[] {
   return restored.filter(
     (path) =>
-      relation(shownPath(path.replace(/[\\/][^\\/]*$/, "")), shownPath(openDir)) === "same" &&
-      !allFiles.includes(path),
+      relation(shownPath(path.replace(/[\\/][^\\/]*$/, "")), shownPath(openDir), ignoreCase) ===
+        "same" && !allFiles.includes(path),
   );
 }
 
@@ -123,9 +128,14 @@ export function stillHeld(err: string): boolean {
 
 // Whether `openDir` is one of `dirs`, or under one of them when the command
 // recursed into subfolders.
-export function opensTarget(openDir: string, dirs: string[], recursive: boolean): boolean {
+export function opensTarget(
+  openDir: string,
+  dirs: string[],
+  recursive: boolean,
+  ignoreCase = false,
+): boolean {
   return dirs.some((dir) => {
-    const found = relation(openDir, dir);
+    const found = relation(openDir, dir, ignoreCase);
     return found === "same" || (recursive && found === "under");
   });
 }

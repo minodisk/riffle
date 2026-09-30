@@ -156,7 +156,7 @@ function armSlowClick(path: string): void {
 }
 
 const isMac = /Mac/.test(navigator.platform);
-const ignoreCase = isMac || /Win/.test(navigator.platform);
+export const ignoreCase = isMac || /Win/.test(navigator.platform);
 
 // The modifiers of a click in the tree: Cmd (macOS) or Ctrl (elsewhere)
 // toggles a folder, Shift selects a range; either leaves the open folder as
