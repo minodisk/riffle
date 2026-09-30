@@ -83,7 +83,7 @@ of a detected face or the sharpest region (see
 | MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box | Exif IFD tag 0x927c of the embedded JPEG, with a `FUJIFILM` header and offsets relative to the note | Exif IFD tag 0x927c, with an `OLYMPUS` or `OM SYSTEM` header and offsets relative to the note |
 | Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the X bodies, 4000x3000 on the GFX bodies) | Inside the MakerNote, pointed at by its CameraSettings IFD (3200x2400) |
 | Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution | None: the preview serves as the 1:1 view |
-| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Not read | Not read |
+| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Fujifilm MakerNote `FocusPixel` | Not read |
 
 ### ARW: no full-size JPEG on older bodies
 
@@ -171,7 +171,8 @@ it between generations and even between bodies:
   counts.
 - **Fujifilm**: a `FUJIFILM` header, then an IFD whose offsets count from the
   start of the note rather than from a TIFF header. It records the AF point as
-  `FocusPixel`, even for manual-focus shots; Riffle does not read it yet.
+  `FocusPixel`, a point in the embedded JPEG's pixels, even for manual-focus
+  shots, so Riffle also reads the focus mode to drop it on those.
 - **OM System / Olympus**: an `OLYMPUS` or `OM SYSTEM` header, then an IFD
   whose offsets count from the start of the note, with its own byte order and
   sub-IFDs (Equipment, CameraSettings, FocusInfo, ...). The AF point is in

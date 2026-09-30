@@ -45,28 +45,28 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 | Nikon Z 30 | ✓ | ✓ | – | ✓ |
 | Nikon D850 | – | – | – | ✓ |
 | Nikon D500 | – | – | – | ✓ |
-| Fujifilm X-H2S | – | – | – | – |
-| Fujifilm X-H2 | – | – | – | – |
-| Fujifilm X-T5 | – | – | – | – |
-| Fujifilm X-T50 | – | – | – | ✓ |
-| Fujifilm X-T4 | – | – | – | – |
+| Fujifilm X-H2S | ✓ | – | – | – |
+| Fujifilm X-H2 | ✓ | – | – | – |
+| Fujifilm X-T5 | ✓ | – | – | – |
+| Fujifilm X-T50 | ✓ | – | – | ✓ |
+| Fujifilm X-T4 | ✓ | – | – | – |
 | Fujifilm X-T3 | – | – | – | – |
-| Fujifilm X-T30 III | – | – | – | ✓ |
-| Fujifilm X-T30 II | – | – | – | – |
-| Fujifilm X-S20 | – | – | – | – |
-| Fujifilm X-S10 | – | – | – | – |
-| Fujifilm X-M5 | – | – | – | ✓ |
-| Fujifilm X-E5 | – | – | – | ✓ |
-| Fujifilm X-E4 | – | – | – | – |
-| Fujifilm X-Pro3 | – | – | – | – |
-| Fujifilm X100VI | – | – | – | ✓ |
-| Fujifilm X100V | – | – | – | – |
-| Fujifilm GFX100 II | – | – | – | ✓ |
-| Fujifilm GFX100S II | – | – | – | ✓ |
-| Fujifilm GFX100S | – | – | – | – |
-| Fujifilm GFX100RF | – | – | – | ✓ |
+| Fujifilm X-T30 III | ✓ | – | – | ✓ |
+| Fujifilm X-T30 II | ✓ | – | – | – |
+| Fujifilm X-S20 | ✓ | – | – | – |
+| Fujifilm X-S10 | ✓ | – | – | – |
+| Fujifilm X-M5 | ✓ | – | – | ✓ |
+| Fujifilm X-E5 | ✓ | – | – | ✓ |
+| Fujifilm X-E4 | ✓ | – | – | – |
+| Fujifilm X-Pro3 | ✓ | – | – | – |
+| Fujifilm X100VI | ✓ | – | – | ✓ |
+| Fujifilm X100V | ✓ | – | – | – |
+| Fujifilm GFX100 II | ✓ | – | – | ✓ |
+| Fujifilm GFX100S II | ✓ | – | – | ✓ |
+| Fujifilm GFX100S | ✓ | – | – | – |
+| Fujifilm GFX100RF | ✓ | – | – | ✓ |
 | Fujifilm GFX 100 | – | – | – | – |
-| Fujifilm GFX50S II | – | – | – | – |
+| Fujifilm GFX50S II | ✓ | – | – | – |
 | OM System OM-1 | – | – | – | – |
 | OM System OM-1 Mark II | – | – | – | – |
 | OM System OM-3 | – | – | – | – |
@@ -86,9 +86,11 @@ Nikon Z 8 and Canon EOS R6 samples carried no AF position (an automatic area
 that never locked, and manual focus), so those two are unconfirmed; the Nikon
 D850 and D500 write an older `AFInfo2` that Riffle does not read.
 
-On the Fujifilm bodies, Riffle does not read the AF point yet: the MakerNote
-records it as `FocusPixel`, which is left for later. Sub-second capture time
-is marked as the samples recorded it.
+On the Fujifilm bodies, Riffle reads the AF point from the MakerNote
+(`FocusPixel`), a point without a frame size. The X-T3 and GFX 100 samples
+were all shot in manual focus, which Riffle treats as having no AF point, so
+those two are unconfirmed. Sub-second capture time is marked as the samples
+recorded it.
 
 On the OM System and Olympus bodies, Riffle does not read the AF point yet:
 the MakerNote records it as `AFTargetInfo` (OM bodies) and `AFPointSelected`,

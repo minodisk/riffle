@@ -785,12 +785,11 @@ samples, as done for the Sigma BF `0x0147` in
       Nikon DSLRs' `AFInfo2` `0100` / `0101` (D850, D500), whose AF point
       is a grid point name rather than a position, and a sample with an
       AF position from the Nikon Z 8 and the Canon EOS R6 (their
-      raw.pixls.us samples carry none). Next: Fujifilm `FocusPixel` on the
-      RAF bodies (`crates/core/src/raf.rs`); every sample writes it, off-center
-      landscape and portrait samples exist, and it looks to be in the embedded
-      JPEG's frame (see the survey in
-      `docs/plans/_archived/20260930-fujifilm-raf/learnings.md`). Then the
-      OM System / Olympus ORF bodies (`crates/core/src/orf.rs`): CameraSettings
+      raw.pixls.us samples carry none). Fujifilm `FocusPixel` on the RAF
+      bodies is done too (`crates/core/src/raf.rs`, in the embedded JPEG's
+      frame); an autofocus sample from the X-T3 and the GFX 100 is still
+      missing (theirs are manual focus). Next: the OM
+      System / Olympus ORF bodies (`crates/core/src/orf.rs`): CameraSettings
       0x030a `AFTargetInfo` on the OM bodies (a 640x480 frame with the focus
       and selected areas) and 0x0305 `AFPointSelected` (percentages) on the
       Olympus bodies. Every raw.pixls.us sample puts the point near the

@@ -221,7 +221,7 @@ too. The samples are still never committed to the repository.
     - `docs/raw-formats.md` is for readers: no pitfalls (those stay in
       `docs/agents/raw-metadata-parsing.md`).
 
-- [ ] Step 3 (decided after Step 1's survey, see Trade-offs): AF point from the Fujifilm MakerNote `FocusPixel`
+- [x] Step 3 (decided after Step 1's survey, see Trade-offs): AF point from the Fujifilm MakerNote `FocusPixel`
   - Done when:
     - `raf.rs` reads the embedded JPEG's Exif IFD tag 0x927c: after the
       `FUJIFILM` 8-byte header, a little-endian `int32u` IFD offset relative
@@ -242,8 +242,8 @@ too. The samples are still never committed to the repository.
       a 16:9 sample (X-T5, X-M5) records.
     - Synthetic-byte tests (a MakerNote builder in `raf::tests`, incl. a
       note running past the prefix being an error, like `nef.rs`'s
-      `af_point`), `EXTRACTOR_VERSION` bumped to 8 in
-      `crates/app/src/index.rs`, `docs/cameras.md` rows flip to `✓` for the
+      `af_point`), `EXTRACTOR_VERSION` bumped to 9 in
+      `crates/app/src/index.rs` (main was already at 8 when this step ran), `docs/cameras.md` rows flip to `✓` for the
       bodies confirmed with the point on the subject, `docs/raw-formats.md`'s
       AF-point row and the Tier 2 `todo.md` checkbox updated.
     - `mise run ci` passes.

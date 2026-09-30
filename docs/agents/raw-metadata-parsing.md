@@ -337,8 +337,9 @@ two of the four R5 Mark II samples on raw.pixls.us are like this.
 `crates/core/src/raf.rs` reads a Fujifilm RAF's fixed header and then the one
 embedded JPEG it points at; the file's Exif is that JPEG's APP1 segment, read
 by `jpeg::read_exif` (the path `jpeg::parse` uses, but an error when the
-buffer holds no complete Exif segment). The RAF directory, the FujiIFD and
-the sensor data are not read.
+buffer holds no complete Exif segment), and the AF point from the Fujifilm
+MakerNote in that segment (see below). The RAF directory, the FujiIFD and the
+sensor data are not read.
 
 ### Header words and the JPEG (Measured)
 
@@ -376,14 +377,37 @@ reaches it), `parse` errors so the reader retries with the whole file; a JPEG
 wholly inside the buffer without Exif is orientation 1 and a default `Shot`,
 as in `jpeg::parse`.
 
-### The Fujifilm MakerNote (Inferred)
+### The Fujifilm MakerNote (Measured)
 
 Exif IFD tag 0x927c of the embedded JPEG: `FUJIFILM` (8 bytes), then a
 little-endian `int32u` offset of its IFD relative to the note start; every
 offset in the note is relative to the note start and little-endian, with no
-TIFF header (ExifTool's `MakerNotes.pm` `MakerNoteFujiFilm`), so
-`sequence::Tiff::new` cannot read it as is. `raf.rs` reads nothing from it
-yet; `FocusPixel` (0x1023, `int16u[2]`) is the candidate AF-point source.
+TIFF header (ExifTool's `MakerNotes.pm` `MakerNoteFujiFilm`), so `raf.rs`
+walks it with `sequence::Tiff::with_order(.., true)` based at the note start,
+whatever the Exif TIFF's own byte order. The note lies inside the Exif
+segment, so once `read_exif` found that segment whole, nothing in the note
+can be past the buffer: a malformed note is just no AF point, never an error.
+
+- `0x1023 FocusPixel` (`int16u[2]`, x then y) is the AF point in the frame
+  of the embedded JPEG (`PixelXDimension` x `PixelYDimension` of the same
+  Exif IFD, equal to the JPEG's size on every sample), unrotated, origin top
+  left. `raf.rs` stores that frame as `sensor_w` / `sensor_h`, so the
+  consumers scale it like any other `FocusLocation`. Drawn on the samples:
+  off-center points land on the subject on the X-E5, X-S20, X-T50, X-Pro3,
+  X100V and GFX100S II, and on the in-focus flowers of the shallow-depth X-H2
+  portrait (Orientation 6); the X100VI portraits (Orientation 8) agree. A
+  centered point is (2207..2208, 1472) on 4416x2944 and (1999..2001,
+  1499..1501) on 4000x3000, the JPEG's center, not the sensor's. Crop modes
+  (the X-M5 "1.25x", the X-T5 "16:9" names) still write a 3:2 JPEG and use
+  its frame. An older X-E3 writes a 1920x1280 JPEG and a `FocusPixel` in that
+  frame (961, 775 centered).
+- `0x1021 FocusMode` (`int16u`): 0 auto, 1 manual. Manual-focus frames still
+  write a `FocusPixel` (the X-T3, X-T5 "16:9" and GFX 100 samples), so
+  `FocusMode` 1 yields no AF point. The value is not put in
+  `Shot.focus_mode`, whose meaning is Sony's.
+- No frame size is read: per ExifTool, `0x102d FocusSettings` holds the AF
+  area's point / zone size as bit fields, not pixels, so `focus_frame` stays
+  `None`.
 
 ## ORF
 
