@@ -34,3 +34,6 @@
   folder and a JPEG-only folder (e.g. `D:\photos\samples\ARW`,
   `D:\photos\samples\JPG`) and check portrait shots still display upright as
   before. Related files: `crates/core/src/reader.rs`, `crates/core/src/jpeg.rs`.
+  Completion criteria: all three views are upright for the GFX 100 RAF and
+  the ARW and JPEG-only folders show no regression; the "(Hit)" entry in
+  `docs/agents/tauri-app.md` then stands as is, and is corrected if not.

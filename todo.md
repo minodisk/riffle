@@ -1314,3 +1314,15 @@ Files: `crates/app/src/trash.rs` (`restore_recorded`), `crates/app/src/commands.
 
 - [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), run `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with a recursive run over a parent whose subfolder is renamed. Then `Redo` should move them to the Recycle Bin again.
 - [ ] On macOS, repeat the undo / redo after a rename (`restore_recorded` renames the Trash file straight to the new destination, with no `relocate`). Expect the files back in the renamed folder and no old-name folder appearing.
+
+### App: real-device check of the orientation-neutral preview JPEGs (portrait RAF, ARW and JPEG folders)
+
+#### Background
+
+The `orientation-neutral-preview` feature makes `riffle_core::reader::read_preview` / `read_full` rewrite the Exif Orientation of every JPEG they hand out to 1 (`reader::neutral`, `jpeg::neutralize_orientation`). The header orientation is then the only rotation the frontend applies. Before, a portrait RAF (GFX 100, Orientation 8) showed upright in the filmstrip but sideways in the main preview, because the WebView rotated the embedded JPEG's own Exif at decode and `draw()` rotated it again. The Rust tests cover the neutralizer and an all-format invariant (`every_format_hands_out_jpegs_without_an_exif_rotation`). Nothing has run the app to see the pixels on screen: the preview, the zoom crop and the compare view were never checked on a real machine, nor were the ARW and JPEG-only folders for regressions. The archived plan is `docs/plans/_archived/20260930-orientation-neutral-preview/plan.md`. Files: `crates/core/src/reader.rs`, `crates/core/src/jpeg.rs`, `crates/app/ui/src/main.ts`, `docs/agents/tauri-app.md`.
+
+#### TODO
+
+- [ ] On Windows, run `mise run tauri:dev` (or a release build), open `D:\Photos\samples\RAF\` and select `GFX_100_fujifilm_gfx_100_13.raf` (GFX 100, Orientation 8). Expect it upright in the main preview, the zoom crop and the compare view, the same as in the filmstrip.
+- [ ] On Windows, open an ARW folder and a JPEG-only folder (e.g. `D:\photos\samples\ARW`, `D:\photos\samples\JPG`). Expect portrait shots to still display upright as before, with no regression.
+- [ ] If all of the above hold, the orientation entry in `docs/agents/tauri-app.md` stands as is. If not, correct it.
