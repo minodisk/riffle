@@ -1,11 +1,10 @@
 //! Extract one folder's worth of metadata and thumbnails in parallel.
 
+use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
-
-use rayon::prelude::*;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{focus_cue_unless, Cue};
@@ -188,6 +187,9 @@ fn canceled(cancel: &AtomicBool) -> bool {
 /// result to `on_item` from the worker thread that produced it. Once `cancel`
 /// is set no further file is started, and files already running stop at their
 /// next stage and are not handed to `on_item` at all.
+///
+/// The workers take the paths `focus` lists first, in its order, then the rest
+/// in index order; `focus` may be changed from another thread while they run.
 /// `threads` must be at least 1; `0` is rejected rather than silently falling
 /// back to rayon's default pool size.
 ///
@@ -195,7 +197,7 @@ fn canceled(cancel: &AtomicBool) -> bool {
 /// caller sizes it and nothing else in the process shares it.
 ///
 /// `on_item` must not panic: a panic inside it unwinds out of the worker's
-/// `for_each`, aborts the scan, and propagates out of `extract_all` as a
+/// loop, aborts the scan, and propagates out of `extract_all` as a
 /// panic rather than an `Err`, leaving an arbitrary subset of indices
 /// delivered. Callers that share state behind a mutex (as Step 4's Tauri
 /// command does) must keep `on_item` panic-free or wrap it themselves.
@@ -207,22 +209,32 @@ pub fn extract_all<F>(
     paths: &[PathBuf],
     threads: usize,
     priority: Priority,
+    focus: &ScanFocus,
     on_item: F,
     cancel: &AtomicBool,
 ) -> Result<Option<String>, String>
 where
     F: Fn(usize, Result<Entry, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, priority, extract_unless, on_item, cancel)
+    for_each_path(
+        paths,
+        threads,
+        priority,
+        focus,
+        extract_unless,
+        on_item,
+        cancel,
+    )
 }
 
 /// Run `extract_analysis` over `paths` the way `extract_all` runs `extract`:
-/// same pool, same `cancel`, same `threads == 0` error, the same priority
-/// report, and the same rule that `on_item` must not panic.
+/// same pool, same `focus` order, same `cancel`, same `threads == 0` error,
+/// the same priority report, and the same rule that `on_item` must not panic.
 pub fn extract_analysis_all<F>(
     paths: &[PathBuf],
     threads: usize,
     priority: Priority,
+    focus: &ScanFocus,
     on_item: F,
     cancel: &AtomicBool,
 ) -> Result<Option<String>, String>
@@ -233,10 +245,73 @@ where
         paths,
         threads,
         priority,
+        focus,
         extract_analysis_unless,
         on_item,
         cancel,
     )
+}
+
+/// The paths a running scan takes first, nearest the user's view first. One
+/// handle can serve both passes of a scan; a handle never set leaves the order
+/// by index.
+#[derive(Debug, Clone, Default)]
+pub struct ScanFocus(Arc<Mutex<Vec<String>>>);
+
+impl ScanFocus {
+    /// Replace the list whole. A path the scan does not have, or has already
+    /// taken, is skipped.
+    pub fn set(&self, paths: Vec<String>) {
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = paths;
+    }
+
+    fn hot(&self) -> std::sync::MutexGuard<'_, Vec<String>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// The indices of a scan not yet taken. `take_next` is O(hot list) plus an
+/// amortized O(1) walk of `next` over indices already taken out of order.
+struct WorkQueue {
+    index_of: HashMap<String, usize>,
+    taken: Vec<bool>,
+    next: usize,
+}
+
+impl WorkQueue {
+    fn new(paths: &[PathBuf]) -> Self {
+        WorkQueue {
+            index_of: paths
+                .iter()
+                .enumerate()
+                .map(|(i, p)| (p.to_string_lossy().into_owned(), i))
+                .collect(),
+            taken: vec![false; paths.len()],
+            next: 0,
+        }
+    }
+
+    fn take_next(&mut self, focus: &ScanFocus) -> Option<usize> {
+        let hot = focus
+            .hot()
+            .iter()
+            .filter_map(|p| self.index_of.get(p).copied())
+            .find(|&i| !self.taken[i]);
+        let i = match hot {
+            Some(i) => i,
+            None => {
+                while self.taken.get(self.next) == Some(&true) {
+                    self.next += 1;
+                }
+                if self.next == self.taken.len() {
+                    return None;
+                }
+                self.next
+            }
+        };
+        self.taken[i] = true;
+        Some(i)
+    }
 }
 
 /// The OS priority of a scan's worker threads. The app lowers both of its
@@ -320,6 +395,7 @@ fn for_each_path<T, E, F>(
     paths: &[PathBuf],
     threads: usize,
     priority: Priority,
+    focus: &ScanFocus,
     per_file: E,
     on_item: F,
     cancel: &AtomicBool,
@@ -356,15 +432,20 @@ where
             .build()
             .map_err(|e| e.to_string())?
     };
-    pool.install(|| {
-        paths.par_iter().enumerate().for_each(|(i, path)| {
-            if canceled(cancel) {
-                return;
-            }
-            if let Some(result) = per_file(path, cancel) {
+    let queue = Mutex::new(WorkQueue::new(paths));
+    pool.broadcast(|_| {
+        while !canceled(cancel) {
+            let Some(i) = queue
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take_next(focus)
+            else {
+                break;
+            };
+            if let Some(result) = per_file(&paths[i], cancel) {
                 on_item(i, result);
             }
-        })
+        }
     });
     Ok(priority_error.get().cloned())
 }
@@ -436,6 +517,7 @@ mod tests {
                 &paths,
                 4,
                 priority,
+                &ScanFocus::default(),
                 |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
                 &AtomicBool::new(false),
             );
@@ -466,6 +548,7 @@ mod tests {
             &paths,
             2,
             Priority::BelowNormal,
+            &ScanFocus::default(),
             |_, _| {
                 let mut done = done.lock().unwrap();
                 *done += 1;
@@ -521,6 +604,7 @@ mod tests {
                 &paths,
                 4,
                 priority,
+                &ScanFocus::default(),
                 |_, _: &AtomicBool| {
                     levels.lock().unwrap().push(worker_level());
                     Some(Ok(()))
@@ -540,6 +624,104 @@ mod tests {
         }
     }
 
+    fn order(paths: &[PathBuf], focus: &ScanFocus, on_item: impl Fn(usize) + Send + Sync) {
+        for_each_path(
+            paths,
+            1,
+            Priority::Normal,
+            focus,
+            |_, _: &AtomicBool| Some(Ok(())),
+            |i, _| on_item(i),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    }
+
+    fn names(n: usize) -> Vec<PathBuf> {
+        (0..n).map(|i| PathBuf::from(format!("{i}.ARW"))).collect()
+    }
+
+    #[test]
+    fn the_focused_paths_are_taken_first_in_their_order() {
+        let paths = names(6);
+        let focus = ScanFocus::default();
+        focus.set(vec!["4.ARW".into(), "missing.ARW".into(), "1.ARW".into()]);
+        let seen = Mutex::new(Vec::new());
+        order(&paths, &focus, |i| seen.lock().unwrap().push(i));
+        assert_eq!(seen.into_inner().unwrap(), vec![4, 1, 0, 2, 3, 5]);
+    }
+
+    #[test]
+    fn a_focus_set_mid_run_is_honored_by_the_next_take() {
+        let paths = names(6);
+        let focus = ScanFocus::default();
+        let seen = Mutex::new(Vec::new());
+        order(&paths, &focus, |i| {
+            seen.lock().unwrap().push(i);
+            if i == 1 {
+                focus.set(vec!["0.ARW".into(), "5.ARW".into(), "3.ARW".into()]);
+            }
+        });
+        assert_eq!(
+            seen.into_inner().unwrap(),
+            vec![0, 1, 5, 3, 2, 4],
+            "a path already done is skipped"
+        );
+    }
+
+    #[test]
+    fn a_focused_scan_delivers_every_index_once_and_stops_on_cancel() {
+        let paths = names(200);
+        let focus = ScanFocus::default();
+        focus.set(
+            (0..200)
+                .rev()
+                .step_by(3)
+                .map(|i| format!("{i}.ARW"))
+                .collect(),
+        );
+        let seen = Mutex::new(Vec::new());
+        for_each_path(
+            &paths,
+            4,
+            Priority::Normal,
+            &focus,
+            |_, _: &AtomicBool| Some(Ok(())),
+            |i, _| {
+                seen.lock().unwrap().push(i);
+                if i == 100 {
+                    focus.set(vec!["7.ARW".into(), "7.ARW".into(), "150.ARW".into()]);
+                }
+            },
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let mut seen = seen.into_inner().unwrap();
+        seen.sort();
+        assert_eq!(seen, (0..200).collect::<Vec<_>>());
+
+        let cancel = AtomicBool::new(false);
+        let done = Mutex::new(0usize);
+        for_each_path(
+            &paths,
+            2,
+            Priority::Normal,
+            &focus,
+            |_, _: &AtomicBool| Some(Ok(())),
+            |_, _| {
+                let mut done = done.lock().unwrap();
+                *done += 1;
+                if *done >= 4 {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            },
+            &cancel,
+        )
+        .unwrap();
+        let done = done.into_inner().unwrap();
+        assert!((4..paths.len()).contains(&done), "got {done}");
+    }
+
     #[test]
     fn the_analysis_pass_delivers_every_index_once_and_stops_on_cancel() {
         let dir = dir("analysis-all");
@@ -553,6 +735,7 @@ mod tests {
             &paths,
             4,
             Priority::Lowest,
+            &ScanFocus::default(),
             |i, r| seen.lock().unwrap().push((i, r.unwrap().cue.state)),
             &AtomicBool::new(false),
         )
@@ -573,6 +756,7 @@ mod tests {
             &paths,
             2,
             Priority::Lowest,
+            &ScanFocus::default(),
             |_, _| {
                 let mut done = done.lock().unwrap();
                 *done += 1;
@@ -591,6 +775,7 @@ mod tests {
             &paths,
             0,
             Priority::Lowest,
+            &ScanFocus::default(),
             |_, _| {},
             &AtomicBool::new(false)
         )
@@ -629,6 +814,7 @@ mod tests {
                 &paths,
                 2,
                 Priority::Normal,
+                &ScanFocus::default(),
                 |path, cancel: &AtomicBool| {
                     let started = Instant::now();
                     cancel.store(true, Ordering::Relaxed);
@@ -725,6 +911,7 @@ mod tests {
             &paths,
             4,
             Priority::Normal,
+            &ScanFocus::default(),
             |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
             &AtomicBool::new(false),
         )
@@ -807,6 +994,7 @@ mod tests {
             &paths,
             4,
             Priority::Normal,
+            &ScanFocus::default(),
             |i, r| {
                 if r.is_err() {
                     errors.lock().unwrap().push(i)

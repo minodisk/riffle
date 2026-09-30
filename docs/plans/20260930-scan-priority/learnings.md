@@ -98,6 +98,49 @@
   build it, only the `Ok(None)` assertion of `every_index_is_delivered_once`
   run on CI's macOS job.
 
+## Step 5: the shared work queue and `set_scan_focus`
+
+- `for_each_path` runs one worker loop per pool thread with
+  `ThreadPool::broadcast` (rayon 1.12) rather than
+  `(0..threads).into_par_iter()`: `broadcast` guarantees each thread runs the
+  loop once, while a `par_iter` over the thread count may run two items on
+  one thread (the second then finds the queue empty) and leave a thread idle.
+  The loop holds the queue's lock only for `take_next`, never across
+  `per_file` / `on_item`.
+- `WorkQueue` keeps a `taken: Vec<bool>` and a `next` cursor instead of a
+  `BTreeSet` of pending indices: a hot take marks its index taken out of
+  order and the cursor skips it later, so a take is O(hot list) plus an
+  amortized O(1). The hot list lives in `ScanFocus` (an
+  `Arc<Mutex<Vec<String>>>`), locked inside the queue's lock; `set` takes only
+  the focus lock, so the two never deadlock.
+- `ScansState.running` became a 4-tuple (`RunningScan`, with the
+  `ScanFocus` third) and `set_scan_focus` goes through
+  `ScansState::set_focus`, which the `commands.rs` test drives directly (the
+  command itself needs an `AppHandle`); the test reads the handle back by
+  running `extract_all` over three missing paths on one thread and checking
+  the delivery order.
+- The command is a plain (synchronous) `#[tauri::command]`, so it runs on
+  the main thread. Several commands hold the `Scans` lock for their whole
+  run, all only while no scan is running: `clear_index` (the drain, the
+  `VACUUM` and the WAL checkpoint), `trash_rejected_run`,
+  `trash_rejected_undo` and `trash_rejected_redo` (moves to and from the OS
+  Trash, seconds for a large folder on the Windows Recycle Bin), and
+  `spawn_eviction`'s `VACUUM` (~0.2 s). A blocking lock could freeze the UI
+  for a call fired just after `faces-done`, so `set_scan_focus` takes the lock
+  with `try_lock` and drops the call when it is busy (a busy `Scans` means no
+  scan is taking the focus); a poisoned lock is recovered as `index::lock`
+  does. The alternative, making the command `async`, was not chosen.
+- `capabilities/default.json` lists only core and plugin permissions; the
+  app's own commands need no entry, so it is unchanged.
+- The first `mise run ci` failed on clippy's `too_many_arguments` (8/7) for
+  `run_scan` and `run_faces_scan` once they took the focus handle; they got
+  `#[allow(clippy::too_many_arguments)]`, as `sidecar.rs` already does, rather
+  than a parameter struct.
+- `the_analysis_pass_delivers_every_index_once_and_stops_on_cancel` takes
+  about 70-80 s in `mise run ci` here (YuNet over 200 previews); only its
+  arguments changed in this step, and its time before the step was not
+  measured.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 3, `crates/app/ui/src/main.ts` `faces-progress`
