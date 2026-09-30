@@ -304,3 +304,4 @@ too. The samples are still never committed to the repository.
 
 - (2026-09-30) Step 1 complete
 - (2026-09-30) Step 2 complete
+- (2026-09-30) Step 3 complete
