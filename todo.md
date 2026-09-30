@@ -669,8 +669,9 @@ Files: `crates/app/ui/src/worker.ts` (resize on decode),
 
 ### Core: pre-2012 NEFs fall back to the full-size JPEG for the preview
 
-NEFs from bodies older than about 2012 (D3, D40, D70, D90, D7000 on the
-raw.pixls.us samples) carry one JPEG SubIFD, so `nef::parse` uses the
+NEFs from bodies of about 2010 to 2012 (the D7000 on the raw.pixls.us
+samples; the older D3, D40, D70 and D90 carry the same layout but predate
+2010, so they are not supported bodies) carry one JPEG SubIFD, so `nef::parse` uses the
 full-size JpgFromRaw as the preview too: each page turn decodes a
 3000-5000 px JPEG and the fixed 2/8 thumbnail scale gives large thumbnails,
 the same issue recorded above for the SIGMA fp L. Found in the Step 2
