@@ -82,3 +82,10 @@
   (`EXTRACTOR_VERSION` 10); pressing `z` shows a (soft) crop of the 1620x1080
   preview with no error in the status line. If the colors look off, tune the
   tone map constants in `crates/core/src/hevc.rs`.
+- Done 2026-09-30 by the user on Windows: `R8.CR3` and `R5m2.CR3` show
+  correctly colored thumbnails and previews, the meta pane's EXIF rows and the
+  sharpness value; `z` shows a crop of the 1620x1080 preview with no error. The
+  zoomed image sits off-center with black margins because the AF point is
+  centered on an image barely larger than the viewport; accepted as-is. The
+  sidecar sub-check was not repeated because sidecars are keyed by file name
+  and already exercised on JPEG CR3s. The `todo.md` section was removed.
