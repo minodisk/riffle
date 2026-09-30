@@ -448,8 +448,8 @@ big-endian) instead of 42; some old bodies (the SP-350, the C5050Z) write
 with `Tiff::new_with_magic(.., &[0x4f52, 0x5352])` and rejects 42. Every
 raw.pixls.us ORF checked, from the E-1 (2003) to the OM-5 Mark II (2025), is
 `IIRO` except those two.
-Olympus pads IFD0's `Make` and `Model` with spaces (`"OM-1            "`),
-so `parse` trims them.
+Olympus pads IFD0's `Make` and `Model` with spaces (`"OM-1            "`);
+the shared reader (`exif::read_ifd0`) trims them, so `parse` does not.
 ORF bodies write a correct IFD0 `Orientation`: the XZ-10 (6) and the E-30 (8)
 previews come out upright once rotated per the tag, so no per-body handling
 is needed. No raw.pixls.us sample of a current OM / Olympus body is portrait
