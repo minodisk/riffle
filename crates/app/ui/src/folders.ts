@@ -452,7 +452,8 @@ export function collapseAll(path: string): void {
 // does, one listing at a time so a deep tree does not flood
 // `list_subfolders`. A branch stops once any folder on its chain was
 // collapsed or dropped meanwhile; a folder that fails to list is marked and
-// reported, and the rest go on.
+// reported, and the rest go on. A symlinked or junctioned folder is not
+// descended into, since it can loop back on an ancestor forever.
 export async function expandAll(path: string): Promise<void> {
   const open = (chain: string[]): boolean =>
     chain.every((dir) => tree.nodes.get(dir)?.expanded === true);
@@ -478,6 +479,9 @@ export async function expandAll(path: string): Promise<void> {
     for (const child of node === undefined ? [] : (drawnChildren(tree, node) ?? [])) {
       if (!open(chain)) {
         return;
+      }
+      if (child.is_link === true) {
+        continue;
       }
       await walk([...chain, child.path]);
     }

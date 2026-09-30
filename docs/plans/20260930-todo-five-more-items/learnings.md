@@ -73,6 +73,9 @@
   `collapseAll(tree, path)` on top of it, which returns the same `Tree`
   object when there is nothing under `path` (an unknown or unlisted folder),
   so the tests can assert `toBe`.
+- `list_subfolders` children carry `is_link` (a symlink or junction), and
+  `expandAll` lists such a folder without descending, since `list` follows
+  links and `a/loop -> a` would otherwise grow without end (review round 1).
 - `folders.ts`'s `expandAll` walks recursively, awaiting one
   `list_subfolders` at a time, and keeps the chain of paths from the clicked
   folder so a branch stops as soon as any ancestor on it was collapsed or

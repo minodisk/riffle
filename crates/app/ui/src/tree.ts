@@ -4,6 +4,9 @@
 export interface FolderNode {
   name: string;
   path: string;
+  // A symlink or junction; `Expand All` lists it without descending, since
+  // it can point back at an ancestor.
+  is_link?: boolean;
 }
 
 export interface TreeNode {

@@ -66,7 +66,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   reopens under its new path at the file it was on (a reopen, so the undo
   history and the selection start over). Then `Expand All` expands the
   folder and every folder below it, listing each in turn (a folder that
-  fails to list shows its error and the rest still expand), and
+  fails to list shows its error and the rest still expand; a symlinked or
+  junctioned folder is not descended into, since it can loop back on an
+  ancestor), and
   `Collapse All` collapses every folder below it, leaving the folder itself
   open or closed as it was; neither is offered on home or a volume at the
   top level. Then `Move Rejected to Trash…`
