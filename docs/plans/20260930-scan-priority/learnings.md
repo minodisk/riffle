@@ -80,7 +80,7 @@
   unix branches call `libc` directly: macOS
   `pthread_set_qos_class_self_np(QOS_CLASS_UTILITY | QOS_CLASS_BACKGROUND, 0)`
   (both exported at the `libc` root in 0.2.189, `qos_class_t` a `#[repr(u32)]`
-  enum), Linux `setpriority(PRIO_PROCESS, 0, 5 | 10)`, which on Linux sets
+  enum), Linux (and Android) `setpriority(PRIO_PROCESS, 0, max(current, 5 | 10))`, which sets
   the calling thread's nice alone. The crate's Linux mapping of
   `Crossplatform(0..=99)` onto nice is a truncating float formula, so the
   explicit nice values read better than the magic priority numbers it would

@@ -289,18 +289,29 @@ fn lower_current_priority(lowest: bool) -> Result<(), String> {
     }
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn lower_current_priority(lowest: bool) -> Result<(), String> {
-    let nice = if lowest { 10 } else { 5 };
+    // A new thread inherits its creator's nice, so never move it below the
+    // level it already has: an absolute set could raise a process started
+    // under `nice`. (`-1` is also a valid nice, so an error reads as -1 and
+    // then only ever lowers the priority from there.)
     // SAFETY: plain syscall. On Linux `PRIO_PROCESS` with id 0 names the
     // calling thread alone, not the whole process.
+    let current = unsafe { libc::getpriority(libc::PRIO_PROCESS, 0) };
+    let nice = current.max(if lowest { 10 } else { 5 });
+    // SAFETY: as above.
     match unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, nice) } {
         0 => Ok(()),
         _ => Err(std::io::Error::last_os_error().to_string()),
     }
 }
 
-#[cfg(not(any(windows, unix)))]
+#[cfg(not(any(
+    windows,
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "android"
+)))]
 fn lower_current_priority(_lowest: bool) -> Result<(), String> {
     Ok(())
 }
@@ -479,7 +490,7 @@ mod tests {
     }
 
     #[cfg(windows)]
-    fn expected_level(lowest: bool) -> i32 {
+    fn expected_level(lowest: bool, _inherited: i32) -> i32 {
         use thread_priority::WinAPIThreadPriority;
         if lowest {
             WinAPIThreadPriority::Lowest as i32
@@ -495,18 +506,15 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
-    fn expected_level(lowest: bool) -> i32 {
-        if lowest {
-            10
-        } else {
-            5
-        }
+    fn expected_level(lowest: bool, inherited: i32) -> i32 {
+        inherited.max(if lowest { 10 } else { 5 })
     }
 
     #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn every_worker_runs_at_the_priority_it_was_given() {
         let paths: Vec<PathBuf> = (0..32).map(|i| PathBuf::from(format!("{i}.ARW"))).collect();
+        let inherited = worker_level();
         for (priority, lowest) in [(Priority::BelowNormal, false), (Priority::Lowest, true)] {
             let levels = Mutex::new(Vec::new());
             let report = for_each_path(
@@ -524,7 +532,9 @@ mod tests {
             let levels = levels.into_inner().unwrap();
             assert_eq!(levels.len(), paths.len());
             assert!(
-                levels.iter().all(|l| *l == expected_level(lowest)),
+                levels
+                    .iter()
+                    .all(|l| *l == expected_level(lowest, inherited)),
                 "{priority:?}: {levels:?}"
             );
         }
