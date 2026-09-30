@@ -81,7 +81,7 @@ of a detected face or the sharpest region (see
 | Container | Little-endian TIFF | Little-endian TIFF | TIFF, little-endian on recent bodies, big-endian on older ones | ISOBMFF (the MP4 box structure) | A fixed `FUJIFILMCCD-RAW` header of offsets, then a JPEG and the sensor data | Little-endian TIFF with a non-standard `IIRO` header in place of the magic 42 |
 | Exif | IFD0 and the Exif IFD | IFD0 and the Exif IFD | IFD0 and the Exif IFD | Two TIFFs in boxes: `CMT1` (IFD0) and `CMT2` (the Exif IFD) | Inside the embedded JPEG (IFD0 and the Exif IFD) | IFD0 and the Exif IFD |
 | MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box | Exif IFD tag 0x927c of the embedded JPEG, with a `FUJIFILM` header and offsets relative to the note | Exif IFD tag 0x927c, with an `OLYMPUS` or `OM SYSTEM` header and offsets relative to the note |
-| Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the X bodies, 4000x3000 on the GFX bodies) | Inside the MakerNote, pointed at by its CameraSettings IFD (3200x2400) |
+| Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the recent X bodies, 4000x3000 on the GFX bodies, 1920x1280 or 2048x1536 on older X bodies and at most 2176x1448 on the FinePix bodies) | Inside the MakerNote, pointed at by its CameraSettings IFD (3200x2400) |
 | Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution | None: the preview serves as the 1:1 view |
 | AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Fujifilm MakerNote `FocusPixel` | Not read |
 
@@ -128,11 +128,15 @@ model, and big-endian offsets and lengths of what follows. One of those pairs
 points at the embedded JPEG, which comes right after the header. The file has
 no Exif of its own: Make, Model, Orientation, the capture time, the exposure
 and the Fujifilm MakerNote all live in that JPEG's Exif segment, which ends
-about 64 KB into the file on every tested body. The JPEG is the only one in the
+well within the first 1 MiB of the file on every tested body. The JPEG is the only one in the
 file, so it serves as both the preview and the 1:1 view. It is 4416x2944 on
-the X bodies and 4000x3000 on the GFX bodies, below the sensor's resolution
-(for example 7728x5152 on the X-T5 or 11648x8736 on the GFX100 II), so the
-1:1 view on RAF shows that JPEG rather than the sensor's pixels.
+the recent X bodies (from the X-T3 and X-T30) and 4000x3000 on the GFX bodies,
+below the sensor's resolution (for example 7728x5152 on the X-T5 or
+11648x8736 on the GFX100 II), so the 1:1 view on RAF shows that JPEG rather
+than the sensor's pixels. On the older X bodies it is 1920x1280 (2048x1536 on
+the small-sensor compacts), and on the FinePix bodies at most 2176x1448, so
+there the 1:1 view is only a small preview; see
+[What the camera records](./cameras.md) for the size per body.
 
 ### ORF: the preview lives in the MakerNote
 

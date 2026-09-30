@@ -799,6 +799,18 @@ No raw.pixls.us sample of the listed Fujifilm bodies is an M-RAW (multi-image) R
 
 - [ ] Open an M-RAW RAF (from a body that writes one) and confirm the preview, the 1:1 view and the EXIF rows.
 
+The `raf-older-bodies` sweep of 228 RAFs from 87 bodies (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`) found no M-RAW either: `0x48` is zero on all of them.
+
+### Core: old FinePix bodies show Exif `Model` with trailing spaces
+
+#### Background
+
+The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). A trim in the shared Exif reader is the candidate fix, which would cover every format that goes through it. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `raf.rs`).
+
+#### TODO
+
+- [ ] Trim trailing spaces from the Exif `Model` (and `Make`) in `crates/core/src/exif.rs`, with a test on a padded value, and check the meta pane on a FinePix RAF.
+
 ### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
 
 #### Background

@@ -372,6 +372,24 @@ embedded JPEG's offset / length, `0x5c` / `0x60` the RAF directory (tags
   X100VI portrait samples) and `SubSecTimeOriginal` only on bodies from about
   2023 (GFX100 II, X100VI, X-T50, X-M5, X-E5, X-T30 III, GFX100RF and
   GFX100S II; not the X-H2, X-H2S, X-S20 or X-T5).
+- The 4416x2944 / 4000x3000 sizes above hold for the 2018-and-later bodies
+  only. The older CC0 raw.pixls.us bodies (57 bodies in the sweep, every
+  file parsed from the 1 MiB prefix with preview and full decode `ok`,
+  `0x48` = 0) embed a smaller JPEG: 1920x1280 on most X bodies, 2048x1536
+  on the small-sensor X compacts (X10, X20, X30, XF1, XQ1, XQ2, X-S1, the
+  EXR bridges), 2176x1448 on the FinePix X100, 1280x960 to 1600x1200 on
+  the FinePix S-series and 1344x960 to 1440x960 on the S2/S3/S5 Pro and
+  GX680. The X-T30 (4416x2944) and GFX 50S / 50R (4000x3000) match the
+  newer sizes. Do not assume "1920x1280 or smaller" for the older
+  bodies. `FocusPixel` is still in the JPEG's own frame (a centered point
+  is half its size, e.g. 1024,768 on 2048x1536), so `sensor_w` /
+  `sensor_h` stay the JPEG's size. The FinePix S2 Pro, S5 Pro and the DBP
+  for GX680 write no `FocusPixel` at all, which is just no AF point; the
+  X-A2, X-E3, X100F, XF10 and GFX 50S CC0 samples do write one but are
+  `FocusMode` 1, so it is dropped. The Exif `Model` of many older FinePix
+  bodies carries trailing spaces (e.g. `FinePix S5000 `), so trim it
+  before comparing or grouping by model. Per-body table:
+  `docs/plans/_archived/20260930-raf-older-bodies/learnings.md`.
 
 ### The prefix / truncation rule (Measured)
 

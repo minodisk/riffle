@@ -359,6 +359,7 @@ Discussions. If it does not, open an issue from the
   - [x] Fujifilm X-T3
   - [x] Fujifilm X-T30 III
   - [x] Fujifilm X-T30 II
+  - [x] Fujifilm X-T30
   - [x] Fujifilm X-S20
   - [x] Fujifilm X-S10
   - [x] Fujifilm X-M5
@@ -373,6 +374,8 @@ Discussions. If it does not, open an issue from the
   - [x] Fujifilm GFX100RF
   - [x] Fujifilm GFX 100
   - [x] Fujifilm GFX50S II
+  - [x] Fujifilm GFX 50R
+  - [x] Fujifilm GFX 50S
 
 CR3 files shot with HDR PQ on (HEIF) hold HEVC images instead of JPEGs.
 Riffle decodes their 1620x1080 HEVC preview and tone-maps it to sRGB, so
@@ -380,9 +383,14 @@ they get a thumbnail, a preview and a sharpness score like any other file.
 The full-size image is not decoded: the 1:1 view (`z`) on such a file shows
 a crop of that 1620x1080 preview, not the sensor's pixels.
 
-A RAF holds one embedded JPEG, 4416x2944 on the X bodies and 4000x3000 on
-the GFX bodies, below the sensor's resolution. The 1:1 view on RAF shows that
-JPEG at its own size, not the sensor's pixels.
+A RAF holds one embedded JPEG, 4416x2944 on the listed X bodies and
+4000x3000 on the listed GFX bodies, below the sensor's resolution. The 1:1
+view on RAF shows that JPEG at its own size, not the sensor's pixels. Older
+X-series and FinePix bodies (the X-T1 to X-T20, X-Pro1 and X-Pro2, X100S to
+X100F, X-E1 to X-E3, the X-A line, the FinePix S and HS lines, and others)
+also open, but their embedded JPEG is 1920x1280 or smaller on most of them (1920x1280
+and 2048x1536 are the common sizes) and at most 2176x1448, so their 1:1 view is limited to that small preview; see
+[What the camera records](./docs/cameras.md) for the size per body.
 
 An ORF holds one embedded JPEG, 3200x2400 on every listed body, below the
 sensor's resolution. The 1:1 view on ORF shows that JPEG at its own size, not
