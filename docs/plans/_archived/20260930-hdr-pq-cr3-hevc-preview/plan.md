@@ -182,9 +182,10 @@ and `R5m2.CR3`; the samples are the user's and are never committed):
       sentence yet (Step 2, once the app shows the files).
 - [x] Step 2: Re-extract the index and update what the user reads
   - Done when:
-    - `EXTRACTOR_VERSION` in `crates/app/src/index.rs` is bumped to `9`
-      (main was already at `8`, which names an HDR PQ CR3 in the error row)
-      with its doc comment extended ("`9` decodes the HEVC `PRVW` / `THMB`
+    - `EXTRACTOR_VERSION` in `crates/app/src/index.rs` is bumped to `10`
+      (main was already at `8`, which names an HDR PQ CR3 in the error row,
+      and took `9` for the RAF AF point while the PR was open)
+      with its doc comment extended ("`10` decodes the HEVC `PRVW` / `THMB`
       of HDR PQ CR3 files"), so the error rows of these files are
       re-extracted on the next scan (the index keeps error rows as
       authoritative; only a bump re-extracts them).

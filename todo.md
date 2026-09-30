@@ -1253,28 +1253,21 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 - [ ] On macOS (WKWebView), repeat the six Windows passes above (Settings, first-run / trash / sequence dialogs, menus / strip bar / cells, folder tree, empty states / meta pane / status lines / Compare, settings side-nav). Also confirm that `scrollbar-color` is honored or harmlessly ignored, that native checkboxes / radios take `accent-color` (Safari 15.4+; an older engine shows the UA control), and that `:focus-visible` rings appear.
 - [ ] On Linux (WebKitGTK), repeat the six Windows passes above and the same three extra confirmations (`scrollbar-color`, `accent-color` on checkboxes / radios with WebKitGTK 2.36+, `:focus-visible` rings).
 
-### App: real-device check of the HDR PQ (HEIF) CR3 message in the strip, viewer, meta pane and sidecars
+### App: real-device check of the HDR PQ (HEIF) CR3 preview decode
 
-`mise run ci` and `riffle-cli candidates` confirmed the new HDR PQ (HEIF) CR3
-message (unit tests in `cr3.rs` / `reader.rs` / `index.rs`, and a CLI run on
-the two local samples), but the GUI itself was never exercised. See
-`docs/plans/_archived/20260930-heif-cr3-message/plan.md` (Step 1). Files:
-`crates/app/src/index.rs`, `crates/app/ui/src/strip.ts`,
-`crates/app/ui/src/main.ts`.
+The hdr-pq-cr3-hevc-preview feature decodes the HEVC `PRVW` / `THMB` of CR3 files shot with HDR PQ on and tone-maps them to sRGB (`crates/core/src/hevc.rs`). CI and unit tests cover the box walk, the Annex B stream and the tone-map math. The decode itself is only exercised by an `#[ignore]` test on a real file, and the GUI never showed these files. See `docs/plans/_archived/20260930-hdr-pq-cr3-hevc-preview/plan.md` (Step 2). Files: `crates/core/src/hevc.rs`, `crates/core/src/cr3.rs`, `crates/app/src/index.rs`.
 
 #### TODO
 
-- [ ] On Windows, open the folder containing `D:\photos\samples\CR3\R8.CR3`
-      and `R5m2.CR3` (never committed) in the app and check that (1) the
-      strip cells of the two files are the failed color and show "HDR PQ
-      (HEIF) CR3: its HEVC preview is not supported yet" over the image box,
-      with the same text as the cell's tooltip; (2) the viewer's note reads
-      `<path>: HDR PQ (HEIF) CR3: its HEVC preview is not supported yet`;
-      (3) the meta pane shows the EXIF rows (camera, lens, exposure, capture
-      time); (4) a star, a flag and a color label each write a sidecar next
-      to the file; (5) if either file was scanned before the
-      `EXTRACTOR_VERSION` bump to 8, it re-extracts once and picks up the
-      new text.
+- [ ] On Windows, build with `mise run tauri:release:devtools` and open `D:\photos\samples\CR3` (samples are never committed). Check that `R8.CR3` and `R5m2.CR3` show a correctly colored thumbnail and preview (tone-mapped from HDR PQ, not washed out or tinted), the meta pane's EXIF rows, and the strip's sharpness bar. If the folder was scanned before, the old error rows re-extract once (`EXTRACTOR_VERSION` 10). Press `z` and check that it shows a (soft) crop of the 1620x1080 preview with no error in the status line. Also rate, flag and color-label one of the two files and check a sidecar is written next to it. If the colors look off, tune the tone-map constants in `crates/core/src/hevc.rs`.
+
+### App: keep the EXIF of a file whose extraction failed
+
+An error row stores no metadata (`Entry` / `write_batch` in `crates/app/src/index.rs`), so bursts, the filter menu and capture-time order do not see the file, although `read_metadata` parses it. This applies to any file whose extraction fails (a corrupt JPEG, an HEVC stream hpvcd cannot decode). It was an open item of the "Core: HDR PQ (HEIF) CR3 files cannot be opened" section, which was removed once the HEVC previews were decoded (`docs/plans/_archived/20260930-hdr-pq-cr3-hevc-preview/plan.md`). Files: `crates/app/src/index.rs`.
+
+#### TODO
+
+- [ ] Store the metadata `read_metadata` parses in an error row (or read it on demand), so bursts, the filter menu and capture-time order include a file whose extraction failed.
 
 ### App: real-device checks for the flex / grid gap layout (no-margin-layout) are still open
 

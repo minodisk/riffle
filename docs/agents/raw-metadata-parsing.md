@@ -331,6 +331,11 @@ two of the four R5 Mark II samples on raw.pixls.us are like this.
   over rayon, the JPEG ~17 ms with libjpeg's fastest settings; mozjpeg's
   defaults took ~200 ms), and one `riffle-cli scan` extraction ~150 ms more
   than a JPEG CR3 on one thread.
+- `hpvcd` did not panic on 60 randomly corrupted or truncated `PRVW` streams
+  (it returned a frame every time), so `hevc::to_jpeg` does not wrap the
+  decode in `catch_unwind`; revisit that only if a panic is ever seen. The
+  crate declares `rust-version = 1.93` (edition 2024) and has no system
+  dependencies, so a toolchain older than 1.93 cannot build the workspace.
 
 ## RAF
 
