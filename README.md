@@ -56,6 +56,23 @@ Judgments are saved to the sidecars as you go, so there is nothing to save.
 When you are done, they are picked up by tools that read XMP sidecars and by
 DxO PhotoLab.
 
+### Example workflow
+
+1. Open the camera's RAW folder and cull it: stars for the keepers, `x` for
+   the rest ([Key features](#key-features)).
+2. Right-click the folder in the folder tree and choose
+   `Move Rejected to Trash…` to clear the rejects
+   ([Key features](#key-features)).
+3. Open the folder in Lightroom or DxO PhotoLab, which read the judgments from
+   the sidecars ([Working with other software](#working-with-other-software));
+   develop the keepers and export them as JPEGs.
+4. Right-click the export folder in the folder tree and choose
+   `Sequence JPEG Timestamps…` to make `<folder>-sequenced/`
+   ([Key features](#key-features)).
+5. Open `<folder>-sequenced/` in Riffle; it opens view-only, so you can check
+   the order ([Key features](#key-features)).
+6. Upload `<folder>-sequenced/` to Google Photos.
+
 ## Key features
 
 - **Folder tree**: the left pane browses home and the mounted volumes; click
