@@ -154,7 +154,7 @@ adjacent-line noise; resolve it by keeping both sides.
       `crates/app/ui/src/refresh.test.ts`, `crates/app/src/commands.rs`,
       `todo.md`.
 
-- [ ] Step 3: Add `Expand All` / `Collapse All` to the folder tree's context menu
+- [x] Step 3: Add `Expand All` / `Collapse All` to the folder tree's context menu
   - Done when: right-clicking a single non-root folder offers `Expand All`
     and `Collapse All` in their own group right after `Rename…`
     (`crates/app/ui/src/context.ts` `folderMenuGroups`, actions

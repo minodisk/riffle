@@ -32,6 +32,7 @@ import {
   appendTyped,
   clickSelect,
   collapse,
+  collapseAll as collapseUnder,
   drawnChildren,
   expand,
   markFailed,
@@ -439,6 +440,49 @@ function toggle(path: string): void {
       reportError(String(err));
     },
   );
+}
+
+// Collapses every subfolder under `path`, leaving `path` itself as it is.
+export function collapseAll(path: string): void {
+  tree = collapseUnder(tree, path);
+  render();
+}
+
+// Expands `path` and every subfolder under it, listing each as `toggle`
+// does, one listing at a time so a deep tree does not flood
+// `list_subfolders`. A branch stops once any folder on its chain was
+// collapsed or dropped meanwhile; a folder that fails to list is marked and
+// reported, and the rest go on.
+export async function expandAll(path: string): Promise<void> {
+  const open = (chain: string[]): boolean =>
+    chain.every((dir) => tree.nodes.get(dir)?.expanded === true);
+  const walk = async (chain: string[]): Promise<void> => {
+    const dir = chain[chain.length - 1];
+    if (!tree.nodes.has(dir)) {
+      return;
+    }
+    tree = expand(tree, dir);
+    render();
+    let folder: Folder;
+    try {
+      folder = await list(dir);
+    } catch (err) {
+      tree = markFailed(collapse(tree, dir), dir, String(err));
+      render();
+      reportError(String(err));
+      return;
+    }
+    tree = setChildren(tree, dir, folder.raw_count, folder.children);
+    render();
+    const node = tree.nodes.get(dir);
+    for (const child of node === undefined ? [] : (drawnChildren(tree, node) ?? [])) {
+      if (!open(chain)) {
+        return;
+      }
+      await walk([...chain, child.path]);
+    }
+  };
+  await walk([path]);
 }
 
 function fetchRoots(): Promise<void> {

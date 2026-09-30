@@ -65,6 +65,28 @@
   match, which was the section's own `#### TODO`; check the next `### `
   heading when deleting a section by line range.
 
+## Step 3: Expand All / Collapse All in the folder tree's menu
+
+- `tree.ts` gained `descendants(tree, path)` (the listed folders under
+  `path`, depth first, through `drawnChildren` so a root drawn elsewhere,
+  such as home under its volume, is left to its own row) and
+  `collapseAll(tree, path)` on top of it, which returns the same `Tree`
+  object when there is nothing under `path` (an unknown or unlisted folder),
+  so the tests can assert `toBe`.
+- `folders.ts`'s `expandAll` walks recursively, awaiting one
+  `list_subfolders` at a time, and keeps the chain of paths from the clicked
+  folder so a branch stops as soon as any ancestor on it was collapsed or
+  dropped (a rename re-keys the nodes, so a rename mid-walk also stops it).
+  It expands a folder before listing it, as `toggle` does, so leaf folders
+  end up expanded too: they show their RAW count badge and each gets a
+  `tree-changed` watch, exactly as when expanded by hand.
+- The tree's own `collapseAll` is imported into `folders.ts` as
+  `collapseUnder` because `folders.ts` exports its own `collapseAll(path)`
+  for `main.ts`.
+- The multi-selection shape needed no new test: the existing
+  `folderMenuGroups with several folders selected` case compares the whole
+  menu with `toEqual`, so it already asserts the two items are absent.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Step 2, Windows, the user's):** verify the idle
@@ -78,3 +100,22 @@
   automated criteria (Vitest cases for `focusRescanDue`, `mise run ci`).
   Basis: plan Step 2 "Tests" bullet. Files: `crates/app/ui/src/main.ts`,
   `crates/app/src/commands.rs`.
+- **Pending manual check (Step 3, Windows, the user's):** exercise
+  `Expand All` / `Collapse All` in the folder tree. Steps: right-click a
+  folder with two or more levels of subfolders (e.g. under
+  `D:\photos`), choose `Expand All`; then `Collapse All` on the same
+  folder; then `Expand All` on a folder containing a subfolder that cannot
+  be listed (e.g. one with its read permission denied). Expected: every
+  level appears after `Expand All`; `Collapse All` folds them all back
+  with the clicked folder still open; the unreadable folder shows its
+  error (status line, row marked failed) and the rest still expand. Also
+  measure how many `tree-changed` watches a real `Expand All` on a photo
+  archive makes (the number of expanded drawn folders; `Timing logs` or
+  a debugger on `set_tree_watches`) and check that renaming an ancestor
+  of the expanded folders still works on Windows (see the `notify`
+  ancestor pinning item in `docs/agents/tauri-app.md`). Not run by the
+  implementation agent (no GUI session); Step 3's checkbox was ticked on
+  the automated criteria (Vitest cases in `tree.test.ts` /
+  `context.test.ts`, `mise run ci`). Basis: plan Step 3 "Manual check" and
+  its watcher-count bullet. Files: `crates/app/ui/src/folders.ts`,
+  `crates/app/ui/src/tree.ts`, `crates/app/ui/src/main.ts`.

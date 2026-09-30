@@ -1025,16 +1025,6 @@ so `docs/usage.md` and the plan's Trade-offs section say "rename" only.
       `docs/usage.md` and `docs/agents/tauri-app.md` to match (or confirm
       they need no change).
 
-### App: expand / collapse all subfolders from the folder tree's context menu
-
-Folder-menu items that expand or collapse every subfolder under the clicked
-folder. Basis: deferred in `docs/plans/20260927-folder-menu-copy/plan.md`
-(Purpose). Files: `crates/app/ui/src/tree.ts`, `crates/app/ui/src/folders.ts`.
-
-#### TODO
-
-- [ ] Add `Expand All` / `Collapse All` items to the folder context menu.
-
 ### App: rewrite or delete a folder's sidecars from the folder tree's context menu
 
 Folder-menu items that rewrite every sidecar in the folder from the index, or

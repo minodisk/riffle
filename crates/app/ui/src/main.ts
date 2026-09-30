@@ -2554,8 +2554,9 @@ function renameFile(path: string, name: string): void {
 
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
-// rename it, to move its rejects to the Trash, or to sequence its JPEGs. On a
-// selection of several folders it offers only to move their rejects.
+// rename it, to expand or collapse every subfolder under it, to move its
+// rejects to the Trash, or to sequence its JPEGs. On a selection of several
+// folders it offers only to move their rejects.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -2587,6 +2588,12 @@ folders.init(
             break;
           case "renameFolder":
             folders.startRename(path);
+            break;
+          case "expandAll":
+            void folders.expandAll(path);
+            break;
+          case "collapseAll":
+            folders.collapseAll(path);
             break;
           case "trashRejected":
             trashRejectedIn(targets, false);

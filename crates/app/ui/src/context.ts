@@ -58,9 +58,10 @@ export function contextMenuGroups(
 
 // The folder tree's right-click menu: the reveal item, labeled per platform by
 // the `reveal_label` command, then copying the folder's path or name, then
-// renaming it, then moving its rejects to the Trash, with or without its
-// subfolders, then the sequencing of the folder's JPEGs. Renaming and the
-// recursive trash item are not offered on a root (home or a volume). With
+// renaming it, then expanding or collapsing every subfolder under it, then
+// moving its rejects to the Trash, with or without its subfolders, then the
+// sequencing of the folder's JPEGs. Renaming, expanding / collapsing all and
+// the recursive trash item are not offered on a root (home or a volume). With
 // `count` folders selected, only the trash items are offered, naming the
 // count; `root` then says whether any of them is a root.
 export function folderMenuGroups(revealLabel: string, root: boolean, count = 1): MenuItem[][] {
@@ -90,7 +91,13 @@ export function folderMenuGroups(revealLabel: string, root: boolean, count = 1):
     ],
     ...(root
       ? []
-      : [[{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }]]),
+      : [
+          [{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }],
+          [
+            { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
+            { action: "collapseAll", label: "Collapse All", shortcut: "", checked: undefined },
+          ],
+        ]),
     [
       {
         action: "trashRejected",
