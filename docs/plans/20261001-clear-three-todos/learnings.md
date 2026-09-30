@@ -27,6 +27,15 @@
   new cases differ in a folder name's case (`Photos` / `photos`) to show
   the flag's effect.
 
+## Step 3: Add `docs/agents/github-actions-workflows.md`
+
+- The `shellcheck` / `actionlint` item is tagged Hit: the promotion-stats
+  learnings record it as met while running them by hand, not as a design
+  measurement.
+- The guide links the archived learnings once, in its `Source:` line, as
+  `../plans/_archived/20260928-promotion-stats/learnings.md`; `CLAUDE.md`
+  is unchanged, since no guide index exists.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1): open a folder of old FinePix RAFs (e.g.

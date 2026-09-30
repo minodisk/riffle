@@ -1158,29 +1158,6 @@ a rebuild).
       (closing a dialog refocuses `main` and `resync()` starts a scan) is
       Clear Cache's and is covered by that item's check (3).
 
-### Docs: add a guide for GitHub Actions workflows and `gh` secrets
-
-#### Background
-
-Create `docs/agents/github-actions-workflows.md` (read before writing or
-debugging a `.github/workflows/*.yml` that uses `gh`, secrets, or a
-dedicated branch as a data store, like `stats`). No guide under
-`docs/agents/` covers workflows or secrets, so the next workflow change
-would rediscover these points from
-`docs/plans/_archived/20260928-promotion-stats/learnings.md`.
-
-#### TODO
-
-- [ ] Create the guide covering: an empty secret is indistinguishable in
-      `gh secret list` and shows as an empty `GH_TOKEN:` in the run log (set
-      secrets on github.com, or check the value is non-empty before
-      `gh secret set`); pushing `.github/workflows/*` needs the `workflow`
-      scope (`gh auth refresh -h github.com -s workflow`); `shellcheck` /
-      `actionlint` run ad hoc through `mise exec --`;
-      `git worktree add --orphan` (git 2.42+, present on `ubuntu-latest`)
-      plus `git diff --cached --quiet` for a commit-only-when-changed guard.
-- [ ] Link the archived learnings.md above from the guide.
-
 ### App: real-device check of the File menu separator on Windows
 
 `file-menu-separator` (docs/plans/_archived/20260929-file-menu-separator/plan.md)
