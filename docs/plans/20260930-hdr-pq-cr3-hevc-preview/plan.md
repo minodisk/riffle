@@ -180,10 +180,11 @@ and `R5m2.CR3`; the samples are the user's and are never committed):
       (the two stay in sync), `CLAUDE.md` layout, `raw-metadata-parsing.md`
       CR3 section. Do not touch the device list or the HEIF limitation
       sentence yet (Step 2, once the app shows the files).
-- [ ] Step 2: Re-extract the index and update what the user reads
+- [x] Step 2: Re-extract the index and update what the user reads
   - Done when:
-    - `EXTRACTOR_VERSION` in `crates/app/src/index.rs` is bumped to `8`
-      with its doc comment extended ("`8` decodes the HEVC `PRVW` / `THMB`
+    - `EXTRACTOR_VERSION` in `crates/app/src/index.rs` is bumped to `9`
+      (main was already at `8`, which names an HDR PQ CR3 in the error row)
+      with its doc comment extended ("`9` decodes the HEVC `PRVW` / `THMB`
       of HDR PQ CR3 files"), so the error rows of these files are
       re-extracted on the next scan (the index keeps error rows as
       authoritative; only a bump re-extracts them).

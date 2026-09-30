@@ -157,6 +157,7 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
   - [x] Canon EOS R6 Mark II
   - [x] Canon EOS R6 Mark III
   - [x] Canon EOS R7
+  - [x] Canon EOS R8
   - [x] Canon EOS R10
   - [x] Canon EOS R50
   - [x] Canon EOS R50 V
@@ -215,7 +216,7 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
   - [x] Fujifilm GFX 100
   - [x] Fujifilm GFX50S II
 
-HDR PQ（HEIF）で撮影した CR3 には JPEG のプレビューがなく、まだプレビューを表示できません。ストリップとビューアーにはその旨が表示され、メタペインには EXIF の行が表示されます。
+HDR PQ（HEIF）で撮影した CR3 には JPEG ではなく HEVC の画像が入っています。Riffle はその 1620x1080 の HEVC プレビューをデコードして sRGB にトーンマッピングするので、ほかのファイルと同じくサムネイル、プレビュー、シャープネススコアが得られます。フルサイズの画像はデコードしないため、こうしたファイルの 1:1 表示（`z`）はセンサーの画素ではなく、その 1620x1080 のプレビューの切り抜きを表示します。
 
 RAF に埋め込まれた JPEG は 1 枚だけで、X シリーズでは 4416x2944、GFX シリーズでは 4000x3000 と、センサーの解像度より小さいサイズです。RAF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。
 

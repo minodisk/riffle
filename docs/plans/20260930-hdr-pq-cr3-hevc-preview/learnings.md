@@ -33,6 +33,21 @@
   dependencies; its default features are only the SIMD back ends (`neon`,
   `avx`, `sse`), kept on.
 
+## Step 2
+
+- main was already at `EXTRACTOR_VERSION` 8 (the HDR PQ CR3 error message of
+  `20260930-heif-cr3-message`), so the bump went to `9`, not `8` as the plan
+  first said; the plan text was adjusted.
+- The EOS R8 row in `docs/cameras.md` comes from `riffle-cli info` on
+  `D:\photos\samples\CR3\R8.CR3` (the HDR PQ sample) and the five JPEG R8
+  samples: every one has a `focus` point in a 6000x4000 frame and a
+  `SubSecTimeOriginal`; `cr3::parse` sets `focus` and `focus_frame` together
+  from `AFInfo2`, so the row is `✓ | ✓ | – | ✓`.
+- `docs/raw-formats.md` also said Riffle "has no HEVC decoder" for HEIF CR3s;
+  its sentence was updated with the README paragraph (user-facing, not named
+  in the plan).
+- The deferred README item from Step 1 is resolved by this step.
+
 ## Deferred issues (todo candidates)
 
 - README.md's "CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview, so
@@ -41,3 +56,30 @@
   previews are decoded. The plan leaves the rewrite to Step 2 on purpose
   (with the `EXTRACTOR_VERSION` bump that re-extracts old error rows).
   Basis: Step 1 implementation. Files: `README.md`, `README.ja.md`.
+- Resolved in Step 2: the README / README.ja.md HDR PQ paragraph above was
+  rewritten.
+- The removed `todo.md` section "Core: HDR PQ (HEIF) CR3 files cannot be
+  opened" carried one open item that is not HDR-PQ-specific: "Keep the EXIF
+  of a file whose extraction failed: an error row stores no metadata
+  (`Entry` / `write_batch` in `crates/app/src/index.rs`), so bursts, the
+  filter menu and capture-time order do not see the file, although
+  `read_metadata` parses it." It still applies to any file whose extraction
+  fails (a corrupt JPEG, an HEVC stream hpvcd cannot decode). Basis: Step 2
+  removal of the todo section, as the plan required. Files:
+  `crates/app/src/index.rs`, `todo.md`.
+- `todo.md`'s "App: real-device check of the HDR PQ (HEIF) CR3 message in
+  the strip, viewer, meta pane and sidecars" is obsolete: `R8.CR3` and
+  `R5m2.CR3` no longer fail, so the message it asks to check no longer
+  appears for them. It should be removed (or replaced by the pending manual
+  check below) at wrap-up. Basis: Step 1 / Step 2 implementation. Files:
+  `todo.md`.
+- Pending manual check (the user's; Step 2's checkbox was ticked on the
+  automated criteria, `mise run ci`): on Windows, build with
+  `mise run tauri:release:devtools` and open `D:\photos\samples\CR3`
+  (samples never committed). Expected: `R8.CR3` and `R5m2.CR3` show a
+  correctly colored thumbnail and preview (tone-mapped from HDR PQ, not
+  washed out or tinted), the meta pane's EXIF rows, and the strip's sharpness
+  bar; if the folder was scanned before, the old error rows re-extract once
+  (`EXTRACTOR_VERSION` 9); pressing `z` shows a (soft) crop of the 1620x1080
+  preview with no error in the status line. If the colors look off, tune the
+  tone map constants in `crates/core/src/hevc.rs`.
