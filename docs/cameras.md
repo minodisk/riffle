@@ -16,13 +16,13 @@ or in [Compatibility](../README.md#compatibility).
 | Sony α1 | ✓ | ✓ | – | ✓ |
 | Sony α9 III | – | – | – | ✓ |
 | Sony α7 V | ✓ | ✓ | ✓ | ✓ |
-| Sony α7 IV | ✓ | ✓ | – | ✓ |
-| Sony α7R V | ✓ | ✓ | – | ✓ |
-| Sony α7S III | ✓ | ✓ | – | ✓ |
+| Sony α7 IV | ✓ | ✓ | ✓ | ✓ |
+| Sony α7R V | ✓ | ✓ | ✓ | ✓ |
+| Sony α7S III | ✓ | ✓ | ✓ | ✓ |
 | Sony α7C II | ✓ | ✓ | – | ✓ |
 | Sony α7CR | – | – | – | ✓ |
-| Sony α6700 | ✓ | ✓ | – | ✓ |
-| Sony ZV-E1 | ✓ | ✓ | – | ✓ |
+| Sony α6700 | ✓ | ✓ | ✓ | ✓ |
+| Sony ZV-E1 | ✓ | ✓ | ✓ | ✓ |
 | SIGMA BF | ✓ | – | – | – |
 | SIGMA fp L | – | – | – | – |
 | Leica M11-P | – | – | – | – |
@@ -162,10 +162,13 @@ sub-second capture time, so their bursts group by whole seconds; a burst at a
 high frame rate cannot be split within one second.
 
 The Sony α9 III and α7CR samples were all shot in manual focus, which Riffle
-treats as having no AF point, so those two are unconfirmed. On the Sony bodies
-other than the α7 V, `–` under Face tracking means face tracking was not
-recorded on the sample, whose subjects hold no face; it does not mean the body
-lacks it.
+treats as having no AF point, so those two are unconfirmed. On the remaining
+Sony bodies, `–` under Face tracking means no sample of that body recorded
+face tracking; it does not mean the body lacks it. A recorded face tracking
+does not guarantee a face under the frame: two α6700 samples record it with
+the frame on an empty background and on bread on a market stall. Riffle also
+ignores the frame when the AF point sits at the exact sensor center, where
+tracking never locked.
 
 - **AF point**: the focus mark is drawn there, the 1:1 focus check opens
   centered on it, and sharpness is scored around it. Faces are then ignored,
@@ -176,7 +179,14 @@ lacks it.
   having no AF point; DMF shots and bodies that record no focus mode are not.
 - **AF frame size and face tracking**: with both, sharpness is scored on the
   camera's eye-AF frame, which is the most reliable because it does not rely
-  on face detection. On the α7 V, `Face tracking` is also recorded when the
+  on face detection. This helps culling: the sharpness cue, the bar beside
+  each thumbnail that marks the sharpest frame of a burst, is measured on the
+  eye the camera focused on, so the frame whose eye is sharp comes out
+  sharpest rather than one whose background or clothing is sharper, even when
+  Riffle's own face detection misses the face. Face tracking without an AF
+  frame size gives no such benefit: sharpness is scored around the AF point as
+  usual. Neither changes the focus mark's color, whose AF eye in-focus
+  probability comes from Riffle's face detection. On the α7 V, `Face tracking` is also recorded when the
   AF sits on the back of a head: it means the camera recognized a person's
   head, not strictly a face or an eye. The meta pane's `AF tracking` row
   shows this value.
