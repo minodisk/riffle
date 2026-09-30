@@ -9,7 +9,8 @@
       "Bash(date *)",
       "Bash(gh pr merge *)",
       "Bash(mise run *)",
-      "Bash(mise run git:main)"
+      "Bash(mise run git:main)",
+      "Bash(gh pr view *)"
     ]
   }
 }
