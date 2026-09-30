@@ -265,4 +265,4 @@ and `R5m2.CR3`; the samples are the user's and are never committed):
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete
