@@ -84,4 +84,4 @@ section in Japanese in the same PR, as `CLAUDE.md` requires.
 
 ## Progress
 
-- (none yet)
+- (2026-10-01) Step 1 complete
