@@ -409,7 +409,7 @@ accelerator comes from the keymap's `selectAll` action and which emits
 `app_menu::build` builds one and inserts it right after `Edit` (appended when
 `Edit` is missing); on macOS the default `View` exists and the items are
 prepended above its Enter Full Screen, with a separator between. It holds
-only `Left Pane`, `Right Pane` and `Filmstrip`, `CheckMenuItem`s from the
+only `Folders`, `Metadata` and `Filmstrip`, `CheckMenuItem`s from the
 `VIEW_ITEMS` table of `(id, action, label)`; each takes the action's
 accelerator (`toggleLeft` / `toggleRight` / `toggleStrip`, whose defaults
 are `Alt+Cmd+Arrow` on macOS and `Ctrl+Alt+Arrow` elsewhere), and all emit

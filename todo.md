@@ -189,7 +189,7 @@ Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 ### App: real-device checks for the View menu
 
 `view-menu-panes` (docs/plans/_archived/20260930-view-menu-panes/plan.md) cut the native
-`View` menu down to three `CheckMenuItem`s (`Left Pane`, `Right Pane`,
+`View` menu down to three `CheckMenuItem`s (`Folders`, `Metadata`,
 `Filmstrip`) whose checks follow the shown panes, with the pane toggles moved
 to modifier defaults (`Ctrl+Alt+Arrow` on Windows / Linux, `Alt+Cmd+Arrow` on
 macOS) so they show an accelerator. CI covers the build and the tests, but the
@@ -198,6 +198,10 @@ reading, and the Windows GUI checks (the menu, the checks, the accelerators)
 were never run: the step was ticked on the automated criteria only. Reverting
 muda's native toggle on click relies on muda toggling the check before it
 sends the event, which was confirmed only by reading its source.
+`view-pane-names` (docs/plans/_archived/20260930-view-pane-names/plan.md) then
+renamed the first two items from `Left Pane` / `Right Pane` to `Folders` /
+`Metadata` (ids, actions and stored keys unchanged); its Windows label check
+was likewise never run, and the first Windows TODO below covers it.
 
 Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
 `crates/app/src/commands.rs` (`set_panels`, `AppPanels`),
@@ -206,14 +210,14 @@ Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
 #### TODO
 
 - [ ] On Windows, run `mise run tauri:dev` and confirm at launch that `View`
-      shows `Left Pane`, `Right Pane`, `Filmstrip` with `Ctrl+Alt+ArrowLeft` /
+      shows `Folders`, `Metadata`, `Filmstrip` with `Ctrl+Alt+ArrowLeft` /
       `ArrowRight` / `ArrowDown` and checks matching the panes the last
       session left.
 - [ ] On Windows, press each of the three keys once: the pane toggles exactly
       once (no double fire) and the check follows. `Tab`, `f`, `z`, `v` still
       work and are not in `View`. `F6` / `F7` / `F8` now do nothing.
 - [ ] On Windows, click `View > Filmstrip` twice: hides, shows, check right
-      each time. Open Settings, click `View > Left Pane`: nothing changes and
+      each time. Open Settings, click `View > Folders`: nothing changes and
       the check stays.
 - [ ] On Windows, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it,
       `Ctrl+Alt+S` toggles once, and `Reset` restores `Ctrl+Alt+ArrowDown`.
@@ -228,7 +232,7 @@ Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
 - [ ] On macOS, press each of the three keys once: the pane toggles exactly
       once (no double fire from keydown plus the accelerator) and the check
       follows. Click `View > Filmstrip` twice: hides, shows, check right each
-      time. With Settings open, click `View > Left Pane`: nothing changes and
+      time. With Settings open, click `View > Folders`: nothing changes and
       the check stays.
 - [ ] On macOS, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it (the
       menu is rebuilt), the checks survive the rebuild, `Ctrl+Alt+S` toggles

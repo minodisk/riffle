@@ -124,8 +124,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   Lightroom does), so the viewer can take the whole height a landscape frame
   needs. The filmstrip's header bar goes with it, so the filter and sort
   menus and the `N / M` counter are hidden while the strip is. Which panels
-  are hidden is remembered across restarts. The `View` menu's `Left Pane`,
-  `Right Pane` and `Filmstrip` do the same, and their check marks show which
+  are hidden is remembered across restarts. The `View` menu's `Folders`,
+  `Metadata` and `Filmstrip` do the same, and their check marks show which
   panes are shown. Earlier versions used `F7`, `F8` and `F6`; bind them
   back per action in Settings if you prefer them (a binding you already
   saved keeps working).
@@ -469,8 +469,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
 | `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
 | `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move Rejected to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
-| `Alt+Cmd+ArrowLeft` / `Ctrl+Alt+ArrowLeft` | show / hide the left pane (also `View > Left Pane`, whose accelerator follows this key) |
-| `Alt+Cmd+ArrowRight` / `Ctrl+Alt+ArrowRight` | show / hide the right pane (also `View > Right Pane`, whose accelerator follows this key) |
+| `Alt+Cmd+ArrowLeft` / `Ctrl+Alt+ArrowLeft` | show / hide the folder tree (also `View > Folders`, whose accelerator follows this key) |
+| `Alt+Cmd+ArrowRight` / `Ctrl+Alt+ArrowRight` | show / hide the metadata pane (also `View > Metadata`, whose accelerator follows this key) |
 | `Alt+Cmd+ArrowDown` / `Ctrl+Alt+ArrowDown` | show / hide the filmstrip (also `View > Filmstrip`, whose accelerator follows this key) |
 | `Tab` | show / hide both side panes |
 
