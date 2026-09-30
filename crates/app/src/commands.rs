@@ -1291,8 +1291,9 @@ fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
     let _ = app.emit("faces-done", done);
 }
 
-/// The second pass of a scan: the AF eye's in-focus probability of every file of `dir` whose
-/// row is not yet at `FACES_VERSION`. Nothing runs, and nothing is reported,
+/// The second pass of a scan: the AF eye's in-focus probability and the
+/// sharpness score of every file of `dir` whose row is not yet at
+/// `FACES_VERSION`. Nothing runs, and nothing is reported,
 /// once `cancel` is set; the rows keep their old `faces_extractor`, so the
 /// next scan of the folder picks them up again.
 fn run_faces_pass<P>(
@@ -1336,9 +1337,10 @@ where
 /// pass had a file to do, or this scan has since been superseded), so the
 /// frontend's `scanRunning` flag always clears.
 ///
-/// The task runs two passes: `run_scan` (thumbnails, metadata, sharpness),
-/// ending in `scan-done`, then, unless canceled, `run_faces_scan` (the eye
-/// sharpness of the focus candidate cue) over what `faces_todo` lists,
+/// The task runs two passes: `run_scan` (thumbnails and metadata), ending in
+/// `scan-done`, then, unless canceled, `run_faces_scan` (the focus candidate
+/// cue's in-focus probability and the sharpness score) over what `faces_todo`
+/// lists,
 /// reporting `faces-progress` and ending in `faces-done`. Because both passes
 /// share the one `running` entry: `ScansState::scanning()` stays true through
 /// the second pass, so `clear_index` refuses and the settings modal shows

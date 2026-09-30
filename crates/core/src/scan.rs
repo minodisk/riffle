@@ -43,14 +43,12 @@ pub struct Entry {
     pub shot: Shot,
     /// Unrotated thumbnail JPEG; the caller carries the Orientation.
     pub thumbnail: Vec<u8>,
-    /// `sharpness::score_preview` of the preview; `None` when it could not be
-    /// scored, which does not fail the file, and always for a JPEG file.
-    pub sharpness: Option<f64>,
 }
 
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
-/// `path`, and every failure comes back as `Err` rather than a panic. A JPEG
-/// file gets no sharpness score and no face search.
+/// `path`, and every failure comes back as `Err` rather than a panic. The
+/// sharpness score and the face search are the analysis pass's
+/// (`extract_analysis`).
 pub fn extract(path: &Path) -> Result<Entry, String> {
     extract_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
 }
@@ -94,30 +92,10 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
     if canceled(cancel) {
         return None;
     }
-    if jpeg {
-        return Some(Ok(Entry {
-            orientation: arw.orientation,
-            shot: arw.shot,
-            thumbnail,
-            sharpness: None,
-        }));
-    }
-    let focus = trusted_focus(&arw.shot);
-    // Faces steer the score only without an AF point, so they are searched for
-    // on the whole image then and not at all otherwise.
-    let faces = match focus {
-        Some(_) => Vec::new(),
-        None => whole_image_faces(&preview, arw.orientation),
-    };
-    if canceled(cancel) {
-        return None;
-    }
-    let sharpness = score(&preview, &arw.shot, focus, &faces);
     Some(Ok(Entry {
         orientation: arw.orientation,
         shot: arw.shot,
         thumbnail,
-        sharpness,
     }))
 }
 
@@ -125,8 +103,8 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Analysis {
     pub cue: Cue,
-    /// `sharpness::score_preview` of the preview, the same score `extract`
-    /// gives; `None` when it could not be scored, and always for a JPEG file.
+    /// `sharpness::score_preview` of the preview; `None` when it could not be
+    /// scored, which does not fail the file, and always for a JPEG file.
     pub sharpness: Option<f64>,
 }
 
@@ -627,32 +605,6 @@ mod tests {
         assert_eq!(flat.state, FocusCandidate::Unknown);
         assert!(flat.detection.is_some_and(|d| d.point.is_some()));
         assert!(extract_analysis(&dir.join("missing.ARW")).is_err());
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn the_analysis_score_is_the_one_extract_gives() {
-        let dir = dir("same-score");
-        let (w, h) = (64, 48);
-        let rgb: Vec<u8> = (0..w * h)
-            .flat_map(|i| {
-                let v = ((i % w) * 37 + (i / w) * 91 % 256) as u8 ^ ((i * 13) as u8);
-                [v, v, v]
-            })
-            .collect();
-        let mut c = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
-        c.set_size(w, h);
-        c.set_quality(90.0);
-        let mut c = c.start_compress(Vec::new()).unwrap();
-        c.write_scanlines(&rgb).unwrap();
-        let textured = c.finish().unwrap();
-        for (name, body) in [("flat.ARW", jpeg(64, 48)), ("textured.ARW", textured)] {
-            let path = write(&dir, name, &fixture(1, &body));
-            let first = extract(&path).unwrap().sharpness;
-            let second = extract_analysis(&path).unwrap().sharpness;
-            assert!(first.is_some(), "{name}");
-            assert_eq!(first.map(f64::to_bits), second.map(f64::to_bits), "{name}");
-        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

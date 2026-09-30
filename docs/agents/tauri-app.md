@@ -900,23 +900,30 @@ retried.
 - Bump `EXTRACTOR_VERSION` (`crates/app/src/index.rs`) on any change to what
   `riffle_core::scan::extract` produces: ARW/DNG parsing or embedded JPEG tier
   selection (`crates/core/src/arw.rs`), which preview bytes are read
-  (`crates/core/src/reader.rs`), thumbnail generation (`crates/core/src/decode.rs`),
-  face detection or the sharpness score (`crates/core/src/scan.rs`,
-  `sharpness.rs`, `faces.rs`).
+  (`crates/core/src/reader.rs`), thumbnail generation (`crates/core/src/decode.rs`,
+  `crates/core/src/scan.rs`). The first pass computes the thumbnail and the
+  metadata only.
 - Bump `SCHEMA_VERSION` only when the table layout changes.
 - An extractor bump re-extracts every row, error rows included, on the next
   scan of each folder, and keeps `ratings`. Stale rows are deleted by
   `reconcile` right away, so the folder shows placeholders until its rescan
   fills them in.
-- The focus candidate cue has its own version, `FACES_VERSION`, stored as
+- The second pass has its own version, `FACES_VERSION`, stored as
   `files.faces_extractor`: bump it, not `EXTRACTOR_VERSION`, on a change to
-  what `riffle_core::scan::extract_analysis` produces as its cue (the in-focus probability's
-  coefficients or its threshold, the eye window, the detector:
-  `crates/core/src/candidate.rs`, `faces.rs`). Only the second pass then
-  re-runs; thumbnails are kept. A change to the column it fills
-  (`files.eye_focus`) is a `SCHEMA_VERSION` bump as well.
+  what `riffle_core::scan::extract_analysis` produces, the focus candidate cue
+  (the in-focus probability's coefficients or its threshold, the eye window,
+  the detector: `crates/core/src/candidate.rs`, `faces.rs`) or the sharpness
+  score (`sharpness::score_preview`, `crates/core/src/sharpness.rs`, or what
+  `extract_analysis` feeds it). Only the second pass then re-runs; thumbnails
+  are kept. The column and the constant keep their names although they now
+  cover the score too; a change to the columns it fills (`files.eye_focus`,
+  `files.sharpness`) is a `SCHEMA_VERSION` bump as well.
+- Moving the score from the first pass to the second bumped neither version:
+  the score's computation did not change, so a row the old first pass scored
+  (at `FACES_VERSION`) keeps a correct score, and a row the second pass has
+  not reached (`faces_extractor = 0`) gets the same score from it.
 - Source: `docs/plans/_archived/20260924-index-extractor-version/learnings.md`,
-  Step 1.
+  Step 1; `docs/plans/20260930-scan-priority/learnings.md`, Step 2.
 
 ### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
 
