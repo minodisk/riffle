@@ -669,26 +669,44 @@ pub fn restore_recorded(run: &TrashRun) -> Restored {
     )
 }
 
+/// Create the missing folders of `dir` (a folder renamed since the run no
+/// longer exists at its old path, and the Windows Recycle Bin does not
+/// recreate it) and return exactly the ones created, deepest first.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn create_missing(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let created: Vec<PathBuf> = dir
+        .ancestors()
+        .take_while(|d| !d.as_os_str().is_empty() && !d.exists())
+        .map(Path::to_path_buf)
+        .collect();
+    if !created.is_empty() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    Ok(created)
+}
+
+/// Remove the folders `created` (deepest first), each only while it is empty.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn remove_created(created: &[PathBuf]) {
+    for dir in created {
+        let _ = std::fs::remove_dir(dir);
+    }
+}
+
 /// Move a file the Trash put back at its original path `from` to `to`, where
 /// a folder rename since the run moved its folder (Windows / Linux, whose
-/// Trash only restores to the original path), then remove the folders the
-/// Trash recreated on the way to `from`, each only while it is empty. A
-/// failed move leaves the file at `from`.
+/// Trash only restores to the original path), then remove the folders
+/// `created` for the restore, each only while it is empty. A failed move
+/// leaves the file at `from`.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-pub fn relocate(from: &Path, to: &Path) -> Result<(), String> {
+pub fn relocate(from: &Path, to: &Path, created: &[PathBuf]) -> Result<(), String> {
     std::fs::rename(from, to).map_err(|e| {
         format!(
             "put back at {} but not moved into the renamed folder: {e}",
             from.display()
         )
     })?;
-    let mut dir = from.parent();
-    while let Some(parent) = dir {
-        if std::fs::remove_dir(parent).is_err() {
-            break;
-        }
-        dir = parent.parent();
-    }
+    remove_created(created);
     Ok(())
 }
 
@@ -769,9 +787,9 @@ pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes, collect, newest_by_path, nothing_to_trash, preview, redo, relocate, restore,
-        restore_recorded, run, trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun,
-        Trashed, ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+        bytes, collect, create_missing, newest_by_path, nothing_to_trash, preview, redo, relocate,
+        restore, restore_recorded, run, trash_key, Collection, FolderCount, Group, Restored, Runs,
+        TrashRun, Trashed, ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
     };
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
@@ -1282,7 +1300,14 @@ mod tests {
         std::fs::create_dir_all(from.parent().unwrap()).unwrap();
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         write(&from);
-        relocate(&from, &to).unwrap();
+        let created = create_missing(from.parent().unwrap()).unwrap();
+        assert!(created.is_empty());
+        relocate(
+            &from,
+            &to,
+            &[dir.join("shoot").join("sub"), dir.join("shoot")],
+        )
+        .unwrap();
         assert!(to.exists());
         assert!(!dir.join("shoot").exists());
         assert!(dir.exists());
@@ -1290,8 +1315,22 @@ mod tests {
         let from = dir.join("shoot").join("b.ARW");
         std::fs::create_dir_all(from.parent().unwrap()).unwrap();
         write(&from);
-        assert!(relocate(&from, &dir.join("gone").join("b.ARW")).is_err());
+        assert!(relocate(&from, &dir.join("gone").join("b.ARW"), &[]).is_err());
         assert!(from.exists());
+
+        // Only the folders the restore created go; a pre-existing empty one stays.
+        let _ = std::fs::remove_dir_all(dir.join("shoot"));
+        std::fs::create_dir_all(dir.join("shoot")).unwrap();
+        let created = create_missing(&dir.join("shoot").join("sub")).unwrap();
+        assert_eq!(created, [dir.join("shoot").join("sub")]);
+        let from = dir.join("shoot").join("sub").join("c.ARW");
+        write(&from);
+        let to = dir.join("day1").join("sub").join("c.ARW");
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        relocate(&from, &to, &created).unwrap();
+        assert!(to.exists());
+        assert!(dir.join("shoot").exists());
+        assert!(!dir.join("shoot").join("sub").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

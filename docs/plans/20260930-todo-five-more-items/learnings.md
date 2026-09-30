@@ -130,19 +130,21 @@
   with the destination, so the frontend's `restoredInto(openDir, …)` sees
   the files under the reopened (renamed) folder. `Restored::none` reports
   the destination too.
-- Non-macOS `restore_run`: after `restore_all` succeeds, a file with
-  `restore_to` goes through the new `trash::relocate(from, to)`: a
-  `fs::rename`, then `remove_dir` up the old path's ancestors while each is
-  empty (the plan said only the old parent; a recursive run over a
-  subfolder would otherwise leave the recreated old top folder behind, and
-  the walk always stops at the renamed folder's parent, which holds the
-  renamed folder). A failed move is that file's failure ("put back at …
+- Non-macOS `restore_run`: a file with `restore_to` first gets its missing
+  old ancestors created (`trash::create_missing`, returning exactly the
+  ones created): trash 5.2.9's Windows `restore_all` fails with "file not
+  found" when the original folder is gone (only the freedesktop backend
+  runs `create_dir_all`), verified with a probe (review Round 1). After
+  `restore_all` succeeds, `trash::relocate(from, to, created)` does a
+  `fs::rename`, then `remove_dir` on only the created folders, deepest
+  first, each while empty, so a pre-existing empty old-name folder is never
+  removed. A failed move is that file's failure ("put back at …
   but not moved into the renamed folder"), leaving it where the Trash put
   it; its sidecars then stay in the Trash by `restore`'s RAW-first rule.
   macOS `restore_recorded` renames straight to `destination()`.
 - A case-only rename on Windows (`x` → `X`) rebases too; `restore_all`
-  puts the file into the same folder, the second rename is a same-folder
-  no-op and `remove_dir` fails on the non-empty folder, so nothing is lost.
+  puts the file into the same folder, nothing is created, and the second
+  rename is a same-folder no-op, so nothing is lost.
 - `rename_folder` calls `Runs::rename_dir(&old, &new)` right after the
   index rewrite, under the same `Scans` lock, outside the `if let Some(index)`
   so the runs follow even with no index. The first scripted edit also hit
