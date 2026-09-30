@@ -198,6 +198,10 @@ reading, and the Windows GUI checks (the menu, the checks, the accelerators)
 were never run: the step was ticked on the automated criteria only. Reverting
 muda's native toggle on click relies on muda toggling the check before it
 sends the event, which was confirmed only by reading its source.
+`view-pane-names` (docs/plans/_archived/20260930-view-pane-names/plan.md) then
+renamed the first two items from `Left Pane` / `Right Pane` to `Folders` /
+`Metadata` (ids, actions and stored keys unchanged); its Windows label check
+was likewise never run, and the first Windows TODO below covers it.
 
 Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
 `crates/app/src/commands.rs` (`set_panels`, `AppPanels`),
