@@ -369,9 +369,9 @@ so `parse` trims them.
 
 ### Two MakerNote headers, note-relative offsets (Measured)
 
-Exif IFD 0x927c opens with `OLYMPUS ` + `II` / `MM` + a 2-byte version
+Exif IFD 0x927c opens with `OLYMPUS\0` + `II` / `MM` + a 2-byte version
 (IFD at note + 12; Olympus bodies write version `03 00`) or with
-`OM SYSTEM   ` + `II` / `MM` + version (IFD at note + 16; the OM Digital
+`OM SYSTEM\0\0\0` + `II` / `MM` + version (IFD at note + 16; the OM Digital
 Solutions bodies write `04 00`). There is no TIFF header in the note, and
 every offset in it (the sub-IFD pointers, `PreviewImageStart`) is relative to
 the **note start**, not the file's TIFF header (ExifTool's `Olympus.pm`
