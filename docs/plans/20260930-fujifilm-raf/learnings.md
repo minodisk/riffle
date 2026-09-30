@@ -210,8 +210,3 @@ reference here).
 - No M-RAW RAF among the raw.pixls.us samples of the target bodies (`0x48`
   zero on all 46); M-RAW parsing (the second header) stays unverified.
   Basis: Step 1 sample survey. Files: `crates/core/src/raf.rs`.
-- The `todo.md` section "Core: a RAF folder scan costs ~222ms per file" still
-  says no AF point is read; now that `FocusPixel` is read the face search is
-  skipped on AF frames, so its measurement TODO can be run and the section's
-  wording updated. Basis: Step 3 implementation. Files: `todo.md`,
-  `crates/core/src/scan.rs`, `crates/core/src/raf.rs`.
