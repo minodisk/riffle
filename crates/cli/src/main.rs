@@ -324,6 +324,7 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
     scan::extract_all(
         &paths,
         threads,
+        scan::Priority::Normal,
         |_, r| {
             let now = Instant::now();
             let ms = {

@@ -3,6 +3,7 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use rayon::prelude::*;
 
@@ -198,40 +199,131 @@ fn canceled(cancel: &AtomicBool) -> bool {
 /// panic rather than an `Err`, leaving an arbitrary subset of indices
 /// delivered. Callers that share state behind a mutex (as Step 4's Tauri
 /// command does) must keep `on_item` panic-free or wrap it themselves.
+///
+/// Each worker sets its own OS priority to `priority` once, as it starts. A
+/// worker that cannot runs at normal priority anyway; the first such error is
+/// returned as `Ok(Some(..))` once the scan ends, for the caller to log.
 pub fn extract_all<F>(
     paths: &[PathBuf],
     threads: usize,
+    priority: Priority,
     on_item: F,
     cancel: &AtomicBool,
-) -> Result<(), String>
+) -> Result<Option<String>, String>
 where
     F: Fn(usize, Result<Entry, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, extract_unless, on_item, cancel)
+    for_each_path(paths, threads, priority, extract_unless, on_item, cancel)
 }
 
 /// Run `extract_analysis` over `paths` the way `extract_all` runs `extract`:
-/// same pool, same `cancel`, same `threads == 0` error, and the same rule
-/// that `on_item` must not panic.
+/// same pool, same `cancel`, same `threads == 0` error, the same priority
+/// report, and the same rule that `on_item` must not panic.
 pub fn extract_analysis_all<F>(
     paths: &[PathBuf],
     threads: usize,
+    priority: Priority,
     on_item: F,
     cancel: &AtomicBool,
-) -> Result<(), String>
+) -> Result<Option<String>, String>
 where
     F: Fn(usize, Result<Analysis, String>) + Send + Sync,
 {
-    for_each_path(paths, threads, extract_analysis_unless, on_item, cancel)
+    for_each_path(
+        paths,
+        threads,
+        priority,
+        extract_analysis_unless,
+        on_item,
+        cancel,
+    )
+}
+
+/// The OS priority of a scan's worker threads. The app lowers both of its
+/// passes so the viewer's preview decode and the UI win the contended cores,
+/// the analysis pass below the thumbnails; the CLI benchmarks stay at
+/// `Normal` so their figures compare with `docs/performance.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Priority {
+    /// The OS default: the priority is left alone.
+    Normal,
+    /// Windows `THREAD_PRIORITY_BELOW_NORMAL`, macOS `QOS_CLASS_UTILITY`,
+    /// Linux nice 5.
+    BelowNormal,
+    /// Windows `THREAD_PRIORITY_LOWEST` (not `IDLE`, which can starve behind
+    /// any other process), macOS `QOS_CLASS_BACKGROUND`, Linux nice 10.
+    Lowest,
+}
+
+fn set_current_priority(priority: Priority) -> Result<(), String> {
+    match priority {
+        Priority::Normal => Ok(()),
+        Priority::BelowNormal => lower_current_priority(false),
+        Priority::Lowest => lower_current_priority(true),
+    }
+}
+
+#[cfg(windows)]
+fn lower_current_priority(lowest: bool) -> Result<(), String> {
+    use thread_priority::{set_current_thread_priority, ThreadPriority, WinAPIThreadPriority};
+    let level = if lowest {
+        WinAPIThreadPriority::Lowest
+    } else {
+        WinAPIThreadPriority::BelowNormal
+    };
+    set_current_thread_priority(ThreadPriority::Os(level.into())).map_err(|e| e.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn lower_current_priority(lowest: bool) -> Result<(), String> {
+    use libc::qos_class_t::{QOS_CLASS_BACKGROUND, QOS_CLASS_UTILITY};
+    let class = if lowest {
+        QOS_CLASS_BACKGROUND
+    } else {
+        QOS_CLASS_UTILITY
+    };
+    // SAFETY: sets the calling thread's own QoS class; no pointers involved.
+    match unsafe { libc::pthread_set_qos_class_self_np(class, 0) } {
+        0 => Ok(()),
+        e => Err(std::io::Error::from_raw_os_error(e).to_string()),
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn lower_current_priority(lowest: bool) -> Result<(), String> {
+    // A new thread inherits its creator's nice, so never move it below the
+    // level it already has: an absolute set could raise a process started
+    // under `nice`. (`-1` is also a valid nice, so an error reads as -1 and
+    // then only ever lowers the priority from there.)
+    // SAFETY: plain syscall. On Linux `PRIO_PROCESS` with id 0 names the
+    // calling thread alone, not the whole process.
+    let current = unsafe { libc::getpriority(libc::PRIO_PROCESS, 0) };
+    let nice = current.max(if lowest { 10 } else { 5 });
+    // SAFETY: as above.
+    match unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, nice) } {
+        0 => Ok(()),
+        _ => Err(std::io::Error::last_os_error().to_string()),
+    }
+}
+
+#[cfg(not(any(
+    windows,
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "android"
+)))]
+fn lower_current_priority(_lowest: bool) -> Result<(), String> {
+    Ok(())
 }
 
 fn for_each_path<T, E, F>(
     paths: &[PathBuf],
     threads: usize,
+    priority: Priority,
     per_file: E,
     on_item: F,
     cancel: &AtomicBool,
-) -> Result<(), String>
+) -> Result<Option<String>, String>
 where
     E: Fn(&Path, &AtomicBool) -> Option<Result<T, String>> + Send + Sync,
     F: Fn(usize, Result<T, String>) + Send + Sync,
@@ -239,10 +331,31 @@ where
     if threads == 0 {
         return Err("threads must be at least 1".to_string());
     }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let priority_error = Arc::new(OnceLock::new());
+    let pool = {
+        let priority_error = Arc::clone(&priority_error);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .spawn_handler(move |thread| {
+                let priority_error = Arc::clone(&priority_error);
+                let mut b = std::thread::Builder::new();
+                if let Some(name) = thread.name() {
+                    b = b.name(name.to_owned());
+                }
+                if let Some(size) = thread.stack_size() {
+                    b = b.stack_size(size);
+                }
+                b.spawn(move || {
+                    if let Err(e) = set_current_priority(priority) {
+                        let _ = priority_error.set(e);
+                    }
+                    thread.run()
+                })?;
+                Ok(())
+            })
+            .build()
+            .map_err(|e| e.to_string())?
+    };
     pool.install(|| {
         paths.par_iter().enumerate().for_each(|(i, path)| {
             if canceled(cancel) {
@@ -253,7 +366,7 @@ where
             }
         })
     });
-    Ok(())
+    Ok(priority_error.get().cloned())
 }
 
 #[cfg(test)]
@@ -317,22 +430,25 @@ mod tests {
             .map(|i| write(&dir, &format!("{i:02}.ARW"), &fixture(6, &jpeg)))
             .collect();
 
-        let seen = Mutex::new(Vec::new());
-        extract_all(
-            &paths,
-            4,
-            |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
-            &AtomicBool::new(false),
-        )
-        .unwrap();
+        for priority in [Priority::Normal, Priority::BelowNormal, Priority::Lowest] {
+            let seen = Mutex::new(Vec::new());
+            let report = extract_all(
+                &paths,
+                4,
+                priority,
+                |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
+                &AtomicBool::new(false),
+            );
+            assert_eq!(report, Ok(None), "{priority:?} is set on every worker");
 
-        let mut seen = seen.into_inner().unwrap();
-        seen.sort();
-        assert_eq!(
-            seen,
-            (0..16).map(|i| (i, 6u16)).collect::<Vec<_>>(),
-            "each index exactly once"
-        );
+            let mut seen = seen.into_inner().unwrap();
+            seen.sort();
+            assert_eq!(
+                seen,
+                (0..16).map(|i| (i, 6u16)).collect::<Vec<_>>(),
+                "each index exactly once at {priority:?}"
+            );
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -349,6 +465,7 @@ mod tests {
         extract_all(
             &paths,
             2,
+            Priority::BelowNormal,
             |_, _| {
                 let mut done = done.lock().unwrap();
                 *done += 1;
@@ -366,6 +483,63 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    #[cfg(windows)]
+    fn worker_level() -> i32 {
+        use thread_priority::{get_current_thread_priority, WinAPIThreadPriority};
+        WinAPIThreadPriority::try_from(get_current_thread_priority().unwrap()).unwrap() as i32
+    }
+
+    #[cfg(windows)]
+    fn expected_level(lowest: bool, _inherited: i32) -> i32 {
+        use thread_priority::WinAPIThreadPriority;
+        if lowest {
+            WinAPIThreadPriority::Lowest as i32
+        } else {
+            WinAPIThreadPriority::BelowNormal as i32
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn worker_level() -> i32 {
+        // SAFETY: plain syscall; on Linux it reads the calling thread's nice.
+        unsafe { libc::getpriority(libc::PRIO_PROCESS, 0) }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn expected_level(lowest: bool, inherited: i32) -> i32 {
+        inherited.max(if lowest { 10 } else { 5 })
+    }
+
+    #[cfg(any(windows, target_os = "linux"))]
+    #[test]
+    fn every_worker_runs_at_the_priority_it_was_given() {
+        let paths: Vec<PathBuf> = (0..32).map(|i| PathBuf::from(format!("{i}.ARW"))).collect();
+        let inherited = worker_level();
+        for (priority, lowest) in [(Priority::BelowNormal, false), (Priority::Lowest, true)] {
+            let levels = Mutex::new(Vec::new());
+            let report = for_each_path(
+                &paths,
+                4,
+                priority,
+                |_, _: &AtomicBool| {
+                    levels.lock().unwrap().push(worker_level());
+                    Some(Ok(()))
+                },
+                |_, _| {},
+                &AtomicBool::new(false),
+            );
+            assert_eq!(report, Ok(None));
+            let levels = levels.into_inner().unwrap();
+            assert_eq!(levels.len(), paths.len());
+            assert!(
+                levels
+                    .iter()
+                    .all(|l| *l == expected_level(lowest, inherited)),
+                "{priority:?}: {levels:?}"
+            );
+        }
+    }
+
     #[test]
     fn the_analysis_pass_delivers_every_index_once_and_stops_on_cancel() {
         let dir = dir("analysis-all");
@@ -378,6 +552,7 @@ mod tests {
         extract_analysis_all(
             &paths,
             4,
+            Priority::Lowest,
             |i, r| seen.lock().unwrap().push((i, r.unwrap().cue.state)),
             &AtomicBool::new(false),
         )
@@ -397,6 +572,7 @@ mod tests {
         extract_analysis_all(
             &paths,
             2,
+            Priority::Lowest,
             |_, _| {
                 let mut done = done.lock().unwrap();
                 *done += 1;
@@ -411,7 +587,14 @@ mod tests {
         assert!(done >= 4, "the files before the cancel are delivered");
         assert!(done < paths.len(), "the rest are not, got {done}");
 
-        assert!(extract_analysis_all(&paths, 0, |_, _| {}, &AtomicBool::new(false)).is_err());
+        assert!(extract_analysis_all(
+            &paths,
+            0,
+            Priority::Lowest,
+            |_, _| {},
+            &AtomicBool::new(false)
+        )
+        .is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -445,6 +628,7 @@ mod tests {
             for_each_path(
                 &paths,
                 2,
+                Priority::Normal,
                 |path, cancel: &AtomicBool| {
                     let started = Instant::now();
                     cancel.store(true, Ordering::Relaxed);
@@ -540,6 +724,7 @@ mod tests {
         extract_all(
             &paths,
             4,
+            Priority::Normal,
             |i, r| seen.lock().unwrap().push((i, r.unwrap().orientation)),
             &AtomicBool::new(false),
         )
@@ -621,6 +806,7 @@ mod tests {
         extract_all(
             &paths,
             4,
+            Priority::Normal,
             |i, r| {
                 if r.is_err() {
                     errors.lock().unwrap().push(i)

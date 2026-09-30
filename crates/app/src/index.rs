@@ -14,7 +14,7 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::candidate::{candidate, FocusCandidate};
-use riffle_core::scan::{extract_all, extract_analysis_all, Analysis, Entry};
+use riffle_core::scan::{extract_all, extract_analysis_all, Analysis, Entry, Priority};
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
 
@@ -1453,7 +1453,8 @@ pub type DirtyRow = (String, Option<i8>, Flag, Option<String>, bool);
 /// file and once more after the trailing flush. `ready` holds the paths whose
 /// rows a batch committed since the previous notification, so a path is
 /// reported only once the index can answer for it; a batch whose write failed
-/// is not reported at all.
+/// is not reported at all. Its workers run at `Priority::BelowNormal`, so the
+/// viewer's preview decode and the UI win the cores they contend for.
 ///
 /// Once `cancel` is set, files still in flight are abandoned at their next
 /// pipeline stage: they get no row, are not in `ready` and are not counted in
@@ -1535,8 +1536,10 @@ where
     };
 
     let started = Instant::now();
-    if let Err(e) = extract_all(&paths, threads, on_item, cancel) {
-        log::error!("scan of {dir} failed: {e}");
+    match extract_all(&paths, threads, Priority::BelowNormal, on_item, cancel) {
+        Ok(Some(e)) => log::warn!("scan of {dir} ran at normal priority: {e}"),
+        Ok(None) => {}
+        Err(e) => log::error!("scan of {dir} failed: {e}"),
     }
     flush(std::mem::take(&mut *lock(&pending)));
     let done_count = done.load(Ordering::Relaxed);
@@ -1568,7 +1571,8 @@ where
 /// retried until that version moves. A file abandoned mid-pipeline by
 /// `cancel` is neither written nor counted, the way `run_scan` treats it, so
 /// it keeps its old `faces_extractor`. The same no-panic rule as `run_scan`
-/// holds for `on_item`.
+/// holds for `on_item`. Its workers run at `Priority::Lowest`, below the
+/// first pass's.
 pub fn run_faces_scan<P>(
     index: &Mutex<Index>,
     dir: &str,
@@ -1651,8 +1655,10 @@ where
     };
 
     let started = Instant::now();
-    if let Err(e) = extract_analysis_all(&path_bufs, threads, on_item, cancel) {
-        log::error!("faces scan of {dir} failed: {e}");
+    match extract_analysis_all(&path_bufs, threads, Priority::Lowest, on_item, cancel) {
+        Ok(Some(e)) => log::warn!("faces scan of {dir} ran at normal priority: {e}"),
+        Ok(None) => {}
+        Err(e) => log::error!("faces scan of {dir} failed: {e}"),
     }
     flush(std::mem::take(&mut *lock(&pending)));
     let done_count = done.load(Ordering::Relaxed);
