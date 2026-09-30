@@ -114,7 +114,7 @@ parallel.
     - Keep the change to these three files plus the test and `todo.md`;
       no other caller of `relation` / `rebase` changes.
 
-- [ ] Step 3: Add `docs/agents/github-actions-workflows.md`
+- [x] Step 3: Add `docs/agents/github-actions-workflows.md`
   - Done when: the guide exists, follows the shape of the existing
     guides (title, a "Read this before touching `.github/workflows/*.yml`
     that uses `gh`, secrets, or a dedicated branch as a data store"
@@ -177,3 +177,4 @@ parallel.
 
 - (2026-10-01) Step 1 complete
 - (2026-10-01) Step 2 complete
+- (2026-10-01) Step 3 complete
