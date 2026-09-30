@@ -59,6 +59,7 @@ export interface FaceReady {
   path: string;
   eye_focus: number | null;
   candidate: MarkFocus["candidate"];
+  sharpness: number | null;
 }
 
 // Patch the focus of each ready file in `entries` in place, so the marks
@@ -82,6 +83,32 @@ export function applyFaceReady<T extends { focus: MarkFocus | null }>(
     }
   }
   return touched;
+}
+
+// Patch the sharpness score of each ready file into `scores` (set, or deleted
+// when the pass found none) and into its row in `entries`, if it has one. True
+// when any score changed, so the strip's bars are recomputed only then.
+export function applySharpnessReady<T extends { sharpness: number | null }>(
+  entries: Map<string, T>,
+  scores: Map<string, number>,
+  ready: FaceReady[],
+): boolean {
+  let changed = false;
+  for (const item of ready) {
+    if ((scores.get(item.path) ?? null) !== item.sharpness) {
+      changed = true;
+    }
+    if (item.sharpness === null) {
+      scores.delete(item.path);
+    } else {
+      scores.set(item.path, item.sharpness);
+    }
+    const entry = entries.get(item.path);
+    if (entry !== undefined) {
+      entry.sharpness = item.sharpness;
+    }
+  }
+  return changed;
 }
 
 // What the `faces_of` command returns: the faces found on one file's preview,

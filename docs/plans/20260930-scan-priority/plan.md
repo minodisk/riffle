@@ -177,7 +177,7 @@ bump); the `focus N / M` status text is Step 3's call.
       `crates/app/src/commands.rs` (doc comments; `run_faces_pass` is
       otherwise unchanged), `docs/agents/tauri-app.md`.
 
-- [ ] Step 3: Show the score as the second pass fills it in
+- [x] Step 3: Show the score as the second pass fills it in
   - Done when:
     - The `faces-progress` handler in `crates/app/ui/src/main.ts` patches
       each ready item's `sharpness` into the `sharpness` map (set when

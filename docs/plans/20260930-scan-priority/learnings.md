@@ -51,3 +51,37 @@
 - The frontend ignores `FaceReady.sharpness` until Step 3; until then the
   scores show at once when `faces-done` re-reads the entries
   (`refreshOnFacesDone`), not file by file.
+
+## Step 3: the score fills in as the second pass runs
+
+- The patching lives in a sibling of `applyFaceReady`,
+  `applySharpnessReady(entries, sharpness, ready)` in `focus.ts`, rather than
+  in `applyFaceReady` itself: `applyFaceReady` skips a row with no focus
+  point, but a no-AF file now gets a score from the pass too. It sets or
+  deletes the map entry (even for a path with no row), writes the row's
+  `sharpness`, and returns whether any score changed.
+- `relativeSharpness` over 5000 synthetic files (a throwaway vitest run,
+  capture-ordered, a mix of bursts and singles) took about 4 ms per call. At
+  `PROGRESS_INTERVAL` (100 ms) that is ~4% of the main thread while the pass
+  runs, so `applySharpness()` is called on every tick that changed a score,
+  not throttled or limited to the files in `files`. The real-folder figure is
+  still to be read from `refreshTimingLine`'s `sharpness` field.
+- The status text while the second pass runs changed from `focus N / M` to
+  `analyzing N / M` (a sibling of the first pass's `scanning N / M`, and the
+  meta pane's Analysis group holds both values the pass fills in). The focus
+  mark and Sharpness cue entries in `docs/usage.md` say so.
+
+## Deferred issues (todo candidates)
+
+- Pending manual check (Step 3, `crates/app/ui/src/main.ts` `faces-progress`
+  handler, `crates/app/ui/src/focus.ts` `applySharpnessReady`): on the desktop
+  app (any platform), clear the cache (settings modal, `Clear Cache`), open a
+  folder of a few hundred RAWs with bursts, and watch: the thumbnails appear
+  with no sharpness bars while the status shows `scanning N / M`, then the
+  bars (and the pick-colored best frame) fill in while it shows
+  `analyzing N / M`, and the meta pane's `Sharpness` row appears for the
+  current file once its score arrives. With the debug log on, a
+  `refresh entries` line's `sharpness` field on a large folder (~5000 files)
+  should stay a few milliseconds; if it is much larger, throttle
+  `applySharpness()` in the handler. The step's checkbox was ticked on the
+  automated criteria (unit tests and `mise run ci`).

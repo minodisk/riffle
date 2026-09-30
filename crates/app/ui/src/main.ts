@@ -30,6 +30,7 @@ import {
   type FaceReady,
   type Faces,
   applyFaceReady,
+  applySharpnessReady,
   faceMarks,
   focusMark,
 } from "./focus.js";
@@ -3093,8 +3094,9 @@ void window.__TAURI__.event.listen<{
   }
 });
 
-// The second pass: the focus candidate state of the files it has written,
-// patched into `entries` in place rather than re-read.
+// The second pass: the focus candidate state and the sharpness score of the
+// files it has written, patched into `entries` and `sharpness` in place rather
+// than re-read.
 void window.__TAURI__.event.listen<{
   dir: string;
   scan_id: number;
@@ -3105,8 +3107,11 @@ void window.__TAURI__.event.listen<{
   if (payload.scan_id !== scanId) {
     return;
   }
-  scanning = `focus ${payload.done} / ${payload.total}`;
+  scanning = `analyzing ${payload.done} / ${payload.total}`;
   const current = applyFaceReady(entries, payload.ready, files[index]);
+  if (applySharpnessReady(entries, sharpness, payload.ready)) {
+    applySharpness();
+  }
   applyCandidates();
   // The candidate filter fills in as the pass runs; the strip keeps its
   // scroll offset, as on a resync.
