@@ -162,4 +162,4 @@ JPEG, and the meta pane rows they already had.
 
 ## Progress
 
-- (none yet)
+- Step 1 done (2026-09-30): the `OLYMP\0` note is read with absolute offsets and an inline type 7 CameraSettings; the E-1 / E-300 / E-330 / E-400 / E-500 samples now give their preview; see learnings.md
