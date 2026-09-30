@@ -292,8 +292,14 @@ the first track (whose sample entry carries `HEVC` / `hvcC` instead of
 `JPEG`). The `PRVW` / `THMB` headers differ too (`PRVW`'s first u32 is 1,
 `THMB`'s version is 1). `parse` takes `PRVW` / `THMB` only when their data
 starts with a JPEG SOI (`FF D8`), and a track only with a `JPEG` sub-box, so
-such a file parses with no `preview` and no `full`, and the reader reports
-"no embedded preview". Every R8 sample and two of the four R5 Mark II samples
+such a file parses with no `preview` and no `full`. When a track's sample
+entry carries an `HEVC` sub-box and none carries `JPEG`, `parse` sets
+`Arw::hevc`, and `reader::read_preview` / `read_full` fail with
+`reader::HEVC_UNSUPPORTED` ("HDR PQ (HEIF) CR3: its HEVC preview is not
+supported yet") instead of "no embedded preview"; the metadata still parses,
+so `read_metadata` works. On the local R8 and R5 Mark II HDR PQ samples the
+first track's sub-boxes are `HEVC` and `free`, and the other two tracks
+carry `CMP1` / `CDI1`. Every R8 sample and two of the four R5 Mark II samples
 on raw.pixls.us are like this.
 
 ## RAF

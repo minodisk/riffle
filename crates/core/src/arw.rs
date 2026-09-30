@@ -222,6 +222,9 @@ pub struct Arw {
     pub full: Option<Embedded>,
     pub orientation: u16,
     pub shot: Shot,
+    /// The embedded images are HEVC (a CR3 shot with HDR PQ on), so `preview`
+    /// and `full` are `None`.
+    pub hevc: bool,
 }
 
 /// One IFD entry: (tag, value-or-offset, type, count).
@@ -654,6 +657,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         full,
         orientation,
         shot,
+        hevc: false,
     })
 }
 
