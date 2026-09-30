@@ -117,7 +117,7 @@ bump); the `focus N / M` status text is Step 3's call.
       `a_file_canceled_mid_pipeline_is_not_delivered` to the renamed driver.
     - Files: `crates/core/src/scan.rs`, `crates/cli/src/main.rs`.
 
-- [ ] Step 2: Move the score out of the first pass and into the second in
+- [x] Step 2: Move the score out of the first pass and into the second in
       the app's index and scan
   - Done when:
     - `Entry` has no `sharpness` field and `extract_unless` does neither

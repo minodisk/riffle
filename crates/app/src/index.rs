@@ -79,8 +79,9 @@ const SCHEMA_VERSION: i64 = 17;
 /// or embedded JPEG tier selection (`crates/core/src/arw.rs`, `nef.rs`,
 /// `cr3.rs`, `raf.rs`, `orf.rs`, the shared Exif fields in `exif.rs`), which preview
 /// bytes are read (`crates/core/src/reader.rs`), thumbnail generation
-/// (`crates/core/src/decode.rs`), face detection or the sharpness score
-/// (`crates/core/src/scan.rs`, `sharpness.rs`, `faces.rs`). A bump re-extracts
+/// (`crates/core/src/decode.rs`, `scan.rs`). The first pass owns the thumbnail
+/// and the metadata only; the sharpness score and the face search are the
+/// second pass's, under `FACES_VERSION`. A bump re-extracts
 /// every row, error rows included, on the next scan of each folder, and keeps
 /// `ratings`. It starts at `1` so rows from before the column existed (`0`)
 /// are stale; `2` fills in the AF frame size and the manual-focus flag; `3`
@@ -95,18 +96,25 @@ const SCHEMA_VERSION: i64 = 17;
 /// files; `8` names an HDR PQ (HEIF) CR3 in the error row; `9` reads the AF
 /// point of RAF files (Fujifilm `FocusPixel`); `10` decodes the HEVC `PRVW` /
 /// `THMB` of HDR PQ CR3 files; `11` reads the preview of the old `OLYMP\0`
-/// Olympus MakerNote.
+/// Olympus MakerNote. It stayed `11` when the sharpness score moved to the
+/// second pass: the score's computation did not change, so a row the first
+/// pass scored keeps a correct score.
 const EXTRACTOR_VERSION: i64 = 11;
 
-/// The version of the cue `riffle_core::scan::extract_analysis` produces, stored
-/// on every `files` row as `faces_extractor` next to `eye_focus`. Bump it
-/// on any change to the focus candidate cue's computation (the threshold, the
-/// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`); the
-/// second pass then re-runs on every row without redoing the first. `2`
+/// The version of what the second pass, `riffle_core::scan::extract_analysis`,
+/// produces, stored on every `files` row as `faces_extractor` next to
+/// `eye_focus` and `sharpness`: the focus candidate cue and the sharpness
+/// score. Bump it on any change to the cue's computation (the threshold, the
+/// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`) or to
+/// the score's (`sharpness::score_preview`, or what `extract_analysis` feeds
+/// it); the second pass then re-runs on every row without redoing the first. `2`
 /// re-runs pass 2 after `Cue::eye_focus` switched from the Laplacian
 /// variance to the combined in-focus probability, so `eye_sharpness` holds
 /// probabilities everywhere instead of a mix of old and new scales. `3`
-/// re-runs it after the probability moved to its own `eye_focus` column.
+/// re-runs it after the probability moved to its own `eye_focus` column. It
+/// stayed `3` when the score moved here from the first pass: a row whose score
+/// the first pass wrote keeps it, and one the second pass has not reached yet
+/// gets the same score from it.
 pub const FACES_VERSION: i64 = 3;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
@@ -286,6 +294,7 @@ pub struct FaceReady {
     pub eye_focus: Option<f64>,
     #[serde(serialize_with = "serialize_candidate")]
     pub candidate: FocusCandidate,
+    pub sharpness: Option<f64>,
 }
 
 /// The columns `indexed_file` reads, before the `WHERE` clause.
@@ -817,8 +826,8 @@ impl Index {
                              exposure_den, iso, focal_num, focal_den, sharpness, extractor,
                              frame_w, frame_h, manual_focus, eye_focus, faces_extractor)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25,
-                             ?26, ?27, ?28, NULL, 0)",
+                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, NULL, ?24,
+                             ?25, ?26, ?27, NULL, 0)",
                         params![
                             path,
                             dir,
@@ -843,7 +852,6 @@ impl Index {
                             shot.iso,
                             shot.focal_length.map(|r| r.num),
                             shot.focal_length.map(|r| r.den),
-                            entry.sharpness,
                             EXTRACTOR_VERSION,
                             shot.focus_frame.map(|f| f.width),
                             shot.focus_frame.map(|f| f.height),
@@ -877,16 +885,18 @@ impl Index {
     }
 
     /// The files of `dir` the second pass still has to run on, in file-name
-    /// order like `entries`. Rows that can only be unknown (a failed
-    /// extraction, no AF point, or manual focus, i.e. no
-    /// `sharpness::trusted_focus`) are marked done at `FACES_VERSION` with no
-    /// in-focus probability first, in the same transaction.
+    /// order like `entries`. Rows it has nothing to compute for (a failed
+    /// extraction, or a JPEG file, told by the extension as
+    /// `riffle_core::scan::is_jpeg_file` does; SQLite's `LIKE` ignores ASCII
+    /// case) are marked done at `FACES_VERSION` with no in-focus probability
+    /// and no score first, in the same transaction. A RAW without a trusted AF
+    /// point is listed: its cue is unknown but it still gets a score.
     pub fn faces_todo(&mut self, dir: &str) -> Result<Vec<String>, String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute(
-            "UPDATE files SET faces_extractor = ?2, eye_focus = NULL
+            "UPDATE files SET faces_extractor = ?2, eye_focus = NULL, sharpness = NULL
              WHERE dir = ?1 AND faces_extractor != ?2
-                 AND (error IS NOT NULL OR focus_w IS NULL OR manual_focus != 0)",
+                 AND (error IS NOT NULL OR path LIKE '%.jpg' OR path LIKE '%.jpeg')",
             params![dir, FACES_VERSION],
         )
         .map_err(|e| e.to_string())?;
@@ -905,14 +915,18 @@ impl Index {
         Ok(paths)
     }
 
-    /// Store the in-focus probability of each path, `None` for none, at
-    /// `FACES_VERSION`, in a single transaction.
-    pub fn write_faces(&mut self, rows: &[(String, Option<f64>)]) -> Result<(), String> {
+    /// Store the in-focus probability and the sharpness score of each path,
+    /// `None` for none, at `FACES_VERSION`, in a single transaction.
+    pub fn write_faces(
+        &mut self,
+        rows: &[(String, Option<f64>, Option<f64>)],
+    ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for (path, eye_focus) in rows {
+        for (path, eye_focus, sharpness) in rows {
             tx.execute(
-                "UPDATE files SET eye_focus = ?2, faces_extractor = ?3 WHERE path = ?1",
-                params![path, eye_focus, FACES_VERSION],
+                "UPDATE files SET eye_focus = ?2, sharpness = ?3, faces_extractor = ?4
+                 WHERE path = ?1",
+                params![path, eye_focus, sharpness, FACES_VERSION],
             )
             .map_err(|e| e.to_string())?;
         }
@@ -1432,8 +1446,9 @@ pub type ParsedSidecar = (String, Option<i8>, Flag, Option<String>, i64, i64, bo
 /// label_known)`.
 pub type DirtyRow = (String, Option<i8>, Flag, Option<String>, bool);
 
-/// Extract `files` and write them into `index` in batched transactions,
-/// reporting `(done, total, ready)` through `progress` at most every
+/// Extract `files` (the first pass: thumbnails and metadata; the sharpness
+/// score and the focus candidate cue are `run_faces_scan`'s) and write them
+/// into `index` in batched transactions, reporting `(done, total, ready)` through `progress` at most every
 /// `progress_interval` (`PROGRESS_INTERVAL` in the app), always on the first
 /// file and once more after the trailing flush. `ready` holds the paths whose
 /// rows a batch committed since the previous notification, so a path is
@@ -1542,12 +1557,14 @@ where
 }
 
 /// Run the second pass (`extract_analysis`) over `paths` and store each
-/// in-focus probability in `index`, the way `run_scan` runs the first:
+/// in-focus probability and sharpness score in `index`, the way `run_scan`
+/// runs the first:
 /// `BATCH`-sized transactions through `write_faces`, `progress(done, total,
 /// ready)` at most every `progress_interval`, always on the first file and once more after the
 /// trailing flush, where `ready` holds the files a batch committed since the
 /// previous notification. A file `extract_analysis` could not read counts as an
-/// error and is stored with no probability at `FACES_VERSION`, so it is not
+/// error and is stored with no probability and no score at `FACES_VERSION`, so
+/// it is not
 /// retried until that version moves. A file abandoned mid-pipeline by
 /// `cancel` is neither written nor counted, the way `run_scan` treats it, so
 /// it keeps its old `faces_extractor`. The same no-panic rule as `run_scan`
@@ -1566,19 +1583,19 @@ where
 {
     let total = paths.len();
     let path_bufs: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
-    let pending: Mutex<Vec<(String, Option<f64>, bool)>> = Mutex::new(Vec::new());
+    let pending: Mutex<Vec<(String, Analysis, bool)>> = Mutex::new(Vec::new());
     let done = AtomicUsize::new(0);
     let errors = AtomicUsize::new(0);
     let last = Mutex::new(None::<Instant>);
     let ready: Mutex<Vec<FaceReady>> = Mutex::new(Vec::new());
 
-    let flush = |batch: Vec<(String, Option<f64>, bool)>| {
+    let flush = |batch: Vec<(String, Analysis, bool)>| {
         if batch.is_empty() {
             return;
         }
-        let rows: Vec<(String, Option<f64>)> = batch
+        let rows: Vec<(String, Option<f64>, Option<f64>)> = batch
             .iter()
-            .map(|(path, eye_focus, _)| (path.clone(), *eye_focus))
+            .map(|(path, analysis, _)| (path.clone(), analysis.cue.eye_focus, analysis.sharpness))
             .collect();
         if let Err(e) = lock(index).write_faces(&rows) {
             log::error!("failed to write a faces batch for {dir}: {e}");
@@ -1587,24 +1604,28 @@ where
             errors.fetch_add(newly_failed, Ordering::Relaxed);
             return;
         }
-        lock(&ready).extend(rows.into_iter().map(|(path, eye_focus)| FaceReady {
-            path,
-            eye_focus,
-            candidate: candidate(eye_focus),
-        }));
+        lock(&ready).extend(
+            rows.into_iter()
+                .map(|(path, eye_focus, sharpness)| FaceReady {
+                    path,
+                    eye_focus,
+                    candidate: candidate(eye_focus),
+                    sharpness,
+                }),
+        );
     };
 
     let on_item = |i: usize, result: Result<Analysis, String>| {
-        let (eye_focus, ok) = match result {
-            Ok(analysis) => (analysis.cue.eye_focus, true),
+        let (analysis, ok) = match result {
+            Ok(analysis) => (analysis, true),
             Err(_) => {
                 errors.fetch_add(1, Ordering::Relaxed);
-                (None, false)
+                (Analysis::default(), false)
             }
         };
         let batch = {
             let mut pending = lock(&pending);
-            pending.push((paths[i].clone(), eye_focus, ok));
+            pending.push((paths[i].clone(), analysis, ok));
             if pending.len() >= BATCH {
                 std::mem::take(&mut *pending)
             } else {
@@ -1705,7 +1726,6 @@ pub(crate) mod tests {
                 ..Shot::default()
             },
             thumbnail: vec![0xff, 0xd8, 0xff, 0xd9],
-            sharpness: None,
         }
     }
 
@@ -1976,10 +1996,19 @@ pub(crate) mod tests {
         let a = file(&dir, "a.ARW", b"a");
         let b = file(&dir, "b.ARW", b"b");
         let mut index = open(&dir);
-        let mut scored = entry();
-        scored.sharpness = Some(123.5);
         index
-            .write_batch("d", &[(a, Ok(scored)), (b, Ok(entry()))])
+            .write_batch("d", &[(a.clone(), Ok(entry())), (b.clone(), Ok(entry()))])
+            .unwrap();
+        assert!(index
+            .entries("d")
+            .unwrap()
+            .iter()
+            .all(|e| e.sharpness.is_none()));
+        index
+            .write_faces(&[
+                (a.path.to_string_lossy().into_owned(), None, Some(123.5)),
+                (b.path.to_string_lossy().into_owned(), None, None),
+            ])
             .unwrap();
         let entries = index.entries("d").unwrap();
         assert_eq!(entries[0].sharpness, Some(123.5));
@@ -2230,16 +2259,25 @@ pub(crate) mod tests {
             )
             .unwrap();
         let a_path = a.path.to_string_lossy().into_owned();
+        let b_path = b.path.to_string_lossy().into_owned();
+        let c_path = c.path.to_string_lossy().into_owned();
 
         assert_eq!(
             index.faces_todo(&dir_name).unwrap(),
-            std::slice::from_ref(&a_path)
+            [a_path.clone(), b_path.clone(), c_path.clone()],
+            "a RAW without a trusted AF point is listed for its score"
         );
-        assert_eq!(faces_extractor(&index, &a.path), 0);
-        assert_eq!(faces_extractor(&index, &b.path), FACES_VERSION);
-        assert_eq!(faces_extractor(&index, &c.path), FACES_VERSION);
+        for file in [&a, &b, &c] {
+            assert_eq!(faces_extractor(&index, &file.path), 0);
+        }
 
-        index.write_faces(&[(a_path.clone(), Some(0.875))]).unwrap();
+        index
+            .write_faces(&[
+                (a_path.clone(), Some(0.875), None),
+                (b_path, None, Some(1.0)),
+                (c_path, None, Some(2.0)),
+            ])
+            .unwrap();
         let focus = index.entry(&a_path).unwrap().unwrap().focus.unwrap();
         assert_eq!(focus.eye_focus, Some(0.875));
         assert_eq!(focus.candidate, FocusCandidate::Candidate);
@@ -2254,7 +2292,9 @@ pub(crate) mod tests {
                 FocusCandidate::NotCandidate,
             ),
         ] {
-            index.write_faces(&[(a_path.clone(), Some(p))]).unwrap();
+            index
+                .write_faces(&[(a_path.clone(), Some(p), None)])
+                .unwrap();
             let focus = index.entry(&a_path).unwrap().unwrap().focus.unwrap();
             assert_eq!(focus.eye_focus, Some(p), "the probability round-trips");
             assert_eq!(focus.candidate, state);
@@ -2277,7 +2317,7 @@ pub(crate) mod tests {
             index.faces_todo(&dir_name).unwrap(),
             std::slice::from_ref(&a_path)
         );
-        index.write_faces(&[(a_path.clone(), None)]).unwrap();
+        index.write_faces(&[(a_path.clone(), None, None)]).unwrap();
         assert_eq!(faces_extractor(&index, &a.path), FACES_VERSION);
         assert!(index.faces_todo(&dir_name).unwrap().is_empty());
 
@@ -3428,6 +3468,18 @@ pub(crate) mod tests {
     fn the_faces_pass_writes_and_reports_every_path() {
         let dir = temp_dir("faces-scan");
         let (index, paths) = faces_fixture(&dir, BATCH * 2 + 3);
+        assert!(
+            lock(&index)
+                .entries("d")
+                .unwrap()
+                .iter()
+                .all(|e| e.sharpness.is_none()),
+            "the first pass does not score"
+        );
+        let score = riffle_core::scan::extract_analysis(Path::new(&paths[0]))
+            .unwrap()
+            .sharpness;
+        assert!(score.is_some());
 
         let reported = Mutex::new(Vec::new());
         let summary = run_faces_scan(
@@ -3449,6 +3501,7 @@ pub(crate) mod tests {
                 path: path.clone(),
                 eye_focus: None,
                 candidate: FocusCandidate::Unknown,
+                sharpness: score,
             })
             .collect();
         assert_eq!(reported, expected, "every path is reported once");
@@ -3456,6 +3509,51 @@ pub(crate) mod tests {
         for path in &paths {
             assert_eq!(faces_extractor(&index, Path::new(path)), FACES_VERSION);
         }
+        assert!(index
+            .entries("d")
+            .unwrap()
+            .iter()
+            .all(|e| e.sharpness == score));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_row_the_old_first_pass_scored_keeps_its_score_and_a_new_one_gets_it_from_the_faces_pass() {
+        let dir = temp_dir("faces-migrate");
+        let (index, paths) = faces_fixture(&dir, 2);
+        let (old, new) = (&paths[0], &paths[1]);
+        lock(&index)
+            .conn
+            .execute(
+                "UPDATE files SET sharpness = 42.0, faces_extractor = ?2 WHERE path = ?1",
+                params![old, FACES_VERSION],
+            )
+            .unwrap();
+
+        let todo = lock(&index).faces_todo("d").unwrap();
+        assert_eq!(todo, std::slice::from_ref(new));
+        run_faces_scan(
+            &index,
+            "d",
+            &todo,
+            2,
+            &AtomicBool::new(false),
+            PROGRESS_INTERVAL,
+            |_, _, _| {},
+        );
+
+        let index = lock(&index);
+        let score = |path: &str| index.entry(path).unwrap().unwrap().sharpness;
+        assert_eq!(score(old), Some(42.0), "the old row keeps its score");
+        assert_eq!(
+            score(new),
+            riffle_core::scan::extract_analysis(Path::new(new))
+                .unwrap()
+                .sharpness
+        );
+        assert!(score(new).is_some());
+        assert_eq!(faces_extractor(&index, Path::new(new)), FACES_VERSION);
 
         remove_temp_dir(&dir);
     }
