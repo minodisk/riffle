@@ -87,4 +87,4 @@ Removing them keeps `todo.md` an accurate list of open work.
 
 ## Progress
 
-- (none yet)
+- (2026-10-01) Step 1 complete
