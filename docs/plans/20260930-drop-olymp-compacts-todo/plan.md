@@ -77,7 +77,8 @@ Two things follow:
     - `README.md` and `README.ja.md`: the RAF paragraph ("Older X-series
       and FinePix bodies (... the FinePix S and HS lines, and others) also
       open ... at most 2176x1448") is re-read and changed only if it is no
-      longer true (the S1, 2014, keeps the S line listed). Any change to
+      longer true ("or smaller" no longer was, so it now says "1920x1280 to
+      2176x1448") (the S1, 2014, keeps the S line listed). Any change to
       `README.md` is mirrored in `README.ja.md`.
     - No file under `crates/` changes; `docs/agents/**`,
       `docs/raw-formats.md` and `docs/usage.md` are left as they are (they

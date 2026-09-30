@@ -41,9 +41,12 @@ still open). Checked against the sweep: no listed body falls under 1280 px
 in the sweep are Adobe DNG conversions (1024x683) or phones / drones, none
 of which is listed.
 
-### README paragraph left as is
+### README paragraph reworded
 
-The RAF paragraph of `README.md` / `README.ja.md` ("1920x1280 or smaller on
-most of them ... at most 2176x1448", "the FinePix S and HS lines") stays
-true after the delisting: 25 of the 40 older listed bodies are at 1920x1280,
-and the S1 (2014) keeps the S line listed.
+The RAF paragraph of `README.md` / `README.ja.md` said "1920x1280 or smaller
+on most of them". The "or smaller" part held only because of the bodies this
+PR delists (1600x1200, 1440x960, 1344x960, 1280x960). Every body still
+listed is 1920x1280, 2048x1536 or 2176x1448, so the paragraph now says
+"1920x1280 to 2176x1448 (1920x1280 and 2048x1536 are the common sizes)"
+(review round 1). The "FinePix S and HS lines" mention stays true: the S1
+(2014) keeps the S line listed.

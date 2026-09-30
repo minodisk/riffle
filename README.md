@@ -388,8 +388,8 @@ A RAF holds one embedded JPEG, 4416x2944 on the listed X bodies and
 view on RAF shows that JPEG at its own size, not the sensor's pixels. Older
 X-series and FinePix bodies (the X-T1 to X-T20, X-Pro1 and X-Pro2, X100S to
 X100F, X-E1 to X-E3, the X-A line, the FinePix S and HS lines, and others)
-also open, but their embedded JPEG is 1920x1280 or smaller on most of them (1920x1280
-and 2048x1536 are the common sizes) and at most 2176x1448, so their 1:1 view is limited to that small preview; see
+also open, but their embedded JPEG is 1920x1280 to 2176x1448 (1920x1280
+and 2048x1536 are the common sizes), so their 1:1 view is limited to that small preview; see
 [What the camera records](./docs/cameras.md) for the size per body.
 
 An ORF holds one embedded JPEG, 3200x2400 on every listed body, below the
