@@ -35,9 +35,8 @@
 
 ## Step 2
 
-- main was already at `EXTRACTOR_VERSION` 8 (the HDR PQ CR3 error message of
-  `20260930-heif-cr3-message`), so the bump went to `9`, not `8` as the plan
-  first said; the plan text was adjusted.
+- main was at `EXTRACTOR_VERSION` 8, then 9 (the RAF AF point landed first), so
+  the bump went to `10`; the plan text was adjusted.
 - The EOS R8 row in `docs/cameras.md` comes from `riffle-cli info` on
   `D:\photos\samples\CR3\R8.CR3` (the HDR PQ sample) and the five JPEG R8
   samples: every one has a `focus` point in a 6000x4000 frame and a
@@ -80,6 +79,6 @@
   correctly colored thumbnail and preview (tone-mapped from HDR PQ, not
   washed out or tinted), the meta pane's EXIF rows, and the strip's sharpness
   bar; if the folder was scanned before, the old error rows re-extract once
-  (`EXTRACTOR_VERSION` 9); pressing `z` shows a (soft) crop of the 1620x1080
+  (`EXTRACTOR_VERSION` 10); pressing `z` shows a (soft) crop of the 1620x1080
   preview with no error in the status line. If the colors look off, tune the
   tone map constants in `crates/core/src/hevc.rs`.
