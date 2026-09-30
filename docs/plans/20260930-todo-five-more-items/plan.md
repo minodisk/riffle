@@ -210,7 +210,7 @@ adjacent-line noise; resolve it by keeping both sides.
       back with the clicked folder still open; a folder that fails to
       list shows its error and the rest still expand.
 
-- [ ] Step 4: Ask for Lightroom's UI language in the first-launch dialog when XMP or Both is chosen
+- [x] Step 4: Ask for Lightroom's UI language in the first-launch dialog when XMP or Both is chosen
   - Done when: choosing `Lightroom (XMP)` or `Both` in `#format-dialog`
     reveals, inside the same dialog box, a second block (a one-line
     question, a `select.select` listing the `crates/core/i18n/` presets by
@@ -243,9 +243,12 @@ adjacent-line noise; resolve it by keeping both sides.
       beside `formatButtons`): a format click on XMP / Both stores it,
       un-hides the language block and focuses the select; a click on DxO
       keeps today's path. Order of the two invokes on `Continue`:
-      `choose_sidecar_format` first (it is what makes the dialog not come
-      back), then `set_label_names`; `set_label_names` emits
-      `sidecar-format`, which is harmless with no folder open. Consider
+      `set_label_names` first, then `choose_sidecar_format` (reversed in
+      review round 1: the format is the one key that keeps the dialog from
+      coming back, so it goes last and a failed names save leaves the dialog
+      to reappear); `set_label_names` emits `sidecar-format`, which is
+      harmless with no folder open. `Continue` does nothing while no preset
+      matches the select. Consider
       letting a second click on a format button while in phase two just
       change `chosenFormat` (no back button needed).
     - Tab trap: replace the fixed `formatButtons` cycling with a list
@@ -413,3 +416,4 @@ adjacent-line noise; resolve it by keeping both sides.
 - (2026-09-30) Step 1 complete
 - (2026-09-30) Step 2 complete
 - (2026-09-30) Step 3 complete
+- (2026-09-30) Step 4 complete

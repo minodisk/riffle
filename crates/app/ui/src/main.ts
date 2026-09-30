@@ -65,7 +65,8 @@ import {
 import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
 import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
 import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
-import { FormatGate } from "./firstrun.js";
+import { FormatGate, asksLanguage, defaultPreset } from "./firstrun.js";
+import type { LabelNames, LabelPreset } from "./labels.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { VIEW_ONLY_NOTE, isViewOnly, sortFor } from "./viewonly.js";
 import { initSettings } from "./settings.js";
@@ -177,6 +178,12 @@ const settings = initSettings({
   },
 });
 const formatButtons = [...formatDialog.querySelectorAll<HTMLButtonElement>("button[data-format]")];
+const formatLanguage = document.getElementById("format-language") as HTMLDivElement;
+const formatLanguageSelect = document.getElementById("format-language-select") as HTMLSelectElement;
+const formatContinue = document.getElementById("format-continue") as HTMLButtonElement;
+// Lightroom (XMP) or Both, chosen in the dialog and saved once its language is.
+let chosenFormat: string | null = null;
+let formatPresets: LabelPreset[] = [];
 
 // Closed until a sidecar format is saved; no folder opens before that.
 const formatGate = new FormatGate();
@@ -3405,36 +3412,78 @@ function setSortKey(key: SortKey): void {
 function showFormatDialog(): void {
   formatDialog.hidden = false;
   formatButtons[0].focus();
+  void window.__TAURI__.core
+    .invoke<{ names: LabelNames; presets: LabelPreset[] }>("label_names")
+    .then(({ presets }) => {
+      formatPresets = presets;
+      formatLanguageSelect.replaceChildren(
+        ...presets.map((preset) => new Option(preset.name, preset.code)),
+      );
+      formatLanguageSelect.value = defaultPreset(presets, navigator.language)?.code ?? "";
+    })
+    .catch((err: unknown) => {
+      formatError.textContent = String(err);
+      formatError.hidden = false;
+    });
+}
+
+// Saves the label names first when the format writes XMP, then the format: the
+// format is the one key that keeps the dialog from coming back, so it goes last
+// and a failed names save leaves the dialog to reappear. The dialog closes only
+// once both are saved.
+function saveFormat(format: string, names: LabelNames | null, refocus: HTMLElement): void {
+  const controls = [...formatButtons, formatLanguageSelect, formatContinue];
+  for (const control of controls) {
+    control.disabled = true;
+  }
+  formatError.hidden = true;
+  Promise.resolve(
+    names === null ? undefined : window.__TAURI__.core.invoke("set_label_names", { names }),
+  )
+    .then(() => window.__TAURI__.core.invoke("choose_sidecar_format", { format }))
+    .then(
+      () => {
+        formatDialog.hidden = true;
+        formatGate.open();
+      },
+      (err: unknown) => {
+        formatError.textContent = String(err);
+        formatError.hidden = false;
+      },
+    )
+    .finally(() => {
+      for (const control of controls) {
+        control.disabled = false;
+      }
+      if (!formatDialog.hidden) {
+        refocus.focus();
+      }
+    });
 }
 
 for (const button of formatButtons) {
   button.addEventListener("click", () => {
-    for (const b of formatButtons) {
-      b.disabled = true;
+    const format = button.dataset.format ?? "";
+    if (asksLanguage(format)) {
+      chosenFormat = format;
+      formatLanguage.hidden = false;
+      formatLanguageSelect.focus();
+      return;
     }
-    formatError.hidden = true;
-    window.__TAURI__.core
-      .invoke("choose_sidecar_format", { format: button.dataset.format })
-      .then(
-        () => {
-          formatDialog.hidden = true;
-          formatGate.open();
-        },
-        (err: unknown) => {
-          formatError.textContent = String(err);
-          formatError.hidden = false;
-        },
-      )
-      .finally(() => {
-        for (const b of formatButtons) {
-          b.disabled = false;
-        }
-        if (!formatDialog.hidden) {
-          button.focus();
-        }
-      });
+    saveFormat(format, null, button);
   });
 }
+
+formatContinue.addEventListener("click", () => {
+  if (chosenFormat === null) {
+    return;
+  }
+  const preset = formatPresets.find((p) => p.code === formatLanguageSelect.value);
+  if (preset === undefined) {
+    return;
+  }
+  saveFormat(chosenFormat, preset.names, formatContinue);
+});
 
 // Ask for the developing software while no sidecar format is saved. A failed
 // check lets folders open, as the backend does for a store it cannot open.
@@ -3529,16 +3578,18 @@ void Promise.allSettled([sortLoaded, keymapLoaded]).then(folders.loadRoots);
 window.addEventListener("keydown", (event) => {
   folders.cancelSlowClick();
   strip.cancelSlowClick();
-  // The dialog's buttons take Enter and Space natively, but Tab would move
-  // focus past them to controls behind the overlay (there is no `inert` on
-  // the `safari13` target), so trap it by cycling within `formatButtons`.
+  // The dialog's controls take Enter, Space and the arrows natively, but Tab
+  // would move focus past them to controls behind the overlay (there is no
+  // `inert` on the `safari13` target), so trap it by cycling within the
+  // dialog's visible controls (the language block shows only after XMP or Both).
   if (!formatDialog.hidden) {
     if (event.key === "Tab") {
       event.preventDefault();
-      const from = formatButtons.indexOf(document.activeElement as HTMLButtonElement);
-      const delta = event.shiftKey ? -1 : 1;
-      const next = (from + delta + formatButtons.length) % formatButtons.length;
-      formatButtons[next].focus();
+      const controls = [
+        ...formatDialog.querySelectorAll<HTMLButtonElement | HTMLSelectElement>("button, select"),
+      ].filter((control) => control.closest("[hidden]") === null);
+      const from = controls.indexOf(document.activeElement as HTMLButtonElement);
+      controls[cycleFocus(controls.length, from, event.shiftKey ? -1 : 1)]?.focus();
     }
     return;
   }
