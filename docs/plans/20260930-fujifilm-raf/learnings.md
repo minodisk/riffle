@@ -175,6 +175,3 @@ reference here).
 - No M-RAW RAF among the raw.pixls.us samples of the target bodies (`0x48`
   zero on all 46); M-RAW parsing (the second header) stays unverified.
   Basis: Step 1 sample survey. Files: `crates/core/src/raf.rs`.
-- `CLAUDE.md`'s opening line still reads "A culling app for Sony ARW, Canon
-  CR3, Nikon NEF and DNG files" without Fujifilm RAF (Step 2's Done-when did
-  not name it). Basis: Step 2 doc sweep. Files: `CLAUDE.md`.

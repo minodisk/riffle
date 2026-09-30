@@ -21,6 +21,7 @@ flowchart TB
     note["MakerNote<br/>AF point, focus mode, face tracking<br/><i>depends on the maker, the generation and the body</i>"]
     sensor["Sensor data<br/><i>not read by Riffle</i>"]
     file --> container
+    jpegs -->|RAF| exif
     container --> exif
     container --> jpegs
     container --> sensor
