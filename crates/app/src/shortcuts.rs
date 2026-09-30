@@ -23,14 +23,14 @@ const REDO_DEFAULT: &str = if MACOS {
     "ctrl+shift+z"
 };
 
-/// The default key of `toggleLeft`, the accelerator of `View > Left Pane`.
+/// The default key of `toggleLeft`, the accelerator of `View > Folders`.
 const TOGGLE_LEFT_DEFAULT: &str = if MACOS {
     "alt+meta+arrowleft"
 } else {
     "ctrl+alt+arrowleft"
 };
 
-/// The default key of `toggleRight`, the accelerator of `View > Right Pane`.
+/// The default key of `toggleRight`, the accelerator of `View > Metadata`.
 const TOGGLE_RIGHT_DEFAULT: &str = if MACOS {
     "alt+meta+arrowright"
 } else {

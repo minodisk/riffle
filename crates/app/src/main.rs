@@ -37,8 +37,8 @@ mod app_menu {
     /// emits `menu-action` with the action, which the frontend runs as its
     /// key; the check follows the stored panels (`apply_panels`).
     const VIEW_ITEMS: &[(&str, &str, &str)] = &[
-        ("toggle-left", "toggleLeft", "Left Pane"),
-        ("toggle-right", "toggleRight", "Right Pane"),
+        ("toggle-left", "toggleLeft", "Folders"),
+        ("toggle-right", "toggleRight", "Metadata"),
         ("toggle-strip", "toggleStrip", "Filmstrip"),
     ];
 
