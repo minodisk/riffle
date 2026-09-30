@@ -685,31 +685,6 @@ sample survey of `docs/plans/20260929-canon-nikon-raw/plan.md`. Files:
       decode of the full JPEG, and fold it into the SIGMA fp L thumbnail
       fix if that lands first.
 
-### Core: HDR PQ (HEIF) CR3 files cannot be opened
-
-CR3 files shot with HDR PQ on carry only HEVC images (`PRVW`, `THMB` and
-the first track), so `cr3::parse` finds no JPEG. It marks such a file
-`Arw::hevc`, and the reader errors `reader::HEVC_UNSUPPORTED` ("HDR PQ (HEIF)
-CR3: its HEVC preview is not supported yet"), which the strip's failed cell
-and the viewer show. Every EOS R8 sample and the full-frame EOS R5 Mark II
-samples on raw.pixls.us are like this, which is why the EOS R8 is not in the
-README list. Found in the Step 3 sample survey of
-`docs/plans/20260929-canon-nikon-raw/plan.md`; the clearer message came with
-`docs/plans/_archived/20260930-heif-cr3-message/plan.md`. Files:
-`crates/core/src/cr3.rs`, `crates/core/src/reader.rs`,
-`crates/core/src/decode.rs`, `crates/app/src/index.rs`.
-
-#### TODO
-
-- [x] Replace "no embedded preview" with a message that names the HDR PQ
-      (HEIF) CR3.
-- [ ] Decide whether to add an HEVC decoder (and its license and binary
-      size cost) to show HEIF CR3 previews.
-- [ ] Keep the EXIF of a file whose extraction failed: an error row stores
-      no metadata (`Entry` / `write_batch` in `crates/app/src/index.rs`),
-      so bursts, the filter menu and capture-time order do not see HDR PQ
-      CR3 files, although `read_metadata` parses them.
-
 ### Core: Nikon DX-crop and non-standard-crop AF point mapping is unverified
 
 `nef::parse`'s Nikon `AFInfo2` AF point is read as top-left coordinates in

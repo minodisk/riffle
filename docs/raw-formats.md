@@ -117,8 +117,9 @@ after it, and the
 full-size JPEG is the first track of the movie structure, next to the tracks
 holding the sensor data. With HDR PQ turned on, the camera writes HEIF: the
 `PRVW` preview, the thumbnail and that first track hold HEVC images instead of
-JPEGs. Riffle has no HEVC decoder, so it cannot show those previews yet; it
-says so for such a file instead of reporting a missing preview.
+JPEGs. Riffle decodes the HEVC preview and thumbnail and tone-maps them to
+sRGB; it does not decode the full-size HEVC image, so the 1:1 view of such a
+file shows a crop of the 1620x1080 preview.
 
 ### RAF: the Exif rides inside the embedded JPEG
 

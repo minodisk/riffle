@@ -29,6 +29,7 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 | Canon EOS R6 Mark II | ✓ | ✓ | – | ✓ |
 | Canon EOS R6 Mark III | ✓ | ✓ | – | ✓ |
 | Canon EOS R7 | ✓ | ✓ | – | ✓ |
+| Canon EOS R8 | ✓ | ✓ | – | ✓ |
 | Canon EOS R10 | ✓ | ✓ | – | ✓ |
 | Canon EOS R50 | ✓ | ✓ | – | ✓ |
 | Canon EOS R50 V | ✓ | ✓ | – | ✓ |

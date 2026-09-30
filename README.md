@@ -314,6 +314,7 @@ Discussions. If it does not, open an issue from the
   - [x] Canon EOS R6 Mark II
   - [x] Canon EOS R6 Mark III
   - [x] Canon EOS R7
+  - [x] Canon EOS R8
   - [x] Canon EOS R10
   - [x] Canon EOS R50
   - [x] Canon EOS R50 V
@@ -372,9 +373,11 @@ Discussions. If it does not, open an issue from the
   - [x] Fujifilm GFX 100
   - [x] Fujifilm GFX50S II
 
-CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview, so their preview
-cannot be shown yet: the strip and the viewer say so, while the meta pane
-still shows their EXIF rows.
+CR3 files shot with HDR PQ on (HEIF) hold HEVC images instead of JPEGs.
+Riffle decodes their 1620x1080 HEVC preview and tone-maps it to sRGB, so
+they get a thumbnail, a preview and a sharpness score like any other file.
+The full-size image is not decoded: the 1:1 view (`z`) on such a file shows
+a crop of that 1620x1080 preview, not the sensor's pixels.
 
 A RAF holds one embedded JPEG, 4416x2944 on the X bodies and 4000x3000 on
 the GFX bodies, below the sensor's resolution. The 1:1 view on RAF shows that
