@@ -177,6 +177,19 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
   - [x] Nikon Z 30
   - [x] Nikon D850
   - [x] Nikon D500
+- ORF
+  - [x] OM System OM-1
+  - [x] OM System OM-1 Mark II
+  - [x] OM System OM-3
+  - [x] OM System OM-5
+  - [x] OM System OM-5 Mark II
+  - [x] Olympus E-M1X
+  - [x] Olympus E-M1 Mark III
+  - [x] Olympus E-M1 Mark II
+  - [x] Olympus E-M5 Mark III
+  - [x] Olympus E-M10 Mark IV
+  - [x] Olympus PEN E-P7
+  - [x] Olympus PEN-F
 - RAF
   - [x] Fujifilm X-H2S
   - [x] Fujifilm X-H2
@@ -204,6 +217,8 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 HDR PQ（HEIF）で撮影した CR3 には JPEG のプレビューがなく、まだプレビューを表示できません。ストリップとビューアーにはその旨が表示され、メタペインには EXIF の行が表示されます。
 
 RAF に埋め込まれた JPEG は 1 枚だけで、X シリーズでは 4416x2944、GFX シリーズでは 4000x3000 と、センサーの解像度より小さいサイズです。RAF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。
+
+ORF に埋め込まれた JPEG は 1 枚だけで、リストのどの機種でも 3200x2400 と、センサーの解像度より小さいサイズです。ORF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。
 
 JPEG（`.jpg` / `.jpeg`）だけが入り、RAW ファイルを含まないフォルダーは閲覧専用で開きます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示し、スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
 

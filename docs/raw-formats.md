@@ -5,7 +5,7 @@ more JPEGs the camera rendered, the sensor data, and a maker-specific
 MakerNote. Each layer depends on something different: the container on the
 file format, Exif on nobody (it is shared), the JPEGs on the maker, and the
 MakerNote on the maker, the generation and often the body. This page explains
-those layers for the formats Riffle reads (ARW, DNG, NEF, CR3, RAF), which of them
+those layers for the formats Riffle reads (ARW, DNG, NEF, CR3, RAF, ORF), which of them
 each feature uses, and why the [Compatibility](../README.md#compatibility)
 list names bodies rather than formats. What each tested body records is in
 [What the camera records](./cameras.md).
@@ -15,7 +15,7 @@ list names bodies rather than formats. What each tested body records is in
 ```mermaid
 flowchart TB
     file["RAW file"]
-    container["Container<br/>TIFF (ARW, DNG, NEF), ISOBMFF (CR3)<br/>or a fixed header (RAF)<br/><i>depends on the format</i>"]
+    container["Container<br/>TIFF (ARW, DNG, NEF, ORF), ISOBMFF (CR3)<br/>or a fixed header (RAF)<br/><i>depends on the format</i>"]
     exif["Standard Exif<br/>Make, Model, Orientation, capture time,<br/>exposure, lens<br/><i>shared across makers</i>"]
     jpegs["Embedded JPEGs<br/>preview and full-size<br/><i>depends on the maker; sizes vary by body</i>"]
     note["MakerNote<br/>AF point, focus mode, face tracking<br/><i>depends on the maker, the generation and the body</i>"]
@@ -31,10 +31,10 @@ flowchart TB
 
 | Layer | Depends on | What varies |
 |---|---|---|
-| Container | The format | TIFF IFDs (little- or big-endian), ISOBMFF boxes, or the RAF header's fixed offsets |
+| Container | The format | TIFF IFDs (little- or big-endian, with a non-standard header on ORF), ISOBMFF boxes, or the RAF header's fixed offsets |
 | Standard Exif | Nothing: every maker writes the same tags | Whether a body records sub-second capture time |
 | Embedded JPEGs | The maker | Where the JPEGs sit, how many there are, and their sizes, which change by body |
-| MakerNote | The maker, the generation and the body | Its header, its offsets, which tags exist, and their layout per version. Exif IFD tag 0x927c on ARW, DNG and NEF, and in the embedded JPEG's Exif IFD on RAF; its own `CMT3` box on CR3 |
+| MakerNote | The maker, the generation and the body | Its header, its offsets, which tags exist, and their layout per version. Exif IFD tag 0x927c on ARW, DNG, NEF and ORF (where it also holds the preview JPEG), and in the embedded JPEG's Exif IFD on RAF; its own `CMT3` box on CR3 |
 
 ## What Riffle reads for each feature
 
@@ -74,16 +74,16 @@ without it, the focus mark is not drawn and sharpness falls back to the eyes
 of a detected face or the sharpest region (see
 [What the camera records](./cameras.md)).
 
-## How the five formats differ
+## How the six formats differ
 
-| | ARW (Sony) | DNG (Leica, SIGMA, ...) | NEF (Nikon) | CR3 (Canon) | RAF (Fujifilm) |
-|---|---|---|---|---|---|
-| Container | Little-endian TIFF | Little-endian TIFF | TIFF, little-endian on recent bodies, big-endian on older ones | ISOBMFF (the MP4 box structure) | A fixed `FUJIFILMCCD-RAW` header of offsets, then a JPEG and the sensor data |
-| Exif | IFD0 and the Exif IFD | IFD0 and the Exif IFD | IFD0 and the Exif IFD | Two TIFFs in boxes: `CMT1` (IFD0) and `CMT2` (the Exif IFD) | Inside the embedded JPEG (IFD0 and the Exif IFD) |
-| MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box | Exif IFD tag 0x927c of the embedded JPEG, with a `FUJIFILM` header and offsets relative to the note |
-| Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the X bodies, 4000x3000 on the GFX bodies) |
-| Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution |
-| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Not read |
+| | ARW (Sony) | DNG (Leica, SIGMA, ...) | NEF (Nikon) | CR3 (Canon) | RAF (Fujifilm) | ORF (OM System, Olympus) |
+|---|---|---|---|---|---|---|
+| Container | Little-endian TIFF | Little-endian TIFF | TIFF, little-endian on recent bodies, big-endian on older ones | ISOBMFF (the MP4 box structure) | A fixed `FUJIFILMCCD-RAW` header of offsets, then a JPEG and the sensor data | Little-endian TIFF with a non-standard `IIRO` header in place of the magic 42 |
+| Exif | IFD0 and the Exif IFD | IFD0 and the Exif IFD | IFD0 and the Exif IFD | Two TIFFs in boxes: `CMT1` (IFD0) and `CMT2` (the Exif IFD) | Inside the embedded JPEG (IFD0 and the Exif IFD) | IFD0 and the Exif IFD |
+| MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box | Exif IFD tag 0x927c of the embedded JPEG, with a `FUJIFILM` header and offsets relative to the note | Exif IFD tag 0x927c, with an `OLYMPUS` or `OM SYSTEM` header and offsets relative to the note |
+| Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the X bodies, 4000x3000 on the GFX bodies) | Inside the MakerNote, pointed at by its CameraSettings IFD (3200x2400) |
+| Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution | None: the preview serves as the 1:1 view |
+| AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Not read | Not read |
 
 ### ARW: no full-size JPEG on older bodies
 
@@ -133,6 +133,21 @@ the X bodies and 4000x3000 on the GFX bodies, below the sensor's resolution
 (for example 7728x5152 on the X-T5 or 11648x8736 on the GFX100 II), so the
 1:1 view on RAF shows that JPEG rather than the sensor's pixels.
 
+### ORF: the preview lives in the MakerNote
+
+An ORF is a TIFF whose header carries `IIRO` (`MMOR` or `IIRS` on some old
+bodies) instead of the magic 42, with Exif in IFD0 and the Exif IFD as usual.
+IFD0 points only at the sensor data; the one JPEG in the file sits inside the
+MakerNote, located by the `PreviewImageStart` and `PreviewImageLength` tags of
+its CameraSettings IFD. The note starts with an `OLYMPUS` header (Olympus
+bodies) or an `OM SYSTEM` header (OM System bodies), and every offset in it,
+the preview's included, counts from the start of the note rather than from
+the TIFF header. The note runs to about 1.5-1.8 MB because the preview is
+inside it, but its IFDs sit at its front, so the metadata is read from the
+first megabyte and the preview with one ranged read when it ends past that.
+The JPEG is 3200x2400 on every tested body, below the sensor's resolution, so
+it serves as both the preview and the 1:1 view.
+
 ## Why the MakerNote varies by body
 
 The MakerNote has no standard layout. Each maker defines its own, and changes
@@ -157,6 +172,11 @@ it between generations and even between bodies:
 - **Fujifilm**: a `FUJIFILM` header, then an IFD whose offsets count from the
   start of the note rather than from a TIFF header. It records the AF point as
   `FocusPixel`, even for manual-focus shots; Riffle does not read it yet.
+- **OM System / Olympus**: an `OLYMPUS` or `OM SYSTEM` header, then an IFD
+  whose offsets count from the start of the note, with its own byte order and
+  sub-IFDs (Equipment, CameraSettings, FocusInfo, ...). The AF point is in
+  CameraSettings, as `AFTargetInfo` on the OM bodies and `AFPointSelected`;
+  Riffle does not read it yet.
 
 The container and Exif are the same for every body of a format, but the
 embedded JPEG sizes and, above all, the MakerNote are not. A new body can move

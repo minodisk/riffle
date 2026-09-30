@@ -67,6 +67,18 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 | Fujifilm GFX100RF | – | – | – | ✓ |
 | Fujifilm GFX 100 | – | – | – | – |
 | Fujifilm GFX50S II | – | – | – | – |
+| OM System OM-1 | – | – | – | – |
+| OM System OM-1 Mark II | – | – | – | – |
+| OM System OM-3 | – | – | – | – |
+| OM System OM-5 | – | – | – | – |
+| OM System OM-5 Mark II | – | – | – | – |
+| Olympus E-M1X | – | – | – | – |
+| Olympus E-M1 Mark III | – | – | – | – |
+| Olympus E-M1 Mark II | – | – | – | – |
+| Olympus E-M5 Mark III | – | – | – | – |
+| Olympus E-M10 Mark IV | – | – | – | – |
+| Olympus PEN E-P7 | – | – | – | – |
+| Olympus PEN-F | – | – | – | – |
 
 On the Canon and Nikon bodies, Riffle reads the AF point from the MakerNote
 (`AFInfo2`); with several AF points in focus, the mark covers them all. The
@@ -77,6 +89,12 @@ D850 and D500 write an older `AFInfo2` that Riffle does not read.
 On the Fujifilm bodies, Riffle does not read the AF point yet: the MakerNote
 records it as `FocusPixel`, which is left for later. Sub-second capture time
 is marked as the samples recorded it.
+
+On the OM System and Olympus bodies, Riffle does not read the AF point yet:
+the MakerNote records it as `AFTargetInfo` (OM bodies) and `AFPointSelected`,
+which are left for later. None of the samples of these bodies records a
+sub-second capture time, so their bursts group by whole seconds; a burst at a
+high frame rate cannot be split within one second.
 
 The Sony α9 III and α7CR samples were all shot in manual focus, which Riffle
 treats as having no AF point, so those two are unconfirmed. On the Sony bodies

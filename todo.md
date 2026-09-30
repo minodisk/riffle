@@ -636,8 +636,12 @@ the index caches the result, and the strip's `thumbnail` command reads the
 cache. But 2/8 of 9520x6328 is about 2380x1582 (about 3.8 MP), more than
 ten times the pixels of the ~404x270 thumbnail of other bodies, so each
 strip cell costs more to decode and to ship over IPC. Each scan also
-decodes the ~60 MP JPEG (at 2/8 scale) once per file. Files:
-`crates/core/src/decode.rs` (`thumbnail_jpeg`), `crates/core/src/scan.rs`,
+decodes the ~60 MP JPEG (at 2/8 scale) once per file. OM System / Olympus
+ORFs have the same cost on a smaller scale: their only JPEG is 3200x2400, so
+the fixed 2/8 gives 800x600 thumbnails, about four times the pixels of the
+~404x270 ones (`crates/core/src/orf.rs`; decided in
+`docs/plans/_archived/20260930-olympus-orf/plan.md` to leave `scan.rs`
+alone for now). Files: `crates/core/src/decode.rs` (`thumbnail_jpeg`), `crates/core/src/scan.rs`,
 `crates/app/src/index.rs`, `crates/app/src/commands.rs` (`thumbnail`),
 `crates/core/src/arw.rs` (`PREVIEW_MIN_WIDTH`, tier selection).
 
@@ -747,7 +751,7 @@ often flat test scenes that are weak for AF-point checks; CC0 means a
 small file could be committed as a fixture, but tests prefer synthetic
 bytes as in `crates/core/src/arw.rs`) and review-site sample galleries
 (real scenes, good for AF checks, but not redistributable, so local
-verification only). Riffle reads ARW, DNG, NEF, CR3 and RAF today (README.md
+verification only). Riffle reads ARW, DNG, NEF, CR3, RAF and ORF today (README.md
 "RAW formats and cameras"). The work splits into tiers, cheapest first:
 
 1. More DNG-writing cameras (Pentax, Ricoh GR, other Leica bodies,
@@ -785,11 +789,18 @@ samples, as done for the Sigma BF `0x0147` in
       RAF bodies (`crates/core/src/raf.rs`); every sample writes it, off-center
       landscape and portrait samples exist, and it looks to be in the embedded
       JPEG's frame (see the survey in
-      `docs/plans/_archived/20260930-fujifilm-raf/learnings.md`).
+      `docs/plans/_archived/20260930-fujifilm-raf/learnings.md`). Then the
+      OM System / Olympus ORF bodies (`crates/core/src/orf.rs`): CameraSettings
+      0x030a `AFTargetInfo` on the OM bodies (a 640x480 frame with the focus
+      and selected areas) and 0x0305 `AFPointSelected` (percentages) on the
+      Olympus bodies. Every raw.pixls.us sample puts the point near the
+      center, so the origin and orientation of the frame are unconfirmed; an
+      off-center landscape and a portrait sample are needed (see the Step 2
+      survey in `docs/plans/_archived/20260930-olympus-orf/learnings.md`).
 - [ ] Tier 3: decide per container whether a new parser is worth it,
-      given the samples available. CR3, NEF and RAF are done
+      given the samples available. CR3, NEF, RAF and ORF are done
       (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`,
-      `crates/core/src/raf.rs`); the rest remain.
+      `crates/core/src/raf.rs`, `crates/core/src/orf.rs`); the rest remain.
 - [ ] Check the Sigma BF AF point's open assumptions against public BF
       samples: portrait orientation, manual-focus behavior, and the
       1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in
