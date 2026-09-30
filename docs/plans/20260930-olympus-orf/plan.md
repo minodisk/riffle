@@ -197,7 +197,7 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
     - The RAF session edits `parse_raw` and `is_raw_file` too; expect a
       trivial rebase.
 
-- [ ] Step 3: App strings, CLI text, docs and the compatibility lists
+- [x] Step 3: App strings, CLI text, docs and the compatibility lists
   - Done when:
     - The CLI bench error in `crates/cli/src/main.rs` names `.ORF`
       (`crates/app/ui/src/empty.ts` `NO_FILES_TEXT` already says "RAW or

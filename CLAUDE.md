@@ -1,11 +1,11 @@
 # Riffle
 
-A culling app for Sony ARW, Canon CR3, Nikon NEF, Fujifilm RAF and DNG files. See [README.md](./README.md)
+A culling app for Sony ARW, Canon CR3, Nikon NEF, Fujifilm RAF, OM System / Olympus ORF and DNG files. See [README.md](./README.md)
 for what it is and the current status.
 
 ## Layout
 
-A Cargo workspace: `crates/core` (ARW, DNG, NEF, CR3 and RAF parsing and JPEG decoding, `riffle-core`,
+A Cargo workspace: `crates/core` (ARW, DNG, NEF, CR3, RAF and ORF parsing and JPEG decoding, `riffle-core`,
 whose `src/xmp.rs` parses and patches XMP sidecar bytes (`xmp:Rating`, the
 tri-state pick / reject flag as `xmpDM:good`, and the color label as
 `photoshop:LabelColor` and `xmp:Label`) and `src/dop.rs` DxO PhotoLab `.dop`

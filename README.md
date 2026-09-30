@@ -332,6 +332,19 @@ Discussions. If it does not, open an issue from the
   - [x] Nikon Z 30
   - [x] Nikon D850
   - [x] Nikon D500
+- ORF
+  - [x] OM System OM-1
+  - [x] OM System OM-1 Mark II
+  - [x] OM System OM-3
+  - [x] OM System OM-5
+  - [x] OM System OM-5 Mark II
+  - [x] Olympus E-M1X
+  - [x] Olympus E-M1 Mark III
+  - [x] Olympus E-M1 Mark II
+  - [x] Olympus E-M5 Mark III
+  - [x] Olympus E-M10 Mark IV
+  - [x] Olympus PEN E-P7
+  - [x] Olympus PEN-F
 - RAF
   - [x] Fujifilm X-H2S
   - [x] Fujifilm X-H2
@@ -363,6 +376,10 @@ still shows their EXIF rows.
 A RAF holds one embedded JPEG, 4416x2944 on the X bodies and 4000x3000 on
 the GFX bodies, below the sensor's resolution. The 1:1 view on RAF shows that
 JPEG at its own size, not the sensor's pixels.
+
+An ORF holds one embedded JPEG, 3200x2400 on every listed body, below the
+sensor's resolution. The 1:1 view on ORF shows that JPEG at its own size, not
+the sensor's pixels.
 
 A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no RAW file opens
 view-only: thumbnails, the preview and the EXIF rows, in capture-time order,

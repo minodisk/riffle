@@ -72,3 +72,28 @@
   work, but `curl ... | head -c 4096` reads a header cheaply.
 - Old bodies: the SP-350 and the C5050Z write magic `RS` (accepted); no
   old-style (type 7) sub-IFD was met, so it is not supported.
+
+## Step 3
+
+- Listed the 12 candidate bodies (OM-1, OM-1 Mark II, OM-3, OM-5,
+  OM-5 Mark II, E-M1X, E-M1 Mark III, E-M1 Mark II, E-M5 Mark III,
+  E-M10 Mark IV, PEN E-P7, PEN-F) in `README.md`, `README.ja.md` and
+  `docs/cameras.md`. The XZ-10 (a 2013 compact) and the E-30 (a 2008 DSLR)
+  also opened on whole samples, but they were fetched only as portrait
+  stand-ins, are outside the candidate list the plan scoped, and nobody
+  culling bird or sports shots is likely to bring them, so they stay
+  unlisted; adding them later needs no code change. The other files in
+  `D:\photos\samples\ORF\` downloaded after the Step 2 survey (TG-6 / TG-7,
+  E-M5 Mark II, the high-res composites, extra OM-1 frames) were not part of
+  the survey table and were not used for the lists.
+- The plan's "How the four formats differ" was already "five" after the RAF
+  merge; it is now "six", with the ORF column last. The performance table
+  kept its NEF / CR3 section and gained an ORF column, since the RAF section
+  had become its own; the ORF preview decode figure comes from a fresh
+  `riffle-cli bench` over the 12 listed samples (mean 42.1 ms, max 48.9 ms),
+  which is lower than the per-file figures of the Step 2 table (41-72 ms,
+  taken one file at a time).
+- `CLAUDE.md`'s opening line and the Layout paragraph's format list named
+  RAF but not ORF; both now name ORF too.
+- `todo.md` references point at `docs/plans/_archived/20260930-olympus-orf/`,
+  where the wrap-up moves this plan.
