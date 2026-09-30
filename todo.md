@@ -1308,3 +1308,18 @@ the two local samples), but the GUI itself was never exercised. See
       to the file; (5) if either file was scanned before the
       `EXTRACTOR_VERSION` bump to 8, it re-extracts once and picks up the
       new text.
+
+### App: real-device checks for the flex / grid gap layout (no-margin-layout) are still open
+
+#### Background
+
+The `no-margin-layout` feature replaced every layout `margin` in `crates/app/ui/style.css` with flex / grid `gap` and padding, added a reset block, wrapped the meta pane's groups in `div.group` and the shortcut chips in `div.keys`, and made `.folder` a three-column grid. CI, the greps and the unit tests cover the code. Nobody has looked at the result on a real machine: the Step 1 checkbox was ticked on the automated criteria only, so the Windows pass and the macOS / Linux passes were never run. The `div.keys` wrapper (instead of `display: flex` on the `td`) was chosen by reasoning, and the settings-panel spacing before / after values in that feature's `learnings.md` are Inferred from the stylesheet, not measured. The plan is `docs/plans/_archived/20260930-no-margin-layout/plan.md`; the layout rules are in `docs/agents/ui-styling.md`.
+
+Files: `crates/app/ui/style.css`, `crates/app/ui/src/main.ts`, `crates/app/ui/src/settings.ts`, `docs/agents/ui-styling.md`.
+
+#### TODO
+
+- [ ] On Windows (`mise run tauri:dev`), measure in devtools the settings spacing on a pre-change build first (the old `p`-to-`p` and label-to-`#label-names` distances), then on the current `main`, and record it. Expect an even 8px rhythm in the settings panels. Then walk the pass. Dialogs: the first-run format dialog (clear `sidecarFormat` or use a fresh profile; the error line under the note when a write fails), `Move Rejected to Trash…` on a folder with rejects and one without (rows, the empty note, the failed list, the total, the button row), and `Sequence JPEG Timestamps…` on a JPEG folder (source / output lines, rebuild note, rows, count, the running note during a run), all spaced as before. Settings: Sidecar with XMP and `.dop` so `#label-names` shows and hides; Culling; Keyboard Shortcuts with a chip removed and a key captured on a row with enough keys to wrap (chips, the `Press a key...` prompt and `+` vertically centered against the label and Reset cells, 0.2rem / 0.3rem gaps, a one-line row keeping its height, which validates the `div.keys` choice); Cache with the clear note visible during a scan; MCP with the endpoint and both example blocks. Strip bar: the `N / M` counter at the right edge and the toggles at the left, also with `· K selected`; the filter / sort / context menus open and their separators still bleed edge to edge. Folder tree: a long name ellipsizing before its badge, the badge at the right edge, the open folder bold, a collapsed folder without a badge, an inline rename filling the name column without the row jumping, the keyboard cursor ring. Meta pane: the EXIF / Maker note / Analysis headings 0.75rem below the previous block and 0.125rem above their lists; the status notes (scan progress, `1:1`, Compare, an error with its `×`) unchanged. Empty states: no folder, no files, filtered out.
+- [ ] On macOS (WKWebView), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: Safari 14.1 / macOS 11).
+- [ ] On Linux (WebKitGTK), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: WebKitGTK 2.32).
+- [ ] On macOS and Linux, confirm that Settings > Sidecar's `#label-names > label` rows (`grid-template-columns: subgrid`, Chromium 117+ / Safari 16+, see the subgrid bullet in `docs/agents/ui-styling.md` "CSS features") still line up; if not, replace the subgrid with explicit columns.

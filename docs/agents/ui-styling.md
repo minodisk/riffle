@@ -169,6 +169,12 @@ WebView2 (Windows), WKWebView (macOS) and WebKitGTK (Linux).
   at `safari13`), CSS nesting, `:has()`, `@layer`, anchor positioning and
   `appearance: base-select` (Chromium-only). A hover shade is a second
   solid hex, not `color-mix()`.
+- `grid-template-columns: subgrid` (Chromium 117+, Safari 16+) is beyond
+  both build targets and the Safari 14.1 / WebKitGTK 2.32 floor above. Its
+  only use is `#label-names > label` in `style.css`, and where it is
+  unsupported the row's columns do not line up with the parent grid. Do not
+  add another; when touching that rule, check it on macOS / Linux or replace
+  it with explicit columns (Inferred).
 
 ## Exceptions
 
