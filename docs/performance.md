@@ -55,6 +55,31 @@ A preview past the prefix costs one ranged read, not a whole-file read. The
 full-size JPEG is always a ranged read; on CR3 it sits at the start of `mdat`.
 The thumbnails come out ~405x270 as on ARW.
 
+## Fujifilm RAF (raw.pixls.us samples, Windows)
+
+Measured with `riffle-cli bench` / `scan` on 46 raw.pixls.us samples of the
+22 Fujifilm bodies listed in [Compatibility](../README.md#compatibility) (a
+compressed and an uncompressed sample per body, plus two crop-mode samples).
+
+| | RAF |
+|---|---|
+| Preview (= full-size JPEG) | 4416x2944 on the X bodies, 4000x3000 on the GFX bodies; 1.27-5.51MiB |
+| Preview decode | 48-147ms (mean 90.6ms, p95 120.7ms) |
+| Metadata within the 1MiB prefix | every body (the JPEG's Exif ends by ~66KB) |
+| Preview within the 1MiB prefix | none: every preview or 1:1 open is one ranged read (1-4ms warm) |
+| `scan`, 1 thread | 221.8ms per file mean, 290.2ms p95 (5 files/s) |
+| `scan`, 24 threads | 36 files/s |
+
+A RAF carries one JPEG, so the preview and the 1:1 view decode the same
+image. Since it is far larger than the ~1620x1080 previews of the other
+formats, the RAF thumbnail is decoded with `thumbnail_jpeg_near` towards
+`JPEG_THUMBNAIL_LONG_EDGE` as for plain JPEG files, instead of the fixed 2/8
+scale: the thumbnails come out 404 px on the long edge (19.4KB mean, against
+1104x736 and ~111KB at 2/8), and the thumbnail encode drops from 37-107ms to
+16-60ms per file. The per-file scan cost stays high because the sharpness
+score decodes the whole JPEG and, with no AF point read, faces are searched on
+the whole image.
+
 ## Per-page preview read
 
 The per-page cost on the Rust side only, on an Apple Silicon Mac.

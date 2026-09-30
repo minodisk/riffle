@@ -177,8 +177,33 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
   - [x] Nikon Z 30
   - [x] Nikon D850
   - [x] Nikon D500
+- RAF
+  - [x] Fujifilm X-H2S
+  - [x] Fujifilm X-H2
+  - [x] Fujifilm X-T5
+  - [x] Fujifilm X-T50
+  - [x] Fujifilm X-T4
+  - [x] Fujifilm X-T3
+  - [x] Fujifilm X-T30 III
+  - [x] Fujifilm X-T30 II
+  - [x] Fujifilm X-S20
+  - [x] Fujifilm X-S10
+  - [x] Fujifilm X-M5
+  - [x] Fujifilm X-E5
+  - [x] Fujifilm X-E4
+  - [x] Fujifilm X-Pro3
+  - [x] Fujifilm X100VI
+  - [x] Fujifilm X100V
+  - [x] Fujifilm GFX100 II
+  - [x] Fujifilm GFX100S II
+  - [x] Fujifilm GFX100S
+  - [x] Fujifilm GFX100RF
+  - [x] Fujifilm GFX 100
+  - [x] Fujifilm GFX50S II
 
 HDR PQ（HEIF）で撮影した CR3 には JPEG のプレビューがなく、まだ開けません。
+
+RAF に埋め込まれた JPEG は 1 枚だけで、X シリーズでは 4416x2944、GFX シリーズでは 4000x3000 と、センサーの解像度より小さいサイズです。RAF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。
 
 JPEG（`.jpg` / `.jpeg`）だけが入り、RAW ファイルを含まないフォルダーは閲覧専用で開きます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示し、スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
 

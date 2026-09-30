@@ -332,9 +332,36 @@ Discussions. If it does not, open an issue from the
   - [x] Nikon Z 30
   - [x] Nikon D850
   - [x] Nikon D500
+- RAF
+  - [x] Fujifilm X-H2S
+  - [x] Fujifilm X-H2
+  - [x] Fujifilm X-T5
+  - [x] Fujifilm X-T50
+  - [x] Fujifilm X-T4
+  - [x] Fujifilm X-T3
+  - [x] Fujifilm X-T30 III
+  - [x] Fujifilm X-T30 II
+  - [x] Fujifilm X-S20
+  - [x] Fujifilm X-S10
+  - [x] Fujifilm X-M5
+  - [x] Fujifilm X-E5
+  - [x] Fujifilm X-E4
+  - [x] Fujifilm X-Pro3
+  - [x] Fujifilm X100VI
+  - [x] Fujifilm X100V
+  - [x] Fujifilm GFX100 II
+  - [x] Fujifilm GFX100S II
+  - [x] Fujifilm GFX100S
+  - [x] Fujifilm GFX100RF
+  - [x] Fujifilm GFX 100
+  - [x] Fujifilm GFX50S II
 
 CR3 files shot with HDR PQ on (HEIF) hold no JPEG preview and cannot be
 opened yet.
+
+A RAF holds one embedded JPEG, 4416x2944 on the X bodies and 4000x3000 on
+the GFX bodies, below the sensor's resolution. The 1:1 view on RAF shows that
+JPEG at its own size, not the sensor's pixels.
 
 A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no RAW file opens
 view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
