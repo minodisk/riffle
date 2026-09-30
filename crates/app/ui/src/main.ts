@@ -149,6 +149,7 @@ interface IndexedFile {
   has_sidecar: boolean;
   sharpness: number | null;
   exif: Exif | null;
+  error: string | null;
 }
 
 interface DecodeResponse {
@@ -1264,6 +1265,7 @@ function refilter(
   applySharpness();
   applyBursts();
   applyCandidates();
+  applyFailures();
   if (files.length === 0) {
     closeContextMenu();
     index = 0;
@@ -1652,6 +1654,13 @@ function applyCandidates(): void {
   });
 }
 
+// Hand the strip why the scan failed on each displayed file.
+function applyFailures(): void {
+  files.forEach((path, at) => {
+    strip.setFailure(at, entries.get(path)?.error ?? null);
+  });
+}
+
 function refreshEntries(): void {
   if (openDir === null) {
     return;
@@ -1708,6 +1717,7 @@ function refreshEntries(): void {
       applyBursts();
       const bracketed = performance.now();
       applyCandidates();
+      applyFailures();
       const marked = performance.now();
       const hadPendingResume = pendingResume !== undefined;
       const anchor = firstEntriesAnchor(pendingResume, files[index]);

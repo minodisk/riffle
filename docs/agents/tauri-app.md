@@ -1929,6 +1929,15 @@ sequences — a risk for Windows-path test fixtures.
   any Windows-path string literals afterward.
 - Source: `docs/plans/_archived/20260929-tree-root-dedup/learnings.md`, Step 1.
 
+A related trap: a Python heredoc run through the Bash tool can also turn
+escape text meant to stay literal (`\0`, `\x01` inside a byte-string
+literal destined for Rust source) into real NUL / 0x01 bytes in the
+written file, even when the heredoc is quoted (`'EOF'`). Build such bytes
+with `bytes([0, 1, ...])` instead of escape literals, or make the edit
+with the Edit tool rather than a Python heredoc.
+
+- Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1).
+
 ## CI
 
 ### Do not hard-code the pnpm store path (Inferred)

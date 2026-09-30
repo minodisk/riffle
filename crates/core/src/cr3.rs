@@ -8,7 +8,9 @@
 //! the one whose sample entry carries a `JPEG` box is the full-size JPEG. The
 //! top-level preview `uuid` holds `PRVW`, a 1620x1080 JPEG. Bodies shooting
 //! HDR PQ (HEIF) store HEVC in `PRVW`, `THMB` and the first track instead, and
-//! those are skipped: only data starting with a JPEG SOI is taken.
+//! those are skipped: only data starting with a JPEG SOI is taken. Such a file
+//! is marked `hevc` when a track's sample entry carries an `HEVC` box and none
+//! carries `JPEG`.
 //!
 //! The AF point comes from `AFInfo2` in `CMT3`, the Canon MakerNote TIFF.
 
@@ -172,11 +174,16 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     }
 
     let mut full = None;
+    let mut hevc = false;
     for trak in boxes.iter().filter(|b| &b.typ == b"trak") {
-        if let Some(e) = jpeg_track(buf, *trak)? {
-            full = Some(e);
+        let Some((subs, stbl)) = sample_entry(buf, *trak)? else {
+            continue;
+        };
+        if child(&subs, b"JPEG").is_some() {
+            full = Some(jpeg_track(buf, &stbl)?);
             break;
         }
+        hevc |= child(&subs, b"HEVC").is_some();
     }
 
     Ok(Arw {
@@ -184,6 +191,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         full,
         orientation,
         shot,
+        hevc: hevc && full.is_none(),
     })
 }
 
@@ -290,8 +298,8 @@ fn image(buf: &[u8], b: Bx, length: usize) -> Result<Option<Embedded>> {
     Ok(Some(Embedded { offset, length }))
 }
 
-/// The JPEG in `mdat` that `trak` describes, if its sample entry is a JPEG.
-fn jpeg_track(buf: &[u8], trak: Bx) -> Result<Option<Embedded>> {
+/// The sub-boxes of `trak`'s first sample entry and the boxes of its `stbl`.
+fn sample_entry(buf: &[u8], trak: Bx) -> Result<Option<(Vec<Bx>, Vec<Bx>)>> {
     let path = [b"mdia", b"minf", b"stbl"];
     let mut boxes = children(buf, trak.payload, trak.end)?;
     for typ in path {
@@ -307,26 +315,28 @@ fn jpeg_track(buf: &[u8], trak: Bx) -> Result<Option<Embedded>> {
     let entry = header(buf, stsd.payload + 8)?;
     ensure!(entry.end <= stsd.end, "CR3 sample entry past its box");
     let subs = children(buf, entry.payload + SAMPLE_ENTRY_BOXES, entry.end)?;
-    if child(&subs, b"JPEG").is_none() {
-        return Ok(None);
-    }
+    Ok(Some((subs, boxes)))
+}
 
-    let stsz = child(&boxes, b"stsz").ok_or_else(|| anyhow!("CR3 JPEG track without stsz"))?;
+/// The JPEG in `mdat` that a JPEG track with the `stbl` boxes `boxes`
+/// describes.
+fn jpeg_track(buf: &[u8], boxes: &[Bx]) -> Result<Embedded> {
+    let stsz = child(boxes, b"stsz").ok_or_else(|| anyhow!("CR3 JPEG track without stsz"))?;
     let mut length = u32_at(buf, stsz.payload + 4)? as usize;
     if length == 0 {
         ensure!(u32_at(buf, stsz.payload + 8)? > 0, "CR3 JPEG track empty");
         length = u32_at(buf, stsz.payload + 12)? as usize;
     }
-    let offset = if let Some(co64) = child(&boxes, b"co64") {
+    let offset = if let Some(co64) = child(boxes, b"co64") {
         ensure!(u32_at(buf, co64.payload + 4)? > 0, "CR3 JPEG track empty");
         usize::try_from(u64_at(buf, co64.payload + 8)?)?
-    } else if let Some(stco) = child(&boxes, b"stco") {
+    } else if let Some(stco) = child(boxes, b"stco") {
         ensure!(u32_at(buf, stco.payload + 4)? > 0, "CR3 JPEG track empty");
         u32_at(buf, stco.payload + 8)? as usize
     } else {
         bail!("CR3 JPEG track without an offset");
     };
-    Ok(Some(Embedded { offset, length }))
+    Ok(Embedded { offset, length })
 }
 
 #[cfg(test)]
@@ -407,6 +417,9 @@ pub(crate) mod tests {
         pub(crate) thumbnail: Option<Vec<u8>>,
         pub(crate) preview: Option<Vec<u8>>,
         pub(crate) full: Vec<u8>,
+        /// The sample entry sub-box of the track holding `full`: `JPEG`, or
+        /// `HEVC` as on a file shot with HDR PQ on.
+        pub(crate) full_sub: [u8; 4],
         /// The payload size of the `free` box before `moov`.
         pub(crate) pad: usize,
     }
@@ -427,6 +440,7 @@ pub(crate) mod tests {
                 thumbnail: Some(jpeg_bytes(16, 1)),
                 preview: Some(jpeg_bytes(64, 2)),
                 full: jpeg_bytes(256, 3),
+                full_sub: *b"JPEG",
                 pad: 0,
             }
         }
@@ -449,7 +463,7 @@ pub(crate) mod tests {
                     &cat(&[
                         bx(b"uuid", &canon),
                         trak(b"CMP1", 0, 16, false),
-                        trak(b"JPEG", full_at, self.full.len() as u32, true),
+                        trak(&self.full_sub, full_at, self.full.len() as u32, true),
                         trak(b"CMP1", 0, 16, true),
                     ]),
                 );
@@ -536,6 +550,42 @@ pub(crate) mod tests {
         ]);
         let a = parse(&buf).unwrap();
         assert!(a.full.is_none() && a.preview.is_none());
+        assert!(a.hevc);
+
+        let buf = cat(&[
+            bx(b"ftyp", b"crx \0\0\0\x01"),
+            bx(
+                b"moov",
+                &cat(&[trak(b"CMP1", 100, 16, true), trak(b"CMP1", 100, 16, false)]),
+            ),
+            bx(b"mdat", &[]),
+        ]);
+        assert!(!parse(&buf).unwrap().hevc, "only CMP1 tracks");
+    }
+
+    #[test]
+    fn an_hdr_pq_file_is_marked_hevc_and_keeps_its_metadata() {
+        let w = W(true);
+        let c = Cr3 {
+            ifd0: vec![
+                w.ascii(TAG_MODEL, "Canon EOS R8"),
+                w.short(TAG_ORIENTATION, 6),
+            ],
+            exif: vec![w.ascii(TAG_DATE_TIME_ORIGINAL, "2026:09:30 10:00:00")],
+            thumbnail: Some(vec![0; 16]),
+            preview: Some(vec![0; 64]),
+            full: vec![0; 256],
+            full_sub: *b"HEVC",
+            ..Cr3::new()
+        };
+        let a = parse(&c.build()).unwrap();
+        assert!(a.hevc);
+        assert!(a.preview.is_none() && a.full.is_none());
+        assert_eq!(a.orientation, 6);
+        assert_eq!(a.shot.model.as_deref(), Some("Canon EOS R8"));
+        assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:30 10:00:00"));
+
+        assert!(!parse(&Cr3::new().build()).unwrap().hevc, "a normal file");
     }
 
     #[test]

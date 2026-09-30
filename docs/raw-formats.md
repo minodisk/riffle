@@ -116,7 +116,8 @@ after it, and the
 full-size JPEG is the first track of the movie structure, next to the tracks
 holding the sensor data. With HDR PQ turned on, the camera writes HEIF: the
 `PRVW` preview, the thumbnail and that first track hold HEVC images instead of
-JPEGs. Riffle has no HEVC decoder, so it cannot show those files yet.
+JPEGs. Riffle has no HEVC decoder, so it cannot show those previews yet; it
+says so for such a file instead of reporting a missing preview.
 
 ## Why the MakerNote varies by body
 
