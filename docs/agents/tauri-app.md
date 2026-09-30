@@ -686,6 +686,23 @@ system does case-insensitive but case-preserving lookups.
 - Source: `docs/plans/_archived/20260918-photolab-dop-sidecar/learnings.md`,
   Step 2.
 
+### Path comparisons in the UI take the platform `ignoreCase` flag; a DOM-touching module cannot be imported by a node-env test (Hit)
+
+The UI's path helpers (`rebase`, `opensTarget`, `restoredInto`, and the trash
+relation calls) fold case only when given the platform flag,
+`folders.ignoreCase`. A call site that omits it compares `Photos` and `photos`
+as different folders on Windows and macOS.
+
+- `relation` folds the Windows drive letter (`C:` vs `c:`) even without the
+  flag. A test that varies only the drive letter passes without the flag, so
+  it proves nothing. Vary a folder name's case instead.
+- `folders.ts` touches the DOM at load, so `trash.ts` cannot import it:
+  `trash.test.ts` runs under Vitest's `node` environment and would break. A
+  DOM-free module takes the flag as a defaulted trailing parameter, and its
+  caller (`main.ts`) passes `folders.ignoreCase`.
+- Source: `docs/plans/_archived/20261001-clear-three-todos/learnings.md`,
+  Step 2.
+
 ### `.dop` indentation follows the table, and keys are not stable across versions (Hit)
 
 PhotoLab indents an anonymous item's `{`/`}` at the same depth as its fields,

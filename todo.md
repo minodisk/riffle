@@ -806,7 +806,7 @@ The `raf-older-bodies` sweep of 228 RAFs from 87 bodies (`docs/plans/_archived/2
 
 #### Background
 
-The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
+The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/_archived/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
 
 #### TODO
 
