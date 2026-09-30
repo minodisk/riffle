@@ -1,5 +1,9 @@
 //! Read only as much of an ARW, DNG, NEF, CR3, RAF or ORF as the metadata and
 //! the preview need. A JPEG file is its own preview and full-resolution JPEG.
+//!
+//! Every JPEG handed out has its Exif Orientation rewritten to 1, so
+//! `Arw.orientation` is the only rotation a consumer applies, whatever the
+//! container embeds.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -43,10 +47,11 @@ fn head_of(file: &mut File, limit: usize) -> Result<Vec<u8>> {
 /// A prefix too short to parse is an error rather than a wrong answer, so in
 /// that case the whole file is read and parsed instead.
 pub fn read_preview(path: &Path) -> Result<(Arw, Vec<u8>)> {
-    if is_jpeg_file(path) {
-        return read_jpeg(path);
-    }
-    read_embedded(path, Kind::Preview)
+    neutral(if is_jpeg_file(path) {
+        read_jpeg(path)
+    } else {
+        read_embedded(path, Kind::Preview)
+    })
 }
 
 /// Parse `buf` with the parser for `path`'s container, chosen by extension.
@@ -72,10 +77,18 @@ fn parse_raw(path: &Path, buf: &[u8]) -> Result<Arw> {
 /// metadata is in the prefix but the JPEG itself is several MB long, so the
 /// ranged read is the normal path here rather than a fallback.
 pub fn read_full(path: &Path) -> Result<(Arw, Vec<u8>)> {
-    if is_jpeg_file(path) {
-        return read_jpeg(path);
-    }
-    read_embedded(path, Kind::Full)
+    neutral(if is_jpeg_file(path) {
+        read_jpeg(path)
+    } else {
+        read_embedded(path, Kind::Full)
+    })
+}
+
+/// The one exit of every JPEG `read_preview` and `read_full` hand out.
+fn neutral(read: Result<(Arw, Vec<u8>)>) -> Result<(Arw, Vec<u8>)> {
+    let (arw, mut jpeg) = read?;
+    jpeg::neutralize_orientation(&mut jpeg);
+    Ok((arw, jpeg))
 }
 
 fn read_jpeg(path: &Path) -> Result<(Arw, Vec<u8>)> {
@@ -294,15 +307,17 @@ mod tests {
     }
 
     #[test]
-    fn a_jpeg_is_its_own_preview_and_full_jpeg() {
+    fn a_jpeg_is_its_own_preview_and_full_jpeg_with_a_neutral_orientation() {
         use crate::jpeg::tests::{plain_jpeg, with_exif, W};
         let w = W(false);
-        let file = with_exif(&plain_jpeg(64, 48), &w.tiff(&[w.short(0x0112, 8)], &[]));
+        let plain = plain_jpeg(64, 48);
+        let file = with_exif(&plain, &w.tiff(&[w.short(0x0112, 8)], &[]));
+        let neutral = with_exif(&plain, &w.tiff(&[w.short(0x0112, 1)], &[]));
         let path = temp_file("jpeg.JPG", &file);
         let (a, out) = read_preview(&path).unwrap();
-        assert_eq!((a.orientation, out), (8, file.clone()));
+        assert_eq!((a.orientation, out), (8, neutral.clone()));
         let (a, out) = read_full(&path).unwrap();
-        assert_eq!((a.orientation, out), (8, file.clone()));
+        assert_eq!((a.orientation, out), (8, neutral));
         assert_eq!(read_metadata(&path).unwrap().orientation, 8);
         std::fs::remove_file(&path).unwrap();
     }
@@ -525,14 +540,18 @@ mod tests {
     fn a_raf_reads_its_jpeg_by_range_past_the_prefix() {
         use crate::jpeg::tests::W;
         use crate::raf::tests::{exif_jpeg, raf, JPEG_AT};
-        let mut jpeg = exif_jpeg(&W(false), 6);
-        jpeg.resize(HEAD_LIMIT + 4096, 7);
-        let path = temp_file("far.RAF", &raf(JPEG_AT, &jpeg));
+        let far = |orientation| {
+            let mut jpeg = exif_jpeg(&W(false), orientation);
+            jpeg.resize(HEAD_LIMIT + 4096, 7);
+            jpeg
+        };
+        let neutral = far(1);
+        let path = temp_file("far.RAF", &raf(JPEG_AT, &far(6)));
         let (a, out) = read_preview(&path).unwrap();
         assert_eq!(a.orientation, 6);
-        assert!(out == jpeg);
+        assert!(out == neutral);
         let (_, out) = read_full(&path).unwrap();
-        assert!(out == jpeg);
+        assert!(out == neutral);
         assert_eq!(read_metadata(&path).unwrap().orientation, 6);
         std::fs::remove_file(&path).unwrap();
     }
@@ -541,18 +560,21 @@ mod tests {
     fn a_raf_whose_exif_is_past_the_prefix_reads_the_whole_file() {
         use crate::jpeg::tests::{plain_jpeg, W};
         use crate::raf::tests::{exif_jpeg, raf, JPEG_AT};
-        let mut jpeg = plain_jpeg(16, 16)[..2].to_vec();
-        let mut filler = vec![0xFF, 0xE2, 0xFF, 0xFF];
-        filler.resize(0xFFFF + 2, 0);
-        while jpeg.len() < HEAD_LIMIT {
-            jpeg.extend_from_slice(&filler);
-        }
-        jpeg.extend_from_slice(&exif_jpeg(&W(true), 8)[2..]);
-        let path = temp_file("deep.raf", &raf(JPEG_AT, &jpeg));
+        let deep = |orientation| {
+            let mut jpeg = plain_jpeg(16, 16)[..2].to_vec();
+            let mut filler = vec![0xFF, 0xE2, 0xFF, 0xFF];
+            filler.resize(0xFFFF + 2, 0);
+            while jpeg.len() < HEAD_LIMIT {
+                jpeg.extend_from_slice(&filler);
+            }
+            jpeg.extend_from_slice(&exif_jpeg(&W(true), orientation)[2..]);
+            jpeg
+        };
+        let path = temp_file("deep.raf", &raf(JPEG_AT, &deep(8)));
         assert_eq!(read_metadata(&path).unwrap().orientation, 8);
         let (a, out) = read_preview(&path).unwrap();
         assert_eq!(a.orientation, 8);
-        assert!(out == jpeg);
+        assert!(out == deep(1));
         std::fs::remove_file(&path).unwrap();
     }
 
@@ -613,6 +635,149 @@ mod tests {
         assert_eq!((a.orientation, out), (3, jpeg.to_vec()));
         assert!(read_metadata(&path).unwrap().preview.is_some());
         std::fs::remove_file(&path).unwrap();
+    }
+
+    /// A JPEG whose Exif carries `orientation`, in `le`'s byte order.
+    fn oriented_jpeg(le: bool, orientation: u16, width: usize, height: usize) -> Vec<u8> {
+        use crate::jpeg::tests::{plain_jpeg, with_exif, W};
+        let w = W(le);
+        with_exif(
+            &plain_jpeg(width, height),
+            &w.tiff(&[w.short(0x0112, orientation)], &[]),
+        )
+    }
+
+    /// Both JPEGs `path` hands out carry no rotation of their own (Orientation
+    /// 1, or no Exif at all), while its orientation stays `orientation`.
+    fn assert_neutral(path: &Path, orientation: u16) {
+        type Read = fn(&Path) -> Result<(Arw, Vec<u8>)>;
+        for (name, read) in [("preview", read_preview as Read), ("full", read_full)] {
+            let (a, out) = read(path).unwrap();
+            let what = format!("{} {name}", path.display());
+            assert_eq!(a.orientation, orientation, "{what}");
+            if let Ok((o, _)) = jpeg::read_exif(&out) {
+                assert_eq!(o, 1, "{what}");
+            }
+        }
+    }
+
+    /// A little-endian TIFF whose IFD0 holds `orientation` and `preview`, and
+    /// whose IFD1 the larger `full`.
+    fn arw_with_both(orientation: u16, preview: &[u8], full: &[u8]) -> Vec<u8> {
+        let mut buf = b"II\x2a\x00".to_vec();
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        let ifd1_at = 8 + 2 + 3 * 12 + 4;
+        let preview_at = ifd1_at + 2 + 2 * 12 + 4;
+        let full_at = preview_at + preview.len();
+        let ifd0: &[(u16, u16, u32)] = &[
+            (0x0112, 3, u32::from(orientation)),
+            (0x0201, 4, preview_at as u32),
+            (0x0202, 4, preview.len() as u32),
+        ];
+        let ifd1: &[(u16, u16, u32)] =
+            &[(0x0201, 4, full_at as u32), (0x0202, 4, full.len() as u32)];
+        for (entries, next) in [(ifd0, ifd1_at as u32), (ifd1, 0)] {
+            buf.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+            for (tag, typ, value) in entries {
+                buf.extend_from_slice(&tag.to_le_bytes());
+                buf.extend_from_slice(&typ.to_le_bytes());
+                buf.extend_from_slice(&1u32.to_le_bytes());
+                buf.extend_from_slice(&value.to_le_bytes());
+            }
+            buf.extend_from_slice(&next.to_le_bytes());
+        }
+        buf.extend_from_slice(preview);
+        buf.extend_from_slice(full);
+        buf
+    }
+
+    /// Every container, a future one included, must hand out its JPEGs
+    /// through `neutral`: a list entry per supported format.
+    #[test]
+    fn every_format_hands_out_jpegs_without_an_exif_rotation() {
+        use crate::cr3::tests::Cr3;
+        use crate::jpeg::tests::W;
+        use crate::nef::tests::{jpeg_sub, nef};
+        use crate::orf::tests::{maker_note, note_at, orf, preview_fields};
+        use crate::raf::tests::{exif_jpeg, raf, JPEG_AT};
+
+        let mut files: Vec<(&str, Vec<u8>, u16)> = Vec::new();
+
+        // A DNG goes through the same parser as an ARW.
+        for (name, le) in [("inv.ARW", true), ("inv.DNG", false)] {
+            let preview = oriented_jpeg(le, 8, 16, 16);
+            let full = oriented_jpeg(le, 8, 64, 48);
+            files.push((name, arw_with_both(6, &preview, &full), 6));
+        }
+
+        let w = W(false);
+        let preview = oriented_jpeg(true, 6, 16, 16);
+        let full = oriented_jpeg(false, 6, 64, 48);
+        let (preview_at, full_at) = (4096, 8192);
+        let mut file = nef(
+            &w,
+            &[w.short(0x0112, 6)],
+            &[],
+            &[
+                jpeg_sub(&w, full_at, full.len()),
+                jpeg_sub(&w, preview_at, preview.len()),
+            ],
+        );
+        file.resize(preview_at, 0);
+        file.extend_from_slice(&preview);
+        file.resize(full_at, 0);
+        file.extend_from_slice(&full);
+        files.push(("inv.NEF", file, 6));
+
+        let w = W(true);
+        let c = Cr3 {
+            ifd0: vec![w.short(0x0112, 8)],
+            preview: Some(oriented_jpeg(false, 8, 16, 16)),
+            full: oriented_jpeg(true, 8, 64, 48),
+            ..Cr3::new()
+        };
+        files.push(("inv.CR3", c.build(), 8));
+
+        files.push(("inv.RAF", raf(JPEG_AT, &exif_jpeg(&W(false), 8)), 8));
+
+        let jpeg = oriented_jpeg(true, 6, 16, 16);
+        let build = |start: u32| {
+            orf(
+                &w,
+                &[w.short(0x0112, 6)],
+                &[maker_note(
+                    &w,
+                    false,
+                    0,
+                    &preview_fields(&w, start, jpeg.len() as u32),
+                )],
+            )
+        };
+        let probe = build(0);
+        let mut file = build((probe.len() - note_at(&probe)) as u32);
+        file.extend_from_slice(&jpeg);
+        files.push(("inv.ORF", file, 6));
+
+        files.push(("inv.jpg", oriented_jpeg(false, 8, 16, 16), 8));
+
+        for (name, file, orientation) in files {
+            let path = temp_file(name, &file);
+            assert_neutral(&path, orientation);
+            std::fs::remove_file(&path).unwrap();
+        }
+    }
+
+    /// The HEVC of a CR3 shot with HDR PQ on, decoded to a JPEG, holds to the
+    /// same. No HEVC stream is synthesized here, so set `RIFFLE_HEVC_CR3` to
+    /// such a file, then run with `--ignored`.
+    #[test]
+    #[ignore]
+    fn an_hdr_pq_cr3_hands_out_jpegs_without_an_exif_rotation() {
+        let path = std::env::var("RIFFLE_HEVC_CR3").expect("RIFFLE_HEVC_CR3");
+        let path = Path::new(&path);
+        let a = read_metadata(path).unwrap();
+        assert!(a.hevc);
+        assert_neutral(path, a.orientation);
     }
 
     #[test]

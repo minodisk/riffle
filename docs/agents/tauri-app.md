@@ -1809,6 +1809,30 @@ casts `self` to it. Keep one `tsconfig.json` for both threads this way.
 - Why: `DedicatedWorkerGlobalScope` is only in the `webworker` lib, and adding
   `webworker` next to `dom` clashes on the globals both declare.
 
+### The preview payload's JPEG is orientation-neutral by construction (Hit)
+
+The orientation in the `preview` payload header is the only rotation the
+frontend applies (`draw()` in `main.ts`). Every JPEG `riffle_core::reader`
+hands out (`read_preview`, `read_full`) leaves through one exit that rewrites
+its Exif IFD0 Orientation to 1 in place (`jpeg::neutralize_orientation`), so
+no container can add a second rotation, and a parser added later is covered
+without touching the app or the worker.
+
+- What broke: a portrait GFX 100 RAF (Orientation 8) showed upright in the
+  filmstrip but sideways in the main preview. The RAF's embedded JPEG carries
+  a full Exif APP1 with its own Orientation (so does a plain JPEG, which is
+  its own preview), `createImageBitmap` rotated it once at decode, and
+  `draw()` rotated it again by the header. The original design assumed an
+  embedded preview is a bare JPEG stream without Exif, which holds for ARW
+  only. The filmstrip was fine because the index thumbnail is re-encoded
+  without Exif.
+- Why not `createImageBitmap`'s `imageOrientation`: its behavior differs
+  across WebView2, WKWebView and WebKitGTK, and `"none"` is deprecated in
+  Chromium (`"from-image"` is the default), so the bytes are fixed instead.
+- `reader::tests::every_format_hands_out_jpegs_without_an_exif_rotation`
+  pins it for every supported format; a new format gets an entry there.
+- Source: `docs/plans/_archived/20260930-orientation-neutral-preview/learnings.md`.
+
 ### WebKitGTK draws a large transferred `ImageBitmap` transparent (Hit)
 
 On Linux (WebKitGTK 2.50.4, WSLg), an `ImageBitmap` decoded in the worker and

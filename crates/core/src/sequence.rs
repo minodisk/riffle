@@ -334,6 +334,10 @@ impl<'a> Tiff<'a> {
         })
     }
 
+    pub(crate) fn little_endian(&self) -> bool {
+        self.little_endian
+    }
+
     pub(crate) fn bytes(&self, rel: usize, n: usize) -> Result<&[u8]> {
         let abs = self.base + rel;
         ensure!(

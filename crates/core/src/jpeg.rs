@@ -50,6 +50,37 @@ pub(crate) fn read_exif(buf: &[u8]) -> Result<(u16, Shot)> {
         .unwrap_or((1, Shot::default())))
 }
 
+/// Rewrite the IFD0 Orientation of the JPEG in `buf` to 1 in place, in the
+/// TIFF's own byte order, so a decoder that honors Exif draws it unrotated and
+/// `Arw.orientation` stays the only rotation applied. A JPEG without Exif, with
+/// a malformed one or without a SHORT Orientation entry is left untouched.
+pub fn neutralize_orientation(buf: &mut [u8]) {
+    let Some((at, little_endian)) = orientation_at(buf) else {
+        return;
+    };
+    let one = if little_endian {
+        1u16.to_le_bytes()
+    } else {
+        1u16.to_be_bytes()
+    };
+    buf[at..at + 2].copy_from_slice(&one);
+}
+
+/// The absolute offset of the IFD0 Orientation value and the TIFF's byte order.
+fn orientation_at(buf: &[u8]) -> Option<(usize, bool)> {
+    use crate::exif::{TAG_ORIENTATION, TYPE_SHORT};
+    let (base, end) = find_exif_tiff(buf).ok()?;
+    let tiff = Tiff::new(buf, base, end).ok()?;
+    let ifd0 = tiff.u32(4).ok()? as usize;
+    let e = tiff
+        .ifd_entries(ifd0)
+        .ok()?
+        .into_iter()
+        .find(|e| e.tag == TAG_ORIENTATION && e.typ == TYPE_SHORT && e.count == 1)?;
+    tiff.u16(e.value_field).ok()?;
+    Some((base + e.value_field, tiff.little_endian()))
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -240,6 +271,48 @@ pub(crate) mod tests {
         assert!(a.shot.capture_time.is_none() && a.shot.make.is_none());
         assert!(!has_exif(&plain_jpeg(16, 16)));
         assert!(has_exif(&full(&W(true), "1")));
+    }
+
+    #[test]
+    fn neutralizing_rewrites_only_the_orientation_in_both_byte_orders() {
+        for le in [true, false] {
+            let w = W(le);
+            let tiff = w.tiff(
+                &[w.ascii(TAG_MAKE, "SONY"), w.short(TAG_ORIENTATION, 8)],
+                &[w.ascii(TAG_DATE_TIME_ORIGINAL, "2026:09:27 12:34:56")],
+            );
+            let file = with_exif(&plain_jpeg(16, 16), &tiff);
+            assert_eq!(parse(&file).unwrap().orientation, 8);
+            let mut out = file.clone();
+            neutralize_orientation(&mut out);
+            let a = parse(&out).unwrap();
+            assert_eq!(a.orientation, 1, "le {le}");
+            assert_eq!(a.shot.make.as_deref(), Some("SONY"));
+            assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:27 12:34:56"));
+            assert_eq!(out.len(), file.len());
+            let changed = file.iter().zip(&out).filter(|(a, b)| a != b).count();
+            assert_eq!(changed, 1, "le {le}: one byte of the value");
+        }
+    }
+
+    #[test]
+    fn neutralizing_leaves_a_jpeg_without_an_orientation_untouched() {
+        let w = W(true);
+        let without = with_exif(
+            &plain_jpeg(16, 16),
+            &w.tiff(&[w.ascii(TAG_MAKE, "SONY")], &[w.short(TAG_ISO, 100)]),
+        );
+        let long = with_exif(
+            &plain_jpeg(16, 16),
+            &w.tiff(&[w.long(TAG_ORIENTATION, 8)], &[]),
+        );
+        let mut cut = full(&w, "1");
+        cut.truncate(40);
+        for file in [plain_jpeg(16, 16), without, long, cut, Vec::new()] {
+            let mut out = file.clone();
+            neutralize_orientation(&mut out);
+            assert!(out == file);
+        }
     }
 
     #[test]

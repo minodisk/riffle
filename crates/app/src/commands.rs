@@ -3514,13 +3514,15 @@ mod tests {
     }
 
     #[test]
-    fn a_jpeg_is_served_whole_with_its_exif_and_a_centered_crop() {
+    fn a_jpeg_is_served_whole_with_a_neutral_orientation_and_a_centered_crop() {
+        use crate::index::tests::jpeg_with_exif;
         let dir = temp_dir("jpeg-serve");
         let path = dir.join("a.jpg");
-        let bytes = crate::index::tests::jpeg_with_exif(64, 48, 6, "2026:09:27 10:00:00", 400);
+        let bytes = jpeg_with_exif(64, 48, 6, "2026:09:27 10:00:00", 400);
         std::fs::write(&path, &bytes).unwrap();
 
-        assert_eq!(read_preview(&path).unwrap(), (6, bytes));
+        let neutral = jpeg_with_exif(64, 48, 1, "2026:09:27 10:00:00", 400);
+        assert_eq!(read_preview(&path).unwrap(), (6, neutral));
 
         let meta = read_metadata(&path).unwrap();
         assert_eq!(meta.name, "a.jpg");
