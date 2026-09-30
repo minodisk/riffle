@@ -153,7 +153,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   is judged by the faces Riffle detects like any other. The state is computed
   in a second pass that starts right after the thumbnails and metadata of the
   folder are in, so the marks turn from white to green or orange while the
-  status shows `focus N / M`. The strip marks each candidate with a green
+  status shows `analyzing N / M`. The strip marks each candidate with a green
   face icon (Lucide's `scan-face`, ISC license, text in
   `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
   name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
@@ -428,7 +428,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
   no network access. The score ranks a burst rather than judging a frame on
-  its own, and it does not replace the 1:1 focus check.
+  its own, and it does not replace the 1:1 focus check. The score is computed
+  in the same second pass as the focus mark's state, so the bars fill in after
+  the thumbnails while the status shows `analyzing N / M`.
   The meta pane shows the raw score in its Analysis group. See
   [What the camera records](./cameras.md).
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The

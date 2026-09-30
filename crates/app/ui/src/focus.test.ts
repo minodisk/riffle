@@ -3,6 +3,7 @@ import {
   FOCUS_MARK_COLORS,
   type MarkFocus,
   applyFaceReady,
+  applySharpnessReady,
   faceMarks,
   focusMark,
 } from "./focus.js";
@@ -114,8 +115,8 @@ describe("applyFaceReady", () => {
     const touched = applyFaceReady(
       entries,
       [
-        { path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate" },
-        { path: "/d/b.ARW", eye_focus: 0.3, candidate: "not_candidate" },
+        { path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null },
+        { path: "/d/b.ARW", eye_focus: 0.3, candidate: "not_candidate", sharpness: null },
       ],
       "/d/b.ARW",
     );
@@ -135,7 +136,7 @@ describe("applyFaceReady", () => {
     expect(
       applyFaceReady(
         entries,
-        [{ path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate" }],
+        [{ path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null }],
         "/d/b.ARW",
       ),
     ).toBe(false);
@@ -148,13 +149,59 @@ describe("applyFaceReady", () => {
       applyFaceReady(
         entries,
         [
-          { path: "/d/c.ARW", eye_focus: null, candidate: "unknown" },
-          { path: "/d/missing.ARW", eye_focus: 0.85, candidate: "candidate" },
+          { path: "/d/c.ARW", eye_focus: null, candidate: "unknown", sharpness: null },
+          { path: "/d/missing.ARW", eye_focus: 0.85, candidate: "candidate", sharpness: null },
         ],
         "/d/c.ARW",
       ),
     ).toBe(false);
     expect(entries.get("/d/c.ARW")?.focus).toBeNull();
+    expect(entries.has("/d/missing.ARW")).toBe(false);
+  });
+});
+
+describe("applySharpnessReady", () => {
+  const ready = (path: string, sharpness: number | null) => ({
+    path,
+    eye_focus: null,
+    candidate: "unknown" as const,
+    sharpness,
+  });
+
+  test("sets a new score in the map and the row, and reports the change", () => {
+    const entries = new Map([["/d/a.ARW", { sharpness: null as number | null }]]);
+    const scores = new Map<string, number>();
+    expect(applySharpnessReady(entries, scores, [ready("/d/a.ARW", 12.5)])).toBe(true);
+    expect(scores.get("/d/a.ARW")).toBe(12.5);
+    expect(entries.get("/d/a.ARW")?.sharpness).toBe(12.5);
+  });
+
+  test("a file the pass found no score for is deleted from the map and nulled in the row", () => {
+    const entries = new Map([["/d/a.ARW", { sharpness: 3 as number | null }]]);
+    const scores = new Map([["/d/a.ARW", 3]]);
+    expect(applySharpnessReady(entries, scores, [ready("/d/a.ARW", null)])).toBe(true);
+    expect(scores.has("/d/a.ARW")).toBe(false);
+    expect(entries.get("/d/a.ARW")?.sharpness).toBeNull();
+  });
+
+  test("unchanged scores report no change", () => {
+    const entries = new Map([
+      ["/d/a.ARW", { sharpness: 3 as number | null }],
+      ["/d/b.ARW", { sharpness: null as number | null }],
+    ]);
+    const scores = new Map([["/d/a.ARW", 3]]);
+    expect(
+      applySharpnessReady(entries, scores, [ready("/d/a.ARW", 3), ready("/d/b.ARW", null)]),
+    ).toBe(false);
+    expect(scores.get("/d/a.ARW")).toBe(3);
+    expect(scores.has("/d/b.ARW")).toBe(false);
+  });
+
+  test("a file with no row still gets its score in the map", () => {
+    const entries = new Map<string, { sharpness: number | null }>();
+    const scores = new Map<string, number>();
+    expect(applySharpnessReady(entries, scores, [ready("/d/missing.ARW", 7)])).toBe(true);
+    expect(scores.get("/d/missing.ARW")).toBe(7);
     expect(entries.has("/d/missing.ARW")).toBe(false);
   });
 });
