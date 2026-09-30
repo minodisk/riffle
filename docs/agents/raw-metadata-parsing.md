@@ -440,7 +440,7 @@ raw.pixls.us answers `/data/...` with a 301 to `/download/...`, so fetch
 samples with `curl -L` or the file comes back empty; ranged requests do not
 work, but `curl -L ... | head -c 4096` reads a header cheaply.
 
-### Two MakerNote headers, note-relative offsets (Measured)
+### Three MakerNote headers, note-relative or absolute offsets (Measured)
 
 Exif IFD 0x927c opens with `OLYMPUS\0` + `II` / `MM` + a 2-byte version
 (IFD at note + 12; Olympus bodies write version `03 00`) or with
@@ -450,19 +450,33 @@ every offset in it (the sub-IFD pointers, `PreviewImageStart`) is relative to
 the **note start**, not the file's TIFF header (ExifTool's `Olympus.pm`
 `Base => '$start - 12'` / `'$start - 16'`). The byte order is the note's own
 `II` / `MM`, so `parse` builds the note walker with `Tiff::with_order`. A note
-with neither header gives no preview and no error. The sub-IFDs (0x2010
-Equipment, 0x2020 CameraSettings, 0x2040, 0x2050) are type 13 (IFD) count 1
-with the offset inline on every body surveyed; the old-style form (type 7
-with the IFD inline) is not supported.
+with none of the three headers gives no preview and no error. The sub-IFDs
+(0x2010 Equipment, 0x2020 CameraSettings, 0x2040, 0x2050) are type 13 (IFD)
+count 1 with the offset inline on every body with these two headers.
+
+The 2003-2006 Four Thirds bodies (E-1, E-300, E-330, E-400, E-500) and the
+older compacts write a third header: `OLYMP\0` + a 2-byte version (`02 00` on
+the DSLRs), IFD at note + 8. It has no byte order of its own (the note follows
+the file's), and every offset in it is **absolute**, relative to the file's
+TIFF header like IFD0's (ExifTool's `Olympus.pm`: `Start => '$valuePtr + 8'`
+and no `Base`). So `parse` walks it with a base-0 walker in the file's byte
+order and takes `PreviewImageStart` as is. Its 0x2020 CameraSettings is type 7
+(`undefined`), count 384 on the E-300: the sub-IFD is written inline at the
+entry's value offset, which `parse` accepts as it does a type 13 / 4 pointer.
 
 ### The preview is the only JPEG, and it lives inside the note (Measured)
 
 CameraSettings 0x0100 `PreviewImageValid`, 0x0101 `PreviewImageStart`
-(note-relative), 0x0102 `PreviewImageLength`: a 3200x2400 JPEG on every body
-surveyed (14 bodies, 2008 E-30 to 2025 OM-5 Mark II). IFD0 has no 0x0201 and
+(note-relative, or absolute in an `OLYMP\0` note), 0x0102
+`PreviewImageLength`: a 3200x2400 JPEG on every body surveyed with the two
+newer headers (14 bodies, 2008 E-30 to 2025 OM-5 Mark II), 1600x1200 on the
+E-300, E-330, E-400 and E-500 and 1280x960 on the E-1. IFD0 has no 0x0201 and
 its strips are the raw data, and a scan for SOI + SOF finds no other JPEG at
-least 1000 px wide, so `full` is the same JPEG and the 1:1 view is limited to
-3200x2400.
+least 1000 px wide (the old bodies' other JPEG is the 160x120 thumbnail), so
+`full` is the same JPEG and the 1:1 view is limited to the preview. The
+`OLYMP\0` compacts (C5050Z to C8080WZ, E-10, E-20, the SP-series; versions
+`01 00` / `02 01`) have no 0x2020 at all, only the 160x120 thumbnail, so they
+have no preview and fail with `no embedded preview`.
 
 AF values seen (not read yet): `AFTargetInfo` on the OM-1, OM-1 Mark II and
 OM-5 Mark II holds a frame size plus focus / selected boxes; the OM-5 and OM-3
@@ -484,7 +498,9 @@ the CameraSettings IFD (all within ~12 KB of the file start) must fit. When
 the buffer cuts one of them, `parse` errors so the reader retries with the
 whole file; a note wholly in the buffer that still does not read gives no
 preview. The preview may lie past the declared note too (the XZ-10's does)
-and is range-read like any other.
+and is range-read like any other. The `OLYMP\0` notes are about 3 KB and hold
+no preview; their previews lie after them and end below 450 KB, inside the
+prefix.
 
 ## Related
 

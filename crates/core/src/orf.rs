@@ -3,15 +3,20 @@
 //! the magic `RO` (or `RS` on old bodies) instead of 42; IFD0 and the Exif IFD
 //! are read as in any TIFF.
 //!
-//! The only embedded JPEG is the 3200x2400 preview inside the Olympus
-//! MakerNote, located by its CameraSettings sub-IFD. IFD0 has no JPEG of its
-//! own and its strips are the raw data, so the preview is also `full`: the 1:1
-//! view is limited to it.
+//! The only embedded JPEG is the preview inside the Olympus MakerNote
+//! (3200x2400, or 1600x1200 / 1280x960 on the 2003-2006 Four Thirds bodies),
+//! located by its CameraSettings sub-IFD. IFD0 has no JPEG of its own (the old
+//! bodies' IFD1 holds only a 160x120 thumbnail) and its strips are the raw
+//! data, so the preview is also `full`: the 1:1 view is limited to it.
 //!
 //! The MakerNote opens with `OLYMPUS\0` or `OM SYSTEM\0\0\0`, then its own
 //! byte order and a version, and no TIFF header; every offset in it is
-//! relative to the note start. The note holds the preview, so it runs past the
-//! bounded prefix `reader` reads; only its front (the IFDs) must be in `buf`.
+//! relative to the note start. The old bodies' note opens with `OLYMP\0` and a
+//! version instead: it follows the file's byte order, its offsets are
+//! absolute, and its CameraSettings IFD is written inline as `undefined`
+//! bytes. The `OLYMP\0` compacts have no CameraSettings, so no preview. The
+//! note may hold the preview, so it runs past the bounded prefix `reader`
+//! reads; only its front (the IFDs) must be in `buf`.
 
 use anyhow::{bail, Result};
 
@@ -23,8 +28,10 @@ use crate::sequence::Tiff;
 const MAGIC: &[u16] = &[0x4f52, 0x5352];
 const TAG_MAKER_NOTE: u16 = 0x927c;
 const OLYMPUS_HEADER: &[u8] = b"OLYMPUS\0";
+const OLYMP_HEADER: &[u8] = b"OLYMP\0";
 const OM_SYSTEM_HEADER: &[u8] = b"OM SYSTEM\0\0\0";
 const TAG_CAMERA_SETTINGS: u16 = 0x2020;
+const TYPE_UNDEFINED: u16 = 7;
 const TYPE_IFD: u16 = 13;
 const TAG_PREVIEW_VALID: u16 = 0x0100;
 const TAG_PREVIEW_START: u16 = 0x0101;
@@ -52,7 +59,8 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         tiff.u32(at + 2 + 12 * entries.len())?;
         exif::read_exif_ifd(&tiff, &entries, &mut shot);
         if let Some(e) = entries.iter().find(|e| e.tag == TAG_MAKER_NOTE) {
-            preview = maker_note_preview(buf, e.count as usize, tiff.u32(e.value_field)? as usize)?;
+            let at = tiff.u32(e.value_field)? as usize;
+            preview = maker_note_preview(buf, &buf[..2] == b"II", e.count as usize, at)?;
         }
     }
 
@@ -65,35 +73,48 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     })
 }
 
-/// The preview of the MakerNote of `len` bytes at `at`. A note with neither
-/// header, or one that is wholly in `buf` but unreadable, has none; a note cut
-/// by the end of `buf` before its CameraSettings IFD ends is an error.
-fn maker_note_preview(buf: &[u8], len: usize, at: usize) -> Result<Option<Embedded>> {
+/// The preview of the MakerNote of `len` bytes at `at` in a file of the given
+/// byte order. A note with none of the headers, or one that is wholly in `buf`
+/// but unreadable, has none; a note cut by the end of `buf` before its
+/// CameraSettings IFD ends is an error.
+fn maker_note_preview(
+    buf: &[u8],
+    file_little_endian: bool,
+    len: usize,
+    at: usize,
+) -> Result<Option<Embedded>> {
     let cut = at.saturating_add(len) > buf.len();
     let end = at.saturating_add(len).min(buf.len());
     if at > end {
         bail!("Olympus MakerNote out of range");
     }
-    let Some((ifd, little_endian)) = header(&buf[at..end]) else {
+    let Some((ifd, little_endian, absolute)) = header(&buf[at..end], file_little_endian) else {
         if cut && end - at < OM_SYSTEM_HEADER.len() + 4 {
             bail!("Olympus MakerNote header out of range");
         }
         return Ok(None);
     };
-    let note = Tiff::with_order(buf, at, end, little_endian)?;
-    match camera_settings_preview(&note, ifd) {
+    let base = if absolute { 0 } else { at };
+    let note = Tiff::with_order(buf, base, end, little_endian)?;
+    match camera_settings_preview(&note, at - base + ifd) {
         Err(e) if cut => Err(e),
         Err(_) => Ok(None),
         Ok(p) => Ok(p.map(|(start, length)| Embedded {
-            offset: at + start,
+            offset: base + start,
             length,
             codec: Codec::Jpeg,
         })),
     }
 }
 
-/// The note-relative offset of the note's IFD and the note's byte order.
-fn header(note: &[u8]) -> Option<(usize, bool)> {
+/// The note-relative offset of the note's IFD, the note's byte order, and
+/// whether its offsets are absolute (the old `OLYMP\0` note, which follows the
+/// file's byte order) rather than note-relative.
+fn header(note: &[u8], file_little_endian: bool) -> Option<(usize, bool, bool)> {
+    if note.starts_with(OLYMP_HEADER) {
+        note.get(6..8)?;
+        return Some((8, file_little_endian, true));
+    }
     let (order, ifd) = if note.starts_with(OLYMPUS_HEADER) {
         (note.get(8..10)?, 12)
     } else if note.starts_with(OM_SYSTEM_HEADER) {
@@ -102,13 +123,13 @@ fn header(note: &[u8]) -> Option<(usize, bool)> {
         return None;
     };
     match order {
-        b"II" => Some((ifd, true)),
-        b"MM" => Some((ifd, false)),
+        b"II" => Some((ifd, true, false)),
+        b"MM" => Some((ifd, false, false)),
         _ => None,
     }
 }
 
-/// CameraSettings' `PreviewImageStart` (note-relative) and
+/// CameraSettings' `PreviewImageStart` (relative to `note`'s base) and
 /// `PreviewImageLength`, unless `PreviewImageValid` says there is none.
 fn camera_settings_preview(note: &Tiff, ifd: usize) -> Result<Option<(usize, usize)>> {
     let main = note.ifd_entries(ifd)?;
@@ -116,9 +137,10 @@ fn camera_settings_preview(note: &Tiff, ifd: usize) -> Result<Option<(usize, usi
     let Some(e) = main.iter().find(|e| e.tag == TAG_CAMERA_SETTINGS) else {
         return Ok(None);
     };
-    // Old bodies write the sub-IFD inline as `undefined` bytes; none of the
-    // supported ones does.
-    if !matches!(e.typ, TYPE_IFD | TYPE_LONG) || e.count != 1 {
+    // Old bodies write the sub-IFD inline as `undefined` bytes, at the value
+    // offset like any value longer than 4 bytes.
+    let inline = e.typ == TYPE_UNDEFINED && e.count > 4;
+    if !inline && (!matches!(e.typ, TYPE_IFD | TYPE_LONG) || e.count != 1) {
         return Ok(None);
     }
     let at = note.u32(e.value_field)? as usize;
@@ -145,8 +167,6 @@ pub(crate) mod tests {
     use crate::arw::Rational;
     use crate::exif::*;
     use crate::jpeg::tests::{Field, W};
-
-    const TYPE_UNDEFINED: u16 = 7;
 
     /// An ORF-shaped TIFF: `W::tiff` with the ORF magic in place of 42.
     pub(crate) fn orf(w: &W, ifd0: &[Field], exif: &[Field]) -> Vec<u8> {
@@ -196,10 +216,41 @@ pub(crate) mod tests {
         ]
     }
 
+    /// An old `OLYMP` MakerNote in `w`'s (the file's) byte order, to sit at
+    /// `at` in the file, whose IFD points at a CameraSettings IFD holding
+    /// `camera` with absolute offsets: written inline as `undefined` bytes
+    /// (`inline`) or behind a type 13 pointer.
+    fn old_maker_note(w: &W, at: usize, inline: bool, camera: &[Field]) -> Field {
+        let cs = maker_note(w, false, 0, camera).3.split_off(12 + 2 + 12 + 4);
+        let mut v = OLYMP_HEADER.to_vec();
+        v.extend_from_slice(b"\x02\x00");
+        let cs_at = at + v.len() + 2 + 12 + 4;
+        v.extend_from_slice(&w.u16(1));
+        v.extend_from_slice(&w.u16(TAG_CAMERA_SETTINGS));
+        if inline {
+            v.extend_from_slice(&w.u16(TYPE_UNDEFINED));
+            v.extend_from_slice(&w.u32(cs.len() as u32));
+        } else {
+            v.extend_from_slice(&w.u16(TYPE_IFD));
+            v.extend_from_slice(&w.u32(1));
+        }
+        v.extend_from_slice(&w.u32(cs_at as u32));
+        v.extend_from_slice(&w.u32(0));
+        v.extend_from_slice(&cs);
+        (TAG_MAKER_NOTE, TYPE_UNDEFINED, v.len() as u32, v)
+    }
+
+    /// An ORF whose only Exif field is an old MakerNote holding `camera`,
+    /// built twice so the note's absolute offsets match where it lands.
+    fn old_orf(w: &W, inline: bool, camera: &[Field]) -> Vec<u8> {
+        let build = |at| orf(w, &[], &[old_maker_note(w, at, inline, camera)]);
+        build(note_at(&build(0)))
+    }
+
     /// Where the MakerNote starts in `file`.
     pub(crate) fn note_at(file: &[u8]) -> usize {
-        file.windows(OLYMPUS_HEADER.len())
-            .position(|b| b == OLYMPUS_HEADER || b == &OM_SYSTEM_HEADER[..8])
+        file.windows(OLYMP_HEADER.len())
+            .position(|b| [OLYMP_HEADER, &OLYMPUS_HEADER[..6], &OM_SYSTEM_HEADER[..6]].contains(&b))
             .unwrap()
     }
 
@@ -224,6 +275,38 @@ pub(crate) mod tests {
                     assert_eq!(at(a.full), expected);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn the_old_note_preview_is_found_at_its_absolute_offset() {
+        for le in [true, false] {
+            for inline in [true, false] {
+                let w = W(le);
+                let buf = old_orf(&w, inline, &preview_fields(&w, 5000, 1234));
+                assert!(note_at(&buf) > 0);
+                let a = parse(&buf).unwrap();
+                assert_eq!(at(a.preview), Some((5000, 1234)), "{le} {inline}");
+                assert_eq!(at(a.full), Some((5000, 1234)));
+            }
+        }
+    }
+
+    #[test]
+    fn an_old_note_with_preview_image_valid_0_has_no_preview() {
+        let w = W(true);
+        let mut camera = preview_fields(&w, 5000, 1234);
+        camera[0] = w.long(TAG_PREVIEW_VALID, 0);
+        let a = parse(&old_orf(&w, true, &camera)).unwrap();
+        assert!(a.preview.is_none() && a.full.is_none());
+    }
+
+    #[test]
+    fn an_old_note_cut_before_its_camera_settings_ifd_ends_is_an_error() {
+        let w = W(false);
+        let buf = old_orf(&w, true, &preview_fields(&w, 5000, 1234));
+        for cut in [buf.len() - 1, buf.len() - 20, note_at(&buf) + 12] {
+            assert!(parse(&buf[..cut]).is_err(), "cut at {cut}");
         }
     }
 
