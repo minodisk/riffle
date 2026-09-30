@@ -5,6 +5,7 @@ import {
   History,
   isJudgments,
   mapJudgments,
+  mapTrashDirs,
   undoneTrash,
 } from "./undo.js";
 
@@ -104,6 +105,16 @@ describe("undo entries", () => {
     history.map(mapJudgments((j) => (j.path === "/a/1.ARW" ? { path: "/a/9.ARW" } : j)));
     expect(history.pop()).toBe(run);
     expect(history.pop()).toEqual([{ path: "/a/9.ARW" }, { path: "/a/2.ARW" }]);
+  });
+
+  test("mapping trash folders rewrites every trash entry and leaves judgments alone", () => {
+    const history = new History<Entry<J>>(10);
+    const batch = [{ path: "/a/1.ARW" }];
+    history.push(batch);
+    history.push({ ...run, dirs: ["/a", "/b"] });
+    history.map(mapTrashDirs((dir) => (dir === "/a" ? "/z" : dir)));
+    expect(history.pop()).toEqual({ ...run, dirs: ["/z", "/b"] });
+    expect(history.pop()).toBe(batch);
   });
 
   test("peek shows the top without popping it", () => {

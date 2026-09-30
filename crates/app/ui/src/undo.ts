@@ -27,6 +27,12 @@ export function mapJudgments<J>(fn: (judgment: J) => J): (entry: Entry<J>) => En
   return (entry) => (isJudgments(entry) ? entry.map(fn) : entry);
 }
 
+// Rewrite the folders of a trash entry through `fn`, leaving a batch of
+// judgments as is, e.g. to follow a folder rename.
+export function mapTrashDirs<J>(fn: (dir: string) => string): (entry: Entry<J>) => Entry<J> {
+  return (entry) => (isJudgments(entry) ? entry : { ...entry, dirs: entry.dirs.map(fn) });
+}
+
 // A bounded stack of undo entries, used for both undo and redo: pushing past
 // `limit` drops the oldest.
 export class History<T> {

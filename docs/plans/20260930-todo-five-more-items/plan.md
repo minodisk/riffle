@@ -278,7 +278,7 @@ adjacent-line noise; resolve it by keeping both sides.
       DxO picked never shows the language block; Tab / Shift+Tab stay
       inside the dialog in both phases. Record in `learnings.md`.
 
-- [ ] Step 5: Follow a folder rename in the recorded trash runs and the frontend's trash undo entries
+- [x] Step 5: Follow a folder rename in the recorded trash runs and the frontend's trash undo entries
   - Done when: after `Rename…` on a folder, an undo of a `Move Rejected to
     Trash` run whose files were under it restores them into the renamed
     folder, a redo moves the restored files (now under the new path) to

@@ -73,7 +73,7 @@ pub struct Summary {
 /// One file a run moved to the Trash: where it came from and, when the
 /// platform tells, where it went (`None` on Windows / Linux, where the
 /// Trash is listed at undo time instead).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Trashed {
     pub path: PathBuf,
     pub trashed_at: Option<PathBuf>,
@@ -83,6 +83,17 @@ pub struct Trashed {
     /// checks this against the file it is about to rename back, not just
     /// that a file exists at `trashed_at`.
     pub trashed_id: Option<(u64, u64)>,
+    /// Where an undo puts the file back when a folder above it was renamed
+    /// since the run (`Runs::rename_dir`); `None` puts it back at `path`,
+    /// which stays the key the Trash is looked up by.
+    pub restore_to: Option<PathBuf>,
+}
+
+impl Trashed {
+    /// Where an undo puts the file back.
+    pub fn destination(&self) -> &Path {
+        self.restore_to.as_deref().unwrap_or(&self.path)
+    }
 }
 
 /// One recorded run: every file it moved, each RAW followed by its sidecars
@@ -164,6 +175,40 @@ impl Runs {
         let at = state.undone.iter().position(|(undone, _)| *undone == id)?;
         Some(state.undone.remove(at).1)
     }
+
+    /// Follow the rename of the folder `old` to `new` (both canonical, as
+    /// `Index::rename_dir` takes them): a recorded file under `old` is put
+    /// back under `new` by its undo, still looked up in the Trash by its
+    /// original path, and an undone run's files, which sit on disk under
+    /// the renamed folder now, are redone from there.
+    pub fn rename_dir(&self, old: &str, new: &str) {
+        if old == new {
+            return;
+        }
+        let old_prefix = format!("{old}{}", std::path::MAIN_SEPARATOR);
+        let new_prefix = format!("{new}{}", std::path::MAIN_SEPARATOR);
+        let rebase = |path: &Path| {
+            path.to_string_lossy()
+                .strip_prefix(&old_prefix)
+                .map(|rest| PathBuf::from(format!("{new_prefix}{rest}")))
+        };
+        let mut state = crate::index::lock(&self.0);
+        let state = &mut *state;
+        for trashed in state.runs.iter_mut().flat_map(|run| run.moved.iter_mut()) {
+            if let Some(to) = rebase(trashed.destination()) {
+                trashed.restore_to = (to != trashed.path).then_some(to);
+            }
+        }
+        for path in state
+            .undone
+            .iter_mut()
+            .flat_map(|(_, back)| back.iter_mut())
+        {
+            if let Some(to) = rebase(path) {
+                *path = to;
+            }
+        }
+    }
 }
 
 /// What `trash_rejected_undo` returns: the RAWs that came back and every
@@ -189,7 +234,7 @@ impl Restored {
                 .moved
                 .iter()
                 .map(|trashed| Failure {
-                    path: trashed.path.to_string_lossy().into_owned(),
+                    path: trashed.destination().to_string_lossy().into_owned(),
                     message: message.to_string(),
                 })
                 .collect(),
@@ -472,6 +517,7 @@ pub fn run(
                     path: group.raw,
                     trashed_at,
                     trashed_id,
+                    restore_to: None,
                 });
             }
             Err(message) => {
@@ -488,6 +534,7 @@ pub fn run(
                         path: sidecar,
                         trashed_at,
                         trashed_id,
+                        restore_to: None,
                     });
                 }
                 Err(message) => summary.failed.push(Failure {
@@ -524,7 +571,7 @@ pub const NOT_IN_TRASH: &str = "not in the Trash (emptied or restored by hand)";
 pub const RAW_NOT_RESTORED: &str = "left in the Trash: its RAW could not be restored";
 
 /// Put the files of `run` back in the recorded order, never stopping at a
-/// failure and never overwriting: a file whose original path `exists` fails,
+/// failure and never overwriting: a file whose destination `exists` fails,
 /// as does one `in_trash` finds no item for; otherwise `mover` restores the
 /// item. The RAW goes first, and when it does not come back its sidecars stay
 /// in the Trash (each reported), the mirror of `run`'s rule: a reject sidecar
@@ -540,10 +587,11 @@ pub fn restore<I>(
     let mut raw_back = true;
     for trashed in &run.moved {
         let is_raw = riffle_core::scan::is_raw_file(&trashed.path);
-        let path = trashed.path.to_string_lossy().into_owned();
+        let destination = trashed.destination();
+        let path = destination.to_string_lossy().into_owned();
         let result = if !is_raw && !raw_back {
             Err(RAW_NOT_RESTORED.to_string())
-        } else if exists(&trashed.path) {
+        } else if exists(destination) {
             Err(ALREADY_EXISTS.to_string())
         } else {
             match in_trash(trashed) {
@@ -556,7 +604,7 @@ pub fn restore<I>(
         }
         match result {
             Ok(()) => {
-                restored.back.push(trashed.path.clone());
+                restored.back.push(destination.to_path_buf());
                 if is_raw {
                     restored.restored.push(path);
                 }
@@ -617,8 +665,31 @@ pub fn restore_recorded(run: &TrashRun) -> Restored {
             Some(at)
         },
         Path::exists,
-        |trashed, at| std::fs::rename(at, &trashed.path).map_err(|e| e.to_string()),
+        |trashed, at| std::fs::rename(at, trashed.destination()).map_err(|e| e.to_string()),
     )
+}
+
+/// Move a file the Trash put back at its original path `from` to `to`, where
+/// a folder rename since the run moved its folder (Windows / Linux, whose
+/// Trash only restores to the original path), then remove the folders the
+/// Trash recreated on the way to `from`, each only while it is empty. A
+/// failed move leaves the file at `from`.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn relocate(from: &Path, to: &Path) -> Result<(), String> {
+    std::fs::rename(from, to).map_err(|e| {
+        format!(
+            "put back at {} but not moved into the renamed folder: {e}",
+            from.display()
+        )
+    })?;
+    let mut dir = from.parent();
+    while let Some(parent) = dir {
+        if std::fs::remove_dir(parent).is_err() {
+            break;
+        }
+        dir = parent.parent();
+    }
+    Ok(())
 }
 
 /// Move `path` to the Trash through `NSFileManager`, as the `trash` crate's
@@ -698,9 +769,9 @@ pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes, collect, newest_by_path, nothing_to_trash, preview, redo, restore, restore_recorded,
-        run, trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun, Trashed,
-        ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+        bytes, collect, newest_by_path, nothing_to_trash, preview, redo, relocate, restore,
+        restore_recorded, run, trash_key, Collection, FolderCount, Group, Restored, Runs, TrashRun,
+        Trashed, ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
     };
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
@@ -792,6 +863,7 @@ mod tests {
             path: PathBuf::from(path),
             trashed_at: None,
             trashed_id: None,
+            restore_to: None,
         }
     }
 
@@ -940,6 +1012,7 @@ mod tests {
                 path: dir.join(name),
                 trashed_at: Some(at.clone()),
                 trashed_id: super::file_id(&at),
+                restore_to: None,
             }
         };
         let back = recorded("a.ARW");
@@ -952,6 +1025,7 @@ mod tests {
             path: dir.join("c.ARW"),
             trashed_at: Some(trash.join("c.ARW")),
             trashed_id: Some((0, 0)),
+            restore_to: None,
         };
         let reused = Trashed {
             // A different file now occupies the recorded name (macOS Trash
@@ -961,6 +1035,7 @@ mod tests {
             path: dir.join("d.ARW"),
             trashed_at: Some(trash.join("d.ARW")),
             trashed_id: Some((0, 0)),
+            restore_to: None,
         };
         write(&reused.trashed_at.clone().unwrap());
         let run = TrashRun {
@@ -1088,6 +1163,136 @@ mod tests {
         assert_eq!(runs.take_undone(0), None);
         assert_eq!(runs.take_undone(1), Some(vec![PathBuf::from("a.ARW")]));
         assert_eq!(runs.take_undone(1), None);
+    }
+
+    fn moved_to(path: &Path, to: Option<&Path>) -> Trashed {
+        Trashed {
+            restore_to: to.map(Path::to_path_buf),
+            ..trashed(&key(path))
+        }
+    }
+
+    #[test]
+    fn a_folder_rename_moves_where_a_run_is_restored_to_but_not_its_trash_key() {
+        let photos = Path::new("photos");
+        let shoot = photos.join("shoot");
+        let day1 = photos.join("day1");
+        let day2 = photos.join("day2");
+        let a = shoot.join("a.ARW");
+        let b = shoot.join("sub").join("b.ARW");
+        let sibling = photos.join("shoot2").join("c.ARW");
+        let elsewhere = Path::new("other").join("d.ARW");
+        let runs = Runs::default();
+        let record = || {
+            runs.record(
+                [&a, &b, &sibling, &elsewhere]
+                    .map(|path| trashed(&key(path)))
+                    .to_vec(),
+            )
+            .unwrap()
+        };
+        let id = record();
+        runs.rename_dir(&key(&shoot), &key(&shoot));
+        runs.rename_dir(&key(&shoot), &key(&day1));
+        assert_eq!(
+            runs.take(id).unwrap().moved,
+            [
+                moved_to(&a, Some(&day1.join("a.ARW"))),
+                moved_to(&b, Some(&day1.join("sub").join("b.ARW"))),
+                moved_to(&sibling, None),
+                moved_to(&elsewhere, None),
+            ]
+        );
+        let id = record();
+        runs.rename_dir(&key(&shoot), &key(&day1));
+        runs.rename_dir(&key(&day1), &key(&day2));
+        assert_eq!(
+            runs.take(id).unwrap().moved[0],
+            moved_to(&a, Some(&day2.join("a.ARW")))
+        );
+        let id = record();
+        runs.rename_dir(&key(&shoot), &key(&day1));
+        runs.rename_dir(&key(&day1), &key(&shoot));
+        assert_eq!(runs.take(id).unwrap().moved[0], moved_to(&a, None));
+    }
+
+    #[test]
+    fn a_folder_rename_moves_the_files_an_undo_brought_back() {
+        let photos = Path::new("photos");
+        let shoot = photos.join("shoot");
+        let day1 = photos.join("day1");
+        let runs = Runs::default();
+        let back = vec![
+            shoot.join("a.ARW"),
+            shoot.join("a.xmp"),
+            photos.join("shoot2").join("c.ARW"),
+        ];
+        runs.undone(1, back.clone());
+        runs.undone(2, back.clone());
+        runs.rename_dir(&key(&shoot), &key(&shoot));
+        assert_eq!(runs.take_undone(2), Some(back.clone()));
+        runs.rename_dir(&key(&shoot), &key(&day1));
+        assert_eq!(
+            runs.take_undone(1),
+            Some(vec![
+                day1.join("a.ARW"),
+                day1.join("a.xmp"),
+                photos.join("shoot2").join("c.ARW"),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_renamed_run_is_restored_to_its_destination() {
+        let run = TrashRun {
+            id: 1,
+            moved: vec![
+                moved_to(Path::new("a.ARW"), Some(Path::new("new/a.ARW"))),
+                moved_to(Path::new("a.xmp"), Some(Path::new("new/a.xmp"))),
+                moved_to(Path::new("b.ARW"), Some(Path::new("new/b.ARW"))),
+            ],
+        };
+        let mut asked = Vec::new();
+        let restored = restore(
+            &run,
+            |t| Some(key(&t.path)),
+            |p| ["a.ARW", "new/b.ARW"].contains(&key(p).as_str()),
+            |t, item| {
+                asked.push((item, key(t.destination())));
+                Ok(())
+            },
+        );
+        assert_eq!(restored.restored, ["new/a.ARW"]);
+        assert_eq!(failures(&restored), [("new/b.ARW", ALREADY_EXISTS)]);
+        assert_eq!(restored.back, ["new/a.ARW", "new/a.xmp"].map(PathBuf::from));
+        assert_eq!(
+            asked,
+            [
+                ("a.ARW".to_string(), "new/a.ARW".to_string()),
+                ("a.xmp".to_string(), "new/a.xmp".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn a_file_restored_under_the_old_name_is_moved_into_the_renamed_folder() {
+        let dir = temp_dir("relocate");
+        let from = dir.join("shoot").join("sub").join("a.ARW");
+        let to = dir.join("day1").join("sub").join("a.ARW");
+        std::fs::create_dir_all(from.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        write(&from);
+        relocate(&from, &to).unwrap();
+        assert!(to.exists());
+        assert!(!dir.join("shoot").exists());
+        assert!(dir.exists());
+
+        let from = dir.join("shoot").join("b.ARW");
+        std::fs::create_dir_all(from.parent().unwrap()).unwrap();
+        write(&from);
+        assert!(relocate(&from, &dir.join("gone").join("b.ARW")).is_err());
+        assert!(from.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -1507,11 +1712,13 @@ mod tests {
                     path: dir.join("ok.ARW"),
                     trashed_at: Some(trash.join("ok.ARW")),
                     trashed_id: super::file_id(&trash.join("ok.ARW")),
+                    restore_to: None,
                 },
                 Trashed {
                     path: dir.join("ok.xmp"),
                     trashed_at: Some(trash.join("ok.xmp")),
                     trashed_id: super::file_id(&trash.join("ok.xmp")),
+                    restore_to: None,
                 },
             ]
         );

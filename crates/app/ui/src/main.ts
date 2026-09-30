@@ -9,6 +9,7 @@ import {
   History,
   isJudgments,
   mapJudgments,
+  mapTrashDirs,
   undoneTrash,
 } from "./undo.js";
 import { ErrorList } from "./errors.js";
@@ -2424,13 +2425,17 @@ interface Renamed {
 
 // The tree's inline edit confirmed a new name. The tree follows the rename in
 // place; when the open folder is the renamed one or under it, it is reopened
-// under its new path, its judgments coming back from the rewritten index.
+// under its new path, its judgments coming back from the rewritten index. The
+// trash entries' folders follow the rename, as the backend's recorded runs do.
 function renameFolder(path: string, name: string): void {
   whenIdle("Rename…", () => {
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
         ({ path: newPath, warning }) => {
           folders.renamed(path, newPath, name);
+          const moved = (dir: string): string => rebase(dir, path, newPath) ?? dir;
+          history.map(mapTrashDirs(moved));
+          redoable.map(mapTrashDirs(moved));
           const warn = (): void => {
             if (warning !== null) {
               setStatus(warning);

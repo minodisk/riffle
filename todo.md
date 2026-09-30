@@ -1145,23 +1145,6 @@ a rebuild).
       (closing a dialog refocuses `main` and `resync()` starts a scan) is
       Clear Cache's and is covered by that item's check (3).
 
-### App: renaming a folder after a Move Rejected to Trash run leaves the trash run pointing at the old path
-
-A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run leaves
-the recorded run pointing at the old path, so undoing it restores into the
-old, now missing, folder (on Windows the Recycle Bin may recreate the
-folder). The frontend's rename handler rewrites judgment entries
-(`mapJudgments`) but not a trash entry's `dirs`, and the backend's
-`TrashRun` is not rebased either. Basis: `undo-trash-rejected` Step 3
-implementation. Files: `crates/app/ui/src/main.ts` (rename handler),
-`crates/app/src/rename.rs`, `crates/app/src/trash.rs` (`Runs`).
-
-#### TODO
-
-- [ ] Rebase a trash run's recorded paths (and the frontend's trash undo
-      entry `dirs`) when the folder they point into is renamed, so undoing
-      or redoing the run after a rename still targets the right folder.
-
 ### Docs: add a guide for GitHub Actions workflows and `gh` secrets
 
 #### Background
