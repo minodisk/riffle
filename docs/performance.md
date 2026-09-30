@@ -41,7 +41,7 @@ Thumbnails (528x352): 30,231 bytes per file on average (967,419 bytes over
 
 Measured with `riffle-cli bench` / `scan` on one raw.pixls.us sample per body
 (12 NEF bodies, 13 CR3 bodies, 12 ORF bodies, the ones listed in
-[Compatibility](../README.md#compatibility)).
+[What the camera records](./cameras.md)).
 
 | | NEF | CR3 | ORF |
 |---|---|---|---|
@@ -59,7 +59,7 @@ come out 800x600, since the 3200x2400 preview is scaled at the fixed 2/8.
 ## Fujifilm RAF (raw.pixls.us samples, Windows)
 
 Measured with `riffle-cli bench` / `scan` on 46 raw.pixls.us samples of the
-22 Fujifilm bodies listed in [Compatibility](../README.md#compatibility) (a
+22 Fujifilm bodies listed in [What the camera records](./cameras.md) (a
 compressed and an uncompressed sample per body, plus two crop-mode samples).
 
 | | RAF |

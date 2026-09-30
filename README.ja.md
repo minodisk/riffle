@@ -10,7 +10,7 @@
 - スター、採用 / 不採用、カラーラベルは、Lightroom など XMP サイドカーを読むソフトや DxO PhotoLab が読めるサイドカーファイルに書き込みます。RAW ファイル自体には一切書き込みません。
 - 現像も編集もしません。やることは「選ぶ」ことだけです。
 
-対応カメラと形式は[対応状況](#対応状況)を参照してください。
+対応形式は[対応状況](#対応状況)を、確認済みのカメラは [docs/cameras.md](./docs/cameras.md)（英語）を参照してください。
 
 ## はじめに
 
@@ -134,102 +134,20 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
 
 動いた場合は Discussions の[OS 動作報告スレッド](https://github.com/minodisk/riffle/discussions/286)に投稿してください。動かない場合は[OS 用の issue テンプレート](https://github.com/minodisk/riffle/issues/new?template=os.yml)から issue を立ててください。
 
-### RAW 形式とカメラ
+### RAW 形式
 
 - ARW
-  - [x] Sony α1
-  - [x] Sony α9 III
-  - [x] Sony α7 V
-  - [x] Sony α7 IV
-  - [x] Sony α7R V
-  - [x] Sony α7S III
-  - [x] Sony α7C II
-  - [x] Sony α7CR
-  - [x] Sony α6700
-  - [x] Sony ZV-E1
 - CR3
-  - [x] Canon EOS R
-  - [x] Canon EOS RP
-  - [x] Canon EOS R3
-  - [x] Canon EOS R5
-  - [x] Canon EOS R5 Mark II
-  - [x] Canon EOS R6
-  - [x] Canon EOS R6 Mark II
-  - [x] Canon EOS R6 Mark III
-  - [x] Canon EOS R7
-  - [x] Canon EOS R8
-  - [x] Canon EOS R10
-  - [x] Canon EOS R50
-  - [x] Canon EOS R50 V
-  - [x] Canon EOS R100
 - DNG
-  - [x] Leica M11-P
-  - [x] SIGMA BF
-  - [x] SIGMA fp L
 - NEF
-  - [x] Nikon Z 9
-  - [x] Nikon Z 8
-  - [x] Nikon Z 7II
-  - [x] Nikon Z 6II
-  - [x] Nikon Z 6
-  - [x] Nikon Z 5
-  - [x] Nikon Z f
-  - [x] Nikon Z fc
-  - [x] Nikon Z 50
-  - [x] Nikon Z 30
-  - [x] Nikon D850
-  - [x] Nikon D500
 - ORF
-  - [x] OM System OM-1
-  - [x] OM System OM-1 Mark II
-  - [x] OM System OM-3
-  - [x] OM System OM-5
-  - [x] OM System OM-5 Mark II
-  - [x] Olympus E-M1X
-  - [x] Olympus E-M1 Mark III
-  - [x] Olympus E-M1 Mark II
-  - [x] Olympus E-M5 Mark III
-  - [x] Olympus E-M10 Mark IV
-  - [x] Olympus PEN E-P7
-  - [x] Olympus PEN-F
 - RAF
-  - [x] Fujifilm X-H2S
-  - [x] Fujifilm X-H2
-  - [x] Fujifilm X-T5
-  - [x] Fujifilm X-T50
-  - [x] Fujifilm X-T4
-  - [x] Fujifilm X-T3
-  - [x] Fujifilm X-T30 III
-  - [x] Fujifilm X-T30 II
-  - [x] Fujifilm X-T30
-  - [x] Fujifilm X-S20
-  - [x] Fujifilm X-S10
-  - [x] Fujifilm X-M5
-  - [x] Fujifilm X-E5
-  - [x] Fujifilm X-E4
-  - [x] Fujifilm X-Pro3
-  - [x] Fujifilm X100VI
-  - [x] Fujifilm X100V
-  - [x] Fujifilm GFX100 II
-  - [x] Fujifilm GFX100S II
-  - [x] Fujifilm GFX100S
-  - [x] Fujifilm GFX100RF
-  - [x] Fujifilm GFX 100
-  - [x] Fujifilm GFX50S II
-  - [x] Fujifilm GFX 50R
-  - [x] Fujifilm GFX 50S
-
-HDR PQ（HEIF）で撮影した CR3 には JPEG ではなく HEVC の画像が入っています。Riffle はその 1620x1080 の HEVC プレビューをデコードして sRGB にトーンマッピングするので、ほかのファイルと同じくサムネイル、プレビュー、シャープネススコアが得られます。フルサイズの画像はデコードしないため、こうしたファイルの 1:1 表示（`z`）はセンサーの画素ではなく、その 1620x1080 のプレビューの切り抜きを表示します。
-
-RAF に埋め込まれた JPEG は 1 枚だけで、リストの X シリーズでは 4416x2944、リストの GFX シリーズでは 4000x3000 と、センサーの解像度より小さいサイズです。RAF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。より古い X シリーズと FinePix の機種（X-T1 から X-T20、X-Pro1 と X-Pro2、X100S から X100F、X-E1 から X-E3、X-A シリーズ、FinePix の S シリーズと HS シリーズなど）も開けますが、埋め込み JPEG が 1920x1280 から 2176x1448（よくあるサイズは 1920x1280 と 2048x1536）なので、1:1 表示はその小さなプレビューの大きさまでです。機種ごとのサイズは [カメラが記録する情報](./docs/cameras.md)（英語）を参照してください。
-
-ORF に埋め込まれた JPEG は 1 枚だけで、リストのどの機種でも 3200x2400 と、センサーの解像度より小さいサイズです。ORF の 1:1 表示はこの JPEG を等倍で表示するもので、センサーの画素そのものではありません。
 
 JPEG（`.jpg` / `.jpeg`）だけが入り、RAW ファイルを含まないフォルダーは閲覧専用で開きます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示し、スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
 
-カメラごとに記録している情報と、それによって変わる機能は [docs/cameras.md](./docs/cameras.md)（英語）にまとめています。対応状況を形式ごとではなくカメラごとに載せている理由は [docs/raw-formats.md](./docs/raw-formats.md)（英語）で説明しています。
+実際のファイルで確認したカメラ、カメラごとに記録している情報、それによって変わる機能は [docs/cameras.md](./docs/cameras.md)（英語）にまとめています。対応状況を形式ごとではなくカメラごとに載せている理由は [docs/raw-formats.md](./docs/raw-formats.md)（英語）で説明しています。
 
-リストにないカメラで動いた場合は Discussions の[カメラ動作報告スレッド](https://github.com/minodisk/riffle/discussions/287)に投稿してください。動かない場合は[カメラ用の issue テンプレート](https://github.com/minodisk/riffle/issues/new?template=camera.yml)から issue を立ててください。調査にはサンプルファイルが必要なので、添付（またはリンク）をお願いします。1 枚で十分ですが、できれば横位置と縦位置の 2 枚があると、回転とフォーカスマークも確認できます。
+[docs/cameras.md](./docs/cameras.md)（英語）に載っていないカメラで動いた場合は Discussions の[カメラ動作報告スレッド](https://github.com/minodisk/riffle/discussions/287)に投稿してください。動かない場合は[カメラ用の issue テンプレート](https://github.com/minodisk/riffle/issues/new?template=camera.yml)から issue を立ててください。調査にはサンプルファイルが必要なので、添付（またはリンク）をお願いします。1 枚で十分ですが、できれば横位置と縦位置の 2 枚があると、回転とフォーカスマークも確認できます。
 
 ### サイドカー形式とソフト
 

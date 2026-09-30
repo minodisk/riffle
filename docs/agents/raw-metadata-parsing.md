@@ -60,7 +60,7 @@ JPEG. `arw::parse` picks the largest JPEG in the chain and the SubIFDs, so on
 the older bodies `full` is the thumbnail: the `bench` full decode takes 0.2 ms
 and the 1:1 view (`read_focus_crop`) would crop an upscaled 160x120 image.
 
-- Rule: do not add a Sony body to the README's supported list from a clean
+- Rule: do not add a Sony body to the `docs/cameras.md` table from a clean
   `info` / `scan` run alone. Check that the file has a full-size JPEG, that is,
   a `bench` full decode of tens of milliseconds or more and an IFD2.
 - Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification).

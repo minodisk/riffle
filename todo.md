@@ -715,7 +715,7 @@ small file could be committed as a fixture, but tests prefer synthetic
 bytes as in `crates/core/src/arw.rs`) and review-site sample galleries
 (real scenes, good for AF checks, but not redistributable, so local
 verification only). Riffle reads ARW, DNG, NEF, CR3, RAF and ORF today (README.md
-"RAW formats and cameras"). The work splits into tiers, cheapest first:
+"RAW formats"). The work splits into tiers, cheapest first:
 
 1. More DNG-writing cameras (Pentax, Ricoh GR, other Leica bodies,
    phones). DNG reading already exists, so only preview/EXIF
@@ -739,7 +739,7 @@ samples, as done for the Sigma BF `0x0147` in
 
 - [ ] Tier 1: verify preview/EXIF extraction on public DNG samples from
       Pentax, Ricoh GR, other Leica bodies, and phones; add each
-      working body to the README "RAW formats and cameras" list.
+      working body to the `docs/cameras.md` table.
 - [ ] Tier 2: read the AF point from the exiftool-decoded MakerNote
       tags above, confirming on samples, for bodies whose container
       Riffle can already read. Canon `AFInfo2` (EOS bodies) and Nikon
@@ -773,12 +773,12 @@ samples, as done for the Sigma BF `0x0147` in
 
 #### Background
 
-The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in the README. These seven bodies are left off the README until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `README.md`, `README.ja.md`, `docs/cameras.md`, `docs/raw-formats.md`.
+The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in `docs/cameras.md`. These seven bodies are left off `docs/cameras.md` until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `docs/cameras.md`, `docs/raw-formats.md`.
 
 #### TODO
 
 - [ ] Decide what 1:1 shows without a full-size JPEG (refuse, fall back to the 1616x1080 preview, or decode the raw data), and implement it with a synthetic-TIFF unit test next to the existing ones in `arw.rs`.
-- [ ] Add the seven bodies to `README.md`, `README.ja.md` and `docs/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
+- [ ] Add the seven bodies to `docs/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
 
 ### Core: a RAF folder scan costs ~222ms per file
 
