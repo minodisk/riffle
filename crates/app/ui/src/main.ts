@@ -3420,23 +3420,27 @@ function showFormatDialog(): void {
         ...presets.map((preset) => new Option(preset.name, preset.code)),
       );
       formatLanguageSelect.value = defaultPreset(presets, navigator.language)?.code ?? "";
+    })
+    .catch((err: unknown) => {
+      formatError.textContent = String(err);
+      formatError.hidden = false;
     });
 }
 
-// Saves the format first (it is what keeps the dialog from coming back), then
-// the label names when the format writes XMP; the dialog closes only once both
-// are saved.
+// Saves the label names first when the format writes XMP, then the format: the
+// format is the one key that keeps the dialog from coming back, so it goes last
+// and a failed names save leaves the dialog to reappear. The dialog closes only
+// once both are saved.
 function saveFormat(format: string, names: LabelNames | null, refocus: HTMLElement): void {
   const controls = [...formatButtons, formatLanguageSelect, formatContinue];
   for (const control of controls) {
     control.disabled = true;
   }
   formatError.hidden = true;
-  window.__TAURI__.core
-    .invoke("choose_sidecar_format", { format })
-    .then(() =>
-      names === null ? undefined : window.__TAURI__.core.invoke("set_label_names", { names }),
-    )
+  Promise.resolve(
+    names === null ? undefined : window.__TAURI__.core.invoke("set_label_names", { names }),
+  )
+    .then(() => window.__TAURI__.core.invoke("choose_sidecar_format", { format }))
     .then(
       () => {
         formatDialog.hidden = true;
@@ -3475,7 +3479,10 @@ formatContinue.addEventListener("click", () => {
     return;
   }
   const preset = formatPresets.find((p) => p.code === formatLanguageSelect.value);
-  saveFormat(chosenFormat, preset?.names ?? null, formatContinue);
+  if (preset === undefined) {
+    return;
+  }
+  saveFormat(chosenFormat, preset.names, formatContinue);
 });
 
 // Ask for the developing software while no sidecar format is saved. A failed

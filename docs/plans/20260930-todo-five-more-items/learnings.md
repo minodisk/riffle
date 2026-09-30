@@ -98,18 +98,20 @@
   `.dialog-box [hidden] { display: none }` (`docs/agents/ui-styling.md`).
   `ui-styling.md`'s component table now lists `#format-language-select`
   under `select` and `Continue` under `button outline`.
-- `saveFormat` in `main.ts` chains `choose_sidecar_format` and then
-  `set_label_names`; a rejection of either lands in `#format-error` and
-  re-enables every control. If the format saved but the names did not,
-  the next launch skips the dialog (the format is what gates it) and the
-  names stay English; `Continue` again in the same session retries both
-  (re-choosing the same format is a no-op in `choose_format`).
+- `saveFormat` in `main.ts` chains `set_label_names` and then
+  `choose_sidecar_format` (the format last, since it is the one key that
+  gates the dialog); a rejection of either lands in `#format-error` and
+  re-enables every control. If the names save rejects, the format is not
+  saved and the dialog comes back on the next launch; `Continue` again in
+  the same session retries both (re-choosing the same format is a no-op in
+  `choose_format`).
 - A click on XMP / Both while the language block is shown just replaces
   `chosenFormat`; a click on DxO saves at once from either phase. The
   chosen button gets no visual state (there is no pressed style in the
   component classes); the question text stays generic.
-- If `label_names` fails the select stays empty and `Continue` saves the
-  format alone (the names keep the backend's English default).
+- If `label_names` fails the select stays empty, the error shows in
+  `#format-error`, and `Continue` does nothing (no preset matches), so the
+  dialog cannot close without a language; DxO stays available.
 - The Tab trap now filters `button, select` by `closest("[hidden]")` and
   reuses `modal.ts`'s `cycleFocus`, so both phases cycle over what is
   visible.

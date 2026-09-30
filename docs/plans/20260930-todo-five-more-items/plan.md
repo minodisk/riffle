@@ -243,9 +243,12 @@ adjacent-line noise; resolve it by keeping both sides.
       beside `formatButtons`): a format click on XMP / Both stores it,
       un-hides the language block and focuses the select; a click on DxO
       keeps today's path. Order of the two invokes on `Continue`:
-      `choose_sidecar_format` first (it is what makes the dialog not come
-      back), then `set_label_names`; `set_label_names` emits
-      `sidecar-format`, which is harmless with no folder open. Consider
+      `set_label_names` first, then `choose_sidecar_format` (reversed in
+      review round 1: the format is the one key that keeps the dialog from
+      coming back, so it goes last and a failed names save leaves the dialog
+      to reappear); `set_label_names` emits `sidecar-format`, which is
+      harmless with no folder open. `Continue` does nothing while no preset
+      matches the select. Consider
       letting a second click on a format button while in phase two just
       change `chosenFormat` (no back button needed).
     - Tab trap: replace the fixed `formatButtons` cycling with a list
