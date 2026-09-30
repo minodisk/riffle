@@ -280,8 +280,10 @@ function settleIdle<T>(promise: Promise<T>): void {
 // superseded it, since `folder !== openDir` can't detect that case.
 let scanSeq = 0;
 let currentScan = 0;
-// When the last `startScan` began, in `Date.now()` milliseconds, so a focus
-// rescan inside `FOCUS_RESCAN_INTERVAL` of it is skipped.
+// When the last `startScan` began or the last focus rescan was triggered,
+// in `Date.now()` milliseconds, so a focus rescan inside
+// `FOCUS_RESCAN_INTERVAL` of it is skipped. The focus listener stamps it too,
+// since `resync()` reaches `startScan` only after its `list_arw` resolves.
 let lastScanAt: number | null = null;
 // True while a rescan's `list_arw` is outstanding, and true when a trigger
 // arrived while one was, the way `refreshEntries` keeps one read in flight.
@@ -2856,7 +2858,10 @@ void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // an alt-tab back and forth (or the focus a picker dialog hands back right
   // after an open) is not a full rescan each time. The folder watcher catches
   // the on-disk changes too; this rescan is a belt-and-braces re-listing.
-  if (!settings.isOpen && focusRescanDue(lastScanAt, Date.now())) resync();
+  if (!settings.isOpen && focusRescanDue(lastScanAt, Date.now())) {
+    lastScanAt = Date.now();
+    resync();
+  }
 });
 // The folder watcher's trigger, debounced in Rust. The listener outlives every
 // folder, so an event for a folder that is no longer open is dropped.

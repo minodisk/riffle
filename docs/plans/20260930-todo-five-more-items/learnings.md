@@ -41,8 +41,10 @@
 ## Step 2: throttling the focus rescan
 
 - `lastScanAt` is set in `startScan`, which `openDirectory` and `resync`
-  share, so the throttle is measured from the last scan start of any
-  trigger. `File > Reload Folder`, `folder-changed` and the trash / rename
+  share, and the focus listener stamps it too right before it calls
+  `resync()` (which reaches `startScan` only after its `list_arw` resolves,
+  so a second focus in that window would otherwise pass the throttle), so
+  the throttle is measured from the last scan start or focus trigger. `File > Reload Folder`, `folder-changed` and the trash / rename
   paths call `resync()` directly and are not throttled. A focus inside the
   interval is dropped, not deferred; a focus during a running scan that is
   past the interval still goes through `resync()`'s `resyncPending` path.
