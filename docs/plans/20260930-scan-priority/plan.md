@@ -65,7 +65,7 @@ bump); the `focus N / M` status text is Step 3's call.
 
 ## Steps
 
-- [ ] Step 1: Add the analysis pass to `riffle-core`: one `read_preview`
+- [x] Step 1: Add the analysis pass to `riffle-core`: one `read_preview`
       that yields both the focus candidate cue and the sharpness score
   - Done when:
     - `crates/core/src/scan.rs` has a per-file function (working name
@@ -451,4 +451,4 @@ bump); the `focus N / M` status text is Step 3's call.
 
 ## Progress
 
-- (YYYY-MM-DD) Step X complete
+- (2026-09-30) Step 1 complete
