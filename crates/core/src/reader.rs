@@ -111,17 +111,25 @@ fn read_embedded(path: &Path, kind: Kind) -> Result<(Arw, Vec<u8>)> {
     // Anything past the prefix exists only if the file is longer than it.
     let bounded = head.len() == HEAD_LIMIT;
 
-    match embedded_from(path, &head, &mut file, bounded, kind) {
-        Ok(found) => Ok(found),
+    let found = match embedded_from(path, &head, &mut file, bounded, kind) {
+        Ok(found) => found,
         Err(_) if bounded => {
             let buf = std::fs::read(path)?;
             // The prefix error only explains a truncated read; once the whole
             // file is in memory, an error there describes what is actually
             // wrong with the file, so surface that one instead.
-            embedded_from(path, &buf, &mut file, false, kind)
+            embedded_from(path, &buf, &mut file, false, kind)?
         }
-        Err(e) => Err(e),
-    }
+        Err(e) => return Err(e),
+    };
+    // Decode once, after the read is settled: a decode error is not a
+    // truncated-read error and must not trigger the whole-file retry.
+    let (arw, bytes, codec) = found;
+    let jpeg = match codec {
+        Codec::Jpeg => bytes,
+        Codec::Hevc => hevc::to_jpeg(&bytes)?,
+    };
+    Ok((arw, jpeg))
 }
 
 /// Parse just a file's metadata, reading the same bounded prefix as
@@ -150,7 +158,7 @@ fn embedded_from(
     file: &mut File,
     bounded: bool,
     kind: Kind,
-) -> Result<(Arw, Vec<u8>)> {
+) -> Result<(Arw, Vec<u8>, Codec)> {
     let arw = parse_raw(path, buf)?;
     let e = kind.pick(&arw).ok_or_else(|| {
         if arw.hevc {
@@ -177,11 +185,7 @@ fn embedded_from(
         file.read_exact(&mut bytes)?;
         bytes
     };
-    let jpeg = match e.codec {
-        Codec::Jpeg => bytes,
-        Codec::Hevc => hevc::to_jpeg(&bytes)?,
-    };
-    Ok((arw, jpeg))
+    Ok((arw, bytes, e.codec))
 }
 
 #[cfg(test)]
