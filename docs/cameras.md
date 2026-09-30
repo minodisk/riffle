@@ -5,6 +5,12 @@ tested cameras, see [Compatibility](../README.md#compatibility); for the
 features themselves, see [usage.md](./usage.md); for why these differ by body
 even within one RAW format, see [How RAW files differ](./raw-formats.md).
 
+A body released before 2010, or whose embedded JPEG is under 1280 px on the
+long edge, is not supported: Riffle culls from that preview, and such a body
+cannot give it one good enough to judge focus with. Files from such a body may
+still open, since Riffle does not block them, but the body is not listed here
+or in [Compatibility](../README.md#compatibility).
+
 | Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
 |---|---|---|---|---|
 | Sony α1 | ✓ | ✓ | – | ✓ |
@@ -111,20 +117,6 @@ even within one RAW format, see [How RAW files differ](./raw-formats.md).
 | Fujifilm FinePix HS30EXR | ✓ | – | – | – |
 | Fujifilm FinePix SL1000 | ✓ | – | – | – |
 | Fujifilm FinePix S1 | ✓ | – | – | – |
-| Fujifilm FinePix S200EXR | ✓ | – | – | – |
-| Fujifilm FinePix S100FS | – | – | – | – |
-| Fujifilm FinePix S9600 | ✓ | – | – | – |
-| Fujifilm FinePix S9500 | ✓ | – | – | – |
-| Fujifilm FinePix S6500fd | ✓ | – | – | – |
-| Fujifilm FinePix S6000fd | – | – | – | – |
-| Fujifilm FinePix S5200 | ✓ | – | – | – |
-| Fujifilm FinePix S5500 | ✓ | – | – | – |
-| Fujifilm FinePix S5000 | ✓ | – | – | – |
-| Fujifilm FinePix S7000 | ✓ | – | – | – |
-| Fujifilm FinePix S5 Pro | – | – | – | – |
-| Fujifilm FinePix S3 Pro | – | – | – | – |
-| Fujifilm FinePix S2 Pro | – | – | – | – |
-| Fujifilm DBP for GX680 | – | – | – | – |
 | OM System OM-1 | – | – | – | – |
 | OM System OM-1 Mark II | – | – | – | – |
 | OM System OM-3 | – | – | – | – |
@@ -147,11 +139,9 @@ D850 and D500 write an older `AFInfo2` that Riffle does not read.
 On the Fujifilm bodies, Riffle reads the AF point from the MakerNote
 (`FocusPixel`), a point without a frame size. The X-T3 and GFX 100 samples
 were all shot in manual focus, which Riffle treats as having no AF point, so
-those two are unconfirmed; the same holds for the X-A2, X-E3, X100F, XF10,
-GFX 50S, FinePix S3 Pro, S100FS and S6000fd samples. The FinePix S2 Pro,
-S5 Pro and DBP for GX680 write no `FocusPixel` at all, so they have no AF
-point. Sub-second capture time is marked as the samples recorded it; none of
-the older X-series and FinePix bodies records it.
+those two are unconfirmed; the same holds for the X-A2, X-E3, X100F, XF10
+and GFX 50S samples. Sub-second capture time is marked as the samples
+recorded it; none of the older X-series and FinePix bodies records it.
 
 The embedded JPEG is the preview and the 1:1 view on every Fujifilm body, so
 on the older bodies the 1:1 view is that small JPEG rather than a pixel-level
@@ -162,12 +152,8 @@ check:
 | 4416x2944 | X-H2S, X-H2, X-T5, X-T50, X-T4, X-T3, X-T30 III, X-T30 II, X-T30, X-S20, X-S10, X-M5, X-E5, X-E4, X-Pro3, X100VI, X100V |
 | 4000x3000 | GFX100 II, GFX100S II, GFX100S, GFX100RF, GFX 100, GFX50S II, GFX 50R, GFX 50S |
 | 2176x1448 | FinePix X100 |
-| 2048x1536 | X30, X20, X10, XF1, XQ2, XQ1, X-S1, FinePix F770EXR, F550EXR, HS50EXR, HS33EXR, HS30EXR, SL1000, S1, S200EXR |
+| 2048x1536 | X30, X20, X10, XF1, XQ2, XQ1, X-S1, FinePix F770EXR, F550EXR, HS50EXR, HS33EXR, HS30EXR, SL1000, S1 |
 | 1920x1280 | X-H1, X-T2, X-T1, X-T20, X-T10, X-T200, X-T100, X-Pro2, X-Pro1, X-E3, X-E2S, X-E2, X-E1, X-A7, X-A5, X-A3, X-A2, X-A1, X-A10, X-M1, X100F, X100T, X100S, X70, XF10 |
-| 1600x1200 | FinePix S100FS, S9600, S9500, S6500fd, S6000fd, S5200 |
-| 1440x960 | FinePix S5 Pro, S3 Pro, S2 Pro |
-| 1344x960 | DBP for GX680 |
-| 1280x960 | FinePix S5500, S5000, S7000 |
 
 On the OM System and Olympus bodies, Riffle does not read the AF point yet:
 the MakerNote records it as `AFTargetInfo` (OM bodies) and `AFPointSelected`,
