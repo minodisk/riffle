@@ -71,6 +71,33 @@
   meta pane's Analysis group holds both values the pass fills in). The focus
   mark and Sharpness cue entries in `docs/usage.md` say so.
 
+## Step 4: the scan's workers below normal OS priority
+
+- `thread-priority` 3.1.1 has no macOS QoS API (its macOS path is
+  `pthread_setschedparam` on `SCHED_OTHER`), so it is a Windows-only
+  dependency (`WinAPIThreadPriority::BelowNormal` / `Lowest` through
+  `set_current_thread_priority(ThreadPriority::Os(level.into()))`) and the
+  unix branches call `libc` directly: macOS
+  `pthread_set_qos_class_self_np(QOS_CLASS_UTILITY | QOS_CLASS_BACKGROUND, 0)`
+  (both exported at the `libc` root in 0.2.189, `qos_class_t` a `#[repr(u32)]`
+  enum), Linux `setpriority(PRIO_PROCESS, 0, 5 | 10)`, which on Linux sets
+  the calling thread's nice alone. The crate's Linux mapping of
+  `Crossplatform(0..=99)` onto nice is a truncating float formula, so the
+  explicit nice values read better than the magic priority numbers it would
+  need. The `windows` 0.62 crate it pulls was already in the lock.
+- The priority error travels back as the `Ok(Some(msg))` of `extract_all` /
+  `extract_analysis_all` (`Result<Option<String>, String>`): each worker
+  sets its priority before `thread.run()` and records the first failure in a
+  shared `OnceLock`, read once the pool has finished. The app logs it with
+  `log::warn!` once per pass; the CLI passes `Priority::Normal`, which makes
+  no call at all. A worker that never started (fewer files than threads)
+  reports nothing, but it also ran nothing.
+- `every_worker_runs_at_the_priority_it_was_given` reads the level back
+  inside `per_file` (Windows `get_current_thread_priority`, Linux
+  `getpriority`); macOS has no such check here since this machine cannot
+  build it, only the `Ok(None)` assertion of `every_index_is_delivered_once`
+  run on CI's macOS job.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 3, `crates/app/ui/src/main.ts` `faces-progress`
@@ -85,3 +112,20 @@
   should stay a few milliseconds; if it is much larger, throttle
   `applySharpness()` in the handler. The step's checkbox was ticked on the
   automated criteria (unit tests and `mise run ci`).
+- Pending manual check (Step 4, `crates/core/src/scan.rs` `for_each_path` /
+  `Priority`, `crates/app/src/index.rs` `run_scan` / `run_faces_scan`): on
+  the Windows machine, clear the cache (settings modal, `Clear Cache`), open
+  a large RAW folder (a few thousand files) in a development build with the
+  settings modal's `Timing logs` on, and page through it with the arrow keys
+  while `scanning N / M` and then `analyzing N / M` run. Compare the `page
+  invoke=.. decode=.. total=.. keypressToPixels=..` lines in `Riffle.log`
+  (the plan's "page latency"; there is no line by that name)
+  with the same run on the previous release (and with paging after the scan
+  ends): during the passes they must not be worse and should be closer to
+  the idle value. Note the wall time of the `scan extract` / `scan faces`
+  summary lines of both runs to see what the lowered priority costs while
+  paging. No `ran at normal priority` warning should appear in the log. On a
+  Mac, repeat once to see that the analysis pass (`QOS_CLASS_BACKGROUND`,
+  which also throttles disk IO) does not crawl; if it does, move it to
+  `QOS_CLASS_UTILITY`. The step's checkbox was ticked on the automated
+  criteria (unit tests and `mise run ci`).

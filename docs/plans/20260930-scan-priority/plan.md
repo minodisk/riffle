@@ -207,7 +207,7 @@ bump); the `focus N / M` status text is Step 3's call.
     - Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/focus.ts`,
       `crates/app/ui/src/focus.test.ts`, possibly `docs/usage.md`.
 
-- [ ] Step 4: Run the scan's workers below normal OS priority, the
+- [x] Step 4: Run the scan's workers below normal OS priority, the
       analysis pass lowest
   - Done when:
     - `scan::for_each_path` (and so `extract_all` and
