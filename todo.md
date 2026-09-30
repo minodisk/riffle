@@ -1192,21 +1192,6 @@ a rebuild).
       (closing a dialog refocuses `main` and `resync()` starts a scan) is
       Clear Cache's and is covered by that item's check (3).
 
-### Agents: Bash-tool heredocs on Windows mangle doubled backslashes
-
-During `trash-rejected-from-tree` Step 4, text holding a doubled backslash
-(a Windows path, a verbatim `\\?\` prefix) written through a Bash-tool
-heredoc landed with the backslashes halved, even with a quoted delimiter.
-
-#### TODO
-
-- [ ] Add a rule (in `CLAUDE.md` or an agent-tooling note) telling agents
-      on Windows to write text holding backslashes (Windows paths,
-      verbatim `\\?\` prefixes, regex escapes) with the Write / Edit
-      tools, or a script file written by them, rather than a Bash
-      heredoc. Confirm the behavior first by writing a doubled-backslash
-      string both ways and diffing the results.
-
 ### App: renaming a folder after a Move Rejected to Trash run leaves the trash run pointing at the old path
 
 A folder renamed (tree `Rename…`) after a `Move Rejected to Trash` run leaves

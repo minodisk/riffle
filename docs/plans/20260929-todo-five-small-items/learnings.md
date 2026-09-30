@@ -72,6 +72,24 @@
   Writing the script with the Write tool and running it from the scratchpad
   worked.
 
+## Step 5
+
+- Re-confirmed on Windows 11: the string `D:\\Photos \\?\C:\x "a\\b" \\\\server`
+  written to the scratchpad through a `cat > f <<'EOF'` Bash-tool heredoc
+  landed as `D:\Photos \?\C:\x "a\b" \\server` (every `\\` halved, single
+  backslashes intact); the same string through the Write tool landed byte for
+  byte, and `diff` showed the one line differing.
+- It is not heredoc-specific: `printf '%s\n' 'a\\b'` and `echo 'a\\b'` in the
+  Bash tool also wrote `a\b`, so the halving happens to the command string
+  itself. A `printf '%s'` workaround (the plan's fallback idea) does not help;
+  the rule says Write / Edit or a script file written by them. Step 4's
+  `python -` heredoc hit above is the same pitfall in practice.
+- Added the rule as "On Windows, the Bash tool halves doubled backslashes,
+  even in a quoted heredoc (Hit)" right after the Python-heredoc item in
+  `docs/agents/tauri-app.md`. Since the quoted-heredoc hand-over in
+  `.claude/skills/delegate/SKILL.md` is affected too, it got a two-line
+  cross-reference there.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Step 3, deleted focused file keeps a neighbour).**

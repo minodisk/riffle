@@ -163,7 +163,7 @@ step hits is resolved by the rule it adds.
     - Files: `crates/app/ui/src/tree.ts`, `crates/app/ui/src/tree.test.ts`,
       `crates/app/ui/src/folders.ts`, `todo.md`.
 
-- [ ] Step 5: Record the Windows Bash-tool heredoc backslash pitfall for agents
+- [x] Step 5: Record the Windows Bash-tool heredoc backslash pitfall for agents
   - Done when: the behaviour is re-confirmed by writing a string holding
     doubled backslashes (e.g. `D:\\Photos \\?\C:\x "a\\b" \\\\server`) to
     the scratchpad once through a Bash-tool heredoc (quoted delimiter) and
