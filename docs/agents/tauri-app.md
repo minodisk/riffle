@@ -1938,6 +1938,21 @@ with the Edit tool rather than a Python heredoc.
 
 - Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1).
 
+### On Windows, the Bash tool halves doubled backslashes, even in a quoted heredoc (Hit)
+
+Every `\\` in a Bash-tool command lands as `\` (single backslashes survive):
+a `cat > f <<'EOF'` heredoc, quoted or not, a single-quoted `printf '%s'` or
+`echo` argument, and a heredoc fed to `python -` alike. Text holding Windows
+paths, verbatim `\\?\` / UNC prefixes or regex escapes comes out wrong with
+no error; the Write tool writes the same text byte for byte.
+
+- Fix: write text holding backslashes with the Write / Edit tools, or put it
+  in a script file written by them and run that file; never pass it through
+  a Bash command string.
+- Source: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
+  Step 4; `docs/plans/20260929-todo-five-small-items/learnings.md`, Steps 4
+  and 5.
+
 ## CI
 
 ### Do not hard-code the pnpm store path (Inferred)
