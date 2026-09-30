@@ -3109,7 +3109,8 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `analyzing ${payload.done} / ${payload.total}`;
   const current = applyFaceReady(entries, payload.ready, files[index]);
-  if (applySharpnessReady(entries, sharpness, payload.ready)) {
+  const scored = applySharpnessReady(entries, sharpness, payload.ready);
+  if (scored) {
     applySharpness();
   }
   applyCandidates();
@@ -3119,7 +3120,9 @@ void window.__TAURI__.event.listen<{
     refilter(files[index], true);
   }
   renderMeta();
-  if (current) {
+  // Compare's labels and BEST bar read the scores of frames other than the
+  // current one.
+  if (current || (scored && comparing)) {
     draw();
   }
 });
