@@ -1336,3 +1336,28 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/src/main.ts`, `crates/app/ui/sr
 - [ ] On macOS (WKWebView), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: Safari 14.1 / macOS 11).
 - [ ] On Linux (WebKitGTK), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: WebKitGTK 2.32).
 - [ ] On macOS and Linux, confirm that Settings > Sidecar's `#label-names > label` rows (`grid-template-columns: subgrid`, Chromium 117+ / Safari 16+, see the subgrid bullet in `docs/agents/ui-styling.md` "CSS features") still line up; if not, replace the subgrid with explicit columns.
+
+### App: real-device check of focus after deleting the focused file from outside the app
+
+#### Background
+
+The `todo-five-small-items` feature (Step 3) made `resync` fall back to the deleted focused file's neighbour instead of the first file (`anchorAfterFilter` takes an optional `previous` list, and `refilter` passes it from `resync`). Vitest cases in `crates/app/ui/src/filter.test.ts` cover the picker (next neighbour, previous neighbour, a filtered-out neighbour, consecutive deletions), and `mise run ci` passes. The flow through a real window, where the file is deleted in Explorer / Finder and the app regains focus, was never exercised because the GUI cannot be driven from the implementing session. Plan: `docs/plans/_archived/20260929-todo-five-small-items/plan.md`.
+
+Files: `crates/app/ui/src/main.ts` (`resync`, `refilter`), `crates/app/ui/src/filter.ts` (`anchorAfterFilter`).
+
+#### TODO
+
+- [ ] On Windows, open a folder of RAW files, focus a file in the middle of the strip, delete it in Explorer, and switch back to the app. Expected: the strip stays on the deleted file's next file (the previous one if it was the last), not the first file, and the preview shows that file. Repeat with a filter active whose next neighbour is filtered out. Expected: focus lands on the next passing file.
+- [ ] On macOS, the same steps with Finder.
+
+### App: `main.ts` / `trash.ts` path comparisons stay case-sensitive on case-insensitive filesystems
+
+#### Background
+
+The `todo-five-small-items` feature (Step 4) made `relation`, `rebase` and `renameFolder` in `crates/app/ui/src/tree.ts` take `ignoreCase`, and `folders.ts`'s `renamed` passes it. By decision (option (a) in the plan), these callers were left case-sensitive: `crates/app/ui/src/main.ts`'s `renameFolder`, which reopens the folder through `rebase(openDir, path, newPath)`, and `crates/app/ui/src/trash.ts`'s `restoredInto` / `opensTarget`, which call `relation`. On macOS / Windows, an `openDir` that differs in case from the tree key would then not be rebased (the open folder is not reopened after a rename) or matched. This is rare, since both spellings come from the same tree / `list_arw` listings. Plan: `docs/plans/_archived/20260929-todo-five-small-items/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/trash.ts`, `crates/app/ui/src/folders.ts` (the `ignoreCase` flag).
+
+#### TODO
+
+- [ ] Export the platform flag from `folders.ts` (or an equivalent) and pass it to `rebase(openDir, ...)` in `main.ts` and to the `relation` calls in `trash.ts`, with `tree.test.ts` / `trash` test cases for a differently cased path.
