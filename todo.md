@@ -1230,6 +1230,28 @@ the two local samples), but the GUI itself was never exercised. See
       `EXTRACTOR_VERSION` bump to 8, it re-extracts once and picks up the
       new text.
 
+### App: real-device check of an ORF folder in the strip, sidecars and Move Rejected to Trash
+
+`orf.rs` and the `.orf` arm of `scan::is_raw_file` / `reader::parse_raw`
+were verified by unit tests and `riffle-cli bench` / `scan` / `focusbox` on
+the raw.pixls.us samples in `D:\photos\samples\ORF\` (never committed), but
+the GUI was never exercised on them. See
+`docs/plans/_archived/20260930-olympus-orf/plan.md` and its `learnings.md`.
+Files: `crates/core/src/orf.rs`, `crates/core/src/scan.rs`,
+`crates/core/src/reader.rs`.
+
+#### TODO
+
+- [ ] On Windows, open `D:\photos\samples\ORF\` in the app and check that
+      (1) every `.ORF` appears in the strip with a thumbnail, and the folder
+      tree's RAW count includes them; (2) the preview and the 1:1 view show
+      the 3200x2400 embedded JPEG, the XZ-10 and E-30 frames upright; (3)
+      the meta pane shows the EXIF rows (camera without trailing spaces,
+      lens, exposure, capture time); (4) a star, a flag and a color label
+      write an XMP and a `.dop` next to the file; (5) rejecting a file and
+      running `Move Rejected to Trash…` moves the ORF and its sidecars, and
+      Undo restores them.
+
 ### App: real-device checks for the flex / grid gap layout (no-margin-layout) are still open
 
 #### Background
