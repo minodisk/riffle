@@ -79,6 +79,28 @@ pending flush can itself create the file the refusal needs to see.
 
 - Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Steps 1 and 3.
 
+### Undoing a trash run after a folder rename, and walking the tree without following links (Hit)
+
+- `Trashed.path` stays the original path because the Windows / Linux Trash is
+  looked up by it (`trash_key`). The renamed destination lives in
+  `restore_to`, which `Runs::rename_dir` rebases with the same
+  `old + MAIN_SEPARATOR` prefix rule as `Index::rename_dir`. `rename_folder`
+  calls it under the same `Scans` lock, outside `if let Some(index)`, so the runs
+  follow even with no index.
+- trash 5.2.9's Windows `restore_all` fails with "file not found" when the
+  original folder is gone. Only the freedesktop backend runs `create_dir_all`.
+  For a file with `restore_to`, create the missing old ancestors first
+  (`trash::create_missing`, returning exactly the ones created), then
+  `restore_all`, then `fs::rename` to the new place. Afterwards `remove_dir` only
+  the created folders, deepest first and only while empty, so a pre-existing
+  empty old-name folder is never removed. Verified with a probe.
+- Folder-tree `expandAll` lists a symlink / junction child (`is_link` from
+  `list_subfolders`) without descending. `list` follows links, so `a/loop -> a`
+  would otherwise grow without end. The walk also stops a branch as soon as any
+  ancestor was collapsed, dropped or re-keyed by a rename.
+- Source: `docs/plans/_archived/20260930-todo-five-more-items/learnings.md`,
+  Steps 3 and 5.
+
 ### Resolve shortcut overrides order-independently, not in a single pass (Hit)
 
 `from_overrides` in `crates/app/src/shortcuts.rs` checks each stored override
@@ -254,6 +276,24 @@ for the next folder open — is drained in `tauri::RunEvent::ExitRequested`.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 3.
 
+### A bounded drain must fail loudly, and a sidecar test must not swallow writer errors (Hit)
+
+`Writer::flush` returns `bool` (`true` when the drain reply arrived within
+`DRAIN_TIMEOUT`). Production callers may ignore it, but tests must not. The
+switch-to-Both sidecar test was flaky on `windows-latest` because the 2 s drain
+gave up while the writer was still inside `write_kind` (`sync_all` plus the
+Windows `rename` retries), or because the write failed and `on_error` only
+printed to stderr. Either way the failure surfaced one step later as `NotFound`
+on the read.
+
+- In a sidecar-writer test, collect every `on_error` message into a
+  `Mutex<Vec<String>>`. Drain with a generous budget (30 s), and assert both the
+  `flush` result and that the errors are empty before reading any sidecar.
+- Filter out `" (retrying in "` messages when asserting. A write that fails once
+  on the deadline path and succeeds on the rewrite is correct. Keep the full list
+  in the assertion message so a transient sharing violation stays visible.
+- Source: `docs/plans/_archived/20260930-todo-five-more-items/learnings.md`, Step 1.
+
 ### Snapshot the state you decided on, not just the lock, across a release (Hit)
 
 `reconcile_sidecars` (decides what to parse) and `store_sidecar_ratings`
@@ -288,6 +328,15 @@ the global `window.__TAURI__.event.listen`.
   `tauri://focus` event fires on close instead; the `tauri://focus` listener
   in `main.ts` skips the resync while `settings.isOpen`, to avoid the race.
   Keep the scoped form for the next window too.
+- The focus rescan is throttled (`focusRescanDue`). `lastScanAt` is stamped in
+  `startScan` and also by the focus listener right before it calls `resync()`,
+  because `resync()` reaches `startScan` only after its `list_arw` resolves and a
+  second focus in that window would otherwise pass. A focus inside the interval
+  is dropped, not deferred. `File > Reload Folder`, `folder-changed` and the
+  trash / rename paths call `resync()` directly and are not throttled.
+  `scan_folder` skips the `pending` entry when both `todo` and `faces_todo` are
+  empty, so an idle focus rescan ends at once. Source:
+  `docs/plans/_archived/20260930-todo-five-more-items/learnings.md`, Step 2.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 

@@ -1262,3 +1262,55 @@ Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/trash.ts`, `crates/app/ui
 #### TODO
 
 - [ ] Export the platform flag from `folders.ts` (or an equivalent) and pass it to `rebase(openDir, ...)` in `main.ts` and to the `relation` calls in `trash.ts`, with `tree.test.ts` / `trash` test cases for a differently cased path.
+
+### App: real-device check of the focus-rescan throttle (todo-five-more-items Step 2)
+
+#### Background
+
+The `todo-five-more-items` feature made an idle focus rescan end at once and throttled repeated focus events. Vitest cases for `focusRescanDue` and `mise run ci` cover it. The GUI behaviour was never exercised: the implementation agent had no GUI session. See `docs/plans/_archived/20260930-todo-five-more-items/plan.md` (Step 2).
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`.
+
+#### TODO
+
+- [ ] On Windows, with `Timing logs` on, open a folder and let its scan and faces pass finish. Wait more than 5 s, then switch to another app and back to Riffle. Expect `Riffle.log` to show `scan prepare: … todo=0` with no `scan extract` or `scan faces` line after it, and the status line's `scanning` never appears. Then alt-tab away and back twice within 5 s: only the first focus logs a `scan list` line.
+
+### App: real-device check of Expand All / Collapse All in the folder tree (todo-five-more-items Step 3)
+
+#### Background
+
+The `todo-five-more-items` feature added `Expand All` / `Collapse All` to the folder tree's context menu. Vitest cases in `tree.test.ts` / `context.test.ts` and `mise run ci` cover the logic. The real menu on a real photo archive was never exercised, and neither was the watcher count or the ancestor-rename interaction. See `docs/plans/_archived/20260930-todo-five-more-items/plan.md` (Step 3) and the `notify` ancestor-pinning item in `docs/agents/tauri-app.md`.
+
+Files: `crates/app/ui/src/folders.ts`, `crates/app/ui/src/tree.ts`, `crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On Windows, right-click a folder with two or more levels of subfolders (e.g. under `D:\photos`) and choose `Expand All`: every level should appear. Then `Collapse All` on the same folder: all levels fold back with the clicked folder still open. Then `Expand All` on a folder containing a subfolder that cannot be listed (e.g. read permission denied): the unreadable folder shows its error (status line, row marked failed) and the rest still expand.
+- [ ] On Windows, measure how many `tree-changed` watches a real `Expand All` on a photo archive makes (the number of expanded drawn folders; via `Timing logs` or a debugger on `set_tree_watches`). Also check that renaming an ancestor of the expanded folders still works.
+
+### App: real-device check of the first-launch Lightroom UI-language question (todo-five-more-items Step 4)
+
+#### Background
+
+The `todo-five-more-items` feature made the first-launch dialog ask for Lightroom's UI language after `Lightroom (XMP)` or `Both` is picked. Vitest cases in `firstrun.test.ts` and `mise run ci` cover it. The dialog was never run in the GUI. See `docs/plans/_archived/20260930-todo-five-more-items/plan.md` (Step 4).
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`.
+
+#### TODO
+
+- [ ] On Windows, with a fresh settings store (delete the app-data settings store or use a fresh app-data dir), launch and pick `Lightroom (XMP)`: the language block appears with the select preselected by the OS language. Pick 日本語 and `Continue`. In Settings > Sidecars the Lightroom-language fields show レッド … パープル. Relaunch: no dialog.
+- [ ] On Windows, with another fresh store, pick `DxO PhotoLab (.dop)`: the dialog closes at once with no language block.
+- [ ] On Windows, in both phases Tab / Shift+Tab stay inside the dialog and reach the select and `Continue` only once they are shown.
+
+### App: real-device checks for trash undo / redo after a folder rename (todo-five-more-items Step 5)
+
+#### Background
+
+The `todo-five-more-items` feature rebased the trash runs and their undo / redo entries when a folder is renamed. On Windows / Linux, restore recreates the missing old folders, restores from the Trash, moves the file to the new place and removes only the folders it created; on macOS, `restore_recorded` renames straight to the new destination. `trash.rs` tests (`Runs::rename_dir`, `restore` with a destination, `relocate`), the `undo.test.ts` case and `mise run ci` cover it. No real Recycle Bin or macOS Trash was exercised. See `docs/plans/_archived/20260930-todo-five-more-items/plan.md` (Step 5).
+
+Files: `crates/app/src/trash.rs` (`restore_recorded`), `crates/app/src/commands.rs` (`restore_run`), `crates/app/src/rename.rs`, `crates/app/ui/src/main.ts`.
+
+#### TODO
+
+- [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), run `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with a recursive run over a parent whose subfolder is renamed. Then `Redo` should move them to the Recycle Bin again.
+- [ ] On macOS, repeat the undo / redo after a rename (`restore_recorded` renames the Trash file straight to the new destination, with no `relocate`). Expect the files back in the renamed folder and no old-name folder appearing.
