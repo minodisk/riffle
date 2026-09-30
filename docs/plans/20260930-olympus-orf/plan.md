@@ -301,3 +301,4 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
 ## Progress
 
 - (2026-09-30) Step 1 complete
+- (2026-09-30) Step 2 complete
