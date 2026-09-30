@@ -10,6 +10,7 @@ pub mod faces;
 pub mod i18n;
 pub mod jpeg;
 pub mod nef;
+pub mod orf;
 pub mod partial;
 pub mod raf;
 pub mod reader;

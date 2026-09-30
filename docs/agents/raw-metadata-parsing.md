@@ -5,7 +5,9 @@ Read this before touching the TIFF / MakerNote parsing in
 SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
 `crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)), or in
 `crates/core/src/cr3.rs`, which reads Canon CR3 files (see [CR3](#cr3)), or in
-`crates/core/src/raf.rs`, which reads Fujifilm RAF files (see [RAF](#raf)). It lists the
+`crates/core/src/raf.rs`, which reads Fujifilm RAF files (see [RAF](#raf)), or in
+`crates/core/src/orf.rs`, which reads OM System / Olympus ORF files (see
+[ORF](#orf)). It lists the
 pitfalls this repository has already hit, each with the reason it happens.
 `crates/core/src/reader.rs` only picks which bytes to read; no maker-specific
 parsing lives there. For a new Sony MakerNote field, also read
@@ -352,6 +354,62 @@ offset in the note is relative to the note start and little-endian, with no
 TIFF header (ExifTool's `MakerNotes.pm` `MakerNoteFujiFilm`), so
 `sequence::Tiff::new` cannot read it as is. `raf.rs` reads nothing from it
 yet; `FocusPixel` (0x1023, `int16u[2]`) is the candidate AF-point source.
+
+## ORF
+
+`crates/core/src/orf.rs` reads an OM System / Olympus ORF: IFD0 and the Exif
+IFD through `exif::read_ifd0` / `read_exif_ifd`, then the preview from the
+Olympus MakerNote's CameraSettings sub-IFD. Nothing else in the note is read
+yet.
+
+### The `IIRO` header (Measured)
+
+An ORF is a TIFF whose magic is 0x4f52 (`IIRO` little-endian, `MMOR`
+big-endian) instead of 42; some old bodies (the SP-350, the C5050Z) write
+0x5352 `RS`. `sequence::Tiff::new` rejects both, so `parse` opens the file
+with `Tiff::new_with_magic(.., &[0x4f52, 0x5352])` and rejects 42. Every
+raw.pixls.us ORF checked, from the E-1 (2003) to the OM-5 Mark II (2025), is
+`IIRO` except those two.
+Olympus pads IFD0's `Make` and `Model` with spaces (`"OM-1            "`),
+so `parse` trims them.
+
+### Two MakerNote headers, note-relative offsets (Measured)
+
+Exif IFD 0x927c opens with `OLYMPUS\0` + `II` / `MM` + a 2-byte version
+(IFD at note + 12; Olympus bodies write version `03 00`) or with
+`OM SYSTEM\0\0\0` + `II` / `MM` + version (IFD at note + 16; the OM Digital
+Solutions bodies write `04 00`). There is no TIFF header in the note, and
+every offset in it (the sub-IFD pointers, `PreviewImageStart`) is relative to
+the **note start**, not the file's TIFF header (ExifTool's `Olympus.pm`
+`Base => '$start - 12'` / `'$start - 16'`). The byte order is the note's own
+`II` / `MM`, so `parse` builds the note walker with `Tiff::with_order`. A note
+with neither header gives no preview and no error. The sub-IFDs (0x2010
+Equipment, 0x2020 CameraSettings, 0x2040, 0x2050) are type 13 (IFD) count 1
+with the offset inline on every body surveyed; the old-style form (type 7
+with the IFD inline) is not supported.
+
+### The preview is the only JPEG, and it lives inside the note (Measured)
+
+CameraSettings 0x0100 `PreviewImageValid`, 0x0101 `PreviewImageStart`
+(note-relative), 0x0102 `PreviewImageLength`: a 3200x2400 JPEG on every body
+surveyed (14 bodies, 2008 E-30 to 2025 OM-5 Mark II). IFD0 has no 0x0201 and
+its strips are the raw data, and a scan for SOI + SOF finds no other JPEG at
+least 1000 px wide, so `full` is the same JPEG and the 1:1 view is limited to
+3200x2400.
+
+### The note is longer than the prefix (Measured)
+
+The note holds the preview, so it is 1.45 to 1.82 MB long and runs past the
+1 MiB `HEAD_LIMIT` on every body surveyed but the XZ-10 (whose 146 KB note
+ends before its preview starts); the preview ends between 0.97 and 1.29 MB,
+past the prefix on 9 of the 14 bodies. So, unlike `nef::af_point`, `parse` does
+not demand the whole note in the buffer: the walker's end is
+`min(note start + count, buf.len())`, and only the header, the main IFD and
+the CameraSettings IFD (all within ~12 KB of the file start) must fit. When
+the buffer cuts one of them, `parse` errors so the reader retries with the
+whole file; a note wholly in the buffer that still does not read gives no
+preview. The preview may lie past the declared note too (the XZ-10's does)
+and is range-read like any other.
 
 ## Related
 
