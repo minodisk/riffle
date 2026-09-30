@@ -13,6 +13,20 @@
 - Not covered: `arw.rs` (ARW and DNG) has its own `ascii`, which trims NULs
   only. Left alone since no padded Sony / Leica / Sigma `Model` is known.
 
+## Step 2: Pass the platform `ignoreCase` flag to `main.ts` / `trash.ts`
+
+- `folders.ts` now exports `ignoreCase`; `main.ts` reads it as
+  `folders.ignoreCase` (it imports the module as a namespace) at the two
+  `rebase` calls in `renameFolder`, the two `opensTarget` calls and the
+  `restoredInto` call.
+- `trash.ts` takes the flag as a defaulted trailing parameter instead of
+  importing `folders.ts`, which touches the DOM at load and would break
+  `trash.test.ts` under Vitest's `node` environment.
+- `relation` already folds the Windows drive letter without the flag (the
+  existing `restoredInto` test with `C:` vs `c:` passes without it), so the
+  new cases differ in a folder name's case (`Photos` / `photos`) to show
+  the flag's effect.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1): open a folder of old FinePix RAFs (e.g.

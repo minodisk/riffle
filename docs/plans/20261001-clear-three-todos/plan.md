@@ -71,7 +71,7 @@ parallel.
       sentence to say the shared reader (`exif::read_ifd0`) trims it,
       so a reader does not add a second trim.
 
-- [ ] Step 2: Pass the platform `ignoreCase` flag to `main.ts`'s rename rebase and `trash.ts`'s `relation` calls
+- [x] Step 2: Pass the platform `ignoreCase` flag to `main.ts`'s rename rebase and `trash.ts`'s `relation` calls
   - Done when: on macOS / Windows, `renameFolder` in
     `crates/app/ui/src/main.ts` reopens an `openDir` that differs only
     in case from the renamed path, and `restoredInto` / `opensTarget`
@@ -176,3 +176,4 @@ parallel.
 ## Progress
 
 - (2026-10-01) Step 1 complete
+- (2026-10-01) Step 2 complete
