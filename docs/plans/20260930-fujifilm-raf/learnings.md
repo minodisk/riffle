@@ -162,6 +162,41 @@ reference here).
 - `docs/performance.md` does not compare the RAF scan cost to ARW's by a
   ratio: the ARW numbers are from a Mac, the RAF ones from Windows.
 
+## Step 3: AF point from `FocusPixel`
+
+- Frame settled by drawing: a Python scratch script (Pillow installed into
+  the session scratchpad) read `FocusPixel` independently and drew it on the
+  embedded JPEG, scaled by `PixelXDimension` / `PixelYDimension`, then rotated
+  by Orientation. `riffle-cli focusbox` built from this step drew the same
+  boxes, and `riffle-cli info` printed the same values as the script on all
+  51 files in `D:\photos\samples\RAF\` (the 46 survey samples plus five
+  X-E3 files already in the folder).
+- Evidence: the shallow-depth X-H2 portrait (Orientation 6) puts the point
+  on the in-focus white flowers, and the GFX100S II one on the sharp
+  foreground flowers with the fence behind soft; X-E5 (tower), X-S20 (bush),
+  X-T50 (tree), X-Pro3 (bottle label), X100V and the X-E3 (a person, 1920x1280
+  JPEG, point (693, 775)) all land on the subject. So the coordinates are the
+  embedded JPEG's unrotated pixels, not the sensor's and not the display
+  frame. The X100VI portraits (Orientation 8) land on the wall they framed.
+- Manual focus: the X-T3, X-T5 "16:9" and GFX 100 samples (`FocusMode` 1)
+  now read no AF point; `riffle-cli focusbox` says "no FocusLocation".
+- `sensor_w` / `sensor_h` come from the Exif IFD's `PixelXDimension` /
+  `PixelYDimension` rather than the JPEG's SOF, because they are in the same
+  Exif read and equal the JPEG size on every sample.
+- `Tiff::with_order` (the header-less constructor) had already landed in
+  `sequence.rs` from the ORF work, so `raf.rs` reuses it; `sequence.rs` is
+  unchanged.
+- No "note past the prefix is an error" branch was needed: the note lies in
+  the Exif segment, and `read_exif` already errors when that segment is not
+  whole in the buffer. The `a_prefix_cut_inside_the_maker_note_is_an_error`
+  test pins that.
+- `docs/cameras.md`: AF point `✓` on every Fujifilm body with an autofocus
+  sample (20 of 22); the X-T3 and GFX 100 stay `–` (manual-focus samples
+  only). The centered-point bodies (X-E4, X-H2S, X-T5, GFX100S, GFX50S II,
+  GFX100RF, X-T30 III) were counted since the frame is shared by all bodies.
+- `EXTRACTOR_VERSION` 8 -> 9 (main had already moved 7 -> 8 for the HEIF CR3
+  error row).
+
 ## Deferred issues (todo candidates)
 
 - RAF scan cost per file: `riffle-cli scan` over the 46 samples takes

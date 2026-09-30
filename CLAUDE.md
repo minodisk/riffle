@@ -29,8 +29,8 @@ preview JPEGs from the SubIFDs), which `reader` dispatches to for a `.nef`,
 `PRVW` / `THMB` of a CR3 shot with HDR PQ on (the pure-Rust `hpvcd` crate, then
 a PQ-to-sRGB tone map and a JPEG encode), which `reader` hands those images to
 so every consumer still gets a JPEG, `src/raf.rs` the Fujifilm RAF parser (the
-fixed header's offset of the one embedded JPEG, whose Exif is the file's),
-which `reader` dispatches to for a `.raf`, `src/orf.rs` the OM System /
+fixed header's offset of the one embedded JPEG, whose Exif is the file's,
+and the AF point from its Fujifilm MakerNote's `FocusPixel`), which `reader` dispatches to for a `.raf`, `src/orf.rs` the OM System /
 Olympus ORF parser (IFD0 and the Exif IFD of its `IIRO` TIFF, the preview from
 the MakerNote's CameraSettings, with note-relative offsets), which `reader`
 dispatches to for a `.orf`, `src/sequence.rs` the JPEG timestamp sequencer ported

@@ -772,12 +772,11 @@ samples, as done for the Sigma BF `0x0147` in
       Nikon DSLRs' `AFInfo2` `0100` / `0101` (D850, D500), whose AF point
       is a grid point name rather than a position, and a sample with an
       AF position from the Nikon Z 8 and the Canon EOS R6 (their
-      raw.pixls.us samples carry none). Next: Fujifilm `FocusPixel` on the
-      RAF bodies (`crates/core/src/raf.rs`); every sample writes it, off-center
-      landscape and portrait samples exist, and it looks to be in the embedded
-      JPEG's frame (see the survey in
-      `docs/plans/_archived/20260930-fujifilm-raf/learnings.md`). Then the
-      OM System / Olympus ORF bodies (`crates/core/src/orf.rs`): CameraSettings
+      raw.pixls.us samples carry none). Fujifilm `FocusPixel` on the RAF
+      bodies is done too (`crates/core/src/raf.rs`, in the embedded JPEG's
+      frame); an autofocus sample from the X-T3 and the GFX 100 is still
+      missing (theirs are manual focus). Next: the OM
+      System / Olympus ORF bodies (`crates/core/src/orf.rs`): CameraSettings
       0x030a `AFTargetInfo` on the OM bodies (a 640x480 frame with the focus
       and selected areas) and 0x0305 `AFPointSelected` (percentages) on the
       Olympus bodies. Every raw.pixls.us sample puts the point near the
@@ -809,7 +808,7 @@ The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony
 
 #### Background
 
-The `fujifilm-raf` Step 1 survey (`docs/plans/_archived/20260930-fujifilm-raf/learnings.md`) ran `riffle-cli scan` over 46 raw.pixls.us RAFs: 221.8ms per file mean on one thread (290.2ms p95), 36 files/s on 24 threads. The embedded JPEG is 4416x2944 / 4000x3000 (against ARW's 1616x1080 preview), it is decoded whole for the sharpness score, and with no AF point read the face search runs on the whole image. Reading the Fujifilm `FocusPixel` (Tier 2 of "Core: widen camera support from public sample RAW files") removes the face search for AF frames; a scaled decode for the score would be a separate change. Files: `crates/core/src/scan.rs`, `crates/core/src/sharpness.rs`, `crates/core/src/raf.rs`.
+The `fujifilm-raf` Step 1 survey (`docs/plans/_archived/20260930-fujifilm-raf/learnings.md`) ran `riffle-cli scan` over 46 raw.pixls.us RAFs: 221.8ms per file mean on one thread (290.2ms p95), 36 files/s on 24 threads. The embedded JPEG is 4416x2944 / 4000x3000 (against ARW's 1616x1080 preview), it is decoded whole for the sharpness score, and the face search runs on the whole image on frames with no AF point. The Fujifilm `FocusPixel` is now read (Tier 2 of "Core: widen camera support from public sample RAW files"), so the face search is skipped on autofocus frames while manual-focus frames still search the whole image; a scaled decode for the score would be a separate change. Files: `crates/core/src/scan.rs`, `crates/core/src/sharpness.rs`, `crates/core/src/raf.rs`.
 
 #### TODO
 

@@ -4,16 +4,31 @@
 //! file's: orientation, capture time and the shooting settings are all read
 //! from it through the path `jpeg` uses. That JPEG is both the preview and the
 //! full-size JPEG.
+//!
+//! The AF point is the Fujifilm MakerNote's `FocusPixel`, in the embedded
+//! JPEG's unrotated frame.
 
 use anyhow::{anyhow, ensure, Result};
 
-use crate::arw::{Arw, Codec, Embedded, Shot};
+use crate::arw::{Arw, Codec, Embedded, FocusLocation, Shot};
+use crate::exif::{integer, TAG_EXIF_IFD, TYPE_SHORT};
 use crate::jpeg;
+use crate::sequence::{find_exif_tiff, Tiff};
 
 const MAGIC: &[u8] = b"FUJIFILMCCD-RAW ";
 /// The header words holding the embedded JPEG's offset and length.
 const JPEG_OFFSET_AT: usize = 0x54;
 const JPEG_LENGTH_AT: usize = 0x58;
+const TAG_MAKER_NOTE: u16 = 0x927c;
+const TAG_PIXEL_X_DIMENSION: u16 = 0xa002;
+const TAG_PIXEL_Y_DIMENSION: u16 = 0xa003;
+/// A Fujifilm MakerNote is `FUJIFILM`, then the little-endian offset of its
+/// IFD; every offset in it is relative to the note start.
+const FUJIFILM_HEADER: &[u8] = b"FUJIFILM";
+const TAG_FOCUS_MODE: u16 = 0x1021;
+const TAG_FOCUS_PIXEL: u16 = 0x1023;
+/// `FocusMode` for manual focus.
+const FOCUS_MODE_MANUAL: u32 = 1;
 
 /// Parse a RAF (or a prefix of one). A header or a JPEG start past `buf` is an
 /// error, and so is a JPEG cut off by the end of `buf` before its Exif segment
@@ -45,11 +60,12 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         jpeg.starts_with(&[0xFF, 0xD8]),
         "RAF JPEG is not a JPEG (missing SOI marker)"
     );
-    let (orientation, shot) = match jpeg::read_exif(jpeg) {
+    let (orientation, mut shot) = match jpeg::read_exif(jpeg) {
         Ok(exif) => exif,
         Err(_) if complete => (1, Shot::default()),
         Err(e) => return Err(e.context("RAF JPEG Exif out of range")),
     };
+    shot.focus = af_point(jpeg);
     let embedded = Some(Embedded {
         offset,
         length,
@@ -61,6 +77,53 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         orientation,
         shot,
         hevc: false,
+    })
+}
+
+/// `FocusPixel` in the frame of the JPEG's `PixelXDimension` x
+/// `PixelYDimension`, which is the JPEG's own unrotated size. `None` on
+/// manual focus (`FocusMode` 1), which still writes a `FocusPixel`, and when
+/// any piece is missing. Only called once `read_exif` found the whole Exif
+/// segment in `jpeg`, so everything read here lies in the buffer.
+fn af_point(jpeg: &[u8]) -> Option<FocusLocation> {
+    let (base, end) = find_exif_tiff(jpeg).ok()?;
+    let tiff = Tiff::new(jpeg, base, end).ok()?;
+    let ifd0 = tiff.ifd_entries(tiff.u32(4).ok()? as usize).ok()?;
+    let exif_ifd = ifd0.iter().find(|e| e.tag == TAG_EXIF_IFD)?;
+    let exif = tiff
+        .ifd_entries(tiff.u32(exif_ifd.value_field).ok()? as usize)
+        .ok()?;
+    let dimension = |tag| {
+        let e = exif.iter().find(|e| e.tag == tag)?;
+        u16::try_from(integer(&tiff, e)?).ok().filter(|&v| v > 0)
+    };
+    let (sensor_w, sensor_h) = (
+        dimension(TAG_PIXEL_X_DIMENSION)?,
+        dimension(TAG_PIXEL_Y_DIMENSION)?,
+    );
+    let e = exif.iter().find(|e| e.tag == TAG_MAKER_NOTE)?;
+    let at = base.checked_add(tiff.u32(e.value_field).ok()? as usize)?;
+    let note = Tiff::with_order(jpeg, at, end, true).ok()?;
+    if note.bytes(0, FUJIFILM_HEADER.len()).ok()? != FUJIFILM_HEADER {
+        return None;
+    }
+    let entries = note
+        .ifd_entries(note.u32(FUJIFILM_HEADER.len()).ok()? as usize)
+        .ok()?;
+    if let Some(e) = entries.iter().find(|e| e.tag == TAG_FOCUS_MODE) {
+        if integer(&note, e) == Some(FOCUS_MODE_MANUAL) {
+            return None;
+        }
+    }
+    let e = entries.iter().find(|e| e.tag == TAG_FOCUS_PIXEL)?;
+    if e.typ != TYPE_SHORT || e.count != 2 {
+        return None;
+    }
+    Some(FocusLocation {
+        sensor_w,
+        sensor_h,
+        x: note.u16(e.value_field).ok()?,
+        y: note.u16(e.value_field + 2).ok()?,
     })
 }
 
@@ -101,6 +164,109 @@ pub(crate) mod tests {
             ],
         );
         with_exif(&plain_jpeg(16, 16), &tiff)
+    }
+
+    /// A Fujifilm MakerNote holding `FocusMode` (when given) and `FocusPixel`,
+    /// always little-endian with note-relative offsets.
+    fn fuji_note(focus_mode: Option<u16>, pixel: [u16; 2]) -> Vec<u8> {
+        let mut entries: Vec<(u16, u16, u32, [u8; 4])> = Vec::new();
+        if let Some(m) = focus_mode {
+            let v = m.to_le_bytes();
+            entries.push((TAG_FOCUS_MODE, TYPE_SHORT, 1, [v[0], v[1], 0, 0]));
+        }
+        let (x, y) = (pixel[0].to_le_bytes(), pixel[1].to_le_bytes());
+        entries.push((TAG_FOCUS_PIXEL, TYPE_SHORT, 2, [x[0], x[1], y[0], y[1]]));
+        let mut out = FUJIFILM_HEADER.to_vec();
+        out.extend_from_slice(&12u32.to_le_bytes());
+        out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+        for (tag, typ, count, value) in entries {
+            out.extend_from_slice(&tag.to_le_bytes());
+            out.extend_from_slice(&typ.to_le_bytes());
+            out.extend_from_slice(&count.to_le_bytes());
+            out.extend_from_slice(&value);
+        }
+        out.extend_from_slice(&0u32.to_le_bytes());
+        out
+    }
+
+    /// An Exif JPEG whose Exif IFD carries `PixelXDimension` x
+    /// `PixelYDimension` (when given) and `note` as its MakerNote.
+    fn af_jpeg(w: &W, dimensions: Option<(u32, u32)>, note: &[u8]) -> Vec<u8> {
+        let mut exif = vec![(TAG_MAKER_NOTE, 7, note.len() as u32, note.to_vec())];
+        if let Some((pw, ph)) = dimensions {
+            exif.push(w.long(TAG_PIXEL_X_DIMENSION, pw));
+            exif.push(w.short(TAG_PIXEL_Y_DIMENSION, ph as u16));
+        }
+        let tiff = w.tiff(&[w.ascii(TAG_MAKE, "FUJIFILM")], &exif);
+        with_exif(&plain_jpeg(16, 16), &tiff)
+    }
+
+    #[test]
+    fn reads_focus_pixel_in_the_jpeg_frame_in_both_byte_orders() {
+        for le in [true, false] {
+            let w = W(le);
+            for mode in [None, Some(0)] {
+                let jpeg = af_jpeg(&w, Some((4416, 2944)), &fuji_note(mode, [1592, 1472]));
+                let a = parse(&raf(JPEG_AT, &jpeg)).unwrap();
+                assert_eq!(
+                    a.shot.focus,
+                    Some(FocusLocation {
+                        sensor_w: 4416,
+                        sensor_h: 2944,
+                        x: 1592,
+                        y: 1472,
+                    }),
+                    "le {le}, mode {mode:?}"
+                );
+                assert!(a.shot.focus_mode.is_none() && a.shot.focus_frame.is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn manual_focus_has_no_af_point() {
+        let jpeg = af_jpeg(
+            &W(true),
+            Some((4416, 2944)),
+            &fuji_note(Some(1), [2517, 1472]),
+        );
+        assert!(parse(&raf(JPEG_AT, &jpeg)).unwrap().shot.focus.is_none());
+    }
+
+    #[test]
+    fn a_missing_or_malformed_piece_has_no_af_point() {
+        let w = W(false);
+        let note = fuji_note(Some(0), [100, 200]);
+        let mut not_fuji = note.clone();
+        not_fuji[..8].copy_from_slice(b"FUJIFILX");
+        let mut bad_ifd = note.clone();
+        bad_ifd[8..12].copy_from_slice(&0xFFFFu32.to_le_bytes());
+        let mut one_value = note.clone();
+        // The FocusPixel entry's count.
+        let count_at = 12 + 2 + 12 + 4;
+        one_value[count_at..count_at + 4].copy_from_slice(&1u32.to_le_bytes());
+        for (dimensions, note) in [
+            (None, &note),
+            (Some((0, 2944)), &note),
+            (Some((4416, 2944)), &not_fuji),
+            (Some((4416, 2944)), &bad_ifd),
+            (Some((4416, 2944)), &one_value),
+            (Some((4416, 2944)), &note[..6].to_vec()),
+        ] {
+            let a = parse(&raf(JPEG_AT, &af_jpeg(&w, dimensions, note))).unwrap();
+            assert!(a.shot.focus.is_none(), "{dimensions:?} {note:?}");
+            assert_eq!(a.shot.make.as_deref(), Some("FUJIFILM"));
+        }
+    }
+
+    #[test]
+    fn a_prefix_cut_inside_the_maker_note_is_an_error() {
+        let note = fuji_note(Some(0), [1592, 1472]);
+        let buf = raf(JPEG_AT, &af_jpeg(&W(true), Some((4416, 2944)), &note));
+        let at = buf.windows(12).position(|b| b == &note[..12]).unwrap();
+        for cut in [at + 4, at + 12, at + note.len() - 1] {
+            assert!(parse(&buf[..cut]).is_err(), "cut at {cut}");
+        }
     }
 
     #[test]
