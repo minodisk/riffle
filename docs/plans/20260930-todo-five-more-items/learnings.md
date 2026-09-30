@@ -116,6 +116,44 @@
   reuses `modal.ts`'s `cycleFocus`, so both phases cycle over what is
   visible.
 
+## Step 5: trash runs following a folder rename
+
+- `Trashed` got `restore_to: Option<PathBuf>` and `destination()`;
+  `Trashed.path` stays the original path, the key the Windows / Linux Trash
+  is looked up by (`trash_key(&trashed.path)`). `Runs::rename_dir(old,
+  new)` rebases each recorded file's current destination (`restore_to`
+  or `path`) with the `old + MAIN_SEPARATOR` prefix rule of
+  `Index::rename_dir`, and sets `restore_to` back to `None` when the rebased
+  destination is the original path again (a rename there and back), so no
+  needless second move runs. Undone runs' `back` lists are rebased in place.
+- `restore` checks `exists`, and reports `restored` / `failed` / `back`,
+  with the destination, so the frontend's `restoredInto(openDir, …)` sees
+  the files under the reopened (renamed) folder. `Restored::none` reports
+  the destination too.
+- Non-macOS `restore_run`: a file with `restore_to` first gets its missing
+  old ancestors created (`trash::create_missing`, returning exactly the
+  ones created): trash 5.2.9's Windows `restore_all` fails with "file not
+  found" when the original folder is gone (only the freedesktop backend
+  runs `create_dir_all`), verified with a probe (review Round 1). After
+  `restore_all` succeeds, `trash::relocate(from, to, created)` does a
+  `fs::rename`, then `remove_dir` on only the created folders, deepest
+  first, each while empty, so a pre-existing empty old-name folder is never
+  removed. A failed move is that file's failure ("put back at …
+  but not moved into the renamed folder"), leaving it where the Trash put
+  it; its sidecars then stay in the Trash by `restore`'s RAW-first rule.
+  macOS `restore_recorded` renames straight to `destination()`.
+- A case-only rename on Windows (`x` → `X`) rebases too; `restore_all`
+  puts the file into the same folder, nothing is created, and the second
+  rename is a same-folder no-op, so nothing is lost.
+- `rename_folder` calls `Runs::rename_dir(&old, &new)` right after the
+  index rewrite, under the same `Scans` lock, outside the `if let Some(index)`
+  so the runs follow even with no index. The first scripted edit also hit
+  the identical tail of `rename_file` (same `));` / `drop(state)` shape);
+  caught in the diff and reverted, so anchor such edits on unique context.
+- Frontend: `undo.ts`'s `mapTrashDirs(fn)`; `renameFolder` maps `history`
+  and `redoable` through it with `rebase(dir, path, newPath) ?? dir`
+  (case-sensitive, the tree-key spelling the dirs came from).
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (Step 2, Windows, the user's):** verify the idle
@@ -162,3 +200,25 @@
   (Vitest cases in `firstrun.test.ts`, `mise run ci`). Basis: plan Step 4
   "Manual check". Files: `crates/app/ui/src/main.ts`,
   `crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`.
+- **Pending manual check (Step 5, Windows, the user's):** undo / redo a
+  trash run after renaming its folder. Steps: reject two files in a copy
+  under `D:\photos\samples\X` (ideally one with both sidecar formats),
+  `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`),
+  `Undo`. Expected: the files and their sidecars come back into the
+  renamed folder, the strip (reopened under the new path) shows them with
+  their reject marks, and no empty old-name folder is left behind (also
+  with a recursive run over a parent whose subfolder is renamed); `Redo`
+  moves them to the Recycle Bin again. Not run by the implementation agent
+  (no GUI session); Step 5's checkbox was ticked on the automated criteria
+  (`trash.rs` tests for `Runs::rename_dir`, `restore` with a destination
+  and `relocate`, the `undo.test.ts` case, `mise run ci`). Basis: plan
+  Step 5 "Manual check". Files: `crates/app/src/trash.rs`,
+  `crates/app/src/commands.rs` (`restore_run`), `crates/app/src/rename.rs`,
+  `crates/app/ui/src/main.ts`.
+- **Pending manual check (Step 5, macOS, not run):** the same undo / redo
+  after a rename on a Mac, where `restore_recorded` renames the Trash file
+  straight to the new destination (no `relocate`). Expected: the files come
+  back into the renamed folder and no old-name folder appears. Not run (no
+  Mac available); covered only by the platform-independent `restore` test.
+  Basis: plan Step 5 "Manual check". Files: `crates/app/src/trash.rs`
+  (`restore_recorded`).

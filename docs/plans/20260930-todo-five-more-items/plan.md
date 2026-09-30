@@ -278,7 +278,7 @@ adjacent-line noise; resolve it by keeping both sides.
       DxO picked never shows the language block; Tab / Shift+Tab stay
       inside the dialog in both phases. Record in `learnings.md`.
 
-- [ ] Step 5: Follow a folder rename in the recorded trash runs and the frontend's trash undo entries
+- [x] Step 5: Follow a folder rename in the recorded trash runs and the frontend's trash undo entries
   - Done when: after `Rename…` on a folder, an undo of a `Move Rejected to
     Trash` run whose files were under it restores them into the renamed
     folder, a redo moves the restored files (now under the new path) to
@@ -303,7 +303,8 @@ adjacent-line noise; resolve it by keeping both sides.
       undo looks the file up in the Trash by its *original* path
       (`restore_run` → `trash_key(&trashed.path)`), and
       `trash::os_limited::restore_all` puts it back at that original
-      path, recreating the old folder; only macOS (`restore_recorded`)
+      path (the Windows Recycle Bin fails when that folder is gone, so the
+      missing folders are created first); only macOS (`restore_recorded`)
       renames `trashed_at` to `trashed.path` and so can be pointed
       anywhere. So `Trashed.path` must keep the original (lookup) path
       and a rename adds a separate destination: add `restore_to:
@@ -406,10 +407,10 @@ adjacent-line noise; resolve it by keeping both sides.
   `history.removeWhere`) but does not meet the todo's "undoing or redoing
   the run after a rename still targets the right folder"; the user chose
   the full design on 2026-09-30.
-- **Step 5: the recreated old folder.** After `restore_all` on Windows the
-  old folder exists again briefly; `remove_dir` only removes it when empty,
-  so a folder the user re-created under the old name meanwhile is left
-  alone with the file moved out of it.
+- **Step 5: the recreated old folder.** Before `restore_all` the missing old
+  folders are created and recorded; afterwards only those are removed, and
+  only while empty, so a folder the user re-created under the old name
+  meanwhile is left alone.
 
 ## Progress
 
@@ -417,3 +418,4 @@ adjacent-line noise; resolve it by keeping both sides.
 - (2026-09-30) Step 2 complete
 - (2026-09-30) Step 3 complete
 - (2026-09-30) Step 4 complete
+- (2026-09-30) Step 5 complete

@@ -2251,7 +2251,12 @@ pub async fn trash_rejected_redo(
 
 /// Restore `run` from the Trash listed once, each file matched by its
 /// original path (the newest item of a path) and restored on its own, so one
-/// missing or colliding item cannot fail the others.
+/// missing or colliding item cannot fail the others. The Trash puts a file
+/// back at its original path, and the Windows Recycle Bin fails when that
+/// folder is gone, so for a file whose folder was renamed since the missing
+/// folders are created first (`trash::create_missing`), the file is put back
+/// and then moved into the renamed folder (`trash::relocate`), which removes
+/// exactly the folders created.
 #[cfg(not(target_os = "macos"))]
 fn restore_run(run: &trash::TrashRun) -> trash::Restored {
     let items = match ::trash::os_limited::list() {
@@ -2263,11 +2268,22 @@ fn restore_run(run: &trash::TrashRun) -> trash::Restored {
         run,
         |trashed| items.remove(&trash::trash_key(&trashed.path)),
         Path::exists,
-        |_, item| {
-            ::trash::os_limited::restore_all([item]).map_err(|e| match e {
-                ::trash::Error::RestoreCollision { .. } => trash::ALREADY_EXISTS.to_string(),
-                e => e.to_string(),
-            })
+        |trashed, item| {
+            let created = match (&trashed.restore_to, trashed.path.parent()) {
+                (Some(_), Some(parent)) => trash::create_missing(parent)?,
+                _ => Vec::new(),
+            };
+            if let Err(e) = ::trash::os_limited::restore_all([item]) {
+                trash::remove_created(&created);
+                return Err(match e {
+                    ::trash::Error::RestoreCollision { .. } => trash::ALREADY_EXISTS.to_string(),
+                    e => e.to_string(),
+                });
+            }
+            match &trashed.restore_to {
+                Some(to) => trash::relocate(&trashed.path, to, &created),
+                None => Ok(()),
+            }
         },
     )
 }

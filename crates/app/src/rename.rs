@@ -68,7 +68,9 @@ pub fn folder_target(dir: &Path, name: &str) -> Result<PathBuf, String> {
 /// index write, as in `trash_rejected_run`. The watcher and the folder tree's
 /// watches on the folder and under it are released before the rename
 /// (Windows refuses to rename a folder with a watched descendant); the
-/// frontend's reopen and tree re-render under the new path set them again. A
+/// frontend's reopen and tree re-render under the new path set them again.
+/// The recorded trash runs follow the rename too (`Runs::rename_dir`), so an
+/// undo or redo of a run over the folder targets its new path. A
 /// failed rename changes nothing, and puts the released watches back since
 /// there is no reopen to set them again; a failed index write after a successful rename still
 /// returns `Ok` (the disk is the source of truth, so the caller must rebase
@@ -123,6 +125,7 @@ pub async fn rename_folder(
                 }
             }
         }
+        app.state::<crate::trash::Runs>().rename_dir(&old, &new);
         drop(state);
         Ok(Renamed {
             path: target.to_string_lossy().into_owned(),
