@@ -234,6 +234,9 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
       "Olympus E-M1 Mark III").
 
 - [ ] Step 4 (optional, see Trade-offs): AF point from the Olympus MakerNote
+  - Skipped (user, 2026-09-30): every surveyed sample's AF point is near
+    the center, so the coordinate origin cannot be confirmed. Left in
+    `todo.md` (Tier 2) by Step 3.
   - Done when:
     - `orf::parse` fills `Shot.focus` (and `Shot.focus_frame` when a size is
       given) from CameraSettings 0x030a `AFTargetInfo` on the OM bodies
@@ -303,3 +306,4 @@ E-M1 Mark III samples, now at `D:\photos\samples\ORF\om1.orf` and
 - (2026-09-30) Step 1 complete
 - (2026-09-30) Step 2 complete
 - (2026-09-30) Step 3 complete
+- (2026-09-30) Step 4 skipped: no off-center AF sample to confirm the coordinate frame

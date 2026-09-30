@@ -431,6 +431,14 @@ raw.pixls.us ORF checked, from the E-1 (2003) to the OM-5 Mark II (2025), is
 `IIRO` except those two.
 Olympus pads IFD0's `Make` and `Model` with spaces (`"OM-1            "`),
 so `parse` trims them.
+ORF bodies write a correct IFD0 `Orientation`: the XZ-10 (6) and the E-30 (8)
+previews come out upright once rotated per the tag, so no per-body handling
+is needed. No raw.pixls.us sample of a current OM / Olympus body is portrait
+(only the XZ-10, the E-30 and the C5050Z are not 1), so those two older
+bodies are the only portrait check.
+raw.pixls.us answers `/data/...` with a 301 to `/download/...`, so fetch
+samples with `curl -L` or the file comes back empty; ranged requests do not
+work, but `curl -L ... | head -c 4096` reads a header cheaply.
 
 ### Two MakerNote headers, note-relative offsets (Measured)
 
@@ -455,6 +463,14 @@ surveyed (14 bodies, 2008 E-30 to 2025 OM-5 Mark II). IFD0 has no 0x0201 and
 its strips are the raw data, and a scan for SOI + SOF finds no other JPEG at
 least 1000 px wide, so `full` is the same JPEG and the 1:1 view is limited to
 3200x2400.
+
+AF values seen (not read yet): `AFTargetInfo` on the OM-1, OM-1 Mark II and
+OM-5 Mark II holds a frame size plus focus / selected boxes; the OM-5 and OM-3
+hold zeros after the frame size. `AFPointSelected` is nonzero on the PEN-F,
+E-M1X, E-M5 Mark III, E-M10 Mark IV, E-P7 and OM-5 Mark II (for example E-P7
+`320/640, 305/480`). Every value is near the center, so no raw.pixls.us
+sample confirms the origin; an off-center sample is needed before reading an
+AF point.
 
 ### The note is longer than the prefix (Measured)
 
