@@ -387,8 +387,9 @@ embedded JPEG's offset / length, `0x5c` / `0x60` the RAF directory (tags
   for GX680 write no `FocusPixel` at all, which is just no AF point; the
   X-A2, X-E3, X100F, XF10 and GFX 50S CC0 samples do write one but are
   `FocusMode` 1, so it is dropped. The Exif `Model` of many older FinePix
-  bodies carries trailing spaces (e.g. `FinePix S5000 `), so trim it
-  before comparing or grouping by model. Per-body table:
+  bodies carries trailing spaces (e.g. `FinePix S5000 `); the shared
+  reader (`exif::read_ifd0`) trims them from `Make` and `Model`, so do not
+  add a second trim. Per-body table:
   `docs/plans/_archived/20260930-raf-older-bodies/learnings.md`.
 
 ### The prefix / truncation rule (Measured)

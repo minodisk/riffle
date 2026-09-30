@@ -46,15 +46,16 @@ pub(crate) fn read(tiff: &Tiff, ifd0: usize) -> (u16, Shot) {
 }
 
 /// Fill `make` and `model` from IFD0 entries, returning the orientation (1
-/// when absent) and the Exif IFD offset, if any.
+/// when absent) and the Exif IFD offset, if any. Both are trimmed of the
+/// trailing spaces Olympus and older FinePix bodies pad them with.
 pub(crate) fn read_ifd0(tiff: &Tiff, entries: &[Entry], shot: &mut Shot) -> (u16, Option<usize>) {
     let mut orientation = 1;
     let mut exif_ifd = None;
     for e in entries {
         match e.tag {
             TAG_ORIENTATION => orientation = integer(tiff, e).map_or(1, |v| v as u16),
-            TAG_MAKE => shot.make = ascii(tiff, e),
-            TAG_MODEL => shot.model = ascii(tiff, e),
+            TAG_MAKE => shot.make = ascii(tiff, e).map(|s| s.trim_end().to_string()),
+            TAG_MODEL => shot.model = ascii(tiff, e).map(|s| s.trim_end().to_string()),
             TAG_EXIF_IFD => exif_ifd = tiff.u32(e.value_field).ok().map(|at| at as usize),
             _ => {}
         }
@@ -181,6 +182,28 @@ mod tests {
             assert_eq!(shot.f_number, Some(Rational { num: 4, den: 1 }));
             assert_eq!(shot.estimated_f_number, None);
             assert_eq!(shot.iso, Some(400));
+        }
+    }
+
+    #[test]
+    fn ifd0_make_and_model_lose_trailing_spaces() {
+        for le in [true, false] {
+            let w = W(le);
+            let tiff = w.tiff(
+                &[
+                    w.ascii(TAG_MAKE, "FUJIFILM  "),
+                    w.ascii(TAG_MODEL, "FinePix E550   "),
+                ],
+                &[],
+            );
+            let tiff = Tiff::new(&tiff, 0, tiff.len()).unwrap();
+
+            let mut shot = Shot::default();
+            let ifd0 = tiff.ifd_entries(8).unwrap();
+            read_ifd0(&tiff, &ifd0, &mut shot);
+
+            assert_eq!(shot.make.as_deref(), Some("FUJIFILM"), "le {le}");
+            assert_eq!(shot.model.as_deref(), Some("FinePix E550"), "le {le}");
         }
     }
 }

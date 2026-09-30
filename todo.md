@@ -806,11 +806,11 @@ The `raf-older-bodies` sweep of 228 RAFs from 87 bodies (`docs/plans/_archived/2
 
 #### Background
 
-The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). A trim in the shared Exif reader is the candidate fix, which would cover every format that goes through it. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `raf.rs`).
+The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
 
 #### TODO
 
-- [ ] Trim trailing spaces from the Exif `Model` (and `Make`) in `crates/core/src/exif.rs`, with a test on a padded value, and check the meta pane on a FinePix RAF.
+- [ ] Check the meta pane on a FinePix RAF shows the trimmed `Model`.
 
 ### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
 

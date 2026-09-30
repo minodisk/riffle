@@ -32,7 +32,7 @@ parallel.
 
 ## Steps
 
-- [ ] Step 1: Trim trailing spaces from the Exif `Make` / `Model` in the shared reader
+- [x] Step 1: Trim trailing spaces from the Exif `Make` / `Model` in the shared reader
   - Done when: `crates/core/src/exif.rs` returns `make` and `model`
     without trailing spaces (and without the NUL terminator, as today);
     a unit test in `exif.rs`'s `tests` module feeds a padded value (e.g.
