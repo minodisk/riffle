@@ -15,7 +15,7 @@
 
 use anyhow::{bail, Result};
 
-use crate::arw::{Arw, Embedded, Shot};
+use crate::arw::{Arw, Codec, Embedded, Shot};
 use crate::exif::{self, integer, TYPE_LONG};
 use crate::sequence::Tiff;
 
@@ -87,6 +87,7 @@ fn maker_note_preview(buf: &[u8], len: usize, at: usize) -> Result<Option<Embedd
         Ok(p) => Ok(p.map(|(start, length)| Embedded {
             offset: at + start,
             length,
+            codec: Codec::Jpeg,
         })),
     }
 }
