@@ -120,9 +120,16 @@
   running `extract_all` over three missing paths on one thread and checking
   the delivery order.
 - The command is a plain (synchronous) `#[tauri::command]`, so it runs on
-  the main thread and takes the `Scans` lock there. The only long holder of
-  that lock is `spawn_eviction`'s `VACUUM` (~0.2 s), which runs only when no
-  scan is running, and the frontend (Step 6) sends only while one is.
+  the main thread. Several commands hold the `Scans` lock for their whole
+  run, all only while no scan is running: `clear_index` (the drain, the
+  `VACUUM` and the WAL checkpoint), `trash_rejected_run`,
+  `trash_rejected_undo` and `trash_rejected_redo` (moves to and from the OS
+  Trash, seconds for a large folder on the Windows Recycle Bin), and
+  `spawn_eviction`'s `VACUUM` (~0.2 s). A blocking lock could freeze the UI
+  for a call fired just after `faces-done`, so `set_scan_focus` takes the lock
+  with `try_lock` and drops the call when it is busy (a busy `Scans` means no
+  scan is taking the focus); a poisoned lock is recovered as `index::lock`
+  does. The alternative, making the command `async`, was not chosen.
 - `capabilities/default.json` lists only core and plugin permissions; the
   app's own commands need no entry, so it is unchanged.
 - The first `mise run ci` failed on clippy's `too_many_arguments` (8/7) for

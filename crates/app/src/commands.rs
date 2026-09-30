@@ -1484,9 +1484,19 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
 /// Have the scan `scan_id` take `paths` first, in their order, from now on,
 /// replacing the list a previous call gave. A scan that has ended or been
 /// superseded ignores it, so a late call is harmless.
+///
+/// This runs on the main thread, so it never waits for `Scans`: a long holder
+/// (`clear_index`, the trash commands, the eviction's `VACUUM`) means no scan
+/// is taking the focus, and the call is dropped.
 #[tauri::command]
 pub fn set_scan_focus(app: tauri::AppHandle, scan_id: u64, paths: Vec<String>) {
-    index::lock(&app.state::<Scans>().0).set_focus(scan_id, paths);
+    let scans = app.state::<Scans>();
+    let state = match scans.0.try_lock() {
+        Ok(state) => state,
+        Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+        Err(std::sync::TryLockError::WouldBlock) => return,
+    };
+    state.set_focus(scan_id, paths);
 }
 
 #[derive(serde::Serialize, Clone)]
