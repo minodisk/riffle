@@ -819,7 +819,7 @@ The old FinePix bodies write the Exif `Model` padded with trailing spaces (for e
 The `sony-arw-coverage` verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) marks these `–` in `docs/cameras.md` because the raw.pixls.us samples don't show them:
 
 - Every α9 III and α7CR sample is manual focus (`FocusMode` 0, point at the exact center, `FocusFrameSize` invalid). `trusted_focus` drops the point as designed, so both bodies show `–` for AF point and AF frame size.
-- No sample records `AFTracking` 1 (face tracking) on any body.
+- Face tracking: the raw.pixls.us samples hold no `AFTracking` 1. The local samples later checked in `sony-face-tracking-docs` (`docs/plans/_archived/20261001-sony-face-tracking-docs/plan.md`) record it on the α7 IV, α7R V, α7S III, α6700 and ZV-E1, so those show `✓`. The α1, α9 III, α7C II and α7CR stay `–` because no sample of them recorded it.
 - No sample is a portrait frame (Orientation 1 on all 66 files), so orientation is unverified on every listed Sony body.
 
 Files: `docs/cameras.md`.
@@ -827,7 +827,6 @@ Files: `docs/cameras.md`.
 #### TODO
 
 - [ ] Find an AF-C sample of a person from the α9 III and α7CR (portrait orientation if possible), and turn their `–` for AF point / AF frame size into `✓` if the point lands on the subject.
-- [ ] Find a sample that records `AFTracking` 1 on any listed Sony body, and mark Face tracking `✓` for it.
 - [ ] Confirm orientation on a portrait ARW sample and record the result in `docs/cameras.md`.
 
 ### App: Claude Desktop's MCP connection form is unverified

@@ -112,4 +112,4 @@ face on a poster). Off-face with `AFTracking` 1: `ILCE-6700_sony_a6700_70.arw`
 
 ## Progress
 
-- Step 1: done (cameras.md table, paragraph and bullet; raw-metadata-parsing.md Sample limits)
+- (2026-10-01) Step 1 complete
