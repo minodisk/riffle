@@ -131,8 +131,11 @@ always matches the preview, and the consumers scale by `sensor_w` /
   `FocusFrameSize` validity 0 is dropped by `trusted_focus`. The α9 III and
   α7CR samples are all MF, so they prove nothing about the AF mapping.
 - Sample limits: the raw.pixls.us Sony samples hold no `AFTracking` 1 (face
-  tracking) and no portrait frame, so those are unverified on every body. An
-  `AFTracking` of 2 is lock-on AF, not face tracking.
+  tracking), but the local sample set has `AFTracking` 1 with a valid
+  `FocusFrameSize` on the α7 IV, α7R V, α7S III, α6700 and ZV-E1, the frame
+  on a face or eye except in two α6700 samples (an empty background, bread on
+  a market stall). No sample holds a portrait frame, so that is unverified on
+  every body. An `AFTracking` of 2 is lock-on AF, not face tracking.
 - Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification).
 
 ### Sigma: inline values first, and `Make` differs by body (Hit)
