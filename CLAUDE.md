@@ -25,7 +25,10 @@ the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
 preview JPEGs from the SubIFDs), which `reader` dispatches to for a `.nef`,
 `src/cr3.rs` the Canon CR3 parser (the ISOBMFF boxes: Exif from `CMT1` /
 `CMT2`, the preview from `PRVW`, the full-size JPEG from its track), which
-`reader` dispatches to for a `.cr3`, `src/raf.rs` the Fujifilm RAF parser (the
+`reader` dispatches to for a `.cr3`, `src/hevc.rs` the decoder of the HEVC
+`PRVW` / `THMB` of a CR3 shot with HDR PQ on (the pure-Rust `hpvcd` crate, then
+a PQ-to-sRGB tone map and a JPEG encode), which `reader` hands those images to
+so every consumer still gets a JPEG, `src/raf.rs` the Fujifilm RAF parser (the
 fixed header's offset of the one embedded JPEG, whose Exif is the file's),
 which `reader` dispatches to for a `.raf`, `src/orf.rs` the OM System /
 Olympus ORF parser (IFD0 and the Exif IFD of its `IIRO` TIFF, the preview from

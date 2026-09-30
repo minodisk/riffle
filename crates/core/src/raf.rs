@@ -7,7 +7,7 @@
 
 use anyhow::{anyhow, ensure, Result};
 
-use crate::arw::{Arw, Embedded, Shot};
+use crate::arw::{Arw, Codec, Embedded, Shot};
 use crate::jpeg;
 
 const MAGIC: &[u8] = b"FUJIFILMCCD-RAW ";
@@ -50,7 +50,11 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         Err(_) if complete => (1, Shot::default()),
         Err(e) => return Err(e.context("RAF JPEG Exif out of range")),
     };
-    let embedded = Some(Embedded { offset, length });
+    let embedded = Some(Embedded {
+        offset,
+        length,
+        codec: Codec::Jpeg,
+    });
     Ok(Arw {
         preview: embedded,
         full: embedded,

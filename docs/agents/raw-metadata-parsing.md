@@ -9,8 +9,9 @@ SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
 `crates/core/src/orf.rs`, which reads OM System / Olympus ORF files (see
 [ORF](#orf)). It lists the
 pitfalls this repository has already hit, each with the reason it happens.
-`crates/core/src/reader.rs` only picks which bytes to read; no maker-specific
-parsing lives there. For a new Sony MakerNote field, also read
+`crates/core/src/reader.rs` only picks which bytes to read (and hands an HEVC
+image to `crates/core/src/hevc.rs` to decode); no maker-specific parsing lives
+there. For a new Sony MakerNote field, also read
 [Sony MakerNote fields: verify each tag's type and model `Condition` in Sony.pm directly](./tauri-app.md#sony-makernote-fields-verify-each-tags-type-and-model-condition-in-sonypm-directly-hit).
 
 The tags follow [`tauri-app.md`](./tauri-app.md): **Hit** broke something
@@ -285,22 +286,51 @@ whose IFD0 is the MakerNote IFD) tag 0x0026 `AFInfo2`, an `int16u` array
   Only indices below `ValidAFPoints` are read.
 - Every sample writes 0x0026, not 0x003c `AFInfo3`.
 
-### HDR PQ (HEIF) files carry no JPEG (Measured)
+### HDR PQ (HEIF) files carry HEVC, decoded by `hevc.rs` (Measured)
 
 With HDR PQ on, the body writes HEVC instead of JPEG in `PRVW`, `THMB` and
 the first track (whose sample entry carries `HEVC` / `hvcC` instead of
-`JPEG`). The `PRVW` / `THMB` headers differ too (`PRVW`'s first u32 is 1,
-`THMB`'s version is 1). `parse` takes `PRVW` / `THMB` only when their data
-starts with a JPEG SOI (`FF D8`), and a track only with a `JPEG` sub-box, so
-such a file parses with no `preview` and no `full`. When a track's sample
-entry carries an `HEVC` sub-box and none carries `JPEG`, `parse` sets
-`Arw::hevc`, and `reader::read_preview` / `read_full` fail with
-`reader::HEVC_UNSUPPORTED` ("HDR PQ (HEIF) CR3: its HEVC preview is not
-supported yet") instead of "no embedded preview"; the metadata still parses,
-so `read_metadata` works. On the local R8 and R5 Mark II HDR PQ samples the
-first track's sub-boxes are `HEVC` and `free`, and the other two tracks
-carry `CMP1` / `CDI1`. Every R8 sample and two of the four R5 Mark II samples
-on raw.pixls.us are like this.
+`JPEG`; on the local R8 and R5 Mark II samples its sub-boxes are `HEVC` and
+`free`, and the other two tracks carry `CMP1` / `CDI1`). Every R8 sample and
+two of the four R5 Mark II samples on raw.pixls.us are like this.
+
+- The `PRVW` / `THMB` header's first byte is a version: 0 before a JPEG
+  (`PRVW` length at 12, `THMB` length at 8), 1 before HEVC. A version-1
+  header is `01 00 00 00 | 00 02 | u16 width | u16 height | ff ff | u32
+  length` for both boxes (1620x1080 for `PRVW`, 320x214 for `THMB`), so the
+  `THMB` length is at 12 there, not 8. The length spans every box after the
+  header up to the end of the `PRVW` / `THMB` box.
+- After the header come `CISZ` (20 bytes; the coded size), `hvcC` (a
+  standard HEVCDecoderConfigurationRecord, `lengthSizeMinusOne` 3, whose
+  arrays hold the VPS / SPS / PPS), `colr` (`nclx`: BT.2020 primaries, PQ
+  transfer, BT.2020 NCL matrix, full range), `pixi` (3 channels of 10 bits),
+  `IMGD` (a u32 total length, then 4-byte length-prefixed NAL units: four
+  IDR slices for `PRVW`, one for `THMB`) and sometimes a trailing `free`.
+- The stream is HEVC Main 4:2:2 10 (RExt), CTB 32, several slices, no
+  conformance window: `PRVW` is coded 1664x1088 and `THMB` 320x320, so the
+  decoded frame is cropped to the header's width and height (the excess is
+  CTB padding on the right and bottom).
+- `parse` takes a version-1 `PRVW` / `THMB` whole, header included, as an
+  `Embedded` with `Codec::Hevc`; only the header must lie in the prefix.
+  With no `JPEG` track, `full` is that HEVC `PRVW` (the full-size HEVC in
+  the first track is a `GRID` of tiles and is not decoded), so `z` shows a
+  crop of the 1620x1080 preview. `Arw::hevc` still marks an `HEVC` track
+  with no `JPEG` one; the reader fails with `reader::HEVC_UNSUPPORTED` only
+  when such a file has no `PRVW` / `THMB` it can read.
+- `reader::embedded_from` passes an HEVC `Embedded`'s bytes to
+  `hevc::to_jpeg`, which builds an Annex B stream (the `hvcC` parameter sets,
+  then the `IMGD` NAL units), decodes it with the pure-Rust `hpvcd` crate,
+  tone-maps the frame to sRGB (full-range BT.2020 Y'CbCr to R'G'B', the
+  ST 2084 PQ EOTF, 203 nits as 1.0, BT.2020 to BT.709 primaries, the roll-off
+  `v / (1 + v / 4) * 1.25`, the sRGB OETF) and encodes a JPEG, so every
+  consumer of the reader's bytes still gets a JPEG. The tone map ignores the
+  VUI and always assumes this Canon format.
+- The HEVC `PRVW` box ends at 941 KB on the R8 sample and 562 KB on the
+  R5 Mark II, inside the 1 MiB `HEAD_LIMIT` prefix. In release, `read_full`
+  on them takes ~90-125 ms (the `hpvcd` decode 65-110 ms, the tone map ~7 ms
+  over rayon, the JPEG ~17 ms with libjpeg's fastest settings; mozjpeg's
+  defaults took ~200 ms), and one `riffle-cli scan` extraction ~150 ms more
+  than a JPEG CR3 on one thread.
 
 ## RAF
 

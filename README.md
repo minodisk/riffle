@@ -113,6 +113,9 @@ DxO PhotoLab.
   model (MIT license), run locally with no network access. The strip's
   candidate icon, also on the filter menu's `Sharp` item, is
   [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
+- **HDR PQ (HEIF) CR3 previews**: the HEVC previews of Canon CR3 files shot
+  with HDR PQ on are decoded by the bundled
+  [hpvcd](https://github.com/awxkee/hpvcd) (BSD-3-Clause OR Apache-2.0).
 - **Bursts**: frames shot within 1 s of each other share a band and a
   count badge on the strip; `ArrowUp` / `ArrowDown` jump between bursts,
   `Alt+ArrowLeft` / `Alt+ArrowRight` step through the frames of one and stop at

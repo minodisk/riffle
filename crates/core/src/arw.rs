@@ -87,11 +87,21 @@ const TYPE_LONG: u16 = 4;
 const TYPE_RATIONAL: u16 = 5;
 const TYPE_SRATIONAL: u16 = 10;
 
-/// Location of one embedded JPEG inside an ARW.
+/// Location of one embedded image inside an ARW.
 #[derive(Debug, Clone, Copy)]
 pub struct Embedded {
     pub offset: usize,
     pub length: usize,
+    pub codec: Codec,
+}
+
+/// How an embedded image is coded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Codec {
+    Jpeg,
+    /// A CR3 `PRVW` / `THMB` shot with HDR PQ on: the whole box payload,
+    /// header included, that `hevc::to_jpeg` decodes.
+    Hevc,
 }
 
 /// Sony `FocusLocation`: the focus point in unrotated sensor coordinates,
@@ -222,8 +232,8 @@ pub struct Arw {
     pub full: Option<Embedded>,
     pub orientation: u16,
     pub shot: Shot,
-    /// The embedded images are HEVC (a CR3 shot with HDR PQ on), so `preview`
-    /// and `full` are `None`.
+    /// The full-size image is HEVC (a CR3 shot with HDR PQ on), so `full` is
+    /// the HEVC `PRVW` if there is one.
     pub hevc: bool,
 }
 
@@ -276,6 +286,7 @@ fn embedded(entries: &[Entry]) -> Option<Embedded> {
     Some(Embedded {
         offset: offset as usize,
         length: length as usize,
+        codec: Codec::Jpeg,
     })
 }
 
@@ -289,6 +300,7 @@ fn strip_jpeg(entries: &[Entry]) -> Option<(Embedded, u32, u32)> {
     let e = Embedded {
         offset: int(TAG_STRIP_OFFSETS)? as usize,
         length: int(TAG_STRIP_BYTE_COUNTS)? as usize,
+        codec: Codec::Jpeg,
     };
     Some((e, int(TAG_IMAGE_WIDTH)?, int(TAG_IMAGE_HEIGHT)?))
 }

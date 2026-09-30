@@ -7,6 +7,7 @@ pub mod decode;
 pub mod dop;
 mod exif;
 pub mod faces;
+mod hevc;
 pub mod i18n;
 pub mod jpeg;
 pub mod nef;

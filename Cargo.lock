@@ -1812,6 +1812,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hpvcd"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49b6983f8656ce9ad129654a7610cbe4f47da04cc4baa6d5e575bf7bf0f7e4d1"
+
+[[package]]
 name = "html5ever"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3776,6 +3782,7 @@ version = "1.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "hpvcd",
  "image",
  "kamadak-exif",
  "mozjpeg",
