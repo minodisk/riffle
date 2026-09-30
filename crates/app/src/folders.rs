@@ -20,6 +20,9 @@ pub const REVEAL_LABEL: &str = if cfg!(target_os = "macos") {
 pub struct FolderNode {
     name: String,
     path: String,
+    /// Whether the folder is a symlink or junction, which can point back at
+    /// an ancestor; `Expand All` lists such a folder without descending.
+    is_link: bool,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -210,7 +213,9 @@ fn list(dir: &Path) -> Result<Folder, String> {
         };
         if is_dir {
             if !entry.file_name().to_string_lossy().starts_with('.') && !is_hidden(&entry) {
-                children.push(node(&path));
+                let mut child = node(&path);
+                child.is_link = entry.file_type().is_ok_and(|t| t.is_symlink());
+                children.push(child);
             }
         } else if is_file {
             media.add(&path, ());
@@ -268,6 +273,7 @@ fn node(path: &Path) -> FolderNode {
     FolderNode {
         name,
         path: path_string,
+        is_link: false,
     }
 }
 
@@ -294,6 +300,7 @@ mod tests {
         let names: Vec<&str> = folder.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["Alpha", "beta", "gamma"]);
         assert_eq!(folder.children[0].path, dir.join("Alpha").to_string_lossy());
+        assert!(folder.children.iter().all(|c| !c.is_link));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -337,6 +344,7 @@ mod tests {
         let folder = list(&dir).unwrap();
         let names: Vec<&str> = folder.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["linked-dir"]);
+        assert!(folder.children[0].is_link);
         assert_eq!(folder.raw_count, 1);
 
         let _ = std::fs::remove_dir_all(&dir);

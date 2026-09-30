@@ -8,6 +8,8 @@ import {
   appendTyped,
   clickSelect,
   collapse,
+  collapseAll,
+  descendants,
   drawnChildren,
   expand,
   markFailed,
@@ -122,6 +124,60 @@ describe("watchedFolders", () => {
     let tree = addRoots(EMPTY_TREE, [card, home]);
     tree = expand(expand(tree, "/media/me/card"), "/home/me");
     expect(watchedFolders(tree)).toEqual(["/home/me", "/media/me/card"]);
+  });
+});
+
+describe("collapseAll", () => {
+  const a = { name: "a", path: "/home/me/a" };
+  const b = { name: "b", path: "/home/me/a/b" };
+  const c = { name: "c", path: "/home/me/a/b/c" };
+  const d = { name: "d", path: "/home/me/d" };
+
+  function nested() {
+    let tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    tree = expand(setChildren(tree, "/home/me", 0, [a, d]), "/home/me/a");
+    tree = expand(setChildren(tree, "/home/me/a", 0, [b]), "/home/me/a/b");
+    tree = expand(setChildren(tree, "/home/me/a/b", 0, [c]), "/home/me/a/b/c");
+    return expand(setChildren(tree, "/home/me/a/b/c", 0, []), "/home/me/d");
+  }
+
+  test("walks the listed folders under a path depth first", () => {
+    expect(descendants(nested(), "/home/me")).toEqual([
+      "/home/me/a",
+      "/home/me/a/b",
+      "/home/me/a/b/c",
+      "/home/me/d",
+    ]);
+  });
+
+  test("collapses every nested expanded folder and keeps the clicked one expanded", () => {
+    const tree = collapseAll(nested(), "/home/me");
+    expect(tree.nodes.get("/home/me")?.expanded).toBe(true);
+    for (const path of ["/home/me/a", "/home/me/a/b", "/home/me/a/b/c", "/home/me/d"]) {
+      expect(tree.nodes.get(path)?.expanded).toBe(false);
+    }
+    expect(drawn(tree)).toEqual(["0:me", "1:a", "1:d"]);
+  });
+
+  test("leaves the folders outside the clicked one as they are", () => {
+    const tree = collapseAll(nested(), "/home/me/a");
+    expect(tree.nodes.get("/home/me/a")?.expanded).toBe(true);
+    expect(tree.nodes.get("/home/me/a/b")?.expanded).toBe(false);
+    expect(tree.nodes.get("/home/me/d")?.expanded).toBe(true);
+  });
+
+  test("an unknown path leaves the tree as is", () => {
+    const tree = nested();
+    expect(descendants(tree, "/nope")).toEqual([]);
+    expect(collapseAll(tree, "/nope")).toBe(tree);
+  });
+
+  test("a folder not yet listed is skipped", () => {
+    let tree = expand(addRoots(EMPTY_TREE, [home]), "/home/me");
+    tree = expand(setChildren(tree, "/home/me", 0, [a]), "/home/me/a");
+    expect(descendants(tree, "/home/me/a")).toEqual([]);
+    expect(collapseAll(tree, "/home/me/a")).toBe(tree);
+    expect(descendants(tree, "/home/me")).toEqual(["/home/me/a"]);
   });
 });
 

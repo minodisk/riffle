@@ -4,6 +4,9 @@
 export interface FolderNode {
   name: string;
   path: string;
+  // A symlink or junction; `Expand All` lists it without descending, since
+  // it can point back at an ancestor.
+  is_link?: boolean;
 }
 
 export interface TreeNode {
@@ -127,6 +130,41 @@ export function watchedFolders(tree: Tree): string[] {
     .filter(({ node }) => node.expanded)
     .map(({ node }) => node.path)
     .sort();
+}
+
+// The listed folders under `path`, depth first, through the children the tree
+// draws: a folder not yet listed ends its branch, and a root drawn elsewhere
+// is left to its own row. Empty for an unknown path.
+export function descendants(tree: Tree, path: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    const node = tree.nodes.get(dir);
+    const children = node === undefined ? undefined : drawnChildren(tree, node);
+    for (const child of children ?? []) {
+      if (tree.nodes.has(child.path)) {
+        out.push(child.path);
+        walk(child.path);
+      }
+    }
+  };
+  walk(path);
+  return out;
+}
+
+// Collapses every folder under `path`, leaving `path` itself as it is.
+export function collapseAll(tree: Tree, path: string): Tree {
+  const under = descendants(tree, path);
+  if (under.length === 0) {
+    return tree;
+  }
+  const nodes = new Map(tree.nodes);
+  for (const dir of under) {
+    const node = nodes.get(dir);
+    if (node !== undefined) {
+      nodes.set(dir, { ...node, expanded: false });
+    }
+  }
+  return { roots: tree.roots, nodes };
 }
 
 // The folders a right-click acts on together, apart from the open folder

@@ -133,7 +133,7 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the rename item, then the trash items, then the sequence item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the copy items, then the rename item, then the expand / collapse items, then the trash items, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder", false)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
@@ -141,6 +141,10 @@ describe("folderMenuGroups", () => {
         { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
       ],
       [{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }],
+      [
+        { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
+        { action: "collapseAll", label: "Collapse All", shortcut: "", checked: undefined },
+      ],
       [
         {
           action: "trashRejected",
@@ -166,7 +170,7 @@ describe("folderMenuGroups", () => {
     ]);
   });
 
-  test("leaves the rename item and the recursive trash item out for a root", () => {
+  test("leaves the rename item, the expand / collapse items and the recursive trash item out for a root", () => {
     expect(
       folderMenuGroups("Reveal in Finder", true).map((group) => group.map(({ action }) => action)),
     ).toEqual([
