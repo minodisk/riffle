@@ -8,9 +8,9 @@
       "Bash(bash .claude/skills/pr/scripts/*)",
       "Bash(date *)",
       "Bash(gh pr merge *)",
-      "Bash(gh pr view:*)",
       "Bash(mise run *)",
-      "Bash(mise run git:main)"
+      "Bash(mise run git:main)",
+      "Bash(gh pr view *)"
     ]
   }
 }

@@ -6,8 +6,8 @@ MakerNote. Each layer depends on something different: the container on the
 file format, Exif on nobody (it is shared), the JPEGs on the maker, and the
 MakerNote on the maker, the generation and often the body. This page explains
 those layers for the formats Riffle reads (ARW, DNG, NEF, CR3, RAF, ORF), which of them
-each feature uses, and why the [Compatibility](../README.md#compatibility)
-list names bodies rather than formats. What each tested body records is in
+each feature uses, and why the camera list names bodies rather than formats.
+That list, with what each tested body records, is
 [What the camera records](./cameras.md).
 
 ## The layers
@@ -187,6 +187,6 @@ it between generations and even between bodies:
 The container and Exif are the same for every body of a format, but the
 embedded JPEG sizes and, above all, the MakerNote are not. A new body can move
 a tag, write a new `AFInfo2` version, or switch its default to HEIF. That is
-why the [Compatibility](../README.md#compatibility) list names each body
-verified on a real file instead of claiming a whole format or maker, and why
+why [What the camera records](./cameras.md) lists each body verified on a
+real file instead of claiming a whole format or maker, and why
 a report of an unlisted body with a sample file is the way to add it.

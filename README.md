@@ -14,7 +14,8 @@ to keep and what to throw away.
   The RAW files themselves are never written.
 - There is no developing and no editing. It does one thing: choosing.
 
-For the supported cameras and formats, see [Compatibility](#compatibility).
+For the supported formats, see [Compatibility](#compatibility); for the
+verified cameras, see [docs/cameras.md](./docs/cameras.md).
 
 ## Getting started
 
@@ -292,119 +293,26 @@ If it works, post in the
 Discussions. If it does not, open an issue from the
 [OS issue template](https://github.com/minodisk/riffle/issues/new?template=os.yml).
 
-### RAW formats and cameras
+### RAW formats
 
 - ARW
-  - [x] Sony α1
-  - [x] Sony α9 III
-  - [x] Sony α7 V
-  - [x] Sony α7 IV
-  - [x] Sony α7R V
-  - [x] Sony α7S III
-  - [x] Sony α7C II
-  - [x] Sony α7CR
-  - [x] Sony α6700
-  - [x] Sony ZV-E1
 - CR3
-  - [x] Canon EOS R
-  - [x] Canon EOS RP
-  - [x] Canon EOS R3
-  - [x] Canon EOS R5
-  - [x] Canon EOS R5 Mark II
-  - [x] Canon EOS R6
-  - [x] Canon EOS R6 Mark II
-  - [x] Canon EOS R6 Mark III
-  - [x] Canon EOS R7
-  - [x] Canon EOS R8
-  - [x] Canon EOS R10
-  - [x] Canon EOS R50
-  - [x] Canon EOS R50 V
-  - [x] Canon EOS R100
 - DNG
-  - [x] Leica M11-P
-  - [x] SIGMA BF
-  - [x] SIGMA fp L
 - NEF
-  - [x] Nikon Z 9
-  - [x] Nikon Z 8
-  - [x] Nikon Z 7II
-  - [x] Nikon Z 6II
-  - [x] Nikon Z 6
-  - [x] Nikon Z 5
-  - [x] Nikon Z f
-  - [x] Nikon Z fc
-  - [x] Nikon Z 50
-  - [x] Nikon Z 30
-  - [x] Nikon D850
-  - [x] Nikon D500
 - ORF
-  - [x] OM System OM-1
-  - [x] OM System OM-1 Mark II
-  - [x] OM System OM-3
-  - [x] OM System OM-5
-  - [x] OM System OM-5 Mark II
-  - [x] Olympus E-M1X
-  - [x] Olympus E-M1 Mark III
-  - [x] Olympus E-M1 Mark II
-  - [x] Olympus E-M5 Mark III
-  - [x] Olympus E-M10 Mark IV
-  - [x] Olympus PEN E-P7
-  - [x] Olympus PEN-F
 - RAF
-  - [x] Fujifilm X-H2S
-  - [x] Fujifilm X-H2
-  - [x] Fujifilm X-T5
-  - [x] Fujifilm X-T50
-  - [x] Fujifilm X-T4
-  - [x] Fujifilm X-T3
-  - [x] Fujifilm X-T30 III
-  - [x] Fujifilm X-T30 II
-  - [x] Fujifilm X-T30
-  - [x] Fujifilm X-S20
-  - [x] Fujifilm X-S10
-  - [x] Fujifilm X-M5
-  - [x] Fujifilm X-E5
-  - [x] Fujifilm X-E4
-  - [x] Fujifilm X-Pro3
-  - [x] Fujifilm X100VI
-  - [x] Fujifilm X100V
-  - [x] Fujifilm GFX100 II
-  - [x] Fujifilm GFX100S II
-  - [x] Fujifilm GFX100S
-  - [x] Fujifilm GFX100RF
-  - [x] Fujifilm GFX 100
-  - [x] Fujifilm GFX50S II
-  - [x] Fujifilm GFX 50R
-  - [x] Fujifilm GFX 50S
-
-CR3 files shot with HDR PQ on (HEIF) hold HEVC images instead of JPEGs.
-Riffle decodes their 1620x1080 HEVC preview and tone-maps it to sRGB, so
-they get a thumbnail, a preview and a sharpness score like any other file.
-The full-size image is not decoded: the 1:1 view (`z`) on such a file shows
-a crop of that 1620x1080 preview, not the sensor's pixels.
-
-A RAF holds one embedded JPEG, 4416x2944 on the listed X bodies and
-4000x3000 on the listed GFX bodies, below the sensor's resolution. The 1:1
-view on RAF shows that JPEG at its own size, not the sensor's pixels. Older
-X-series and FinePix bodies (the X-T1 to X-T20, X-Pro1 and X-Pro2, X100S to
-X100F, X-E1 to X-E3, the X-A line, the FinePix S and HS lines, and others)
-also open, but their embedded JPEG is 1920x1280 to 2176x1448 (1920x1280
-and 2048x1536 are the common sizes), so their 1:1 view is limited to that small preview; see
-[What the camera records](./docs/cameras.md) for the size per body.
-
-An ORF holds one embedded JPEG, 3200x2400 on every listed body, below the
-sensor's resolution. The 1:1 view on ORF shows that JPEG at its own size, not
-the sensor's pixels.
 
 A folder that holds only JPEGs (`.jpg` / `.jpeg`) and no RAW file opens
 view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
 with no stars, flags, color labels, sidecars or focus cue.
 
-What each camera records, and which features that affects, is listed in
-[docs/cameras.md](./docs/cameras.md). Why support is listed per camera rather
-than per format is explained in [docs/raw-formats.md](./docs/raw-formats.md).
+The cameras verified on a real file, what each records, and which features
+that affects are listed in [docs/cameras.md](./docs/cameras.md). Why support is
+listed per camera rather than per format is explained in
+[docs/raw-formats.md](./docs/raw-formats.md).
 
-If a camera not on the list works, post in the
+If a camera not listed in [docs/cameras.md](./docs/cameras.md) works, post in
+the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)
 in Discussions. If it does not, open an issue from the
 [camera issue template](https://github.com/minodisk/riffle/issues/new?template=camera.yml).

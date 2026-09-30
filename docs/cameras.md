@@ -1,9 +1,10 @@
 # What the camera records
 
-Some features depend on what the camera records in the RAW file. For the
-tested cameras, see [Compatibility](../README.md#compatibility); for the
-features themselves, see [usage.md](./usage.md); for why these differ by body
-even within one RAW format, see [How RAW files differ](./raw-formats.md).
+Some features depend on what the camera records in the RAW file. The table
+below lists every body verified on a real file; for the RAW formats, see
+[Compatibility](../README.md#compatibility); for the features themselves, see
+[usage.md](./usage.md); for why these differ by body even within one RAW
+format, see [How RAW files differ](./raw-formats.md).
 
 A body released before 2010, or whose embedded JPEG is under 1280 px on the
 long edge, is not supported: Riffle culls from that preview, and such a body
@@ -136,6 +137,12 @@ Nikon Z 8 and Canon EOS R6 samples carried no AF position (an automatic area
 that never locked, and manual focus), so those two are unconfirmed; the Nikon
 D850 and D500 write an older `AFInfo2` that Riffle does not read.
 
+CR3 files shot with HDR PQ on (HEIF) hold HEVC images instead of JPEGs.
+Riffle decodes their 1620x1080 HEVC preview and tone-maps it to sRGB, so
+they get a thumbnail, a preview and a sharpness score like any other file.
+The full-size image is not decoded: the 1:1 view (`z`) on such a file shows
+a crop of that 1620x1080 preview, not the sensor's pixels.
+
 On the Fujifilm bodies, Riffle reads the AF point from the MakerNote
 (`FocusPixel`), a point without a frame size. The X-T3 and GFX 100 samples
 were all shot in manual focus, which Riffle treats as having no AF point, so
@@ -143,9 +150,11 @@ those two are unconfirmed; the same holds for the X-A2, X-E3, X100F, XF10
 and GFX 50S samples. Sub-second capture time is marked as the samples
 recorded it; none of the older X-series and FinePix bodies records it.
 
-The embedded JPEG is the preview and the 1:1 view on every Fujifilm body, so
-on the older bodies the 1:1 view is that small JPEG rather than a pixel-level
-check:
+A RAF holds one embedded JPEG, below the sensor's resolution. It is the
+preview and the 1:1 view on every Fujifilm body: the 1:1 view shows that JPEG
+at its own size, not the sensor's pixels. The older X-series and FinePix
+bodies also open, but their embedded JPEG is 1920x1280 to 2176x1448, so their 1:1 view is that small JPEG rather than a
+pixel-level check:
 
 | Embedded JPEG size | Fujifilm bodies |
 |---|---|
@@ -154,6 +163,10 @@ check:
 | 2176x1448 | FinePix X100 |
 | 2048x1536 | X30, X20, X10, XF1, XQ2, XQ1, X-S1, FinePix F770EXR, F550EXR, HS50EXR, HS33EXR, HS30EXR, SL1000, S1 |
 | 1920x1280 | X-H1, X-T2, X-T1, X-T20, X-T10, X-T200, X-T100, X-Pro2, X-Pro1, X-E3, X-E2S, X-E2, X-E1, X-A7, X-A5, X-A3, X-A2, X-A1, X-A10, X-M1, X100F, X100T, X100S, X70, XF10 |
+
+An ORF holds one embedded JPEG, 3200x2400 on every body listed here, below
+the sensor's resolution. The 1:1 view on ORF shows that JPEG at its own size,
+not the sensor's pixels.
 
 On the OM System and Olympus bodies, Riffle does not read the AF point yet:
 the MakerNote records it as `AFTargetInfo` (OM bodies) and `AFPointSelected`,
