@@ -743,7 +743,7 @@ often flat test scenes that are weak for AF-point checks; CC0 means a
 small file could be committed as a fixture, but tests prefer synthetic
 bytes as in `crates/core/src/arw.rs`) and review-site sample galleries
 (real scenes, good for AF checks, but not redistributable, so local
-verification only). Riffle reads ARW, DNG, NEF and CR3 today (README.md
+verification only). Riffle reads ARW, DNG, NEF, CR3 and RAF today (README.md
 "RAW formats and cameras"). The work splits into tiers, cheapest first:
 
 1. More DNG-writing cameras (Pentax, Ricoh GR, other Leica bodies,
@@ -777,11 +777,15 @@ samples, as done for the Sigma BF `0x0147` in
       Nikon DSLRs' `AFInfo2` `0100` / `0101` (D850, D500), whose AF point
       is a grid point name rather than a position, and a sample with an
       AF position from the Nikon Z 8 and the Canon EOS R6 (their
-      raw.pixls.us samples carry none).
+      raw.pixls.us samples carry none). Next: Fujifilm `FocusPixel` on the
+      RAF bodies (`crates/core/src/raf.rs`); every sample writes it, off-center
+      landscape and portrait samples exist, and it looks to be in the embedded
+      JPEG's frame (see the survey in
+      `docs/plans/_archived/20260930-fujifilm-raf/learnings.md`).
 - [ ] Tier 3: decide per container whether a new parser is worth it,
-      given the samples available. CR3 and NEF are done
-      (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`); RAF and the
-      rest remain.
+      given the samples available. CR3, NEF and RAF are done
+      (`crates/core/src/cr3.rs`, `crates/core/src/nef.rs`,
+      `crates/core/src/raf.rs`); the rest remain.
 - [ ] Check the Sigma BF AF point's open assumptions against public BF
       samples: portrait orientation, manual-focus behavior, and the
       1000x667 scale (see the `SIGMA_BF_AF_GRID_W` doc comment in
@@ -798,6 +802,26 @@ The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony
 
 - [ ] Decide what 1:1 shows without a full-size JPEG (refuse, fall back to the 1616x1080 preview, or decode the raw data), and implement it with a synthetic-TIFF unit test next to the existing ones in `arw.rs`.
 - [ ] Add the seven bodies to `README.md`, `README.ja.md` and `docs/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
+
+### Core: a RAF folder scan costs ~222ms per file
+
+#### Background
+
+The `fujifilm-raf` Step 1 survey (`docs/plans/_archived/20260930-fujifilm-raf/learnings.md`) ran `riffle-cli scan` over 46 raw.pixls.us RAFs: 221.8ms per file mean on one thread (290.2ms p95), 36 files/s on 24 threads. The embedded JPEG is 4416x2944 / 4000x3000 (against ARW's 1616x1080 preview), it is decoded whole for the sharpness score, and with no AF point read the face search runs on the whole image. Reading the Fujifilm `FocusPixel` (Tier 2 of "Core: widen camera support from public sample RAW files") removes the face search for AF frames; a scaled decode for the score would be a separate change. Files: `crates/core/src/scan.rs`, `crates/core/src/sharpness.rs`, `crates/core/src/raf.rs`.
+
+#### TODO
+
+- [ ] Measure the scan on a real RAF folder after the AF point is read, and decide whether the sharpness score should work on a scaled decode of the RAF JPEG.
+
+### Core: M-RAW RAF files are unverified
+
+#### Background
+
+No raw.pixls.us sample of the listed Fujifilm bodies is an M-RAW (multi-image) RAF: the M-RAW header words at `0x48` / `0x4c` are zero on all 46 samples of the `fujifilm-raf` Step 1 survey (`docs/plans/_archived/20260930-fujifilm-raf/learnings.md`). `raf::parse` reads the one embedded JPEG and ignores the M-RAW header, which ExifTool suggests is enough, but no such file has been opened. Files: `crates/core/src/raf.rs`.
+
+#### TODO
+
+- [ ] Open an M-RAW RAF (from a body that writes one) and confirm the preview, the 1:1 view and the EXIF rows.
 
 ### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
 

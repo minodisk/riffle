@@ -183,7 +183,7 @@ too. The samples are still never committed to the repository.
     - Check `0x48` on every sample so M-RAW files (if any on raw.pixls.us)
       are known to parse; do not implement the M-RAW header.
 
-- [ ] Step 2: Docs, the compatibility lists and `todo.md`
+- [x] Step 2: Docs, the compatibility lists and `todo.md`
   - Done when:
     - `README.md` "RAW formats and cameras" and `README.ja.md` "RAW 形式と
       カメラ" add an `RAF` entry listing only the bodies Step 1 opened on a
@@ -303,3 +303,4 @@ too. The samples are still never committed to the repository.
 ## Progress
 
 - (2026-09-30) Step 1 complete
+- (2026-09-30) Step 2 complete

@@ -5,7 +5,7 @@ The detailed behavior of Riffle. For a quick start, see [README.md](../README.md
 ## Features
 
 Open a folder from the picker, or drop a folder or any file in it onto the
-window. Riffle lists the RAW files (ARW, CR3, DNG and NEF) in it and pages
+window. Riffle lists the RAW files (ARW, CR3, DNG, NEF and RAF) in it and pages
 through their embedded previews, rotated by each file's Orientation. With no folder open the
 viewer shows a prompt in its center; click it to open the folder picker.
 
@@ -548,9 +548,10 @@ folder can be opened, and the choice can be changed later in
   whose `xmp:Label` matches a configured name or the English name is shown in
   that color.
 - **PhotoLab (.dop)**: `FOO.ARW` gets `FOO.ARW.dop` (and `FOO.NEF`
-  `FOO.NEF.dop`, keeping the RAW extension), holding the stars, the
-  pick / reject flag and the `ColorLabel` line (`Red`, `Orange`, `Yellow`,
-  `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10 reads.
+  `FOO.NEF.dop`, `FOO.RAF` `FOO.RAF.dop`, keeping the RAW extension),
+  holding the stars, the pick / reject flag and the `ColorLabel` line (`Red`,
+  `Orange`, `Yellow`, `Green`, `Blue`, `Pink`, `Purple`), which PhotoLab 10
+  reads.
 - **Both**: every judgment is written to `FOO.xmp` and to `FOO.ARW.dop`, each
   as above. When a folder opens, the one of the two modified last is read
   back (on a tie, the XMP), so an edit made later in either Lightroom or

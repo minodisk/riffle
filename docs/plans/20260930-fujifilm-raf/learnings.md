@@ -149,6 +149,19 @@ reference here).
 - Verdict: Step 3 looks viable on these samples (off-center landscapes and
   two portrait bodies), pending the drawn-point check.
 
+## Step 2: Docs, the compatibility lists and `todo.md`
+
+- All 22 surveyed bodies are listed: every sample opened from the prefix and
+  decoded both the preview and the 1:1 view, so none stays unlisted.
+- The `FocusPixel` frame is still a guess until drawn, so the public docs
+  (`docs/raw-formats.md`, `docs/cameras.md`) only say Riffle does not read it
+  yet; the "embedded JPEG's frame" hypothesis is named only in `todo.md` Tier 2.
+- The two Step 1 deferred items (RAF scan cost, M-RAW unverified) became their
+  own `todo.md` sections. They point at the plan's `_archived` path, since the
+  wrap-up moves the folder there.
+- `docs/performance.md` does not compare the RAF scan cost to ARW's by a
+  ratio: the ARW numbers are from a Mac, the RAF ones from Windows.
+
 ## Deferred issues (todo candidates)
 
 - RAF scan cost per file: `riffle-cli scan` over the 46 samples takes
