@@ -451,4 +451,4 @@ bump); the `focus N / M` status text is Step 3's call.
 
 ## Progress
 
-- (YYYY-MM-DD) Step X complete
+- (2026-09-30) Step 1 complete
