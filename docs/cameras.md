@@ -92,9 +92,9 @@ is marked as the samples recorded it.
 
 On the OM System and Olympus bodies, Riffle does not read the AF point yet:
 the MakerNote records it as `AFTargetInfo` (OM bodies) and `AFPointSelected`,
-which are left for later. None of these bodies records a sub-second capture
-time, so their bursts are grouped by whole seconds; a burst at a high frame
-rate cannot be split within one second.
+which are left for later. None of the samples of these bodies records a
+sub-second capture time, so their bursts group by whole seconds; a burst at a
+high frame rate cannot be split within one second.
 
 The Sony α9 III and α7CR samples were all shot in manual focus, which Riffle
 treats as having no AF point, so those two are unconfirmed. On the Sony bodies
