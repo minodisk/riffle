@@ -3800,10 +3800,26 @@ mod tests {
         remove_temp_dir(&dir);
     }
 
-    fn switch_writer(index: Arc<Mutex<Index>>) -> Writer {
-        Writer::spawn(index, |path, message| {
-            eprintln!("{}: {message}", path.display())
-        })
+    /// A writer whose errors are collected, so `drain` can fail with the
+    /// writer's own message instead of a later read's `NotFound`.
+    fn switch_writer(index: Arc<Mutex<Index>>) -> (Writer, Arc<Mutex<Vec<String>>>) {
+        let errors = Arc::new(Mutex::new(Vec::new()));
+        let collected = errors.clone();
+        let writer = Writer::spawn(index, move |path, message| {
+            index::lock(&collected).push(format!("{}: {message}", path.display()))
+        });
+        (writer, errors)
+    }
+
+    /// Wait for the writer to finish everything queued. The budget is far
+    /// longer than `DRAIN_TIMEOUT` because it only costs time when the test
+    /// is failing anyway, and a loaded Windows runner can take seconds.
+    fn drain(writer: &Writer, errors: &Mutex<Vec<String>>) {
+        assert!(
+            writer.flush(Duration::from_secs(30)),
+            "the sidecar writer did not drain"
+        );
+        assert_eq!(*index::lock(errors), Vec::<String>::new());
     }
 
     /// A judgment made in the window between the format swap and
@@ -3815,7 +3831,7 @@ mod tests {
         let dir = root.to_string_lossy().into_owned();
         std::fs::write(root.join("a.ARW"), b"x").unwrap();
         let index = sidecar_index(&root);
-        let writer = switch_writer(index.clone());
+        let (writer, errors) = switch_writer(index.clone());
         let listed = list_arw_in(&root).unwrap();
         let path = listed[0].clone();
         let current = Mutex::new(SidecarFormat::Xmp);
@@ -3847,7 +3863,7 @@ mod tests {
             },
         )
         .unwrap();
-        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        drain(&writer, &errors);
 
         assert_eq!(*index::lock(&observed), Some(SidecarFormat::Dop));
         let dop = SidecarFormat::Dop.sidecar_path(Path::new(&path));
@@ -3876,7 +3892,7 @@ mod tests {
         let dir = root.to_string_lossy().into_owned();
         std::fs::write(root.join("a.ARW"), b"x").unwrap();
         let index = sidecar_index(&root);
-        let writer = switch_writer(index.clone());
+        let (writer, errors) = switch_writer(index.clone());
         let listed = list_arw_in(&root).unwrap();
         let path = listed[0].clone();
         let current = Mutex::new(SidecarFormat::Xmp);
@@ -3906,7 +3922,7 @@ mod tests {
             },
         )
         .unwrap();
-        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        drain(&writer, &errors);
 
         let dop = SidecarFormat::Dop.sidecar_path(Path::new(&path));
         let bytes = std::fs::read(&dop).unwrap();
@@ -3940,7 +3956,7 @@ mod tests {
         let dir = root.to_string_lossy().into_owned();
         std::fs::write(root.join("a.ARW"), b"x").unwrap();
         let index = sidecar_index(&root);
-        let writer = switch_writer(index.clone());
+        let (writer, errors) = switch_writer(index.clone());
         let listed = list_arw_in(&root).unwrap();
         let path = listed[0].clone();
         index::lock(&index)
@@ -3972,7 +3988,7 @@ mod tests {
                 )
                 .unwrap();
         }
-        writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        drain(&writer, &errors);
 
         for kind in [SidecarFormat::Xmp, SidecarFormat::Dop] {
             let bytes = std::fs::read(kind.sidecar_path(Path::new(&path))).unwrap();

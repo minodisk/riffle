@@ -48,7 +48,7 @@ adjacent-line noise; resolve it by keeping both sides.
 
 ## Steps
 
-- [ ] Step 1: Make `a_dirty_row_is_written_to_both_sidecars_after_a_switch_to_both` wait for the sidecar writer deterministically
+- [x] Step 1: Make `a_dirty_row_is_written_to_both_sidecars_after_a_switch_to_both` wait for the sidecar writer deterministically
   - Done when: `crates/app/src/sidecar.rs`'s `Writer::flush` returns
     `bool` (`true` when the writer's drain reply arrived within `timeout`,
     `false` on the timeout or a gone thread); the test in

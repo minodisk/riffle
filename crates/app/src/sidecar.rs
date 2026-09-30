@@ -363,13 +363,14 @@ impl Writer {
     }
 
     /// Write everything pending and wait for it, at most `timeout`. Used on
-    /// quit so a normal Cmd+Q loses nothing.
-    pub fn flush(&self, timeout: Duration) {
+    /// quit so a normal Cmd+Q loses nothing. `false` when the wait timed out
+    /// or the thread is gone.
+    pub fn flush(&self, timeout: Duration) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         if lock(&self.tx).send(Message::Flush(tx)).is_err() {
-            return;
+            return false;
         }
-        let _ = rx.recv_timeout(timeout);
+        rx.recv_timeout(timeout).is_ok()
     }
 }
 
