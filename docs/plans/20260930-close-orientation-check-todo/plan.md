@@ -45,4 +45,4 @@ learnings still call the manual check pending and should say it is done.
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete
