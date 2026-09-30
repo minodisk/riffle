@@ -1340,14 +1340,3 @@ Files: `crates/app/src/trash.rs` (`restore_recorded`), `crates/app/src/commands.
 
 - [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), run `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with a recursive run over a parent whose subfolder is renamed. Then `Redo` should move them to the Recycle Bin again.
 - [ ] On macOS, repeat the undo / redo after a rename (`restore_recorded` renames the Trash file straight to the new destination, with no `relocate`). Expect the files back in the renamed folder and no old-name folder appearing.
-
-### Core: the old `OLYMP\0` Olympus compacts still open with "no embedded preview"
-
-#### Background
-
-The `orf-old-maker-note-preview` work made `crates/core/src/orf.rs` read the preview of the `OLYMP\0` MakerNote when it carries an inline CameraSettings (0x2020), which covers the E-1, E-300, E-330, E-400 and E-500. The compacts and older bodies whose `OLYMP\0` note (version `01 00` / `02 01`) has no 0x2020 (C5050Z, C5060WZ, C7070WZ, C8080WZ, E-10, E-20, SP-350 / 500UZ / 510UZ / 550UZ / 565UZ / 570UZ) still fail with `no embedded preview`. They carry only a 160x120 thumbnail (IFD1 0x0201 / 0x0202, and the note's 0x0100), and the SP570UZ also has an untagged 640x480 JPEG at the file's end. The plan left them out because a 160x120 thumbnail makes a poor 1:1 view. Plan: `docs/plans/_archived/20260930-orf-old-maker-note-preview/plan.md`. Files: `crates/core/src/orf.rs`, `crates/core/src/reader.rs`.
-
-#### TODO
-
-- [ ] Decide whether these files should open with IFD1's 160x120 thumbnail (0x0201 / 0x0202) as a last-resort preview, and, for the SP570UZ, whether to use the untagged 640x480 JPEG at the file's end
-- [ ] If yes, read it in `orf.rs`, bump `EXTRACTOR_VERSION` in `crates/app/src/index.rs`, and check the 12 sample files with `riffle-cli scan D:\Photos\samples\ORF`
