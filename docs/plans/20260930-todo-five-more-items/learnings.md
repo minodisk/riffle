@@ -28,9 +28,12 @@
   and `a_pick_set_during_a_switch_lands_in_the_dop_and_leaves_no_dirty_row`)
   were changed too: `switch_writer` was used only by these three tests, so
   they all go through the collecting writer and `drain` now.
-- Side effect to be aware of: a write that fails once on the deadline path
-  and then succeeds on its retry or on the drain still leaves its
-  `(retrying in Ns)` message in the collected list, so the test fails on a
-  transient error it would have survived before. That is intended here (a
-  failing sidecar write in these tests is itself worth seeing), but if it
-  ever shows up on CI as a sharing violation, the message now says so.
+- Only final errors fail the test: a write that fails once on the deadline
+  path (`set_now` makes `recv_timeout(0)` usually fire before the `Flush`)
+  and then succeeds on the rewrite leaves a `(retrying in Ns)` message, and
+  the row and both sidecars are correct. `drain` therefore filters out
+  messages containing `" (retrying in "` and asserts the rest is empty, so
+  the Windows-flaky test is not made flakier. The full list, retry messages
+  included, goes in the assertion message so a transient sharing violation
+  stays visible in the log; the timeout message carries it too. This departs
+  from the plan's "the collected errors are empty" wording on purpose.

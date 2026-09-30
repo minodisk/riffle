@@ -3817,9 +3817,22 @@ mod tests {
     fn drain(writer: &Writer, errors: &Mutex<Vec<String>>) {
         assert!(
             writer.flush(Duration::from_secs(30)),
-            "the sidecar writer did not drain"
+            "the sidecar writer did not drain; reported so far: {:?}",
+            *index::lock(errors)
         );
-        assert_eq!(*index::lock(errors), Vec::<String>::new());
+        let all = index::lock(errors).clone();
+        // A `(retrying in ..)` message is transient: the entry was requeued
+        // and the flush rewrote it. Only errors not followed by a retry are
+        // final, and those fail the test; `all` stays in the message so a
+        // transient sharing violation is still visible in the log.
+        let last: Vec<&String> = all
+            .iter()
+            .filter(|m| !m.contains(" (retrying in "))
+            .collect();
+        assert!(
+            last.is_empty(),
+            "final sidecar write errors; all reported: {all:?}"
+        );
     }
 
     /// A judgment made in the window between the format swap and
