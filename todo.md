@@ -545,24 +545,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 
-### Merge skill: jq reserved words as variable names in skill scripts
-
-jq 1.6 rejects `$label` (`label` is a jq keyword) with `syntax error, unexpected
-label, expecting IDENT`; jq 1.7+ accepts it, so CI (which runs jq 1.7.x) never
-catches it. This caused `.claude/skills/merge/scripts/wait-post-merge-runs.sh`
-to exit 3 on jq 1.6 and made the merger report `run_list_failed` on successful
-merges (fixed in the `fix-jq-label-keyword` plan by renaming `$label` to
-`$verdict`). Other jq keywords (`def`, `as`, `if`, `reduce`, `foreach`, `try`,
-`import`, `include`, `and`, `or`, `not`, ...) would fail the same way in any
-other skill script. No guide currently covers skill-script (shell/jq)
-conventions.
-
-#### TODO
-
-- [ ] Either create a guide for skill-script (shell/jq) conventions that
-      includes a note to avoid jq keywords as variable names, or judge it not
-      worth a guide and close this with no action
-
 ### Agents: confirm the long-wait timeout fix on a real `/pr` or `/merge` run
 
 The `long-wait-timeouts` plan added explicit `timeout: 600000` to every
@@ -941,22 +923,6 @@ session. Files: `crates/app/ui/src/selection.ts`, `crates/app/ui/src/main.ts`.
       landing falls on a neighbor: exactly that neighbor is selected.
 - [ ] The same with a folder that has no index cache (the `catch` branch of
       `refreshEntries` in `main.ts`).
-
-### App: Open in Terminal from the folder tree's context menu
-
-A folder-menu item that opens a terminal in the folder. The terminal has to be
-chosen per platform (Windows Terminal or `cmd` on Windows, Terminal.app on
-macOS); on Linux there is no standard terminal, so the choice is ambiguous and
-needs a fallback or a setting. Basis: deferred in
-`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
-`crates/app/src/folders.rs`, `crates/app/ui/src/context.ts`,
-`crates/app/ui/src/main.ts`.
-
-#### TODO
-
-- [ ] Decide the terminal per platform (and the Linux fallback), then add an
-      `Open in Terminal` item to the folder context menu backed by a command
-      in `crates/app/src/folders.rs`.
 
 ### App: Refresh from the folder tree's context menu for a folder whose watch failed
 
