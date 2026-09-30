@@ -97,7 +97,7 @@ adjacent-line noise; resolve it by keeping both sides.
     - Files: `crates/app/src/sidecar.rs`, `crates/app/src/commands.rs`,
       `todo.md`.
 
-- [ ] Step 2: Throttle the focus rescan and let a scan with nothing to do end at once
+- [x] Step 2: Throttle the focus rescan and let a scan with nothing to do end at once
   - Done when: the `tauri://focus` listener in `crates/app/ui/src/main.ts`
     calls `resync()` only when no scan was started in the last
     `FOCUS_RESCAN_INTERVAL` (5 000 ms) — `File > Reload Folder`,
@@ -411,3 +411,4 @@ adjacent-line noise; resolve it by keeping both sides.
 ## Progress
 
 - (2026-09-30) Step 1 complete
+- (2026-09-30) Step 2 complete

@@ -61,6 +61,16 @@ export function refreshOnFacesDone(
   return !(scanDone?.scanId === scanId && scanDone.total === 0 && facesTotal === 0);
 }
 
+// The shortest gap, in milliseconds, between the start of the last scan and a
+// main-window focus that rescans the open folder.
+export const FOCUS_RESCAN_INTERVAL = 5_000;
+
+// Whether a main-window focus should rescan the open folder: when no scan has
+// started yet, or the last one started `FOCUS_RESCAN_INTERVAL` or more ago.
+export function focusRescanDue(lastScanAt: number | null, now: number): boolean {
+  return lastScanAt === null || now - lastScanAt >= FOCUS_RESCAN_INTERVAL;
+}
+
 export interface RefreshTiming {
   rows: number;
   invoke: number;

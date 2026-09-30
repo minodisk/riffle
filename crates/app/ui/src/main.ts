@@ -79,6 +79,7 @@ import { IdleGate } from "./idle.js";
 import {
   type ScanDone,
   type ScanStarted,
+  focusRescanDue,
   refreshOnFacesDone,
   refreshOnProgress,
   refreshOnScanDone,
@@ -279,6 +280,11 @@ function settleIdle<T>(promise: Promise<T>): void {
 // superseded it, since `folder !== openDir` can't detect that case.
 let scanSeq = 0;
 let currentScan = 0;
+// When the last `startScan` began or the last focus rescan was triggered,
+// in `Date.now()` milliseconds, so a focus rescan inside
+// `FOCUS_RESCAN_INTERVAL` of it is skipped. The focus listener stamps it too,
+// since `resync()` reaches `startScan` only after its `list_arw` resolves.
+let lastScanAt: number | null = null;
 // True while a rescan's `list_arw` is outstanding, and true when a trigger
 // arrived while one was, the way `refreshEntries` keeps one read in flight.
 let resyncInFlight = false;
@@ -2636,6 +2642,7 @@ function startScan(folder: string): Promise<void> {
   // not just during `start_scan` — otherwise it starts a second
   // `scan_folder` that stampedes this one's `scanId`.
   setScanRunning(true);
+  lastScanAt = Date.now();
   scanSeq += 1;
   const seq = scanSeq;
   currentScan = seq;
@@ -2847,7 +2854,14 @@ void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // dialog refocuses this window, and a resync here races clear_index for
   // the Scans lock (`a scan is running`). The folder watcher still catches
   // on-disk changes, and `index-cleared` reopens the folder after a clear.
-  if (!settings.isOpen) resync();
+  // Also skipped within `FOCUS_RESCAN_INTERVAL` of the last scan's start, so
+  // an alt-tab back and forth (or the focus a picker dialog hands back right
+  // after an open) is not a full rescan each time. The folder watcher catches
+  // the on-disk changes too; this rescan is a belt-and-braces re-listing.
+  if (!settings.isOpen && focusRescanDue(lastScanAt, Date.now())) {
+    lastScanAt = Date.now();
+    resync();
+  }
 });
 // The folder watcher's trigger, debounced in Rust. The listener outlives every
 // folder, so an event for a folder that is no longer open is dropped.

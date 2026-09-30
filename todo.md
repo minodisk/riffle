@@ -502,19 +502,6 @@ Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`,
       and/or a loading indicator in cells with no thumbnail yet; decide and
       implement.
 
-### App: every main-window focus runs resync() and holds scanRunning until faces-done
-
-The `tauri://focus` listener in `crates/app/ui/src/main.ts` calls `resync()`
-on every focus; even with 0 files to process, `scanRunning` stays true until
-`faces-done`. `wait-for-scan` removed the refusals this caused, but the
-rescan itself is still unthrottled. Seen on Windows on 2026-09-28.
-
-#### TODO
-
-- [ ] Throttle the focus rescan, and clear `scanRunning` immediately when
-      the scan has 0 files to process. Files: `crates/app/ui/src/main.ts`,
-      `crates/app/src/commands.rs` (`scan_folder`).
-
 ### App: face/eye-aware focus check for culling
 
 Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). What remains:
