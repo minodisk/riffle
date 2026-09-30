@@ -1,10 +1,30 @@
 import { describe, expect, test } from "vitest";
 import {
+  FOCUS_RESCAN_INTERVAL,
+  focusRescanDue,
   refreshOnFacesDone,
   refreshOnProgress,
   refreshOnScanDone,
   refreshTimingLine,
 } from "./refresh.js";
+
+describe("focusRescanDue", () => {
+  test("never scanned", () => {
+    expect(focusRescanDue(null, 1_000)).toBe(true);
+  });
+
+  test("inside the interval", () => {
+    expect(focusRescanDue(10_000, 10_000 + FOCUS_RESCAN_INTERVAL - 1)).toBe(false);
+  });
+
+  test("exactly at the interval", () => {
+    expect(focusRescanDue(10_000, 10_000 + FOCUS_RESCAN_INTERVAL)).toBe(true);
+  });
+
+  test("past the interval", () => {
+    expect(focusRescanDue(10_000, 10_000 + FOCUS_RESCAN_INTERVAL + 1)).toBe(true);
+  });
+});
 
 describe("refreshOnProgress", () => {
   test("no current file", () => {

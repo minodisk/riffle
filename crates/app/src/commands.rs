@@ -1097,8 +1097,9 @@ pub struct ScanStarted {
 /// how many have no valid row. The actual scan does not start until the
 /// frontend calls `start_scan` with the returned `scan_id`, so this only
 /// prepares the work; call `start_scan` right after storing the id. A no-op
-/// (nothing to scan) when the index cache is unavailable; `start_scan` still
-/// emits `scan-done` and `faces-done` for this `scan_id` in that case.
+/// (nothing to scan) when the index cache is unavailable, or when neither the
+/// scan pass nor the faces pass has a file to do; `start_scan` still emits
+/// `scan-done` and `faces-done` for this `scan_id` in those cases.
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
@@ -1163,14 +1164,20 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     );
 
     let reconcile_started = std::time::Instant::now();
-    let (todo, removed) = {
+    let (todo, removed, idle) = {
         let (dir, index, listed) = (dir.clone(), index.clone(), listed.clone());
         tauri::async_runtime::spawn_blocking(move || {
             let files: Vec<_> = listed
                 .iter()
                 .filter_map(|p| index::stat(Path::new(p)).ok())
                 .collect();
-            index::lock(&index).reconcile(&dir, &files)
+            let mut index = index::lock(&index);
+            let (todo, removed) = index.reconcile(&dir, &files)?;
+            // Neither pass has anything to do, so no scan task is queued. A
+            // failed faces listing leaves it to the faces pass to report.
+            let idle =
+                todo.is_empty() && index.faces_todo(&dir).is_ok_and(|faces| faces.is_empty());
+            Ok::<_, String>((todo, removed, idle))
         })
         .await
         .map_err(|e| e.to_string())??
@@ -1255,9 +1262,11 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     // (only one `scan_folder`/`start_scan` pair is ever live at a time); it
     // never started, so there is nothing to cancel or join, just drop it.
     state.pending.clear();
-    state
-        .pending
-        .insert(scan_id, PendingScan { dir, todo, cancel });
+    if !idle {
+        state
+            .pending
+            .insert(scan_id, PendingScan { dir, todo, cancel });
+    }
     drop(state);
     Ok(ScanStarted {
         total,
@@ -1323,9 +1332,9 @@ where
 
 /// Start the scan `scan_folder` prepared for `scan_id`, in the background.
 /// Still emits `scan-done` and `faces-done` (with no work done) when there is
-/// no pending work under that id (the index cache was unavailable, or this
-/// scan has since been superseded), so the frontend's `scanRunning` flag
-/// always clears.
+/// no pending work under that id (the index cache was unavailable, neither
+/// pass had a file to do, or this scan has since been superseded), so the
+/// frontend's `scanRunning` flag always clears.
 ///
 /// The task runs two passes: `run_scan` (thumbnails, metadata, sharpness),
 /// ending in `scan-done`, then, unless canceled, `run_faces_scan` (the eye
