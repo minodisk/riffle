@@ -48,10 +48,6 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     let ifd0 = tiff.ifd_entries(ifd0_at)?;
     let mut shot = Shot::default();
     let (orientation, exif_ifd) = exif::read_ifd0(&tiff, &ifd0, &mut shot);
-    // Olympus pads Make and Model with spaces to a fixed length.
-    for text in [&mut shot.make, &mut shot.model].into_iter().flatten() {
-        text.truncate(text.trim_end().len());
-    }
     let mut preview = None;
     if let Some(at) = exif_ifd {
         let entries = tiff.ifd_entries(at)?;
