@@ -128,7 +128,7 @@ model, and big-endian offsets and lengths of what follows. One of those pairs
 points at the embedded JPEG, which comes right after the header. The file has
 no Exif of its own: Make, Model, Orientation, the capture time, the exposure
 and the Fujifilm MakerNote all live in that JPEG's Exif segment, which ends
-about 64 KB into the file on every tested body. The JPEG is the only one in the
+well within the first 1 MiB of the file on every tested body. The JPEG is the only one in the
 file, so it serves as both the preview and the 1:1 view. It is 4416x2944 on
 the recent X bodies (from the X-T3 and X-T30) and 4000x3000 on the GFX bodies,
 below the sensor's resolution (for example 7728x5152 on the X-T5 or
