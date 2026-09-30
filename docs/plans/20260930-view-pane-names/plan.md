@@ -79,4 +79,4 @@ settings store key on them.
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete (Windows GUI confirmation pending the user)
