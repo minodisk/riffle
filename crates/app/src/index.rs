@@ -94,8 +94,9 @@ const SCHEMA_VERSION: i64 = 17;
 /// reads the AF point of NEF (Nikon `AFInfo2`) and CR3 (Canon `AFInfo2`)
 /// files; `8` names an HDR PQ (HEIF) CR3 in the error row; `9` reads the AF
 /// point of RAF files (Fujifilm `FocusPixel`); `10` decodes the HEVC `PRVW` /
-/// `THMB` of HDR PQ CR3 files.
-const EXTRACTOR_VERSION: i64 = 10;
+/// `THMB` of HDR PQ CR3 files; `11` reads the preview of the old `OLYMP\0`
+/// Olympus MakerNote.
+const EXTRACTOR_VERSION: i64 = 11;
 
 /// The version of what `riffle_core::scan::extract_faces` produces, stored
 /// on every `files` row as `faces_extractor` next to `eye_focus`. Bump it
