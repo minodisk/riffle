@@ -775,6 +775,7 @@ fn main() {
             treewatch::set_tree_watches,
             commands::scan_folder,
             commands::start_scan,
+            commands::set_scan_focus,
             commands::folder_entries,
             commands::last_viewed,
             commands::set_last_viewed,

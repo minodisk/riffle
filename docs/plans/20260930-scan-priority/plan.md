@@ -274,7 +274,7 @@ bump); the `focus N / M` status text is Step 3's call.
       `Cargo.lock`, `crates/app/src/index.rs` (pass the priority),
       `crates/cli/src/main.rs` (pass `Normal`).
 
-- [ ] Step 5: A shared work queue both passes pull from, and the
+- [x] Step 5: A shared work queue both passes pull from, and the
       `set_scan_focus` command that reorders it
   - Done when:
     - `scan::for_each_path` no longer walks `paths.par_iter()`; it spawns

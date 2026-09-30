@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use riffle_core::scan::ScanFocus;
 use riffle_core::xmp::LabelNames;
 use serde_json::Value;
 use tauri::ipc::Response;
@@ -951,9 +952,10 @@ pub(crate) struct ScansState {
     latest_id: u64,
     /// The scan `start_scan` most recently spawned, with the id it was
     /// spawned under so the task's own clean-up can tell whether the entry
-    /// is still its own. `Some` does not mean a scan is running; see
+    /// is still its own, and the focus handle both its passes take their
+    /// files in the order of. `Some` does not mean a scan is running; see
     /// `scanning`.
-    running: Option<(u64, Arc<AtomicBool>, tauri::async_runtime::JoinHandle<()>)>,
+    running: Option<RunningScan>,
     pending: HashMap<u64, PendingScan>,
     /// The number of `scan_folder` calls currently past minting their id but
     /// not yet done (listing, `reconcile`, `reconcile_sidecars_of`), i.e.
@@ -984,12 +986,29 @@ impl ScansState {
         if self
             .running
             .as_ref()
-            .is_some_and(|(id, _, _)| *id == scan_id)
+            .is_some_and(|(id, _, _, _)| *id == scan_id)
         {
             self.running = None;
         }
     }
+
+    /// Hand `paths` to the running scan's focus if `scan_id` is its id; a
+    /// stale or unknown id is ignored.
+    fn set_focus(&self, scan_id: u64, paths: Vec<String>) {
+        if let Some((id, _, focus, _)) = &self.running {
+            if *id == scan_id {
+                focus.set(paths);
+            }
+        }
+    }
 }
+
+type RunningScan = (
+    u64,
+    Arc<AtomicBool>,
+    ScanFocus,
+    tauri::async_runtime::JoinHandle<()>,
+);
 
 struct PendingScan {
     dir: String,
@@ -1117,7 +1136,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     let cancel = Arc::new(AtomicBool::new(false));
 
     let joined_previous = previous.is_some();
-    if let Some((_, previous_cancel, previous_handle)) = previous {
+    if let Some((_, previous_cancel, _, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
     }
@@ -1300,6 +1319,7 @@ fn run_faces_pass<P>(
     index: &Mutex<Index>,
     dir: &str,
     threads: usize,
+    focus: &ScanFocus,
     cancel: &AtomicBool,
     progress: P,
 ) -> index::ScanSummary
@@ -1325,6 +1345,7 @@ where
         dir,
         &todo,
         threads,
+        focus,
         cancel,
         index::PROGRESS_INTERVAL,
         progress,
@@ -1383,9 +1404,11 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
             return Ok(());
         };
         let PendingScan { dir, todo, cancel } = pending;
+        let focus = ScanFocus::default();
 
         let handle = tauri::async_runtime::spawn_blocking({
             let cancel = cancel.clone();
+            let focus = focus.clone();
             let app = app.clone();
             move || {
                 let summary = index::run_scan(
@@ -1393,6 +1416,7 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                     &dir,
                     &todo,
                     scan_threads(),
+                    &focus,
                     &cancel,
                     index::PROGRESS_INTERVAL,
                     |done, total, ready| {
@@ -1421,6 +1445,7 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                     &index,
                     &dir,
                     scan_threads(),
+                    &focus,
                     &cancel,
                     |done, total, ready| {
                         let _ = app.emit(
@@ -1449,11 +1474,19 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                 state.finish(scan_id);
             }
         });
-        state.running = Some((scan_id, cancel, handle));
+        state.running = Some((scan_id, cancel, focus, handle));
         Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Have the scan `scan_id` take `paths` first, in their order, from now on,
+/// replacing the list a previous call gave. A scan that has ended or been
+/// superseded ignores it, so a late call is harmless.
+#[tauri::command]
+pub fn set_scan_focus(app: tauri::AppHandle, scan_id: u64, paths: Vec<String>) {
+    index::lock(&app.state::<Scans>().0).set_focus(scan_id, paths);
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -2342,6 +2375,7 @@ pub(crate) fn canonicalize(dir: &str) -> String {
 mod tests {
     use super::{format_bytes, Scans, ScansState, PREVIEW_PIXEL_LIMIT, SIZE_BASE};
     use crate::index;
+    use riffle_core::scan::ScanFocus;
     use riffle_core::Flag;
     use std::sync::{atomic::AtomicBool, mpsc, Arc, Mutex};
 
@@ -2364,7 +2398,12 @@ mod tests {
     fn a_finished_scan_leaves_no_scan_in_progress() {
         let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
         let (go, handle) = spawn_scan(&scans, 1);
-        index::lock(&scans.0).running = Some((1, Arc::new(AtomicBool::new(false)), handle));
+        index::lock(&scans.0).running = Some((
+            1,
+            Arc::new(AtomicBool::new(false)),
+            ScanFocus::default(),
+            handle,
+        ));
         let _ = go.send(());
         // Wait for the task the way `scan_folder` does, without taking the
         // entry: what is asserted is that the task cleared it itself.
@@ -2403,6 +2442,7 @@ mod tests {
                     &index,
                     &dir_name,
                     2,
+                    &ScanFocus::default(),
                     &AtomicBool::new(false),
                     |_, _, _| {},
                 );
@@ -2410,7 +2450,12 @@ mod tests {
                 index::lock(&scans.0).finish(1);
             }
         });
-        index::lock(&scans.0).running = Some((1, Arc::new(AtomicBool::new(false)), handle));
+        index::lock(&scans.0).running = Some((
+            1,
+            Arc::new(AtomicBool::new(false)),
+            ScanFocus::default(),
+            handle,
+        ));
         let _ = go.send(());
         assert_eq!(summary_rx.recv().unwrap(), 0);
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
@@ -2431,15 +2476,20 @@ mod tests {
         let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
         let (old_go, old_handle) = spawn_scan(&scans, 1);
         let old_cancel = Arc::new(AtomicBool::new(false));
-        index::lock(&scans.0).running = Some((1, old_cancel, old_handle));
+        index::lock(&scans.0).running = Some((1, old_cancel, ScanFocus::default(), old_handle));
 
         // `scan_folder` supersedes it: take the entry, cancel, join.
-        let (_, old_cancel, old_handle) = index::lock(&scans.0).running.take().unwrap();
+        let (_, old_cancel, _, old_handle) = index::lock(&scans.0).running.take().unwrap();
         old_cancel.store(true, std::sync::atomic::Ordering::Relaxed);
 
         // The newer scan is already stored when the old task gets to run.
         let (new_go, new_handle) = spawn_scan(&scans, 2);
-        index::lock(&scans.0).running = Some((2, Arc::new(AtomicBool::new(false)), new_handle));
+        index::lock(&scans.0).running = Some((
+            2,
+            Arc::new(AtomicBool::new(false)),
+            ScanFocus::default(),
+            new_handle,
+        ));
 
         let _ = old_go.send(());
         tauri::async_runtime::block_on(old_handle).unwrap();
@@ -2449,6 +2499,37 @@ mod tests {
         assert_eq!(state.running.as_ref().unwrap().0, 2);
         drop(state);
         let _ = new_go.send(());
+    }
+
+    #[test]
+    fn the_scan_focus_reaches_the_running_scan_only() {
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (go, handle) = spawn_scan(&scans, 2);
+        let focus = ScanFocus::default();
+        index::lock(&scans.0).running =
+            Some((2, Arc::new(AtomicBool::new(false)), focus.clone(), handle));
+        let order = || {
+            let paths: Vec<std::path::PathBuf> = ["a.ARW", "b.ARW", "c.ARW"].map(Into::into).into();
+            let seen = Mutex::new(Vec::new());
+            riffle_core::scan::extract_all(
+                &paths,
+                1,
+                riffle_core::scan::Priority::Normal,
+                &focus,
+                |i, _| seen.lock().unwrap().push(i),
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+            seen.into_inner().unwrap()
+        };
+
+        index::lock(&scans.0).set_focus(1, vec!["c.ARW".into()]);
+        assert_eq!(order(), vec![0, 1, 2], "a stale id is ignored");
+
+        index::lock(&scans.0).set_focus(2, vec!["c.ARW".into(), "b.ARW".into()]);
+        assert_eq!(order(), vec![2, 1, 0], "the running id reaches the handle");
+
+        let _ = go.send(());
     }
 
     #[test]
