@@ -7,9 +7,9 @@ use std::path::Path;
 
 use anyhow::{anyhow, Result};
 
-use crate::arw::{self, Arw};
+use crate::arw::{self, Arw, Codec};
 use crate::scan::is_jpeg_file;
-use crate::{cr3, jpeg, nef, orf, raf};
+use crate::{cr3, hevc, jpeg, nef, orf, raf};
 
 /// How much of a file the bounded read takes.
 ///
@@ -20,8 +20,8 @@ use crate::{cr3, jpeg, nef, orf, raf};
 /// ranged re-read in `read_preview`.
 pub const HEAD_LIMIT: usize = 1 << 20;
 
-/// The error of a CR3 whose embedded images are all HEVC (shot with HDR PQ
-/// on), which has no JPEG to show.
+/// The error of a CR3 whose track is HEVC (shot with HDR PQ on) and whose
+/// `PRVW` / `THMB` are neither a JPEG nor the HEVC `hevc::to_jpeg` decodes.
 pub const HEVC_UNSUPPORTED: &str = "HDR PQ (HEIF) CR3: its HEVC preview is not supported yet";
 
 /// Read at most `limit` bytes from the start of `path`.
@@ -35,7 +35,8 @@ fn head_of(file: &mut File, limit: usize) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// Parse a file's metadata and return its IFD0 preview JPEG, reading as little
+/// Parse a file's metadata and return its IFD0 preview JPEG (an HEVC one
+/// decoded to a JPEG), reading as little
 /// as possible: a bounded prefix, plus a ranged read of the preview itself if
 /// it lies beyond that prefix.
 ///
@@ -110,17 +111,25 @@ fn read_embedded(path: &Path, kind: Kind) -> Result<(Arw, Vec<u8>)> {
     // Anything past the prefix exists only if the file is longer than it.
     let bounded = head.len() == HEAD_LIMIT;
 
-    match embedded_from(path, &head, &mut file, bounded, kind) {
-        Ok(found) => Ok(found),
+    let found = match embedded_from(path, &head, &mut file, bounded, kind) {
+        Ok(found) => found,
         Err(_) if bounded => {
             let buf = std::fs::read(path)?;
             // The prefix error only explains a truncated read; once the whole
             // file is in memory, an error there describes what is actually
             // wrong with the file, so surface that one instead.
-            embedded_from(path, &buf, &mut file, false, kind)
+            embedded_from(path, &buf, &mut file, false, kind)?
         }
-        Err(e) => Err(e),
-    }
+        Err(e) => return Err(e),
+    };
+    // Decode once, after the read is settled: a decode error is not a
+    // truncated-read error and must not trigger the whole-file retry.
+    let (arw, bytes, codec) = found;
+    let jpeg = match codec {
+        Codec::Jpeg => bytes,
+        Codec::Hevc => hevc::to_jpeg(&bytes)?,
+    };
+    Ok((arw, jpeg))
 }
 
 /// Parse just a file's metadata, reading the same bounded prefix as
@@ -149,7 +158,7 @@ fn embedded_from(
     file: &mut File,
     bounded: bool,
     kind: Kind,
-) -> Result<(Arw, Vec<u8>)> {
+) -> Result<(Arw, Vec<u8>, Codec)> {
     let arw = parse_raw(path, buf)?;
     let e = kind.pick(&arw).ok_or_else(|| {
         if arw.hevc {
@@ -162,20 +171,21 @@ fn embedded_from(
         .offset
         .checked_add(e.length)
         .ok_or_else(|| anyhow!("{} out of range", kind.name()))?;
-    if end <= buf.len() {
-        let jpeg = arw.slice(buf, e).to_vec();
-        return Ok((arw, jpeg));
-    }
-    if !bounded {
-        return Err(anyhow!("{} out of range", kind.name()));
-    }
-    if end as u64 > file.metadata()?.len() {
-        return Err(anyhow!("{} out of range", kind.name()));
-    }
-    let mut jpeg = vec![0u8; e.length];
-    file.seek(SeekFrom::Start(e.offset as u64))?;
-    file.read_exact(&mut jpeg)?;
-    Ok((arw, jpeg))
+    let bytes = if end <= buf.len() {
+        arw.slice(buf, e).to_vec()
+    } else {
+        if !bounded {
+            return Err(anyhow!("{} out of range", kind.name()));
+        }
+        if end as u64 > file.metadata()?.len() {
+            return Err(anyhow!("{} out of range", kind.name()));
+        }
+        let mut bytes = vec![0u8; e.length];
+        file.seek(SeekFrom::Start(e.offset as u64))?;
+        file.read_exact(&mut bytes)?;
+        bytes
+    };
+    Ok((arw, bytes, e.codec))
 }
 
 #[cfg(test)]
@@ -475,6 +485,24 @@ mod tests {
         assert_eq!(a.orientation, 6);
         assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:30 10:00:00"));
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn an_hdr_pq_cr3_hands_its_hevc_prvw_to_the_decoder_near_and_by_range() {
+        use crate::cr3::tests::hdr_pq;
+        for (name, pad) in [("hevc-near.CR3", 64), ("hevc-far.CR3", HEAD_LIMIT)] {
+            // A lone `free` box: the whole payload reaches `hevc::to_jpeg`,
+            // which finds no `hvcC` in it.
+            let mut data = ((8 + pad) as u32).to_be_bytes().to_vec();
+            data.extend_from_slice(b"free");
+            data.resize(8 + pad, 0);
+            let path = temp_file(name, &hdr_pq(None, Some(data)).build());
+            for err in [read_preview(&path), read_full(&path)] {
+                assert_eq!(err.unwrap_err().to_string(), "HEVC preview without hvcC");
+            }
+            assert!(read_metadata(&path).unwrap().hevc);
+            std::fs::remove_file(&path).unwrap();
+        }
     }
 
     #[test]

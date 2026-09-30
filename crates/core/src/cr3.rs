@@ -7,16 +7,17 @@
 //! IFD) and `THMB` (a 160x120 thumbnail). Each `trak` is one image in `mdat`;
 //! the one whose sample entry carries a `JPEG` box is the full-size JPEG. The
 //! top-level preview `uuid` holds `PRVW`, a 1620x1080 JPEG. Bodies shooting
-//! HDR PQ (HEIF) store HEVC in `PRVW`, `THMB` and the first track instead, and
-//! those are skipped: only data starting with a JPEG SOI is taken. Such a file
-//! is marked `hevc` when a track's sample entry carries an `HEVC` box and none
-//! carries `JPEG`.
+//! HDR PQ (HEIF) store HEVC in `PRVW`, `THMB` and the first track instead,
+//! behind a version-1 header: such a `PRVW` / `THMB` is taken whole, marked
+//! `Codec::Hevc`, for `hevc::to_jpeg` to decode, and with no JPEG track the
+//! HEVC `PRVW` stands in for `full`. Such a file is marked `hevc` when a
+//! track's sample entry carries an `HEVC` box and none carries `JPEG`.
 //!
 //! The AF point comes from `AFInfo2` in `CMT3`, the Canon MakerNote TIFF.
 
 use anyhow::{anyhow, bail, ensure, Result};
 
-use crate::arw::{Arw, Embedded, FocusFrame, FocusLocation, Shot};
+use crate::arw::{Arw, Codec, Embedded, FocusFrame, FocusLocation, Shot};
 use crate::exif;
 use crate::sequence::Tiff;
 
@@ -28,9 +29,13 @@ const PREVIEW_UUID: [u8; 16] = [
 ];
 /// The preview `uuid` holds 8 bytes before its `PRVW` box.
 const PREVIEW_UUID_SKIP: usize = 8;
-/// `PRVW` and `THMB` hold a 16-byte header before their image data; the data
-/// length is the big-endian u32 at 12 in `PRVW` and at 8 in `THMB`.
-const IMAGE_HEADER_LEN: usize = 16;
+/// `PRVW` and `THMB` hold a 16-byte header before their image data. Its first
+/// byte is a version: 0 before a JPEG, whose length is the big-endian u32 at
+/// 12 in `PRVW` and at 8 in `THMB`; 1 before HEVC boxes, whose length is the
+/// u32 at 12 in both, after the u16 width and height at 6 and 8.
+pub(crate) const IMAGE_HEADER_LEN: usize = 16;
+const HEVC_IMAGE_VERSION: u8 = 1;
+const HEVC_LENGTH_AT: usize = 12;
 /// The sub-boxes of a `CRAW` sample entry start 82 bytes into its payload.
 const SAMPLE_ENTRY_BOXES: usize = 82;
 const SOI: [u8; 2] = [0xFF, 0xD8];
@@ -42,10 +47,10 @@ const AF_INFO2_HEADER: usize = 8;
 /// One box: its type, where its payload starts and where it ends (which may
 /// lie past the buffer for a top-level box).
 #[derive(Clone, Copy)]
-struct Bx {
-    typ: [u8; 4],
-    payload: usize,
-    end: usize,
+pub(crate) struct Bx {
+    pub(crate) typ: [u8; 4],
+    pub(crate) payload: usize,
+    pub(crate) end: usize,
 }
 
 /// The box header at `at`, which must lie in `buf`.
@@ -73,7 +78,7 @@ fn header(buf: &[u8], at: usize) -> Result<Bx> {
 }
 
 /// The boxes from `start` to `end`, all of which must lie in `buf`.
-fn children(buf: &[u8], start: usize, end: usize) -> Result<Vec<Bx>> {
+pub(crate) fn children(buf: &[u8], start: usize, end: usize) -> Result<Vec<Bx>> {
     ensure!(end <= buf.len(), "CR3 box past the buffer");
     let mut out = Vec::new();
     let mut at = start;
@@ -86,7 +91,7 @@ fn children(buf: &[u8], start: usize, end: usize) -> Result<Vec<Bx>> {
     Ok(out)
 }
 
-fn child(boxes: &[Bx], typ: &[u8; 4]) -> Option<Bx> {
+pub(crate) fn child(boxes: &[Bx], typ: &[u8; 4]) -> Option<Bx> {
     boxes.iter().find(|b| &b.typ == typ).copied()
 }
 
@@ -168,8 +173,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
             }
         }
         if let Some(thmb) = child(&inner, b"THMB") {
-            let length = u32_at(buf, thmb.payload + 8)? as usize;
-            thumbnail = image(buf, thmb, length)?;
+            thumbnail = image(buf, thmb, 8)?;
         }
     }
 
@@ -186,12 +190,15 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
         hevc |= child(&subs, b"HEVC").is_some();
     }
 
+    let hevc = hevc && full.is_none();
+    let prvw = prvw.flatten();
+    let full = full.or(prvw.filter(|p| p.codec == Codec::Hevc));
     Ok(Arw {
-        preview: prvw.flatten().or(thumbnail).or(full),
+        preview: prvw.or(thumbnail).or(full),
         full,
         orientation,
         shot,
-        hevc: hevc && full.is_none(),
+        hevc,
     })
 }
 
@@ -269,22 +276,36 @@ fn af_point(buf: &[u8], cmt3: Bx, model: Option<&str>) -> Option<(FocusLocation,
     ))
 }
 
-/// The `PRVW` JPEG of the preview `uuid` box `b`, whose header must lie in
-/// `buf`; `None` when the preview is not a JPEG.
+/// The `PRVW` image of the preview `uuid` box `b`, whose header must lie in
+/// `buf`; `None` when the preview is neither a JPEG nor HEVC.
 fn preview(buf: &[u8], b: Bx) -> Result<Option<Embedded>> {
     let prvw = header(buf, b.payload + 16 + PREVIEW_UUID_SKIP)?;
     ensure!(
         &prvw.typ == b"PRVW" && prvw.end <= b.end,
         "CR3 preview box malformed"
     );
-    let length = u32_at(buf, prvw.payload + 12)? as usize;
-    image(buf, prvw, length)
+    image(buf, prvw, 12)
 }
 
-/// The image data after the header of `PRVW` / `THMB` box `b`, when it is a
-/// JPEG. The SOI must lie in `buf`; the rest may not.
-fn image(buf: &[u8], b: Bx, length: usize) -> Result<Option<Embedded>> {
+/// The image of `PRVW` / `THMB` box `b`: the whole payload, header included,
+/// behind a version-1 header, else the data after the header when it is a
+/// JPEG whose length is the u32 at `jpeg_length_at`. The header (and a JPEG's
+/// SOI) must lie in `buf`; the rest may not.
+fn image(buf: &[u8], b: Bx, jpeg_length_at: usize) -> Result<Option<Embedded>> {
     let offset = b.payload + IMAGE_HEADER_LEN;
+    if buf.get(b.payload) == Some(&HEVC_IMAGE_VERSION) {
+        let length = u32_at(buf, b.payload + HEVC_LENGTH_AT)? as usize;
+        ensure!(
+            offset.checked_add(length).is_some_and(|e| e <= b.end),
+            "CR3 image past its box"
+        );
+        return Ok(Some(Embedded {
+            offset: b.payload,
+            length: IMAGE_HEADER_LEN + length,
+            codec: Codec::Hevc,
+        }));
+    }
+    let length = u32_at(buf, b.payload + jpeg_length_at)? as usize;
     let soi = buf
         .get(offset..offset + 2)
         .ok_or_else(|| anyhow!("CR3 image header past the buffer"))?;
@@ -295,7 +316,11 @@ fn image(buf: &[u8], b: Bx, length: usize) -> Result<Option<Embedded>> {
         offset.checked_add(length).is_some_and(|e| e <= b.end),
         "CR3 image past its box"
     );
-    Ok(Some(Embedded { offset, length }))
+    Ok(Some(Embedded {
+        offset,
+        length,
+        codec: Codec::Jpeg,
+    }))
 }
 
 /// The sub-boxes of `trak`'s first sample entry and the boxes of its `stbl`.
@@ -336,7 +361,11 @@ fn jpeg_track(buf: &[u8], boxes: &[Bx]) -> Result<Embedded> {
     } else {
         bail!("CR3 JPEG track without an offset");
     };
-    Ok(Embedded { offset, length })
+    Ok(Embedded {
+        offset,
+        length,
+        codec: Codec::Jpeg,
+    })
 }
 
 #[cfg(test)]
@@ -366,6 +395,19 @@ pub(crate) mod tests {
     fn image_box(typ: &[u8; 4], length_at: usize, data: &[u8]) -> Vec<u8> {
         let mut header = [0u8; IMAGE_HEADER_LEN];
         header[length_at..length_at + 4].copy_from_slice(&(data.len() as u32).to_be_bytes());
+        bx(typ, &cat(&[header.to_vec(), data.to_vec()]))
+    }
+
+    /// A version-1 `PRVW` / `THMB` box of `width` x `height`, as HDR PQ files
+    /// write before their HEVC boxes: the data length at 12, then the data.
+    fn hevc_box(typ: &[u8; 4], width: u16, height: u16, data: &[u8]) -> Vec<u8> {
+        let mut header = [0u8; IMAGE_HEADER_LEN];
+        header[0] = HEVC_IMAGE_VERSION;
+        header[5] = 2;
+        header[6..8].copy_from_slice(&width.to_be_bytes());
+        header[8..10].copy_from_slice(&height.to_be_bytes());
+        header[10..12].copy_from_slice(&[0xff, 0xff]);
+        header[12..16].copy_from_slice(&(data.len() as u32).to_be_bytes());
         bx(typ, &cat(&[header.to_vec(), data.to_vec()]))
     }
 
@@ -420,6 +462,9 @@ pub(crate) mod tests {
         /// The sample entry sub-box of the track holding `full`: `JPEG`, or
         /// `HEVC` as on a file shot with HDR PQ on.
         pub(crate) full_sub: [u8; 4],
+        /// `thumbnail` and `preview` sit behind version-1 headers, as the
+        /// HEVC of a file shot with HDR PQ on.
+        pub(crate) hevc_images: bool,
         /// The payload size of the `free` box before `moov`.
         pub(crate) pad: usize,
     }
@@ -441,6 +486,7 @@ pub(crate) mod tests {
                 preview: Some(jpeg_bytes(64, 2)),
                 full: jpeg_bytes(256, 3),
                 full_sub: *b"JPEG",
+                hevc_images: false,
                 pad: 0,
             }
         }
@@ -456,7 +502,11 @@ pub(crate) mod tests {
                     bx(b"CMT3", &w.tiff(&self.makernote, &[])),
                 ]);
                 if let Some(t) = &self.thumbnail {
-                    canon.extend_from_slice(&image_box(b"THMB", 8, t));
+                    canon.extend_from_slice(&if self.hevc_images {
+                        hevc_box(b"THMB", 320, 214, t)
+                    } else {
+                        image_box(b"THMB", 8, t)
+                    });
                 }
                 let moov = bx(
                     b"moov",
@@ -478,7 +528,12 @@ pub(crate) mod tests {
                     moov,
                 ]);
                 if let Some(p) = &self.preview {
-                    let payload = cat(&[vec![0; PREVIEW_UUID_SKIP], image_box(b"PRVW", 12, p)]);
+                    let prvw = if self.hevc_images {
+                        hevc_box(b"PRVW", 1620, 1080, p)
+                    } else {
+                        image_box(b"PRVW", 12, p)
+                    };
+                    let payload = cat(&[vec![0; PREVIEW_UUID_SKIP], prvw]);
                     out.extend_from_slice(&uuid_box(&PREVIEW_UUID, &payload));
                 }
                 out
@@ -586,6 +641,77 @@ pub(crate) mod tests {
         assert_eq!(a.shot.capture_time.as_deref(), Some("2026:09:30 10:00:00"));
 
         assert!(!parse(&Cr3::new().build()).unwrap().hevc, "a normal file");
+    }
+
+    /// An HDR PQ file whose `THMB` and `PRVW` hold `thumbnail` and `preview`
+    /// behind version-1 headers.
+    pub(crate) fn hdr_pq(thumbnail: Option<Vec<u8>>, preview: Option<Vec<u8>>) -> Cr3 {
+        Cr3 {
+            thumbnail,
+            preview,
+            full: vec![0; 256],
+            full_sub: *b"HEVC",
+            hevc_images: true,
+            ..Cr3::new()
+        }
+    }
+
+    /// The range of an HEVC image: its box payload, header included.
+    fn hevc_at(buf: &[u8], data: &[u8]) -> Option<(usize, usize)> {
+        let offset = find(buf, data) - IMAGE_HEADER_LEN;
+        Some((offset, IMAGE_HEADER_LEN + data.len()))
+    }
+
+    #[test]
+    fn an_hevc_prvw_is_the_preview_and_the_full_image() {
+        let (t, p) = (vec![0x11; 24], vec![0x22; 96]);
+        let buf = hdr_pq(Some(t.clone()), Some(p.clone())).build();
+        let a = parse(&buf).unwrap();
+        assert!(a.hevc);
+        assert_eq!(at(a.preview), hevc_at(&buf, &p));
+        assert_eq!(at(a.full), hevc_at(&buf, &p));
+        for e in [a.preview, a.full] {
+            assert_eq!(e.unwrap().codec, Codec::Hevc);
+        }
+        let payload = a.slice(&buf, a.preview.unwrap());
+        assert_eq!(&payload[..4], &[1, 0, 0, 0]);
+        assert_eq!(&payload[6..10], &[0x06, 0x54, 0x04, 0x38], "1620x1080");
+
+        // Its length is the u32 at 12, as in `PRVW`; the one at 8 would run
+        // past the box.
+        let buf = hdr_pq(Some(t.clone()), None).build();
+        let a = parse(&buf).unwrap();
+        assert_eq!(at(a.preview), hevc_at(&buf, &t), "the THMB stands in");
+        assert!(a.full.is_none(), "a THMB is never full");
+
+        let c = Cr3 {
+            full: jpeg_bytes(256, 3),
+            full_sub: *b"JPEG",
+            ..hdr_pq(None, Some(p.clone()))
+        };
+        let buf = c.build();
+        let a = parse(&buf).unwrap();
+        assert_eq!(at(a.preview), hevc_at(&buf, &p));
+        assert_eq!(
+            a.full.unwrap().codec,
+            Codec::Jpeg,
+            "a JPEG track stays full"
+        );
+        assert!(!a.hevc);
+    }
+
+    #[test]
+    fn an_hevc_image_past_its_box_is_an_error_and_its_header_is_enough() {
+        let p = vec![0x22; 4096];
+        let buf = hdr_pq(None, Some(p.clone())).build();
+        let data_at = find(&buf, &p);
+        let a = parse(&buf[..data_at]).unwrap();
+        assert_eq!(at(a.preview), hevc_at(&buf, &p));
+        assert!(parse(&buf[..data_at - 4]).is_err(), "cut inside the header");
+
+        let mut long = buf.clone();
+        long[data_at - 4..data_at].copy_from_slice(&0xFFFFu32.to_be_bytes());
+        assert!(parse(&long).is_err(), "the HEVC data past its box");
     }
 
     #[test]

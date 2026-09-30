@@ -15,6 +15,7 @@ serde_json = "1"
 natord = "1"
 chrono = "0.4"
 tempfile = "3"
+hpvcd = "0.3"
 
 [dev-dependencies]
 kamadak-exif = "0.6"

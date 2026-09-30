@@ -71,7 +71,7 @@ and `R5m2.CR3`; the samples are the user's and are never committed):
 
 ## Steps
 
-- [ ] Step 1: Decode HEVC `PRVW` / `THMB` to a JPEG in `riffle-core` so
+- [x] Step 1: Decode HEVC `PRVW` / `THMB` to a JPEG in `riffle-core` so
       every downstream consumer stays unchanged
   - Done when:
     - `cr3::parse` returns a `preview` (and the `THMB` fallback) for an
@@ -265,4 +265,4 @@ and `R5m2.CR3`; the samples are the user's and are never committed):
 
 ## Progress
 
-- (none yet)
+- (2026-09-30) Step 1 complete

@@ -11,7 +11,7 @@
 
 use anyhow::{anyhow, Result};
 
-use crate::arw::{Arw, Embedded, FocusFrame, FocusLocation, Shot};
+use crate::arw::{Arw, Codec, Embedded, FocusFrame, FocusLocation, Shot};
 use crate::exif::{self, integer};
 use crate::sequence::{Entry, Tiff};
 
@@ -190,6 +190,7 @@ fn jpeg(tiff: &Tiff, entries: &[Entry]) -> Option<Embedded> {
     (length > 0).then_some(Embedded {
         offset: int(TAG_JPEG_OFFSET)? as usize,
         length,
+        codec: Codec::Jpeg,
     })
 }
 
