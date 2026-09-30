@@ -19,7 +19,7 @@ pub fn has_exif(buf: &[u8]) -> bool {
 /// malformed one, is orientation 1 and a default `Shot`, and an entry that
 /// cannot be read leaves just its own field `None`. Nothing from a MakerNote
 /// is read. `preview` and `full` are `None`: the whole file is both, and
-/// `reader` hands it out as is.
+/// `reader` hands it out whole, its Orientation rewritten to 1.
 pub fn parse(buf: &[u8]) -> Result<Arw> {
     ensure!(
         buf.starts_with(&[0xFF, 0xD8]),

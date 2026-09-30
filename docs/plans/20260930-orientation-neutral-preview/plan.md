@@ -65,4 +65,4 @@ future, and a parser added later is covered without anyone remembering to.
 
 ## Progress
 
-- (none yet)
+- Step 1: done. `reader::neutral` rewrites the Orientation of every JPEG `read_preview` / `read_full` hand out, with the all-format invariant test and the `docs/agents/tauri-app.md` entry. Deviation: the HDR PQ CR3 (HEVC) case is an `#[ignore]` test driven by `RIFFLE_HEVC_CR3`, since it needs a real sample. The manual check (GFX 100 sample upright in preview, zoom crop and compare view) is still pending, as `learnings.md` records.
