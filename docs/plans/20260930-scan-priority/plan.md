@@ -457,3 +457,4 @@ bump); the `focus N / M` status text is Step 3's call.
 - (2026-10-01) Step 4 complete
 - (2026-10-01) Step 5 complete
 - (2026-10-01) Step 6 complete
+- (2026-10-01) Step 7 complete
