@@ -98,4 +98,4 @@ document is for, and gives future human-facing docs an obvious home.
 
 ## Progress
 
-- 2026-10-02: Step 1 done. Moved `cameras.md`, `raw-formats.md` and `usage.md` into `docs/humans/` with `git mv`, added the `../../` prefix to the four `../README.md` / `../CONTRIBUTING.md` links, repointed references, and repointed the open error-row-exif-tree-refresh plan. The acceptance grep needs `:(glob)` (see learnings.md).
+- 2026-10-02: Step 1 done. Moved `cameras.md`, `performance.md`, `raw-formats.md` and `usage.md` into `docs/humans/` with `git mv`, added the `../../` prefix to the four `../README.md` / `../CONTRIBUTING.md` links, repointed references, and repointed the open error-row-exif-tree-refresh plan. The acceptance grep needs `:(glob)` (see learnings.md).
