@@ -602,14 +602,15 @@ fn collect(dir: &Path, paths: &mut Vec<PathBuf>, failures: &mut Vec<(PathBuf, St
     };
     let mut folders = 1;
     for entry in entries {
-        let path = match entry {
-            Ok(entry) => entry.path(),
+        let (path, is_dir) = match entry.and_then(|e| Ok((e.path(), e.file_type()?.is_dir()))) {
+            Ok(v) => v,
             Err(e) => {
                 failures.push((dir.to_path_buf(), format!("list: {e}")));
                 continue;
             }
         };
-        if path.is_dir() {
+        // `file_type` does not follow links, so a symlink or junction loop cannot recurse.
+        if is_dir {
             folders += collect(&path, paths, failures);
         } else if scan::is_raw_file(&path) || scan::is_jpeg_file(&path) {
             paths.push(path);

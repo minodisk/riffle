@@ -137,4 +137,4 @@ parser or sample set can be verified in one command.
 
 ## Progress
 
-- (none yet)
+- (2026-10-01) Step 1 complete
