@@ -45,7 +45,8 @@ an error for that file and stays up, and `check` can drop the pre-check.
     - A unit test in `partial.rs`'s `tests` module asserts `Err` for an
       empty input (`b""`, libjpeg's `Empty input file`), a non-JPEG input
       (`b"not a jpeg"`, `Not a JPEG file`) and a truncated synthetic JPEG
-      (the first half of `jpeg(320, 240)`), and the existing tests still
+      (`jpeg(320, 240)` cut inside the header, `&jpeg[..64]`; a cut inside
+      the scan data only warns in libjpeg, see `learnings.md`), and the existing tests still
       pass.
     - The `decode_rgb(&jpeg)?` pre-check and its comment in `check_file`'s
       `full` stage (`crates/cli/src/main.rs`, around line 634) are removed;
@@ -156,4 +157,8 @@ an error for that file and stays up, and `check` can drop the pre-check.
 
 ## Progress
 
-- (none yet)
+- 2026-10-02: Step 1 done. `partial.rs` installs an unwinding `error_exit`
+  caught in `decode_region`, so `decode_focus_crop` / `decode_crop` return `Err`
+  on a malformed JPEG; the `decode_rgb` pre-check in `riffle-cli check` is
+  removed (`check` over the samples: 23.0 s vs about 2.5 min). Pending: the
+  manual check of the app's 1:1 view (see `learnings.md`).
