@@ -80,7 +80,7 @@ order, so the values that ride inline need the order to pick their bytes:
 - Testing: the `II` helpers (`tiff`, `ifd`, ...) stay little-endian; the `MM`
   tests use `crate::jpeg::tests::W(false)` or `ifd_be`, which writes nonzero
   padding after each inline `SHORT`.
-- Source: [big-endian-dng learnings, Step 1](../plans/20261002-big-endian-dng/learnings.md#step-1).
+- Source: [big-endian-dng learnings, Step 1](../plans/_archived/20261002-big-endian-dng/learnings.md#step-1).
 
 ### Older Sony ARW bodies carry no full-size JPEG, so `parse` takes the 160x120 thumbnail as `full` (Measured)
 
