@@ -55,8 +55,7 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]
-       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli check <dir>... [threads]"
         ),
     }
 }
