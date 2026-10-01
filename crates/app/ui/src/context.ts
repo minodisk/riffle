@@ -89,6 +89,7 @@ export function folderMenuGroups(revealLabel: string, root: boolean, count = 1):
       { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
       { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
     ],
+    [{ action: "refreshFolder", label: "Refresh", shortcut: "", checked: undefined }],
     ...(root
       ? []
       : [

@@ -930,26 +930,6 @@ session. Files: `crates/app/ui/src/selection.ts`, `crates/app/ui/src/main.ts`.
 - [ ] The same with a folder that has no index cache (the `catch` branch of
       `refreshEntries` in `main.ts`).
 
-### App: Refresh from the folder tree's context menu for a folder whose watch failed
-
-An expanded folder follows the disk through its own watcher
-(`docs/plans/20260928-tree-live-watch/plan.md`), and the open folder's
-re-index already has the focus rescan and `File > Reload Folder`. What is left
-is a folder whose watch could not be set (a network share, a permission
-refusal): `set_tree_watches` only `log::warn!`s it, so its subfolders and RAW
-count go stale until it is collapsed and expanded again, with no visible sign.
-A manual Refresh item re-lists it. Basis: narrowed from the Refresh / Rescan
-item deferred in `docs/plans/20260927-folder-menu-copy/plan.md` (Purpose), as
-decided in `docs/plans/20260928-tree-live-watch/plan.md`. Files:
-`crates/app/ui/src/folders.ts`, `crates/app/ui/src/context.ts`,
-`crates/app/src/treewatch.rs`.
-
-#### TODO
-
-- [ ] Add a Refresh item to the folder context menu that re-lists the folder's
-      subfolders and RAW count (optionally offered only, or marked, when its
-      watch failed).
-
 ### App: measure whether a `notify` watch blocks deleting a folder on Windows
 
 `docs/plans/_archived/20260928-tree-live-watch/plan.md` (Step 1) measured only

@@ -2630,6 +2630,9 @@ folders.init(
               setStatus(String(err));
             });
             break;
+          case "refreshFolder":
+            folders.refresh(path);
+            break;
           case "renameFolder":
             folders.startRename(path);
             break;

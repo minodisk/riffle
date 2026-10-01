@@ -94,7 +94,7 @@ bump `EXTRACTOR_VERSION` too; see Step 1.
     - Add a short "error rows keep the parsed metadata" note to the
       `write_batch` doc comment.
 
-- [ ] Step 2: Add a Refresh item to the folder tree's right-click menu
+- [x] Step 2: Add a Refresh item to the folder tree's right-click menu
   - Done when:
     - `folderMenuGroups` in `crates/app/ui/src/context.ts` offers a `Refresh`
       item on a single folder (root or not; not on a multi-folder selection),
@@ -140,4 +140,4 @@ bump `EXTRACTOR_VERSION` too; see Step 1.
 
 ## Progress
 
-- (2026-10-02) Step 1 complete: `scan::Failure` carries the parsed orientation / shot, error rows keep the metadata, `EXTRACTOR_VERSION` 11 -> 12
+- (2026-10-02) Step 1 complete: `scan::Failure` carries the parsed orientation / shot, error rows keep the metadata, `EXTRACTOR_VERSION` 12 -> 13

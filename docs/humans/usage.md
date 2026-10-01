@@ -50,6 +50,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   Linux. Below it, `Copy Path` puts the folder's absolute path, unquoted,
   on the clipboard and `Copy Folder Name` its name as the tree shows it;
   a refused clipboard write shows its error in the status line. Then
+  `Refresh` lists the folder's subfolders and RAW count again, expanded or
+  not, keeping the folders open under it, and retries the tree's folder
+  watches; it is for a folder whose watch could not be set (a network share,
+  a refused permission), which otherwise does not follow the disk, and a
+  folder that can no longer be listed shows its error. Then
   `Rename…` (not offered on home or a volume at the top level) turns the
   folder's name into a text box, its name selected; a slow second click on
   the open folder's name (a click, then another about half a second later,

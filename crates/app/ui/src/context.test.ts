@@ -133,13 +133,14 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the rename item, then the expand / collapse items, then the trash items, then the sequence item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the copy items, then the refresh item, then the rename item, then the expand / collapse items, then the trash items, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder", false)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
         { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
         { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
       ],
+      [{ action: "refreshFolder", label: "Refresh", shortcut: "", checked: undefined }],
       [{ action: "renameFolder", label: "Rename…", shortcut: "", checked: undefined }],
       [
         { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
@@ -176,6 +177,7 @@ describe("folderMenuGroups", () => {
     ).toEqual([
       ["revealFolder"],
       ["copyPath", "copyFolderName"],
+      ["refreshFolder"],
       ["trashRejected"],
       ["sequenceTimestamps"],
     ]);
