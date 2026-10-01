@@ -6,7 +6,7 @@ Update this file as you go if problems or design changes come up.
 Record additional important information (investigation results, design details) in separate files in this folder.
 Record what you learn during implementation, and notable events (CI failures, review feedback, plan changes, user intervention), in `learnings.md` as they happen.
 After finishing a step, continue to the next without asking the user.
-lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the linking file's own directory, so write links relative to the plan folder (e.g. `../../usage.md`) and put an example path that is not a real link target in backticks.
+lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the linking file's own directory, so write links relative to the plan folder (e.g. `../../humans/usage.md`) and put an example path that is not a real link target in backticks.
 
 <pr-rules>
 - Include the plan.md update (marking the step done + the Progress entry) in the implementation PR
@@ -106,7 +106,7 @@ bump `EXTRACTOR_VERSION` too; see Step 1.
       the row `failed` (like `toggle`). A collapsed folder is refreshed too
       (its RAW count and cached children update; it stays collapsed).
       `main.ts`'s folder-menu `switch` gets the `refresh` case.
-    - `docs/usage.md`'s folder-tree paragraph (the list of right-click items)
+    - `docs/humans/usage.md`'s folder-tree paragraph (the list of right-click items)
       mentions `Refresh` in its place in the menu and what it does, including
       that it re-lists a folder whose watch could not be set (a network
       share, a refused permission). Grep `README.md` / `README.ja.md`; edit

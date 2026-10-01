@@ -2,7 +2,7 @@
 
 Some features depend on what the camera records in the RAW file. The table
 below lists every body verified on a real file; for the RAW formats, see
-[Compatibility](../README.md#compatibility); for the features themselves, see
+[Compatibility](../../README.md#compatibility); for the features themselves, see
 [usage.md](./usage.md); for why these differ by body even within one RAW
 format, see [How RAW files differ](./raw-formats.md).
 
@@ -10,7 +10,7 @@ A body released before 2010, or whose embedded JPEG is under 1280 px on the
 long edge, is not supported: Riffle culls from that preview, and such a body
 cannot give it one good enough to judge focus with. Files from such a body may
 still open, since Riffle does not block them, but the body is not listed here
-or in [Compatibility](../README.md#compatibility).
+or in [Compatibility](../../README.md#compatibility).
 
 | Camera | AF point | AF frame size | Face tracking | Sub-second capture time |
 |---|---|---|---|---|

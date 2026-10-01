@@ -15,7 +15,7 @@ to keep and what to throw away.
 - There is no developing and no editing. It does one thing: choosing.
 
 For the supported formats, see [Compatibility](#compatibility); for the
-verified cameras, see [docs/cameras.md](./docs/cameras.md).
+verified cameras, see [docs/humans/cameras.md](./docs/humans/cameras.md).
 
 ## Getting started
 
@@ -39,7 +39,7 @@ permission once:
 
 After that, updates are downloaded automatically on launch and take effect the
 next time Riffle starts. For the other packages and the details, see
-[docs/usage.md](./docs/usage.md#installing).
+[docs/humans/usage.md](./docs/humans/usage.md#installing).
 
 ### First steps
 
@@ -105,7 +105,7 @@ DxO PhotoLab.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
-  shots (see [What the camera records](./docs/cameras.md)). The mark is green
+  shots (see [What the camera records](./docs/humans/cameras.md)). The mark is green
   for a focus candidate, where the eyes of the face nearest the AF point are
   likely in focus (a probability combining their sharpness and edge width);
   orange when a face is near the AF point but its eyes are likely not; and
@@ -123,7 +123,7 @@ DxO PhotoLab.
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the
   camera recorded no AF point and a face is found, else the sharpest region
-  (see [What the camera records](./docs/cameras.md)). The score is computed in
+  (see [What the camera records](./docs/humans/cameras.md)). The score is computed in
   the same second pass as the focus mark's state, so the bars fill in after the
   thumbnails. Both passes run below normal priority, so the viewer comes first
   when they compete for the CPU.
@@ -140,7 +140,7 @@ DxO PhotoLab.
   `Alt+ArrowLeft` / `Alt+ArrowRight` step through the frames of one and stop at
   its ends, and `Shift+x` rejects the rest of one. Cameras that record no
   sub-second capture time are grouped by whole seconds (see
-  [What the camera records](./docs/cameras.md)).
+  [What the camera records](./docs/humans/cameras.md)).
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside the sharpest frame in its burst. Click a frame to rate, pick or
   reject only that one.
@@ -179,7 +179,7 @@ DxO PhotoLab.
   Trash (see [MCP companion](#mcp-companion)).
 
 Every feature, and the full key reference, is described in
-[docs/usage.md](./docs/usage.md) ([Keys](./docs/usage.md#keys)).
+[docs/humans/usage.md](./docs/humans/usage.md) ([Keys](./docs/humans/usage.md#keys)).
 
 ## Working with other software
 
@@ -289,7 +289,7 @@ examples:
   ```
 
 The `MCP` tab shows the URL and these examples with Copy buttons. What the
-tools do is described in [docs/usage.md](./docs/usage.md#mcp-companion).
+tools do is described in [docs/humans/usage.md](./docs/humans/usage.md#mcp-companion).
 
 ## Compatibility
 
@@ -324,11 +324,11 @@ view-only: thumbnails, the preview and the EXIF rows, in capture-time order,
 with no stars, flags, color labels, sidecars or focus cue.
 
 The cameras verified on a real file, what each records, and which features
-that affects are listed in [docs/cameras.md](./docs/cameras.md). Why support is
+that affects are listed in [docs/humans/cameras.md](./docs/humans/cameras.md). Why support is
 listed per camera rather than per format is explained in
-[docs/raw-formats.md](./docs/raw-formats.md).
+[docs/humans/raw-formats.md](./docs/humans/raw-formats.md).
 
-If a camera not listed in [docs/cameras.md](./docs/cameras.md) works, post in
+If a camera not listed in [docs/humans/cameras.md](./docs/humans/cameras.md) works, post in
 the
 [camera works report thread](https://github.com/minodisk/riffle/discussions/287)
 in Discussions. If it does not, open an issue from the
@@ -354,4 +354,4 @@ in Discussions. If they do not, open an issue from the
 ## For developers
 
 - Building from source: [CONTRIBUTING.md](./CONTRIBUTING.md)
-- Performance measurements: [docs/performance.md](./docs/performance.md)
+- Performance measurements: [docs/humans/performance.md](./docs/humans/performance.md)

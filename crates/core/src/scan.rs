@@ -317,7 +317,7 @@ impl WorkQueue {
 /// The OS priority of a scan's worker threads. The app lowers both of its
 /// passes so the viewer's preview decode and the UI win the contended cores,
 /// the analysis pass below the thumbnails; the CLI benchmarks stay at
-/// `Normal` so their figures compare with `docs/performance.md`.
+/// `Normal` so their figures compare with `docs/humans/performance.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Priority {
     /// The OS default: the priority is left alone.

@@ -1,6 +1,6 @@
 # Using Riffle
 
-The detailed behavior of Riffle. For a quick start, see [README.md](../README.md).
+The detailed behavior of Riffle. For a quick start, see [README.md](../../README.md).
 
 ## Features
 
@@ -707,4 +707,4 @@ project's updater key and verified before it is installed. On Linux only the
 AppImage updates itself; a `.deb` / `.rpm` install is updated by installing the
 newer package.
 
-To build from source, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+To build from source, see [CONTRIBUTING.md](../../CONTRIBUTING.md).

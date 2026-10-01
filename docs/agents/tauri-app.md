@@ -1051,7 +1051,7 @@ every press of `Clear Cache` after the first folder open.
 least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
 `QOS_CLASS_BACKGROUND`, nice of at least 10); the CLI passes
 `Priority::Normal`, which makes no call, so its numbers stay comparable with
-`docs/performance.md`.
+`docs/humans/performance.md`.
 
 - Why lowered at all: priority only matters under contention, so an idle
   machine still gives every worker a full core, while the viewer's `preview`

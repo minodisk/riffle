@@ -26,29 +26,29 @@ labels yet, so they were not run.
       and record AUC / precision / coverage. Files: `crates/cli/src/main.rs`,
       `crates/core/src/candidate.rs`.
 
-### Docs: the "Focus candidate pass" numbers in docs/performance.md are missing the app's own scan/faces log lines
+### Docs: the "Focus candidate pass" numbers in docs/humans/performance.md are missing the app's own scan/faces log lines
 
 Step 3 of `docs/plans/_archived/20260925-focus-candidate/plan.md` asked for the
 `scan extract` / `scan faces` log lines of one app open of the 2134-file
-Sony folder to be recorded in `docs/performance.md` "Focus candidate pass",
+Sony folder to be recorded in `docs/humans/performance.md` "Focus candidate pass",
 alongside the `riffle-cli scan` / `riffle-cli candidates` numbers already
 there. The implementing agent could not drive the GUI, so only the CLI
-numbers are recorded; `docs/performance.md` says so in a note under the
+numbers are recorded; `docs/humans/performance.md` says so in a note under the
 section.
 
 #### TODO
 
 - [ ] Open the 2134-file Sony folder once in the app and record its
-      `scan extract` / `scan faces` log lines in `docs/performance.md`
+      `scan extract` / `scan faces` log lines in `docs/humans/performance.md`
       "Focus candidate pass", next to the existing CLI numbers.
 
 ### App: unmeasured end-to-end per-page latency
 
-End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in docs/performance.md.
+End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the GUI could not be driven from this development machine. Only the Rust-side file-read cost was measured; see "Per-page preview read" in docs/humans/performance.md.
 
 #### TODO
 
-- [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to "Per-page preview read" in docs/performance.md. The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and "Measuring on your own folder" in docs/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
+- [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to "Per-page preview read" in docs/humans/performance.md. The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and "Measuring on your own folder" in docs/humans/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
 
 ### App: a scan can be started twice after a cache clear / focus rescan
 
@@ -60,7 +60,7 @@ In the Windows real-folder measurement, after a cache clear `scan_id` N was supe
 
 ### App: cold first scan on an internal SSD is far slower than the extrapolation
 
-A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown. A later data point (Windows 11, v0.2.0, 2026-09-22): a cold first scan after an index schema change took 25.5s on 3045 Sony ARW (~8.4ms/file, ~42s extrapolated to 5000), against the earlier 16-19ms/file; it is unknown whether the OS cache was cold for that run.
+A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/humans/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown. A later data point (Windows 11, v0.2.0, 2026-09-22): a cold first scan after an index schema change took 25.5s on 3045 Sony ARW (~8.4ms/file, ~42s extrapolated to 5000), against the earlier 16-19ms/file; it is unknown whether the OS cache was cold for that run.
 
 #### TODO
 
@@ -78,7 +78,7 @@ docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the follo
 
 ### App: a deep-row focus point still exceeds the 50ms budget
 
-A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/performance.md. Options are prefetching the neighboring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
+A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/humans/performance.md. Options are prefetching the neighboring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
 
 #### TODO
 
@@ -86,7 +86,7 @@ A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to p
 
 ### App: the silent update path is unverified end-to-end
 
-The Updating paragraph in `docs/usage.md` describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time. The background flow is verified on Windows 11 (2026-09-22): 0.1.10 downloaded 0.2.0, installed it on quit, and launched as 0.2.0.
+The Updating paragraph in `docs/humans/usage.md` describes a background download and install on launch and the "Check for Updates…" menu item, but nothing has confirmed on a real build that an installed copy detects a newer release, installs it silently, and launches as the new version next time. The background flow is verified on Windows 11 (2026-09-22): 0.1.10 downloaded 0.2.0, installed it on quit, and launched as 0.2.0.
 
 #### TODO
 
@@ -232,7 +232,7 @@ Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
       With the folder tree focused, `Ctrl+Alt+ArrowLeft` still hides the tree
       (tree passthrough).
 - [ ] On Windows, watch for an Intel graphics hotkey taking `Ctrl+Alt+Arrow`
-      (screen rotation). If it does, note it in `docs/usage.md` as a driver
+      (screen rotation). If it does, note it in `docs/humans/usage.md` as a driver
       setting to turn off (not a blocker; do not change the default).
 - [ ] On macOS, confirm the three items sit above `Enter Full Screen` with a
       separator between, show `Alt+Cmd+ArrowLeft` / `ArrowRight` /
@@ -524,7 +524,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       (`docs/plans/20260922-sony-eye-af-window/`).
 - [x] Measured on Linux WSL2 (not the Mac): detection latency on real
       α7 V ARW / M11-P DNG previews and `riffle-cli scan` before/after adding
-      detection and the AF-frame skip; see `docs/performance.md` "Face
+      detection and the AF-frame skip; see `docs/humans/performance.md` "Face
       detection cost".
 - [ ] Improve small-face recall: the detector found no face in 29 of 36
       sampled M11-P DNGs and 2 of 7 people in a group frame
@@ -728,7 +728,7 @@ samples, as done for the Sigma BF `0x0147` in
 
 - [ ] Tier 1: verify preview/EXIF extraction on public DNG samples from
       Pentax, Ricoh GR, other Leica bodies, and phones; add each
-      working body to the `docs/cameras.md` table.
+      working body to the `docs/humans/cameras.md` table.
 - [ ] Tier 2: read the AF point from the exiftool-decoded MakerNote
       tags above, confirming on samples, for bodies whose container
       Riffle can already read. Canon `AFInfo2` (EOS bodies) and Nikon
@@ -762,12 +762,12 @@ samples, as done for the Sigma BF `0x0147` in
 
 #### Background
 
-The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in `docs/cameras.md`. These seven bodies are left off `docs/cameras.md` until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `docs/cameras.md`, `docs/raw-formats.md`.
+The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in `docs/humans/cameras.md`. These seven bodies are left off `docs/humans/cameras.md` until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `docs/humans/cameras.md`, `docs/humans/raw-formats.md`.
 
 #### TODO
 
 - [ ] Decide what 1:1 shows without a full-size JPEG (refuse, fall back to the 1616x1080 preview, or decode the raw data), and implement it with a synthetic-TIFF unit test next to the existing ones in `arw.rs`.
-- [ ] Add the seven bodies to `docs/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
+- [ ] Add the seven bodies to `docs/humans/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
 
 ### Core: a RAF folder scan costs ~222ms per file
 
@@ -805,18 +805,18 @@ The FinePix SL1000 writes the Exif `Make` and `Model` padded with trailing space
 
 #### Background
 
-The `sony-arw-coverage` verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) marks these `–` in `docs/cameras.md` because the raw.pixls.us samples don't show them:
+The `sony-arw-coverage` verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) marks these `–` in `docs/humans/cameras.md` because the raw.pixls.us samples don't show them:
 
 - Every α9 III and α7CR sample is manual focus (`FocusMode` 0, point at the exact center, `FocusFrameSize` invalid). `trusted_focus` drops the point as designed, so both bodies show `–` for AF point and AF frame size.
 - Face tracking: the raw.pixls.us samples hold no `AFTracking` 1. The local samples later checked in `sony-face-tracking-docs` (`docs/plans/_archived/20261001-sony-face-tracking-docs/plan.md`) record it on the α7 IV, α7R V, α7S III, α6700 and ZV-E1, so those show `✓`. The α1, α9 III, α7C II and α7CR stay `–` because no sample of them recorded it.
 - No sample is a portrait frame (Orientation 1 on all 66 files), so orientation is unverified on every listed Sony body.
 
-Files: `docs/cameras.md`.
+Files: `docs/humans/cameras.md`.
 
 #### TODO
 
 - [ ] Find an AF-C sample of a person from the α9 III and α7CR (portrait orientation if possible), and turn their `–` for AF point / AF frame size into `✓` if the point lands on the subject.
-- [ ] Confirm orientation on a portrait ARW sample and record the result in `docs/cameras.md`.
+- [ ] Confirm orientation on a portrait ARW sample and record the result in `docs/humans/cameras.md`.
 
 ### App: Claude Desktop's MCP connection form is unverified
 
@@ -955,7 +955,7 @@ decided in `docs/plans/20260928-tree-live-watch/plan.md`. Files:
 `docs/plans/_archived/20260928-tree-live-watch/plan.md` (Step 1) measured only
 rename on Windows with `notify` 8.2: a watch pins the watched folder's
 ancestors against rename, not the folder itself. Delete was never measured,
-so `docs/usage.md` and the plan's Trade-offs section say "rename" only.
+so `docs/humans/usage.md` and the plan's Trade-offs section say "rename" only.
 
 #### TODO
 
@@ -963,7 +963,7 @@ so `docs/usage.md` and the plan's Trade-offs section say "rename" only.
       measurement, measure on Windows whether deleting a watched folder
       itself, or a folder with a watched descendant, succeeds with `notify`
       8.2. Record the result next to the rename measurement and update
-      `docs/usage.md` and `docs/agents/tauri-app.md` to match (or confirm
+      `docs/humans/usage.md` and `docs/agents/tauri-app.md` to match (or confirm
       they need no change).
 
 ### App: rewrite or delete a folder's sidecars from the folder tree's context menu
@@ -1302,7 +1302,7 @@ the automated criteria only.
 Files: `crates/core/src/scan.rs` (`for_each_path`, `Priority`, `WorkQueue`),
 `crates/app/src/index.rs` (`run_scan`, `run_faces_scan`),
 `crates/app/ui/src/main.ts` (`sendScanFocus`), `crates/app/ui/src/scanfocus.ts`,
-`crates/app/ui/src/strip.ts` (`visibleRange`), `docs/performance.md` ("Which
+`crates/app/ui/src/strip.ts` (`visibleRange`), `docs/humans/performance.md` ("Which
 pass carries which cost").
 
 #### TODO
@@ -1310,7 +1310,7 @@ pass carries which cost").
 - [ ] On Windows, clear the cache (settings modal, `Clear Cache`), open a large RAW folder (a few thousand files) in a development build with the settings modal's `Timing logs` on, and page through it with the arrow keys while `scanning N / M` and then `analyzing N / M` run. Compare the `page invoke=.. decode=.. total=.. keypressToPixels=..` lines in `Riffle.log` with the same run on the previous release (and with paging after the scan ends). Expect that during the passes they are not worse and are closer to the idle value. Note the wall time of the `scan extract` / `scan faces` summary lines of both runs, to see what the lowered priority costs while paging. No `ran at normal priority` warning may appear in the log.
 - [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks and sharpness bars during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
 - [ ] On macOS, repeat the paging run once. Expect the analysis pass (`QOS_CLASS_BACKGROUND`, which also throttles disk IO) not to crawl; if it does, move it to `QOS_CLASS_UTILITY` and update the priority entry in `docs/agents/tauri-app.md`.
-- [ ] Done when: the measured page-latency and `scan extract` / `scan faces` numbers, with their conditions, are in `docs/performance.md` ("Which pass carries which cost"), and the README wording on paging is revisited from that result.
+- [ ] Done when: the measured page-latency and `scan extract` / `scan faces` numbers, with their conditions, are in `docs/humans/performance.md` ("Which pass carries which cost"), and the README wording on paging is revisited from that result.
 
 ### App: real-device check of the sharpness bars filling in during the second pass
 
@@ -1323,13 +1323,13 @@ desktop and the cost of `applySharpness()` on a large folder were never
 exercised (Step 3 was ticked on the automated criteria only).
 Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
 `crates/app/ui/src/focus.ts` (`applySharpnessReady`),
-`docs/performance.md`.
+`docs/humans/performance.md`.
 
 #### TODO
 
 - [ ] On the desktop app (any platform), clear the cache (settings modal, `Clear Cache`) and open a folder of a few hundred RAWs with bursts. Expect the thumbnails to appear with no sharpness bars while the status shows `scanning N / M`, then the bars (and the pick-colored best frame) to fill in while it shows `analyzing N / M`, and the meta pane's `Sharpness` row to appear for the current file once its score arrives.
 - [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
-- [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
+- [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/humans/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
 ### App: real-device check that big-endian DNGs open after the EXTRACTOR_VERSION bump
 
