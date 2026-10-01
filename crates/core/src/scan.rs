@@ -1065,4 +1065,18 @@ mod tests {
             .is_none());
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    #[test]
+    fn a_file_whose_preview_cannot_be_read_keeps_its_parsed_metadata() {
+        let dir = dir("truncated");
+        let mut bytes = fixture(6, &jpeg(64, 48));
+        // The declared preview length now runs past the end of the file.
+        bytes.truncate(bytes.len() - 100);
+        let path = write(&dir, "short.ARW", &bytes);
+
+        let failure = extract(&path).unwrap_err();
+        assert_eq!(failure.orientation, 6);
+        assert!(failure.shot.is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

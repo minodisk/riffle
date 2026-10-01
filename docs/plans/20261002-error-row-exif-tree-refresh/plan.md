@@ -140,4 +140,4 @@ bump `EXTRACTOR_VERSION` too; see Step 1.
 
 ## Progress
 
-- (none yet)
+- Step 1 done: `scan::Failure` carries the parsed orientation / shot, error rows keep the metadata, `EXTRACTOR_VERSION` 11 -> 12
