@@ -90,8 +90,9 @@ without writing a `.dop`. Hand-run with PhotoLab 10.0.1 on Windows:
 So `sidecar::write_kind`, when it mints a `.dop`, asks `photolab::registered_uuids`
 for the registered image's Uuids and passes them to `dop::write_rating` /
 `dop::write_label` (`dop.rs` stays pure; it never looks anything up).
-PhotoLab rewrote none of the sidecars in these runs, so a Uuid-less `.dop`
-does not get around the lookup (PhotoLab 10.0.1, Windows, 2026-10-01).
+In the two Uuid-less runs PhotoLab rewrote neither sidecar and neither
+reached the master, so a Uuid-less `.dop` does not get around the lookup
+(PhotoLab 10.0.1, Windows, 2026-10-01).
 
 - The database is the highest-numbered
   `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` (Windows only; the
