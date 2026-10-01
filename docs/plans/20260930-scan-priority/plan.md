@@ -339,7 +339,7 @@ bump); the `focus N / M` status text is Step 3's call.
       `crates/app/capabilities/default.json` if needed,
       `crates/cli/src/main.rs`.
 
-- [ ] Step 6: The frontend sends the current file and the visible range
+- [x] Step 6: The frontend sends the current file and the visible range
       while a scan runs
   - Done when:
     - While `scanRunning` is true, `show()` (the current file changing) and

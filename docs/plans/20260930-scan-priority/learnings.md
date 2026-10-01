@@ -141,6 +141,26 @@
   arguments changed in this step, and its time before the step was not
   measured.
 
+## Step 6: the frontend sends the on-screen files
+
+- `scanFocusPaths(files, current, first, last)` (`scanfocus.ts`) takes the
+  strip's range as `strip.visibleRange()` returns it (the visible cells plus
+  `RANGE_MARGIN` on each side, the same range `render` keeps cells for, now
+  computed in one place). The current file leads even when the user has
+  scrolled it out of the range; the range is then ordered by distance from it,
+  so it fills from the side nearest the current file.
+- `sendScanFocus()` in `main.ts` is called from `show()`, from the strip's
+  scroll listener (a new `onScroll` argument of `strip.init`) and once
+  `start_scan` resolves: `ScansState.running` (and so the focus handle) is
+  set inside `start_scan`, so a call before it resolves would be dropped by
+  the id check, and without this call a folder reopened at its remembered
+  file would not tell the scan where it is until the user moved.
+- The timer reads `scanId`, `files`, `index` and the range when it fires, not
+  when it was armed, and does nothing once `scanRunning` is false;
+  `newFolderToken` clears it. The paths sent are `files` entries, the
+  `list_arw` strings, which are built with the same `to_string_lossy` as the
+  scan's `FileStat` paths, so the backend's queue matches them.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 3, `crates/app/ui/src/main.ts` `faces-progress`
@@ -172,3 +192,17 @@
   which also throttles disk IO) does not crawl; if it does, move it to
   `QOS_CLASS_UTILITY`. The step's checkbox was ticked on the automated
   criteria (unit tests and `mise run ci`).
+- Pending manual check (Step 6, `crates/app/ui/src/main.ts` `sendScanFocus`,
+  `crates/app/ui/src/scanfocus.ts`, `crates/app/ui/src/strip.ts`
+  `visibleRange`): on the Windows machine, clear the cache (settings modal,
+  `Clear Cache`), open a large RAW folder (a few thousand files) in a
+  development build with `Timing logs` on, and at once jump to the middle of
+  the strip (drag the strip's scrollbar, then click a cell). Expected: the
+  cells around the current file get their thumbnails during `scanning N / M`,
+  and then their focus marks and sharpness bars during `analyzing N / M`,
+  before the cells at the folder's start do (by eye, or from the
+  `scan-progress` / `faces-progress` `ready` lists in the webview devtools).
+  Note the wall time of the `scan extract` / `scan faces` summary lines in
+  `Riffle.log` against Step 4's run of the same folder, so the queue's own
+  overhead shows. The step's checkbox was ticked on the automated criteria
+  (`scanfocus.test.ts` and `mise run ci`).
