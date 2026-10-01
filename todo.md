@@ -1271,3 +1271,48 @@ Files: `crates/app/src/trash.rs` (`restore_recorded`), `crates/app/src/commands.
 
 - [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), run `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with a recursive run over a parent whose subfolder is renamed. Then `Redo` should move them to the Recycle Bin again.
 - [ ] On macOS, repeat the undo / redo after a rename (`restore_recorded` renames the Trash file straight to the new destination, with no `relocate`). Expect the files back in the renamed folder and no old-name folder appearing.
+
+### App: real-device check of the scan priority and on-screen-first order on a large RAW folder
+
+`scan-priority` (docs/plans/_archived/20260930-scan-priority/plan.md) moved the
+sharpness score into the second pass, ran the scan workers below normal OS
+priority (first pass `BELOW_NORMAL` / `QOS_CLASS_UTILITY`, analysis pass
+`LOWEST` / `QOS_CLASS_BACKGROUND`) and added `set_scan_focus`, which makes both
+passes take the current file and the strip's visible range first. CI covers
+the build, the unit tests (queue order, cancel, delivery once, the priority
+read back inside a worker on Windows and Linux) and the Linux / macOS
+compilation. Never exercised on a real machine: the effect of the priority on
+paging, the on-screen-first order on a cold large folder, the queue's own
+overhead in wall time, and the macOS QoS branch. Steps 4 and 6 were ticked on
+the automated criteria only.
+Files: `crates/core/src/scan.rs` (`for_each_path`, `Priority`, `WorkQueue`),
+`crates/app/src/index.rs` (`run_scan`, `run_faces_scan`),
+`crates/app/ui/src/main.ts` (`sendScanFocus`), `crates/app/ui/src/scanfocus.ts`,
+`crates/app/ui/src/strip.ts` (`visibleRange`), `docs/performance.md` ("Which
+pass carries which cost").
+
+#### TODO
+
+- [ ] On Windows, clear the cache (settings modal, `Clear Cache`), open a large RAW folder (a few thousand files) in a development build with the settings modal's `Timing logs` on, and page through it with the arrow keys while `scanning N / M` and then `analyzing N / M` run. Compare the `page invoke=.. decode=.. total=.. keypressToPixels=..` lines in `Riffle.log` with the same run on the previous release (and with paging after the scan ends). Expect that during the passes they are not worse and are closer to the idle value. Note the wall time of the `scan extract` / `scan faces` summary lines of both runs, to see what the lowered priority costs while paging. No `ran at normal priority` warning may appear in the log.
+- [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks and sharpness bars during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
+- [ ] On macOS, repeat the paging run once. Expect the analysis pass (`QOS_CLASS_BACKGROUND`, which also throttles disk IO) not to crawl; if it does, move it to `QOS_CLASS_UTILITY` and update the priority entry in `docs/agents/tauri-app.md`.
+- [ ] Done when: the measured page-latency and `scan extract` / `scan faces` numbers, with their conditions, are in `docs/performance.md` ("Which pass carries which cost"), and the README wording on paging is revisited from that result.
+
+### App: real-device check of the sharpness bars filling in during the second pass
+
+`scan-priority` (docs/plans/_archived/20260930-scan-priority/plan.md) moved the
+sharpness score out of the first pass: the `faces-progress` handler now patches
+each ready item's `sharpness` into the strip bars, the compare order and the
+meta pane, and the status reads `analyzing N / M`. The unit tests
+(`focus.test.ts`) and `mise run ci` cover the patching; the real behavior on a
+desktop and the cost of `applySharpness()` on a large folder were never
+exercised (Step 3 was ticked on the automated criteria only).
+Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
+`crates/app/ui/src/focus.ts` (`applySharpnessReady`),
+`docs/performance.md`.
+
+#### TODO
+
+- [ ] On the desktop app (any platform), clear the cache (settings modal, `Clear Cache`) and open a folder of a few hundred RAWs with bursts. Expect the thumbnails to appear with no sharpness bars while the status shows `scanning N / M`, then the bars (and the pick-colored best frame) to fill in while it shows `analyzing N / M`, and the meta pane's `Sharpness` row to appear for the current file once its score arrives.
+- [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
+- [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.

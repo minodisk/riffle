@@ -225,3 +225,16 @@
   `Riffle.log` against Step 4's run of the same folder, so the queue's own
   overhead shows. The step's checkbox was ticked on the automated criteria
   (`scanfocus.test.ts` and `mise run ci`).
+- Todo grouping (from the wrap-up's learnings extraction): file the Step 4
+  and Step 6 checks above as one todo item, "Manual check of the scan
+  priority and on-screen-first order on a large RAW folder (Windows, plus one
+  Mac run)" (they share the setup). Done when: the measured page-latency and
+  `scan extract` / `scan faces` numbers, with their conditions, are in
+  `docs/performance.md` ("Which pass carries which cost"); the README wording
+  on paging is revisited from that result; and, if the Mac analysis pass
+  crawls, it is moved to `QOS_CLASS_UTILITY` and the priority entry in
+  `docs/agents/tauri-app.md` is updated. File the Step 3 check as its own
+  item, "Manual check of the sharpness bars filling in during the second
+  pass". Done when: the `refresh entries` `sharpness` field on a ~5000-file
+  folder is recorded in `docs/performance.md`, and `applySharpness()` is
+  throttled if it is much more than a few milliseconds.
