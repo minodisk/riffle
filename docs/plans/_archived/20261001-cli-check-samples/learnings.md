@@ -76,8 +76,18 @@ What failed:
   `error_exit` that panics (as the `mozjpeg` crate does) and wrapping the
   call in `catch_unwind`, then drop the `decode_rgb` pre-check in
   `crates/cli/src/main.rs` `check_file`. Found by the Step 1 sample run.
+  Done when `focus_crop` returns an `Err` on both files without ending the
+  process, `riffle-cli check` finishes with a summary without the pre-check,
+  and the `docs/agents/tauri-app.md` entry on `partial.rs`'s `exit(1)` says
+  the guard is in place.
 - **Big-endian DNGs do not open.** 42 samples under `D:\Photos\samples\DNG\`
   (Pentax K-series, Ricoh GR / GXR, Leica M, iPhone, QooCam, Blackmagic) fail
   every stage with `not a little-endian TIFF/ARW`: the DNG path goes through
   `crates/core/src/arw.rs`, which only reads `II` TIFFs. Found by the Step 1
-  sample run.
+  sample run. Check how `crates/core/src/exif.rs` handles byte order (NEF and
+  ORF go through it). Done when `riffle-cli check` on those DNGs no longer
+  reports `not a little-endian TIFF/ARW` (each opens or fails for another,
+  specific reason), and the finding is in
+  `docs/agents/raw-metadata-parsing.md`.
+- Files with no embedded preview are unsupported (user decision, 2026-10-01)
+  and are to be removed from the samples; no issue is filed for them.

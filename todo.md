@@ -1316,3 +1316,28 @@ Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
 - [ ] On the desktop app (any platform), clear the cache (settings modal, `Clear Cache`) and open a folder of a few hundred RAWs with bursts. Expect the thumbnails to appear with no sharpness bars while the status shows `scanning N / M`, then the bars (and the pick-colored best frame) to fill in while it shows `analyzing N / M`, and the meta pane's `Sharpness` row to appear for the current file once its score arrives.
 - [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
 - [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
+
+### Core: a malformed full-size JPEG makes the 1:1 view end the whole app
+
+#### Background
+
+`crates/core/src/partial.rs` (`decode_region`, behind `decode_focus_crop` and `decode_crop`, the latter with no caller outside the module) sets `cinfo.common.err = jpeg_std_error(&mut err)` without overriding `error_exit`. libjpeg therefore calls `exit(1)` on a fatal error instead of returning or panicking. The app's `focus_crop` command (`crates/app/src/commands.rs`) would end the process on files such as `D:\Photos\samples\NEF\NIKON_D70_Nikon.nef` or `D:\Photos\samples\DNG\CGO3P_YUN00007.dng`. `riffle-cli check` found this on its first sample run, and `check_file` in `crates/cli/src/main.rs` works around it by decoding the full-size JPEG with `decode_rgb` first. That extra decode is why the run takes about 2.5 minutes instead of seconds. Plan: `docs/plans/_archived/20261001-cli-check-samples/plan.md`. Files: `crates/core/src/partial.rs`, `crates/app/src/commands.rs`, `crates/cli/src/main.rs`, `docs/agents/tauri-app.md`.
+
+#### TODO
+
+- [ ] Install an `error_exit` that panics (as the `mozjpeg` crate does) in `partial.rs` and wrap the call in `catch_unwind`.
+- [ ] Drop the `decode_rgb` pre-check in `crates/cli/src/main.rs` `check_file`.
+- [ ] Done when `focus_crop` returns an `Err` on both files above without ending the process, and `riffle-cli check` finishes with a summary without the pre-check.
+- [ ] Update the `docs/agents/tauri-app.md` entry on `partial.rs`'s `exit(1)` to say the guard is in place.
+
+### Core: big-endian DNGs do not open
+
+#### Background
+
+42 samples under `D:\Photos\samples\DNG\` (Pentax K-series, Ricoh GR / GXR, Leica M, iPhone, QooCam, Blackmagic) fail every stage of `riffle-cli check` with `not a little-endian TIFF/ARW`. The DNG path goes through `crates/core/src/arw.rs`, which only reads `II` (little-endian) TIFFs. Found by the sample run in `docs/plans/_archived/20261001-cli-check-samples/plan.md`. Files: `crates/core/src/arw.rs`, `crates/core/src/exif.rs`, `docs/agents/raw-metadata-parsing.md`.
+
+#### TODO
+
+- [ ] Check how `crates/core/src/exif.rs` handles byte order (NEF and ORF go through it), and make the DNG path read `MM` TIFFs.
+- [ ] Done when `riffle-cli check` on those DNGs no longer reports `not a little-endian TIFF/ARW`. Each one either opens or fails for another, specific reason.
+- [ ] Record the finding in `docs/agents/raw-metadata-parsing.md`.
