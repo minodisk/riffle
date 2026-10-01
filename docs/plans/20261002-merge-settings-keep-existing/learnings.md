@@ -29,11 +29,12 @@
   read-only CLI calls, but no such hook exists in the repo or user-level
   settings. Decide whether to drop the patterns or fix the comment. Basis: the
   plan's open question and the Step 1 investigation recorded above.
-- In all-worktrees mode (`merge-settings` skill, no `--self`), the write is
-  now skipped when no permission string was added and no `settings.local.json`
-  was merged, so a non-permission change arriving only from another worktree's
-  `settings.json` (a `hooks` block, `env`, and so on) is no longer written.
-  The condition follows the plan as written; a structural comparison of the
-  merged result against the destination would cover that case. Basis: Step 1
-  implementation of the conditional write in
-  `.claude/skills/merge-settings/scripts/merge.js`.
+
+## Review round 1
+
+- The skip condition in `merge.js` now also requires the merged result to equal
+  the destination merged with itself (key sort plus `normalizeArray`), so a
+  `hooks` / `env` change from another worktree's `settings.json` is still
+  written. `merge.test.sh` has a case for it (a second git worktree). The
+  earlier deferred note on this is therefore resolved.
+- SKILL.md step 3 now stops on `Nothing to write: ...` before the commit.

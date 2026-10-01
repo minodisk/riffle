@@ -227,8 +227,13 @@ if (WRITE) {
     addedTotal += added.length;
   }
   // Leave the file byte-for-byte untouched on a no-op run, so it neither
-  // reorders the destination nor leaves a diff for commit-settings.sh to commit
-  if (addedTotal === 0 && mergedLocals.length === 0) {
+  // reorders the destination nor leaves a diff for commit-settings.sh to commit.
+  // A non-permission change (a hooks block, env, ...) arriving from another
+  // worktree still counts: compare the merged result against the destination
+  // merged with itself (key sort plus normalizeArray, nothing new).
+  const unchanged =
+    JSON.stringify(merged) === JSON.stringify(deepMerge(base, base));
+  if (addedTotal === 0 && mergedLocals.length === 0 && unchanged) {
     console.error(`Nothing to write: ${SETTINGS_PATH} left unchanged`);
     process.exit(0);
   }

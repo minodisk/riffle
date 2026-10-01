@@ -91,6 +91,19 @@ if [[ "${output}" != *"Added permissions.allow: 1"* ]]; then
 	fail "local adds entries" "missing 'Added permissions.allow: 1' in: ${output}"
 fi
 
+cases=$((cases + 1))
+dir="$(setup "hooks from another worktree")"
+other="${work_root}/hooks-other"
+git -C "${dir}" init -q
+git -C "${dir}" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m init
+git -C "${dir}" worktree add -q "${other}" -b other
+mkdir -p "${other}/.claude"
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"true"}]}]}}' >"${other}/.claude/settings.json"
+output=$(cd "${dir}" && node "${target}" --write 2>&1) || fail "hooks from another worktree" "merge.js exited non-zero: ${output}"
+if ! grep -q '"PreToolUse"' "${dir}/.claude/settings.json"; then
+	fail "hooks from another worktree" "hooks block from the other worktree was not written: ${output}"
+fi
+
 if [[ "${failures}" -gt 0 ]]; then
 	echo "merge: ${failures} failure(s) in ${cases} cases" >&2
 	exit 1
