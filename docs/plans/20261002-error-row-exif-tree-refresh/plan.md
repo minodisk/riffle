@@ -44,7 +44,7 @@ bump `EXTRACTOR_VERSION` too; see Step 1.
 
 ## Steps
 
-- [ ] Step 1: Keep the EXIF of a file whose extraction failed in its error row
+- [x] Step 1: Keep the EXIF of a file whose extraction failed in its error row
   - Done when:
     - `riffle_core::scan::extract` (and `extract_all`'s `on_item`) hands a
       failure together with the metadata that was parsed, when any was:

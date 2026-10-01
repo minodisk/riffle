@@ -622,7 +622,7 @@ fn collect(dir: &Path, paths: &mut Vec<PathBuf>, failures: &mut Vec<(PathBuf, St
 fn check_file(path: &Path) -> Vec<(&'static str, String)> {
     let mut errors = Vec::new();
     if let Err(e) = scan::extract(path) {
-        errors.push(("scan", e));
+        errors.push(("scan", e.message));
     }
     if let Err(e) = reader::read_preview(path).and_then(|(_, jpeg)| decode_rgb(&jpeg)) {
         errors.push(("preview", format!("{e:#}")));

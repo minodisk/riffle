@@ -1175,14 +1175,6 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 - [ ] On macOS (WKWebView), repeat the six Windows passes above (Settings, first-run / trash / sequence dialogs, menus / strip bar / cells, folder tree, empty states / meta pane / status lines / Compare, settings side-nav). Also confirm that `scrollbar-color` is honored or harmlessly ignored, that native checkboxes / radios take `accent-color` (Safari 15.4+; an older engine shows the UA control), and that `:focus-visible` rings appear.
 - [ ] On Linux (WebKitGTK), repeat the six Windows passes above and the same three extra confirmations (`scrollbar-color`, `accent-color` on checkboxes / radios with WebKitGTK 2.36+, `:focus-visible` rings).
 
-### App: keep the EXIF of a file whose extraction failed
-
-An error row stores no metadata (`Entry` / `write_batch` in `crates/app/src/index.rs`), so bursts, the filter menu and capture-time order do not see the file, although `read_metadata` parses it. This applies to any file whose extraction fails (a corrupt JPEG, an HEVC stream hpvcd cannot decode). It was an open item of the "Core: HDR PQ (HEIF) CR3 files cannot be opened" section, which was removed once the HEVC previews were decoded (`docs/plans/_archived/20260930-hdr-pq-cr3-hevc-preview/plan.md`). Files: `crates/app/src/index.rs`.
-
-#### TODO
-
-- [ ] Store the metadata `read_metadata` parses in an error row (or read it on demand), so bursts, the filter menu and capture-time order include a file whose extraction failed.
-
 ### App: real-device check of an ORF folder in the strip, sidecars and Move Rejected to Trash
 
 `orf.rs` and the `.orf` arm of `scan::is_raw_file` / `reader::parse_raw`
