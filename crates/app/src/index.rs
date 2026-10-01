@@ -99,7 +99,7 @@ const SCHEMA_VERSION: i64 = 17;
 /// Olympus MakerNote. It stayed `11` when the sharpness score moved to the
 /// second pass: the score's computation did not change, so a row the first
 /// pass scored keeps a correct score.
-const EXTRACTOR_VERSION: i64 = 11;
+const EXTRACTOR_VERSION: i64 = 12;
 
 /// The version of what the second pass, `riffle_core::scan::extract_analysis`,
 /// produces, stored on every `files` row as `faces_extractor` next to

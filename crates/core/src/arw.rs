@@ -1,7 +1,9 @@
 //! Minimal parser that locates the embedded JPEGs in an ARW or a DNG (both
-//! little-endian TIFF variants).
+//! TIFF variants, read in the byte order of their header).
 
 use anyhow::{anyhow, bail, Result};
+
+use crate::sequence::Tiff;
 
 const TAG_IMAGE_WIDTH: u16 = 0x0100;
 const TAG_IMAGE_HEIGHT: u16 = 0x0101;
@@ -57,7 +59,8 @@ const TAG_RAW_FILE_TYPE: u16 = 0x2029;
 const TAG_FOCUS_FRAME_SIZE: u16 = 0x2037;
 /// Leica MakerNote `FocusDistance`, a LONG in millimeters.
 const TAG_LEICA_FOCUS_DISTANCE: u16 = 0x0304;
-/// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD.
+/// A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD in the
+/// container's byte order.
 const LEICA_HEADER: &[u8] = b"LEICA\0";
 const LEICA_HEADER_LEN: usize = 8;
 /// Sigma MakerNote AF point, `SHORT[2]` (x, y) written by the Sigma BF.
@@ -237,43 +240,44 @@ pub struct Arw {
     pub hevc: bool,
 }
 
-/// One IFD entry: (tag, value-or-offset, type, count).
+/// One IFD entry: (tag, value-or-offset, type, count). The value field is
+/// decoded as a `u32` in the file's byte order.
 type Entry = (u16, u32, u16, u32);
 
-fn u16le(b: &[u8], at: usize) -> u16 {
-    u16::from_le_bytes([b[at], b[at + 1]])
-}
-
-fn u32le(b: &[u8], at: usize) -> u32 {
-    u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
-}
-
 /// Read an IFD and return its entries along with the offset of the next IFD.
-fn read_ifd(buf: &[u8], at: usize) -> Result<(Vec<Entry>, usize)> {
-    if at + 2 > buf.len() {
-        bail!("IFD offset out of range");
-    }
-    let count = u16le(buf, at) as usize;
+fn read_ifd(t: &Tiff, at: usize) -> Result<(Vec<Entry>, usize)> {
+    let count = t.u16(at).map_err(|_| anyhow!("IFD offset out of range"))? as usize;
     let mut entries = Vec::with_capacity(count);
     for i in 0..count {
         let e = at + 2 + i * 12;
-        if e + 12 > buf.len() {
-            bail!("IFD entry out of range");
-        }
+        t.bytes(e, 12)
+            .map_err(|_| anyhow!("IFD entry out of range"))?;
         // (tag, value/offset, type, count)
-        entries.push((
-            u16le(buf, e),
-            u32le(buf, e + 8),
-            u16le(buf, e + 2),
-            u32le(buf, e + 4),
-        ));
+        entries.push((t.u16(e)?, t.u32(e + 8)?, t.u16(e + 2)?, t.u32(e + 4)?));
     }
-    let next = at + 2 + count * 12;
-    if next + 4 > buf.len() {
-        bail!("next IFD offset out of range");
-    }
-    let next_ifd = u32le(buf, next) as usize;
+    let next_ifd = t
+        .u32(at + 2 + count * 12)
+        .map_err(|_| anyhow!("next IFD offset out of range"))? as usize;
     Ok((entries, next_ifd))
+}
+
+/// The four bytes of an entry's value field, in file order.
+fn inline_bytes(t: &Tiff, value: u32) -> [u8; 4] {
+    if t.little_endian() {
+        value.to_le_bytes()
+    } else {
+        value.to_be_bytes()
+    }
+}
+
+/// The SHORT in the first two bytes of a value field: the low half of the
+/// decoded `u32` in a little-endian file, the high half in a big-endian one.
+fn inline_short(t: &Tiff, value: u32) -> u32 {
+    if t.little_endian() {
+        value & 0xFFFF
+    } else {
+        value >> 16
+    }
 }
 
 fn find(entries: &[Entry], tag: u16) -> Option<(u32, u32)> {
@@ -292,8 +296,13 @@ fn embedded(entries: &[Entry]) -> Option<Embedded> {
 
 /// A DNG-style embedded JPEG: an IFD whose single strip is a YCbCr JPEG. The
 /// photometric check keeps a lossless-JPEG CFA raw (also `Compression=7`) out.
-fn strip_jpeg(entries: &[Entry]) -> Option<(Embedded, u32, u32)> {
-    let int = |tag| entries.iter().find(|e| e.0 == tag).and_then(integer);
+fn strip_jpeg(t: &Tiff, entries: &[Entry]) -> Option<(Embedded, u32, u32)> {
+    let int = |tag| {
+        entries
+            .iter()
+            .find(|e| e.0 == tag)
+            .and_then(|e| integer(t, e))
+    };
     if int(TAG_COMPRESSION)? != COMPRESSION_JPEG || int(TAG_PHOTOMETRIC)? != PHOTOMETRIC_YCBCR {
         return None;
     }
@@ -307,22 +316,18 @@ fn strip_jpeg(entries: &[Entry]) -> Option<(Embedded, u32, u32)> {
 
 /// Read an ASCII entry's value. Values of up to 4 bytes sit in the entry
 /// itself; longer ones live at the offset the entry carries.
-fn ascii(buf: &[u8], entry: &Entry) -> Result<Option<String>> {
+fn ascii(t: &Tiff, entry: &Entry) -> Result<Option<String>> {
     let (_, value, typ, count) = *entry;
     if typ != TYPE_ASCII {
         return Ok(None);
     }
     let count = count as usize;
-    let inline = value.to_le_bytes();
+    let inline = inline_bytes(t, value);
     let bytes: &[u8] = if count <= 4 {
         &inline[..count]
     } else {
-        let at = value as usize;
-        let end = at
-            .checked_add(count)
-            .filter(|&end| end <= buf.len())
-            .ok_or_else(|| anyhow!("ASCII value out of range"))?;
-        &buf[at..end]
+        t.bytes(value as usize, count)
+            .map_err(|_| anyhow!("ASCII value out of range"))?
     };
     let text = String::from_utf8_lossy(bytes);
     Ok(Some(text.trim_end_matches('\0').to_string()))
@@ -330,18 +335,18 @@ fn ascii(buf: &[u8], entry: &Entry) -> Result<Option<String>> {
 
 /// Read a `SHORT[N]` entry for `N > 2`. More than four bytes never fit in an
 /// entry, so the value is always at the offset.
-fn shorts<const N: usize>(buf: &[u8], entry: &Entry) -> Result<Option<[u16; N]>> {
+fn shorts<const N: usize>(t: &Tiff, entry: &Entry) -> Result<Option<[u16; N]>> {
     let (_, value, typ, count) = *entry;
     if typ != TYPE_SHORT || count as usize != N {
         return Ok(None);
     }
     let at = value as usize;
-    if at.checked_add(N * 2).is_none_or(|end| end > buf.len()) {
+    if t.bytes(at, N * 2).is_err() {
         bail!("SHORT[{N}] value out of range");
     }
     let mut out = [0u16; N];
     for (i, v) in out.iter_mut().enumerate() {
-        *v = u16le(buf, at + i * 2);
+        *v = t.u16(at + i * 2)?;
     }
     Ok(Some(out))
 }
@@ -350,8 +355,8 @@ fn shorts<const N: usize>(buf: &[u8], entry: &Entry) -> Result<Option<[u16; N]>>
 /// the IFD right at the tag's data offset; older ones prefix it with a 12-byte
 /// `SONY DSC \0\0\0` / `SONY CAM \0\0\0` header. Either way the value
 /// offsets inside it are absolute to the TIFF start, so the IFD can be read
-/// straight out of `buf`.
-fn maker_note_ifd(buf: &[u8], entries: &[Entry], make: Option<&str>) -> Result<Option<Vec<Entry>>> {
+/// straight out of the container.
+fn maker_note_ifd(t: &Tiff, entries: &[Entry], make: Option<&str>) -> Result<Option<Vec<Entry>>> {
     let Some(entry) = entries.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
         return Ok(None);
     };
@@ -360,11 +365,10 @@ fn maker_note_ifd(buf: &[u8], entries: &[Entry], make: Option<&str>) -> Result<O
         // Too short to hold an IFD, and such a value is inline anyway.
         return Ok(None);
     }
-    let end = at
-        .checked_add(count)
-        .filter(|&end| end <= buf.len())
-        .ok_or_else(|| anyhow!("MakerNote out of range"))?;
-    let sony_header = buf[at..end].starts_with(b"SONY");
+    let sony_header = t
+        .bytes(at, count)
+        .map_err(|_| anyhow!("MakerNote out of range"))?
+        .starts_with(b"SONY");
     // Another maker's note (Leica's starts with `LEICA\0`) is not an IFD at
     // this offset; reading it as one walks garbage. A missing Make is given
     // the benefit of the doubt, as Sony5 notes carry no header.
@@ -376,22 +380,22 @@ fn maker_note_ifd(buf: &[u8], entries: &[Entry], make: Option<&str>) -> Result<O
     } else {
         at
     };
-    let (ifd, _) = read_ifd(buf, at)?;
+    let (ifd, _) = read_ifd(t, at)?;
     Ok(Some(ifd))
 }
 
 /// Read a RATIONAL/SRATIONAL entry. Eight bytes never fit in an entry, so the
 /// value is always at the offset.
-fn rational(buf: &[u8], entry: &Entry) -> Result<Option<Rational>> {
+fn rational(t: &Tiff, entry: &Entry) -> Result<Option<Rational>> {
     let (_, value, typ, count) = *entry;
     if (typ != TYPE_RATIONAL && typ != TYPE_SRATIONAL) || count != 1 {
         return Ok(None);
     }
     let at = value as usize;
-    if at.checked_add(8).is_none_or(|end| end > buf.len()) {
+    if t.bytes(at, 8).is_err() {
         bail!("RATIONAL value out of range");
     }
-    let (num, den) = (u32le(buf, at), u32le(buf, at + 4));
+    let (num, den) = (t.u32(at)?, t.u32(at + 4)?);
     Ok(Some(if typ == TYPE_SRATIONAL {
         Rational {
             num: i64::from(num as i32),
@@ -406,31 +410,31 @@ fn rational(buf: &[u8], entry: &Entry) -> Result<Option<Rational>> {
 }
 
 /// Read a single SHORT or LONG entry, whose value always rides inside the
-/// entry itself. A SHORT occupies the low two bytes of the value field; the
+/// entry itself. A SHORT occupies the first two bytes of the value field; the
 /// other two are padding, which some writers leave nonzero.
-fn integer(entry: &Entry) -> Option<u32> {
+fn integer(t: &Tiff, entry: &Entry) -> Option<u32> {
     let (_, value, typ, count) = *entry;
     match (typ, count) {
-        (TYPE_SHORT, 1) => Some(value & 0xFFFF),
+        (TYPE_SHORT, 1) => Some(inline_short(t, value)),
         (TYPE_LONG, 1) => Some(value),
         _ => None,
     }
 }
 
-fn byte(entry: &Entry) -> Option<u8> {
+fn byte(t: &Tiff, entry: &Entry) -> Option<u8> {
     let (_, value, typ, count) = *entry;
-    (typ == TYPE_BYTE && count == 1).then_some(value as u8)
+    (typ == TYPE_BYTE && count == 1).then_some(inline_bytes(t, value)[0])
 }
 
 /// Follow IFD0 -> ExifIFD (0x8769) -> MakerNote (0x927c) for the shooting
 /// settings and the focus point. Any of the three may be absent, which is not
-/// an error; an offset pointing outside `buf` is.
-fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
+/// an error; an offset pointing outside the container is.
+fn exif(t: &Tiff, ifd0: &[Entry]) -> Result<Shot> {
     let mut shot = Shot::default();
     for e in ifd0 {
         match e.0 {
-            TAG_MAKE => shot.make = ascii(buf, e)?,
-            TAG_MODEL => shot.model = ascii(buf, e)?,
+            TAG_MAKE => shot.make = ascii(t, e)?,
+            TAG_MODEL => shot.model = ascii(t, e)?,
             _ => {}
         }
     }
@@ -438,56 +442,57 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
     let Some((at, _)) = find(ifd0, TAG_EXIF_IFD) else {
         return Ok(shot);
     };
-    let (exif_ifd, _) = read_ifd(buf, at as usize)?;
+    let (exif_ifd, _) = read_ifd(t, at as usize)?;
 
     for e in &exif_ifd {
         match e.0 {
-            TAG_DATE_TIME_ORIGINAL => shot.capture_time = ascii(buf, e)?,
-            TAG_SUB_SEC_TIME_ORIGINAL => shot.subsec = ascii(buf, e)?,
-            TAG_LENS_MODEL => shot.lens_model = ascii(buf, e)?,
-            TAG_EXPOSURE_TIME => shot.exposure_time = rational(buf, e)?,
-            TAG_F_NUMBER => shot.f_number = rational(buf, e)?,
+            TAG_DATE_TIME_ORIGINAL => shot.capture_time = ascii(t, e)?,
+            TAG_SUB_SEC_TIME_ORIGINAL => shot.subsec = ascii(t, e)?,
+            TAG_LENS_MODEL => shot.lens_model = ascii(t, e)?,
+            TAG_EXPOSURE_TIME => shot.exposure_time = rational(t, e)?,
+            TAG_F_NUMBER => shot.f_number = rational(t, e)?,
             TAG_APERTURE_VALUE => {
-                shot.estimated_f_number = rational(buf, e)?
+                shot.estimated_f_number = rational(t, e)?
                     .and_then(Rational::value)
                     .map(|av| 2f64.powf(av / 2.0))
             }
-            TAG_FOCAL_LENGTH => shot.focal_length = rational(buf, e)?,
-            TAG_EXPOSURE_BIAS => shot.exposure_bias = rational(buf, e)?,
-            TAG_ISO => shot.iso = integer(e),
+            TAG_FOCAL_LENGTH => shot.focal_length = rational(t, e)?,
+            TAG_EXPOSURE_BIAS => shot.exposure_bias = rational(t, e)?,
+            TAG_ISO => shot.iso = integer(t, e),
             _ => {}
         }
     }
 
-    let maker = maker_note_ifd(buf, &exif_ifd, shot.make.as_deref())?;
+    let maker = maker_note_ifd(t, &exif_ifd, shot.make.as_deref())?;
     shot.focus_mode = maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_MODE))
-        .and_then(byte);
+        .and_then(|e| byte(t, e));
     shot.af_tracking = maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_AF_TRACKING))
-        .and_then(byte);
+        .and_then(|e| byte(t, e));
     shot.electronic_front_curtain = maker
         .as_ref()
         .and_then(|m| {
             m.iter()
                 .find(|e| e.0 == TAG_ELECTRONIC_FRONT_CURTAIN_SHUTTER)
         })
-        .and_then(integer);
+        .and_then(|e| integer(t, e));
     let maker_entry = |tag: u16| maker.as_ref().and_then(|m| m.iter().find(|e| e.0 == tag));
-    shot.af_area_mode = maker_entry(TAG_AF_AREA_MODE_SETTING).and_then(byte);
-    shot.release_mode = maker_entry(TAG_RELEASE_MODE).and_then(integer);
-    shot.sequence_number = maker_entry(TAG_SEQUENCE_NUMBER).and_then(integer);
-    shot.image_stabilization = maker_entry(TAG_IMAGE_STABILIZATION).and_then(integer);
-    shot.exposure_mode = maker_entry(TAG_EXPOSURE_MODE).and_then(integer);
-    shot.metering_mode = maker_entry(TAG_METERING_MODE2).and_then(integer);
+    shot.af_area_mode = maker_entry(TAG_AF_AREA_MODE_SETTING).and_then(|e| byte(t, e));
+    shot.release_mode = maker_entry(TAG_RELEASE_MODE).and_then(|e| integer(t, e));
+    shot.sequence_number = maker_entry(TAG_SEQUENCE_NUMBER).and_then(|e| integer(t, e));
+    shot.image_stabilization = maker_entry(TAG_IMAGE_STABILIZATION).and_then(|e| integer(t, e));
+    shot.exposure_mode = maker_entry(TAG_EXPOSURE_MODE).and_then(|e| integer(t, e));
+    shot.metering_mode = maker_entry(TAG_METERING_MODE2).and_then(|e| integer(t, e));
     shot.creative_style = match maker_entry(TAG_CREATIVE_STYLE) {
-        Some(e) => ascii(buf, e)?,
+        Some(e) => ascii(t, e)?,
         None => None,
     };
-    shot.dynamic_range_optimizer = maker_entry(TAG_DYNAMIC_RANGE_OPTIMIZER).and_then(integer);
-    shot.raw_file_type = maker_entry(TAG_RAW_FILE_TYPE).and_then(integer);
+    shot.dynamic_range_optimizer =
+        maker_entry(TAG_DYNAMIC_RANGE_OPTIMIZER).and_then(|e| integer(t, e));
+    shot.raw_file_type = maker_entry(TAG_RAW_FILE_TYPE).and_then(|e| integer(t, e));
     shot.focus_frame = match maker
         .as_ref()
         .and_then(|m| m.iter().find(|e| e.0 == TAG_FOCUS_FRAME_SIZE))
@@ -497,7 +502,7 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
                 (TYPE_UNDEFINED, 6) => (tag, value, TYPE_SHORT, 3),
                 _ => (tag, value, typ, count),
             };
-            shorts::<3>(buf, &e)?.and_then(|v| {
+            shorts::<3>(t, &e)?.and_then(|v| {
                 (v[2] != 0).then_some(FocusFrame {
                     width: v[0],
                     height: v[1],
@@ -508,7 +513,7 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
     };
     shot.focus = match maker {
         Some(maker) => match maker.iter().find(|e| e.0 == TAG_FOCUS_LOCATION) {
-            Some(e) => shorts::<4>(buf, e)?.map(|v| FocusLocation {
+            Some(e) => shorts::<4>(t, e)?.map(|v| FocusLocation {
                 sensor_w: v[0],
                 sensor_h: v[1],
                 x: v[2],
@@ -522,9 +527,9 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
     if shot.f_number.is_some() {
         shot.estimated_f_number = None;
     }
-    shot.focus_distance_mm = leica_focus_distance(buf, &exif_ifd)?;
+    shot.focus_distance_mm = leica_focus_distance(t, &exif_ifd)?;
     shot.focus = shot.focus.or(sigma_af_point(
-        buf,
+        t,
         &exif_ifd,
         shot.make.as_deref(),
         shot.model.as_deref(),
@@ -534,30 +539,33 @@ fn exif(buf: &[u8], ifd0: &[Entry]) -> Result<Shot> {
 }
 
 /// `FocusDistance` out of a Leica MakerNote. Only the one tag is read: the
-/// note's own `FNumber` is 1.0 on M-mount lenses and is not trusted.
-fn leica_focus_distance(buf: &[u8], exif_ifd: &[Entry]) -> Result<Option<u32>> {
+/// note's own `FNumber` is 1.0 on M-mount lenses and is not trusted. The
+/// note's IFD is in the container's byte order: big-endian in an M (Typ 240)
+/// DNG, little-endian in an M10 one.
+fn leica_focus_distance(t: &Tiff, exif_ifd: &[Entry]) -> Result<Option<u32>> {
     let Some(entry) = exif_ifd.iter().find(|e| e.0 == TAG_MAKER_NOTE) else {
         return Ok(None);
     };
     let (at, count) = (entry.1 as usize, entry.3 as usize);
     if count <= LEICA_HEADER_LEN
-        || at.checked_add(count).is_none_or(|end| end > buf.len())
-        || !buf[at..].starts_with(LEICA_HEADER)
+        || !t
+            .bytes(at, count)
+            .is_ok_and(|note| note.starts_with(LEICA_HEADER))
     {
         return Ok(None);
     }
-    let (note, _) = read_ifd(buf, at + LEICA_HEADER_LEN)?;
+    let (note, _) = read_ifd(t, at + LEICA_HEADER_LEN)?;
     Ok(note
         .iter()
         .find(|e| e.0 == TAG_LEICA_FOCUS_DISTANCE)
-        .and_then(integer))
+        .and_then(|e| integer(t, e)))
 }
 
 /// The AF point out of a Sigma BF MakerNote, on the
 /// `SIGMA_BF_AF_GRID_W` x `SIGMA_BF_AF_GRID_H` grid. A point outside the grid
 /// is kept as is; the consumers clamp it into the JPEG.
 fn sigma_af_point(
-    buf: &[u8],
+    t: &Tiff,
     exif_ifd: &[Entry],
     make: Option<&str>,
     model: Option<&str>,
@@ -573,40 +581,45 @@ fn sigma_af_point(
     if count <= SIGMA_HEADER_LEN {
         return Ok(None);
     }
-    if at.checked_add(count).is_none_or(|end| end > buf.len()) {
+    let Ok(bytes) = t.bytes(at, count) else {
         bail!("MakerNote out of range");
-    }
-    if !buf[at..].starts_with(SIGMA_HEADER) {
+    };
+    if !bytes.starts_with(SIGMA_HEADER) {
         return Ok(None);
     }
-    let (note, _) = read_ifd(buf, at + SIGMA_HEADER_LEN)?;
+    let (note, _) = read_ifd(t, at + SIGMA_HEADER_LEN)?;
     Ok(note
         .iter()
         .find(|e| e.0 == TAG_SIGMA_AF_POINT)
         .and_then(|&(_, value, typ, count)| {
             (typ == TYPE_SHORT && count == 2).then(|| {
-                let v = value.to_le_bytes();
+                let v = inline_bytes(t, value);
+                let short = |at: usize| {
+                    if t.little_endian() {
+                        u16::from_le_bytes([v[at], v[at + 1]])
+                    } else {
+                        u16::from_be_bytes([v[at], v[at + 1]])
+                    }
+                };
                 FocusLocation {
                     sensor_w: SIGMA_BF_AF_GRID_W,
                     sensor_h: SIGMA_BF_AF_GRID_H,
-                    x: u16le(&v, 0),
-                    y: u16le(&v, 2),
+                    x: short(0),
+                    y: short(2),
                 }
             })
         }))
 }
 
 pub fn parse(buf: &[u8]) -> Result<Arw> {
-    if buf.len() < 8 || &buf[0..2] != b"II" {
-        bail!("not a little-endian TIFF/ARW");
-    }
-    let (ifd0, next) = read_ifd(buf, u32le(buf, 4) as usize)?;
+    let t = &Tiff::new(buf, 0, buf.len())?;
+    let (ifd0, next) = read_ifd(t, t.u32(4)? as usize)?;
 
     let orientation = find(&ifd0, TAG_ORIENTATION)
-        .map(|(v, _)| v as u16)
+        .map(|(v, _)| inline_short(t, v) as u16)
         .unwrap_or(1);
     let preview = embedded(&ifd0);
-    let shot = exif(buf, &ifd0)?;
+    let shot = exif(t, &ifd0)?;
 
     // Walk the IFD chain (IFD1, IFD2, ...) and the SubIFDs, and take the
     // largest JPEG as the full-resolution one (JpgFromRaw).
@@ -614,7 +627,7 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     let mut next = next;
     while next != 0 {
         targets.push(next);
-        let (_, n) = read_ifd(buf, next)?;
+        let (_, n) = read_ifd(t, next)?;
         next = n;
         if targets.len() > 16 {
             break; // do not spin forever on a broken chain
@@ -625,26 +638,25 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
             targets.push(val as usize);
         } else {
             let count = count as usize;
-            let end = (val as usize)
-                .checked_add(count * 4)
-                .filter(|&end| end <= buf.len());
-            if end.is_none() {
+            if t.bytes(val as usize, count * 4).is_err() {
                 bail!("SubIFD offset array out of range");
             }
-            targets.extend((0..count).map(|i| u32le(buf, val as usize + i * 4) as usize));
+            for i in 0..count {
+                targets.push(t.u32(val as usize + i * 4)? as usize);
+            }
         }
     }
 
     let mut full: Option<Embedded> = None;
-    let mut strips: Vec<(Embedded, u32, u32)> = strip_jpeg(&ifd0).into_iter().collect();
+    let mut strips: Vec<(Embedded, u32, u32)> = strip_jpeg(t, &ifd0).into_iter().collect();
     for off in targets {
-        let (ifd, _) = read_ifd(buf, off)?;
+        let (ifd, _) = read_ifd(t, off)?;
         if let Some(e) = embedded(&ifd) {
             if full.is_none_or(|f| e.length > f.length) {
                 full = Some(e);
             }
         }
-        strips.extend(strip_jpeg(&ifd));
+        strips.extend(strip_jpeg(t, &ifd));
     }
 
     // A DNG carries its previews as strip JPEGs in no guaranteed order, so pick
@@ -805,9 +817,87 @@ mod tests {
     }
 
     #[test]
-    fn rejects_big_endian_header() {
+    fn reads_a_big_endian_container() {
+        use crate::jpeg::tests::W;
+        let w = W(false);
+        let buf = w.tiff(
+            &[
+                w.short(TAG_ORIENTATION, 6),
+                w.ascii(TAG_MAKE, "PENTAX"),
+                w.ascii(TAG_MODEL, "K-5"),
+            ],
+            &[
+                w.ascii(TAG_DATE_TIME_ORIGINAL, "2026:09:13 09:23:33"),
+                w.ascii(TAG_SUB_SEC_TIME_ORIGINAL, "12"),
+                w.rational(TAG_EXPOSURE_TIME, 1, 250),
+                w.rational(TAG_F_NUMBER, 28, 10),
+                w.rational(TAG_FOCAL_LENGTH, 50, 1),
+                // An inline SHORT is the first two bytes; the padding after
+                // it is the low half of the big-endian value field.
+                (TAG_ISO, TYPE_SHORT, 1, vec![0x19, 0x00, 0x4D, 0x47]),
+            ],
+        );
+        let a = parse(&buf).unwrap();
+        assert_eq!(a.orientation, 6);
+        let shot = a.shot;
+        assert_eq!(shot.make.as_deref(), Some("PENTAX"));
+        assert_eq!(shot.model.as_deref(), Some("K-5"));
+        assert_eq!(shot.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+        assert_eq!(shot.subsec.as_deref(), Some("12"));
+        assert_eq!(shot.exposure_time, Some(Rational { num: 1, den: 250 }));
+        assert_eq!(shot.f_number, Some(Rational { num: 28, den: 10 }));
+        assert_eq!(shot.focal_length, Some(Rational { num: 50, den: 1 }));
+        assert_eq!(shot.iso, Some(6400));
+    }
+
+    #[test]
+    fn reads_inline_bytes_and_shorts_of_a_big_endian_maker_note() {
+        use crate::jpeg::tests::W;
+        let w = W(false);
+        let mut note = 2u16.to_be_bytes().to_vec();
+        for (tag, typ, value) in [
+            (TAG_FOCUS_MODE, TYPE_BYTE, [3, 0, 0, 0]),
+            (TAG_RELEASE_MODE, TYPE_SHORT, [0, 2, 0, 0]),
+        ] {
+            note.extend_from_slice(&tag.to_be_bytes());
+            note.extend_from_slice(&typ.to_be_bytes());
+            note.extend_from_slice(&1u32.to_be_bytes());
+            note.extend_from_slice(&value);
+        }
+        note.extend_from_slice(&0u32.to_be_bytes());
+        let buf = w.tiff(
+            &[],
+            &[(TAG_MAKER_NOTE, TYPE_UNDEFINED, note.len() as u32, note)],
+        );
+        let shot = parse(&buf).unwrap().shot;
+        assert_eq!(shot.focus_mode, Some(3));
+        assert_eq!(shot.release_mode, Some(2));
+    }
+
+    #[test]
+    fn reads_the_leica_focus_distance_through_a_big_endian_note() {
+        use crate::jpeg::tests::W;
+        let w = W(false);
+        let mut note = b"LEICA\0\x02\xff".to_vec();
+        note.extend_from_slice(&1u16.to_be_bytes());
+        note.extend_from_slice(&TAG_LEICA_FOCUS_DISTANCE.to_be_bytes());
+        note.extend_from_slice(&TYPE_LONG.to_be_bytes());
+        note.extend_from_slice(&1u32.to_be_bytes());
+        note.extend_from_slice(&921u32.to_be_bytes());
+        note.extend_from_slice(&0u32.to_be_bytes());
+        let buf = w.tiff(
+            &[w.ascii(TAG_MAKE, "Leica Camera AG")],
+            &[(TAG_MAKER_NOTE, TYPE_UNDEFINED, note.len() as u32, note)],
+        );
+        let shot = parse(&buf).unwrap().shot;
+        assert_eq!(shot.focus_distance_mm, Some(921));
+        assert!(shot.focus.is_none());
+    }
+
+    #[test]
+    fn rejects_an_unknown_byte_order() {
         let mut buf = tiff(&[(TAG_ORIENTATION, 3, 1, 1)]);
-        buf[0..2].copy_from_slice(b"MM");
+        buf[0..2].copy_from_slice(b"XX");
         assert!(parse(&buf).is_err());
     }
 
@@ -1143,6 +1233,57 @@ mod tests {
                 padded(1620, 1080, 300, 30),
             ],
         );
+        let a = parse(&buf).unwrap();
+        let (p, f) = (a.preview.unwrap(), a.full.unwrap());
+        assert_eq!((p.offset, p.length), (300, 30));
+        assert_eq!((f.offset, f.length), (200, 20));
+    }
+
+    /// `ifd` in big-endian order. A single SHORT goes in the first two bytes
+    /// of the value field, followed by nonzero padding.
+    fn ifd_be(entries: &[(u16, u16, u32, u32)]) -> Vec<u8> {
+        let mut buf = (entries.len() as u16).to_be_bytes().to_vec();
+        for &(tag, typ, count, value) in entries {
+            buf.extend_from_slice(&tag.to_be_bytes());
+            buf.extend_from_slice(&typ.to_be_bytes());
+            buf.extend_from_slice(&count.to_be_bytes());
+            if typ == TYPE_SHORT && count == 1 {
+                buf.extend_from_slice(&(value as u16).to_be_bytes());
+                buf.extend_from_slice(b"MG");
+            } else {
+                buf.extend_from_slice(&value.to_be_bytes());
+            }
+        }
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf
+    }
+
+    #[test]
+    fn picks_dng_strip_jpegs_out_of_a_big_endian_sub_ifd_array() {
+        let ifd0 = strip_entries(9536, 6336, 32803, 900_000, 5_000_000);
+        let subs = [
+            strip_entries(640, 480, PHOTOMETRIC_YCBCR, 100, 10),
+            strip_entries(9520, 6328, PHOTOMETRIC_YCBCR, 200, 20),
+            strip_entries(1620, 1080, PHOTOMETRIC_YCBCR, 300, 30),
+        ];
+        let array_at = 8 + ifd_len(ifd0.len() + 1);
+        let mut at = array_at + subs.len() * 4;
+        let mut offsets = Vec::new();
+        for s in &subs {
+            offsets.push(at as u32);
+            at += ifd_len(s.len());
+        }
+        let mut entries = ifd0;
+        entries.push((TAG_SUB_IFDS, TYPE_LONG, subs.len() as u32, array_at as u32));
+        let mut buf = b"MM\0\x2a".to_vec();
+        buf.extend_from_slice(&8u32.to_be_bytes());
+        buf.extend_from_slice(&ifd_be(&entries));
+        for o in offsets {
+            buf.extend_from_slice(&o.to_be_bytes());
+        }
+        for s in &subs {
+            buf.extend_from_slice(&ifd_be(s));
+        }
         let a = parse(&buf).unwrap();
         let (p, f) = (a.preview.unwrap(), a.full.unwrap());
         assert_eq!((p.offset, p.length), (300, 30));

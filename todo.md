@@ -1331,14 +1331,3 @@ Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
 - [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
 - [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
-### Core: big-endian DNGs do not open
-
-#### Background
-
-42 samples under `D:\Photos\samples\DNG\` (Pentax K-series, Ricoh GR / GXR, Leica M, iPhone, QooCam, Blackmagic) fail every stage of `riffle-cli check` with `not a little-endian TIFF/ARW`. The DNG path goes through `crates/core/src/arw.rs`, which only reads `II` (little-endian) TIFFs. Found by the sample run in `docs/plans/_archived/20261001-cli-check-samples/plan.md`. Files: `crates/core/src/arw.rs`, `crates/core/src/exif.rs`, `docs/agents/raw-metadata-parsing.md`.
-
-#### TODO
-
-- [ ] Check how `crates/core/src/exif.rs` handles byte order (NEF and ORF go through it), and make the DNG path read `MM` TIFFs.
-- [ ] Done when `riffle-cli check` on those DNGs no longer reports `not a little-endian TIFF/ARW`. Each one either opens or fails for another, specific reason.
-- [ ] Record the finding in `docs/agents/raw-metadata-parsing.md`.

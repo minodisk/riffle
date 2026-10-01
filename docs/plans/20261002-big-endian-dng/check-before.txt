@@ -1,0 +1,326 @@
+Corrupt JPEG data: 10 extraneous bytes before marker 0xd7
+Invalid SOS parameters for sequential JPEG
+Corrupt JPEG data: 2 extraneous bytes before marker 0xd7
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_1_RAND_7620448532062158813245_minimized_468.ARW  scan: IFD entry out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_1_RAND_7620448532062158813245_minimized_468.ARW  preview: IFD entry out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_1_RAND_7620448532062158813245_minimized_468.ARW  full: IFD entry out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_2_RAND_323114924210544927385311_minimized_931.ARW  scan: IFD offset out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_2_RAND_323114924210544927385311_minimized_931.ARW  preview: IFD offset out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_2_RAND_323114924210544927385311_minimized_931.ARW  full: IFD offset out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_2_RAND_361749493585735397238662_minimized_698.ARW  scan: preview out of range
+D:\Photos\samples\ARW\ILCE-7C_Sony-a7c-Shotkit-2_IDX_2_RAND_361749493585735397238662_minimized_698.ARW  preview: preview out of range
+D:\Photos\samples\ARW\ILCE-9_SonyILCE9.arw  scan: preview out of range
+D:\Photos\samples\ARW\ILCE-9_SonyILCE9.arw  preview: preview out of range
+D:\Photos\samples\ARW\Unknown_Sony-a7c-Shotkit-2_IDX_0_RAND_295327007552688650228138_minimized_910.ARW  scan: IFD entry out of range
+D:\Photos\samples\ARW\Unknown_Sony-a7c-Shotkit-2_IDX_0_RAND_295327007552688650228138_minimized_910.ARW  preview: IFD entry out of range
+D:\Photos\samples\ARW\Unknown_Sony-a7c-Shotkit-2_IDX_0_RAND_295327007552688650228138_minimized_910.ARW  full: IFD entry out of range
+D:\Photos\samples\CR3\Unknown_poc.cr3  scan: panic while encoding the thumbnail of D:\Photos\samples\CR3\Unknown_poc.cr3
+D:\Photos\samples\CR3\Unknown_poc.cr3  preview: panic while decoding the JPEG
+D:\Photos\samples\CR3\Unknown_poc.cr3  full: panic while decoding the JPEG
+D:\Photos\samples\CR3\Unknown_poc_2.cr3  scan: panic while encoding the thumbnail of D:\Photos\samples\CR3\Unknown_poc_2.cr3
+D:\Photos\samples\CR3\Unknown_poc_2.cr3  preview: panic while decoding the JPEG
+D:\Photos\samples\CR3\Unknown_poc_2.cr3  full: panic while decoding the JPEG
+D:\Photos\samples\DNG\2201116PG_tj4JNhta1A6hlBMUqzR8qnko26Q.dng  scan: no embedded preview
+D:\Photos\samples\DNG\2201116PG_tj4JNhta1A6hlBMUqzR8qnko26Q.dng  preview: no embedded preview
+D:\Photos\samples\DNG\645D_645D2839.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\645D_645D2839.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\645D_645D2839.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Apple_iPhone_13_Pro_Max_IMG_1901.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Apple_iPhone_13_Pro_Max_IMG_1901.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Apple_iPhone_13_Pro_Max_IMG_1901.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\CGO3P_YUN00007.dng  scan: panic while encoding the thumbnail of D:\Photos\samples\DNG\CGO3P_YUN00007.dng
+D:\Photos\samples\DNG\CGO3P_YUN00007.dng  preview: panic while decoding the JPEG
+D:\Photos\samples\DNG\CGO3P_YUN00007.dng  full: panic while decoding the JPEG
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_DNG.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_DNG.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_DNG.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_sample1_IDX_1_RAND_367362704388780906177768_minimized_213.dng  scan: IFD offset out of range
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_sample1_IDX_1_RAND_367362704388780906177768_minimized_213.dng  preview: IFD offset out of range
+D:\Photos\samples\DNG\Canon_EOS_350D_DIGITAL_sample1_IDX_1_RAND_367362704388780906177768_minimized_213.dng  full: IFD offset out of range
+D:\Photos\samples\DNG\Canon_EOS_60D_M23-0133_000000.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Canon_EOS_60D_M23-0133_000000.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Canon_EOS_60D_M23-0133_000000_lj92_mlvapp.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Canon_EOS_60D_M23-0133_000000_lj92_mlvapp.dng  preview: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_A_nosentinel.dng  scan: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_A_nosentinel.dng  preview: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_B_sentinel257.dng  scan: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_B_sentinel257.dng  preview: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_control_nomagic.dng  scan: no embedded preview
+D:\Photos\samples\DNG\EOS_10D_canon257_control_nomagic.dng  preview: no embedded preview
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_1652207307361082056597831_minimized_545.DNG  scan: IFD offset out of range
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_1652207307361082056597831_minimized_545.DNG  preview: IFD offset out of range
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_1652207307361082056597831_minimized_545.DNG  full: IFD offset out of range
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_20771256272572815593575_minimized_465.DNG  scan: IFD offset out of range
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_20771256272572815593575_minimized_465.DNG  preview: IFD offset out of range
+D:\Photos\samples\DNG\FC3170_DJI-MavicAir2-Shotkit-2_IDX_0_RAND_20771256272572815593575_minimized_465.DNG  full: IFD offset out of range
+D:\Photos\samples\DNG\GR_DIGITAL_2_RAW_RICOH_GR2.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_DIGITAL_2_RAW_RICOH_GR2.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_DIGITAL_2_RAW_RICOH_GR2.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_II_R0000443.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_II_R0000443.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_II_R0000443.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_R0003611.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_R0003611.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GR_R0003611.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX10__G107701.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX10__G107701.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX10__G107701.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX20__G205027.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX20__G205027.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GX20__G205027.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GXR_R0017428.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GXR_R0017428.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\GXR_R0017428.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\ILCE-7RM4_01_jxl_linear_raw_integer.dng  scan: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_01_jxl_linear_raw_integer.dng  preview: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_02_jxl_linear_raw_float.dng  scan: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_02_jxl_linear_raw_float.dng  preview: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_03_jxl_bayer_raw_integer.dng  scan: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_03_jxl_bayer_raw_integer.dng  preview: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_12_ImageStats_WeightedAverage.dng  scan: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_12_ImageStats_WeightedAverage.dng  preview: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_13_ImageStats_Several.dng  scan: no embedded preview
+D:\Photos\samples\DNG\ILCE-7RM4_13_ImageStats_Several.dng  preview: no embedded preview
+D:\Photos\samples\DNG\IN2010_in.dng  scan: no embedded preview
+D:\Photos\samples\DNG\IN2010_in.dng  preview: no embedded preview
+D:\Photos\samples\DNG\K-01__IGP2068.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-01__IGP2068.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-01__IGP2068.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-30__IGP4042.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-30__IGP4042.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-30__IGP4042.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-500_Pentax_-_K-500.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-500_Pentax_-_K-500.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-500_Pentax_-_K-500.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-50_IMGP1385.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-50_IMGP1385.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-50_IMGP1385.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_IMGP2032.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_IMGP2032.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_IMGP2032.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_s__JAK3776.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_s__JAK3776.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5_II_s__JAK3776.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5__MAR0543.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5__MAR0543.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-5__MAR0543.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-7_IMGP6297.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-7_IMGP6297.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-7_IMGP6297.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-x_IMGP6431.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-x_IMGP6431.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K-x_IMGP6431.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K10D_IMGP5398.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K10D_IMGP5398.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K10D_IMGP5398.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K200D_IMGP2292.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K200D_IMGP2292.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K200D_IMGP2292.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K20D_RAW_Pentax_K20.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K20D_RAW_Pentax_K20.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\K20D_RAW_Pentax_K20.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_compressed_L1006373.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_compressed_L1006373.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_compressed_L1006373.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_uncompressed_L1006374.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_uncompressed_L1006374.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_(Typ_240)_ADG_RPUsubmit_uncompressed_L1006374.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_Monochrom_(Typ_246)_M2462362.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_Monochrom_(Typ_246)_M2462362.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\M_Monochrom_(Typ_246)_M2462362.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\NIKON_D70_a0001-jmac_DSC1459.dng  scan: no embedded preview
+D:\Photos\samples\DNG\NIKON_D70_a0001-jmac_DSC1459.dng  preview: no embedded preview
+D:\Photos\samples\DNG\OnePlus_Nord_3_5G_IMG20240815194612.dng  scan: no embedded preview
+D:\Photos\samples\DNG\OnePlus_Nord_3_5G_IMG20240815194612.dng  preview: no embedded preview
+D:\Photos\samples\DNG\One_IMG_20150729_201116.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\One_IMG_20150729_201116.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\One_IMG_20150729_201116.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8100_SF8_processed_-_Mon_Jun_17_19-45-39_2019.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8100_SF8_processed_-_Mon_Jun_17_19-45-39_2019.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8100_SF8_processed_-_Mon_Jun_17_19-45-39_2019.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_14df20816ebe2f106db38b6c571d3a7735ba0d58.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_14df20816ebe2f106db38b6c571d3a7735ba0d58.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_14df20816ebe2f106db38b6c571d3a7735ba0d58.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_M4aKoJmLw2P8P72lUO5UZbvSA6.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_M4aKoJmLw2P8P72lUO5UZbvSA6.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_M4aKoJmLw2P8P72lUO5UZbvSA6.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_SE_AristaUltra_400_Test1.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_SE_AristaUltra_400_Test1.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\OpticFilm_8200i_SE_AristaUltra_400_Test1.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_20180811_Koblenz_516_Boppard_Innenstadt.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_20180811_Koblenz_516_Boppard_Innenstadt.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_20180811_Koblenz_516_Boppard_Innenstadt.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_IMGP2775.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_IMGP2775.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-50_IMGP2775.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-5_32-bit-float-hdr.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-5_32-bit-float-hdr.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-5_32-bit-float-hdr.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-r_IMGP4425.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-r_IMGP4425.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\PENTAX_K-r_IMGP4425.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Pocket_Cinema_Camera_Blackmagic_Pocket_Cinema_Camera_1_2016-09-17_0053_C0022_000007.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Pocket_Cinema_Camera_Blackmagic_Pocket_Cinema_Camera_1_2016-09-17_0053_C0022_000007.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Pocket_Cinema_Camera_Blackmagic_Pocket_Cinema_Camera_1_2016-09-17_0053_C0022_000007.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_08.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_08.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_08.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_09.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_09.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_09.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_10.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_10.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_10.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_11.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_11.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GR_DIGITAL_4_ricoh_gr_digital_iv_11.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GX200_R0014336-20180515-ss620-ap4.6-fl5-iso64.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GX200_R0014336-20180515-ss620-ap4.6-fl5-iso64.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\RICOH_GX200_R0014336-20180515-ss620-ap4.6-fl5-iso64.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SAMSUNG_GX20_SG204732.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SAMSUNG_GX20_SG204732.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SAMSUNG_GX20_SG204732.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.1-hdr.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.1-hdr.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.1-hdr.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.1.dng  scan: no embedded preview
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.1.dng  preview: no embedded preview
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.2.dng  scan: no embedded preview
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.2.dng  preview: no embedded preview
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.3.dng  scan: no embedded preview
+D:\Photos\samples\DNG\SHIELD_Tablet_K1_IMG_20191018_200915.3.dng  preview: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_651_20240229_000001_2k_12bit.DNG  scan: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_651_20240229_000001_2k_12bit.DNG  preview: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_651_20240229_000001_2k_12bit_uncompressed_dnglab.DNG  scan: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_651_20240229_000001_2k_12bit_uncompressed_dnglab.DNG  preview: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit.DNG  scan: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit.DNG  preview: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit_dnglab_compressed.dng  scan: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit_dnglab_compressed.dng  preview: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit_dnglab_uncompressed.dng  scan: no embedded preview
+D:\Photos\samples\DNG\SIGMA_fp_A002_652_20240229_000001_2k_10bit_dnglab_uncompressed.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_05_PGTM2_unsigned8.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_05_PGTM2_unsigned8.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_06_PGTM2_unsigned16.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_06_PGTM2_unsigned16.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_07_PGTM2_float16.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_07_PGTM2_float16.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_08_PGTM2_float32.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_08_PGTM2_float32.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_09_ImageSequenceInfo_1_of_3.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_09_ImageSequenceInfo_1_of_3.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_10_ImageSequenceInfo_2_of_3.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_10_ImageSequenceInfo_2_of_3.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_11_ImageSequenceInfo_3_of_3.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_11_ImageSequenceInfo_3_of_3.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_14_hdr_sdr_profiles.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_14_hdr_sdr_profiles.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_5omBHhwSqrjN4GX7LPVgwbpA486.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_5omBHhwSqrjN4GX7LPVgwbpA486.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_5omBHhwSqrjN4GX7LPVgwbpA486.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-5163059740934144.dng  scan: IFD entry out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-5163059740934144.dng  preview: IFD entry out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-5163059740934144.dng  full: IFD entry out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-6194991601811456.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-6194991601811456.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-crop_fuzzer-6194991601811456.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5341183996854272.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5341183996854272.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5341183996854272.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5404692520632320.dng  scan: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5404692520632320.dng  preview: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5404692520632320.dng  full: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5407382646554624.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5407382646554624.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5407382646554624.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5723382935977984.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5723382935977984.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-5723382935977984.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-6307677115252736.dng  scan: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-6307677115252736.dng  preview: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_clusterfuzz-testcase-minimized-rotate_fuzzer-6307677115252736.dng  full: IFD offset out of range
+D:\Photos\samples\DNG\Unknown_ir_compressed_10bits.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_ir_compressed_10bits.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_ir_compressed_10bits_2.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_ir_compressed_10bits_2.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_ir_uncompressed_8bits.dng  scan: no embedded preview
+D:\Photos\samples\DNG\Unknown_ir_uncompressed_8bits.dng  preview: no embedded preview
+D:\Photos\samples\DNG\Unknown_sample.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_sample.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\Unknown_sample.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\VOG-L29_IMG_20191007_114345.dng  scan: no embedded preview
+D:\Photos\samples\DNG\VOG-L29_IMG_20191007_114345.dng  preview: no embedded preview
+D:\Photos\samples\DNG\fModel_data-2349511-8xq8l9m0mm0pt5mwjeha.dng  scan: no embedded preview
+D:\Photos\samples\DNG\fModel_data-2349511-8xq8l9m0mm0pt5mwjeha.dng  preview: no embedded preview
+D:\Photos\samples\DNG\iPhone_12_Pro_IMG_1361.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_12_Pro_IMG_1361.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_12_Pro_IMG_1361.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_12_Pro_Max_thing.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_12_Pro_Max_thing.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_12_Pro_Max_thing.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_13_Pro_2022-07-06_21.19.05.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_13_Pro_2022-07-06_21.19.05.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_13_Pro_2022-07-06_21.19.05.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_15_Pro_ProRaw_dark_thumbnail.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_15_Pro_ProRaw_dark_thumbnail.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_15_Pro_ProRaw_dark_thumbnail.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_17_Pro_Max_IMG_0104.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_17_Pro_Max_IMG_0104.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_17_Pro_Max_IMG_0104.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_6s_Plus_IMG_0853.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_6s_Plus_IMG_0853.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_6s_Plus_IMG_0853.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_7_Plus_IMG_0739.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_7_Plus_IMG_0739.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_7_Plus_IMG_0739.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_8_RAW_2018_11_07_14_43_14_820_noflash.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_8_RAW_2018_11_07_14_43_14_820_noflash.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_8_RAW_2018_11_07_14_43_14_820_noflash.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_SE_A4973FFB-9CBD-4ED8-805D-E30F4AE08A95.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_SE_A4973FFB-9CBD-4ED8-805D-E30F4AE08A95.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_SE_A4973FFB-9CBD-4ED8-805D-E30F4AE08A95.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XR_IMG_885.DNG  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XR_IMG_885.DNG  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XR_IMG_885.DNG  full: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XS_IMG_1105.dng  scan: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XS_IMG_1105.dng  preview: not a little-endian TIFF/ARW
+D:\Photos\samples\DNG\iPhone_XS_IMG_1105.dng  full: not a little-endian TIFF/ARW
+D:\Photos\samples\NEF\E5700_nikon_e5700.nef  scan: no embedded preview
+D:\Photos\samples\NEF\E5700_nikon_e5700.nef  preview: no embedded preview
+D:\Photos\samples\NEF\NIKON_D1H_nikon_d1h.nef  scan: no embedded preview
+D:\Photos\samples\NEF\NIKON_D1H_nikon_d1h.nef  preview: no embedded preview
+D:\Photos\samples\NEF\NIKON_D3_sample1_IDX_1_RAND_1270494007645868335447347_minimized_454.nef  scan: preview out of range
+D:\Photos\samples\NEF\NIKON_D3_sample1_IDX_1_RAND_1270494007645868335447347_minimized_454.nef  preview: preview out of range
+D:\Photos\samples\NEF\NIKON_D3_sample1_IDX_1_RAND_1270494007645868335447347_minimized_454.nef  full: JpgFromRaw out of range
+D:\Photos\samples\NEF\NIKON_D70_Nikon.nef  scan: panic while encoding the thumbnail of D:\Photos\samples\NEF\NIKON_D70_Nikon.nef
+D:\Photos\samples\NEF\NIKON_D70_Nikon.nef  preview: panic while decoding the JPEG
+D:\Photos\samples\NEF\NIKON_D70_Nikon.nef  full: panic while decoding the JPEG
+D:\Photos\samples\NEF\NIKON_D70s_07706File.NEF  scan: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07706File.NEF  preview: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07706File.NEF  full: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07707File.NEF  scan: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07707File.NEF  preview: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07707File.NEF  full: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07708File.NEF  scan: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07708File.NEF  preview: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07708File.NEF  full: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07709File.NEF  scan: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07709File.NEF  preview: invalid TIFF byte order
+D:\Photos\samples\NEF\NIKON_D70s_07709File.NEF  full: invalid TIFF byte order
+D:\Photos\samples\ORF\Unknown_image.orf  scan: no embedded preview
+D:\Photos\samples\ORF\Unknown_image.orf  preview: no embedded preview
+D:\Photos\samples\ORF\Unknown_image_2.orf  scan: no embedded preview
+D:\Photos\samples\ORF\Unknown_image_2.orf  preview: no embedded preview
+D:\Photos\samples\RAF\X-T3_poc.raf  scan: panic while encoding the thumbnail of D:\Photos\samples\RAF\X-T3_poc.raf
+D:\Photos\samples\RAF\X-T3_poc.raf  preview: panic while decoding the JPEG
+D:\Photos\samples\RAF\X-T3_poc.raf  full: panic while decoding the JPEG
+arw: 516 ok, 5 failed
+cr3: 193 ok, 2 failed
+dng: 241 ok, 100 failed
+jpeg: 13 ok, 0 failed
+jpg: 519 ok, 0 failed
+nef: 395 ok, 8 failed
+orf: 146 ok, 2 failed
+raf: 276 ok, 1 failed
+2417 files in 9 folder(s), 24 threads, 118 failed: 45.41s total
+Error: 118 file(s) failed
