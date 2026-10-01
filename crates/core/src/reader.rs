@@ -661,30 +661,42 @@ mod tests {
         }
     }
 
-    /// A little-endian TIFF whose IFD0 holds `orientation` and `preview`, and
-    /// whose IFD1 the larger `full`.
-    fn arw_with_both(orientation: u16, preview: &[u8], full: &[u8]) -> Vec<u8> {
-        let mut buf = b"II\x2a\x00".to_vec();
-        buf.extend_from_slice(&8u32.to_le_bytes());
+    /// A TIFF in `w`'s byte order whose IFD0 holds `orientation` and
+    /// `preview`, and whose IFD1 the larger `full`.
+    fn arw_with_both(
+        w: &crate::jpeg::tests::W,
+        orientation: u16,
+        preview: &[u8],
+        full: &[u8],
+    ) -> Vec<u8> {
+        let mut buf = if w.0 { b"II".to_vec() } else { b"MM".to_vec() };
+        buf.extend_from_slice(&w.u16(42));
+        buf.extend_from_slice(&w.u32(8));
         let ifd1_at = 8 + 2 + 3 * 12 + 4;
         let preview_at = ifd1_at + 2 + 2 * 12 + 4;
         let full_at = preview_at + preview.len();
-        let ifd0: &[(u16, u16, u32)] = &[
-            (0x0112, 3, u32::from(orientation)),
-            (0x0201, 4, preview_at as u32),
-            (0x0202, 4, preview.len() as u32),
+        let ifd0: &[(u16, u16, [u8; 4])] = &[
+            (
+                0x0112,
+                3,
+                [w.u16(orientation), [0, 0]].concat().try_into().unwrap(),
+            ),
+            (0x0201, 4, w.u32(preview_at as u32)),
+            (0x0202, 4, w.u32(preview.len() as u32)),
         ];
-        let ifd1: &[(u16, u16, u32)] =
-            &[(0x0201, 4, full_at as u32), (0x0202, 4, full.len() as u32)];
+        let ifd1: &[(u16, u16, [u8; 4])] = &[
+            (0x0201, 4, w.u32(full_at as u32)),
+            (0x0202, 4, w.u32(full.len() as u32)),
+        ];
         for (entries, next) in [(ifd0, ifd1_at as u32), (ifd1, 0)] {
-            buf.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+            buf.extend_from_slice(&w.u16(entries.len() as u16));
             for (tag, typ, value) in entries {
-                buf.extend_from_slice(&tag.to_le_bytes());
-                buf.extend_from_slice(&typ.to_le_bytes());
-                buf.extend_from_slice(&1u32.to_le_bytes());
-                buf.extend_from_slice(&value.to_le_bytes());
+                buf.extend_from_slice(&w.u16(*tag));
+                buf.extend_from_slice(&w.u16(*typ));
+                buf.extend_from_slice(&w.u32(1));
+                buf.extend_from_slice(value);
             }
-            buf.extend_from_slice(&next.to_le_bytes());
+            buf.extend_from_slice(&w.u32(next));
         }
         buf.extend_from_slice(preview);
         buf.extend_from_slice(full);
@@ -707,7 +719,7 @@ mod tests {
         for (name, le) in [("inv.ARW", true), ("inv.DNG", false)] {
             let preview = oriented_jpeg(le, 8, 16, 16);
             let full = oriented_jpeg(le, 8, 64, 48);
-            files.push((name, arw_with_both(6, &preview, &full), 6));
+            files.push((name, arw_with_both(&W(le), 6, &preview, &full), 6));
         }
 
         let w = W(false);

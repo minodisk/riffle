@@ -1,8 +1,9 @@
 # Parsing RAW metadata in `crates/core`
 
 Read this before touching the TIFF / MakerNote parsing in
-`crates/core/src/arw.rs`, which reads both ARW and DNG files (IFD0, the
-SubIFDs, the ExifIFD, and the Sony, Leica and Sigma MakerNotes), or in
+`crates/core/src/arw.rs`, which reads both ARW and DNG files, in either TIFF
+byte order (IFD0, the SubIFDs, the ExifIFD, and the Sony, Leica and Sigma
+MakerNotes), or in
 `crates/core/src/nef.rs`, which reads Nikon NEF files (see [NEF](#nef)), or in
 `crates/core/src/cr3.rs`, which reads Canon CR3 files (see [CR3](#cr3)), or in
 `crates/core/src/raf.rs`, which reads Fujifilm RAF files (see [RAF](#raf)), or in
@@ -36,10 +37,12 @@ for `count == 1` and reads the array (range-checked) otherwise.
 
 ### A count-1 `SHORT` entry's padding can be nonzero (Hit)
 
-A `SHORT` with `count == 1` occupies the low two bytes of the entry's value
-field; the other two bytes are padding, and some writers leave per-file
+A `SHORT` with `count == 1` occupies the first two bytes of the entry's value
+field (the low half of the decoded `u32` in a little-endian file; see the next
+entry for big-endian); the other two bytes are padding, and some writers leave per-file
 garbage there (SIGMA fp L DNGs do, on `Compression`, `PhotometricInterpretation`
-and the like). `integer()` masks a count-1 `SHORT` with `& 0xFFFF`.
+and the like). `integer()` takes those two bytes through `inline_short` (it masks with
+`& 0xFFFF` only for `II`; for `MM` it takes `value >> 16`).
 
 - What broke: without the mask, `strip_jpeg` compared a padded `Compression`
   / `PhotometricInterpretation` against the JPEG / YCbCr values and rejected
@@ -50,6 +53,34 @@ and the like). `integer()` masks a count-1 `SHORT` with `& 0xFFFF`.
   `short_entries_ignore_the_padding_in_their_high_half` ORs garbage into the
   high half.
 - Source: [tiff-short-padding learnings, Step 1](../plans/_archived/20260924-tiff-short-padding/learnings.md#step-1).
+
+### `arw.rs` reads both byte orders, and `MM` inline values sit in the high bytes (Hit)
+
+`arw::parse` opens the file through `sequence::Tiff::new(buf, 0, buf.len())`,
+which accepts `II` and `MM` (magic 42), and reads every IFD entry, offset
+value, `SubIFDs` array, RATIONAL, `SHORT[N]` and MakerNote IFD in the header's
+order. The `Entry` value field is the four bytes decoded as a `u32` in that
+order, so the values that ride inline need the order to pick their bytes:
+
+- A count-1 `SHORT` is the first two bytes: `value & 0xFFFF` for `II`,
+  `value >> 16` for `MM` (`inline_short`; orientation and `integer()` go
+  through it).
+- A count-1 `BYTE` is the first byte: the low byte for `II`, the top byte for
+  `MM` (`inline_bytes(..)[0]`).
+- An ASCII of four bytes or fewer is the value field's bytes in file order
+  (`inline_bytes`), as is the Sigma `SHORT[2]` AF point.
+- What broke: until this was in place, `parse` rejected anything but `II` with
+  `not a little-endian TIFF/ARW`, so every big-endian DNG failed to open: the
+  Pentax K-series and 645D, Samsung GX10 / GX20, Ricoh GR / GR II /
+  GR DIGITAL 2 and 4 / GXR / GX200, Leica M (Typ 240) and M Monochrom
+  (Typ 246), the iPhone 6s Plus through 17 Pro Max, the Canon EOS 350D DNG,
+  the OpticFilm scanners and the Blackmagic Pocket Cinema Camera (52 `MM`
+  files in the sample folder). Sony ARWs, Sigma and the newer Leica DNGs are
+  `II`, so they read exactly as before.
+- Testing: the `II` helpers (`tiff`, `ifd`, ...) stay little-endian; the `MM`
+  tests use `crate::jpeg::tests::W(false)` or `ifd_be`, which writes nonzero
+  padding after each inline `SHORT`.
+- Source: [big-endian-dng learnings, Step 1](../plans/_archived/20261002-big-endian-dng/learnings.md#step-1).
 
 ### Older Sony ARW bodies carry no full-size JPEG, so `parse` takes the 160x120 thumbnail as `full` (Measured)
 
@@ -85,9 +116,14 @@ lacks the `SONY` header **and** `Make` is present and does not start with
 
 ### Leica: `LEICA\0` header, an IFD at offset 8, `FocusDistance` in millimeters (Hit)
 
-A Leica MakerNote (exiftool's `MakerNoteLeica9`) is `LEICA\0` plus two bytes
-(`02 00`), then a plain little-endian IFD at note offset 8
-(`LEICA_HEADER_LEN`). `leica_focus_distance` reads only `FocusDistance`,
+A Leica MakerNote is `LEICA\0` plus two bytes, then a plain IFD at note
+offset 8 (`LEICA_HEADER_LEN`) in the container's byte order: the M10 / Q2
+note (exiftool's `MakerNoteLeica9`) is `LEICA\0 02 00` and a little-endian
+IFD in a little-endian DNG, while the M (Typ 240) / M Monochrom (Typ 246) note
+(`MakerNoteLeica6` / `7`) is `LEICA\0 02 ff` and a big-endian IFD in a
+big-endian DNG (`4c45 4943 4100 02ff 001f 0300 0007 ...` at the note start),
+so `leica_focus_distance` reads it in the container's order, with no
+per-note byte-order sniff. `leica_focus_distance` reads only `FocusDistance`,
 tag 0x0304, a LONG count 1 (value inline), taken as millimeters. The note's
 own `FNumber` is 1.0 on M-mount lenses and is not read.
 
