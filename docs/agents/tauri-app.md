@@ -940,7 +940,7 @@ retried.
   (at `FACES_VERSION`) keeps a correct score, and a row the second pass has
   not reached (`faces_extractor = 0`) gets the same score from it.
 - Source: `docs/plans/_archived/20260924-index-extractor-version/learnings.md`,
-  Step 1; `docs/plans/20260930-scan-priority/learnings.md`, Step 2.
+  Step 1; `docs/plans/_archived/20260930-scan-priority/learnings.md`, Step 2.
 
 ### `reset_sidecars` must not rewrite a field `mark_written` guards on (Hit)
 
@@ -1146,6 +1146,21 @@ least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
   paths)` replaces that list only when `scan_id` is the running scan's: a
   stale id (a late debounce timer after a folder switch, or a call after
   `faces-done`) is a silent no-op by design, not an error.
+- `for_each_path` starts its worker loops with `ThreadPool::broadcast`, not
+  `(0..threads).into_par_iter()`: `broadcast` runs the loop exactly once per
+  pool thread, while a `par_iter` over the thread count may run two items on
+  one thread (the second finds the queue empty) and leave a thread idle. The
+  queue's lock is held only for `take_next`, never across `per_file` /
+  `on_item`; `ScanFocus::set` takes only the focus lock, so the two cannot
+  deadlock.
+- The frontend must call `sendScanFocus()` once `start_scan` resolves, not
+  only from `show()` and the strip's scroll. `ScansState.running` (and so the
+  `ScanFocus` handle) is set inside `start_scan`, so an earlier call is dropped
+  by the id check. Without that call, a folder reopened at its remembered file
+  would not tell the scan where it is until the user moved. The paths sent
+  must be the `files` entries (`list_arw` strings, built with the same
+  `to_string_lossy` as the scan's `FileStat` paths), or the queue will not
+  match them.
 - `set_scan_focus` is a synchronous command, so it runs on the main thread
   (see "Synchronous commands run on the main thread"). `clear_index`, the
   trash commands and `spawn_eviction`'s `VACUUM` hold the `Scans` lock for
@@ -1153,7 +1168,7 @@ least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
   drops the call when it is busy (a busy lock means no scan is taking the
   focus); a poisoned lock is recovered. Do not turn it into a blocking
   `lock()`.
-- Source: `docs/plans/20260930-scan-priority/learnings.md`, Steps 4-6.
+- Source: `docs/plans/_archived/20260930-scan-priority/learnings.md`, Steps 4-6.
 
 ### `focus_crop`'s header carries the full JPEG size (Hit)
 
@@ -1827,8 +1842,12 @@ CI). The fix was `#[allow(clippy::too_many_arguments)]` on both, not a new
 parameter struct — kept the change small and matches how this pair already
 carries `format`. Expect the same call when adding another per-write field
 here; every `sidecar.rs` test call site needs updating too.
+The scan passes follow the same rule: `run_scan` and `run_faces_scan` went
+over the limit (8/7) once they took the `ScanFocus` handle and got the same
+`#[allow]`.
 
 - Source: `docs/plans/_archived/20260922-lightroom-label-names/learnings.md`, Step 2.
+- Source: `docs/plans/_archived/20260930-scan-priority/learnings.md`, Step 5.
 
 ### Clearing a rating writes `Rating = 0`, not "no rating", in both sidecar formats (Hit)
 
