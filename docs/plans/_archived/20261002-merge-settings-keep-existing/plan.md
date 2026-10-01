@@ -64,4 +64,4 @@ unchanged so no promotion commit is made.
 
 ## Progress
 
-- (none yet)
+- (2026-10-02) Step 1 complete

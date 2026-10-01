@@ -1333,4 +1333,16 @@ Files: `crates/core/src/arw.rs`, `crates/app/src/index.rs` (`EXTRACTOR_VERSION`)
 
 - [ ] On Windows, with an index written by `EXTRACTOR_VERSION` 11 (open `D:\Photos\samples\DNG\` in a build from before the bump, then in this build), open a folder containing the Pentax K-5 II, iPhone 12 Pro and Leica M (Typ 240) samples. Expected: the rows that cached `not a little-endian TIFF/ARW` are re-extracted, and the thumbnails, the preview and the 1:1 view show.
 
+### Agents: `merge.js` EXCLUDED_PATTERNS assume a PreToolUse hook that does not exist
+
+#### Background
+
+`.claude/skills/merge-settings/scripts/merge.js` drops `gh ... list|view` and gcloud read-only entries from incoming `settings.local.json` entries. It does so through `EXCLUDED_PATTERNS` (line 55, `/^Bash\(gh [^)]+ (?:list|view) ?\*?\)$/`, plus the gcloud pattern above it). The comment above them says a PreToolUse hook auto-allows those read-only CLI calls. The `merge-settings-keep-existing` work found that no such hook exists, either in the repo `.claude/settings.json` (no `hooks` key, no `.claude/hooks/`) or in the user-level settings. The user-level hooks are `SessionStart`, `UserPromptSubmit`, `SessionEnd` and `PostToolUse` only, and permissions use `defaultMode: "auto"`. So `gh pr view` is let through by the auto permission mode, not by a hook. That feature left the patterns and the comment unchanged, as its plan required. Plan: `docs/plans/_archived/20261002-merge-settings-keep-existing/plan.md`.
+
+Files: `.claude/skills/merge-settings/scripts/merge.js`, `.claude/skills/merge-settings/SKILL.md`.
+
+#### TODO
+
+- [ ] Decide whether to drop the hook-based exclusion patterns or fix their comment to describe the real premise, then update `merge.js` and the SKILL.md paragraph "Entries excluded from the merge automatically" to match. Keep `.claude/skills/merge-settings/scripts/merge.test.sh` passing.
+
 ---
