@@ -1141,8 +1141,8 @@ least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
   thread's nice alone). A failure to lower the priority is not an error: the
   pass runs at normal priority and `extract_all` / `extract_analysis_all`
   return the message as `Ok(Some(msg))`, which the app logs once per pass.
-- Both passes take their files from one `WorkQueue` whose hot list is the
-  `ScanFocus` handle stored in `ScansState.running`. `set_scan_focus(scan_id,
+- Each pass builds its own `WorkQueue`; both read their hot list from the
+  one `ScanFocus` handle stored in `ScansState.running`. `set_scan_focus(scan_id,
   paths)` replaces that list only when `scan_id` is the running scan's: a
   stale id (a late debounce timer after a folder switch, or a call after
   `faces-done`) is a silent no-op by design, not an error.

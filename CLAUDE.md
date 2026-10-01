@@ -49,8 +49,8 @@ passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `faces_extractor` columns with the focus candidate cue the `f` focus mark is
 colored by and the sharpness score, and streams them as `faces-progress` /
 `faces-done` events; both passes run on worker threads below normal OS
-priority (the second lowest) and pull their files from one shared queue that
-takes the on-screen files first through the `ScanFocus` handle,
+priority (the second pass lower still) and take the on-screen files first
+through the shared `ScanFocus` handle,
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range, and
 `faces_of`, which detects the faces the focus mark

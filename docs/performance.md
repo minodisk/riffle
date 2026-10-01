@@ -372,7 +372,7 @@ focus candidate cue and the sharpness score:
 | Focus candidate cue (crop detection + eye window) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
 
-The first pass writes each row as soon as its thumbnail is done, so the
+The first pass writes the rows in small batches (10) as their thumbnails finish, so the
 thumbnails appear at the speed of the read and the thumbnail encode, and the
 sharpness bars fill in with the focus marks during the second pass. The
 numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
