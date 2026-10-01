@@ -57,7 +57,7 @@ the other.
       the style of `docs/agents/github-actions-workflows.md` ("Read this
       before touching `crates/core/src/dop.rs`, `crates/app/src/photolab.rs`
       or the `.dop` side of `crates/app/src/sidecar.rs` ..."; "The tags
-      follow [`tauri-app.md`](../../agents/tauri-app.md): **Hit** ... **Measured** ...
+      follow [`tauri-app.md`](../../../agents/tauri-app.md): **Hit** ... **Measured** ...
       **Inferred** ..."), followed by these four sections moved verbatim from
       `tauri-app.md` (heading text, body, bullets and `Source:` lines
       unchanged; only the heading level may change to fit the new file):
@@ -90,7 +90,7 @@ the other.
       the place they were (between the "Path comparisons in the UI take the
       platform `ignoreCase` flag" section and "Removing an XMP element needs
       its end tag") there is one short paragraph pointing to
-      [`photolab.md`](../../agents/photolab.md) for the `.dop` / PhotoLab pitfalls.
+      [`photolab.md`](../../../agents/photolab.md) for the `.dop` / PhotoLab pitfalls.
       Nothing else in `tauri-app.md` changes (the APFS `exists()` section's
       `.dop` example, the sidecar-generic sections at the former lines 945,
       961 and 1792, and the passing `.dop` mentions in the watcher and CSS
