@@ -67,8 +67,9 @@ worktree and prints a summary to stderr:
 - `Merged settings.local.json: <path1>, <path2>, ...`
 - `Added permissions.allow: <n>` / `deny:` / `ask:`
 
-When no permission is added, no `settings.local.json` was merged and no other
-key (a `hooks` block, `env`, ...) differs from the current file, it prints
+When nothing in the merge changes the current file (no permission is added and
+no other key, such as a `hooks` block or `env`, differs; a `settings.local.json`
+whose entries are all excluded or already present counts as nothing), it prints
 `Nothing to write: .claude/settings.json left unchanged` instead of writing, so
 a no-op run leaves the file byte-for-byte as it was.
 
@@ -83,9 +84,11 @@ caught too.
 
 ## 3. Commit changes
 
-If step 2 printed `Nothing to write: ...`, stop here and report that there was
-nothing to merge. Skip the commit, the `settings.local.json` emptying and the
-PR (`git commit` would fail with "nothing to commit").
+If step 2 printed `Nothing to write: ...`, there is nothing to commit
+(`git commit` would fail with "nothing to commit"). Skip the commit and the PR,
+but still overwrite each path listed on the `Merged settings.local.json:` line
+with `{}
+`, using the Write tool, then report that there was nothing to merge.
 
 Check that `.claude/settings.json` is valid JSON (`.claude/` is outside what
 `mise run fmt` / CI check, so if it lands on main broken, the permission

@@ -73,6 +73,7 @@ function expect_unchanged() {
 
 expect_unchanged "no local file"
 expect_unchanged "empty local file" '{}'
+expect_unchanged "local with only an excluded entry" '{"permissions":{"allow":["Bash(gh issue list *)"]}}'
 
 cases=$((cases + 1))
 dir="$(setup "local adds entries" '{"permissions":{"allow":["Bash(mise run ci)","Bash(gh issue list *)"]}}')"
