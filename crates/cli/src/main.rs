@@ -40,8 +40,23 @@ fn main() -> Result<()> {
             }
             candidates(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
+        Some("check") => {
+            let mut dirs = &args[1..];
+            let threads = match dirs.last().map(|t| t.parse::<usize>()) {
+                Some(Ok(n)) => {
+                    dirs = &dirs[..dirs.len() - 1];
+                    Some(n)
+                }
+                _ => None,
+            };
+            if dirs.is_empty() {
+                bail!("usage: riffle-cli check <dir>... [threads]");
+            }
+            check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
+        }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]
+       riffle-cli check <dir>... [threads]"
         ),
     }
 }
@@ -514,6 +529,140 @@ fn auc(frames: impl Iterator<Item = (bool, f64)>) -> f64 {
     s / (pos.len() * neg.len()) as f64
 }
 
+/// Run every RAW and JPEG file under one or more folders, recursively,
+/// through what the app's thumbnail, preview and 1:1 views call, print each
+/// failed stage and a per-extension summary, and fail when any file did.
+fn check(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
+    let threads =
+        threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
+    let mut paths = Vec::new();
+    let mut failures = Vec::new();
+    let mut folders = 0;
+    for dir in dirs {
+        if !dir.is_dir() {
+            bail!("not a folder: {dir:?}");
+        }
+        folders += collect(dir, &mut paths, &mut failures);
+    }
+    paths.sort();
+    let unlisted = failures.len();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()?;
+
+    let start = Instant::now();
+    let results: Vec<Vec<(&str, String)>> = pool.install(|| {
+        use rayon::prelude::*;
+        paths.par_iter().map(|p| check_file(p)).collect()
+    });
+    let total = start.elapsed();
+
+    for (path, errors) in paths.iter().zip(&results) {
+        for (stage, e) in errors {
+            failures.push((path.clone(), format!("{stage}: {e}")));
+        }
+    }
+    failures.sort_by(|a, b| a.0.cmp(&b.0));
+    for (path, e) in &failures {
+        println!("{}  {e}", path.display());
+    }
+    let tallies = tally(
+        paths
+            .iter()
+            .zip(&results)
+            .map(|(p, errors)| (p.as_path(), !errors.is_empty())),
+    );
+    for (ext, (ok, failed)) in &tallies {
+        println!("{ext}: {ok} ok, {failed} failed");
+    }
+    let failed = tallies.values().map(|(_, f)| f).sum::<usize>() + unlisted;
+    println!(
+        "{} files in {folders} folder(s), {threads} threads, {failed} failed: {:.2}s total",
+        paths.len(),
+        total.as_secs_f64()
+    );
+    if failed > 0 {
+        bail!("{failed} file(s) failed");
+    }
+    Ok(())
+}
+
+/// Add the RAW and JPEG files under `dir` to `paths`, recursively, and each
+/// folder that cannot be listed to `failures`; return the folders listed.
+fn collect(dir: &Path, paths: &mut Vec<PathBuf>, failures: &mut Vec<(PathBuf, String)>) -> usize {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            failures.push((dir.to_path_buf(), format!("list: {e}")));
+            return 0;
+        }
+    };
+    let mut folders = 1;
+    for entry in entries {
+        let path = match entry {
+            Ok(entry) => entry.path(),
+            Err(e) => {
+                failures.push((dir.to_path_buf(), format!("list: {e}")));
+                continue;
+            }
+        };
+        if path.is_dir() {
+            folders += collect(&path, paths, failures);
+        } else if scan::is_raw_file(&path) || scan::is_jpeg_file(&path) {
+            paths.push(path);
+        }
+    }
+    folders
+}
+
+/// The first error of each stage the app runs on `path`.
+fn check_file(path: &Path) -> Vec<(&'static str, String)> {
+    let mut errors = Vec::new();
+    if let Err(e) = scan::extract(path) {
+        errors.push(("scan", e));
+    }
+    if let Err(e) = reader::read_preview(path).and_then(|(_, jpeg)| decode_rgb(&jpeg)) {
+        errors.push(("preview", format!("{e:#}")));
+    }
+    let full = reader::read_metadata(path).and_then(|a| {
+        if a.full.is_none() {
+            return Ok(());
+        }
+        let (a, jpeg) = reader::read_full(path)?;
+        // The partial decode keeps libjpeg's default error_exit, which ends the
+        // process on a malformed JPEG, so vet the bytes with the guarded
+        // decoder first.
+        decode_rgb(&jpeg)?;
+        partial::decode_focus_crop(&jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE).map(|_| ())
+    });
+    if let Err(e) = full {
+        errors.push(("full", format!("{e:#}")));
+    }
+    errors
+}
+
+/// The (ok, failed) counts of `(path, failed)` pairs per lower-cased extension.
+fn tally<'a>(
+    files: impl Iterator<Item = (&'a Path, bool)>,
+) -> std::collections::BTreeMap<String, (usize, usize)> {
+    let mut counts = std::collections::BTreeMap::new();
+    for (path, failed) in files {
+        let ext = path
+            .extension()
+            .map_or(String::new(), |e| e.to_string_lossy().to_lowercase());
+        let c: &mut (usize, usize) = counts.entry(ext).or_default();
+        if failed {
+            c.1 += 1;
+        } else {
+            c.0 += 1;
+        }
+    }
+    counts
+}
+
 /// Write out the partial decode so it can be checked by eye.
 fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
     let size = size.unwrap_or(CROP_SIZE);
@@ -548,4 +697,25 @@ fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
     image::save_buffer(out, &rgb, w as u32, h as u32, image::ColorType::Rgb8)?;
     println!("wrote {out:?} ({w}x{h})");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tally_counts_per_lower_cased_extension() {
+        let files = [
+            ("a/1.CR3", false),
+            ("a/2.cr3", true),
+            ("b/3.cr3", false),
+            ("b/4.JPG", false),
+            ("b/5.arw", true),
+        ];
+        let counts = tally(files.iter().map(|&(p, f)| (Path::new(p), f)));
+        assert_eq!(counts.len(), 3);
+        assert_eq!(counts["cr3"], (2, 1));
+        assert_eq!(counts["jpg"], (1, 0));
+        assert_eq!(counts["arw"], (0, 1));
+    }
 }
