@@ -74,7 +74,7 @@ before its sidecars, never overwriting, keeping what came back for
 `sequence-done` events, and
 `src/photolab.rs` the PhotoLab database lookup that gives a fresh `.dop` the
 registered image's Source and master Item Uuids so PhotoLab does not import it
-as a virtual copy, and
+as a virtual copy (see `docs/agents/photolab.md`), and
 `src/sidecar.rs` the coalescing sidecar writer thread and `SidecarFormat`, the
 XMP, `.dop` or both setting chosen in the settings modal and persisted in the
 `sidecarFormat` key of the settings store, next to the configurable
