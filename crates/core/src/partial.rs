@@ -1,7 +1,7 @@
 //! Partially decode only the area around the focus point out of JpgFromRaw.
 //! Calls libjpeg-turbo's jpeg_crop_scanline + jpeg_skip_scanlines directly.
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use mozjpeg_sys as sys;
 use std::mem;
 
@@ -75,8 +75,23 @@ pub fn decode_crop(jpeg: &[u8], cx: usize, cy: usize, size: usize) -> Result<Cro
 
 /// The shared partial decode. `region` is handed the JPEG's size and returns
 /// the wanted center and size; the result is clamped to the image and snapped
-/// to MCU boundaries horizontally.
+/// to MCU boundaries horizontally. A fatal libjpeg error comes back as `Err`.
 fn decode_region(
+    jpeg: &[u8],
+    color: sys::J_COLOR_SPACE,
+    channels: usize,
+    region: impl FnOnce(usize, usize) -> (usize, usize, usize, usize),
+) -> Result<Crop> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        decode_region_unguarded(jpeg, color, channels, region)
+    }))
+    .map_err(|e| match e.downcast::<String>() {
+        Ok(msg) => anyhow!(*msg),
+        Err(_) => anyhow!("panic while partially decoding the JPEG"),
+    })?
+}
+
+fn decode_region_unguarded(
     jpeg: &[u8],
     color: sys::J_COLOR_SPACE,
     channels: usize,
@@ -86,6 +101,9 @@ fn decode_region(
         let mut err: sys::jpeg_error_mgr = mem::zeroed();
         let mut cinfo: sys::jpeg_decompress_struct = mem::zeroed();
         cinfo.common.err = sys::jpeg_std_error(&mut err);
+        // The default error_exit calls exit(1); unwind instead so the guard
+        // above turns it into an Err.
+        (*cinfo.common.err).error_exit = Some(unwind_error_exit);
         sys::jpeg_create_decompress(&mut cinfo);
 
         let guard = scopeguard(&mut cinfo as *mut _);
@@ -141,6 +159,30 @@ fn decode_region(
             image_height: ih,
         })
     }
+}
+
+/// Unwinds with libjpeg's message, skipping the panic hook so nothing is
+/// printed for an expected bad file.
+#[cold]
+extern "C-unwind" fn unwind_error_exit(cinfo: &mut sys::jpeg_common_struct) {
+    let msg = unsafe {
+        let err = &*cinfo.err;
+        match err.format_message {
+            Some(fmt) => {
+                // mozjpeg-sys declares the buffer `&[u8; 80]`, but libjpeg writes into it.
+                let fmt = mem::transmute::<
+                    unsafe extern "C-unwind" fn(&mut sys::jpeg_common_struct, &[u8; 80]),
+                    unsafe extern "C-unwind" fn(&mut sys::jpeg_common_struct, &mut [u8; 80]),
+                >(fmt);
+                let mut buf = [0u8; 80];
+                fmt(cinfo, &mut buf);
+                let text = buf.split(|&c| c == 0).next().unwrap_or_default();
+                format!("libjpeg fatal error: {}", String::from_utf8_lossy(text))
+            }
+            None => format!("libjpeg fatal error: code {}", err.msg_code),
+        }
+    };
+    std::panic::resume_unwind(Box::new(msg));
 }
 
 /// Makes sure jpeg_destroy_decompress always runs.
@@ -237,6 +279,24 @@ mod tests {
         assert_eq!(
             focus_point(7008, 4672, Some(focus(7008, 4672, 3613, 1732))),
             (3613, 1732)
+        );
+    }
+
+    #[test]
+    fn a_malformed_jpeg_is_an_error() {
+        let jpeg = jpeg(320, 240);
+        // Cut inside the header: a cut inside the scan data is only a libjpeg
+        // warning ("Premature end of JPEG file") and still yields a crop.
+        let inputs: [&[u8]; 3] = [b"", b"not a jpeg", &jpeg[..64]];
+        for input in inputs {
+            assert!(decode_focus_crop(input, None, 64, 64).is_err());
+            assert!(decode_crop(input, 160, 120, 64).is_err());
+        }
+        let e = decode_crop(b"not a jpeg", 0, 0, 64).err().unwrap();
+        assert!(
+            e.to_string()
+                .starts_with("libjpeg fatal error: Not a JPEG file"),
+            "{e}"
         );
     }
 

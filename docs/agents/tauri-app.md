@@ -255,24 +255,41 @@ of returning a `Result::Err`.
   `.ok()` on it.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 1.
 
-### `partial.rs`'s libjpeg calls `exit(1)` on a corrupt JPEG; `catch_unwind` cannot stop it (Hit)
+### `partial.rs` replaces libjpeg's `error_exit`, which would call `exit(1)` (Hit)
 
-`crates/core/src/partial.rs` (`decode_region`, behind `decode_focus_crop`) calls
-libjpeg through `mozjpeg-sys` with `jpeg_std_error`, whose default `error_exit`
-calls `exit(1)`. Unlike the `mozjpeg` crate's `Decompress`, which panics, a fatal
-error here ends the whole process and nothing unwinds.
+`crates/core/src/partial.rs` (`decode_region`, behind `decode_focus_crop` and
+`decode_crop`) calls libjpeg through `mozjpeg-sys` with `jpeg_std_error`, whose
+default `error_exit` calls `exit(1)`: a fatal error there used to end the whole
+process, and `catch_unwind` could not stop it.
 
-- Any caller that feeds it bytes it cannot trust (an embedded full-size JPEG of
-  an arbitrary file) must first run the guarded `decode_rgb` on them and pass
-  only bytes that decode. `riffle-cli check` does this in `check_file`'s `full`
-  stage. The app's `focus_crop` command has no such guard yet (see the todo on
-  installing a panicking `error_exit`).
-- Seen on `NEF\NIKON_D70_Nikon.nef` and `DNG\CGO3P_YUN00007.dng`: the symptom
-  was a run that died mid-way with libjpeg's `Empty input file` / `Not a JPEG
+- The guard is in place: `decode_region` installs `unwind_error_exit`, an
+  `extern "C-unwind"` handler that formats libjpeg's message and
+  `resume_unwind`s (no panic hook, so nothing is printed), and wraps the body in
+  `catch_unwind`. `decode_focus_crop` / `decode_crop` now return `Err` with the
+  text (e.g. `libjpeg fatal error: Not a JPEG file: starts with 0x3c 0x44`), so
+  the app's `focus_crop` command reports the error instead of exiting, and
+  callers no longer need the `decode_rgb` pre-check `riffle-cli check` used to
+  run.
+- Unwinding through libjpeg's C frames needs `mozjpeg-sys`'s `unwinding`
+  feature; `crates/core/Cargo.toml` names it explicitly.
+- A JPEG cut inside its scan data is not a fatal error: libjpeg warns
+  (`Premature end of JPEG file`) and the crop comes back with filler rows. Only
+  a cut inside the header, an empty input or a non-JPEG fails.
+- `partial.rs`'s decoder and the `mozjpeg` crate's `decode_rgb` are not
+  interchangeable validators: `decode_rgb` also fails on a JPEG cut inside its
+  scan data, which `partial.rs` accepts with a warning. To test the `Err` path,
+  cut inside the header (e.g. `&jpeg[..64]`), not the middle of the data.
+- Set the handler through the pointer,
+  `(*cinfo.common.err).error_exit = ...`, not on the local `err` after
+  `jpeg_std_error(&mut err)`. rustc does not see the read through the raw
+  pointer and trips `unused_assignments`.
+- Seen on `NEF\NIKON_D70_Nikon.nef` and `DNG\CGO3P_YUN00007.dng`: before the
+  guard, a run died mid-way with libjpeg's `Empty input file` / `Not a JPEG
   file` on stderr, exit code 1 and no summary.
-- libjpeg warnings (`Corrupt JPEG data`, `Invalid SOS parameters`) go straight
-  to stderr, while `check`'s failure lines and summary are on stdout.
-- Source: `docs/plans/_archived/20261001-cli-check-samples/learnings.md`, Step 1.
+- libjpeg warnings (`Corrupt JPEG data`, `Invalid SOS parameters`) still go
+  straight to stderr, while `check`'s failure lines and summary are on stdout.
+- Source: `docs/plans/_archived/20261001-cli-check-samples/learnings.md`, Step 1;
+  `docs/plans/_archived/20261002-partial-decode-error-exit/learnings.md`, Step 1.
 
 ### Draining background work at quit needs `build()` + `run()` (Hit)
 

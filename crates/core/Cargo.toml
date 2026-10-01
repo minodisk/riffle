@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 mozjpeg = "0.10"
-mozjpeg-sys = "2.2"
+mozjpeg-sys = { version = "2.2", features = ["unwinding"] }
 anyhow = "1"
 rayon = "1"
 quick-xml = "0.42"
