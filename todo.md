@@ -670,8 +670,7 @@ Files: `crates/app/ui/src/worker.ts` (resize on decode),
 ### Core: pre-2012 NEFs fall back to the full-size JPEG for the preview
 
 NEFs from bodies of about 2010 to 2012 (the D7000 on the raw.pixls.us
-samples; the older D3, D40, D70 and D90 carry the same layout but predate
-2010, so they are not supported bodies) carry one JPEG SubIFD, so `nef::parse` uses the
+samples) carry one JPEG SubIFD, so `nef::parse` uses the
 full-size JpgFromRaw as the preview too: each page turn decodes a
 3000-5000 px JPEG and the fixed 2/8 thumbnail scale gives large thumbnails,
 the same issue recorded above for the SIGMA fp L. Found in the Step 2
@@ -802,15 +801,15 @@ No raw.pixls.us sample of the listed Fujifilm bodies is an M-RAW (multi-image) R
 
 The `raf-older-bodies` sweep of 228 RAFs from 87 bodies (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`) found no M-RAW either: `0x48` is zero on all of them.
 
-### Core: old FinePix bodies show Exif `Model` with trailing spaces
+### Core: the FinePix SL1000 shows Exif `Make` and `Model` with trailing spaces
 
 #### Background
 
-The old FinePix bodies write the Exif `Model` padded with trailing spaces (for example `FinePix E550   `), and the meta pane shows it as is. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/_archived/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
+The FinePix SL1000 writes the Exif `Make` and `Model` padded with trailing spaces (`FUJIFILM               ` / `FinePix SL1000         ` on its raw.pixls.us sample, `D:\photos\samples\RAF\FinePix_SL1000_RAW_file_from_Fijifilm_Finepix_SL1000.RAF`), and the meta pane showed them as is; every other listed FinePix and X-series body writes both unpadded. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/_archived/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
 
 #### TODO
 
-- [ ] Check the meta pane on a FinePix RAF shows the trimmed `Model`.
+- [ ] Check the meta pane on the SL1000 RAF shows the trimmed `Make` and `Model`.
 
 ### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
 
@@ -1219,12 +1218,13 @@ Files: `crates/core/src/orf.rs`, `crates/core/src/scan.rs`,
 - [ ] On Windows, open `D:\photos\samples\ORF\` in the app and check that
       (1) every `.ORF` appears in the strip with a thumbnail, and the folder
       tree's RAW count includes them; (2) the preview and the 1:1 view show
-      the 3200x2400 embedded JPEG, the XZ-10 and E-30 frames upright; (3)
-      the meta pane shows the EXIF rows (camera without trailing spaces,
-      lens, exposure, capture time); (4) a star, a flag and a color label
-      write an XMP and a `.dop` next to the file; (5) rejecting a file and
-      running `Move Rejected to Trash…` moves the ORF and its sidecars, and
-      Undo restores them.
+      the 3200x2400 embedded JPEG, the E-M1 Mark II's rotated frames
+      (Orientation 8, e.g. `E-M1MarkII_olympus_om_d_e_m1_mark_ii_01.orf`)
+      upright; (3) the meta pane shows the EXIF rows (camera without
+      trailing spaces, lens, exposure, capture time); (4) a star, a flag and
+      a color label write an XMP and a `.dop` next to the file; (5)
+      rejecting a file and running `Move Rejected to Trash…` moves the ORF
+      and its sidecars, and Undo restores them.
 
 ### App: real-device checks for the flex / grid gap layout (no-margin-layout) are still open
 
