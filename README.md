@@ -115,8 +115,8 @@ DxO PhotoLab.
   white when Riffle does not know (no AF point, manual focus, no face near the
   point, or not computed yet). The camera's face tracking no longer colors
   the mark. The cue is computed in a second pass right after the thumbnails,
-  so the marks turn from white as it runs; the strip marks each candidate
-  with a green face icon at the cell's bottom-left, the meta pane shows the
+  so the marks turn from white as it runs, the files on screen first; the
+  strip marks each candidate with a green face icon at the cell's bottom-left, the meta pane shows the
   probability as `AF eye in focus` (a percentage), and the filter menu's
   `AF eye` section (`Sharp` / `Soft` / `Unknown`) narrows the strip by the
   state. The mark also draws the faces
@@ -126,7 +126,10 @@ DxO PhotoLab.
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the
   camera recorded no AF point and a face is found, else the sharpest region
-  (see [What the camera records](./docs/cameras.md)).
+  (see [What the camera records](./docs/cameras.md)). The score is computed in
+  the same second pass as the focus mark's state, so the bars fill in after the
+  thumbnails. Both passes run below normal priority, so the viewer comes first
+  when they compete for the CPU.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license), run locally with no network access. The strip's

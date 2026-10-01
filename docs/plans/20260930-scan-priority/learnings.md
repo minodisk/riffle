@@ -161,6 +161,25 @@
   `list_arw` strings, which are built with the same `to_string_lossy` as the
   scan's `FileStat` paths, so the backend's queue matches them.
 
+## Step 7: the documentation
+
+- Steps 4 and 6's hand measurements are still pending, so `docs/performance.md`
+  gained a "Which pass carries which cost" subsection (a table of which pass
+  each cost moved to, the priority levels, and a note that the page-latency
+  and wall-time measurements are pending) instead of new numbers. The older
+  sections ("Sharpness scoring cost", "Face detection cost", the RAF note)
+  keep their figures with a sentence saying they predate the move, since
+  their `riffle-cli scan` "after" columns include costs that pass no longer
+  carries. Once the pending checks are done, their numbers go in that
+  subsection.
+- `docs/usage.md` already said the score fills in during `analyzing N / M`
+  (Step 3); this step added the on-screen-first order and the lowered
+  priority to the Filmstrip entry, and that the Analysis rows come from the
+  second pass.
+- The README sentence on priority avoids promising that paging "stays
+  responsive" (not measured yet); it says the viewer comes first when the
+  passes compete for the CPU.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 3, `crates/app/ui/src/main.ts` `faces-progress`

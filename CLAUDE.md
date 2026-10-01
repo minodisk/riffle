@@ -44,11 +44,16 @@ benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 which also keeps each folder's last viewed file in `folders.last_viewed`,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
-passes on the one scan task: `run_scan` (thumbnail, metadata, sharpness),
-then `run_faces_scan`, which fills the `eye_focus` / `faces_extractor`
-columns with the focus candidate cue the `f` focus mark is colored by and
-streams it as `faces-progress` / `faces-done` events, `src/commands.rs` the
-Tauri commands, including `faces_of`, which detects the faces the focus mark
+passes on the one scan task: `run_scan` (thumbnail, metadata), then
+`run_faces_scan`, which fills the `eye_focus` / `sharpness` /
+`faces_extractor` columns with the focus candidate cue the `f` focus mark is
+colored by and the sharpness score, and streams them as `faces-progress` /
+`faces-done` events; both passes run on worker threads below normal OS
+priority (the second lowest) and pull their files from one shared queue that
+takes the on-screen files first through the `ScanFocus` handle,
+`src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
+the running scan the current file and the strip's visible range, and
+`faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, `src/folders.rs` the folder tree's commands (the

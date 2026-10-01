@@ -378,7 +378,7 @@ bump); the `focus N / M` status text is Step 3's call.
     - Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/strip.ts`,
       `crates/app/ui/src/scanfocus.ts`, `crates/app/ui/src/scanfocus.test.ts`.
 
-- [ ] Step 7: Update the documentation that describes the scan
+- [x] Step 7: Update the documentation that describes the scan
   - Done when:
     - `README.md` and `README.ja.md` (the sharpness cue and the "second
       pass" sentences around lines 95-110), `docs/usage.md` (the second

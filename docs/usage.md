@@ -95,7 +95,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the
-  filter and sort menus.
+  filter and sort menus. While a folder is scanned (`scanning N / M`, then
+  `analyzing N / M`), the scan takes the shown file and the strip's visible
+  cells first, following paging and scrolling, so their thumbnails, then
+  their focus marks and sharpness bars, arrive before the rest. Both passes
+  run below normal OS priority, the second lower still, so the viewer and the
+  rest of the machine come first when they compete for the CPU.
   Several files can be selected: `Cmd+click` (`Ctrl+click` on Windows and
   Linux) adds or removes one file without changing the file shown (the shown
   file itself always stays selected), `Shift+click` selects every file from the
@@ -152,8 +157,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
   is judged by the faces Riffle detects like any other. The state is computed
   in a second pass that starts right after the thumbnails and metadata of the
-  folder are in, so the marks turn from white to green or orange while the
-  status shows `analyzing N / M`. The strip marks each candidate with a green
+  folder are in, so the marks turn from white to green or orange, the files on
+  screen first, while the status shows `analyzing N / M`. The strip marks each candidate with a green
   face icon (Lucide's `scan-face`, ISC license, text in
   `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
   name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
@@ -212,7 +217,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   holds what Riffle computes itself: the sharpness score and `AF eye in
   focus`, the in-focus probability (a percentage) of the eyes of the face
   nearest the AF point that the focus candidate state is decided from (left
-  out when there is none).
+  out when there is none). Both come from the scan's second pass, so they
+  appear a little after the file's thumbnail on a folder's first scan.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus candidate state (the
   `AF eye` section: `Sharp` for a green focus mark, `Soft` for orange and
