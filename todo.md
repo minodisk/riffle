@@ -995,7 +995,10 @@ is.
 `#[cfg(windows)]`; `registered_uuids` returns `None` on macOS because
 PhotoLab's database location there is unknown. A fresh `.dop` for an image
 PhotoLab already registered still gets random Uuids on macOS and PhotoLab
-still imports it as a virtual copy.
+still imports it as a virtual copy. Omitting or emptying the Uuids was
+checked (PhotoLab 10.0.1, Windows, 2026-10-01) and does not avoid the virtual
+copy (omitted gives a virtual copy with a nil Uuid, empty makes PhotoLab
+ignore the sidecar), so the database's Uuids remain the only fix.
 
 #### TODO
 
@@ -1010,7 +1013,10 @@ a 300 ms `busy_timeout`; if PhotoLab is mid-transaction past that window, the
 lookup returns `None` and the fresh `.dop` mints random Uuids, which can still
 produce a virtual copy on a registered image. The failure is logged at
 `log::debug!`, but the writer does not retry the lookup for an
-already-written sidecar.
+already-written sidecar. Omitting or emptying the Uuids was checked
+(PhotoLab 10.0.1, Windows, 2026-10-01) and does not avoid the virtual copy
+(omitted gives a virtual copy with a nil Uuid, empty makes PhotoLab ignore
+the sidecar), so the database's Uuids remain the only fix.
 
 #### TODO
 
