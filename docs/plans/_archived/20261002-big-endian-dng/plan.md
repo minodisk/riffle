@@ -162,3 +162,5 @@ such as `no embedded preview`), and the todo.md item
   rows for these DNGs are otherwise never retried.
 
 ## Progress
+
+- (2026-10-02) Step 1 complete

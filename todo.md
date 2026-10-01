@@ -1331,3 +1331,14 @@ Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
 - [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
 - [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
+### App: real-device check that big-endian DNGs open after the EXTRACTOR_VERSION bump
+
+`big-endian-dng` (`docs/plans/_archived/20261002-big-endian-dng/plan.md`) made `arw::parse` follow the TIFF header's byte order, so the `MM` DNGs of Pentax, Samsung, Ricoh, Leica M (Typ 240 / 246) and iPhone no longer fail with `not a little-endian TIFF/ARW`. It also bumped `EXTRACTOR_VERSION` from 11 to 12, so an index that cached those parse errors should re-extract the rows. The unit tests, `riffle-cli check` on the sample tree (34 of the 52 `MM` files open at every stage) and `mise run ci` cover the parser. The Riffle app was never opened on such a folder, so the re-extraction of cached failed rows and the thumbnails, preview and 1:1 view for these files were never exercised. The step was ticked on the automated criteria only.
+
+Files: `crates/core/src/arw.rs`, `crates/app/src/index.rs` (`EXTRACTOR_VERSION`).
+
+#### TODO
+
+- [ ] On Windows, with an index written by `EXTRACTOR_VERSION` 11 (open `D:\Photos\samples\DNG\` in a build from before the bump, then in this build), open a folder containing the Pentax K-5 II, iPhone 12 Pro and Leica M (Typ 240) samples. Expected: the rows that cached `not a little-endian TIFF/ARW` are re-extracted, and the thumbnails, the preview and the 1:1 view show.
+
+---
