@@ -4,12 +4,13 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-# Tests for merge.js --self --write.
+# Tests for merge.js --write.
 #
-# Exclusions screen only entries coming in from settings.local.json, and a run
-# with nothing to add leaves .claude/settings.json byte-for-byte unchanged. Each
-# case runs merge.js in a fresh temporary directory (--self never calls git, so
-# no repository is needed).
+# Exclusions screen only incoming entries, a run with nothing to add leaves
+# .claude/settings.json byte-for-byte unchanged, and a non-permission change
+# from another worktree is still written. The --self cases run in a fresh
+# temporary directory and need no repository; the all-worktrees case sets up a
+# git worktree.
 #
 # Run it directly, or via `mise run ci`.
 

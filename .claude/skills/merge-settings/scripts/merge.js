@@ -219,12 +219,10 @@ function permissionEntries(settings, key) {
 
 if (WRITE) {
   // The calling agent reads only this summary to report from (never the JSON itself)
-  let addedTotal = 0;
   for (const key of ["allow", "deny", "ask"]) {
     const before = new Set(permissionEntries(base, key));
     const added = permissionEntries(merged, key).filter((v) => !before.has(v));
     console.error(`Added permissions.${key}: ${added.length}`);
-    addedTotal += added.length;
   }
   // Leave the file byte-for-byte untouched on a no-op run, so it neither
   // reorders the destination nor leaves a diff for commit-settings.sh to commit.
