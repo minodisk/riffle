@@ -41,7 +41,8 @@ A `SHORT` with `count == 1` occupies the first two bytes of the entry's value
 field (the low half of the decoded `u32` in a little-endian file; see the next
 entry for big-endian); the other two bytes are padding, and some writers leave per-file
 garbage there (SIGMA fp L DNGs do, on `Compression`, `PhotometricInterpretation`
-and the like). `integer()` masks a count-1 `SHORT` with `& 0xFFFF`.
+and the like). `integer()` takes those two bytes through `inline_short` (it masks with
+`& 0xFFFF` only for `II`; for `MM` it takes `value >> 16`).
 
 - What broke: without the mask, `strip_jpeg` compared a padded `Compression`
   / `PhotometricInterpretation` against the JPEG / YCbCr values and rejected

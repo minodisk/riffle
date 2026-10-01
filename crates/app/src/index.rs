@@ -98,7 +98,9 @@ const SCHEMA_VERSION: i64 = 17;
 /// `THMB` of HDR PQ CR3 files; `11` reads the preview of the old `OLYMP\0`
 /// Olympus MakerNote. It stayed `11` when the sharpness score moved to the
 /// second pass: the score's computation did not change, so a row the first
-/// pass scored keeps a correct score.
+/// pass scored keeps a correct score. `12` reads big-endian (`MM`) TIFF
+/// containers, so the DNGs that failed with `not a little-endian TIFF/ARW`
+/// get re-extracted.
 const EXTRACTOR_VERSION: i64 = 12;
 
 /// The version of what the second pass, `riffle_core::scan::extract_analysis`,
