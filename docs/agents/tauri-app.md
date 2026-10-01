@@ -255,6 +255,25 @@ of returning a `Result::Err`.
   `.ok()` on it.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 1.
 
+### `partial.rs`'s libjpeg calls `exit(1)` on a corrupt JPEG; `catch_unwind` cannot stop it (Hit)
+
+`crates/core/src/partial.rs` (`decode_region`, behind `decode_focus_crop`) calls
+libjpeg through `mozjpeg-sys` with `jpeg_std_error`, whose default `error_exit`
+calls `exit(1)`. Unlike the `mozjpeg` crate's `Decompress`, which panics, a fatal
+error here ends the whole process and nothing unwinds.
+
+- Any caller that feeds it bytes it cannot trust (an embedded full-size JPEG of
+  an arbitrary file) must first run the guarded `decode_rgb` on them and pass
+  only bytes that decode. `riffle-cli check` does this in `check_file`'s `full`
+  stage. The app's `focus_crop` command has no such guard yet (see the todo on
+  installing a panicking `error_exit`).
+- Seen on `NEF\NIKON_D70_Nikon.nef` and `DNG\CGO3P_YUN00007.dng`: the symptom
+  was a run that died mid-way with libjpeg's `Empty input file` / `Not a JPEG
+  file` on stderr, exit code 1 and no summary.
+- libjpeg warnings (`Corrupt JPEG data`, `Invalid SOS parameters`) go straight
+  to stderr, while `check`'s failure lines and summary are on stdout.
+- Source: `docs/plans/_archived/20261001-cli-check-samples/learnings.md`, Step 1.
+
 ### Draining background work at quit needs `build()` + `run()` (Hit)
 
 Work that must finish before the process ends — Phase 6's sidecar writer has a
