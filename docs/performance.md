@@ -79,7 +79,9 @@ scale: the thumbnails come out 404 px on the long edge (19.4KB mean, against
 1104x736 and ~111KB at 2/8), and the thumbnail encode drops from 37-107ms to
 16-60ms per file. The per-file scan cost stays high because the sharpness
 score decodes the whole JPEG and, with no AF point read, faces are searched on
-the whole image.
+the whole image. Those two have since moved to the scan's second pass (see
+"Which pass carries which cost" below), so the `scan` rows above no longer
+match what `riffle-cli scan` measures today.
 
 ## Per-page preview read
 
@@ -197,12 +199,18 @@ runs alternated before and after:
 | 8 | 3 | 8.6-9.1ms / 12.1-13.3ms | 12.3-17.1ms / 15.7-22.0ms |
 
 About +3.2ms per file on one thread (~+45%). The symlinks repeat one file, so
-this is CPU cost with no IO variety.
+this is CPU cost with no IO variety. The score has since moved out of the first
+pass into the second (see "Which pass carries which cost" below), so
+`riffle-cli scan` is back to the "before" column and the ~3ms lands on
+`riffle-cli candidates` and the app's `scan faces` instead.
 
 ### Face detection cost
 
 The scan runs YuNet (2023mar, via `tract-onnx`) on each embedded preview,
-shrunk to a 320x320 input, before scoring sharpness on the eyes. Measured so
+shrunk to a 320x320 input, before scoring sharpness on the eyes. That
+detection now runs in the second pass, not the first (see "Which pass carries
+which cost" below); the measurements in this section predate the move and
+time it inside `riffle-cli scan`. Measured so
 far only on a Linux WSL2 machine (24 threads), release build, with synthetic
 input: the OpenCV sample images `lena.jpg` and `messi5.jpg` upscaled to a
 1616 px long edge, single thread, 30 runs after one warm-up (the time
@@ -346,6 +354,42 @@ alternated, four runs each: 9.79 / 10.33 / 10.23 / 10.31s before, 10.21 /
 The `scan extract` / `scan faces` log lines of an app open of this folder are
 not recorded here yet: that needs the GUI, which was not run for this
 measurement.
+
+### Which pass carries which cost
+
+Since the sharpness score moved to the second pass, the first pass
+(`riffle_core::scan::extract`, `riffle-cli scan`, the app's `scan extract`
+line) reads the preview and computes the thumbnail and the metadata only. The
+second pass (`riffle_core::scan::extract_analysis`, `riffle-cli candidates`,
+the app's `scan faces` line) reads the preview once more and computes both the
+focus candidate cue and the sharpness score:
+
+| Cost | Pass before | Pass now |
+|------|-------------|----------|
+| Bounded read, metadata parse, thumbnail | first | first |
+| Sharpness score (grayscale decode + window, ~3ms) | first | second |
+| Whole-preview face search without a trusted AF point (~17ms) | first | second |
+| Focus candidate cue (crop detection + eye window) | second | second |
+| HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
+
+The first pass writes the rows in small batches (10) as their thumbnails finish, so the
+thumbnails appear at the speed of the read and the thumbnail encode, and the
+sharpness bars fill in with the focus marks during the second pass. The
+numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
+candidate pass" above were measured before the move: the `riffle-cli scan`
+"after" figures there include costs that pass no longer carries.
+
+In the app both passes run below normal OS priority (on Windows
+`THREAD_PRIORITY_BELOW_NORMAL` for the first, `THREAD_PRIORITY_LOWEST` for
+the second; on macOS the `UTILITY` and `BACKGROUND` QoS classes; on Linux a
+nice of at least 5 and 10), and they take the shown file and the strip's visible cells before
+the rest. `riffle-cli scan` and `candidates` run at normal priority and in
+file-name order, so their numbers stay comparable with the tables above.
+
+Not measured yet: the page latency (the `page` timing lines) while the passes
+run, against the previous release, and the `scan extract` / `scan faces` wall
+time with the lowered priority and the on-screen-first queue. Those hand
+measurements are pending on a real folder in the app.
 
 ## Opening an indexed folder again
 

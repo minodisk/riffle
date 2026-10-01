@@ -1114,6 +1114,47 @@ every press of `Clear Cache` after the first folder open.
 - Source: `docs/plans/_archived/20260920-clear-cache-stuck-guard/learnings.md`,
   Steps 1-2.
 
+### The scan pool's priority levels, and `set_scan_focus` drops what it cannot apply (Inferred)
+
+`riffle_core::scan::for_each_path` builds its rayon pool with a
+`spawn_handler` that lowers each worker's OS priority once, before rayon's
+`run`. `run_scan` passes `Priority::BelowNormal` (Windows
+`THREAD_PRIORITY_BELOW_NORMAL`, macOS `QOS_CLASS_UTILITY`, Linux nice of at
+least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
+`QOS_CLASS_BACKGROUND`, nice of at least 10); the CLI passes
+`Priority::Normal`, which makes no call, so its numbers stay comparable with
+`docs/performance.md`.
+
+- Why lowered at all: priority only matters under contention, so an idle
+  machine still gives every worker a full core, while the viewer's `preview`
+  read (tokio's blocking pool, normal priority) and the webview win when the
+  user pages during a scan.
+- Why not `THREAD_PRIORITY_IDLE` / `QOS_CLASS_BACKGROUND` for the first pass:
+  a disk-bound pass at idle priority can starve behind any other process,
+  and on macOS `BACKGROUND` also throttles disk IO. The first pass reads the
+  files cold, so it stays at `BELOW_NORMAL` / `UTILITY`; only the analysis
+  pass, whose reads follow the first pass's, takes `BACKGROUND`. If a Mac
+  shows that pass crawling, move it to `UTILITY` too.
+- `thread-priority` has no macOS QoS API, so it is a Windows-only dependency
+  and the unix branches call `libc` directly (`pthread_set_qos_class_self_np`,
+  `setpriority(PRIO_PROCESS, 0, ..)`, which on Linux sets the calling
+  thread's nice alone). A failure to lower the priority is not an error: the
+  pass runs at normal priority and `extract_all` / `extract_analysis_all`
+  return the message as `Ok(Some(msg))`, which the app logs once per pass.
+- Each pass builds its own `WorkQueue`; both read their hot list from the
+  one `ScanFocus` handle stored in `ScansState.running`. `set_scan_focus(scan_id,
+  paths)` replaces that list only when `scan_id` is the running scan's: a
+  stale id (a late debounce timer after a folder switch, or a call after
+  `faces-done`) is a silent no-op by design, not an error.
+- `set_scan_focus` is a synchronous command, so it runs on the main thread
+  (see "Synchronous commands run on the main thread"). `clear_index`, the
+  trash commands and `spawn_eviction`'s `VACUUM` hold the `Scans` lock for
+  seconds while no scan runs, so the command takes it with `try_lock` and
+  drops the call when it is busy (a busy lock means no scan is taking the
+  focus); a poisoned lock is recovered. Do not turn it into a blocking
+  `lock()`.
+- Source: `docs/plans/20260930-scan-priority/learnings.md`, Steps 4-6.
+
 ### `focus_crop`'s header carries the full JPEG size (Hit)
 
 `riffle_core::partial::Crop` carries the full JPEG's `image_width`/
