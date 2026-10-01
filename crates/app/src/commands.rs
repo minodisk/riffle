@@ -2899,7 +2899,7 @@ mod tests {
 
         let files: Vec<_> = listed
             .iter()
-            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".to_string())))
+            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".into())))
             .collect();
         index::lock(&index).write_batch(&dir, &files).unwrap();
         assert_eq!(rating_of(&index, &dir, &listed[0]), None);
@@ -2937,7 +2937,7 @@ mod tests {
     fn index_files(index: &Arc<Mutex<Index>>, dir: &str, listed: &[String]) {
         let files: Vec<_> = listed
             .iter()
-            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".to_string())))
+            .map(|p| (index::stat(Path::new(p)).unwrap(), Err("x".into())))
             .collect();
         index::lock(index).write_batch(dir, &files).unwrap();
     }

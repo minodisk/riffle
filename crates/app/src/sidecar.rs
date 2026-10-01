@@ -1850,7 +1850,7 @@ mod tests {
                             size: std::fs::metadata(&path).unwrap().len() as i64,
                             mtime_ns: 0,
                         },
-                        Err("preview did not decode".to_string()),
+                        Err("preview did not decode".into()),
                     )],
                 )
                 .unwrap();

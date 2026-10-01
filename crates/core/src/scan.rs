@@ -10,7 +10,7 @@ use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{focus_cue_unless, Cue};
 use crate::decode::{thumbnail_jpeg, thumbnail_jpeg_near};
 use crate::faces::{detect_around, Face};
-use crate::reader::read_preview;
+use crate::reader::{read_metadata, read_preview};
 use crate::sharpness::{eye_af_frame, score_preview, trusted_focus};
 
 /// Quality of the cached thumbnails. 80 gives ~19KB for a 404x270 frame.
@@ -45,19 +45,67 @@ pub struct Entry {
     pub thumbnail: Vec<u8>,
 }
 
+/// Why one file has no `Entry`, with the metadata that was parsed anyway:
+/// `shot` is `None` when none could be, and `orientation` is then `1`.
+#[derive(Debug, Clone)]
+pub struct Failure {
+    pub message: String,
+    pub orientation: u16,
+    pub shot: Option<Box<Shot>>,
+}
+
+impl From<String> for Failure {
+    fn from(message: String) -> Self {
+        Failure {
+            message,
+            orientation: 1,
+            shot: None,
+        }
+    }
+}
+
+impl From<&str> for Failure {
+    fn from(message: &str) -> Self {
+        message.to_string().into()
+    }
+}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
 /// Read one file's metadata and thumbnail. Pure: no shared state, no IO beyond
-/// `path`, and every failure comes back as `Err` rather than a panic. The
-/// sharpness score and the face search are the analysis pass's
-/// (`extract_analysis`).
-pub fn extract(path: &Path) -> Result<Entry, String> {
+/// `path`, and every failure comes back as `Err` rather than a panic, carrying
+/// the metadata when it could be parsed. The sharpness score and the face
+/// search are the analysis pass's (`extract_analysis`).
+pub fn extract(path: &Path) -> Result<Entry, Failure> {
     extract_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
 }
 
 /// `extract`, abandoned (`None`) once `cancel` is set between its stages.
-fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, String>> {
+fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Failure>> {
     let (arw, preview) = match read_preview(path) {
         Ok(read) => read,
-        Err(e) => return Some(Err(e.to_string())),
+        Err(e) => {
+            // The preview can fail (missing, out of range, undecodable HEVC)
+            // where the metadata parses, so read that alone.
+            let failure = match read_metadata(path) {
+                Ok(arw) => Failure {
+                    message: e.to_string(),
+                    orientation: arw.orientation,
+                    shot: Some(Box::new(arw.shot)),
+                },
+                Err(_) => e.to_string().into(),
+            };
+            return Some(Err(failure));
+        }
+    };
+    let failed = |message: String| Failure {
+        message,
+        orientation: arw.orientation,
+        shot: Some(Box::new(arw.shot.clone())),
     };
     if canceled(cancel) {
         return None;
@@ -81,12 +129,12 @@ fn extract_unless(path: &Path, cancel: &AtomicBool) -> Option<Result<Entry, Stri
         }
     })) {
         Ok(Ok(thumbnail)) => thumbnail,
-        Ok(Err(e)) => return Some(Err(e.to_string())),
+        Ok(Err(e)) => return Some(Err(failed(e.to_string()))),
         Err(_) => {
-            return Some(Err(format!(
+            return Some(Err(failed(format!(
                 "panic while encoding the thumbnail of {}",
                 path.display()
-            )))
+            ))))
         }
     };
     if canceled(cancel) {
@@ -214,7 +262,7 @@ pub fn extract_all<F>(
     cancel: &AtomicBool,
 ) -> Result<Option<String>, String>
 where
-    F: Fn(usize, Result<Entry, String>) + Send + Sync,
+    F: Fn(usize, Result<Entry, Failure>) + Send + Sync,
 {
     for_each_path(
         paths,
@@ -391,7 +439,7 @@ fn lower_current_priority(_lowest: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn for_each_path<T, E, F>(
+fn for_each_path<T, X, E, F>(
     paths: &[PathBuf],
     threads: usize,
     priority: Priority,
@@ -401,8 +449,8 @@ fn for_each_path<T, E, F>(
     cancel: &AtomicBool,
 ) -> Result<Option<String>, String>
 where
-    E: Fn(&Path, &AtomicBool) -> Option<Result<T, String>> + Send + Sync,
-    F: Fn(usize, Result<T, String>) + Send + Sync,
+    E: Fn(&Path, &AtomicBool) -> Option<Result<T, X>> + Send + Sync,
+    F: Fn(usize, Result<T, X>) + Send + Sync,
 {
     if threads == 0 {
         return Err("threads must be at least 1".to_string());
@@ -607,7 +655,7 @@ mod tests {
                 &ScanFocus::default(),
                 |_, _: &AtomicBool| {
                     levels.lock().unwrap().push(worker_level());
-                    Some(Ok(()))
+                    Some(Ok::<_, String>(()))
                 },
                 |_, _| {},
                 &AtomicBool::new(false),
@@ -630,7 +678,7 @@ mod tests {
             1,
             Priority::Normal,
             focus,
-            |_, _: &AtomicBool| Some(Ok(())),
+            |_, _: &AtomicBool| Some(Ok::<_, String>(())),
             |i, _| on_item(i),
             &AtomicBool::new(false),
         )
@@ -686,7 +734,7 @@ mod tests {
             4,
             Priority::Normal,
             &focus,
-            |_, _: &AtomicBool| Some(Ok(())),
+            |_, _: &AtomicBool| Some(Ok::<_, String>(())),
             |i, _| {
                 seen.lock().unwrap().push(i);
                 if i == 100 {
@@ -707,7 +755,7 @@ mod tests {
             2,
             Priority::Normal,
             &focus,
-            |_, _: &AtomicBool| Some(Ok(())),
+            |_, _: &AtomicBool| Some(Ok::<_, String>(())),
             |_, _| {
                 let mut done = done.lock().unwrap();
                 *done += 1;
@@ -821,7 +869,7 @@ mod tests {
                     let result = if analysis {
                         extract_analysis_unless(path, cancel).map(|r| r.map(|_| ()))
                     } else {
-                        extract_unless(path, cancel).map(|r| r.map(|_| ()))
+                        extract_unless(path, cancel).map(|r| r.map(|_| ()).map_err(|e| e.message))
                     };
                     assert!(started.elapsed() < Duration::from_secs(5));
                     result
@@ -987,7 +1035,7 @@ mod tests {
         let mut paths: Vec<PathBuf> = (0..4)
             .map(|i| write(&dir, &format!("{i}.ARW"), &fixture(1, &jpeg)))
             .collect();
-        paths.push(write(&dir, "bad.ARW", &fixture(1, &[0u8; 512])));
+        paths.push(write(&dir, "bad.ARW", &fixture(6, &[0u8; 512])));
 
         let errors = Mutex::new(Vec::new());
         extract_all(
@@ -996,15 +1044,39 @@ mod tests {
             Priority::Normal,
             &ScanFocus::default(),
             |i, r| {
-                if r.is_err() {
-                    errors.lock().unwrap().push(i)
+                if let Err(failure) = r {
+                    errors.lock().unwrap().push((i, failure))
                 }
             },
             &AtomicBool::new(false),
         )
         .unwrap();
 
-        assert_eq!(errors.into_inner().unwrap(), vec![4]);
+        let errors = errors.into_inner().unwrap();
+        assert_eq!(errors.len(), 1);
+        let (i, failure) = &errors[0];
+        assert_eq!(*i, 4);
+        assert_eq!(failure.orientation, 6);
+        assert!(failure.shot.is_some());
+        assert_eq!(failure.to_string(), failure.message);
+        assert!(extract(&dir.join("missing.ARW"))
+            .unwrap_err()
+            .shot
+            .is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_file_whose_preview_cannot_be_read_keeps_its_parsed_metadata() {
+        let dir = dir("truncated");
+        let mut bytes = fixture(6, &jpeg(64, 48));
+        // The declared preview length now runs past the end of the file.
+        bytes.truncate(bytes.len() - 100);
+        let path = write(&dir, "short.ARW", &bytes);
+
+        let failure = extract(&path).unwrap_err();
+        assert_eq!(failure.orientation, 6);
+        assert!(failure.shot.is_some());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

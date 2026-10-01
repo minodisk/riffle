@@ -14,7 +14,9 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::candidate::{candidate, FocusCandidate};
-use riffle_core::scan::{extract_all, extract_analysis_all, Analysis, Entry, Priority, ScanFocus};
+use riffle_core::scan::{
+    extract_all, extract_analysis_all, Analysis, Entry, Failure, Priority, ScanFocus,
+};
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
 
@@ -100,8 +102,9 @@ const SCHEMA_VERSION: i64 = 17;
 /// second pass: the score's computation did not change, so a row the first
 /// pass scored keeps a correct score. `12` reads big-endian (`MM`) TIFF
 /// containers, so the DNGs that failed with `not a little-endian TIFF/ARW`
-/// get re-extracted.
-const EXTRACTOR_VERSION: i64 = 12;
+/// get re-extracted. `13` keeps the metadata of a file whose extraction
+/// failed in its error row, so existing error rows are re-extracted.
+const EXTRACTOR_VERSION: i64 = 13;
 
 /// The version of what the second pass, `riffle_core::scan::extract_analysis`,
 /// produces, stored on every `files` row as `faces_extractor` next to
@@ -335,7 +338,8 @@ fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
             .map(|(num, den)| Rational { num, den }))
     };
     let error: Option<String> = r.get(12)?;
-    let exif = if error.is_some() {
+    // An error row whose failure carried no metadata has no orientation.
+    let exif = if error.is_some() && r.get::<_, Option<u16>>(1)?.is_none() {
         None
     } else {
         Some(exif(&Shot {
@@ -808,80 +812,73 @@ impl Index {
         Ok(rows)
     }
 
-    /// Write one batch of results in a single transaction.
+    /// Write one batch of results in a single transaction. An error row keeps
+    /// the metadata its failure carries, with no thumbnail.
     pub fn write_batch(
         &mut self,
         dir: &str,
-        rows: &[(FileStat, Result<Entry, String>)],
+        rows: &[(FileStat, Result<Entry, Failure>)],
     ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        let unknown = Shot::default();
         for (file, result) in rows {
             let path = file.path.to_string_lossy();
-            match result {
-                Ok(entry) => {
-                    let shot = &entry.shot;
-                    let focus = shot.focus;
-                    tx.execute(
-                        "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
-                             capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
-                             make, model, lens, f_num, f_den, f_estimated, exposure_num,
-                             exposure_den, iso, focal_num, focal_den, sharpness, extractor,
-                             frame_w, frame_h, manual_focus, eye_focus, faces_extractor)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL,
-                             ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, NULL, ?24,
-                             ?25, ?26, ?27, NULL, 0)",
-                        params![
-                            path,
-                            dir,
-                            file.size,
-                            file.mtime_ns,
-                            entry.orientation,
-                            entry.shot.capture_time,
-                            entry.shot.subsec,
-                            focus.map(|f| f.sensor_w),
-                            focus.map(|f| f.sensor_h),
-                            focus.map(|f| f.x),
-                            focus.map(|f| f.y),
-                            entry.thumbnail,
-                            shot.make,
-                            shot.model,
-                            shot.lens_model,
-                            shot.f_number.map(|r| r.num),
-                            shot.f_number.map(|r| r.den),
-                            shot.estimated_f_number,
-                            shot.exposure_time.map(|r| r.num),
-                            shot.exposure_time.map(|r| r.den),
-                            shot.iso,
-                            shot.focal_length.map(|r| r.num),
-                            shot.focal_length.map(|r| r.den),
-                            EXTRACTOR_VERSION,
-                            shot.focus_frame.map(|f| f.width),
-                            shot.focus_frame.map(|f| f.height),
-                            manual_focus(shot),
-                        ],
-                    )
-                    .map_err(|e| e.to_string())?;
-                }
-                Err(message) => {
-                    tx.execute(
-                        "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
-                             capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
-                             sharpness, extractor, frame_w, frame_h, manual_focus, eye_focus,
-                             faces_extractor)
-                         VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?5,
-                             NULL, ?6, NULL, NULL, 0, NULL, 0)",
-                        params![
-                            path,
-                            dir,
-                            file.size,
-                            file.mtime_ns,
-                            message,
-                            EXTRACTOR_VERSION
-                        ],
-                    )
-                    .map_err(|e| e.to_string())?;
-                }
-            }
+            let (orientation, shot, thumb, error) = match result {
+                Ok(entry) => (
+                    Some(entry.orientation),
+                    &entry.shot,
+                    Some(&entry.thumbnail),
+                    None,
+                ),
+                Err(failure) => (
+                    failure.shot.as_ref().map(|_| failure.orientation),
+                    failure.shot.as_deref().unwrap_or(&unknown),
+                    None,
+                    Some(&failure.message),
+                ),
+            };
+            let focus = shot.focus;
+            tx.execute(
+                "INSERT OR REPLACE INTO files (path, dir, size, mtime_ns, orientation,
+                     capture_time, subsec, focus_w, focus_h, focus_x, focus_y, thumb, error,
+                     make, model, lens, f_num, f_den, f_estimated, exposure_num,
+                     exposure_den, iso, focal_num, focal_den, sharpness, extractor,
+                     frame_w, frame_h, manual_focus, eye_focus, faces_extractor)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                     ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, NULL, ?25,
+                     ?26, ?27, ?28, NULL, 0)",
+                params![
+                    path,
+                    dir,
+                    file.size,
+                    file.mtime_ns,
+                    orientation,
+                    shot.capture_time,
+                    shot.subsec,
+                    focus.map(|f| f.sensor_w),
+                    focus.map(|f| f.sensor_h),
+                    focus.map(|f| f.x),
+                    focus.map(|f| f.y),
+                    thumb,
+                    error,
+                    shot.make,
+                    shot.model,
+                    shot.lens_model,
+                    shot.f_number.map(|r| r.num),
+                    shot.f_number.map(|r| r.den),
+                    shot.estimated_f_number,
+                    shot.exposure_time.map(|r| r.num),
+                    shot.exposure_time.map(|r| r.den),
+                    shot.iso,
+                    shot.focal_length.map(|r| r.num),
+                    shot.focal_length.map(|r| r.den),
+                    EXTRACTOR_VERSION,
+                    shot.focus_frame.map(|f| f.width),
+                    shot.focus_frame.map(|f| f.height),
+                    manual_focus(shot),
+                ],
+            )
+            .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())
     }
@@ -1483,13 +1480,13 @@ where
 {
     let total = files.len();
     let paths: Vec<PathBuf> = files.iter().map(|f| f.path.clone()).collect();
-    let pending: Mutex<Vec<(FileStat, Result<Entry, String>)>> = Mutex::new(Vec::new());
+    let pending: Mutex<Vec<(FileStat, Result<Entry, Failure>)>> = Mutex::new(Vec::new());
     let done = AtomicUsize::new(0);
     let errors = AtomicUsize::new(0);
     let last = Mutex::new(None::<Instant>);
     let ready: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-    let flush = |batch: Vec<(FileStat, Result<Entry, String>)>| {
+    let flush = |batch: Vec<(FileStat, Result<Entry, Failure>)>| {
         if batch.is_empty() {
             return;
         }
@@ -1509,7 +1506,7 @@ where
         );
     };
 
-    let on_item = |i: usize, result: Result<Entry, String>| {
+    let on_item = |i: usize, result: Result<Entry, Failure>| {
         if result.is_err() {
             errors.fetch_add(1, Ordering::Relaxed);
         }
@@ -2077,10 +2074,7 @@ pub(crate) mod tests {
         index
             .write_batch(
                 "d",
-                &[
-                    (a.clone(), Ok(entry())),
-                    (b.clone(), Err("broken".to_string())),
-                ],
+                &[(a.clone(), Ok(entry())), (b.clone(), Err("broken".into()))],
             )
             .unwrap();
         index
@@ -2099,10 +2093,7 @@ pub(crate) mod tests {
         index
             .write_batch(
                 "d",
-                &[
-                    (a.clone(), Ok(entry())),
-                    (b.clone(), Err("broken".to_string())),
-                ],
+                &[(a.clone(), Ok(entry())), (b.clone(), Err("broken".into()))],
             )
             .unwrap();
         assert_eq!(index.entries("d").unwrap().len(), 2);
@@ -2120,10 +2111,7 @@ pub(crate) mod tests {
         index
             .write_batch(
                 "d",
-                &[
-                    (a.clone(), Ok(entry())),
-                    (b.clone(), Err("broken".to_string())),
-                ],
+                &[(a.clone(), Ok(entry())), (b.clone(), Err("broken".into()))],
             )
             .unwrap();
 
@@ -3143,7 +3131,7 @@ pub(crate) mod tests {
         let a = file(&dir, "a.ARW", b"a");
         let mut index = open(&dir);
         index
-            .write_batch("d", &[(a.clone(), Err("broken".to_string()))])
+            .write_batch("d", &[(a.clone(), Err("broken".into()))])
             .unwrap();
 
         let entries = index.entries("d").unwrap();
@@ -3152,6 +3140,37 @@ pub(crate) mod tests {
         assert_eq!(entries[0].error.as_deref(), Some("broken"));
         assert!(index.thumbnail(&entries[0].path).is_err());
         assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_failed_file_keeps_the_metadata_its_failure_carries() {
+        let dir = temp_dir("error-meta");
+        let a = file(&dir, "a.ARW", b"a");
+        let mut index = open(&dir);
+        let Entry {
+            orientation, shot, ..
+        } = entry();
+        let failure = Failure {
+            message: "broken".to_string(),
+            orientation,
+            shot: Some(Box::new(shot)),
+        };
+        index
+            .write_batch("d", &[(a.clone(), Err(failure))])
+            .unwrap();
+
+        let entries = index.entries("d").unwrap();
+        let e = &entries[0];
+        assert!(!e.has_thumb);
+        assert_eq!(e.orientation, 6);
+        assert_eq!(e.capture_time.as_deref(), Some("2026:09:13 09:23:33"));
+        assert!(e.focus.is_some());
+        assert!(e.exif.as_ref().is_some_and(|x| x.camera.is_some()));
+        assert_eq!(e.error.as_deref(), Some("broken"));
+        assert!(index.thumbnail(&e.path).is_err());
+        assert!(index.faces_todo("d").unwrap().is_empty());
 
         remove_temp_dir(&dir);
     }
