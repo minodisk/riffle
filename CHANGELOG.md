@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.2.0](https://github.com/minodisk/riffle/compare/v1.1.0...v1.2.0) (2026-10-01)
+
+
+### Features
+
+* **app:** add a View menu with the panel and view toggles ([#545](https://github.com/minodisk/riffle/issues/545)) ([e18c64d](https://github.com/minodisk/riffle/commit/e18c64dae9e759a41bc52cf1f765642c8842928b))
+* **app:** add Expand All / Collapse All to the folder tree's menu ([#611](https://github.com/minodisk/riffle/issues/611)) ([f563e35](https://github.com/minodisk/riffle/commit/f563e351ae03736c00ec8a4b61227fd10dbdce45))
+* **app:** add shadcn Neutral dark tokens and shared component classes ([#570](https://github.com/minodisk/riffle/issues/570)) ([e396513](https://github.com/minodisk/riffle/commit/e396513197ce247a8005e923685f1dcc66be2b50))
+* **app:** ask for Lightroom's UI language in the first-launch dialog ([#612](https://github.com/minodisk/riffle/issues/612)) ([0ff57d1](https://github.com/minodisk/riffle/commit/0ff57d171a995ec33b1808b1b4e92198e91cb116))
+* **app:** enlarge the settings modal and replace its tabs with a side navigation ([#580](https://github.com/minodisk/riffle/issues/580)) ([214879f](https://github.com/minodisk/riffle/commit/214879f53abd1870e01d0c9a2097a6835a50bb91))
+* **app:** follow a folder rename in the trash runs and their undo entries ([#613](https://github.com/minodisk/riffle/issues/613)) ([7391b16](https://github.com/minodisk/riffle/commit/7391b16d2b44d6833c06c7fac4140662ef1220cf))
+* **app:** move the folder tree pane onto the sidebar scheme ([#576](https://github.com/minodisk/riffle/issues/576)) ([f9202e2](https://github.com/minodisk/riffle/commit/f9202e282b5df7ef2df1ba5b2c7f99e467d3b098))
+* **app:** move the format, trash and sequence dialogs onto the shared dialog classes ([#571](https://github.com/minodisk/riffle/issues/571)) ([109d846](https://github.com/minodisk/riffle/commit/109d8461b991a029cfcb482e4e65cabec7165115))
+* **app:** move the menus, the strip bar and the filmstrip cells onto the shared tokens ([#574](https://github.com/minodisk/riffle/issues/574)) ([267ef14](https://github.com/minodisk/riffle/commit/267ef143ecbeec87d0a5c637634080b48a506d4f))
+* **app:** move the sharpness score from the first scan pass to the second ([#624](https://github.com/minodisk/riffle/issues/624)) ([b142897](https://github.com/minodisk/riffle/commit/b142897dde78ed1ff4b103cb70f501d9a0cfb4ca))
+* **app:** move the viewer overlays, the meta pane and the empty states onto the shared tokens ([#578](https://github.com/minodisk/riffle/issues/578)) ([b5696cc](https://github.com/minodisk/riffle/commit/b5696cc950f155de8fe5cc45e3e338e73c514cf1))
+* **app:** re-extract HDR PQ CR3 files and list the EOS R8 ([#609](https://github.com/minodisk/riffle/issues/609)) ([da1788d](https://github.com/minodisk/riffle/commit/da1788dde7bb088466af32ad8ce16f812cf6a0ae))
+* **app:** redo an undone Move Rejected to Trash with Edit &gt; Redo ([#551](https://github.com/minodisk/riffle/issues/551)) ([fc4ea63](https://github.com/minodisk/riffle/commit/fc4ea633c4567952d0cc59fea8cc77b23a8f1eab))
+* **app:** rename the View menu's pane items to Folders and Metadata ([#602](https://github.com/minodisk/riffle/issues/602)) ([c0c85d2](https://github.com/minodisk/riffle/commit/c0c85d2df37bceb1b796330bb1ba47e3c5e31192))
+* **app:** send the current file and the strip's visible range to the running scan ([#639](https://github.com/minodisk/riffle/issues/639)) ([3f8e9aa](https://github.com/minodisk/riffle/commit/3f8e9aa5555f6677666c2efc2f3cf7c9c5a1ecbf))
+* **app:** show the sharpness score as the second scan pass fills it in ([#628](https://github.com/minodisk/riffle/issues/628)) ([7fab2bd](https://github.com/minodisk/riffle/commit/7fab2bd2c3ae2ef65df8956a2aeb75d060806f55))
+* **app:** throttle the focus rescan and end an idle scan at once ([#608](https://github.com/minodisk/riffle/issues/608)) ([8847b54](https://github.com/minodisk/riffle/commit/8847b544ed0cfc9eaa7a27e9566a16eb5ffdb600))
+* **app:** trim View to pane check items with modifier defaults ([#592](https://github.com/minodisk/riffle/issues/592)) ([81e6dcb](https://github.com/minodisk/riffle/commit/81e6dcb43147f7a0ba5570bae766826f600ec782))
+* **core:** compute the eye focus cue and the sharpness score in one analysis pass ([#623](https://github.com/minodisk/riffle/issues/623)) ([e07d137](https://github.com/minodisk/riffle/commit/e07d137f121ed8afdc76f3f30bddb346a8e9677e))
+* **core:** decode the HEVC PRVW / THMB of HDR PQ CR3 files to a JPEG ([#606](https://github.com/minodisk/riffle/issues/606)) ([88939f3](https://github.com/minodisk/riffle/commit/88939f3db9e430d27bae853af294be311103b9ad))
+* **core:** give HDR PQ (HEIF) CR3 files a clear preview-not-supported message ([#595](https://github.com/minodisk/riffle/issues/595)) ([5c6a07b](https://github.com/minodisk/riffle/commit/5c6a07bfdb8069b9ddbe959c86a2560a5ae090f4))
+* **core:** let the TIFF walker open an ORF header and a header-less MakerNote ([#588](https://github.com/minodisk/riffle/issues/588)) ([85de1ee](https://github.com/minodisk/riffle/commit/85de1ee0f50474f1efabdbcc12106d740c0f7cb0))
+* **core:** read Canon CR3 files through the reader and the listing ([#566](https://github.com/minodisk/riffle/issues/566)) ([af6e119](https://github.com/minodisk/riffle/commit/af6e119e2262ae143020570a6b1c1c630d33078c))
+* **core:** read Fujifilm RAF files ([#589](https://github.com/minodisk/riffle/issues/589)) ([ce8fee5](https://github.com/minodisk/riffle/commit/ce8fee57d6a260b88c0b99187f0617d0315ead84))
+* **core:** read Nikon NEF files through the reader and the listing ([#564](https://github.com/minodisk/riffle/issues/564)) ([7911033](https://github.com/minodisk/riffle/commit/7911033a5ca2cc3b589fed591b49dc46ab321739))
+* **core:** read OM System / Olympus ORF files ([#597](https://github.com/minodisk/riffle/issues/597)) ([024f6be](https://github.com/minodisk/riffle/commit/024f6bee123c33f76d7145fffaadfdf2d784ac5a))
+* **core:** read the AF point from Canon and Nikon AFInfo2 (Step 5) ([#575](https://github.com/minodisk/riffle/issues/575)) ([815c535](https://github.com/minodisk/riffle/commit/815c535b7598acc853653d8e79afa6fcc8ad4763))
+* **core:** read the Fujifilm RAF AF point from FocusPixel ([#607](https://github.com/minodisk/riffle/issues/607)) ([983849e](https://github.com/minodisk/riffle/commit/983849eb919d6cd9048933eb98b1066b8264244e))
+* **core:** run the scan's workers below normal OS priority, the analysis pass lowest ([#631](https://github.com/minodisk/riffle/issues/631)) ([3e50855](https://github.com/minodisk/riffle/commit/3e508557dc3d907bf5e06dde59aad201d50c4ea2))
+* **core:** take the scan's files from a shared queue the set_scan_focus command reorders ([#635](https://github.com/minodisk/riffle/issues/635)) ([1416d97](https://github.com/minodisk/riffle/commit/1416d972db1456d8f9c9b467bb570a78c524052d))
+* **stats:** persist traffic and stars to the stats branch ([#538](https://github.com/minodisk/riffle/issues/538)) ([967c3c0](https://github.com/minodisk/riffle/commit/967c3c08d80f4837f417c852d5849aaf4801be58))
+
+
+### Bug Fixes
+
+* **app:** draw a folder that is itself a tree root only once ([#562](https://github.com/minodisk/riffle/issues/562)) ([7ec881b](https://github.com/minodisk/riffle/commit/7ec881bd60e3269d6a21128fddf6a55b07353f37))
+* **app:** drop the doubled separator in the Windows and Linux File menu ([#573](https://github.com/minodisk/riffle/issues/573)) ([15d4e80](https://github.com/minodisk/riffle/commit/15d4e80c5a14c74d2549c17eea8918cb0139fb91))
+* **app:** ignore case in tree.ts's relation, rebase and renameFolder on macOS and Windows ([#593](https://github.com/minodisk/riffle/issues/593)) ([1496fd6](https://github.com/minodisk/riffle/commit/1496fd6e6b00eadffb64bd06865fcce75bfe4d5f))
+* **app:** keep focus on the deleted file's neighbour after a rescan ([#590](https://github.com/minodisk/riffle/issues/590)) ([74bd576](https://github.com/minodisk/riffle/commit/74bd5769bda9653d3948da7e5942a4541ff911e6))
+* **app:** keep the rest of a shortcut override when one key conflicts ([#563](https://github.com/minodisk/riffle/issues/563)) ([1916328](https://github.com/minodisk/riffle/commit/19163281cce216ea7913d318204919e3d9d02ba4))
+* **app:** land four small folder tree, viewer and payload fixes ([#558](https://github.com/minodisk/riffle/issues/558)) ([50150ee](https://github.com/minodisk/riffle/commit/50150ee8d1ce36a15a0a0c01fa08625640ca0ebe))
+* **app:** pass the platform ignoreCase flag to the rename rebase and trash relation calls ([#630](https://github.com/minodisk/riffle/issues/630)) ([6d4d606](https://github.com/minodisk/riffle/commit/6d4d606d00ccae21fdc347cd9beef6dc7a9c0170))
+* **app:** reveal a differently-cased open path in the folder tree ([#560](https://github.com/minodisk/riffle/issues/560)) ([8208a61](https://github.com/minodisk/riffle/commit/8208a6183d1b1a238178b6ae616b4df66f9b4f8b))
+* **app:** wait for the Windows watch handle to close before renaming ([#567](https://github.com/minodisk/riffle/issues/567)) ([ec1e299](https://github.com/minodisk/riffle/commit/ec1e299d941cff78aa112d6e41cbef03baa94822))
+* **core:** hand out orientation-neutral preview JPEGs ([#617](https://github.com/minodisk/riffle/issues/617)) ([0398325](https://github.com/minodisk/riffle/commit/039832561e85a2971567ead17352b0f8f029de6f))
+* **core:** read the preview of the old OLYMP MakerNote in ORF files ([#618](https://github.com/minodisk/riffle/issues/618)) ([f50d20d](https://github.com/minodisk/riffle/commit/f50d20d2fd88edb89e7958cc1605cd600426a6cc))
+* **core:** trim trailing spaces from the Exif Make and Model in the shared reader ([#629](https://github.com/minodisk/riffle/issues/629)) ([20144d1](https://github.com/minodisk/riffle/commit/20144d169427fc02760c67aa2cd4678e5b1da0f3))
+
 ## [1.1.0](https://github.com/minodisk/riffle/compare/v1.0.0...v1.1.0) (2026-09-28)
 
 

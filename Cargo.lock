@@ -3737,7 +3737,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-app"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -3768,7 +3768,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-cli"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "image",
@@ -3778,7 +3778,7 @@ dependencies = [
 
 [[package]]
 name = "riffle-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "chrono",
