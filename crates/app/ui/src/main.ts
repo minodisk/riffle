@@ -540,7 +540,12 @@ let keyBindings: Binding[] = [];
 // The centered message over the viewer: the clickable opening hint when no
 // folder is open, or why an open folder shows nothing.
 function renderEmpty(): void {
-  const state = emptyState(openDir, allFiles.length, files.length, previewFailedSeq === seq);
+  const state = emptyState(
+    openDir,
+    allFiles.length,
+    files.length,
+    previewFailedSeq === seq && !comparing && !zoomed,
+  );
   emptyEl.hidden = state === "none";
   if (state === "none") {
     emptyEl.removeAttribute("data-state");
@@ -1056,6 +1061,7 @@ function stopComparing(): void {
   compareSeq += 1;
   closeCompareFrames();
   compareActivePath = null;
+  renderEmpty();
 }
 
 function drawCompare(): void {
