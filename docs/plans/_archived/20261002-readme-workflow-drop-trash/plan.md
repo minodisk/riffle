@@ -44,4 +44,4 @@ workflow that reads as the essential path. The original change is recorded in
 
 ## Progress
 
-- (none yet)
+- (2026-10-02) Step 1 complete
