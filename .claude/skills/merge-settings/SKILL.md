@@ -87,8 +87,7 @@ caught too.
 If step 2 printed `Nothing to write: ...`, there is nothing to commit
 (`git commit` would fail with "nothing to commit"). Skip the commit and the PR,
 but still overwrite each path listed on the `Merged settings.local.json:` line
-with `{}
-`, using the Write tool, then report that there was nothing to merge.
+with `{}\n`, using the Write tool, then report that there was nothing to merge.
 
 Check that `.claude/settings.json` is valid JSON (`.claude/` is outside what
 `mise run fmt` / CI check, so if it lands on main broken, the permission
