@@ -632,10 +632,6 @@ fn check_file(path: &Path) -> Vec<(&'static str, String)> {
             return Ok(());
         }
         let (a, jpeg) = reader::read_full(path)?;
-        // The partial decode keeps libjpeg's default error_exit, which ends the
-        // process on a malformed JPEG, so vet the bytes with the guarded
-        // decoder first.
-        decode_rgb(&jpeg)?;
         partial::decode_focus_crop(&jpeg, a.shot.focus, CROP_SIZE, CROP_SIZE).map(|_| ())
     });
     if let Err(e) = full {

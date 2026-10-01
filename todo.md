@@ -1323,19 +1323,6 @@ Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
 - [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
 - [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
-### Core: a malformed full-size JPEG makes the 1:1 view end the whole app
-
-#### Background
-
-`crates/core/src/partial.rs` (`decode_region`, behind `decode_focus_crop` and `decode_crop`, the latter with no caller outside the module) sets `cinfo.common.err = jpeg_std_error(&mut err)` without overriding `error_exit`. libjpeg therefore calls `exit(1)` on a fatal error instead of returning or panicking. The app's `focus_crop` command (`crates/app/src/commands.rs`) would end the process on files such as `D:\Photos\samples\NEF\NIKON_D70_Nikon.nef` or `D:\Photos\samples\DNG\CGO3P_YUN00007.dng`. `riffle-cli check` found this on its first sample run, and `check_file` in `crates/cli/src/main.rs` works around it by decoding the full-size JPEG with `decode_rgb` first. That extra decode is why the run takes about 2.5 minutes instead of seconds. Plan: `docs/plans/_archived/20261001-cli-check-samples/plan.md`. Files: `crates/core/src/partial.rs`, `crates/app/src/commands.rs`, `crates/cli/src/main.rs`, `docs/agents/tauri-app.md`.
-
-#### TODO
-
-- [ ] Install an `error_exit` that panics (as the `mozjpeg` crate does) in `partial.rs` and wrap the call in `catch_unwind`.
-- [ ] Drop the `decode_rgb` pre-check in `crates/cli/src/main.rs` `check_file`.
-- [ ] Done when `focus_crop` returns an `Err` on both files above without ending the process, and `riffle-cli check` finishes with a summary without the pre-check.
-- [ ] Update the `docs/agents/tauri-app.md` entry on `partial.rs`'s `exit(1)` to say the guard is in place.
-
 ### Core: big-endian DNGs do not open
 
 #### Background
