@@ -66,9 +66,7 @@ function isExcluded(value) {
 }
 
 function normalizeArray(values) {
-  const cleaned = values
-    .map(normalizePermission)
-    .filter((v) => !isExcluded(v));
+  const cleaned = values.map(normalizePermission);
   // Strings (permissions) are deduped by value and objects (a hooks matcher
   // block, say) by structure. A Set compares objects by reference, which would
   // fail to reject the same hook arriving as a separate instance per worktree
@@ -94,7 +92,12 @@ function normalizeArray(values) {
 function deepMerge(base, override) {
   if (Array.isArray(override)) {
     const baseArr = Array.isArray(base) ? base : [];
-    return normalizeArray([...baseArr, ...override]);
+    // Exclusions screen only the incoming entries, so an entry already in the
+    // destination is never removed
+    const incoming = override
+      .map(normalizePermission)
+      .filter((v) => !isExcluded(v));
+    return normalizeArray([...baseArr, ...incoming]);
   }
   // Normalize and return base's array only when override is absent.
   // If override is a non-array value (object/primitive), leave it to the logic
@@ -220,6 +223,18 @@ if (WRITE) {
     const before = new Set(permissionEntries(base, key));
     const added = permissionEntries(merged, key).filter((v) => !before.has(v));
     console.error(`Added permissions.${key}: ${added.length}`);
+  }
+  // Leave the file byte-for-byte untouched on a no-op run, so it neither
+  // reorders the destination nor leaves a diff for commit-settings.sh to commit.
+  // Compare the merged result against the destination merged with itself (key
+  // sort plus normalizeArray, nothing new): any real change, from a permission,
+  // a hooks block, env, ... or a settings.local.json, makes them differ, while a
+  // local whose entries are all excluded or already present does not.
+  const unchanged =
+    JSON.stringify(merged) === JSON.stringify(deepMerge(base, base));
+  if (unchanged) {
+    console.error(`Nothing to write: ${SETTINGS_PATH} left unchanged`);
+    process.exit(0);
   }
   fs.writeFileSync(SETTINGS_PATH, `${JSON.stringify(merged, null, 2)}\n`);
   console.error(`Wrote: ${SETTINGS_PATH}`);

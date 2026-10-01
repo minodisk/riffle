@@ -45,7 +45,9 @@ of lines of JSON was removed after it rewrote an existing entry in a case where
 there was nothing to promote.
 
 Entries excluded from the merge automatically (see `EXCLUDED_PATTERNS` in
-`scripts/merge.js`):
+`scripts/merge.js`). The patterns screen only incoming entries (from a
+`settings.local.json` or another worktree's `settings.json`); an entry already
+in the current `settings.json` is never removed:
 
 - An allow-everything wildcard that defeats a per-domain restriction, such as
   `WebFetch(domain:*)`
@@ -65,6 +67,12 @@ worktree and prints a summary to stderr:
 - `Merged settings.local.json: <path1>, <path2>, ...`
 - `Added permissions.allow: <n>` / `deny:` / `ask:`
 
+When nothing in the merge changes the current file (no permission is added and
+no other key, such as a `hooks` block or `env`, differs; a `settings.local.json`
+whose entries are all excluded or already present counts as nothing), it prints
+`Nothing to write: .claude/settings.json left unchanged` instead of writing, so
+a no-op run leaves the file byte-for-byte as it was.
+
 Do **not** touch `settings.json` in other worktrees — those are part of each
 branch's state.
 
@@ -75,6 +83,11 @@ every worktree, so worktrees under active development on other branches would be
 caught too.
 
 ## 3. Commit changes
+
+If step 2 printed `Nothing to write: ...`, there is nothing to commit
+(`git commit` would fail with "nothing to commit"). Skip the commit and the PR,
+but still overwrite each path listed on the `Merged settings.local.json:` line
+with `{}\n`, using the Write tool, then report that there was nothing to merge.
 
 Check that `.claude/settings.json` is valid JSON (`.claude/` is outside what
 `mise run fmt` / CI check, so if it lands on main broken, the permission
