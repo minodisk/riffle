@@ -79,6 +79,7 @@ import { treeGate } from "./treekeys.js";
 import { rebase } from "./tree.js";
 import { editKey } from "./rename.js";
 import { IdleGate } from "./idle.js";
+import { scanFocusPaths } from "./scanfocus.js";
 import {
   type ScanDone,
   type ScanStarted,
@@ -267,6 +268,29 @@ function setScanRunning(running: boolean): void {
   scanRunning = running;
   settings.setScanRunning(running);
 }
+// How long the current file and the strip's range must settle before the
+// running scan is told to take them first, so a held arrow key or a wheel
+// scroll sends one `set_scan_focus` per stop rather than one per step.
+const SCAN_FOCUS_DELAY = 100;
+let scanFocusTimer: ReturnType<typeof setTimeout> | undefined;
+
+function sendScanFocus(): void {
+  if (!scanRunning) {
+    return;
+  }
+  clearTimeout(scanFocusTimer);
+  scanFocusTimer = setTimeout(() => {
+    if (!scanRunning || scanId === null) {
+      return;
+    }
+    const { first, last } = strip.visibleRange();
+    const paths = scanFocusPaths(files, index, first, last);
+    if (paths.length > 0) {
+      void window.__TAURI__.core.invoke<void>("set_scan_focus", { scanId, paths }).catch(() => {});
+    }
+  }, SCAN_FOCUS_DELAY);
+}
+
 // An operation pressed while a scan runs waits here for the scan's end; a
 // folder switch drops it.
 const idle = new IdleGate(() => scanRunning);
@@ -2174,6 +2198,7 @@ function show(): void {
     rememberViewed({ dir: openDir, path: files[index] });
   }
   strip.setCurrent(index);
+  sendScanFocus();
   setStatus();
   requestPreview();
   requestMetadata();
@@ -2418,6 +2443,7 @@ strip.init(
   },
   renameFile,
   () => !viewOnly,
+  sendScanFocus,
 );
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
@@ -2636,6 +2662,7 @@ folders.init(
 // `dropCounter` (below) orders separately. Either way, the async work of the
 // side that lost the race is dropped instead of writing into the other's UI.
 function newFolderToken(): number {
+  clearTimeout(scanFocusTimer);
   folderToken += 1;
   return folderToken;
 }
@@ -2695,9 +2722,11 @@ function startScan(folder: string): Promise<void> {
       }
       scanId = scan_id;
       scanStarted = { scanId: scan_id, changed };
-      return window.__TAURI__.core.invoke<void>("start_scan", {
-        scanId: scan_id,
-      });
+      return window.__TAURI__.core
+        .invoke<void>("start_scan", {
+          scanId: scan_id,
+        })
+        .then(sendScanFocus);
     })
     .catch((err: unknown) => {
       if (seq !== currentScan) {

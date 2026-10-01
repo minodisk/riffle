@@ -365,12 +365,20 @@ function pump(): void {
   }
 }
 
+// The indices the strip keeps cells for: the visible ones plus
+// `RANGE_MARGIN` on each side. `last` is below `first` when there are no files.
+export function visibleRange(): { first: number; last: number } {
+  return {
+    first: Math.max(0, Math.floor(strip.scrollLeft / CELL_WIDTH) - RANGE_MARGIN),
+    last: Math.min(
+      files.length - 1,
+      Math.ceil((strip.scrollLeft + strip.clientWidth) / CELL_WIDTH) + RANGE_MARGIN,
+    ),
+  };
+}
+
 function render(): void {
-  const first = Math.max(0, Math.floor(strip.scrollLeft / CELL_WIDTH) - RANGE_MARGIN);
-  const last = Math.min(
-    files.length - 1,
-    Math.ceil((strip.scrollLeft + strip.clientWidth) / CELL_WIDTH) + RANGE_MARGIN,
-  );
+  const { first, last } = visibleRange();
   for (const [index, cell] of cells) {
     if ((index < first || index > last) && index !== editing?.index) {
       releaseCell(cell);
@@ -702,6 +710,7 @@ export function init(
   onContextMenu: (index: number, x: number, y: number) => void,
   onRename: (path: string, name: string) => void,
   renameAllowed: () => boolean,
+  onScroll: () => void,
 ): void {
   select = onSelect;
   contextMenu = onContextMenu;
@@ -725,6 +734,9 @@ export function init(
     },
     { passive: false },
   );
-  strip.addEventListener("scroll", render);
+  strip.addEventListener("scroll", () => {
+    render();
+    onScroll();
+  });
   window.addEventListener("resize", render);
 }
