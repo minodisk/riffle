@@ -64,7 +64,13 @@ import {
   revealAfter,
   rowParts,
 } from "./sequence.js";
-import { FILTERED_TEXT, NO_FILES_TEXT, emptyState, openHint } from "./empty.js";
+import {
+  FILTERED_TEXT,
+  NO_FILES_TEXT,
+  PREVIEW_FAILED_TEXT,
+  emptyState,
+  openHint,
+} from "./empty.js";
 import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
 import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
 import { FormatGate, asksLanguage, defaultPreset } from "./firstrun.js";
@@ -226,6 +232,9 @@ const pageTimings = new Map<
 // own request, which is not timed from a keypress.
 let pageKeypressAt: number | null = null;
 let shown: { bitmap: ImageBitmap; orientation: number; seq: number } | null = null;
+// The `seq` whose preview failed to load or decode, so the empty overlay says
+// so over the cleared canvas until the next page turn.
+let previewFailedSeq: number | null = null;
 // True while a `preview` invoke is outstanding. Keeps at most one request in
 // flight; when it settles, if `index` moved on in the meantime, exactly one
 // follow-up request is issued for the latest index.
@@ -531,7 +540,7 @@ let keyBindings: Binding[] = [];
 // The centered message over the viewer: the clickable opening hint when no
 // folder is open, or why an open folder shows nothing.
 function renderEmpty(): void {
-  const state = emptyState(openDir, allFiles.length, files.length);
+  const state = emptyState(openDir, allFiles.length, files.length, previewFailedSeq === seq);
   emptyEl.hidden = state === "none";
   if (state === "none") {
     emptyEl.removeAttribute("data-state");
@@ -544,7 +553,9 @@ function renderEmpty(): void {
       ? openHint(keyBindings)
       : state === "no-files"
         ? NO_FILES_TEXT
-        : FILTERED_TEXT;
+        : state === "filtered"
+          ? FILTERED_TEXT
+          : PREVIEW_FAILED_TEXT;
 }
 
 emptyEl.addEventListener("click", () => {
@@ -2102,6 +2113,15 @@ function toggleZoom(): void {
   draw();
 }
 
+// The current file's preview cannot be shown: drop whatever `shown` still
+// holds (possibly an earlier file's) so it is not taken for this file's.
+function failPreview(): void {
+  previewFailedSeq = seq;
+  shown?.bitmap.close();
+  shown = null;
+  draw();
+}
+
 function requestPreview(): void {
   if (inFlight || files.length === 0) {
     pageKeypressAt = null;
@@ -2151,6 +2171,7 @@ function requestPreview(): void {
         requestPreview();
         return;
       }
+      failPreview();
       setStatus(String(err));
     });
 }
@@ -2189,6 +2210,7 @@ function requestMetadata(): void {
 
 function show(): void {
   seq += 1;
+  previewFailedSeq = null;
   metaStale = true;
   // While a resume target is still pending, `files[index]` is only a
   // provisional anchor picked before entries loaded; writing it here would
@@ -2222,6 +2244,7 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
     return;
   }
   if (bitmap === undefined) {
+    failPreview();
     setStatus(error ?? "decode failed");
     return;
   }
