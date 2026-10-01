@@ -2,6 +2,14 @@
 
 ## Cross-cutting / other
 
+### App: real-device check of the 1:1 view on files with a malformed full-size JPEG
+
+The `partial-decode-error-exit` work (`docs/plans/_archived/20261002-partial-decode-error-exit/plan.md`) made `decode_region` in `crates/core/src/partial.rs` return `Err` on a fatal libjpeg error instead of calling `exit(1)`. Unit tests (empty input, non-JPEG input, a JPEG truncated inside the header) and `riffle-cli crop` / `check` on the real files cover the core path. `crop` returned `libjpeg fatal error: Not a JPEG file: starts with 0x3c 0x44` for `NIKON_D70_Nikon.nef` and `... 0x80 0x03` for `CGO3P_YUN00007.dng`. `check` over the samples ran to its summary in 23.0 s. The desktop app's 1:1 view (the `focus_crop` command, which calls the same `decode_focus_crop`) was never exercised, and neither was what the UI shows for the error. Files: `crates/app/src/commands.rs` (`focus_crop`), `crates/core/src/partial.rs`.
+
+#### TODO
+
+- [ ] On any platform, open `D:\photos\samples\NEF\NIKON_D70_Nikon.nef` and `D:\photos\samples\DNG\CGO3P_YUN00007.dng` in the app and switch to the 1:1 view. Expect the app to stay up and the `focus_crop` error (`libjpeg fatal error: Not a JPEG file ...`) to surface however the 1:1 view shows a failed crop. Note what the UI shows; if it shows nothing useful, file a follow-up.
+
 ### Core: validate the combined AF-eye score on the two reserved labeled folders
 
 `docs/plans/_archived/20260926-af-eye-in-focus-probability/plan.md` reserved

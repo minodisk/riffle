@@ -275,6 +275,14 @@ process, and `catch_unwind` could not stop it.
 - A JPEG cut inside its scan data is not a fatal error: libjpeg warns
   (`Premature end of JPEG file`) and the crop comes back with filler rows. Only
   a cut inside the header, an empty input or a non-JPEG fails.
+- `partial.rs`'s decoder and the `mozjpeg` crate's `decode_rgb` are not
+  interchangeable validators: `decode_rgb` also fails on a JPEG cut inside its
+  scan data, which `partial.rs` accepts with a warning. To test the `Err` path,
+  cut inside the header (e.g. `&jpeg[..64]`), not the middle of the data.
+- Set the handler through the pointer,
+  `(*cinfo.common.err).error_exit = ...`, not on the local `err` after
+  `jpeg_std_error(&mut err)`. rustc does not see the read through the raw
+  pointer and trips `unused_assignments`.
 - Seen on `NEF\NIKON_D70_Nikon.nef` and `DNG\CGO3P_YUN00007.dng`: before the
   guard, a run died mid-way with libjpeg's `Empty input file` / `Not a JPEG
   file` on stderr, exit code 1 and no summary.
