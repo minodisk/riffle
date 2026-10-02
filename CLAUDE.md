@@ -115,9 +115,11 @@ through the preview to the run's end.
 **Write everything in the repository in English.** This covers documentation
 (`README.md`, `CLAUDE.md`, `docs/**`, skill and agent definitions), code
 comments, commit messages, PR titles and bodies, and any other text that lands
-in the repository. The one exception is `README.ja.md`, the Japanese
-translation of `README.md`; its body is Japanese. Keep the two in sync: a PR
-that changes `README.md` updates `README.ja.md` in the same PR, and vice versa.
+in the repository. The exceptions are `README.ja.md` and `docs/humans/*.ja.md`,
+the Japanese translations of `README.md` and `docs/humans/<name>.md`; their
+bodies are Japanese. Keep each pair in sync: a PR that changes `README.md` or
+`docs/humans/<name>.md` updates `README.ja.md` or `docs/humans/<name>.ja.md` in
+the same PR, and vice versa.
 
 Conversation with the user stays in Japanese; only what gets committed is
 English.
