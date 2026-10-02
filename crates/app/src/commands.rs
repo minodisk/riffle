@@ -1460,6 +1460,18 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                         );
                     },
                 );
+                // Drop the entry before `faces-done`: the frontend drains a
+                // deferred rescan off that event, and its `scan_folder` must
+                // not find this scan still in `running`, or `joined_previous`
+                // makes `changed` nonzero and forces a `folder_entries` read
+                // of an unchanged folder (see `refreshOnScanDone` in
+                // `refresh.ts`). `scanning()` thus goes false a moment before
+                // the frontend's `scanRunning` does, which only lets a
+                // `clear_index` already in flight run slightly earlier.
+                {
+                    let scans = app.state::<Scans>();
+                    index::lock(&scans.0).finish(scan_id);
+                }
                 let _ = app.emit(
                     "faces-done",
                     Done {
@@ -1469,9 +1481,6 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                         errors: summary.errors,
                     },
                 );
-                let scans = app.state::<Scans>();
-                let mut state = index::lock(&scans.0);
-                state.finish(scan_id);
             }
         });
         state.running = Some((scan_id, cancel, focus, handle));
@@ -2430,6 +2439,34 @@ mod tests {
         });
         tauri::async_runtime::block_on(waited).unwrap();
         assert!(!index::lock(&scans.0).scanning());
+    }
+
+    #[test]
+    fn a_scan_started_after_the_done_signal_finds_nothing_to_join() {
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (go, rx) = mpsc::channel::<()>();
+        let (done_tx, done_rx) = mpsc::channel::<()>();
+        // The task's tail in the order `start_scan`'s closure has it: drop
+        // the entry, then signal `faces-done`.
+        let handle = tauri::async_runtime::spawn_blocking({
+            let scans = scans.clone();
+            move || {
+                let _ = rx.recv();
+                index::lock(&scans.0).finish(1);
+                let _ = done_tx.send(());
+            }
+        });
+        index::lock(&scans.0).running = Some((
+            1,
+            Arc::new(AtomicBool::new(false)),
+            ScanFocus::default(),
+            handle,
+        ));
+        let _ = go.send(());
+        done_rx.recv().unwrap();
+        let mut state = index::lock(&scans.0);
+        assert!(!state.scanning());
+        assert!(state.running.take().is_none());
     }
 
     #[test]
