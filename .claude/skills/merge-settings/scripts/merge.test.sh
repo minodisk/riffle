@@ -29,7 +29,7 @@ fixture='{
   "permissions": {
     "allow": [
       "Bash(git status)",
-      "Bash(gh pr view *)",
+      "Bash(gh run watch *)",
       "Bash(cargo test *)"
     ]
   }
@@ -74,23 +74,26 @@ function expect_unchanged() {
 
 expect_unchanged "no local file"
 expect_unchanged "empty local file" '{}'
-expect_unchanged "local with only an excluded entry" '{"permissions":{"allow":["Bash(gh issue list *)"]}}'
+expect_unchanged "local with only an excluded entry" '{"permissions":{"allow":["Write(notes.md)"]}}'
 
 cases=$((cases + 1))
-dir="$(setup "local adds entries" '{"permissions":{"allow":["Bash(mise run ci)","Bash(gh issue list *)"]}}')"
+dir="$(setup "local adds entries" '{"permissions":{"allow":["Bash(mise run ci)","Write(notes.md)","Bash(gh pr view *)"]}}')"
 output=$(cd "${dir}" && node "${target}" --self --write 2>&1) || fail "local adds entries" "merge.js exited non-zero: ${output}"
 allow=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).permissions.allow.join("\n"))' "${dir}/.claude/settings.json")
 if ! grep -qxF 'Bash(mise run ci)' <<<"${allow}"; then
 	fail "local adds entries" "allowed entry was not added"
 fi
-if grep -qxF 'Bash(gh issue list *)' <<<"${allow}"; then
+if ! grep -qxF 'Bash(gh pr view *)' <<<"${allow}"; then
+	fail "local adds entries" "read-only gh entry was not added"
+fi
+if grep -qxF 'Write(notes.md)' <<<"${allow}"; then
 	fail "local adds entries" "excluded incoming entry was added"
 fi
-if ! grep -qxF 'Bash(gh pr view *)' <<<"${allow}"; then
+if ! grep -qxF 'Bash(gh run watch *)' <<<"${allow}"; then
 	fail "local adds entries" "excluded entry already in settings.json was removed"
 fi
-if [[ "${output}" != *"Added permissions.allow: 1"* ]]; then
-	fail "local adds entries" "missing 'Added permissions.allow: 1' in: ${output}"
+if [[ "${output}" != *"Added permissions.allow: 2"* ]]; then
+	fail "local adds entries" "missing 'Added permissions.allow: 2' in: ${output}"
 fi
 
 cases=$((cases + 1))
