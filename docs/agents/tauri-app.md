@@ -373,6 +373,18 @@ the global `window.__TAURI__.event.listen`.
   `scan_folder` skips the `pending` entry when both `todo` and `faces_todo` are
   empty, so an idle focus rescan ends at once. Source:
   `docs/plans/_archived/20260930-todo-five-more-items/learnings.md`, Step 2.
+- Every native dialog's close refocuses the main window, so every path that
+  opens one (`clear_index`'s confirm, `pick_folder`) needs the focus rescan
+  held off until its follow-up open has run. Otherwise `resync()` on the
+  previous folder mints a `scan_folder` id in the same second as the open's
+  `startScan`, and the later one supersedes it (logged as `scan superseded`).
+  The throttle alone misses the picker: `openFolder` mints `folderToken`
+  before `pick_folder`, so `resync()`'s token guard lets a listing for the old
+  folder through. `openFolder` wraps its whole chain (`pick_folder` through
+  `openDirectory`) in `settleIdle`, so `resync()` defers while it is in
+  flight; a picked folder's `openDirectory` discards the deferred rescan and
+  a canceled picker drains it. Source:
+  `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md`, Step 1.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 

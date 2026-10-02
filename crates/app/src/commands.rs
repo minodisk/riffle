@@ -1270,6 +1270,9 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
         // listing/reconciling; its own `start_scan` (or none at all) owns
         // `pending`/`running` now, so queuing this work would either be
         // overwritten or, worse, race the id check below in `start_scan`.
+        let latest = state.latest_id;
+        drop(state);
+        log::info!("scan superseded: dir={dir} scan_id={scan_id} by={latest}");
         return Ok(ScanStarted {
             total,
             scan_id,
