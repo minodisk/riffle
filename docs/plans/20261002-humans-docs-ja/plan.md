@@ -158,4 +158,4 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
