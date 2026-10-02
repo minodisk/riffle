@@ -65,14 +65,6 @@ End-to-end per-page latency (IPC + `createImageBitmap`) is unmeasured, since the
 
 - [ ] Measure keypress-to-pixels per page turn on real hardware and add the numbers to "Per-page preview read" in docs/humans/performance.md. The instrumentation now exists: with `Timing logs` on, the app logs a `page invoke=… decode=… total=… keypressToPixels=…` line per page turn to `Riffle.log`, and "Measuring on your own folder" in docs/humans/performance.md spells out the procedure. Only running the measurement and filling in the numbers is left.
 
-### App: a scan can be started twice after a cache clear / focus rescan
-
-In the Windows real-folder measurement, after a cache clear `scan_id` N was superseded by N+1 with no `scan extract` line for N, and two focus rescans once fired at the same instant. It reproduced on 2026-09-22 (Windows 11, v0.2.0): `scan_id=3` and `4` started in the same second at 04:39:40. This may be one bug or two. Files: `crates/app/src/commands.rs` (`scan_folder`), `crates/app/src/watch.rs`, the settings-window clear-cache path.
-
-#### TODO
-
-- [ ] Find why two scans start and make the second one not fire (or coalesce it), verified by the log showing one `scan extract` per trigger.
-
 ### App: cold first scan on an internal SSD is far slower than the extrapolation
 
 A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs ~16-19ms per file, ~82-97s extrapolated to 5000 files against the 30s target; see "Real folders on Windows" in docs/humans/performance.md. Excluding the folder from Defender did not help, and a warm-cache scan runs at ~1ms per file, so neither Defender nor CPU is the cause. The cause is unknown. A later data point (Windows 11, v0.2.0, 2026-09-22): a cold first scan after an index schema change took 25.5s on 3045 Sony ARW (~8.4ms/file, ~42s extrapolated to 5000), against the earlier 16-19ms/file; it is unknown whether the OS cache was cold for that run.
@@ -1309,3 +1301,17 @@ Files: `crates/app/ui/src/folders.ts` (`refresh`), `crates/app/ui/src/context.ts
 
 - [ ] On a network share (or any folder whose watch `set_tree_watches` cannot set), expand a folder, create a subfolder in it from another machine or the OS file manager, then right-click the folder in Riffle's tree and choose `Refresh`. Expected: the new subfolder appears and the RAW count updates, with the folders already open under it still open.
 - [ ] On the same kind of folder, delete or unmount a folder shown in the tree (without its parent's watch removing the row, e.g. on a share), then choose `Refresh` on it. Expected: the row is marked failed (its tooltip shows the error), it collapses, and the error appears in the status line.
+
+### App: real-device check that a folder open, a cache clear and a focus return each start exactly one scan
+
+#### Background
+
+The `picker-focus-double-scan` feature wrapped `openFolder`'s whole chain (the `pick_folder` invoke through `openDirectory`) in `settleIdle`. A `tauri://focus` rescan that arrives while the folder picker is open is now deferred, so it no longer calls `scan_folder` for the previous folder. `scan_folder` also logs `scan superseded: dir={dir} scan_id={scan_id} by={latest}` at info level when its id is superseded. `mise run ci` (vitest, Rust tests) passes. It does not cover the race itself, which is Tauri IPC ordering between two `invoke`s and a window event. No GUI session ever exercised it, so the check below was never run. See `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md` (Step 1).
+
+Files: `crates/app/ui/src/main.ts` (`openFolder`, the `tauri://focus` listener), `crates/app/src/commands.rs` (`scan_folder`).
+
+#### TODO
+
+- [ ] On Windows, run `mise run tauri:release:devtools` with timing logs on. With folder A open and its scan older than 5 s, choose File > Open Folder and pick folder B. Expect exactly one `scan list` / `scan prepare` / `scan extract` set, for B, and no `scan superseded` line.
+- [ ] On Windows, repeat with Settings > Clear Cache. Expect one set, for the reopen.
+- [ ] On Windows, alt-tab away from the app and back. Expect one set.

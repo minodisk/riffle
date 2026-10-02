@@ -309,7 +309,8 @@ function whenIdle(label: string, run: () => void): void {
   renderMeta();
 }
 
-// Marks a deferred operation's invoke as in flight so `resync()` waits for it.
+// Marks a deferred operation's invoke, or the folder picker through its
+// picked folder's open, as in flight so `resync()` waits for it.
 function settleIdle<T>(promise: Promise<T>): void {
   idle.enterInFlight();
   void promise.finally(() => {
@@ -2898,17 +2899,19 @@ function openFolder(): void {
     return;
   }
   const token = newFolderToken();
-  window.__TAURI__.core
-    .invoke<string | null>("pick_folder")
-    .then((folder) => {
-      if (folder === null || token !== folderToken) {
-        return;
-      }
-      return openDirectory(folder, token);
-    })
-    .catch((err: unknown) => {
-      setStatus(String(err));
-    });
+  settleIdle(
+    window.__TAURI__.core
+      .invoke<string | null>("pick_folder")
+      .then((folder) => {
+        if (folder === null || token !== folderToken) {
+          return;
+        }
+        return openDirectory(folder, token);
+      })
+      .catch((err: unknown) => {
+        setStatus(String(err));
+      }),
+  );
 }
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
@@ -2944,6 +2947,9 @@ void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // an alt-tab back and forth (or the focus a picker dialog hands back right
   // after an open) is not a full rescan each time. The folder watcher catches
   // the on-disk changes too; this rescan is a belt-and-braces re-listing.
+  // The folder picker's close is held off by `settleIdle` in `openFolder`
+  // instead: `resync()` defers while it is in flight, the picked folder's
+  // open discards that rescan and a canceled picker drains it.
   if (!settings.isOpen && focusRescanDue(lastScanAt, Date.now())) {
     lastScanAt = Date.now();
     resync();
