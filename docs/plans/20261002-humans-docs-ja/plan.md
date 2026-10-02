@@ -118,7 +118,7 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
       strings exactly (`Shift+x`, `Alt+ArrowLeft`, ...) and translate only
       the action column.
 
-- [ ] Step 4: Extend the sync rule in `CLAUDE.md`
+- [x] Step 4: Extend the sync rule in `CLAUDE.md`
   - Done when: the Language section of `CLAUDE.md` says the Japanese
     exception covers `README.ja.md` and `docs/humans/*.ja.md`, and the sync
     rule reads that a PR changing `README.md` or `docs/humans/<name>.md`

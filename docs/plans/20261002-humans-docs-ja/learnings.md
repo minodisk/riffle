@@ -58,3 +58,21 @@
   matching the file-name style of the original.
 - A stray `python -` heredoc in a shell command hung on Windows (the REPL
   waits on a console handle); avoid bare `python -` in the Bash tool.
+
+## Step 4
+
+- The Language section of `CLAUDE.md` now names `README.ja.md` and
+  `docs/humans/*.ja.md` as the Japanese exceptions and states the per-pair
+  sync rule. A re-grep for `README.ja` and `in sync` (outside `docs/plans/`)
+  found no other place stating the README-only rule; the `in sync` hits in
+  `.claude/` are about the git "main sync", unrelated.
+- The Done-when "no `（英語）` in `README.ja.md`" was read as "no `（英語）`
+  on a link whose target has a Japanese counterpart". The one left, after
+  `CONTRIBUTING.md`, stays: that file has no Japanese version.
+- Final link sweep over `README.ja.md` and `docs/humans/*.ja.md`: the only
+  links to English `.md` files are the language-switch rows (intended),
+  `CONTRIBUTING.md` and `crates/core/i18n/README.md`, neither of which has a
+  Japanese version.
+- `grep -E` in Git Bash returned nothing on these UTF-8 files for a pattern
+  that plainly matched; the Grep tool (ripgrep) worked. Use ripgrep for
+  sweeps over Japanese files.
