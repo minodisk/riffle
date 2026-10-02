@@ -58,7 +58,7 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
 
 ## Steps
 
-- [ ] Step 1: Translate `cameras.md` and `raw-formats.md`
+- [x] Step 1: Translate `cameras.md` and `raw-formats.md`
   - Done when: `docs/humans/cameras.ja.md` and `docs/humans/raw-formats.ja.md`
     exist as full translations (the camera table in `cameras.md` keeps every
     row and column; body names and model numbers unchanged); both English
@@ -158,4 +158,4 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
