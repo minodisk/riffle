@@ -54,4 +54,4 @@ promoted like everything else. This closes the todo.md heading
 
 ## Progress
 
-- (none yet)
+- (2026-10-02) Step 1 complete
