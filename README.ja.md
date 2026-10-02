@@ -30,7 +30,7 @@
 - **macOS**: `Riffle.app` を右クリック → 開く。
 - **Windows**: SmartScreen の警告で「詳細情報」→「実行」。
 
-以降のアップデートは起動時に自動でダウンロードされ、次回起動時に反映されます。その他のパッケージや詳細は [docs/humans/usage.md](./docs/humans/usage.md#installing)（英語）を参照してください。
+以降のアップデートは起動時に自動でダウンロードされ、次回起動時に反映されます。その他のパッケージや詳細は [docs/humans/usage.ja.md](./docs/humans/usage.ja.md#インストール) を参照してください。
 
 ### 最初の一歩
 
@@ -65,7 +65,7 @@
 - **JPEG だけのフォルダー**: `<フォルダー>-sequenced/` の書き出し結果のように JPEG だけが入ったフォルダーは閲覧専用で開くので、並び順と撮影時刻を Riffle の中で確かめられます。サムネイル、プレビュー、EXIF の行を撮影時刻順に表示します。スター、フラグ、カラーラベル、サイドカー、ピント候補の表示はありません。
 - **MCP コンパニオン**: AI アシスタントなどの MCP クライアントが、カリングに付き添えます。Riffle が表示している内容を読み、プレビューを見て、表示を動かし、キーと同じ経路でスター、採用 / 不採用、ラベルを付けられます。デフォルトはオフで、このコンピューター内からしか接続できず、ゴミ箱への移動はできません（[MCP コンパニオン](#mcp-コンパニオン)）。
 
-すべての機能と、キーの一覧は [docs/humans/usage.md](./docs/humans/usage.md)（英語）で説明しています（[キー](./docs/humans/usage.md#keys)）。
+すべての機能と、キーの一覧は [docs/humans/usage.ja.md](./docs/humans/usage.ja.md) で説明しています（[キー](./docs/humans/usage.ja.md#キー)）。
 
 ## 他のソフトとの連携
 
@@ -125,7 +125,7 @@ Streamable HTTP で MCP を話すクライアントなら、この URL だけで
   }
   ```
 
-`MCP` タブには URL とこれらの例がコピーボタン付きで表示されます。各ツールの動作は [docs/humans/usage.md](./docs/humans/usage.md#mcp-companion)（英語）で説明しています。
+`MCP` タブには URL とこれらの例がコピーボタン付きで表示されます。各ツールの動作は [docs/humans/usage.ja.md](./docs/humans/usage.ja.md#mcp-コンパニオン) で説明しています。
 
 ## 対応状況
 

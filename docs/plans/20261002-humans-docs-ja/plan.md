@@ -93,7 +93,7 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
     - Translate table headers (`Step`, `Target`, `Measured (median)`) and
       the step descriptions; leave cell values, units and command lines as is.
 
-- [ ] Step 3: Translate `usage.md`
+- [x] Step 3: Translate `usage.md`
   - Done when: `docs/humans/usage.ja.md` exists as a full translation of all
     five sections (`Features`, `Keys`, `Ratings and sidecars`,
     `MCP companion`, `Installing`), with key names, tool names, JSON
