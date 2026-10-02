@@ -442,6 +442,23 @@ function toggle(path: string): void {
   );
 }
 
+// Re-lists `path` on demand, expanded or not, for a folder whose watch could
+// not be set; the watch set is sent again so a failed watch is retried.
+export function refresh(path: string): void {
+  list(path).then(
+    (folder) => {
+      tree = setChildren(tree, path, folder.raw_count, folder.children);
+      watched = "";
+      requestRender();
+    },
+    (err: unknown) => {
+      tree = markFailed(collapse(tree, path), path, String(err));
+      requestRender();
+      reportError(String(err));
+    },
+  );
+}
+
 // Collapses every subfolder under `path`, leaving `path` itself as it is.
 export function collapseAll(path: string): void {
   tree = collapseUnder(tree, path);

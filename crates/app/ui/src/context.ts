@@ -57,7 +57,7 @@ export function contextMenuGroups(
 }
 
 // The folder tree's right-click menu: the reveal item, labeled per platform by
-// the `reveal_label` command, then copying the folder's path or name, then
+// the `reveal_label` command, then copying the folder's path or name, then re-listing it (Refresh), then
 // renaming it, then expanding or collapsing every subfolder under it, then
 // moving its rejects to the Trash, with or without its subfolders, then the
 // sequencing of the folder's JPEGs. Renaming, expanding / collapsing all and
@@ -89,6 +89,7 @@ export function folderMenuGroups(revealLabel: string, root: boolean, count = 1):
       { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
       { action: "copyFolderName", label: "Copy Folder Name", shortcut: "", checked: undefined },
     ],
+    [{ action: "refreshFolder", label: "Refresh", shortcut: "", checked: undefined }],
     ...(root
       ? []
       : [
