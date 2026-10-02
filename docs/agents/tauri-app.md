@@ -1299,6 +1299,17 @@ rather than by a test.
   the draw itself still checks that its path is the current one before
   painting. Source:
   `docs/plans/_archived/20260924-face-catch-state/learnings.md`, Step 5.
+- A per-file failure flag in the preview UI (for example "this file's preview
+  failed", which drives the empty-state overlay) must be stored as the `seq`
+  that failed (`previewFailedSeq`) and compared with the current `seq` at
+  render time. A plain boolean reset only in `show()` is not enough:
+  `seq` is also bumped by `refilter`'s empty branch and `openDirectory`, which
+  skip `show()`, so a boolean could leave the overlay up for a different
+  file. Both failure branches share `failPreview()` in
+  `crates/app/ui/src/main.ts`, which sets the flag and closes and nulls
+  `shown` so a failed file never keeps the previous file's bitmap on screen.
+  Source: `docs/plans/_archived/20261002-preview-failure-clears-stale-image/learnings.md`,
+  Step 1.
 - Source: `docs/plans/_archived/20260918-ratings-xmp-sidecars/learnings.md`,
   Step 5.
 

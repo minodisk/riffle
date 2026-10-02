@@ -984,6 +984,10 @@ body {
   box-sizing: border-box;
 }
 
+#empty[data-state="preview-failed"] {
+  pointer-events: none;
+}
+
 #empty[data-state="no-folder"] {
   cursor: pointer;
 }
