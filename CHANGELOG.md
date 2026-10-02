@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.0](https://github.com/minodisk/riffle/compare/v1.2.0...v1.3.0) (2026-10-02)
+
+
+### Features
+
+* **app:** add a Refresh item to the folder tree's right-click menu ([#652](https://github.com/minodisk/riffle/issues/652)) ([9e97b71](https://github.com/minodisk/riffle/commit/9e97b71134539713ecbf676ddc2706a90dc32f0c))
+* **app:** keep the EXIF of a file whose extraction failed in its error row ([#650](https://github.com/minodisk/riffle/issues/650)) ([8394b20](https://github.com/minodisk/riffle/commit/8394b203d48cc976e5f2cb44a76e989ca8e99c98))
+* **cli:** add a check subcommand that runs every sample through the app's stages ([#640](https://github.com/minodisk/riffle/issues/640)) ([cbeafbe](https://github.com/minodisk/riffle/commit/cbeafbee11a079f42d55439a331c22efca795519))
+
+
+### Bug Fixes
+
+* **app:** clear the main preview when the current file's preview fails ([#654](https://github.com/minodisk/riffle/issues/654)) ([c698c8e](https://github.com/minodisk/riffle/commit/c698c8e73d43009a3ad6b4d595d792ccbff9e40b))
+* **claude:** keep existing settings.json entries during settings promotion ([#651](https://github.com/minodisk/riffle/issues/651)) ([cb63343](https://github.com/minodisk/riffle/commit/cb63343905abb4c6b119e11e32ad9e0aa6f37cfe))
+* **core:** open big-endian (MM) DNGs ([#648](https://github.com/minodisk/riffle/issues/648)) ([b5f0397](https://github.com/minodisk/riffle/commit/b5f0397eda16f5ba6ffd9108d4795ca6938b52ac))
+* **core:** return Err from the partial JPEG decode on a malformed JPEG ([#647](https://github.com/minodisk/riffle/issues/647)) ([425667a](https://github.com/minodisk/riffle/commit/425667a2a5d7a75d9ea043ede2fd9e5bcd15dbed))
+
 ## [1.2.0](https://github.com/minodisk/riffle/compare/v1.1.0...v1.2.0) (2026-10-01)
 
 
