@@ -2488,9 +2488,11 @@ interface Renamed {
 // trash entries' folders follow the rename, as the backend's recorded runs do.
 function renameFolder(path: string, name: string): void {
   whenIdle("Rename…", () => {
+    folders.renameStarted(path);
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
         ({ path: newPath, warning }) => {
+          folders.renameSettled(path);
           folders.renamed(path, newPath, name);
           const moved = (dir: string): string =>
             rebase(dir, path, newPath, folders.ignoreCase) ?? dir;
@@ -2512,6 +2514,7 @@ function renameFolder(path: string, name: string): void {
           });
         },
         (err: unknown) => {
+          folders.renameSettled(path);
           setStatus(String(err));
         },
       ),

@@ -11,6 +11,7 @@ import { keyName } from "./keys.js";
 import {
   type Decision,
   type InlineRename,
+  RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
   commit,
@@ -107,6 +108,7 @@ let ended: string | null = null;
 let watched = "";
 let syncing: Promise<void> = Promise.resolve();
 const slow = new SlowClick();
+const renamesInFlight = new RenamesInFlight();
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
 // comes first (the reopen of the last folder at launch) waits for the roots.
@@ -217,7 +219,7 @@ function render(): void {
         render();
         return;
       }
-      open(node.path);
+      openFolder(node.path);
     });
     row.addEventListener("contextmenu", (event) => {
       if (editing?.path === node.path || ended === node.path) {
@@ -393,6 +395,26 @@ export function isEditing(): boolean {
 export function cancelSlowClick(): void {
   slow.cancel();
   clearTimeout(slowTimer);
+}
+
+// A folder whose rename is in flight, or one under it, is still drawn at a
+// path about to move: opening it there is refused with a note.
+function openFolder(path: string): void {
+  if (renamesInFlight.blocks(path, ignoreCase)) {
+    reportError("A folder is being renamed; try again in a moment.");
+    return;
+  }
+  open(path);
+}
+
+// `rename_folder` was invoked on `path`; until `renameSettled(path)`, the
+// tree refuses to open it or anything under it.
+export function renameStarted(path: string): void {
+  renamesInFlight.start(path);
+}
+
+export function renameSettled(path: string): void {
+  renamesInFlight.settle(path);
 }
 
 // The folder `oldPath` is now `newName` at `newPath`: re-key it in the tree,
@@ -673,7 +695,7 @@ export function keydown(event: KeyboardEvent): boolean {
   } else if (command?.kind === "expand" || command?.kind === "collapse") {
     toggle(command.path);
   } else if (command?.kind === "open") {
-    open(command.path);
+    openFolder(command.path);
   }
   return true;
 }

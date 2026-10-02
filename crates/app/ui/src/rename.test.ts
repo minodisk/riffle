@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
   commit,
@@ -121,5 +122,54 @@ describe("SlowClick", () => {
     slow.click("/a", true, 0);
     expect(slow.due("/a", SLOW_CLICK_DELAY)).toBe(true);
     expect(slow.due("/a", SLOW_CLICK_DELAY)).toBe(false);
+  });
+});
+
+describe("RenamesInFlight", () => {
+  test("blocks the renamed folder and everything under it", () => {
+    const renames = new RenamesInFlight();
+    renames.start("D:\\photos");
+    expect(renames.blocks("D:\\photos", false)).toBe(true);
+    expect(renames.blocks("D:\\photos\\2026", false)).toBe(true);
+    expect(renames.blocks("D:\\photos\\2026\\01", false)).toBe(true);
+  });
+
+  test("leaves a sibling sharing the name's prefix and an unrelated folder", () => {
+    const renames = new RenamesInFlight();
+    renames.start("D:\\photos");
+    expect(renames.blocks("D:\\photos2", false)).toBe(false);
+    expect(renames.blocks("D:\\photos2\\a", false)).toBe(false);
+    expect(renames.blocks("E:\\other", false)).toBe(false);
+  });
+
+  test("a case-only difference in a folder name blocks only with ignoreCase", () => {
+    const renames = new RenamesInFlight();
+    renames.start("/Users/me/Photos");
+    expect(renames.blocks("/Users/me/photos/a", true)).toBe(true);
+    expect(renames.blocks("/Users/me/photos/a", false)).toBe(false);
+  });
+
+  test("settling the rename clears the block", () => {
+    const renames = new RenamesInFlight();
+    renames.start("/a/photos");
+    renames.settle("/a/photos");
+    expect(renames.blocks("/a/photos", false)).toBe(false);
+    expect(renames.blocks("/a/photos/b", false)).toBe(false);
+  });
+
+  test("settling one of two renames leaves the other's block", () => {
+    const renames = new RenamesInFlight();
+    renames.start("/a/one");
+    renames.start("/a/two");
+    renames.settle("/a/one");
+    expect(renames.blocks("/a/one/x", false)).toBe(false);
+    expect(renames.blocks("/a/two/x", false)).toBe(true);
+  });
+
+  test("settling a path never started is a no-op", () => {
+    const renames = new RenamesInFlight();
+    renames.start("/a/one");
+    renames.settle("/a/other");
+    expect(renames.blocks("/a/one", false)).toBe(true);
   });
 });
