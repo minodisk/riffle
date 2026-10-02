@@ -160,3 +160,4 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
 
 - (2026-10-03) Step 1 complete
 - (2026-10-03) Step 2 complete
+- (2026-10-03) Step 3 complete
