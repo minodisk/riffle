@@ -1,3 +1,5 @@
+<p align="center">English | <a href="./cameras.ja.md">日本語</a></p>
+
 # What the camera records
 
 Some features depend on what the camera records in the RAW file. The table
