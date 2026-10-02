@@ -10,7 +10,7 @@ Riffle culls from the JPEG preview embedded in the RAW file. A RAW with no
 embedded JPEG preview is outside that purpose and is not supported: `no
 embedded preview` is the intended outcome, and Riffle does not decode the
 sensor data or render a tiny uncompressed thumbnail instead. A body released
-ten or more years ago, counted from the current year (as of 2026, released
+more than ten years before the current year (as of 2026, released
 before 2016), or whose largest embedded JPEG is under 1280 px on the long
 edge, too small to judge focus with, is not actively supported: it is not
 listed here or in [Compatibility](../../README.md#compatibility) and gets no

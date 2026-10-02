@@ -190,3 +190,5 @@ Investigation at planning time (2026-10-02):
   is engineering knowledge about files that still open, not a support list.
 
 ## Progress
+
+- 2026-10-02: Step 1 done. Delisted the 25 pre-2016 bodies from `docs/humans/cameras.md`, removed the two `todo.md` sections, left README untouched.
