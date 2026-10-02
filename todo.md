@@ -672,24 +672,6 @@ Files: `crates/app/ui/src/worker.ts` (resize on decode),
       for files lacking one, which would serve the main view and, as a side
       effect, shrink the thumbnail noted in the SIGMA fp L strip item.
 
-### Core: pre-2012 NEFs fall back to the full-size JPEG for the preview
-
-NEFs from bodies of about 2010 to 2012 (the D7000 on the raw.pixls.us
-samples) carry one JPEG SubIFD, so `nef::parse` uses the
-full-size JpgFromRaw as the preview too: each page turn decodes a
-3000-5000 px JPEG and the fixed 2/8 thumbnail scale gives large thumbnails,
-the same issue recorded above for the SIGMA fp L. Found in the Step 2
-sample survey of `docs/plans/20260929-canon-nikon-raw/plan.md`. Files:
-`crates/core/src/nef.rs`, `crates/core/src/decode.rs` (`thumbnail_jpeg`),
-`crates/core/src/scan.rs`.
-
-#### TODO
-
-- [ ] Decide whether older NEFs are worth a smaller preview (the MakerNote
-      `PreviewIFD` JPEG is 570x375, below `PREVIEW_MIN_WIDTH`) or a scaled
-      decode of the full JPEG, and fold it into the SIGMA fp L thumbnail
-      fix if that lands first.
-
 ### Core: Nikon DX-crop and non-standard-crop AF point mapping is unverified
 
 `nef::parse`'s Nikon `AFInfo2` AF point is read as top-left coordinates in
@@ -805,16 +787,6 @@ No raw.pixls.us sample of the listed Fujifilm bodies is an M-RAW (multi-image) R
 - [ ] Open an M-RAW RAF (from a body that writes one) and confirm the preview, the 1:1 view and the EXIF rows.
 
 The `raf-older-bodies` sweep of 228 RAFs from 87 bodies (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`) found no M-RAW either: `0x48` is zero on all of them.
-
-### Core: the FinePix SL1000 shows Exif `Make` and `Model` with trailing spaces
-
-#### Background
-
-The FinePix SL1000 writes the Exif `Make` and `Model` padded with trailing spaces (`FUJIFILM               ` / `FinePix SL1000         ` on its raw.pixls.us sample, `D:\photos\samples\RAF\FinePix_SL1000_RAW_file_from_Fijifilm_Finepix_SL1000.RAF`), and the meta pane showed them as is; every other listed FinePix and X-series body writes both unpadded. Found by the `raf-older-bodies` sweep (`docs/plans/_archived/20260930-raf-older-bodies/learnings.md`). The shared Exif reader (`exif::read_ifd0`) now trims trailing spaces from `Make` and `Model` (`docs/plans/_archived/20261001-clear-three-todos/plan.md` Step 1), covering every format that goes through it; only the real-device check remains. Files: `crates/core/src/exif.rs` (shared by `crates/core/src/jpeg.rs`, `nef.rs`, `cr3.rs`, `orf.rs`, `raf.rs`).
-
-#### TODO
-
-- [ ] Check the meta pane on the SL1000 RAF shows the trimmed `Make` and `Model`.
 
 ### Docs: Sony AF point, face tracking and portrait orientation are unconfirmed for lack of samples
 
