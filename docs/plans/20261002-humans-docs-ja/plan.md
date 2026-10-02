@@ -77,7 +77,7 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
     - Record the chosen Japanese headings and their slugs in a
       `headings.md` in this plan folder so Steps 2–3 reuse the same terms.
 
-- [ ] Step 2: Translate `performance.md`
+- [x] Step 2: Translate `performance.md`
   - Done when: `docs/humans/performance.ja.md` exists as a full translation
     (every table, every number and every heading level kept); both files
     carry the language-switch row; its two `./cameras.md` links point to
@@ -159,3 +159,4 @@ archived `../_archived/20260924-readme-ja/learnings.md`):
 ## Progress
 
 - (2026-10-03) Step 1 complete
+- (2026-10-03) Step 2 complete

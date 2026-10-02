@@ -1,3 +1,5 @@
+<p align="center">English | <a href="./performance.ja.md">日本語</a></p>
+
 # Performance
 
 ## Sony α7 V ARW (Apple Silicon Mac, n=20)
