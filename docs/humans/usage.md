@@ -1,3 +1,5 @@
+<p align="center">English | <a href="./usage.ja.md">日本語</a></p>
+
 # Using Riffle
 
 The detailed behavior of Riffle. For a quick start, see [README.md](../../README.md).

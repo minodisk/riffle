@@ -90,3 +90,36 @@ In addition to the terms listed in `plan.md`'s conventions:
 | page turn | ページ送り |
 | decode / partial decode / full decode | デコード / 部分デコード / 全体デコード |
 | crop (noun) | 切り出し |
+
+## `docs/humans/usage.ja.md`
+
+| English heading | Japanese heading | Slug |
+|---|---|---|
+| `# Using Riffle` | `# Riffle の使い方` | `#riffle-の使い方` |
+| `## Features` | `## 機能` | `#機能` |
+| `## Keys` | `## キー` | `#キー` |
+| `## Ratings and sidecars` | `## レーティングとサイドカー` | `#レーティングとサイドカー` |
+| `## MCP companion` | `## MCP コンパニオン` | `#mcp-コンパニオン` |
+| `## Installing` | `## インストール` | `#インストール` |
+
+Feature bullet names: a name that is a menu item or button label stays in
+English (**Open Folder…**, **Reload Folder**, **Move Rejected to Trash…**,
+**Sequence JPEG Timestamps…**, **Undo**, **Redo**, **Open Log Folder**,
+**Clear Cache**), so the in-text "see **...**" references still match the UI;
+the others are translated (フォルダー, フィルムストリップ, パネル,
+フォーカスマーク, 等倍ピントチェック, グレースケールプレビュー, 比較, 判定,
+メタペイン, フィルターメニュー, 並べ替えメニュー, JPEG だけのフォルダー,
+自動送り, シャープネス表示, 連写).
+
+| English | Japanese |
+|---|---|
+| status line | ステータス行 |
+| Trash | ゴミ箱 |
+| sort (menu) | 並べ替え（メニュー） |
+| accelerator | アクセラレーター |
+| rebindable / rebind | 割り当てを変更できる / 割り当て直す |
+| type-ahead | タイプアヘッド（名前の入力） |
+| anchor (selection) | アンカー |
+| Compare | 比較 |
+| auto-advance | 自動送り |
+| label colors in the Keys table | レッド, オレンジ, イエロー, グリーン, ブルー, ピンク, パープル (Lightroom's Japanese names) |
