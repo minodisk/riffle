@@ -1341,3 +1341,16 @@ Files: `.claude/skills/merge-settings/scripts/merge.js`, `.claude/skills/merge-s
 - [ ] Decide whether to drop the hook-based exclusion patterns or fix their comment to describe the real premise, then update `merge.js` and the SKILL.md paragraph "Entries excluded from the merge automatically" to match. Keep `.claude/skills/merge-settings/scripts/merge.test.sh` passing.
 
 ---
+
+### App: real-device checks for the folder tree's Refresh item
+
+#### Background
+
+The error-row-exif-tree-refresh feature (Step 2) added a `Refresh` item to the folder tree's right-click menu. It re-lists a folder with the same `list_subfolders` + `setChildren` as `toggle`, keeps the folders open under it, and re-sends the watch set so a watch that failed is retried. `context.test.ts` covers the menu groups. The two checks below were never run on a real machine: they need a folder whose watch cannot be set (a network share) and a folder that vanishes without its parent's watch removing the row. Plan: docs/plans/_archived/20261002-error-row-exif-tree-refresh/plan.md.
+
+Files: `crates/app/ui/src/folders.ts` (`refresh`), `crates/app/ui/src/context.ts`.
+
+#### TODO
+
+- [ ] On a network share (or any folder whose watch `set_tree_watches` cannot set), expand a folder, create a subfolder in it from another machine or the OS file manager, then right-click the folder in Riffle's tree and choose `Refresh`. Expected: the new subfolder appears and the RAW count updates, with the folders already open under it still open.
+- [ ] On the same kind of folder, delete or unmount a folder shown in the tree (without its parent's watch removing the row, e.g. on a share), then choose `Refresh` on it. Expected: the row is marked failed (its tooltip shows the error), it collapses, and the error appears in the status line.
