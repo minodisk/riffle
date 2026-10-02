@@ -201,4 +201,4 @@ deferred: trigger=focus` line, then the `scan list` / `scan prepare`
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
