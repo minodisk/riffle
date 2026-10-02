@@ -252,8 +252,8 @@ obviously long, keep ticking it off and re-running in the foreground. The
 foreground run is what lets the counters (`wait_timeouts` and the rest) tick on
 exit 2 and what makes the exit code observable to branch on. A background run
 would hand the watching to a task notification instead, and the one time this
-was tried the runner reported "waiting for a notice" and ended its turn, which
-dropped the watching onto the caller (this actually happened). Express a long
+was tried the runner handed "waiting for a notice" back to the caller as its
+result, which dropped the watching onto the caller (this actually happened). Express a long
 wait by ticking it off in the foreground while counting `wait_timeouts`, and
 return `aborted` (reason: `wait_timeout`) once you hit the limit
 (`wait_timeouts < 7`). Waiting for a child is different: see "Dispatching a
@@ -495,6 +495,10 @@ is working on), no `sleep` / `until` / `while` polling, and no branch or PR
 polling (`git ls-remote`, `git fetch`, `gh pr view`, `pgrep`). The child's
 hand-back reaches you after your turn ends. When it arrives, branch on the
 child's return value as described at the dispatch site.
+
+Ending your turn here is not returning a result. Write no report or terminal
+state and do not hand back to the caller. Your own hand-back to the caller
+happens only at a terminal state listed in "Output".
 
 ## Output
 
