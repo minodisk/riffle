@@ -1300,17 +1300,17 @@ Files: `crates/core/src/arw.rs`, `crates/app/src/index.rs` (`EXTRACTOR_VERSION`)
 
 - [ ] On Windows, with an index written by `EXTRACTOR_VERSION` 11 (open `D:\Photos\samples\DNG\` in a build from before the bump, then in this build), open a folder containing the Pentax K-5 II, iPhone 12 Pro and Leica M (Typ 240) samples. Expected: the rows that cached `not a little-endian TIFF/ARW` are re-extracted, and the thumbnails, the preview and the 1:1 view show.
 
-### Agents: `merge.js` EXCLUDED_PATTERNS assume a PreToolUse hook that does not exist
+### Agents: bare `python` / `node` hang in Git Bash on the Windows host
 
 #### Background
 
-`.claude/skills/merge-settings/scripts/merge.js` drops `gh ... list|view` and gcloud read-only entries from incoming `settings.local.json` entries. It does so through `EXCLUDED_PATTERNS` (line 55, `/^Bash\(gh [^)]+ (?:list|view) ?\*?\)$/`, plus the gcloud pattern above it). The comment above them says a PreToolUse hook auto-allows those read-only CLI calls. The `merge-settings-keep-existing` work found that no such hook exists, either in the repo `.claude/settings.json` (no `hooks` key, no `.claude/hooks/`) or in the user-level settings. The user-level hooks are `SessionStart`, `UserPromptSubmit`, `SessionEnd` and `PostToolUse` only, and permissions use `defaultMode: "auto"`. So `gh pr view` is let through by the auto permission mode, not by a hook. That feature left the patterns and the comment unchanged, as its plan required. Plan: `docs/plans/_archived/20261002-merge-settings-keep-existing/plan.md`.
+During `merge-settings-drop-hook-exclusions` (`docs/plans/_archived/20261002-merge-settings-drop-hook-exclusions/learnings.md`), a bare `python` or `node` in Git Bash on the Windows host hung instead of failing; running them through `mise x --` worked. Any agent session on this host that runs a script needing them hits the same hang, before any guide would be consulted.
 
-Files: `.claude/skills/merge-settings/scripts/merge.js`, `.claude/skills/merge-settings/SKILL.md`.
+Files: `CLAUDE.md` (Development) or a new `docs/agents/dev-environment.md`.
 
 #### TODO
 
-- [ ] Decide whether to drop the hook-based exclusion patterns or fix their comment to describe the real premise, then update `merge.js` and the SKILL.md paragraph "Entries excluded from the merge automatically" to match. Keep `.claude/skills/merge-settings/scripts/merge.test.sh` passing.
+- [ ] Check that the note is not already in the user-level memory or instructions, then add it: preferably a short line under `CLAUDE.md` Development ("On Windows, run python / node through `mise x --`; a bare invocation hangs in Git Bash"), otherwise a new `docs/agents/dev-environment.md`. Done when the note exists in the chosen place.
 
 ---
 

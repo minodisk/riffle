@@ -31,10 +31,6 @@ function normalizePermission(value) {
 // - A bare `cd` permission (e.g. `Bash(cd crates/cli)`) only allows changing
 //   directory and carries no permission for what follows, so it is noise with
 //   no effect
-// - A read-only CLI call auto-allowed by a PreToolUse hook needs no entry.
-//   Aggregating with a middle wildcard (`Bash(gcloud * list *)`) is not used,
-//   because `*` spans whitespace and would allow
-//   `gcloud secrets delete list` too
 // - `Bash(gh run watch *)` is a duplicate already covered by `Bash(gh run *)`
 // - An entry with a script body written inline into an interpreter's `-c` /
 //   `-e` (e.g. `Bash(python3 -c "import json,sys; ...")`) only ever matches
@@ -51,8 +47,6 @@ const EXCLUDED_PATTERNS = [
   /^Bash\((?:[^)]*["'\s=])?\/{1,2}(?:private\/tmp|tmp|Users|home|var\/folders)\//,
   /^(?:Glob|Grep|LS)\(/,
   /^Bash\(cd [^&|;]*\)$/,
-  /^Bash\(gcloud [^)]+ (?:list|describe) ?\*?\)$/,
-  /^Bash\(gh [^)]+ (?:list|view) ?\*?\)$/,
   /^Bash\(gh run watch ?\*?\)$/,
   /^Bash\((?:python3?|node|deno|ruby|perl) -[ce] /,
   /^Bash\((?:bash|sh|zsh) -c /,
