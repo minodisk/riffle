@@ -853,6 +853,15 @@ retried.
   scan of each folder, and keeps `ratings`. Stale rows are deleted by
   `reconcile` right away, so the folder shows placeholders until its rescan
   fills them in.
+- Parallel branches each bump `EXTRACTOR_VERSION` from the same base, so
+  the merge conflict is a number collision. When you rebase or resolve, take
+  the next free number above main's (a branch cut at 11 whose sibling landed
+  12 resolves to 13). Never keep your own number.
+- An error row can carry the metadata of its failed extraction: the failure
+  keeps the parsed orientation and shot, and `indexed_file` tells "no
+  metadata" apart by a NULL `orientation`. Rows written before the version
+  that added this also have it NULL, so `exif` stays `None` for them
+  until the rescan the bump forces.
 - The second pass has its own version, `FACES_VERSION`, stored as
   `files.faces_extractor`: bump it, not `EXTRACTOR_VERSION`, on a change to
   what `riffle_core::scan::extract_analysis` produces, the focus candidate cue
