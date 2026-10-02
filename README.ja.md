@@ -170,4 +170,4 @@ Riffle で付けたスター、フラグ、カラーラベルがソフト上で�
 ## 開発者向け
 
 - ソースからのビルド: [CONTRIBUTING.md](./CONTRIBUTING.md)（英語）
-- パフォーマンス計測: [docs/humans/performance.md](./docs/humans/performance.md)（英語）
+- パフォーマンス計測: [docs/humans/performance.ja.md](./docs/humans/performance.ja.md)

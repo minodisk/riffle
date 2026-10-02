@@ -28,6 +28,33 @@ The Fujifilm size table: 埋め込み JPEG のサイズ / Fujifilm のカメラ.
 | `### ORF: the preview lives in the MakerNote` | `### ORF: プレビューはメーカーノートの中にある` | `#orf-プレビューはメーカーノートの中にある` |
 | `## Why the MakerNote varies by body` | `## メーカーノートがカメラごとに異なる理由` | `#メーカーノートがカメラごとに異なる理由` |
 
+## `docs/humans/performance.ja.md`
+
+Nothing links into these headings, so no slugs are listed; all are unique
+within the file. Product names, `n=` and the platform stay, in full-width
+parentheses.
+
+| English heading | Japanese heading |
+|---|---|
+| `# Performance` | `# パフォーマンス` |
+| `## Sony α7 V ARW (Apple Silicon Mac, n=20)` | `## Sony α7 V ARW（Apple Silicon Mac、n=20）` |
+| `## Leica M11-P DNG (Apple Silicon Mac, n=32)` | `## Leica M11-P DNG（Apple Silicon Mac、n=32）` |
+| `## Nikon NEF, Canon CR3 and OM System / Olympus ORF (raw.pixls.us samples, Windows)` | `## Nikon NEF、Canon CR3、OM System / Olympus ORF（raw.pixls.us のサンプル、Windows）` |
+| `## Fujifilm RAF (raw.pixls.us samples, Windows)` | `## Fujifilm RAF（raw.pixls.us のサンプル、Windows）` |
+| `## Per-page preview read` | `## ページごとのプレビュー読み込み` |
+| `## Folder scan throughput` | `## フォルダースキャンのスループット` |
+| `### Real folders on Windows` | `### Windows の実フォルダー` |
+| `### Sharpness scoring cost` | `### シャープネスのスコア計算のコスト` |
+| `### Face detection cost` | `### 顔検出のコスト` |
+| `#### Real files (Linux WSL2)` | `#### 実ファイル（Linux WSL2）` |
+| `#### Focus candidate pass` | `#### ピント候補のパス` |
+| `### Which pass carries which cost` | `### どのパスがどのコストを担うか` |
+| `## Opening an indexed folder again` | `## インデックス済みフォルダーを再び開く` |
+| `### Measuring on your own folder` | `### 自分のフォルダーで計測する` |
+| `## The 1:1 focus check path` | `## 等倍ピントチェックの経路` |
+| `### End to end, keypress to pixels` | `### エンドツーエンド、キー入力から画素の表示まで` |
+| `## What the sidecar pass adds to a folder open` | `## サイドカーのパスがフォルダーを開く処理に加えるもの` |
+
 ## Terms
 
 In addition to the terms listed in `plan.md`'s conventions:
@@ -52,3 +79,14 @@ In addition to the terms listed in `plan.md`'s conventions:
 | unconfirmed | 未確認 |
 | little- / big-endian | リトルエンディアン / ビッグエンディアン |
 | meta pane rows | メタペインの `...` の行 |
+| pass (scan) / first pass / second pass | パス / 1 回目のパス / 2 回目のパス |
+| focus candidate cue | ピント候補の判定 |
+| warm / cold page cache | ウォームな / コールドなページキャッシュ |
+| bounded (1MiB prefix) read | 先頭部分に限った読み込み |
+| ranged read | 範囲読み込み |
+| before / after (a change) | 変更前 / 変更後 |
+| wall (time) | 全体時間 |
+| keypress to pixels | キー入力から画素の表示まで |
+| page turn | ページ送り |
+| decode / partial decode / full decode | デコード / 部分デコード / 全体デコード |
+| crop (noun) | 切り出し |
