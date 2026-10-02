@@ -1318,3 +1318,17 @@ Files: `crates/app/ui/src/folders.ts` (`refresh`), `crates/app/ui/src/context.ts
 
 - [ ] On a network share (or any folder whose watch `set_tree_watches` cannot set), expand a folder, create a subfolder in it from another machine or the OS file manager, then right-click the folder in Riffle's tree and choose `Refresh`. Expected: the new subfolder appears and the RAW count updates, with the folders already open under it still open.
 - [ ] On the same kind of folder, delete or unmount a folder shown in the tree (without its parent's watch removing the row, e.g. on a share), then choose `Refresh` on it. Expected: the row is marked failed (its tooltip shows the error), it collapses, and the error appears in the status line.
+
+### App: real-device check that a folder open, a cache clear and a focus return each start exactly one scan
+
+#### Background
+
+The `picker-focus-double-scan` feature wrapped `openFolder`'s whole chain (the `pick_folder` invoke through `openDirectory`) in `settleIdle`. A `tauri://focus` rescan that arrives while the folder picker is open is now deferred, so it no longer calls `scan_folder` for the previous folder. `scan_folder` also logs `scan superseded: dir={dir} scan_id={scan_id} by={latest}` at info level when its id is superseded. `mise run ci` (vitest, Rust tests) passes. It does not cover the race itself, which is Tauri IPC ordering between two `invoke`s and a window event. No GUI session ever exercised it, so the check below was never run. See `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md` (Step 1).
+
+Files: `crates/app/ui/src/main.ts` (`openFolder`, the `tauri://focus` listener), `crates/app/src/commands.rs` (`scan_folder`).
+
+#### TODO
+
+- [ ] On Windows, run `mise run tauri:release:devtools` with timing logs on. With folder A open and its scan older than 5 s, choose File > Open Folder and pick folder B. Expect exactly one `scan list` / `scan prepare` / `scan extract` set, for B, and no `scan superseded` line.
+- [ ] On Windows, repeat with Settings > Clear Cache. Expect one set, for the reopen.
+- [ ] On Windows, alt-tab away from the app and back. Expect one set.

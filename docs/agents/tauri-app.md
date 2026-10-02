@@ -383,7 +383,11 @@ the global `window.__TAURI__.event.listen`.
   folder through. `openFolder` wraps its whole chain (`pick_folder` through
   `openDirectory`) in `settleIdle`, so `resync()` defers while it is in
   flight; a picked folder's `openDirectory` discards the deferred rescan and
-  a canceled picker drains it. Source:
+  a canceled picker drains it. Pass `settleIdle` the whole chain including
+  its `.catch` (as the trash run does), never a promise that can reject:
+  `promise.finally(...)` would otherwise leave an unhandled rejection.
+  `openDirectory`'s `idle.discard()` clears only the held operation, not the
+  in-flight count, so the wrap stays balanced. Source:
   `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md`, Step 1.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)

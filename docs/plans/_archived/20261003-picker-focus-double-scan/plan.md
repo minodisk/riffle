@@ -138,4 +138,4 @@ idle.inFlight`, and `settleIdle(promise)` marks an invoke as in flight
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
