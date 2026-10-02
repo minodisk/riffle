@@ -160,4 +160,4 @@ the held rename, so nothing is stale during the held period.
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
