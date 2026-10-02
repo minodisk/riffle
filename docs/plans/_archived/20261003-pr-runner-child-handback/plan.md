@@ -152,3 +152,5 @@ check of this new behavior.
   testable on real runs, which is why the `todo.md` item exists
 
 ## Progress
+
+- (2026-10-03) Step 1 complete

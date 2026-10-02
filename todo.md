@@ -593,6 +593,31 @@ dispatch and waits for the child's hand-back. It is verified only statically.
       `git ls-remote` / `git fetch` or `gh pr view` call in between. If not
       clean, adjust `.claude/agents/pr-runner.md`.
 
+### Agents: fix the inaccurate "subagent exits the moment its turn ends" rationale in the other agent files
+
+#### Background
+
+The `pr-runner-child-handback` plan found that a subagent does receive a
+child's "[Subagent hand-back]" message and a background task's notification
+after its turn ends, and corrected the rationale in
+`.claude/agents/pr-runner.md` only (the user kept the plan to that file). The
+same claim, that a subagent exits the moment its turn ends and leaves nobody to
+receive the completion notice, still appears in `merger.md`,
+`pr-check-fixer.md`, `implementer.md`, `local-review-addresser.md`,
+`local-review-runner.md`, `pr-review-addresser.md` and
+`pr-conflict-resolver.md` under `.claude/agents/`. The rules themselves (for
+example, running `mise run ci` in the foreground) are still the intended
+design; only the stated reason is inaccurate. Plan:
+`docs/plans/_archived/20261003-pr-runner-child-handback/plan.md`
+
+#### TODO
+
+- [ ] In each of the seven files, first confirm the old reason is really wrong
+      in that file's context, then replace it with the one now in
+      `pr-runner.md` (the foreground run keeps the exit code observable and
+      lets the counters tick on exit 2). Keep the foreground-only rules
+      themselves.
+
 ### Release: the draft-then-publish release flow is unverified on a real release
 
 The `draft-release-publish` plan made release-please create the release as a
