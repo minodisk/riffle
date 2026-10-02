@@ -587,23 +587,6 @@ confirmed it works.
       running. If not clean, adjust
       `.claude/agents/{merger,pr-runner}.md`.
 
-### Release: the draft-then-publish release flow is unverified on a real release
-
-The `draft-release-publish` plan made release-please create the release as a
-draft and added a `publish` job that publishes it after every build job
-succeeded, so `releases/latest/download/latest.json` never 404s mid-build. It
-is verified only by actionlint; no real release has run through it. Files:
-`.github/workflows/release.yml`, `release-please-config.json`.
-
-#### TODO
-
-- [ ] On the next `chore(main): release x.y.z` merge, run the "Verification on
-      the next release" checklist in
-      `docs/plans/_archived/20260923-draft-release-publish/learnings.md`
-      (draft while building, tag exists at once, no duplicate release, published
-      as Latest with a four-platform `latest.json`, and the next release PR has
-      the right changelog base).
-
 ### Core: an explicit `Orientation = 1` line for landscape `.dop` files is unverified in PhotoLab
 
 From `dop-orientation`'s implementation: PhotoLab 10 was verified to display
