@@ -10,6 +10,21 @@ The `partial-decode-error-exit` work (`docs/plans/_archived/20261002-partial-dec
 
 - [ ] On any platform, open `D:\photos\samples\NEF\NIKON_D70_Nikon.nef` and `D:\photos\samples\DNG\CGO3P_YUN00007.dng` in the app and switch to the 1:1 view. Expect the app to stay up and the `focus_crop` error (`libjpeg fatal error: Not a JPEG file ...`) to surface however the 1:1 view shows a failed crop. Note what the UI shows; if it shows nothing useful, file a follow-up.
 
+### App: real-device check of the preview-failed state when the selected file's preview fails
+
+#### Background
+
+The preview-failure-clears-stale-image feature clears the main preview and shows a "preview-failed" overlay (`The preview of this file could not be shown.`) when the current file's preview fails. Before this, the previous file's image stayed on screen. The automated criteria are covered by `empty.test.ts` and `mise run ci`. The real-app behavior (a real undecodable NEF, fast paging across it, `z` and Compare on it) was never exercised. Plan: `docs/plans/_archived/20261002-preview-failure-clears-stale-image/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/empty.ts`
+
+#### TODO
+
+- [ ] On Windows, open `D:\Photos\samples\NEF\`, view a normal NEF, then `NIKON_D70_Nikon.nef`. Expect the main preview no longer shows the previous NEF and reads "The preview of this file could not be shown.", with the error in the meta pane's status block.
+- [ ] On Windows, page on from the bad file to a normal file. Expect it to show normally and the overlay to disappear.
+- [ ] On Windows, page back and forth quickly across the bad file. Expect an older file's image never stays on screen.
+- [ ] On Windows, press `z` (1:1) and open Compare on the bad file. Expect neither to throw.
+
 ### Core: validate the combined AF-eye score on the two reserved labeled folders
 
 `docs/plans/_archived/20260926-af-eye-in-focus-probability/plan.md` reserved

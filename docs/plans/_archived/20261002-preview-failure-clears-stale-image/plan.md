@@ -122,4 +122,4 @@ note that it could not be shown, and the next normal file draws as before.
 
 ## Progress
 
-- (none yet)
+- (2026-10-02) Step 1 complete
