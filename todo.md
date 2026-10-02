@@ -568,24 +568,30 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 
-### Agents: confirm the long-wait timeout fix on a real `/pr` or `/merge` run
+### Agents: confirm `pr-runner` waits for a child's hand-back on a real `/pr` run
 
-The `long-wait-timeouts` plan added explicit `timeout: 600000` to every
-`wait-pr-actionable.sh` / `wait-post-merge-runs.sh` call site and a rule for
-`merger` / `pr-runner` to stop improvising `sleep`/`until` polling and to
-`TaskStop` their own lingering background tasks before handing back. The fix
-is verified only statically (docs and script comments); no real run has
-confirmed it works.
+#### Background
+
+The `long-wait-timeouts` fix is confirmed on 240 `pr-runner` and 225 `merger`
+transcripts: every `wait-pr-actionable.sh` / `wait-post-merge-runs.sh` call
+passed `timeout: 600000`, and the runs the harness still moved to the
+background were `TaskStop`ped and re-run in the foreground. What remained was
+`pr-runner` polling (`wait-pr-actionable.sh`, `sleep`, `until` / `while`,
+`git ls-remote`, `gh pr view`) while a child it had dispatched was still
+running. The `pr-runner-child-handback` plan added a rule to
+`.claude/agents/pr-runner.md` that the runner ends its turn after an `Agent`
+dispatch and waits for the child's hand-back. It is verified only statically.
 
 #### TODO
 
-- [ ] Watch `merger` and `pr-runner` through their waits on a real `/pr` or
-      `/merge` run and confirm they pass `timeout: 600000` (no "moved to the
-      background" message), do not improvise polling if a command is
-      backgrounded anyway, and `TaskStop` any background task of their own
-      before handing back, so `ListAgents` shows them completed with nothing
-      running. If not clean, adjust
-      `.claude/agents/{merger,pr-runner}.md`.
+- [ ] On the next real `/pr` run whose PR hits a conflict, a CI failure or a
+      review round, read the `pr-runner` subagent transcript (the subagent
+      `.jsonl` files under the Claude Code project directory for that
+      session) and confirm that after each `Agent` dispatch the runner ended
+      its turn, the next event is the "[Subagent hand-back]" message, and
+      there is no `wait-pr-actionable.sh`, `sleep`, `until` / `while`,
+      `git ls-remote` / `git fetch` or `gh pr view` call in between. If not
+      clean, adjust `.claude/agents/pr-runner.md`.
 
 ### Release: the draft-then-publish release flow is unverified on a real release
 
