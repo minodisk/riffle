@@ -94,13 +94,15 @@ mise run ci
 `mise run ci` can take close to 10 minutes, so pass the maximum `timeout` of
 `600000` (ms) explicitly to the Bash tool (the default timeout can be as low as 120 s
 and would cut it off). **Do not set `run_in_background: true`** — same reason as the waiting in
-§4: a subagent exits the moment its turn ends, leaving nobody to receive the
-completion notice.
+§4: the foreground run is what makes the exit code observable to branch on,
+while a background run would hand the watching to a task notification.
 
 **On a failure, do not read the log and fix it yourself.** The log flowing into
 `pr-runner`'s context is unavoidable, but **do not read its content; judge on
 the exit code alone**. Start `pr-check-fixer` with `run_in_background: false`,
-telling it "local CI (`mise run ci`) is failing; there is no run ID".
+telling it "local CI (`mise run ci`) is failing; there is no run ID", then end
+your turn and wait for its hand-back (see "Dispatching a child and waiting for
+its hand-back").
 
 Branch on its return value. This retry runs **at most 3 times**.
 
@@ -155,8 +157,11 @@ Pass the Bash tool's `timeout` of `600000` (ms) explicitly on every run: the
 default foreground timeout can be as low as 120 s, far shorter than one
 4-minute slice.
 
-Do not compose a compound command such as `until ...; do sleep 30; done` (it
-triggers a permission prompt). Waiting on `wait` / `review_required` (checks in
+Do not compose a compound command such as `until ...; do sleep 30; done`, nor a
+bare `sleep` chained before or after a script (`sleep 45; <wait-pr-actionable
+command>`, `sleep 60` / `sleep 90` before or after `<head-reviewed-by-copilot
+command>` / `<rerequest-review command>`): it triggers a permission prompt, and
+the script already does the waiting. Waiting on `wait` / `review_required` (checks in
 progress, waiting on the approver) is shut inside the script.
 
 Handle the exit code as follows.
@@ -243,15 +248,16 @@ return exit 2.
 
 **Do not switch the waiting to `run_in_background: true`.** Even when
 `ACTION=review_required` (waiting on the approver) persists or checks are
-obviously long, keep ticking it off and re-running in the foreground. You are a
-subagent, so **you exit the moment your turn ends**. There would be nobody left
-to receive the background task's completion notice, and reporting "waiting for a
-notice" and ending your turn drops the watching onto the caller (this actually
-happened). Express a long wait by ticking it off in the foreground while
-counting `wait_timeouts`, and return `aborted` (reason: `wait_timeout`) once you
-hit the limit (`wait_timeouts < 7`). The skill this was ported from expands in
-the main session and could receive notices; that premise does not hold for an
-agent.
+obviously long, keep ticking it off and re-running in the foreground. The
+foreground run is what lets the counters (`wait_timeouts` and the rest) tick on
+exit 2 and what makes the exit code observable to branch on. A background run
+would hand the watching to a task notification instead, and the one time this
+was tried the runner handed "waiting for a notice" back to the caller as its
+result, which dropped the watching onto the caller (this actually happened). Express a long
+wait by ticking it off in the foreground while counting `wait_timeouts`, and
+return `aborted` (reason: `wait_timeout`) once you hit the limit
+(`wait_timeouts < 7`). Waiting for a child is different: see "Dispatching a
+child and waiting for its hand-back".
 
 **If the harness nonetheless reports that a command was moved to the
 background, do not improvise `sleep` / `until` polling or any other waiting
@@ -358,17 +364,20 @@ re-evaluated, so it is always `changes_requested`).
 
 Start it with the `Agent` tool, `subagent_type: "pr-conflict-resolver"`,
 `run_in_background: false` (the model inherits the session default). Pass the PR
-number and the branch name from `git rev-parse --abbrev-ref HEAD` in the prompt.
-If `needs_discussion` comes back, return the same terminal state to the caller
-with that report attached. Otherwise return to the top of the loop as soon as it
-returns. If it comes back unresolved, return `aborted` (reason: `conflict`).
+number and the branch name from `git rev-parse --abbrev-ref HEAD` in the prompt,
+then end your turn and wait for its hand-back (see "Dispatching a child and
+waiting for its hand-back"). If `needs_discussion` comes back, return the same
+terminal state to the caller with that report attached. Otherwise return to the
+top of the loop as soon as it returns. If it comes back unresolved, return `aborted` (reason: `conflict`).
 
 ### check_failed → `pr-check-fixer`
 
 Start it with the `Agent` tool, `subagent_type: "pr-check-fixer"`,
 `run_in_background: false`. Pass the PR number and every run ID listed in the
-output's `failedRunIds` in the prompt. **Do not `gh run view` the run IDs and
-read the logs yourself.** Return to the top of the loop as soon as it returns.
+output's `failedRunIds` in the prompt, then end your turn and wait for its
+hand-back (see "Dispatching a child and waiting for its hand-back"). **Do not
+`gh run view` the run IDs and read the logs yourself.** Return to the top of the
+loop as soon as it returns.
 If it comes back unable to fix them, return `aborted` (reason: `check_failed`)
 with the child's report attached.
 
@@ -377,8 +386,9 @@ with the child's report attached.
 1. Increment `address_rounds`. If `address_rounds > 5`, return `aborted`
    (reason: `address_rounds_exceeded`) with the situation
 2. **Decide the plan**: unless the Input carried a converted plan JSON, run the
-   planner path defined in the platform contract at the end, in the foreground.
-   Pass the planner only the PR number. On success the return value is a JSON
+   planner path defined in the platform contract at the end. Pass the planner
+   only the PR number, then end your turn and wait for its hand-back (see
+   "Dispatching a child and waiting for its hand-back"). On success the return value is a JSON
    array of `{thread_id, path, line, author, category, plan}` (`category` is
    `fix | reject | discuss`; `line` can be `null` on an outdated diff). If the
    return value is the JSON object
@@ -425,7 +435,9 @@ with the child's report attached.
    converted JSON
 5. With zero `discuss`, start the `Agent` tool with
    `subagent_type: "pr-review-addresser"`, `run_in_background: false`. Pass the
-   PR number and the plan JSON array verbatim in the prompt
+   PR number and the plan JSON array verbatim in the prompt, then end your turn
+   and wait for its hand-back (see "Dispatching a child and waiting for its
+   hand-back")
 6. If `needs_discussion` comes back, return the same terminal state to the
    caller with that report attached. Otherwise return to the top of the loop as
    soon as it returns
@@ -471,6 +483,23 @@ run the planner from 2 as usual.
 - Treat a child's failure as your own failure and report it to the caller rather
   than swallowing it
 
+### Dispatching a child and waiting for its hand-back
+
+An `Agent` launch of a child returns at once as async ("Async agent launched
+successfully") whatever `run_in_background` says; passing
+`run_in_background: false` is harmless but does not make the call synchronous.
+**After dispatching a child, end your turn and wait for its hand-back
+message.** Until the hand-back arrives, run nothing: no
+`<wait-pr-actionable command>` (it would only show the stale ACTION the child
+is working on), no `sleep` / `until` / `while` polling, and no branch or PR
+polling (`git ls-remote`, `git fetch`, `gh pr view`, `pgrep`). The child's
+hand-back reaches you after your turn ends. When it arrives, branch on the
+child's return value as described at the dispatch site.
+
+Ending your turn here is not returning a result. Write no report or terminal
+state and do not hand back to the caller. Your own hand-back to the caller
+happens only at a terminal state listed in "Output".
+
 ## Output
 
 Report to the caller:
@@ -510,4 +539,5 @@ Report to the caller:
   - `rerequest-review`: `bash .claude/skills/pr/scripts/rerequest-review.sh`
   - `verify-review-plan`: `bash .claude/skills/pr/scripts/verify-review-plan.sh`
 - The planner path is the `Agent` tool with
-  `subagent_type: "pr-review-planner"`, `run_in_background: false`.
+  `subagent_type: "pr-review-planner"`, `run_in_background: false`; wait for
+  its hand-back as in "Dispatching a child and waiting for its hand-back".
