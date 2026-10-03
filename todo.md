@@ -585,6 +585,18 @@ dispatch and waits for the child's hand-back. It is verified only statically.
       `git ls-remote` / `git fetch` or `gh pr view` call in between. If not
       clean, adjust `.claude/agents/pr-runner.md`.
 
+### Agents: confirm `merger` runs its step 6 commands as separate, verbatim calls on a real `/pr` run
+
+#### Background
+
+The `merger-separate-sync-calls` plan added a rule to `.claude/agents/merger.md` step 6: `mise run git:main` and `./tools/git/delete_merged_branches.sh` run as two separate Bash calls, each exactly as written in its code block (no pipes, no `2>&1`, no `tail`, no `;` / `&&` chaining, no `cd` prefix). The rule exists because the chained or piped forms match neither allow rule in `.claude/settings.json`, so they fall to the auto mode classifier, which can deny the sandbox bypass as a Safety Bypass. The merger then stops with `post_merge_sync_failed` after a merge that already succeeded (PR #657). CI covers only the Markdown formatting. A prose rule cannot be unit-tested, so it has never been exercised by a real unattended merger run. Plan: `docs/plans/_archived/20261003-merger-separate-sync-calls/plan.md`
+
+Files: `.claude/agents/merger.md`
+
+#### TODO
+
+- [ ] On the next real `/pr` run that reaches the merger, read the `merger` subagent transcript (the subagent `.jsonl` files under the Claude Code project directory for that session). Confirm that step 6 issued `mise run git:main` and `./tools/git/delete_merged_branches.sh` as two separate Bash calls, each with exactly the text in its code block and `dangerouslyDisableSandbox: true`, and that the run did not end with `post_merge_sync_failed`. If a pipe, redirect or chain appears, or a denial recurs, strengthen the wording in `.claude/agents/merger.md` step 6.
+
 ### Agents: fix the inaccurate "subagent exits the moment its turn ends" rationale in the other agent files
 
 #### Background

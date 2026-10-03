@@ -244,6 +244,17 @@ post-merge result.
 
 ### 6. Sync main and clean up branches
 
+**Run `mise run git:main` and `./tools/git/delete_merged_branches.sh` as two
+separate Bash calls, each exactly as written in its code block below**: no
+pipes, no redirects (`2>&1`), no `tail`, no `;` / `&&` chaining, no `cd`
+prefix. `.claude/settings.json` allows exactly those two command lines; any
+other shape misses the allow rules and goes to the auto mode classifier, which
+may deny the sandbox bypass as a Safety Bypass, and you then stop with
+`post_merge_sync_failed` after a merge that already succeeded. Measured across
+past runs: the bare `mise run git:main` with the flag was allowed every time,
+and every denial was a `| tail` or `;`-chained variant (chaining passes only
+nondeterministically), so do not merge them back into one call.
+
 ```bash
 mise run git:main
 ```
