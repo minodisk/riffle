@@ -411,6 +411,12 @@ lock, before it emits `faces-done`.
   `scan-done` and `faces-done` refreshes, which each followed a pass that
   wrote rows. A focus with no scan running logged
   `rescan: trigger=focus deferred=false`, `todo=0`, no `open entries`.
+- Reading the log: the `faces-done` refresh's `open entries` is logged between
+  the drained rescan's `scan list` and its reconcile, so it looks like the
+  rescan's own read. Attribute each `open entries` to the pass that wrote rows
+  (open, `scan-done`, `faces-done`), not to line order. A rescan with `todo=0`
+  that is followed by an `open entries` is a regression only if no pass wrote
+  rows just before it.
 - Source: `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md`, Step 1;
   verification: `docs/plans/_archived/20261004-follow-up-rescan-log-check/plan.md`.
 
