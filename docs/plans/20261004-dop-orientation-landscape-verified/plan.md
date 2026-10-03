@@ -32,10 +32,10 @@ sidecar. The open item is therefore done and should leave `todo.md`.
 - [x] Step 1: Remove the verified `.dop` landscape-orientation item from `todo.md`
   - Done when: the section headed
     `### Core: an explicit \`Orientation = 1\` line for landscape \`.dop\` files is unverified in PhotoLab`
-    (currently `todo.md` lines 607–620: the heading, its paragraph, its
-    `#### TODO` list and the trailing blank line) is gone; the preceding
-    section ("Release: the draft-then-publish release flow ...") and the
-    following one ("App: SIGMA fp L strip thumbnails ...") are untouched and
+    (the heading, its paragraph, its `#### TODO` list and the trailing blank
+    line) is gone; the preceding section ("Agents: fix the inaccurate ...
+    rationale") and the following one ("App: SIGMA fp L strip thumbnails ...")
+    are untouched and
     still separated by exactly one blank line; `git diff --stat` shows only
     `todo.md` (plus this plan folder); `mise run ci` passes.
   - Implementation approach:
@@ -52,4 +52,4 @@ sidecar. The open item is therefore done and should leave `todo.md`.
 
 ## Progress
 
-- (none yet)
+- (2026-10-04) Step 1 complete
