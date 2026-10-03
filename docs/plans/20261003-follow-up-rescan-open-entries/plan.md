@@ -203,3 +203,4 @@ deferred: trigger=focus` line, then the `scan list` / `scan prepare`
 
 - (2026-10-03) Step 1 complete
 - (2026-10-03) Step 2 complete
+- (2026-10-03) Step 3 complete
