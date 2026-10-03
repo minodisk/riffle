@@ -96,4 +96,4 @@ dropped" item in `docs/agents/tauri-app.md` and close the todo item.
 
 ## Progress
 
-- (none yet)
+- (2026-10-04) Step 1 complete
