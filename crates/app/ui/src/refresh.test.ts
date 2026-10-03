@@ -6,6 +6,7 @@ import {
   refreshOnProgress,
   refreshOnScanDone,
   refreshTimingLine,
+  rescanLine,
 } from "./refresh.js";
 
 describe("focusRescanDue", () => {
@@ -117,5 +118,19 @@ describe("refreshTimingLine", () => {
       "refresh entries: rows=3000 invoke=41.3ms entries=3.5ms bursts=1.0ms exif=12.0ms meta=0.4ms draw=0.2ms sharpness=2.0ms apply_bursts=1.5ms candidates=0.9ms refilter=7.0ms set_files=false total=70.0ms",
     );
     expect(line.length).toBeLessThan(220);
+  });
+});
+
+describe("rescanLine", () => {
+  test("deferred", () => {
+    expect(rescanLine("focus", "defer")).toBe("rescan deferred: trigger=focus");
+  });
+
+  test("started at once", () => {
+    expect(rescanLine("watch", "start")).toBe("rescan: trigger=watch deferred=false");
+  });
+
+  test("drained after a deferral", () => {
+    expect(rescanLine("reload", "drained")).toBe("rescan: trigger=reload deferred=true");
   });
 });
