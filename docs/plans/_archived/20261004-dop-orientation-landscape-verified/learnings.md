@@ -17,7 +17,7 @@
   the fresh `.dop` then carried random ones. This is a race in the test
   procedure, not a Riffle bug; the app avoids it through
   `crates/app/src/photolab.rs`'s UUID lookup (see
-  [`docs/agents/photolab.md`](../../agents/photolab.md)). For future hand
+  [`docs/agents/photolab.md`](../../../agents/photolab.md)). For future hand
   checks, write the `.dop` before PhotoLab sees the RAW, or through the app.
 - The plan's location hints were stale by the time the step ran: the section
   sat at `todo.md` lines 615–628 (not 607–620), and the preceding section was
