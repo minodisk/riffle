@@ -2,6 +2,8 @@
 // and the strip: what a key does to a live edit, which typed name is
 // worth sending, and the slow second click that starts an edit.
 
+import { relation } from "./tree.js";
+
 export type Decision = "confirm" | "cancel";
 
 export interface InlineRename {
@@ -83,5 +85,27 @@ export class SlowClick {
     }
     this.armed = null;
     return true;
+  }
+}
+
+// The folders whose `rename_folder` invoke is in flight: until it settles,
+// the tree still draws them and everything under them at paths about to
+// move, so opening one of those is refused.
+export class RenamesInFlight {
+  private paths: string[] = [];
+
+  start(path: string): void {
+    this.paths.push(path);
+  }
+
+  settle(path: string): void {
+    const at = this.paths.indexOf(path);
+    if (at !== -1) {
+      this.paths.splice(at, 1);
+    }
+  }
+
+  blocks(path: string, ignoreCase: boolean): boolean {
+    return this.paths.some((dir) => relation(path, dir, ignoreCase) !== null);
   }
 }

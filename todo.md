@@ -1004,18 +1004,6 @@ the sidecar), so the database's Uuids remain the only fix.
 - [ ] Decide whether to retry the lookup (and re-patch the sidecar) after a
       busy-database miss, or leave it as a rare, logged edge case.
 
-### App: opening a subfolder while its parent folder's rename is in flight
-
-Step 2's round 4 local reviewer noted, outside the reviewed diff, that
-clicking a subfolder of the folder being renamed while `rename_folder` is
-still in flight can open that subfolder under its old path.
-
-#### TODO
-
-- [ ] Make the tree refuse (or defer) opening a path under a folder whose
-      rename has not returned yet, or reopen it under the rebased path once
-      it returns.
-
 ### App: PhotoLab after a file or folder rename
 
 From Step 3's check of the PhotoLab Uuid lookup (`crates/app/src/photolab.rs`
