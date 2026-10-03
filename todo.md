@@ -612,20 +612,6 @@ design; only the stated reason is inaccurate. Plan:
       lets the counters tick on exit 2). Keep the foreground-only rules
       themselves.
 
-### Core: an explicit `Orientation = 1` line for landscape `.dop` files is unverified in PhotoLab
-
-From `dop-orientation`'s implementation: PhotoLab 10 was verified to display
-correctly with `Orientation = 8` (portrait) written into a Riffle-made `.dop`
-sidecar, but a landscape file's explicit `Orientation = 1` line has not been
-checked in isolation in PhotoLab. Files: `crates/core/src/dop.rs` (`template`,
-`Doc::insert_orientation`).
-
-#### TODO
-
-- [ ] Open a Riffle-made `.dop` sidecar for a landscape (EXIF Orientation 1)
-      RAW in PhotoLab 10 and confirm it displays upright with the explicit
-      `Orientation = 1,` line present.
-
 ### App: SIGMA fp L strip thumbnails have over ten times the pixels of other bodies'
 
 SIGMA fp L DNGs have no strip JPEG at or above `PREVIEW_MIN_WIDTH` (1600)
