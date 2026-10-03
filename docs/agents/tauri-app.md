@@ -390,6 +390,21 @@ the global `window.__TAURI__.event.listen`.
   in-flight count, so the wrap stays balanced. Source:
   `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md`, Step 1.
 
+### Emit `faces-done` only after the scan's `running` entry is dropped (Inferred)
+
+`start_scan`'s task calls `state.finish(scan_id)`, and releases the `Scans`
+lock, before it emits `faces-done`.
+
+- Why: the frontend drains a rescan deferred during the scan (focus, watcher,
+  `File > Reload Folder`) off `faces-done`. If that rescan's `scan_folder`
+  still finds the ended scan in `running`, it joins it, `joined_previous`
+  makes `changed` nonzero, and `refreshOnScanDone` forces a `folder_entries`
+  read (`open entries`) of an unchanged folder.
+- `scanning()` turns false a moment before the frontend's `scanRunning`; a
+  `clear_index` already in flight can proceed slightly earlier, which it
+  re-checks itself, so nothing new becomes possible.
+- Source: `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md`, Step 1.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so

@@ -134,7 +134,7 @@ state = index::lock(&scans.0); state.finish(scan_id);` block above
     - This step assumes Step 1 is merged only for the manual check in
       Step 3; it has no code dependency on it.
 
-- [ ] Step 3: Update the docs and verify one `open entries` per cold scan
+- [x] Step 3: Update the docs and verify one `open entries` per cold scan
   - Done when:
     - `docs/humans/performance.md`: the paragraph under the 2677-file table
       that says "each open called `open entries` twice (56ms and 76ms)" and

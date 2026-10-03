@@ -426,11 +426,17 @@ release app, 2026-09-21, from `Riffle.log`):
 | Focus rescan of the unchanged folder (`scan prepare`) | - | ~65ms |
 
 The focus rescan is not noticeable, so the watcher's debounce does not need
-to grow for it. Two anomalies showed up in the log: each open called
+to grow for it. Two anomalies showed up in the log. Each open called
 `open entries` twice (56ms and 76ms), and the second call is not counted in
-the ~163ms above (`todo.md`: "App: `open entries` is called twice per folder
-open"); and two focus rescans once fired at the same instant (`todo.md`:
-"App: a scan can be started twice after a cache clear / focus rescan").
+the ~163ms above: it was the `scan-done` re-read of the rows, which every scan
+did before 2026-09-26 and which is now skipped when the scan wrote nothing. A
+rescan asked for during a scan (a focus of the main window, a watcher event,
+`File > Reload Folder`) still runs once the scan ends, and reads the rows
+only when it changed something; with `Timing logs` on, its `rescan
+deferred: trigger=…` and `rescan: trigger=… deferred=true` lines name what
+asked for it. And two focus rescans once fired at the same instant
+(`todo.md`: "App: a scan can be started twice after a cache clear / focus
+rescan").
 
 ### Measuring on your own folder
 
@@ -444,7 +450,9 @@ folder), `scan reconcile` (stat-ing the files against the index),
 `scan sidecars`, `scan prepare` (the sum of those three) and `scan extract`,
 which carries the whole extraction pass with its `files`, `done`, `errors`
 and `threads` counts. The first scan's `scan extract` has `files` > 0; `scan
-prepare` plus that `scan extract` is the first-scan total.
+prepare` plus that `scan extract` is the first-scan total. A further
+`scan_id` right after the cold scan's end with `todo=0` is a deferred rescan
+(see the `rescan:` line before it), not part of the first-scan total.
 
 The second open writes the same lines but with `todo=0`, and its
 `scan extract` reads `files=0 done=0` with a near-zero duration — that
