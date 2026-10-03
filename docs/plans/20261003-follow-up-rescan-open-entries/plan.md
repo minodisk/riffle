@@ -105,7 +105,7 @@ state = index::lock(&scans.0); state.finish(scan_id);` block above
       frontend's `refreshOnScanDone`: the deliberate over-count on a folder
       switch mid-scan stays.
 
-- [ ] Step 2: Name the trigger of a deferred rescan in the timing log
+- [x] Step 2: Name the trigger of a deferred rescan in the timing log
   - Done when:
     - `resync()` in `crates/app/ui/src/main.ts` takes a `trigger` argument
       (a small string union, e.g. `"focus" | "watch" | "reload" | "trash" |
@@ -202,3 +202,4 @@ deferred: trigger=focus` line, then the `scan list` / `scan prepare`
 ## Progress
 
 - (2026-10-03) Step 1 complete
+- (2026-10-03) Step 2 complete

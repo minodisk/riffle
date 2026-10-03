@@ -87,6 +87,7 @@ import { editKey } from "./rename.js";
 import { IdleGate } from "./idle.js";
 import { scanFocusPaths } from "./scanfocus.js";
 import {
+  type RescanTrigger,
   type ScanDone,
   type ScanStarted,
   focusRescanDue,
@@ -94,6 +95,7 @@ import {
   refreshOnProgress,
   refreshOnScanDone,
   refreshTimingLine,
+  rescanLine,
 } from "./refresh.js";
 import {
   COMPARE_NEEDS_FRAMES,
@@ -328,10 +330,12 @@ let currentScan = 0;
 // `FOCUS_RESCAN_INTERVAL` of it is skipped. The focus listener stamps it too,
 // since `resync()` reaches `startScan` only after its `list_arw` resolves.
 let lastScanAt: number | null = null;
-// True while a rescan's `list_arw` is outstanding, and true when a trigger
-// arrived while one was, the way `refreshEntries` keeps one read in flight.
+// True while a rescan's `list_arw` is outstanding, and the trigger that
+// arrived while one was (or while a scan ran), the way `refreshEntries` keeps
+// one read in flight. The first deferred trigger is kept, so the drained
+// rescan's log line names what caused it.
 let resyncInFlight = false;
-let resyncPending = false;
+let resyncPending: RescanTrigger | null = null;
 // Reserved by the picker before its dialog opens, and minted by a drop only
 // once its dropped path has resolved (see `newFolderToken` and `dropCounter`
 // below). When two folder opens race, the `list_arw` result of the one whose
@@ -793,7 +797,7 @@ function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): voi
   }
   setStatus(trashedStatus(summary));
   if (refresh) {
-    resync();
+    resync("trash");
   }
 }
 
@@ -1631,7 +1635,7 @@ function undoTrash(entry: TrashEntry): void {
               setViewOnly(isViewOnly(allFiles));
               refilter();
             }
-            resync();
+            resync("restore");
           }
         })
         .catch((err: unknown) => {
@@ -2616,7 +2620,7 @@ function renameFile(path: string, name: string): void {
           if (warning !== null) {
             setStatus(warning);
           }
-          resync();
+          resync("rename");
         },
         (err: unknown) => {
           if (dir !== openDir || token !== folderToken) {
@@ -2785,7 +2789,7 @@ function startScan(folder: string): Promise<void> {
 //
 // The same open, so no new folder token is minted: a listing that lands after
 // another folder was opened is dropped by the guard below.
-function resync(): void {
+function resync(trigger: RescanTrigger, deferred = false): void {
   if (openDir === null) {
     return;
   }
@@ -2795,9 +2799,11 @@ function resync(): void {
   // out a deferred operation's invoke, whose confirm dialog closing refocuses
   // the window, so the backend does not see that rescan and refuse it.
   if (scanRunning || resyncInFlight || idle.inFlight) {
-    resyncPending = true;
+    resyncPending ??= trigger;
+    debugLog(rescanLine(trigger, "defer"));
     return;
   }
+  debugLog(rescanLine(trigger, deferred ? "drained" : "start"));
   const dir = openDir;
   const token = folderToken;
   const previous = files;
@@ -2824,11 +2830,12 @@ function resync(): void {
 }
 
 function drainResync(): void {
-  if (!resyncPending) {
+  if (resyncPending === null) {
     return;
   }
-  resyncPending = false;
-  resync();
+  const trigger = resyncPending;
+  resyncPending = null;
+  resync(trigger, true);
 }
 
 function openDirectory(folder: string, token: number): Promise<void> {
@@ -2885,7 +2892,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanStarted = null;
     progressRefreshedFor = null;
     setScanRunning(false);
-    resyncPending = false;
+    resyncPending = null;
     idle.discard();
     void startScan(folder);
     if (files.length === 0) {
@@ -2939,7 +2946,7 @@ void window.__TAURI__.event.listen("open-folder", () => {
 // scoped to this window: a global `event.listen` also receives other
 // windows' focus.
 void window.__TAURI__.event.listen("reload-folder", () => {
-  resync();
+  resync("reload");
 });
 void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // Skip while the settings modal is open: closing its Clear Cache confirm
@@ -2955,7 +2962,7 @@ void window.__TAURI__.window.getCurrentWindow().listen("tauri://focus", () => {
   // open discards that rescan and a canceled picker drains it.
   if (!settings.isOpen && focusRescanDue(lastScanAt, Date.now())) {
     lastScanAt = Date.now();
-    resync();
+    resync("focus");
   }
 });
 // The folder watcher's trigger, debounced in Rust. The listener outlives every
@@ -2964,7 +2971,7 @@ void window.__TAURI__.event.listen<{ dir: string }>("folder-changed", ({ payload
   if (payload.dir !== openDir) {
     return;
   }
-  resync();
+  resync("watch");
 });
 void window.__TAURI__.event.listen("undo", () => {
   if (!modalOpen()) undo();

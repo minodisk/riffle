@@ -108,3 +108,17 @@ export function refreshTimingLine(t: RefreshTiming): string {
     `total=${ms(t.total)}`,
   ].join(" ");
 }
+
+// What asked `resync()` for a rescan of the open folder.
+export type RescanTrigger = "focus" | "watch" | "reload" | "trash" | "restore" | "rename";
+
+// One `Riffle.log` line per `resync()` call: `defer` when a scan (or a
+// listing, or a deferred operation's invoke) holds it off, `start` when it
+// lists the folder now, `drained` when a deferred one runs at last, still
+// naming the trigger that was deferred.
+export function rescanLine(trigger: RescanTrigger, phase: "defer" | "start" | "drained"): string {
+  if (phase === "defer") {
+    return `rescan deferred: trigger=${trigger}`;
+  }
+  return `rescan: trigger=${trigger} deferred=${phase === "drained"}`;
+}

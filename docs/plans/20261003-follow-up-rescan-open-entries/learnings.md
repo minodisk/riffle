@@ -13,3 +13,16 @@
 - The reorder wraps the lock in its own block so the guard is dropped before
   the emit; the closure's earlier `state` binding is the outer one and is
   unaffected.
+
+## Step 2: Name the trigger of a deferred rescan in the timing log
+
+- `resyncPending` became `RescanTrigger | null` and keeps the _first_
+  deferred trigger (`??=`), so a burst of triggers during a long scan logs one
+  `rescan deferred:` line each but the drained run names what first asked
+  for it. `resync(trigger, deferred)` takes a second flag so the drained run
+  logs `deferred=true`; no `"drained"` member was added to the trigger union,
+  since the drained run always carries the original trigger.
+- The line format lives in `rescanLine(trigger, phase)` in `refresh.ts`
+  (`phase`: `defer` / `start` / `drained`), tested in `refresh.test.ts`.
+- A drained rescan that is held off again (a listing still in flight) logs
+  another `rescan deferred:` line with its original trigger; expected.
