@@ -73,16 +73,6 @@ A real cold first scan on Windows 11 (internal SSD, 22 threads, Sony ARW) costs 
 
 - [ ] Run `riffle-cli scan` on a cold real folder on Windows at thread counts 1 / 4 / 8 / 22 (cold each run) to separate IO concurrency from per-file cost, and compare the bounded 1MiB read against reading the whole file.
 
-### App: `open entries` is called again after a scan's follow-up rescan
-
-In the Windows real-folder measurement, the log showed two `open entries` lines (56ms and 76ms on 2677 files) for one folder open. A later run (Windows 11, v0.2.0, 2026-09-22) showed a plain folder open logs one `open entries` (seen at 03:15 and 04:00); the extra call appears after scan-done when a follow-up rescan runs (`scan_id=2` immediately after the cold scan finished at 04:39:37).
-
-docs/plans/_archived/20260928-strip-keep-scroll-on-rescan/plan.md made the follow-up refresh invisible in the UI (no scroll snap, no thumbnail reload), but did not remove the extra `folder_entries` read or its timing cost; this item is still about that.
-
-#### TODO
-
-- [ ] Find why a follow-up rescan starts right after a cold scan finishes and whether its `open entries` is needed (`crates/app/src/commands.rs` `scan_folder`, `crates/app/ui/src/main.ts`); remove it or document why it is needed.
-
 ### App: a deep-row focus point still exceeds the 50ms budget
 
 A focus point in a deep row of the unrotated JPEG measured 58-65ms keypress to pixels (n=2, before the #56 and #60 fixes); see "The 1:1 focus check path" in docs/humans/performance.md. Options are prefetching the neighboring files' crops (Phase 4's ring buffer) or a DCT-scaled placeholder; nothing is chosen.
@@ -1346,3 +1336,15 @@ Files: `crates/app/ui/src/main.ts` (`openFolder`, the `tauri://focus` listener),
 - [ ] On Windows, run `mise run tauri:release:devtools` with timing logs on. With folder A open and its scan older than 5 s, choose File > Open Folder and pick folder B. Expect exactly one `scan list` / `scan prepare` / `scan extract` set, for B, and no `scan superseded` line.
 - [ ] On Windows, repeat with Settings > Clear Cache. Expect one set, for the reopen.
 - [ ] On Windows, alt-tab away from the app and back. Expect one set.
+
+### App: real-device check that a cold scan's follow-up rescan reads no second `open entries`
+
+#### Background
+
+The `follow-up-rescan-open-entries` feature closed the todo item "`open entries` is called again after a scan's follow-up rescan". `start_scan`'s task now drops the scan's `running` entry before it emits `faces-done`, so a rescan drained off that event never counts as having joined a scan and forces no `folder_entries` read. `resync()` now logs `rescan deferred: trigger=<t>` and `rescan: trigger=<t> deferred=<true|false>` under the Timing logs gate. `mise run ci` (vitest, Rust tests) passes. It does not cover the end-to-end count of `open entries`, which depends on Tauri IPC ordering. No GUI session ever ran the check below. See `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md` (Step 3).
+
+Files: `crates/app/src/commands.rs` (`start_scan`), `crates/app/ui/src/main.ts` (`resync`, `drainResync`), `crates/app/ui/src/refresh.ts` (`rescanLine`).
+
+#### TODO
+
+- [ ] On Windows, run `mise run tauri:release:devtools`, turn on Timing logs in the settings modal, clear the cache, and open a folder large enough that the scan runs well past five seconds. Switch to another window and back during the scan, wait for the scan to end, then open `Riffle.log` (`Help > Open Log Folder`). Expected: one `open entries` for the open, a `rescan deferred: trigger=focus` line, then the `scan list` / `scan prepare` of the next `scan_id` with `todo=0`, and no further `open entries`. If it passes, drop the `(Inferred)` tag from the "Emit `faces-done` only after the scan's `running` entry is dropped" item in `docs/agents/tauri-app.md`. If a second `open entries` still appears, note its `changed` / `total` from the surrounding lines and reopen the item "App: `open entries` is called again after a scan's follow-up rescan" (restore it from git history, with the new finding) instead of treating this as passed.
