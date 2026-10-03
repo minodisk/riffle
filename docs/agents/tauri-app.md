@@ -1373,7 +1373,7 @@ folder changed" event has to pick the right one.
 - `resync` defers to `faces-done` (the end of the second pass) while a scan
   runs (`scanRunning`), because `scan_folder` cancels and joins the running
   scan first; a focus change during a 5000-file first scan would otherwise
-  restart it. Repeat triggers collapse into the single `resyncPending` flag.
+  restart it. Repeat triggers collapse into the single `resyncPending` slot, which keeps the first deferred trigger (`??=`), so the drained run is logged with `deferred=true` and the trigger that first asked for it.
   It defers the same way while an operation held by `idle.ts`'s `IdleGate`
   (Move Rejected to Trash, the two renames) has its invoke out
   (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
