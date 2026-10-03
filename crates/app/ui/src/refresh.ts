@@ -34,7 +34,8 @@ export interface ScanStarted {
 // can land after the open-time read and would otherwise go unseen here.
 // Counting every joined scan, even one of a different folder, is a
 // deliberate over-count that costs one extra refresh on a folder switch
-// mid-scan.
+// mid-scan. A scan that has ended is never joined, because `start_scan`'s
+// task drops its entry before `faces-done`.
 export function refreshOnScanDone(
   started: ScanStarted | null,
   scanId: number,

@@ -64,7 +64,7 @@ plan and in `docs/humans/performance.md`).
 
 ## Steps
 
-- [ ] Step 1: Drop the `running` entry before emitting `faces-done`
+- [x] Step 1: Drop the `running` entry before emitting `faces-done`
   - Done when:
     - In `crates/app/src/commands.rs`, the scan task spawned in `start_scan`
       calls `state.finish(scan_id)` (releasing the lock) _before_ it emits
@@ -201,4 +201,4 @@ deferred: trigger=focus` line, then the `scan list` / `scan prepare`
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
