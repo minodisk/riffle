@@ -259,13 +259,13 @@ Apple Silicon Mac での、Rust 側だけのページごとのコストです。
 | 再起動後に 2 回目に開く（`open list` 34ms + `open entries` 56ms + `scan prepare` 73ms） | 3s | 約 163ms |
 | 変更のないフォルダーのフォーカス時の再スキャン（`scan prepare`） | - | 約 65ms |
 
-フォーカス時の再スキャンは体感できないので、ウォッチャーのデバウンスをそのために延ばす必要はありません。ログには 2 つの異常が現れました。開くたびに `open entries` が 2 回（56ms と 76ms）呼ばれ、2 回目の呼び出しは上の約 163ms に含まれていないこと（`todo.md`: "App: `open entries` is called twice per folder open"）と、フォーカス時の再スキャンが一度、同じ瞬間に 2 回発生したこと（`todo.md`: "App: a scan can be started twice after a cache clear / focus rescan"）です。
+フォーカス時の再スキャンは体感できないので、ウォッチャーのデバウンスをそのために延ばす必要はありません。ログには 2 つの異常が現れました。1 つは、開くたびに `open entries` が 2 回（56ms と 76ms）呼ばれ、2 回目の呼び出しが上の約 163ms に含まれていないことです。これは 2026-09-26 より前にどのスキャンも行っていた `scan-done` での行の読み直しで、今はスキャンが何も書かなかったときには省かれます。スキャン中に求められた再スキャン（メインウィンドウのフォーカス、ウォッチャーのイベント、`File > Reload Folder`）は今もスキャンの終了後に 1 回実行され、何かを変えたときだけ行を読みます。`Timing logs` をオンにすると、その `rescan deferred: trigger=…` と `rescan: trigger=… deferred=true` の行が何がそれを求めたかを示します。もう 1 つは、フォーカス時の再スキャンが一度、同じ瞬間に 2 回発生したこと（`todo.md`: "App: a scan can be started twice after a cache clear / focus rescan"）です。
 
 ### 自分のフォルダーで計測する
 
 Riffle は自分のスキャンの時間をログに書くので、これらの数字はどのフォルダーでも再現できます。`Riffle > Settings...`（`Cache` タブ）でキャッシュを消去して次に開くときが初回のスキャンになるようにし、フォルダーを開き直します。次に終了してもう一度起動すると 2 回目に開く処理になり、`Help > Open Log Folder` で `Riffle.log` を見つけられます。
 
-開くたびに、`open list`、`open entries`、`scan list`（フォルダーの読み込み）、`scan reconcile`（インデックスに対するファイルの stat）、`scan sidecars`、`scan prepare`（その 3 つの合計）と `scan extract` を書きます。`scan extract` は抽出のパス全体を表し、`files`、`done`、`errors`、`threads` の数を持ちます。初回のスキャンの `scan extract` は `files` > 0 で、`scan prepare` とその `scan extract` の合計が初回のスキャンの合計です。
+開くたびに、`open list`、`open entries`、`scan list`（フォルダーの読み込み）、`scan reconcile`（インデックスに対するファイルの stat）、`scan sidecars`、`scan prepare`（その 3 つの合計）と `scan extract` を書きます。`scan extract` は抽出のパス全体を表し、`files`、`done`、`errors`、`threads` の数を持ちます。初回のスキャンの `scan extract` は `files` > 0 で、`scan prepare` とその `scan extract` の合計が初回のスキャンの合計です。初回のスキャンの終了直後に続く `todo=0` の `scan_id` は後回しにされた再スキャン（直前の `rescan:` の行を参照）で、初回のスキャンの合計には含まれません。
 
 2 回目に開くときも同じ行を書きますが `todo=0` となり、その `scan extract` は `files=0 done=0` でほぼゼロの時間になります。キャッシュから開いたことを示すのは、行がないことではなく、この `files=0` の行です。2 回目に開く処理は 3 つの別々の呼び出しにまたがるので、1 つの数字にはなりません。その回の `open list`、`open entries`、`scan prepare` の行を足してください。どの行も `in <n>ms` で終わり、ディレクトリ名を含み、タイムスタンプで 2 回の実行を見分けられます。
 
