@@ -48,6 +48,13 @@ writes no line at all. An existing `Orientation` is never touched.
   folder was already in PhotoLab's database. The database does not shadow the
   sidecar: it imports an item with an unknown Uuid as a new item (see the
   next entry).
+- The explicit `Orientation = 1,` line for a landscape file (EXIF Orientation 1)
+  is verified: PhotoLab 10 shows it upright and reads the `.dop`'s rating. Do
+  not drop it. For a hand check, write the `.dop` before PhotoLab sees the RAW,
+  or write it through the app. If the RAW was copied into a folder PhotoLab
+  already views, PhotoLab registers the image first, and the fresh `.dop`'s
+  random Uuids then show up as an extra item. That is a race in the test
+  procedure, not a Riffle bug.
 - Edits queued at the same splice offset apply in the reverse of their push
   order. `write_rating` pushes the `Settings` edit after `ShouldProcess` (so
   `Settings` ends up before it); `write_label` pushes it before `ColorLabel`
@@ -58,6 +65,8 @@ writes no line at all. An existing `Orientation` is never touched.
   keys that share an insertion point.
 - Source: `docs/plans/_archived/20260926-dop-settings-block/learnings.md`,
   Step 1; `docs/plans/_archived/20260926-dop-orientation/learnings.md`,
+  Step 1;
+  `docs/plans/_archived/20261004-dop-orientation-landscape-verified/learnings.md`,
   Step 1.
 
 ## PhotoLab matches `.dop` items by Uuid; a fresh sidecar on a registered image becomes a virtual copy (Hit)
