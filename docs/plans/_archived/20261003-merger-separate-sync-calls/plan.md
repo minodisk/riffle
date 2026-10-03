@@ -81,4 +81,4 @@ touching any script or permission rule.
 
 ## Progress
 
-- (none yet)
+- (2026-10-03) Step 1 complete
