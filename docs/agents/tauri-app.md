@@ -390,7 +390,7 @@ the global `window.__TAURI__.event.listen`.
   in-flight count, so the wrap stays balanced. Source:
   `docs/plans/_archived/20261003-picker-focus-double-scan/plan.md`, Step 1.
 
-### Emit `faces-done` only after the scan's `running` entry is dropped (Inferred)
+### Emit `faces-done` only after the scan's `running` entry is dropped (Measured)
 
 `start_scan`'s task calls `state.finish(scan_id)`, and releases the `Scans`
 lock, before it emits `faces-done`.
@@ -403,7 +403,22 @@ lock, before it emits `faces-done`.
 - `scanning()` turns false a moment before the frontend's `scanRunning`; a
   `clear_index` already in flight can proceed slightly earlier, which it
   re-checks itself, so nothing new becomes possible.
-- Source: `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md`, Step 1.
+- Verified on Windows (2026-10-04, `Riffle.log` with Timing logs on, a
+  1050-file folder cold for the extractor version): after
+  `rescan deferred: trigger=focus` during the scan, the rescan drained off
+  `faces-done` logged `rescan: trigger=focus deferred=true` with `todo=0` and
+  read no `open entries` of its own. The only reads after the open were the
+  `scan-done` and `faces-done` refreshes, which each followed a pass that
+  wrote rows. A focus with no scan running logged
+  `rescan: trigger=focus deferred=false`, `todo=0`, no `open entries`.
+- Reading the log: the `faces-done` refresh's `open entries` is logged between
+  the drained rescan's `scan list` and its reconcile, so it looks like the
+  rescan's own read. Attribute each `open entries` to the pass that wrote rows
+  (open, `scan-done`, `faces-done`), not to line order. A rescan with `todo=0`
+  that is followed by an `open entries` is a regression only if no pass wrote
+  rows just before it.
+- Source: `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md`, Step 1;
+  verification: `docs/plans/_archived/20261004-follow-up-rescan-log-check/plan.md`.
 
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
