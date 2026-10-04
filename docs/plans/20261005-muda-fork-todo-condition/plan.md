@@ -75,4 +75,4 @@ itself is not part of this work.
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete
