@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Svenska"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Swedish UI)",
+      "red": "Röd",
+      "yellow": "Gul",
+      "green": "Grön",
+      "blue": "Blå",
+      "purple": "Lila"
+    }
+  }
+}

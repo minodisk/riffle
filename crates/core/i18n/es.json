@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Español"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Spanish UI)",
+      "red": "Roja",
+      "yellow": "Amarilla",
+      "green": "Verde",
+      "blue": "Azul",
+      "purple": "Púrpura"
+    }
+  }
+}

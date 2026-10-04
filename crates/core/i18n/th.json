@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "ไทย"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Thai UI)",
+      "red": "สีแดง",
+      "yellow": "สีเหลือง",
+      "green": "สีเขียว",
+      "blue": "สีน้ำเงิน",
+      "purple": "สีม่วง"
+    }
+  }
+}

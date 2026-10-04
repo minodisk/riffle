@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Norsk bokmål"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Norwegian UI)",
+      "red": "Rød",
+      "yellow": "Gul",
+      "green": "Grønn",
+      "blue": "Blå",
+      "purple": "Lilla"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Italiano"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Italian UI)",
+      "red": "Rossa",
+      "yellow": "Gialla",
+      "green": "Verde",
+      "blue": "Blu",
+      "purple": "Viola"
+    }
+  }
+}

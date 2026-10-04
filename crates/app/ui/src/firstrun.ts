@@ -36,12 +36,26 @@ export function asksLanguage(format: string): boolean {
   return format === "xmp" || format === "both";
 }
 
-// The preset whose code is the browser language's primary subtag (`ja` for
-// `ja-JP`), else the first one (English).
+// The preset whose code is the browser language with its likely script
+// (`zh-Hant` for `zh-TW`), else the one whose code is its primary subtag
+// (`ja` for `ja-JP`), else the first one (English). An empty or invalid tag,
+// or a webview without `Intl.Locale`, skips the script match.
 export function defaultPreset(
   presets: LabelPreset[],
   navigatorLanguage: string,
 ): LabelPreset | undefined {
+  try {
+    const { language, script } = new Intl.Locale(navigatorLanguage).maximize();
+    if (script) {
+      const scripted = `${language}-${script}`.toLowerCase();
+      const preset = presets.find((preset) => preset.code.toLowerCase() === scripted);
+      if (preset) {
+        return preset;
+      }
+    }
+  } catch {
+    // Fall through to the primary subtag match.
+  }
   const primary = navigatorLanguage.split("-")[0].toLowerCase();
   return presets.find((preset) => preset.code === primary) ?? presets[0];
 }

@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "한국어"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Korean UI)",
+      "red": "빨강",
+      "yellow": "노랑",
+      "green": "초록",
+      "blue": "파랑",
+      "purple": "자주"
+    }
+  }
+}

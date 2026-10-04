@@ -236,8 +236,8 @@ format is chosen), or keep such RAWs in separate folders.
   set (`Metadata > Color Label Set > Edit...`). Either rename that set's labels
   to `Red`, `Yellow`, `Green`, `Blue` and `Purple`, or set Riffle's label names
   in the settings to the names in the set. Presets for Lightroom's localized
-  default sets are provided (English and Japanese so far); adding a language
-  is [one JSON file](./crates/core/i18n/README.md).
+  default sets are provided (every UI language Lightroom Classic ships);
+  adding a language is [one JSON file](./crates/core/i18n/README.md).
 
 ### DxO PhotoLab
 

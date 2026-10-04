@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Français"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, French UI)",
+      "red": "Rouge",
+      "yellow": "Jaune",
+      "green": "Vert",
+      "blue": "Bleu",
+      "purple": "Violet"
+    }
+  }
+}
