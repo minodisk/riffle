@@ -987,23 +987,6 @@ ignore the sidecar), so the database's Uuids remain the only fix.
       `crates/app/src/photolab.rs`'s `database_path()` (or equivalent) to
       cover it.
 
-### App: a busy PhotoLab database silently falls back to random Uuids
-
-`crates/app/src/photolab.rs::lookup` opens PhotoLab's database read-only with
-a 300 ms `busy_timeout`; if PhotoLab is mid-transaction past that window, the
-lookup returns `None` and the fresh `.dop` mints random Uuids, which can still
-produce a virtual copy on a registered image. The failure is logged at
-`log::debug!`, but the writer does not retry the lookup for an
-already-written sidecar. Omitting or emptying the Uuids was checked
-(PhotoLab 10.0.1, Windows, 2026-10-01) and does not avoid the virtual copy
-(omitted gives a virtual copy with a nil Uuid, empty makes PhotoLab ignore
-the sidecar), so the database's Uuids remain the only fix.
-
-#### TODO
-
-- [ ] Decide whether to retry the lookup (and re-patch the sidecar) after a
-      busy-database miss, or leave it as a rare, logged edge case.
-
 ### App: PhotoLab after a file or folder rename
 
 From Step 3's check of the PhotoLab Uuid lookup (`crates/app/src/photolab.rs`
