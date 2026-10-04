@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.0](https://github.com/minodisk/riffle/compare/v1.3.0...v1.4.0) (2026-10-04)
+
+
+### Features
+
+* **app:** name the trigger of a deferred rescan in the timing log ([#670](https://github.com/minodisk/riffle/issues/670)) ([3139db9](https://github.com/minodisk/riffle/commit/3139db90e0474f53adf33d0f70b964e0bc43cf5c))
+* **core:** add Lightroom color label presets for every Lightroom Classic UI language ([#677](https://github.com/minodisk/riffle/issues/677)) ([3c3fd4b](https://github.com/minodisk/riffle/commit/3c3fd4b47c0604463102e3131f3aee8e4387e8be))
+
+
+### Bug Fixes
+
+* **app:** defer the focus rescan while the folder picker is open ([#661](https://github.com/minodisk/riffle/issues/661)) ([18b449e](https://github.com/minodisk/riffle/commit/18b449e4bcf3aa0cbd528460511bcfa31048a706))
+* **app:** drop the scan's running entry before emitting faces-done ([#665](https://github.com/minodisk/riffle/issues/665)) ([45be46c](https://github.com/minodisk/riffle/commit/45be46ca67008314f610ff0fa3c6340793a7de87))
+* **app:** refuse to open a folder under a rename that is in flight ([#664](https://github.com/minodisk/riffle/issues/664)) ([9105cf8](https://github.com/minodisk/riffle/commit/9105cf82467ca915b3b274898e099a0ad74889f4))
+* **claude:** make merger run its sync commands as separate, verbatim calls ([#671](https://github.com/minodisk/riffle/issues/671)) ([b9afac2](https://github.com/minodisk/riffle/commit/b9afac29e4a182e8b4a76f3ab0bdbc944e18aede))
+* **claude:** make pr-runner run its scripts verbatim as standalone calls ([#676](https://github.com/minodisk/riffle/issues/676)) ([9460fef](https://github.com/minodisk/riffle/commit/9460fef52328f61a1e026b188a53bc1bd902095e))
+* **claude:** make pr-runner wait for a child's hand-back instead of polling ([#666](https://github.com/minodisk/riffle/issues/666)) ([badc7b5](https://github.com/minodisk/riffle/commit/badc7b52d5be44272678082988efd3aa6199291f))
+* **claude:** stop dropping read-only gh / gcloud entries in merge-settings ([#657](https://github.com/minodisk/riffle/issues/657)) ([971a9b9](https://github.com/minodisk/riffle/commit/971a9b96852649fe90ebef265a1f76558691ffd5))
+
 ## [1.3.0](https://github.com/minodisk/riffle/compare/v1.2.0...v1.3.0) (2026-10-02)
 
 
