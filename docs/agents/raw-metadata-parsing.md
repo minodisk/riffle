@@ -97,8 +97,17 @@ strip branch is not affected.
 
 - Rule: a Sony body without IFD2 is still listed in `docs/humans/cameras.md`;
   note there that its 1:1 view is the preview.
+- Placement: keep the fallback inside the non-DNG `else` of the strip gate in
+  `arw::parse`. Applied after the whole `let (preview, full)` expression, it
+  also hits the DNG strip results, whose synthetic test lengths do not grow
+  with the pixel size. That breaks `picks_dng_strip_jpegs_by_size_not_by_index`,
+  `short_entries_ignore_the_padding_in_their_high_half` and
+  `picks_dng_strip_jpegs_out_of_a_big_endian_sub_ifd_array`.
+- Consumers: only `reader::read_full` (`Kind::Full`) and the CLI `info` /
+  `bench` / `check` read `full`. `scan.rs` and `crates/app/src/index.rs` do not,
+  so this change needs no `EXTRACTOR_VERSION` bump.
 - Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification),
-  [sony-arw-preview-full learnings](../plans/20261005-sony-arw-preview-full/learnings.md).
+  [sony-arw-preview-full learnings, Step 1](../plans/_archived/20261005-sony-arw-preview-full/learnings.md#step-1).
 
 ## MakerNotes
 
