@@ -2902,7 +2902,6 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanStarted = null;
     progressRefreshedFor = null;
     setScanRunning(false);
-    setScanProgress(null);
     // Open at 0% (only here: a `resync()` shows the bar once `scan-progress`
     // reports real pass-1 work).
     setScanProgress("0%");
