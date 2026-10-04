@@ -103,11 +103,11 @@ silently falls back to random Uuids".
   the same `.dop`. Retrying before the write is the only safe window.
 - Total wait: ~2 s on the coalescing sidecar writer thread delays that
   file's write only while the database is busy.
-- Test runtime: the suite grows by about 2 s.
+- Test runtime: the suite grows by about 5 s (measured, see `learnings.md`).
 - Retry granularity: looping around `query` (reopening per attempt) keeps the
   attempt count visible in the warn log; a single longer `busy_timeout` would
   be equivalent for SQLite but less clear to log.
 
 ## Progress
 
-- (none yet)
+- Step 1 done: `lookup` retries a busy database up to `BUSY_ATTEMPTS` times; tests cover a lock released mid-retries (released at 2 s, past two attempts) and a lock held through every retry.

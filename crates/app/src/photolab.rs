@@ -346,7 +346,10 @@ mod tests {
         let lock = Connection::open(&db).unwrap();
         lock.execute_batch("BEGIN EXCLUSIVE").unwrap();
         let release = std::thread::spawn(move || {
-            std::thread::sleep(BUSY_TIMEOUT * 5 / 2);
+            // One attempt takes about 0.8 s of wall time on Windows (winLock
+            // sleeps on top of the busy handler), so 2 s is past two attempts
+            // and well under the six-attempt total of about 4.9 s.
+            std::thread::sleep(std::time::Duration::from_secs(2));
             lock.execute_batch("COMMIT").unwrap();
         });
         assert_eq!(
