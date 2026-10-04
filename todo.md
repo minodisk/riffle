@@ -176,15 +176,20 @@ black in light mode) via a `[patch.crates-io]` fork of muda 0.19.3
 calls `nsimage.setTemplate(true)` unconditionally in `menuitem_set_icon`. This
 is a temporary bridge, not the permanent fix: upstream PR
 https://github.com/tauri-apps/muda/pull/413 carries the same change behind an
-opt-in `set_icon_as_template` API, against muda `dev`.
+opt-in `set_icon_as_template` API; it merged on 2026-09-29 and shipped in
+muda v0.21.0 (2026-09-30).
+
+As of 2026-10-05: Tauri v2.12.1, the latest v2 release, depends on
+`muda = "0.20"`, so it does not resolve muda 0.21; Tauri's menu-item API still
+has no template flag (only tray icons have one); the workspace is still on
+tauri 2.11.6 with the fork's muda 0.19.3.
 
 #### TODO
 
-- [ ] Once muda#413 (or equivalent) ships in a muda release that Tauri
-      resolves under its `muda = "^0.19"` (or a later Tauri bump), **and**
-      Tauri exposes the template flag for menu items, drop the
-      `[patch.crates-io]` entry from the workspace `Cargo.toml` and switch to
-      the upstream opt-in API.
+- [ ] Once a Tauri v2 release depends on muda >= 0.21 (where muda#413's
+      `set_icon_as_template` lives) **and** Tauri exposes the template flag
+      for menu items, drop the `[patch.crates-io]` entry from the workspace
+      `Cargo.toml` and switch to the upstream opt-in API.
 - [ ] Re-verify in the running app that all bundled menu PNGs still tint
       correctly with the menu appearance after the switch.
 
