@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Português (Brasil)"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Brazilian Portuguese UI)",
+      "red": "Vermelho",
+      "yellow": "Amarelo",
+      "green": "Verde",
+      "blue": "Azul",
+      "purple": "Púrpura"
+    }
+  }
+}

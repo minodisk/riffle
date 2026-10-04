@@ -73,6 +73,26 @@ describe("defaultPreset", () => {
     expect(defaultPreset(presets, "")?.code).toBe("en");
   });
 
+  const localized: LabelPreset[] = [
+    ...presets,
+    { code: "pt", name: "Português (Brasil)", names },
+    { code: "zh-Hans", name: "简体中文", names },
+    { code: "zh-Hant", name: "繁體中文", names },
+  ];
+
+  test("picks the preset of the language's likely script", () => {
+    expect(defaultPreset(localized, "zh-CN")?.code).toBe("zh-Hans");
+    expect(defaultPreset(localized, "zh")?.code).toBe("zh-Hans");
+    expect(defaultPreset(localized, "zh-TW")?.code).toBe("zh-Hant");
+    expect(defaultPreset(localized, "zh-HK")?.code).toBe("zh-Hant");
+  });
+
+  test("falls through to the primary subtag without a script preset", () => {
+    expect(defaultPreset(localized, "pt-BR")?.code).toBe("pt");
+    expect(defaultPreset(localized, "pt-PT")?.code).toBe("pt");
+    expect(defaultPreset(localized, "ja-JP")?.code).toBe("ja");
+  });
+
   test("has nothing to pick without presets", () => {
     expect(defaultPreset([], "ja-JP")).toBeUndefined();
   });

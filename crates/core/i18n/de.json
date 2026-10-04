@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Deutsch"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, German UI)",
+      "red": "Rot",
+      "yellow": "Gelb",
+      "green": "Grün",
+      "blue": "Blau",
+      "purple": "Lila"
+    }
+  }
+}

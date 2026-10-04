@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "Русский"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Russian UI)",
+      "red": "Красный",
+      "yellow": "Желтый",
+      "green": "Зеленый",
+      "blue": "Синий",
+      "purple": "Фиолетовый"
+    }
+  }
+}

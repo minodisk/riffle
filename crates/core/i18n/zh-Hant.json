@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "name": "繁體中文"
+  },
+  "lightroom": {
+    "colorLabels": {
+      "verified": "Lightroom Classic 15.6 (Windows, Traditional Chinese UI)",
+      "red": "紅色",
+      "yellow": "黃色",
+      "green": "綠色",
+      "blue": "藍色",
+      "purple": "紫色"
+    }
+  }
+}
