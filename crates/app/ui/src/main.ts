@@ -2743,7 +2743,6 @@ function startScan(folder: string): Promise<void> {
   // not just during `start_scan` — otherwise it starts a second
   // `scan_folder` that stampedes this one's `scanId`.
   setScanRunning(true);
-  setScanProgress("0%");
   lastScanAt = Date.now();
   scanSeq += 1;
   const seq = scanSeq;
@@ -2904,6 +2903,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
     progressRefreshedFor = null;
     setScanRunning(false);
     setScanProgress(null);
+    // Open at 0% (only here: a `resync()` shows the bar once `scan-progress`
+    // reports real pass-1 work).
+    setScanProgress("0%");
     resyncPending = null;
     idle.discard();
     void startScan(folder);

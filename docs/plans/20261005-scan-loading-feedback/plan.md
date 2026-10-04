@@ -32,8 +32,9 @@ line".
 
 Decisions agreed with the user (2026-10-05): both the bar and the pulse; the
 bar covers pass 1 only; it hides immediately on `scan-done`; it shows at 0%
-from `startScan()` (covering the listing/reconcile phase, accepting a brief
-flash on a fully cached reopen).
+from `openDirectory()` (covering the listing/reconcile phase, accepting a brief
+flash on a fully cached reopen); a `resync()` (focus, watch, reload, trash,
+restore, rename) shows it only once `scan-progress` reports real work.
 
 ## Steps
 
@@ -43,7 +44,7 @@ flash on a fully cached reopen).
     - `crates/app/ui/style.css` gains `.progress` / `.progress-indicator` in the `/* Components */` block (shadcn Progress: track on `var(--muted)`, indicator on `var(--primary)`, `border-radius: 9999px`, `overflow: hidden`; the indicator's width is set by the script) above the `.dialog-box [hidden]` rule, an id rule `#scan-progress:not([hidden])` for height (2 px) and `flex: none`, and `.progress` / `.progress-indicator` rows in the component table of `docs/agents/ui-styling.md`.
     - `style.css` gains a `@keyframes pulse` (shadcn `animate-pulse`: opacity 1 -> 0.5 -> 1, 2 s, `cubic-bezier(0.4, 0, 0.6, 1)`, infinite) applied by `.cell img:not([src])`, and `.cell.failed img:not([src]) { animation: none; }` so a failed cell does not pulse.
     - A new pure module `crates/app/ui/src/progress.ts` exports `progressWidth(done: number, total: number): string` (a `"NN%"` string, `"0%"` when `total` is 0, clamped to `100%`), with `progress.test.ts` covering 0 total, partial, complete, and `done > total`.
-    - `crates/app/ui/src/main.ts`: `startScan()` un-hides `#scan-progress` at `0%` next to `setScanRunning(true)`; the `scan-progress` handler sets the indicator width from `progressWidth(payload.done, payload.total)`; `scan-done`, the `startScan` catch path, and `openDirectory`'s reset (the block around `scanning = null; scanId = null;`) hide it. Nothing is done on `faces-progress` / `faces-done`.
+    - `crates/app/ui/src/main.ts`: `openDirectory()` un-hides `#scan-progress` at `0%` just before `void startScan(folder)`; the `scan-progress` handler sets the indicator width from `progressWidth(payload.done, payload.total)`; `scan-done`, the `startScan` catch path, and `openDirectory`'s reset (the block around `scanning = null; scanId = null;`) hide it. Nothing is done on `faces-progress` / `faces-done`.
     - The ui-styling greps (`#[0-9a-f]{3,6}\b|rgba?\(` and `margin|float`) show no new match.
     - `mise run ci` passes.
     - The todo.md section "App: a large folder gives no visible loading feedback beyond the status line" is removed, and a new section "App: the scan loading feedback's manual check is still open" is added with one item: open a folder of 500+ files whose index is cold (or after Clear Cache) on Windows and confirm the bar appears before the first thumbnail, fills, and disappears at the end of the first pass, and that empty cells pulse until their thumbnail lands while failed cells do not.
@@ -59,7 +60,7 @@ flash on a fully cached reopen).
 - Design: C (bar + pulse) was chosen over A or B alone. B alone is the smallest change (CSS-only, no test) but does not answer "how far"; A alone answers that but leaves the cells looking frozen.
 - Pass 2 is not in the bar. Including it means either a second fill cycle on the same bar (confusing) or a second bar, for RAW folders only; the status line's `analyzing N / M` stays as is.
 - The bar hides immediately on `scan-done`. A fade would need a `transition` and a `transitionend`/timer guard against a scan that restarts during the fade.
-- `scan-progress.total` is the todo count, not the folder size: a mostly cached folder fills the bar in a blink and a fully cached reopen flashes a 0% track between `startScan()` and `scan-done`.
+- `scan-progress.total` is the todo count, not the folder size: a mostly cached folder fills the bar in a blink and a fully cached reopen flashes a 0% track between `openDirectory()` and `scan-done`.
 - The track uses `--muted` instead of shadcn's `primary/20` to avoid a new translucent fill.
 
 ## Progress

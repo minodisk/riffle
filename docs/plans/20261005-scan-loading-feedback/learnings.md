@@ -3,7 +3,8 @@
 ## Step 1
 
 - The bar's show / hide goes through one `setScanProgress(width | null)` in
-  `main.ts`, called next to `setScanRunning(true)` in `startScan`, on each
+  `main.ts`, called with `"0%"` in `openDirectory` only (not `startScan`, which
+  every `resync()` also ends in), on each
   `scan-progress`, on `scan-done`, in `startScan`'s catch and in
   `openDirectory`'s reset. Hiding resets the indicator to `0%` so the next
   scan never flashes the previous fill.
