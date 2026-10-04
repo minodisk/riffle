@@ -1212,6 +1212,19 @@ Files: `crates/app/ui/src/folders.ts`, `crates/app/ui/src/tree.ts`, `crates/app/
 - [ ] On Windows, right-click a folder with two or more levels of subfolders (e.g. under `D:\photos`) and choose `Expand All`: every level should appear. Then `Collapse All` on the same folder: all levels fold back with the clicked folder still open. Then `Expand All` on a folder containing a subfolder that cannot be listed (e.g. read permission denied): the unreadable folder shows its error (status line, row marked failed) and the rest still expand.
 - [ ] On Windows, measure how many `tree-changed` watches a real `Expand All` on a photo archive makes (the number of expanded drawn folders; via `Timing logs` or a debugger on `set_tree_watches`). Also check that renaming an ancestor of the expanded folders still works.
 
+### App: real-device check of the 16-language Lightroom label preset dropdowns (lightroom-label-presets-all-languages)
+
+#### Background
+
+The `lightroom-label-presets-all-languages` feature grew the Lightroom color label preset list from English and Japanese to 16 (de, es, fr, it, ko, nb, nl, pl, pt, ru, sv, th, zh-Hans, zh-Hant added) and made `defaultPreset` preselect a script-coded preset (`zh-Hans` / `zh-Hant`) through `Intl.Locale.maximize()`. `cargo test -p riffle-core`, the `firstrun.test.ts` cases and `mise run ci` cover it, but neither the dropdown contents nor the preselection were run in the GUI. See `docs/plans/_archived/20261005-lightroom-label-presets-all-languages/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`, `crates/app/ui/src/firstrun.ts`, `crates/core/i18n/*.json`.
+
+#### TODO
+
+- [ ] On Windows, with a fresh settings store, pick `Lightroom (XMP)` and open the first-launch language dropdown: it lists 16 entries in the order English, Deutsch, Español, Français, Italiano, 日本語, 한국어, Norsk bokmål, Nederlands, Polski, Português (Brasil), Русский, Svenska, ไทย, 简体中文, 繁體中文, and the preselection matches the OS locale (for example `ja` on a Japanese system). Choosing another entry fills the five label names.
+- [ ] On Windows, open the settings window's label-name language dropdown: it lists the same 16 entries in the same order, and choosing one fills the five names. (This could also be checked on macOS.)
+
 ### App: real-device checks for trash undo / redo after a folder rename (todo-five-more-items Step 5)
 
 #### Background
