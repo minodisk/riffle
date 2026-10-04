@@ -152,4 +152,4 @@ say they are unlisted are updated, and the todo section is removed.
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete (GUI 1:1 check pending the user)
