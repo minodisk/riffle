@@ -1212,24 +1212,6 @@ Files: `crates/app/ui/src/folders.ts`, `crates/app/ui/src/tree.ts`, `crates/app/
 - [ ] On Windows, right-click a folder with two or more levels of subfolders (e.g. under `D:\photos`) and choose `Expand All`: every level should appear. Then `Collapse All` on the same folder: all levels fold back with the clicked folder still open. Then `Expand All` on a folder containing a subfolder that cannot be listed (e.g. read permission denied): the unreadable folder shows its error (status line, row marked failed) and the rest still expand.
 - [ ] On Windows, measure how many `tree-changed` watches a real `Expand All` on a photo archive makes (the number of expanded drawn folders; via `Timing logs` or a debugger on `set_tree_watches`). Also check that renaming an ancestor of the expanded folders still works.
 
-### App: real-device check of the first-launch Lightroom UI-language question (todo-five-more-items Step 4)
-
-#### Background
-
-The `todo-five-more-items` feature made the first-launch dialog ask for Lightroom's UI language after `Lightroom (XMP)` or `Both` is picked. Vitest cases in `firstrun.test.ts` and `mise run ci` cover it. The dialog was never run in the GUI. See `docs/plans/_archived/20260930-todo-five-more-items/plan.md` (Step 4).
-
-The `lightroom-label-presets-all-languages` feature then grew the preset list from English and Japanese to 16 (de, es, fr, it, ko, nb, nl, pl, pt, ru, sv, th, zh-Hans, zh-Hant added) and made `defaultPreset` preselect a script-coded preset (`zh-Hans` / `zh-Hant`) through `Intl.Locale.maximize()`. `cargo test -p riffle-core`, the `firstrun.test.ts` cases and `mise run ci` cover it, but neither the dropdown contents nor the preselection were run in the GUI. See `docs/plans/_archived/20261005-lightroom-label-presets-all-languages/plan.md`.
-
-Files: `crates/app/ui/src/main.ts`, `crates/app/ui/index.html`, `crates/app/ui/src/settings.ts`, `crates/app/ui/src/firstrun.ts`, `crates/core/i18n/*.json`.
-
-#### TODO
-
-- [ ] On Windows, with a fresh settings store (delete the app-data settings store or use a fresh app-data dir), launch and pick `Lightroom (XMP)`: the language block appears with the select preselected by the OS language. Pick 日本語 and `Continue`. In Settings > Sidecars the Lightroom-language fields show レッド … パープル. Relaunch: no dialog.
-- [ ] On Windows, with another fresh store, pick `DxO PhotoLab (.dop)`: the dialog closes at once with no language block.
-- [ ] On Windows, in both phases Tab / Shift+Tab stay inside the dialog and reach the select and `Continue` only once they are shown.
-- [ ] On Windows, with a fresh settings store, pick `Lightroom (XMP)` and open the first-launch language dropdown: it lists 16 entries in the order English, Deutsch, Español, Français, Italiano, 日本語, 한국어, Norsk bokmål, Nederlands, Polski, Português (Brasil), Русский, Svenska, ไทย, 简体中文, 繁體中文, and the preselection matches the OS locale (for example `ja` on a Japanese system). Choosing another entry fills the five label names.
-- [ ] On Windows, open the settings window's label-name language dropdown: it lists the same 16 entries in the same order, and choosing one fills the five names. (This could also be checked on macOS.)
-
 ### App: real-device checks for trash undo / redo after a folder rename (todo-five-more-items Step 5)
 
 #### Background
