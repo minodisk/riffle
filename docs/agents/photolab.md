@@ -118,10 +118,22 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
 - The same drive letter can have several root rows (two removable volumes
   both registered as `E:`). A path that resolves to more than one source is a
   miss, not a guess.
-- Open read-only with a short `busy_timeout`; the database is WAL and PhotoLab
-  may hold it. Any failure (not found, busy, missing table, a value that is
-  not 8-4-4-4-12 hex, since the template writes it unescaped) falls back to
-  random Uuids, and only an error is logged (`log::debug!`), not a plain miss.
+- Open read-only with a short `busy_timeout` (`BUSY_TIMEOUT`, 300 ms) per
+  attempt; the database is WAL and PhotoLab may hold it. A query that fails
+  with `SQLITE_BUSY` or `SQLITE_LOCKED` (those two codes only) is retried up
+  to `BUSY_ATTEMPTS` (6) times, about 1.8 s of busy wait in total, before the
+  sidecar is written. On Windows each attempt measured about 0.8 s of wall
+  time against a rollback-journal database held by `BEGIN EXCLUSIVE`, since
+  SQLite's Windows lock code sleeps between its own lock retries. A final busy
+  miss is logged at `log::warn!` and falls back to random Uuids. Any other
+  failure (not found, missing table, a value that is not 8-4-4-4-12 hex, since
+  the template writes it unescaped) falls back at once and is logged at
+  `log::debug!`; a plain miss is not logged.
+- Re-patching an already-written `.dop` with the Uuids of a later successful
+  lookup was rejected: PhotoLab may already have imported the random-Uuid
+  sidecar as a virtual copy, which the rewrite does not undo, and the rewrite
+  can race PhotoLab's own writes to the same file. Retrying before the write
+  is the only safe window.
 - An existing `.dop` is patched as before; the lookup only runs for a fresh
   one.
 - Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`.

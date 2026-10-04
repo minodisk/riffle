@@ -46,19 +46,57 @@ fn version(name: &str) -> Option<u32> {
     n.parse().ok()
 }
 
+/// How long one lookup attempt waits on a busy database.
+#[cfg(windows)]
+const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// How many attempts a lookup makes while the database stays busy or locked.
+#[cfg(windows)]
+const BUSY_ATTEMPTS: u32 = 6;
+
 /// The Source Uuid and master Item Uuid `db` holds for `arw`, `None` on any
-/// failure or when the file is not registered. A failure (rather than a plain
-/// miss) is logged at debug level.
+/// failure or when the file is not registered. A busy or locked database is
+/// retried up to `BUSY_ATTEMPTS` times; a final busy miss is logged at warn
+/// level, any other failure (rather than a plain miss) at debug level.
 #[cfg(windows)]
 pub fn lookup(db: &Path, arw: &Path) -> Option<Uuids> {
-    query(db, arw).unwrap_or_else(|e| {
-        log::debug!(
-            "PhotoLab lookup of {} in {} failed: {e}",
-            arw.display(),
-            db.display()
-        );
-        None
-    })
+    let mut attempt = 1;
+    loop {
+        match query(db, arw) {
+            Ok(uuids) => return uuids,
+            Err(e) if is_busy(&e) && attempt < BUSY_ATTEMPTS => attempt += 1,
+            Err(e) if is_busy(&e) => {
+                log::warn!(
+                    "PhotoLab lookup of {} in {} failed after {attempt} attempts: {e}",
+                    arw.display(),
+                    db.display()
+                );
+                return None;
+            }
+            Err(e) => {
+                log::debug!(
+                    "PhotoLab lookup of {} in {} failed: {e}",
+                    arw.display(),
+                    db.display()
+                );
+                return None;
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+fn is_busy(e: &rusqlite::Error) -> bool {
+    matches!(
+        e,
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error {
+                code: rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked,
+                ..
+            },
+            _
+        )
+    )
 }
 
 /// The folder is walked from its drive root one `Folders` row per path
@@ -79,7 +117,7 @@ fn query(db: &Path, arw: &Path) -> rusqlite::Result<Option<Uuids>> {
         db,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )?;
-    conn.busy_timeout(std::time::Duration::from_millis(300))?;
+    conn.busy_timeout(BUSY_TIMEOUT)?;
 
     let mut roots =
         conn.prepare("SELECT Id FROM Folders WHERE ParentFolderId IS NULL AND Name = ?")?;
@@ -300,6 +338,37 @@ mod tests {
             lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
             None
         );
+    }
+
+    #[test]
+    fn a_lock_released_within_the_retries_yields_the_uuids() {
+        let db = fixture("busy_released", SOURCE);
+        let lock = Connection::open(&db).unwrap();
+        lock.execute_batch("BEGIN EXCLUSIVE").unwrap();
+        let release = std::thread::spawn(move || {
+            // One attempt takes about 0.8 s of wall time on Windows (winLock
+            // sleeps on top of the busy handler), so 2 s is past two attempts
+            // and well under the six-attempt total of about 4.9 s.
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            lock.execute_batch("COMMIT").unwrap();
+        });
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            uuids(MASTER, SOURCE)
+        );
+        release.join().unwrap();
+    }
+
+    #[test]
+    fn a_lock_held_through_every_retry_yields_none() {
+        let db = fixture("busy_held", SOURCE);
+        let lock = Connection::open(&db).unwrap();
+        lock.execute_batch("BEGIN EXCLUSIVE").unwrap();
+        assert_eq!(
+            lookup(&db, Path::new(r"D:\Photos\tests\shoot\_DSC0001.ARW")),
+            None
+        );
+        lock.execute_batch("COMMIT").unwrap();
     }
 
     #[test]
