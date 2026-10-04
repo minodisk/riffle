@@ -76,12 +76,14 @@ silently falls back to random Uuids".
       `Connection::open(&db)` running `BEGIN EXCLUSIVE` takes the exclusive
       lock and a reader's first schema read hits the busy handler and fails
       `SQLITE_BUSY` after `BUSY_TIMEOUT`. For the success test, move the
-      locking `Connection` into a `std::thread::spawn` that sleeps
-      (`BUSY_TIMEOUT * 5 / 2`) then runs `COMMIT`; call `lookup` on the test
-      thread and `join` the thread afterwards. For the failure test, keep the
-      lock on the test thread for the whole `lookup` call and `COMMIT` after
-      asserting `None`. Give each test its own fixture name. Derive every
-      delay from the consts.
+      locking `Connection` into a `std::thread::spawn` that sleeps then runs
+      `COMMIT`; call `lookup` on the test thread and `join` the thread
+      afterwards. For the failure test, keep the lock on the test thread for
+      the whole `lookup` call and `COMMIT` after asserting `None`. Give each
+      test its own fixture name. (Changed in review: the release delay is a
+      fixed 2 s rather than `BUSY_TIMEOUT * 5 / 2`, because one attempt
+      measured about 0.8 s of wall time on Windows, so a delay derived from
+      `BUSY_TIMEOUT` did not prove more than one attempt ran.)
     - `docs/agents/photolab.md`: rewrite only that one bullet. State: read-only
       open, `busy_timeout` per attempt, retried up to N times (~2 s) on
       `SQLITE_BUSY` / `SQLITE_LOCKED` only, before the sidecar is written; a
@@ -111,3 +113,4 @@ silently falls back to random Uuids".
 ## Progress
 
 - Step 1 done: `lookup` retries a busy database up to `BUSY_ATTEMPTS` times; tests cover a lock released mid-retries (released at 2 s, past two attempts) and a lock held through every retry.
+- (2026-10-05) Step 1 complete
