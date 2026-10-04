@@ -65,4 +65,4 @@ restore, rename) shows it only once `scan-progress` reports real work.
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete
