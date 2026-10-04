@@ -157,12 +157,25 @@ Pass the Bash tool's `timeout` of `600000` (ms) explicitly on every run: the
 default foreground timeout can be as low as 120 s, far shorter than one
 4-minute slice.
 
-Do not compose a compound command such as `until ...; do sleep 30; done`, nor a
-bare `sleep` chained before or after a script (`sleep 45; <wait-pr-actionable
-command>`, `sleep 60` / `sleep 90` before or after `<head-reviewed-by-copilot
-command>` / `<rerequest-review command>`): it triggers a permission prompt, and
-the script already does the waiting. Waiting on `wait` / `review_required` (checks in
-progress, waiting on the approver) is shut inside the script.
+**Run every script under `.claude/skills/**/scripts` exactly as written in its
+code block, as a standalone Bash call** — the `<wait-pr-actionable command>`
+above all: no pipes, no `tail`, no redirects (`2>&1`, `> /dev/null`), no
+`; echo exit=$?`, no `${PIPESTATUS[...]}`, no `;` / `&&` chaining, and no
+compound command such as `until ...; do sleep 30; done` nor a bare `sleep`
+chained before or after a script (`sleep 45; <wait-pr-actionable command>`,
+`sleep 60` / `sleep 90` before or after `<head-reviewed-by-copilot command>` /
+`<rerequest-review command>`). The script already does the waiting, and
+`.claude/settings.json` allows the `bash .claude/skills/...` command lines
+alone; any other shape misses the allow rule and waits before it runs.
+Measured in the pr-runner run of PR #671: `<wait-pr-actionable command> | tail
+-12; echo exit=${PIPESTATUS[0]}` waited about 62 minutes before the script
+started, while the bare call just before it ran immediately; then the script
+printed `ACTION=ready` about 150 s in, but the pipe kept the call from
+returning (most likely a lingering child holding the pipe open) until it hit
+the 600 s timeout and was moved to the background, and the bare re-run
+returned in 2 s. The exit code is already in the Bash tool result, so
+`; echo exit=$?` adds nothing. Waiting on `wait` / `review_required` (checks
+in progress, waiting on the approver) is shut inside the script.
 
 Handle the exit code as follows.
 
