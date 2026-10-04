@@ -119,6 +119,7 @@ import {
   single,
   targets,
 } from "./selection.js";
+import { progressWidth } from "./progress.js";
 import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
@@ -177,6 +178,8 @@ const metaEl = document.getElementById("meta") as HTMLDivElement;
 const metaStatusEl = document.getElementById("meta-status") as HTMLDivElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
 const emptyEl = document.getElementById("empty") as HTMLDivElement;
+const scanProgressEl = document.getElementById("scan-progress") as HTMLDivElement;
+const scanProgressIndicator = scanProgressEl.firstElementChild as HTMLDivElement;
 const formatDialog = document.getElementById("format-dialog") as HTMLDivElement;
 const formatError = document.getElementById("format-error") as HTMLParagraphElement;
 const settings = initSettings({
@@ -274,6 +277,12 @@ let scanDone: ScanDone | null = null;
 // The rows `scan_folder`'s reconcile changed, so its `scan-done` can skip a
 // re-read when neither it nor the scan pass wrote anything.
 let scanStarted: ScanStarted | null = null;
+
+// The first pass's bar over the strip; `null` hides it.
+function setScanProgress(width: string | null): void {
+  scanProgressEl.hidden = width === null;
+  scanProgressIndicator.style.width = width ?? "0%";
+}
 
 function setScanRunning(running: boolean): void {
   scanRunning = running;
@@ -2734,6 +2743,7 @@ function startScan(folder: string): Promise<void> {
   // not just during `start_scan` — otherwise it starts a second
   // `scan_folder` that stampedes this one's `scanId`.
   setScanRunning(true);
+  setScanProgress("0%");
   lastScanAt = Date.now();
   scanSeq += 1;
   const seq = scanSeq;
@@ -2773,6 +2783,7 @@ function startScan(folder: string): Promise<void> {
         return;
       }
       setScanRunning(false);
+      setScanProgress(null);
       idle.drain();
       drainResync();
       setStatus(String(err));
@@ -2892,6 +2903,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     scanStarted = null;
     progressRefreshedFor = null;
     setScanRunning(false);
+    setScanProgress(null);
     resyncPending = null;
     idle.discard();
     void startScan(folder);
@@ -3144,6 +3156,7 @@ void window.__TAURI__.event.listen<{
     return;
   }
   scanning = `scanning ${payload.done} / ${payload.total}`;
+  setScanProgress(progressWidth(payload.done, payload.total));
   renderMeta();
   strip.markReady(payload.ready);
   // Only when the row the focus mark needs is still missing, and then only on
@@ -3169,6 +3182,7 @@ void window.__TAURI__.event.listen<{
   scanErrors = payload.errors;
   scanDone = { scanId: payload.scan_id, total: payload.total };
   scanning = payload.errors === 0 ? null : `${payload.errors} failed`;
+  setScanProgress(null);
   renderMeta();
   strip.refresh();
   if (refreshOnScanDone(scanStarted, payload.scan_id, payload.total)) {
