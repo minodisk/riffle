@@ -87,4 +87,4 @@ This plan extends that paragraph into the same verbatim, standalone rule
 
 ## Progress
 
-- (none yet)
+- (2026-10-04) Step 1 complete
