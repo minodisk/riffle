@@ -82,19 +82,23 @@ order, so the values that ride inline need the order to pick their bytes:
   padding after each inline `SHORT`.
 - Source: [big-endian-dng learnings, Step 1](../plans/_archived/20261002-big-endian-dng/learnings.md#step-1).
 
-### Older Sony ARW bodies carry no full-size JPEG, so `parse` takes the 160x120 thumbnail as `full` (Measured)
+### Older Sony ARW bodies carry no full-size JPEG, so `parse` falls back to the preview as `full` (Measured)
 
 On the α9 II, α7R IV / IVA, α7C, α6400, α6600 and ZV-E10 the IFD chain holds
-only IFD0 (the 1616x1080 preview, 1920x1080 on the ZV-E10) and IFD1 (a 160x120
-thumbnail); the SubIFD is the raw data. Recent bodies add IFD2, the full-size
-JPEG. `arw::parse` picks the largest JPEG in the chain and the SubIFDs, so on
-the older bodies `full` is the thumbnail: the `bench` full decode takes 0.2 ms
-and the 1:1 view (`read_focus_crop`) would crop an upscaled 160x120 image.
+only IFD0 (the 1616x1080 preview, 1920x1080 on the ZV-E10, 1440x1080 on a 4:3
+shot) and IFD1 (a 160x120 thumbnail); the SubIFD is the raw data. Recent
+bodies add IFD2, the full-size JPEG. `arw::parse` picks the largest JPEG in
+the chain and the SubIFDs, and when that one is smaller than the preview by
+byte length (the thumbnail is a few KB against a 300-900 KB preview) it takes
+the preview as `full` instead, so the 1:1 view (`read_focus_crop`) crops the
+preview, as on ORF. `Embedded` carries no pixel size, so the comparison is by
+bytes. A preview-only file (no other JPEG) keeps `full` at `None`, and the DNG
+strip branch is not affected.
 
-- Rule: do not add a Sony body to the `docs/humans/cameras.md` table from a clean
-  `info` / `scan` run alone. Check that the file has a full-size JPEG, that is,
-  a `bench` full decode of tens of milliseconds or more and an IFD2.
-- Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification).
+- Rule: a Sony body without IFD2 is still listed in `docs/humans/cameras.md`;
+  note there that its 1:1 view is the preview.
+- Source: [sony-arw-coverage learnings, Step 1](../plans/_archived/20260930-sony-arw-coverage/learnings.md#step-1-sony-arw-sample-verification),
+  [sony-arw-preview-full learnings](../plans/20261005-sony-arw-preview-full/learnings.md).
 
 ## MakerNotes
 
