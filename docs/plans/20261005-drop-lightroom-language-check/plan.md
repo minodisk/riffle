@@ -31,4 +31,4 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete
