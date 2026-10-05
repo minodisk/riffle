@@ -965,23 +965,29 @@ is.
       GUI before choosing. Files: `crates/app/src/commands.rs` (`preview`),
       `crates/core/src/decode.rs`, `crates/app/ui/src/` decode worker.
 
-### App: PhotoLab's virtual-copy fix only works on Windows
+### App: PhotoLab Uuid lookup on macOS: real-device checks and external volumes
 
-`crates/app/src/photolab.rs`'s database lookup (added in
-`docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`) is
-`#[cfg(windows)]`; `registered_uuids` returns `None` on macOS because
-PhotoLab's database location there is unknown. A fresh `.dop` for an image
-PhotoLab already registered still gets random Uuids on macOS and PhotoLab
-still imports it as a virtual copy. Omitting or emptying the Uuids was
-checked (PhotoLab 10.0.1, Windows, 2026-10-01) and does not avoid the virtual
-copy (omitted gives a virtual copy with a nil Uuid, empty makes PhotoLab
-ignore the sidecar), so the database's Uuids remain the only fix.
+`crates/app/src/photolab.rs` looks up the registered Uuids on macOS too
+(`docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`), checked only
+against fixture databases and a read of the user's PhotoLab 10 database. Paths
+under `/Volumes` get no lookup yet, so a fresh `.dop` there still gets random
+Uuids and may become a virtual copy.
 
 #### TODO
 
-- [ ] Find PhotoLab's database path on macOS and extend
-      `crates/app/src/photolab.rs`'s `database_path()` (or equivalent) to
-      cover it.
+- [ ] Real-device check: in `~/Pictures/photolab-export-test/browse` (3 ARWs
+      registered by PhotoLab, no `.dop`), pick one in Riffle
+      (`mise run tauri:dev`, `.dop` format). The `.dop`'s Source / Item
+      Uuids must equal the database's, and PhotoLab must show the pick on
+      the master with no virtual copy.
+- [ ] Real-device check: picking in a folder PhotoLab never opened still
+      imports the image as the picked master.
+- [ ] Real-device check: give a source a virtual copy in PhotoLab and confirm
+      the master is the lowest `ZDOPINPUTITEM.Z_PK`.
+- [ ] External volumes: open a folder on `/Volumes/X` in PhotoLab, find how it
+      records the volume (`ZTYPE`, `ZNAME`, `ZUNIQUEID` in `ZDOPFOLDER`), then
+      extend `folder_names` / `query`'s macOS mapping in
+      `crates/app/src/photolab.rs`.
 
 ### App: PhotoLab after a file or folder rename
 
