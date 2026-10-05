@@ -133,4 +133,9 @@ describe("rescanLine", () => {
   test("drained after a deferral", () => {
     expect(rescanLine("reload", "drained")).toBe("rescan: trigger=reload deferred=true");
   });
+
+  test("names the tree's Refresh apart from Reload Folder", () => {
+    expect(rescanLine("refresh", "start")).toBe("rescan: trigger=refresh deferred=false");
+    expect(rescanLine("refresh", "defer")).toBe("rescan deferred: trigger=refresh");
+  });
 });

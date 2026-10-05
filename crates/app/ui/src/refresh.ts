@@ -110,7 +110,14 @@ export function refreshTimingLine(t: RefreshTiming): string {
 }
 
 // What asked `resync()` for a rescan of the open folder.
-export type RescanTrigger = "focus" | "watch" | "reload" | "trash" | "restore" | "rename";
+export type RescanTrigger =
+  | "focus"
+  | "watch"
+  | "reload"
+  | "refresh"
+  | "trash"
+  | "restore"
+  | "rename";
 
 // One `Riffle.log` line per `resync()` call: `defer` when a scan (or a
 // listing, or a deferred operation's invoke) holds it off, `start` when it

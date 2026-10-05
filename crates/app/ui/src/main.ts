@@ -2966,6 +2966,9 @@ folders.init(
             break;
           case "refreshFolder":
             folders.refresh(path);
+            if (openDir !== null && opensTarget(openDir, [path], false, folders.ignoreCase)) {
+              resync("refresh");
+            }
             break;
           case "renameFolder":
             folders.startRename(path);

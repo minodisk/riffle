@@ -56,7 +56,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   not, keeping the folders open under it, and retries the tree's folder
   watches; it is for a folder whose watch could not be set (a network share,
   a refused permission), which otherwise does not follow the disk, and a
-  folder that can no longer be listed shows its error. Then
+  folder that can no longer be listed shows its error. On the open folder
+  itself (not a folder above or below it), `Refresh` also reloads the
+  folder the way `File > Reload Folder` does. Then
   `Rename…` (not offered on home or a volume at the top level) turns the
   folder's name into a text box, its name selected; a slow second click on
   the open folder's name (a click, then another about half a second later,
