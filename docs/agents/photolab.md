@@ -104,14 +104,38 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
 (PhotoLab 10.0.1, Windows, 2026-10-01).
 
 - The database is the highest-numbered
-  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` (Windows only; the
-  macOS location is unknown, so there is no lookup there).
+  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` on Windows and
+  `~/Library/DxO PhotoLab vN/DOPDatabaseVN.dopdata` on macOS. Other
+  platforms have no lookup.
 - Tables: `Folders (Id, Name, ParentFolderId)` is a chain of names from a root
   row whose `ParentFolderId` is NULL and whose `Name` is the bare drive
   (`D:`); `Sources (Name, Uuid, FolderId)` has one row per file, `Name`
   including the extension, `Uuid` = `Sidecar.Source.Uuid`; `Items (Id,
   SourceId, Uuid, CreationDate, ...)` holds the master and its virtual copies.
   Names are `COLLATE NOCASE`.
+- macOS (PhotoLab 10, 2026-10-05) uses a Core Data schema instead.
+  `ZDOPFOLDER (Z_PK, Z_ENT, ZPARENT, ZTYPE, ZNAME, ZUNIQUEID)` holds volumes
+  (`Z_ENT = 6`, `ZPARENT` NULL) and folders (`Z_ENT = 5`) chained through
+  `ZPARENT`; `ZDOPSOURCE (Z_PK, ZPARENT, ZNAME, ZUUID)` has one row per file,
+  `ZUUID` = `Sidecar.Source.Uuid`; `ZDOPINPUTITEM (Z_PK, ZSOURCE, ZUUID)`
+  holds the items, `ZUUID` = `Items[0].Uuid`, the master taken as the lowest
+  `Z_PK` (unverified: no virtual copy was in the database).
+- On macOS the boot volume is the `ZTYPE = 2` volume row (`ZNAME =
+  'Macintosh HD'`); `/Users/mino/Downloads` is that row → `Users` → `mino` →
+  `Downloads`. The lookup matches `ZTYPE`, not `ZNAME` (a renamed volume) nor
+  `ZUNIQUEID` (the APFS UUID of `/System/Volumes/Data`, not of `/`, which the
+  standard library cannot read). A `ZTYPE = 1` row named `DxO PhotoLab` with
+  no children is ignored. Paths under `/Volumes` are not mapped (external
+  volumes were not observed), so they get no lookup.
+- macOS names are `COLLATE BINARY`, so they compare case-sensitively, unlike
+  Windows' `NOCASE`. Riffle's paths come from `read_dir` and canonicalized
+  folders, so they carry the on-disk case PhotoLab stored.
+- The macOS database path comes from scanning `~/Library`, not from the
+  `DOPDatabasePath` key of the `com.dxo.PhotoLabN` preferences (a binary
+  plist). If a user with a relocated database reports a miss, read that key
+  as a second source.
+- Open the database plainly read-only, not with `immutable=1`: that skips
+  rows that only exist in the `-wal` file (seen on both platforms).
 - The master is the lowest `Id`. Do not order by `CreationDate`: its
   fractional seconds have a variable number of digits, so a lexical sort can
   misorder items within one second.
@@ -136,7 +160,8 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
   is the only safe window.
 - An existing `.dop` is patched as before; the lookup only runs for a fresh
   one.
-- Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`.
+- Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`;
+  `docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`.
 
 ## `photolab::lookup` keys on folder + file `Name`; a rename does not follow through to PhotoLab or a shared sidecar (Hit)
 
