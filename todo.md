@@ -987,23 +987,26 @@ and folder.
       and either patch the `.dop`'s `Name` on rename or document what to
       expect.
 
-### App: a pending rename waits silently with no visible pending state
+### App: an inline rename can be re-started on a row or cell whose rename is already in flight
 
 #### Background
 
-The inline rename edit (folder tree and strip) now always starts immediately,
-even during a scan, and a confirmed name is held by `idle.ts`'s `IdleGate`
-and runs once the scan ends; the cell keeps showing the old name and only the
-status line names what is waiting. Whether the cell should show the pending
-new name until the rename actually runs is an open UX question. Basis:
-`wait-for-scan` Step 1. Files: `crates/app/ui/src/main.ts`,
-`crates/app/ui/src/strip.ts`, `crates/app/ui/src/folders.ts`.
+`pending-rename-display`
+(`docs/plans/_archived/20261006-pending-rename-display/plan.md`) found, in
+round 2 of its local review, that re-editing a row or cell whose rename is
+already running (the scan has ended and `rename_folder` / `rename_file` is in
+progress) to a different name starts a second rename of the old path, which
+will most likely fail because the path is about to move. If a new scan holds
+the second rename, the first rename's `clearPending` can clear the pending
+display early. This predates the pending display. Files:
+`crates/app/ui/src/main.ts`, `crates/app/ui/src/folders.ts`,
+`crates/app/ui/src/strip.ts`.
 
 #### TODO
 
-- [ ] Decide whether the folder tree / strip cell should show the pending
-      new name while a rename waits for a scan to finish, and implement it
-      if so.
+- [ ] Make an inline edit unable to start, or refused with a note, on a row
+      or cell whose rename is in flight, and make the pending display of a
+      held rename be cleared only by its own rename.
 
 ### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open
 

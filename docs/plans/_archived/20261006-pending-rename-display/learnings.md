@@ -51,3 +51,14 @@
   `### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open`.
   Files: `crates/app/ui/src/folders.ts`, `crates/app/ui/src/strip.ts`,
   `crates/app/ui/src/main.ts`, `crates/app/ui/style.css`.
+- Re-editing a row / cell whose rename is already in flight (the scan has
+  ended and `rename_folder` / `rename_file` is running) to a different name
+  starts a second rename of the old path, which will most likely fail since
+  the path is about to move; if that second rename is held by a new scan,
+  the first rename's `clearPending` can clear its pending display early.
+  This predates the pending display (raised by the round 2 local reviewer,
+  out of this branch's scope). Done when: an inline edit cannot start, or
+  is refused with a note, on a row / cell whose rename is in flight, and
+  the pending display of a held rename is only cleared by its own rename.
+  Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/folders.ts`,
+  `crates/app/ui/src/strip.ts`.

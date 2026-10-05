@@ -178,4 +178,4 @@ Agreed spec (settled with the user; do not reopen):
 
 ## Progress
 
-- (none yet)
+- (2026-10-06) Step 1 complete

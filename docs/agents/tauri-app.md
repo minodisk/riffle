@@ -1400,7 +1400,25 @@ folder changed" event has to pick the right one.
   renames pass one (`holdRename` in `main.ts`) that reverts the tree row's
   or strip cell's pending name (`markPending` / `clearPending`) and notes
   `Rename… was canceled`; a pending cell confirmed back to its real name
-  calls `idle.discard()` through the views' `onCancelPending`.
+  calls `idle.discard()` through the views' `onCancelPending`. `request`
+  itself calls `discard()` first, so a held operation is canceled whenever
+  any later request arrives, busy or not. `holdRename` skips the
+  `Rename… was canceled` note when the replacing request renames the same
+  path (re-editing a pending cell to a different name), since it would
+  contradict the `waiting for the scan to finish` line drawn right after it;
+  every other replacement, the folder switch and a user-initiated cancel
+  still note it. `openDirectory`'s `idle.discard()` fires the cancel note,
+  but the `show()` / `setStatus()` that follow clear it, so `openDirectory`
+  re-sets it after them when it dropped a held rename; the first preview
+  decode's `setStatus()` can still wipe it within a frame or two (the
+  existing transient-note limitation, left as is). Source:
+  `docs/plans/_archived/20261006-pending-rename-display/learnings.md`, Step 1.
+- Strip cell CSS: `.cell span` positions every span in a cell absolutely, so
+  a span nested inside the name span (such as the pending clock icon's
+  wrapper) needs `position: static; width: auto` back
+  (`.cell span.name span.pending-icon`). Prepend the icon rather than append
+  it, so the name's ellipsis never clips it. Source:
+  `docs/plans/_archived/20261006-pending-rename-display/learnings.md`, Step 1.
 - The scan progress bar (`#scan-progress`) is shown only from `openDirectory`
   (`setScanProgress("0%")`), never from `startScan`: every `resync()` ends in
   `startScan`, so showing it there would flash the bar on each focus / watcher
