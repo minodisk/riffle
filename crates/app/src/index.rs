@@ -1275,6 +1275,54 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
+    /// Every `ratings` row of `dir`, dirty or not, in the shape `dirty_rows`
+    /// hands out, for the counts of `Rewrite Sidecars from Index…`.
+    pub fn rows_of(&self, dir: &str) -> Result<Vec<DirtyRow>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, rating, flag, label, label_known FROM ratings WHERE dir = ?1")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    flag_from_code(r.get(2)?),
+                    r.get(3)?,
+                    r.get(4)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())
+    }
+
+    /// Mark the rows of `paths` in `dir` dirty, in one transaction, and
+    /// return them as `dirty_rows` would, for `Rewrite Sidecars from Index…`
+    /// to hand to the writer. The stored sidecar stat is kept: a write that
+    /// lands replaces it through `mark_written`, and one that fails leaves
+    /// the row dirty with the stat the next open compares against, so it is
+    /// replayed rather than re-parsed.
+    pub fn mark_dirty(&mut self, dir: &str, paths: &[String]) -> Result<Vec<DirtyRow>, String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        {
+            let mut stmt = tx
+                .prepare("UPDATE ratings SET dirty = 1 WHERE dir = ?1 AND path = ?2")
+                .map_err(|e| e.to_string())?;
+            for path in paths {
+                stmt.execute(params![dir, path])
+                    .map_err(|e| format!("{path}: {e}"))?;
+            }
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        let wanted: std::collections::HashSet<&str> = paths.iter().map(String::as_str).collect();
+        Ok(self
+            .dirty_rows(dir)?
+            .into_iter()
+            .filter(|(path, _, _, _, _)| wanted.contains(path.as_str()))
+            .collect())
+    }
+
     /// Every `ratings` row of `dir`, keyed by path: its flag, the sidecar
     /// stat it was stored with and whether it is dirty, for the reject
     /// collection of `trash::collect`.

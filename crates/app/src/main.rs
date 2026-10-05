@@ -3,6 +3,7 @@
 mod commands;
 mod exif;
 mod folders;
+mod foldersidecars;
 mod index;
 mod mcp;
 mod photolab;
@@ -804,6 +805,8 @@ fn main() {
             commands::trash_rejected_run,
             commands::trash_rejected_undo,
             commands::trash_rejected_redo,
+            foldersidecars::rewrite_sidecars_preview,
+            foldersidecars::rewrite_sidecars_run,
             rename::rename_folder,
             rename::rename_file,
             sequence::sequence_preview,

@@ -72,7 +72,7 @@ alternative under "Trade-offs and risks"):
 
 ## Steps
 
-- [ ] Step 1: `Rewrite Sidecars from Index…` end to end (backend commands, folder menu item, confirmation dialog)
+- [x] Step 1: `Rewrite Sidecars from Index…` end to end (backend commands, folder menu item, confirmation dialog)
   - Done when:
     - Right-clicking a single folder in the tree offers `Rewrite Sidecars
       from Index…` in a new group after the trash group and before
@@ -401,4 +401,4 @@ Other decisions the steps will face:
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete: `rewrite_sidecars_preview` / `rewrite_sidecars_run` rewrite a folder's sidecars from the index, with the confirmation dialog's text and flow in `sidecars.ts`. The failure count is the number of entries still waiting after the writer's drain (the cheap measure noted above). The manual check is pending (see `learnings.md`).

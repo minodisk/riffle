@@ -121,6 +121,15 @@ import {
 } from "./selection.js";
 import { progressWidth } from "./progress.js";
 import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
+import {
+  REWRITE_RUNNING_NOTE,
+  type RewritePreview,
+  type RewriteSummary,
+  SidecarFlow,
+  rewriteRows,
+  rewriteTotalLine,
+  rewrittenStatus,
+} from "./sidecars.js";
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;
@@ -694,6 +703,7 @@ function trashRejectedIn(dirs: string[], recursive: boolean): void {
       !formatDialog.hidden ||
       settings.isOpen ||
       sequenceFlow.busy ||
+      sidecarFlow.busy ||
       !trashFlow.start({ dirs, recursive })
     ) {
       return;
@@ -856,7 +866,13 @@ const sequenceCancelButton = document.getElementById("sequence-cancel") as HTMLB
 sequenceRunning.textContent = RUNNING_NOTE;
 
 function startSequence(): boolean {
-  return formatDialog.hidden && !settings.isOpen && !trashFlow.busy && sequenceFlow.start();
+  return (
+    formatDialog.hidden &&
+    !settings.isOpen &&
+    !trashFlow.busy &&
+    !sidecarFlow.busy &&
+    sequenceFlow.start()
+  );
 }
 
 function sequenceTimestampsOf(dir: string): void {
@@ -1013,6 +1029,118 @@ void window.__TAURI__.event.listen<{ run_id: number; done: number; total: number
 void window.__TAURI__.event.listen<SequenceDone>("sequence-done", ({ payload }) => {
   finishSequence(payload);
 });
+
+// The folder tree's `Rewrite Sidecars from Index…`: count what the index
+// holds for the folder, confirm, then push it out to the sidecars. The run
+// cannot be canceled, so its buttons are disabled and Escape does nothing
+// while it runs.
+const sidecarFlow = new SidecarFlow();
+// Only its key decisions are used: Escape and Tab, as in the settings modal.
+const sidecarKeys = new SettingsModal();
+const sidecarDialog = document.getElementById("sidecar-dialog") as HTMLDivElement;
+const sidecarTitle = document.getElementById("sidecar-title") as HTMLHeadingElement;
+const sidecarRows = document.getElementById("sidecar-rows") as HTMLUListElement;
+const sidecarTotal = document.getElementById("sidecar-total") as HTMLParagraphElement;
+const sidecarRunning = document.getElementById("sidecar-running") as HTMLParagraphElement;
+const sidecarRunButton = document.getElementById("sidecar-run") as HTMLButtonElement;
+const sidecarCancelButton = document.getElementById("sidecar-cancel") as HTMLButtonElement;
+
+function rewriteSidecarsIn(dir: string): void {
+  whenIdle("Rewrite Sidecars from Index", () => {
+    if (
+      !formatDialog.hidden ||
+      settings.isOpen ||
+      trashFlow.busy ||
+      sequenceFlow.busy ||
+      !sidecarFlow.start({ kind: "rewrite", dir })
+    ) {
+      return;
+    }
+    window.__TAURI__.core
+      .invoke<RewritePreview>("rewrite_sidecars_preview", { dir })
+      .then((preview) => {
+        if (sidecarFlow.previewed()) {
+          showRewritePreview(dir, preview);
+        }
+      })
+      .catch((err: unknown) => {
+        sidecarFlow.end();
+        setStatus(String(err));
+      });
+  });
+}
+
+function showRewritePreview(dir: string, preview: RewritePreview): void {
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  sidecarTitle.textContent = "Rewrite Sidecars from Index";
+  sidecarRows.replaceChildren(...rewriteRows(preview).map(listItem));
+  sidecarTotal.textContent = rewriteTotalLine(preview, baseName(dir) || dir);
+  sidecarRunning.textContent = REWRITE_RUNNING_NOTE;
+  sidecarRunning.hidden = true;
+  sidecarRunButton.textContent = "Rewrite";
+  sidecarRunButton.disabled = false;
+  sidecarCancelButton.disabled = false;
+  sidecarDialog.hidden = false;
+  sidecarRunButton.focus();
+}
+
+function closeSidecarDialog(): void {
+  sidecarFlow.end();
+  sidecarDialog.hidden = true;
+}
+
+// Rewriting the open folder leaves the strip alone: the index it writes from
+// is what the strip already shows.
+function runSidecars(): void {
+  const target = sidecarFlow.run();
+  if (target === null) {
+    return;
+  }
+  const { dir } = target;
+  sidecarRunButton.disabled = true;
+  sidecarCancelButton.disabled = true;
+  sidecarRunning.hidden = false;
+  settleIdle(
+    window.__TAURI__.core
+      .invoke<RewriteSummary>("rewrite_sidecars_run", { dir })
+      .then((summary) => {
+        closeSidecarDialog();
+        setStatus(rewrittenStatus(summary, baseName(dir) || dir));
+      })
+      .catch((err: unknown) => {
+        closeSidecarDialog();
+        setStatus(String(err));
+      }),
+  );
+}
+
+function dismissSidecars(): void {
+  if (sidecarFlow.dismiss()) {
+    sidecarDialog.hidden = true;
+  }
+}
+
+// Every key stops here while the dialog is open, so none reaches the strip.
+function sidecarKeydown(event: KeyboardEvent): void {
+  const decision = sidecarKeys.key(keyName(event));
+  if (decision.kind === "close") {
+    event.preventDefault();
+    dismissSidecars();
+  } else if (decision.kind === "focus") {
+    event.preventDefault();
+    const buttons = [sidecarRunButton, sidecarCancelButton].filter((b) => !b.disabled);
+    if (buttons.length === 0) {
+      return;
+    }
+    const from = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    buttons[cycleFocus(buttons.length, from, decision.step)].focus();
+  }
+}
+
+sidecarRunButton.addEventListener("click", runSidecars);
+sidecarCancelButton.addEventListener("click", dismissSidecars);
 
 // Set the transient note, or clear it when called with no argument.
 function setStatus(extra?: string): void {
@@ -2645,7 +2773,8 @@ function renameFile(path: string, name: string): void {
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
 // rename it, to expand or collapse every subfolder under it, to move its
-// rejects to the Trash, or to sequence its JPEGs. On a selection of several
+// rejects to the Trash, to rewrite its sidecars from the index, or to
+// sequence its JPEGs. On a selection of several
 // folders it offers only to move their rejects.
 folders.init(
   (path) => {
@@ -2693,6 +2822,9 @@ folders.init(
             break;
           case "trashRejectedTree":
             trashRejectedIn(targets, true);
+            break;
+          case "rewriteSidecars":
+            rewriteSidecarsIn(path);
             break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);
@@ -2938,13 +3070,14 @@ function openFolder(): void {
 }
 
 // The menu accelerators of keymap actions (Open Folder, Undo, Redo) stay out
-// of the way while the settings, the sequence or the trash modal is open, or a folder
+// of the way while the settings, the sequence, the trash or the sidecar modal is open, or a folder
 // or file name is being edited, as their keys do.
 function modalOpen(): boolean {
   return (
     settings.isOpen ||
     sequenceFlow.isOpen ||
     trashFlow.isOpen ||
+    sidecarFlow.isOpen ||
     folders.isEditing() ||
     strip.isEditing()
   );
@@ -3659,7 +3792,7 @@ const sortLoaded = window.__TAURI__.core
 // `Settings...` in the menu. The first-launch dialog is modal already, so the
 // settings wait until it is answered.
 void window.__TAURI__.event.listen("open-settings", () => {
-  if (!formatDialog.hidden || sequenceFlow.busy || trashFlow.busy) {
+  if (!formatDialog.hidden || sequenceFlow.busy || trashFlow.busy || sidecarFlow.busy) {
     return;
   }
   setFilterMenuOpen(false);
@@ -3713,6 +3846,10 @@ window.addEventListener("keydown", (event) => {
   }
   if (trashFlow.isOpen) {
     trashKeydown(event);
+    return;
+  }
+  if (sidecarFlow.isOpen) {
+    sidecarKeydown(event);
     return;
   }
   // A live file rename takes every key: Enter and Escape end it, the rest

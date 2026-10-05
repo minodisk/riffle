@@ -1210,11 +1210,12 @@ body {
   user-select: text;
 }
 
-/* The Sequence JPEG Timestamps dialog and the Move Rejected to Trash
-   confirmation, over the whole window like Settings. The list scrolls; the
-   buttons stay in view. */
+/* The Sequence JPEG Timestamps dialog, the Move Rejected to Trash
+   confirmation and the folder sidecars confirmation, over the whole window
+   like Settings. The list scrolls; the buttons stay in view. */
 #sequence-box,
-#trash-box {
+#trash-box,
+#sidecar-box {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -1226,18 +1227,21 @@ body {
 }
 
 #sequence-box p,
-#trash-box p {
+#trash-box p,
+#sidecar-box p {
   overflow-wrap: anywhere;
 }
 
 #sequence-rebuild,
 #sequence-running,
-#trash-empty {
+#trash-empty,
+#sidecar-running {
   color: var(--muted-foreground);
 }
 
 #sequence-rows,
-#trash-rows {
+#trash-rows,
+#sidecar-rows {
   flex: 1;
   min-height: 0;
   padding: 0.4rem 0.5rem;
@@ -1249,12 +1253,14 @@ body {
   white-space: pre;
 }
 
-#trash-rows {
+#trash-rows,
+#sidecar-rows {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-#trash-rows:empty {
+#trash-rows:empty,
+#sidecar-rows:empty {
   display: none;
 }
 
