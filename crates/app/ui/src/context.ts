@@ -60,7 +60,7 @@ export function contextMenuGroups(
 // the `reveal_label` command, then copying the folder's path or name, then re-listing it (Refresh), then
 // renaming it, then expanding or collapsing every subfolder under it, then
 // moving its rejects to the Trash, with or without its subfolders, then
-// rewriting its sidecars from the index, then the sequencing of the folder's
+// rewriting its sidecars from the index or deleting them, then the sequencing of the folder's
 // JPEGs. Renaming, expanding / collapsing all and
 // the recursive trash item are not offered on a root (home or a volume). With
 // `count` folders selected, only the trash items are offered, naming the
@@ -125,6 +125,7 @@ export function folderMenuGroups(revealLabel: string, root: boolean, count = 1):
         shortcut: "",
         checked: undefined,
       },
+      { action: "deleteSidecars", label: "Delete Sidecars…", shortcut: "", checked: undefined },
     ],
     [
       {

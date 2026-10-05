@@ -1,10 +1,13 @@
-//! The folder tree's `Rewrite Sidecars from Index…`: the commands that count
-//! and then rewrite the sidecars of one folder from its `ratings` rows.
+//! The folder tree's `Rewrite Sidecars from Index…` and `Delete Sidecars…`:
+//! the commands that count and then rewrite the sidecars of one folder from
+//! its `ratings` rows, or move them to the Trash.
 //!
 //! Every write goes through the sidecar writer, which patches only the
 //! judgment fields of an existing sidecar (so Lightroom's develop settings
 //! and PhotoLab's corrections survive) and mints one only for a row holding
-//! a judgment. Only the current `SidecarFormat`'s kinds are written.
+//! a judgment. A delete is recorded in `trash::Runs` like a `Move Rejected to
+//! Trash` run, so `trash_rejected_undo` / `trash_rejected_redo` take it back
+//! and move it again. Only the current `SidecarFormat`'s kinds are touched.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -17,11 +20,12 @@ use serde::Serialize;
 use tauri::Manager;
 
 use crate::commands::{
-    canonicalize, read_listing, AppIndex, AppLabelNames, AppSidecarFormat, AppWriter, Scans,
-    SCAN_RUNNING,
+    canonicalize, format_bytes, read_listing, stat_sidecars, trash_one, AppIndex, AppLabelNames,
+    AppSidecarFormat, AppWriter, Scans, SCAN_RUNNING, SIZE_BASE,
 };
 use crate::index::{self, DirtyRow, Index};
 use crate::sidecar::{SidecarFormat, Writer, DRAIN_TIMEOUT};
+use crate::trash::{self, Failure, Group, Trashed};
 
 /// Longest a rewrite waits for the writer to drain. `DRAIN_TIMEOUT` is for
 /// quit; a folder of thousands of files on Windows takes minutes (each write
@@ -202,6 +206,227 @@ pub async fn rewrite_sidecars_run(app: tauri::AppHandle, dir: String) -> Result<
         log::info!("rewrote the sidecars of {dir}: {summary:?}");
         drop(state);
         summary
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// One sidecar `Delete Sidecars…` moves: the listed RAW it belongs to, its
+/// kind, its path on disk and its size.
+#[derive(Debug, PartialEq)]
+struct Doomed {
+    raw: String,
+    kind: SidecarFormat,
+    path: PathBuf,
+    bytes: u64,
+}
+
+/// One kind's line of the delete dialog: how many sidecars of it there are
+/// and their size, formatted as the platform's file manager would.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct KindCount {
+    kind: &'static str,
+    count: usize,
+    size_text: String,
+}
+
+/// What `delete_sidecars_preview` counts for the confirmation dialog: the
+/// sidecars per kind of the current format (a kind with none left out) and
+/// the totals.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct DeletePreview {
+    kinds: Vec<KindCount>,
+    count: usize,
+    size_text: String,
+}
+
+/// How the refusals name the current format's sidecars.
+fn kinds_name(format: SidecarFormat) -> &'static str {
+    match format {
+        SidecarFormat::Xmp => "XMP",
+        SidecarFormat::Dop => ".dop",
+        SidecarFormat::Both => "XMP or .dop",
+    }
+}
+
+/// The sidecars of the current format's kinds that exist for the RAWs `dir`
+/// lists, each RAW's in `kinds()` order. A sidecar of a RAW that is not
+/// listed is left alone, as is any file of the other format. A folder listing
+/// no RAW (a JPEG folder is view-only) and one with no such sidecar are
+/// refused.
+fn doomed(dir: &str, format: SidecarFormat) -> Result<Vec<Doomed>, String> {
+    let name = folder_name(dir);
+    let listing = read_listing(Path::new(dir), Some(format))?;
+    let raws: Vec<&String> = listing
+        .files
+        .iter()
+        .filter(|path| riffle_core::scan::is_raw_file(Path::new(path)))
+        .collect();
+    if raws.is_empty() {
+        return Err(format!(
+            "{name}: deleting sidecars applies to RAW files only"
+        ));
+    }
+    let sidecars = stat_sidecars(&listing.sidecars);
+    let mut found = Vec::new();
+    for raw in raws {
+        for kind in format.kinds() {
+            for (path, size, _) in trash::sidecars_of(*kind, raw, &sidecars) {
+                found.push(Doomed {
+                    raw: raw.clone(),
+                    kind: *kind,
+                    path: path.clone(),
+                    bytes: u64::try_from(*size).unwrap_or(0),
+                });
+            }
+        }
+    }
+    if found.is_empty() {
+        return Err(format!("No {} sidecars in {name}", kinds_name(format)));
+    }
+    Ok(found)
+}
+
+/// The counts of `doomed` for the dialog, `size_text` formatting bytes.
+fn delete_preview(
+    doomed: &[Doomed],
+    format: SidecarFormat,
+    size_text: impl Fn(u64) -> String,
+) -> DeletePreview {
+    let kinds = format
+        .kinds()
+        .iter()
+        .filter_map(|kind| {
+            let of_kind: Vec<&Doomed> = doomed.iter().filter(|d| d.kind == *kind).collect();
+            (!of_kind.is_empty()).then(|| KindCount {
+                kind: kind.setting(),
+                count: of_kind.len(),
+                size_text: size_text(of_kind.iter().map(|d| d.bytes).sum()),
+            })
+        })
+        .collect();
+    DeletePreview {
+        kinds,
+        count: doomed.len(),
+        size_text: size_text(doomed.iter().map(|d| d.bytes).sum()),
+    }
+}
+
+/// Move every sidecar of `doomed` with `mover`, never stopping at a failure,
+/// which is reported under the RAW's path (the meta pane keys its errors by
+/// the file shown) and leaves the sidecar where it is. Returns the summary
+/// (`moved` lists the sidecars), every file moved in order, for `Runs`, and
+/// the RAWs that lost a sidecar, whose rows are cleared.
+fn delete(
+    doomed: Vec<Doomed>,
+    mover: impl FnMut(&Path) -> Result<Option<PathBuf>, String>,
+) -> (trash::Summary, Vec<Trashed>, Vec<String>) {
+    let raw_of: Vec<(String, String)> = doomed
+        .iter()
+        .map(|d| (d.path.to_string_lossy().into_owned(), d.raw.clone()))
+        .collect();
+    let raw = |sidecar: &str| {
+        raw_of
+            .iter()
+            .find(|(path, _)| path == sidecar)
+            .map_or_else(|| sidecar.to_string(), |(_, raw)| raw.clone())
+    };
+    let groups = doomed
+        .into_iter()
+        .map(|d| Group {
+            raw: d.path,
+            sidecars: Vec::new(),
+        })
+        .collect();
+    let (mut summary, moved) = trash::run(groups, mover);
+    summary.failed = summary
+        .failed
+        .into_iter()
+        .map(|failure| {
+            let name = Path::new(&failure.path).file_name().map_or_else(
+                || failure.path.clone(),
+                |n| n.to_string_lossy().into_owned(),
+            );
+            Failure {
+                path: raw(&failure.path),
+                message: format!("{name}: {}", failure.message),
+            }
+        })
+        .collect();
+    let mut cleared: Vec<String> = Vec::new();
+    for sidecar in &summary.moved {
+        let raw = raw(sidecar);
+        if !cleared.contains(&raw) {
+            cleared.push(raw);
+        }
+    }
+    (summary, moved, cleared)
+}
+
+/// Count the sidecars `delete_sidecars_run` would move from `dir`, for the
+/// confirmation dialog. A running scan is refused and the sidecar writer is
+/// drained first, so no pending write mints a sidecar the count misses. The
+/// `Scans` lock is not held: the dialog stays open for as long as the user
+/// wants, and the run collects again.
+#[tauri::command]
+pub async fn delete_sidecars_preview(
+    app: tauri::AppHandle,
+    dir: String,
+) -> Result<DeletePreview, String> {
+    {
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<DeletePreview, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
+            writer.flush(DRAIN_TIMEOUT);
+        }
+        let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+        let doomed = doomed(&canonicalize(&dir), format)?;
+        Ok(delete_preview(&doomed, format, |bytes| {
+            format_bytes(bytes, SIZE_BASE)
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Move the sidecars of `dir` to the OS Trash once the dialog
+/// `delete_sidecars_preview` fed was confirmed, record the run for
+/// `trash_rejected_undo`, and clear the judgments of the RAWs that lost a
+/// sidecar in the index, so a closed folder does not keep them until its next
+/// open. The writer is drained first: a judgment still in its debounce window
+/// would mint a sidecar right after the delete. A running scan is refused
+/// under the `Scans` lock, which is held across the moves and the index
+/// write.
+#[tauri::command]
+pub async fn delete_sidecars_run(
+    app: tauri::AppHandle,
+    dir: String,
+) -> Result<trash::Summary, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Summary, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
+            writer.flush(DRAIN_TIMEOUT);
+        }
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let format = *index::lock(&app.state::<AppSidecarFormat>().0);
+        let dir = canonicalize(&dir);
+        let doomed = doomed(&dir, format)?;
+        let (mut summary, moved, cleared) = delete(doomed, trash_one);
+        summary.run_id = app.state::<trash::Runs>().record(moved);
+        if let Some(index) = &app.state::<AppIndex>().0 {
+            index::lock(index).clear_judgments(&dir, &cleared)?;
+        }
+        log::info!("moved the sidecars of {dir} to the trash: {summary:?}");
+        drop(state);
+        Ok(summary)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -432,5 +657,164 @@ mod tests {
         std::fs::write(jpegs.dir.join("a.jpg"), b"not really a JPEG").unwrap();
         let err = preview(&jpegs.key, &jpegs.index, SidecarFormat::Xmp).unwrap_err();
         assert!(err.ends_with("applies to RAW files only"), "{err}");
+    }
+
+    fn put(dir: &Path, name: &str, bytes: usize) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, vec![b'x'; bytes]).unwrap();
+        path
+    }
+
+    /// The file names of `doomed`, with the name of the RAW each belongs to.
+    fn names(doomed: &[Doomed]) -> Vec<(String, String)> {
+        let name = |path: &Path| path.file_name().unwrap().to_string_lossy().into_owned();
+        doomed
+            .iter()
+            .map(|d| (name(Path::new(&d.raw)), name(&d.path)))
+            .collect()
+    }
+
+    #[test]
+    fn the_collection_takes_the_current_formats_sidecars_of_listed_raws() {
+        let f = Fixture::new("collect");
+        f.raw("a.ARW");
+        f.raw("b.ARW");
+        put(&f.dir, "a.xmp", 10);
+        put(&f.dir, "a.ARW.dop", 20);
+        put(&f.dir, "B.XMP", 30);
+        put(&f.dir, "gone.xmp", 40);
+        put(&f.dir, "gone.ARW.dop", 50);
+
+        let pair = |raw: &str, sidecar: &str| (raw.to_string(), sidecar.to_string());
+        assert_eq!(
+            names(&doomed(&f.key, SidecarFormat::Xmp).unwrap()),
+            [pair("a.ARW", "a.xmp"), pair("b.ARW", "B.XMP")]
+        );
+        assert_eq!(
+            names(&doomed(&f.key, SidecarFormat::Dop).unwrap()),
+            [pair("a.ARW", "a.ARW.dop")]
+        );
+        let both = doomed(&f.key, SidecarFormat::Both).unwrap();
+        assert_eq!(
+            names(&both),
+            [
+                pair("a.ARW", "a.xmp"),
+                pair("a.ARW", "a.ARW.dop"),
+                pair("b.ARW", "B.XMP")
+            ]
+        );
+        assert_eq!(
+            delete_preview(&both, SidecarFormat::Both, |bytes| format!("{bytes} B")),
+            DeletePreview {
+                kinds: vec![
+                    KindCount {
+                        kind: "xmp",
+                        count: 2,
+                        size_text: "40 B".to_string()
+                    },
+                    KindCount {
+                        kind: "dop",
+                        count: 1,
+                        size_text: "20 B".to_string()
+                    },
+                ],
+                count: 3,
+                size_text: "60 B".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_folder_with_no_sidecar_of_the_format_or_no_raw_is_refused() {
+        let f = Fixture::new("delete-refuse");
+        f.raw("a.ARW");
+        put(&f.dir, "a.ARW.dop", 1);
+        let err = doomed(&f.key, SidecarFormat::Xmp).unwrap_err();
+        assert!(err.starts_with("No XMP sidecars in "), "{err}");
+
+        let jpegs = Fixture::new("delete-refuse-jpeg");
+        put(&jpegs.dir, "a.jpg", 1);
+        put(&jpegs.dir, "a.xmp", 1);
+        let err = doomed(&jpegs.key, SidecarFormat::Both).unwrap_err();
+        assert!(err.ends_with("applies to RAW files only"), "{err}");
+    }
+
+    #[test]
+    fn the_run_moves_in_order_and_reports_a_failure_under_its_raw() {
+        let f = Fixture::new("delete-run");
+        let trash = f.dir.join("trash");
+        std::fs::create_dir(&trash).unwrap();
+        let a = f.raw("a.ARW");
+        let fail = f.raw("fail.ARW");
+        let a_xmp = put(&f.dir, "a.xmp", 1);
+        let a_dop = put(&f.dir, "a.ARW.dop", 1);
+        let fail_xmp = put(&f.dir, "fail.xmp", 1);
+        let doomed = doomed(&f.key, SidecarFormat::Both).unwrap();
+
+        let (summary, moved, cleared) = delete(doomed, |path| {
+            let name = path.file_name().unwrap();
+            if name.to_string_lossy().contains("fail") {
+                return Err("refused".to_string());
+            }
+            let to = trash.join(name);
+            std::fs::rename(path, &to).map_err(|e| e.to_string())?;
+            Ok(Some(to))
+        });
+
+        let key = |path: &Path| path.to_string_lossy().into_owned();
+        assert_eq!(
+            moved.iter().map(|t| t.path.clone()).collect::<Vec<_>>(),
+            [a_xmp.clone(), a_dop.clone()]
+        );
+        assert_eq!(summary.moved, [key(&a_xmp), key(&a_dop)]);
+        assert_eq!(summary.failed.len(), 1);
+        assert_eq!(summary.failed[0].path, key(&fail));
+        assert_eq!(summary.failed[0].message, "fail.xmp: refused");
+        assert_eq!(cleared, [key(&a)]);
+        assert!(fail_xmp.exists());
+        assert!(!a_xmp.exists());
+        assert!(trash.join("a.ARW.dop").exists());
+    }
+
+    #[test]
+    fn clearing_judgments_leaves_the_rows_as_a_gone_sidecar_does() {
+        let f = Fixture::new("delete-clear");
+        let a = f.raw("a.ARW");
+        let b = f.raw("b.ARW");
+        f.row(&b, Some(2), Flag::Reject, None);
+        let a_key = a.to_string_lossy().into_owned();
+        let b_key = b.to_string_lossy().into_owned();
+        {
+            let mut index = index::lock(&f.index);
+            index
+                .set_rating(&f.key, &a_key, Some(4), Flag::Pick, Some("Red"), true)
+                .unwrap();
+            index
+                .mark_written(&a_key, Some(4), Flag::Pick, Some("Red"), true, Some((9, 9)))
+                .unwrap();
+            index
+                .set_rating(&f.key, &a_key, Some(5), Flag::Pick, None, true)
+                .unwrap();
+            assert_eq!(
+                index.row_flags(&f.key).unwrap()[&a_key].stat,
+                (Some(9), Some(9))
+            );
+        }
+
+        index::lock(&f.index)
+            .clear_judgments(&f.key, std::slice::from_ref(&a_key))
+            .unwrap();
+
+        let index = index::lock(&f.index);
+        let rows = index.rows_of(&f.key).unwrap();
+        let row = |key: &str| rows.iter().find(|(path, ..)| path == key).unwrap().clone();
+        assert_eq!(row(&a_key), (a_key.clone(), None, Flag::None, None, true));
+        assert_eq!(
+            row(&b_key),
+            (b_key.clone(), Some(2), Flag::Reject, None, true)
+        );
+        let flags = index.row_flags(&f.key).unwrap();
+        assert_eq!(flags[&a_key].stat, (None, None));
+        assert!(!flags[&a_key].dirty);
     }
 }

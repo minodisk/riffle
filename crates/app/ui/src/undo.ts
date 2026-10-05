@@ -1,11 +1,16 @@
+import { type TrashRestored, type TrashWhat, restoredCount } from "./trash.js";
+
 // One `Move Rejected to Trash` run, undone by restoring it from the Trash:
-// its backend `run_id`, the RAWs it moved, and the folders it ran on.
+// its backend `run_id`, the RAWs it moved, and the folders it ran on. A
+// `Delete Sidecars…` run is one too, with `what` set to "sidecars" and
+// `count` the sidecars it moved.
 export type TrashEntry = {
   kind: "trash";
   runId: number;
   count: number;
   dirs: string[];
   recursive: boolean;
+  what?: TrashWhat;
 };
 
 // An undo entry: a batch of judgment states, or a trash run.
@@ -16,10 +21,11 @@ export function isJudgments<J>(entry: Entry<J>): entry is J[] {
 }
 
 // The redo entry of the undone trash run `entry`: the backend keeps only the
-// files that came back, so it counts the `restored` RAWs alone, and there is
-// nothing to redo when none came back.
-export function undoneTrash(entry: TrashEntry, restored: string[]): TrashEntry | null {
-  return restored.length === 0 ? null : { ...entry, count: restored.length };
+// files that came back, so it counts those alone (the RAWs, or the sidecars
+// of a sidecar run), and there is nothing to redo when none came back.
+export function undoneTrash(entry: TrashEntry, result: TrashRestored): TrashEntry | null {
+  const count = restoredCount(result, entry);
+  return count === 0 ? null : { ...entry, count };
 }
 
 // Rewrite every judgment of a batch through `fn`, leaving a trash entry as is.

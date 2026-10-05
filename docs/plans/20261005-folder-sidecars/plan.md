@@ -190,7 +190,7 @@ alternative under "Trade-offs and risks"):
       <name>?` (naming the format: `XMP`, `.dop`, or `XMP and .dop`);
       status `Rewrote 15 sidecars in <name>`.
 
-- [ ] Step 2: `Delete Sidecars…` end to end (backend commands, menu item, the shared dialog, undo / redo through the trash runs)
+- [x] Step 2: `Delete Sidecars…` end to end (backend commands, menu item, the shared dialog, undo / redo through the trash runs)
   - Done when:
     - The folder menu's new group holds `Rewrite Sidecars from Index…` then
       `Delete Sidecars…`; choosing the latter opens the shared dialog
@@ -402,3 +402,4 @@ Other decisions the steps will face:
 ## Progress
 
 - (2026-10-05) Step 1 complete: `rewrite_sidecars_preview` / `rewrite_sidecars_run` rewrite a folder's sidecars from the index, with the confirmation dialog's text and flow in `sidecars.ts`. The failure count is the number of entries still waiting after the writer's drain (the cheap measure noted above). The manual check is pending (see `learnings.md`).
+- (2026-10-06) Step 2 complete

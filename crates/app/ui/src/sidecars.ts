@@ -1,6 +1,7 @@
-// The folder tree's `Rewrite Sidecars from Index…`: the confirmation
-// dialog's text and the flow from the menu item through the dialog to the
-// run's end. See `crates/app/src/foldersidecars.rs` for the payloads.
+// The folder tree's `Rewrite Sidecars from Index…` and `Delete Sidecars…`:
+// the confirmation dialog's text and the flow from the menu item through the
+// dialog to the run's end. See `crates/app/src/foldersidecars.rs` for the
+// payloads.
 
 export type SidecarFormatName = "xmp" | "dop" | "both";
 
@@ -60,6 +61,33 @@ export function rewriteTotalLine(preview: RewritePreview, name: string): string 
 export function rewrittenStatus(summary: RewriteSummary, name: string): string {
   const head = `Rewrote the sidecars of ${files(summary.written)} in ${name}`;
   return summary.failed === 0 ? head : `${head}, ${summary.failed} failed`;
+}
+
+// One kind's line of `delete_sidecars_preview`: how many sidecars of it the
+// folder holds and their size, formatted as the platform's file manager would.
+export type DeleteKindCount = { kind: "xmp" | "dop"; count: number; size_text: string };
+
+// What `delete_sidecars_preview` returns: the current format's kinds that
+// have sidecars, and the totals. The run returns a `TrashSummary` whose
+// `moved` lists the sidecars.
+export type DeletePreview = { kinds: DeleteKindCount[]; count: number; size_text: string };
+
+export const DELETE_RUNNING_NOTE = "Moving the sidecars to the Trash.";
+
+function sidecars(count: number): string {
+  return count === 1 ? "sidecar" : "sidecars";
+}
+
+export function deleteRows(preview: DeletePreview): string[] {
+  return preview.kinds.map(
+    ({ kind, count, size_text }) =>
+      `${count} ${formatName(kind)} ${sidecars(count)} (${size_text})`,
+  );
+}
+
+export function deleteTotalLine(preview: DeletePreview, name: string): string {
+  const { count, size_text } = preview;
+  return `Move ${count} ${sidecars(count)} (${size_text}) of ${name} to the Trash?`;
 }
 
 export type SidecarKind = "rewrite" | "delete";

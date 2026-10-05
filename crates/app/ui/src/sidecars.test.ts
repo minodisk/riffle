@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  type DeletePreview,
   type RewritePreview,
   SidecarFlow,
+  deleteRows,
+  deleteTotalLine,
   formatName,
   rewriteRows,
   rewriteTotalLine,
@@ -66,6 +69,37 @@ describe("rewrittenStatus", () => {
     );
     expect(rewrittenStatus({ written: 10, failed: 5, flushed: false }, "a")).toBe(
       "Rewrote the sidecars of 10 files in a, 5 failed",
+    );
+  });
+});
+
+describe("delete text", () => {
+  const both: DeletePreview = {
+    kinds: [
+      { kind: "xmp", count: 12, size_text: "1.2 MB" },
+      { kind: "dop", count: 12, size_text: "340.0 KB" },
+    ],
+    count: 24,
+    size_text: "1.5 MB",
+  };
+
+  test("deleteRows lists each kind with its size", () => {
+    expect(deleteRows(both)).toEqual(["12 XMP sidecars (1.2 MB)", "12 .dop sidecars (340.0 KB)"]);
+    expect(
+      deleteRows({
+        kinds: [{ kind: "dop", count: 1, size_text: "2 KB" }],
+        count: 1,
+        size_text: "2 KB",
+      }),
+    ).toEqual(["1 .dop sidecar (2 KB)"]);
+  });
+
+  test("deleteTotalLine counts the sidecars and names the folder", () => {
+    expect(deleteTotalLine(both, "2026-10-05")).toBe(
+      "Move 24 sidecars (1.5 MB) of 2026-10-05 to the Trash?",
+    );
+    expect(deleteTotalLine({ ...both, count: 1, size_text: "800 B" }, "a")).toBe(
+      "Move 1 sidecar (800 B) of a to the Trash?",
     );
   });
 });

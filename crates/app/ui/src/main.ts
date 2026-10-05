@@ -39,6 +39,7 @@ import {
   type TrashPreview,
   type TrashRestored,
   type TrashSummary,
+  type TrashWhat,
   TrashFlow,
   canRun,
   emptyFoldersLine,
@@ -122,10 +123,14 @@ import {
 import { progressWidth } from "./progress.js";
 import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
 import {
+  DELETE_RUNNING_NOTE,
+  type DeletePreview,
   REWRITE_RUNNING_NOTE,
   type RewritePreview,
   type RewriteSummary,
   SidecarFlow,
+  deleteRows,
+  deleteTotalLine,
   rewriteRows,
   rewriteTotalLine,
   rewrittenStatus,
@@ -782,10 +787,23 @@ function runTrash(): void {
 
 // What a run or a redo does once its files went to the Trash: prune the open
 // folder's state when it was among `dirs`, push the recorded run for undo,
-// report the failures, and re-list the folder.
-function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): void {
+// report the failures, and re-list the folder. A run of sidecars (`what` is
+// "sidecars") drops the judgments the strip shows instead, and `rescan`
+// false re-reads `folder_entries` rather than re-listing: `Delete Sidecars…`
+// cleared the rows already, so a rescan would find nothing changed.
+function trashed(
+  summary: TrashSummary,
+  dirs: string[],
+  recursive: boolean,
+  what: TrashWhat = "files",
+  rescan = true,
+): void {
   const refresh = openDir !== null && opensTarget(openDir, dirs, recursive, folders.ignoreCase);
-  if (refresh) {
+  if (refresh && what === "sidecars") {
+    if (summary.moved.length > 0) {
+      clearShownJudgments();
+    }
+  } else if (refresh) {
     for (const path of summary.moved) {
       // `ratings` / `flags` / `labels` are kept: they are keyed by
       // path and never iterated, so leaving them stale does no harm
@@ -806,6 +824,7 @@ function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): voi
       count: summary.moved.length,
       dirs,
       recursive,
+      ...(what === "sidecars" ? { what } : {}),
     });
   }
   for (const { path, message } of summary.failed) {
@@ -814,9 +833,21 @@ function trashed(summary: TrashSummary, dirs: string[], recursive: boolean): voi
   for (const { path, message } of summary.unread) {
     errors.add(path, `${baseName(path)}: could not be read: ${message}`);
   }
-  setStatus(trashedStatus(summary));
-  if (refresh) {
+  setStatus(trashedStatus(summary, what));
+  if (refresh && rescan) {
     resync("trash");
+  } else if (refresh) {
+    refreshEntries();
+  }
+}
+
+// Drop the judgments the strip shows for every file of the open folder, and
+// forget which were judged this session, or the next `folder_entries` read
+// would keep what the keyboard set.
+function clearShownJudgments(): void {
+  for (const path of allFiles) {
+    touched.delete(path);
+    applyRating(path, null, "none", null);
   }
 }
 
@@ -1030,9 +1061,10 @@ void window.__TAURI__.event.listen<SequenceDone>("sequence-done", ({ payload }) 
   finishSequence(payload);
 });
 
-// The folder tree's `Rewrite Sidecars from Index…`: count what the index
-// holds for the folder, confirm, then push it out to the sidecars. The run
-// cannot be canceled, so its buttons are disabled and Escape does nothing
+// The folder tree's `Rewrite Sidecars from Index…` and `Delete Sidecars…`:
+// count what the index holds for the folder (or the sidecars on disk),
+// confirm, then push it out to the sidecars (or move them to the Trash). The
+// run cannot be canceled, so its buttons are disabled and Escape does nothing
 // while it runs.
 const sidecarFlow = new SidecarFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
@@ -1070,16 +1102,61 @@ function rewriteSidecarsIn(dir: string): void {
   });
 }
 
+function deleteSidecarsIn(dir: string): void {
+  whenIdle("Delete Sidecars", () => {
+    if (
+      !formatDialog.hidden ||
+      settings.isOpen ||
+      trashFlow.busy ||
+      sequenceFlow.busy ||
+      !sidecarFlow.start({ kind: "delete", dir })
+    ) {
+      return;
+    }
+    window.__TAURI__.core
+      .invoke<DeletePreview>("delete_sidecars_preview", { dir })
+      .then((preview) => {
+        if (sidecarFlow.previewed()) {
+          showSidecarDialog(
+            "Delete Sidecars",
+            deleteRows(preview),
+            deleteTotalLine(preview, baseName(dir) || dir),
+            { note: DELETE_RUNNING_NOTE, label: "Move to Trash", style: "destructive" },
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        sidecarFlow.end();
+        setStatus(String(err));
+      });
+  });
+}
+
 function showRewritePreview(dir: string, preview: RewritePreview): void {
+  showSidecarDialog(
+    "Rewrite Sidecars from Index",
+    rewriteRows(preview),
+    rewriteTotalLine(preview, baseName(dir) || dir),
+    { note: REWRITE_RUNNING_NOTE, label: "Rewrite", style: "primary" },
+  );
+}
+
+function showSidecarDialog(
+  title: string,
+  rows: string[],
+  total: string,
+  run: { note: string; label: string; style: "primary" | "destructive" },
+): void {
   setFilterMenuOpen(false);
   setSortMenuOpen(false);
   closeContextMenu();
-  sidecarTitle.textContent = "Rewrite Sidecars from Index";
-  sidecarRows.replaceChildren(...rewriteRows(preview).map(listItem));
-  sidecarTotal.textContent = rewriteTotalLine(preview, baseName(dir) || dir);
-  sidecarRunning.textContent = REWRITE_RUNNING_NOTE;
+  sidecarTitle.textContent = title;
+  sidecarRows.replaceChildren(...rows.map(listItem));
+  sidecarTotal.textContent = total;
+  sidecarRunning.textContent = run.note;
   sidecarRunning.hidden = true;
-  sidecarRunButton.textContent = "Rewrite";
+  sidecarRunButton.textContent = run.label;
+  sidecarRunButton.className = `button ${run.style}`;
   sidecarRunButton.disabled = false;
   sidecarCancelButton.disabled = false;
   sidecarDialog.hidden = false;
@@ -1092,7 +1169,9 @@ function closeSidecarDialog(): void {
 }
 
 // Rewriting the open folder leaves the strip alone: the index it writes from
-// is what the strip already shows.
+// is what the strip already shows. Deleting its sidecars drops the strip's
+// judgments (see `trashed`), and the run goes onto the undo history with the
+// trash runs.
 function runSidecars(): void {
   const target = sidecarFlow.run();
   if (target === null) {
@@ -1102,6 +1181,24 @@ function runSidecars(): void {
   sidecarRunButton.disabled = true;
   sidecarCancelButton.disabled = true;
   sidecarRunning.hidden = false;
+  if (target.kind === "delete") {
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashSummary>("delete_sidecars_run", { dir })
+        .then((summary) => {
+          closeSidecarDialog();
+          if (summary.run_id !== null) {
+            redoable.clear();
+          }
+          trashed(summary, [dir], false, "sidecars", false);
+        })
+        .catch((err: unknown) => {
+          closeSidecarDialog();
+          setStatus(String(err));
+        }),
+    );
+    return;
+  }
   settleIdle(
     window.__TAURI__.core
       .invoke<RewriteSummary>("rewrite_sidecars_run", { dir })
@@ -1743,7 +1840,8 @@ function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb
 // the rescan brings their thumbnails and judgments back. The current file
 // and the selection stay.
 function undoTrash(entry: TrashEntry): void {
-  whenIdle("Undo Move Rejected to Trash", () => {
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  whenIdle(`Undo ${label}`, () => {
     if (trashStep !== null || history.peek() !== entry) {
       return;
     }
@@ -1754,14 +1852,14 @@ function undoTrash(entry: TrashEntry): void {
         .then((result) => {
           trashStep = null;
           history.remove(entry);
-          const redo = undoneTrash(entry, result.restored);
+          const redo = undoneTrash(entry, result);
           if (redo !== null) {
             redoable.push(redo);
           }
           for (const { path, message } of result.failed) {
             errors.add(path, `${baseName(path)}: could not restore from the Trash: ${message}`);
           }
-          setStatus(restoredStatus(result));
+          setStatus(restoredStatus(result, entry));
           if (
             openDir !== null &&
             opensTarget(openDir, entry.dirs, entry.recursive, folders.ignoreCase)
@@ -1791,7 +1889,8 @@ function undoTrash(entry: TrashEntry): void {
 // scan like the run does, and stays on `redoable` until the backend has
 // moved the files, so a refusal leaves it redoable.
 function redoTrash(entry: TrashEntry): void {
-  whenIdle("Redo Move Rejected to Trash", () => {
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  whenIdle(`Redo ${label}`, () => {
     if (trashStep !== null || redoable.peek() !== entry) {
       return;
     }
@@ -1802,7 +1901,7 @@ function redoTrash(entry: TrashEntry): void {
         .then((summary) => {
           trashStep = null;
           redoable.remove(entry);
-          trashed(summary, entry.dirs, entry.recursive);
+          trashed(summary, entry.dirs, entry.recursive, entry.what);
         })
         .catch((err: unknown) => {
           trashStep = null;
@@ -2773,8 +2872,8 @@ function renameFile(path: string, name: string): void {
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
 // rename it, to expand or collapse every subfolder under it, to move its
-// rejects to the Trash, to rewrite its sidecars from the index, or to
-// sequence its JPEGs. On a selection of several
+// rejects to the Trash, to rewrite its sidecars from the index or delete
+// them, or to sequence its JPEGs. On a selection of several
 // folders it offers only to move their rejects.
 folders.init(
   (path) => {
@@ -2825,6 +2924,9 @@ folders.init(
             break;
           case "rewriteSidecars":
             rewriteSidecarsIn(path);
+            break;
+          case "deleteSidecars":
+            deleteSidecarsIn(path);
             break;
           case "sequenceTimestamps":
             sequenceTimestampsOf(path);

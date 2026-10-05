@@ -46,6 +46,14 @@ function files(count: number): string {
   return count === 1 ? "file" : "files";
 }
 
+// What a recorded run moved: RAWs with their sidecars (`Move Rejected to
+// Trash…`), or sidecars alone (`Delete Sidecars…`).
+export type TrashWhat = "files" | "sidecars";
+
+function noun(count: number, what: TrashWhat): string {
+  return what === "sidecars" ? (count === 1 ? "sidecar" : "sidecars") : files(count);
+}
+
 // A folder as the user knows it: without the verbatim `\\?\` prefix the
 // backend's canonical spelling carries on Windows.
 export function shownPath(dir: string): string {
@@ -89,15 +97,28 @@ export function failureText(failure: TrashFailure): string {
   return `${shownPath(failure.path)}: could not be read, left out: ${failure.message}`;
 }
 
-export function trashedStatus(summary: TrashSummary): string {
+export function trashedStatus(summary: TrashSummary, what: TrashWhat = "files"): string {
   const count = summary.moved.length;
-  const moved = `Moved ${count} ${files(count)} to the Trash`;
+  const moved = `Moved ${count} ${noun(count, what)} to the Trash`;
   return summary.failed.length === 0 ? moved : `${moved}, ${summary.failed.length} failed`;
 }
 
-export function restoredStatus(result: TrashRestored): string {
-  const count = result.restored.length;
-  const restored = `Restored ${count} ${files(count)} from the Trash`;
+// The run an undo restored: what it moved and how many files. Its `count`
+// is read only for sidecars, since `restored` lists RAWs alone.
+export type UndoneRun = { what?: TrashWhat; count: number };
+
+// How many of the run's files came back: the RAWs `restored` lists, or, for
+// a run of sidecars, those that did not fail.
+export function restoredCount(result: TrashRestored, run?: UndoneRun): number {
+  if (run?.what === "sidecars") {
+    return Math.max(0, run.count - result.failed.length);
+  }
+  return result.restored.length;
+}
+
+export function restoredStatus(result: TrashRestored, run?: UndoneRun): string {
+  const count = restoredCount(result, run);
+  const restored = `Restored ${count} ${noun(count, run?.what ?? "files")} from the Trash`;
   return result.failed.length === 0 ? restored : `${restored}, ${result.failed.length} failed`;
 }
 
