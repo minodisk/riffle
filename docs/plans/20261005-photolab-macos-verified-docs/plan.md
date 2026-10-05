@@ -58,4 +58,4 @@ them. Docs only; no code changes.
 
 ## Progress
 
-- (none yet)
+- (2026-10-05) Step 1 complete

@@ -117,6 +117,8 @@ lookup:
   `ModificationDate`): on reopening, both applied to the master (`ZRANK 4`,
   `ZSHOULDPROCESS 2`), no virtual copy.
 
+Implementation notes:
+
 - The database is the highest-numbered
   `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` on Windows and
   `~/Library/DxO PhotoLab vN/DOPDatabaseVN.dopdata` on macOS. Other
