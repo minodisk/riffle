@@ -202,12 +202,13 @@ Related: `Cargo.toml`, `docs/agents/tauri-app.md`,
 `View` menu down to three `CheckMenuItem`s (`Folders`, `Metadata`,
 `Filmstrip`) whose checks follow the shown panes, with the pane toggles moved
 to modifier defaults (`Ctrl+Alt+Arrow` on Windows / Linux, `Alt+Cmd+Arrow` on
-macOS) so they show an accelerator. CI covers the build and the tests, but the
-macOS `cfg` branch of `app_menu::build` / `refresh` was only reviewed by
-reading, and the Windows GUI checks (the menu, the checks, the accelerators)
-were never run: the step was ticked on the automated criteria only. Reverting
-muda's native toggle on click relies on muda toggling the check before it
-sends the event, which was confirmed only by reading its source.
+macOS) so they show an accelerator. CI covers the build and the tests. The
+macOS `cfg` branch of `app_menu::build` / `refresh` and the revert of muda's
+native toggle on click (muda toggles the check before it sends the event) were
+confirmed on a real Mac on 2026-10-05 (`mise run tauri:dev`): the items, their
+accelerators, the checks, the single fire per key and the rebuild on a rebind
+all behaved. The Windows GUI checks (the menu, the checks, the accelerators)
+were never run: the step was ticked on the automated criteria only.
 `view-pane-names` (docs/plans/_archived/20260930-view-pane-names/plan.md) then
 renamed the first two items from `Left Pane` / `Right Pane` to `Folders` /
 `Metadata` (ids, actions and stored keys unchanged); its Windows label check
@@ -236,17 +237,6 @@ Files: `crates/app/src/main.rs` (`app_menu`, `apply_panels`),
 - [ ] On Windows, watch for an Intel graphics hotkey taking `Ctrl+Alt+Arrow`
       (screen rotation). If it does, note it in `docs/humans/usage.md` as a driver
       setting to turn off (not a blocker; do not change the default).
-- [ ] On macOS, confirm the three items sit above `Enter Full Screen` with a
-      separator between, show `Alt+Cmd+ArrowLeft` / `ArrowRight` /
-      `ArrowDown`, and have checks matching the panes the last session left.
-- [ ] On macOS, press each of the three keys once: the pane toggles exactly
-      once (no double fire from keydown plus the accelerator) and the check
-      follows. Click `View > Filmstrip` twice: hides, shows, check right each
-      time. With Settings open, click `View > Folders`: nothing changes and
-      the check stays.
-- [ ] On macOS, rebind `toggleStrip` to `ctrl+alt+s`: the item shows it (the
-      menu is rebuilt), the checks survive the rebuild, `Ctrl+Alt+S` toggles
-      once, and `Reset` restores `Alt+Cmd+ArrowDown`.
 
 ### App: the real-device checks for the File menu accelerators are still open
 
