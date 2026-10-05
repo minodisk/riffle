@@ -86,7 +86,7 @@ let contextMenu: (
   targets: string[],
 ) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
-let cancelPending: () => void = () => {};
+let cancelPending: (path: string) => void = () => {};
 // The folder rename held until the scan ends, drawn on its row by `render`.
 let pending: Pending | null = null;
 // The live inline rename, drawn from here on every `render`, so a re-render
@@ -374,7 +374,7 @@ function finish(decision: Decision): void {
 function settle(path: string, original: string, value: string): void {
   const outcome = editOutcome(pending, path, tree.nodes.get(path)?.name ?? original, value);
   if (outcome === "cancel") {
-    cancelPending();
+    cancelPending(path);
   } else if (outcome !== "keep") {
     rename(path, outcome.rename);
   }
@@ -828,7 +828,7 @@ export function init(
     targets: string[],
   ) => void,
   onRename: (path: string, name: string) => void,
-  onCancelPending: () => void,
+  onCancelPending: (path: string) => void,
 ): void {
   open = onOpen;
   reportError = onError;

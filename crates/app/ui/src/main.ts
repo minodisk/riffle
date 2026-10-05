@@ -327,6 +327,8 @@ const RENAME_CANCELED = "Rename… was canceled";
 // folder or file it replaces (a re-edit of the pending name) is not reported
 // as canceled.
 let renaming: string | null = null;
+// The path of the rename the idle gate holds, if any.
+let heldRename: string | null = null;
 
 // Holds a confirmed rename for the scan's end, its new name shown pending in
 // the tree or the strip until it runs, or until it is replaced or dropped,
@@ -338,21 +340,36 @@ function holdRename(
   run: () => void,
 ): void {
   renaming = path;
-  const held = whenIdle("Rename…", run, () => {
-    view.clearPending(path);
-    if (renaming !== path) {
-      setStatus(RENAME_CANCELED);
-    }
-  });
+  const held = whenIdle(
+    "Rename…",
+    () => {
+      heldRename = null;
+      run();
+    },
+    () => {
+      heldRename = null;
+      view.clearPending(path);
+      if (renaming !== path) {
+        setStatus(RENAME_CANCELED);
+      }
+    },
+  );
   renaming = null;
   if (held) {
+    heldRename = path;
     view.markPending(path, name);
   }
 }
 
 // The tree or the strip confirmed a pending name back to the real one: the
 // held rename is dropped, which reverts the name and reports it.
-function cancelPendingRename(): void {
+// Only when that path is the one still held: once the rename has drained its
+// view stays pending until the invoke settles, and the slot may by then hold
+// another rename that must not be dropped.
+function cancelPendingRename(path: string): void {
+  if (heldRename !== path) {
+    return;
+  }
   idle.discard();
   renderMeta();
 }

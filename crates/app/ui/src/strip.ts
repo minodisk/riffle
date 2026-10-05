@@ -113,7 +113,7 @@ let select: (index: number, modifiers: Modifiers) => void = () => {};
 let contextMenu: (index: number, x: number, y: number) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
 let canRename: () => boolean = () => false;
-let cancelPending: () => void = () => {};
+let cancelPending: (path: string) => void = () => {};
 // The file rename held until the scan ends, keyed by path so it survives a
 // cell being released and recreated, and `setFiles`.
 let pending: Pending | null = null;
@@ -754,7 +754,7 @@ export function finishRename(decision: Decision): void {
   // On a cell whose rename is held, typing the real name back cancels it.
   const outcome = editOutcome(pending, state.path, baseName(state.path), state.value);
   if (outcome === "cancel") {
-    cancelPending();
+    cancelPending(state.path);
   } else if (outcome !== "keep") {
     rename(state.path, outcome.rename);
   }
@@ -766,7 +766,7 @@ export function init(
   onRename: (path: string, name: string) => void,
   renameAllowed: () => boolean,
   onScroll: () => void,
-  onCancelPending: () => void,
+  onCancelPending: (path: string) => void,
 ): void {
   select = onSelect;
   contextMenu = onContextMenu;
