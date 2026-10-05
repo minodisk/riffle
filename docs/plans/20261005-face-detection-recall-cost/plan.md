@@ -94,7 +94,7 @@ check; that todo item stays open.
 
 ## Steps
 
-- [ ] Step 1: Add a folder-level detection report to `riffle-cli` and record the baseline (face counts, ground truth, timings)
+- [x] Step 1: Add a folder-level detection report to `riffle-cli` and record the baseline (face counts, ground truth, timings)
   - Done when:
     - `riffle-cli detect <dir|file>... [threads]` runs the same detection the
       second pass runs (`faces::detect_around` with
