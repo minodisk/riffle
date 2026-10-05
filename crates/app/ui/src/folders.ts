@@ -7,16 +7,20 @@
 // until Enter, Escape or a click away ends the edit. Cmd/Ctrl+click and
 // Shift+click select several folders, which a right-click then acts on.
 
+import { CLOCK_SVG } from "./icons.js";
 import { keyName } from "./keys.js";
 import {
   type Decision,
   type InlineRename,
+  PENDING_TITLE,
+  type Pending,
   RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
   commit,
-  confirmName,
+  displayName,
   editKey,
+  editOutcome,
   inlineRename,
 } from "./rename.js";
 import {
@@ -82,6 +86,9 @@ let contextMenu: (
   targets: string[],
 ) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
+let cancelPending: () => void = () => {};
+// The folder rename held until the scan ends, drawn on its row by `render`.
+let pending: Pending | null = null;
 // The live inline rename, drawn from here on every `render`, so a re-render
 // mid-edit (a listing landing) rebuilds the same input.
 let editing: InlineRename | null = null;
@@ -119,6 +126,20 @@ const rootsLoaded = new Promise<void>((resolve) => {
 
 function list(dir: string): Promise<Folder> {
   return window.__TAURI__.core.invoke<Folder>("list_subfolders", { dir });
+}
+
+// The row's name, or its held rename's name in the pending style.
+function paintName(span: HTMLSpanElement, path: string, real: string): void {
+  span.textContent = displayName(pending, path, real);
+  const held = pending !== null && pending.path === path;
+  span.classList.toggle("pending", held);
+  if (held) {
+    const icon = document.createElement("span");
+    icon.className = "pending-icon";
+    icon.title = PENDING_TITLE;
+    icon.innerHTML = CLOCK_SVG;
+    span.prepend(icon);
+  }
 }
 
 function editor(state: InlineRename): HTMLInputElement {
@@ -247,7 +268,7 @@ function render(): void {
     } else {
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = node.name;
+      paintName(name, node.path, node.name);
       name.addEventListener("click", (event) => {
         const mods = modifiers(event);
         if (node.path === current && depth > 0 && !mods.toggle && !mods.range) {
@@ -332,7 +353,7 @@ export function startRename(path: string): void {
   if (editing !== null) {
     finish("confirm");
   }
-  editing = inlineRename("folder", path, node.name);
+  editing = inlineRename("folder", path, displayName(pending, path, node.name));
   render();
 }
 
@@ -343,9 +364,19 @@ function finish(decision: Decision): void {
   const { path, original, value } = editing;
   editing = null;
   render();
-  const name = decision === "confirm" ? confirmName(original, value) : null;
-  if (name !== null) {
-    rename(path, name);
+  if (decision === "confirm") {
+    settle(path, original, value);
+  }
+}
+
+// Acts on a confirmed edit; on a row whose rename is held, typing the real
+// name back cancels it.
+function settle(path: string, original: string, value: string): void {
+  const outcome = editOutcome(pending, path, tree.nodes.get(path)?.name ?? original, value);
+  if (outcome === "cancel") {
+    cancelPending();
+  } else if (outcome !== "keep") {
+    rename(path, outcome.rename);
   }
 }
 
@@ -368,12 +399,9 @@ function finishInPlace(input: HTMLInputElement): void {
   ended = path;
   const span = document.createElement("span");
   span.className = "name";
-  span.textContent = original;
   input.replaceWith(span);
-  const name = confirmName(original, value);
-  if (name !== null) {
-    rename(path, name);
-  }
+  settle(path, original, value);
+  paintName(span, path, tree.nodes.get(path)?.name ?? original);
   requestRender();
 }
 
@@ -415,6 +443,22 @@ export function renameStarted(path: string): void {
 
 export function renameSettled(path: string): void {
   renamesInFlight.settle(path);
+}
+
+// A rename of `path` to `name` is held until the scan ends.
+export function markPending(path: string, name: string): void {
+  pending = { path, name };
+  requestRender();
+}
+
+// The held rename of `path` ran, was replaced or dropped: the row shows its
+// real name again.
+export function clearPending(path: string): void {
+  if (pending?.path !== path) {
+    return;
+  }
+  pending = null;
+  requestRender();
 }
 
 // The folder `oldPath` is now `newName` at `newPath`: re-key it in the tree,
@@ -784,9 +828,11 @@ export function init(
     targets: string[],
   ) => void,
   onRename: (path: string, name: string) => void,
+  onCancelPending: () => void,
 ): void {
   open = onOpen;
   reportError = onError;
   contextMenu = onContextMenu;
   rename = onRename;
+  cancelPending = onCancelPending;
 }

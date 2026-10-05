@@ -65,7 +65,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
   renames too; an empty or unchanged name just ends the edit, and while
   the edit is live every key goes to the text box. A rename confirmed
   while a scan runs waits for the scan, the status line saying so, and
-  happens when it ends; opening another folder meanwhile drops it. A name
+  happens when it ends. Meanwhile the row shows the new name, muted and
+  italic, after a clock icon ("Renames when the scan finishes"), and still
+  opens the folder at its old path. Renaming it again edits the waiting
+  name: a different name replaces it, the original name cancels the
+  rename, and `Escape` or the unchanged name keeps it. Opening another
+  folder, or another operation pressed during the scan, drops the waiting
+  rename, the name going back and the status line saying
+  `Rename… was canceled`, as it does when you cancel it yourself. A name
   that is invalid, already taken or refused by the OS shows its error in
   the status line with the folder left as it was. The folder index, ratings, flags, labels and the remembered file
   follow the folder, so nothing is re-extracted; the tree keeps its
@@ -133,9 +140,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   it, and its ratings, flags, labels and cached thumbnail and metadata
   follow it, so the strip keeps its place. A rename confirmed while a scan
   runs waits for the scan, the status line saying so, and happens when it
-  ends; opening another folder meanwhile drops it. A name that is invalid,
-  already taken or refused by the OS shows its error in the status line
-  with the file left as it was.
+  ends. Meanwhile the cell shows the new name, muted and italic (on a
+  labeled cell, italic in the label's text color), after a clock icon
+  ("Renames when the scan finishes"), and the file is still judged at its
+  old name. Renaming it again edits the waiting name: a different name
+  replaces it, the original name cancels the rename, and `Escape` or the
+  unchanged name keeps it. Opening another folder, or another operation
+  pressed during the scan, drops the waiting rename, the name going back
+  and the status line saying `Rename… was canceled`, as it does when you
+  cancel it yourself. A name that is invalid, already taken or refused by
+  the OS shows its error in the status line with the file left as it
+  was.
 - **Panels**: `Alt+Cmd+ArrowLeft` on macOS (`Ctrl+Alt+ArrowLeft` on
   Windows and Linux) hides and shows the left pane (the folder tree),
   `…ArrowRight` the right pane (the metadata), `…ArrowDown` the filmstrip,

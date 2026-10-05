@@ -6,14 +6,17 @@
 import { type BurstMark, burstBadge } from "./burst.js";
 import { carriedIndices, carriedOffset } from "./carry.js";
 import { FOCUS_MARK_COLORS } from "./focus.js";
-import { SCAN_FACE_SVG } from "./icons.js";
+import { CLOCK_SVG, SCAN_FACE_SVG } from "./icons.js";
 import {
   type Decision,
   type InlineRename,
+  PENDING_TITLE,
+  type Pending,
   SLOW_CLICK_DELAY,
   SlowClick,
   commit,
-  confirmName,
+  displayName,
+  editOutcome,
   inlineRename,
   stemLength,
 } from "./rename.js";
@@ -110,6 +113,10 @@ let select: (index: number, modifiers: Modifiers) => void = () => {};
 let contextMenu: (index: number, x: number, y: number) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
 let canRename: () => boolean = () => false;
+let cancelPending: () => void = () => {};
+// The file rename held until the scan ends, keyed by path so it survives a
+// cell being released and recreated, and `setFiles`.
+let pending: Pending | null = null;
 // The live inline rename and the index of its cell, which `render` keeps in
 // the DOM even outside the virtual range. The cell's `name` span stays in
 // `Cell` while the input stands in for it, so a badge repaint leaves the
@@ -179,6 +186,21 @@ function paintFailure(index: number, cell: Cell): void {
   cell.reason.textContent = message;
 }
 
+// The file's name, or its held rename's name in the pending style.
+function paintName(cell: Cell): void {
+  const path = files[cell.index];
+  cell.name.textContent = displayName(pending, path, baseName(path));
+  const held = pending !== null && pending.path === path;
+  cell.name.classList.toggle("pending", held);
+  if (held) {
+    const icon = document.createElement("span");
+    icon.className = "pending-icon";
+    icon.title = PENDING_TITLE;
+    icon.innerHTML = CLOCK_SVG;
+    cell.name.prepend(icon);
+  }
+}
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] ?? path;
@@ -200,7 +222,6 @@ function createCell(index: number): Cell {
   el.append(img);
   const name = document.createElement("span");
   name.className = "name";
-  name.textContent = baseName(files[index]);
   name.addEventListener("click", (event) => {
     if (
       cell.index === current &&
@@ -255,6 +276,7 @@ function createCell(index: number): Cell {
     url: null,
     index,
   };
+  paintName(cell);
   paintRating(index, cell);
   paintSharpness(index, cell);
   paintBurst(index, cell);
@@ -538,6 +560,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
     cell.el.style.left = `${cell.index * CELL_WIDTH}px`;
     cells.set(cell.index, cell);
     requested.add(cell.index);
+    paintName(cell);
     paintRating(cell.index, cell);
     paintSharpness(cell.index, cell);
     paintBurst(cell.index, cell);
@@ -620,7 +643,33 @@ export function renamePath(oldPath: string, newPath: string): void {
   indexOf.set(newPath, at);
   const cell = cells.get(at);
   if (cell !== undefined) {
-    cell.name.textContent = baseName(newPath);
+    paintName(cell);
+  }
+}
+
+// A rename of `path` to `name` is held until the scan ends.
+export function markPending(path: string, name: string): void {
+  const previous = pending?.path;
+  pending = { path, name };
+  repaintName(previous);
+  repaintName(path);
+}
+
+// The held rename of `path` ran, was replaced or dropped: the cell shows its
+// real name again.
+export function clearPending(path: string): void {
+  if (pending?.path !== path) {
+    return;
+  }
+  pending = null;
+  repaintName(path);
+}
+
+function repaintName(path: string | undefined): void {
+  const at = path === undefined ? undefined : indexOf.get(path);
+  const cell = at === undefined ? undefined : cells.get(at);
+  if (cell !== undefined) {
+    paintName(cell);
   }
 }
 
@@ -655,7 +704,7 @@ export function startRename(index: number): void {
     return;
   }
   finishRename("confirm");
-  const original = baseName(files[index]);
+  const original = displayName(pending, files[index], baseName(files[index]));
   const state = inlineRename("file", files[index], original);
   const input = document.createElement("input");
   input.type = "text";
@@ -699,9 +748,15 @@ export function finishRename(decision: Decision): void {
     input.replaceWith(cell.name);
   }
   render();
-  const name = decision === "confirm" ? confirmName(state.original, state.value) : null;
-  if (name !== null) {
-    rename(state.path, name);
+  if (decision !== "confirm") {
+    return;
+  }
+  // On a cell whose rename is held, typing the real name back cancels it.
+  const outcome = editOutcome(pending, state.path, baseName(state.path), state.value);
+  if (outcome === "cancel") {
+    cancelPending();
+  } else if (outcome !== "keep") {
+    rename(state.path, outcome.rename);
   }
 }
 
@@ -711,11 +766,13 @@ export function init(
   onRename: (path: string, name: string) => void,
   renameAllowed: () => boolean,
   onScroll: () => void,
+  onCancelPending: () => void,
 ): void {
   select = onSelect;
   contextMenu = onContextMenu;
   rename = onRename;
   canRename = renameAllowed;
+  cancelPending = onCancelPending;
   // Any click anywhere disarms a pending slow click; the arming click's own
   // `mousedown` comes before its `click`, so it arms after this.
   document.addEventListener("mousedown", cancelSlowClick);

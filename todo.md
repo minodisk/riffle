@@ -1063,6 +1063,19 @@ a rebuild).
       refuse with `a scan is running`; the native-confirm refocus case
       (closing a dialog refocuses `main` and `resync()` starts a scan) is
       Clear Cache's and is covered by that item's check (3).
+- [ ] The pending rename display (`pending-rename-display`,
+      `docs/plans/_archived/20261006-pending-rename-display/plan.md`), in both the
+      folder tree and the strip: a rename confirmed during a scan shows the
+      new name muted and italic after the clock icon (hover: `Renames when
+      the scan finishes`) at once, and the normal name when it runs; pressing
+      Move Rejected to Trash (or another rename) meanwhile, or opening
+      another folder, reverts the name with `Rename… was canceled`; a rename
+      that fails at the scan's end reverts with its error; re-editing the
+      pending cell starts from the pending name, a different name replaces
+      it, the original name reverts it with `Rename… was canceled`, and
+      `Escape` keeps it; on a labeled strip cell the name stays in the
+      label's text color, italic with the clock; the pending row still opens
+      its folder and the pending cell is still judged.
 
 ### App: real-device check of the File menu separator on Windows
 

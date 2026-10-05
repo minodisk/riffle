@@ -1394,6 +1394,13 @@ folder changed" event has to pick the right one.
   (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
   confirm dialog closing refocuses the window, and a rescan started then
   would make the command's own scan guard refuse it.
+- `IdleGate.request(label, run, cancel?)` returns whether it held `run`; the
+  optional `cancel` fires when the held operation is replaced by a later
+  `request` or dropped by `discard()`, never when `drain()` runs it. The two
+  renames pass one (`holdRename` in `main.ts`) that reverts the tree row's
+  or strip cell's pending name (`markPending` / `clearPending`) and notes
+  `Rename… was canceled`; a pending cell confirmed back to its real name
+  calls `idle.discard()` through the views' `onCancelPending`.
 - The scan progress bar (`#scan-progress`) is shown only from `openDirectory`
   (`setScanProgress("0%")`), never from `startScan`: every `resync()` ends in
   `startScan`, so showing it there would flash the bar on each focus / watcher

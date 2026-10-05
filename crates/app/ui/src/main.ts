@@ -315,8 +315,45 @@ function sendScanFocus(): void {
 // folder switch drops it.
 const idle = new IdleGate(() => scanRunning);
 
-function whenIdle(label: string, run: () => void): void {
-  idle.request(label, run);
+// Whether `run` was held for the scan's end rather than run at once.
+function whenIdle(label: string, run: () => void, cancel?: () => void): boolean {
+  const held = idle.request(label, run, cancel);
+  renderMeta();
+  return held;
+}
+
+const RENAME_CANCELED = "Rename… was canceled";
+// The path of the rename being requested, so the held rename of the same
+// folder or file it replaces (a re-edit of the pending name) is not reported
+// as canceled.
+let renaming: string | null = null;
+
+// Holds a confirmed rename for the scan's end, its new name shown pending in
+// the tree or the strip until it runs, or until it is replaced or dropped,
+// which reverts the name.
+function holdRename(
+  path: string,
+  name: string,
+  view: { markPending(path: string, name: string): void; clearPending(path: string): void },
+  run: () => void,
+): void {
+  renaming = path;
+  const held = whenIdle("Rename…", run, () => {
+    view.clearPending(path);
+    if (renaming !== path) {
+      setStatus(RENAME_CANCELED);
+    }
+  });
+  renaming = null;
+  if (held) {
+    view.markPending(path, name);
+  }
+}
+
+// The tree or the strip confirmed a pending name back to the real one: the
+// held rename is dropped, which reverts the name and reports it.
+function cancelPendingRename(): void {
+  idle.discard();
   renderMeta();
 }
 
@@ -2487,6 +2524,7 @@ strip.init(
   renameFile,
   () => !viewOnly,
   sendScanFocus,
+  cancelPendingRename,
 );
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
@@ -2501,12 +2539,13 @@ interface Renamed {
 // under its new path, its judgments coming back from the rewritten index. The
 // trash entries' folders follow the rename, as the backend's recorded runs do.
 function renameFolder(path: string, name: string): void {
-  whenIdle("Rename…", () => {
+  holdRename(path, name, folders, () => {
     folders.renameStarted(path);
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
         ({ path: newPath, warning }) => {
           folders.renameSettled(path);
+          folders.clearPending(path);
           folders.renamed(path, newPath, name);
           const moved = (dir: string): string =>
             rebase(dir, path, newPath, folders.ignoreCase) ?? dir;
@@ -2529,6 +2568,7 @@ function renameFolder(path: string, name: string): void {
         },
         (err: unknown) => {
           folders.renameSettled(path);
+          folders.clearPending(path);
           setStatus(String(err));
         },
       ),
@@ -2556,8 +2596,9 @@ function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
 // actually runs) is already right, whether that is now or after a deferred
 // scan drains.
 function renameFile(path: string, name: string): void {
-  whenIdle("Rename…", () => {
+  holdRename(path, name, strip, () => {
     if (openDir === null) {
+      strip.clearPending(path);
       return;
     }
     const dir = openDir;
@@ -2565,6 +2606,7 @@ function renameFile(path: string, name: string): void {
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_file", { dir, path, name }).then(
         ({ path: newPath, warning }) => {
+          strip.clearPending(path);
           if (dir !== openDir || token !== folderToken) {
             return;
           }
@@ -2632,6 +2674,7 @@ function renameFile(path: string, name: string): void {
           resync("rename");
         },
         (err: unknown) => {
+          strip.clearPending(path);
           if (dir !== openDir || token !== folderToken) {
             return;
           }
@@ -2702,6 +2745,7 @@ folders.init(
     });
   },
   renameFolder,
+  cancelPendingRename,
 );
 
 // Reserve the right to be the folder the UI shows. The picker reserves its
@@ -2906,14 +2950,20 @@ function openDirectory(folder: string, token: number): Promise<void> {
     // reports real pass-1 work).
     setScanProgress("0%");
     resyncPending = null;
+    // A held rename dropped here reports itself, but the `setStatus()`
+    // below would clear that note at once.
+    const renameDropped = idle.waiting === "Rename…";
     idle.discard();
     void startScan(folder);
     if (files.length === 0) {
       meta = null;
-      setStatus();
+      setStatus(renameDropped ? RENAME_CANCELED : undefined);
       return;
     }
     show();
+    if (renameDropped) {
+      setStatus(RENAME_CANCELED);
+    }
   });
 }
 

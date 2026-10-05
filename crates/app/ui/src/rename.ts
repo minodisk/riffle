@@ -40,6 +40,47 @@ export function confirmName(original: string, value: string): string | null {
   return name === "" || name === original ? null : name;
 }
 
+// A confirmed rename `IdleGate` holds until the scan ends: its cell shows
+// `name` in the pending style meanwhile.
+export interface Pending {
+  path: string;
+  name: string;
+}
+
+export const PENDING_TITLE = "Renames when the scan finishes";
+
+// The name a cell shows: the pending one while a rename of `path` is held.
+export function displayName(pending: Pending | null, path: string, real: string): string {
+  return pending !== null && pending.path === path ? pending.name : real;
+}
+
+export type Outcome = "keep" | "cancel" | { rename: string };
+
+// A confirmed edit on a cell whose rename is held: an empty or unchanged
+// (pending) name keeps it, the original name cancels it, any other replaces it.
+export function pendingOutcome(real: string, pendingName: string, typed: string): Outcome {
+  const name = typed.trim();
+  if (name === "" || name === pendingName) {
+    return "keep";
+  }
+  return name === real ? "cancel" : { rename: name };
+}
+
+// A confirmed edit's outcome, held rename or not; "keep" leaves things as
+// they are.
+export function editOutcome(
+  pending: Pending | null,
+  path: string,
+  real: string,
+  typed: string,
+): Outcome {
+  if (pending !== null && pending.path === path) {
+    return pendingOutcome(real, pending.name, typed);
+  }
+  const name = confirmName(real, typed);
+  return name === null ? "keep" : { rename: name };
+}
+
 // How much of a file name the editor preselects: the stem, up to its last
 // dot, so typing replaces the name and keeps the extension. A name with no
 // dot (or only a leading one) is selected whole.
