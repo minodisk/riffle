@@ -103,6 +103,22 @@ In the two Uuid-less runs PhotoLab rewrote neither sidecar and neither
 reached the master, so a Uuid-less `.dop` does not get around the lookup
 (PhotoLab 10.0.1, Windows, 2026-10-01).
 
+Hand-run with PhotoLab 10 on macOS, 2026-10-05, a dev build with PR #687's
+lookup:
+
+- registered image (PhotoLab had opened the folder, no `.dop`) + fresh `.dop`
+  from Riffle: its Source / Item Uuids equal `ZDOPSOURCE.ZUUID` /
+  `ZDOPINPUTITEM.ZUUID`; the pick shows on the master (`ZSHOULDPROCESS = 2`),
+  still one `ZDOPINPUTITEM` row, no virtual copy.
+- folder PhotoLab never opened + Riffle pick first, then opened in PhotoLab:
+  imported as one picked master, no virtual copy.
+- registered image + patching a PhotoLab-written `.dop` with PhotoLab quit
+  (Riffle wrote `Rating = 4`, `ShouldProcess = 0`, fresh `Date` /
+  `ModificationDate`): on reopening, both applied to the master (`ZRANK 4`,
+  `ZSHOULDPROCESS 2`), no virtual copy.
+
+Implementation notes:
+
 - The database is the highest-numbered
   `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db` on Windows and
   `~/Library/DxO PhotoLab vN/DOPDatabaseVN.dopdata` on macOS. Other
@@ -138,6 +154,18 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
   correct. A test that expects `/a/./b` to miss is wrong. The lookup does not
   canonicalize itself: the folder open path already does (`commands::canonicalize`
   in `list_arw` and the scan commands), so do not add a second canonicalize.
+- The macOS database's `ZSHOULDPROCESS` does not use the `.dop`'s
+  `ShouldProcess` encoding: in the database `1` is unflagged and `2` is pick;
+  in the `.dop` `0` is pick, `1` reject and `2` unflagged. Do not read one as
+  the other when checking the database by hand.
+- macOS PhotoLab 10 writes a rating change to the `.dop` only when leaving
+  the folder, not at once, so Riffle shows the old rating until then.
+- Unexplained, not reproduced and not pursued: with PhotoLab running on
+  another folder while Riffle set rating 4 + pick on a registered image whose
+  `.dop` PhotoLab had written, PhotoLab later wrote that `.dop` back with
+  `Rating = 4` but `ShouldProcess = 2` (pick lost). PhotoLab's
+  `ModificationDate` / `Date` in it (12:42:07 / 12:42:17 local) were after
+  Riffle's last write (12:41:52).
 - The macOS database path comes from scanning `~/Library`, not from the
   `DOPDatabasePath` key of the `com.dxo.PhotoLabN` preferences (a binary
   plist). If a user with a relocated database reports a miss, read that key
@@ -170,7 +198,9 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
   one.
 - Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`;
   `docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`,
-  `docs/plans/_archived/20261005-photolab-uuids-macos/learnings.md`, Step 1.
+  `docs/plans/_archived/20261005-photolab-uuids-macos/learnings.md`, Step 1;
+  `docs/plans/_archived/20261005-photolab-macos-verified-docs/plan.md`,
+  Step 1.
 
 ## `photolab::lookup` keys on folder + file `Name`; a rename does not follow through to PhotoLab or a shared sidecar (Hit)
 

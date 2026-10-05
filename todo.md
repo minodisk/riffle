@@ -957,20 +957,13 @@ is.
 ### App: PhotoLab Uuid lookup on macOS: real-device checks and external volumes
 
 `crates/app/src/photolab.rs` looks up the registered Uuids on macOS too
-(`docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`), checked only
-against fixture databases and a read of the user's PhotoLab 10 database. Paths
+(`docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`), verified by
+hand on macOS (PhotoLab 10, 2026-10-05; see `docs/agents/photolab.md`). Paths
 under `/Volumes` get no lookup yet, so a fresh `.dop` there still gets random
 Uuids and may become a virtual copy.
 
 #### TODO
 
-- [ ] Real-device check: in `~/Pictures/photolab-export-test/browse` (3 ARWs
-      registered by PhotoLab, no `.dop`), pick one in Riffle
-      (`mise run tauri:dev`, `.dop` format). The `.dop`'s Source / Item
-      Uuids must equal the database's, and PhotoLab must show the pick on
-      the master with no virtual copy.
-- [ ] Real-device check: picking in a folder PhotoLab never opened still
-      imports the image as the picked master.
 - [ ] Real-device check: give a source a virtual copy in PhotoLab and confirm
       the master is the lowest `ZDOPINPUTITEM.Z_PK`.
 - [ ] External volumes: open a folder on `/Volumes/X` in PhotoLab, find how it
