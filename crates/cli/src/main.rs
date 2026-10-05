@@ -40,6 +40,20 @@ fn main() -> Result<()> {
             }
             candidates(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
+        Some("detect") => {
+            let mut inputs = &args[1..];
+            let threads = match inputs.last().map(|t| t.parse::<usize>()) {
+                Some(Ok(n)) => {
+                    inputs = &inputs[..inputs.len() - 1];
+                    Some(n)
+                }
+                _ => None,
+            };
+            if inputs.is_empty() {
+                bail!("usage: riffle-cli detect <dir|file>... [threads]");
+            }
+            detect(&inputs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
+        }
         Some("check") => {
             let mut dirs = &args[1..];
             let threads = match dirs.last().map(|t| t.parse::<usize>()) {
@@ -55,7 +69,7 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli check <dir>... [threads]"
         ),
     }
 }
@@ -241,15 +255,23 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
 
 const CROP_SIZE: usize = 512;
 
-fn stats(label: &str, mut ms: Vec<f64>) {
+/// The mean, median, p95 and max of a non-empty list of times.
+fn summary(mut ms: Vec<f64>) -> (f64, f64, f64, f64) {
     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = ms.len();
-    let mean = ms.iter().sum::<f64>() / n as f64;
-    println!(
-        "{label:<28} n={n:<4} mean {mean:6.1}ms  median {:6.1}ms  p95 {:6.1}ms  max {:6.1}ms",
+    (
+        ms.iter().sum::<f64>() / n as f64,
         ms[n / 2],
         ms[((n as f64 * 0.95) as usize).min(n - 1)],
-        ms[n - 1]
+        ms[n - 1],
+    )
+}
+
+fn stats(label: &str, ms: Vec<f64>) {
+    let n = ms.len();
+    let (mean, median, p95, max) = summary(ms);
+    println!(
+        "{label:<28} n={n:<4} mean {mean:6.1}ms  median {median:6.1}ms  p95 {p95:6.1}ms  max {max:6.1}ms"
     );
 }
 
@@ -509,6 +531,131 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     Ok(())
 }
 
+/// One file of `detect`: the path taken, the faces and the times in ms.
+struct Detected {
+    crop: bool,
+    faces: Vec<faces::Face>,
+    decode: f64,
+    detection: f64,
+}
+
+/// Run the second pass's face detection (`detect_around` with
+/// `trusted_focus`, so each file takes the crop or whole-image path the scan
+/// gives it) on every RAW file given or in the folders given, one line per
+/// file, then the totals. One thread unless `threads` says otherwise, so the
+/// per-file times are not inflated by contention.
+fn detect(inputs: &[PathBuf], threads: Option<usize>) -> Result<()> {
+    let threads = threads.unwrap_or(1);
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for input in inputs {
+        if input.is_dir() {
+            let mut found: Vec<PathBuf> = std::fs::read_dir(input)?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| scan::is_raw_file(p))
+                .collect();
+            if found.is_empty() {
+                bail!("no RAW files in {input:?}");
+            }
+            found.sort();
+            paths.extend(found);
+        } else if scan::is_raw_file(input) {
+            paths.push(input.clone());
+        } else {
+            bail!("{input:?}: not a folder or a RAW file");
+        }
+    }
+    // Build the model outside the timing.
+    faces::detect(&[0; 3], 1, 1)?;
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()?;
+
+    let start = Instant::now();
+    let results: Vec<Result<Detected>> = pool.install(|| {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .map(|p| {
+                let (a, jpeg) = reader::read_preview(p)?;
+                let focus = sharpness::trusted_focus(&a.shot);
+                let t = Instant::now();
+                let (rgb, w, h) = decode_rgb(&jpeg)?;
+                let decode = t.elapsed().as_secs_f64() * 1000.0;
+                let t = Instant::now();
+                let d = faces::detect_around_rgb(&rgb, w, h, a.orientation, focus)?;
+                let detection = t.elapsed().as_secs_f64() * 1000.0;
+                Ok(Detected {
+                    crop: focus.is_some(),
+                    faces: d.faces,
+                    decode,
+                    detection,
+                })
+            })
+            .collect()
+    });
+    let total = start.elapsed();
+
+    let (mut errors, mut faced, mut found) = (0, 0, 0);
+    let (mut t_decode, mut t_detect) = (Vec::new(), Vec::new());
+    for (path, r) in paths.iter().zip(results) {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        match r {
+            Ok(Detected {
+                crop,
+                faces,
+                decode,
+                detection,
+            }) => {
+                println!("{}", detect_line(&name, crop, &faces, decode, detection));
+                faced += !faces.is_empty() as usize;
+                found += faces.len();
+                t_decode.push(decode);
+                t_detect.push(detection);
+            }
+            Err(e) => {
+                errors += 1;
+                println!("{name}  error: {e:#}");
+            }
+        }
+    }
+    println!(
+        "{} files, {threads} threads, {errors} errors: {:.2}s total",
+        paths.len(),
+        total.as_secs_f64()
+    );
+    println!("{faced} with at least one face, {found} faces");
+    if !t_detect.is_empty() {
+        stats("decode", t_decode);
+        stats("detection", t_detect);
+    }
+    Ok(())
+}
+
+/// One file of `detect`: the path taken, the faces (box side, the longer of
+/// width and height, in stored preview pixels, and score) and the times.
+fn detect_line(
+    name: &str,
+    crop: bool,
+    faces: &[faces::Face],
+    decode: f64,
+    detection: f64,
+) -> String {
+    let boxes: Vec<String> = faces
+        .iter()
+        .map(|f| format!("{:.0}px {:.2}", f.width.max(f.height), f.score))
+        .collect();
+    format!(
+        "{name}  {}  {} face(s){}{}  decode {decode:.1}ms  detection {detection:.1}ms",
+        if crop { "crop" } else { "whole" },
+        faces.len(),
+        if boxes.is_empty() { "" } else { ": " },
+        boxes.join(", ")
+    )
+}
+
 /// The area under the ROC curve of `(in focus, score)` pairs: the share of
 /// (in focus, off) pairs where the in-focus frame scores higher, ties 0.5.
 fn auc(frames: impl Iterator<Item = (bool, f64)>) -> f64 {
@@ -698,6 +845,42 @@ fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn summary_takes_mean_median_p95_and_max() {
+        let ms: Vec<f64> = (1..=20).rev().map(f64::from).collect();
+        assert_eq!(summary(ms), (10.5, 11.0, 20.0, 20.0));
+        assert_eq!(summary(vec![4.0]), (4.0, 4.0, 4.0, 4.0));
+        let ms: Vec<f64> = (1..=100).map(f64::from).collect();
+        assert_eq!(summary(ms), (50.5, 51.0, 96.0, 100.0));
+    }
+
+    #[test]
+    fn detect_line_lists_the_path_faces_and_times() {
+        let face = |side: f32, score: f32| faces::Face {
+            x: 0.0,
+            y: 0.0,
+            width: side,
+            height: side * 1.2,
+            score,
+            left_eye: (0.0, 0.0),
+            right_eye: (0.0, 0.0),
+        };
+        assert_eq!(
+            detect_line("a.DNG", false, &[], 41.26, 15.04),
+            "a.DNG  whole  0 face(s)  decode 41.3ms  detection 15.0ms"
+        );
+        assert_eq!(
+            detect_line(
+                "b.ARW",
+                true,
+                &[face(50.0, 0.912), face(40.0, 0.6)],
+                30.0,
+                9.94
+            ),
+            "b.ARW  crop  2 face(s): 60px 0.91, 48px 0.60  decode 30.0ms  detection 9.9ms"
+        );
+    }
 
     #[test]
     fn tally_counts_per_lower_cased_extension() {
