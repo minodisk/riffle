@@ -1394,6 +1394,14 @@ folder changed" event has to pick the right one.
   (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
   confirm dialog closing refocuses the window, and a rescan started then
   would make the command's own scan guard refuse it.
+- The scan progress bar (`#scan-progress`) is shown only from `openDirectory`
+  (`setScanProgress("0%")`), never from `startScan`: every `resync()` ends in
+  `startScan`, so showing it there would flash the bar on each focus / watcher
+  resync. Updates arrive on `scan-progress`; `scan-done` and `startScan`'s
+  catch hide it. All of this goes through the one `setScanProgress(width | null)`.
+  Hiding resets the fill to `0%` so the next scan never flashes the previous
+  fill. Source: `docs/plans/_archived/20261005-scan-loading-feedback/learnings.md`,
+  Step 1.
 - Rename's success handler must return the reopen's `openDirectory(...)`
   promise so `settleIdle`'s `.finally` (which calls `drainResync()`) runs
   after the reopen lands, not before — otherwise a rescan deferred during

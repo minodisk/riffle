@@ -90,6 +90,8 @@ by weight, border or a check mark (below), not by a new color.
 | `empty` | an empty-state hint | `#empty` |
 | `sidenav`, `sidenav-item` | a vertical nav and its `role="tab"` items | `#settings-tabs` and its buttons |
 | `icon` | a 16px `<span>` holding an `icons.ts` SVG | the settings nav icons (`settings.ts`) |
+| `progress` | a determinate progress track (`--muted`, fully rounded); its height stays on the id | `#scan-progress` |
+| `progress-indicator` | the track's fill (`--primary`); the script sets its `width` | `#scan-progress`'s child (`setScanProgress` in `main.ts`) |
 
 `secondary` is not defined; add it only if a control needs it. The focus
 ring is always `--ring` (`--sidebar-ring` in a side pane).

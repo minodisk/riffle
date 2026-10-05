@@ -488,19 +488,20 @@ and 4 (#549, #551).
 - [ ] A judgment made after the undo clears the redo: `Ctrl+Shift+Z` does
       nothing.
 
-### App: a large folder gives no visible loading feedback beyond the status line
+### App: the scan loading feedback's manual check is still open
 
-Opening a 500-JPEG folder on Windows on 2026-09-28, the only sign of
-progress was the small bottom-left status text (`JPEG folder: view only`,
-`scanning 223 / 500`), so it was unclear whether loading had started.
-Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`,
-`crates/app/ui/style.css`.
+The first scan pass now shows a thin progress bar above the strip bar
+(`#scan-progress`) and every strip cell without a thumbnail pulses
+(`.cell img:not([src])`); a failed cell does not. Neither has been seen on
+a real machine yet. Files: `crates/app/ui/src/main.ts`,
+`crates/app/ui/style.css`, `crates/app/ui/index.html`.
 
 #### TODO
 
-- [ ] Consider a progress bar in the strip or the main view during the scan
-      and/or a loading indicator in cells with no thumbnail yet; decide and
-      implement.
+- [ ] On Windows, open a folder of 500+ files whose index is cold (or after
+      Clear Cache) and confirm the bar appears before the first thumbnail,
+      fills, and disappears at the end of the first pass, and that empty
+      cells pulse until their thumbnail lands while failed cells do not.
 
 ### App: face/eye-aware focus check for culling
 

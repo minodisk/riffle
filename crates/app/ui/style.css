@@ -407,6 +407,21 @@ select {
   height: 100%;
 }
 
+/* A determinate progress bar: the track, and the indicator whose width the
+   script sets. */
+.progress {
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.progress-indicator {
+  height: 100%;
+  width: 0;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
 /* Last, so it wins over the `display` of the component rules above at equal
    specificity. */
 .dialog-box [hidden] {
@@ -454,6 +469,12 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--sidebar);
+}
+
+/* The first scan pass's progress, a thin line above the strip bar. */
+#scan-progress:not([hidden]) {
+  flex: none;
+  height: 2px;
 }
 
 #strip-bar {
@@ -761,6 +782,17 @@ body {
    of the box itself as a placeholder. */
 .cell img:not([src]) {
   background: var(--muted);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.cell.failed img:not([src]) {
+  animation: none;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .cell img.cw {
