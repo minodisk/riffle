@@ -1389,3 +1389,25 @@ Files: `crates/app/ui/src/main.ts` (the `refreshFolder` branch), `crates/app/ui/
 - [ ] On Windows, open a folder on a share (or any volume) whose watch does not fire, add a RAW to it and edit a sidecar outside Riffle, then right-click the open folder in the tree and choose `Refresh`. Expected: the new file appears in the strip, the edited judgment is picked up, the tree's RAW count updates, and `Riffle.log` shows `rescan: trigger=refresh`.
 - [ ] On Windows, choose `Refresh` on the open folder during a running scan. Expected: `Riffle.log` shows `rescan deferred: trigger=refresh`, and the rescan runs when the scan ends.
 - [ ] On Windows, choose `Refresh` on a folder that is not open, including its parent or a subfolder. Expected: the strip is left untouched and only the tree re-lists.
+
+### App: a redo of Delete Sidecars… leaves a closed folder's rows judged
+
+#### Background
+
+The folder-sidecars feature added `Delete Sidecars…`. `trash_rejected_redo` moves the sidecars to the Trash again but writes no index row. When the target folder is open, the frontend's resync clears the judgments. When another folder is open, the rows keep the judgments that the undo's rescan restored, until the folder is next opened and its reconcile clears them. A `Rewrite Sidecars from Index…` run in between would mint the sidecars again. Fixing it needs the run to remember each sidecar's RAW, for example in `trash::Trashed`. Plan: `docs/plans/_archived/20261005-folder-sidecars/plan.md`. Files: `crates/app/src/commands.rs` (`trash_rejected_redo`), `crates/app/src/foldersidecars.rs`, `crates/app/src/trash.rs`, `crates/app/ui/src/main.ts` (`trashed`).
+
+#### TODO
+
+- [ ] Record each sidecar's RAW in the trash run (for example in `trash::Trashed`), so that a redo clears the index rows of a closed folder.
+- [ ] Add a test covering delete, undo, then redo with another folder open.
+
+### App: Rewrite Sidecars from Index… patches an oversize sidecar
+
+#### Background
+
+The folder-sidecars feature added `Rewrite Sidecars from Index…`. `rewrite_sidecars_run` hands every listed row to the writer, including a file whose sidecar is larger than `MAX_SIDECAR_BYTES`. A folder open deliberately keeps such a file away from the writer through `reconcile_sidecars_of`, because its contents were never read. This was left as is because the user asked for the index to be pushed out. Plan: `docs/plans/_archived/20261005-folder-sidecars/plan.md`. Files: `crates/app/src/foldersidecars.rs`, `crates/app/src/commands.rs` (`MAX_SIDECAR_BYTES`, `reconcile_sidecars_of`).
+
+#### TODO
+
+- [ ] Decide whether the rewrite should skip oversize sidecars like a folder open does.
+- [ ] If it should, skip them and count them in the dialog's "skipped" figure.
