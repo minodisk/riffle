@@ -278,7 +278,7 @@ alternative under "Trade-offs and risks"):
       the format) and, for a JPEG folder, the same `raw_only`-style text
       Step 1 uses.
 
-- [ ] Step 3: Documentation, the `todo.md` close and the manual check item
+- [x] Step 3: Documentation, the `todo.md` close and the manual check item
   - Done when:
     - `docs/humans/usage.md` and `docs/humans/usage.ja.md` describe the two
       items where the folder menu is listed (the paragraph after `Move
@@ -403,3 +403,4 @@ Other decisions the steps will face:
 
 - (2026-10-05) Step 1 complete: `rewrite_sidecars_preview` / `rewrite_sidecars_run` rewrite a folder's sidecars from the index, with the confirmation dialog's text and flow in `sidecars.ts`. The failure count is the number of entries still waiting after the writer's drain (the cheap measure noted above). The manual check is pending (see `learnings.md`).
 - (2026-10-06) Step 2 complete
+- (2026-10-06) Step 3 complete

@@ -91,7 +91,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   and `Move Rejected to Trash, Including Subfolders…` (the latter not
   offered on home or a volume at the top level) move the rejects of that
   folder, or of it and every folder below it, to the Trash (see
-  **Move Rejected to Trash…**). Last,
+  **Move Rejected to Trash…**). Then `Rewrite Sidecars from Index…` writes
+  the judgments Riffle holds for that folder back into its sidecars, and
+  `Delete Sidecars…` moves its sidecars to the Trash (see
+  **Rewrite Sidecars from Index… and Delete Sidecars…**). Last,
   `Sequence JPEG Timestamps…` previews and sequences the capture times of
   the JPEGs in that folder (see
   **Sequence JPEG Timestamps…**). The right-click neither opens the folder nor gives the tree the
@@ -318,6 +321,46 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the dialog (a file that could not come back is not touched, and one gone
   from its place since is listed as an error), and that move is undoable in
   turn.
+- **Rewrite Sidecars from Index… and Delete Sidecars…**: right-click a
+  single folder in the folder tree (neither is offered with several folders
+  selected) to push Riffle's judgments of its files back out to their
+  sidecars, or to remove the sidecars altogether, for instance after a write
+  that failed, a sidecar another program overwrote, or a switch of sidecar
+  format. Both act only on the sidecars of the currently selected format
+  (both kinds under `XMP and .dop`) next to the folder's RAW files, not on
+  its subfolders, and both ask first in a dialog: `Cancel` or `Escape`
+  leaves everything untouched, and the buttons are disabled while the run
+  goes on. A JPEG-only folder is refused on the status line. Chosen while a
+  scan runs, either waits for the scan, the status line saying so, and asks
+  when the scan ends.
+  - `Rewrite Sidecars from Index…` writes what the folder index holds, so
+    the folder must have been opened in Riffle once; on one never opened
+    the status line says `No judgments indexed for <name>; open the folder
+    first`. The dialog counts the files with a judgment, those without one
+    (whose existing sidecar is cleared to unrated, unflagged and unlabeled;
+    none is created for them) and the RAW files the index does not know
+    yet (skipped), and asks `Rewrite the XMP sidecars of N files in
+    <name>?`. An existing sidecar is patched, not regenerated: only the
+    rating, the pick / reject flag and the color label (and the `.dop`'s
+    two timestamps) change, so Lightroom's develop settings and PhotoLab's
+    corrections are kept byte for byte; a file with a judgment and no
+    sidecar gets a new one. The status line then says `Rewrote the
+    sidecars of N files in <name>`, with how many failed; a failed write is
+    listed in the meta pane's errors and retried the next time the folder
+    opens. The strip does not change, since it already shows the index.
+  - `Delete Sidecars…` works on any folder, opened or not. The dialog lists
+    the sidecars per kind with their size (`12 XMP sidecars (48 KB)`) and
+    asks `Move N sidecars (size) of <name> to the Trash?`; `Move to Trash`
+    moves them to the OS Trash and the status line says `Moved N sidecars
+    to the Trash`, with how many failed (each failure is listed in the meta
+    pane's errors under its RAW file). A sidecar whose RAW file is gone is
+    left alone. Riffle forgets the judgments of those files, so when the
+    folder is open the strip drops their stars, flags and color labels at
+    once. When the folder holds no sidecar of the format the status line
+    says so (`No XMP sidecars in <name>`). Like **Move Rejected to Trash…**,
+    one `Edit > Undo` puts the sidecars back (`Restored N sidecars from the
+    Trash`) and, when the folder is open, the judgments come back with
+    them; `Edit > Redo` moves them to the Trash again.
 - **Sequence JPEG Timestamps…**: right-click a folder in the folder tree and
   choose `Sequence JPEG Timestamps…` to make the capture times of the exported
   JPEGs in it unique at second granularity, so Google Photos, which ignores

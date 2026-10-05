@@ -73,7 +73,13 @@ folder for the confirmation dialog, and moves each RAW and its sidecars to
 the OS trash, recording every run that moved something in `Runs`, the newest
 100, which `trash_rejected_undo` takes one from to restore its files, RAW
 before its sidecars, never overwriting, keeping what came back for
-`trash_rejected_redo` to move to the Trash again), `src/sequence.rs` the
+`trash_rejected_redo` to move to the Trash again), `src/foldersidecars.rs`
+the folder menu's `Rewrite Sidecars from Index…` and `Delete Sidecars…`
+commands (`rewrite_sidecars_preview` / `rewrite_sidecars_run` mark the
+folder's index rows dirty and push them through the sidecar writer, patching
+only the judgment fields of the current format's sidecars, and
+`delete_sidecars_preview` / `delete_sidecars_run` move those sidecars to the
+OS trash as one `Runs` run and clear the rows' judgments), `src/sequence.rs` the
 `Sequence JPEG Timestamps…` commands (`sequence_preview`,
 `sequence_run`, `sequence_cancel`) and their `sequence-progress` /
 `sequence-done` events, and
@@ -105,7 +111,8 @@ folder reopens at and coalesces the writes that remember it, `src/idle.ts`
 holds an operation pressed during a scan (Move Rejected to Trash, the
 renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens
-view-only (no judgment, capture-time order), and
+view-only (no judgment, capture-time order), `src/sidecars.ts` holds the
+Rewrite Sidecars from Index / Delete Sidecars dialog's text and its flow, and
 `src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder tree's right-click
 through the preview to the run's end.

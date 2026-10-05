@@ -78,8 +78,11 @@ DxO PhotoLab.
   arrows, `Home` / `End`, `Enter` and typing a name move through and open
   folders, with the culling keys off until `Escape`. Right-click a folder
   to reveal it in Finder / File Explorer / the file manager, copy its
-  path or name, rename it with `Rename…`, or move its rejects to the Trash,
-  with or without its subfolders; `Cmd+click` / `Ctrl+click` and
+  path or name, rename it with `Rename…`, move its rejects to the Trash,
+  with or without its subfolders, rewrite its sidecars from Riffle's index
+  with `Rewrite Sidecars from Index…` (patching only the judgments, so
+  Lightroom's and PhotoLab's edits stay) or move them to the Trash with
+  `Delete Sidecars…`; `Cmd+click` / `Ctrl+click` and
   `Shift+click` select several folders whose rejects the right-click then
   moves together; a slow second click on the
   open folder's name renames it too. The name is edited in place: `Enter`

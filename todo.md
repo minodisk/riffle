@@ -924,18 +924,69 @@ so `docs/humans/usage.md` and the plan's Trade-offs section say "rename" only.
       `docs/humans/usage.md` and `docs/agents/tauri-app.md` to match (or confirm
       they need no change).
 
-### App: rewrite or delete a folder's sidecars from the folder tree's context menu
+### App: real-device checks of Rewrite Sidecars from Index… and Delete Sidecars…
 
-Folder-menu items that rewrite every sidecar in the folder from the index, or
-delete them; deleting sits behind a confirmation dialog. Basis: deferred in
-`docs/plans/20260927-folder-menu-copy/plan.md` (Purpose). Files:
-`crates/app/src/sidecar.rs`, `crates/app/src/commands.rs`,
-`crates/core/src/xmp.rs`, `crates/core/src/dop.rs`.
+#### Background
+
+The `folder-sidecars` feature added `Rewrite Sidecars from Index…` and
+`Delete Sidecars…` to the folder tree's right-click menu (single folder
+only), both behind the shared `#sidecar-dialog`. Rewrite marks the folder's
+index rows dirty and drains them through the sidecar writer, patching only
+the judgment fields of the current format's sidecars; delete moves those
+sidecars to the OS trash as one `trash::Runs` run, clears the rows'
+judgments, and is undone / redone through `trash_rejected_undo` /
+`trash_rejected_redo`. Rust tests (a Lightroom-style `crs:` XMP and a
+PhotoLab-style `.dop` patched with the foreign content intact, the sidecar
+collection, a sidecar-only run's restore and redo), Vitest and `mise run ci`
+cover it; the GUI, Lightroom, PhotoLab and a real Trash were never
+exercised. See `docs/plans/_archived/20261005-folder-sidecars/plan.md` and
+its `learnings.md`. Files: `crates/app/src/foldersidecars.rs`,
+`crates/app/src/trash.rs` (`redo`), `crates/app/src/index.rs`
+(`rows_of`, `mark_dirty`, `clear_judgments`), `crates/app/ui/src/sidecars.ts`,
+`crates/app/ui/src/context.ts`, `crates/app/ui/src/main.ts`
+(`rewriteSidecarsIn`, `deleteSidecarsIn`, `trashed`),
+`crates/app/ui/src/trash.ts`, `crates/app/ui/src/undo.ts`.
 
 #### TODO
 
-- [ ] Add a sidecar rewrite item and a delete item (behind a confirmation
-      dialog) to the folder context menu.
+- [ ] On Windows, on a copy under `D:\Photos\tests\<date>-folder-sidecars\`
+      of RAWs with a Lightroom-written `.xmp` (with develop settings) and a
+      PhotoLab-written `.dop` (with corrections), open the folder in Riffle
+      under `XMP and .dop`, rate, flag and label a few files, then
+      right-click the folder and choose `Rewrite Sidecars from Index…`.
+      Expect the item after the `Move Rejected to Trash…` group and before
+      `Sequence JPEG Timestamps…`, and absent with several folders
+      selected; the dialog titled `Rewrite Sidecars from Index` shows the
+      judged / unjudged / skipped rows and `Rewrite the XMP and .dop
+      sidecars of N files in <name>?` with a primary `Rewrite`; `Rewrite`
+      disables both buttons and shows the running note, then the status
+      line reads `Rewrote the sidecars of N files in <name>` and the strip
+      is unchanged. In Lightroom (`Metadata > Read Metadata from File`) and
+      PhotoLab the judgments show and the develop settings / corrections
+      survived; a file with a judgment and no sidecar got a new one, an
+      unjudged file without one got none.
+- [ ] On Windows, on that copy, choose `Delete Sidecars…`. Expect the dialog
+      titled `Delete Sidecars` listing `N XMP sidecars (size)` and `N .dop
+      sidecars (size)`, ending `Move N sidecars (size) of <name> to the
+      Trash?`, with a red `Move to Trash` and an outline `Cancel`; running
+      it moves the files to the Recycle Bin, the status line reads `Moved N
+      sidecars to the Trash`, and the open folder's stars, flags and labels
+      disappear at once. `Edit > Undo` restores them (`Restored N sidecars
+      from the Trash`, the judgments come back after the rescan), and
+      `Edit > Redo` moves them again and clears the strip. Repeat the undo
+      after opening another folder.
+- [ ] On Windows, press each item during a scan (switch to a terminal and
+      straight back to start one, or a long first scan): the status line
+      shows `Rewrite Sidecars from Index: waiting for the scan to finish` /
+      `Delete Sidecars: waiting for the scan to finish` and the dialog opens
+      when the scan ends, with no `a scan is running` refusal from the
+      backend.
+- [ ] On Windows, the refusals: `Rewrite Sidecars from Index…` on a folder
+      never opened shows `No judgments indexed for <name>; open the folder
+      first`; `Delete Sidecars…` on a folder never opened works; on a folder
+      with no sidecar of the current format, delete shows `No XMP sidecars in
+      <name>` (naming the format); on a JPEG-only folder both show the
+      `applies to RAW files only` refusal; none of them opens a dialog.
 
 ### App: a JPEG folder's preview decodes 15-20x longer than an ARW's
 

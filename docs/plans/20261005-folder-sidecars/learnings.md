@@ -67,6 +67,22 @@
   destructive`) in the shared `showSidecarDialog`, which the rewrite now goes
   through too.
 
+## Step 3
+
+- The two Steps' pending manual checks (below) are folded into the new
+  `todo.md` section "App: real-device checks of Rewrite Sidecars from
+  Index… and Delete Sidecars…", together with the plan's Lightroom /
+  PhotoLab round trip; they are not repeated as deferred items of this
+  step. The rewrite's status line is `Rewrote the sidecars of N files in
+  <name>` (Step 1's code), not the plan's `Rewrote N sidecars in <name>`,
+  and the todo item and `usage.md` use the code's text.
+- `docs/agents/tauri-app.md` got one entry, for Step 2's `trash::redo`
+  regrouping of a sidecar-only run (a plan assumption that was read, not
+  run, and turned out wrong). Step 1's drain bound (`REWRITE_DRAIN`) was
+  chosen up front by the plan and hit nothing, so it got no entry.
+- A Python heredoc with `\t` inside a normal string literal (`D:\Photos\tests`)
+  wrote a tab into `todo.md`; use a raw string for Windows paths.
+
 ## Deferred issues (todo candidates)
 
 - **A redo of `Delete Sidecars…` leaves a closed folder's rows judged.**

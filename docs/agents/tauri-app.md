@@ -725,6 +725,27 @@ its trashed-to path, and require it to still match before renaming back.
 - Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`,
   Steps 1-2.
 
+### A trash run of sidecars alone: check how `trash::redo` regroups the paths (Hit)
+
+`Delete Sidecars…` records a run whose every path is a sidecar, and reuses
+`trash_rejected_undo` / `trash_rejected_redo` for it. `trash::restore` takes
+such a run as is (`raw_back` starts `true`), but `trash::redo` rebuilds the
+RAW-and-sidecars groups from the flat path list, and it used to append every
+non-RAW path to the previous group: a sidecar-only run became one group
+headed by its first sidecar, so a redo reported one moved file and, when
+that first sidecar was gone, skipped all the others. A non-RAW path now
+joins the previous group only when that group's head is a RAW. Before
+recording a new kind of run in `Runs`, run its undo and redo in a unit test
+rather than reasoning from the code (both of these were "read, not run" in
+the plan).
+
+- `trash_rejected_redo` writes no index row (it cannot tell which RAW a
+  sidecar path belongs to), so a redo of a sidecar delete relies on the open
+  folder's resync to clear the judgments; a closed folder keeps them until
+  its next open.
+- Source: `docs/plans/_archived/20261005-folder-sidecars/learnings.md`,
+  Step 2.
+
 ### Sony MakerNote fields: verify each tag's type and model `Condition` in Sony.pm directly (Hit)
 
 Don't infer a new Sony MakerNote tag's type or model gate from a
