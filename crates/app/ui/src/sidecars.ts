@@ -43,8 +43,7 @@ export function rewriteRows(preview: RewritePreview): string[] {
     rows.push(`${files(preview.judged)} with a judgment`);
   }
   if (preview.unjudged > 0) {
-    const cleared =
-      preview.unjudged === 1 ? "its sidecar is cleared" : "their sidecars are cleared";
+    const cleared = "any existing sidecar is cleared";
     rows.push(`${files(preview.unjudged)} without one (${cleared})`);
   }
   if (preview.skipped > 0) {
@@ -59,7 +58,7 @@ export function rewriteTotalLine(preview: RewritePreview, name: string): string 
 }
 
 export function rewrittenStatus(summary: RewriteSummary, name: string): string {
-  const head = `Rewrote ${summary.written} ${summary.written === 1 ? "sidecar" : "sidecars"} in ${name}`;
+  const head = `Rewrote the sidecars of ${files(summary.written)} in ${name}`;
   return summary.failed === 0 ? head : `${head}, ${summary.failed} failed`;
 }
 

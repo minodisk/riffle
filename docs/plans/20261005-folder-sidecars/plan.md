@@ -401,4 +401,4 @@ Other decisions the steps will face:
 
 ## Progress
 
-- (none yet)
+- Step 1 done: `rewrite_sidecars_preview` / `rewrite_sidecars_run` rewrite a folder's sidecars from the index, with the confirmation dialog's text and flow in `sidecars.ts`. The failure count is the number of entries still waiting after the writer's drain (the cheap measure noted above). The manual check is pending (see `learnings.md`).

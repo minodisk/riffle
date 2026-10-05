@@ -16,7 +16,7 @@ describe("rewriteRows", () => {
   test("lists the judged, the unjudged and the skipped files", () => {
     expect(rewriteRows(preview(12, 3, 5))).toEqual([
       "12 files with a judgment",
-      "3 files without one (their sidecars are cleared)",
+      "3 files without one (any existing sidecar is cleared)",
       "5 files not in the index (skipped)",
     ]);
   });
@@ -24,10 +24,10 @@ describe("rewriteRows", () => {
   test("leaves a count of zero out and speaks of one file in the singular", () => {
     expect(rewriteRows(preview(1, 1, 0))).toEqual([
       "1 file with a judgment",
-      "1 file without one (its sidecar is cleared)",
+      "1 file without one (any existing sidecar is cleared)",
     ]);
     expect(rewriteRows(preview(0, 2, 1))).toEqual([
-      "2 files without one (their sidecars are cleared)",
+      "2 files without one (any existing sidecar is cleared)",
       "1 file not in the index (skipped)",
     ]);
   });
@@ -54,18 +54,18 @@ describe("rewriteTotalLine", () => {
 });
 
 describe("rewrittenStatus", () => {
-  test("counts the sidecars written and adds the failures", () => {
+  test("counts the files written and adds the failures", () => {
     expect(rewrittenStatus({ written: 15, failed: 0, flushed: true }, "a")).toBe(
-      "Rewrote 15 sidecars in a",
+      "Rewrote the sidecars of 15 files in a",
     );
     expect(rewrittenStatus({ written: 1, failed: 0, flushed: true }, "a")).toBe(
-      "Rewrote 1 sidecar in a",
+      "Rewrote the sidecars of 1 file in a",
     );
     expect(rewrittenStatus({ written: 13, failed: 2, flushed: true }, "a")).toBe(
-      "Rewrote 13 sidecars in a, 2 failed",
+      "Rewrote the sidecars of 13 files in a, 2 failed",
     );
     expect(rewrittenStatus({ written: 10, failed: 5, flushed: false }, "a")).toBe(
-      "Rewrote 10 sidecars in a, 5 failed",
+      "Rewrote the sidecars of 10 files in a, 5 failed",
     );
   });
 });
