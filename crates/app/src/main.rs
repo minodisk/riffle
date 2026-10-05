@@ -807,6 +807,8 @@ fn main() {
             commands::trash_rejected_redo,
             foldersidecars::rewrite_sidecars_preview,
             foldersidecars::rewrite_sidecars_run,
+            foldersidecars::delete_sidecars_preview,
+            foldersidecars::delete_sidecars_run,
             rename::rename_folder,
             rename::rename_file,
             sequence::sequence_preview,

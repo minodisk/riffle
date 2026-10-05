@@ -167,6 +167,7 @@ describe("folderMenuGroups", () => {
           shortcut: "",
           checked: undefined,
         },
+        { action: "deleteSidecars", label: "Delete Sidecars…", shortcut: "", checked: undefined },
       ],
       [
         {
@@ -187,7 +188,7 @@ describe("folderMenuGroups", () => {
       ["copyPath", "copyFolderName"],
       ["refreshFolder"],
       ["trashRejected"],
-      ["rewriteSidecars"],
+      ["rewriteSidecars", "deleteSidecars"],
       ["sequenceTimestamps"],
     ]);
   });

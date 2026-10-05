@@ -190,7 +190,7 @@ alternative under "Trade-offs and risks"):
       <name>?` (naming the format: `XMP`, `.dop`, or `XMP and .dop`);
       status `Rewrote 15 sidecars in <name>`.
 
-- [ ] Step 2: `Delete Sidecars…` end to end (backend commands, menu item, the shared dialog, undo / redo through the trash runs)
+- [x] Step 2: `Delete Sidecars…` end to end (backend commands, menu item, the shared dialog, undo / redo through the trash runs)
   - Done when:
     - The folder menu's new group holds `Rewrite Sidecars from Index…` then
       `Delete Sidecars…`; choosing the latter opens the shared dialog

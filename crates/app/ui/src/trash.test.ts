@@ -65,6 +65,41 @@ describe("trashedStatus", () => {
   });
 });
 
+describe("sidecar runs", () => {
+  test("trashedStatus counts the sidecars moved", () => {
+    const summary = { moved: ["/a.xmp", "/b.xmp"], failed: [], unread: [], run_id: 1 };
+    expect(trashedStatus(summary, "sidecars")).toBe("Moved 2 sidecars to the Trash");
+    expect(trashedStatus({ ...summary, moved: ["/a.xmp"] }, "sidecars")).toBe(
+      "Moved 1 sidecar to the Trash",
+    );
+    expect(
+      trashedStatus(
+        { ...summary, failed: [{ path: "/c.ARW", message: "c.xmp: denied" }] },
+        "sidecars",
+      ),
+    ).toBe("Moved 2 sidecars to the Trash, 1 failed");
+  });
+
+  test("restoredStatus counts the sidecars that did not fail", () => {
+    const run = { what: "sidecars" as const, count: 3 };
+    expect(restoredStatus({ restored: [], failed: [] }, run)).toBe(
+      "Restored 3 sidecars from the Trash",
+    );
+    expect(
+      restoredStatus({ restored: [], failed: [{ path: "/a.xmp", message: "gone" }] }, run),
+    ).toBe("Restored 2 sidecars from the Trash, 1 failed");
+    expect(restoredStatus({ restored: [], failed: [] }, { ...run, count: 1 })).toBe(
+      "Restored 1 sidecar from the Trash",
+    );
+  });
+
+  test("restoredStatus of a run of RAWs counts the RAWs whatever the count", () => {
+    expect(restoredStatus({ restored: ["/a.ARW"], failed: [] }, { count: 5 })).toBe(
+      "Restored 1 file from the Trash",
+    );
+  });
+});
+
 describe("restoredStatus", () => {
   test("counts the files that came back", () => {
     expect(restoredStatus({ restored: ["/a.ARW"], failed: [] })).toBe(

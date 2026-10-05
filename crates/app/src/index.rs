@@ -1323,6 +1323,30 @@ impl Index {
             .collect())
     }
 
+    /// Clear the judgments of the rows of `paths` in `dir`, in one
+    /// transaction, as `reconcile_sidecars` clears a row whose sidecar is
+    /// gone, for `Delete Sidecars…` once their sidecars went to the Trash.
+    /// The row is left clean too: the writer was drained before the delete,
+    /// and a row still dirty would mint the deleted judgment again on the
+    /// next open of the folder.
+    pub fn clear_judgments(&mut self, dir: &str, paths: &[String]) -> Result<(), String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        {
+            let mut stmt = tx
+                .prepare(
+                    "UPDATE ratings SET rating = NULL, flag = 0, label = NULL,
+                     label_known = 1, xmp_size = NULL, xmp_mtime_ns = NULL, dirty = 0
+                     WHERE dir = ?1 AND path = ?2",
+                )
+                .map_err(|e| e.to_string())?;
+            for path in paths {
+                stmt.execute(params![dir, path])
+                    .map_err(|e| format!("{path}: {e}"))?;
+            }
+        }
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     /// Every `ratings` row of `dir`, keyed by path: its flag, the sidecar
     /// stat it was stored with and whether it is dirty, for the reject
     /// collection of `trash::collect`.

@@ -126,7 +126,23 @@ describe("undo entries", () => {
   });
 
   test("an undone run is redone over the RAWs that came back only", () => {
-    expect(undoneTrash(run, ["/a/1.ARW"])).toEqual({ ...run, count: 1 });
-    expect(undoneTrash(run, [])).toBeNull();
+    expect(undoneTrash(run, { restored: ["/a/1.ARW"], failed: [] })).toEqual({ ...run, count: 1 });
+    expect(undoneTrash(run, { restored: [], failed: [] })).toBeNull();
+  });
+
+  test("an undone sidecar run is redone over the sidecars that did not fail", () => {
+    const sidecars: TrashEntry = { ...run, count: 3, what: "sidecars" };
+    const failed = [{ path: "/a/1.xmp", message: "not in the Trash" }];
+    expect(undoneTrash(sidecars, { restored: [], failed })).toEqual({ ...sidecars, count: 2 });
+    expect(undoneTrash(sidecars, { restored: [], failed: [] })).toEqual(sidecars);
+    const all = [0, 1, 2].map((i) => ({ path: `/a/${i}.xmp`, message: "gone" }));
+    expect(undoneTrash(sidecars, { restored: [], failed: all })).toBeNull();
+  });
+
+  test("mapping trash folders keeps what a sidecar run moved", () => {
+    const history = new History<Entry<J>>(10);
+    history.push({ ...run, what: "sidecars" });
+    history.map(mapTrashDirs((dir) => (dir === "/a" ? "/z" : dir)));
+    expect(history.pop()).toEqual({ ...run, dirs: ["/z"], what: "sidecars" });
   });
 });

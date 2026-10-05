@@ -401,7 +401,7 @@ fn collect_folder(
 
 /// The sidecars of `format`'s kinds that exist for `path`, from the stats
 /// keyed by lowercase file name.
-fn sidecars_of<'a>(
+pub(crate) fn sidecars_of<'a>(
     format: SidecarFormat,
     path: &str,
     sidecars: &'a HashMap<String, SidecarStat>,
@@ -617,8 +617,10 @@ pub fn restore<I>(
 
 /// Move `paths`, what an undo brought back (each RAW followed by its
 /// sidecars), to the Trash again with `run`, so its rule holds: a sidecar
-/// moves only after its RAW. No reject is collected again; a file that no
-/// longer `exists` fails without reaching `mover`.
+/// moves only after its RAW. A sidecar with no RAW before it (a run of
+/// `Delete Sidecars…` moves sidecars alone) is a group of its own, so one
+/// failure does not hold back the others. No reject is collected again; a
+/// file that no longer `exists` fails without reaching `mover`.
 pub fn redo(
     paths: Vec<PathBuf>,
     exists: impl Fn(&Path) -> bool,
@@ -627,7 +629,12 @@ pub fn redo(
     let mut groups: Vec<Group> = Vec::new();
     for path in paths {
         match groups.last_mut() {
-            Some(group) if !riffle_core::scan::is_raw_file(&path) => group.sidecars.push(path),
+            Some(group)
+                if !riffle_core::scan::is_raw_file(&path)
+                    && riffle_core::scan::is_raw_file(&group.raw) =>
+            {
+                group.sidecars.push(path)
+            }
             _ => groups.push(Group {
                 raw: path,
                 sidecars: Vec::new(),
@@ -1791,6 +1798,46 @@ mod tests {
         assert_eq!(summary.failed[0].path, key(&dir.join("fail.xmp")));
         assert!(trash.join("d.ARW").exists());
         assert!(trash.join("d.ARW.dop").exists());
+    }
+
+    #[test]
+    fn a_run_of_sidecars_alone_is_restored_whole() {
+        let run = trash_run(&["a.xmp", "a.ARW.dop", "b.xmp"]);
+        let (restored, asked) = restore_with(&run, &["a.xmp", "a.ARW.dop", "b.xmp"], &[]);
+        assert!(restored.restored.is_empty());
+        assert!(restored.failed.is_empty());
+        assert_eq!(asked, ["a.xmp", "a.ARW.dop", "b.xmp"]);
+        assert_eq!(
+            restored.back,
+            ["a.xmp", "a.ARW.dop", "b.xmp"].map(PathBuf::from)
+        );
+    }
+
+    #[test]
+    fn a_redo_of_sidecars_alone_moves_each_on_its_own() {
+        let dir = temp_dir("redo-sidecars");
+        let trash = dir.join("trash");
+        std::fs::create_dir(&trash).unwrap();
+        for name in ["b.xmp", "c.ARW.dop"] {
+            write(&dir.join(name));
+        }
+        let paths = ["a.xmp", "b.xmp", "c.ARW.dop"]
+            .map(|name| dir.join(name))
+            .to_vec();
+        let (summary, moved) = redo(paths, Path::exists, mover(trash.clone()));
+        assert_eq!(
+            summary.moved,
+            [key(&dir.join("b.xmp")), key(&dir.join("c.ARW.dop"))]
+        );
+        assert_eq!(summary.failed.len(), 1);
+        assert_eq!(summary.failed[0].path, key(&dir.join("a.xmp")));
+        assert_eq!(summary.failed[0].message, GONE);
+        assert_eq!(
+            moved.iter().map(|t| t.path.clone()).collect::<Vec<_>>(),
+            ["b.xmp", "c.ARW.dop"].map(|name| dir.join(name))
+        );
+        assert!(trash.join("b.xmp").exists());
+        assert!(trash.join("c.ARW.dop").exists());
     }
 
     #[test]

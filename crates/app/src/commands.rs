@@ -1999,7 +1999,7 @@ pub async fn set_rating(
 /// file manager shows next to the same file: Finder counts 1 GB as 1000^3,
 /// Explorer (and the Linux file managers) as 1024^3, so the base follows the
 /// platform rather than the labels changing to `GiB`.
-const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
+pub(crate) const SIZE_BASE: u64 = if cfg!(target_os = "macos") {
     1000
 } else {
     1024
@@ -2034,7 +2034,7 @@ pub(crate) const SCAN_RUNNING: &str = "a scan is running; wait for it to finish"
 /// at base 1000, so it must show as 1.0 GB, not 1000.0 MB), not just the raw
 /// one, or a value one rounding step below a power of the base prints a
 /// figure equal to the base.
-fn format_bytes(bytes: u64, base: u64) -> String {
+pub(crate) fn format_bytes(bytes: u64, base: u64) -> String {
     if bytes < base {
         return format!("{bytes} B");
     }
@@ -2357,14 +2357,14 @@ fn restore_run(run: &trash::TrashRun) -> trash::Restored {
 /// there drives the Finder through AppleScript, which needs Automation
 /// permission.
 #[cfg(target_os = "macos")]
-fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
+pub(crate) fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
     trash::trash_file(path).map(Some)
 }
 
 /// The mover of `trash_rejected_run`: the Trash is listed at undo time, so
 /// where the file went is not kept.
 #[cfg(not(target_os = "macos"))]
-fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
+pub(crate) fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
     ::trash::delete(path)
         .map(|()| None)
         .map_err(|e| e.to_string())

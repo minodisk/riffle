@@ -33,7 +33,66 @@
   rewrite: the user asked for the index to be pushed out. See the deferred
   issue below.
 
+## Step 2
+
+- `trash::redo`, read in the plan as "a leading non-RAW path is its own
+  group", actually appended every later non-RAW path to that first group as
+  its "sidecars": a redo of a sidecar-only run would have reported one moved
+  file and, if the first sidecar was gone, skipped all the others. Fixed by
+  letting a non-RAW path join the previous group only when that group's head
+  is a RAW (existing rejected-trash runs group exactly as before). Covered by
+  `a_redo_of_sidecars_alone_moves_each_on_its_own`; `trash::restore` needed
+  no change (`raw_back` starts `true`), covered by
+  `a_run_of_sidecars_alone_is_restored_whole`.
+- The delete run reuses `trash::run` with one `Group` per sidecar (so the
+  macOS `trashed_id` is taken as for a reject run), then rewrites each
+  failure's path to its RAW's (`<sidecar name>: <message>`), so the meta
+  pane's error list keys it by the file shown. The command returns the
+  existing `trash::Summary` (`moved` lists the sidecars, `unread` is empty),
+  so the frontend reuses `trashed()` and its `TrashSummary` type.
+- `Index::clear_judgments` also sets `dirty = 0`, which the plan's UPDATE did
+  not list: the writer is drained first, so a row still dirty is one whose
+  write failed, and replaying it on the next open would mint the deleted
+  judgment again.
+- Frontend: `TrashEntry` gained an optional `what: "sidecars"`, kept by
+  `mapTrashDirs` (spread). `undoneTrash` now takes the whole `TrashRestored`
+  and counts through `trash.ts`'s `restoredCount` (`count - failed.length`
+  for sidecars, since `restored` lists RAWs only). `trashed()` takes `what`
+  and `rescan`: the delete run clears the strip and re-reads
+  `folder_entries` (the backend cleared the rows), while a redo of a sidecar
+  run clears the strip and resyncs, because `trash_rejected_redo` does not
+  clear the index (it cannot tell which RAW a sidecar path belongs to); the
+  resync's reconcile clears the rows (clean row, gone sidecar).
+- The run button's class is set per kind (`button primary` / `button
+  destructive`) in the shared `showSidecarDialog`, which the rewrite now goes
+  through too.
+
 ## Deferred issues (todo candidates)
+
+- **A redo of `Delete Sidecars…` leaves a closed folder's rows judged.**
+  `trash_rejected_redo` (`crates/app/src/commands.rs`) moves the sidecars
+  again but writes no index row; when the target folder is open the
+  frontend's resync clears them, but when another folder is open the rows
+  keep the judgments the undo's rescan restored until the folder is next
+  opened (whose reconcile clears them). A `Rewrite Sidecars from Index…` in
+  between would mint them again. Fixing it needs the run to remember each
+  sidecar's RAW (e.g. in `trash::Trashed`). Basis: Step 2 implementation
+  (`crates/app/src/foldersidecars.rs`, `crates/app/ui/src/main.ts` `trashed`).
+- **Pending manual check (Step 2, any platform).** Not verified on a real
+  app: right-click a single folder holding RAWs with sidecars of the current
+  format, choose `Delete Sidecars…`; the dialog is titled `Delete Sidecars`,
+  lists `N XMP sidecars (size)` (and `.dop` under "both"), ends with `Move N
+  sidecars (size) of <name> to the Trash?`, and has a red `Move to Trash`
+  and an outline `Cancel`; running it moves the files to the OS Trash, the
+  status line reads `Moved N sidecars to the Trash`, and on the open folder
+  the stars, flags and labels disappear at once; `Edit > Undo` restores them
+  (`Restored N sidecars from the Trash`, the judgments come back after the
+  rescan) and `Edit > Redo` moves them again; a folder with no sidecar of
+  the format and a JPEG-only folder show a status-line refusal and no
+  dialog; pressed during a scan, the meta pane shows `Delete Sidecars:
+  waiting for the scan to finish`. The step's checkbox was ticked on the
+  automated criteria (Rust and Vitest tests, `mise run ci`); Step 3 folds
+  this into the `todo.md` manual check item.
 
 - **Rewrite patches an oversize sidecar.** `rewrite_sidecars_run`
   (`crates/app/src/foldersidecars.rs`) hands every listed row to the writer,
