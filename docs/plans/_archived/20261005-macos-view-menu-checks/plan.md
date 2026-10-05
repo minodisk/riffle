@@ -67,3 +67,5 @@ section lists only what is still pending (Windows).
     - Mark this step done and add the Progress entry in the same PR.
 
 ## Progress
+
+- (2026-10-05) Step 1 complete
