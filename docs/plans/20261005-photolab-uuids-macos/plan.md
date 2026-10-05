@@ -115,12 +115,13 @@ Investigation on the user's Mac (PhotoLab 10, 2026-10-04 / 05):
       symlink to `/` does not normally reach the lookup; confirm by reading
       the open path in `commands.rs` rather than adding a `canonicalize`
       call in the lookup.
-    - Query (macOS): roots are `SELECT Z_PK FROM ZDOPFOLDER WHERE Z_ENT = 6
+    - Query (macOS): roots are `SELECT Z_PK FROM ZDOPFOLDER WHERE ZPARENT IS NULL
       AND ZTYPE = 2` (do not match `ZNAME = 'Macintosh HD'`: a renamed boot
       volume would break it; do not match `ZUNIQUEID`: it is the Data
       volume's UUID, which needs IOKit / `diskutil` to obtain); children
-      `SELECT Z_PK FROM ZDOPFOLDER WHERE Z_ENT = 5 AND ZPARENT = ? AND
-      ZNAME = ?`; sources `SELECT Z_PK, ZUUID FROM ZDOPSOURCE WHERE ZPARENT
+      `SELECT Z_PK FROM ZDOPFOLDER WHERE ZPARENT = ? AND ZNAME = ?`
+      (no `Z_ENT` predicates: Core Data numbers entities per model and a later
+      PhotoLab may shift them); sources `SELECT Z_PK, ZUUID FROM ZDOPSOURCE WHERE ZPARENT
       = ? AND ZNAME = ?`; master `SELECT ZUUID FROM ZDOPINPUTITEM WHERE
       ZSOURCE = ? ORDER BY Z_PK LIMIT 1`. Walk every matching chain and
       treat more than one source as a miss, as Windows does. Names compare

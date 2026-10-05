@@ -95,8 +95,8 @@
 ### DxO PhotoLab
 
 - PhotoLab は `.dop` の中の識別子で画像を見分けます。PhotoLab が一度見た画像（`.dop` が書かれていなくても、フォルダーを開くだけで該当します）に、PhotoLab の知らない識別子の `.dop` を新しく作ると、Riffle の判定を持った仮想コピーとして取り込まれ、マスターは元の状態のままになります。
-- そこで Windows では、Riffle は `.dop` を新しく作るときに PhotoLab のデータベース（最も新しい `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`）から画像の識別子を読んで書き込みます。PhotoLab は判定をマスターに反映します。
-- データベースが見つからないとき（macOS、または PhotoLab が入っていないとき）も、新しい `.dop` はそのまま使えます。PhotoLab はマスターとして取り込みますが、すでにその画像を見ていた場合は判定が仮想コピーに入ります。
+- そこで Riffle は `.dop` を新しく作るときに PhotoLab のデータベース（Windows では最も新しい `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`、macOS では最も新しい `~/Library/DxO PhotoLab vN/DOPDatabaseVN.dopdata`）から画像の識別子を読んで書き込みます。PhotoLab は判定をマスターに反映します。macOS では `/Volumes` 以下のフォルダーはまだ検索せず、ランダムな識別子のままになります。
+- データベースが見つからないとき（PhotoLab が入っていないとき）も、新しい `.dop` はそのまま使えます。PhotoLab はマスターとして取り込みますが、すでにその画像を見ていた場合は判定が仮想コピーに入ります。
 - すでにある `.dop` は、これまでどおりその場で編集します。
 - Windows 版の PhotoLab 10.0.1 で確認しています。
 

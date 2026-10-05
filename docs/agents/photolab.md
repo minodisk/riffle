@@ -115,8 +115,9 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
   Names are `COLLATE NOCASE`.
 - macOS (PhotoLab 10, 2026-10-05) uses a Core Data schema instead.
   `ZDOPFOLDER (Z_PK, Z_ENT, ZPARENT, ZTYPE, ZNAME, ZUNIQUEID)` holds volumes
-  (`Z_ENT = 6`, `ZPARENT` NULL) and folders (`Z_ENT = 5`) chained through
-  `ZPARENT`; `ZDOPSOURCE (Z_PK, ZPARENT, ZNAME, ZUUID)` has one row per file,
+  (`ZPARENT` NULL) and folders chained through `ZPARENT`; the lookup does not
+  use `Z_ENT`, since Core Data numbers entities per model and a later PhotoLab
+  may shift them; `ZDOPSOURCE (Z_PK, ZPARENT, ZNAME, ZUUID)` has one row per file,
   `ZUUID` = `Sidecar.Source.Uuid`; `ZDOPINPUTITEM (Z_PK, ZSOURCE, ZUUID)`
   holds the items, `ZUUID` = `Items[0].Uuid`, the master taken as the lowest
   `Z_PK` (unverified: no virtual copy was in the database).

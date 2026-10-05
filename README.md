@@ -246,12 +246,13 @@ format is chosen), or keep such RAWs in separate folders.
   was written), a new `.dop` with identifiers it does not know is imported as
   a virtual copy that carries Riffle's judgment, while the master keeps its
   own.
-- So on Windows, when Riffle creates a `.dop`, it reads the image's
-  identifiers from PhotoLab's database (the newest
-  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`) and writes them
-  into it, and PhotoLab applies the judgment to the master.
-- When the database is not found (on macOS, or without PhotoLab installed)
-  the new `.dop` still works: PhotoLab imports it as the master, unless it
+- So when Riffle creates a `.dop`, it reads the image's identifiers from
+  PhotoLab's database (on Windows the newest
+  `%APPDATA%\DxO\DxO PhotoLab N\Database\PhotoLab.db`, on macOS the newest
+  `~/Library/DxO PhotoLab vN/DOPDatabaseVN.dopdata`) and writes them into it,
+  and PhotoLab applies the judgment to the master. On macOS, folders under
+  `/Volumes` are not looked up yet and so still get random identifiers.
+- When the database is not found (without PhotoLab installed) the new `.dop` still works: PhotoLab imports it as the master, unless it
   had already seen the image, in which case the judgment lands on a virtual
   copy.
 - A `.dop` that already exists is edited in place as before.

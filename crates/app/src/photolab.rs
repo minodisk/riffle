@@ -243,9 +243,10 @@ fn query(db: &Path, arw: &Path) -> rusqlite::Result<Option<Uuids>> {
     };
     let conn = open(db)?;
 
-    let mut roots = conn.prepare("SELECT Z_PK FROM ZDOPFOLDER WHERE Z_ENT = 6 AND ZTYPE = 2")?;
+    let mut roots =
+        conn.prepare("SELECT Z_PK FROM ZDOPFOLDER WHERE ZPARENT IS NULL AND ZTYPE = 2")?;
     let mut children =
-        conn.prepare("SELECT Z_PK FROM ZDOPFOLDER WHERE Z_ENT = 5 AND ZPARENT = ? AND ZNAME = ?")?;
+        conn.prepare("SELECT Z_PK FROM ZDOPFOLDER WHERE ZPARENT = ? AND ZNAME = ?")?;
     let mut sources =
         conn.prepare("SELECT Z_PK, ZUUID FROM ZDOPSOURCE WHERE ZPARENT = ? AND ZNAME = ?")?;
     let mut master =
@@ -564,6 +565,16 @@ mod macos_tests {
     #[test]
     fn a_registered_file_yields_its_source_and_master_uuids() {
         let db = fixture("mac_registered", SOURCE);
+        assert_eq!(lookup(&db, Path::new(SHOT)), uuids(MASTER, SOURCE));
+    }
+
+    #[test]
+    fn the_lookup_does_not_depend_on_the_core_data_entity_numbers() {
+        let db = fixture("mac_entities", SOURCE);
+        Connection::open(&db)
+            .unwrap()
+            .execute_batch("UPDATE ZDOPFOLDER SET Z_ENT = Z_ENT + 20;")
+            .unwrap();
         assert_eq!(lookup(&db, Path::new(SHOT)), uuids(MASTER, SOURCE));
     }
 
