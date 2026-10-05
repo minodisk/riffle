@@ -1,6 +1,7 @@
 // Holds an operation pressed while `busy` (a scan runs) until `drain` is
 // called, instead of refusing it. One slot: a later press replaces the held
-// one. `enterInFlight`/`leaveInFlight` are called by the caller from
+// one, firing its `cancel` (as `discard` does; `drain` only runs it).
+// `enterInFlight`/`leaveInFlight` are called by the caller from
 // dispatch until the operation settles, so a rescan can queue behind it. A
 // count rather than a flag, since two deferred operations can overlap (for
 // example a strip rename confirmed while a folder rename's reopen chain is
@@ -9,7 +10,7 @@
 export class IdleGate {
   private inFlightCount = 0;
   private readonly busy: () => boolean;
-  private held: { label: string; run: () => void } | null = null;
+  private held: { label: string; run: () => void; cancel?: () => void } | null = null;
 
   constructor(busy: () => boolean) {
     this.busy = busy;
@@ -27,13 +28,15 @@ export class IdleGate {
     this.inFlightCount -= 1;
   }
 
-  request(label: string, run: () => void): void {
+  // Whether `run` was held rather than run at once.
+  request(label: string, run: () => void, cancel?: () => void): boolean {
+    this.discard();
     if (this.busy()) {
-      this.held = { label, run };
-      return;
+      this.held = { label, run, cancel };
+      return true;
     }
-    this.held = null;
     run();
+    return false;
   }
 
   drain(): void {
@@ -43,7 +46,9 @@ export class IdleGate {
   }
 
   discard(): void {
+    const held = this.held;
     this.held = null;
+    held?.cancel?.();
   }
 
   get waiting(): string | null {

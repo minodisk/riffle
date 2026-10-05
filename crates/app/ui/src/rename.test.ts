@@ -5,8 +5,11 @@ import {
   SlowClick,
   commit,
   confirmName,
+  displayName,
   editKey,
+  editOutcome,
   inlineRename,
+  pendingOutcome,
   stemLength,
 } from "./rename.js";
 
@@ -171,5 +174,49 @@ describe("RenamesInFlight", () => {
     renames.start("/a/one");
     renames.settle("/a/other");
     expect(renames.blocks("/a/one", false)).toBe(true);
+  });
+});
+
+describe("displayName", () => {
+  test("shows the pending name for the path it is held for", () => {
+    expect(displayName({ path: "/a/b", name: "c" }, "/a/b", "b")).toBe("c");
+  });
+
+  test("shows the real name for any other path or with nothing held", () => {
+    expect(displayName({ path: "/a/b", name: "c" }, "/a/x", "x")).toBe("x");
+    expect(displayName(null, "/a/b", "b")).toBe("b");
+  });
+});
+
+describe("pendingOutcome", () => {
+  test("an empty or unchanged pending name keeps the held rename", () => {
+    expect(pendingOutcome("b", "c", "")).toBe("keep");
+    expect(pendingOutcome("b", "c", "  ")).toBe("keep");
+    expect(pendingOutcome("b", "c", " c ")).toBe("keep");
+  });
+
+  test("the original name cancels the held rename", () => {
+    expect(pendingOutcome("b", "c", "b")).toBe("cancel");
+    expect(pendingOutcome("b", "c", " b ")).toBe("cancel");
+  });
+
+  test("any other name replaces it", () => {
+    expect(pendingOutcome("b", "c", " d ")).toEqual({ rename: "d" });
+  });
+});
+
+describe("editOutcome", () => {
+  const pending = { path: "/a/b", name: "c" };
+
+  test("follows pendingOutcome on the cell whose rename is held", () => {
+    expect(editOutcome(pending, "/a/b", "b", "c")).toBe("keep");
+    expect(editOutcome(pending, "/a/b", "b", "b")).toBe("cancel");
+    expect(editOutcome(pending, "/a/b", "b", "d")).toEqual({ rename: "d" });
+  });
+
+  test("follows confirmName on any other cell", () => {
+    expect(editOutcome(pending, "/a/x", "x", "x")).toBe("keep");
+    expect(editOutcome(null, "/a/x", "x", "")).toBe("keep");
+    expect(editOutcome(null, "/a/x", "x", " y ")).toEqual({ rename: "y" });
   });
 });

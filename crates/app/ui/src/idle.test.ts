@@ -53,4 +53,64 @@ describe("IdleGate", () => {
     gate.drain();
     expect(gate.waiting).toBeNull();
   });
+
+  test("a held operation replaced by a later request fires its cancel once", () => {
+    const gate = new IdleGate(() => true);
+    const canceled: string[] = [];
+    expect(
+      gate.request(
+        "a",
+        () => {},
+        () => canceled.push("a"),
+      ),
+    ).toBe(true);
+    gate.request(
+      "b",
+      () => {},
+      () => canceled.push("b"),
+    );
+    expect(canceled).toEqual(["a"]);
+    gate.drain();
+    expect(canceled).toEqual(["a"]);
+  });
+
+  test("discard fires the held operation's cancel", () => {
+    const gate = new IdleGate(() => true);
+    const canceled: string[] = [];
+    gate.request(
+      "a",
+      () => {},
+      () => canceled.push("a"),
+    );
+    gate.discard();
+    gate.discard();
+    expect(canceled).toEqual(["a"]);
+  });
+
+  test("drain runs without firing cancel", () => {
+    const gate = new IdleGate(() => true);
+    const events: string[] = [];
+    gate.request(
+      "a",
+      () => events.push("run"),
+      () => events.push("cancel"),
+    );
+    gate.drain();
+    gate.discard();
+    expect(events).toEqual(["run"]);
+  });
+
+  test("a request that runs at once neither holds nor fires its cancel", () => {
+    const gate = new IdleGate(() => false);
+    const events: string[] = [];
+    const held = gate.request(
+      "a",
+      () => events.push("run"),
+      () => events.push("cancel"),
+    );
+    gate.discard();
+    expect(held).toBe(false);
+    expect(gate.waiting).toBeNull();
+    expect(events).toEqual(["run"]);
+  });
 });
