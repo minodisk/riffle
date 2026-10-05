@@ -24,14 +24,21 @@ and delist the bodies that fell below it, as a docs-only change.
 |---|---|---|---|---|
 | Sony α1 | ✓ | ✓ | – | ✓ |
 | Sony α9 III | – | – | – | ✓ |
+| Sony α9 II | ✓ | – | – | ✓ |
 | Sony α7 V | ✓ | ✓ | ✓ | ✓ |
 | Sony α7 IV | ✓ | ✓ | ✓ | ✓ |
 | Sony α7R V | ✓ | ✓ | ✓ | ✓ |
+| Sony α7R IV | ✓ | – | – | – |
+| Sony α7R IVA | ✓ | – | – | – |
 | Sony α7S III | ✓ | ✓ | ✓ | ✓ |
 | Sony α7C II | ✓ | ✓ | – | ✓ |
 | Sony α7CR | – | – | – | ✓ |
+| Sony α7C | ✓ | – | – | ✓ |
 | Sony α6700 | ✓ | ✓ | ✓ | ✓ |
+| Sony α6400 | ✓ | – | – | – |
+| Sony α6600 | ✓ | – | – | – |
 | Sony ZV-E1 | ✓ | ✓ | ✓ | ✓ |
+| Sony ZV-E10 | ✓ | – | – | ✓ |
 | SIGMA BF | ✓ | – | – | – |
 | SIGMA fp L | – | – | – | – |
 | Leica M11-P | – | – | – | – |
@@ -163,6 +170,11 @@ does not guarantee a face under the frame: two α6700 samples record it with
 the frame on an empty background and on bread on a market stall. Riffle also
 ignores the frame when the AF point sits at the exact sensor center, where
 tracking never locked.
+
+The Sony α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 embed no
+full-size JPEG, only the 1616x1080 preview (1920x1080 on the ZV-E10) and a
+160x120 thumbnail. Their 1:1 view shows that preview at its own size, as ORF
+does, not the sensor's pixels.
 
 - **AF point**: the focus mark is drawn there, the 1:1 focus check opens
   centered on it, and sharpness is scored around it. Faces are then ignored,

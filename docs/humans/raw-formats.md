@@ -84,7 +84,7 @@ of a detected face or the sharpest region (see
 | Exif | IFD0 and the Exif IFD | IFD0 and the Exif IFD | IFD0 and the Exif IFD | Two TIFFs in boxes: `CMT1` (IFD0) and `CMT2` (the Exif IFD) | Inside the embedded JPEG (IFD0 and the Exif IFD) | IFD0 and the Exif IFD |
 | MakerNote | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Exif IFD tag 0x927c | Its own `CMT3` box | Exif IFD tag 0x927c of the embedded JPEG, with a `FUJIFILM` header and offsets relative to the note | Exif IFD tag 0x927c, with an `OLYMPUS` or `OM SYSTEM` header and offsets relative to the note |
 | Preview JPEG | IFD0's JPEG (1616x1080 on the α7 V) | The smallest JPEG at least 1600 px wide, from the JPEG strips in no fixed order | The last JPEG SubIFD (1620x1080) | The `PRVW` box (1620x1080) | The one embedded JPEG (4416x2944 on the recent X bodies, 4000x3000 on the GFX bodies, 1920x1280 on the older X bodies) | Inside the MakerNote, pointed at by its CameraSettings IFD (3200x2400) |
-| Full-size JPEG | The largest JPEG in the other IFDs | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution | None: the preview serves as the 1:1 view |
+| Full-size JPEG | The largest JPEG in the other IFDs, or the preview when nothing larger is embedded | The largest JPEG strip | The first JPEG SubIFD | The JPEG track in the movie structure | The same JPEG, below the sensor's resolution | None: the preview serves as the 1:1 view |
 | AF point read by Riffle | Sony MakerNote `FocusLocation` | SIGMA BF MakerNote only | Nikon MakerNote `AFInfo2` (Z bodies) | Canon MakerNote `AFInfo2` (EOS bodies) | Fujifilm MakerNote `FocusPixel` | Not read |
 
 ### ARW: no full-size JPEG on older bodies
@@ -93,10 +93,10 @@ Recent Sony bodies (the α1, α9 III, α7 IV, α7R V, α7S III, α7C II, α7CR,
 α6700 and ZV-E1 samples) write a 1616x1080 preview in IFD0, a 160x120
 thumbnail in IFD1 and the full-size JPEG in IFD2. Older bodies (the α9 II,
 α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 samples) write no IFD2, so the
-largest JPEG besides the preview is the 160x120 thumbnail. These files still
-open, but Riffle takes that thumbnail as the full-size JPEG, so the 1:1 view
-enlarges the 160x120 thumbnail and looks blurry. These bodies are not listed
-as supported until that is fixed.
+largest JPEG besides the preview is the 160x120 thumbnail. Riffle skips any
+JPEG smaller than the preview and uses the preview as the 1:1 view, so on
+these bodies the 1:1 view shows the 1616x1080 preview (1920x1080 on the
+ZV-E10) at its own size, and they are listed as supported.
 
 ### NEF: two JPEGs besides the thumbnail, told apart by order
 

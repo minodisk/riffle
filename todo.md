@@ -757,17 +757,6 @@ samples, as done for the Sigma BF `0x0147` in
       `crates/core/src/arw.rs` and the archived plan's
       [Trade-offs and risks](docs/plans/_archived/20260924-sigma-bf-af-point/plan.md#trade-offs-and-risks)).
 
-### Core: older Sony ARW bodies take the 160x120 thumbnail as the full-size JPEG
-
-#### Background
-
-The `sony-arw-coverage` sample verification (`docs/plans/_archived/20260930-sony-arw-coverage/plan.md`) found that the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 write no full-size JPEG. Their IFD chain holds only IFD0 (the 1616x1080 preview; 1920x1080 on the ZV-E10) and IFD1 (a 160x120 thumbnail), and the SubIFD is the raw data. `arw::parse` picks the largest JPEG in the IFD chain and the SubIFDs as `full`, which on these files is the IFD1 thumbnail. The `bench` full decode takes 0.2 ms, and `read_focus_crop` (the 1:1 view) crops an upscaled 160x120 image. The recent bodies add IFD2, the full-size JPEG, and are listed in `docs/humans/cameras.md`. These seven bodies are left off `docs/humans/cameras.md` until this is decided. Files: `crates/core/src/arw.rs` (`parse`), `crates/core/src/reader.rs` (`read_full`), `crates/app/src/commands.rs` (`read_focus_crop`), `docs/humans/cameras.md`, `docs/humans/raw-formats.md`.
-
-#### TODO
-
-- [ ] Decide what 1:1 shows without a full-size JPEG (refuse, fall back to the 1616x1080 preview, or decode the raw data), and implement it with a synthetic-TIFF unit test next to the existing ones in `arw.rs`.
-- [ ] Add the seven bodies to `docs/humans/cameras.md`. Per learnings.md, the samples show AF point present on all; `FocusFrameSize` absent (`–`); sub-second present on the α9 II, α7C and ZV-E10 only; `AFTracking` 2 on the α9 II, α6400 and ZV-E10, else 0.
-
 ### Core: a RAF folder scan costs ~222ms per file
 
 #### Background
@@ -1277,6 +1266,14 @@ Files: `crates/core/src/arw.rs`, `crates/app/src/index.rs` (`EXTRACTOR_VERSION`)
 #### TODO
 
 - [ ] On Windows, with an index written by `EXTRACTOR_VERSION` 11 (open `D:\Photos\samples\DNG\` in a build from before the bump, then in this build), open a folder containing the Pentax K-5 II, iPhone 12 Pro and Leica M (Typ 240) samples. Expected: the rows that cached `not a little-endian TIFF/ARW` are re-extracted, and the thumbnails, the preview and the 1:1 view show.
+
+### App: real-device check of the 1:1 view on older Sony ARW bodies (no full-size JPEG)
+
+The `sony-arw-preview-full` work (`docs/plans/_archived/20261005-sony-arw-preview-full/plan.md`) made `arw::parse` fall back to the preview as `full` when the largest other JPEG is smaller, so the α9 II, α7R IV, α7R IVA, α7C, α6400, α6600 and ZV-E10 no longer take the 160x120 IFD1 thumbnail for the 1:1 view. A synthetic-TIFF unit test, `riffle-cli info` / `bench` on the samples (`full` at the preview's offset / length; decodes of 1616x1080, 1440x1080 on the 4:3 α7C sample and 1920x1080 on the ZV-E10 read from the JPEG SOF) and `mise run ci` cover the core path. The running app's 1:1 view (`read_focus_crop` via `reader::read_full`) was never exercised on these files. The step was ticked on the automated criteria only. Files: `crates/core/src/arw.rs`, `crates/core/src/reader.rs`.
+
+#### TODO
+
+- [ ] On Windows (or any desktop build), open `D:\photos\samples\ARW` (or a folder with e.g. `ILCE-6400_DSC00087.ARW` / `ZV-E10_DSC00002.ARW`), select the file and open the 1:1 focus check. Expected: a sharp crop of the 1616x1080 preview (1920x1080 on the ZV-E10) around the AF point, not a blurry upscaled 160x120 thumbnail.
 
 ### Agents: bare `python` / `node` hang in Git Bash on the Windows host
 

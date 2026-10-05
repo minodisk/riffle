@@ -231,7 +231,8 @@ pub struct Shot {
 pub struct Arw {
     /// The small preview in IFD0 (Sony 1616x1080).
     pub preview: Option<Embedded>,
-    /// The full-resolution JPEG (JpgFromRaw).
+    /// The full-resolution JPEG (JpgFromRaw), or the preview when the file
+    /// holds nothing larger.
     pub full: Option<Embedded>,
     pub orientation: u16,
     pub shot: Shot,
@@ -622,7 +623,9 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
     let shot = exif(t, &ifd0)?;
 
     // Walk the IFD chain (IFD1, IFD2, ...) and the SubIFDs, and take the
-    // largest JPEG as the full-resolution one (JpgFromRaw).
+    // largest JPEG as the full-resolution one (JpgFromRaw), falling back to
+    // the preview when that is only a thumbnail (older Sony bodies write no
+    // full-size JPEG, just a 160x120 one in IFD1).
     let mut targets: Vec<usize> = Vec::new();
     let mut next = next;
     while next != 0 {
@@ -673,7 +676,10 @@ pub fn parse(buf: &[u8]) -> Result<Arw> {
             .map(|s| s.0);
         (small.or(big), big)
     } else {
-        (preview, full)
+        match (preview, full) {
+            (Some(p), Some(f)) if f.length < p.length => (preview, Some(p)),
+            _ => (preview, full),
+        }
     };
 
     Ok(Arw {
@@ -808,6 +814,36 @@ mod tests {
         let p = a.preview.unwrap();
         assert_eq!((p.offset, p.length), (1024, 2048));
         assert!(a.full.is_none());
+    }
+
+    /// A TIFF whose IFD0 holds a preview JPEG and whose chained IFD1 holds
+    /// another JPEG of `ifd1_length` bytes.
+    fn tiff_with_ifd1_jpeg(ifd1_length: u32) -> Vec<u8> {
+        let ifd0 = [(TAG_JPEG_OFFSET, 4, 1, 1024), (TAG_JPEG_LENGTH, 4, 1, 2048)];
+        let mut buf = tiff(&ifd0);
+        let ifd1_at = buf.len() as u32;
+        buf[8 + ifd_len(ifd0.len()) - 4..8 + ifd_len(ifd0.len())]
+            .copy_from_slice(&ifd1_at.to_le_bytes());
+        buf.extend_from_slice(&ifd(&[
+            (TAG_JPEG_OFFSET, 4, 1, 4096),
+            (TAG_JPEG_LENGTH, 4, 1, ifd1_length),
+        ]));
+        buf
+    }
+
+    #[test]
+    fn falls_back_to_the_preview_over_a_smaller_ifd1_thumbnail() {
+        let a = parse(&tiff_with_ifd1_jpeg(64)).unwrap();
+        let (p, f) = (a.preview.unwrap(), a.full.unwrap());
+        assert_eq!((p.offset, p.length), (1024, 2048));
+        assert_eq!((f.offset, f.length), (p.offset, p.length));
+    }
+
+    #[test]
+    fn keeps_a_chained_jpeg_larger_than_the_preview_as_full() {
+        let a = parse(&tiff_with_ifd1_jpeg(8192)).unwrap();
+        let f = a.full.unwrap();
+        assert_eq!((f.offset, f.length), (4096, 8192));
     }
 
     #[test]
