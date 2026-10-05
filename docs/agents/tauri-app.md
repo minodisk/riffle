@@ -368,7 +368,8 @@ the global `window.__TAURI__.event.listen`.
   `startScan` and also by the focus listener right before it calls `resync()`,
   because `resync()` reaches `startScan` only after its `list_arw` resolves and a
   second focus in that window would otherwise pass. A focus inside the interval
-  is dropped, not deferred. `File > Reload Folder`, `folder-changed` and the
+  is dropped, not deferred. `File > Reload Folder`, the tree's `Refresh` on the open
+  folder (trigger `refresh`), `folder-changed` and the
   trash / rename paths call `resync()` directly and are not throttled.
   `scan_folder` skips the `pending` entry when both `todo` and `faces_todo` are
   empty, so an idle focus rescan ends at once. Source:
@@ -1384,7 +1385,8 @@ folder changed" event has to pick the right one.
   through the shared `startScan` helper, and re-anchors with
   `refilter(currentPath, true)`, which keeps the strip's scroll offset. Use it
   when only the *files* may have changed — the window focus,
-  `File > Reload Folder` and `folder-changed` (the watcher) triggers.
+  `File > Reload Folder`, the tree's `Refresh` on the open folder (trigger
+  `refresh`) and `folder-changed` (the watcher) triggers.
 - `resync` defers to `faces-done` (the end of the second pass) while a scan
   runs (`scanRunning`), because `scan_folder` cancels and joins the running
   scan first; a focus change during a 5000-file first scan would otherwise
