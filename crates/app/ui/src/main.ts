@@ -800,7 +800,9 @@ function trashed(
 ): void {
   const refresh = openDir !== null && opensTarget(openDir, dirs, recursive, folders.ignoreCase);
   if (refresh && what === "sidecars") {
-    clearShownJudgments();
+    if (summary.moved.length > 0) {
+      clearShownJudgments();
+    }
   } else if (refresh) {
     for (const path of summary.moved) {
       // `ratings` / `flags` / `labels` are kept: they are keyed by

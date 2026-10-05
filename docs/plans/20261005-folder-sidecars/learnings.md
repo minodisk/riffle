@@ -58,9 +58,9 @@
   `mapTrashDirs` (spread). `undoneTrash` now takes the whole `TrashRestored`
   and counts through `trash.ts`'s `restoredCount` (`count - failed.length`
   for sidecars, since `restored` lists RAWs only). `trashed()` takes `what`
-  and `rescan`: the delete run clears the strip and re-reads
+  and `rescan`: the delete run clears the strip (when it moved anything) and re-reads
   `folder_entries` (the backend cleared the rows), while a redo of a sidecar
-  run clears the strip and resyncs, because `trash_rejected_redo` does not
+  run clears the strip (only when it moved anything) and resyncs, because `trash_rejected_redo` does not
   clear the index (it cannot tell which RAW a sidecar path belongs to); the
   resync's reconcile clears the rows (clean row, gone sidecar).
 - The run button's class is set per kind (`button primary` / `button
