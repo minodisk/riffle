@@ -186,6 +186,10 @@ describe("opensTarget", () => {
     expect(opensTarget("/photos", ["/photos/2026"], true)).toBe(false);
   });
 
+  test("does not hold for a subfolder of the open folder when not recursive", () => {
+    expect(opensTarget("/photos", ["/photos/2026"], false)).toBe(false);
+  });
+
   test("holds for an open folder spelled in another case only when the case is ignored", () => {
     expect(opensTarget("d:\\photos\\2026", ["D:\\Photos\\2026"], false, true)).toBe(true);
     expect(opensTarget("d:\\photos\\2026", ["D:\\Photos\\2026"], false)).toBe(false);
