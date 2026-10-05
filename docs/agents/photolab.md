@@ -131,6 +131,13 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
 - macOS names are `COLLATE BINARY`, so they compare case-sensitively, unlike
   Windows' `NOCASE`. Riffle's paths come from `read_dir` and canonicalized
   folders, so they carry the on-disk case PhotoLab stored.
+- The macOS path-to-folder mapping walks `Path::components()`, which drops
+  interior `.` components (`/Users/./mino` equals `/Users/mino`); only a
+  leading `.` (a relative path) shows up as `CurDir`. So the mapping rejects
+  `..` and relative paths, and an interior `.` resolving to the same folder is
+  correct. A test that expects `/a/./b` to miss is wrong. The lookup does not
+  canonicalize itself: the folder open path already does (`commands::canonicalize`
+  in `list_arw` and the scan commands), so do not add a second canonicalize.
 - The macOS database path comes from scanning `~/Library`, not from the
   `DOPDatabasePath` key of the `com.dxo.PhotoLabN` preferences (a binary
   plist). If a user with a relocated database reports a miss, read that key
@@ -162,7 +169,8 @@ reached the master, so a Uuid-less `.dop` does not get around the lookup
 - An existing `.dop` is patched as before; the lookup only runs for a fresh
   one.
 - Source: `docs/plans/_archived/20260928-dop-photolab-uuids/learnings.md`;
-  `docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`.
+  `docs/plans/_archived/20261005-photolab-uuids-macos/plan.md`,
+  `docs/plans/_archived/20261005-photolab-uuids-macos/learnings.md`, Step 1.
 
 ## `photolab::lookup` keys on folder + file `Name`; a rename does not follow through to PhotoLab or a shared sidecar (Hit)
 
