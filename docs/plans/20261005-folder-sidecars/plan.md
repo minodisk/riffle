@@ -278,7 +278,7 @@ alternative under "Trade-offs and risks"):
       the format) and, for a JPEG folder, the same `raw_only`-style text
       Step 1 uses.
 
-- [ ] Step 3: Documentation, the `todo.md` close and the manual check item
+- [x] Step 3: Documentation, the `todo.md` close and the manual check item
   - Done when:
     - `docs/humans/usage.md` and `docs/humans/usage.ja.md` describe the two
       items where the folder menu is listed (the paragraph after `Move
