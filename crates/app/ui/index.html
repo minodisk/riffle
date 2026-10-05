@@ -389,6 +389,25 @@
       </div>
     </div>
     <div
+      id="sidecar-dialog"
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sidecar-title"
+      hidden
+    >
+      <div id="sidecar-box" class="dialog-box">
+        <h2 id="sidecar-title" class="dialog-title"></h2>
+        <ul id="sidecar-rows"></ul>
+        <p id="sidecar-total"></p>
+        <p id="sidecar-running" hidden></p>
+        <div class="dialog-actions">
+          <button id="sidecar-run" class="button primary" type="button"></button>
+          <button id="sidecar-cancel" class="button outline" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div
       id="settings-dialog"
       class="dialog"
       role="dialog"

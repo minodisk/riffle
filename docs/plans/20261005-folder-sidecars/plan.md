@@ -72,7 +72,7 @@ alternative under "Trade-offs and risks"):
 
 ## Steps
 
-- [ ] Step 1: `Rewrite Sidecars from Index…` end to end (backend commands, folder menu item, confirmation dialog)
+- [x] Step 1: `Rewrite Sidecars from Index…` end to end (backend commands, folder menu item, confirmation dialog)
   - Done when:
     - Right-clicking a single folder in the tree offers `Rewrite Sidecars
       from Index…` in a new group after the trash group and before

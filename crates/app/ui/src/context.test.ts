@@ -133,7 +133,7 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the refresh item, then the rename item, then the expand / collapse items, then the trash items, then the sequence item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the copy items, then the refresh item, then the rename item, then the expand / collapse items, then the trash items, then the rewrite sidecars item, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder", false)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
@@ -162,6 +162,14 @@ describe("folderMenuGroups", () => {
       ],
       [
         {
+          action: "rewriteSidecars",
+          label: "Rewrite Sidecars from Index…",
+          shortcut: "",
+          checked: undefined,
+        },
+      ],
+      [
+        {
           action: "sequenceTimestamps",
           label: "Sequence JPEG Timestamps…",
           shortcut: "",
@@ -179,6 +187,7 @@ describe("folderMenuGroups", () => {
       ["copyPath", "copyFolderName"],
       ["refreshFolder"],
       ["trashRejected"],
+      ["rewriteSidecars"],
       ["sequenceTimestamps"],
     ]);
   });
