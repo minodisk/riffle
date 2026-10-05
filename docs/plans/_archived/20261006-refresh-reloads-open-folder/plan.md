@@ -106,4 +106,4 @@ tells the menu item from `CmdOrCtrl+R`.
 
 ## Progress
 
-- (none yet)
+- (2026-10-06) Step 1 complete

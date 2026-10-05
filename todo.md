@@ -1324,3 +1324,17 @@ Files: `crates/app/ui/src/main.ts` (`openFolder`, the `tauri://focus` listener),
 - [ ] On Windows, run `mise run tauri:release:devtools` with timing logs on. With folder A open and its scan older than 5 s, choose File > Open Folder and pick folder B. Expect exactly one `scan list` / `scan prepare` / `scan extract` set, for B, and no `scan superseded` line.
 - [ ] On Windows, repeat with Settings > Clear Cache. Expect one set, for the reopen.
 - [ ] On Windows, alt-tab away from the app and back. Expect one set.
+
+### App: real-device check of Refresh on the open folder also reloading the strip
+
+#### Background
+
+The refresh-reloads-open-folder feature made the folder tree's right-click `Refresh` on the open folder also run `resync("refresh")`, the same rescan as `File > Reload Folder` (`CmdOrCtrl+R`). It logs a dedicated `trigger=refresh`, so `Riffle.log` tells the menu item from `CmdOrCtrl+R`. `refresh.test.ts`, `trash.test.ts` and `mise run ci` cover the trigger line and the same-folder decision. The behavior on a folder whose watch does not fire was never exercised on a real machine. Plan: docs/plans/_archived/20261006-refresh-reloads-open-folder/plan.md.
+
+Files: `crates/app/ui/src/main.ts` (the `refreshFolder` branch), `crates/app/ui/src/refresh.ts` (`RescanTrigger`).
+
+#### TODO
+
+- [ ] On Windows, open a folder on a share (or any volume) whose watch does not fire, add a RAW to it and edit a sidecar outside Riffle, then right-click the open folder in the tree and choose `Refresh`. Expected: the new file appears in the strip, the edited judgment is picked up, the tree's RAW count updates, and `Riffle.log` shows `rescan: trigger=refresh`.
+- [ ] On Windows, choose `Refresh` on the open folder during a running scan. Expected: `Riffle.log` shows `rescan deferred: trigger=refresh`, and the rescan runs when the scan ends.
+- [ ] On Windows, choose `Refresh` on a folder that is not open, including its parent or a subfolder. Expected: the strip is left untouched and only the tree re-lists.
