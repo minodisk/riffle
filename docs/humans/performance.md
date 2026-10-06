@@ -209,7 +209,9 @@ pass into the second (see "Which pass carries which cost" below), so
 ### Face detection cost
 
 The scan runs YuNet (2023mar, via `tract-onnx`) on each embedded preview,
-shrunk to a 320x320 input, before scoring sharpness on the eyes. That
+shrunk to a 320x320 input (640x448 for the whole-image search since
+"Whole-image recall (Windows 11)" below), before scoring sharpness on the
+eyes. That
 detection now runs in the second pass, not the first (see "Which pass carries
 which cost" below); the measurements in this section predate the move and
 time it inside `riffle-cli scan`. Measured so
@@ -279,7 +281,10 @@ detection, which keeps the p95 above the pre-detection baseline.
 Recall: on the same samples the detector found no face in 29 of the 36 DNGs
 (9 of the 39 ARWs). Visual checks show boxes on the faces, but a group of 7
 people on a swing (`L1005161.DNG`) yielded 2, and a basketball player in
-three-quarter profile was missed.
+three-quarter profile was missed. A hand count later showed that almost all
+of those frames do contain faces, mostly 55-120 preview px, too small at the
+320 px input; the whole-image search now uses a larger input (see
+"Whole-image recall (Windows 11)" below).
 
 Files with a trusted AF point but no camera face tracking now search a
 480x480 crop of the upright preview around the AF point instead of the whole
@@ -313,6 +318,72 @@ The first call of a session also builds the model. A cold read
 from a card or a slow disk adds its own latency on top; that, and the IPC and
 redraw in the app, are not measured here. The timing ran from a temporary
 `#[ignore]`d test removed before committing.
+
+#### Whole-image recall (Windows 11)
+
+Files without a trusted AF point (every Leica M file, Sony manual focus) are
+searched on the whole upright preview. That search now feeds YuNet a 640x448
+input (448x640 for a portrait frame, `faces::WHOLE_INPUT`) instead of the
+320x320 square, so a 2112 px preview shrinks 3.3x instead of 6.6x and the
+3:2 frame fills the input without a padded third. The crop around a trusted
+AF point keeps the 320 px input, so the focus candidate cue does not change:
+`riffle-cli candidates` printed the same per-file lines, AUC, precision and
+coverage on the nine labeled folders and on the 2134-ARW folder before and
+after.
+
+Measured on 2026-10-06 on Windows 11 (Intel Core i7-13700, 24 hardware
+threads, 32 GB), release `riffle-cli`, files read from the local NTFS drive,
+warm page cache, before and after alternated. Recall is against a hand count
+of 36 M11-P DNGs sampled evenly from a 146-DNG folder plus the swing group
+`L1005161.DNG`: 34 of the 36 contain a face, 71 faces in all (faces below
+about 40 px, cut by the frame or too occluded are left out). The faces found
+were checked by eye on the `riffle-cli faces` images: every box sits on a
+face, and the two files with no countable face get none.
+
+| Model input | Files with a face found (of 34) | Faces found (of 71) | `L1005161` (of 7) | Files / faces at score >= 0.8 |
+|-------------|--------------------------------|---------------------|-------------------|-------------------------------|
+| 320x320 (before) | 8 | 10 | 2 | 4 / 6 |
+| 320x320, score threshold 0.3 | 16 | 25 | 5 | 4 / 6 |
+| 480x480 | 18 | 26 | 6 | 13 / 16 |
+| 576x384 | 24 | 32 | 7 | 18 / 23 |
+| 640x640 | 23 | 35 | 6 | 19 / 25 |
+| 640x448 (now) | 23 | 36 | 6 | 19 / 25 |
+| 704x480 | 26 | 44 | 7 | 22 / 30 |
+
+The sharpness score only uses a face scoring at least 0.8
+(`sharpness::FACE_CONFIDENCE`), so lowering the score threshold only adds
+low-scoring boxes to the `f` mark; a larger input is what moves faces above
+0.8. The missed faces left are mostly under goggles or neck warmers, turned
+away, backlit or blurred; in `L1005161.DNG` the one missed is the woman
+half hidden behind the toddler.
+
+Cost per file on the 37 DNGs, `riffle-cli detect` (one thread; "detection"
+includes the upright copy and the downscale into the input), three runs each:
+
+| Model input | Decode mean | Detection mean / median / p95 | Inference alone |
+|-------------|-------------|-------------------------------|-----------------|
+| 320x320 (before) | 14.0-14.2ms | 24.2-25.0 / 24.1-24.3 / 25.5-30.4ms | 20.1ms |
+| 640x448 (now) | 14.0-14.1ms | 63.9-64.0 / 63.1-63.8 / 67.7-69.9ms | 59.6ms |
+
+The inference alone at the other inputs: 480x480 45ms, 576x384 46ms,
+640x640 85-87ms, 704x480 69ms. With the decode at full size, a whole-image
+file costs about 78ms instead of 38.5ms; a DCT-scaled decode of the preview
+(3/8 of 2112 px is 792 px, 4.6ms against 14ms) would bring it to about 65ms.
+
+`riffle-cli candidates <dir>` (pass 2) on the 146-DNG folder, three runs
+each:
+
+| Threads | Before | After |
+|---------|--------|-------|
+| 24 | 1.21 / 1.18 / 1.03s | 2.14 / 2.23 / 2.24s |
+| 1 | 7.40 / 7.60 / 7.54s (51.6ms/file) | 13.76 / 14.19 / 15.43s (98.7ms/file) |
+
+`riffle-cli scan` (pass 1) does not detect and did not change (0.17-0.18s on
+24 threads, 1.92-2.01s on one). On the 2134-ARW folder, where every file has
+a trusted AF point, `candidates` on 24 threads took 15.24 / 13.54 / 13.82s
+before and 13.68 / 13.90 / 11.81s after, and its peak working set stayed at
+393-399 MB; on the 146-DNG folder the peak rose from 509-514 MB to 646 MB
+(the 640x448 plans and their buffers on 24 workers).
 
 #### Focus candidate pass
 
@@ -370,7 +441,7 @@ focus candidate cue and the sharpness score:
 |------|-------------|----------|
 | Bounded read, metadata parse, thumbnail | first | first |
 | Sharpness score (grayscale decode + window, ~3ms) | first | second |
-| Whole-preview face search without a trusted AF point (~17ms) | first | second |
+| Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows) | first | second |
 | Focus candidate cue (crop detection + eye window) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
 

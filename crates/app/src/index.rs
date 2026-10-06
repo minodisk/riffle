@@ -119,8 +119,11 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// re-runs it after the probability moved to its own `eye_focus` column. It
 /// stayed `3` when the score moved here from the first pass: a row whose score
 /// the first pass wrote keeps it, and one the second pass has not reached yet
-/// gets the same score from it.
-pub const FACES_VERSION: i64 = 3;
+/// gets the same score from it. `4` re-runs it after the whole-image face
+/// search (files without a trusted AF point) moved from the 320 px square
+/// model input to `faces::WHOLE_INPUT`, which finds more small faces, so the
+/// sharpness score of those files can move to an eye window.
+pub const FACES_VERSION: i64 = 4;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on

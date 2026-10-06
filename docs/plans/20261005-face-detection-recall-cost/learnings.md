@@ -126,3 +126,139 @@ exactly. The per-file lines are saved for the Step 2 / 3 identity check.
 - The first `mise run ci` failed on clippy's `type_complexity` for
   `Vec<Result<(bool, Vec<Face>, f64, f64)>>`; the tuple became the small
   `Detected` struct.
+
+## Step 2: a larger model input for the whole-image path (2026-10-06)
+
+### What landed
+
+- `faces::WHOLE_INPUT = (640, 448)`: the whole-image search (`detect_around`
+  with no AF point, through the new `faces::detect_whole`) runs YuNet at
+  640x448, or 448x640 for a portrait upright image. `detect` and the
+  `CATCH_CROP` path keep the 320x320 `INPUT`.
+- One optimized plan per input (`faces::Input`: square, landscape,
+  portrait), each in its own `OnceLock` of a `static` array, built on first
+  use. `input_tensor` and `decode_stride` take the input's width and height
+  (the stride grid is `width / stride` cells per row); the scale is `fit`,
+  the smaller of the two axis ratios, so a 4:3 image fits the 640x448 input
+  at 597 px.
+- `SCORE_THRESHOLD` / `CATCH_CONFIDENCE` unchanged on both paths.
+- `riffle-cli detect` builds the landscape and portrait plans before the
+  timing too (without that, the first landscape and the first portrait file
+  each paid ~35-40 ms of plan build); `bench` gains row
+  `5. whole-image detection`.
+- `FACES_VERSION` 3 -> 4.
+
+### Measurements (Windows 11 machine of Step 1, release, warm cache)
+
+The outputs are in `D:\Photos\tests\2026-10-06-face-recall\step2\`
+(`before-*` / `after-*` per command, `d*-030.txt` / `r*.txt` for the
+experiments, `png\` the `riffle-cli faces` images of the 37 files with the
+new detector, `score.py` the scoring against `faces-truth.md`). The before
+binary is `main` at `d03356d7`; its `detect` lines are identical to the
+Step 1 baseline.
+
+Option (c), the score threshold alone (320 input, threshold lowered for
+the experiment and the found faces counted at each score):
+
+| Threshold | Files (of 34) | Faces (of 71) | `L1005161` | Files / faces at >= 0.8 |
+|---|---|---|---|---|
+| 0.6 (main) | 8 | 10 | 2 | 4 / 6 |
+| 0.5 | 11 | 13 | 3 | 4 / 6 |
+| 0.4 | 13 | 18 | 4 | 4 / 6 |
+| 0.3 | 16 | 25 | 5 | 4 / 6 |
+
+It adds low-scoring boxes only; the sharpness score's `FACE_CONFIDENCE` 0.8
+sees nothing new, so (c) was dropped. Larger inputs, at the 0.6 threshold
+(files, faces, `L1005161`, files / faces >= 0.8, and the bare tract run per
+file on one thread):
+
+| Input | Files | Faces | `L1005161` | >= 0.8 | Inference |
+|---|---|---|---|---|---|
+| 320x320 | 8 | 10 | 2 | 4 / 6 | 20.1 ms |
+| 416x416 | 14 | 19 | 4 | 5 / 6 | 33.9 ms |
+| 480x480 | 18 | 26 | 6 | 13 / 16 | 45.2 ms |
+| 512x512 | 19 | 27 | 6 | 15 / 17 | 57.9 ms |
+| 576x576 | 24 | 32 | 7 | 18 / 23 | 66.8 ms |
+| 576x384 | 24 | 32 | 7 | 18 / 23 | 45.7 ms |
+| 640x640 | 23 | 35 | 6 | 19 / 25 | 84.7-87.4 ms |
+| 640x448 | 23 | 36 | 6 | 19 / 25 | 59.6 ms |
+| 704x480 | 26 | 44 | 7 | 22 / 30 | 68.9 ms |
+| 736x736 | 26 | 39 | 7 | 23 / 32 | (detection 117 ms) |
+
+- A rectangular input with the preview's 3:2 shape gives the square's
+  recall at about 2/3 of its cost (the square leaves a third as padding).
+  Tiling (b) was not tried: a 640x448 single run already costs less than four
+  320 tiles would (4 x 20 ms plus the overlap), with no border merge.
+- Chosen: 640x448. It clears the plan's targets (more files with a face:
+  8 -> 23 of 34; `L1005161` 6 of 7, at least 5 required) and stays under the
+  budget after Step 3 with margin. 704x480 recalls more (26 / 44 / 7) but
+  would land at ~75 ms after Step 3, at the budget's edge; 576x384 is cheaper
+  (~52 ms after Step 3) with 18 / 23 at >= 0.8 against 19 / 25.
+- False faces: checked by eye on the new PNGs. Every box is on a face; the
+  two files with no countable face (`L1005393`, `L1005473`) get none.
+  Over-counts against the truth table are marginal faces the counting rule
+  left out (e.g. the ~50 px goggled skier of `L1005294`, found at 0.66).
+  `L1005161`: the six found are all real; the one missed is the woman in
+  the middle, half behind the toddler's head.
+- The model-input scores move a little on the large faces too:
+  `L1005568`'s 372 px face went from 0.80 to 0.75 (its other face, 0.88, is
+  still the one the sharpness window takes).
+
+`riffle-cli detect` on the 37 DNGs, one thread, alternated, three runs:
+before decode 14.0-14.2 ms, detection mean 24.2-25.0 ms (median 24.1-24.3,
+p95 25.5-30.4); after decode 14.0-14.1 ms, detection 63.9-64.0 ms (median
+63.1-63.8, p95 67.7-69.9). 24 files with a face, 42 faces (12 before).
+
+Budget: whole-image decode + detection is now ~78 ms per file against the
+Step 1 baseline of 38.5 ms (2.0x, the user's limit of ~77 ms, before
+Step 3). The DCT-scaled decode the 640 input needs is 3/8 (2112 -> 792 px),
+which took 4.6 ms on these files (2/8 4.5 ms, 4/8 6.9 ms, full 14 ms;
+measured with a temporary helper, removed), and the upright copy and
+box-average shrink with it (~4.5 ms of the 64 ms today at full size). Expected
+after Step 3: ~4.6 + ~1 + 59.6 = **~65 ms**, about 1.7x the baseline.
+
+`riffle-cli candidates` on the 146-DNG folder (before / after, three runs
+each): 24 threads 1.21 / 1.18 / 1.03 s -> 2.14 / 2.23 / 2.24 s; one thread
+7.40 / 7.60 / 7.54 s -> 13.76 / 14.19 / 15.43 s (51.6 -> 98.7 ms per
+file). `scan` unchanged (24 threads 0.17-0.18 s; 1 thread 1.92-2.01 s, the
+first before-run at 24 threads, 0.91 s, was a cold outlier).
+
+Labeled folders: `candidates` on the five training and four held-out
+folders at 24 threads prints exactly the Step 1 baseline lines (diff empty
+apart from the wall-time line): training 333 / 310 / 93.1% / 91.4% / AUC
+0.816 / 0.852, held-out 366 / 326 / 89.1% / 95.3% / 0.635 / 0.754. The
+2134-ARW folder's per-file lines are identical too, and its time did not
+rise: 15.24 / 13.54 / 13.82 s before, 13.68 / 13.90 / 11.81 s after
+(alternated; the spread is the machine's).
+
+Peak working set of `candidates <dir> 24` (polled from PowerShell, two runs
+each): 2134 ARWs 393 / 396 MB before, 393 / 399 MB after (no file there
+takes the whole-image path, so the 640x448 plans are never built); 146 DNGs
+509 / 514 MB before, 646 / 646 MB after.
+
+### Notes
+
+- The `#[ignore]`d real-image test still passes (run with a JPEG made from
+  the `L1005553` PNG; it uses `detect`, the 320 input).
+- `bench` row 5 was noisier than `detect` on a first try (mean 81.7 ms on
+  10 DNGs, p95 119 ms); `detect` is the number to compare.
+- A heredoc containing Python with nested `'''` strings once failed in the
+  Bash tool with "unexpected EOF while looking for matching"; the Edit tool
+  was used for those edits instead.
+
+## Deferred issues (todo candidates)
+
+- If Step 3 lands well under the budget, consider 704x480 for the
+  whole-image input (files 26 / faces 44 / `L1005161` 7 of 7, 22 / 30 at
+  >= 0.8, against 23 / 36 / 6 and 19 / 25 now; inference 69 ms against
+  59.6 ms). Basis: Step 2 measurements in
+  `docs/plans/20261005-face-detection-recall-cost/learnings.md`; files
+  `crates/core/src/faces.rs` (`WHOLE_INPUT`), `crates/app/src/index.rs`
+  (`FACES_VERSION`).
+- Pending manual check (app, Windows or macOS): open
+  `D:\photos\2026\2026-02-01` in the app after updating, let the second pass
+  re-run (`FACES_VERSION` 4), and press `f` on `L1005161.DNG`: six face boxes
+  should be drawn (all but the woman in the middle), and on `L1005233.DNG`
+  (portrait) none, as `riffle-cli faces` shows. The step's checkbox was
+  ticked on the automated criteria (`riffle-cli detect` / `candidates` and
+  the PNGs); the GUI was not run.
