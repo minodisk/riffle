@@ -51,6 +51,14 @@ Rules:
   tiny JSON file, so the blocking cost is negligible. Reach for
   `spawn_blocking` when the IO is unbounded or can block on something other
   than a small local file.
+- Making a fire-and-forget command off-main is only a signature change: an
+  `async fn` with no return type and owned arguments (`String`, not `&str`)
+  compiles as is, as `log_timing` does. Borrowed arguments (`&str`, `State`)
+  in an `async` command force a `Result` return, so take owned values when
+  the command only forwards a line. This applies only when the body does not
+  block; blocking IO still needs `spawn_blocking` (see above). Source:
+  `docs/plans/_archived/20261006-log-timing-off-main-thread/learnings.md`,
+  Step 1.
 - Hit again on the folder-open path: `list_arw` was a synchronous command
   that `stat`ed every entry (`path.is_file()`). With a scan reading the same
   drive, `open list` took 4.6-7.4 s for a few hundred RAWs on Windows, the
