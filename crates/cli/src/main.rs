@@ -591,12 +591,21 @@ fn detect(inputs: &[PathBuf], threads: Option<usize>) -> Result<()> {
             .map(|p| {
                 let (a, jpeg) = reader::read_preview(p)?;
                 let focus = sharpness::trusted_focus(&a.shot);
-                let t = Instant::now();
-                let (rgb, w, h) = decode_rgb(&jpeg)?;
-                let decode = t.elapsed().as_secs_f64() * 1000.0;
-                let t = Instant::now();
-                let d = faces::detect_around_rgb(&rgb, w, h, a.orientation, focus)?;
-                let detection = t.elapsed().as_secs_f64() * 1000.0;
+                let (d, decode, detection) = if focus.is_some() {
+                    let t = Instant::now();
+                    let (rgb, w, h) = decode_rgb(&jpeg)?;
+                    let decode = t.elapsed().as_secs_f64() * 1000.0;
+                    let t = Instant::now();
+                    let d = faces::detect_around_rgb(&rgb, w, h, a.orientation, focus)?;
+                    (d, decode, t.elapsed().as_secs_f64() * 1000.0)
+                } else {
+                    let t = Instant::now();
+                    let image = faces::decode_whole(&jpeg, a.orientation)?;
+                    let decode = t.elapsed().as_secs_f64() * 1000.0;
+                    let t = Instant::now();
+                    let d = faces::detect_whole_upright(&image, a.orientation)?;
+                    (d, decode, t.elapsed().as_secs_f64() * 1000.0)
+                };
                 Ok(Detected {
                     crop: focus.is_some(),
                     faces: d.faces,

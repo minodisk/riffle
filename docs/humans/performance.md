@@ -347,7 +347,8 @@ face, and the two files with no countable face get none.
 | 480x480 | 18 | 26 | 6 | 13 / 16 |
 | 576x384 | 24 | 32 | 7 | 18 / 23 |
 | 640x640 | 23 | 35 | 6 | 19 / 25 |
-| 640x448 (now) | 23 | 36 | 6 | 19 / 25 |
+| 640x448, full-size decode | 23 | 36 | 6 | 19 / 25 |
+| 640x448, 3/8 decode (now) | 23 | 37 | 7 | 19 / 24 |
 | 704x480 | 26 | 44 | 7 | 22 / 30 |
 
 The sharpness score only uses a face scoring at least 0.8
@@ -363,12 +364,12 @@ includes the upright copy and the downscale into the input), three runs each:
 | Model input | Decode mean | Detection mean / median / p95 | Inference alone |
 |-------------|-------------|-------------------------------|-----------------|
 | 320x320 (before) | 14.0-14.2ms | 24.2-25.0 / 24.1-24.3 / 25.5-30.4ms | 20.1ms |
-| 640x448 (now) | 14.0-14.1ms | 63.9-64.0 / 63.1-63.8 / 67.7-69.9ms | 59.6ms |
+| 640x448, full-size decode | 14.0-14.1ms | 63.9-64.0 / 63.1-63.8 / 67.7-69.9ms | 59.6ms |
 
 The inference alone at the other inputs: 480x480 45ms, 576x384 46ms,
 640x640 85-87ms, 704x480 69ms. With the decode at full size, a whole-image
-file costs about 78ms instead of 38.5ms; a DCT-scaled decode of the preview
-(3/8 of 2112 px is 792 px, 4.6ms against 14ms) would bring it to about 65ms.
+file costs about 78ms instead of 38.5ms; the DCT-scaled decode below brings
+it back to about 65ms.
 
 `riffle-cli candidates <dir>` (pass 2) on the 146-DNG folder, three runs
 each:
@@ -384,6 +385,57 @@ a trusted AF point, `candidates` on 24 threads took 15.24 / 13.54 / 13.82s
 before and 13.68 / 13.90 / 11.81s after, and its peak working set stayed at
 393-399 MB; on the 146-DNG folder the peak rose from 509-514 MB to 646 MB
 (the 640x448 plans and their buffers on 24 workers).
+
+#### DCT-scaled decode for the whole-image search (Windows 11)
+
+The whole-image search no longer decodes the preview at full size: it
+decodes it at the smallest `n/8` scale whose long edge is not below the
+640 px of the model input (`faces::decode_whole`; 3/8 for a 2112 px DNG
+preview, 792x528, 4/8 for a 1616 px ARW one), rotates that upright, and maps
+the faces back to the stored preview's pixels. The model input is still
+box-averaged down from at least its own size, but from different pixels, so
+the scores move by a few hundredths: on the 37 DNGs one more face is found
+(the seventh person of `L1005161.DNG`, the woman half behind the toddler, at
+0.64), files with a face found stay at 23 of 34, and one face dropped from
+0.80 to 0.79 (19 / 24 at >= 0.8 instead of 19 / 25). The new boxes were
+checked by eye: all on faces, none on the two empty files.
+
+Same machine and setup as above, the build of the previous section against
+this one, alternated, six runs each. The machine ran slower that day than
+for the previous section (the same full-size build took 86.8ms per file
+instead of 78ms), so compare within the table:
+
+| Decode | Decode mean | Detection mean / median / p95 | Decode + detection |
+|--------|-------------|-------------------------------|--------------------|
+| Full size (before) | 14.4-16.5ms | 68.0-72.9 / 67.3-72.3 / 75.4-83.8ms | 86.8ms |
+| 3/8 (now) | 5.0-5.5ms | 65.1-70.5 / 64.5-67.9 / 70.0-98.5ms | 72.4ms |
+
+The decode drops by about 10.5ms and the upright copy and the downscale into
+the input by about 4ms, 17% of the file. Scaled to the previous section's
+day, that is about 65ms per file, 1.7x the 38.5ms of the 320x320 search
+before the larger input.
+
+`riffle-cli candidates` (pass 2), three runs each: on the 146-DNG folder
+2.35 / 2.69 / 2.43s -> 2.01 / 2.14 / 2.18s on 24 threads and 17.31 / 16.04 /
+16.23s -> 14.98 / 12.14 / 13.03s on one (113 -> 92ms per file); on the
+2134-ARW folder, which takes the crop path only and printed the same
+per-file lines, 15.32 / 14.94 / 14.91s -> 12.54 / 13.38 / 13.75s (no code on
+that path changed, so this is the machine's spread). `riffle-cli scan` does
+not detect: 0.22-0.26s -> 0.20-0.23s on the DNGs, 2.07-2.32s -> 2.00-2.15s on
+the ARWs. On the nine labeled folders `candidates` printed exactly the lines,
+AUC, precision and coverage of before.
+
+The crop path keeps its single full-size RGB decode. Decoding the preview
+twice instead, a full-size grayscale for the eye window's luma and a 6/8 RGB
+for the crop (which then is 360 px of the scaled image instead of 480 of the
+full one), was 11.6ms against 13.6ms per file (decode, luma and upright
+copy, one thread, the 2134 ARWs, two runs). It does not keep the judgment:
+mozjpeg's grayscale is the JPEG's Y channel rather than the BT.601 luma
+of the decoded RGB, and the crop's model input comes from other pixels. On
+the training folders 16 files changed state (faced frames 406 -> 404,
+candidates 333 -> 329, precision 93.6%, coverage 91.4%, AUC 0.819 / 0.856),
+on the held-out ones 6 (400 -> 399, 366 -> 363, 89.3%, 95.0%, AUC 0.646 /
+0.769), so it was not adopted.
 
 #### Focus candidate pass
 
@@ -441,7 +493,7 @@ focus candidate cue and the sharpness score:
 |------|-------------|----------|
 | Bounded read, metadata parse, thumbnail | first | first |
 | Sharpness score (grayscale decode + window, ~3ms) | first | second |
-| Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows) | first | second |
+| Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows, after a 3/8 decode of ~5ms instead of the full-size ~14ms) | first | second |
 | Focus candidate cue (crop detection + eye window) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
 

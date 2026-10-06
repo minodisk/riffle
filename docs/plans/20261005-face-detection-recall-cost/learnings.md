@@ -246,7 +246,105 @@ takes the whole-image path, so the 640x448 plans are never built); 146 DNGs
   Bash tool with "unexpected EOF while looking for matching"; the Edit tool
   was used for those edits instead.
 
+## Step 3: a DCT-scaled decode for the whole-image search (2026-10-06)
+
+### What landed
+
+- `decode::decode_upright_near(jpeg, orientation, long_edge) -> Upright`
+  (the RGB upright at the smallest `n/8` whose long edge is not below
+  `long_edge`, its upright size, and the stored header size), in the same
+  `catch_unwind` as `decode_rgb`. The scale rule is `scale_near`, now shared
+  with `thumbnail_jpeg_near` (same output, the existing test still compares it
+  with `thumbnail_jpeg`). Rotating inside the helper (as `preview_jpeg` does)
+  let the decode tests cover the orientation mapping the plan asked for.
+- `faces::decode_whole` (long edge `WHOLE_INPUT.0`, 640) and
+  `faces::detect_whole_upright`, which `detect_around` takes when `focus` is
+  `None`; `scaled_to_stored` maps each face by the per-axis ratio of the
+  stored upright size to the decoded one, then `to_stored`. `Detection`
+  keeps the stored width / height. `detect_around_rgb` (the cue path, and
+  any caller with a full-size RGB) is unchanged, including its `None` branch,
+  which still searches the full-size image it is given.
+- `riffle-cli detect` times `decode_whole` and `detect_whole_upright` on the
+  whole path, `decode_rgb` and `detect_around_rgb` on the crop path.
+- `FACES_VERSION` 4 -> 5.
+
+### Measurements (same Windows 11 machine, release, warm cache)
+
+Outputs in `D:\Photos\tests\2026-10-06-face-recall\step3\`
+(`riffle-cli-before.exe` is `main` at `9ba5daf6`, the Step 2 merge;
+`before-*` / `after-*`, `cand-*.txt` for the labeled folders,
+`variant-*.txt` and `cuebench-*.txt` for the cue-path experiment, `png\` the
+`riffle-cli faces` images of the files whose result changed).
+
+- The machine ran ~11% slower than during Step 2 (the same before binary:
+  86.8 ms decode + detection per file against 78 ms). Six alternated
+  `detect` runs on the 37 DNGs, one thread: before decode 14.4-16.5 ms,
+  detection 68.0-72.9 ms (mean of means 15.9 + 70.9 = 86.8 ms); after decode
+  5.0-5.5 ms, detection 65.1-70.5 ms (5.2 + 67.2 = 72.4 ms). -17%. Scaled to
+  Step 2's day, ~65 ms, 1.7x the Step 1 baseline of 38.5 ms, under the
+  ~77 ms budget. The detection part dropped only ~4 ms (upright copy and
+  box-average from 792 instead of 2112 px); the 59.6 ms inference dominates.
+- Recall (`step2\score.py`): files 23 / 34 (same), faces 36 -> 37 / 71,
+  `L1005161` 6 -> 7 / 7 (the woman half behind the toddler now found at
+  0.64), no excess, no face on the two empty files. At >= 0.8: 19 / 25 ->
+  19 / 24 (`L1005164`'s third face 0.80 -> 0.79). Per-file changes: scores
+  move by a few hundredths and boxes by a few px; `L1005370` lost its 0.61
+  second box, `L1005703` and `L1005709` gained one low-scoring real face each
+  (checked on the PNGs).
+- `candidates` on the nine labeled folders: identical lines to the Step 1
+  baseline apart from the wall time; the 2134-ARW folder's per-file lines are
+  identical before / after.
+- `candidates`, before / after, three alternated runs: 146 DNGs 24 threads
+  2.35 / 2.69 / 2.43 -> 2.01 / 2.14 / 2.18 s, one thread 17.31 / 16.04 /
+  16.23 -> 14.98 / 12.14 / 13.03 s; 2134 ARWs 24 threads 15.32 / 14.94 /
+  14.91 -> 12.54 / 13.38 / 13.75 s (unchanged path, so noise). `scan`
+  unchanged code: DNG 0.22-0.26 -> 0.20-0.23 s, ARW 2.07-2.32 -> 2.00-2.15 s.
+
+### Cue-path variant (not adopted)
+
+- Timed with a temporary `cuebench` subcommand (removed): per trusted-AF
+  file of the 2134 ARWs, one thread, (A) full RGB decode + `candidate::luma`
+  + `upright_rgb` against (B) full grayscale decode + 6/8 RGB decode +
+  `upright_rgb`: A 13.6 ms mean (median 13.3), B 11.6 ms (11.2-11.3), two
+  runs. B is faster, so the identity check ran.
+- Identity, with a temporary env-gated `variant` in `candidate.rs` (removed;
+  the crop became `CATCH_CROP / k` = 360 px of the 6/8 image, mapped back by
+  the size ratio): training 16 per-file states changed, faced 406 -> 404,
+  candidates 333 -> 329, precision 93.6%, coverage 91.4%, AUC 0.819 / 0.856;
+  held-out 6 changed, 400 -> 399, 366 -> 363, 89.3%, 95.0%, AUC 0.646 /
+  0.769. Not identical, so the single full RGB decode stays. (The plan
+  expected this: mozjpeg's grayscale is the Y channel, not the BT.601
+  integer luma of the RGB, and the crop's pixels differ.)
+
+### Notes
+
+- The Bash heredoc problem of Step 2 struck again for a Python script with
+  `'''` strings; writing the script to the scratchpad with the Write tool
+  and running it worked.
+- `riffle-cli candidates` on one thread is ~92 ms per DNG against ~72 ms of
+  `detect`: the remaining ~20 ms are the read and `score_preview`, whose own
+  full-size grayscale decode (the third decode on this path) is now larger
+  than the detection decode.
+
 ## Deferred issues (todo candidates)
+
+- The no-AF-point path still decodes the preview a second time in
+  `sharpness::score_preview` (full-size grayscale, several ms of the ~20 ms
+  per DNG left outside `detect`), now more than the 3/8 detection decode.
+  A follow-up could score from one decode, but the score's window and its
+  stored values would change (a `FACES_VERSION` bump). Basis: plan Step 3
+  "Out of scope", Step 3 measurements above; files
+  `crates/core/src/scan.rs` (`extract_analysis_unless`, `score`),
+  `crates/core/src/sharpness.rs` (`score_preview`).
+- Pending manual check (app, Windows or macOS), replacing Step 2's: open
+  `D:\photos\2026\2026-02-01` in the app after updating, let the second pass
+  re-run (`FACES_VERSION` 5), and press `f` on `L1005161.DNG`: seven face
+  boxes should be drawn (all seven people, as
+  `D:\Photos\tests\2026-10-06-face-recall\step3\png\L1005161.png` shows), on
+  the stored preview's scale (boxes on the faces, not shrunk to the top-left
+  3/8), and on `L1005233.DNG` (portrait) none. The step's checkbox was ticked
+  on the automated criteria (`riffle-cli detect` / `candidates`, unit tests
+  and the PNGs); the GUI was not run.
 
 - If Step 3 lands well under the budget, consider 704x480 for the
   whole-image input (files 26 / faces 44 / `L1005161` 7 of 7, 22 / 30 at

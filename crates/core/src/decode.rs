@@ -18,6 +18,58 @@ fn decode_rgb_unguarded(jpeg: &[u8]) -> Result<(Vec<u8>, usize, usize)> {
     Ok((flat, w, h))
 }
 
+/// An image decoded at a DCT scale and rotated upright.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Upright {
+    pub rgb: Vec<u8>,
+    /// The upright size of `rgb`.
+    pub width: usize,
+    pub height: usize,
+    /// The stored (unrotated, unscaled) size of the JPEG it came from.
+    pub stored: (usize, usize),
+}
+
+/// Decode a JPEG at the smallest `n/8` scale whose long edge is not below
+/// `long_edge` (8/8 when the source is smaller), the rule of
+/// `thumbnail_jpeg_near`, and rotate it upright per `orientation`.
+pub fn decode_upright_near(jpeg: &[u8], orientation: u16, long_edge: usize) -> Result<Upright> {
+    // mozjpeg reports malformed input by panicking, not by returning an error.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        decode_upright_near_unguarded(jpeg, orientation, long_edge)
+    }))
+    .map_err(|_| anyhow::anyhow!("panic while decoding the JPEG"))?
+}
+
+fn decode_upright_near_unguarded(
+    jpeg: &[u8],
+    orientation: u16,
+    long_edge: usize,
+) -> Result<Upright> {
+    let mut d = mozjpeg::Decompress::new_mem(jpeg)?;
+    let stored = (d.width(), d.height());
+    d.scale(scale_near(stored.0.max(stored.1), long_edge));
+    let mut d = d.rgb()?;
+    let (w, h) = (d.width(), d.height());
+    let pixels: Vec<[u8; 3]> = d.read_scanlines()?;
+    d.finish()?;
+    let rgb: Vec<u8> = pixels.into_iter().flatten().collect();
+    let (rgb, width, height) = crate::faces::upright_rgb(&rgb, w, h, orientation);
+    Ok(Upright {
+        rgb,
+        width,
+        height,
+        stored,
+    })
+}
+
+/// The smallest `n/8` scale whose long edge, `ceil(native * n / 8)` as
+/// mozjpeg sizes it, is not below `long_edge`; 8 when none is.
+fn scale_near(native: usize, long_edge: usize) -> u8 {
+    (1..=8u8)
+        .find(|&n| (native * usize::from(n)).div_ceil(8) >= long_edge)
+        .unwrap_or(8)
+}
+
 /// Rotate an RGB buffer per the Orientation tag. Only 1/6/8 show up in ARW files.
 pub fn apply_orientation(
     rgb: &[u8],
@@ -69,11 +121,7 @@ pub fn thumbnail_jpeg(preview_jpeg: &[u8], quality: f32) -> Result<Vec<u8>> {
 pub fn thumbnail_jpeg_near(jpeg: &[u8], long_edge: usize, quality: f32) -> Result<Vec<u8>> {
     scaled_thumbnail(
         jpeg,
-        |native| {
-            (1..=8u8)
-                .find(|&n| (native * usize::from(n)).div_ceil(8) >= long_edge)
-                .unwrap_or(8)
-        },
+        |native| scale_near(native, long_edge),
         Some(long_edge),
         quality,
     )
@@ -273,6 +321,66 @@ mod tests {
     fn preview_falls_back_to_an_eighth_below_it() {
         let (_, w, h) = preview_jpeg(&jpeg(1616, 1080), 1, 100, 75.0).unwrap();
         assert_eq!((w, h), (202, 135));
+    }
+
+    #[test]
+    fn the_near_scale_is_the_smallest_eighth_not_below_the_long_edge() {
+        assert_eq!(scale_near(2112, 640), 3);
+        assert_eq!(scale_near(1616, 640), 4);
+        assert_eq!(scale_near(6000, 640), 1);
+        assert_eq!(scale_near(1704, 640), 4);
+        assert_eq!(scale_near(1709, 640), 3);
+        assert_eq!(scale_near(500, 640), 8);
+    }
+
+    #[test]
+    fn a_near_decode_has_the_scaled_size_and_the_stored_one() {
+        for ((w, h), orientation, want) in [
+            ((2112, 1408), 1, (792, 528)),
+            ((2100, 1401), 1, (788, 526)),
+            ((1616, 1080), 6, (540, 808)),
+            ((1616, 1080), 8, (540, 808)),
+            ((1616, 1080), 3, (808, 540)),
+            ((400, 300), 1, (400, 300)),
+        ] {
+            let d = decode_upright_near(&jpeg(w, h), orientation, 640).unwrap();
+            assert_eq!((d.width, d.height), want, "{w}x{h} {orientation}");
+            assert_eq!(d.stored, (w, h));
+            assert_eq!(d.rgb.len(), d.width * d.height * 3);
+        }
+    }
+
+    #[test]
+    fn a_near_decode_is_rotated_upright() {
+        // Red rises left to right and green top to bottom in the source.
+        let at = |d: &Upright, x: usize, y: usize| {
+            let i = (y * d.width + x) * 3;
+            (d.rgb[i], d.rgb[i + 1])
+        };
+        let src = jpeg(1616, 1080);
+        let d = decode_upright_near(&src, 1, 640).unwrap();
+        let (r, g) = at(&d, d.width - 1, d.height / 2);
+        assert!(r > 224 && (96..160).contains(&g), "1: ({r}, {g})");
+        // 6: the source's left edge (red 0) is the top, its top (green 0)
+        // the right.
+        let d = decode_upright_near(&src, 6, 640).unwrap();
+        let (r, _) = at(&d, d.width / 2, 0);
+        let (_, g) = at(&d, d.width - 1, d.height / 2);
+        assert!(r < 32 && g < 32, "6: red {r}, green {g}");
+        // 8: the source's left edge is the bottom, its top the left.
+        let d = decode_upright_near(&src, 8, 640).unwrap();
+        let (r, _) = at(&d, d.width / 2, d.height - 1);
+        let (_, g) = at(&d, 0, d.height / 2);
+        assert!(r < 32 && g < 32, "8: red {r}, green {g}");
+        // 3: the source's top-left corner is the bottom-right.
+        let d = decode_upright_near(&src, 3, 640).unwrap();
+        let (r, g) = at(&d, d.width - 1, d.height - 1);
+        assert!(r < 32 && g < 32, "3: ({r}, {g})");
+    }
+
+    #[test]
+    fn a_malformed_jpeg_near_decode_is_an_error() {
+        assert!(decode_upright_near(b"not a jpeg", 1, 640).is_err());
     }
 
     #[test]

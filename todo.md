@@ -529,8 +529,18 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       Detection per file 24.5 -> 64 ms on Windows (decode 14 ms unchanged);
       the crop path and the focus candidate cue are unchanged. See
       `docs/humans/performance.md` "Whole-image recall (Windows 11)".
-- [ ] Decode the preview for detection at a DCT-scaled size instead of a
+- [x] Decode the preview for detection at a DCT-scaled size instead of a
       full-size RGB decode, to cut the per-file cost on the detector path.
+      The whole-image search decodes at the smallest `n/8` whose long edge
+      is not below the 640 px input (3/8 for a 2112 px DNG preview): decode
+      14.4-16.5 -> 5.0-5.5 ms, decode + detection 86.8 -> 72.4 ms per file on
+      the 37 sampled DNGs on Windows (about 65 ms on the day of the 78 ms
+      measurement, 1.7x the 38.5 ms of the 320 px search); files with a face
+      found stay 23 of 34, faces 36 -> 37 of 71, `L1005161` 6 -> 7 of 7. The
+      crop path keeps its full-size decode: a grayscale + 6/8 RGB pair was
+      2 ms faster per ARW but changed 16 + 6 per-file states on the labeled
+      folders. See `docs/humans/performance.md` "DCT-scaled decode for the
+      whole-image search (Windows 11)".
 - [ ] Optionally, detect closed eyes from the landmarks.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
