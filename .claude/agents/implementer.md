@@ -63,8 +63,9 @@ You are given:
    - Everything: `mise run ci`
    - `mise run ci` can take close to 10 minutes, so pass the maximum `timeout`
      of `600000` (ms) explicitly to the Bash tool (the default timeout
-     can be as low as 120 s and would cut it off). **Do not set `run_in_background: true`** (a subagent exits the
-     moment its turn ends, leaving nobody to receive the completion notice)
+     can be as low as 120 s and would cut it off). **Do not set `run_in_background: true`** (the foreground
+     run is what makes the exit code observable to branch on, while a
+     background run would hand the watching to a task notification)
 8. `git add` **only the files this step actually changed** (the implementation
    files + the whole relevant plan directory) by path, and `git commit`. Pass
    the plan directory as `docs/plans/YYYYMMDD-{feature-name}/` (listing only

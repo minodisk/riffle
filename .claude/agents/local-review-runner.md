@@ -90,9 +90,9 @@ contract at the end.
 
 The script runs `mise run ci` internally and can take close to 10 minutes. Pass
 the maximum `timeout` of `600000` (ms) to the Bash tool explicitly, and **do not
-set `run_in_background: true`** (same reason as starting children in the
-foreground in "4. Address phase": a subagent exits the moment its turn ends,
-leaving nobody to receive the completion notice).
+set `run_in_background: true`** (the foreground run is what makes the exit
+code observable to branch on, while a background run would hand the watching
+to a task notification).
 
 ### 4. Address phase
 

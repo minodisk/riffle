@@ -88,11 +88,14 @@ on them internally (they are only observed as exit 2, on a timeout).
 fixing, and review handling all belong to `pr-runner`. The caller either re-runs
 `pr-runner` or reports to the user.
 
-**Do not switch the waiting to `run_in_background: true`.** You are a subagent,
-so **you exit the moment your turn ends**. There would be nobody left to receive
-the background task's completion notice, and reporting "waiting for a notice"
-and ending your turn drops the watching onto the caller (a trap `pr-runner`
-actually hit and has since fixed). Express a long wait by ticking it off in the
+**Do not switch the waiting to `run_in_background: true`.** The foreground run
+is what lets the counters tick (`pr_wait_timeouts` on exit 2,
+`pr_status_failures` on exit 1) and what makes the exit code observable to
+branch on. A background run
+would hand the watching to a task notification instead, and the one time this
+was tried `pr-runner` handed "waiting for a notice" back to the caller as its
+result, which dropped the watching onto the caller (this actually happened and
+`pr-runner` has since fixed it). Express a long wait by ticking it off in the
 foreground while counting.
 
 **If the harness nonetheless reports that a command was moved to the
