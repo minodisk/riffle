@@ -100,6 +100,23 @@ AF point (`partial::focus_point`) live in stored coordinates.
 - The AF point these coordinates meet comes from the MakerNote parsing
   described in [`raw-metadata-parsing.md`](./raw-metadata-parsing.md).
 
+### Do not swap the cue path's full RGB decode for a cheaper grayscale + scaled decode (Measured)
+
+The cue path (`detect_around_rgb` plus `candidate::luma`) decodes the preview
+once at full size, which looks wasteful next to the whole-image search's DCT
+scaled decode. A variant that took a grayscale decode for the luma and a 6/8
+RGB decode for the face search was faster (11.6 ms against 13.6 ms per file)
+but changed the results: 16 of the training set's per-file candidate states
+changed and 6 of the held-out set's, with AUC 0.816 -> 0.819 and 0.635 ->
+0.646. mozjpeg's grayscale is the Y channel, not the BT.601 integer luma of
+the RGB, and the scaled crop's pixels differ.
+
+- Rule: the cue path keeps its single full RGB decode. Only a change that
+  passes an identity check of `candidates` on the labeled folders (identical
+  per-file lines) may replace it, otherwise it needs a `FACES_VERSION` bump
+  and a re-evaluation of the cue's threshold.
+- Source: [face-detection-recall-cost learnings, Step 3 "Cue-path variant"](../plans/_archived/20261005-face-detection-recall-cost/learnings.md).
+
 ## Sharing
 
 ### Build each plan once in a `OnceLock` shared by rayon workers (Inferred)

@@ -359,14 +359,19 @@ Outputs in `D:\Photos\tests\2026-10-06-face-recall\step3\`
   on the automated criteria (`riffle-cli detect` / `candidates`, unit tests
   and the PNGs); the GUI was not run.
 
-- If Step 3 lands well under the budget, consider 704x480 for the
+The two items below are settled and not to be filed: 704x480 was decided
+against at wrap-up (Step 3 landed at ~1.7x of the ~2x budget, and 704x480
+would sit at ~75 ms, the budget's edge), and the Step 2 manual check is
+superseded by the `FACES_VERSION` 5 check above.
+
+- (Settled, not filed) If Step 3 lands well under the budget, consider 704x480 for the
   whole-image input (files 26 / faces 44 / `L1005161` 7 of 7, 22 / 30 at
   >= 0.8, against 23 / 36 / 6 and 19 / 25 now; inference 69 ms against
   59.6 ms). Basis: Step 2 measurements in
   `docs/plans/20261005-face-detection-recall-cost/learnings.md`; files
   `crates/core/src/faces.rs` (`WHOLE_INPUT`), `crates/app/src/index.rs`
   (`FACES_VERSION`).
-- Pending manual check (app, Windows or macOS): open
+- (Superseded, not filed) Pending manual check (app, Windows or macOS): open
   `D:\photos\2026\2026-02-01` in the app after updating, let the second pass
   re-run (`FACES_VERSION` 4), and press `f` on `L1005161.DNG`: six face boxes
   should be drawn (all but the woman in the middle), and on `L1005233.DNG`

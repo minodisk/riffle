@@ -2149,9 +2149,12 @@ escape text meant to stay literal (`\0`, `\x01` inside a byte-string
 literal destined for Rust source) into real NUL / 0x01 bytes in the
 written file, even when the heredoc is quoted (`'EOF'`). Build such bytes
 with `bytes([0, 1, ...])` instead of escape literals, or make the edit
-with the Edit tool rather than a Python heredoc.
+with the Edit tool rather than a Python heredoc. A Python script containing
+nested `'''` strings can also fail outright in the Bash tool ("unexpected EOF
+while looking for matching"); write the script to the scratchpad with the
+Write tool and run that file.
 
-- Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1).
+- Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1); face-detection-recall-cost learnings, Steps 2 and 3.
 
 ### On Windows, the Bash tool halves doubled backslashes, even in a quoted heredoc (Hit)
 

@@ -519,28 +519,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       α7 V ARW / M11-P DNG previews and `riffle-cli scan` before/after adding
       detection and the AF-frame skip; see `docs/humans/performance.md` "Face
       detection cost".
-- [x] Improve small-face recall: the detector found no face in 29 of 36
-      sampled M11-P DNGs and 2 of 7 people in a group frame
-      (`L1005161.DNG`). The whole-image search now runs at a 640x448 input
-      (448x640 portrait) instead of 320x320: against a hand count of the 36
-      DNGs (34 with a face, 71 faces) plus `L1005161.DNG`, files with a face
-      found 8 -> 23 of 34, faces 10 -> 36 of 71, `L1005161` 2 -> 6 of 7, at
-      score >= 0.8 (the sharpness eye window) 4 -> 19 files, no false face.
-      Detection per file 24.5 -> 64 ms on Windows (decode 14 ms unchanged);
-      the crop path and the focus candidate cue are unchanged. See
-      `docs/humans/performance.md` "Whole-image recall (Windows 11)".
-- [x] Decode the preview for detection at a DCT-scaled size instead of a
-      full-size RGB decode, to cut the per-file cost on the detector path.
-      The whole-image search decodes at the smallest `n/8` whose long edge
-      is not below the 640 px input (3/8 for a 2112 px DNG preview): decode
-      14.4-16.5 -> 5.0-5.5 ms, decode + detection 86.8 -> 72.4 ms per file on
-      the 37 sampled DNGs on Windows (about 65 ms on the day of the 78 ms
-      measurement, 1.7x the 38.5 ms of the 320 px search); files with a face
-      found stay 23 of 34, faces 36 -> 37 of 71, `L1005161` 6 -> 7 of 7. The
-      crop path keeps its full-size decode: a grayscale + 6/8 RGB pair was
-      2 ms faster per ARW but changed 16 + 6 per-file states on the labeled
-      folders. See `docs/humans/performance.md` "DCT-scaled decode for the
-      whole-image search (Windows 11)".
 - [ ] Optionally, detect closed eyes. Not possible from the current
       landmarks: YuNet emits five points (two eyes, nose, two mouth corners)
       and none on the eyelids, so an open eye and a closed one land on the
@@ -571,6 +549,28 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       them. Files: `crates/core/src/candidate.rs`, `crates/core/src/faces.rs`.
 
 Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+
+### App: real-device check of the face boxes on the whole-image detection path
+
+The face-detection-recall-cost work moved the whole-image face search (files with no trusted AF point, such as every Leica M file) to a 640x448 YuNet input on a DCT-scaled decode, and bumped `FACES_VERSION` to 5. `riffle-cli detect` / `candidates`, the unit tests and the `riffle-cli faces` PNGs cover the detector and the coordinate mapping back to stored preview pixels. The app GUI (the `f` mark drawing `faces_of` boxes after the second pass re-runs) was never exercised. Plan: `docs/plans/_archived/20261005-face-detection-recall-cost/plan.md`.
+
+Files: `crates/core/src/faces.rs` (`detect_whole_upright`, `scaled_to_stored`), `crates/app/src/commands.rs` (`faces_of`), `crates/app/src/index.rs` (`FACES_VERSION`).
+
+#### TODO
+
+- [ ] On Windows or macOS, open `D:\photos\2026\2026-02-01` in the app after updating and let the second pass re-run (`FACES_VERSION` 5). Press `f` on `L1005161.DNG`: seven face boxes should be drawn (all seven people, as `D:\Photos\tests\2026-10-06-face-recall\step3\png\L1005161.png` shows), on the stored preview's scale (boxes on the faces, not shrunk to the top-left 3/8). Press `f` on `L1005233.DNG` (portrait): no boxes.
+
+### Core: the no-AF-point path decodes the preview a second time in score_preview
+
+#### Background
+
+On a file with no trusted AF point, pass 2 decodes the preview twice: the DCT-scaled RGB decode for the whole-image face search, then a full-size grayscale decode in `sharpness::score_preview`. The face-detection-recall-cost work cut the first decode to 3/8, so the second is now the larger of the two. It is several ms of the roughly 20 ms per DNG spent outside `riffle-cli detect` (about 92 ms per DNG in `candidates` on one thread, against about 72 ms in `detect`). Scoring from one decode would change the score's window and its stored values, so it needs a `FACES_VERSION` bump. See `docs/plans/_archived/20261005-face-detection-recall-cost/learnings.md` (Step 3 measurements).
+
+Files: `crates/core/src/scan.rs` (`extract_analysis_unless`, `score`), `crates/core/src/sharpness.rs` (`score_preview`).
+
+#### TODO
+
+- [ ] Measure the share of the per-file cost taken by `score_preview`'s grayscale decode on the no-AF-point path. If it matters, score from the decode the face search already made (or a DCT-scaled one), check that the score's ranking holds on the labeled folders, and bump `FACES_VERSION`.
 
 ### Agents: confirm `pr-runner` waits for a child's hand-back on a real `/pr` run
 
