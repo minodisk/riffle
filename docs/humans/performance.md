@@ -213,10 +213,11 @@ before scoring sharpness on the eyes: on a 480x480 crop around a trusted AF
 point shrunk to a 320x320 input, or, without one, on the whole upright
 preview at a 640x448 input (see "Whole-image recall (Windows 11)" below).
 That detection now runs in the second pass, not the first (see "Which pass
-carries which cost" below). The Linux WSL2 measurements in this section
-predate the move and the larger input: they time a 320x320 detection inside
-`riffle-cli scan`. The two Windows 11 subsections time the second pass
-(`riffle-cli detect` and `riffle-cli candidates`). The first measurement ran
+carries which cost" below). The Linux WSL2 measurements up to
+"Whole-image recall (Windows 11)" predate the move and the larger input (most
+time a 320x320 detection inside `riffle-cli scan`). "Whole-image recall
+(Windows 11)" and "DCT-scaled decode for the whole-image search (Windows 11)"
+time the second pass (`riffle-cli detect` and `riffle-cli candidates`). The first measurement ran
 on a Linux WSL2 machine (24 threads), release build, with synthetic input:
 the OpenCV sample images `lena.jpg` and `messi5.jpg` upscaled to a 1616 px
 long edge, single thread, 30 runs after one warm-up (the time includes the
