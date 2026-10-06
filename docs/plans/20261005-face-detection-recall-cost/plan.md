@@ -140,7 +140,7 @@ check; that todo item stays open.
       `D:\photos\...`), and the file lists names, counts and the smallest
       face side only.
 
-- [ ] Step 2: Raise small-face recall on the whole-image path and keep the cue path unchanged
+- [x] Step 2: Raise small-face recall on the whole-image path and keep the cue path unchanged
   - Done when:
     - On the ground truth of Step 1, the whole-image path finds a face in
       more of the files that contain one and finds at least 5 of the 7 people

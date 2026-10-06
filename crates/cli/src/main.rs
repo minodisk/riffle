@@ -280,6 +280,7 @@ fn bench(paths: &[String]) -> Result<()> {
     let mut t_full = Vec::new();
     let mut t_crop = Vec::new();
     let mut t_faces = Vec::new();
+    let mut t_whole = Vec::new();
 
     for p in paths {
         let path = Path::new(p);
@@ -300,10 +301,14 @@ fn bench(paths: &[String]) -> Result<()> {
             if t_faces.is_empty() {
                 // Build the model outside the timing.
                 faces::detect(&rgb, w, h)?;
+                faces::detect_whole(&rgb, w, h)?;
             }
             let t = Instant::now();
             faces::detect(&rgb, w, h)?;
             t_faces.push(t.elapsed().as_secs_f64() * 1000.0);
+            let t = Instant::now();
+            faces::detect_whole(&rgb, w, h)?;
+            t_whole.push(t.elapsed().as_secs_f64() * 1000.0);
         }
 
         if a.full.is_some() {
@@ -331,6 +336,9 @@ fn bench(paths: &[String]) -> Result<()> {
     }
     if !t_faces.is_empty() {
         stats("4. face detection", t_faces);
+    }
+    if !t_whole.is_empty() {
+        stats("5. whole-image detection", t_whole);
     }
     Ok(())
 }
@@ -567,8 +575,10 @@ fn detect(inputs: &[PathBuf], threads: Option<usize>) -> Result<()> {
             bail!("{input:?}: not a folder or a RAW file");
         }
     }
-    // Build the model outside the timing.
+    // Build the models outside the timing.
     faces::detect(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 6], 1, 2)?;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()?;

@@ -1,13 +1,14 @@
 //! Offline face and eye detection on the embedded preview with the YuNet
 //! model (OpenCV Zoo, `face_detection_yunet_2023mar.onnx`, MIT), run through
-//! `tract`. The preview is scaled so its long edge is `INPUT` pixels and
-//! padded into an `INPUT` x `INPUT` square; the per-stride outputs are
-//! decoded as OpenCV's `FaceDetectorYN` does, thresholded and merged by NMS.
-//! Results are in the caller's pixel coordinates.
+//! `tract`. The image is scaled to fit the model input (`INPUT` x `INPUT`
+//! for a crop, `WHOLE_INPUT` for a whole preview) and padded into it; the
+//! per-stride outputs are decoded as OpenCV's `FaceDetectorYN` does,
+//! thresholded and merged by NMS. Results are in the caller's pixel
+//! coordinates.
 //!
 //! `detect_around` is the one place that decides which region of a preview
 //! is searched (a `CATCH_CROP` square around a trusted AF point, else the
-//! whole upright image).
+//! whole upright image) and at which model input.
 
 use std::io::Cursor;
 use std::sync::OnceLock;
@@ -22,8 +23,15 @@ use crate::sharpness::{window_at, Window};
 
 const MODEL: &[u8] = include_bytes!("../models/face_detection_yunet_2023mar.onnx");
 
-/// Side of the square model input, in pixels.
+/// Side of the square model input of `detect` and the `CATCH_CROP` search,
+/// in pixels.
 pub const INPUT: usize = 320;
+/// Model input (width, height) of the whole-image search of a landscape
+/// image, in pixels; a portrait image gets it transposed. A 2112 px preview
+/// shrinks 3.3x instead of 6.6x, so a 55 px face stays above YuNet's stride-8
+/// minimum, and the 3:2 shape spares the third of a square input a 3:2
+/// preview would leave as padding.
+pub const WHOLE_INPUT: (usize, usize) = (640, 448);
 /// Minimum detection score kept.
 pub const SCORE_THRESHOLD: f32 = 0.6;
 /// Boxes overlapping a better one by more than this IoU are dropped.
@@ -62,27 +70,56 @@ pub struct Face {
 
 type Plan = Arc<TypedRunnableModel>;
 
+/// The model inputs, one optimized plan each.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Input {
+    Square,
+    Landscape,
+    Portrait,
+}
+
+impl Input {
+    /// The whole-image input for an upright `width` x `height` image.
+    fn whole(width: usize, height: usize) -> Self {
+        if width >= height {
+            Input::Landscape
+        } else {
+            Input::Portrait
+        }
+    }
+
+    /// (width, height) in pixels.
+    fn size(self) -> (usize, usize) {
+        match self {
+            Input::Square => (INPUT, INPUT),
+            Input::Landscape => WHOLE_INPUT,
+            Input::Portrait => (WHOLE_INPUT.1, WHOLE_INPUT.0),
+        }
+    }
+}
+
 struct Detector {
     plan: Plan,
     /// Output index of `cls`, `obj`, `bbox`, `kps` for each stride.
     outputs: [[usize; 4]; 3],
 }
 
-fn detector() -> Result<&'static Detector> {
-    static DETECTOR: OnceLock<std::result::Result<Detector, String>> = OnceLock::new();
-    DETECTOR
-        .get_or_init(|| build().map_err(|e| format!("{e:#}")))
+fn detector(input: Input) -> Result<&'static Detector> {
+    static DETECTORS: [OnceLock<std::result::Result<Detector, String>>; 3] =
+        [const { OnceLock::new() }; 3];
+    DETECTORS[input as usize]
+        .get_or_init(|| build(input.size()).map_err(|e| format!("{e:#}")))
         .as_ref()
         .map_err(|e| anyhow!("face model: {e}"))
 }
 
-fn build() -> Result<Detector> {
+fn build((width, height): (usize, usize)) -> Result<Detector> {
     // The file annotates intermediate and output shapes for a 640 px input.
     let model = tract_onnx::onnx()
         .with_ignore_value_info(true)
         .with_ignore_output_shapes(true)
         .model_for_read(&mut Cursor::new(MODEL))?
-        .with_input_fact(0, f32::fact([1, 3, INPUT, INPUT]).into())?;
+        .with_input_fact(0, f32::fact([1, 3, height, width]).into())?;
     let names: Vec<String> = model
         .output_outlets()?
         .iter()
@@ -102,19 +139,29 @@ fn build() -> Result<Detector> {
     Ok(Detector { plan, outputs })
 }
 
-/// Detect faces in an RGB image (`width` x `height`, 3 bytes per pixel),
-/// best first.
+/// Detect faces in an RGB image (`width` x `height`, 3 bytes per pixel) at
+/// the `INPUT` x `INPUT` model input, best first.
 ///
 /// YuNet is trained on upright faces: the caller must pass an image already
 /// rotated to display orientation (e.g. via `decode::apply_orientation`),
 /// or recall drops sharply on portrait frames.
 pub fn detect(rgb: &[u8], width: usize, height: usize) -> Result<Vec<Face>> {
+    detect_at(rgb, width, height, Input::Square)
+}
+
+/// `detect` at the `WHOLE_INPUT` model input the whole-image search uses.
+pub fn detect_whole(rgb: &[u8], width: usize, height: usize) -> Result<Vec<Face>> {
+    detect_at(rgb, width, height, Input::whole(width, height))
+}
+
+fn detect_at(rgb: &[u8], width: usize, height: usize, input: Input) -> Result<Vec<Face>> {
     if width == 0 || height == 0 || rgb.len() < width * height * 3 {
         return Ok(Vec::new());
     }
-    let d = detector()?;
-    let scale = INPUT as f32 / width.max(height) as f32;
-    let input = input_tensor(rgb, width, height, scale);
+    let d = detector(input)?;
+    let size = input.size();
+    let scale = fit(width, height, size);
+    let input = input_tensor(rgb, width, height, scale, size);
     let out = d.plan.run(tvec!(input.into()))?;
     let mut faces = Vec::new();
     for (s, &stride) in STRIDES.iter().enumerate() {
@@ -123,7 +170,7 @@ pub fn detect(rgb: &[u8], width: usize, height: usize) -> Result<Vec<Face>> {
         };
         decode_stride(
             stride,
-            INPUT / stride,
+            size.0 / stride,
             get(0)?,
             get(1)?,
             get(2)?,
@@ -143,12 +190,25 @@ pub fn detect(rgb: &[u8], width: usize, height: usize) -> Result<Vec<Face>> {
     Ok(faces)
 }
 
-/// Box-average the image down by `scale` into the top-left of a zeroed
-/// `INPUT` x `INPUT` BGR NCHW tensor of raw 0..255 values, as YuNet expects.
-fn input_tensor(rgb: &[u8], width: usize, height: usize, scale: f32) -> Tensor {
-    let ow = ((width as f32 * scale).round() as usize).clamp(1, INPUT);
-    let oh = ((height as f32 * scale).round() as usize).clamp(1, INPUT);
-    let plane = INPUT * INPUT;
+/// The scale that fits a `width` x `height` image inside a model input of
+/// `(width, height)`.
+fn fit(width: usize, height: usize, (iw, ih): (usize, usize)) -> f32 {
+    (iw as f32 / width as f32).min(ih as f32 / height as f32)
+}
+
+/// Box-average the image down by `scale` into the top-left of a zeroed BGR
+/// NCHW tensor of the model input's `(width, height)`, raw 0..255 values, as
+/// YuNet expects.
+fn input_tensor(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    scale: f32,
+    (iw, ih): (usize, usize),
+) -> Tensor {
+    let ow = ((width as f32 * scale).round() as usize).clamp(1, iw);
+    let oh = ((height as f32 * scale).round() as usize).clamp(1, ih);
+    let plane = iw * ih;
     let mut data = vec![0f32; 3 * plane];
     for oy in 0..oh {
         let y0 = oy * height / oh;
@@ -166,13 +226,13 @@ fn input_tensor(rgb: &[u8], width: usize, height: usize, scale: f32) -> Tensor {
                 }
             }
             let n = ((y1 - y0) * (x1 - x0)) as f32;
-            let o = oy * INPUT + ox;
+            let o = oy * iw + ox;
             data[o] = sum[2] as f32 / n;
             data[plane + o] = sum[1] as f32 / n;
             data[2 * plane + o] = sum[0] as f32 / n;
         }
     }
-    tract_ndarray::Array4::from_shape_vec((1, 3, INPUT, INPUT), data)
+    tract_ndarray::Array4::from_shape_vec((1, 3, ih, iw), data)
         .expect("shape matches the buffer")
         .into()
 }
@@ -321,8 +381,9 @@ fn translate(face: Face, dx: f32, dy: f32) -> Face {
 }
 
 /// Decode `preview`, rotate it upright and detect faces once: in a
-/// `CATCH_CROP` square around the AF point of `focus`, or on the whole image
-/// when `focus` is `None`. Faces below `CATCH_CONFIDENCE` are dropped.
+/// `CATCH_CROP` square around the AF point of `focus` at the `INPUT` model
+/// input, or on the whole image at `WHOLE_INPUT` when `focus` is `None`.
+/// Faces below `CATCH_CONFIDENCE` are dropped.
 pub fn detect_around(
     preview: &[u8],
     orientation: u16,
@@ -352,7 +413,7 @@ pub fn detect_around_rgb(
                 .map(|f| translate(f, win.x as f32, win.y as f32))
                 .collect()
         }
-        None => detect(&upright, uw, uh)?,
+        None => detect_whole(&upright, uw, uh)?,
     };
     let faces = found
         .into_iter()
@@ -528,6 +589,46 @@ mod tests {
             })
             .collect();
         assert!(detect(&checker, w, h).unwrap().is_empty());
+        assert!(detect_whole(&flat, w, h).unwrap().is_empty());
+        assert!(detect_whole(&checker, w, h).unwrap().is_empty());
+        assert!(detect_whole(&checker, h, w).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_whole_input_follows_the_image_orientation() {
+        assert_eq!(Input::whole(2112, 1408).size(), (640, 448));
+        assert_eq!(Input::whole(1408, 2112).size(), (448, 640));
+        assert_eq!(Input::whole(500, 500), Input::Landscape);
+        assert_eq!(Input::Square.size(), (INPUT, INPUT));
+    }
+
+    #[test]
+    fn fit_keeps_the_image_inside_the_input() {
+        assert_eq!(fit(2112, 1408, (640, 448)), 640.0 / 2112.0);
+        assert_eq!(fit(1408, 2112, (448, 640)), 640.0 / 2112.0);
+        assert_eq!(fit(4000, 3000, (640, 448)), 448.0 / 3000.0);
+        assert_eq!(fit(1616, 1080, (INPUT, INPUT)), 320.0 / 1616.0);
+    }
+
+    #[test]
+    fn a_rectangular_input_holds_the_image_at_its_top_left() {
+        let (w, h) = (4, 2);
+        let rgb: Vec<u8> = (0..w * h).flat_map(|_| [10, 20, 30]).collect();
+        let t = input_tensor(&rgb, w, h, 1.0, (8, 4));
+        assert_eq!(t.shape(), &[1, 3, 4, 8]);
+        let v = t.try_as_plain_ram().unwrap().as_slice::<f32>().unwrap();
+        for c in 0..3 {
+            for y in 0..4 {
+                for x in 0..8 {
+                    let want = if x < w && y < h {
+                        [30.0, 20.0, 10.0][c]
+                    } else {
+                        0.0
+                    };
+                    assert_eq!(v[(c * 4 + y) * 8 + x], want, "c {c} y {y} x {x}");
+                }
+            }
+        }
     }
 
     /// Set `RIFFLE_FACE_JPEG` to a JPEG with one clear face, then run with

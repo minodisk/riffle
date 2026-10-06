@@ -18,11 +18,12 @@ Step 1 and "App binary size"; they are not repeated here.
 ### Ignore the model's fixed-size shape annotations and pin the input (Hit)
 
 The YuNet ONNX file carries `value_info` and output shapes for a 640 px input.
-Riffle feeds it 320 px (`INPUT`), and with a different input fact tract fails
-to unify the annotated shapes against the inferred ones. `build` therefore
-loads with `tract_onnx::onnx().with_ignore_value_info(true)
+Riffle feeds it 320x320 (`INPUT`) and 640x448 / 448x640 (`WHOLE_INPUT`), and
+with a different input fact tract fails to unify the annotated shapes against
+the inferred ones. `build` therefore loads with
+`tract_onnx::onnx().with_ignore_value_info(true)
 .with_ignore_output_shapes(true)` and then pins the input with
-`with_input_fact(0, f32::fact([1, 3, INPUT, INPUT]).into())`.
+`with_input_fact(0, f32::fact([1, 3, height, width]).into())`.
 
 - Rule: when a model's annotations are for another input size than the one
   you feed, drop the annotations rather than resizing to match them, and
@@ -59,15 +60,23 @@ new model's ops load with this setting before turning the defaults back on.
 
 ### Input layout: BGR NCHW, raw 0..255 floats (Inferred)
 
-`input_tensor` box-averages the image so its long edge is `INPUT` pixels and
-writes it into the top-left of a zeroed `INPUT` x `INPUT` tensor of shape
-`[1, 3, INPUT, INPUT]`, channels in BGR order, values as raw 0..255 floats
+`input_tensor` box-averages the image by the scale that fits it inside the
+model input (`fit`) and writes it into the top-left of a zeroed tensor of
+shape `[1, 3, height, width]`, channels in BGR order, values as raw 0..255 floats
 (not normalized), as OpenCV's `FaceDetectorYN` feeds YuNet. `detect` divides
 the decoded boxes and eye points by the same scale.
 
-- Why a fixed square: the input fact is pinned, so one optimized plan serves
-  every file whatever its aspect ratio; a 3:2 preview wastes about a third of
-  the input on padding, which was accepted.
+- Why fixed sizes: the input fact is pinned, so each optimized plan serves
+  every file whatever its aspect ratio. The `CATCH_CROP` crop is square, so
+  its 320x320 input wastes nothing. The whole-image search uses a 640x448
+  input and its transpose for portrait frames instead of a 640 square: a
+  3:2 preview would leave a third of the square as padding, and the
+  inference cost follows the input area (Measured: 59.6ms against 85-87ms
+  per run, same recall; see "Whole-image recall (Windows 11)" in
+  [`performance.md`](../humans/performance.md)).
+- The grid of each stride is `width / stride` cells per row
+  (`decode_stride`'s `cols`), so a non-square input decodes with the input's
+  width, not its height.
 
 ### Feed an upright image, map detections back to stored coordinates (Hit)
 
@@ -87,15 +96,21 @@ AF point (`partial::focus_point`) live in stored coordinates.
 
 ## Sharing
 
-### Build the plan once in a `OnceLock` shared by rayon workers (Inferred)
+### Build each plan once in a `OnceLock` shared by rayon workers (Inferred)
 
-The scan runs `scan::extract` and `scan::extract_analysis` on rayon workers. `detector()` builds the plan once
-in a `static OnceLock` and hands every worker the same `&'static Detector`;
+The scan runs `scan::extract` and `scan::extract_analysis` on rayon workers. `detector(input)` builds the plan
+of each model input (`faces::Input`: the square, the landscape and the
+portrait whole-image input) once in its own `static OnceLock` and hands every
+worker the same `&'static Detector`;
 nothing is rebuilt per file. The lock caches a `Result<Detector, String>`
 (the error formatted with `{e:#}`), so a model that fails to build fails
 every call quickly with the same message instead of being rebuilt per file.
 
-- Rule: keep one plan per model, built lazily, with its failure cached too.
+- Rule: keep one plan per model input, built lazily on first use, with its
+  failure cached too. A plan is ~35-40ms to build and is not per worker;
+  the larger input's per-run buffers are (Measured: the 146-DNG folder's
+  peak working set on 24 threads rose from ~510 to ~646 MB with the
+  640x448 plans).
 
 Source: [face-aware-sharpness learnings](../plans/_archived/20260922-face-aware-sharpness/learnings.md),
 Steps 1 and 3.

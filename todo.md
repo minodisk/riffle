@@ -519,9 +519,16 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       α7 V ARW / M11-P DNG previews and `riffle-cli scan` before/after adding
       detection and the AF-frame skip; see `docs/humans/performance.md` "Face
       detection cost".
-- [ ] Improve small-face recall: the detector found no face in 29 of 36
+- [x] Improve small-face recall: the detector found no face in 29 of 36
       sampled M11-P DNGs and 2 of 7 people in a group frame
-      (`L1005161.DNG`).
+      (`L1005161.DNG`). The whole-image search now runs at a 640x448 input
+      (448x640 portrait) instead of 320x320: against a hand count of the 36
+      DNGs (34 with a face, 71 faces) plus `L1005161.DNG`, files with a face
+      found 8 -> 23 of 34, faces 10 -> 36 of 71, `L1005161` 2 -> 6 of 7, at
+      score >= 0.8 (the sharpness eye window) 4 -> 19 files, no false face.
+      Detection per file 24.5 -> 64 ms on Windows (decode 14 ms unchanged);
+      the crop path and the focus candidate cue are unchanged. See
+      `docs/humans/performance.md` "Whole-image recall (Windows 11)".
 - [ ] Decode the preview for detection at a DCT-scaled size instead of a
       full-size RGB decode, to cut the per-file cost on the detector path.
 - [ ] Optionally, detect closed eyes from the landmarks.
