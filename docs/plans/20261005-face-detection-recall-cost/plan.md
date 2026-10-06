@@ -203,7 +203,7 @@ check; that todo item stays open.
     - Check the peak memory with 24 threads on the 2134-ARW folder once (a
       640 plan or a tiling buffer adds memory per rayon worker).
 
-- [ ] Step 3: Decode the preview for detection at a DCT-scaled size
+- [x] Step 3: Decode the preview for detection at a DCT-scaled size
   - Done when:
     - On the whole-image path the preview is decoded with
       `mozjpeg::Decompress::scale` at the smallest `n/8` whose long edge is
@@ -315,3 +315,4 @@ check; that todo item stays open.
 
 - (2026-10-06) Step 1 complete
 - (2026-10-06) Step 2 complete
+- (2026-10-06) Step 3 complete

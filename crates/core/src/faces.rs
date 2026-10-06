@@ -8,7 +8,8 @@
 //!
 //! `detect_around` is the one place that decides which region of a preview
 //! is searched (a `CATCH_CROP` square around a trusted AF point, else the
-//! whole upright image) and at which model input.
+//! whole upright image), at which model input, and at which decode size (the
+//! full preview for the crop, a DCT-scaled one for the whole image).
 
 use std::io::Cursor;
 use std::sync::OnceLock;
@@ -17,7 +18,7 @@ use anyhow::{anyhow, Context, Result};
 use tract_onnx::prelude::*;
 
 use crate::arw::FocusLocation;
-use crate::decode::{apply_orientation, decode_rgb};
+use crate::decode::{apply_orientation, decode_rgb, decode_upright_near, Upright};
 use crate::partial::focus_point;
 use crate::sharpness::{window_at, Window};
 
@@ -382,19 +383,78 @@ fn translate(face: Face, dx: f32, dy: f32) -> Face {
 
 /// Decode `preview`, rotate it upright and detect faces once: in a
 /// `CATCH_CROP` square around the AF point of `focus` at the `INPUT` model
-/// input, or on the whole image at `WHOLE_INPUT` when `focus` is `None`.
+/// input on the full-size decode, or, when `focus` is `None`, on the whole
+/// image at `WHOLE_INPUT`, decoded at the DCT scale `decode_whole` picks.
 /// Faces below `CATCH_CONFIDENCE` are dropped.
 pub fn detect_around(
     preview: &[u8],
     orientation: u16,
     focus: Option<FocusLocation>,
 ) -> Result<Detection> {
+    if focus.is_none() {
+        return detect_whole_upright(&decode_whole(preview, orientation)?, orientation);
+    }
     let (rgb, width, height) = decode_rgb(preview)?;
     detect_around_rgb(&rgb, width, height, orientation, focus)
 }
 
+/// Decode `preview` upright for the whole-image search: at the smallest
+/// `n/8` scale whose long edge is not below `WHOLE_INPUT`'s, so the model
+/// input is still box-averaged down from at least its own size.
+pub fn decode_whole(preview: &[u8], orientation: u16) -> Result<Upright> {
+    decode_upright_near(preview, orientation, WHOLE_INPUT.0)
+}
+
+/// Detect faces on the whole of an image `decode_whole` returned, at
+/// `WHOLE_INPUT`, in the stored preview's pixel coordinates. Faces below
+/// `CATCH_CONFIDENCE` are dropped.
+pub fn detect_whole_upright(image: &Upright, orientation: u16) -> Result<Detection> {
+    let (width, height) = image.stored;
+    let faces = detect_whole(&image.rgb, image.width, image.height)?
+        .into_iter()
+        .filter(|f| f.score >= CATCH_CONFIDENCE)
+        .map(|f| scaled_to_stored(f, orientation, (image.width, image.height), image.stored))
+        .collect();
+    Ok(Detection {
+        width,
+        height,
+        faces,
+        point: None,
+    })
+}
+
+/// Map a face found on an upright image decoded at a reduced size
+/// (`scaled`, upright) back to the stored full-size image (`stored`,
+/// unrotated). Each axis is scaled by the ratio of the actual sizes, since
+/// mozjpeg rounds a scaled side up.
+fn scaled_to_stored(
+    face: Face,
+    orientation: u16,
+    (sw, sh): (usize, usize),
+    (width, height): (usize, usize),
+) -> Face {
+    let (uw, uh) = if matches!(orientation, 6 | 8) {
+        (height, width)
+    } else {
+        (width, height)
+    };
+    let (kx, ky) = (uw as f32 / sw as f32, uh as f32 / sh as f32);
+    let full = Face {
+        x: face.x * kx,
+        y: face.y * ky,
+        width: face.width * kx,
+        height: face.height * ky,
+        left_eye: (face.left_eye.0 * kx, face.left_eye.1 * ky),
+        right_eye: (face.right_eye.0 * kx, face.right_eye.1 * ky),
+        ..face
+    };
+    to_stored(full, orientation, width, height)
+}
+
 /// `detect_around` on a preview already decoded to stored RGB
-/// (`width` x `height`, before the Orientation tag is applied).
+/// (`width` x `height`, before the Orientation tag is applied). Without
+/// `focus` it searches this full-size image, not the scaled decode
+/// `detect_around` uses.
 pub fn detect_around_rgb(
     rgb: &[u8],
     width: usize,
@@ -629,6 +689,68 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_face_on_a_scaled_decode_maps_back_to_the_stored_preview() {
+        // A 2100x1401 stored preview decoded at 3/8 is 788x526 (mozjpeg
+        // rounds up) with its content scaled by exactly 3/8; mapping by the
+        // sizes stays within one scaled pixel (8/3 stored ones).
+        let stored = (2100, 1401);
+        let on_full = Face {
+            x: 600.0,
+            y: 300.0,
+            width: 240.0,
+            height: 300.0,
+            score: 0.9,
+            left_eye: (660.0, 400.0),
+            right_eye: (780.0, 402.0),
+        };
+        for orientation in [1, 3, 6, 8] {
+            let (sw, sh) = if matches!(orientation, 6 | 8) {
+                (526, 788)
+            } else {
+                (788, 526)
+            };
+            let (kx, ky) = (3.0 / 8.0, 3.0 / 8.0);
+            let on_scaled = Face {
+                x: on_full.x * kx,
+                y: on_full.y * ky,
+                width: on_full.width * kx,
+                height: on_full.height * ky,
+                left_eye: (on_full.left_eye.0 * kx, on_full.left_eye.1 * ky),
+                right_eye: (on_full.right_eye.0 * kx, on_full.right_eye.1 * ky),
+                ..on_full
+            };
+            let want = to_stored(on_full, orientation, stored.0, stored.1);
+            let got = scaled_to_stored(on_scaled, orientation, (sw, sh), stored);
+            let close = |a: f32, b: f32| (a - b).abs() <= 8.0 / 3.0;
+            assert!(
+                close(got.x, want.x)
+                    && close(got.y, want.y)
+                    && close(got.width, want.width)
+                    && close(got.height, want.height)
+                    && close(got.left_eye.0, want.left_eye.0)
+                    && close(got.left_eye.1, want.left_eye.1)
+                    && close(got.right_eye.0, want.right_eye.0)
+                    && close(got.right_eye.1, want.right_eye.1),
+                "orientation {orientation}: {got:?} against {want:?}"
+            );
+            assert_eq!(got.score, 0.9);
+        }
+    }
+
+    #[test]
+    fn the_whole_image_detection_reports_the_stored_preview_size() {
+        let image = Upright {
+            rgb: vec![128; 540 * 808 * 3],
+            width: 540,
+            height: 808,
+            stored: (1616, 1080),
+        };
+        let d = detect_whole_upright(&image, 6).unwrap();
+        assert_eq!((d.width, d.height), (1616, 1080));
+        assert!(d.faces.is_empty() && d.point.is_none());
     }
 
     /// Set `RIFFLE_FACE_JPEG` to a JPEG with one clear face, then run with

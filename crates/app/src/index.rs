@@ -122,8 +122,11 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// gets the same score from it. `4` re-runs it after the whole-image face
 /// search (files without a trusted AF point) moved from the 320 px square
 /// model input to `faces::WHOLE_INPUT`, which finds more small faces, so the
-/// sharpness score of those files can move to an eye window.
-pub const FACES_VERSION: i64 = 4;
+/// sharpness score of those files can move to an eye window. `5` re-runs it
+/// after the whole-image search started decoding the preview at a DCT scale
+/// (`faces::decode_whole`) instead of full size, which changes the pixels the
+/// model sees and so the faces it finds.
+pub const FACES_VERSION: i64 = 5;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on

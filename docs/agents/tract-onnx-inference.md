@@ -91,6 +91,12 @@ AF point (`partial::focus_point`) live in stored coordinates.
   the pixel order itself for orientation 3, and `to_stored` / `to_upright`
   treat 3 as a half turn. A new orientation-aware caller must do the same or
   reuse these helpers.
+- The whole-image search decodes at a DCT scale instead (`decode_whole`,
+  `decode::decode_upright_near`, already upright) and `scaled_to_stored`
+  scales each face by the decoded size against the stored one before
+  `to_stored`. mozjpeg rounds a scaled side up (`ceil(dim * n / 8)`), so map
+  with the actual sizes, not `n / 8`, and keep `Detection::width` / `height`
+  at the stored size: `faces_of` and the UI scale the boxes by it.
 - The AF point these coordinates meet comes from the MakerNote parsing
   described in [`raw-metadata-parsing.md`](./raw-metadata-parsing.md).
 
