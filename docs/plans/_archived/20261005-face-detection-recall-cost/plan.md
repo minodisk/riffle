@@ -33,7 +33,7 @@ concern the YuNet detector in `crates/core/src/faces.rs`:
    skip most of that work.
 
 The two paths of the detector matter for both items (see
-[`../../agents/tract-onnx-inference.md`](../../agents/tract-onnx-inference.md)
+[`../../../agents/tract-onnx-inference.md`](../../../agents/tract-onnx-inference.md)
 and `crates/core/src/scan.rs` `extract_analysis_unless`):
 
 - **Cue path** (trusted AF point, `candidate::focus_cue_unless`): one full
@@ -68,7 +68,7 @@ with 100 XMP sidecars each (training set `2026-06-05`, `2026-07-31`,
 `2026-09-13-a`, `2026-09-19`, `2026-09-19-focus-sample-2`; held-out
 `2026-06-14`, `2026-07-18`, `2026-08-01`, `2026-08-22`), with the reference
 numbers in
-[`../_archived/20260926-af-eye-in-focus-probability/learnings.md`](../_archived/20260926-af-eye-in-focus-probability/learnings.md)
+[`../20260926-af-eye-in-focus-probability/learnings.md`](../20260926-af-eye-in-focus-probability/learnings.md)
 (training AUC lap 0.816 / combined 0.852, candidates 333, in focus 310,
 coverage 91.4%; held-out AUC 0.635 / 0.754, 366 / 326, 89.1% / 95.3%). The
 two reserved folders `2026-08-29-focus-sample` and `2026-09-13-b-focus-sample`
