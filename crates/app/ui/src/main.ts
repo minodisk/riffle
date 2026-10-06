@@ -84,7 +84,7 @@ import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
 import { rebase } from "./tree.js";
-import { editKey } from "./rename.js";
+import { type Pending, editKey } from "./rename.js";
 import { IdleGate } from "./idle.js";
 import { scanFocusPaths } from "./scanfocus.js";
 import {
@@ -346,23 +346,31 @@ let heldRename: string | null = null;
 
 // Holds a confirmed rename for the scan's end, its new name shown pending in
 // the tree or the strip until it runs, or until it is replaced or dropped,
-// which reverts the name.
+// which reverts the name. Only this rename's own mark is cleared, through
+// the `clearPending` handed to `run` (a no-op when it ran without being
+// held), so a later rename of the same path keeps its pending name.
 function holdRename(
   path: string,
   name: string,
-  view: { markPending(path: string, name: string): void; clearPending(path: string): void },
-  run: () => void,
+  view: { markPending(path: string, name: string): Pending; clearPending(mark: Pending): void },
+  run: (clearPending: () => void) => void,
 ): void {
+  let mark: Pending | null = null;
+  const clearPending = (): void => {
+    if (mark !== null) {
+      view.clearPending(mark);
+    }
+  };
   renaming = path;
   const held = whenIdle(
     "Rename…",
     () => {
       heldRename = null;
-      run();
+      run(clearPending);
     },
     () => {
       heldRename = null;
-      view.clearPending(path);
+      clearPending();
       if (renaming !== path) {
         setStatus(RENAME_CANCELED);
       }
@@ -371,7 +379,7 @@ function holdRename(
   renaming = null;
   if (held) {
     heldRename = path;
-    view.markPending(path, name);
+    mark = view.markPending(path, name);
   }
 }
 
@@ -2769,6 +2777,7 @@ strip.init(
   () => !viewOnly,
   sendScanFocus,
   cancelPendingRename,
+  setStatus,
 );
 
 const revealLabel = window.__TAURI__.core.invoke<string>("reveal_label");
@@ -2783,13 +2792,13 @@ interface Renamed {
 // under its new path, its judgments coming back from the rewritten index. The
 // trash entries' folders follow the rename, as the backend's recorded runs do.
 function renameFolder(path: string, name: string): void {
-  holdRename(path, name, folders, () => {
+  holdRename(path, name, folders, (clearPending) => {
     folders.renameStarted(path);
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_folder", { dir: path, name }).then(
         ({ path: newPath, warning }) => {
           folders.renameSettled(path);
-          folders.clearPending(path);
+          clearPending();
           folders.renamed(path, newPath, name);
           const moved = (dir: string): string =>
             rebase(dir, path, newPath, folders.ignoreCase) ?? dir;
@@ -2812,7 +2821,7 @@ function renameFolder(path: string, name: string): void {
         },
         (err: unknown) => {
           folders.renameSettled(path);
-          folders.clearPending(path);
+          clearPending();
           setStatus(String(err));
         },
       ),
@@ -2840,17 +2849,19 @@ function moveKey<V>(map: Map<string, V>, from: string, to: string): void {
 // actually runs) is already right, whether that is now or after a deferred
 // scan drains.
 function renameFile(path: string, name: string): void {
-  holdRename(path, name, strip, () => {
+  holdRename(path, name, strip, (clearPending) => {
     if (openDir === null) {
-      strip.clearPending(path);
+      clearPending();
       return;
     }
     const dir = openDir;
     const token = folderToken;
+    strip.renameStarted(path);
     settleIdle(
       window.__TAURI__.core.invoke<Renamed>("rename_file", { dir, path, name }).then(
         ({ path: newPath, warning }) => {
-          strip.clearPending(path);
+          strip.renameSettled(path);
+          clearPending();
           if (dir !== openDir || token !== folderToken) {
             return;
           }
@@ -2918,7 +2929,8 @@ function renameFile(path: string, name: string): void {
           resync("rename");
         },
         (err: unknown) => {
-          strip.clearPending(path);
+          strip.renameSettled(path);
+          clearPending();
           if (dir !== openDir || token !== folderToken) {
             return;
           }
