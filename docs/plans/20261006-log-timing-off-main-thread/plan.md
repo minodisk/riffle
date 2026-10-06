@@ -70,4 +70,4 @@ very latency they are there to measure.
 
 ## Progress
 
-- (none yet)
+- (2026-10-06) Step 1 complete
