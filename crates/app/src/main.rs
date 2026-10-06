@@ -586,9 +586,10 @@ fn set_timing_logs(state: tauri::State<TimingLogs>, enabled: bool) {
 }
 
 /// Write a frontend timing line to `Riffle.log`, so it can be read without
-/// DevTools.
+/// DevTools. It is `async` because a sync command would write the line on the
+/// main thread, and the frontend calls it on hot paths.
 #[tauri::command]
-fn log_timing(line: String) {
+async fn log_timing(line: String) {
     log::info!("{line}");
 }
 
