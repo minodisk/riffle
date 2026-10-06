@@ -505,7 +505,7 @@ a real machine yet. Files: `crates/app/ui/src/main.ts`,
 
 ### App: face/eye-aware focus check for culling
 
-Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). What remains:
+Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). Without a trusted AF point the whole-preview search now runs at a 640x448 input on a DCT-scaled decode, which raised small-face recall at about 1.7x the earlier per-file cost; closed eyes were found to need a second model (see `docs/plans/_archived/20261005-face-detection-recall-cost/`). What remains:
 
 #### TODO
 
@@ -541,7 +541,16 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       2 ms faster per ARW but changed 16 + 6 per-file states on the labeled
       folders. See `docs/humans/performance.md` "DCT-scaled decode for the
       whole-image search (Windows 11)".
-- [ ] Optionally, detect closed eyes from the landmarks.
+- [ ] Optionally, detect closed eyes. Not possible from the current
+      landmarks: YuNet emits five points (two eyes, nose, two mouth corners)
+      and none on the eyelids, so an open eye and a closed one land on the
+      same point. It needs a second model run on the faces YuNet finds,
+      either an open / closed classifier on an eye crop or a dense landmark
+      model with eye contours (eye aspect ratio from the eyelid points), and
+      that adds its ONNX file and license to `crates/core/models/`, binary
+      size, and per-face inference on the second pass. Pick one only after
+      measuring its size and per-face cost against the current pass-2 budget
+      (see `docs/plans/_archived/20261005-face-detection-recall-cost/`).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame

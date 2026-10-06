@@ -326,6 +326,19 @@ Outputs in `D:\Photos\tests\2026-10-06-face-recall\step3\`
   full-size grayscale decode (the third decode on this path) is now larger
   than the detection decode.
 
+## Step 4: closed-eyes todo and the section settled (2026-10-06)
+
+- Docs only. Steps 2 and 3 had left "Face detection cost" nearly
+  consistent; what was off was the intro (it said every measurement in the
+  section predated the move into pass 2 and ran on Linux WSL2 only, which the
+  two Windows 11 subsections contradict) and the caveat in "Which pass
+  carries which cost" (same claim). Both now name the Windows 11
+  subsections as pass-2 timings. The early recall paragraph now quotes the
+  final figures (23 of 34 files, 7 of 7 in `L1005161.DNG`).
+- `todo.md` references the plan's archived folder in backticks, not as a
+  link: the folder is not archived until wrap-up, so a link would fail
+  lychee now (the section's other plan references are backticked too).
+
 ## Deferred issues (todo candidates)
 
 - The no-AF-point path still decodes the preview a second time in

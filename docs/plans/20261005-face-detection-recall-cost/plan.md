@@ -262,7 +262,7 @@ check; that todo item stays open.
       (a third decode on the no-AF path). Note it in `learnings.md` as a
       follow-up if the numbers show it matters.
 
-- [ ] Step 4: Rewrite the closed-eyes todo item and settle the section
+- [x] Step 4: Rewrite the closed-eyes todo item and settle the section
   - Done when:
     - `todo.md` "App: face/eye-aware focus check for culling": the
       "Optionally, detect closed eyes from the landmarks" item is rewritten

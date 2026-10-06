@@ -208,17 +208,19 @@ pass into the second (see "Which pass carries which cost" below), so
 
 ### Face detection cost
 
-The scan runs YuNet (2023mar, via `tract-onnx`) on each embedded preview,
-shrunk to a 320x320 input (640x448 for the whole-image search since
-"Whole-image recall (Windows 11)" below), before scoring sharpness on the
-eyes. That
-detection now runs in the second pass, not the first (see "Which pass carries
-which cost" below); the measurements in this section predate the move and
-time it inside `riffle-cli scan`. Measured so
-far only on a Linux WSL2 machine (24 threads), release build, with synthetic
-input: the OpenCV sample images `lena.jpg` and `messi5.jpg` upscaled to a
-1616 px long edge, single thread, 30 runs after one warm-up (the time
-includes the downscale to the model input):
+The scan runs YuNet (2023mar, via `tract-onnx`) on each embedded preview
+before scoring sharpness on the eyes: on a 480x480 crop around a trusted AF
+point shrunk to a 320x320 input, or, without one, on the whole upright
+preview at a 640x448 input (see "Whole-image recall (Windows 11)" below).
+That detection now runs in the second pass, not the first (see "Which pass
+carries which cost" below). The Linux WSL2 measurements in this section
+predate the move and the larger input: they time a 320x320 detection inside
+`riffle-cli scan`. The two Windows 11 subsections time the second pass
+(`riffle-cli detect` and `riffle-cli candidates`). The first measurement ran
+on a Linux WSL2 machine (24 threads), release build, with synthetic input:
+the OpenCV sample images `lena.jpg` and `messi5.jpg` upscaled to a 1616 px
+long edge, single thread, 30 runs after one warm-up (the time includes the
+downscale to the model input):
 
 | Input | Mean | Median | p95 |
 |-------|------|--------|-----|
@@ -283,7 +285,8 @@ Recall: on the same samples the detector found no face in 29 of the 36 DNGs
 people on a swing (`L1005161.DNG`) yielded 2, and a basketball player in
 three-quarter profile was missed. A hand count later showed that almost all
 of those frames do contain faces, mostly 55-120 preview px, too small at the
-320 px input; the whole-image search now uses a larger input (see
+320 px input; the whole-image search now uses a larger input and finds a face
+in 23 of the 34 DNGs that contain one and all 7 people of `L1005161.DNG` (see
 "Whole-image recall (Windows 11)" below).
 
 Files with a trusted AF point but no camera face tracking now search a
@@ -501,8 +504,10 @@ The first pass writes the rows in small batches (10) as their thumbnails finish,
 thumbnails appear at the speed of the read and the thumbnail encode, and the
 sharpness bars fill in with the focus marks during the second pass. The
 numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
-candidate pass" above were measured before the move: the `riffle-cli scan`
-"after" figures there include costs that pass no longer carries.
+candidate pass" above were measured before the move, except the two Windows
+11 subsections of "Face detection cost", which time the second pass: the
+`riffle-cli scan` "after" figures there include costs that pass no longer
+carries.
 
 In the app both passes run below normal OS priority (on Windows
 `THREAD_PRIORITY_BELOW_NORMAL` for the first, `THREAD_PRIORITY_LOWEST` for
