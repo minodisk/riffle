@@ -6,7 +6,9 @@ use std::backtrace::{Backtrace, BacktraceStatus};
 use std::panic::Location;
 
 /// Log every panic, on any thread, as one `panic:` line before the default
-/// hook prints it to stderr. It is installed from `.setup()`, after the log
+/// hook prints it to stderr. Panics the core catches and turns into an `Err`
+/// (corrupt-file decodes) are logged too, so a `panic:` line is a crash only
+/// when no recovery follows. It is installed from `.setup()`, after the log
 /// plugin, so a panic before `setup` only reaches stderr.
 pub fn install_panic_hook() {
     let previous = std::panic::take_hook();

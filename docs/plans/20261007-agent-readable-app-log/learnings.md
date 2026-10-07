@@ -13,6 +13,13 @@
   imports: ES module imports are evaluated first anyway, so this is the
   earliest point in the module body.
 
+- A `panic:` line also appears for panics the core catches on purpose and
+  turns into an `Err` (the mozjpeg decode / thumbnail / sharpness paths in
+  `scan.rs`, `decode.rs`, `sharpness.rs`), because the hook runs before
+  `catch_unwind`. Such a line is a crash only if no recovery follows, for
+  example a scan failure entry for that file. The `docs/agents/` guide added
+  in a later step must say this. Basis: review round 1, item 1.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1, Windows debug build): the step's checkbox was
