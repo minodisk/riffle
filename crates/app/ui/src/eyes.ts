@@ -5,11 +5,21 @@
 // Mirrors `EyesJudgment` in `crates/app/src/commands.rs`. `probability` is
 // the probability that the eyes are closed, 0..1. `mesh` is the face mesh the
 // judgment was taken on, in the stored preview's pixel coordinates like
-// `faces_of`'s faces.
+// `faces_of`'s faces. `pose` is the head pose of the same face, `null` when
+// it could not be solved.
 export interface Eyes {
   state: "open" | "closed";
   probability: number;
+  pose: Pose | null;
   mesh: { width: number; height: number; points: [number, number][] };
+}
+
+// Mirrors `EyesPose`: degrees, yaw positive toward the image's right, pitch
+// positive up, roll positive clockwise on screen.
+export interface Pose {
+  yaw: number;
+  pitch: number;
+  roll: number;
 }
 
 // What `request` hands out: the id the backend supersedes older requests by,

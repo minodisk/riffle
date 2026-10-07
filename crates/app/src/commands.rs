@@ -501,7 +501,29 @@ struct EyesJudgment {
     state: &'static str,
     /// The probability that the eyes are closed, 0..1.
     probability: f64,
+    /// The head pose of the judged face (`pose::Pose`), `None` when the
+    /// solve failed.
+    pose: Option<EyesPose>,
     mesh: EyesMesh,
+}
+
+/// The head pose in degrees, with `pose::Pose`'s signs: yaw positive toward
+/// the image's right, pitch positive up, roll positive clockwise on screen.
+#[derive(Debug, PartialEq, serde::Serialize)]
+struct EyesPose {
+    yaw: f64,
+    pitch: f64,
+    roll: f64,
+}
+
+impl From<riffle_core::pose::Pose> for EyesPose {
+    fn from(p: riffle_core::pose::Pose) -> Self {
+        EyesPose {
+            yaw: p.yaw,
+            pitch: p.pitch,
+            roll: p.roll,
+        }
+    }
 }
 
 /// The face mesh the judgment was taken on, in the preview's stored pixel
@@ -586,6 +608,7 @@ fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, St
             eyes::EyeState::Closed => "closed",
         },
         probability: j.eyes.probability,
+        pose: j.pose.map(EyesPose::from),
         mesh: EyesMesh {
             width: w,
             height: h,
@@ -4122,6 +4145,33 @@ mod tests {
         assert!(err.contains("RAW files only"), "{err}");
 
         remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn the_eyes_judgment_carries_the_pose_or_null() {
+        let judgment = |pose| EyesJudgment {
+            state: "open",
+            probability: 0.25,
+            pose,
+            mesh: EyesMesh {
+                width: 4,
+                height: 3,
+                points: vec![[1.0, 2.0]],
+            },
+        };
+        let pose = riffle_core::pose::Pose {
+            yaw: 12.5,
+            pitch: -5.25,
+            roll: 3.0,
+        };
+        assert_eq!(
+            serde_json::to_value(judgment(Some(pose.into()))).unwrap()["pose"],
+            serde_json::json!({ "yaw": 12.5, "pitch": -5.25, "roll": 3.0 })
+        );
+        assert_eq!(
+            serde_json::to_value(judgment(None)).unwrap()["pose"],
+            serde_json::Value::Null
+        );
     }
 
     #[test]
