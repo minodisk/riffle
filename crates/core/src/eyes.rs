@@ -175,7 +175,7 @@ pub struct Judged {
     /// the scale of x (see `landmarks_of`).
     pub points: Vec<[f32; 3]>,
     /// The head pose of the face (`pose::head_pose`), `None` when the solve
-    /// fails.
+    /// fails or the fit is upside down (the roll past `MAX_ROLL`).
     pub pose: Option<Pose>,
 }
 

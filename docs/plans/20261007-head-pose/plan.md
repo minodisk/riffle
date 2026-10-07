@@ -187,7 +187,7 @@ rebases; the overlap is additive lines only.
       `LOGIT_*`. Do not add a dependency for linear algebra without noting
       the binary and build cost in `learnings.md`.
 
-- [ ] Step 2: Label the head pose of local faces and measure the angles against them
+- [x] Step 2: Label the head pose of local faces and measure the angles against them
   - Done when:
     - `pose-truth.md` in this plan folder: at least ~120 faces sampled from
       the two folders (the judged face of each file, as `eyes-truth.md`
@@ -347,6 +347,35 @@ rebases; the overlap is additive lines only.
   MediaPipe scales by the ROI width. The pose of such faces may be off;
   Step 2 notes any such faces separately.
 
+## Decision
+
+Decided in Step 2 from [`pose-results.md`](pose-results.md) against the
+labels of [`pose-truth.md`](pose-truth.md) (159 readable faces of 190, the
+agent's labels, the user's review pending):
+
+- **Keep the full MediaPipe pipeline at its 63 deg default FOV.** The EXIF
+  FOV and the weak-perspective variant agree with the labels exactly as
+  often on every sign (yaw 76/81, pitch 73/77, roll 15/18) and win nothing on
+  the classes: they trade a few faces between roll (145 and 145 against 142)
+  and pitch (124 and 122 against 125), and yaw is 107 and 105 against 108.
+  They move an angle
+  by a median of about 1 deg. The EXIF FOV would need the focal length
+  plumbed into `read_eyes` and a 35 mm equivalent `Shot` does not have, for
+  nothing measurable; the default stays identical to MediaPipe.
+  `head_pose_fov` stays for the tests.
+- **No face-size floor beyond `EYES_MIN_FACE`.** From 60 px up the signs
+  hold as well at 60-79 px as at 100 px and over.
+- **One plausibility bound, `MAX_ROLL` = 90 deg, in `pose.rs`.** The 15 of
+  2024 judged faces whose fit was upside down were all backs of heads, ears,
+  blurs or far profiles looking up; they now have no pose. A yaw past 90 deg
+  is kept (a far profile overshooting, the sign right on 16 of 18 readable
+  ones).
+- For the docs (Step 3, 4): the sign is right on about 94% of faces for yaw
+  and pitch, 15 of 18 for roll; the yaw class agrees with the eye on 68%, the gap almost
+  all at the frontal / oblique boundary (a 15-25 deg turn still looks
+  frontal); far profiles past about 70 deg and sports sunglasses are rough.
+
 ## Progress
 
 - (2026-10-07) Step 1 complete
+- (2026-10-07) Step 2 complete

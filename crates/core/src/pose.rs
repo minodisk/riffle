@@ -33,6 +33,14 @@ const EPS: f64 = 1e-9;
 /// MediaPipe's `kIsScreenLandmarkListTooCompactThreshold`: a face whose
 /// normalized points all lie within this distance of their mean is skipped.
 const TOO_COMPACT: f64 = 1e-3;
+/// The largest roll, in degrees, a pose is returned with. Beyond it the
+/// fitted face would be upside down: on the sample folders every such fit
+/// (15 of 2024 judged faces) was a back of a head, an ear, a blur or a far
+/// profile looking up, all three angles meaningless. A yaw past 90 degrees
+/// is kept: there the mesh overshoots on a far profile, with the sign right
+/// on 16 of the 18 readable such faces
+/// (`docs/plans/20261007-head-pose/pose-results.md`).
+const MAX_ROLL: f64 = 90.0;
 
 /// `(landmark id, Procrustes weight, canonical position in cm)`.
 const BASIS: [(usize, f64, [f64; 3]); 33] = [
@@ -98,7 +106,8 @@ pub fn head_pose(points: &[[f32; 3]], width: usize, height: usize) -> Option<Pos
 
 /// `head_pose` under a camera of vertical field of view `fov` degrees.
 /// `None` on fewer than 468 points, an empty image, a non-finite point, a
-/// face too compact to fit, or a degenerate solve.
+/// face too compact to fit, a degenerate solve, or a roll beyond
+/// `MAX_ROLL`.
 pub fn head_pose_fov(points: &[[f32; 3]], width: usize, height: usize, fov: f64) -> Option<Pose> {
     if points.len() < MESH_POINTS || width == 0 || height == 0 {
         return None;
@@ -149,9 +158,10 @@ pub fn head_pose_fov(points: &[[f32; 3]], width: usize, height: usize, fov: f64)
         pitch: r[1][2].clamp(-1.0, 1.0).asin().to_degrees(),
         roll: -r[1][0].atan2(r[1][1]).to_degrees(),
     };
-    [pose.yaw, pose.pitch, pose.roll]
+    ([pose.yaw, pose.pitch, pose.roll]
         .iter()
         .all(|v| v.is_finite())
+        && pose.roll.abs() <= MAX_ROLL)
         .then_some(pose)
 }
 
@@ -595,6 +605,22 @@ mod tests {
         assert_eq!(head_pose(&inf, 1600, 1067), None);
         assert_eq!(head_pose(&vec![[800.0, 500.0, 0.0]; 478], 1600, 1067), None);
         assert!(head_pose(&face, 1600, 1067).is_some());
+    }
+
+    #[test]
+    fn an_upside_down_face_has_no_pose() {
+        let at = |pose| render(pose, [0.0, 0.0, -60.0], 1600, 1067);
+        assert!(head_pose(&at((0.0, 0.0, 80.0)), 1600, 1067).is_some());
+        assert!(head_pose(&at((0.0, 0.0, -80.0)), 1600, 1067).is_some());
+        assert_eq!(head_pose(&at((0.0, 0.0, 120.0)), 1600, 1067), None);
+        assert_eq!(head_pose(&at((0.0, 0.0, -150.0)), 1600, 1067), None);
+        assert_pose(
+            head_pose(&at((110.0, 0.0, 0.0)), 1600, 1067).unwrap(),
+            110.0,
+            0.0,
+            0.0,
+            1.0,
+        );
     }
 
     #[test]
