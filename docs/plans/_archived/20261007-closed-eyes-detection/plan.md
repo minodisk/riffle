@@ -92,7 +92,7 @@ file scored, which the on-demand design rules out.
   (`survey-arw.tsv`, `survey-dng.tsv`) are in
   `D:\Photos\tests\2026-10-07-closed-eyes\`. Hand-check copies go in
   `D:\Photos\tests\<date>-<topic>\`.
-- Guide: [`../../agents/tract-onnx-inference.md`](../../agents/tract-onnx-inference.md)
+- Guide: [`../../../agents/tract-onnx-inference.md`](../../../agents/tract-onnx-inference.md)
   (model loading with `default-features = false`, outlet labels, `OnceLock`
   plans, input conventions).
 
