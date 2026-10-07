@@ -148,3 +148,10 @@ broken assumption. A normal session produces none. The checks:
 
 The two backend checks log under `riffle_app::commands`; the frontend one
 comes through `log_frontend` under `riffle_app::diagnostics`.
+
+The checks are not exhaustive, so no `invariant:` line proves nothing broke.
+`start_scan once per scan` fires only while the first scan is still running; a
+second `start_scan` after that scan finished (`finish` has cleared `running`)
+logs nothing. It also logs nothing when `scan_folder` inserted no pending entry
+(idle rescan of an indexed folder, or index cache unavailable) and `running`
+does not hold `scan_id`; that is normal, not a violation.
