@@ -1082,7 +1082,9 @@ correctly through the same path.
 
 - When a frontend line needs to land in `Riffle.log`, route it through a
   command like `log_timing` rather than granting `log:default` to call the
-  plugin's JS API directly.
+  plugin's JS API directly. `log_frontend` in `crates/app/src/diagnostics.rs`
+  is the second such command, carrying the `uncaught-js:` and `invariant:`
+  lines (see [`app-log.md`](./app-log.md)).
 - Source: `docs/plans/_archived/20260921-page-latency-timing/learnings.md`,
   Step 2.
 

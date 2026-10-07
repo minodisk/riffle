@@ -47,6 +47,21 @@
   `diagnostics.rs`; the expansion calls `$crate::diagnostics::invariant_line`,
   so that function is `pub(crate)`.
 
+## Step 3
+
+- The plan asked to name the rotated file "as observed on disk", but
+  tauri-plugin-log 2.9.2's `RotationStrategy::KeepOne` leaves none: its
+  `rotate` calls `fs::remove_file` on `Riffle.log` and reopens it. Only
+  `KeepAll` / `KeepSome` rename to `Riffle_<YYYY-MM-DD_HH-MM-SS>.log`. The
+  Windows log folder holds only `Riffle.log`, which matches. The guide says
+  the early lines of a long session are lost outright.
+- The plugin's desktop default format is `[date][time][target][LEVEL]`
+  (target before level), as the plan said; only `timezone_strategy()`
+  swaps the order to level before target, and the app does not call it.
+  The plugin also logs to stdout by default.
+- The macOS / Linux paths come from tauri 2.11.6 `app_log_dir`; only the
+  Windows path was checked on disk.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1, Windows debug build): the step's checkbox was
