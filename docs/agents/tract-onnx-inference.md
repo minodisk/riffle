@@ -145,6 +145,19 @@ and a labeled set, not only whether it loads.
   the yaw / pitch signs it yields agree with the face crops of a few
   turned and tilted faces, and keeping z left the `riffle-cli eyes` EAR
   columns of 40 labeled faces byte-identical (Measured).
+- The head pose (`pose::head_pose`, a port of MediaPipe's face geometry
+  pipeline at commit `212f110c`) needs no linear algebra crate. The 3x3
+  rotation is the polar factor of a cyclic Jacobi solve. Two details of the
+  port are easy to get wrong. The depth offset is the **plain** mean z over
+  all 468 points; only the 33 basis points enter the Procrustes solves. The
+  pipeline also drops a face whose normalized points lie within 1e-3 of their
+  mean (`too_compact`, a `None`). It costs about 8 us per face, release,
+  single thread, so it does not move the `eyes_of` time (Measured). Only the
+  roll is bounded (`MAX_ROLL`). A yaw past 90 deg is kept, because the sign
+  was right on 16 of 18 readable far profiles. The 63 deg vertical FOV is kept
+  because the FOV is not measurable from `Shot`, which lacks the 35 mm
+  equivalent focal length (Measured).
+  Source: [head-pose learnings, Steps 1, 2 and 4](../plans/_archived/20261007-head-pose/learnings.md).
 - The file is a tf2onnx 1.17.0 conversion of Google's TFLite (provenance in
   `crates/core/models/LICENSE-mediapipe`); tf2onnx widens the float16
   weights to float32, so the ONNX is about twice the TFLite (4.9 MB).
@@ -161,6 +174,12 @@ and a labeled set, not only whether it loads.
   labeled faces, one thread (Measured). The Step 1 survey measured 49-51 ms
   for the same function while it ran three other models on each face in
   between; treat the lower figure as the model's own cost.
+- When comparing `times_eyes_of_on_real_files` before and after a change,
+  build both revisions back to back and repeat the first one. A run straight
+  after a ~4-minute release compile read 81-92 / 144-160 ms against
+  61-68 / 111-121 ms on the same code once the cache was warm. The order alone
+  fakes a ~20 ms regression (Measured). Source:
+  [head-pose learnings, Step 4](../plans/_archived/20261007-head-pose/learnings.md).
 - Source: [closed-eyes-detection learnings](../plans/_archived/20261007-closed-eyes-detection/learnings.md),
   Steps 1 and 2.
 

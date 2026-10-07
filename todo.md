@@ -643,6 +643,29 @@ Files: `crates/app/ui/src/main.ts` (`drawFaceMesh`, `FACE_MESH_OUTLINE_WIDTH`, `
 
 - [ ] On Windows or macOS, with `f` on, show (1) an upright ARW with an open-eyed face of 60 px or more: the cyan outline of the face parts and both iris rings with their center dots sit on the judged face a moment after the `Eyes open` row appears; (2) a portrait ARW (orientation 6 or 8) with such a face: the same, rotated with the image and scaling with the window; (3) a file labeled closed (`D:\photos\2026\2026-09-19\_DSC1889.ARW` / `_DSC1890.ARW`, per the closed-eyes todo above): the outline only, no iris ring and no iris dot; (4) a file whose only face is below 60 px on the preview: nothing drawn and no error in `Riffle.log`. Tune `FACE_MESH_OUTLINE_WIDTH` / `FACE_MESH_LINE_WIDTH` (or give the iris dots their own radius) if the outline competes with the face box or the rings collapse onto the dots.
 
+### App: real-device check of the meta pane's `Head pose` row
+
+`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) ports MediaPipe's face geometry to `crates/core/src/pose.rs` and returns the yaw, pitch and roll of the judged face from `eyes_of` (`EyesJudgment.pose`). The meta pane's Analysis group shows it as a `Head pose` row after `Eyes open`. CI covers the unit tests (`pose.rs`, `meta.test.ts`, the `EyesJudgment` serialization), and the core solve was timed at about 8 µs per face. The app itself was never run with the row. The Step 3 checkbox was ticked on the automated criteria.
+
+Files: `crates/app/src/commands.rs` (`read_eyes`, `EyesJudgment`), `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts` (`poseValue`), `crates/core/src/pose.rs`.
+
+#### TODO
+
+- [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Head pose  yaw N°, pitch N°, roll N°` after `Eyes open`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
+- [ ] Open `D:\photos\2026\2026-02-01` and select a DNG with a judged face: the `Head pose` row shows on the no-AF path.
+- [ ] Select a file with no judged face (for example `_DSC1897.ARW`): neither `Eyes open` nor `Head pose` shows.
+- [ ] Read the `eyes total=` lines in `Riffle.log` for a few ARWs: the total is not noticeably longer than before (the solve adds about 8 µs).
+
+### App: the review of the head-pose labels is still open
+
+`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) measured the angles against 190 labels (159 readable) that the agent made from the face crops: yaw class and direction, pitch, roll, or `x`. The user's review is pending, and the plan's Decision rests on these labels. Step 2 was ticked on the automated criteria (the labels exist, the measurement and Decision are written, `mise run ci` passes).
+
+Files: `docs/plans/_archived/20261007-head-pose/pose-truth.md`, `docs/plans/_archived/20261007-head-pose/pose-results.md`.
+
+#### TODO
+
+- [ ] On Windows, open the sheets `D:\Photos\tests\2026-10-07-head-pose\sheets\s00.png` to `s16.png` (4 tiles across, row by row in the `#` order of the `pose-truth.md` table; crops in `crops\`) and compare each tile to its row. Note any label to change. If labels change, re-run `aggregate.py` (in `D:\Photos\tests\2026-10-07-head-pose\`) and update `pose-results.md` and the plan's Decision if a number moves.
+
 ### Core: the no-AF-point path decodes the preview a second time in score_preview
 
 #### Background

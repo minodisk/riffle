@@ -119,9 +119,9 @@ rebases; the overlap is additive lines only.
   point). Crops of the closed-eyes truth set are in
   `D:\Photos\tests\2026-10-07-closed-eyes\` (`arw\`, `dng\`, `tiles\`).
   Hand-check outputs go in `D:\Photos\tests\<date>-<topic>\`.
-- Guides: [`../../agents/tract-onnx-inference.md`](../../agents/tract-onnx-inference.md),
+- Guides: [`../../../agents/tract-onnx-inference.md`](../../../agents/tract-onnx-inference.md),
   the closed-eyes plan
-  [`../_archived/20261007-closed-eyes-detection/plan.md`](../_archived/20261007-closed-eyes-detection/plan.md)
+  [`../20261007-closed-eyes-detection/plan.md`](../20261007-closed-eyes-detection/plan.md)
   (how a measure was labeled, measured and then adopted).
 
 ## Steps
