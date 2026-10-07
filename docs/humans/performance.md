@@ -577,6 +577,44 @@ the 60 px floor the app judges: AUC 0.974, accuracy 0.955, the same precision
 and recall. The random ARW sample alone scores 0.918 (precision 0.85, recall
 0.73), the DNG faces 0.986. A downcast eye reads as closed.
 
+The head pose of the judged face (the meta pane's `Head pose` row) is a
+port of MediaPipe's face geometry pipeline over the points of the same model
+run (`crates/core/src/pose.rs`), so it adds no model run and no decode. The
+solve takes 8.2µs per face at the median (p95 18µs, max 26µs; the 72 judged
+faces of the M11-P folder, 200 repetitions each, one thread, release build).
+The whole `eyes_of` call with the same test on the same files as the table
+above, measured on 2026-10-07 on `main` at `9048e952` against `bde23660`, the
+commit before the pose, built and run back to back on the same machine, the
+first file of each set left out:
+
+| Files | Total before | Total after |
+|-------|--------------|-------------|
+| 16 ARWs with a face judged | 60.7-73.1ms (median 65.3) | 61.4-68.2ms (median 65.9) |
+| 2 ARWs without one | 32.8 / 33.5ms | 33.3 / 33.8ms |
+| 10 DNGs | 109.2-119.1ms (median 116.0) | 110.8-120.7ms (median 117.1) |
+
+The difference is run-to-run noise: the solve is three orders of magnitude
+smaller, and the detection, which the pose does not touch, moved as much.
+Both runs were faster than the table above; a first run of the after build
+straight after compiling it read 81-92ms and 144-160ms. The binaries grew by
+the code alone: `riffle-app` from 52,503,040 B to 52,520,448 B (+17,408 B,
++0.03%), `riffle-cli` from 29,556,224 B to 29,577,728 B (+21,504 B).
+
+Accuracy, against 159 readable faces of 190 drawn from the same two folders
+(with more turned and leaning faces than the folders have), labeled by eye with coarse classes and directions (there is no ground-truth
+angle, and the labels are the agent's, not yet reviewed): the sign is right
+on 76 of 81 turned faces (yaw, 94%), 73 of 77 raised or lowered ones (pitch,
+95%) and 15 of 18 leaning ones (roll). The classes (yaw frontal under 15
+deg, oblique 15-50, profile over 50; pitch and roll level within 15 deg)
+agree on 68% (yaw), 79% (pitch) and 89% (roll). The yaw gap is almost all at
+the frontal / oblique boundary: 28 faces labeled frontal read 15-42 deg, a
+turn that still looks frontal, and no frontal face reads as a profile. Far
+profiles past about 70 deg and sports sunglasses are rough, and a far
+profile's yaw can read past 90 deg. 15 of the 2024 judged faces of the two
+folders fitted upside down (a roll past 90 deg: backs of heads, ears,
+blurs) and get no pose. The lens's own field of view in place of
+MediaPipe's 63 deg camera changes none of the signs.
+
 ### Which pass carries which cost
 
 Since the sharpness score moved to the second pass, the first pass

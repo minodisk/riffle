@@ -562,6 +562,32 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       the judgment moves into the scan (~35 ms per face on every file, which
       the survey found too costly for the second pass). Files:
       `crates/app/ui/src/strip.ts`, `crates/app/ui/src/eyes.ts`.
+- [x] Estimate the head pose of the judged face. MediaPipe's face geometry
+      pipeline (perspective unprojection at its 63 deg camera, weighted
+      Procrustes onto the canonical face) is ported to
+      `crates/core/src/pose.rs` and runs on the points of the `eyes_of`
+      model run, shown as the meta pane's `Head pose` row (yaw, pitch,
+      roll; right, up and clockwise positive). On demand only, nothing in
+      the index, so there is no strip filter for it. Cost: 8.2 µs per face,
+      no change to the `eyes_of` total. Accuracy on 159 labeled faces: the
+      sign right on 94% (yaw), 95% (pitch), 15 of 18 (roll); the yaw class
+      on 68%, the gap at the frontal / oblique boundary. See
+      `docs/plans/20261007-head-pose/` and `docs/humans/performance.md`
+      "Closed-eyes judgment on demand (Windows 11)".
+- [ ] Add the shown file's head pose to the MCP companion, next to the
+      closed-eyes field above: the pose rides in the same `eyes_of`
+      judgment (`EyesJudgment.pose`, `null` when there is none), so one
+      field of `get_photo` / `get_view` (or one tool) can carry both, absent
+      until the file has been shown. Files: `crates/app/src/mcp.rs`,
+      `crates/app/ui/src/companion.ts`, `crates/app/ui/src/eyes.ts`.
+- [ ] Flag "looking away" frames from the head pose. Needs a threshold
+      labeled first: which |yaw| / pitch a culler calls looking away (the
+      Step 2 labels put frontal faces at a median |yaw| of 10 deg, oblique
+      at 41, profile at 65, so the cut is somewhere in 20-50 deg), checked
+      against labeled faces with a "looking away" label the head-pose plan
+      did not make. Shown in the meta pane at first (the pose is on demand
+      only). Files: `crates/app/ui/src/meta.ts`, `crates/app/ui/src/eyes.ts`,
+      `docs/plans/20261007-head-pose/pose-truth.md` (the labels to extend).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
