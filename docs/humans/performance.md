@@ -516,9 +516,12 @@ and about two in three from 60 px up.
 For scale, `riffle-cli detect` on 40 of those ARWs in the same session
 took 13.4-13.6ms to decode and 31.8-32.7ms to detect per file, so the
 classifier would add about 1% to the cue path's per-file cost, face mesh v1
-33-35%, the iris model 40% and Face Landmarker v2 105-109%. None was adopted:
-the one inside a +25% budget cannot tell the eye state apart, and the one
-accurate enough for a filter costs about four times that. On the 3/8 decode
+33-35%, the iris model 40% and Face Landmarker v2 105-109%. None fits the
+second scan pass: the one inside a +25% budget cannot tell the eye state
+apart, and the one accurate enough for a filter costs about four times that.
+Face Landmarker v2 was adopted on demand instead: it runs once for the file
+being shown, outside both scan passes, so the pass-2 budget does not apply.
+On the 3/8 decode
 the whole-image search uses, the classifier's eye AUC fell from 0.78 to
 0.59 on the same 20 DNG faces. The details are in
 `docs/plans/20261007-closed-eyes-detection/model-survey.md`.

@@ -2,9 +2,19 @@
 
 ## Step 1: eye-state model survey
 
-- **Outcome: no model adopted.** The decision, the numbers and the "none"
-  branch (Steps 2-5 struck, `todo.md` item rewritten) are in `plan.md`
+- **Outcome: none fits pass 2; Face Landmarker v2 adopted on demand.** The
+  measured verdict stands: no candidate fits the second scan pass's budget.
+  The adoption is on demand for the shown file only, outside the scan. The
+  decision, the numbers and the new Steps 2-4 are in `plan.md`
   ("Decision"), `model-survey.md` and `eyes-truth.md`.
+- **Plan change (user intervention, 2026-10-07).** Step 1 was first
+  committed (`fecff8a2`) with the decision "none" and Steps 2-5 struck. The
+  user replaced it before the PR opened: Face Landmarker v2 runs on demand
+  for the shown file (the way `faces_of` detects the focus mark's faces),
+  its result in the meta pane only, while the scan stays as it is. The same
+  branch then reworded the `todo.md` item (kept open, closed by Step 4),
+  the last paragraph of "Eye-state model survey (Windows 11)" in
+  `docs/humans/performance.md` / `.ja.md`, and this file.
 - **Reading the budget.** The plan's Trade-offs turned +25% of the per-file
   `detect` time into "4-5 ms per face" assuming ~1.8 faces per file, but the
   approved "which face" default judges only the face nearest the AF point,
@@ -39,7 +49,8 @@
   adopted there is none, so `face_to_upright`, `eye_squares`, `face_square`
   and their constants live next to `eyecrops` in `crates/cli/src/main.rs`.
   Moving them out of core gave byte-identical `eyecrops` output on the
-  146-DNG folder.
+  146-DNG folder. With the on-demand adoption, Step 2 moves `face_square`
+  / `face_to_upright` into `riffle-core` after all.
 - **Converting MediaPipe's TFLite files**: tflite2onnx 0.4.1 converts
   `iris_landmark.tflite` but fails on `face_landmark.tflite` (an
   `IndexError` in its layout propagation); tf2onnx 1.17.0 with TensorFlow
@@ -68,7 +79,8 @@
   `D:\Photos\tests\2026-10-07-closed-eyes\tiles\<stem>.png` (or the crops
   `arw\<stem>-<n>-face.png` / `-l.png` / `-r.png`) and confirm that the eye
   marked `c` shows no iris; note any that are open. Expected: the large
-  majority confirmed; a change matters only if Step 1's "none" is ever
-  revisited, since the AUCs in `model-survey.md` come from these labels.
+  majority confirmed; a change would move the AUCs in `model-survey.md`
+  and the EAR threshold Step 2 takes from them, since both come from these
+  labels.
   Step 1's checkbox was ticked on the automated criteria (the measurements
   and the decision do not wait for this review).

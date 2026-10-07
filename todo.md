@@ -536,10 +536,10 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       `default-features = false` (the MediaPipe ones converted from Google's
       TFLite with tf2onnx). The preview is a floor of its own: below a 60 px
       face side a human can call about one face in five, and the whole-image
-      path's 3/8 decode loses a fifth of the labelable faces. Options left:
-      run Face Landmarker v2 on demand for the current file only (as
-      `faces_of` does, ~50 ms; the meta pane could show it, the filter could
-      not), accept a larger pass-2 budget, or find a faster runtime for it.
+      path's 3/8 decode loses a fifth of the labelable faces. Adopted on
+      demand for the shown file only (MediaPipe Face Landmarker v2 via EAR,
+      ~50 ms per face), not in the scan: see
+      `docs/plans/20261007-closed-eyes-detection/`.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
