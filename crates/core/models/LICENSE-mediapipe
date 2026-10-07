@@ -28,6 +28,23 @@ Provenance:
 - Modification: each pair taken as (lower, higher) index, deduplicated and
   sorted into 1322 undirected edges, written as a flat index array.
 
+The head pose basis table `BASIS` in crates/core/src/pose.rs is also
+MediaPipe's, Copyright 2020 The MediaPipe Authors, under the same license.
+
+Provenance:
+
+- Source: at commit 212f110c65818db7f2d08c42a9539ecb2b6c0e1d of
+  https://github.com/google-ai-edge/mediapipe,
+  mediapipe/modules/face_geometry/data/geometry_pipeline_metadata_landmarks.pbtxt
+  (SHA-256 55ca7c4c7bf195673b9d12a1b5d49d4b9c82b5ade8fed4b565496590866e359d):
+  the 33 `procrustes_landmark_basis` landmark ids and weights, and the
+  positions of those vertices in its `canonical_mesh`; the same positions
+  are in mediapipe/modules/face_geometry/data/canonical_face_model.obj
+  (SHA-256 8bac80443397e113f41a8b565ea72c59390bc031d9defab289dba7bc0c54e618).
+- Modification: copied verbatim, no change. The solve around it is a port
+  of mediapipe/modules/face_geometry/libs/geometry_pipeline.cc and
+  procrustes_solver.cc at the same commit.
+
                               Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/

@@ -4,6 +4,7 @@ use riffle_core::decode::{apply_orientation, decode_rgb};
 use riffle_core::eyes;
 use riffle_core::faces;
 use riffle_core::partial;
+use riffle_core::pose;
 use riffle_core::reader;
 use riffle_core::scan;
 use riffle_core::sharpness;
@@ -786,8 +787,8 @@ fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
 /// totals: the face nearest the AF point on the scan's detection
 /// (`detect_around` with `trusted_focus`), else the largest face at or above
 /// `sharpness::FACE_CONFIDENCE`, cut from the full-size upright preview.
-/// The EAR is printed below `eyes::EYES_MIN_FACE` too, so the labeled set's
-/// AUC can be taken over every labeled face.
+/// The EAR and the head pose are printed below `eyes::EYES_MIN_FACE` too,
+/// so the labeled set's AUC can be taken over every labeled face.
 fn eyes_cmd(inputs: &[PathBuf]) -> Result<()> {
     let paths = raw_paths(inputs)?;
     let probe = faces::Face {
@@ -820,9 +821,10 @@ fn eyes_cmd(inputs: &[PathBuf]) -> Result<()> {
                 crop,
                 face,
                 ear,
+                pose,
                 model,
             })) => {
-                println!("{}", eyes_line(&name, crop, &face, ear, model));
+                println!("{}", eyes_line(&name, crop, &face, ear, pose, model));
                 judged += 1;
                 t_model.push(model);
             }
@@ -844,11 +846,13 @@ fn eyes_cmd(inputs: &[PathBuf]) -> Result<()> {
     Ok(())
 }
 
-/// The face `eyes` judged in one file, upright, its EAR and the model time.
+/// The face `eyes` judged in one file, upright, its EAR, its head pose and
+/// the model time.
 struct Judged {
     crop: bool,
     face: faces::Face,
     ear: Option<f64>,
+    pose: Option<pose::Pose>,
     model: f64,
 }
 
@@ -864,26 +868,36 @@ fn judge_file(path: &Path) -> Result<Option<Judged>> {
     let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, a.orientation);
     let face = faces::face_to_upright(stored, a.orientation, w, h);
     let t = Instant::now();
-    let ear = eyes::ear_of(&upright, uw, uh, &face)?;
+    let points = eyes::landmarks_of(&upright, uw, uh, &face)?;
+    let model = t.elapsed().as_secs_f64() * 1000.0;
     Ok(Some(Judged {
         crop: focus.is_some(),
         face,
-        ear,
-        model: t.elapsed().as_secs_f64() * 1000.0,
+        ear: points.as_deref().and_then(eyes::more_closed_ear),
+        pose: points.and_then(|p| pose::head_pose(&p, uw, uh)),
+        model,
     }))
 }
 
 /// One file of `eyes`: the path taken, the judged face's box side (the
 /// longer of width and height) in preview pixels, the EAR of its more closed
 /// eye, the closed probability and the state (`unknown` below
-/// `eyes::EYES_MIN_FACE` or without an EAR), and the model time.
-fn eyes_line(name: &str, crop: bool, face: &faces::Face, ear: Option<f64>, model: f64) -> String {
+/// `eyes::EYES_MIN_FACE` or without an EAR), the head pose in degrees (`-`
+/// without one), and the model time.
+fn eyes_line(
+    name: &str,
+    crop: bool,
+    face: &faces::Face,
+    ear: Option<f64>,
+    pose: Option<pose::Pose>,
+    model: f64,
+) -> String {
     let side = face.width.max(face.height);
     let judged = ear
         .filter(|_| side >= eyes::EYES_MIN_FACE)
         .map(eyes::Eyes::from_ear);
     format!(
-        "{name}  {}  {side:.0}px  ear {}  {}  model {model:.1}ms",
+        "{name}  {}  {side:.0}px  ear {}  {}  {}  model {model:.1}ms",
         if crop { "crop" } else { "whole" },
         ear.map_or("-".into(), |e| format!("{e:.4}")),
         match judged {
@@ -896,6 +910,10 @@ fn eyes_line(name: &str, crop: bool, face: &faces::Face, ear: Option<f64>, model
                 }
             ),
             None => "- unknown".into(),
+        },
+        match pose {
+            Some(p) => format!("yaw {:.1}  pitch {:.1}  roll {:.1}", p.yaw, p.pitch, p.roll),
+            None => "yaw -  pitch -  roll -".into(),
         }
     )
 }
@@ -1226,12 +1244,17 @@ mod tests {
             ..upright()
         };
         assert_eq!(
-            eyes_line("a.ARW", true, &face, Some(0.05), 49.04),
-            "a.ARW  crop  97px  ear 0.0500  0.93 closed  model 49.0ms"
+            eyes_line("a.ARW", true, &face, Some(0.05), None, 49.04),
+            "a.ARW  crop  97px  ear 0.0500  0.93 closed  yaw -  pitch -  roll -  model 49.0ms"
         );
+        let pose = pose::Pose {
+            yaw: 12.34,
+            pitch: -5.06,
+            roll: 0.0,
+        };
         assert_eq!(
-            eyes_line("b.DNG", false, &face, Some(0.3), 50.0),
-            "b.DNG  whole  97px  ear 0.3000  0.01 open  model 50.0ms"
+            eyes_line("b.DNG", false, &face, Some(0.3), Some(pose), 50.0),
+            "b.DNG  whole  97px  ear 0.3000  0.01 open  yaw 12.3  pitch -5.1  roll 0.0  model 50.0ms"
         );
         let small = faces::Face {
             width: 40.0,
@@ -1239,12 +1262,12 @@ mod tests {
             ..upright()
         };
         assert_eq!(
-            eyes_line("c.ARW", true, &small, Some(0.05), 48.0),
-            "c.ARW  crop  50px  ear 0.0500  - unknown  model 48.0ms"
+            eyes_line("c.ARW", true, &small, Some(0.05), Some(pose), 48.0),
+            "c.ARW  crop  50px  ear 0.0500  - unknown  yaw 12.3  pitch -5.1  roll 0.0  model 48.0ms"
         );
         assert_eq!(
-            eyes_line("d.ARW", true, &face, None, 48.0),
-            "d.ARW  crop  97px  ear -  - unknown  model 48.0ms"
+            eyes_line("d.ARW", true, &face, None, None, 48.0),
+            "d.ARW  crop  97px  ear -  - unknown  yaw -  pitch -  roll -  model 48.0ms"
         );
     }
 
