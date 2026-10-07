@@ -185,4 +185,4 @@ table cites; Apache-2.0, Copyright 2021 The MediaPipe Authors):
 
 ## Progress
 
-- (none yet)
+- (2026-10-07) Step 1 complete
