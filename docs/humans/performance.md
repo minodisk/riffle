@@ -484,6 +484,48 @@ The `scan extract` / `scan faces` log lines of an app open of this folder are
 not recorded here yet: that needs the GUI, which was not run for this
 measurement.
 
+#### Eye-state model survey (Windows 11)
+
+YuNet's five landmarks carry no eyelid points, so telling closed eyes apart
+needs a second model on the face nearest the AF point. Four candidates were
+measured on 2026-10-07 on Windows 11 (Intel Core i7-13700, 24 hardware
+threads, 32 GB), release build, one thread, against 504 hand-labeled faces:
+432 from the 2134-ARW α7 V folder (240 drawn at random, 192 drawn toward
+closed eyes) and 72 from the 146-DNG M11-P folder. The per-face latency
+includes the crop from the full-size upright preview and the resize into the
+model input (two runs per face for the per-eye models); the AUC is that of
+the face's more closed eye against a closed / open hand label. All four load
+in `tract-onnx` with `default-features = false`; the MediaPipe ones are ONNX
+conversions of Google's TFLite files (tf2onnx, tflite2onnx).
+
+| Model | License | ONNX size | Per face mean / median / p95 | Face AUC (eye AUC) | Precision / recall of closed |
+|-------|---------|-----------|------------------------------|--------------------|------------------------------|
+| Open Model Zoo `open-closed-eye-0001` (eye-crop classifier, 32x32) | Apache-2.0 | 46 KB | 0.52 / 0.48 / 0.79ms | 0.716 (0.718) | 0.35 / 0.70 at 0.5 |
+| MediaPipe face mesh v1 (EAR, 192x192) | Apache-2.0 | 2.4 MB | 15.4 / 15.4 / 21.5ms | 0.886 (0.817) | 0.62 / 0.79 |
+| MediaPipe Face Landmarker v2 (EAR, 256x256) | Apache-2.0 | 4.9 MB | 50.9 / 49.1 / 68.6ms | 0.974 (0.940) | 0.94 / 0.86 |
+| MediaPipe Iris (eyelid contour, 64x64 per eye) | Apache-2.0 | 2.6 MB | 18.6 / 18.2 / 26.4ms | 0.863 (0.860) | 0.59 / 0.89 |
+
+The precision and recall of the landmark models are at the EAR threshold
+with the best F1. Labeled: 463 eyes and 253 faces (109 / 57 closed); the
+rest could not be called. Of the 240 random ARW faces, 40% could not be
+labeled: 25% had no eye to judge (turned away, occluded, false detections)
+and 15% only eyes too small, blurred or dark to call. By face side in
+preview pixels, 0 of 5 faces below 40 px were labelable, 6 of 31 at 40-59 px
+and about two in three from 60 px up.
+
+For scale, `riffle-cli detect` on 40 of those ARWs in the same session
+took 13.4-13.6ms to decode and 31.8-32.7ms to detect per file, so the
+classifier would add about 1% to the cue path's per-file cost, face mesh v1
+33-35%, the iris model 40% and Face Landmarker v2 105-109%. None fits the
+second scan pass: the one inside a +25% budget cannot tell the eye state
+apart, and the one accurate enough for a filter costs about four times that.
+Face Landmarker v2 was adopted on demand instead: it runs once for the file
+being shown, outside both scan passes, so the pass-2 budget does not apply.
+On the 3/8 decode
+the whole-image search uses, the classifier's eye AUC fell from 0.78 to
+0.59 on the same 20 DNG faces. The details are in
+`docs/plans/20261007-closed-eyes-detection/model-survey.md`.
+
 ### Which pass carries which cost
 
 Since the sharpness score moved to the second pass, the first pass

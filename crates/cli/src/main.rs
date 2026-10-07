@@ -54,6 +54,16 @@ fn main() -> Result<()> {
             }
             detect(&inputs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
+        Some("eyecrops") => {
+            let (out, inputs) = match args[1..].split_last() {
+                Some((out, inputs)) if !inputs.is_empty() => (out, inputs),
+                _ => bail!("usage: riffle-cli eyecrops <dir|file>... <out-dir>"),
+            };
+            eyecrops(
+                &inputs.iter().map(PathBuf::from).collect::<Vec<_>>(),
+                Path::new(out),
+            )
+        }
         Some("check") => {
             let mut dirs = &args[1..];
             let threads = match dirs.last().map(|t| t.parse::<usize>()) {
@@ -69,7 +79,7 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli check <dir>... [threads]"
         ),
     }
 }
@@ -557,24 +567,7 @@ fn detect(inputs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     if threads == 0 {
         bail!("threads must be at least 1");
     }
-    let mut paths: Vec<PathBuf> = Vec::new();
-    for input in inputs {
-        if input.is_dir() {
-            let mut found: Vec<PathBuf> = std::fs::read_dir(input)?
-                .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| scan::is_raw_file(p))
-                .collect();
-            if found.is_empty() {
-                bail!("no RAW files in {input:?}");
-            }
-            found.sort();
-            paths.extend(found);
-        } else if scan::is_raw_file(input) {
-            paths.push(input.clone());
-        } else {
-            bail!("{input:?}: not a folder or a RAW file");
-        }
-    }
+    let paths = raw_paths(inputs)?;
     // Build the models outside the timing.
     faces::detect(&[0; 3], 1, 1)?;
     faces::detect_whole(&[0; 3], 1, 1)?;
@@ -651,6 +644,205 @@ fn detect(inputs: &[PathBuf], threads: Option<usize>) -> Result<()> {
         stats("detection", t_detect);
     }
     Ok(())
+}
+
+/// The RAW files given and those in the folders given, each folder's sorted.
+fn raw_paths(inputs: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for input in inputs {
+        if input.is_dir() {
+            let mut found: Vec<PathBuf> = std::fs::read_dir(input)?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| scan::is_raw_file(p))
+                .collect();
+            if found.is_empty() {
+                bail!("no RAW files in {input:?}");
+            }
+            found.sort();
+            paths.extend(found);
+        } else if scan::is_raw_file(input) {
+            paths.push(input.clone());
+        } else {
+            bail!("{input:?}: not a folder or a RAW file");
+        }
+    }
+    Ok(paths)
+}
+
+/// Run the second pass's face detection (as `detect` does) on every RAW file
+/// given or in the folders given and, for every face, write the face crop
+/// and the crop of each eye (`face_square`, `eye_squares`) cut
+/// from the full-size upright preview to `out` as PNGs, and one
+/// `eyecrops_line` per face to `out/index.txt`.
+fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
+    let paths = raw_paths(inputs)?;
+    // The crops are named by file stem, so two inputs sharing one would
+    // overwrite each other's PNGs and share an index line.
+    let mut stems = std::collections::HashSet::new();
+    for p in &paths {
+        let stem = p
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        if !stems.insert(stem) {
+            bail!("{p:?}: another input has the same file stem; the crops would collide");
+        }
+    }
+    std::fs::create_dir_all(out)?;
+    let start = Instant::now();
+    let results: Vec<Result<Vec<String>>> = {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .map(|p| {
+                let (a, jpeg) = reader::read_preview(p)?;
+                let focus = sharpness::trusted_focus(&a.shot);
+                let d = faces::detect_around(&jpeg, a.orientation, focus)?;
+                let nearest = d.point.and_then(|pt| candidate::nearest_face(&d.faces, pt));
+                let (rgb, w, h) = decode_rgb(&jpeg)?;
+                let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, a.orientation);
+                let name = p.file_name().unwrap_or_default().to_string_lossy();
+                let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+                let mut lines = Vec::new();
+                for (i, f) in d.faces.iter().enumerate() {
+                    let face = face_to_upright(*f, a.orientation, w, h);
+                    let [left, right] = eye_squares(&face);
+                    for (suffix, (center, side)) in
+                        [("face", face_square(&face)), ("l", left), ("r", right)]
+                    {
+                        let (sub, win) = faces::crop_rgb(&upright, uw, uh, center, side);
+                        image::save_buffer(
+                            out.join(format!("{stem}-{i}-{suffix}.png")),
+                            &sub,
+                            win.width as u32,
+                            win.height as u32,
+                            image::ColorType::Rgb8,
+                        )?;
+                    }
+                    lines.push(eyecrops_line(
+                        &name,
+                        i,
+                        focus.is_some(),
+                        &face,
+                        left.1,
+                        nearest == Some(f),
+                    ));
+                }
+                Ok(lines)
+            })
+            .collect()
+    };
+    let mut index = String::new();
+    let (mut errors, mut found) = (0, 0);
+    for (path, r) in paths.iter().zip(results) {
+        match r {
+            Ok(lines) => {
+                found += lines.len();
+                for line in lines {
+                    index.push_str(&line);
+                    index.push('\n');
+                }
+            }
+            Err(e) => {
+                errors += 1;
+                println!("{}  error: {e:#}", path.display());
+            }
+        }
+    }
+    std::fs::write(out.join("index.txt"), index)?;
+    println!(
+        "{} files, {errors} errors, {found} faces: {:.2}s total",
+        paths.len(),
+        start.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+/// Map a face found on the stored `width` x `height` preview to the upright
+/// one, the inverse of `faces::to_stored`.
+fn face_to_upright(
+    face: faces::Face,
+    orientation: u16,
+    width: usize,
+    height: usize,
+) -> faces::Face {
+    let (w, h) = (width as f32, height as f32);
+    let point = |(x, y): (f32, f32)| match orientation {
+        6 => (h - y, x),
+        8 => (y, w - x),
+        3 => (w - x, h - y),
+        _ => (x, y),
+    };
+    let a = point((face.x, face.y));
+    let b = point((face.x + face.width, face.y + face.height));
+    faces::Face {
+        x: a.0.min(b.0),
+        y: a.1.min(b.1),
+        width: (a.0 - b.0).abs(),
+        height: (a.1 - b.1).abs(),
+        score: face.score,
+        left_eye: point(face.left_eye),
+        right_eye: point(face.right_eye),
+    }
+}
+
+/// Side of an eye crop as a fraction of the distance between the two eye
+/// points: about 1.8 times the eye's corner-to-corner width, the box Open
+/// Model Zoo's eye-state demo cuts.
+const EYE_CROP: f32 = 0.8;
+/// The smallest eye crop side, in pixels.
+const EYE_CROP_MIN: usize = 16;
+/// Side of a face crop as a multiple of the longer side of the face box.
+const FACE_CROP: f32 = 1.25;
+
+/// The center and side of the square crop of each eye of an upright `face`
+/// (left of the image, then right): centered on the eye point, `EYE_CROP`
+/// times the inter-ocular distance, at least `EYE_CROP_MIN`.
+fn eye_squares(face: &faces::Face) -> [((usize, usize), usize); 2] {
+    let (l, r) = (face.left_eye, face.right_eye);
+    let distance = ((r.0 - l.0).powi(2) + (r.1 - l.1).powi(2)).sqrt();
+    let side = ((distance * EYE_CROP).round() as usize).max(EYE_CROP_MIN);
+    let center = |(x, y): (f32, f32)| (x.round() as usize, y.round() as usize);
+    [(center(l), side), (center(r), side)]
+}
+
+/// The center and side of the square crop of `face`: its box, squared on the
+/// longer side and grown by `FACE_CROP`.
+fn face_square(face: &faces::Face) -> ((usize, usize), usize) {
+    let center = (
+        (face.x + face.width / 2.0).round() as usize,
+        (face.y + face.height / 2.0).round() as usize,
+    );
+    (
+        center,
+        (face.width.max(face.height) * FACE_CROP).round() as usize,
+    )
+}
+
+/// One face of `eyecrops`, on the upright preview: the file, the face
+/// number (the `{stem}-{n}-*.png` crops), the path taken, the box side (the
+/// longer of width and height) in preview pixels, the score, the eye points,
+/// the eye crop side, and whether it is the face nearest the AF point.
+fn eyecrops_line(
+    name: &str,
+    n: usize,
+    crop: bool,
+    face: &faces::Face,
+    eye_side: usize,
+    nearest: bool,
+) -> String {
+    format!(
+        "{name}  {n}  {}  {:.0}px  {:.2}  eyes ({:.0},{:.0}) ({:.0},{:.0})  eye crop {eye_side}px{}",
+        if crop { "crop" } else { "whole" },
+        face.width.max(face.height),
+        face.score,
+        face.left_eye.0,
+        face.left_eye.1,
+        face.right_eye.0,
+        face.right_eye.1,
+        if nearest { "  nearest" } else { "" }
+    )
 }
 
 /// One file of `detect`: the path taken, the faces (box side, the longer of
@@ -898,6 +1090,77 @@ mod tests {
                 9.94
             ),
             "b.ARW  crop  2 face(s): 60px 0.91, 48px 0.60  decode 30.0ms  detection 9.9ms"
+        );
+    }
+
+    fn upright() -> faces::Face {
+        faces::Face {
+            x: 10.0,
+            y: 20.0,
+            width: 30.0,
+            height: 40.0,
+            score: 0.9,
+            left_eye: (15.0, 25.0),
+            right_eye: (35.0, 26.0),
+        }
+    }
+
+    #[test]
+    fn face_to_upright_is_the_inverse_of_to_stored() {
+        for orientation in [1, 3, 6, 8] {
+            let stored = faces::to_stored(upright(), orientation, 200, 100);
+            assert_eq!(
+                face_to_upright(stored, orientation, 200, 100),
+                upright(),
+                "orientation {orientation}"
+            );
+        }
+    }
+
+    #[test]
+    fn eye_squares_follow_the_inter_ocular_distance() {
+        let mut f = upright();
+        f.left_eye = (100.0, 50.0);
+        f.right_eye = (160.0, 50.0);
+        assert_eq!(eye_squares(&f), [((100, 50), 48), ((160, 50), 48)]);
+        f.right_eye = (130.0, 90.0);
+        assert_eq!(eye_squares(&f)[1], ((130, 90), 40));
+        f.right_eye = (110.0, 50.4);
+        assert_eq!(
+            eye_squares(&f),
+            [((100, 50), EYE_CROP_MIN), ((110, 50), EYE_CROP_MIN)]
+        );
+    }
+
+    #[test]
+    fn a_face_square_grows_the_longer_side_around_the_box_center() {
+        assert_eq!(face_square(&upright()), ((25, 40), 50));
+        let f = faces::Face {
+            x: -10.0,
+            width: 20.0,
+            ..upright()
+        };
+        assert_eq!(face_square(&f), ((0, 40), 50));
+    }
+
+    #[test]
+    fn eyecrops_line_lists_the_face_and_its_eyes() {
+        let face = faces::Face {
+            x: 10.0,
+            y: 20.0,
+            width: 80.4,
+            height: 96.6,
+            score: 0.876,
+            left_eye: (30.2, 50.0),
+            right_eye: (70.0, 51.6),
+        };
+        assert_eq!(
+            eyecrops_line("a.ARW", 0, true, &face, 32, true),
+            "a.ARW  0  crop  97px  0.88  eyes (30,50) (70,52)  eye crop 32px  nearest"
+        );
+        assert_eq!(
+            eyecrops_line("b.DNG", 2, false, &face, 16, false),
+            "b.DNG  2  whole  97px  0.88  eyes (30,50) (70,52)  eye crop 16px"
         );
     }
 
