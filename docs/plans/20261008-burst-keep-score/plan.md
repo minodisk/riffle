@@ -68,7 +68,7 @@ burst's other frames.
   folders where every frame is picked (`2026-06-06`, `06-09`, `06-21`,
   `06-27`, `06-02`, and the Leica folders that exported everything) carry no
   negatives and are excluded. The inventory taken on 2026-10-08 and the
-  final list are in [`data.md`](data.md).
+  final list are in `data.md`.
 - **Features and where they come from.** `scan::extract_analysis(path)`
   returns `Analysis { cue: Cue { state, eye_focus, face, .. }, sharpness }`,
   exactly what the scan stores. The eyes path (`read_eyes`): read the
@@ -147,7 +147,7 @@ burst's other frames.
       known" and is saved as one `.tsv` per folder under
       `D:\Photos\tests\2026-10-08-burst-keep-score\dump\`; a listing of
       each folder's `Output/` stems is saved next to it.
-    - [`data.md`](data.md) in this plan folder: the label rules as decided
+    - `data.md` in this plan folder: the label rules as decided
       facts (`.dop` authoritative, XMP where no `.dop`, `Output/` stem for
       the sidecar-less Leica folders, reported separately), the data set
       and the excluded folders with the reason (unfinished, all picked, no
@@ -207,7 +207,7 @@ burst's other frames.
       ("all checks"); (f) a-c only (no pose). A frame without a face is
       judged by (a) only, as the requirement says; the report says how many
       bursts are face-free, mixed and all-faced.
-    - [`results.md`](results.md): the burst statistics per gap (bursts,
+    - `results.md`: the burst statistics per gap (bursts,
       size distribution, bursts with one pick / several / none, per folder
       and pooled), every table above at the 1000 ms gap with the other gaps
       in a shorter table, in separate blocks for the sidecar-labeled ARW
@@ -251,10 +251,10 @@ burst's other frames.
         pointwise logistic, kept as alternatives for the position metrics.
       - A drop-one-feature run for the chosen variant, so each feature's
         held-out worth is on record.
-    - [`fit.md`](fit.md): the tables, held-out numbers next to the best
+    - `fit.md`: the tables, held-out numbers next to the best
       hand rule and the sharpness-alone baseline of Step 2, the per-folder
       spread, and the chosen variant's values at full precision in
-      [`frozen.json`](frozen.json) (features, transforms, clip bounds,
+      `frozen.json` (features, transforms, clip bounds,
       thresholds or coefficients, the face-free fallback, the gap).
     - A **Decision** section in this plan.md states, with the numbers:
       whether a combined check beats sharpness alone, i.e. flags clearly
