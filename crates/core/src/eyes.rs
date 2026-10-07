@@ -25,9 +25,9 @@ use std::sync::OnceLock;
 use anyhow::{anyhow, Context, Result};
 use tract_onnx::prelude::*;
 
-use crate::faces::{crop_rgb, Face};
+use crate::faces::{crop_rgb, face_to_upright, point_to_stored, Face};
 use crate::pose::{head_pose, Pose};
-use crate::sharpness::Window;
+use crate::sharpness::{window_at, Window};
 
 const MODEL: &[u8] = include_bytes!("../models/face_landmarks_detector.onnx");
 
@@ -60,6 +60,23 @@ pub const EYES_LOGIT_SLOPE: f64 = 29.0;
 const LEFT_EYE: [usize; 6] = [33, 160, 158, 133, 153, 144];
 /// The EAR points of the eye on the right of the image.
 const RIGHT_EYE: [usize; 6] = [362, 385, 387, 263, 373, 380];
+/// The eyelid contour of the eye on the left of the image, the 16 points of
+/// MediaPipe's `FACEMESH_RIGHT_EYE` edges (the subject's right eye; the same
+/// edges `crates/app/ui/src/facemesh.ts` draws). The contour and iris tables
+/// come from `mediapipe/python/solutions/face_mesh_connections.py`; notice in
+/// `models/LICENSE-mediapipe`.
+pub const LEFT_EYE_CONTOUR: [usize; 16] = [
+    33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246,
+];
+/// The eyelid contour of the eye on the right of the image (`FACEMESH_LEFT_EYE`).
+pub const RIGHT_EYE_CONTOUR: [usize; 16] = [
+    263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466,
+];
+/// The iris of the eye on the left of the image: its center, then the four
+/// points of MediaPipe's `FACEMESH_RIGHT_IRIS`.
+pub const LEFT_IRIS: [usize; 5] = [468, 469, 470, 471, 472];
+/// The iris of the eye on the right of the image (`FACEMESH_LEFT_IRIS`).
+pub const RIGHT_IRIS: [usize; 5] = [473, 474, 475, 476, 477];
 
 /// Whether the eyes of a face are open or closed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,6 +213,81 @@ pub fn judge_mesh(rgb: &[u8], width: usize, height: usize, face: &Face) -> Optio
         pose: head_pose(&points, width, height),
         points,
     })
+}
+
+/// A face mesh in the stored (unrotated) image's pixels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mesh {
+    /// The `LANDMARKS` points, x and y only.
+    pub points: Vec<[f32; 2]>,
+    /// The head pose, solved on the upright points (as `judge_mesh` does).
+    pub pose: Option<Pose>,
+}
+
+/// The mesh of `face` on the stored `width` x `height` RGB image of EXIF
+/// `orientation`, `face` in its coordinates, whatever the face's size. Only
+/// the face crop `landmarks_of` would cut from the upright image is rotated
+/// (`upright_crop`), not the whole image. `None` when the face's center lies
+/// outside the image, or the model fails or panics.
+pub fn mesh_of(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+    face: &Face,
+) -> Option<Mesh> {
+    let (uw, uh) = match orientation {
+        6 | 8 => (height, width),
+        _ => (width, height),
+    };
+    let up = face_to_upright(*face, orientation, width, height);
+    let (cx, cy) = (up.x + up.width / 2.0, up.y + up.height / 2.0);
+    if rgb.len() < width * height * 3
+        || !(0.0..uw as f32).contains(&cx)
+        || !(0.0..uh as f32).contains(&cy)
+    {
+        return None;
+    }
+    let (center, side) = face_square(&up);
+    let win = window_at(uw, uh, center.0, center.1, side.max(1));
+    let sub = upright_crop(rgb, width, height, orientation, win);
+    // Nothing here is shared or observable after a panic, hence
+    // `AssertUnwindSafe`.
+    let points = catch_unwind(AssertUnwindSafe(|| {
+        landmarks(input_tensor(&sub, win.width, win.height))
+    }))
+    .ok()?
+    .ok()?;
+    let points = to_full(&points, &win);
+    let pose = head_pose(&points, uw, uh);
+    let points = points
+        .iter()
+        .map(|p| {
+            let (x, y) = point_to_stored((p[0], p[1]), orientation, width, height);
+            [x, y]
+        })
+        .collect();
+    Some(Mesh { points, pose })
+}
+
+/// The `win` window of the upright image of a stored `width` x `height` RGB
+/// image of EXIF `orientation`, the pixels `faces::upright_rgb` would put
+/// there, without rotating the rest.
+fn upright_crop(rgb: &[u8], width: usize, height: usize, orientation: u16, win: Window) -> Vec<u8> {
+    let mut out = Vec::with_capacity(win.width * win.height * 3);
+    for y in win.y..win.y + win.height {
+        for x in win.x..win.x + win.width {
+            let (sx, sy) = match orientation {
+                6 => (y, height - 1 - x),
+                8 => (width - 1 - y, x),
+                3 => (width - 1 - x, height - 1 - y),
+                _ => (x, y),
+            };
+            let i = (sy * width + sx) * 3;
+            out.extend_from_slice(&rgb[i..i + 3]);
+        }
+    }
+    out
 }
 
 /// The EAR of the more closed eye of `face` (see `judge`), whatever the
@@ -467,6 +559,72 @@ mod tests {
     }
 
     #[test]
+    fn an_upright_crop_matches_the_crop_of_the_rotated_image() {
+        let (w, h) = (7, 5);
+        let rgb: Vec<u8> = (0..w * h * 3).map(|i| i as u8).collect();
+        for orientation in [1, 3, 6, 8] {
+            let (up, uw, uh) = crate::faces::upright_rgb(&rgb, w, h, orientation);
+            for win in [
+                Window {
+                    x: 0,
+                    y: 0,
+                    width: uw,
+                    height: uh,
+                },
+                Window {
+                    x: 1,
+                    y: 2,
+                    width: 3,
+                    height: 2,
+                },
+            ] {
+                let mut want = Vec::new();
+                for y in win.y..win.y + win.height {
+                    let row = (y * uw + win.x) * 3;
+                    want.extend_from_slice(&up[row..row + win.width * 3]);
+                }
+                assert_eq!(
+                    upright_crop(&rgb, w, h, orientation, win),
+                    want,
+                    "{orientation} {win:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_mesh_is_none_for_a_face_outside_the_image() {
+        let rgb = vec![128u8; 200 * 150 * 3];
+        let outside = Face {
+            x: 190.0,
+            width: 80.0,
+            height: 80.0,
+            ..upright()
+        };
+        assert_eq!(mesh_of(&rgb, 200, 150, 1, &outside), None);
+        assert_eq!(mesh_of(&rgb, 150, 200, 6, &outside), None);
+        assert_eq!(mesh_of(&rgb[..30], 200, 150, 1, &upright()), None);
+    }
+
+    #[test]
+    fn the_contours_and_irises_are_distinct_mesh_points() {
+        let all: Vec<usize> = [
+            &LEFT_EYE_CONTOUR[..],
+            &RIGHT_EYE_CONTOUR,
+            &LEFT_IRIS,
+            &RIGHT_IRIS,
+        ]
+        .concat();
+        let mut sorted = all.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), all.len());
+        assert!(all.iter().all(|&i| i < LANDMARKS));
+        assert!(LEFT_EYE.iter().all(|i| LEFT_EYE_CONTOUR.contains(i)));
+        assert!(RIGHT_EYE.iter().all(|i| RIGHT_EYE_CONTOUR.contains(i)));
+    }
+
+    #[test]
     fn a_resize_interpolates_between_pixel_centers() {
         let rgb = [0, 0, 0, 100, 200, 40];
         assert_eq!(
@@ -514,5 +672,17 @@ mod tests {
         assert!((0.0..=1.0).contains(&p), "{p}");
         let judged = judge_mesh(&rgb, w, h, &face).unwrap();
         println!("ear {ear:.4} pose {:?}", judged.pose);
+        // Stored as orientation 6, the upright image turned a quarter back.
+        let (stored, sw, sh) = crate::decode::apply_orientation(&rgb, w, h, 8);
+        let stored_face = crate::faces::to_stored(face, 6, sw, sh);
+        let mesh = mesh_of(&stored, sw, sh, 6, &stored_face).unwrap();
+        assert_eq!(mesh.pose, judged.pose);
+        for (m, p) in mesh.points.iter().zip(&judged.points) {
+            let (x, y) = point_to_stored((p[0], p[1]), 6, sw, sh);
+            assert!(
+                (m[0] - x).abs() < 1e-3 && (m[1] - y).abs() < 1e-3,
+                "{m:?} {p:?}"
+            );
+        }
     }
 }

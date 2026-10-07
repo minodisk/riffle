@@ -126,7 +126,7 @@ what the number looks at.
 
 ## Steps
 
-- [ ] Step 1: Measure per-eye focus features over the mesh eye regions and print them, with the head pose, from `riffle-cli candidates`, without changing the cue
+- [x] Step 1: Measure per-eye focus features over the mesh eye regions and print them, with the head pose, from `riffle-cli candidates`, without changing the cue
   - Done when:
     - `crates/core/src/eyes.rs` exports the two eyelid contour index tables
       and the two iris index tables (as `const`s next to `LEFT_EYE` /
