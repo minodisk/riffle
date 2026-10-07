@@ -87,4 +87,4 @@ constants and the `eyes_of` return shape do not change.
 
 ## Progress
 
-- (none yet)
+- (2026-10-07) Step 1 complete
