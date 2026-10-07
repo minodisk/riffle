@@ -14,6 +14,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_store::StoreExt;
 
+use crate::diagnostics::invariant;
 use crate::index::{self, FileStat, Index, IndexedFile, SidecarStat};
 use crate::shortcuts::{Binding, Keymap};
 use crate::sidecar::{SidecarFormat, Writer};
@@ -1397,6 +1398,17 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
             return Ok(());
         }
         let Some(pending) = state.pending.remove(&scan_id) else {
+            // An idle folder or a missing index cache queues nothing, so only
+            // a scan already running under this id means a second call.
+            invariant!(
+                state
+                    .running
+                    .as_ref()
+                    .is_none_or(|(id, _, _, _)| *id != scan_id),
+                "start_scan once per scan",
+                "scan_id={scan_id} latest={}",
+                state.latest_id
+            );
             drop(state);
             emit_empty_scan_events(&app, "", scan_id);
             return Ok(());
@@ -1423,6 +1435,11 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                     &cancel,
                     index::PROGRESS_INTERVAL,
                     |done, total, ready| {
+                        invariant!(
+                            done <= total,
+                            "scan progress within total",
+                            "dir={dir} scan_id={scan_id} done={done} total={total}"
+                        );
                         let _ = app.emit(
                             "scan-progress",
                             Progress {
@@ -1451,6 +1468,11 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                     &focus,
                     &cancel,
                     |done, total, ready| {
+                        invariant!(
+                            done <= total,
+                            "scan progress within total",
+                            "dir={dir} scan_id={scan_id} done={done} total={total}"
+                        );
                         let _ = app.emit(
                             "faces-progress",
                             FacesProgress {

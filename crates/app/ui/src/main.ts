@@ -3582,6 +3582,14 @@ void window.__TAURI__.event.listen<{
   if (payload.scan_id !== scanId) {
     return;
   }
+  if (scanDone?.scanId !== payload.scan_id) {
+    void window.__TAURI__.core
+      .invoke("log_frontend", {
+        kind: "invariant",
+        line: `faces-done after scan-done: dir=${payload.dir} scan_id=${payload.scan_id}`,
+      })
+      .catch(() => {});
+  }
   setScanRunning(false);
   idle.drain();
   const failed = scanErrors + payload.errors;
