@@ -522,13 +522,24 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Optionally, detect closed eyes. Not possible from the current
       landmarks: YuNet emits five points (two eyes, nose, two mouth corners)
       and none on the eyelids, so an open eye and a closed one land on the
-      same point. It needs a second model run on the faces YuNet finds,
-      either an open / closed classifier on an eye crop or a dense landmark
-      model with eye contours (eye aspect ratio from the eyelid points), and
-      that adds its ONNX file and license to `crates/core/models/`, binary
-      size, and per-face inference on the second pass. Pick one only after
-      measuring its size and per-face cost against the current pass-2 budget
-      (see `docs/plans/_archived/20261005-face-detection-recall-cost/`).
+      same point; it needs a second model on the face nearest the AF point.
+      Surveyed on 2026-10-07 (Windows 11, one thread, crop included, 504
+      hand-labeled faces; see `docs/plans/20261007-closed-eyes-detection/`,
+      `model-survey.md` and `eyes-truth.md`), against a budget of +25% of the
+      cue path's per-file pass-2 time (about +11.5 ms per ARW that day): Open
+      Model Zoo's `open-closed-eye-0001` eye-crop classifier (46 KB, 0.5 ms,
+      +1%) is inside it but scores a face AUC of only 0.72; MediaPipe face
+      mesh v1 (2.4 MB as ONNX, 15.4 ms, +33-35%) 0.89; MediaPipe Iris
+      (2.6 MB, 18.6 ms, +40%) 0.86; MediaPipe Face Landmarker v2 (4.9 MB,
+      49-51 ms, +105-109%) 0.97, precision 0.94 at recall 0.86, the only one
+      good enough for a filter. All four load in `tract-onnx` with
+      `default-features = false` (the MediaPipe ones converted from Google's
+      TFLite with tf2onnx). The preview is a floor of its own: below a 60 px
+      face side a human can call about one face in five, and the whole-image
+      path's 3/8 decode loses a fifth of the labelable faces. Options left:
+      run Face Landmarker v2 on demand for the current file only (as
+      `faces_of` does, ~50 ms; the meta pane could show it, the filter could
+      not), accept a larger pass-2 budget, or find a faster runtime for it.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame

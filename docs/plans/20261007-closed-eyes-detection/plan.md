@@ -86,7 +86,7 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
 
 ## Steps
 
-- [ ] Step 1: Survey at least two candidate eye-state models on a hand-labeled set and decide
+- [x] Step 1: Survey at least two candidate eye-state models on a hand-labeled set and decide
   - Done when:
     - `riffle-cli eyecrops <dir|file>... <out-dir>` exists: it runs the
       scan's detection (`faces::detect_around` with
@@ -172,7 +172,8 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
       smallest face side at which a human can call the eye state from the
       crop, and treat faces below it as `Unknown` in Step 2.
 
-- [ ] Step 2: Add the chosen model to `riffle-core` and return a closed-eyes probability per scored face
+- [ ] ~~Step 2: Add the chosen model to `riffle-core` and return a closed-eyes probability per scored face~~
+  - Not done: Step 1 chose no model (see "Decision").
   - Done when:
     - The chosen ONNX file and its license text are in `crates/core/models/`
       (license file named so it is distinguishable from YuNet's, e.g.
@@ -233,7 +234,8 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
       `docs/agents/tract-onnx-inference.md`, `README.md` / `README.ja.md`
       (the bundled-model / license sentence next to YuNet's).
 
-- [ ] Step 3: Store the closed-eyes probability in the index and stream it with the second pass
+- [ ] ~~Step 3: Store the closed-eyes probability in the index and stream it with the second pass~~
+  - Not done: there is no closed-eyes value to store without a model.
   - Done when:
     - `files` gains `eyes_closed REAL` (`NULL` = unknown / not computed) in a
       new schema version (v16 -> v17, the `ALTER TABLE ... ADD COLUMN` path
@@ -265,7 +267,8 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
       if a command's return type changes), `crates/app/src/mcp.rs`,
       `crates/app/ui/src/companion.ts` (if applicable).
 
-- [ ] Step 4: Show the eye state in the meta pane and the filter menu
+- [ ] ~~Step 4: Show the eye state in the meta pane and the filter menu~~
+  - Not done: there is no eye state to show without a model.
   - Done when:
     - `meta.ts` `FocusCue` (or the entry) carries `eyes_closed`, and the
       Analysis group gets an `Eyes` row: `Closed (NN%)` at or above the
@@ -302,7 +305,8 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
       `focus.test.ts`, `main.ts`, `docs/humans/usage.md`, `usage.ja.md`,
       `README.md`, `README.ja.md`.
 
-- [ ] Step 5: Record the final cost and size and close the todo item
+- [ ] ~~Step 5: Record the final cost and size and close the todo item~~
+  - Not done: Step 1 recorded the costs and rewrote the todo item, which stays open.
   - Done when:
     - `docs/humans/performance.md` "Face detection cost" gets a subsection
       "Closed-eyes model (Windows 11)" with: binary size before / after
@@ -323,6 +327,46 @@ the filter menu can narrow the strip to frames whose subject has closed eyes.
       day. If Step 2's PR already left the performance section complete,
       this step is the todo update only and can be folded into Step 4's PR;
       say so in Progress.
+
+## Decision
+
+Recorded by Step 1 on 2026-10-07; the numbers are in
+[`model-survey.md`](model-survey.md) and the labels in
+[`eyes-truth.md`](eyes-truth.md).
+
+- **Chosen model: none.** Four candidates were measured end to end on 504
+  hand-labeled faces (432 from the 2134-ARW folder, 72 from the 146-DNG
+  folder), one thread on the Windows 11 machine, crop and resize included:
+
+  | Candidate | Size | Per face | Per-file pass-2 cost | Face AUC |
+  |-----------|------|----------|----------------------|----------|
+  | OMZ `open-closed-eye-0001` (eye-crop classifier) | 46 KB | 0.5 ms | +1% | 0.72 |
+  | MediaPipe face mesh v1 (EAR) | 2.4 MB | 15.4 ms | +33-35% | 0.89 |
+  | MediaPipe Face Landmarker v2 (EAR) | 4.9 MB | 49-51 ms | +105-109% | 0.97 |
+  | MediaPipe Iris (eyelid contour) | 2.6 MB | 18.6 ms | +40% | 0.86 |
+
+  The budget (+25% of the cue path's per-file `detect` time, one face per
+  file) was about +11.5 ms on the day, against decode 13.5 ms + detection
+  32.4 ms per ARW. The classifier is the only one inside it and is close to
+  useless on these previews (precision 0.35 at a recall of 0.70 at its
+  0.5 threshold; no crop variant got its face AUC above 0.78). Face mesh v2
+  is the only one good enough for a filter (precision 0.94 at a recall of
+  0.86) and costs about 4x the budget.
+- **Preview-resolution floor.** A human can call the eye state of about one
+  face in five below a 60 px face side on the 1616 px ARW preview and about
+  two in three from 60 px up. 40% of the randomly drawn faces could not be
+  labeled: 25% had no eye to judge at all (turned away, occluded, false
+  detections) and 15% only eyes too small, blurred or dark to call.
+- **Whole-image path: out of scope.** On the 3/8 decode the whole-image
+  search uses, a fifth of the labelable DNG faces were no longer labelable
+  and the classifier's eye AUC fell from 0.78 to 0.59 on the same faces; a
+  landmark model there would need its own full-size decode (about 14 ms per
+  DNG) on top of the model.
+- **What could revive it**: an on-demand eye state for the current file
+  only (as `faces_of` detects faces on demand), where ~50 ms for face
+  mesh v2 is acceptable but the filter menu gets nothing; a larger pass-2
+  budget; or a faster runtime for the same model. These are in the rewritten
+  `todo.md` item.
 
 ## Trade-offs and risks
 
