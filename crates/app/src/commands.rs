@@ -511,7 +511,7 @@ fn settings(app: &tauri::AppHandle) -> Result<Arc<tauri_plugin_store::Store<taur
 fn take_legacy_last_folder(file: &Path) -> Option<String> {
     let dir = std::fs::read_to_string(file).ok()?;
     if let Err(e) = std::fs::remove_file(file) {
-        eprintln!("failed to remove {}: {e}", file.display());
+        log::warn!("failed to remove {}: {e}", file.display());
     }
     Some(dir)
 }
@@ -525,7 +525,7 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
-            eprintln!("failed to open the settings: {e}");
+            log::warn!("failed to open the settings: {e}");
             let format = SidecarFormat::default();
             return (
                 format,
@@ -545,7 +545,7 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
         if let Some(dir) = legacy {
             store.set("lastFolder", dir);
             if let Err(e) = store.save() {
-                eprintln!("failed to save the settings: {e}");
+                log::warn!("failed to save the settings: {e}");
             }
         }
     }
@@ -683,7 +683,7 @@ fn switch_format(
         writer.flush(crate::sidecar::DRAIN_TIMEOUT);
     }
     if let Err(e) = persist(format) {
-        eprintln!("failed to save the sidecar format: {e}");
+        log::warn!("failed to save the sidecar format: {e}");
     }
     match index {
         Some(index) => index::lock(index).reset_sidecars(),
@@ -705,7 +705,7 @@ pub async fn remember_folder(app: tauri::AppHandle, dir: String) {
     .map_err(|e| e.to_string())
     .and_then(|saved| saved);
     if let Err(e) = saved {
-        eprintln!("failed to remember the folder: {e}");
+        log::warn!("failed to remember the folder: {e}");
     }
 }
 
@@ -753,7 +753,7 @@ pub fn set_sort_order(app: tauri::AppHandle, order: String) {
         store.save().map_err(|e| e.to_string())
     });
     if let Err(e) = saved {
-        eprintln!("failed to remember the sort order: {e}");
+        log::warn!("failed to remember the sort order: {e}");
     }
 }
 
@@ -1665,7 +1665,7 @@ pub fn sidecar_format_saved(app: tauri::AppHandle) -> bool {
 
 fn format_saved(has: Result<bool, String>) -> bool {
     has.unwrap_or_else(|e| {
-        eprintln!("failed to open the settings: {e}");
+        log::warn!("failed to open the settings: {e}");
         true
     })
 }
