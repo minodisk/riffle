@@ -604,8 +604,18 @@ Files: `crates/app/src/commands.rs` (`eyes_of`, `read_eyes`), `crates/app/ui/src
 - [ ] On Windows 11, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19` and wait for the scan to finish. Select `_DSC1889.ARW` or `_DSC1890.ARW` (labeled closed): the Analysis group shows `Eyes: Closed (NN%)` after `AF eye in focus`. Select `_DSC1894.ARW`: `Eyes: Open (NN%)`. Select `_DSC1897.ARW` (no face judged): no `Eyes` row.
 - [ ] Open `D:\photos\2026\2026-02-01` and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the row shows on the no-AF path.
 - [ ] Hold the page key through 30 files of the ARW folder: no row of a previous file stays on a later one, and the preview keeps pace with no added stall against the previous build.
-- [ ] With the folder idle, read the `eyes total=... read=... decode=... detect=... model=... ipc=...` lines in `Riffle.log` for a few ARWs with an AF point: the row should appear within ~150 ms of the preview. Add the numbers (and the preview-to-row time) to `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" and `performance.ja.md`.
+- [ ] With the folder idle, read the `eyes total=... read=... decode=... detect=... model=... ipc=...` lines in `Riffle.log` for a few ARWs with an AF point: the row should appear within ~150 ms of the preview. Add the numbers (and the preview-to-row time) to `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" and `performance.ja.md`. Since `face-mesh-overlay` (`docs/plans/_archived/20261007-face-mesh-overlay/plan.md`) the response also carries 478 mesh points (~8-10 KB of JSON): confirm the stages still add up to about `total` and `ipc=` stays within a few ms of the figure before that change (not measured; `crates/app/src/commands.rs` `read_eyes`, `crates/app/ui/src/main.ts` `requestEyes`).
 - [ ] Review the faces labeled closed: for each file in the "Faces with a closed eye" list of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`, open its tile `D:\Photos\tests\2026-10-07-closed-eyes\tiles\<stem>.png` (or the crops under `arw\` / `dng\`) and confirm that the eye marked `c` shows no iris; note any that are open. If labels change, re-run `riffle-cli eyes` on `labeled-paths.txt` and `scratch\auc.py` there, and re-fit the threshold and the slope in `crates/core/src/eyes.rs` if the best F1 moves.
+
+### App: real-device check of the face mesh overlay on the judged face
+
+`face-mesh-overlay` (`docs/plans/_archived/20261007-face-mesh-overlay/plan.md`) returns the 478 face-mesh points from `eyes_of` and draws MediaPipe's `FACEMESH_TESSELATION` (1322 edges, `crates/app/ui/src/facemesh.ts`) over the judged face while `f` is on. CI covers the table's shape, the `meshPoints` scaling and centering, the core point mapping and the `Eyes` fixtures. The canvas drawing itself (`drawFaceMesh`) and its line widths (1.5 px outline at 0.8 black, then 0.5 px `FACE_MARK_COLOR`, picked without a GUI) were never seen on a real file. Step 2 was ticked on the automated criteria.
+
+Files: `crates/app/ui/src/main.ts` (`drawFaceMesh`, `FACE_MESH_OUTLINE_WIDTH`, `FACE_MESH_LINE_WIDTH`), `crates/app/ui/src/facemesh.ts`.
+
+#### TODO
+
+- [ ] On Windows or macOS, with `f` on, show (1) an upright ARW with a face of 60 px or more, (2) a portrait ARW (orientation 6 or 8) with such a face, and (3) a file whose only face is below 60 px on the preview. In (1) and (2) the cyan tessellation sits on the judged face a moment after the `Eyes` row appears, rotated with the image and scaling with the window, and stays readable (not a solid cyan blob). In (3) there is no mesh and no error in `Riffle.log`. If the mesh buries the face, tune `FACE_MESH_OUTLINE_WIDTH` / `FACE_MESH_LINE_WIDTH` or fall back to the `FACEMESH_CONTOURS` subset (plan's Trade-offs).
 
 ### Core: the no-AF-point path decodes the preview a second time in score_preview
 
