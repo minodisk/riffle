@@ -433,4 +433,4 @@ what the number looks at.
 
 ## Progress
 
-- (none yet)
+- (2026-10-08) Step 1 complete. Deviation (see learnings.md): the margin and `edge_width_rel` use the box's longer side, not `window.width`, so for an upright eye (wider than tall) `edge_width_rel` is a fraction of the eye width as the Done-when text says.
