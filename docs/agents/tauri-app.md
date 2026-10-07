@@ -1195,6 +1195,26 @@ size until the current file's crop arrives.
 
 - Source: `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 1.
 
+### An on-demand per-file command takes its request id from the frontend and stores the latest, not the max (Inferred)
+
+`eyes_of` (the meta pane's closed-eyes judgment) is a command that runs a slow
+job for the shown file outside the scan. The frontend's cache (`EyesCache`)
+counts the request ids, never resetting the count on `clear`. The backend
+(`EyesRequests`) stores the latest id unconditionally rather than the maximum,
+so a window reload that restarts the count at 1 is not superseded forever.
+The job checks the id between stages (after the decode, before the
+detection, and before the crop decode and model) and stops early.
+
+- The response carries a `superseded` flag next to the result. The frontend
+  frees its slot on it without caching the early stop as "unknown".
+- Read, decode and detection errors, and a JPEG (`raw_only`), are an `Err`.
+  The frontend logs it and caches it as unknown, the `faces_of` / `NO_FACES`
+  pattern.
+- With one request in flight, the backend supersede fires only after a
+  `clear` (folder open, `refreshEntries`) lets a new request start while the
+  old one still runs.
+- Source: [closed-eyes-detection learnings, Step 3](../plans/_archived/20261007-closed-eyes-detection/learnings.md).
+
 ### This crate is on Rust edition 2021: no `if ... && let` chains (Hit)
 
 `if let Some(x) = a && let Some(y) = b` does not compile here; nest the
