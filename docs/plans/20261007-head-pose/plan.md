@@ -227,7 +227,7 @@ rebases; the overlap is additive lines only.
     - Files: `docs/plans/20261007-head-pose/pose-truth.md`,
       `pose-results.md`, `plan.md` (Decision), possibly `crates/core/src/pose.rs`.
 
-- [ ] Step 3: Return the pose from `eyes_of` and show it in the meta pane
+- [x] Step 3: Return the pose from `eyes_of` and show it in the meta pane
   - Done when:
     - `EyesJudgment` in `crates/app/src/commands.rs` gains `pose: {yaw,
       pitch, roll} | null` (degrees, serialized as numbers, `null` when the
@@ -379,3 +379,4 @@ agent's labels, the user's review pending):
 
 - (2026-10-07) Step 1 complete
 - (2026-10-07) Step 2 complete
+- (2026-10-07) Step 3 complete

@@ -76,6 +76,22 @@
 - No judged face on these folders was edge-clamped (all crops square), so
   the `kx != ky` caveat is untested.
 
+## Step 3
+
+- Built on the merged eyes-open-probability change: the Analysis row is now
+  `Eyes open` (not `Eyes`), so `Head pose` follows that row and the docs
+  sentence follows the `Eyes open` paragraph; `eyesOpenPercent` and its row
+  are untouched.
+- A yaw past 90 deg is shown as is, a signed integer (`yaw -110°`), as the
+  Step 2 Decision keeps it; no clamp or wording. The usage docs say a yaw can
+  read past 90 deg on far profiles.
+- No `+ 0` trick is needed for negative zero: a template literal prints
+  `Math.round(-0.4)` (`-0`) as `0`, which a test pins.
+- No real face is in the `read_eyes` test fixtures (gradient JPEGs), so the
+  field is covered by serializing an `EyesJudgment` with and without a pose.
+- `eyes.test.ts`'s `Eyes` literals gained `pose: null` (forced by the type).
+- `node` is not on the Git Bash PATH here; the frontend runs through `mise`.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the user's review of the head-pose labels.** What:
@@ -100,3 +116,15 @@
   63 deg is kept, but any later lens-aware feature would need it. Basis:
   Step 2 measurement; files `crates/core/src/arw.rs` (`Shot`),
   `crates/core/src/exif.rs`.
+- **Pending manual check: the `Head pose` row in the app (Step 3).** What:
+  the meta pane's Analysis group shows `Head pose` after `Eyes open`.
+  Where: Windows, `mise run dev` (or the built app). Steps and expected:
+  (1) a frontal ARW from `D:\photos\2026\2026-09-19` shows
+  `Head pose  yaw N°, pitch N°, roll N°` with |yaw| small; (2) an ARW
+  labeled oblique in `pose-truth.md` shows the yaw sign of its labeled
+  direction (right positive); (3) a DNG from `D:\photos\2026\2026-02-01`
+  shows the row on the no-AF path; (4) a file with no judged face shows
+  neither `Eyes open` nor `Head pose`; (5) the `eyes total=` line in
+  `Riffle.log` is not noticeably longer than before (the solve is ~8 us).
+  The Step 3 checkbox was ticked on the automated criteria (the field,
+  the row, the tests and `mise run ci`).

@@ -6,6 +6,7 @@ import {
   type Metadata,
   ANALYSIS_HEADING,
   metaGroups,
+  poseValue,
 } from "./meta.js";
 import type { Eyes } from "./eyes.js";
 
@@ -181,20 +182,21 @@ describe("metaGroups", () => {
   test("shows the open probability after the AF eye row", () => {
     const focus: FocusCue = { candidate: "candidate", eye_focus: 0.87 };
     expect(
-      metaGroups(null, 12, focus, { state: "closed", probability: 0.814, mesh })[0]?.rows,
+      metaGroups(null, 12, focus, { state: "closed", probability: 0.814, pose: null, mesh })[0]
+        ?.rows,
     ).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "AF eye in focus", value: "87%" },
       { label: "Eyes open", value: "19%" },
     ]);
-    expect(metaGroups(null, null, null, { state: "open", probability: 0.07, mesh })).toEqual([
-      { heading: ANALYSIS_HEADING, rows: [{ label: "Eyes open", value: "93%" }] },
-    ]);
+    expect(
+      metaGroups(null, null, null, { state: "open", probability: 0.07, pose: null, mesh }),
+    ).toEqual([{ heading: ANALYSIS_HEADING, rows: [{ label: "Eyes open", value: "93%" }] }]);
   });
 
   test("rounds the open probability itself, whichever state was judged", () => {
     const eyesOpen = (state: Eyes["state"], probability: number) =>
-      metaGroups(null, null, null, { state, probability, mesh })[0]?.rows;
+      metaGroups(null, null, null, { state, probability, pose: null, mesh })[0]?.rows;
     expect(eyesOpen("closed", 0.5)).toEqual([{ label: "Eyes open", value: "50%" }]);
     expect(eyesOpen("closed", 0.505)).toEqual([{ label: "Eyes open", value: "50%" }]);
     expect(eyesOpen("open", 0.495)).toEqual([{ label: "Eyes open", value: "51%" }]);
@@ -202,6 +204,33 @@ describe("metaGroups", () => {
 
   test("leaves out the open probability when it is unknown or not yet judged", () => {
     const rows = [{ label: "Sharpness", value: "12.0" }];
+    expect(metaGroups(null, 12, null, null)[0]?.rows).toEqual(rows);
+    expect(metaGroups(null, 12, null, undefined)[0]?.rows).toEqual(rows);
+  });
+
+  test("shows the head pose after the open probability", () => {
+    const pose = { yaw: 12.4, pitch: -5.2, roll: 3.5 };
+    expect(metaGroups(null, null, null, { state: "open", probability: 0.07, pose, mesh })).toEqual([
+      {
+        heading: ANALYSIS_HEADING,
+        rows: [
+          { label: "Eyes open", value: "93%" },
+          { label: "Head pose", value: "yaw 12°, pitch -5°, roll 4°" },
+        ],
+      },
+    ]);
+    expect(poseValue({ yaw: -110.2, pitch: 0, roll: -1.6 })).toBe("yaw -110°, pitch 0°, roll -2°");
+  });
+
+  test("rounds a small negative angle to 0°", () => {
+    expect(poseValue({ yaw: -0.4, pitch: -0.2, roll: -0.49 })).toBe("yaw 0°, pitch 0°, roll 0°");
+  });
+
+  test("leaves out the head pose when it is unknown or the eyes are", () => {
+    const rows = [{ label: "Sharpness", value: "12.0" }];
+    expect(
+      metaGroups(null, 12, null, { state: "open", probability: 0.07, pose: null, mesh })[0]?.rows,
+    ).toEqual([...rows, { label: "Eyes open", value: "93%" }]);
     expect(metaGroups(null, 12, null, null)[0]?.rows).toEqual(rows);
     expect(metaGroups(null, 12, null, undefined)[0]?.rows).toEqual(rows);
   });

@@ -118,7 +118,8 @@ DxO PhotoLab.
   so the marks turn from white as it runs, the files on screen first; the
   strip marks each candidate with a green face icon at the cell's bottom-left, the meta pane shows the
   probability as `AF eye in focus` (a percentage) and how likely that face's
-  eyes are open as `Eyes open` (a percentage, judged when the file is shown), and the filter menu's
+  eyes are open as `Eyes open` (a percentage, judged when the file is shown) and the face's yaw,
+  pitch and roll as `Head pose`, and the filter menu's
   `AF eye` section (`Sharp` / `Soft` / `Unknown`) narrows the strip by the
   state. The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
