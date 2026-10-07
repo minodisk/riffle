@@ -461,3 +461,4 @@ revision with the recommended defaults below the same day.
   surveyed eye-state model fits pass 2; MediaPipe Face Landmarker v2 (EAR,
   ~50 ms per face) adopted on demand for the shown file only.
 - (2026-10-07) Step 1 complete
+- (2026-10-07) Step 2 complete
