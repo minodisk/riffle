@@ -1433,3 +1433,16 @@ The folder-sidecars feature added `Rewrite Sidecars from Index…`. `rewrite_sid
 
 - [ ] Decide whether the rewrite should skip oversize sidecars like a folder open does.
 - [ ] If it should, skip them and count them in the dialog's "skipped" figure.
+
+### App: real-device checks for the agent-readable app log (panic, uncaught-js and invariant lines)
+
+#### Background
+
+The agent-readable-app-log feature writes panics, uncaught JavaScript errors and invariant violations to `Riffle.log` under the fixed prefixes `panic:`, `uncaught-js:` and `invariant:`. CI covers the line formatters (`panic_line`, `invariant_line`, `uncaughtLine`, `UncaughtGate`) with unit tests. Nobody has run the hooks in a real debug build: the JS error / rejection forwarding, a real Rust panic on a scan worker, and the "no `invariant:` line in a normal session" criterion. Plan: `docs/plans/_archived/20261007-agent-readable-app-log/plan.md`.
+
+Files: `crates/app/src/diagnostics.rs`, `crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`, `crates/app/ui/src/uncaught.ts`.
+
+#### TODO
+
+- [ ] On Windows, in a debug build (`mise run dev`-style), open DevTools in the main window and run `setTimeout(() => { throw new Error("x") })` and `Promise.reject(new Error("y"))`. Expect two lines in `%LOCALAPPDATA%\com.minodisk.riffle\logs\Riffle.log` starting with `uncaught-js: kind=error message=Uncaught Error: x` and `uncaught-js: kind=unhandledrejection message=y`. Then force a panic on a scan worker in a scratch change (e.g. `panic!("test")` in `run_scan`), open a folder, and expect one `panic: thread=... location=... payload=test` line plus the default stderr message. Revert the scratch change.
+- [ ] On Windows, in a debug build, open a folder not yet indexed (cold) and let the scan finish. Switch the window away and back after 5 s or more (focus rescan). Open another folder while a scan runs. Clear the cache in Settings. Afterwards `grep invariant: "%LOCALAPPDATA%\com.minodisk.riffle\logs\Riffle.log"` must print nothing.
