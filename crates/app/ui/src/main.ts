@@ -36,6 +36,7 @@ import {
 } from "./focus.js";
 import { type Eyes, EyesCache } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
+import { FACE_MESH_EDGES, meshPoints } from "./facemesh.js";
 import {
   type TrashPreview,
   type TrashRestored,
@@ -628,6 +629,10 @@ const FOCUS_MARK_GAP = 4;
 // The detected faces, apart from every mark color above.
 const FACE_MARK_COLOR = "#3ff";
 const FACE_MARK_EYE_RADIUS = 2.5;
+// The judged face's mesh, thinner than the boxes so its ~1300 edges do not
+// bury the face.
+const FACE_MESH_OUTLINE_WIDTH = 1.5;
+const FACE_MESH_LINE_WIDTH = 0.5;
 
 // The neutral colors the canvas overlays draw with, read from the stylesheet's
 // tokens once: the module runs after the `<head>` stylesheet has applied.
@@ -1382,6 +1387,7 @@ function draw(): void {
   context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   drawFocusMark(drawWidth, drawHeight);
   drawFaceMarks(drawWidth, drawHeight);
+  drawFaceMesh(drawWidth, drawHeight);
   context.restore();
 }
 
@@ -2266,6 +2272,38 @@ function drawFaceMarks(drawWidth: number, drawHeight: number): void {
   context.restore();
 }
 
+// The face mesh the `Eyes` judgment looked at, over the judged face only, in
+// the same unrotated coordinates as the face boxes. It appears once `eyes_of`
+// answers, under the same gates as the boxes.
+function drawFaceMesh(drawWidth: number, drawHeight: number): void {
+  if (!showFocus || viewOnly || files.length === 0) {
+    return;
+  }
+  if (shown === null || shown.seq !== seq) {
+    return;
+  }
+  const mesh = eyesCache.get(files[index])?.mesh;
+  if (mesh === undefined) {
+    return;
+  }
+  const points = meshPoints(mesh.points, mesh.width, mesh.height, drawWidth, drawHeight);
+  context.save();
+  context.beginPath();
+  for (let i = 0; i < FACE_MESH_EDGES.length; i += 2) {
+    const [ax, ay] = points[FACE_MESH_EDGES[i]];
+    const [bx, by] = points[FACE_MESH_EDGES[i + 1]];
+    context.moveTo(ax, ay);
+    context.lineTo(bx, by);
+  }
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.lineWidth = FACE_MESH_OUTLINE_WIDTH;
+  context.stroke();
+  context.strokeStyle = FACE_MARK_COLOR;
+  context.lineWidth = FACE_MESH_LINE_WIDTH;
+  context.stroke();
+  context.restore();
+}
+
 // A failed detection is logged and cached as no faces, so a bad file is not
 // retried on every draw.
 function requestFaces(path: string): void {
@@ -2607,6 +2645,9 @@ function requestEyes(): void {
     .then((eyes) => {
       if (eyesCache.settle(path, ticket, eyes) && files[index] === path) {
         renderMeta();
+        if (showFocus) {
+          draw();
+        }
       }
       requestEyes();
     });

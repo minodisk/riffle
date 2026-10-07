@@ -7,6 +7,9 @@ import {
   ANALYSIS_HEADING,
   metaGroups,
 } from "./meta.js";
+import type { Eyes } from "./eyes.js";
+
+const mesh: Eyes["mesh"] = { width: 1600, height: 1080, points: [[800, 540]] };
 
 const empty: Metadata = {
   name: "DSC00001.ARW",
@@ -177,12 +180,14 @@ describe("metaGroups", () => {
 
   test("shows the eye state after the AF eye row, its percentage backing the word", () => {
     const focus: FocusCue = { candidate: "candidate", eye_focus: 0.87 };
-    expect(metaGroups(null, 12, focus, { state: "closed", probability: 0.814 })[0]?.rows).toEqual([
+    expect(
+      metaGroups(null, 12, focus, { state: "closed", probability: 0.814, mesh })[0]?.rows,
+    ).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "AF eye in focus", value: "87%" },
       { label: "Eyes", value: "Closed (81%)" },
     ]);
-    expect(metaGroups(null, null, null, { state: "open", probability: 0.07 })).toEqual([
+    expect(metaGroups(null, null, null, { state: "open", probability: 0.07, mesh })).toEqual([
       { heading: ANALYSIS_HEADING, rows: [{ label: "Eyes", value: "Open (93%)" }] },
     ]);
   });

@@ -105,7 +105,7 @@ Scope, decided up front:
     - Update the layout note in `CLAUDE.md` only if a module's description
       changes (`src/eyes.rs` "not called by the scan" still holds; add that
       `eyes_of` also returns the mesh points).
-- [ ] Step 2: Draw the mesh in the focus mark overlay
+- [x] Step 2: Draw the mesh in the focus mark overlay
   - Done when:
     - With `f` on, a file whose `Eyes` row has a judgment shows the
       tessellation edges over the judged face, on the stored preview
@@ -199,3 +199,4 @@ Scope, decided up front:
 ## Progress
 
 - (2026-10-07) Step 1 complete
+- (2026-10-07) Step 2 complete

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { type Eyes, EyesCache, type EyesTicket } from "./eyes.js";
 
-const closed: Eyes = { state: "closed", probability: 0.81 };
-const open: Eyes = { state: "open", probability: 0.07 };
+const mesh: Eyes["mesh"] = { width: 1600, height: 1080, points: [[800, 540]] };
+const closed: Eyes = { state: "closed", probability: 0.81, mesh };
+const open: Eyes = { state: "open", probability: 0.07, mesh };
 
 function ticket(cache: EyesCache, path: string): EyesTicket {
   const t = cache.request(path);

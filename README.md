@@ -122,7 +122,9 @@ DxO PhotoLab.
   `AF eye` section (`Sharp` / `Soft` / `Unknown`) narrows the strip by the
   state. The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
-  a moment after `f`, since the detection runs when the frame is shown.
+  a moment after `f`, since the detection runs when the frame is shown, and
+  the face the `Eyes` row judged also gets its face mesh, a moment after that
+  row.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
   sharpest, scored on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF point, else on the subject's eyes when the
