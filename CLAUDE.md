@@ -16,7 +16,7 @@ the per-language values, one JSON file per language in `crates/core/i18n/`
 time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, `src/eyes.rs` the closed-eyes judgment of one
 face (the eye aspect ratio of the MediaPipe Face Landmarker v2 face mesh,
-its ONNX and `LICENSE-mediapipe` next to YuNet's; not called by the scan), `src/candidate.rs` the focus candidate cue
+its ONNX and `LICENSE-mediapipe` next to YuNet's; not called by the scan), `src/pose.rs` the head pose (yaw / pitch / roll) of a face from its face mesh points, a port of MediaPipe's face geometry pipeline whose 33-point Procrustes basis is in `LICENSE-mediapipe`, `src/candidate.rs` the focus candidate cue
 (the in-focus probability of the eyes of the face nearest the AF point,
 a logistic combination of their Laplacian variance and mean edge width, and
 whether it clears the threshold), `src/jpeg.rs` the Exif reader of a plain
