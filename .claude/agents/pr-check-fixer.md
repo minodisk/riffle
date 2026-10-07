@@ -61,8 +61,9 @@ mise run ci
 
 `mise run ci` can take close to 10 minutes, so pass the maximum `timeout` of
 `600000` (ms) explicitly to the Bash tool (the default timeout can be as low as 120 s
-and would cut it off). **Do not set `run_in_background: true`** (a subagent exits the moment its
-turn ends, leaving nobody to receive the completion notice). The same applies to
+and would cut it off). **Do not set `run_in_background: true`** (the foreground run is what makes the
+exit code observable to branch on, while a background run would hand the
+watching to a task notification). The same applies to
 the local reproduction in step 1.
 
 Once it passes, **put every fix into one commit**. `git add` the fixed files by

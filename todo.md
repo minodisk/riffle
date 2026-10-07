@@ -621,30 +621,17 @@ Files: `.claude/agents/pr-runner.md`
 
 - [ ] On the next real `/pr` run, read the `pr-runner` subagent transcript (the subagent `.jsonl` files under the Claude Code project directory for that session). Confirm that every `.claude/skills/**/scripts` call, especially `wait-pr-actionable.sh`, has exactly the text in its code block with no pipe, `tail`, redirect, `; echo exit=$?`, `${PIPESTATUS[...]}` or chaining, and that none waited long before starting or was moved to the background after the script finished. If a decorated call appears, strengthen the wording in `.claude/agents/pr-runner.md` §4.
 
-### Agents: fix the inaccurate "subagent exits the moment its turn ends" rationale in the other agent files
+### Agents: `merger.md`'s post-merge paragraph calls backgrounding "impossible"
 
 #### Background
 
-The `pr-runner-child-handback` plan found that a subagent does receive a
-child's "[Subagent hand-back]" message and a background task's notification
-after its turn ends, and corrected the rationale in
-`.claude/agents/pr-runner.md` only (the user kept the plan to that file). The
-same claim, that a subagent exits the moment its turn ends and leaves nobody to
-receive the completion notice, still appears in `merger.md`,
-`pr-check-fixer.md`, `implementer.md`, `local-review-addresser.md`,
-`local-review-runner.md`, `pr-review-addresser.md` and
-`pr-conflict-resolver.md` under `.claude/agents/`. The rules themselves (for
-example, running `mise run ci` in the foreground) are still the intended
-design; only the stated reason is inaccurate. Plan:
-`docs/plans/_archived/20261003-pr-runner-child-handback/plan.md`
+The `agent-foreground-rationale` plan replaced the inaccurate "a subagent exits the moment its turn ends" rationale in the agent files. It left `merger.md`'s post-merge paragraph alone to keep the change surgical. That paragraph still says backgrounding is "impossible for the same reason as step 1". With the corrected reason, backgrounding is ruled out (the foreground run keeps the exit code observable to branch on), not impossible. Plan: `docs/plans/_archived/20261007-agent-foreground-rationale/plan.md`
+
+Files: `.claude/agents/merger.md`
 
 #### TODO
 
-- [ ] In each of the seven files, first confirm the old reason is really wrong
-      in that file's context, then replace it with the one now in
-      `pr-runner.md` (the foreground run keeps the exit code observable and
-      lets the counters tick on exit 2). Keep the foreground-only rules
-      themselves.
+- [ ] Reword the post-merge paragraph so it no longer calls backgrounding "impossible". Its wording should agree with step 1 and with `pr-runner.md` §4.
 
 ### App: SIGMA fp L strip thumbnails have over ten times the pixels of other bodies'
 

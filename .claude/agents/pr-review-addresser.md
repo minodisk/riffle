@@ -70,8 +70,9 @@ shared text. Always quote `<body>` (otherwise spaces and newlines are lost).
 
    `mise run ci` can take close to 10 minutes, so pass the maximum `timeout` of
    `600000` (ms) explicitly to the Bash tool (the default timeout can be as low as 120 s
-   and would cut it off). **Do not set `run_in_background: true`** (a subagent exits the moment
-   its turn ends, leaving nobody to receive the completion notice).
+   and would cut it off). **Do not set `run_in_background: true`** (the foreground run is what
+   makes the exit code observable to branch on, while a background run would
+   hand the watching to a task notification).
 
 3. Commit the fixes (write a commit message appropriate to the change)
    - You may split commits per item or per concern
