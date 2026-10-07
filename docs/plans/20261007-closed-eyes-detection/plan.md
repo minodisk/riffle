@@ -240,7 +240,7 @@ file scored, which the on-demand design rules out.
       `README.md`, `README.ja.md`, `docs/humans/usage.md` / `usage.ja.md`
       (only the license file reference, if renamed).
 
-- [ ] Step 3: Judge the shown file's eyes on demand and show the result in the meta pane
+- [x] Step 3: Judge the shown file's eyes on demand and show the result in the meta pane
   - Done when:
     - A Tauri command `eyes_of(path)` in `crates/app/src/commands.rs`
       (registered in `lib.rs` next to `faces_of`) returns

@@ -175,6 +175,24 @@ describe("metaGroups", () => {
     ]);
   });
 
+  test("shows the eye state after the AF eye row, its percentage backing the word", () => {
+    const focus: FocusCue = { candidate: "candidate", eye_focus: 0.87 };
+    expect(metaGroups(null, 12, focus, { state: "closed", probability: 0.814 })[0]?.rows).toEqual([
+      { label: "Sharpness", value: "12.0" },
+      { label: "AF eye in focus", value: "87%" },
+      { label: "Eyes", value: "Closed (81%)" },
+    ]);
+    expect(metaGroups(null, null, null, { state: "open", probability: 0.07 })).toEqual([
+      { heading: ANALYSIS_HEADING, rows: [{ label: "Eyes", value: "Open (93%)" }] },
+    ]);
+  });
+
+  test("leaves out the eye state when it is unknown or not yet judged", () => {
+    const rows = [{ label: "Sharpness", value: "12.0" }];
+    expect(metaGroups(null, 12, null, null)[0]?.rows).toEqual(rows);
+    expect(metaGroups(null, 12, null, undefined)[0]?.rows).toEqual(rows);
+  });
+
   test("shows the analysis group for the in-focus probability alone", () => {
     expect(metaGroups(null, null, { candidate: "not_candidate", eye_focus: 0.07 })).toEqual([
       {

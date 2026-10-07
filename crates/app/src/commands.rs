@@ -482,6 +482,105 @@ fn read_faces(path: &Path) -> Result<FacesResponse, String> {
     })
 }
 
+/// The `eyes_of` answer: the judgment, or `None` when the eyes are unknown
+/// (no face, a face below the floor, a model failure), whether a newer
+/// request superseded this one before it finished, and how long each stage
+/// took, in microseconds, for the `eyes` timing line.
+#[derive(Debug, Default, serde::Serialize)]
+pub struct EyesResponse {
+    eyes: Option<EyesJudgment>,
+    superseded: bool,
+    read_us: u32,
+    decode_us: u32,
+    detect_us: u32,
+    model_us: u32,
+}
+
+#[derive(Debug, PartialEq, serde::Serialize)]
+struct EyesJudgment {
+    state: &'static str,
+    /// The probability that the eyes are closed, 0..1.
+    probability: f64,
+}
+
+fn micros(since: std::time::Instant) -> u32 {
+    since.elapsed().as_micros() as u32
+}
+
+/// Judge whether the eyes of a file's AF face (else its largest confident
+/// face, `eyes::judged_face`) are closed, on the faces `read_faces` finds.
+/// With an AF point, the one full-size decode serves both the detection and
+/// the face crop; without one, the detection runs on `detect_around`'s
+/// scaled whole-image decode, so the face is one the focus mark draws, and
+/// the crop comes from a second, full-size decode. `current` is asked
+/// before the detection and before the model, and a `false` stops the
+/// judgment as superseded.
+fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, String> {
+    use riffle_core::{decode, eyes, faces};
+    raw_only(path, "eye state judgment")?;
+    let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
+    let mut out = EyesResponse::default();
+    let superseded = |mut out: EyesResponse| {
+        out.superseded = true;
+        Ok(out)
+    };
+    let t = std::time::Instant::now();
+    let (arw, jpeg) = riffle_core::reader::read_preview(path).map_err(|e| err(&e))?;
+    out.read_us = micros(t);
+    let orientation = arw.orientation;
+    let focus = riffle_core::sharpness::trusted_focus(&arw.shot);
+    let t = std::time::Instant::now();
+    let (found, full) = if focus.is_some() {
+        let (rgb, w, h) = decode::decode_rgb(&jpeg).map_err(|e| err(&e))?;
+        out.decode_us = micros(t);
+        if !current() {
+            return superseded(out);
+        }
+        let t = std::time::Instant::now();
+        let found =
+            faces::detect_around_rgb(&rgb, w, h, orientation, focus).map_err(|e| err(&e))?;
+        out.detect_us = micros(t);
+        (found, Some((rgb, w, h)))
+    } else {
+        let whole = faces::decode_whole(&jpeg, orientation).map_err(|e| err(&e))?;
+        out.decode_us = micros(t);
+        if !current() {
+            return superseded(out);
+        }
+        let t = std::time::Instant::now();
+        let found = faces::detect_whole_upright(&whole, orientation).map_err(|e| err(&e))?;
+        out.detect_us = micros(t);
+        (found, None)
+    };
+    let Some(&stored) = eyes::judged_face(&found.faces, found.point) else {
+        return Ok(out);
+    };
+    if !current() {
+        return superseded(out);
+    }
+    let (rgb, w, h) = match full {
+        Some(full) => full,
+        None => {
+            let t = std::time::Instant::now();
+            let full = decode::decode_rgb(&jpeg).map_err(|e| err(&e))?;
+            out.decode_us += micros(t);
+            full
+        }
+    };
+    let t = std::time::Instant::now();
+    let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, orientation);
+    let face = faces::face_to_upright(stored, orientation, w, h);
+    out.eyes = eyes::judge(&upright, uw, uh, &face).map(|e| EyesJudgment {
+        state: match e.state {
+            eyes::EyeState::Open => "open",
+            eyes::EyeState::Closed => "closed",
+        },
+        probability: e.probability,
+    });
+    out.model_us = micros(t);
+    Ok(out)
+}
+
 /// Open the native folder picker and resolve once the user answers, or `None`
 /// if they cancel.
 ///
@@ -930,6 +1029,30 @@ pub async fn faces_of(path: String) -> Result<FacesResponse, String> {
     tauri::async_runtime::spawn_blocking(move || read_faces(Path::new(&path)))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// The id of the latest `eyes_of` request, the pattern of
+/// `ScansState::latest_id`: a judgment a newer request has superseded stops
+/// at its next stage instead of running the model for a file no longer shown.
+#[derive(Default)]
+pub struct EyesRequests(Mutex<u64>);
+
+/// Whether the eyes of one file's AF face are closed, judged when it is
+/// shown rather than at scan time. Touches neither the index nor the stored
+/// state.
+#[tauri::command]
+pub async fn eyes_of(
+    app: tauri::AppHandle,
+    path: String,
+    request: u64,
+) -> Result<EyesResponse, String> {
+    *index::lock(&app.state::<EyesRequests>().0) = request;
+    tauri::async_runtime::spawn_blocking(move || {
+        let requests = app.state::<EyesRequests>();
+        read_eyes(Path::new(&path), || *index::lock(&requests.0) == request)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The id handed out to each `scan_folder` call, the cancel flag and join
@@ -3960,6 +4083,59 @@ mod tests {
         assert!(found.faces.is_empty());
 
         remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn eyes_without_a_face_are_unknown_and_a_jpeg_is_refused() {
+        let dir = temp_dir("eyes");
+        let path = dir.join("a.arw");
+        std::fs::write(&path, arw_with_preview(6, &gradient_jpeg(64, 48))).unwrap();
+
+        let judged = read_eyes(&path, || true).unwrap();
+        assert_eq!(judged.eyes, None);
+        assert!(!judged.superseded);
+        let jpeg = dir.join("a.jpg");
+        std::fs::write(&jpeg, gradient_jpeg(64, 48)).unwrap();
+        let err = read_eyes(&jpeg, || true).unwrap_err();
+        assert!(err.contains("RAW files only"), "{err}");
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_superseded_eyes_request_stops_before_the_detection() {
+        let dir = temp_dir("eyes-superseded");
+        let path = dir.join("a.arw");
+        std::fs::write(&path, arw_with_preview(1, &gradient_jpeg(64, 48))).unwrap();
+
+        let judged = read_eyes(&path, || false).unwrap();
+        assert!(judged.superseded);
+        assert_eq!((judged.eyes, judged.detect_us), (None, 0));
+
+        remove_temp_dir(&dir);
+    }
+
+    /// The `eyes_of` breakdown on real files, one line per file: set
+    /// `RIFFLE_EYES_FILES` to RAW paths separated by `;`, then run in
+    /// release with `--ignored --nocapture`. The first file pays the model
+    /// builds.
+    #[test]
+    #[ignore]
+    fn times_eyes_of_on_real_files() {
+        let paths = std::env::var("RIFFLE_EYES_FILES").expect("RIFFLE_EYES_FILES");
+        for path in paths.split(';').filter(|p| !p.is_empty()) {
+            let started = std::time::Instant::now();
+            let r = read_eyes(Path::new(path), || true).unwrap();
+            println!(
+                "{path}  read {:.1}  decode {:.1}  detect {:.1}  model {:.1}  total {:.1} ms  {:?}",
+                r.read_us as f64 / 1000.0,
+                r.decode_us as f64 / 1000.0,
+                r.detect_us as f64 / 1000.0,
+                r.model_us as f64 / 1000.0,
+                started.elapsed().as_secs_f64() * 1000.0,
+                r.eyes
+            );
+        }
     }
 
     #[test]

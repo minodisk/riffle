@@ -117,7 +117,8 @@ DxO PhotoLab.
   the mark. The cue is computed in a second pass right after the thumbnails,
   so the marks turn from white as it runs, the files on screen first; the
   strip marks each candidate with a green face icon at the cell's bottom-left, the meta pane shows the
-  probability as `AF eye in focus` (a percentage), and the filter menu's
+  probability as `AF eye in focus` (a percentage) and whether that face's
+  eyes are closed as `Eyes` (judged when the file is shown), and the filter menu's
   `AF eye` section (`Sharp` / `Soft` / `Unknown`) narrows the strip by the
   state. The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
