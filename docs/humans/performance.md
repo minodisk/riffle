@@ -530,8 +530,8 @@ the whole-image search uses, the classifier's eye AUC fell from 0.78 to
 
 The app judges closed eyes with Face Landmarker v2 for the shown file only:
 the `eyes_of` command runs when a file is shown, outside both scan passes,
-and the meta pane's Analysis group shows `Eyes: Closed (NN%)` or `Open
-(NN%)`. It judges one face, the face nearest a trusted AF point, else the
+and the meta pane's Analysis group shows `Eyes open: NN%`, the probability
+that the eyes are open. It judges one face, the face nearest a trusted AF point, else the
 largest face at or above 0.8, and none below a 60 px face side. Measured on
 2026-10-07 on the same Windows 11 machine, release builds, one thread, on
 `main` at `392f9c25` (the sizes before from the same day's builds before the
