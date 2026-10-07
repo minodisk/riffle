@@ -133,34 +133,13 @@ file scored, which the on-demand design rules out.
       "Eye-state model survey (Windows 11)" with the comparison table;
       `docs/humans/performance.ja.md` in sync.
     - `mise run ci` passes.
-  - Implemented on branch `closed-eyes-detection-step-1` (commit `fecff8a2`,
-    not yet reviewed or PR'd). It recorded the decision "none" and struck
-    Steps 2-5; the user replaced that decision on 2026-10-07 (see
-    "Decision"). **Before the Step 1 PR opens, the same branch must change:**
-    - This plan.md: the "Decision" section below and the new Steps 2-4 in
-      place of the struck ones (done by this revision).
-    - `todo.md`, the item "Optionally, detect closed eyes": keep it open but
-      make it describe the on-demand adoption rather than "none": the
-      survey's numbers stay (they justify the choice), the closing sentence
-      becomes "Adopted on demand for the shown file only (MediaPipe Face
-      Landmarker v2 via EAR, ~50 ms per face), not in the scan: see
-      `docs/plans/20261007-closed-eyes-detection/`"; Step 4 checks it off.
-    - `docs/humans/performance.md` "Eye-state model survey (Windows 11)": the
-      table and the labeling paragraphs stay; the last paragraph's "None was
-      adopted: ..." becomes the pass-2 verdict plus the on-demand decision
-      (Face Landmarker v2 runs once for the shown file, outside both scan
-      passes, so the pass-2 budget does not apply). `performance.ja.md` in
-      sync.
-    - `learnings.md`: the first bullet "Outcome: no model adopted" is
-      updated to the new outcome (the measured verdict on pass 2 stands; the
-      adoption is on demand), and the bullet "The crop geometry stayed in the
-      CLI" gains a line that Step 2 moves `face_square` / `face_to_upright`
-      into `riffle-core` after all.
-    - The commit message of `fecff8a2` says "record that none fits pass 2";
-      that is still true of pass 2, but the PR title and body should describe
-      the survey and the on-demand decision (let the PR title differ).
-    - The user's review of the `closed` labels (`learnings.md` "Deferred
-      issues") stays pending and does not block the PR.
+  - Implemented on branch `closed-eyes-detection-step-1`. It first recorded
+    the decision "none" for pass 2 and struck Steps 2-5; the user replaced
+    that with the on-demand adoption on 2026-10-07 (see "Decision"). The
+    branch also carries the matching updates to this plan, `todo.md`,
+    `performance.md` / `.ja.md` and `learnings.md`. The user's review of the
+    `closed` labels (`learnings.md` "Deferred issues") stays pending and
+    does not block the PR.
 
 - [ ] Step 2: Add MediaPipe Face Landmarker v2 to `riffle-core` as the `eyes` module
   - Done when:
@@ -270,9 +249,10 @@ file scored, which the on-demand design rules out.
       the stored state. The face it judges is the one the scan judges for
       that file (see Trade-offs "Which face"): with a trusted AF point
       (`sharpness::trusted_focus`), `candidate::nearest_face` of
-      `detect_around`'s faces; without one, the highest-scoring face at or
-      above `sharpness::FACE_CONFIDENCE` (make `chosen_face` public or
-      re-derive it with a shared helper). Without an AF point the crop comes
+      `detect_around`'s faces; without one, the largest face (by box area)
+      at or above `sharpness::FACE_CONFIDENCE`, as the labeled DNG set
+      picked it (not `sharpness::chosen_face`, which takes the
+      highest-scoring face; a small shared helper is fine). Without an AF point the crop comes
       from a full-size decode the whole-image path does not otherwise make
       (see Trade-offs "No-AF path"). The AF path must not decode the
       full-size preview twice (detection and crop): decode once and call
@@ -427,9 +407,9 @@ revision with the recommended defaults below the same day.
 
 - **Which face is judged (chosen: the one the scan judges).** With an AF
   point, the face nearest it (`candidate::nearest_face`, the `AF eye` face);
-  without one, the highest-scoring face at or above
-  `sharpness::FACE_CONFIDENCE` (the sharpness face). These are exactly the
-  faces `eyes-truth.md` labeled and the 0.97 AUC was measured on, they match
+  without one, the largest face at or above
+  `sharpness::FACE_CONFIDENCE` (not `chosen_face`'s highest-scoring one, so
+  that it matches the labeled DNG set). These are exactly the faces `eyes-truth.md` labeled and the 0.97 AUC was measured on, they match
   the `AF eye in focus` row's subject, and they give one row. Alternative:
   every face at or above the 60 px floor (~50 ms x ~1.8 faces on average,
   more in groups): it would catch a bystander's blink, but needs per-face
@@ -476,4 +456,6 @@ revision with the recommended defaults below the same day.
 
 ## Progress
 
-- (none yet)
+- 2026-10-07 Step 1 done on branch `closed-eyes-detection-step-1`: no
+  surveyed eye-state model fits pass 2; MediaPipe Face Landmarker v2 (EAR,
+  ~50 ms per face) adopted on demand for the shown file only.

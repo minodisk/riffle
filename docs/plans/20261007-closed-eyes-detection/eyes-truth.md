@@ -28,8 +28,8 @@ from are `sheets\s00.png`-`s17.png` (ARW), `d0.png`-`d2.png` (DNG) and
     No folder with known blinks was named, and the focus cue's `Soft`
     frames were not used: soft focus says nothing about the eyelids.
 - **DNG**: `D:\photos\2026\2026-02-01` (146 M11-P DNGs, no AF point). The
-  face judged is the largest face scoring at least 0.8 on the whole-image
-  search (the faces the sharpness score uses), 72 files; all labeled, at full
+  face judged is the largest face (by box area) scoring at least 0.8 on the
+  whole-image search, 72 files; all labeled, at full
   size, and the first 24 also on the 3/8 decode the whole-image search uses.
 
 ## Labels

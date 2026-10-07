@@ -676,6 +676,19 @@ fn raw_paths(inputs: &[PathBuf]) -> Result<Vec<PathBuf>> {
 /// `eyecrops_line` per face to `out/index.txt`.
 fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
     let paths = raw_paths(inputs)?;
+    // The crops are named by file stem, so two inputs sharing one would
+    // overwrite each other's PNGs and share an index line.
+    let mut stems = std::collections::HashSet::new();
+    for p in &paths {
+        let stem = p
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        if !stems.insert(stem) {
+            bail!("{p:?}: another input has the same file stem; the crops would collide");
+        }
+    }
     std::fs::create_dir_all(out)?;
     let start = Instant::now();
     let results: Vec<Result<Vec<String>>> = {
