@@ -337,6 +337,29 @@ pub fn to_upright(
     }
 }
 
+/// Map a face found on the stored `width` x `height` preview to the upright
+/// one, the inverse of `to_stored`.
+pub fn face_to_upright(face: Face, orientation: u16, width: usize, height: usize) -> Face {
+    let (w, h) = (width as f32, height as f32);
+    let point = |(x, y): (f32, f32)| match orientation {
+        6 => (h - y, x),
+        8 => (y, w - x),
+        3 => (w - x, h - y),
+        _ => (x, y),
+    };
+    let a = point((face.x, face.y));
+    let b = point((face.x + face.width, face.y + face.height));
+    Face {
+        x: a.0.min(b.0),
+        y: a.1.min(b.1),
+        width: (a.0 - b.0).abs(),
+        height: (a.1 - b.1).abs(),
+        score: face.score,
+        left_eye: point(face.left_eye),
+        right_eye: point(face.right_eye),
+    }
+}
+
 /// Rotate a stored RGB image to display orientation. `apply_orientation`
 /// leaves orientation 3 alone, so the half turn is done here.
 pub fn upright_rgb(
@@ -529,6 +552,18 @@ mod tests {
         assert_eq!((f.x, f.y, f.width, f.height), (160.0, 40.0, 30.0, 40.0));
         assert_eq!((f.left_eye, f.right_eye), ((185.0, 75.0), (165.0, 74.0)));
         assert_eq!(to_stored(upright(), 1, 200, 100), upright());
+    }
+
+    #[test]
+    fn face_to_upright_is_the_inverse_of_to_stored() {
+        for orientation in [1, 3, 6, 8] {
+            let stored = to_stored(upright(), orientation, 200, 100);
+            assert_eq!(
+                face_to_upright(stored, orientation, 200, 100),
+                upright(),
+                "orientation {orientation}"
+            );
+        }
     }
 
     #[test]

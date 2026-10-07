@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use riffle_core::candidate;
 use riffle_core::decode::{apply_orientation, decode_rgb};
+use riffle_core::eyes;
 use riffle_core::faces;
 use riffle_core::partial;
 use riffle_core::reader;
@@ -64,6 +65,12 @@ fn main() -> Result<()> {
                 Path::new(out),
             )
         }
+        Some("eyes") => {
+            if args.len() < 2 {
+                bail!("usage: riffle-cli eyes <dir|file>...");
+            }
+            eyes_cmd(&args[1..].iter().map(PathBuf::from).collect::<Vec<_>>())
+        }
         Some("check") => {
             let mut dirs = &args[1..];
             let threads = match dirs.last().map(|t| t.parse::<usize>()) {
@@ -79,7 +86,7 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli check <dir>... [threads]"
         ),
     }
 }
@@ -291,6 +298,7 @@ fn bench(paths: &[String]) -> Result<()> {
     let mut t_crop = Vec::new();
     let mut t_faces = Vec::new();
     let mut t_whole = Vec::new();
+    let mut t_eyes = Vec::new();
 
     for p in paths {
         let path = Path::new(p);
@@ -317,8 +325,17 @@ fn bench(paths: &[String]) -> Result<()> {
             faces::detect(&rgb, w, h)?;
             t_faces.push(t.elapsed().as_secs_f64() * 1000.0);
             let t = Instant::now();
-            faces::detect_whole(&rgb, w, h)?;
+            let found = faces::detect_whole(&rgb, w, h)?;
             t_whole.push(t.elapsed().as_secs_f64() * 1000.0);
+
+            if let Some(face) = found.first() {
+                if t_eyes.is_empty() {
+                    eyes::ear_of(&rgb, w, h, face)?;
+                }
+                let t = Instant::now();
+                eyes::ear_of(&rgb, w, h, face)?;
+                t_eyes.push(t.elapsed().as_secs_f64() * 1000.0);
+            }
         }
 
         if a.full.is_some() {
@@ -349,6 +366,9 @@ fn bench(paths: &[String]) -> Result<()> {
     }
     if !t_whole.is_empty() {
         stats("5. whole-image detection", t_whole);
+    }
+    if !t_eyes.is_empty() {
+        stats("6. eye state (per face)", t_eyes);
     }
     Ok(())
 }
@@ -671,7 +691,7 @@ fn raw_paths(inputs: &[PathBuf]) -> Result<Vec<PathBuf>> {
 
 /// Run the second pass's face detection (as `detect` does) on every RAW file
 /// given or in the folders given and, for every face, write the face crop
-/// and the crop of each eye (`face_square`, `eye_squares`) cut
+/// and the crop of each eye (`eyes::face_square`, `eye_squares`) cut
 /// from the full-size upright preview to `out` as PNGs, and one
 /// `eyecrops_line` per face to `out/index.txt`.
 fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
@@ -706,11 +726,13 @@ fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
                 let stem = p.file_stem().unwrap_or_default().to_string_lossy();
                 let mut lines = Vec::new();
                 for (i, f) in d.faces.iter().enumerate() {
-                    let face = face_to_upright(*f, a.orientation, w, h);
+                    let face = faces::face_to_upright(*f, a.orientation, w, h);
                     let [left, right] = eye_squares(&face);
-                    for (suffix, (center, side)) in
-                        [("face", face_square(&face)), ("l", left), ("r", right)]
-                    {
+                    for (suffix, (center, side)) in [
+                        ("face", eyes::face_square(&face)),
+                        ("l", left),
+                        ("r", right),
+                    ] {
                         let (sub, win) = faces::crop_rgb(&upright, uw, uh, center, side);
                         image::save_buffer(
                             out.join(format!("{stem}-{i}-{suffix}.png")),
@@ -759,32 +781,132 @@ fn eyecrops(inputs: &[PathBuf], out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Map a face found on the stored `width` x `height` preview to the upright
-/// one, the inverse of `faces::to_stored`.
-fn face_to_upright(
-    face: faces::Face,
-    orientation: u16,
-    width: usize,
-    height: usize,
-) -> faces::Face {
-    let (w, h) = (width as f32, height as f32);
-    let point = |(x, y): (f32, f32)| match orientation {
-        6 => (h - y, x),
-        8 => (y, w - x),
-        3 => (w - x, h - y),
-        _ => (x, y),
+/// Judge the eyes of the face every RAW file given or in the folders given
+/// would be judged on, one thread, one `eyes_line` per file, then the
+/// totals: the face nearest the AF point on the scan's detection
+/// (`detect_around` with `trusted_focus`), else the largest face at or above
+/// `sharpness::FACE_CONFIDENCE`, cut from the full-size upright preview.
+/// The EAR is printed below `eyes::EYES_MIN_FACE` too, so the labeled set's
+/// AUC can be taken over every labeled face.
+fn eyes_cmd(inputs: &[PathBuf]) -> Result<()> {
+    let paths = raw_paths(inputs)?;
+    let probe = faces::Face {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+        score: 1.0,
+        left_eye: (0.0, 0.0),
+        right_eye: (0.0, 0.0),
     };
-    let a = point((face.x, face.y));
-    let b = point((face.x + face.width, face.y + face.height));
-    faces::Face {
-        x: a.0.min(b.0),
-        y: a.1.min(b.1),
-        width: (a.0 - b.0).abs(),
-        height: (a.1 - b.1).abs(),
-        score: face.score,
-        left_eye: point(face.left_eye),
-        right_eye: point(face.right_eye),
+    // Build the models outside the timing.
+    faces::detect(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 6], 1, 2)?;
+    let t = Instant::now();
+    eyes::ear_of(&[0; 3], 1, 1, &probe)?;
+    println!(
+        "first model call (plan build and one run): {:.1}ms",
+        t.elapsed().as_secs_f64() * 1000.0
+    );
+    let start = Instant::now();
+    let (mut errors, mut judged) = (0, 0);
+    let mut t_model = Vec::new();
+    for path in &paths {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let r = judge_file(path);
+        match r {
+            Ok(Some(Judged {
+                crop,
+                face,
+                ear,
+                model,
+            })) => {
+                println!("{}", eyes_line(&name, crop, &face, ear, model));
+                judged += 1;
+                t_model.push(model);
+            }
+            Ok(None) => println!("{name}  no face"),
+            Err(e) => {
+                errors += 1;
+                println!("{name}  error: {e:#}");
+            }
+        }
     }
+    println!(
+        "{} files, {errors} errors, {judged} faces judged: {:.2}s total",
+        paths.len(),
+        start.elapsed().as_secs_f64()
+    );
+    if !t_model.is_empty() {
+        stats("eye state model (per face)", t_model);
+    }
+    Ok(())
+}
+
+/// The face `eyes` judged in one file, upright, its EAR and the model time.
+struct Judged {
+    crop: bool,
+    face: faces::Face,
+    ear: Option<f64>,
+    model: f64,
+}
+
+/// `eyes` on one file; `None` when it has no face to judge.
+fn judge_file(path: &Path) -> Result<Option<Judged>> {
+    let (a, jpeg) = reader::read_preview(path)?;
+    let focus = sharpness::trusted_focus(&a.shot);
+    let d = faces::detect_around(&jpeg, a.orientation, focus)?;
+    let chosen = match d.point {
+        Some(p) => candidate::nearest_face(&d.faces, p).copied(),
+        None => d
+            .faces
+            .iter()
+            .filter(|f| f.score >= sharpness::FACE_CONFIDENCE)
+            .max_by(|a, b| (a.width * a.height).total_cmp(&(b.width * b.height)))
+            .copied(),
+    };
+    let Some(stored) = chosen else {
+        return Ok(None);
+    };
+    let (rgb, w, h) = decode_rgb(&jpeg)?;
+    let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, a.orientation);
+    let face = faces::face_to_upright(stored, a.orientation, w, h);
+    let t = Instant::now();
+    let ear = eyes::ear_of(&upright, uw, uh, &face)?;
+    Ok(Some(Judged {
+        crop: focus.is_some(),
+        face,
+        ear,
+        model: t.elapsed().as_secs_f64() * 1000.0,
+    }))
+}
+
+/// One file of `eyes`: the path taken, the judged face's box side (the
+/// longer of width and height) in preview pixels, the EAR of its more closed
+/// eye, the closed probability and the state (`unknown` below
+/// `eyes::EYES_MIN_FACE` or without an EAR), and the model time.
+fn eyes_line(name: &str, crop: bool, face: &faces::Face, ear: Option<f64>, model: f64) -> String {
+    let side = face.width.max(face.height);
+    let judged = ear
+        .filter(|_| side >= eyes::EYES_MIN_FACE)
+        .map(eyes::Eyes::from_ear);
+    format!(
+        "{name}  {}  {side:.0}px  ear {}  {}  model {model:.1}ms",
+        if crop { "crop" } else { "whole" },
+        ear.map_or("-".into(), |e| format!("{e:.4}")),
+        match judged {
+            Some(e) => format!(
+                "{:.2} {}",
+                e.probability,
+                match e.state {
+                    eyes::EyeState::Open => "open",
+                    eyes::EyeState::Closed => "closed",
+                }
+            ),
+            None => "- unknown".into(),
+        }
+    )
 }
 
 /// Side of an eye crop as a fraction of the distance between the two eye
@@ -793,8 +915,6 @@ fn face_to_upright(
 const EYE_CROP: f32 = 0.8;
 /// The smallest eye crop side, in pixels.
 const EYE_CROP_MIN: usize = 16;
-/// Side of a face crop as a multiple of the longer side of the face box.
-const FACE_CROP: f32 = 1.25;
 
 /// The center and side of the square crop of each eye of an upright `face`
 /// (left of the image, then right): centered on the eye point, `EYE_CROP`
@@ -805,19 +925,6 @@ fn eye_squares(face: &faces::Face) -> [((usize, usize), usize); 2] {
     let side = ((distance * EYE_CROP).round() as usize).max(EYE_CROP_MIN);
     let center = |(x, y): (f32, f32)| (x.round() as usize, y.round() as usize);
     [(center(l), side), (center(r), side)]
-}
-
-/// The center and side of the square crop of `face`: its box, squared on the
-/// longer side and grown by `FACE_CROP`.
-fn face_square(face: &faces::Face) -> ((usize, usize), usize) {
-    let center = (
-        (face.x + face.width / 2.0).round() as usize,
-        (face.y + face.height / 2.0).round() as usize,
-    );
-    (
-        center,
-        (face.width.max(face.height) * FACE_CROP).round() as usize,
-    )
 }
 
 /// One face of `eyecrops`, on the upright preview: the file, the face
@@ -1106,18 +1213,6 @@ mod tests {
     }
 
     #[test]
-    fn face_to_upright_is_the_inverse_of_to_stored() {
-        for orientation in [1, 3, 6, 8] {
-            let stored = faces::to_stored(upright(), orientation, 200, 100);
-            assert_eq!(
-                face_to_upright(stored, orientation, 200, 100),
-                upright(),
-                "orientation {orientation}"
-            );
-        }
-    }
-
-    #[test]
     fn eye_squares_follow_the_inter_ocular_distance() {
         let mut f = upright();
         f.left_eye = (100.0, 50.0);
@@ -1133,14 +1228,33 @@ mod tests {
     }
 
     #[test]
-    fn a_face_square_grows_the_longer_side_around_the_box_center() {
-        assert_eq!(face_square(&upright()), ((25, 40), 50));
-        let f = faces::Face {
-            x: -10.0,
-            width: 20.0,
+    fn eyes_line_lists_the_face_its_ear_and_the_judgment() {
+        let face = faces::Face {
+            width: 80.4,
+            height: 96.6,
             ..upright()
         };
-        assert_eq!(face_square(&f), ((0, 40), 50));
+        assert_eq!(
+            eyes_line("a.ARW", true, &face, Some(0.05), 49.04),
+            "a.ARW  crop  97px  ear 0.0500  0.93 closed  model 49.0ms"
+        );
+        assert_eq!(
+            eyes_line("b.DNG", false, &face, Some(0.3), 50.0),
+            "b.DNG  whole  97px  ear 0.3000  0.01 open  model 50.0ms"
+        );
+        let small = faces::Face {
+            width: 40.0,
+            height: 50.0,
+            ..upright()
+        };
+        assert_eq!(
+            eyes_line("c.ARW", true, &small, Some(0.05), 48.0),
+            "c.ARW  crop  50px  ear 0.0500  - unknown  model 48.0ms"
+        );
+        assert_eq!(
+            eyes_line("d.ARW", true, &face, None, 48.0),
+            "d.ARW  crop  97px  ear -  - unknown  model 48.0ms"
+        );
     }
 
     #[test]

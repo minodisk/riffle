@@ -142,7 +142,7 @@ file scored, which the on-demand design rules out.
     `closed` labels (`learnings.md` "Deferred issues") stays pending and
     does not block the PR.
 
-- [ ] Step 2: Add MediaPipe Face Landmarker v2 to `riffle-core` as the `eyes` module
+- [x] Step 2: Add MediaPipe Face Landmarker v2 to `riffle-core` as the `eyes` module
   - Done when:
     - `crates/core/models/face_landmarks_detector.onnx` (4,921,000 B, SHA-256
       `cafab16c...c05804` from `model-survey.md`) and its license text are
@@ -461,3 +461,4 @@ revision with the recommended defaults below the same day.
   surveyed eye-state model fits pass 2; MediaPipe Face Landmarker v2 (EAR,
   ~50 ms per face) adopted on demand for the shown file only.
 - (2026-10-07) Step 1 complete
+- (2026-10-07) Step 2 complete
