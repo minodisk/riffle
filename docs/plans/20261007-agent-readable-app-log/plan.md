@@ -218,4 +218,4 @@ what to grep for.
 
 ## Progress
 
-- (none yet)
+- (2026-10-07) Step 1 complete
