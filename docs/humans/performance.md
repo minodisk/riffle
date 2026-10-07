@@ -613,7 +613,9 @@ profiles past about 70 deg and sports sunglasses are rough, and a far
 profile's yaw can read past 90 deg. 15 of the 2024 judged faces of the two
 folders fitted upside down (a roll past 90 deg: backs of heads, ears,
 blurs) and get no pose. The lens's own field of view in place of
-MediaPipe's 63 deg camera changes none of the signs.
+MediaPipe's 63 deg camera changes none of the sign agreements (it flips
+only angles within about 8 deg of zero) and moves an angle by a median of
+about 1 deg.
 
 ### Which pass carries which cost
 

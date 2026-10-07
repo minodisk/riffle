@@ -106,8 +106,8 @@
 - Binary size: `riffle-app` +17,408 B, `riffle-cli` +21,504 B (no
   `ui/dist` in either build, so both are the same kind of build).
 - The roll-corrected re-crop follow-up was not filed: Step 2 did not show
-  roll hurting (the 3 roll sign misses are faces turned about 30 deg whose
-  eye line tilts with the turn, not leans the crop cut badly; no labeled
+  roll hurting (two of the 3 roll sign misses are DNG portraits turned about 30 deg
+  whose eye line tilts with the turn, not leans the crop cut badly; no labeled
   lean went past about 20 deg). The plan made it conditional on Step 2.
 - The MCP companion follow-up was written next to the existing closed-eyes
   MCP item rather than merged into it, since one `EyesJudgment` field can
