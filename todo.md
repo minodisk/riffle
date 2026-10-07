@@ -505,7 +505,7 @@ a real machine yet. Files: `crates/app/ui/src/main.ts`,
 
 ### App: face/eye-aware focus check for culling
 
-Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). Without a trusted AF point the whole-preview search now runs at a 640x448 input on a DCT-scaled decode, which raised small-face recall at about 1.7x the earlier per-file cost; closed eyes were found to need a second model (see `docs/plans/_archived/20261005-face-detection-recall-cost/`). What remains:
+Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/src/sharpness.rs`) now runs at scan time: sharpness is scored on the Sony eye-AF frame, else on the AF point, else on the eyes of a detected face when there is no trusted AF point, else on the sharpest tile; an AF point off the face no longer scores a bystander's eyes (see `docs/plans/_archived/20260922-face-aware-sharpness/` and `docs/plans/20260924-face-catch-state/`). Without a trusted AF point the whole-preview search now runs at a 640x448 input on a DCT-scaled decode, which raised small-face recall at about 1.7x the earlier per-file cost; closed eyes were found to need a second model (see `docs/plans/_archived/20261005-face-detection-recall-cost/`), which now judges the shown file's eyes on demand, outside the scan, for the meta pane's `Eyes` row (see `docs/plans/20261007-closed-eyes-detection/`). What remains:
 
 #### TODO
 
@@ -519,27 +519,49 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       α7 V ARW / M11-P DNG previews and `riffle-cli scan` before/after adding
       detection and the AF-frame skip; see `docs/humans/performance.md` "Face
       detection cost".
-- [ ] Optionally, detect closed eyes. Not possible from the current
-      landmarks: YuNet emits five points (two eyes, nose, two mouth corners)
-      and none on the eyelids, so an open eye and a closed one land on the
-      same point; it needs a second model on the face nearest the AF point.
-      Surveyed on 2026-10-07 (Windows 11, one thread, crop included, 504
-      hand-labeled faces; see `docs/plans/20261007-closed-eyes-detection/`,
-      `model-survey.md` and `eyes-truth.md`), against a budget of +25% of the
-      cue path's per-file pass-2 time (about +11.5 ms per ARW that day): Open
-      Model Zoo's `open-closed-eye-0001` eye-crop classifier (46 KB, 0.5 ms,
-      +1%) is inside it but scores a face AUC of only 0.72; MediaPipe face
-      mesh v1 (2.4 MB as ONNX, 15.4 ms, +33-35%) 0.89; MediaPipe Iris
-      (2.6 MB, 18.6 ms, +40%) 0.86; MediaPipe Face Landmarker v2 (4.9 MB,
-      49-51 ms, +105-109%) 0.97, precision 0.94 at recall 0.86, the only one
-      good enough for a filter. All four load in `tract-onnx` with
-      `default-features = false` (the MediaPipe ones converted from Google's
-      TFLite with tf2onnx). The preview is a floor of its own: below a 60 px
-      face side a human can call about one face in five, and the whole-image
-      path's 3/8 decode loses a fifth of the labelable faces. Adopted on
-      demand for the shown file only (MediaPipe Face Landmarker v2 via EAR,
-      ~50 ms per face), not in the scan: see
-      `docs/plans/20261007-closed-eyes-detection/`.
+- [x] Optionally, detect closed eyes. YuNet's five landmarks carry no
+      eyelid points, so it needed a second model. Four were surveyed on
+      2026-10-07 against 504 hand-labeled faces (`model-survey.md`,
+      `eyes-truth.md`); none fits the scan's second pass. Adopted: MediaPipe
+      Face Landmarker v2 (Apache-2.0, 4.9 MB ONNX converted from Google's
+      TFLite, `crates/core/src/eyes.rs`), judging closed eyes by the eye
+      aspect ratio (closed iff at most 0.137) of one face, the one nearest a
+      trusted AF point, else the largest face at or above 0.8, at or above a
+      60 px face side, on demand for the shown file only (`eyes_of`), shown
+      as the meta pane's `Eyes: Closed (NN%)` / `Open (NN%)` row. Cost:
+      `riffle-app` 47.5 -> 52.5 MB, `riffle-cli` 24.6 -> 29.6 MB; ~35 ms
+      per face (p95 41 ms), the whole call 80-92 ms on an ARW with an AF
+      point and 140-156 ms on a DNG without one. Accuracy: face AUC 0.974,
+      precision 0.94 / recall 0.86 at the threshold. See
+      `docs/plans/20261007-closed-eyes-detection/` and
+      `docs/humans/performance.md` "Closed-eyes judgment on demand
+      (Windows 11)".
+- [ ] Judge every face at or above the 60 px floor, not only the AF-nearest
+      (or largest) one, so a bystander's blink shows too. Each face is one
+      more model run (~35 ms; ~1.8 faces per file on the 2134-ARW folder,
+      more in groups). Needs either a row per face or
+      a worst-of summary (`Eyes: Closed (1 of 3)`), a pattern the meta pane
+      does not have, and a check of the accuracy on non-subject faces, which
+      `eyes-truth.md` did not label. Files: `crates/app/src/commands.rs`
+      (`read_eyes`), `crates/core/src/eyes.rs` (`judged_face`),
+      `crates/app/ui/src/meta.ts`.
+- [ ] Use the model's face presence output (`Identity_1`, a logit the
+      `eyes` module ignores) to drop false face detections before judging
+      the eyes. Needs a threshold calibrated on labeled faces: the `x`
+      labels of `docs/plans/20261007-closed-eyes-detection/eyes-truth.md`
+      (no eye to judge, including false detections) can seed it. Files:
+      `crates/core/src/eyes.rs`, `docs/agents/tract-onnx-inference.md`.
+- [ ] Add the shown file's closed-eyes judgment to the MCP companion (a
+      field of `get_photo` / `get_view`, or its own tool), so an agent can
+      read it. It is on demand, so the field is absent until the file has
+      been shown; or the tool calls `eyes_of` itself. Files:
+      `crates/app/src/mcp.rs`, `crates/app/ui/src/companion.ts`,
+      `crates/app/ui/src/eyes.ts`.
+- [ ] Mark closed eyes in the strip. The judgment is per shown file, so a
+      mark appears only on files already shown (from `EyesCache`), unless
+      the judgment moves into the scan (~35 ms per face on every file, which
+      the survey found too costly for the second pass). Files:
+      `crates/app/ui/src/strip.ts`, `crates/app/ui/src/eyes.ts`.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
@@ -570,6 +592,20 @@ Files: `crates/core/src/faces.rs` (`detect_whole_upright`, `scaled_to_stored`), 
 #### TODO
 
 - [ ] On Windows or macOS, open `D:\photos\2026\2026-02-01` in the app after updating and let the second pass re-run (`FACES_VERSION` 5). Press `f` on `L1005161.DNG`: seven face boxes should be drawn (all seven people, as `D:\Photos\tests\2026-10-06-face-recall\step3\png\L1005161.png` shows), on the stored preview's scale (boxes on the faces, not shrunk to the top-left 3/8). Press `f` on `L1005233.DNG` (portrait): no boxes.
+
+### App: real-device check of the meta pane's `Eyes` row, and the review of the closed-eyes labels
+
+`closed-eyes-detection` (`docs/plans/20261007-closed-eyes-detection/plan.md`) added `eyes_of`, which judges the shown file's eyes with MediaPipe Face Landmarker v2, and the meta pane's `Eyes: Closed (NN%)` / `Open (NN%)` row. CI covers the unit tests (`eyes.test.ts`, `meta.test.ts`, the core `eyes` tests), and the `#[ignore]`d `times_eyes_of_on_real_files` timed the backend; the app itself was never run with it, so the preview-to-row time in `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" is missing. Steps 1 and 3 were ticked on the automated criteria. The truth set the threshold (0.137) and the AUCs come from was labeled by the agent, and the user's review of its `closed` faces is still open.
+
+Files: `crates/app/src/commands.rs` (`eyes_of`, `read_eyes`), `crates/app/ui/src/main.ts`, `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts`, `crates/core/src/eyes.rs`, `docs/plans/20261007-closed-eyes-detection/eyes-truth.md`.
+
+#### TODO
+
+- [ ] On Windows 11, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19` and wait for the scan to finish. Select `_DSC1889.ARW` or `_DSC1890.ARW` (labeled closed): the Analysis group shows `Eyes: Closed (NN%)` after `AF eye in focus`. Select `_DSC1894.ARW`: `Eyes: Open (NN%)`. Select `_DSC1897.ARW` (no face judged): no `Eyes` row.
+- [ ] Open `D:\photos\2026\2026-02-01` and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the row shows on the no-AF path.
+- [ ] Hold the page key through 30 files of the ARW folder: no row of a previous file stays on a later one, and the preview keeps pace with no added stall against the previous build.
+- [ ] With the folder idle, read the `eyes total=... read=... decode=... detect=... model=... ipc=...` lines in `Riffle.log` for a few ARWs with an AF point: the row should appear within ~150 ms of the preview. Add the numbers (and the preview-to-row time) to `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" and `performance.ja.md`.
+- [ ] Review the faces labeled closed: for each file in the "Faces with a closed eye" list of `docs/plans/20261007-closed-eyes-detection/eyes-truth.md`, open its tile `D:\Photos\tests\2026-10-07-closed-eyes\tiles\<stem>.png` (or the crops under `arw\` / `dng\`) and confirm that the eye marked `c` shows no iris; note any that are open. If labels change, re-run `riffle-cli eyes` on `labeled-paths.txt` and `scratch\auc.py` there, and re-fit the threshold and the slope in `crates/core/src/eyes.rs` if the best F1 moves.
 
 ### Core: the no-AF-point path decodes the preview a second time in score_preview
 

@@ -526,6 +526,57 @@ the whole-image search uses, the classifier's eye AUC fell from 0.78 to
 0.59 on the same 20 DNG faces. The details are in
 `docs/plans/20261007-closed-eyes-detection/model-survey.md`.
 
+#### Closed-eyes judgment on demand (Windows 11)
+
+The app judges closed eyes with Face Landmarker v2 for the shown file only:
+the `eyes_of` command runs when a file is shown, outside both scan passes,
+and the meta pane's Analysis group shows `Eyes: Closed (NN%)` or `Open
+(NN%)`. It judges one face, the face nearest a trusted AF point, else the
+largest face at or above 0.8, and none below a 60 px face side. Measured on
+2026-10-07 on the same Windows 11 machine, release builds, one thread, on
+`main` at `392f9c25` (the sizes before from the same day's builds before the
+app called the model):
+
+| Binary | Before | After |
+|--------|--------|-------|
+| `riffle-cli` | 24.6 MB | 29.6 MB |
+| `riffle-app` | 47.5 MB | 52.5 MB |
+
+Both grew by about the 4.9 MB ONNX file, which is embedded with
+`include_bytes!` (`riffle-app` +4,994,560 B, +10.5%).
+
+The model itself (crop, resize, run, eye aspect ratio), `riffle-cli eyes` on
+the 504 labeled faces: mean 34.6ms, median 34.1ms, p95 41.2ms. The first
+call, which builds the plan and runs once, took 182ms. That is faster than
+the survey's 50.9ms, which ran three other models between its calls.
+
+The whole `eyes_of` call (the `#[ignore]`d `times_eyes_of_on_real_files` test
+in `crates/app/src/commands.rs`, no app running), the first file of each set
+left out because it pays the plan builds (256ms on the ARW, 315ms on the
+DNG):
+
+| Files | Read | Decode | Detect | Model | Total |
+|-------|------|--------|--------|-------|-------|
+| 17 α7 V ARWs with an AF point and a face judged (of `_DSC1881`-`_DSC1899` in `2026-09-19`) | 0.8-6.1ms | 10.6-11.7ms | 27.4-32.7ms | 35.8-46.8ms | 80.2-91.9ms |
+| 11 M11-P DNGs without one (`L1005148`-`L1005191` in `2026-02-01`, a face judged in each) | 7.0-9.7ms | 19.5-27.1ms | 73.8-80.0ms | 36.7-39.9ms | 139.9-156.1ms |
+
+The two other ARWs had no face to judge and returned after the detection in
+43.9 / 45.5ms. On the AF path one full-size decode serves both the detection
+and the crop; without an AF point the decode is the 3/8 one of the
+whole-image search plus a full-size one for the crop, and the whole-image
+detection, not the second decode, is most of the cost. Every file of the two
+sets labeled closed came back closed. The time from the preview to the row
+in the running app (the `eyes` timing line with `Timing logs` on, IPC
+included) has not been measured yet: it needs the GUI.
+
+Accuracy, from `riffle-core` itself (`riffle-cli eyes`, which gives the
+survey's eye aspect ratios exactly): face AUC 0.974 over the 253 labeled
+faces (57 closed); at the threshold (closed iff the ratio is at most 0.137)
+accuracy 0.957, precision 0.94, recall 0.86. Over the 246 faces at or above
+the 60 px floor the app judges: AUC 0.974, accuracy 0.955, the same precision
+and recall. The random ARW sample alone scores 0.918 (precision 0.85, recall
+0.73), the DNG faces 0.986. A downcast eye reads as closed.
+
 ### Which pass carries which cost
 
 Since the sharpness score moved to the second pass, the first pass
@@ -542,6 +593,7 @@ focus candidate cue and the sharpness score:
 | Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows, after a 3/8 decode of ~5ms instead of the full-size ~14ms) | first | second |
 | Focus candidate cue (crop detection + eye window) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
+| Closed-eyes judgment (Face Landmarker v2, ~35-45ms per face; 80-160ms per call) | - | neither: on demand for the shown file (`eyes_of`) |
 
 The first pass writes the rows in small batches (10) as their thumbnails finish, so the
 thumbnails appear at the speed of the read and the thumbnail encode, and the
