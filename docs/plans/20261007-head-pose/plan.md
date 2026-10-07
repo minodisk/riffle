@@ -271,7 +271,7 @@ rebases; the overlap is additive lines only.
       `docs/humans/usage.md`, `docs/humans/usage.ja.md`, `README.md` /
       `README.ja.md` (if applicable).
 
-- [ ] Step 4: Record the cost and accuracy in the user docs and the todo
+- [x] Step 4: Record the cost and accuracy in the user docs and the todo
   - Done when:
     - `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows
       11)" gains a paragraph on the pose: the per-face solve time, the
@@ -380,3 +380,4 @@ agent's labels, the user's review pending):
 - (2026-10-07) Step 1 complete
 - (2026-10-07) Step 2 complete
 - (2026-10-07) Step 3 complete
+- (2026-10-07) Step 4 complete

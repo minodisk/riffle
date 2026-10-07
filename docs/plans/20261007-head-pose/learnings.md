@@ -92,6 +92,27 @@
 - `eyes.test.ts`'s `Eyes` literals gained `pose: null` (forced by the type).
 - `node` is not on the Git Bash PATH here; the frontend runs through `mise`.
 
+## Step 4
+
+- Re-measured `times_eyes_of_on_real_files` on `9048e952` (after) and
+  `bde23660` (before, a temporary worktree sharing this worktree's `target`
+  dir so only the workspace crates rebuilt), release, on the same 19 ARWs
+  (`_DSC1881`-`_DSC1899`) and 11 DNGs (`L1005148`-`L1005191`). The first
+  after run, straight after a 4-minute release compile, read 81-92 ms /
+  144-160 ms with `read` at 5-10 ms (cold cache, busy machine); the before
+  run that followed read 61-73 / 109-119 ms. Re-running after then gave
+  61-68 / 111-121 ms. Run the two builds back to back and repeat the first
+  one, or the order alone fakes a 20 ms regression.
+- Binary size: `riffle-app` +17,408 B, `riffle-cli` +21,504 B (no
+  `ui/dist` in either build, so both are the same kind of build).
+- The roll-corrected re-crop follow-up was not filed: Step 2 did not show
+  roll hurting (two of the 3 roll sign misses are DNG portraits turned about 30 deg
+  whose eye line tilts with the turn, not leans the crop cut badly; no labeled
+  lean went past about 20 deg). The plan made it conditional on Step 2.
+- The MCP companion follow-up was written next to the existing closed-eyes
+  MCP item rather than merged into it, since one `EyesJudgment` field can
+  carry both.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the user's review of the head-pose labels.** What:
