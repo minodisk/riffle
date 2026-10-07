@@ -1,3 +1,5 @@
+import type { Eyes } from "./eyes.js";
+
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
 // display, so a field is either a string to show or null to leave out.
 export interface Metadata {
@@ -33,8 +35,6 @@ export interface MetaGroup {
   heading: string;
   rows: MetaRow[];
 }
-
-import type { Eyes } from "./eyes.js";
 
 export const EXIF_HEADING = "EXIF";
 export const MAKER_NOTE_HEADING = "Maker note";
