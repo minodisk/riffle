@@ -211,6 +211,45 @@
   `src/eyes.ts`, the `Eyes` row) and `docs/agents/app-log.md` (the `eyes`
   timing line) so the module map and the log guide stay complete.
 
+## Step 4: the on-demand cost in `performance.md` and the todo update
+
+- **Re-measured on the merged `main` (`392f9c25`), 2026-10-07**, the same
+  day as Steps 2 and 3, so before / after need no cross-day correction.
+  Release `cargo build --release -p riffle-cli -p riffle-app` (incremental,
+  1 min 39 s): `riffle-app` 52,494,336 B (identical to Step 3's),
+  `riffle-cli` 29,558,784 B (Step 2's 29,557,248 B plus the `judged_face`
+  call). The "before" sizes are Step 2's (`riffle-cli` 24,591,872 B
+  without the model; `riffle-app` 47,499,776 B, the model linked but not
+  called, so stripped); building the pre-Step-2 commit again was not worth
+  it on the same day.
+- **`riffle-cli eyes` on `labeled-paths.txt`**
+  (`D:\Photos\tests\2026-10-07-closed-eyes\eyes-step4-1.txt`): first call 182.1 ms; per face mean
+  34.6 / median 34.1 / p95 41.2 ms; `scratch/auc.py` gives the same EARs as
+  the survey (max difference 0) and the same AUC 0.974, accuracy 0.957, P
+  0.94, R 0.86 as Step 2.
+- **`times_eyes_of_on_real_files`** (paths in `RIFFLE_EYES_FILES` with
+  forward slashes, since a Git Bash `printf` format turned the backslash
+  before `2026` into an octal escape): ARW `_DSC1880`-`_DSC1899`, first file 255.9
+  ms (detect 72.5, model 169.8), the 17 judged ones read 0.8-6.1, decode
+  10.6-11.7, detect 27.4-32.7, model 35.8-46.8, total 80.2-91.9 ms, the two
+  with no face (`_DSC1897`, `_DSC1898`) 43.9 / 45.5 ms. DNG `L1005146`-
+  `L1005191` (the first 12 of the folder), first 314.5 ms (detect 118.4,
+  model 161.5), the other 11 read 7.0-9.7, decode 19.5-27.1, detect
+  73.8-80.0, model 36.7-39.9, total 139.9-156.1 ms. Every labeled closed
+  file in the two sets came back `closed`. Close to Step 3's numbers.
+- **The preview-to-row time is not in `performance.md`**: it needs the GUI,
+  which an agent cannot drive. The subsection says it has not been measured,
+  and the todo section "App: real-device check of the meta pane's `Eyes`
+  row, and the review of the closed-eyes labels" carries the check together
+  with the user's review of the `closed` labels (one heading for both
+  pending manual checks).
+- **The Windows-path pitfall again**: Windows paths written with doubled
+  backslashes in a Python triple-quoted string, fed through a quoted Git
+  Bash heredoc, still came out as `\2026` / `\t` escapes, i.e. control
+  characters, in `todo.md`. Fixed with `chr(92)` and a `re.subn` whose replacement is a
+  lambda (a string replacement re-parses the backslashes); grepping for
+  control characters after each scripted edit caught it.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (user): review the faces labeled closed.** The
@@ -269,3 +308,14 @@
   `crates/core/src/eyes.rs`, `docs/humans/performance.md`. Resolved in
   Step 3 (52,494,336 B, +4,994,560 B; see "Step 3"); not a todo, Step 4
   only re-measures it on the merged `main`.
+- **The pending manual checks above are already in `todo.md`.** Step 4
+  (whose Done-when lists the todo update) added them as the section "App:
+  real-device check of the meta pane's `Eyes` row, and the review of the
+  closed-eyes labels": the Step 3 GUI checks, the preview-to-row time for
+  `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)"
+  (left unmeasured there), and the review of the `closed` labels. The
+  wrap-up should not add them a second time. Step 4's checkbox was ticked on
+  the automated criteria; the follow-ups (every face, `Identity_1`, the MCP
+  field, a strip mark) are in `todo.md` under "App: face/eye-aware focus
+  check for culling". Basis: Step 4; files `todo.md`,
+  `docs/humans/performance.md`.

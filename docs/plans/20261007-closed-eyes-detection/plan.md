@@ -317,7 +317,7 @@ file scored, which the on-demand design rules out.
       `meta.test.ts`, `main.ts`, `docs/humans/usage.md`, `usage.ja.md`,
       `README.md` / `README.ja.md` (if applicable).
 
-- [ ] Step 4: Record the on-demand cost and size and close the todo item
+- [x] Step 4: Record the on-demand cost and size and close the todo item
   - Done when:
     - `docs/humans/performance.md` "Face detection cost" gets a subsection
       "Closed-eyes judgment on demand (Windows 11)" after the survey
@@ -463,3 +463,4 @@ revision with the recommended defaults below the same day.
 - (2026-10-07) Step 1 complete
 - (2026-10-07) Step 2 complete
 - (2026-10-07) Step 3 complete
+- (2026-10-07) Step 4 complete
