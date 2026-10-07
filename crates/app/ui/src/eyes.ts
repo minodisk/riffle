@@ -3,10 +3,13 @@
 // without mocks; `main.ts` only makes the `eyes_of` call this decides on.
 
 // Mirrors `EyesJudgment` in `crates/app/src/commands.rs`. `probability` is
-// the probability that the eyes are closed, 0..1.
+// the probability that the eyes are closed, 0..1. `mesh` is the face mesh the
+// judgment was taken on, in the stored preview's pixel coordinates like
+// `faces_of`'s faces.
 export interface Eyes {
   state: "open" | "closed";
   probability: number;
+  mesh: { width: number; height: number; points: [number, number][] };
 }
 
 // What `request` hands out: the id the backend supersedes older requests by,

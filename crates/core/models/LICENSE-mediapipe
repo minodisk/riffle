@@ -15,6 +15,19 @@ Provenance:
 - Result: face_landmarks_detector.onnx, 4,921,000 bytes, SHA-256
   cafab16c9132f1252e59f250b216831fa9e9c08f1424e7856e3e849771c05804.
 
+The face mesh edge table `FACE_MESH_EDGES` in crates/app/ui/src/facemesh.ts
+is also MediaPipe's, Copyright 2021 The MediaPipe Authors, under the same
+license.
+
+Provenance:
+
+- Source: `FACEMESH_TESSELATION` in
+  mediapipe/python/solutions/face_mesh_connections.py at commit
+  212f110c65818db7f2d08c42a9539ecb2b6c0e1d of
+  https://github.com/google-ai-edge/mediapipe (2556 directed pairs).
+- Modification: each pair taken as (lower, higher) index, deduplicated and
+  sorted into 1322 undirected edges, written as a flat index array.
+
                               Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/
