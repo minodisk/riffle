@@ -355,8 +355,10 @@ agent's labels, the user's review pending):
 
 - **Keep the full MediaPipe pipeline at its 63 deg default FOV.** The EXIF
   FOV and the weak-perspective variant agree with the labels exactly as
-  often on every sign (yaw 76/81, pitch 73/77, roll 15/18) and no better on
-  the classes (yaw 107 and 105 of 159 against 108), and they move an angle
+  often on every sign (yaw 76/81, pitch 73/77, roll 15/18) and win nothing on
+  the classes: they trade a few faces between roll (145 and 145 against 142)
+  and pitch (124 and 122 against 125), and yaw is 107 and 105 against 108.
+  They move an angle
   by a median of about 1 deg. The EXIF FOV would need the focal length
   plumbed into `read_eyes` and a 35 mm equivalent `Shot` does not have, for
   nothing measurable; the default stays identical to MediaPipe.
@@ -368,8 +370,8 @@ agent's labels, the user's review pending):
   blurs or far profiles looking up; they now have no pose. A yaw past 90 deg
   is kept (a far profile overshooting, the sign right on 16 of 18 readable
   ones).
-- For the docs (Step 3, 4): the sign is right on about 94% of turned and
-  tilted faces; the yaw class agrees with the eye on 68%, the gap almost
+- For the docs (Step 3, 4): the sign is right on about 94% of faces for yaw
+  and pitch, 15 of 18 for roll; the yaw class agrees with the eye on 68%, the gap almost
   all at the frontal / oblique boundary (a 15-25 deg turn still looks
   frontal); far profiles past about 70 deg and sports sunglasses are rough.
 

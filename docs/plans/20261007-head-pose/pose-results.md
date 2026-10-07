@@ -114,7 +114,8 @@ deg 120/159. The angle orders the classes correctly (the medians 10, 41,
   18 are readable far profiles and the sign is right on 16 of them, so they
   are kept; the magnitude overshoots there.
 - **Roll.** 3 of the 18 labeled leans read the other way (+16 to +20 against
-  a `left` label), two of them DNG portraits turned about 30 deg, where the
+  a `left` label), two of them DNG portraits that the fit reads as turned about 30 deg
+  though labeled frontal, where the
   line through the eyes the label is read from tilts with the turn.
 
 ## By face side (63 deg)
