@@ -169,7 +169,7 @@ what to grep for.
       error).
     - Commit as `feat(app): log invariant violations in the scan lifecycle`.
 
-- [ ] Step 3: Document the log for agents and update the layout description
+- [x] Step 3: Document the log for agents and update the layout description
   - Done when:
     - A new guide `docs/agents/app-log.md` describes: the file location per
       OS (Windows `%LOCALAPPDATA%\com.minodisk.riffle\logs\Riffle.log`,
@@ -224,3 +224,4 @@ what to grep for.
 
 - (2026-10-07) Step 1 complete
 - (2026-10-07) Step 2 complete
+- (2026-10-07) Step 3 complete

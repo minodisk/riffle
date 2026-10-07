@@ -94,7 +94,11 @@ the default keys and the
 user's overrides, persisted in the `shortcuts` key, and `src/mcp.rs` the MCP
 companion: the loopback Streamable HTTP server turned on by the `mcpEnabled`
 key, its tools, and the bridge that asks the main window over the
-`mcp-request` event and the `mcp_reply` command).
+`mcp-request` event and the `mcp_reply` command, and `src/diagnostics.rs`
+the panic hook, the `log_frontend` command that writes the frontend's
+`uncaught-js:` and `invariant:` lines, and the `invariant!` helper, which put
+those failures in `Riffle.log` under greppable prefixes (see
+`docs/agents/app-log.md`)).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
@@ -112,10 +116,12 @@ holds an operation pressed during a scan (Move Rejected to Trash, the
 renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens
 view-only (no judgment, capture-time order), `src/sidecars.ts` holds the
-Rewrite Sidecars from Index / Delete Sidecars dialog's text and its flow, and
+Rewrite Sidecars from Index / Delete Sidecars dialog's text and its flow,
 `src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder tree's right-click
-through the preview to the run's end.
+through the preview to the run's end, and `src/uncaught.ts` builds the
+`uncaught-js:` line of an uncaught error or unhandled rejection and the flood
+guard that caps them per session.
 
 ## Language
 
