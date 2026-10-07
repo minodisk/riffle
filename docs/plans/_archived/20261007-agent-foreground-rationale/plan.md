@@ -109,4 +109,4 @@ now gives, so every file states the rule for the right reason.
 
 ## Progress
 
-- (none yet)
+- (2026-10-07) Step 1 complete

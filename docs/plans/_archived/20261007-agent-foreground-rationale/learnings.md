@@ -22,4 +22,6 @@
 - `merger.md`'s post-merge paragraph still says backgrounding is "impossible
   for the same reason as step 1"; the corrected reason makes it ruled out, not
   impossible. Left as is to keep this change surgical (see this plan's
-  "Trade-offs and risks"). File: `.claude/agents/merger.md`.
+  "Trade-offs and risks"). File: `.claude/agents/merger.md`. Done when the
+  post-merge paragraph no longer calls backgrounding "impossible" and its
+  wording agrees with step 1 and with `pr-runner.md` §4.
