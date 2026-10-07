@@ -94,11 +94,11 @@ the default keys and the
 user's overrides, persisted in the `shortcuts` key, and `src/mcp.rs` the MCP
 companion: the loopback Streamable HTTP server turned on by the `mcpEnabled`
 key, its tools, and the bridge that asks the main window over the
-`mcp-request` event and the `mcp_reply` command), and `src/diagnostics.rs`
+`mcp-request` event and the `mcp_reply` command, and `src/diagnostics.rs`
 the panic hook, the `log_frontend` command that writes the frontend's
 `uncaught-js:` and `invariant:` lines, and the `invariant!` helper, which put
 those failures in `Riffle.log` under greppable prefixes (see
-`docs/agents/app-log.md`).
+`docs/agents/app-log.md`)).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
