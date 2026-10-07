@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  PendingRename,
   RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
@@ -174,6 +175,28 @@ describe("RenamesInFlight", () => {
     renames.start("/a/one");
     renames.settle("/a/other");
     expect(renames.blocks("/a/one", false)).toBe(true);
+  });
+
+  test("a file's rename blocks that file and not a sibling", () => {
+    const renames = new RenamesInFlight();
+    renames.start("/a/DSC0001.ARW");
+    expect(renames.blocks("/a/DSC0001.ARW", false)).toBe(true);
+    expect(renames.blocks("/a/DSC0002.ARW", false)).toBe(false);
+    expect(renames.blocks("/a/DSC0001.ARW.bak", false)).toBe(false);
+  });
+});
+
+describe("PendingRename", () => {
+  test("a mark is cleared only by itself, once", () => {
+    const pending = new PendingRename();
+    const a = pending.mark("/a/b", "c");
+    const b = pending.mark("/a/b", "d");
+    expect(pending.clear(a)).toBe(false);
+    expect(displayName(pending.current, "/a/b", "b")).toBe("d");
+    expect(pending.clear(b)).toBe(true);
+    expect(pending.current).toBeNull();
+    expect(displayName(pending.current, "/a/b", "b")).toBe("b");
+    expect(pending.clear(b)).toBe(false);
   });
 });
 

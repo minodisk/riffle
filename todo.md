@@ -1064,26 +1064,35 @@ and folder.
       and either patch the `.dop`'s `Name` on rename or document what to
       expect.
 
-### App: an inline rename can be re-started on a row or cell whose rename is already in flight
+### App: real-device check that an inline rename is refused while its rename is in flight
 
 #### Background
 
-`pending-rename-display`
-(`docs/plans/_archived/20261006-pending-rename-display/plan.md`) found, in
-round 2 of its local review, that re-editing a row or cell whose rename is
-already running (the scan has ended and `rename_folder` / `rename_file` is in
-progress) to a different name starts a second rename of the old path, which
-will most likely fail because the path is about to move. If a new scan holds
-the second rename, the first rename's `clearPending` can clear the pending
-display early. This predates the pending display. Files:
-`crates/app/ui/src/main.ts`, `crates/app/ui/src/folders.ts`,
-`crates/app/ui/src/strip.ts`.
+`rename-in-flight-guard` made the folder tree's `startRename` and the strip's
+`startRename` refuse to open the inline editor, with a status note, on a row
+or cell whose `rename_folder` / `rename_file` invoke is in flight (the tree
+reuses `A folder is being renamed; try again in a moment.`, the strip says
+`This file is being renamed; try again in a moment.`), and made a pending
+mark clear only from the rename that set it. Vitest covers the in-flight
+check for a file path and the identity-keyed pending slot, and `mise run ci`
+passes. The GUI behavior was never run on a real device. A rename that is
+still held behind a scan must still be re-editable as before. Plan:
+`docs/plans/_archived/20261007-rename-in-flight-guard/plan.md`. Files:
+`crates/app/ui/src/folders.ts`, `crates/app/ui/src/strip.ts`,
+`crates/app/ui/src/main.ts`.
 
 #### TODO
 
-- [ ] Make an inline edit unable to start, or refused with a note, on a row
-      or cell whose rename is in flight, and make the pending display of a
-      held rename be cleared only by its own rename.
+- [ ] On macOS, confirm a folder rename in the tree and a file rename in the
+      strip while a scan runs, let the scan end, and while `rename_folder` /
+      `rename_file` is still running (a large folder or a slow drive) try
+      `Rename…` and the slow second click on the same row / cell: the editor
+      does not open and the status line shows `A folder is being renamed; try
+      again in a moment.` / `This file is being renamed; try again in a
+      moment.`; once the rename settles, editing works again. Also re-check
+      that a rename still held behind the scan can be re-edited (replace,
+      cancel, keep) as before, in both views.
+- [ ] On Windows, run the same check as above.
 
 ### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open
 

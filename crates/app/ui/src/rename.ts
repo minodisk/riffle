@@ -49,6 +49,27 @@ export interface Pending {
 
 export const PENDING_TITLE = "Renames when the scan finishes";
 
+// The one held rename a view shows. Each `mark` is its own object, and only
+// that object clears it, so a rename that settles late cannot clear the mark
+// a later rename of the same path set.
+export class PendingRename {
+  current: Pending | null = null;
+
+  mark(path: string, name: string): Pending {
+    const mark = { path, name };
+    this.current = mark;
+    return mark;
+  }
+
+  clear(mark: Pending): boolean {
+    if (this.current !== mark) {
+      return false;
+    }
+    this.current = null;
+    return true;
+  }
+}
+
 // The name a cell shows: the pending one while a rename of `path` is held.
 export function displayName(pending: Pending | null, path: string, real: string): string {
   return pending !== null && pending.path === path ? pending.name : real;
@@ -129,9 +150,10 @@ export class SlowClick {
   }
 }
 
-// The folders whose `rename_folder` invoke is in flight: until it settles,
-// the tree still draws them and everything under them at paths about to
-// move, so opening one of those is refused.
+// The folders whose `rename_folder` invoke is in flight (or the files whose
+// `rename_file` is): until it settles, the view still draws them, and for a
+// folder everything under it, at paths about to move, so opening or
+// renaming one of those is refused.
 export class RenamesInFlight {
   private paths: string[] = [];
 

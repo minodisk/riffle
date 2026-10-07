@@ -1444,6 +1444,14 @@ folder changed" event has to pick the right one.
   decode's `setStatus()` can still wipe it within a frame or two (the
   existing transient-note limitation, left as is). Source:
   `docs/plans/_archived/20261006-pending-rename-display/learnings.md`, Step 1.
+  Two guards keep a rename that has left the gate from colliding with
+  another: an inline edit is refused with a status note while the path's
+  `rename_folder` / `rename_file` invoke is in flight (`RenamesInFlight`,
+  fed by each view's `renameStarted` / `renameSettled`; for a folder, also
+  anything under it), and a pending mark is cleared only by the rename that
+  set it (`markPending` returns the mark, `PendingRename.clear` takes it, and
+  `holdRename` hands its own clear to `run`). A rename still *held* behind
+  the scan stays re-editable.
 - Strip cell CSS: `.cell span` positions every span in a cell absolutely, so
   a span nested inside the name span (such as the pending clock icon's
   wrapper) needs `position: static; width: auto` back

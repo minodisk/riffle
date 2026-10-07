@@ -12,6 +12,8 @@ import {
   type InlineRename,
   PENDING_TITLE,
   type Pending,
+  PendingRename,
+  RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
   commit,
@@ -114,9 +116,13 @@ let contextMenu: (index: number, x: number, y: number) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
 let canRename: () => boolean = () => false;
 let cancelPending: (path: string) => void = () => {};
+let reportError: (message: string) => void = () => {};
 // The file rename held until the scan ends, keyed by path so it survives a
 // cell being released and recreated, and `setFiles`.
-let pending: Pending | null = null;
+const pending = new PendingRename();
+// The files whose `rename_file` invoke is out: their cells still show paths
+// about to move, so an edit on one is refused.
+const renamesInFlight = new RenamesInFlight();
 // The live inline rename and the index of its cell, which `render` keeps in
 // the DOM even outside the virtual range. The cell's `name` span stays in
 // `Cell` while the input stands in for it, so a badge repaint leaves the
@@ -189,8 +195,8 @@ function paintFailure(index: number, cell: Cell): void {
 // The file's name, or its held rename's name in the pending style.
 function paintName(cell: Cell): void {
   const path = files[cell.index];
-  cell.name.textContent = displayName(pending, path, baseName(path));
-  const held = pending !== null && pending.path === path;
+  cell.name.textContent = displayName(pending.current, path, baseName(path));
+  const held = pending.current !== null && pending.current.path === path;
   cell.name.classList.toggle("pending", held);
   if (held) {
     const icon = document.createElement("span");
@@ -648,21 +654,30 @@ export function renamePath(oldPath: string, newPath: string): void {
 }
 
 // A rename of `path` to `name` is held until the scan ends.
-export function markPending(path: string, name: string): void {
-  const previous = pending?.path;
-  pending = { path, name };
+export function markPending(path: string, name: string): Pending {
+  const previous = pending.current?.path;
+  const mark = pending.mark(path, name);
   repaintName(previous);
   repaintName(path);
+  return mark;
 }
 
-// The held rename of `path` ran, was replaced or dropped: the cell shows its
-// real name again.
-export function clearPending(path: string): void {
-  if (pending?.path !== path) {
-    return;
+// The held rename that set `mark` ran, was replaced or dropped: the cell
+// shows its real name again, unless a later rename has marked it since.
+export function clearPending(mark: Pending): void {
+  if (pending.clear(mark)) {
+    repaintName(mark.path);
   }
-  pending = null;
-  repaintName(path);
+}
+
+// `rename_file` was invoked on `path`; until `renameSettled(path)`, the
+// strip refuses to start an edit on it.
+export function renameStarted(path: string): void {
+  renamesInFlight.start(path);
+}
+
+export function renameSettled(path: string): void {
+  renamesInFlight.settle(path);
 }
 
 function repaintName(path: string | undefined): void {
@@ -699,12 +714,16 @@ export function isEditing(): boolean {
 // Turns the file's name into a text input, its stem selected.
 export function startRename(index: number): void {
   cancelSlowClick();
+  if (files[index] !== undefined && renamesInFlight.blocks(files[index], false)) {
+    reportError("This file is being renamed; try again in a moment.");
+    return;
+  }
   const cell = cells.get(index);
   if (cell === undefined) {
     return;
   }
   finishRename("confirm");
-  const original = displayName(pending, files[index], baseName(files[index]));
+  const original = displayName(pending.current, files[index], baseName(files[index]));
   const state = inlineRename("file", files[index], original);
   const input = document.createElement("input");
   input.type = "text";
@@ -752,7 +771,7 @@ export function finishRename(decision: Decision): void {
     return;
   }
   // On a cell whose rename is held, typing the real name back cancels it.
-  const outcome = editOutcome(pending, state.path, baseName(state.path), state.value);
+  const outcome = editOutcome(pending.current, state.path, baseName(state.path), state.value);
   if (outcome === "cancel") {
     cancelPending(state.path);
   } else if (outcome !== "keep") {
@@ -767,12 +786,14 @@ export function init(
   renameAllowed: () => boolean,
   onScroll: () => void,
   onCancelPending: (path: string) => void,
+  onError: (message: string) => void,
 ): void {
   select = onSelect;
   contextMenu = onContextMenu;
   rename = onRename;
   canRename = renameAllowed;
   cancelPending = onCancelPending;
+  reportError = onError;
   // Any click anywhere disarms a pending slow click; the arming click's own
   // `mousedown` comes before its `click`, so it arms after this.
   document.addEventListener("mousedown", cancelSlowClick);

@@ -14,6 +14,7 @@ import {
   type InlineRename,
   PENDING_TITLE,
   type Pending,
+  PendingRename,
   RenamesInFlight,
   SLOW_CLICK_DELAY,
   SlowClick,
@@ -88,7 +89,7 @@ let contextMenu: (
 let rename: (path: string, name: string) => void = () => {};
 let cancelPending: (path: string) => void = () => {};
 // The folder rename held until the scan ends, drawn on its row by `render`.
-let pending: Pending | null = null;
+const pending = new PendingRename();
 // The live inline rename, drawn from here on every `render`, so a re-render
 // mid-edit (a listing landing) rebuilds the same input.
 let editing: InlineRename | null = null;
@@ -116,6 +117,7 @@ let watched = "";
 let syncing: Promise<void> = Promise.resolve();
 const slow = new SlowClick();
 const renamesInFlight = new RenamesInFlight();
+const RENAMING = "A folder is being renamed; try again in a moment.";
 let slowTimer: ReturnType<typeof setTimeout> | undefined;
 // Settles once `folder_roots` has answered (or failed), so a reveal that
 // comes first (the reopen of the last folder at launch) waits for the roots.
@@ -130,8 +132,8 @@ function list(dir: string): Promise<Folder> {
 
 // The row's name, or its held rename's name in the pending style.
 function paintName(span: HTMLSpanElement, path: string, real: string): void {
-  span.textContent = displayName(pending, path, real);
-  const held = pending !== null && pending.path === path;
+  span.textContent = displayName(pending.current, path, real);
+  const held = pending.current !== null && pending.current.path === path;
   span.classList.toggle("pending", held);
   if (held) {
     const icon = document.createElement("span");
@@ -346,6 +348,10 @@ function syncWatches(): void {
 // Turns the folder's name into a text input, its name fully selected.
 export function startRename(path: string): void {
   cancelSlowClick();
+  if (renamesInFlight.blocks(path, ignoreCase)) {
+    reportError(RENAMING);
+    return;
+  }
   const node = tree.nodes.get(path);
   if (node === undefined) {
     return;
@@ -353,7 +359,7 @@ export function startRename(path: string): void {
   if (editing !== null) {
     finish("confirm");
   }
-  editing = inlineRename("folder", path, displayName(pending, path, node.name));
+  editing = inlineRename("folder", path, displayName(pending.current, path, node.name));
   render();
 }
 
@@ -372,7 +378,7 @@ function finish(decision: Decision): void {
 // Acts on a confirmed edit; on a row whose rename is held, typing the real
 // name back cancels it.
 function settle(path: string, original: string, value: string): void {
-  const outcome = editOutcome(pending, path, tree.nodes.get(path)?.name ?? original, value);
+  const outcome = editOutcome(pending.current, path, tree.nodes.get(path)?.name ?? original, value);
   if (outcome === "cancel") {
     cancelPending(path);
   } else if (outcome !== "keep") {
@@ -429,14 +435,14 @@ export function cancelSlowClick(): void {
 // path about to move: opening it there is refused with a note.
 function openFolder(path: string): void {
   if (renamesInFlight.blocks(path, ignoreCase)) {
-    reportError("A folder is being renamed; try again in a moment.");
+    reportError(RENAMING);
     return;
   }
   open(path);
 }
 
 // `rename_folder` was invoked on `path`; until `renameSettled(path)`, the
-// tree refuses to open it or anything under it.
+// tree refuses to open or rename it or anything under it.
 export function renameStarted(path: string): void {
   renamesInFlight.start(path);
 }
@@ -446,19 +452,18 @@ export function renameSettled(path: string): void {
 }
 
 // A rename of `path` to `name` is held until the scan ends.
-export function markPending(path: string, name: string): void {
-  pending = { path, name };
+export function markPending(path: string, name: string): Pending {
+  const mark = pending.mark(path, name);
   requestRender();
+  return mark;
 }
 
-// The held rename of `path` ran, was replaced or dropped: the row shows its
-// real name again.
-export function clearPending(path: string): void {
-  if (pending?.path !== path) {
-    return;
+// The held rename that set `mark` ran, was replaced or dropped: the row
+// shows its real name again, unless a later rename has marked it since.
+export function clearPending(mark: Pending): void {
+  if (pending.clear(mark)) {
+    requestRender();
   }
-  pending = null;
-  requestRender();
 }
 
 // The folder `oldPath` is now `newName` at `newPath`: re-key it in the tree,
