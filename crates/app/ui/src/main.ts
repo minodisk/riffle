@@ -135,6 +135,38 @@ import {
   rewriteTotalLine,
   rewrittenStatus,
 } from "./sidecars.js";
+import { UncaughtGate, uncaughtLine } from "./uncaught.js";
+
+// Registered before anything else runs so an early throw still reaches
+// `Riffle.log`. Not gated by `debugLogging`, and the default console output is
+// left alone.
+const uncaughtGate = new UncaughtGate();
+
+function forwardUncaught(line: string): void {
+  const passed = uncaughtGate.pass(line);
+  if (passed === null) return;
+  void window.__TAURI__.core
+    .invoke("log_frontend", { kind: "uncaught-js", line: passed })
+    .catch(() => {});
+}
+
+window.addEventListener("error", (event) => {
+  // A resource load error is a plain `Event` with no message.
+  if (!(event instanceof ErrorEvent) || !event.message) return;
+  const stack = event.error instanceof Error ? event.error.stack : undefined;
+  forwardUncaught(
+    uncaughtLine("error", event.message, event.filename, event.lineno, event.colno, stack),
+  );
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason: unknown = event.reason;
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  forwardUncaught(
+    uncaughtLine("unhandledrejection", message, undefined, undefined, undefined, stack),
+  );
+});
 
 // Header layout of a `preview` payload, see `crates/app/src/commands.rs`.
 const PREVIEW_HEADER_LEN = 8;

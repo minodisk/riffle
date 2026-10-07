@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod diagnostics;
 mod exif;
 mod folders;
 mod foldersidecars;
@@ -684,6 +685,7 @@ fn main() {
     builder
         .on_menu_event(app_menu::on_event)
         .setup(|app| {
+            diagnostics::install_panic_hook();
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
             // unwritable cache dir degrades to "no thumbnails" rather than
@@ -709,6 +711,7 @@ fn main() {
                 // `Emitter` is safe from any thread, as `run_scan` already
                 // relies on, so the writer thread reports its own failures.
                 sidecar::Writer::spawn(index.clone(), move |path, message| {
+                    log::warn!("sidecar write failed: path={} {message}", path.display());
                     let _ = handle.emit(
                         "sidecar-error",
                         SidecarError {
@@ -820,7 +823,8 @@ fn main() {
             debug_build,
             timing_logs,
             set_timing_logs,
-            log_timing
+            log_timing,
+            diagnostics::log_frontend
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

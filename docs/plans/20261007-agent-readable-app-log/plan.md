@@ -33,7 +33,7 @@ what to grep for.
 
 ## Steps
 
-- [ ] Step 1: Stop losing errors: `eprintln!` to `log::`, a panic hook, and uncaught-JS forwarding
+- [x] Step 1: Stop losing errors: `eprintln!` to `log::`, a panic hook, and uncaught-JS forwarding
   - Done when:
     - No `eprintln!` remains in `crates/app/src` outside `#[cfg(test)]`
       modules (the two in `sidecar.rs`'s tests stay)
@@ -218,4 +218,4 @@ what to grep for.
 
 ## Progress
 
-- (none yet)
+- (2026-10-07) Step 1 complete
