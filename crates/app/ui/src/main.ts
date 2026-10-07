@@ -36,7 +36,7 @@ import {
 } from "./focus.js";
 import { type Eyes, EyesCache } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
-import { FACE_MESH_EDGES, meshPoints } from "./facemesh.js";
+import { meshEdges, meshPoints } from "./facemesh.js";
 import {
   type TrashPreview,
   type TrashRestored,
@@ -629,10 +629,10 @@ const FOCUS_MARK_GAP = 4;
 // The detected faces, apart from every mark color above.
 const FACE_MARK_COLOR = "#3ff";
 const FACE_MARK_EYE_RADIUS = 2.5;
-// The judged face's mesh, thinner than the boxes so its ~1300 edges do not
-// bury the face.
-const FACE_MESH_OUTLINE_WIDTH = 1.5;
-const FACE_MESH_LINE_WIDTH = 0.5;
+// The judged face's parts outline, lighter than the boxes so the box stays
+// the outer frame.
+const FACE_MESH_OUTLINE_WIDTH = 3;
+const FACE_MESH_LINE_WIDTH = 1.5;
 
 // The neutral colors the canvas overlays draw with, read from the stylesheet's
 // tokens once: the module runs after the `<head>` stylesheet has applied.
@@ -2272,7 +2272,8 @@ function drawFaceMarks(drawWidth: number, drawHeight: number): void {
   context.restore();
 }
 
-// The face mesh the `Eyes` judgment looked at, over the judged face only, in
+// The face parts the `Eyes` judgment looked at (face oval, eyes, brows, nose,
+// lips, and the irises when the eyes are open), over the judged face only, in
 // the same unrotated coordinates as the face boxes. It appears once `eyes_of`
 // answers, under the same gates as the boxes.
 function drawFaceMesh(drawWidth: number, drawHeight: number): void {
@@ -2282,16 +2283,18 @@ function drawFaceMesh(drawWidth: number, drawHeight: number): void {
   if (shown === null || shown.seq !== seq) {
     return;
   }
-  const mesh = eyesCache.get(files[index])?.mesh;
-  if (mesh === undefined) {
+  const eyes = eyesCache.get(files[index]);
+  if (eyes === undefined || eyes === null) {
     return;
   }
+  const { mesh } = eyes;
   const points = meshPoints(mesh.points, mesh.width, mesh.height, drawWidth, drawHeight);
+  const { edges, dots } = meshEdges(eyes.state);
   context.save();
   context.beginPath();
-  for (let i = 0; i < FACE_MESH_EDGES.length; i += 2) {
-    const [ax, ay] = points[FACE_MESH_EDGES[i]];
-    const [bx, by] = points[FACE_MESH_EDGES[i + 1]];
+  for (let i = 0; i < edges.length; i += 2) {
+    const [ax, ay] = points[edges[i]];
+    const [bx, by] = points[edges[i + 1]];
     context.moveTo(ax, ay);
     context.lineTo(bx, by);
   }
@@ -2301,6 +2304,18 @@ function drawFaceMesh(drawWidth: number, drawHeight: number): void {
   context.strokeStyle = FACE_MARK_COLOR;
   context.lineWidth = FACE_MESH_LINE_WIDTH;
   context.stroke();
+  if (dots.length > 0) {
+    context.beginPath();
+    for (const dot of dots) {
+      const [x, y] = points[dot];
+      context.moveTo(x + FACE_MARK_EYE_RADIUS, y);
+      context.arc(x, y, FACE_MARK_EYE_RADIUS, 0, 2 * Math.PI);
+    }
+    context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+    context.stroke();
+    context.fillStyle = FACE_MARK_COLOR;
+    context.fill();
+  }
   context.restore();
 }
 
