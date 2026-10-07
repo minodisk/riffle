@@ -152,7 +152,7 @@ and a labeled set, not only whether it loads.
   labeled faces, one thread (Measured). The Step 1 survey measured 49-51 ms
   for the same function while it ran three other models on each face in
   between; treat the lower figure as the model's own cost.
-- Source: [closed-eyes-detection learnings](../plans/20261007-closed-eyes-detection/learnings.md),
+- Source: [closed-eyes-detection learnings](../plans/_archived/20261007-closed-eyes-detection/learnings.md),
   Steps 1 and 2.
 
 ### An embedded model only weighs on the binaries that call it (Measured)
@@ -162,6 +162,11 @@ binary that never reaches the code reading it. Adding `eyes.rs` grew the
 release `riffle-cli` (whose `eyes` and `bench` call it) by 4.97 MB and the
 release `riffle-app` (which did not call it yet) by 8 KB. Measure a model's
 binary cost on a build where the app actually calls it.
+
+Once `eyes_of` called it, the release `riffle-app` grew from 47,499,776 B to
+52,494,336 B (+4,994,560 B, +10.5%), about the ONNX file, so a model's full
+size lands on every binary that reaches it. Source:
+[closed-eyes-detection learnings, Step 3](../plans/_archived/20261007-closed-eyes-detection/learnings.md).
 
 ## Sharing
 

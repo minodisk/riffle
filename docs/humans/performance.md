@@ -524,7 +524,7 @@ being shown, outside both scan passes, so the pass-2 budget does not apply.
 On the 3/8 decode
 the whole-image search uses, the classifier's eye AUC fell from 0.78 to
 0.59 on the same 20 DNG faces. The details are in
-`docs/plans/20261007-closed-eyes-detection/model-survey.md`.
+`docs/plans/_archived/20261007-closed-eyes-detection/model-survey.md`.
 
 #### Closed-eyes judgment on demand (Windows 11)
 
