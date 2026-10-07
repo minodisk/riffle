@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.5.0](https://github.com/minodisk/riffle/compare/v1.4.0...v1.5.0) (2026-10-07)
+
+
+### Features
+
+* **app:** log invariant violations in the scan lifecycle ([#706](https://github.com/minodisk/riffle/issues/706)) ([f54190f](https://github.com/minodisk/riffle/commit/f54190f9e525a2ebf8fd0d54cfa66d617d95fca5))
+* **app:** log panics, uncaught JS errors and the remaining eprintln failures ([#705](https://github.com/minodisk/riffle/issues/705)) ([da352da](https://github.com/minodisk/riffle/commit/da352da8179f4a7c5e7032c7975958f8f057d5f3))
+* **app:** look up PhotoLab Uuids on macOS ([#687](https://github.com/minodisk/riffle/issues/687)) ([ebbd099](https://github.com/minodisk/riffle/commit/ebbd0991a0a450f3a0443fa2329e2f7237471b02))
+* **app:** reload the open folder from the tree's Refresh ([#692](https://github.com/minodisk/riffle/issues/692)) ([d03356d](https://github.com/minodisk/riffle/commit/d03356d7e0340f07ff60eb291bdfe2346ba08297))
+* **app:** rewrite a folder's sidecars from the index ([#688](https://github.com/minodisk/riffle/issues/688)) ([6da10d2](https://github.com/minodisk/riffle/commit/6da10d28a86d95e674ca7ab65e30ce0cc26ec067))
+* **app:** rewrite and delete a folder's sidecars ([#691](https://github.com/minodisk/riffle/issues/691)) ([deed9d6](https://github.com/minodisk/riffle/commit/deed9d662ceea988b53e647fddca678e3765756f))
+* **app:** show a pending inline rename until the scan finishes ([#690](https://github.com/minodisk/riffle/issues/690)) ([07eaacc](https://github.com/minodisk/riffle/commit/07eaaccd6350bedd0267b9831f6ba709e9a00249))
+* **app:** show a scan progress bar and pulse cells without a thumbnail ([#684](https://github.com/minodisk/riffle/issues/684)) ([9f812ba](https://github.com/minodisk/riffle/commit/9f812bace1813ae2146550c2a4063b8a80276ddc))
+* **cli:** add a folder-level face detection report and record the baseline ([#693](https://github.com/minodisk/riffle/issues/693)) ([21c2db4](https://github.com/minodisk/riffle/commit/21c2db4493386069424cd7296e20bfddf43be85e))
+* **cli:** survey eye-state models and adopt Face Landmarker v2 on demand ([#709](https://github.com/minodisk/riffle/issues/709)) ([e5b55ae](https://github.com/minodisk/riffle/commit/e5b55ae96c28980af3a2069bdd8f85b523b8acad))
+* **core:** decode the preview at a DCT scale for the whole-image face search ([#698](https://github.com/minodisk/riffle/issues/698)) ([9724b1f](https://github.com/minodisk/riffle/commit/9724b1f8968fd57cca0f83d8bc98930750441f98))
+* **core:** search the whole preview for faces at a 640x448 model input ([#696](https://github.com/minodisk/riffle/issues/696)) ([9ba5daf](https://github.com/minodisk/riffle/commit/9ba5daf63dde0df27cb6cdde98225ccb91d318fb))
+
+
+### Bug Fixes
+
+* **app:** refuse an inline rename while that rename is in flight ([#703](https://github.com/minodisk/riffle/issues/703)) ([8109183](https://github.com/minodisk/riffle/commit/81091832d02b8b7046165cc14fd02aada5468a8a))
+* **app:** retry the PhotoLab Uuid lookup on a busy database ([#682](https://github.com/minodisk/riffle/issues/682)) ([b5291d4](https://github.com/minodisk/riffle/commit/b5291d422a5b139c2a1fa62b77b8025de44fe61b))
+* **core:** fall back to the preview when an ARW has no larger JPEG ([#683](https://github.com/minodisk/riffle/issues/683)) ([b3cc725](https://github.com/minodisk/riffle/commit/b3cc7254f4cf7e47a6847fafd4a676b42266e303))
+
+
+### Performance Improvements
+
+* **app:** run log_timing off the main thread ([#697](https://github.com/minodisk/riffle/issues/697)) ([97b6318](https://github.com/minodisk/riffle/commit/97b631801254ca675cef0c95158e25c5cd07bcaa))
+
 ## [1.4.0](https://github.com/minodisk/riffle/compare/v1.3.0...v1.4.0) (2026-10-04)
 
 
