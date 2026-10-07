@@ -18,7 +18,9 @@ use anyhow::Result;
 
 use crate::arw::FocusLocation;
 use crate::decode::decode_rgb;
+use crate::eyes::{Mesh, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS};
 use crate::faces::{detect_around_rgb, Detection, Face};
+use crate::pose::Pose;
 use crate::sharpness::{laplacian_variance, window_at, Window};
 
 /// The intercept of the in-focus logit
@@ -49,6 +51,11 @@ pub const CANDIDATE_LOGIT: f64 = 1.2194;
 /// fitted and validated on this window, the face box's long side, at least
 /// 24 px (the earlier Laplacian-only validation on 500 frames also used it).
 pub const CANDIDATE_WINDOW_MIN: usize = 24;
+/// The margin `eye_region` grows a mesh eye's bounding box by on each side,
+/// as a fraction of the box's longer side (the eye's width, upright or on a
+/// quarter-turned preview), so the lid edges and lashes lie inside.
+/// A starting value for the measurement; not yet fitted.
+pub const EYE_REGION_MARGIN: f32 = 0.25;
 
 /// Whether a frame is a focus candidate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -251,6 +258,107 @@ pub fn eye_focus(gray: &[u8], width: usize, height: usize, face: &Face) -> EyeFo
         logit,
         probability,
         state,
+    }
+}
+
+/// The bounding box of the mesh `points` named by `indices` (in the
+/// `width` x `height` image's pixels), grown by `EYE_REGION_MARGIN` times its
+/// longer side on each side and clamped into the image. `None` when an index is out
+/// of range, a point is not finite, or the clamped box is under 3 px on a
+/// side.
+pub fn eye_region(
+    points: &[[f32; 2]],
+    indices: &[usize],
+    width: usize,
+    height: usize,
+) -> Option<Window> {
+    let (mut x0, mut y0) = (f32::INFINITY, f32::INFINITY);
+    let (mut x1, mut y1) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for &i in indices {
+        let [x, y] = *points.get(i)?;
+        if !x.is_finite() || !y.is_finite() {
+            return None;
+        }
+        (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
+    }
+    let margin = (x1 - x0).max(y1 - y0) * EYE_REGION_MARGIN;
+    let lo = |v: f32| (v - margin).floor().max(0.0) as usize;
+    let hi = |v: f32, limit: usize| ((v + margin).ceil().max(0.0) as usize).min(limit);
+    let (left, top) = (lo(x0), lo(y0));
+    let (right, bottom) = (hi(x1, width), hi(y1, height));
+    let window = Window {
+        x: left,
+        y: top,
+        width: right.saturating_sub(left),
+        height: bottom.saturating_sub(top),
+    };
+    (window.width >= 3 && window.height >= 3).then_some(window)
+}
+
+/// The Laplacian variance, the `edge_width` and the edge width over the
+/// window's longer side (the eye's width, not the face's, whichever way the
+/// stored preview is turned) of `gray` (`width` pixels per row) over
+/// `window`.
+pub fn eye_measures(gray: &[u8], width: usize, window: Window) -> (f64, Option<f64>, Option<f64>) {
+    let lap = laplacian_variance(gray, width, window);
+    let edge = edge_width(gray, width, window);
+    (
+        lap,
+        edge,
+        edge.map(|e| e / window.width.max(window.height) as f64),
+    )
+}
+
+/// The measures of one mesh region.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RegionMeasures {
+    pub window: Window,
+    pub lap: f64,
+    pub edge_width: Option<f64>,
+    pub edge_width_rel: Option<f64>,
+}
+
+/// The regions of one eye; `None` where `eye_region` gives none.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EyeRegions {
+    pub contour: Option<RegionMeasures>,
+    pub iris: Option<RegionMeasures>,
+}
+
+/// The per-eye measures over a face mesh, for a later cue; not scored yet.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EyeMeasures {
+    /// The eye on the left of the image.
+    pub left: EyeRegions,
+    /// The eye on the right of the image.
+    pub right: EyeRegions,
+    pub pose: Option<Pose>,
+}
+
+/// The `EyeMeasures` of `gray` (`width` x `height`, stored coordinates) over
+/// the eyelid contour and iris regions of `mesh`.
+pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) -> EyeMeasures {
+    let region = |indices: &[usize]| {
+        eye_region(&mesh.points, indices, width, height).map(|window| {
+            let (lap, edge_width, edge_width_rel) = eye_measures(gray, width, window);
+            RegionMeasures {
+                window,
+                lap,
+                edge_width,
+                edge_width_rel,
+            }
+        })
+    };
+    EyeMeasures {
+        left: EyeRegions {
+            contour: region(&LEFT_EYE_CONTOUR),
+            iris: region(&LEFT_IRIS),
+        },
+        right: EyeRegions {
+            contour: region(&RIGHT_EYE_CONTOUR),
+            iris: region(&RIGHT_IRIS),
+        },
+        pose: mesh.pose,
     }
 }
 
@@ -483,6 +591,165 @@ mod tests {
         assert_eq!(focus.edge_width_rel, Some(0.1));
         assert_eq!(focus.logit, Some(logit));
         assert_eq!(focus.probability, 1.0 / (1.0 + (-logit).exp()));
+    }
+
+    /// Four points of an eye 40 px wide and 10 px high whose box starts at
+    /// `(x, y)`.
+    fn eye_points(x: f32, y: f32) -> Vec<[f32; 2]> {
+        vec![
+            [x, y + 5.0],
+            [x + 20.0, y],
+            [x + 40.0, y + 5.0],
+            [x + 20.0, y + 10.0],
+        ]
+    }
+
+    #[test]
+    fn an_eye_region_is_the_box_grown_by_the_margin() {
+        assert_eq!(EYE_REGION_MARGIN, 0.25);
+        assert_eq!(
+            eye_region(&eye_points(100.0, 200.0), &[0, 1, 2, 3], 1000, 700),
+            Some(Window {
+                x: 90,
+                y: 190,
+                width: 60,
+                height: 30
+            })
+        );
+        assert_eq!(
+            eye_region(&eye_points(100.5, 200.5), &[0, 1, 2, 3], 1000, 700),
+            Some(Window {
+                x: 90,
+                y: 190,
+                width: 61,
+                height: 31
+            }),
+            "fractional edges round outward"
+        );
+    }
+
+    #[test]
+    fn a_quarter_turned_eye_takes_its_margin_from_the_longer_side() {
+        let turned: Vec<[f32; 2]> = eye_points(100.0, 200.0)
+            .iter()
+            .map(|&[x, y]| [y, x])
+            .collect();
+        assert_eq!(
+            eye_region(&turned, &[0, 1, 2, 3], 1000, 700),
+            Some(Window {
+                x: 190,
+                y: 90,
+                width: 30,
+                height: 60
+            })
+        );
+    }
+
+    #[test]
+    fn an_eye_region_is_clamped_at_the_image_edge() {
+        assert_eq!(
+            eye_region(&eye_points(5.0, 2.0), &[0, 1, 2, 3], 50, 14),
+            Some(Window {
+                x: 0,
+                y: 0,
+                width: 50,
+                height: 14
+            })
+        );
+        assert_eq!(
+            eye_region(&eye_points(-80.0, 20.0), &[0, 1, 2, 3], 100, 100),
+            None,
+            "a box wholly outside the image"
+        );
+    }
+
+    #[test]
+    fn an_eye_region_is_none_for_a_bad_point_or_a_tiny_box() {
+        let mut points = eye_points(100.0, 200.0);
+        points[2][1] = f32::NAN;
+        assert_eq!(eye_region(&points, &[0, 1, 2, 3], 1000, 700), None);
+        points[2] = [f32::INFINITY, 205.0];
+        assert_eq!(eye_region(&points, &[0, 1, 2, 3], 1000, 700), None);
+        let points = eye_points(100.0, 200.0);
+        assert_eq!(
+            eye_region(&points, &[0, 1, 2, 4], 1000, 700),
+            None,
+            "an index past the points"
+        );
+        let flat = [[10.0, 10.0], [11.0, 10.0], [12.0, 10.0]];
+        assert_eq!(eye_region(&flat, &[0, 1, 2], 100, 100), None);
+        let small = [[10.0, 10.0], [10.5, 10.5]];
+        assert_eq!(
+            eye_region(&small, &[0, 1], 100, 100),
+            None,
+            "half a pixel plus its margin rounds out to 2 px"
+        );
+    }
+
+    #[test]
+    fn eye_measures_are_relative_to_the_longer_side() {
+        let gray = ramp(4);
+        for (w, h) in [(20, 16), (20, 30)] {
+            let half = Window {
+                x: 10,
+                y: 5,
+                width: w,
+                height: h,
+            };
+            assert_eq!(
+                eye_measures(&gray, 40, half),
+                (
+                    laplacian_variance(&gray, 40, half),
+                    Some(4.0),
+                    Some(4.0 / w.max(h) as f64)
+                )
+            );
+        }
+        let (_, edge, rel) = eye_measures(&ramp(8), 40, WHOLE);
+        assert_eq!((edge, rel), (Some(8.0), Some(0.2)));
+        let flat = vec![128u8; 40 * 40];
+        assert_eq!(eye_measures(&flat, 40, WHOLE), (0.0, None, None));
+    }
+
+    #[test]
+    fn mesh_eye_measures_take_each_eye_and_iris_from_the_mesh() {
+        let mut points = vec![[f32::NAN; 2]; crate::eyes::LANDMARKS];
+        for (k, &i) in LEFT_EYE_CONTOUR.iter().enumerate() {
+            points[i] = [4.0 + (k % 2) as f32 * 8.0, 4.0 + (k % 3) as f32 * 4.0];
+        }
+        for (k, &i) in RIGHT_IRIS.iter().enumerate() {
+            points[i] = [24.0 + (k % 2) as f32 * 8.0, 20.0 + (k % 3) as f32 * 4.0];
+        }
+        let pose = Pose {
+            yaw: 10.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
+        let mesh = Mesh {
+            points,
+            pose: Some(pose),
+        };
+        let gray = ramp(4);
+        let m = mesh_eye_measures(&gray, 40, 40, &mesh);
+        let left = Window {
+            x: 2,
+            y: 2,
+            width: 12,
+            height: 12,
+        };
+        let (lap, edge_width, edge_width_rel) = eye_measures(&gray, 40, left);
+        assert_eq!(
+            m.left.contour,
+            Some(RegionMeasures {
+                window: left,
+                lap,
+                edge_width,
+                edge_width_rel
+            })
+        );
+        assert_eq!(m.right.iris.map(|r| r.window.x), Some(22));
+        assert_eq!((m.left.iris, m.right.contour), (None, None));
+        assert_eq!(m.pose, Some(pose));
     }
 
     #[test]

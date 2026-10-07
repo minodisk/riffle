@@ -126,7 +126,7 @@ what the number looks at.
 
 ## Steps
 
-- [ ] Step 1: Measure per-eye focus features over the mesh eye regions and print them, with the head pose, from `riffle-cli candidates`, without changing the cue
+- [x] Step 1: Measure per-eye focus features over the mesh eye regions and print them, with the head pose, from `riffle-cli candidates`, without changing the cue
   - Done when:
     - `crates/core/src/eyes.rs` exports the two eyelid contour index tables
       and the two iris index tables (as `const`s next to `LEFT_EYE` /
@@ -433,4 +433,4 @@ what the number looks at.
 
 ## Progress
 
-- (none yet)
+- (2026-10-08) Step 1 complete. Deviation (see learnings.md): the margin and `edge_width_rel` use the box's longer side, not `window.width`, so for an upright eye (wider than tall) `edge_width_rel` is a fraction of the eye width as the Done-when text says.

@@ -447,6 +447,12 @@ fn scan_dir(dir: &Path, threads: Option<usize>) -> Result<()> {
 /// pick / reject flag (a pick is in focus), pooled across the folders, print
 /// the AUC of the Laplacian alone and of the combined logit, and the precision
 /// and coverage of the candidates.
+///
+/// Each file is one line of whitespace-separated fields: the name, the state,
+/// `p` and the probability, `lap` and the window's Laplacian variance, `edge`
+/// and its edge width, the face as `(x,y) WxH` (two fields) or `-` (one), the
+/// flag, then the `mesh_columns` (always 22 fields, `-` where a value is
+/// missing). A file that failed is `name  error: ...` instead.
 fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     let threads =
         threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
@@ -468,6 +474,17 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()?;
+    // Build the mesh model before the per-file mesh times.
+    let probe = faces::Face {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+        score: 1.0,
+        left_eye: (0.0, 0.0),
+        right_eye: (0.0, 0.0),
+    };
+    eyes::mesh_of(&[0; 3], 1, 1, 1, &probe);
 
     let start = Instant::now();
     let cues: Vec<_> = pool.install(|| {
@@ -478,18 +495,26 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
             .collect()
     });
     let total = start.elapsed();
-    // The measures behind each face's probability, for the report only.
-    let measures: Vec<Option<candidate::EyeFocus>> = pool.install(|| {
+    // The measures behind each face's probability and over its mesh eye
+    // regions, for the report only.
+    let measured: Vec<Option<Measured>> = pool.install(|| {
         use rayon::prelude::*;
         paths
             .par_iter()
             .zip(&cues)
             .map(|(p, cue)| {
                 let face = cue.as_ref().ok()?.face?;
-                let (_, jpeg) = reader::read_preview(p).ok()?;
+                let (a, jpeg) = reader::read_preview(p).ok()?;
                 let (rgb, w, h) = decode_rgb(&jpeg).ok()?;
                 let gray = candidate::luma(&rgb, w, h);
-                Some(candidate::eye_focus(&gray, w, h, &face))
+                let t = Instant::now();
+                let mesh = eyes::mesh_of(&rgb, w, h, a.orientation, &face);
+                let mesh_ms = t.elapsed().as_secs_f64() * 1000.0;
+                Some(Measured {
+                    focus: candidate::eye_focus(&gray, w, h, &face),
+                    mesh: mesh.map(|m| candidate::mesh_eye_measures(&gray, w, h, &m)),
+                    mesh_ms,
+                })
             })
             .collect()
     });
@@ -499,7 +524,8 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
     let (mut errors, mut faced, mut no_edge) = (0, 0, 0);
     // (in focus, lap, logit) of each labeled faced frame.
     let mut scored: Vec<(bool, f64, Option<f64>)> = Vec::new();
-    for ((path, cue), m) in paths.iter().zip(&cues).zip(&measures) {
+    for ((path, cue), measured) in paths.iter().zip(&cues).zip(&measured) {
+        let m = measured.as_ref().map(|m| m.focus);
         let name = path.file_name().unwrap_or_default().to_string_lossy();
         let flag = std::fs::read(xmp::sidecar_path(path))
             .ok()
@@ -519,12 +545,13 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
         let opt =
             |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
         println!(
-            "{name}  {:?}  p {}  lap {}  edge {}  {face}  {}",
+            "{name}  {:?}  p {}  lap {}  edge {}  {face}  {}  {}",
             cue.state,
             opt(cue.eye_focus, 3),
             opt(m.map(|m| m.lap), 1),
             opt(m.and_then(|m| m.edge_width), 2),
-            flag.map_or("-".to_string(), |f| format!("{f:?}"))
+            flag.map_or("-".to_string(), |f| format!("{f:?}")),
+            mesh_columns(cue.face.as_ref(), measured.as_ref())
         );
         if cue.face.is_some() {
             faced += 1;
@@ -568,6 +595,55 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// The report-only measures of one faced file of `candidates`.
+struct Measured {
+    /// The cue's measures over the window between the eyes.
+    focus: candidate::EyeFocus,
+    /// The measures over the mesh eye regions; `None` when the mesh failed.
+    mesh: Option<candidate::EyeMeasures>,
+    /// The time `eyes::mesh_of` took, in ms.
+    mesh_ms: f64,
+}
+
+/// The mesh fields of one `candidates` line, 22 whitespace-separated fields:
+/// `side` and the face box's long side, `mesh` and the mesh time in ms, `yaw`,
+/// `pitch` and `roll` each with its angle in degrees, then per eye (`L`, `R`,
+/// the image side) the contour window as `WxH`, its lap and edge width, the
+/// iris window as `WxH` and its lap. `-` for anything missing: no face, no
+/// measures, a failed mesh, no pose, a region `None`, no edge width.
+fn mesh_columns(face: Option<&faces::Face>, measured: Option<&Measured>) -> String {
+    let opt =
+        |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
+    let mesh = measured.and_then(|m| m.mesh);
+    let pose = mesh.and_then(|m| m.pose);
+    let window = |r: Option<candidate::RegionMeasures>| {
+        r.map_or("-".to_string(), |r| {
+            format!("{}x{}", r.window.width, r.window.height)
+        })
+    };
+    let eye = |e: Option<candidate::EyeRegions>| {
+        let (contour, iris) = (e.and_then(|e| e.contour), e.and_then(|e| e.iris));
+        format!(
+            "{} {} {} {} {}",
+            window(contour),
+            opt(contour.map(|r| r.lap), 1),
+            opt(contour.and_then(|r| r.edge_width), 2),
+            window(iris),
+            opt(iris.map(|r| r.lap), 1)
+        )
+    };
+    format!(
+        "side {}  mesh {}  yaw {}  pitch {}  roll {}  L {}  R {}",
+        opt(face.map(|f| f.width.max(f.height) as f64), 0),
+        opt(measured.map(|m| m.mesh_ms), 1),
+        opt(pose.map(|p| p.yaw), 1),
+        opt(pose.map(|p| p.pitch), 1),
+        opt(pose.map(|p| p.roll), 1),
+        eye(mesh.map(|m| m.left)),
+        eye(mesh.map(|m| m.right))
+    )
 }
 
 /// One file of `detect`: the path taken, the faces and the times in ms.
@@ -1269,6 +1345,72 @@ mod tests {
             eyes_line("d.ARW", true, &face, None, None, 48.0),
             "d.ARW  crop  97px  ear -  - unknown  yaw -  pitch -  roll -  model 48.0ms"
         );
+    }
+
+    #[test]
+    fn mesh_columns_list_the_pose_and_each_eye() {
+        let face = faces::Face {
+            width: 80.4,
+            height: 96.6,
+            ..upright()
+        };
+        let window = |width, height| sharpness::Window {
+            x: 0,
+            y: 0,
+            width,
+            height,
+        };
+        let region = |w, h, lap, edge_width| candidate::RegionMeasures {
+            window: window(w, h),
+            lap,
+            edge_width,
+            edge_width_rel: None,
+        };
+        let focus = candidate::EyeFocus {
+            lap: 0.0,
+            edge_width: None,
+            edge_width_rel: None,
+            logit: None,
+            probability: 0.0,
+            state: candidate::FocusCandidate::NotCandidate,
+        };
+        let pose = pose::Pose {
+            yaw: -32.06,
+            pitch: 4.44,
+            roll: 0.0,
+        };
+        let measured = Measured {
+            focus,
+            mesh: Some(candidate::EyeMeasures {
+                left: candidate::EyeRegions {
+                    contour: Some(region(30, 14, 123.456, Some(2.346))),
+                    iris: Some(region(9, 9, 45.0, None)),
+                },
+                right: candidate::EyeRegions {
+                    contour: Some(region(28, 12, 80.0, None)),
+                    iris: None,
+                },
+                pose: Some(pose),
+            }),
+            mesh_ms: 35.04,
+        };
+        assert_eq!(
+            mesh_columns(Some(&face), Some(&measured)),
+            "side 97  mesh 35.0  yaw -32.1  pitch 4.4  roll 0.0  L 30x14 123.5 2.35 9x9 45.0  R 28x12 80.0 - - -"
+        );
+        let failed = Measured {
+            mesh: None,
+            ..measured
+        };
+        assert_eq!(
+            mesh_columns(Some(&face), Some(&failed)),
+            "side 97  mesh 35.0  yaw -  pitch -  roll -  L - - - - -  R - - - - -"
+        );
+        assert_eq!(
+            mesh_columns(None, None),
+            "side -  mesh -  yaw -  pitch -  roll -  L - - - - -  R - - - - -"
+        );
+        assert_eq!(mesh_columns(None, None).split_whitespace().count(), 22);
     }
 
     #[test]
