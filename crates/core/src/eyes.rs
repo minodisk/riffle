@@ -9,7 +9,8 @@
 //! RGB NHWC 0..1, with no roll correction. Each eye's eye aspect ratio (EAR)
 //! comes from six of the 478 points; the more closed eye is mapped to a
 //! closed probability by a logistic on the EAR (`EYES_CLOSED_EAR`,
-//! `EYES_LOGIT_SLOPE`).
+//! `EYES_LOGIT_SLOPE`). The same points, z included, give the face's head
+//! pose (`pose::head_pose`).
 //!
 //! The geometry and the constants are the ones measured on the hand-labeled
 //! faces of `docs/plans/20261007-closed-eyes-detection/eyes-truth.md`
@@ -25,6 +26,7 @@ use anyhow::{anyhow, Context, Result};
 use tract_onnx::prelude::*;
 
 use crate::faces::{crop_rgb, Face};
+use crate::pose::{head_pose, Pose};
 use crate::sharpness::Window;
 
 const MODEL: &[u8] = include_bytes!("../models/face_landmarks_detector.onnx");
@@ -169,8 +171,12 @@ pub fn judge(rgb: &[u8], width: usize, height: usize, face: &Face) -> Option<Eye
 #[derive(Debug, Clone, PartialEq)]
 pub struct Judged {
     pub eyes: Eyes,
-    /// The `LANDMARKS` points in the full-size upright image's pixels.
-    pub points: Vec<(f32, f32)>,
+    /// The `LANDMARKS` points in the full-size upright image's pixels, z at
+    /// the scale of x (see `landmarks_of`).
+    pub points: Vec<[f32; 3]>,
+    /// The head pose of the face (`pose::head_pose`), `None` when the solve
+    /// fails.
+    pub pose: Option<Pose>,
 }
 
 /// `judge` with the mesh points, under the same floor and failures.
@@ -187,6 +193,7 @@ pub fn judge_mesh(rgb: &[u8], width: usize, height: usize, face: &Face) -> Optio
     let ear = more_closed_ear(&points)?;
     Some(Judged {
         eyes: Eyes::from_ear(ear),
+        pose: head_pose(&points, width, height),
         points,
     })
 }
@@ -200,13 +207,14 @@ pub fn ear_of(rgb: &[u8], width: usize, height: usize, face: &Face) -> Result<Op
 
 /// The `LANDMARKS` points of `face`'s mesh in the full-size upright image's
 /// pixels, whatever the face's size; `None` when its center lies outside the
-/// image.
+/// image. z is the model's relative depth (larger away from the camera)
+/// scaled like x, as MediaPipe's `LandmarkProjectionCalculator` does.
 pub fn landmarks_of(
     rgb: &[u8],
     width: usize,
     height: usize,
     face: &Face,
-) -> Result<Option<Vec<(f32, f32)>>> {
+) -> Result<Option<Vec<[f32; 3]>>> {
     let (cx, cy) = (face.x + face.width / 2.0, face.y + face.height / 2.0);
     if rgb.len() < width * height * 3
         || !(0.0..width as f32).contains(&cx)
@@ -221,19 +229,27 @@ pub fn landmarks_of(
 }
 
 /// Map the model's points, in input pixels, onto the full image the crop
-/// `win` was cut from.
-fn to_full(points: &[[f32; 3]], win: &Window) -> Vec<(f32, f32)> {
+/// `win` was cut from, z by the horizontal factor.
+fn to_full(points: &[[f32; 3]], win: &Window) -> Vec<[f32; 3]> {
     let (kx, ky) = (
         win.width as f32 / INPUT as f32,
         win.height as f32 / INPUT as f32,
     );
     points
         .iter()
-        .map(|p| (win.x as f32 + p[0] * kx, win.y as f32 + p[1] * ky))
+        .map(|p| {
+            [
+                win.x as f32 + p[0] * kx,
+                win.y as f32 + p[1] * ky,
+                p[2] * kx,
+            ]
+        })
         .collect()
 }
 
-fn more_closed_ear(points: &[(f32, f32)]) -> Option<f64> {
+/// The EAR of the more closed eye of a face's mesh `points`; `None` when
+/// neither eye's EAR is finite.
+pub fn more_closed_ear(points: &[[f32; 3]]) -> Option<f64> {
     let (left, right) = ears(points);
     let ear = left.min(right);
     ear.is_finite().then_some(ear as f64)
@@ -301,8 +317,8 @@ fn resize(rgb: &[u8], width: usize, height: usize, out_w: usize, out_h: usize) -
 
 /// The EAR of the eye on the left of the image, then the right one:
 /// `(|p2 - p6| + |p3 - p5|) / (2 |p1 - p4|)`.
-fn ears(points: &[(f32, f32)]) -> (f32, f32) {
-    let d = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).hypot(a.1 - b.1);
+fn ears(points: &[[f32; 3]]) -> (f32, f32) {
+    let d = |a: [f32; 3], b: [f32; 3]| (a[0] - b[0]).hypot(a[1] - b[1]);
     let ear = |i: [usize; 6]| {
         let p = |k: usize| points[i[k]];
         (d(p(1), p(5)) + d(p(2), p(4))) / (2.0 * d(p(0), p(3)))
@@ -361,19 +377,19 @@ mod tests {
 
     /// An eye of width 4 (corners at x 0 and 4) whose lids are `open` apart
     /// at both lid points.
-    fn eye(points: &mut [(f32, f32)], i: [usize; 6], x: f32, open: f32) {
+    fn eye(points: &mut [[f32; 3]], i: [usize; 6], x: f32, open: f32) {
         let (top, bottom) = (10.0 - open / 2.0, 10.0 + open / 2.0);
-        points[i[0]] = (x, 10.0);
-        points[i[1]] = (x + 1.0, top);
-        points[i[2]] = (x + 3.0, top);
-        points[i[3]] = (x + 4.0, 10.0);
-        points[i[4]] = (x + 3.0, bottom);
-        points[i[5]] = (x + 1.0, bottom);
+        points[i[0]] = [x, 10.0, 0.5];
+        points[i[1]] = [x + 1.0, top, -2.0];
+        points[i[2]] = [x + 3.0, top, 1.0];
+        points[i[3]] = [x + 4.0, 10.0, 0.0];
+        points[i[4]] = [x + 3.0, bottom, 3.0];
+        points[i[5]] = [x + 1.0, bottom, -1.0];
     }
 
     #[test]
     fn the_ear_is_the_lid_gap_over_the_eye_width() {
-        let mut points = vec![(0.0, 0.0); LANDMARKS];
+        let mut points = vec![[0.0; 3]; LANDMARKS];
         eye(&mut points, LEFT_EYE, 0.0, 1.2);
         eye(&mut points, RIGHT_EYE, 20.0, 0.4);
         let (l, r) = ears(&points);
@@ -442,7 +458,11 @@ mod tests {
         let points = [[0.0, 0.0, 9.0], [128.0, 64.0, 0.0], [256.0, 256.0, -3.0]];
         assert_eq!(
             to_full(&points, &win),
-            [(100.0, 40.0), (356.0, 72.0), (612.0, 168.0)]
+            [
+                [100.0, 40.0, 18.0],
+                [356.0, 72.0, 0.0],
+                [612.0, 168.0, -6.0]
+            ]
         );
     }
 
@@ -492,5 +512,7 @@ mod tests {
         let ear = ear_of(&rgb, w, h, &face).unwrap().unwrap();
         let p = Eyes::from_ear(ear).probability;
         assert!((0.0..=1.0).contains(&p), "{p}");
+        let judged = judge_mesh(&rgb, w, h, &face).unwrap();
+        println!("ear {ear:.4} pose {:?}", judged.pose);
     }
 }

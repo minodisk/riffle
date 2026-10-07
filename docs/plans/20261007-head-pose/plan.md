@@ -52,7 +52,8 @@ commit used in `learnings.md`.
      `right - left`, y by `top - bottom`, z by `right - left`, translate
      x by `left`, y by `bottom`.
   2. `ChangeHandedness`: `z = -z`.
-  3. `depth_offset` = weighted mean z (procrustes weights); first
+  3. `depth_offset` = plain mean z of the 468 mesh points (not weighted;
+     corrected in Step 1 from the source); first
      `EstimateScale`: Procrustes canonical -> landmarks, scale = norm of
      column 0 of the transform.
   4. `MoveAndRescaleZ`: `z = (z - depth_offset + near) / first_scale`;
@@ -125,7 +126,7 @@ rebases; the overlap is additive lines only.
 
 ## Steps
 
-- [ ] Step 1: Port MediaPipe's face geometry pipeline to `riffle-core` and expose the pose from the eyes judgment and the CLI
+- [x] Step 1: Port MediaPipe's face geometry pipeline to `riffle-core` and expose the pose from the eyes judgment and the CLI
   - Done when:
     - `landmarks_of` / `to_full` keep z: the points become `[f32; 3]` in
       the full upright image's pixels with `z = p[2] * kx` (the existing
@@ -348,4 +349,4 @@ rebases; the overlap is additive lines only.
 
 ## Progress
 
-- (YYYY-MM-DD) Step X complete
+- (2026-10-07) Step 1 complete

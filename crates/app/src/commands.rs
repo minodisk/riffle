@@ -593,7 +593,7 @@ fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, St
                 .points
                 .into_iter()
                 .map(|p| {
-                    let (x, y) = faces::point_to_stored(p, orientation, w, h);
+                    let (x, y) = faces::point_to_stored((p[0], p[1]), orientation, w, h);
                     [x, y]
                 })
                 .collect(),

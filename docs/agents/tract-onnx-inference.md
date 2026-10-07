@@ -136,6 +136,15 @@ and a labeled set, not only whether it loads.
   per-axis scale, since a clamped crop near the image edge is not square);
   `Identity_1` is the face presence logit and `Identity_2` is unused. Only
   `Identity` is resolved (`Model::points`).
+- The z of each point is a relative depth, larger away from the camera, in
+  input pixels at the scale of x (Inferred: MediaPipe's
+  `LandmarkProjectionCalculator` scales it by the ROI width like x and
+  `TensorsToLandmarks` divides it by the input size like x). `to_full`
+  maps it with the horizontal factor `kx` only; `pose::head_pose` reads it
+  for the head pose (MediaPipe's face geometry pipeline). Checked by hand:
+  the yaw / pitch signs it yields agree with the face crops of a few
+  turned and tilted faces, and keeping z left the `riffle-cli eyes` EAR
+  columns of 40 labeled faces byte-identical (Measured).
 - The file is a tf2onnx 1.17.0 conversion of Google's TFLite (provenance in
   `crates/core/models/LICENSE-mediapipe`); tf2onnx widens the float16
   weights to float32, so the ONNX is about twice the TFLite (4.9 MB).
