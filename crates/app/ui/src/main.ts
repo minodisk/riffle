@@ -34,6 +34,7 @@ import {
   faceMarks,
   focusMark,
 } from "./focus.js";
+import { type Eyes, EyesCache } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import {
   type TrashPreview,
@@ -503,6 +504,9 @@ const sharpness = new Map<string, number>();
 // The faces the focus mark draws, detected per file when first shown with
 // the mark on; cleared with `sharpness`.
 const faceCache = new FaceCache();
+// Whether the eyes of each shown file's AF face are closed, judged per file
+// when it is shown; cleared with `faceCache`.
+const eyesCache = new EyesCache();
 // Every file's burst, from `groupBursts` over `allFiles` in capture order
 // whatever the sort; recomputed whenever `entries` is refreshed.
 let bursts = new Map<string, BurstMember>();
@@ -710,6 +714,7 @@ function renderMeta(): void {
       meta,
       sharpness.get(files[index]) ?? null,
       entries.get(files[index])?.focus,
+      eyesCache.get(files[index]),
     )) {
       const block = document.createElement("div");
       block.className = "group";
@@ -2084,6 +2089,8 @@ function refreshEntries(): void {
       entries.clear();
       sharpness.clear();
       faceCache.clear();
+      eyesCache.clear();
+      requestEyes();
       for (const row of rows) {
         entries.set(row.path, row);
         if (row.sharpness !== null) {
@@ -2549,6 +2556,62 @@ function requestMetadata(): void {
     });
 }
 
+// Mirrors `EyesResponse` in `crates/app/src/commands.rs`.
+interface EyesResponse {
+  eyes: Eyes | null;
+  superseded: boolean;
+  read_us: number;
+  decode_us: number;
+  detect_us: number;
+  model_us: number;
+}
+
+// Judge the current file's eyes unless they are cached or another judgment
+// is running; once that one settles, the file current by then is asked for,
+// so paging with a key held never queues a judgment per file passed. A
+// failure is logged and cached as unknown, so a bad file is not retried on
+// every page turn.
+function requestEyes(): void {
+  if (files.length === 0 || viewOnly) {
+    return;
+  }
+  const path = files[index];
+  const ticket = eyesCache.request(path);
+  if (ticket === null) {
+    return;
+  }
+  const startedAt = performance.now();
+  void window.__TAURI__.core
+    .invoke<EyesResponse>("eyes_of", { path, request: ticket.id })
+    .then(
+      (found) => {
+        const totalMs = performance.now() - startedAt;
+        const ms = (us: number) => `${(us / 1000).toFixed(1)}ms`;
+        const backendUs = found.read_us + found.decode_us + found.detect_us + found.model_us;
+        debugLog(
+          `eyes total=${totalMs.toFixed(1)}ms` +
+            ` read=${ms(found.read_us)}` +
+            ` decode=${ms(found.decode_us)}` +
+            ` detect=${ms(found.detect_us)}` +
+            ` model=${ms(found.model_us)}` +
+            ` ipc=${(totalMs - backendUs / 1000).toFixed(1)}ms` +
+            (found.superseded ? " superseded" : ""),
+        );
+        return found.superseded ? undefined : found.eyes;
+      },
+      (err: unknown) => {
+        console.error(err);
+        return null;
+      },
+    )
+    .then((eyes) => {
+      if (eyesCache.settle(path, ticket, eyes) && files[index] === path) {
+        renderMeta();
+      }
+      requestEyes();
+    });
+}
+
 function show(): void {
   seq += 1;
   previewFailedSeq = null;
@@ -2565,6 +2628,7 @@ function show(): void {
   setStatus();
   requestPreview();
   requestMetadata();
+  requestEyes();
   if (zoomed) {
     requestCrop();
   } else {
@@ -3223,6 +3287,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     rebuildExifMenu();
     sharpness.clear();
     faceCache.clear();
+    eyesCache.clear();
     bursts = new Map();
     touched.clear();
     history.removeWhere(isJudgments);

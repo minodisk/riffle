@@ -54,9 +54,11 @@ colored by and the sharpness score, and streams them as `faces-progress` /
 priority (the second pass lower still) and take the on-screen files first
 through the shared `ScanFocus` handle,
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
-the running scan the current file and the strip's visible range, and
+the running scan the current file and the strip's visible range,
 `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
+and `eyes_of`, which judges with `eyes` whether the eyes of the shown file's
+AF face are closed, also on demand, a newer request superseding an older one,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, `src/folders.rs` the folder tree's commands (the
 home and volume roots, one folder's subfolders and RAW count, and
@@ -110,7 +112,9 @@ classes every control uses (see `docs/agents/ui-styling.md`),
 `src/icons.ts` the inlined Lucide icons,
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
-and Analysis, whose rows include the AF eye in-focus probability), `src/filter.ts` decides which files the strip's filter menu
+and Analysis, whose rows include the AF eye in-focus probability and the
+`Eyes` state), `src/eyes.ts` caches the `eyes_of` judgments per file with one
+in flight at a time, `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/idle.ts`

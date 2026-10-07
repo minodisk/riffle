@@ -1,3 +1,5 @@
+import type { Eyes } from "./eyes.js";
+
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
 // display, so a field is either a string to show or null to leave out.
 export interface Metadata {
@@ -51,6 +53,16 @@ function focusPercent(p: number | null): string | null {
   return p === null ? null : `${Math.round(p * 100)}%`;
 }
 
+// The percentage always backs the word: the closed probability when closed,
+// the open one when open.
+function eyesValue(eyes: Eyes | null): string | null {
+  if (eyes === null) {
+    return null;
+  }
+  const closed = Math.round(eyes.probability * 100);
+  return eyes.state === "closed" ? `Closed (${closed}%)` : `Open (${100 - closed}%)`;
+}
+
 function group(heading: string, rows: [string, string | null][]): MetaGroup {
   return {
     heading,
@@ -62,11 +74,13 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
 // not be read still shows its score. The AF eye's in-focus probability gets a
-// row, as a percentage, only when there is one.
+// row, as a percentage, only when there is one, and so does the eye state
+// judged when the file was shown.
 export function metaGroups(
   meta: Metadata | null,
   sharpness: number | null,
   focus?: FocusCue | null,
+  eyes?: Eyes | null,
 ): MetaGroup[] {
   const groups: MetaGroup[] = [];
   if (meta !== null) {
@@ -101,6 +115,7 @@ export function metaGroups(
     group(ANALYSIS_HEADING, [
       ["Sharpness", sharpness?.toFixed(1) ?? null],
       ["AF eye in focus", focusPercent(focus?.eye_focus ?? null)],
+      ["Eyes", eyesValue(eyes ?? null)],
     ]),
   );
   return groups.filter(({ rows }) => rows.length > 0);

@@ -739,6 +739,7 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            app.manage(commands::EyesRequests::default());
             app.manage(sequence::Sequences::default());
             app.manage(trash::Runs::default());
             app.manage(commands::AppListing::default());
@@ -788,6 +789,7 @@ fn main() {
             commands::metadata,
             commands::focus_crop,
             commands::faces_of,
+            commands::eyes_of,
             commands::set_rating,
             commands::sidecar_format,
             commands::sidecar_format_saved,

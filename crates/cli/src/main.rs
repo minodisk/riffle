@@ -857,16 +857,7 @@ fn judge_file(path: &Path) -> Result<Option<Judged>> {
     let (a, jpeg) = reader::read_preview(path)?;
     let focus = sharpness::trusted_focus(&a.shot);
     let d = faces::detect_around(&jpeg, a.orientation, focus)?;
-    let chosen = match d.point {
-        Some(p) => candidate::nearest_face(&d.faces, p).copied(),
-        None => d
-            .faces
-            .iter()
-            .filter(|f| f.score >= sharpness::FACE_CONFIDENCE)
-            .max_by(|a, b| (a.width * a.height).total_cmp(&(b.width * b.height)))
-            .copied(),
-    };
-    let Some(stored) = chosen else {
+    let Some(stored) = eyes::judged_face(&d.faces, d.point).copied() else {
         return Ok(None);
     };
     let (rgb, w, h) = decode_rgb(&jpeg)?;

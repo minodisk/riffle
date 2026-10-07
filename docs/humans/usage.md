@@ -198,7 +198,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   when there is no AF point) as a cyan box with a dot between the eyes. They
   appear a moment after `f`, because the detection runs when the frame is
   shown and is kept only for the session. The 1:1 view and Compare draw no
-  faces.
+  faces. Whether the eyes of the judged face are closed shows in the meta
+  pane's `Eyes` row (see **Meta pane**).
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -246,6 +247,18 @@ viewer shows a prompt in its center; click it to open the folder picker.
   nearest the AF point that the focus candidate state is decided from (left
   out when there is none). Both come from the scan's second pass, so they
   appear a little after the file's thumbnail on a folder's first scan.
+  `Eyes` says whether the eyes of the face nearest the AF point (without an
+  AF point, the largest face Riffle is confident of) are closed:
+  `Closed (NN%)` or `Open (NN%)`, the percentage being how likely the word
+  is. It is judged when the file is shown, not in the scan, from the eyelid
+  points of the bundled
+  [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
+  face mesh (Apache-2.0, text and provenance in
+  `crates/core/models/LICENSE-mediapipe`, run locally with no network
+  access), so it appears a moment after the preview. It is left out when
+  there is no face, when the face is under about 60 pixels on the embedded
+  preview (too small to judge), and for JPEG files. A downcast eye shows no
+  iris either, so it reads as `Closed` like a blink.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus candidate state (the
   `AF eye` section: `Sharp` for a green focus mark, `Soft` for orange and

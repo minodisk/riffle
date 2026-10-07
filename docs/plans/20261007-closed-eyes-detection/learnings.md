@@ -148,6 +148,69 @@
   in `riffle-cli eyes`; a `Judged` struct and a `judge_file` function (the
   `Detected` pattern of `detect`) fixed it.
 
+## Step 3: `eyes_of` and the meta pane's `Eyes` row
+
+- **The response carries timings and a superseded flag.** The plan reads
+  "returns `{ state, probability }` or `null`"; `eyes_of` returns
+  `{ eyes: { state, probability } | null, superseded, read_us, decode_us,
+  detect_us, model_us }` instead. The timings feed the frontend's `eyes`
+  timing line (as `focus_crop`'s header feeds `zoom`), and `superseded` lets
+  `EyesCache` free its slot without caching a judgment the backend stopped
+  early as unknown. A JPEG (`raw_only`) or a read / decode / detection error
+  is an `Err`, which the frontend logs and caches as unknown (`null`), the
+  `faces_of` / `NO_FACES` pattern; the user sees no row either way.
+- **Request ids come from the frontend** (`EyesCache` counts them, never
+  reset by `clear`), and `EyesRequests` stores the latest one
+  unconditionally rather than the maximum, so a window reload that restarts
+  the count at 1 is not superseded forever. With the frontend's
+  one-in-flight rule the backend supersede fires only after a `clear`
+  (folder open, `refreshEntries`) lets a fresh request start while the old
+  one still runs; the old one then stops at its next stage.
+- **`eyes::judged_face`** (core) is the shared face choice: the AF-nearest
+  face, else the largest face at or above `sharpness::FACE_CONFIDENCE`.
+  `riffle-cli eyes`' `judge_file` now calls it instead of its inline copy,
+  so the CLI that reproduced the labeled-set AUC and the app pick the same
+  face.
+- **Paths.** AF path: one `decode_rgb`, `detect_around_rgb` on it, then the
+  same RGB rotated upright for the crop (`detect_around_rgb` rotates its own
+  copy and drops it, so the upright rotation runs twice; ~1-2 ms, left as
+  is to keep `faces` unchanged). No-AF path (Trade-offs option A):
+  `decode_whole` + `detect_whole_upright` (exactly `detect_around` with
+  `focus = None`, split so decode and detect are timed apart), then a
+  full-size `decode_rgb` for the crop only when a face was chosen; its time
+  is added to `decode`. The supersede check runs after the decode (before
+  the detection) and before the crop decode / model.
+- **`eyes_of` breakdown** (release, `cargo test --release -p riffle-app
+  times_eyes_of -- --ignored --nocapture` with `RIFFLE_EYES_FILES`, one
+  thread, Windows 11, folder idle, no app running; the harness is the
+  `#[ignore]`d `times_eyes_of_on_real_files` in `commands.rs`, kept for Step
+  4's re-measure). 20 ARWs `_DSC1880`-`_DSC1899` of `D:\photos\2026\2026-09-19`
+  (AF point on every file), the first one excluded as it pays the model
+  builds (241 ms: detect 68, model 158):
+  read 4.9-7.5 ms, decode 9.0-13.3 ms, detect 25.1-31.4 ms, model 34.2-43.9
+  ms, total 79.5-92.0 ms (two files with no face to judge: 42-44 ms). That
+  is decode + detection + model as the plan expected, a little under its
+  ~14 + ~32 + ~50 ms estimate (the model ran at Step 2's ~35-40 ms, not the
+  survey's 50). 12 DNGs of `D:\photos\2026\2026-02-01` (no AF point; first
+  file 180 ms, still paying YuNet's whole-image plan): read 6.1-7.5 ms,
+  decode (3/8 + full size) 17.7-34.0 ms, detect 71.1-85.9 ms, model
+  30.8-37.2 ms, total 135-159 ms. The whole-image detection, not the
+  second decode, dominates the no-AF path. Every labeled closed file in the
+  run (`_DSC1889`-`_DSC1893`, `L1005161`, `L1005164`, `L1005188`) came back
+  `closed`. These are the backend's numbers; the IPC and the hand-measured
+  preview-to-row time need the GUI (pending below).
+- **Binary size of `riffle-app`** (release `cargo build --release -p
+  riffle-app`, Windows 11, same day as Step 2's figures): 47,499,776 B
+  (Step 2's after, the model not yet called) -> 52,494,336 B with Step 3,
+  +4,994,560 B (+10.5%), about the ONNX file: the `include_bytes!` static
+  now survives the linker. `riffle-cli` was not rebuilt in release (its
+  only change is the `judged_face` call). The incremental release rebuild
+  of `riffle-app` took 1 min 11 s. This build is `cargo build`, not `tauri
+  build`, like Step 2's, so the two are comparable.
+- **Docs beyond the plan's file list**: `CLAUDE.md` (layout: `eyes_of`,
+  `src/eyes.ts`, the `Eyes` row) and `docs/agents/app-log.md` (the `eyes`
+  timing line) so the module map and the log guide stay complete.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (user): review the faces labeled closed.** The
@@ -164,6 +227,33 @@
   Step 1's checkbox was ticked on the automated criteria (the measurements
   and the decision do not wait for this review).
 
+- **Pending manual check (user): the `Eyes` row in the running app.**
+  Platform: Windows 11 (the measuring machine), a `mise run dev` build
+  with Settings > `Timing logs` on. Steps and expected results:
+  1. Open `D:\photos\2026\2026-09-19` and wait for the scan to finish.
+     Select a frame `eyes-truth.md` lists under "Faces with a closed eye"
+     (e.g. `_DSC1889.ARW`, `_DSC1890.ARW`): the meta pane's Analysis group
+     shows `Eyes: Closed (NN%)` after `AF eye in focus`.
+  2. Select an open-eyed frame (e.g. `_DSC1894.ARW`): `Eyes: Open (NN%)`.
+  3. Select a frame with no face or only a tiny one (e.g. `_DSC1897.ARW`,
+     no face judged by the harness): no `Eyes` row.
+  4. Open `D:\photos\2026\2026-02-01` and select a Leica DNG with a face
+     (e.g. `L1005161.DNG`, closed; `L1005155.DNG`, open): the row shows (the
+     no-AF path).
+  5. Hold the page key through 30 files in the ARW folder: no row from a
+     previous file stays on a later one, and the preview keeps pace with no
+     added stall against the previous build.
+  6. With the folder idle, read the `eyes total=... read=... decode=...
+     detect=... model=... ipc=...` lines in `Riffle.log`: on an ARW with an
+     AF point, the row should appear within ~150 ms of the preview; record
+     the numbers (and the preview-to-row time) for Step 4's
+     `performance.md` subsection.
+  Step 3's checkbox was ticked on the automated criteria (`mise run ci`,
+  the unit tests, the backend breakdown measured with
+  `times_eyes_of_on_real_files`). Basis: plan Step 3 "Manual checks" and
+  "Latency target"; files `crates/app/src/commands.rs`,
+  `crates/app/ui/src/main.ts`, `crates/app/ui/src/eyes.ts`.
+
 - **Repoint the tract guide's source link when the plan is archived.**
   Step 2 added a link from `docs/agents/tract-onnx-inference.md` ("The face
   mesh: RGB NHWC 0..1, points by `Identity`") to
@@ -176,4 +266,6 @@
   because nothing in the app calls `eyes` yet; Step 3's build is the first
   where it lands. Step 4's size table must take the app size from a build
   with Step 3 in it. Basis: Step 2 binary sizes; files
-  `crates/core/src/eyes.rs`, `docs/humans/performance.md`.
+  `crates/core/src/eyes.rs`, `docs/humans/performance.md`. Resolved in
+  Step 3 (52,494,336 B, +4,994,560 B; see "Step 3"); not a todo, Step 4
+  only re-measures it on the merged `main`.

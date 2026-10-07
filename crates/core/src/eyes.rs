@@ -141,6 +141,20 @@ pub fn face_square(face: &Face) -> ((usize, usize), usize) {
     )
 }
 
+/// The face whose eyes are judged among a detection's `faces`: the one
+/// nearest the AF `point` (`candidate::nearest_face`, the `AF eye` face),
+/// else the largest at or above `sharpness::FACE_CONFIDENCE`, as the labeled
+/// faces were picked.
+pub fn judged_face(faces: &[Face], point: Option<(usize, usize)>) -> Option<&Face> {
+    match point {
+        Some(p) => crate::candidate::nearest_face(faces, p),
+        None => faces
+            .iter()
+            .filter(|f| f.score >= crate::sharpness::FACE_CONFIDENCE)
+            .max_by(|a, b| (a.width * a.height).total_cmp(&(b.width * b.height))),
+    }
+}
+
 /// Judge the eyes of `face` on the full-size upright RGB image
 /// (`width` x `height`, 3 bytes per pixel), `face` in its coordinates.
 /// `None` when the face's longer box side is below `EYES_MIN_FACE`, its
@@ -282,6 +296,28 @@ mod tests {
             ..upright()
         };
         assert_eq!(face_square(&f), ((0, 40), 50));
+    }
+
+    #[test]
+    fn the_judged_face_is_the_af_face_else_the_largest_confident_one() {
+        let at = |x: f32, side: f32, score: f32| Face {
+            x,
+            y: 0.0,
+            width: side,
+            height: side,
+            score,
+            left_eye: (x + side / 4.0, side / 3.0),
+            right_eye: (x + side * 3.0 / 4.0, side / 3.0),
+        };
+        let faces = [
+            at(0.0, 100.0, 0.9),
+            at(300.0, 200.0, 0.85),
+            at(600.0, 300.0, 0.7),
+        ];
+        assert_eq!(judged_face(&faces, Some((25, 33))), Some(&faces[0]));
+        assert_eq!(judged_face(&faces, None), Some(&faces[1]));
+        assert_eq!(judged_face(&faces[2..], None), None);
+        assert_eq!(judged_face(&[], Some((0, 0))), None);
     }
 
     /// An eye of width 4 (corners at x 0 and 4) whose lids are `open` apart
