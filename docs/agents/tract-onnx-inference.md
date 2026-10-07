@@ -1,7 +1,8 @@
 # Running ONNX models with `tract-onnx` in `crates/core`
 
 Read this before touching `crates/core/src/faces.rs` (the YuNet face / eye
-detector) or adding another ONNX model to `crates/core`. It lists what loading
+detector), `crates/core/src/eyes.rs` (the MediaPipe Face Landmarker v2 face
+mesh that judges closed eyes) or adding another ONNX model to `crates/core`. It lists what loading
 and running a model through `tract-onnx` 0.23 took here, each with the reason.
 
 The tags follow [`tauri-app.md`](./tauri-app.md): **Hit** broke something
@@ -116,6 +117,51 @@ the RGB, and the scaled crop's pixels differ.
   per-file lines) may replace it, otherwise it needs a `FACES_VERSION` bump
   and a re-evaluation of the cue's threshold.
 - Source: [face-detection-recall-cost learnings, Step 3 "Cue-path variant"](../plans/_archived/20261005-face-detection-recall-cost/learnings.md).
+
+### The face mesh: RGB NHWC 0..1, points by `Identity` (Measured)
+
+`eyes.rs` runs the second model, MediaPipe Face Landmarker v2
+(`face_landmarks_detector.onnx`), and it is the first NHWC model here: its
+input fact is `[1, 256, 256, 3]` (channels last), RGB, values 0..1, against
+YuNet's `[1, 3, height, width]` BGR raw 0..255. `input_tensor` resizes the
+face crop bilinearly to 256x256 and builds the `Array4` with the shape
+`(1, INPUT, INPUT, 3)`. The layout and range come from MediaPipe's pipeline
+config (`face_landmark_cpu.pbtxt`: `output_tensor_float_range 0..1`), not
+from the ONNX file; a wrong channel order or range is not an error, it only
+shows in the accuracy, so check a new model's input against its pipeline
+and a labeled set, not only whether it loads.
+
+- Outputs by outlet label: `Identity` is the 478 points, (x, y, z) each, x
+  and y in input pixels (map them back by the crop window's position and
+  per-axis scale, since a clamped crop near the image edge is not square);
+  `Identity_1` is the face presence logit and `Identity_2` is unused. Only
+  `Identity` is resolved (`Model::points`).
+- The file is a tf2onnx 1.17.0 conversion of Google's TFLite (provenance in
+  `crates/core/models/LICENSE-mediapipe`); tf2onnx widens the float16
+  weights to float32, so the ONNX is about twice the TFLite (4.9 MB).
+  tflite2onnx 0.4.1 failed on the face meshes (an `IndexError` in its layout
+  propagation) (Hit).
+- It loads and optimizes with `default-features = false` and the same
+  `with_ignore_value_info(true)` / `with_ignore_output_shapes(true)` as
+  YuNet (Measured).
+- The first call builds the plan: 156-169 ms for the first call against
+  ~35 ms for a later one on the Windows 11 machine, so ~120-135 ms of plan
+  build, three to four times YuNet's (Measured). A caller that times
+  per-face runs warms it first, as `riffle-cli eyes` and `bench` do.
+- Per face, crop and resize included: 34.5-35.5 ms mean over the 504
+  labeled faces, one thread (Measured). The Step 1 survey measured 49-51 ms
+  for the same function while it ran three other models on each face in
+  between; treat the lower figure as the model's own cost.
+- Source: [closed-eyes-detection learnings](../plans/20261007-closed-eyes-detection/learnings.md),
+  Steps 1 and 2.
+
+### An embedded model only weighs on the binaries that call it (Measured)
+
+`include_bytes!` puts the model in a `static`; the linker drops it from a
+binary that never reaches the code reading it. Adding `eyes.rs` grew the
+release `riffle-cli` (whose `eyes` and `bench` call it) by 4.97 MB and the
+release `riffle-app` (which did not call it yet) by 8 KB. Measure a model's
+binary cost on a build where the app actually calls it.
 
 ## Sharing
 

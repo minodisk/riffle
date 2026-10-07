@@ -132,7 +132,11 @@ DxO PhotoLab.
   when they compete for the CPU.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
-  model (MIT license), run locally with no network access. The strip's
+  model (MIT license); whether the eyes of the shown file's subject are
+  closed is judged by the bundled
+  [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
+  face mesh (Apache-2.0, converted to ONNX from Google's TFLite). Both run
+  locally with no network access. The strip's
   candidate icon, also on the filter menu's `Sharp` item, is
   [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
 - **HDR PQ (HEIF) CR3 previews**: the HEVC previews of Canon CR3 files shot

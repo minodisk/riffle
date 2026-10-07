@@ -6,6 +6,7 @@ pub mod cr3;
 pub mod decode;
 pub mod dop;
 mod exif;
+pub mod eyes;
 pub mod faces;
 mod hevc;
 pub mod i18n;
