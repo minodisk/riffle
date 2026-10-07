@@ -251,7 +251,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   appear a little after the file's thumbnail on a folder's first scan.
   `Eyes open` is how likely it is that the eyes of the face nearest the AF
   point (without an AF point, the largest face Riffle is confident of) are
-  open, as a percentage; at 50% or below Riffle counts them closed. It is
+  open, as a percentage; Riffle counts them closed when that probability is 50% or
+  below (the row is rounded, so a shown `50%` may be either). It is
   judged when the file is shown, not in the scan, from the eyelid
   points of the bundled
   [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)

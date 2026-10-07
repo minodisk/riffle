@@ -64,8 +64,9 @@ constants and the `eyes_of` return shape do not change.
     - Docs: keep the surrounding explanation (which face is judged, the Face
       Landmarker mesh, when the row is left out, looking-down eyes count as
       closed); only the display sentence changes, e.g. "`Eyes open` is how
-      likely it is that the eyes ... are open, as a percentage; at 50% or
-      below Riffle counts them closed". State the 50% threshold once in
+      likely it is that the eyes ... are open, as a percentage; Riffle counts
+      them closed when that probability is 50% or below (the row is rounded,
+      so a shown `50%` may be either)". State the 50% threshold once in
       `usage.md` / `usage.ja.md` only. Mirror the wording in the Japanese
       files
     - No change to `crates/core/src/eyes.rs`, `crates/app/src/commands.rs`
@@ -81,7 +82,8 @@ constants and the `eyes_of` return shape do not change.
 - Rounding near the boundary: with no word in the value there is nothing for
   the percentage to contradict, so `Math.round((1 - p) * 100)` is enough; a
   reader seeing `50%` on a file Riffle counts as closed is the only
-  ambiguity, which the threshold sentence in the docs resolves.
+  ambiguity, which the threshold sentence in the docs states outright (the
+  threshold applies to the probability, not the rounded number).
 
 ## Progress
 
