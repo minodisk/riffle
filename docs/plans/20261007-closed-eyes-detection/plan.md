@@ -39,7 +39,8 @@ detected today (`faces_of` in `crates/app/src/commands.rs` through the scan's
 `detect_around`, without touching the index). ~50 ms once per shown file is
 acceptable where ~50 ms per file across a 2000-file folder was not.
 
-Once done, selecting a file runs the model on the face the scan judges for
+Once done, selecting a file runs the model on the AF-nearest face, or without an
+AF point the largest face at or above 0.8, of
 that file and the meta pane's Analysis group shows `Eyes: Closed (NN%)` or
 `Open (NN%)`. Nothing is stored in the index (no column, no `FACES_VERSION`
 or schema bump) and the filter menu gets no section: a filter needs every
@@ -246,8 +247,8 @@ file scored, which the on-demand design rules out.
       `{ state: "open" | "closed", probability }` or `null` (unknown: no
       face, face below the floor, JPEG file, model failure). It is
       `raw_only`, runs in `spawn_blocking`, and touches neither the index nor
-      the stored state. The face it judges is the one the scan judges for
-      that file (see Trade-offs "Which face"): with a trusted AF point
+      the stored state. The face it judges is the AF-nearest face, else the
+      largest face at or above 0.8 (see Trade-offs "Which face"): with a trusted AF point
       (`sharpness::trusted_focus`), `candidate::nearest_face` of
       `detect_around`'s faces; without one, the largest face (by box area)
       at or above `sharpness::FACE_CONFIDENCE`, as the labeled DNG set
@@ -378,7 +379,7 @@ replacing Step 1's first recording of "none".
 - **Adopted: MediaPipe Face Landmarker v2 on demand for the shown file.**
   The face-mesh v2 ONNX (4.9 MB, Apache-2.0, converted from Google's TFLite
   as recorded in `model-survey.md`) judges the eye state via EAR of the one
-  face the scan judges for the file, run when the file is shown, the way
+  AF-nearest face (else the largest face at or above 0.8) of the file, run when the file is shown, the way
   `faces_of` detects the focus mark's faces today. ~50 ms once per shown
   file (plus ~14 ms decode and ~32 ms detection, in `spawn_blocking`,
   superseded when the user pages on) is acceptable where the same cost on
@@ -395,7 +396,7 @@ replacing Step 1's first recording of "none".
   whole-image search uses is not good enough (a fifth of the labelable DNG
   faces lost, the classifier's eye AUC 0.78 -> 0.59), but on demand a
   full-size decode (~14 ms per DNG) is affordable, so a no-AF file is
-  judged on its sharpness face from a full-size crop.
+  judged on its largest face at or above 0.8 from a full-size crop.
 - **Out of scope**: the model's face presence output (`Identity_1`; a
   follow-up todo), judging every face, a strip mark, a filter, the MCP
   companion.
@@ -405,7 +406,7 @@ replacing Step 1's first recording of "none".
 The user settled the adoption on 2026-10-07 ("Decision") and approved this
 revision with the recommended defaults below the same day.
 
-- **Which face is judged (chosen: the one the scan judges).** With an AF
+- **Which face is judged (chosen: the AF face, else the largest confident face).** With an AF
   point, the face nearest it (`candidate::nearest_face`, the `AF eye` face);
   without one, the largest face at or above
   `sharpness::FACE_CONFIDENCE` (not `chosen_face`'s highest-scoring one, so
