@@ -117,7 +117,7 @@ what to grep for.
     - Commit as `feat(app): log panics, uncaught JS errors and the remaining
       eprintln failures`.
 
-- [ ] Step 2: Log invariant violations at the scan lifecycle's key points
+- [x] Step 2: Log invariant violations at the scan lifecycle's key points
   - Done when:
     - A helper exists that logs `invariant: <name>: <details>` at `warn` and
       has unit tests for the line format
@@ -145,6 +145,10 @@ what to grep for.
          prepared nothing for it (a double `start_scan` or an id never handed
          out). Log `scan_id={scan_id} latest={latest_id}` there, keep the
          existing `emit_empty_scan_events` behavior.
+         (Changed in implementation: `scan_folder` also queues nothing for an
+         idle folder or a missing index cache, so that branch is normal; the
+         check, named `start_scan once per scan`, fires only when `running`
+         already holds `scan_id`. See `learnings.md`.)
     - Check (frontend, `crates/app/ui/src/main.ts`): `faces-done after
       scan-done`: in the `faces-done` listener, after the `scan_id !== scanId`
       filter, if `scanDone?.scanId !== payload.scan_id` the backend emitted

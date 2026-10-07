@@ -20,6 +20,33 @@
   example a scan failure entry for that file. The `docs/agents/` guide added
   in a later step must say this. Basis: review round 1, item 1.
 
+## Step 2
+
+- The plan's check 2 (`start_scan has a pending scan`) would have fired in a
+  normal session: `scan_folder` inserts no `pending` entry when neither pass
+  has a file to do (`idle`, the usual focus rescan of an indexed folder) or
+  when the index cache is unavailable, and `start_scan` then reaches the
+  `let Some(pending) = ... else` branch with `scan_id == latest_id`. The
+  check was narrowed to `start_scan once per scan`: in that branch it logs
+  only when `running` already holds `scan_id` (a second `start_scan` while
+  the first is running). An id equal to `latest_id` was always handed out by
+  `scan_folder`, so the "id never handed out" case cannot reach the branch.
+  A second call after the first scan finished is not caught (`finish` has
+  cleared `running`), accepted as a gap.
+- The frontend `faces-done after scan-done` check was kept: no false
+  positive found. `scanId` is assigned in `startScan` before `start_scan` is
+  invoked, and a scan's events are emitted only after `start_scan`, in order
+  (`scan-done` then `faces-done`, from one thread, including
+  `emit_empty_scan_events`), so a live `scanId` always sees its own
+  `scan-done` first. `openDirectory`'s `scanId = null; scanDone = null`
+  filters out the old scan's late events (ids only grow), a `resync` assigns
+  a fresh id the same way, a superseded `startScan` (`seq !== currentScan`)
+  never sets `scanId` nor calls `start_scan`, and `index-cleared` /
+  `sidecar-format` go through `openDirectory`.
+- `invariant!` is a `macro_rules!` re-exported with `pub(crate) use` from
+  `diagnostics.rs`; the expansion calls `$crate::diagnostics::invariant_line`,
+  so that function is `pub(crate)`.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1, Windows debug build): the step's checkbox was
@@ -35,3 +62,13 @@
   line plus the default stderr message; revert the scratch change. Basis:
   plan Step 1 "Manual check before the PR"; files
   `crates/app/src/diagnostics.rs`, `crates/app/ui/src/main.ts`.
+- Pending manual check (Step 2, Windows debug build): the step's checkbox was
+  ticked on the automated criteria (unit test, `mise run ci`); the "no line in
+  a normal session" criterion needs a hands-on run. Start the debug app,
+  open a folder not yet indexed (cold), let it finish, switch the window
+  away and back after 5 s or more (focus rescan), open another folder while
+  a scan runs, then clear the cache in Settings. Afterwards
+  `grep invariant: "%LOCALAPPDATA%\com.minodisk.riffle\logs\Riffle.log"`
+  must print nothing. Basis: plan Step 2 Done when; files
+  `crates/app/src/commands.rs`, `crates/app/src/diagnostics.rs`,
+  `crates/app/ui/src/main.ts`.

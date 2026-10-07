@@ -1,6 +1,6 @@
-//! Failures that would otherwise leave no trace in `Riffle.log`: Rust panics
-//! and the frontend's uncaught errors, each written under a fixed, greppable
-//! prefix.
+//! Failures that would otherwise leave no trace in `Riffle.log`: Rust panics,
+//! the frontend's uncaught errors and broken internal assumptions, each
+//! written under a fixed, greppable prefix.
 
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::panic::Location;
@@ -48,9 +48,28 @@ fn panic_line(thread: Option<&str>, location: Option<&Location>, payload: &str) 
 pub async fn log_frontend(kind: String, line: String) {
     match kind.as_str() {
         "uncaught-js" => log::error!("uncaught-js: {line}"),
+        "invariant" => log::warn!("invariant: {line}"),
         _ => log::warn!("{kind}: {line}"),
     }
 }
+
+pub(crate) fn invariant_line(name: &str, details: std::fmt::Arguments) -> String {
+    format!("invariant: {name}: {details}")
+}
+
+/// Log `invariant: <name>: <details>` at `warn` when `cond` is false. Only the
+/// condition is evaluated on the happy path; it never changes control flow.
+macro_rules! invariant {
+    ($cond:expr, $name:expr, $($details:tt)+) => {
+        if !$cond {
+            log::warn!(
+                "{}",
+                $crate::diagnostics::invariant_line($name, format_args!($($details)+))
+            );
+        }
+    };
+}
+pub(crate) use invariant;
 
 #[cfg(test)]
 mod tests {
@@ -84,6 +103,17 @@ mod tests {
         assert_eq!(
             panic_line(Some("main"), None, "a\nb\r\nc"),
             "panic: thread=main location=unknown payload=a b  c"
+        );
+    }
+
+    #[test]
+    fn invariant_line_names_the_check_and_its_details() {
+        assert_eq!(
+            invariant_line(
+                "scan progress within total",
+                format_args!("done={} total={}", 3, 2)
+            ),
+            "invariant: scan progress within total: done=3 total=2"
         );
     }
 }
