@@ -460,3 +460,4 @@ revision with the recommended defaults below the same day.
 - 2026-10-07 Step 1 done on branch `closed-eyes-detection-step-1`: no
   surveyed eye-state model fits pass 2; MediaPipe Face Landmarker v2 (EAR,
   ~50 ms per face) adopted on demand for the shown file only.
+- (2026-10-07) Step 1 complete
