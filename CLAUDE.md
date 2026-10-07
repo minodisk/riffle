@@ -114,7 +114,7 @@ classes every control uses (see `docs/agents/ui-styling.md`),
 `src/context.ts` builds the items of the strip's HTML right-click menu, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability and the
-`Eyes` state), `src/eyes.ts` caches the `eyes_of` judgments per file with one
+`Eyes open` probability), `src/eyes.ts` caches the `eyes_of` judgments per file with one
 in flight at a time, `src/facemesh.ts` holds MediaPipe's face mesh
 tessellation the focus mark draws over the judged face, `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section), `src/companion.ts` answers the MCP bridge's

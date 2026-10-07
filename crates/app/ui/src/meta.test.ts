@@ -178,21 +178,29 @@ describe("metaGroups", () => {
     ]);
   });
 
-  test("shows the eye state after the AF eye row, its percentage backing the word", () => {
+  test("shows the open probability after the AF eye row", () => {
     const focus: FocusCue = { candidate: "candidate", eye_focus: 0.87 };
     expect(
       metaGroups(null, 12, focus, { state: "closed", probability: 0.814, mesh })[0]?.rows,
     ).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "AF eye in focus", value: "87%" },
-      { label: "Eyes", value: "Closed (81%)" },
+      { label: "Eyes open", value: "19%" },
     ]);
     expect(metaGroups(null, null, null, { state: "open", probability: 0.07, mesh })).toEqual([
-      { heading: ANALYSIS_HEADING, rows: [{ label: "Eyes", value: "Open (93%)" }] },
+      { heading: ANALYSIS_HEADING, rows: [{ label: "Eyes open", value: "93%" }] },
     ]);
   });
 
-  test("leaves out the eye state when it is unknown or not yet judged", () => {
+  test("rounds the open probability itself, whichever state was judged", () => {
+    const eyesOpen = (state: Eyes["state"], probability: number) =>
+      metaGroups(null, null, null, { state, probability, mesh })[0]?.rows;
+    expect(eyesOpen("closed", 0.5)).toEqual([{ label: "Eyes open", value: "50%" }]);
+    expect(eyesOpen("closed", 0.505)).toEqual([{ label: "Eyes open", value: "50%" }]);
+    expect(eyesOpen("open", 0.495)).toEqual([{ label: "Eyes open", value: "51%" }]);
+  });
+
+  test("leaves out the open probability when it is unknown or not yet judged", () => {
     const rows = [{ label: "Sharpness", value: "12.0" }];
     expect(metaGroups(null, 12, null, null)[0]?.rows).toEqual(rows);
     expect(metaGroups(null, 12, null, undefined)[0]?.rows).toEqual(rows);
