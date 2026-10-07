@@ -199,9 +199,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   appear a moment after `f`, because the detection runs when the frame is
   shown and is kept only for the session. The 1:1 view and Compare draw no
   faces. How likely the eyes of the judged face are open shows in the meta
-  pane's `Eyes open` row (see **Meta pane**); that face also gets the face
-  mesh the judgment looked at, drawn as thin cyan lines a moment after the
-  `Eyes open` row.
+  pane's `Eyes open` row (see **Meta pane**); that face also gets the outline of
+  the face parts the judgment looked at (face oval, eyes, brows, nose, lips)
+  and, when the eyes are judged open, the irises as rings with a dot at each
+  center, drawn as thin cyan lines a moment after the `Eyes open` row.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
