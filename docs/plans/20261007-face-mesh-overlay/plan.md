@@ -51,7 +51,7 @@ Scope, decided up front:
 
 ## Steps
 
-- [ ] Step 1: Return the mesh points from `eyes_of` in stored preview coordinates
+- [x] Step 1: Return the mesh points from `eyes_of` in stored preview coordinates
   - Done when:
     - `riffle_core::eyes` exposes the 478 points, in full-size upright preview
       pixels, next to the judgment, without changing what `ear_of` / `judge`

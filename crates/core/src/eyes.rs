@@ -25,6 +25,7 @@ use anyhow::{anyhow, Context, Result};
 use tract_onnx::prelude::*;
 
 use crate::faces::{crop_rgb, Face};
+use crate::sharpness::Window;
 
 const MODEL: &[u8] = include_bytes!("../models/face_landmarks_detector.onnx");
 
@@ -161,22 +162,51 @@ pub fn judged_face(faces: &[Face], point: Option<(usize, usize)>) -> Option<&Fac
 /// center lies outside the image, or the model fails or panics: a bad crop
 /// leaves the eyes unknown instead of failing the caller.
 pub fn judge(rgb: &[u8], width: usize, height: usize, face: &Face) -> Option<Eyes> {
+    judge_mesh(rgb, width, height, face).map(|j| j.eyes)
+}
+
+/// A judgment with the face mesh it was taken on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Judged {
+    pub eyes: Eyes,
+    /// The `LANDMARKS` points in the full-size upright image's pixels.
+    pub points: Vec<(f32, f32)>,
+}
+
+/// `judge` with the mesh points, under the same floor and failures.
+pub fn judge_mesh(rgb: &[u8], width: usize, height: usize, face: &Face) -> Option<Judged> {
     if face.width.max(face.height) < EYES_MIN_FACE {
         return None;
     }
     // Nothing here is shared or observable after a panic, hence
     // `AssertUnwindSafe`.
-    catch_unwind(AssertUnwindSafe(|| ear_of(rgb, width, height, face)))
+    let points = catch_unwind(AssertUnwindSafe(|| landmarks_of(rgb, width, height, face)))
         .ok()
         .and_then(Result::ok)
-        .flatten()
-        .map(Eyes::from_ear)
+        .flatten()?;
+    let ear = more_closed_ear(&points)?;
+    Some(Judged {
+        eyes: Eyes::from_ear(ear),
+        points,
+    })
 }
 
 /// The EAR of the more closed eye of `face` (see `judge`), whatever the
 /// face's size; `None` when its center lies outside the image or neither
 /// eye's EAR is finite.
 pub fn ear_of(rgb: &[u8], width: usize, height: usize, face: &Face) -> Result<Option<f64>> {
+    Ok(landmarks_of(rgb, width, height, face)?.and_then(|p| more_closed_ear(&p)))
+}
+
+/// The `LANDMARKS` points of `face`'s mesh in the full-size upright image's
+/// pixels, whatever the face's size; `None` when its center lies outside the
+/// image.
+pub fn landmarks_of(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    face: &Face,
+) -> Result<Option<Vec<(f32, f32)>>> {
     let (cx, cy) = (face.x + face.width / 2.0, face.y + face.height / 2.0);
     if rgb.len() < width * height * 3
         || !(0.0..width as f32).contains(&cx)
@@ -187,17 +217,26 @@ pub fn ear_of(rgb: &[u8], width: usize, height: usize, face: &Face) -> Result<Op
     let (center, side) = face_square(face);
     let (sub, win) = crop_rgb(rgb, width, height, center, side.max(1));
     let points = landmarks(input_tensor(&sub, win.width, win.height))?;
+    Ok(Some(to_full(&points, &win)))
+}
+
+/// Map the model's points, in input pixels, onto the full image the crop
+/// `win` was cut from.
+fn to_full(points: &[[f32; 3]], win: &Window) -> Vec<(f32, f32)> {
     let (kx, ky) = (
         win.width as f32 / INPUT as f32,
         win.height as f32 / INPUT as f32,
     );
-    let points: Vec<(f32, f32)> = points
+    points
         .iter()
         .map(|p| (win.x as f32 + p[0] * kx, win.y as f32 + p[1] * ky))
-        .collect();
-    let (left, right) = ears(&points);
+        .collect()
+}
+
+fn more_closed_ear(points: &[(f32, f32)]) -> Option<f64> {
+    let (left, right) = ears(points);
     let ear = left.min(right);
-    Ok(ear.is_finite().then_some(ear as f64))
+    ear.is_finite().then_some(ear as f64)
 }
 
 /// Run the model on an `input_tensor`: the 478 (x, y, z) points, x and y in
@@ -379,6 +418,7 @@ mod tests {
             ..upright()
         };
         assert_eq!(judge(&rgb, 200, 150, &small), None);
+        assert_eq!(judge_mesh(&rgb, 200, 150, &small), None);
         let outside = Face {
             x: 190.0,
             width: 80.0,
@@ -387,7 +427,23 @@ mod tests {
         };
         assert_eq!(ear_of(&rgb, 200, 150, &outside).unwrap(), None);
         assert_eq!(judge(&rgb, 200, 150, &outside), None);
+        assert_eq!(landmarks_of(&rgb, 200, 150, &outside).unwrap(), None);
         assert_eq!(ear_of(&rgb[..30], 200, 150, &upright()).unwrap(), None);
+    }
+
+    #[test]
+    fn the_model_points_are_scaled_from_the_input_onto_the_crop_window() {
+        let win = Window {
+            x: 100,
+            y: 40,
+            width: 512,
+            height: 128,
+        };
+        let points = [[0.0, 0.0, 9.0], [128.0, 64.0, 0.0], [256.0, 256.0, -3.0]];
+        assert_eq!(
+            to_full(&points, &win),
+            [(100.0, 40.0), (356.0, 72.0), (612.0, 168.0)]
+        );
     }
 
     #[test]

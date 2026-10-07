@@ -301,13 +301,7 @@ fn nms(mut faces: Vec<Face>, threshold: f32) -> Vec<Face> {
 /// is `width` x `height` before the Orientation tag is applied: 6 and 8 are
 /// quarter turns, 3 a half turn, anything else is the identity.
 pub fn to_stored(face: Face, orientation: u16, width: usize, height: usize) -> Face {
-    let (w, h) = (width as f32, height as f32);
-    let point = |(x, y): (f32, f32)| match orientation {
-        6 => (y, h - x),
-        8 => (w - y, x),
-        3 => (w - x, h - y),
-        _ => (x, y),
-    };
+    let point = |p| point_to_stored(p, orientation, width, height);
     let a = point((face.x, face.y));
     let b = point((face.x + face.width, face.y + face.height));
     Face {
@@ -318,6 +312,23 @@ pub fn to_stored(face: Face, orientation: u16, width: usize, height: usize) -> F
         score: face.score,
         left_eye: point(face.left_eye),
         right_eye: point(face.right_eye),
+    }
+}
+
+/// Map a point on the upright image back to the stored `width` x `height`
+/// image, as `to_stored` maps a face.
+pub fn point_to_stored(
+    (x, y): (f32, f32),
+    orientation: u16,
+    width: usize,
+    height: usize,
+) -> (f32, f32) {
+    let (w, h) = (width as f32, height as f32);
+    match orientation {
+        6 => (y, h - x),
+        8 => (w - y, x),
+        3 => (w - x, h - y),
+        _ => (x, y),
     }
 }
 
@@ -563,6 +574,40 @@ mod tests {
                 upright(),
                 "orientation {orientation}"
             );
+        }
+    }
+
+    #[test]
+    fn a_point_maps_back_like_the_corner_of_a_face() {
+        let (w, h) = (200, 100);
+        for orientation in [1, 3, 6, 8] {
+            for p in [(0.0, 0.0), (12.5, 37.25), (99.0, 199.0)] {
+                let at = Face {
+                    x: p.0,
+                    y: p.1,
+                    width: 0.0,
+                    height: 0.0,
+                    score: 1.0,
+                    left_eye: p,
+                    right_eye: p,
+                };
+                let stored = point_to_stored(p, orientation, w, h);
+                let face = to_stored(at, orientation, w, h);
+                assert_eq!((face.x, face.y), stored, "orientation {orientation}");
+                let back = face_to_upright(
+                    Face {
+                        x: stored.0,
+                        y: stored.1,
+                        left_eye: stored,
+                        right_eye: stored,
+                        ..at
+                    },
+                    orientation,
+                    w,
+                    h,
+                );
+                assert_eq!((back.x, back.y), p, "orientation {orientation}");
+            }
         }
     }
 

@@ -501,6 +501,16 @@ struct EyesJudgment {
     state: &'static str,
     /// The probability that the eyes are closed, 0..1.
     probability: f64,
+    mesh: EyesMesh,
+}
+
+/// The face mesh the judgment was taken on, in the preview's stored pixel
+/// coordinates like `FacesResponse`.
+#[derive(Debug, PartialEq, serde::Serialize)]
+struct EyesMesh {
+    width: usize,
+    height: usize,
+    points: Vec<[f32; 2]>,
 }
 
 fn micros(since: std::time::Instant) -> u32 {
@@ -570,12 +580,24 @@ fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, St
     let t = std::time::Instant::now();
     let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, orientation);
     let face = faces::face_to_upright(stored, orientation, w, h);
-    out.eyes = eyes::judge(&upright, uw, uh, &face).map(|e| EyesJudgment {
-        state: match e.state {
+    out.eyes = eyes::judge_mesh(&upright, uw, uh, &face).map(|j| EyesJudgment {
+        state: match j.eyes.state {
             eyes::EyeState::Open => "open",
             eyes::EyeState::Closed => "closed",
         },
-        probability: e.probability,
+        probability: j.eyes.probability,
+        mesh: EyesMesh {
+            width: w,
+            height: h,
+            points: j
+                .points
+                .into_iter()
+                .map(|p| {
+                    let (x, y) = faces::point_to_stored(p, orientation, w, h);
+                    [x, y]
+                })
+                .collect(),
+        },
     });
     out.model_us = micros(t);
     Ok(out)
@@ -4133,7 +4155,7 @@ mod tests {
                 r.detect_us as f64 / 1000.0,
                 r.model_us as f64 / 1000.0,
                 started.elapsed().as_secs_f64() * 1000.0,
-                r.eyes
+                r.eyes.map(|e| (e.state, e.probability))
             );
         }
     }

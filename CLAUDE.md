@@ -59,6 +59,7 @@ the running scan the current file and the strip's visible range,
 draws on demand through the scan's `detect_around` without touching the index,
 and `eyes_of`, which judges with `eyes` whether the eyes of the shown file's
 AF face are closed, also on demand, a newer request superseding an older one,
+and returns the face mesh points it judged on in stored preview coordinates,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, `src/folders.rs` the folder tree's commands (the
 home and volume roots, one folder's subfolders and RAW count, and
