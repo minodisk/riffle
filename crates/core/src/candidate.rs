@@ -8,7 +8,10 @@
 //! sharper eye's logit is the frame's. When no eye region counts (no mesh,
 //! or regions under `EYE_REGION_MIN` or without an edge width) the same two
 //! measures over a window between the eyes are scored with the window model
-//! (`LOGIT_*`). Its sigmoid is the in-focus probability.
+//! (`LOGIT_*`). Its sigmoid is the in-focus probability. The mesh runs only
+//! on a face whose box long side is at least `eyes::EYES_MIN_FACE`
+//! (`meshes_face`): a smaller face goes straight to the window, as no eye
+//! region of one under 58 px counted on the labeled frames.
 //!
 //! Faces come from `faces::detect_around_rgb` in a `CATCH_CROP` square around
 //! the trusted AF point. A Sony eye-AF frame gets the same detection: the
@@ -21,7 +24,9 @@ use anyhow::Result;
 
 use crate::arw::FocusLocation;
 use crate::decode::decode_rgb;
-use crate::eyes::{mesh_of, Mesh, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS};
+use crate::eyes::{
+    mesh_of, Mesh, EYES_MIN_FACE, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS,
+};
 use crate::faces::{detect_around_rgb, Detection, Face};
 use crate::pose::Pose;
 use crate::sharpness::{laplacian_variance, window_at, Window};
@@ -468,8 +473,15 @@ pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) 
     }
 }
 
+/// Whether the cue runs the face mesh on `face`: its box long side is at
+/// least `EYES_MIN_FACE`, the floor the closed-eyes judgment uses.
+pub fn meshes_face(face: &Face) -> bool {
+    face.width.max(face.height) >= EYES_MIN_FACE
+}
+
 /// The `eye_focus` of `face` on its mesh, `None` once `cancel` is set
-/// while the mesh runs.
+/// while the mesh runs. A face `meshes_face` turns down gets no mesh, so the
+/// eye window scores it.
 fn scored_face(
     rgb: &[u8],
     gray: &[u8],
@@ -479,7 +491,9 @@ fn scored_face(
     face: &Face,
     cancel: &AtomicBool,
 ) -> Option<EyeFocus> {
-    let mesh = mesh_of(rgb, width, height, orientation, face);
+    let mesh = meshes_face(face)
+        .then(|| mesh_of(rgb, width, height, orientation, face))
+        .flatten();
     if cancel.load(Ordering::Relaxed) {
         return None;
     }
@@ -523,9 +537,10 @@ pub fn focus_cue(preview: &[u8], orientation: u16, focus: Option<FocusLocation>)
 }
 
 /// `focus_cue`, abandoned (`None`) once `cancel` is set between the decode,
-/// the detection, the face mesh and the eye scoring. The mesh model's plan is
-/// built once per process (`eyes`' `OnceLock`), so the first faced file of
-/// a scan pays about 180 ms more.
+/// the detection, the face mesh and the eye scoring. The mesh runs only on a
+/// face `meshes_face` accepts; a smaller one is scored on the eye window
+/// without it. The mesh model's plan is built once per process (`eyes`'
+/// `OnceLock`), so the first meshed file of a scan pays about 180 ms more.
 pub fn focus_cue_unless(
     preview: &[u8],
     orientation: u16,
@@ -1140,5 +1155,27 @@ mod tests {
             focus.map(|f| (f.scored, f.mesh)),
             Some((Scored::Window, None))
         );
+    }
+
+    #[test]
+    fn a_face_under_the_floor_is_scored_on_the_window_without_the_mesh() {
+        let gray = two_steps(2, 8);
+        let rgb: Vec<u8> = gray.iter().flat_map(|&g| [g, g, g]).collect();
+        // Inside the image, so only the gate keeps the model from running.
+        let small = face(20.0, 0.0, 59.0, (35.0, 25.0), (65.0, 25.0));
+        assert!(!meshes_face(&small));
+        let focus = scored_face(&rgb, &gray, 120, 60, 1, &small, &AtomicBool::new(false));
+        assert_eq!(
+            focus.map(|f| (f.scored, f.mesh)),
+            Some((Scored::Window, None))
+        );
+        let side = |s: f32| face(0.0, 0.0, s, (20.0, 25.0), (40.0, 25.0));
+        assert!(!meshes_face(&side(EYES_MIN_FACE.next_down())));
+        assert!(meshes_face(&side(EYES_MIN_FACE)));
+        let wide = Face {
+            height: 10.0,
+            ..side(EYES_MIN_FACE)
+        };
+        assert!(meshes_face(&wide));
     }
 }

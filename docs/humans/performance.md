@@ -507,6 +507,23 @@ The `scan extract` / `scan faces` log lines of an app open of this folder are
 not recorded here yet: that needs the GUI, which was not run for this
 measurement.
 
+The scan now runs the face mesh only on a face whose box long side is at
+least 60 px (`eyes::EYES_MIN_FACE`); a smaller face goes straight to the eye
+window (see `docs/plans/_archived/20261008-mesh-face-gate/`). On this folder
+that skips 261 of the 1952 faced files (13.4%), and the saving is within the
+run-to-run spread. Measured on 2026-10-08 on the same CPU under Windows 11, the
+same folder from the local NTFS drive, warm page cache (one run of each
+before timing), 24 threads, `riffle-cli candidates <dir> 24` before
+(`176a96b6`) and after (the face-size gate on top of it), alternated, four
+runs each, reading the `... total` line: 20.28 / 20.94 / 20.68 / 20.51s
+before, 19.98 / 21.13 / 19.84 / 19.88s after (mean 20.6 -> 20.2s, -0.4s,
+-2%). No file changed state (1697 candidates, 255 not, 182 unknown in both);
+one file's probability moved (a 58 px face from its one eye region to the
+window, 0.209 -> 0.328, still not a candidate). On the labeled frames the
+gate skips 104 of the 406 training faces and 102 of the 400 held-out ones,
+and the AUC, precision and coverage stay at 0.882 / 93.9% / 91.4% and 0.800
+/ 88.6% / 95.9%.
+
 #### Eye-state model survey (Windows 11)
 
 YuNet's five landmarks carry no eyelid points, so telling closed eyes apart
@@ -663,7 +680,7 @@ thumbnails appear at the speed of the read and the thumbnail encode, and the
 sharpness bars fill in with the focus marks during the second pass. The
 numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
 candidate pass" above were measured before the move, except the two Windows
-11 subsections of "Face detection cost" and the face mesh paragraph of "Focus
+11 subsections of "Face detection cost" and the face mesh paragraphs of "Focus
 candidate pass", which time the second pass. The `riffle-cli scan` "after"
 figures in "Face detection cost" include costs that pass no longer carries.
 
