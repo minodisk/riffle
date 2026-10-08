@@ -487,4 +487,4 @@ burst's other frames.
 
 ## Progress
 
-- (none yet)
+- (2026-10-08) Step 1 complete
