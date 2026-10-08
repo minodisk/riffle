@@ -556,15 +556,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       labels of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`
       (no eye to judge, including false detections) can seed it. Files:
       `crates/core/src/eyes.rs`, `docs/agents/tract-onnx-inference.md`.
-- [x] Add the shown file's closed-eyes judgment to the MCP companion (a
-      field of `get_photo` / `get_view`, or its own tool), so an agent can
-      read it. It is on demand, so the field is absent until the file has
-      been shown; or the tool calls `eyes_of` itself. Files:
-      `crates/app/src/mcp.rs`, `crates/app/ui/src/companion.ts`,
-      `crates/app/ui/src/eyes.ts`.
-      Landed as `get_view`'s `current.eyes` (`state`, `probability`
-      closed, `pose`) from `EyesCache`; see
-      `docs/plans/20261008-mcp-eyes-pose/`.
 - [ ] Mark closed eyes in the strip. The judgment is per shown file, so a
       mark appears only on files already shown (from `EyesCache`). The mesh
       already runs in the second pass for the focus candidate cue (the
@@ -584,14 +575,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       on 68%, the gap at the frontal / oblique boundary. See
       `docs/plans/20261007-head-pose/` and `docs/humans/performance.md`
       "Closed-eyes judgment on demand (Windows 11)".
-- [x] Add the shown file's head pose to the MCP companion, next to the
-      closed-eyes field above: the pose rides in the same `eyes_of`
-      judgment (`EyesJudgment.pose`, `null` when there is none), so one
-      field of `get_photo` / `get_view` (or one tool) can carry both, absent
-      until the file has been shown. Files: `crates/app/src/mcp.rs`,
-      `crates/app/ui/src/companion.ts`, `crates/app/ui/src/eyes.ts`.
-      Landed as `pose` inside `get_view`'s `current.eyes`; see
-      `docs/plans/20261008-mcp-eyes-pose/`.
 - [ ] Flag "looking away" frames from the head pose. Needs a threshold
       labeled first: which |yaw| / pitch a culler calls looking away (the
       Step 2 labels put frontal faces at a median |yaw| of 10 deg, oblique
@@ -623,9 +606,15 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       face, crop and 60 px floor (`eyes_of` judges the AF-nearest face, else
       the largest; the cue meshes only the AF-nearest one and has no
       floor); the "looking away" thresholds are unlabeled (see the item
-      above). Files: `crates/app/src/index.rs`, `crates/core/src/scan.rs`,
+      above). When this lands, repoint `ViewApi.eyes` in `main.ts` (it reads
+      `eyesCache.get` today; see `docs/plans/_archived/20261008-mcp-eyes-pose/plan.md`)
+      to the stored value, keeping the `eyes` key absent from `get_view` until a
+      file is judged. Done when `get_view` answers from the stored values and
+      its existing test (key absent before and after the JSON round trip) still
+      passes. Files: `crates/app/src/index.rs`, `crates/core/src/scan.rs`,
       `crates/core/src/candidate.rs`, `crates/app/ui/src/filter.ts`,
-      `crates/app/ui/index.html`.
+      `crates/app/ui/index.html`, `crates/app/ui/src/main.ts`,
+      `crates/app/ui/src/companion.ts`.
 - [ ] Reuse the scan's mesh for `eyes_of` once the points or the EAR are
       stored (the item above), so showing a file no longer runs the model a
       second time for a face the scan already meshed. Files:
