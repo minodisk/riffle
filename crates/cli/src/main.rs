@@ -72,6 +72,20 @@ fn main() -> Result<()> {
             }
             eyes_cmd(&args[1..].iter().map(PathBuf::from).collect::<Vec<_>>())
         }
+        Some("features") => {
+            let mut dirs = &args[1..];
+            let threads = match dirs.last().map(|t| t.parse::<usize>()) {
+                Some(Ok(n)) => {
+                    dirs = &dirs[..dirs.len() - 1];
+                    Some(n)
+                }
+                _ => None,
+            };
+            if dirs.is_empty() {
+                bail!("usage: riffle-cli features <dir>... [threads]");
+            }
+            features(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
+        }
         Some("check") => {
             let mut dirs = &args[1..];
             let threads = match dirs.last().map(|t| t.parse::<usize>()) {
@@ -87,7 +101,7 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]"
         ),
     }
 }
@@ -644,6 +658,211 @@ fn mesh_columns(face: Option<&faces::Face>, measured: Option<&Measured>) -> Stri
         eye(mesh.map(|m| m.left)),
         eye(mesh.map(|m| m.right))
     )
+}
+
+/// The header of `features`, the column names of `features_line`.
+const FEATURES_HEADER: &str = "folder\tfile\tcapture_time\tsubsec\txmp\tdop\tsharpness\tstate\teye_focus\tcue_side\taf\tjudged_side\tear\teyes_open\tyaw\tpitch\troll\tanalysis_ms\teyes_ms";
+
+/// Dump every feature of every RAW file of the given folders (not recursive,
+/// each folder's sorted) on a pool of `threads` threads: `FEATURES_HEADER`,
+/// then one tab-separated `features_line` per file, on stdout; the totals go
+/// to stderr so stdout stays one table.
+///
+/// The columns: the folder's name, the file name, the Exif `capture_time`
+/// and `subsec`; the XMP and `.dop` flags (`Pick` / `Reject` / `None`, `-`
+/// when there is no sidecar, `err` when it is unreadable); from
+/// `scan::extract_analysis`, what the scan stores: `sharpness`, the cue
+/// `state`, `eye_focus` and the cue face's box side (the longer of width and
+/// height) in preview pixels; from the path `eyes_of` takes: `af` / `noaf`
+/// (a trusted AF point), the judged face's box side, the EAR of its more
+/// closed eye, the eyes-open probability (`1 -` the closed one), `yaw`,
+/// `pitch` and `roll` in degrees; then the ms of the analysis and of the eyes
+/// path. A missing value is `-`; a failed analysis or eyes path is `err` in
+/// its columns.
+fn features(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
+    let threads =
+        threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
+    let paths = raw_paths(dirs)?;
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()?;
+    // Build the models outside the timing.
+    let probe = faces::Face {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+        score: 1.0,
+        left_eye: (0.0, 0.0),
+        right_eye: (0.0, 0.0),
+    };
+    faces::detect(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 6], 1, 2)?;
+    eyes::ear_of(&[0; 3], 1, 1, &probe)?;
+
+    let start = Instant::now();
+    let lines: Vec<(String, bool)> = pool.install(|| {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .map(|p| {
+                let t = Instant::now();
+                let analysis = scan::extract_analysis(p);
+                let analysis_ms = t.elapsed().as_secs_f64() * 1000.0;
+                let t = Instant::now();
+                let eyes = eyes_features(p).map_err(|e| format!("{e:#}"));
+                let eyes_ms = t.elapsed().as_secs_f64() * 1000.0;
+                let failed = analysis.is_err() || eyes.is_err();
+                let folder = p
+                    .parent()
+                    .and_then(Path::file_name)
+                    .unwrap_or_default()
+                    .to_string_lossy();
+                let name = p.file_name().unwrap_or_default().to_string_lossy();
+                let line = features_line(
+                    &folder,
+                    &name,
+                    &flag_column(&xmp::sidecar_path(p), xmp::read_flag),
+                    &flag_column(
+                        &riffle_core::dop::sidecar_path(p),
+                        riffle_core::dop::read_flag,
+                    ),
+                    &analysis,
+                    analysis_ms,
+                    &eyes,
+                    eyes_ms,
+                );
+                (line, failed)
+            })
+            .collect()
+    });
+    let total = start.elapsed();
+    println!("{FEATURES_HEADER}");
+    let mut errors = 0;
+    for (line, failed) in &lines {
+        println!("{line}");
+        errors += *failed as usize;
+    }
+    eprintln!(
+        "{} files in {} folder(s), {threads} threads, {errors} with an error: {:.2}s total",
+        paths.len(),
+        dirs.len(),
+        total.as_secs_f64()
+    );
+    Ok(())
+}
+
+/// The flag column of one sidecar: `-` when it does not exist, `err` when it
+/// cannot be read or parsed, else the flag.
+fn flag_column(path: &Path, read: fn(&[u8]) -> Result<Flag, String>) -> String {
+    match std::fs::read(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "-".into(),
+        Err(_) => "err".into(),
+        Ok(bytes) => read(&bytes).map_or("err".into(), |f| format!("{f:?}")),
+    }
+}
+
+/// What the eyes path of one file found, for `features_line`.
+struct EyesFeatures {
+    capture_time: Option<String>,
+    subsec: Option<String>,
+    af: bool,
+    /// The judged face's box side in preview pixels; `None` without one.
+    side: Option<f32>,
+    ear: Option<f64>,
+    /// The eyes-open probability; `None` when `judge_mesh` gave nothing.
+    open: Option<f64>,
+    pose: Option<pose::Pose>,
+}
+
+/// The eyes judgment of one file, step for step as the app's `read_eyes`:
+/// with a trusted AF point one full-size decode for the detection around it
+/// and the crop, else `decode_whole` and `detect_whole_upright` then a
+/// full-size decode; `judged_face`, then `judge_mesh` on the upright face.
+fn eyes_features(path: &Path) -> Result<EyesFeatures> {
+    let (a, jpeg) = reader::read_preview(path)?;
+    let focus = sharpness::trusted_focus(&a.shot);
+    let mut out = EyesFeatures {
+        capture_time: a.shot.capture_time.clone(),
+        subsec: a.shot.subsec.clone(),
+        af: focus.is_some(),
+        side: None,
+        ear: None,
+        open: None,
+        pose: None,
+    };
+    let (found, full) = if focus.is_some() {
+        let (rgb, w, h) = decode_rgb(&jpeg)?;
+        let found = faces::detect_around_rgb(&rgb, w, h, a.orientation, focus)?;
+        (found, Some((rgb, w, h)))
+    } else {
+        let whole = faces::decode_whole(&jpeg, a.orientation)?;
+        (faces::detect_whole_upright(&whole, a.orientation)?, None)
+    };
+    let Some(&stored) = eyes::judged_face(&found.faces, found.point) else {
+        return Ok(out);
+    };
+    out.side = Some(stored.width.max(stored.height));
+    let (rgb, w, h) = match full {
+        Some(full) => full,
+        None => decode_rgb(&jpeg)?,
+    };
+    let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, a.orientation);
+    let face = faces::face_to_upright(stored, a.orientation, w, h);
+    if let Some(j) = eyes::judge_mesh(&upright, uw, uh, &face) {
+        out.ear = eyes::more_closed_ear(&j.points);
+        out.open = Some(1.0 - j.eyes.probability);
+        out.pose = j.pose;
+    }
+    Ok(out)
+}
+
+/// One tab-separated record of `features` (the columns are on `features`).
+#[allow(clippy::too_many_arguments)]
+fn features_line(
+    folder: &str,
+    name: &str,
+    xmp_flag: &str,
+    dop_flag: &str,
+    analysis: &Result<scan::Analysis, String>,
+    analysis_ms: f64,
+    eyes: &Result<EyesFeatures, String>,
+    eyes_ms: f64,
+) -> String {
+    let opt =
+        |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
+    let text = |v: &Option<String>| v.clone().unwrap_or_else(|| "-".into());
+    let analysis = match analysis {
+        Ok(a) => [
+            opt(a.sharpness, 4),
+            format!("{:?}", a.cue.state),
+            opt(a.cue.eye_focus, 4),
+            opt(a.cue.face.map(|f| f.width.max(f.height) as f64), 1),
+        ]
+        .join("\t"),
+        Err(_) => ["err"; 4].join("\t"),
+    };
+    let (time, eyes) = match eyes {
+        Ok(e) => (
+            [text(&e.capture_time), text(&e.subsec)].join("\t"),
+            [
+                (if e.af { "af" } else { "noaf" }).to_string(),
+                opt(e.side.map(f64::from), 1),
+                opt(e.ear, 4),
+                opt(e.open, 4),
+                opt(e.pose.map(|p| p.yaw), 1),
+                opt(e.pose.map(|p| p.pitch), 1),
+                opt(e.pose.map(|p| p.roll), 1),
+            ]
+            .join("\t"),
+        ),
+        Err(_) => (["err"; 2].join("\t"), ["err"; 7].join("\t")),
+    };
+    format!("{folder}\t{name}\t{time}\t{xmp_flag}\t{dop_flag}\t{analysis}\t{eyes}\t{analysis_ms:.1}\t{eyes_ms:.1}")
 }
 
 /// One file of `detect`: the path taken, the faces and the times in ms.
@@ -1411,6 +1630,83 @@ mod tests {
             "side -  mesh -  yaw -  pitch -  roll -  L - - - - -  R - - - - -"
         );
         assert_eq!(mesh_columns(None, None).split_whitespace().count(), 22);
+    }
+
+    #[test]
+    fn features_line_lists_every_column_with_dashes_for_missing_values() {
+        let face = faces::Face {
+            width: 80.4,
+            height: 96.6,
+            ..upright()
+        };
+        let analysis = Ok(scan::Analysis {
+            cue: candidate::Cue {
+                state: candidate::FocusCandidate::Candidate,
+                eye_focus: Some(0.912345),
+                face: Some(face),
+                detection: None,
+            },
+            sharpness: Some(123.45678),
+        });
+        let eyes = Ok(EyesFeatures {
+            capture_time: Some("2026:09:19 10:11:12".into()),
+            subsec: Some("345".into()),
+            af: true,
+            side: Some(96.6),
+            ear: Some(0.21234),
+            open: Some(0.98765),
+            pose: Some(pose::Pose {
+                yaw: -12.34,
+                pitch: 4.06,
+                roll: 0.0,
+            }),
+        });
+        assert_eq!(
+            features_line("2026-09-19", "a.ARW", "Pick", "Pick", &analysis, 40.04, &eyes, 85.06),
+            "2026-09-19\ta.ARW\t2026:09:19 10:11:12\t345\tPick\tPick\t123.4568\tCandidate\t0.9123\t96.6\taf\t96.6\t0.2123\t0.9877\t-12.3\t4.1\t0.0\t40.0\t85.1"
+        );
+        let unknown = Ok(scan::Analysis::default());
+        let no_face = Ok(EyesFeatures {
+            capture_time: Some("2026:05:22 08:00:00".into()),
+            subsec: None,
+            af: false,
+            side: None,
+            ear: None,
+            open: None,
+            pose: None,
+        });
+        let line = features_line(
+            "2026-05-22",
+            "b.DNG",
+            "-",
+            "None",
+            &unknown,
+            30.0,
+            &no_face,
+            50.0,
+        );
+        assert_eq!(
+            line,
+            "2026-05-22\tb.DNG\t2026:05:22 08:00:00\t-\t-\tNone\t-\tUnknown\t-\t-\tnoaf\t-\t-\t-\t-\t-\t-\t30.0\t50.0"
+        );
+        assert_eq!(
+            line.split('\t').count(),
+            FEATURES_HEADER.split('\t').count()
+        );
+        let failed = features_line(
+            "x",
+            "c.ARW",
+            "err",
+            "-",
+            &Err("bad".into()),
+            1.0,
+            &Err("bad".into()),
+            2.0,
+        );
+        assert_eq!(
+            failed,
+            "x\tc.ARW\terr\terr\terr\t-\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\t1.0\t2.0"
+        );
     }
 
     #[test]
