@@ -2,7 +2,9 @@
 // `drawHeight` and centered on the origin. Free of DOM and Tauri so it is
 // tested without mocks.
 
-export interface MarkFocus {
+import type { StoredEyes } from "./eyes.js";
+
+export interface MarkFocus extends StoredEyes {
   sensor_w: number;
   sensor_h: number;
   x: number;
@@ -55,7 +57,7 @@ export function focusMark(
 }
 
 // One file the second scan pass has written, as `faces-progress` carries it.
-export interface FaceReady {
+export interface FaceReady extends StoredEyes {
   path: string;
   eye_focus: number | null;
   candidate: MarkFocus["candidate"];
@@ -78,6 +80,10 @@ export function applyFaceReady<T extends { focus: MarkFocus | null }>(
     }
     focus.eye_focus = item.eye_focus;
     focus.candidate = item.candidate;
+    focus.eyes_ear = item.eyes_ear;
+    focus.eyes = item.eyes;
+    focus.eyes_closed = item.eyes_closed;
+    focus.pose = item.pose;
     if (item.path === current) {
       touched = true;
     }

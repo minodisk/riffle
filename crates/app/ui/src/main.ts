@@ -34,7 +34,7 @@ import {
   faceMarks,
   focusMark,
 } from "./focus.js";
-import { type Eyes, EyesCache } from "./eyes.js";
+import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import { meshEdges, meshPoints } from "./facemesh.js";
 import {
@@ -196,6 +196,10 @@ interface Focus {
   manual_focus: boolean;
   candidate: "candidate" | "not_candidate" | "unknown";
   eye_focus: number | null;
+  eyes_ear: number | null;
+  eyes: EyeState;
+  eyes_closed: number | null;
+  pose: Pose | null;
 }
 
 interface IndexedFile {
@@ -540,6 +544,7 @@ const shownStars = new Set<number>();
 const shownLabels = new Set<string>();
 const shownOrientations = new Set<Orientation>();
 const shownCandidates = new Set<FocusCandidate>();
+const shownEyes = new Set<EyeState>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -1601,6 +1606,7 @@ function passes(path: string): boolean {
       labels: shownLabels,
       orientations: shownOrientations,
       candidates: shownCandidates,
+      eyes: shownEyes,
       exif: shownExif,
     },
     {
@@ -1611,6 +1617,7 @@ function passes(path: string): boolean {
     entries.get(path)?.exif,
     entries.get(path)?.orientation,
     entries.get(path)?.focus?.candidate,
+    entries.get(path)?.focus?.eyes,
   );
 }
 
@@ -3682,9 +3689,9 @@ void window.__TAURI__.event.listen<{
     applySharpness();
   }
   applyCandidates();
-  // The candidate filter fills in as the pass runs; the strip keeps its
-  // scroll offset, as on a resync.
-  if (shownCandidates.size > 0) {
+  // The candidate and eyes filters fill in as the pass runs; the strip keeps
+  // its scroll offset, as on a resync.
+  if (shownCandidates.size > 0 || shownEyes.size > 0) {
     refilter(files[index], true);
   }
   renderMeta();
@@ -3776,7 +3783,7 @@ void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
-  "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate]",
+  "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 const sharpFace = filterMenu.querySelector<HTMLElement>('[data-candidate="candidate"] .face')!;
@@ -3787,15 +3794,16 @@ function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
 }
 
-// Whether any flag, star, label, orientation, candidate or EXIF filter is
-// checked.
+// Whether any flag, star, label, orientation, candidate, eyes or EXIF filter
+// is checked.
 function filterActive(): boolean {
   return (
     shownFlags.size +
       shownStars.size +
       shownLabels.size +
       shownOrientations.size +
-      shownCandidates.size >
+      shownCandidates.size +
+      shownEyes.size >
       0 || exifSelected()
   );
 }
@@ -3856,7 +3864,7 @@ function setFilterMenuOpen(open: boolean): void {
 // then rebuild the view.
 function filterChanged(): void {
   for (const item of filterItems) {
-    const { flag, stars, label, orientation, candidate } = item.dataset;
+    const { flag, stars, label, orientation, candidate, eyes } = item.dataset;
     const checked =
       flag !== undefined
         ? shownFlags.has(flag as Flag)
@@ -3866,7 +3874,9 @@ function filterChanged(): void {
             ? shownOrientations.has(orientation as Orientation)
             : candidate !== undefined
               ? shownCandidates.has(candidate as FocusCandidate)
-              : shownStars.has(Number(stars));
+              : eyes !== undefined
+                ? shownEyes.has(eyes as EyeState)
+                : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
   for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
@@ -3894,7 +3904,7 @@ document.addEventListener("mousedown", (event) => {
 for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
-    const { flag, stars, label, orientation, candidate } = item.dataset;
+    const { flag, stars, label, orientation, candidate, eyes } = item.dataset;
     const set: Set<string | number> =
       flag !== undefined
         ? shownFlags
@@ -3904,8 +3914,10 @@ for (const item of filterItems) {
             ? shownOrientations
             : candidate !== undefined
               ? shownCandidates
-              : shownStars;
-    const value = flag ?? label ?? orientation ?? candidate ?? Number(stars);
+              : eyes !== undefined
+                ? shownEyes
+                : shownStars;
+    const value = flag ?? label ?? orientation ?? candidate ?? eyes ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
     } else {
@@ -3940,6 +3952,7 @@ filterExif.addEventListener("click", (event) => {
     shownLabels.clear();
     shownOrientations.clear();
     shownCandidates.clear();
+    shownEyes.clear();
     for (const set of shownExif.values()) {
       set.clear();
     }

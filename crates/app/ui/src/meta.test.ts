@@ -163,24 +163,38 @@ describe("metaGroups", () => {
 
   test("shows the AF eye in-focus probability as a percentage after Sharpness", () => {
     const riffle = (focus: FocusCue) => metaGroups(null, 12, focus)[0]?.rows;
-    expect(riffle({ candidate: "candidate", eye_focus: 0.8701 })).toEqual([
+    expect(
+      riffle({ candidate: "candidate", eye_focus: 0.8701, eyes_closed: null, pose: null }),
+    ).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "AF eye in focus", value: "87%" },
     ]);
-    expect(riffle({ candidate: "not_candidate", eye_focus: 0 })).toEqual([
+    expect(
+      riffle({ candidate: "not_candidate", eye_focus: 0, eyes_closed: null, pose: null }),
+    ).toEqual([
       { label: "Sharpness", value: "12.0" },
       { label: "AF eye in focus", value: "0%" },
     ]);
   });
 
   test("leaves out the row when there is no value", () => {
-    expect(metaGroups(null, 12, { candidate: "unknown", eye_focus: null })[0]?.rows).toEqual([
-      { label: "Sharpness", value: "12.0" },
-    ]);
+    expect(
+      metaGroups(null, 12, {
+        candidate: "unknown",
+        eye_focus: null,
+        eyes_closed: null,
+        pose: null,
+      })[0]?.rows,
+    ).toEqual([{ label: "Sharpness", value: "12.0" }]);
   });
 
   test("shows the open probability after the AF eye row", () => {
-    const focus: FocusCue = { candidate: "candidate", eye_focus: 0.87 };
+    const focus: FocusCue = {
+      candidate: "candidate",
+      eye_focus: 0.87,
+      eyes_closed: null,
+      pose: null,
+    };
     expect(
       metaGroups(null, 12, focus, { state: "closed", probability: 0.814, pose: null, mesh })[0]
         ?.rows,
@@ -235,8 +249,74 @@ describe("metaGroups", () => {
     expect(metaGroups(null, 12, null, undefined)[0]?.rows).toEqual(rows);
   });
 
+  test("shows the stored eye state and head pose without a judgment", () => {
+    const focus: FocusCue = {
+      candidate: "candidate",
+      eye_focus: 0.87,
+      eyes_closed: 0.814,
+      pose: { yaw: 12.4, pitch: -5.2, roll: 3.5 },
+    };
+    expect(metaGroups(null, null, focus, undefined)[0]?.rows).toEqual([
+      { label: "AF eye in focus", value: "87%" },
+      { label: "Eyes open", value: "19%" },
+      { label: "Head pose", value: "yaw 12°, pitch -5°, roll 4°" },
+    ]);
+  });
+
+  test("falls back to the judgment without a stored eye state", () => {
+    const focus: FocusCue = {
+      candidate: "unknown",
+      eye_focus: null,
+      eyes_closed: null,
+      pose: null,
+    };
+    const pose = { yaw: -20, pitch: 0, roll: 0 };
+    expect(
+      metaGroups(null, null, focus, { state: "open", probability: 0.07, pose, mesh })[0]?.rows,
+    ).toEqual([
+      { label: "Eyes open", value: "93%" },
+      { label: "Head pose", value: "yaw -20°, pitch 0°, roll 0°" },
+    ]);
+  });
+
+  test("prefers the stored eye state and head pose over the judgment", () => {
+    const focus: FocusCue = {
+      candidate: "candidate",
+      eye_focus: null,
+      eyes_closed: 0.25,
+      pose: { yaw: 1, pitch: 2, roll: 3 },
+    };
+    const judged = { yaw: 40, pitch: 0, roll: 0 };
+    expect(
+      metaGroups(null, null, focus, { state: "closed", probability: 0.9, pose: judged, mesh })[0]
+        ?.rows,
+    ).toEqual([
+      { label: "Eyes open", value: "75%" },
+      { label: "Head pose", value: "yaw 1°, pitch 2°, roll 3°" },
+    ]);
+  });
+
+  test("leaves out the eye rows with neither a stored state nor a judgment", () => {
+    const focus: FocusCue = {
+      candidate: "not_candidate",
+      eye_focus: 0.07,
+      eyes_closed: null,
+      pose: null,
+    };
+    expect(metaGroups(null, null, focus, null)[0]?.rows).toEqual([
+      { label: "AF eye in focus", value: "7%" },
+    ]);
+  });
+
   test("shows the analysis group for the in-focus probability alone", () => {
-    expect(metaGroups(null, null, { candidate: "not_candidate", eye_focus: 0.07 })).toEqual([
+    expect(
+      metaGroups(null, null, {
+        candidate: "not_candidate",
+        eye_focus: 0.07,
+        eyes_closed: null,
+        pose: null,
+      }),
+    ).toEqual([
       {
         heading: ANALYSIS_HEADING,
         rows: [{ label: "AF eye in focus", value: "7%" }],

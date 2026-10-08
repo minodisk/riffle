@@ -258,13 +258,15 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Eyes open` is how likely it is that the eyes of the face nearest the AF
   point (without an AF point, the largest face Riffle is confident of) are
   open, as a percentage; Riffle counts them closed when that probability is 50% or
-  below (the row is rounded, so a shown `50%` may be either). It is
-  judged when the file is shown, not in the scan, from the eyelid
+  below (the row is rounded, so a shown `50%` may be either). For the face
+  nearest the AF point it is stored by the scan's second pass, along with
+  `Head pose`; otherwise it is judged when the file is shown. Either way it
+  comes from the eyelid
   points of the bundled
   [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
   face mesh (Apache-2.0, text and provenance in
   `crates/core/models/LICENSE-mediapipe`, run locally with no network
-  access), so it appears a moment after the preview. It is left out when
+  access), so a judged one appears a moment after the preview. It is left out when
   there is no face, when the face is under about 60 pixels on the embedded
   preview (too small to judge), and for JPEG files. A downcast eye shows no
   iris either, so it counts as closed like a blink. `Head pose` is the yaw,
@@ -283,7 +285,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `AF eye` section: `Sharp` for a green focus mark, `Soft` for orange and
   `Unknown` for white, including files the second pass has not reached;
   checking several shows the files in any of them, and the strip refills as
-  the pass runs),
+  the pass runs), the stored eye state of the face nearest the AF point (the
+  `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
+  state, such as one without an AF point, with a face under about 60 pixels,
+  or not reached by the second pass yet),
   camera, lens, aperture, shutter speed, ISO and focal length (grouped into
   ranges such as `24–35 mm`). The color
   label group lists the seven colors and `No label`; a label outside those
