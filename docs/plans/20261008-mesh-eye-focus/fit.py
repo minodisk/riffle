@@ -436,6 +436,31 @@ def main():
             hi_s = "+" if hi > 10**5 else f"-{hi - 1}"
             print(f"| {lo}{hi_s} | " + " | ".join(cells) + " |")
 
+    print("\n## Face sizes (face long side, px) at margin 0.5, floor 24")
+    v24 = Variant("b", 0.5, 24)
+    for name, fr in sets:
+        counting = [r["side"] for r in fr if v24.eyes(r)]
+        fallback = [r["side"] for r in fr if not v24.eyes(r)]
+        meshed = [r["side"] for r in fr if r["mesh"]]
+        print(
+            f"{name}: min side of counting frames {min(counting):.1f}, "
+            f"fallback frames {len(fallback)}, of them under 60 px "
+            f"{sum(s < 60 for s in fallback)}, meshed frames {len(meshed)}, "
+            f"of them under 60 px {sum(s < 60 for s in meshed)}, "
+            f"frames under 60 px {sum(r['side'] < 60 for r in fr)} of {len(fr)} "
+            f"({pct(sum(r['side'] < 60 for r in fr) / len(fr))})"
+        )
+
+    print("\n## Eyes of margin 0 with no edge width or under 3 px")
+    for name, fr in sets:
+        eyes = [r[e]["contour"][0] for r in fr for e in ("left", "right") if r[e]]
+        small = sum(c is None or max(c["w"], c["h"]) < 3 for c in eyes)
+        no_edge = sum(c is None or c["edge"] is None for c in eyes) - small
+        print(
+            f"{name}: {len(eyes)} eyes, under 3 px (no region) {small}, "
+            f"other eyes with no edge width {no_edge}"
+        )
+
     floors = [0, 6, 8, 10, 12, 16, 24]
     print("\n## (b) sharper eye, (d) margin x floor")
     header()

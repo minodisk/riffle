@@ -24,7 +24,7 @@ holds the chosen variant at full precision.
   `training.txt` / `heldout.txt`. `fit.py` checks the 0.25-margin window size
   and lap of every eye against the Step 1 lines (0 mismatches on both sets),
   so the dump measures exactly what Step 1 measured. The script's full output
-  is saved there as `fit-out.txt`.
+  is saved as [`fit-out.txt`](fit-out.txt).
 - The held-out frames are the same 400 the current model was compared on, so
   the comparison is fair but not fresh. The reserved folders are still
   unlabeled.
@@ -196,13 +196,18 @@ At margin 0.5 a 24 px floor sends 61.3% of the training frames and 56.8% of
 the held-out frames to the window fallback (a frame counts when either eye's
 region reaches 24 px). The floor sits at the window's own minimum
 (`CANDIDATE_WINDOW_MIN`). Every frame that counts has a face box of at least
-58 px (training) / 65 px (held-out), and 105 / 103 fallback frames have
-faces under 60 px (`EYES_MIN_FACE`).
+58.2 px (training) / 65.3 px (held-out), and 105 / 103 fallback frames have
+faces under 60 px (`EYES_MIN_FACE`); one counting training frame (58.2 px)
+is under 60 px, none held-out. In all, 106 of 406 training (26.1%) and 103
+of 400 held-out (25.8%) labeled faces are under 60 px. `fit.py` prints these
+under "Face sizes" in `fit-out.txt`.
 
 ### Eye rules
 
 The chosen margin and floor, followed by two reference settings: the plan's
 starting margin with no floor, and the chosen margin with no floor.
+
+Margin 0.5, floor 24 (chosen):
 
 | variant | train AUC | train prec | train cov | train fallback | train meshed AUC mesh / window | held AUC | held prec | held cov | held fallback | held meshed AUC mesh / window |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -219,6 +224,8 @@ starting margin with no floor, and the chosen margin with no floor.
 | g yaw 60 | 0.882 | 93.9% | 91.4% | 249/406 | 0.951 / 0.949 | 0.796 | 88.6% | 95.6% | 227/400 | 0.869 / 0.848 |
 | control: window refit | 0.865 | 92.8% | 91.4% | 249/406 | 0.957 / 0.949 | 0.777 | 88.9% | 95.6% | 227/400 | 0.781 / 0.848 |
 
+Margin 0.25, floor 0:
+
 | variant | train AUC | train prec | train cov | train fallback | train meshed AUC mesh / window | held AUC | held prec | held cov | held fallback | held meshed AUC mesh / window |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | b sharper | 0.862 | 93.7% | 91.4% | 45/406 | 0.866 / 0.856 | 0.791 | 88.5% | 92.7% | 37/400 | 0.791 / 0.766 |
@@ -233,6 +240,8 @@ starting margin with no floor, and the chosen margin with no floor.
 | f yaw 60 | 0.860 | 92.8% | 91.4% | 45/406 | 0.863 / 0.856 | 0.783 | 88.3% | 92.7% | 37/400 | 0.783 / 0.766 |
 | g yaw 60 | 0.861 | 92.5% | 91.4% | 45/406 | 0.863 / 0.856 | 0.783 | 88.1% | 93.0% | 37/400 | 0.782 / 0.766 |
 | control: window refit | 0.853 | 93.1% | 91.4% | 45/406 | 0.856 / 0.856 | 0.761 | 89.1% | 95.3% | 37/400 | 0.765 / 0.766 |
+
+Margin 0.5, floor 0:
 
 | variant | train AUC | train prec | train cov | train fallback | train meshed AUC mesh / window | held AUC | held prec | held cov | held fallback | held meshed AUC mesh / window |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -257,6 +266,8 @@ and the eye the yaw names is not the sharper one (by (b)'s logit), with
 their labels. A phantom far eye that reads sharp on an off frame would show
 up there as a reject.
 
+Margin 0.5, floor 24:
+
 | cut | set | above (off) | at or below (off) | no pose | pose eye != sharper (pick / reject) |
 | --- | --- | --- | --- | --- | --- |
 | 15 | train | 291 (44) | 115 (23) | 0 | 8 (6 / 2) |
@@ -267,6 +278,8 @@ up there as a reject.
 | 45 | held | 93 (13) | 304 (44) | 3 | 3 (3 / 0) |
 | 60 | train | 53 (6) | 353 (61) | 0 | 0 (0 / 0) |
 | 60 | held | 45 (6) | 352 (51) | 3 | 2 (2 / 0) |
+
+Margin 0.25, floor 0:
 
 | cut | set | above (off) | at or below (off) | no pose | pose eye != sharper (pick / reject) |
 | --- | --- | --- | --- | --- | --- |

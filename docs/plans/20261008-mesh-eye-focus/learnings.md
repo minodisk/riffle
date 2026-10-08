@@ -87,8 +87,8 @@
 - The window baseline reproduces from the full-precision dump exactly:
   0.852 / 93.1% / 91.4% and 0.754 / 89.1% / 95.3%.
 - Small training subsets can be perfectly separable, and Newton's method
-  then divides by zero. (c) at margin 0.25 with a 24 px floor is reported as
-  "no fit".
+  then divides by zero. `run()` reports such a variant as "no fit"; none of
+  the variants the script runs hit it in the final run.
 - The fit's threshold lies midway between the boundary pick's logit and the
   next lower logit, not on the pick's logit. That avoids the full-precision
   boundary-frame problem the earlier plan hit with `CANDIDATE_LOGIT`.
@@ -104,8 +104,9 @@
 
 - Skip the face mesh in the scan for faces whose box is under 60 px
   (`EYES_MIN_FACE`). At the chosen 24 px floor, no face under 58 px gets an
-  eye region that counts (1 of 330 meshed frames lies under 60 px), and
-  about 26% of the labeled faces are under 60 px. So a face-size gate would
+  eye region that counts (1 of the 330 counting frames lies under 60 px:
+  157 training, 173 held-out), and about 26% of the labeled faces are under
+  60 px (`fit-out.txt`, "Face sizes"). So a face-size gate would
   save about a quarter of the mesh runs at almost no change to the cue. It
   was not measured as a fit variant. Basis: Step 2 (`fit.md`, "Floor"). Files:
   `crates/core/src/candidate.rs` (`focus_cue_unless`),

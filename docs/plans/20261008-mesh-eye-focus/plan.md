@@ -389,11 +389,17 @@ differ:
 - The window fallback is used only when **no** eye counts, not when either
   region is missing or small. This is the rule `fit.md` measured. It sends
   61% of the training frames and 57% of the held-out frames to the window.
-- Mesh model: `c` = -8.158737592019197, `k1` = 1.9417143647766388,
-  `k2` = -1.3161251379398846, threshold 0.8343419969086643. The fallback
-  keeps the window coefficients and its 1.2194 state boundary. fit.md's
-  pooled AUC already puts both paths on one threshold the option-A way, so
-  Step 3 follows Trade-off option A.
+- Mesh model: `k1` = 1.9417143647766388, `k2` = -1.3161251379398846, and
+  the fitted intercept -8.158737592019197 with threshold 0.8343419969086643.
+  fit.md's pooled AUC puts both paths on one threshold by shifting the
+  fallback's logit by 0.8343419969086643 - 1.2194. Step 3 gets the same
+  single threshold the equivalent way round (Trade-off option A, mirrored):
+  **`CANDIDATE_LOGIT` stays 1.2194 and the `LOGIT_*` window constants stay
+  as they are**, so the frozen-coefficients test of `LOGIT_*` is unchanged.
+  The mesh model's intercept moves instead: `MESH_LOGIT_INTERCEPT` =
+  -8.158737592019197 + (1.2194 - 0.8343419969086643) =
+  -7.773679588927861, and a mesh logit is compared with `CANDIDATE_LOGIT`
+  like a window logit. The new mesh constants get their own frozen test.
 - There is no `EYE_YAW_CUT`, and Step 3's yaw-cut tests (the eye the yaw sign
   names, a yaw at the cut) do not apply. The other tests stand.
 
@@ -406,7 +412,8 @@ Caveats behind the adopt (details in fit.md):
   equally on training (0.951 against 0.949). On held-out the region ranks
   better (0.876 against 0.848), but over only 9 off frames.
 - No frame whose face box is under 58 px reaches the floor. Skipping the mesh
-  below `EYES_MIN_FACE` (60 px) would change 1 of 330 meshed frames and save
+  below `EYES_MIN_FACE` (60 px) would change 1 of the 330 frames that count
+  (157 training, 173 held-out; the one is a 58.2 px training face) and save
   about a quarter of the mesh runs. That is not measured as a variant and is
   left to Step 3 / Step 4 and the cost decision.
 
@@ -489,3 +496,4 @@ Caveats behind the adopt (details in fit.md):
 ## Progress
 
 - (2026-10-08) Step 1 complete. Deviation (see learnings.md): the margin and `edge_width_rel` use the box's longer side, not `window.width`, so for an upright eye (wider than tall) `edge_width_rel` is a fraction of the eye width as the Done-when text says.
+- (2026-10-08) Step 2 complete. Deviations from the Step 2 text: the fit reads a scratch `riffle-cli meshdump` dump (`meshdump.patch`, applied on the Step 1 commit and reverted) instead of the Step 1 lines alone, since variants (c) and (d) need the AF point and other margins; variant (d) was also run at margin 1.0; and the Decision overrides Step 3's wording (the window fallback applies only when no eye counts, no yaw cut, one threshold by shifting the mesh intercept rather than the fallback's).
