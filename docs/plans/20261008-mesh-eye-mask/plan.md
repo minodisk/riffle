@@ -217,7 +217,7 @@ closed either way.
     - Files: this folder's `fit.py`, `fit.md`, `fit-out.txt`, `frozen.json`,
       `plan.md` (Decision).
 
-- [ ] Step 3 (conditional, gated): Score the AF eye inside the mask in the scan
+- [ ] Step 3 (skipped, mask not adopted; conditional, gated): Score the AF eye inside the mask in the scan
   - **Gate:** start only after Step 2's Decision is "adopt" **and**
     dlg-mesh-face-gate is on `main` (check `git log origin/main` for its
     merge; if dlg-store-eyes-pose has merged too, take it in). Rebase onto
@@ -331,7 +331,7 @@ closed either way.
   rank the training set's meshed frames better (0.974 against 0.951), which did
   not carry over. Re-validating on the reserved folders once labeled is the
   existing todo item's follow-up.
-- So Step 3 is skipped (to be marked so in Progress), and Step 4 takes its
+- So Step 3 is skipped (marked so in Progress), and Step 4 takes its
   "if not adopted" branch.
 
 ## Trade-offs and risks
@@ -382,3 +382,10 @@ closed either way.
   with the face gate already on `main`; its data is in
   `D:\Photos\tests\2026-10-08-mesh-eye-mask\`. See `learnings.md` for the size
   and cost tables.
+- 2026-10-09 Step 2 done: the eyelid contour mask refit ran on the
+  training and held-out sets; the mask is not adopted. The selected cell
+  (dilation 0.1, mask pixel-count floor 50, masked Laplacian plus edge width)
+  reaches training AUC 0.889 against the baseline's 0.882 but held-out AUC
+  0.797 against 0.800, with precision 88.56% and coverage 95.0% failing the
+  rule. See `fit.md` and `frozen.json` (`adopt: false`). Step 3 is skipped
+  and Step 4 takes its "if not adopted" branch.

@@ -70,8 +70,10 @@ What is new in this fit:
   higher; ties to the lower floor, then the smaller dilation. Training data
   only.
 - Cells with no fit: when no eye reaches the floor, or the counting rows are
-  separable (all of them at dilation 0 / 0.1 with large floors, where 0-2 off
-  frames remain), the cell has no maximum-likelihood fit and is marked so.
+  separable (they sit at dilation 0 to 0.25 with large floors, where 0-2 off
+  frames remain) so Newton's method overflows or does not converge within 100
+  iterations (last step under 1e-12), the cell has no maximum-likelihood fit
+  and is marked so.
 
 ## Results
 
@@ -141,8 +143,8 @@ fallback).
 | d \ floor | 0 | 25 | 50 | 100 | 200 | 400 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 0.859 / 0.765 | 0.884 / 0.766 | 0.869 / 0.769 | no fit | no fit | no fit |
-| 0.1 | 0.869 / 0.777 | 0.866 / 0.777 | 0.880 / 0.796 | 0.860 / 0.777 | 0.858 / 0.768 | no fit |
-| 0.25 | 0.864 / 0.792 | 0.866 / 0.792 | 0.865 / 0.796 | 0.886 / 0.798 | 0.877 / 0.778 | 0.858 / 0.768 |
+| 0.1 | 0.869 / 0.777 | 0.866 / 0.777 | 0.880 / 0.796 | 0.860 / 0.777 | no fit | no fit |
+| 0.25 | 0.864 / 0.792 | 0.866 / 0.792 | 0.865 / 0.796 | 0.886 / 0.798 | 0.877 / 0.778 | no fit |
 | 0.5 | 0.861 / 0.806 | 0.862 / 0.803 | 0.864 / 0.800 | 0.865 / 0.802 | 0.882 / 0.815 | 0.880 / 0.795 |
 | 1.0 | 0.854 / 0.800 | 0.854 / 0.800 | 0.852 / 0.797 | 0.855 / 0.784 | 0.852 / 0.786 | 0.874 / 0.803 |
 

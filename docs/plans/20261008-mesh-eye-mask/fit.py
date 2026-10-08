@@ -89,8 +89,8 @@ def fit(rows):
         step = solve(h, g)
         w = [a + b for a, b in zip(w, step)]
         if max(abs(s) for s in step) < 1e-12:
-            break
-    return w
+            return w
+    raise ArithmeticError("Newton did not converge")
 
 
 def logit(w, x):
@@ -245,8 +245,9 @@ def run(v, train, held):
         v.fit(train)
         s_tr = v.scores(train)
         t = threshold(s_tr)
-    except (ZeroDivisionError, OverflowError, IndexError):
-        # Separable (or empty) training rows: no maximum-likelihood fit.
+    except (ZeroDivisionError, OverflowError, IndexError, ArithmeticError):
+        # Separable (or empty) training rows, or Newton not converged: no
+        # maximum-likelihood fit.
         return None
     return v, t, evaluate(s_tr, t), evaluate(v.scores(held), t)
 
