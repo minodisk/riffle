@@ -192,3 +192,4 @@ what gives the stored value its 60 px floor.
 ## Progress
 
 - (2026-10-09) Step 1 complete (SCHEMA_VERSION 18, FACES_VERSION 7; the EAR and pose carried on Cue and stored by pass 2; see learnings.md)
+- (2026-10-09) Step 2 complete
