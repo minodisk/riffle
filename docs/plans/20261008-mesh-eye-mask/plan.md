@@ -172,7 +172,7 @@ closed either way.
       first; otherwise record that the dump predates it (one training frame
       may differ; Step 2 reports the delta).
 
-- [ ] Step 2: Refit the logistic on the masked features and decide whether the mask replaces the rectangle
+- [x] Step 2: Refit the logistic on the masked features and decide whether the mask replaces the rectangle
   - Done when:
     - `fit.py` in this plan folder (copied from the archived one, extended
       with a loader for the mask dump; pure Python 3, not part of the
@@ -301,6 +301,38 @@ closed either way.
       across `README*.md`, `docs/humans`, `docs/agents`, `CLAUDE.md`,
       `todo.md` (not `docs/plans/_archived`). Keep the "Closed-eyes judgment
       on demand" and eye-state survey sections untouched.
+
+## Decision
+
+**Not adopted: the rectangle stays.** Details in [`fit.md`](fit.md), output in
+[`fit-out.txt`](fit-out.txt), the selected cell in [`frozen.json`](frozen.json)
+(`"adopt": false`).
+
+- Baseline reproduced: the archived dump refits to the archived coefficients
+  bit for bit, 0.882 / 93.9% / 91.4% training and 0.800 / 88.6% / 95.9%
+  held-out. With the face gate on (the mask dump), one training reject
+  (`_DSC2748.ARW`, 58.2 px face) moves to the window fallback and stays off;
+  the post-gate baseline is 0.882 / 93.9% / 91.4% and 0.80026 / 328 of 370 /
+  328 of 342 held-out, the same at the rule's precision.
+- Selected cell (highest pooled training AUC over 110 cells: (b) both measures
+  masked and (c) the Laplacian only, dilations 0-1.0, longer-side floors 0-24
+  px and pixel-count floors 0-400; the pixel-count rule ranked higher): **(b),
+  dilation 0.1, a 50-pixel floor**, training 0.889 / 93.7% / 91.4%, held-out
+  **0.797 / 88.6% (325 / 367) / 95.0% (325 / 342)**.
+- The rule fails on all three conditions, against both the post-gate baseline
+  and the archived numbers (the same outcome, so no stricter one to choose):
+  AUC 0.797 is not above 0.800 (-0.003); precision 88.56% is below 88.65%
+  (328 / 370); coverage 95.0% is below 95.9% (3 fewer in-focus frames found).
+- With the longer-side floor rule instead, the best cell (dilation 0.25, 16
+  px) reaches held-out AUC 0.806 but 88.59% precision and 95.3% coverage, so it
+  fails too; post hoc, no cell of the 110 passes all three on held-out.
+- Caveat: the held-out set's meshed frames hold only 9-11 off frames, so the
+  AUC differences of 0.003-0.007 around 0.800 are within noise; the mask did
+  rank the training set's meshed frames better (0.974 against 0.951), which did
+  not carry over. Re-validating on the reserved folders once labeled is the
+  existing todo item's follow-up.
+- So Step 3 is skipped (to be marked so in Progress), and Step 4 takes its
+  "if not adopted" branch.
 
 ## Trade-offs and risks
 
