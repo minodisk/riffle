@@ -53,7 +53,9 @@ passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /
 `faces_extractor` columns with the focus candidate cue the `f` focus mark is
 colored by (YuNet, then the face mesh on the face nearest the AF point) and
-the sharpness score, and streams them as `faces-progress` /
+the sharpness score, and the `eyes_ear` / `pose_yaw` / `pose_pitch` /
+`pose_roll` columns with the EAR of the more closed eye and the head pose
+from that same mesh, and streams them as `faces-progress` /
 `faces-done` events; both passes run on worker threads below normal OS
 priority (the second pass lower still) and take the on-screen files first
 through the shared `ScanFocus` handle,

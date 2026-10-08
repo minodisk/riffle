@@ -1623,6 +1623,7 @@ mod tests {
                     contour: Some(region(28, 12, 80.0, None)),
                     iris: None,
                 },
+                ear: None,
                 pose: Some(pose),
             }),
         };
@@ -1674,6 +1675,8 @@ mod tests {
                 eye_focus: Some(0.912345),
                 face: Some(face),
                 detection: None,
+                eyes_ear: None,
+                pose: None,
             },
             sharpness: Some(123.45678),
         });

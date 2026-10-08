@@ -340,8 +340,10 @@ fn to_full(points: &[[f32; 3]], win: &Window) -> Vec<[f32; 3]> {
 }
 
 /// The EAR of the more closed eye of a face's mesh `points`; `None` when
-/// neither eye's EAR is finite.
-pub fn more_closed_ear(points: &[[f32; 3]]) -> Option<f64> {
+/// neither eye's EAR is finite. Only x and y are read, so the 3D upright
+/// points and `Mesh::points` (2D, stored coordinates) give the same EAR: a
+/// quarter turn or a half turn keeps every distance.
+pub fn more_closed_ear<P: AsRef<[f32]>>(points: &[P]) -> Option<f64> {
     let (left, right) = ears(points);
     let ear = left.min(right);
     ear.is_finite().then_some(ear as f64)
@@ -408,11 +410,11 @@ fn resize(rgb: &[u8], width: usize, height: usize, out_w: usize, out_h: usize) -
 }
 
 /// The EAR of the eye on the left of the image, then the right one:
-/// `(|p2 - p6| + |p3 - p5|) / (2 |p1 - p4|)`.
-fn ears(points: &[[f32; 3]]) -> (f32, f32) {
-    let d = |a: [f32; 3], b: [f32; 3]| (a[0] - b[0]).hypot(a[1] - b[1]);
+/// `(|p2 - p6| + |p3 - p5|) / (2 |p1 - p4|)`, on x and y only.
+fn ears<P: AsRef<[f32]>>(points: &[P]) -> (f32, f32) {
+    let d = |a: &[f32], b: &[f32]| (a[0] - b[0]).hypot(a[1] - b[1]);
     let ear = |i: [usize; 6]| {
-        let p = |k: usize| points[i[k]];
+        let p = |k: usize| points[i[k]].as_ref();
         (d(p(1), p(5)) + d(p(2), p(4))) / (2.0 * d(p(0), p(3)))
     };
     (ear(LEFT_EYE), ear(RIGHT_EYE))
@@ -487,6 +489,37 @@ mod tests {
         let (l, r) = ears(&points);
         assert!((l - 0.3).abs() < 1e-6, "{l}");
         assert!((r - 0.1).abs() < 1e-6, "{r}");
+    }
+
+    #[test]
+    fn the_ear_on_stored_mesh_points_is_the_upright_one() {
+        let (w, h) = (6000, 4000);
+        let mut points = vec![[0.0; 3]; LANDMARKS];
+        eye(&mut points, LEFT_EYE, 1234.5, 0.7);
+        eye(&mut points, RIGHT_EYE, 1300.25, 1.3);
+        for p in &mut points {
+            p[0] += 0.37;
+            p[1] += 2210.6;
+        }
+        let upright = more_closed_ear(&points).unwrap();
+        for orientation in [1, 3, 6, 8] {
+            let (sw, sh) = match orientation {
+                6 | 8 => (h, w),
+                _ => (w, h),
+            };
+            let stored: Vec<[f32; 2]> = points
+                .iter()
+                .map(|p| {
+                    let (x, y) = point_to_stored((p[0], p[1]), orientation, sw, sh);
+                    [x, y]
+                })
+                .collect();
+            let ear = more_closed_ear(&stored).unwrap();
+            assert!(
+                (ear - upright).abs() < 1e-5,
+                "{orientation}: {ear} {upright}"
+            );
+        }
     }
 
     #[test]
@@ -677,6 +710,13 @@ mod tests {
         let stored_face = crate::faces::to_stored(face, 6, sw, sh);
         let mesh = mesh_of(&stored, sw, sh, 6, &stored_face).unwrap();
         assert_eq!(mesh.pose, judged.pose);
+        let judged_ear = more_closed_ear(&judged.points).unwrap();
+        assert_eq!(judged.eyes, Eyes::from_ear(judged_ear));
+        let stored_ear = more_closed_ear(&mesh.points).unwrap();
+        assert!(
+            (stored_ear - judged_ear).abs() < 1e-5,
+            "{stored_ear} {judged_ear}"
+        );
         for (m, p) in mesh.points.iter().zip(&judged.points) {
             let (x, y) = point_to_stored((p[0], p[1]), 6, sw, sh);
             assert!(
