@@ -1,0 +1,40 @@
+{
+  "variant": "b sharper",
+  "formula": "c + k1*ln(lap+1) + k2*ln(edge_w/longer side)",
+  "c": -8.158737592019197,
+  "k1": 1.9417143647766388,
+  "k2": -1.3161251379398846,
+  "threshold": 0.8343419969086643,
+  "margin": 0.5,
+  "floor": 24,
+  "eye_rule": "sharper",
+  "yaw_cut": null,
+  "fallback_threshold": 1.2194,
+  "train": {
+    "auc": 0.8820499273543786,
+    "precision": 0.9393939393939394,
+    "coverage": 0.9144542772861357,
+    "candidates": 330,
+    "hits": 310,
+    "picks": 339,
+    "fallback": 249,
+    "n": 406,
+    "meshed_off": 19,
+    "meshed_auc_mesh": 0.9508009153318078,
+    "meshed_auc_window": 0.9488939740655988
+  },
+  "heldout": {
+    "auc": 0.8000100826779593,
+    "precision": 0.8864864864864865,
+    "coverage": 0.9590643274853801,
+    "candidates": 370,
+    "hits": 328,
+    "picks": 342,
+    "fallback": 227,
+    "n": 400,
+    "meshed_off": 9,
+    "meshed_auc_mesh": 0.8760162601626016,
+    "meshed_auc_window": 0.8475609756097561
+  },
+  "adopt": true
+}

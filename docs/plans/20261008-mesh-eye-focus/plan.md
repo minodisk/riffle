@@ -186,7 +186,7 @@ what the number looks at.
       (`measures` in `candidates`); add the mesh there, not in
       `extract_analysis`, so this step leaves the scan untouched.
 
-- [ ] Step 2: Refit the logistic on the mesh eye features and decide whether it replaces the window, and which eye counts
+- [x] Step 2: Refit the logistic on the mesh eye features and decide whether it replaces the window, and which eye counts
   - Done when:
     - `fit.md` in this plan folder: on the 406 training frames, with the
       same pooling rules as the reference (labeled faced frames; frames with
@@ -354,6 +354,61 @@ what the number looks at.
       candidate pass`, `too costly for the second pass` across
       `README*.md`, `docs/humans`, `docs/agents`, `CLAUDE.md`, `todo.md`
       (not `docs/plans/_archived`).
+
+## Decision
+
+Step 2 ([fit.md](fit.md), [frozen.json](frozen.json)): **adopt the mesh eye
+regions**.
+
+The chosen variant is (b), the sharper eye: each eye is scored over its
+eyelid contour bounding box grown by a margin of **0.5** times the box's
+longer side, and the frame takes the higher of the two eyes' logits. The
+margin and the floor were chosen on the training set alone. They are the
+highest pooled training AUC of the 28 margin x floor cells. On held-out, the
+pose rules (f) and (g) do not beat it at any yaw cut (best 0.796 against
+0.800). So **no yaw cut**, and Step 3 does not use the pose.
+
+| | train | held-out |
+| --- | --- | --- |
+| AUC (window: 0.852 / 0.754) | 0.882 | 0.800 |
+| precision (window: 93.1% / 89.1%) | 93.9% | 88.6% |
+| coverage (window: 91.4% / 95.3%) | 91.4% | 95.9% |
+
+The adopt rule holds. The held-out AUC of 0.800 beats 0.754. Precision
+(88.6%) is below 89.1%, but coverage (95.9%) is not below 95.3%, so the two
+are not both below.
+
+What Step 3 implements, which supersedes the wording in Step 3 where they
+differ:
+
+- `EYE_REGION_MARGIN` = 0.5 and `EYE_REGION_MIN` = 24 px, measured on the
+  region's longer side.
+- An eye counts when its contour region exists, has an edge width and
+  reaches `EYE_REGION_MIN`. The frame's logit is the higher logit of the eyes
+  that count.
+- The window fallback is used only when **no** eye counts, not when either
+  region is missing or small. This is the rule `fit.md` measured. It sends
+  61% of the training frames and 57% of the held-out frames to the window.
+- Mesh model: `c` = -8.158737592019197, `k1` = 1.9417143647766388,
+  `k2` = -1.3161251379398846, threshold 0.8343419969086643. The fallback
+  keeps the window coefficients and its 1.2194 state boundary. fit.md's
+  pooled AUC already puts both paths on one threshold the option-A way, so
+  Step 3 follows Trade-off option A.
+- There is no `EYE_YAW_CUT`, and Step 3's yaw-cut tests (the eye the yaw sign
+  names, a yaw at the cut) do not apply. The other tests stand.
+
+Caveats behind the adopt (details in fit.md):
+
+- Part of the gain comes from giving the larger-eyed frames a model of their
+  own. A control that refits the window's features on the same frames reaches
+  0.865 / 0.777, so the region itself adds about 0.02 AUC.
+- On the frames that do not fall back, the region and the window rank about
+  equally on training (0.951 against 0.949). On held-out the region ranks
+  better (0.876 against 0.848), but over only 9 off frames.
+- No frame whose face box is under 58 px reaches the floor. Skipping the mesh
+  below `EYES_MIN_FACE` (60 px) would change 1 of 330 meshed frames and save
+  about a quarter of the mesh runs. That is not measured as a variant and is
+  left to Step 3 / Step 4 and the cost decision.
 
 ## Trade-offs and risks
 
