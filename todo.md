@@ -44,8 +44,9 @@ labels yet, so they were not run.
       among the meshed ones), so also run that plan's `fit.py` window /
       region comparison on them, and the eyelid contour mask comparison of
       `docs/plans/_archived/20261008-mesh-eye-mask/` (not adopted on the
-      held-out set, but it ranked the training set's meshed frames better,
-      0.974 against 0.951). Files: `crates/cli/src/main.rs`,
+      held-out set, but it ranked the training set's meshed frames better:
+      meshed AUC 0.974 against the window's 0.951 on the same frames, where
+      the rectangle reached 0.948 against the window's 0.946). Files: `crates/cli/src/main.rs`,
       `crates/core/src/candidate.rs`,
       `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`,
       `docs/plans/_archived/20261008-mesh-eye-mask/fit.py`.

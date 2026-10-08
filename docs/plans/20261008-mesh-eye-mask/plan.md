@@ -328,8 +328,8 @@ closed either way.
   fails too; post hoc, no cell of the 110 passes all three on held-out.
 - Caveat: the held-out set's meshed frames hold only 9-11 off frames, so the
   AUC differences of 0.003-0.007 around 0.800 are within noise; the mask did
-  rank the training set's meshed frames better (0.974 against 0.951), which did
-  not carry over. Re-validating on the reserved folders once labeled is the
+  rank the training set's meshed frames better (0.974 against the window's
+  0.951, where the rectangle reached 0.948), which did not carry over. Re-validating on the reserved folders once labeled is the
   existing todo item's follow-up.
 - So Step 3 is skipped (marked so in Progress), and Step 4 takes its
   "if not adopted" branch.
