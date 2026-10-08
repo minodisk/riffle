@@ -303,7 +303,7 @@ def position_metrics(bursts, score, missing_last):
                 pair_num += 1.0 if p > n else 0.5 if p == n else 0.0
         pair_den += len(pv) * len(nv)
         m = len(members)
-        if m < 2 or not pv:
+        if m < 2 or not pv or not nv:
             continue
         r = ranks([v for _, v in members])
         qs = []
@@ -367,7 +367,7 @@ def flag_metrics(bursts, fails):
     }
 
 
-def score_rows(bursts, with_baselines=True):
+def score_rows(with_baselines=True):
     rows = []
     entries = SCORES + (BASELINES if with_baselines else [])
     for name, score, may_miss, show in entries:
@@ -462,7 +462,7 @@ def counts_rows(frames_by_folder, groups, scorable):
     ]
 
 
-def block(kind, folders, gap, full):
+def block(kind, folders, gap):
     rng = random.Random(0)
     sel = [(n, fr) for n, k, fr in folders if k == kind]
     groups, scorable = [], []
@@ -482,7 +482,7 @@ def report(folders, sample_path):
         print(f"### Gap {gap} ms\n")
         rows = []
         for kind in KINDS:
-            sel, groups, _, pfg = block(kind, folders, gap, False)
+            sel, groups, _, pfg = block(kind, folders, gap)
             for n, _ in sel:
                 rows.append([f"`{n}`"] + burst_stats(pfg[n]))
             rows.append([f"**{kind}**"] + burst_stats(groups))
@@ -491,7 +491,7 @@ def report(folders, sample_path):
     gap = 1000
     sample_pool = []
     for kind in KINDS:
-        sel, groups, scorable, _ = block(kind, folders, gap, True)
+        sel, groups, scorable, _ = block(kind, folders, gap)
         print(f"## {KIND_TITLE[kind]}, gap {gap} ms\n")
         print("### Counts\n")
         table("| Count | Value |", counts_rows([fr for _, fr in sel], groups, scorable))
@@ -520,7 +520,7 @@ def report(folders, sample_path):
             "the picks lacking the feature.\n"
         )
         rows, per99 = [], {}
-        for label, score, missing_last, show in score_rows(scorable, with_baselines=False):
+        for label, score, missing_last, show in score_rows(with_baselines=False):
             for keep in KEEPS:
                 t = threshold(scorable, score, keep)
                 if t is None:
@@ -547,7 +547,7 @@ def report(folders, sample_path):
             "scorable bursts. Top-1: the burst's best frame is a pick (ties split).\n"
         )
         rows = []
-        for label, score, missing_last, _ in score_rows(scorable):
+        for label, score, missing_last, _ in score_rows():
             m = position_metrics(scorable, score, missing_last)
             rows.append([label, m["bursts"], m["picks"], m["top_half"], m["top_third"], m["worst_median"], m["worst_p90"], m["worst_near1"], m["pair_auc"], m["abs_auc"], m["top1"], m["mean_rank"]])
         table(
@@ -565,7 +565,7 @@ def report(folders, sample_path):
     rows = []
     for gap2 in GAPS:
         for kind in KINDS:
-            _, _, scorable, _ = block(kind, folders, gap2, True)
+            _, _, scorable, _ = block(kind, folders, gap2)
             r = [f"{gap2}", kind, len(scorable)]
             for i in (1, 2, 3, 6, 8, 11):
                 m = flag_metrics(scorable, RULES[i][1])

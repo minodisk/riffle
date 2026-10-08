@@ -87,6 +87,22 @@
 
 ## Deferred issues (todo candidates)
 
+- **The app's `.dop` reader ignores a picked virtual copy.** Found in
+  Step 1 (the inventory): `dop::read_flag` (`crates/core/src/dop.rs`
+  `locate`, first `Items` entry only) reads `None` for 199 frames of
+  `2026-06-05` and 228 of `2026-09-13-b` whose virtual copy (a later
+  item) is picked in PhotoLab. Riffle therefore shows those frames
+  unflagged, and `trash.rs` `collect_folder` would not treat them as
+  picked. Whether Riffle should read any item's flag (and which item it
+  writes) is a product decision; this plan only works around it in the
+  label rule ([data.md](data.md)).
+- **Nearly-all-exported DNG folders left out.** `2026-02-21` (258 of 259
+  frames exported), `2026-03-21` (454 of 460), `2026-04-26` (111 of 112) and
+  `2026-05-02` (17 of 18) carry one to six negatives each but were excluded
+  as "`Output/` not clearly smaller than the RAW count" (the data-set
+  decision). If Step 2 wants more `Output/`-labeled negatives, they can be
+  dumped with `dump.sh`'s loop and added to the `dng-output` block. Basis:
+  the Step 1 inventory ([data.md](data.md), Excluded folders).
 - **The app's burst "best" mark compares different textures.** Found in
   Step 2 ([results.md](results.md), Reading): the sharpness cue that
   `crates/app/ui/src/sharpness.ts` `relativeSharpness` marks as the
