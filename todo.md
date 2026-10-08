@@ -558,12 +558,13 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       `crates/core/src/eyes.rs`, `docs/agents/tract-onnx-inference.md`.
 - [x] Add the shown file's closed-eyes judgment to the MCP companion (a
       field of `get_photo` / `get_view`, or its own tool), so an agent can
-      read it. Landed as `get_view`'s `current.eyes` (`state`,
-      `probability` closed, `pose`) from `EyesCache`; see
-      `docs/plans/20261008-mcp-eyes-pose/`. It is on demand, so the field is absent until the file has
+      read it. It is on demand, so the field is absent until the file has
       been shown; or the tool calls `eyes_of` itself. Files:
       `crates/app/src/mcp.rs`, `crates/app/ui/src/companion.ts`,
       `crates/app/ui/src/eyes.ts`.
+      Landed as `get_view`'s `current.eyes` (`state`, `probability`
+      closed, `pose`) from `EyesCache`; see
+      `docs/plans/20261008-mcp-eyes-pose/`.
 - [ ] Mark closed eyes in the strip. The judgment is per shown file, so a
       mark appears only on files already shown (from `EyesCache`). The mesh
       already runs in the second pass for the focus candidate cue (the

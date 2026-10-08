@@ -127,4 +127,4 @@ be switched to stored values later without touching `companion.ts`'s shape.
 
 ## Progress
 
-- (none yet)
+- (2026-10-08) Step 1 complete. `INSTRUCTIONS` in `mcp.rs` was left unchanged.
