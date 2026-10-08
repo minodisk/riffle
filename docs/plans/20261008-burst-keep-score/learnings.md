@@ -111,6 +111,37 @@
 - The Decision is written as a proposal awaiting the user's approval, as
   the caller asked; Steps 4-6 are not struck in Progress until it is
   approved.
+- **User intervention (2026-10-08): the goal was reframed before the first
+  Decision was approved.** The first proposal (a failure check that keeps
+  nearly every pick; nothing beat sharpness alone) went to the user, who
+  answered that catching every pick is not needed, since the human makes
+  the final choice: the mark should narrow a burst to the frames that
+  clearly meet the minimum conditions (sharp, eyes in focus, eyes open,
+  face toward the camera), and then, more strictly, those frames should be
+  almost all picks (precision near 1, marked frames a subset of the picks).
+  Step 3 was extended on the same branch with [keep.py](keep.py) and a
+  "Keep mark" part of [fit.md](fit.md), the Purpose records the reframing,
+  and the Decision was rewritten against it. The failure-check variant's
+  file was renamed to [frozen-fail-check.json](frozen-fail-check.json);
+  [frozen.json](frozen.json) now holds the keep rule of the Decision's
+  alternative.
+- **The keep mark's precision has a ceiling of about 42%.** Held out, the
+  best is the burst's sharpest faced frame (41.6% picks, 11.1% of the
+  faced frames), and no grid rule reaches 60% even on its training
+  folders. The strictest face cuts do not help because the picks' and
+  non-picks' `eye_focus` and eyes-open distributions are the same at the
+  top. The hand check of 12 marked non-picks found 8 OK, 4 unsure and none
+  failed: the features find technically fine frames, and the user chooses
+  among those by what the features do not see.
+- keep.py counts every rule of the 1600-rule grid in one pass: each faced
+  frame becomes a tuple of the highest level it passes per condition, the
+  counts go into a 5-D table per folder, and a suffix sum over each
+  dimension gives every rule's marked / picked counts, so the
+  leave-one-folder-out selection is sums over folders (about 15 s in all).
+- A Git Bash heredoc into `python -` turned `"\\n"` and `\t` inside the
+  Python source into real control characters twice in this step (once in
+  this file's text, once in keep.py); text with backslashes went through
+  the Write tool or a file instead.
 
 ## Deferred issues (todo candidates)
 
@@ -151,6 +182,7 @@
   keep-check fit used the eye-window `eye_focus`. If the burst check is
   revisited (or the alternative of the Decision is chosen), re-run
   [dump.sh](dump.sh) with a current `riffle-cli` and re-run
-  [fit.py](fit.py) before trusting the frozen `eye_focus` cut in
-  [frozen.json](frozen.json). Related: `crates/core/src/candidate.rs`,
+  [keep.py](keep.py) / [fit.py](fit.py) before trusting the frozen
+  `eye_focus` cuts in [frozen.json](frozen.json) and
+  [frozen-fail-check.json](frozen-fail-check.json). Related: `crates/core/src/candidate.rs`,
   `crates/cli/src/main.rs` (`features`).

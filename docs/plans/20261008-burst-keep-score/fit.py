@@ -1,7 +1,7 @@
 """The Step 3 fits: thresholds and combinations from the picks, held out by
 folder.
 
-Usage: python -I fit.py <dump-dir> [<frozen.json>]
+Usage: python -I fit.py <dump-dir> [<frozen-fail-check.json>]
 
 Prints the tables of fit.md (Markdown) on stdout; with a second argument,
 also writes the chosen variant (CHOSEN below), fitted on every ARW folder,
