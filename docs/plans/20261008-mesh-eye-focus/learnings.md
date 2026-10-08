@@ -136,6 +136,34 @@
   4's before / after timing use the `... total` line, which times only the
   `extract_analysis` pass, not the command's wall time.
 
+## Step 4
+
+- Timing method: `riffle-cli candidates D:\photos\2026\2026-09-19 24`,
+  release builds of `4b5e0a39` (built from a scratch `git worktree` with
+  `CARGO_TARGET_DIR` on this worktree's `target`, the exe copied aside before
+  building the other) and `a7d2fbc4`, one warm-up run each, then four
+  alternated runs, reading the `... total` line (the `extract_analysis` pass
+  only; both builds run a second decode and mesh for the report after it):
+  before 12.65 / 13.95 / 13.07 / 12.10 s, after 22.20 / 21.89 / 21.09 /
+  20.64 s, mean 12.9 -> 21.5 s (+66%), more than the plan's +30-40% guess:
+  at 24 workers a mesh call takes ~99 ms, not the single-thread ~29 ms, so
+  the per-faced-file core time is ~105 ms.
+- 1952 faced files; window fallback 1180, one eye 450, sharper of two 322;
+  21 files changed state against the window cue (1700 -> 1697 candidates).
+  The per-file lines of all eight runs were identical apart from times.
+  The folder also carries 309 labeled faced frames: AUC 0.759 -> 0.804, the
+  same 273 candidates / 246 in focus.
+- Peak working set, polled every 50 ms from PowerShell (`Start-Process
+  -PassThru`, `PeakWorkingSet64`; `-ExecutionPolicy Bypass` was needed to
+  run the script file): 405-411 MB for both builds, except a 295 MB first
+  warm-up run of the old build. It is the whole command's peak, and the old
+  build's report pass already ran the mesh, so it bounds the scan pass's
+  peak rather than comparing it.
+- The app GUI was not run, so no `scan faces` line; the docs say so.
+- The plan expected a user decision on the scan cost after these numbers
+  (Trade-offs, "Scan cost"); the +66% figure is in `performance.md` and the
+  todo items, and the face-size gate is the cheapest lever recorded there.
+
 ## Deferred issues (todo candidates)
 
 - Skip the face mesh in the scan for faces whose box is under 60 px
@@ -152,3 +180,11 @@
   comparison on `2026-08-29-focus-sample` and `2026-09-13-b-focus-sample`
   once they are labeled. Basis: Step 2 caveats in plan.md's Decision. Files:
   `docs/plans/20261008-mesh-eye-focus/fit.py`, `crates/cli/src/main.rs`.
+- Both items above were reflected into `todo.md` by Step 4 (the face-size
+  gate as its own face/eye item, the reserved folders by extending the
+  existing "validate the combined AF-eye score on the two reserved labeled
+  folders" item), so the wrap-up should not add them again.
+- Resolved (2026-10-08, user decision): the +66% pass-2 cost of the mesh
+  (12.9 -> 21.5 s on the 2134-ARW folder at 24 threads) is accepted as is;
+  the cost reduction is left to the face-size gate item above, already in
+  `todo.md`. No new todo item.

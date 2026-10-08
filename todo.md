@@ -38,8 +38,13 @@ labels yet, so they were not run.
 - [ ] Once `2026-08-29-focus-sample` and `2026-09-13-b-focus-sample` carry XMP
       pick/reject labels, run
       `riffle-cli candidates D:\Photos\tests\2026-08-29-focus-sample D:\Photos\tests\2026-09-13-b-focus-sample`
-      and record AUC / precision / coverage. Files: `crates/cli/src/main.rs`,
-      `crates/core/src/candidate.rs`.
+      and record AUC / precision / coverage. The cue now scores the mesh
+      eye regions (`docs/plans/_archived/20261008-mesh-eye-focus/`), whose
+      gain over the window rests on few off frames (9 held-out off frames
+      among the meshed ones), so also run that plan's `fit.py` window /
+      region comparison on them. Files: `crates/cli/src/main.rs`,
+      `crates/core/src/candidate.rs`,
+      `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`.
 
 ### Docs: the "Focus candidate pass" numbers in docs/humans/performance.md are missing the app's own scan/faces log lines
 
@@ -558,9 +563,11 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       `crates/app/src/mcp.rs`, `crates/app/ui/src/companion.ts`,
       `crates/app/ui/src/eyes.ts`.
 - [ ] Mark closed eyes in the strip. The judgment is per shown file, so a
-      mark appears only on files already shown (from `EyesCache`), unless
-      the judgment moves into the scan (~35 ms per face on every file, which
-      the survey found too costly for the second pass). Files:
+      mark appears only on files already shown (from `EyesCache`). The mesh
+      already runs in the second pass for the focus candidate cue (the
+      mesh-eye-focus work below), so the remaining cost of a strip mark on
+      every file is storing the judgment in the index (see the item below
+      on storing the scan's EAR and pose), not the model run. Files:
       `crates/app/ui/src/strip.ts`, `crates/app/ui/src/eyes.ts`.
 - [x] Estimate the head pose of the judged face. MediaPipe's face geometry
       pipeline (perspective unprojection at its 63 deg camera, weighted
@@ -588,6 +595,54 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       did not make. Shown in the meta pane at first (the pose is on demand
       only). Files: `crates/app/ui/src/meta.ts`, `crates/app/ui/src/eyes.ts`,
       `docs/plans/20261007-head-pose/pose-truth.md` (the labels to extend).
+- [x] Measure the AF eye in-focus probability over each eye's eyelid
+      region from the face mesh instead of the window between the eyes.
+      The scan's second pass runs MediaPipe Face Landmarker v2 on the face
+      nearest the AF point, scores each eye's contour bounding box (margin
+      0.5 of its longer side) with a refitted logistic and takes the sharper
+      eye; when neither eye's region counts (under 24 px or without a clear edge) it scores the window as
+      before (61% of the training frames, 60% of the 2134-ARW folder's
+      faces). The head pose was measured as an eye rule and did not beat the
+      sharper eye, so it is not used. Held-out AUC 0.754 -> 0.800, precision
+      / coverage 89.1% / 95.3% -> 88.6% / 95.9%; pass 2 on the 2134-ARW
+      folder 12.9 -> 21.5 s at 24 threads (+66%). `FACES_VERSION` 6. See
+      `docs/plans/_archived/20261008-mesh-eye-focus/` and
+      `docs/humans/performance.md` "Focus candidate pass".
+- [ ] Store the scan's mesh-derived eye state and head pose in the index so
+      the strip can filter closed eyes and looking-away frames without the
+      on-demand `eyes_of`: the EAR as the open probability and the pose
+      (yaw / pitch / roll) of the face the cue meshed, in new columns next
+      to `eye_focus` (`SCHEMA_VERSION` bump), carried by `FaceReady` /
+      `Focus`, with a `FACES_VERSION` bump to fill them. Open questions: the
+      on-demand row and the stored value must agree, so both need the same
+      face, crop and 60 px floor (`eyes_of` judges the AF-nearest face, else
+      the largest; the cue meshes only the AF-nearest one and has no
+      floor); the "looking away" thresholds are unlabeled (see the item
+      above). Files: `crates/app/src/index.rs`, `crates/core/src/scan.rs`,
+      `crates/core/src/candidate.rs`, `crates/app/ui/src/filter.ts`,
+      `crates/app/ui/index.html`.
+- [ ] Reuse the scan's mesh for `eyes_of` once the points or the EAR are
+      stored (the item above), so showing a file no longer runs the model a
+      second time for a face the scan already meshed. Files:
+      `crates/app/src/commands.rs` (`read_eyes`), `crates/app/src/index.rs`,
+      `crates/core/src/eyes.rs`.
+- [ ] Mask each eye's region with the eyelid contour polygon instead of
+      its bounding box if the box lets hair or brow edges in (a turned or
+      rolled face). `edge_width` walks rows and columns and has no masked
+      form, so either mask the Laplacian only or add a masked walk; refit
+      and compare on the same held-out set. Files:
+      `crates/core/src/candidate.rs` (`eye_region`, `eye_measures`),
+      `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`.
+- [ ] Skip the face mesh in the scan for faces whose box is under 60 px
+      (`EYES_MIN_FACE`). At the 24 px eye-region floor no face under 58 px
+      gets an eye that counts (1 of the 330 counting labeled frames lies
+      under 60 px), while about a quarter of the labeled faces (13% of the
+      2134-ARW folder's) are under 60 px, so the gate saves that share of
+      the mesh runs at almost no change to the cue; check the labeled
+      folders' numbers before and after and bump `FACES_VERSION` if any
+      state moves. Files: `crates/core/src/candidate.rs`
+      (`focus_cue_unless`, `scored_face`), `crates/core/src/eyes.rs`
+      (`mesh_of`).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame

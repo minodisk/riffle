@@ -176,11 +176,16 @@ viewer shows a prompt in its center; click it to open the folder picker.
   [What the camera records](./cameras.md)). The mark's color is the focus
   candidate state: green for a focus candidate, where the eyes of the face
   nearest the AF point are likely in focus (their in-focus probability, a
-  logistic combination of the Laplacian variance and the mean edge width of
-  the preview between the eyes, is about 77% or more); orange when a face is
-  near the AF point but its eyes are likely not in focus (including a window
-  with no clear edge, which counts as 0%); and white when Riffle does not know
-  (no AF point, manual focus, no face near the point, or not computed yet).
+  logistic combination of the Laplacian variance and the mean edge width, is
+  about 77% or more). It is measured over each eye's eyelid region, which a
+  face mesh model (MediaPipe Face Landmarker v2) finds, and the sharper of
+  the two eyes counts; when neither eye's region counts (under 24 px, as on small
+  faces, or without a clear edge), it is measured over the preview between the eyes instead. Orange
+  when a face is near the AF point but its eyes are likely not in focus
+  (including a window between the eyes with no clear edge, which counts as
+  0%); white when
+  Riffle does not know (no AF point, manual focus, no face near the point, or
+  not computed yet).
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
   is judged by the faces Riffle detects like any other. The state is computed
   in a second pass that starts right after the thumbnails and metadata of the
@@ -189,9 +194,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   face icon (Lucide's `scan-face`, ISC license, text in
   `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
   name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
-  a face it was fitted on, 93% of the candidates were in focus and 91% of the
+  a face it was fitted on, 94% of the candidates were in focus and 91% of the
   in-focus frames were candidates; on 400 frames from other shoots it was not
-  fitted on, 89% and 95%. It is a cue, not a verdict: AF on a person in the
+  fitted on, 89% and 96%. It is a cue, not a verdict: AF on a person in the
   background gives a sharp face and a false candidate, and the back of a
   head or an upturned face finds no face and stays white. The mark also
   draws the faces Riffle detects near the AF point (anywhere on the preview

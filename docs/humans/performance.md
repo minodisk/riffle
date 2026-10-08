@@ -480,6 +480,29 @@ local NTFS drive, warm page cache, 24 threads, `riffle-cli candidates <dir>
 alternated, four runs each: 9.79 / 10.33 / 10.23 / 10.31s before, 10.21 /
 10.28 / 10.12 / 10.15s after.
 
+The cue now runs the face mesh (MediaPipe Face Landmarker v2) on the face
+nearest the AF point and measures the eyes over each eye's eyelid region,
+falling back to the eye window when neither eye's region counts (under the 24 px floor or without a clear edge) (see
+`docs/plans/_archived/20261008-mesh-eye-focus/`), and that costs pass 2 about two
+thirds more. Measured on 2026-10-08 on the same CPU under Windows 11, the same
+folder from the local NTFS drive, warm page cache (one run of each before
+timing), 24 threads, `riffle-cli candidates <dir> 24` before (`4b5e0a39`,
+the eye window) and after (`a7d2fbc4`), alternated, four runs each, reading
+the `... total` line, which times only the scan's `extract_analysis` pass:
+12.65 / 13.95 / 13.07 / 12.10s before, 22.20 / 21.89 / 21.09 / 20.64s after
+(mean 12.9 -> 21.5s, +8.5s, +66%). The report's own second decode and mesh
+run, which both builds do after that pass, are not in those times. The mesh
+ran on the 1952 files with a face; it took 98.6ms mean, 97.5ms median and
+114.7ms p95 per face with 24 workers sharing the cores (28.8ms mean on one
+thread, on 78 faces of another folder), so the +8.5s is about 105ms of core
+time per faced file. 1180 of those faces fell back to the window, 450 scored
+the one eye that counted and 322 the sharper of two; 21 files changed state
+(1700 -> 1697 candidates, 252 -> 255 not, 182 unknown). The peak working set
+of the whole command, polled from PowerShell, stayed at 405-411MB, but the
+report pass of both builds already ran the mesh, so that is an upper bound
+on the scan pass's peak rather than a before / after comparison. The app was
+not run for this measurement either.
+
 The `scan extract` / `scan faces` log lines of an app open of this folder are
 not recorded here yet: that needs the GUI, which was not run for this
 measurement.
@@ -631,18 +654,18 @@ focus candidate cue and the sharpness score:
 | Bounded read, metadata parse, thumbnail | first | first |
 | Sharpness score (grayscale decode + window, ~3ms) | first | second |
 | Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows, after a 3/8 decode of ~5ms instead of the full-size ~14ms) | first | second |
-| Focus candidate cue (crop detection + eye window) | second | second |
+| Focus candidate cue (crop detection + face mesh eye regions, eye window fallback) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
-| Closed-eyes judgment (Face Landmarker v2, ~35-45ms per face; 80-160ms per call) | - | neither: on demand for the shown file (`eyes_of`) |
+| Closed-eyes judgment (Face Landmarker v2, ~35-45ms per face; 80-160ms per call) | - | the mesh and the pose solve also run in the second pass for the cue (~29ms per face on one thread); the judgment shown in the meta pane stays on demand for the shown file (`eyes_of`) |
 
 The first pass writes the rows in small batches (10) as their thumbnails finish, so the
 thumbnails appear at the speed of the read and the thumbnail encode, and the
 sharpness bars fill in with the focus marks during the second pass. The
 numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
 candidate pass" above were measured before the move, except the two Windows
-11 subsections of "Face detection cost", which time the second pass: the
-`riffle-cli scan` "after" figures there include costs that pass no longer
-carries.
+11 subsections of "Face detection cost" and the face mesh paragraph of "Focus
+candidate pass", which time the second pass. The `riffle-cli scan` "after"
+figures in "Face detection cost" include costs that pass no longer carries.
 
 In the app both passes run below normal OS priority (on Windows
 `THREAD_PRIORITY_BELOW_NORMAL` for the first, `THREAD_PRIORITY_LOWEST` for
