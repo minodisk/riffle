@@ -16,9 +16,12 @@ the per-language values, one JSON file per language in `crates/core/i18n/`
 time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
 live in `crates/core/models/`, `src/eyes.rs` the closed-eyes judgment of one
 face (the eye aspect ratio of the MediaPipe Face Landmarker v2 face mesh,
-its ONNX and `LICENSE-mediapipe` next to YuNet's; not called by the scan), `src/pose.rs` the head pose (yaw / pitch / roll) of a face from its face mesh points, a port of MediaPipe's face geometry pipeline whose 33-point Procrustes basis is in `LICENSE-mediapipe`, `src/candidate.rs` the focus candidate cue
+its ONNX and `LICENSE-mediapipe` next to YuNet's; the scan runs only its
+mesh, `mesh_of`, for the focus candidate cue), `src/pose.rs` the head pose (yaw / pitch / roll) of a face from its face mesh points, a port of MediaPipe's face geometry pipeline whose 33-point Procrustes basis is in `LICENSE-mediapipe`, `src/candidate.rs` the focus candidate cue
 (the in-focus probability of the eyes of the face nearest the AF point,
-a logistic combination of their Laplacian variance and mean edge width, and
+a logistic combination of the Laplacian variance and mean edge width over
+each eye's eyelid region from the face mesh, the sharper eye counting, or
+over the window between the eyes when neither region reaches the floor, and
 whether it clears the threshold), `src/jpeg.rs` the Exif reader of a plain
 JPEG file (orientation and the standard shooting tags into the same `Shot`
 the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
@@ -49,7 +52,8 @@ re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
 passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /
 `faces_extractor` columns with the focus candidate cue the `f` focus mark is
-colored by and the sharpness score, and streams them as `faces-progress` /
+colored by (YuNet, then the face mesh on the face nearest the AF point) and
+the sharpness score, and streams them as `faces-progress` /
 `faces-done` events; both passes run on worker threads below normal OS
 priority (the second pass lower still) and take the on-screen files first
 through the shared `ScanFocus` handle,

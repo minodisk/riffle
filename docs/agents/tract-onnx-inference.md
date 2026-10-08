@@ -180,6 +180,17 @@ and a labeled set, not only whether it loads.
   61-68 / 111-121 ms on the same code once the cache was warm. The order alone
   fakes a ~20 ms regression (Measured). Source:
   [head-pose learnings, Step 4](../plans/_archived/20261007-head-pose/learnings.md).
+- The scan's second pass runs the mesh from the rayon pool, one face per
+  file (`eyes::mesh_of` from `candidate::focus_cue_unless`, through
+  `scored_face`), all workers sharing the one `OnceLock` plan. With 24 workers on the 2134-ARW folder a
+  face took 98.6 ms mean (p95 114.7 ms) against 28.8 ms on one thread, the
+  cores being shared with the other files' decodes and detections, and the
+  pass went from 12.9 to 21.5 s. The whole `riffle-cli candidates` command
+  peaked at 405-411 MB with 24 threads (Measured). `mesh_of` rotates only
+  the face crop of a portrait preview, not the whole image: 0.016 ms
+  against 2.06 ms per call (Measured). Source:
+  `docs/plans/_archived/20261008-mesh-eye-focus/learnings.md`, Steps 1 and
+  4, and `docs/humans/performance.md` "Focus candidate pass".
 - Source: [closed-eyes-detection learnings](../plans/_archived/20261007-closed-eyes-detection/learnings.md),
   Steps 1 and 2.
 

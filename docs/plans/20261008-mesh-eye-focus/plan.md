@@ -290,7 +290,7 @@ what the number looks at.
       constants or the crop; the mesh points, EAR and pose are not stored
       in the index (out of scope, listed as a follow-up in Step 4).
 
-- [ ] Step 4: Measure the pass-2 cost and bring the docs in line
+- [x] Step 4: Measure the pass-2 cost and bring the docs in line
   - Done when:
     - `docs/humans/performance.md` "Focus candidate pass" gains a paragraph:
       `riffle-cli candidates D:\photos\2026\2026-09-19 24` before (the
