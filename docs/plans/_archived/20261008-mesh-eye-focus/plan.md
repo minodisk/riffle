@@ -49,7 +49,7 @@ what the number looks at.
   to keep the earlier coverage: training precision 93.1% / coverage 91.4%;
   held-out 400 frames from 4 folders AUC 0.754 (0.635), precision 89.1%,
   coverage 95.3%. The fit and the validation are described in
-  [`../_archived/20260926-af-eye-in-focus-probability/plan.md`](../_archived/20260926-af-eye-in-focus-probability/plan.md)
+  [`../20260926-af-eye-in-focus-probability/plan.md`](../20260926-af-eye-in-focus-probability/plan.md)
   and its `learnings.md`; the reference fitting code was a scratch crate
   (`reference-metrics.rs` there), not part of the workspace, with the frozen
   numbers in `frozen.json`.

@@ -191,6 +191,15 @@ and a labeled set, not only whether it loads.
   against 2.06 ms per call (Measured). Source:
   `docs/plans/_archived/20261008-mesh-eye-focus/learnings.md`, Steps 1 and
   4, and `docs/humans/performance.md` "Focus candidate pass".
+- Mesh eye regions are boxes in stored coordinates, so on a portrait preview
+  (orientation 6 / 8) the eyes stand on end and a box's width is the eye's
+  height (a 97 px face printed `L 11x20`). Any size rule on a region (the
+  margin, the minimum size, a relative edge width) must use the box's longer
+  side, not its width. For an upright eye the two are the same. The regions
+  are small: the median contour box with its 0.25 margin is 14-15 px on its
+  longer side, so a 24 px floor sends most frames to the window fallback.
+  Choose such a floor from the AUC by bucket, not from the window's minimum.
+  Source: `docs/plans/_archived/20261008-mesh-eye-focus/learnings.md`, Step 1.
 - Source: [closed-eyes-detection learnings](../plans/_archived/20261007-closed-eyes-detection/learnings.md),
   Steps 1 and 2.
 
