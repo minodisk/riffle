@@ -185,7 +185,11 @@ and a labeled set, not only whether it loads.
   `scored_face`), all workers sharing the one `OnceLock` plan. With 24 workers on the 2134-ARW folder a
   face took 98.6 ms mean (p95 114.7 ms) against 28.8 ms on one thread, the
   cores being shared with the other files' decodes and detections, and the
-  pass went from 12.9 to 21.5 s. The whole `riffle-cli candidates` command
+  pass went from 12.9 to 21.5 s. It runs only on faces whose box long side
+  is at least `eyes::EYES_MIN_FACE` (`candidate::meshes_face`); that skips
+  13.4% of the faced files on the 2134-ARW folder and saved about 0.4 s of
+  ~20.6 s, within the run-to-run spread (Measured, `docs/humans/performance.md`
+  "Focus candidate pass"). The whole `riffle-cli candidates` command
   peaked at 405-411 MB with 24 threads (Measured). `mesh_of` rotates only
   the face crop of a portrait preview, not the whole image: 0.016 ms
   against 2.06 ms per call (Measured). Source:

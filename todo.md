@@ -633,16 +633,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       and compare on the same held-out set. Files:
       `crates/core/src/candidate.rs` (`eye_region`, `eye_measures`),
       `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`.
-- [ ] Skip the face mesh in the scan for faces whose box is under 60 px
-      (`EYES_MIN_FACE`). At the 24 px eye-region floor no face under 58 px
-      gets an eye that counts (1 of the 330 counting labeled frames lies
-      under 60 px), while about a quarter of the labeled faces (13% of the
-      2134-ARW folder's) are under 60 px, so the gate saves that share of
-      the mesh runs at almost no change to the cue; check the labeled
-      folders' numbers before and after and bump `FACES_VERSION` if any
-      state moves. Files: `crates/core/src/candidate.rs`
-      (`focus_cue_unless`, `scored_face`), `crates/core/src/eyes.rs`
-      (`mesh_of`).
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame

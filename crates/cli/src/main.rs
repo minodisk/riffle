@@ -221,7 +221,9 @@ fn faces(path: &Path, out: &Path) -> Result<()> {
             "nearest face ({:.0},{:.0}) {:.0}x{:.0}",
             f.x, f.y, f.width, f.height
         );
-        let mesh = eyes::mesh_of(&rgb, w, h, a.orientation, &f);
+        let mesh = candidate::meshes_face(&f)
+            .then(|| eyes::mesh_of(&rgb, w, h, a.orientation, &f))
+            .flatten();
         let m = candidate::eye_focus(&candidate::luma(&rgb, w, h), w, h, &f, mesh.as_ref());
         println!(
             "scored {:?}, lap {:.1}, edge width {}, logit {}",
@@ -525,7 +527,9 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
                 let (rgb, w, h) = decode_rgb(&jpeg).ok()?;
                 let gray = candidate::luma(&rgb, w, h);
                 let t = Instant::now();
-                let mesh = eyes::mesh_of(&rgb, w, h, a.orientation, &face);
+                let mesh = candidate::meshes_face(&face)
+                    .then(|| eyes::mesh_of(&rgb, w, h, a.orientation, &face))
+                    .flatten();
                 let mesh_ms = t.elapsed().as_secs_f64() * 1000.0;
                 Some(Measured {
                     focus: candidate::eye_focus(&gray, w, h, &face, mesh.as_ref()),
