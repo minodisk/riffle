@@ -195,6 +195,17 @@ and a labeled set, not only whether it loads.
   against 2.06 ms per call (Measured). Source:
   `docs/plans/_archived/20261008-mesh-eye-focus/learnings.md`, Steps 1 and
   4, and `docs/humans/performance.md` "Focus candidate pass".
+- Gating the mesh by face size changed no candidate state on the labeled
+  sets or the 2134-ARW folder. One probability moved (`_DSC2748.ARW`, a 58x49
+  face, `p 0.209` -> `0.328`, `eye L only` -> `window`, still `NotCandidate`),
+  so `FACES_VERSION` was not bumped (Measured). Every mesh call site must use
+  `candidate::meshes_face`, including the `riffle-cli` debug subcommand that
+  prints the nearest face's scored region. Otherwise its line disagrees with
+  the cue printed above it. No non-ignored `riffle-core` test runs the mesh
+  model, so prove a gate with a small face in the synthetic image
+  (`Scored::Window`, `mesh: None`) plus a predicate check at
+  `EYES_MIN_FACE` and `EYES_MIN_FACE.next_down()`. Source:
+  [mesh-face-gate learnings, Step 1](../plans/_archived/20261008-mesh-face-gate/learnings.md).
 - Mesh eye regions are boxes in stored coordinates, so on a portrait preview
   (orientation 6 / 8) the eyes stand on end and a box's width is the eye's
   height (a 97 px face printed `L 11x20`). Any size rule on a region (the
