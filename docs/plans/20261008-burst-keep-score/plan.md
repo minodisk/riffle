@@ -68,7 +68,12 @@ burst's other frames.
   folders where every frame is picked (`2026-06-06`, `06-09`, `06-21`,
   `06-27`, `06-02`, and the Leica folders that exported everything) carry no
   negatives and are excluded. The inventory taken on 2026-10-08 and the
-  final list are in `data.md`.
+  final list are in [data.md](data.md), with two refinements Step 1 found:
+  a picked PhotoLab virtual copy (a later `.dop` item, exported as
+  `<stem>_<n>` in `Output/`) picks its frame, which `dop::read_flag` (first
+  item only) does not see (`2026-06-05`, `2026-09-13-b`); and the DxO
+  DeepPRIME DNGs (`<stem>-DxO_DeepPRIME 3.dng`) next to the camera files of
+  the sidecar-less DNG folders are copies, so a frame is a base stem.
 - **Features and where they come from.** `scan::extract_analysis(path)`
   returns `Analysis { cue: Cue { state, eye_focus, face, .. }, sharpness }`,
   exactly what the scan stores. The eyes path (`read_eyes`): read the
@@ -114,7 +119,7 @@ burst's other frames.
 
 ## Steps
 
-- [ ] Step 1: Add `riffle-cli features` and dump every feature, the flags and the capture time per file for the data set
+- [x] Step 1: Add `riffle-cli features` and dump every feature, the flags and the capture time per file for the data set
   - Done when:
     - `riffle-cli features <dir>... [threads]` (`crates/cli/src/main.rs`,
       registered in the `main` match and the usage string) prints one
@@ -147,7 +152,7 @@ burst's other frames.
       known" and is saved as one `.tsv` per folder under
       `D:\Photos\tests\2026-10-08-burst-keep-score\dump\`; a listing of
       each folder's `Output/` stems is saved next to it.
-    - `data.md` in this plan folder: the label rules as decided
+    - [data.md](data.md) in this plan folder: the label rules as decided
       facts (`.dop` authoritative, XMP where no `.dop`, `Output/` stem for
       the sidecar-less Leica folders, reported separately), the data set
       and the excluded folders with the reason (unfinished, all picked, no
@@ -171,8 +176,9 @@ burst's other frames.
       `burst.ts` (capture order, inclusive gap, missing subsec = 0 ms) at
       1000 ms (the app's), 2000 ms and 5000 ms; applies the label rule
       (pick = `.dop` Pick, else XMP Pick where no `.dop`; `Output/` stem
-      for the sidecar-less Leica folders; everything else non-pick =
-      unlabeled); and over the **scorable bursts** (two or more frames, at
+      for the sidecar-less Leica folders; the virtual-copy and DeepPRIME
+      refinements of [data.md](data.md), as [inventory.py](inventory.py)
+      applies them; everything else non-pick = unlabeled); and over the **scorable bursts** (two or more frames, at
       least one pick and at least one non-pick) computes, for every feature,
       threshold rule and score:
       - **Pick false-fail rate** (primary): the share of picks the rule
