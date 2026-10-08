@@ -53,21 +53,51 @@
 - In Git Bash, a `python - <<'EOF'` here-document mangled `'\\'` in one
   attempt; `chr(92)` or a script file avoided it.
 
+## Step 2
+
+- No `numpy` in the local Python 3.13, so [metrics.py](metrics.py) is
+  standard library only (the AUC by rank sums, percentiles by index). It
+  runs in about 1.5 s over all 36 dumps.
+- **The relative sharpness hand cuts are unusable.** `rel < 0.7` fails
+  60% of the ARW picks: the median pick is at 0.585 of its burst's
+  maximum. The AF-region sharpness changes with what is under the AF point
+  (a face, lettering, a ball) from frame to frame, so the hand check found
+  sharp frames at `rel` 0.11-0.67. Only a 99% pick-keeping point
+  (`rel >= 0.027`) protects the picks. See [results.md](results.md).
+- **The first frame of a burst is a better ranking than any feature**
+  (pairwise AUC 0.653 against sharpness 0.577): 39.5% of first frames are
+  picks against 19.2% from the sixth on. Worth keeping in mind for Step 3
+  (the capture position is not a technical check, so it is not a feature
+  of the plan, but it is a baseline to beat).
+- The pose separates nothing (pick false-fail equals the non-pick flag
+  rate at every cut, AUC around 0.5), and the hand check found every
+  pose-only flag a fine frame (profiles, faces looking up).
+- `python -I` does not stop bytecode writes: a scratch script that put
+  this folder on `sys.path` to import `metrics` left a `__pycache__/`
+  here, removed before the commit. Python's text-mode `open(..., "w")` on
+  Windows also wrote CRLF into `plan.md` and `metrics.py`; `sed -i
+  's/\r$//'` put them back to LF. A Git Bash heredoc containing a quoted
+  `'EOF'` and backticks failed to parse once; writing the text with the
+  Write tool avoided it.
+- The hand check (30 flagged non-picks of rule (e)) was the agent's own
+  look at the crops, as the caller asked, not the user's: failed 9, OK 16,
+  unsure 5. The crops are in
+  `D:\Photos\tests\2026-10-08-burst-keep-score\handcheck\` for the user to
+  re-check.
+
 ## Deferred issues (todo candidates)
 
-- **The app's `.dop` reader ignores a picked virtual copy.** Found in
-  Step 1 (the inventory): `dop::read_flag` (`crates/core/src/dop.rs`
-  `locate`, first `Items` entry only) reads `None` for 199 frames of
-  `2026-06-05` and 228 of `2026-09-13-b` whose virtual copy (a later
-  item) is picked in PhotoLab. Riffle therefore shows those frames
-  unflagged, and `trash.rs` `collect_folder` would not treat them as
-  picked. Whether Riffle should read any item's flag (and which item it
-  writes) is a product decision; this plan only works around it in the
-  label rule ([data.md](data.md)).
-- **Nearly-all-exported DNG folders left out.** `2026-02-21` (258 of 259
-  frames exported), `2026-03-21` (454 of 460), `2026-04-26` (111 of 112) and
-  `2026-05-02` (17 of 18) carry one to six negatives each but were excluded
-  as "`Output/` not clearly smaller than the RAW count" (the data-set
-  decision). If Step 2 wants more `Output/`-labeled negatives, they can be
-  dumped with `dump.sh`'s loop and added to the `dng-output` block. Basis:
-  the Step 1 inventory ([data.md](data.md), Excluded folders).
+- **The app's burst "best" mark compares different textures.** Found in
+  Step 2 ([results.md](results.md), Reading): the sharpness cue that
+  `crates/app/ui/src/sharpness.ts` `relativeSharpness` marks as the
+  burst's best (Compare's green bar) ranks the user's picks only slightly
+  above random (pairwise AUC 0.577 against 0.495, the first frame 0.653),
+  and the hand check found sharp frames at 0.11-0.67 of the burst maximum,
+  because the AF-region score follows the content under the AF point. If
+  Step 3's Decision does not replace it, the mark's wording or the
+  measurement (e.g. on the face only) may deserve its own todo item.
+- **The head pose misreads a face behind a ball.** Hand check 16 of
+  [results.md](results.md) (`D:\photos\2026\2026-07-05\_DSC2445.ARW`): a
+  profile looking up behind the ball reads pitch -68 deg. Basis: Step 2
+  hand check; related `crates/core/src/pose.rs`. Fits the pending review
+  of the head-pose labels in `todo.md`.
