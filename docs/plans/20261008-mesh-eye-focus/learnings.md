@@ -184,9 +184,7 @@
   gate as its own face/eye item, the reserved folders by extending the
   existing "validate the combined AF-eye score on the two reserved labeled
   folders" item), so the wrap-up should not add them again.
-- Decide whether the +66% pass-2 cost of the mesh (12.9 -> 21.5 s on the
-  2134-ARW folder at 24 threads) is acceptable, per the plan's Trade-offs
-  "Scan cost"; options there: a larger face floor, face mesh v1, or
-  reverting to the window. Basis: Step 4 measurement
-  (`docs/humans/performance.md` "Focus candidate pass"). Files:
-  `crates/core/src/candidate.rs`, `crates/core/src/eyes.rs`.
+- Resolved (2026-10-08, user decision): the +66% pass-2 cost of the mesh
+  (12.9 -> 21.5 s on the 2134-ARW folder at 24 threads) is accepted as is;
+  the cost reduction is left to the face-size gate item above, already in
+  `todo.md`. No new todo item.
