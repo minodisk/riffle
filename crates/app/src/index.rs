@@ -110,7 +110,8 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// produces, stored on every `files` row as `faces_extractor` next to
 /// `eye_focus` and `sharpness`: the focus candidate cue and the sharpness
 /// score. Bump it on any change to the cue's computation (the threshold, the
-/// eye window, the detector: `crates/core/src/candidate.rs`, `faces.rs`) or to
+/// mesh eye regions, the eye window, the face mesh, the detector:
+/// `crates/core/src/candidate.rs`, `eyes.rs`, `faces.rs`) or to
 /// the score's (`sharpness::score_preview`, or what `extract_analysis` feeds
 /// it); the second pass then re-runs on every row without redoing the first. `2`
 /// re-runs pass 2 after `Cue::eye_focus` switched from the Laplacian
@@ -125,8 +126,10 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// sharpness score of those files can move to an eye window. `5` re-runs it
 /// after the whole-image search started decoding the preview at a DCT scale
 /// (`faces::decode_whole`) instead of full size, which changes the pixels the
-/// model sees and so the faces it finds.
-pub const FACES_VERSION: i64 = 5;
+/// model sees and so the faces it finds. `6` re-runs it after the cue moved
+/// to the mesh eye regions (`eyes::mesh_of`, scored per eye with a window
+/// fallback).
+pub const FACES_VERSION: i64 = 6;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on

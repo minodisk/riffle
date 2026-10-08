@@ -236,7 +236,7 @@ what the number looks at.
     - Files: `docs/plans/20261008-mesh-eye-focus/fit.md`, `frozen.json`,
       the fitting script, `plan.md` (Decision).
 
-- [ ] Step 3: Score the AF eye over the mesh eye regions in the scan, with the pose-based eye choice and the window fallback, and re-run the second pass
+- [x] Step 3: Score the AF eye over the mesh eye regions in the scan, with the pose-based eye choice and the window fallback, and re-run the second pass
   - Done when:
     - `candidate.rs`: new constants for the mesh model (`MESH_LOGIT_*`, the
       threshold, `EYE_REGION_MARGIN`, `EYE_REGION_MIN`, and, if Step 2 chose
@@ -497,3 +497,4 @@ Caveats behind the adopt (details in fit.md):
 
 - (2026-10-08) Step 1 complete. Deviation (see learnings.md): the margin and `edge_width_rel` use the box's longer side, not `window.width`, so for an upright eye (wider than tall) `edge_width_rel` is a fraction of the eye width as the Done-when text says.
 - (2026-10-08) Step 2 complete. Deviations from the Step 2 text: the fit reads a scratch `riffle-cli meshdump` dump (`meshdump.patch`, applied on the Step 1 commit and reverted) instead of the Step 1 lines alone, since variants (c) and (d) need the AF point and other margins; variant (d) was also run at margin 1.0; and the Decision overrides Step 3's wording (the window fallback applies only when no eye counts, no yaw cut, one threshold by shifting the mesh intercept rather than the fallback's).
+- (2026-10-08) Step 3 complete. Deviations from the Step 3 text: the Decision's rules were implemented in place of the Step 3 wording (the sharper eye, no yaw cut, the window fallback only when no eye counts, the mesh intercept shifted onto `CANDIDATE_LOGIT`); `EYE_REGION_MARGIN` moved from 0.25 to 0.5, which also changes the Step 1 per-eye CLI columns; the mesh cancel point is tested through `scored_face` as a separate test rather than inside the existing `focus_cue` cancel test; and the ulp round-trip test was not extended, because both models share `scored()`.

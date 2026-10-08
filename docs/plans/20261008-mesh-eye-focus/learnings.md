@@ -100,6 +100,42 @@
   cut, adopted by the plan's rule (held-out 0.800, 88.6% / 95.9%). See the
   Decision in plan.md.
 
+## Step 3
+
+- The scan reproduces `fit.md` exactly with `riffle-cli candidates ... 24`
+  (release build): training 406 labeled faced frames, candidates 330, in
+  focus 310 (93.9%), coverage 310 / 339 (91.4%), AUC combined 0.882; held-out
+  400 frames, candidates 370, in focus 328 (88.6%), coverage 328 / 342
+  (95.9%), AUC combined 0.800. The window fallback scored 249 / 406 and
+  227 / 400 frames, as `fit.md` counted. Of the frames that counted an eye:
+  training 44 left sharper, 28 right sharper, 41 left only, 44 right only;
+  held-out 54 / 51 / 27 / 41. The lines are saved as `step3-training.txt` and
+  `step3-heldout.txt` in `D:\Photos\tests\2026-10-08-mesh-eye-focus\`. The
+  CLI's "AUC lap" now pools the scored region's lap (an eye region's or the
+  window's), so its 0.835 / 0.707 is not comparable to the window's 0.816 /
+  0.635.
+- The single threshold needs no rounding care: `MESH_LOGIT_INTERCEPT`'s
+  literal `-7.773679588927861` is exactly the f64 result of
+  `-8.158737592019197 + (1.2194 - 0.8343419969086643)`, so the frozen test
+  asserts it with `assert_eq!`, and the fit's mesh threshold sits midway
+  between two training logits, so a last-ulp difference between Python's
+  `w0 + (k1 x1 + k2 x2)` and Rust's `(c + k1 x1) + k2 x2` cannot flip a frame.
+- `EYE_REGION_MARGIN` went from 0.25 to 0.5, which also changes the Step 1
+  per-eye columns of `candidates` (they now show the 0.5-margin regions the
+  cue scores); `fit.md`'s 0.25-margin numbers came from the scratch dump.
+- Tie rule: on equal logits the left eye wins, as Python's `max` over
+  `{left, right}` in `fit.py` returns the first.
+- The cancel point after the mesh is tested through `scored_face` with a face
+  outside the image, so the test runs no model; the existing point after the
+  detection stays where it was.
+- A long `python - <<'EOF'` heredoc with Rust test code failed in Git Bash
+  ("unexpected EOF while looking for matching `''") and applied nothing;
+  writing the edit script to the scratchpad and running it worked.
+- `candidates` now runs `eyes::mesh_of` twice per faced file: inside
+  `extract_analysis` (the scan's cue) and again in the report pass. For Step
+  4's before / after timing use the `... total` line, which times only the
+  `extract_analysis` pass, not the command's wall time.
+
 ## Deferred issues (todo candidates)
 
 - Skip the face mesh in the scan for faces whose box is under 60 px
