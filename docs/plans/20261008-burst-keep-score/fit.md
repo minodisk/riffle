@@ -123,6 +123,29 @@ scene.py <dump-dir>`, about 3 s).
   81.7% on 383), so sharpness narrows rather than sharpens: held out its
   extra cuts do not carry over. Single frames are unchanged: no rule
   reaches 50% in training (in-sample best 25.0% on 24 singles).
+- **Does eyes open help? Only together with `eye_focus`, on long bursts.**
+  The user asked (2026-10-09) whether eyes open adds anything. Held out,
+  over the no-sharpness grid without the pose, limited to `eye_focus`
+  only, eyes open only or both (precision, share of bursts marked):
+
+  | Target | `eye_focus` only + size | eyes open only + size | both + size | size alone |
+  | --- | ---: | ---: | ---: | ---: |
+  | 70% | 70.2%, 17.7% | 69.6%, 17.1% | 70.3%, 19.2% | 75.4%, 10.9% |
+  | 80% | 79.7%, 8.4% | 80.1%, 7.0% | 80.4%, 8.9% | 80.1%, 5.7% |
+  | 85% | 79.3%, 2.3% | 75.4%, 1.1% | 82.2%, 3.8% | none |
+  | 90% | none | none | 87.4%, 1.9% | none |
+
+  Without a size cut no eye rule reaches a 70% target (both together give
+  45.9% on 0.7% at 60%). Up to 80% the three variants and size alone are
+  within a point of one another; only both features together reach the
+  90% target. Scored as fixed rules on every folder, the 87.4% rule (size
+  >= 20, `eye_focus` >= 0.95, eyes open >= 0.995) marks 78 bursts at 92.3%
+  (per folder 85.0-91.7% over 3 folders); dropping eyes open gives 84.2% on
+  146, dropping `eye_focus` 82.9% on 222, and size >= 20 alone 82.3% on
+  237. At size >= 15 the same pattern: 87.2% (148) with both, 81.9% (265)
+  with `eye_focus` only, 79.5% (439) with eyes open only, 79.3% (482) with
+  neither. So each feature alone adds 0-2 points over the burst length, and
+  the two together add about ten, on 1.6-2.9% of the bursts.
 
 ## Keep mark (the reframed goal)
 
@@ -603,6 +626,46 @@ The most chosen held-out rule per target of the with-sharpness runs, scored as a
 |  | size >= 20, without sharpness: ef >= 0.9, eo >= 0.995 | 83.7% | 2.32 | 202 (4.0%) | 169 (9.3%) | 84.8% (68.8%-100.0%), 9 |
 | size + rule, target 95% | size >= 20, rel >= 0.5, abs >= 600, ef >= 0.9, eo >= 0.995 | 95.6% | 2.65 | 45 (0.9%) | 43 (2.4%) | 90.0% (90.0%-90.0%), 1 |
 |  | size >= 20, without sharpness: ef >= 0.9, eo >= 0.995 | 83.7% | 2.32 | 202 (4.0%) | 169 (9.3%) | 84.8% (68.8%-100.0%), 9 |
+
+#### Which eye feature carries the burst-level rules
+
+Held out as above, over the no-sharpness grid without the pose, limited to rules on `eye_focus` only, eyes open only, or both; "alone" lets the selection use no size cut, "+ size" chooses a size cut and a rule together. Each cell is the held-out precision and the share of the bursts marked; "none" means no rule reaches the target on any training set.
+
+| Target | `eye_focus` only, alone | eyes open only, alone | both, alone | size alone | `eye_focus` only + size | eyes open only + size | both + size |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 60% | none | none | 45.9%, 0.7% | 60.6%, 32.9% | 61.0%, 33.3% | 60.7%, 33.3% | 61.0%, 33.3% |
+| 70% | none | none | none | 75.4%, 10.9% | 70.2%, 17.7% | 69.6%, 17.1% | 70.3%, 19.2% |
+| 75% | none | none | none | 79.3%, 9.6% | 79.2%, 8.9% | 79.3%, 9.6% | 74.8%, 10.2% |
+| 80% | none | none | none | 80.1%, 5.7% | 79.7%, 8.4% | 80.1%, 7.0% | 80.4%, 8.9% |
+| 85% | none | none | none | none | 79.3%, 2.3% | 75.4%, 1.1% | 82.2%, 3.8% |
+| 90% | none | none | none | none | none | none | 87.4%, 1.9% |
+| 95% | none | none | none | none | none | none | none |
+
+Most chosen rule of the "+ size" runs:
+
+| Target | `eye_focus` only + size | eyes open only + size | both + size |
+| --- | ---: | ---: | ---: |
+| 60% | size >= 6 (23 folds) | size >= 6 (26 folds) | size >= 6 (23 folds) |
+| 70% | size >= 10, ef >= 0.9 (22 folds) | size >= 10, eo >= 0.98 (22 folds) | size >= 8, ef >= 0.9, eo >= 0.98 (25 folds) |
+| 75% | size >= 15 (26 folds) | size >= 15 (27 folds) | size >= 15 (24 folds) |
+| 80% | size >= 15, ef >= 0.9 (24 folds) | size >= 15, eo >= 0.999 (23 folds) | size >= 15, ef >= 0.9 (24 folds) |
+| 85% | size >= 15, ef >= 0.97 (24 folds) | size >= 20, eo >= 0.995 (1 folds) | size >= 20, ef >= 0.9, eo >= 0.999 (25 folds) |
+| 90% | - | - | size >= 20, ef >= 0.95, eo >= 0.995 (26 folds) |
+| 95% | - | - | - |
+
+##### The 87.4% rule with one eye feature dropped
+
+Fixed rules (no fitting), so the pooled numbers over every folder are also what each folder gets when held out; the per-folder column is the spread.
+
+| Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| size >= 20, `eye_focus` >= 0.95, eyes open >= 0.995 | 92.3% | 2.56 | 78 (1.6%) | 72 (4.0%) | 90.0% (85.0%-91.7%), 3 |
+| eyes open dropped: size >= 20, `eye_focus` >= 0.95 | 84.2% | 2.34 | 146 (2.9%) | 123 (6.8%) | 84.6% (72.2%-91.7%), 7 |
+| `eye_focus` dropped: size >= 20, eyes open >= 0.995 | 82.9% | 2.30 | 222 (4.4%) | 184 (10.2%) | 85.0% (70.6%-100.0%), 9 |
+| both dropped: size >= 20 | 82.3% | 2.28 | 237 (4.7%) | 195 (10.8%) | 85.0% (72.2%-94.7%), 9 |
+| size >= 15, `eye_focus` >= 0.95, eyes open >= 0.995 | 87.2% | 2.42 | 148 (2.9%) | 129 (7.1%) | 85.7% (61.5%-93.3%), 7 |
+| size >= 15, `eye_focus` >= 0.95 | 81.9% | 2.27 | 265 (5.3%) | 217 (12.0%) | 81.5% (66.7%-93.8%), 9 |
+| size >= 15, eyes open >= 0.995 | 79.5% | 2.21 | 439 (8.7%) | 349 (19.3%) | 81.0% (72.8%-88.5%), 11 |
 
 ### Keep mark
 

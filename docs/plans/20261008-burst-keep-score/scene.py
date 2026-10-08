@@ -25,7 +25,9 @@ frames that Steps 2 and 3 left out so far.
 A last section repeats the held-out selections with the grid limited to
 the rules without a sharpness cut (`eye_focus`, eyes open and the pose
 only), and scores the rules chosen with sharpness again without their
-sharpness cuts.
+sharpness cuts. The final section splits the no-sharpness grid by which
+eye feature it may use (`eye_focus`, eyes open, both) and drops each from
+the strictest rule.
 
 Held out by folder as in keep.py: for each folder, the grid rule with the
 most marked units on the other folders (at least 30) among those whose
@@ -255,13 +257,13 @@ def size_and_rule(by):
     return rows
 
 
-def heldout_size_rule(by, with_rule, allowed=None):
+def heldout_size_rule(by, with_rule, allowed=None, sizes=SIZE_CUTS):
     """Held out: the (size cut, grid rule or none) with the most training bursts
     marked among those reaching the target training precision."""
     names = list(by)
     nr = len(keep.ALL) + 1
     rules = [r for r in range(nr - 1) if allowed is None or allowed(keep.ALL[r])] + [nr - 1]
-    combos = [(k, r) for k in SIZE_CUTS for r in (rules if with_rule else (nr - 1,))]
+    combos = [(k, r) for k in sizes for r in (rules if with_rule else (nr - 1,))]
     cnt = {}
     for n in names:
         m = [0] * (len(SIZE_CUTS) * nr)
@@ -362,6 +364,65 @@ def no_sharpness(by, burst_picked, size_picked):
     keep_metrics_table(HEAD.format("Chosen for").replace("| Precision", "| Rule | Precision", 1), rows)
 
 
+def eyes_parts(by):
+    """Does eyes open help? The no-sharpness grid split by which eye feature it may use."""
+    variants = (
+        ("`eye_focus` only", lambda t: no_sharp(t) and t[3] == 0 and t[4] == 0),
+        ("eyes open only", lambda t: no_sharp(t) and t[2] == 0 and t[4] == 0),
+        ("both", lambda t: no_sharp(t) and t[4] == 0),
+    )
+    print("### Which eye feature carries the burst-level rules\n")
+    print(
+        "Held out as above, over the no-sharpness grid without the pose, limited to rules on `eye_focus` "
+        "only, eyes open only, or both; \"alone\" lets the selection use no size cut, \"+ size\" chooses a size "
+        "cut and a rule together. Each cell is the held-out precision and the share of the bursts marked; "
+        "\"none\" means no rule reaches the target on any training set.\n"
+    )
+    runs = []
+    for name, allowed in variants:
+        runs.append((f"{name}, alone", heldout_size_rule(by, True, allowed, (2,))[0]))
+    runs.append(("size alone", heldout_size_rule(by, False)[0]))
+    for name, allowed in variants:
+        runs.append((f"{name} + size", heldout_size_rule(by, True, allowed)[0]))
+
+    def cell(r):
+        if r[2] == "-":
+            return "none"
+        return f"{r[3]}, {r[5].split('(')[1].rstrip(')')}"
+
+    rows = []
+    for i, target in enumerate(TARGETS):
+        if target < 0.6:
+            continue
+        rows.append([f"{target:.0%}"] + [cell(rs[i]) for _, rs in runs])
+    keep_metrics_table("| Target | " + " | ".join(n for n, _ in runs) + " |", rows)
+    print("Most chosen rule of the \"+ size\" runs:\n")
+    rows = []
+    for i, target in enumerate(TARGETS):
+        if target < 0.6:
+            continue
+        rows.append([f"{target:.0%}"] + [rs[i][2] for n, rs in runs if n.endswith("+ size")])
+    keep_metrics_table("| Target | " + " | ".join(n for n, _ in runs if n.endswith("+ size")) + " |", rows)
+
+    print("#### The 87.4% rule with one eye feature dropped\n")
+    print(
+        "Fixed rules (no fitting), so the pooled numbers over every folder are also what each folder gets when "
+        "held out; the per-folder column is the spread.\n"
+    )
+    rows = []
+    for label, k, t in (
+        ("size >= 20, `eye_focus` >= 0.95, eyes open >= 0.995", 20, (0, 0, 2, 2, 0)),
+        ("eyes open dropped: size >= 20, `eye_focus` >= 0.95", 20, (0, 0, 2, 0, 0)),
+        ("`eye_focus` dropped: size >= 20, eyes open >= 0.995", 20, (0, 0, 0, 2, 0)),
+        ("both dropped: size >= 20", 20, None),
+        ("size >= 15, `eye_focus` >= 0.95, eyes open >= 0.995", 15, (0, 0, 2, 2, 0)),
+        ("size >= 15, `eye_focus` >= 0.95", 15, (0, 0, 2, 0, 0)),
+        ("size >= 15, eyes open >= 0.995", 15, (0, 0, 0, 2, 0)),
+    ):
+        rows.append([label] + fixed_burst(by, k, t))
+    keep_metrics_table(HEAD.format("Rule"), rows)
+
+
 def face_free(by):
     rows_b, rows_s = [], []
     fb = [b for bursts, _ in by.values() for b in bursts if not b[3]]
@@ -407,6 +468,7 @@ def report(folders):
     keep_metrics_table("| Single-frame rule | Marked (of face-free singles) | Precision (picked) |", rows_s)
 
     no_sharpness(by, burst_picked, size_picked)
+    eyes_parts(by)
 
 
 if __name__ == "__main__":

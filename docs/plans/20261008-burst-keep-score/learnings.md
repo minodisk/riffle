@@ -175,6 +175,13 @@
   the larger grid overfit at the strict end. The Decision's conclusion was
   unchanged; its one sentence saying no held-out variant reached 85% was
   corrected.
+- **Eyes open helps only with `eye_focus` on long bursts.** The user
+  asked (2026-10-09) whether eyes open adds anything. Split by eye
+  feature, the held-out burst-level results are within a point of size
+  alone up to an 80% target; only `eye_focus` and eyes open together
+  reach 87.4% (1.9% of the bursts), and dropping either from that rule
+  falls to 83-84%, near size >= 20 alone (82.3%). The Decision did not
+  change.
 
 ## Deferred issues (todo candidates)
 
