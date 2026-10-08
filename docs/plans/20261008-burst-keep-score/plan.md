@@ -168,9 +168,9 @@ burst's other frames.
     - No change to `riffle-core` or the app. Do not alter `candidates` or
       `eyes` output (other measurements depend on them).
 
-- [ ] Step 2: Define the burst, the pick-protecting metrics and the baselines, and measure each feature and hand thresholds
+- [x] Step 2: Define the burst, the pick-protecting metrics and the baselines, and measure each feature and hand thresholds
   - Done when:
-    - `metrics.py` in this plan folder (Python, standard library plus
+    - [metrics.py](metrics.py) in this plan folder (Python, standard library plus
       `numpy` if needed; reads only the Step 1 dumps and `Output/`
       listings): groups each folder's records into bursts with the rule of
       `burst.ts` (capture order, inclusive gap, missing subsec = 0 ms) at
@@ -213,7 +213,7 @@ burst's other frames.
       ("all checks"); (f) a-c only (no pose). A frame without a face is
       judged by (a) only, as the requirement says; the report says how many
       bursts are face-free, mixed and all-faced.
-    - `results.md`: the burst statistics per gap (bursts,
+    - [results.md](results.md): the burst statistics per gap (bursts,
       size distribution, bursts with one pick / several / none, per folder
       and pooled), every table above at the 1000 ms gap with the other gaps
       in a shorter table, in separate blocks for the sidecar-labeled ARW
@@ -488,3 +488,4 @@ burst's other frames.
 ## Progress
 
 - (2026-10-08) Step 1 complete
+- (2026-10-08) Step 2 complete
