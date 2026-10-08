@@ -503,27 +503,8 @@ struct EyesJudgment {
     probability: f64,
     /// The head pose of the judged face (`pose::Pose`), `None` when the
     /// solve failed.
-    pose: Option<EyesPose>,
+    pose: Option<index::EyesPose>,
     mesh: EyesMesh,
-}
-
-/// The head pose in degrees, with `pose::Pose`'s signs: yaw positive toward
-/// the image's right, pitch positive up, roll positive clockwise on screen.
-#[derive(Debug, PartialEq, serde::Serialize)]
-struct EyesPose {
-    yaw: f64,
-    pitch: f64,
-    roll: f64,
-}
-
-impl From<riffle_core::pose::Pose> for EyesPose {
-    fn from(p: riffle_core::pose::Pose) -> Self {
-        EyesPose {
-            yaw: p.yaw,
-            pitch: p.pitch,
-            roll: p.roll,
-        }
-    }
 }
 
 /// The face mesh the judgment was taken on, in the preview's stored pixel
@@ -608,7 +589,7 @@ fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, St
             eyes::EyeState::Closed => "closed",
         },
         probability: j.eyes.probability,
-        pose: j.pose.map(EyesPose::from),
+        pose: j.pose.map(index::EyesPose::from),
         mesh: EyesMesh {
             width: w,
             height: h,

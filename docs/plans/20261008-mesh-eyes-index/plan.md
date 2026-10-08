@@ -52,7 +52,7 @@ what gives the stored value its 60 px floor.
 
 ## Steps
 
-- [ ] Step 1: Carry the EAR and the pose out of the cue and store them in the index (Rust: core, index, events)
+- [x] Step 1: Carry the EAR and the pose out of the cue and store them in the index (Rust: core, index, events)
   - Done when:
     - `candidate::Cue` carries the EAR of the more closed eye and the pose of
       the meshed face (both `None` without a mesh), taken from the

@@ -948,7 +948,10 @@ retried.
   `extract_analysis` feeds it). Only the second pass then re-runs; thumbnails
   are kept. The column and the constant keep their names although they now
   cover the score too; a change to the columns it fills (`files.eye_focus`,
-  `files.sharpness`) is a `SCHEMA_VERSION` bump as well.
+  `files.sharpness`, and `files.eyes_ear` with `files.pose_yaw` /
+  `pose_pitch` / `pose_roll`, the EAR of the more closed eye and the head
+  pose from the mesh the cue already runs) is a `SCHEMA_VERSION` bump as
+  well.
 - Moving the score from the first pass to the second bumped neither version:
   the score's computation did not change, so a row the old first pass scored
   (at `FACES_VERSION`) keeps a correct score, and a row the second pass has

@@ -25,7 +25,8 @@ use anyhow::Result;
 use crate::arw::FocusLocation;
 use crate::decode::decode_rgb;
 use crate::eyes::{
-    mesh_of, Mesh, EYES_MIN_FACE, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS,
+    mesh_of, more_closed_ear, Mesh, EYES_MIN_FACE, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR,
+    RIGHT_IRIS,
 };
 use crate::faces::{detect_around_rgb, Detection, Face};
 use crate::pose::Pose;
@@ -119,6 +120,11 @@ pub struct Cue {
     /// The detection the face was picked from; `None` without an AF point,
     /// and in the `Cue::unknown` a caller falls back to after a failure.
     pub detection: Option<Detection>,
+    /// The EAR of the more closed eye of `face` (`EyeMeasures::ear`), the
+    /// closed-eyes judgment's input; `None` without a mesh.
+    pub eyes_ear: Option<f64>,
+    /// The head pose of `face`; `None` without a mesh or a solve.
+    pub pose: Option<Pose>,
 }
 
 impl Cue {
@@ -443,6 +449,9 @@ pub struct EyeMeasures {
     pub left: EyeRegions,
     /// The eye on the right of the image.
     pub right: EyeRegions,
+    /// `eyes::more_closed_ear` on the mesh points, the value
+    /// `eyes::judge_mesh` judges the same face on.
+    pub ear: Option<f64>,
     pub pose: Option<Pose>,
 }
 
@@ -469,6 +478,7 @@ pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) 
             contour: region(&RIGHT_EYE_CONTOUR),
             iris: region(&RIGHT_IRIS),
         },
+        ear: more_closed_ear(&mesh.points),
         pose: mesh.pose,
     }
 }
@@ -582,12 +592,21 @@ pub fn focus_cue_unless(
         )?),
         None => None,
     };
-    Some(Ok(Cue {
+    Some(Ok(cue_of(face, detection, focus)))
+}
+
+/// The cue of `face`, picked from `detection`, scored as `focus`; the EAR
+/// and the pose come from `focus`'s mesh, so a face without one has neither.
+fn cue_of(face: Option<Face>, detection: Detection, focus: Option<EyeFocus>) -> Cue {
+    let mesh = focus.and_then(|f| f.mesh);
+    Cue {
         state: focus.map_or(FocusCandidate::Unknown, |f| f.state),
         eye_focus: focus.map(|f| f.probability),
         face,
         detection: Some(detection),
-    }))
+        eyes_ear: mesh.and_then(|m| m.ear),
+        pose: mesh.and_then(|m| m.pose),
+    }
 }
 
 #[cfg(test)]
@@ -1158,6 +1177,35 @@ mod tests {
     }
 
     #[test]
+    fn the_cue_carries_the_ear_and_the_pose_of_the_mesh_it_scored() {
+        let gray = two_steps(2, 8);
+        let pose = Pose {
+            yaw: -20.0,
+            pitch: 5.0,
+            roll: 1.0,
+        };
+        let mut mesh = both_eyes(Some(pose));
+        // The far corner of the left eye, inside its box, so its EAR is finite.
+        mesh.points[133] = [30.0, 20.0];
+        let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+        let ear = more_closed_ear(&mesh.points);
+        assert!(ear.is_some());
+        assert_eq!(focus.mesh.map(|m| (m.ear, m.pose)), Some((ear, Some(pose))));
+        let detection = Detection {
+            width: 120,
+            height: 60,
+            faces: vec![two_eyed()],
+            point: Some((50, 25)),
+        };
+        let cue = cue_of(Some(two_eyed()), detection, Some(focus));
+        assert_eq!(
+            (cue.state, cue.eye_focus),
+            (focus.state, Some(focus.probability))
+        );
+        assert_eq!((cue.eyes_ear, cue.pose), (ear, Some(pose)));
+    }
+
+    #[test]
     fn a_face_under_the_floor_is_scored_on_the_window_without_the_mesh() {
         let gray = two_steps(2, 8);
         let rgb: Vec<u8> = gray.iter().flat_map(|&g| [g, g, g]).collect();
@@ -1169,6 +1217,15 @@ mod tests {
             focus.map(|f| (f.scored, f.mesh)),
             Some((Scored::Window, None))
         );
+        let detection = Detection {
+            width: 120,
+            height: 60,
+            faces: vec![small],
+            point: Some((50, 25)),
+        };
+        let cue = cue_of(Some(small), detection, focus);
+        assert_eq!(cue.eye_focus, focus.map(|f| f.probability));
+        assert_eq!((cue.eyes_ear, cue.pose), (None, None));
         let side = |s: f32| face(0.0, 0.0, s, (20.0, 25.0), (40.0, 25.0));
         assert!(!meshes_face(&side(EYES_MIN_FACE.next_down())));
         assert!(meshes_face(&side(EYES_MIN_FACE)));
