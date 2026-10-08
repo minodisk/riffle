@@ -841,7 +841,7 @@ fn features_line(
             opt(a.sharpness, 4),
             format!("{:?}", a.cue.state),
             opt(a.cue.eye_focus, 4),
-            opt(a.cue.face.map(|f| f.width.max(f.height) as f64), 0),
+            opt(a.cue.face.map(|f| f.width.max(f.height) as f64), 1),
         ]
         .join("\t"),
         Err(_) => ["err"; 4].join("\t"),
@@ -851,7 +851,7 @@ fn features_line(
             [text(&e.capture_time), text(&e.subsec)].join("\t"),
             [
                 (if e.af { "af" } else { "noaf" }).to_string(),
-                opt(e.side.map(f64::from), 0),
+                opt(e.side.map(f64::from), 1),
                 opt(e.ear, 4),
                 opt(e.open, 4),
                 opt(e.pose.map(|p| p.yaw), 1),
@@ -1663,7 +1663,7 @@ mod tests {
         });
         assert_eq!(
             features_line("2026-09-19", "a.ARW", "Pick", "Pick", &analysis, 40.04, &eyes, 85.06),
-            "2026-09-19\ta.ARW\t2026:09:19 10:11:12\t345\tPick\tPick\t123.4568\tCandidate\t0.9123\t97\taf\t97\t0.2123\t0.9877\t-12.3\t4.1\t0.0\t40.0\t85.1"
+            "2026-09-19\ta.ARW\t2026:09:19 10:11:12\t345\tPick\tPick\t123.4568\tCandidate\t0.9123\t96.6\taf\t96.6\t0.2123\t0.9877\t-12.3\t4.1\t0.0\t40.0\t85.1"
         );
         let unknown = Ok(scan::Analysis::default());
         let no_face = Ok(EyesFeatures {
