@@ -556,9 +556,11 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       labels of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`
       (no eye to judge, including false detections) can seed it. Files:
       `crates/core/src/eyes.rs`, `docs/agents/tract-onnx-inference.md`.
-- [ ] Add the shown file's closed-eyes judgment to the MCP companion (a
+- [x] Add the shown file's closed-eyes judgment to the MCP companion (a
       field of `get_photo` / `get_view`, or its own tool), so an agent can
-      read it. It is on demand, so the field is absent until the file has
+      read it. Landed as `get_view`'s `current.eyes` (`state`,
+      `probability` closed, `pose`) from `EyesCache`; see
+      `docs/plans/20261008-mcp-eyes-pose/`. It is on demand, so the field is absent until the file has
       been shown; or the tool calls `eyes_of` itself. Files:
       `crates/app/src/mcp.rs`, `crates/app/ui/src/companion.ts`,
       `crates/app/ui/src/eyes.ts`.
@@ -581,12 +583,14 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       on 68%, the gap at the frontal / oblique boundary. See
       `docs/plans/20261007-head-pose/` and `docs/humans/performance.md`
       "Closed-eyes judgment on demand (Windows 11)".
-- [ ] Add the shown file's head pose to the MCP companion, next to the
+- [x] Add the shown file's head pose to the MCP companion, next to the
       closed-eyes field above: the pose rides in the same `eyes_of`
       judgment (`EyesJudgment.pose`, `null` when there is none), so one
       field of `get_photo` / `get_view` (or one tool) can carry both, absent
       until the file has been shown. Files: `crates/app/src/mcp.rs`,
       `crates/app/ui/src/companion.ts`, `crates/app/ui/src/eyes.ts`.
+      Landed as `pose` inside `get_view`'s `current.eyes`; see
+      `docs/plans/20261008-mcp-eyes-pose/`.
 - [ ] Flag "looking away" frames from the head pose. Needs a threshold
       labeled first: which |yaw| / pitch a culler calls looking away (the
       Step 2 labels put frontal faces at a median |yaw| of 10 deg, oblique

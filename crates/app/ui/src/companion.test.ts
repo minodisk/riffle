@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { type ViewApi, getView, handleRequest, respond } from "./companion.js";
 import { COMPARE_NEEDS_FRAMES } from "./compare.js";
+import type { Eyes } from "./eyes.js";
 import { type Command, type PickFlag, judgments } from "./selection.js";
 
 function view(overrides: Partial<ViewApi> = {}): ViewApi {
@@ -20,6 +21,7 @@ function view(overrides: Partial<ViewApi> = {}): ViewApi {
     sort: "name",
     filtered: false,
     viewOnly: false,
+    eyes: () => undefined,
     showPhoto: () => {},
     selectPhotos: () => {},
     setMode: () => {},
@@ -184,6 +186,50 @@ describe("getView", () => {
     expect(state.mode).toBe("compare");
     expect(state.compare_active).toBe("/d/b");
   });
+
+  const judged: Eyes = {
+    state: "closed",
+    probability: 0.9,
+    pose: { yaw: 40, pitch: -5, roll: 2 },
+    mesh: { width: 1616, height: 1080, points: [[1, 2]] },
+  };
+
+  function eyesView(eyes: Eyes | null | undefined): ViewApi {
+    return view({
+      folder: "/d",
+      files: ["/d/a", "/d/b"],
+      index: 1,
+      eyes: (path) => (path === "/d/b" ? eyes : undefined),
+    });
+  }
+
+  test("reports the current file's eyes judgment and head pose without the mesh", () => {
+    expect(getView(eyesView(judged)).current).toEqual({
+      path: "/d/b",
+      position: 2,
+      eyes: { state: "closed", probability: 0.9, pose: { yaw: 40, pitch: -5, roll: 2 } },
+    });
+  });
+
+  test("reports a null pose when the fit failed", () => {
+    expect(getView(eyesView({ ...judged, state: "open", pose: null })).current?.eyes).toEqual({
+      state: "open",
+      probability: 0.9,
+      pose: null,
+    });
+  });
+
+  test("reports null eyes when the file was judged without a face", () => {
+    const current = getView(eyesView(null)).current;
+    expect(current).not.toBeNull();
+    expect(current?.eyes).toBeNull();
+  });
+
+  test("leaves the eyes key out until the file has been judged", () => {
+    const current = getView(eyesView(undefined)).current;
+    expect(current).not.toBeNull();
+    expect("eyes" in (current ?? {})).toBe(false);
+  });
 });
 
 describe("respond", () => {
@@ -192,6 +238,16 @@ describe("respond", () => {
     expect(reply.id).toBe(7);
     expect(reply.ok).toBe(true);
     expect(reply.value).toMatchObject({ folder: null, count: 0 });
+  });
+
+  test("answers get_view without the eyes key for a file not judged yet", async () => {
+    const reply = await respond(
+      { id: 9, kind: "get_view", args: {} },
+      view({ folder: "/d", files: ["/d/a"] }),
+    );
+    const sent = JSON.parse(JSON.stringify(reply.value)) as { current: object };
+    expect(sent.current).toEqual({ path: "/d/a", position: 1 });
+    expect("eyes" in sent.current).toBe(false);
   });
 
   test("turns an unknown request into an error reply", async () => {

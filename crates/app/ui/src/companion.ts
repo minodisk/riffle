@@ -4,6 +4,7 @@
 
 import type { BurstMember } from "./burst.js";
 import { COMPARE_NEEDS_FRAMES } from "./compare.js";
+import type { Eyes } from "./eyes.js";
 import { type Command, type Judged, type PickFlag, targets } from "./selection.js";
 import type { SortKey } from "./sort.js";
 import { VIEW_ONLY_REFUSAL } from "./viewonly.js";
@@ -27,6 +28,9 @@ export interface ViewApi {
   readonly filtered: boolean;
   // A JPEG folder, where culling does not apply.
   readonly viewOnly: boolean;
+  // The eyes judgment of `path` as `EyesCache.get` answers it: `undefined`
+  // not judged yet, `null` judged with the eyes unknown.
+  eyes(path: string): Eyes | null | undefined;
   // Make a visible `path` current and the only selected file.
   showPhoto(path: string): void;
   // Select the visible `paths` and make the first one current.
@@ -65,10 +69,20 @@ export interface BurstFrame {
   visible: boolean;
 }
 
+// `Eyes` without the face mesh, which is of no use to a client.
+export type EyesSummary = Pick<Eyes, "state" | "probability" | "pose">;
+
+export interface CurrentPhoto {
+  path: string;
+  position: number;
+  // Absent until the file has been judged.
+  eyes?: EyesSummary | null;
+}
+
 export interface ViewState {
   folder: string | null;
   count: number;
-  current: { path: string; position: number } | null;
+  current: CurrentPhoto | null;
   selected: string[];
   mode: ViewMode;
   compare_active: string | null;
@@ -98,12 +112,22 @@ function burstOf(view: ViewApi, path: string): BurstFrame[] {
     }));
 }
 
+function currentOf(view: ViewApi, path: string): CurrentPhoto {
+  const current: CurrentPhoto = { path, position: view.index + 1 };
+  const eyes = view.eyes(path);
+  if (eyes !== undefined) {
+    current.eyes =
+      eyes === null ? null : { state: eyes.state, probability: eyes.probability, pose: eyes.pose };
+  }
+  return current;
+}
+
 export function getView(view: ViewApi): ViewState {
   const path = view.files[view.index] as string | undefined;
   return {
     folder: view.folder,
     count: view.files.length,
-    current: path === undefined ? null : { path, position: view.index + 1 },
+    current: path === undefined ? null : currentOf(view, path),
     selected: view.files.filter((file) => view.selection.has(file)),
     mode: view.comparing ? "compare" : view.zoomed ? "zoom" : "normal",
     compare_active: view.comparing ? view.compareActive : null,

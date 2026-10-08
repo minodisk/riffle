@@ -3541,6 +3541,7 @@ const view: ViewApi = {
   get filtered() {
     return filterActive();
   },
+  eyes: (path) => eyesCache.get(path),
   showPhoto(path) {
     selection = single(path);
     paintSelection();
