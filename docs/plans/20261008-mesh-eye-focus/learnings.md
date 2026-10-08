@@ -71,3 +71,48 @@
   (held-out), the cores being shared with the other files' decodes and
   meshes.
 
+
+## Step 2
+
+- The Step 1 `candidates` lines were not enough for the fit. They carry only
+  the 0.25-margin regions and no AF point, while variant (d) needs other
+  margins and (c) needs the AF point. A scratch `riffle-cli meshdump`
+  subcommand ([`meshdump.patch`](meshdump.patch), applied on `d509e555` and
+  reverted) writes one JSON line per faced file at full precision instead:
+  `training-dump.jsonl` and `heldout-dump.jsonl` next to the Step 1 lines in
+  `D:\Photos\tests\2026-10-08-mesh-eye-focus\`. `fit.py` checks the dump
+  against the Step 1 lines. Two held-out file names (`_DSC3035.ARW`,
+  `_DSC3178.ARW`) occur in two folders each, so that check matches lines in
+  order, not by name.
+- The window baseline reproduces from the full-precision dump exactly:
+  0.852 / 93.1% / 91.4% and 0.754 / 89.1% / 95.3%.
+- Small training subsets can be perfectly separable, and Newton's method
+  then divides by zero. `run()` reports such a variant as "no fit"; none of
+  the variants the script runs hit it in the final run.
+- The fit's threshold lies midway between the boundary pick's logit and the
+  next lower logit, not on the pick's logit. That avoids the full-precision
+  boundary-frame problem the earlier plan hit with `CANDIDATE_LOGIT`.
+- The pooled AUC of a two-model split rewards the split itself. A
+  window-features refit on the same frames (the "control" row in `fit.md`)
+  goes from 0.754 to 0.777 held-out with no mesh at all. Compare against that
+  row and against the "meshed AUC" columns, not only against 0.754.
+- Outcome: (b), the sharper eye, at margin 0.5 with a 24 px floor, no yaw
+  cut, adopted by the plan's rule (held-out 0.800, 88.6% / 95.9%). See the
+  Decision in plan.md.
+
+## Deferred issues (todo candidates)
+
+- Skip the face mesh in the scan for faces whose box is under 60 px
+  (`EYES_MIN_FACE`). At the chosen 24 px floor, no face under 58 px gets an
+  eye region that counts (1 of the 330 counting frames lies under 60 px:
+  157 training, 173 held-out), and about 26% of the labeled faces are under
+  60 px (`fit-out.txt`, "Face sizes"). So a face-size gate would
+  save about a quarter of the mesh runs at almost no change to the cue. It
+  was not measured as a fit variant. Basis: Step 2 (`fit.md`, "Floor"). Files:
+  `crates/core/src/candidate.rs` (`focus_cue_unless`),
+  `crates/core/src/eyes.rs` (`mesh_of`).
+- The region's gain over the window is small and rests on few off frames
+  (9 held-out off frames among the meshed ones). Re-run `fit.py`'s
+  comparison on `2026-08-29-focus-sample` and `2026-09-13-b-focus-sample`
+  once they are labeled. Basis: Step 2 caveats in plan.md's Decision. Files:
+  `docs/plans/20261008-mesh-eye-focus/fit.py`, `crates/cli/src/main.rs`.
