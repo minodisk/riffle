@@ -412,8 +412,6 @@ def heldout_scores(by, fit):
 # ---------------------------------------------------------------- report
 
 
-def table(head, rows):
-    metrics.table(head, rows)
 
 
 FLAG_HEAD = (
@@ -477,7 +475,7 @@ def report(folders, frozen_path):
         for q in PS:
             pooled, per, train, model = lofo(by, lambda tr, f=feats, q=q: thresholds(tr, f, q), fails_thresholds)
             rows.append(flag_row(f"{name}, p {q:.0%}", pooled, per, train) + [show_thresholds(model)])
-    table(FLAG_HEAD + " Thresholds (all folders) |", rows)
+    metrics.table(FLAG_HEAD + " Thresholds (all folders) |", rows)
 
     print("### Matched to a pick false-fail\n")
     print(
@@ -502,7 +500,7 @@ def report(folders, frozen_path):
                 flag_row(f"{name}, target {target:.0%}", pooled, per, train)
                 + [f"{100 * gain:+.1f} pt", dtxt, f"{model['_q']:.4f}", show_thresholds(model)]
             )
-    table(FLAG_HEAD + " Gain over rel | Per-folder gain mean (sd), folders > 0 | p (all folders) | Thresholds (all folders) |", rows)
+    metrics.table(FLAG_HEAD + " Gain over rel | Per-folder gain mean (sd), folders > 0 | p (all folders) | Thresholds (all folders) |", rows)
 
     six = SETS[-1][1]
     for title, full_set in (("the chosen set", CHOSEN["set"]), ("all six", six)):
@@ -513,7 +511,7 @@ def report(folders, frozen_path):
                 feats = tuple(k for k in full_set if k != drop)
                 pooled, per, train, model = lofo(by, fit_matched(feats, target), fails_thresholds)
                 rows.append(flag_row(f"target {target:.0%}, " + ("none dropped" if drop is None else f"without {drop}"), pooled, per, train))
-        table(FLAG_HEAD, rows)
+        metrics.table(FLAG_HEAD, rows)
 
     print("### Transfer to the DNG blocks\n")
     print("Thresholds fitted on every ARW folder (matched), applied to the DNG blocks (no AF point, so no `eye_focus`).\n")
@@ -526,7 +524,7 @@ def report(folders, frozen_path):
                 c = count(kb, fails_thresholds(strip(model)))
                 ff, fl, kept = summary(c)
                 rows.append([kind, f"target {target:.0%}", ", ".join(feats), f"{p(ff)} ({c[0]}/{c[1]})", f"{p(fl)} ({c[2]}/{c[3]})", p(kept)])
-    table("| Block | Fit | Set | Pick false-fail | Non-pick flagged | Mean share kept |", rows)
+    metrics.table("| Block | Fit | Set | Pick false-fail | Non-pick flagged | Mean share kept |", rows)
 
     print("## (ii) Positive-unlabeled logistic\n")
     print("Thresholded at the score that keeps 99 / 98 / 95% of the training picks.\n")
@@ -536,7 +534,7 @@ def report(folders, frozen_path):
         for keep in KEEPS:
             pooled, per, train, model = lofo(by, with_keep(fit_pointwise(groups), keep), fails_linear)
             rows.append(flag_row(f"{name}, keep {keep:.0%}", pooled, per, train))
-    table(FLAG_HEAD, rows)
+    metrics.table(FLAG_HEAD, rows)
 
     print("### Drop one group (all features, keep 98%)\n")
     rows = []
@@ -544,13 +542,13 @@ def report(folders, frozen_path):
         groups = tuple(g for g in GROUPS if g != drop)
         pooled, per, train, model = lofo(by, with_keep(fit_pointwise(groups), 0.98), fails_linear)
         rows.append(flag_row("none dropped" if drop is None else f"without {drop}", pooled, per, train))
-    table(FLAG_HEAD, rows)
+    metrics.table(FLAG_HEAD, rows)
 
     full = fit_pointwise(GROUPS)(allb)
     print("### Coefficients (all folders, standardized features)\n")
     names = ["intercept"] + [n for n, _ in full["feats"]] + [n for n, _ in full["inds"]]
     print(f"Newton iterations {full['it']}, converged {full['ok']}, ridge {full['ridge']}.\n")
-    table("| Term | Coefficient |", [[n, f"{w:+.4f}"] for n, w in zip(names, full["w"])])
+    metrics.table("| Term | Coefficient |", [[n, f"{w:+.4f}"] for n, w in zip(names, full["w"])])
 
     s = linear(full)
     g = [sigmoid(s(f)) for f in fr]
@@ -573,7 +571,7 @@ def report(folders, frozen_path):
     for share in (0.3, 0.5, 0.7, 0.9):
         cc = P / (P + share * U)
         rows.append([p(share, 0), f"{cc:.3f}", f"{min(1.0, g98 / cc):.3f}"])
-    table("| Assumed OK share of non-picks | c | P(OK) at the 98% threshold |", rows)
+    metrics.table("| Assumed OK share of non-picks | c | P(OK) at the 98% threshold |", rows)
 
     print("## Ranking: (iii) pairwise and (iv) pointwise logistic, held out\n")
     print("Position metrics as in results.md over the held-out scores; baselines need no fit.\n")
@@ -590,13 +588,13 @@ def report(folders, frozen_path):
     for name, score in (("Sharpness / burst max", lambda f: f["rel"]), ("First frame", lambda f: -f["pos"]), ("Random (seed 0)", lambda f: f["rand"])):
         m = metrics.position_metrics(allb, score, False)
         rows.append([name, m["top_half"], m["top_third"], m["worst_median"], m["worst_p90"], m["worst_near1"], m["pair_auc"], m["abs_auc"], m["top1"], m["mean_rank"]])
-    table(
+    metrics.table(
         "| Score | Picks in top half | Top third | Worst pick median | Worst pick p90 | Bursts with worst pick >= 0.9 | Pairwise AUC | Absolute AUC | Top-1 hit | Mean pick q |",
         rows,
     )
     pw = fit_pairwise(GROUPS)(allb)
     print(f"Pairwise fit on all folders: {pw['pairs']} pairs, Newton iterations {pw['it']}, converged {pw['ok']}, ridge {pw['ridge']}.\n")
-    table("| Term | Coefficient |", [[n, f"{w:+.4f}"] for n, w in zip(names[1:], pw["w"][1:])])
+    metrics.table("| Term | Coefficient |", [[n, f"{w:+.4f}"] for n, w in zip(names[1:], pw["w"][1:])])
 
     print("## Chosen variant\n")
     feats, target = CHOSEN["set"], CHOSEN["target"]
@@ -608,7 +606,7 @@ def report(folders, frozen_path):
     for n in by:
         c, b = per[n], base_per[n]
         rows.append([f"`{n}`", c[1], c[3], f"{p(rate(c[0], c[1]))} / {p(rate(c[2], c[3]))}", f"{p(rate(b[0], b[1]))} / {p(rate(b[2], b[3]))}"])
-    table("| Folder | Picks | Non-picks | Chosen: false-fail / flagged | rel alone: false-fail / flagged |", rows)
+    metrics.table("| Folder | Picks | Non-picks | Chosen: false-fail / flagged | rel alone: false-fail / flagged |", rows)
 
     print("### Other gaps\n")
     rows = []
@@ -618,7 +616,7 @@ def report(folders, frozen_path):
             pooled2, per2, train2, _ = lofo(b2, fit_matched(fs, target), fails_thresholds)
             ff, fl, kept = summary(pooled2)
             rows.append([gap, ", ".join(fs), sum(len(v) for v in b2.values()), p(ff), p(fl), p(kept)])
-    table("| Gap ms | Set | Scorable bursts | Held-out false-fail | Held-out flagged | Mean share kept |", rows)
+    metrics.table("| Gap ms | Set | Scorable bursts | Held-out false-fail | Held-out flagged | Mean share kept |", rows)
 
     if frozen_path:
         t = strip(model)

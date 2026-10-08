@@ -1,6 +1,6 @@
 # Step 3 fit: keep marks and failure checks from the picks, held out by folder
 
-Measured on 2026-10-08 over the Step 1 dumps
+Measured on 2026-10-08 (the eye-feature split on 2026-10-09) over the Step 1 dumps
 (`D:\Photos\tests\2026-10-08-burst-keep-score\dump\`) with three scripts
 that read the frames, labels and bursts through [metrics.py](metrics.py),
 so every count is Step 2's ([results.md](results.md)). Newest framing
@@ -84,7 +84,7 @@ scene.py <dump-dir>`, about 3 s).
   no better than size alone. In-sample, size >= 15 with absolute >= 200,
   `eye_focus` >= 0.95 and eyes open >= 0.995 reaches 86.6% on 134 bursts
   (2.7%), which the held-out selection does not reproduce. No held-out
-  variant reaches 85%.
+  variant of the full grid reaches 85%; the no-sharpness grid below does.
 - **Single frames: no rule reaches 50% even on the training folders.**
   The best grid rule in-sample is 32.0% on 25 singles (1.3%), the
   strictest `eye_focus` + eyes-open cut 22.2% (36 singles), against the
@@ -144,7 +144,7 @@ scene.py <dump-dir>`, about 3 s).
   146, dropping `eye_focus` 82.9% on 222, and size >= 20 alone 82.3% on
   237. At size >= 15 the same pattern: 87.2% (148) with both, 81.9% (265)
   with `eye_focus` only, 79.5% (439) with eyes open only, 79.3% (482) with
-  neither. So each feature alone adds 0-2 points over the burst length, and
+  neither. So each feature alone adds 0-3 points over the burst length, and
   the two together add about ten, on 1.6-2.9% of the bursts.
 
 ## Keep mark (the reframed goal)

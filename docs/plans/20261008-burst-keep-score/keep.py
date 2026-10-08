@@ -279,16 +279,13 @@ def logistic_rows(by):
         nf += len(hf)
         npk += sum(f["pick"] for f in hf)
 
-        def tally(acc, per, thr, extra=None):
+        def tally(acc, per, thr):
             marked = [f for f in hf if f["s"] >= thr]
             acc[0] += len(marked)
             acc[1] += sum(f["pick"] for f in marked)
             acc[2] += sum(f["share"] for f in marked)
             acc[3] += sum(1 for b in hb if any(faced(f) and f["s"] >= thr for f in b))
-            per.append(rate(acc_p(marked), len(marked)) if len(marked) >= MIN_FOLDER_MARKED else None)
-
-        def acc_p(marked):
-            return sum(f["pick"] for f in marked)
+            per.append(rate(sum(f["pick"] for f in marked), len(marked)) if len(marked) >= MIN_FOLDER_MARKED else None)
 
         for q in TOPS:
             thr = tr[max(0, int(q * len(tr)) - 1)][0]

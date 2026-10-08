@@ -96,7 +96,7 @@ def units(folders):
     return by
 
 
-def counts(items, label):
+def counts(items):
     """Per rule index: (marked, positive) over items of (positive, marks)."""
     m = [0] * len(keep.ALL)
     p = [0] * len(keep.ALL)
@@ -135,7 +135,7 @@ def block(by, pick_items, title, unit, allowed=None):
     per target."""
     names = list(by)
     grid = [t for t in keep.ALL if allowed is None or allowed(t)]
-    per_counts = {n: counts(pick_items(n), unit) for n in names}
+    per_counts = {n: counts(pick_items(n)) for n in names}
     tot_n = {n: len(pick_items(n)) for n in names}
     tot_pos = {n: sum(pos for pos, _ in pick_items(n)) for n in names}
     n_all = sum(tot_n.values())
@@ -166,7 +166,7 @@ def block(by, pick_items, title, unit, allowed=None):
         ("level 2 everywhere", (2, 2, 2, 2, 2)),
     ]
     if allowed is None:
-        keep_metrics_table(HEAD.format("Rule"), [[label] + fixed(t) for label, t in rules])
+        metrics.table(HEAD.format("Rule"), [[label] + fixed(t) for label, t in rules])
 
     print(f"#### {title}: best grid rule at a coverage floor (in-sample)\n")
     rows = []
@@ -179,7 +179,7 @@ def block(by, pick_items, title, unit, allowed=None):
             if m >= floor * n_all and m and (best is None or p / m > best[0]):
                 best = (p / m, t)
         rows.append([f">= {floor:.0%}", keep.describe(best[1])] + fixed(best[1]))
-    keep_metrics_table(HEAD.format("Coverage floor").replace("| Precision", "| Rule | Precision", 1), rows)
+    metrics.table(HEAD.format("Coverage floor").replace("| Precision", "| Rule | Precision", 1), rows)
 
     print(f"#### {title}: held out, the rule chosen on the other folders by a target precision\n")
     rows, picked = [], []
@@ -211,12 +211,10 @@ def block(by, pick_items, title, unit, allowed=None):
         if common:
             picked.append((target, common[0]))
         rows.append([f"target {target:.0%}", missing, f"{keep.describe(common[0])} ({common[1]} folds)" if common else "-"] + stats_row(m, p, n, npos, per))
-    keep_metrics_table(HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1), rows)
+    metrics.table(HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1), rows)
     return picked
 
 
-def keep_metrics_table(head, rows):
-    metrics.table(head, rows)
 
 
 def size_baseline(by):
@@ -341,7 +339,7 @@ def no_sharpness(by, burst_picked, size_picked):
     block(by, lambda n: [(b[0], b[2]) for b in by[n][0]], "Bursts, no sharpness", "bursts", no_sharp)
     print("#### Bursts, no sharpness: held out, a size cut and a grid rule chosen together\n")
     head = HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1)
-    keep_metrics_table(head, heldout_size_rule(by, True, no_sharp)[0])
+    metrics.table(head, heldout_size_rule(by, True, no_sharp)[0])
     print("#### Single frames, no sharpness\n")
     block(by, lambda n: [(s[0], s[1]) for s in by[n][1]], "Single frames, no sharpness", "single frames", no_sharp)
 
@@ -361,7 +359,7 @@ def no_sharpness(by, burst_picked, size_picked):
         size = "" if k == 2 else f"size >= {k}, "
         rows.append([label, size + keep.describe(t)] + fixed_burst(by, k, t))
         rows.append(["", size + "without sharpness: " + keep.describe(d)] + fixed_burst(by, k, d))
-    keep_metrics_table(HEAD.format("Chosen for").replace("| Precision", "| Rule | Precision", 1), rows)
+    metrics.table(HEAD.format("Chosen for").replace("| Precision", "| Rule | Precision", 1), rows)
 
 
 def eyes_parts(by):
@@ -395,14 +393,14 @@ def eyes_parts(by):
         if target < 0.6:
             continue
         rows.append([f"{target:.0%}"] + [cell(rs[i]) for _, rs in runs])
-    keep_metrics_table("| Target | " + " | ".join(n for n, _ in runs) + " |", rows)
+    metrics.table("| Target | " + " | ".join(n for n, _ in runs) + " |", rows)
     print("Most chosen rule of the \"+ size\" runs:\n")
     rows = []
     for i, target in enumerate(TARGETS):
         if target < 0.6:
             continue
         rows.append([f"{target:.0%}"] + [rs[i][2] for n, rs in runs if n.endswith("+ size")])
-    keep_metrics_table("| Target | " + " | ".join(n for n, _ in runs if n.endswith("+ size")) + " |", rows)
+    metrics.table("| Target | " + " | ".join(n for n, _ in runs if n.endswith("+ size")) + " |", rows)
 
     print("#### The 87.4% rule with one eye feature dropped\n")
     print(
@@ -420,7 +418,7 @@ def eyes_parts(by):
         ("size >= 15, eyes open >= 0.995", 15, (0, 0, 0, 2, 0)),
     ):
         rows.append([label] + fixed_burst(by, k, t))
-    keep_metrics_table(HEAD.format("Rule"), rows)
+    metrics.table(HEAD.format("Rule"), rows)
 
 
 def face_free(by):
@@ -448,15 +446,15 @@ def report(folders):
     print("### Bursts of two or more frames\n")
     burst_picked = block(by, lambda n: [(b[0], b[2]) for b in by[n][0]], "Bursts", "bursts")
     print("#### Bursts: by size alone (no technical feature)\n")
-    keep_metrics_table(HEAD.format("Rule"), size_baseline(by))
+    metrics.table(HEAD.format("Rule"), size_baseline(by))
     print("#### Bursts: size and a rule together\n")
-    keep_metrics_table(HEAD.format("Rule"), size_and_rule(by))
+    metrics.table(HEAD.format("Rule"), size_and_rule(by))
     print("#### Bursts: held out, a size cut alone chosen by a target precision\n")
     head = HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1)
-    keep_metrics_table(head, heldout_size_rule(by, False)[0])
+    metrics.table(head, heldout_size_rule(by, False)[0])
     print("#### Bursts: held out, a size cut and a grid rule chosen together by a target precision\n")
     size_rows, size_picked = heldout_size_rule(by, True)
-    keep_metrics_table(head, size_rows)
+    metrics.table(head, size_rows)
 
     print("### Single frames\n")
     block(by, lambda n: [(s[0], s[1]) for s in by[n][1]], "Single frames", "single frames")
@@ -464,8 +462,8 @@ def report(folders):
     fb, fs, rows_b, rows_s = face_free(by)
     print("### Without a faced frame (sharpness only)\n")
     print(f"{len(fb)} bursts of two or more frames have no faced frame ({sum(b[0] for b in fb)} kept, base {pc(keep.rate(sum(b[0] for b in fb), len(fb)))}); {len(fs)} single frames are not faced ({sum(s[0] for s in fs)} picks, base {pc(keep.rate(sum(s[0] for s in fs), len(fs)))}).\n")
-    keep_metrics_table("| Burst rule | Marked (of face-free bursts) | Precision (kept) |", rows_b)
-    keep_metrics_table("| Single-frame rule | Marked (of face-free singles) | Precision (picked) |", rows_s)
+    metrics.table("| Burst rule | Marked (of face-free bursts) | Precision (kept) |", rows_b)
+    metrics.table("| Single-frame rule | Marked (of face-free singles) | Precision (picked) |", rows_s)
 
     no_sharpness(by, burst_picked, size_picked)
     eyes_parts(by)

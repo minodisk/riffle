@@ -110,9 +110,14 @@
   need a re-dump.
 - (Superseded by the approval entry below.) The Decision was first written
   as a proposal awaiting the user's approval, as the caller asked.
-- **User intervention (2026-10-08): the user approved the no-ship
-  Decision.** Steps 4-5 were struck on their headings, and Step 6 became
-  docs-only.
+- (Superseded by the 2026-10-09 entry below.) **User intervention
+  (2026-10-08): the user approved the no-ship Decision.** Steps 4-5 were
+  struck on their headings, and Step 6 became docs-only.
+- **User intervention (2026-10-09): forget bursts and build the "good
+  photo" mark.** After the burst-level result, the user redirected the work
+  to a frame-level `goodPhoto` mark, and Steps 4-6 were rewritten and
+  approved (nothing is struck now). The burst-level no-ship conclusion of
+  the Decision stands.
 - **User intervention (2026-10-08): the goal was reframed before the first
   Decision was approved.** The first proposal (a failure check that keeps
   nearly every pick; nothing beat sharpness alone) went to the user, who
@@ -220,7 +225,7 @@
   `D:\Photos\tests\2026-10-08-burst-keep-score\dump\` were taken with a
   CLI built before `20261008-mesh-eye-focus` Step 3 (#733), so the burst
   keep-check fit used the eye-window `eye_focus`. If the burst check is
-  revisited (or the alternative of the Decision is chosen), re-run
+  revisited (Step 4's re-dump covers the frame-level mark), re-run
   [dump.sh](dump.sh) with a current `riffle-cli` and re-run
   [keep.py](keep.py) / [fit.py](fit.py) before trusting the frozen
   `eye_focus` cuts in [frozen.json](frozen.json) and
