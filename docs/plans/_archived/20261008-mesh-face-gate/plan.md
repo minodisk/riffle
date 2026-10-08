@@ -23,7 +23,7 @@ nearest the AF point of every trusted-AF file and scores the eyes over the
 mesh eye regions, falling back to the eye window when no region reaches
 `EYE_REGION_MIN` (24 px). That mesh made pass 2 about two thirds slower
 (12.9 -> 21.5 s on the 2134-ARW folder at 24 threads,
-[`../_archived/20261008-mesh-eye-focus/learnings.md`](../_archived/20261008-mesh-eye-focus/learnings.md),
+[`../20261008-mesh-eye-focus/learnings.md`](../20261008-mesh-eye-focus/learnings.md),
 Step 4). On the labeled sets no face whose box is under 58 px ever gets an
 eye region that counts: of the 330 frames an eye region decided, one (a
 58.2 px training face) lies under 60 px, while about 26% of the labeled faces
