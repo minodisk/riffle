@@ -179,10 +179,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   logistic combination of the Laplacian variance and the mean edge width, is
   about 77% or more). It is measured over each eye's eyelid region, which a
   face mesh model (MediaPipe Face Landmarker v2) finds, and the sharper of
-  the two eyes counts; when neither eye's region reaches 24 px, as on small
-  faces, it is measured over the preview between the eyes instead. Orange
+  the two eyes counts; when neither eye's region counts (under 24 px, as on small
+  faces, or without a clear edge), it is measured over the preview between the eyes instead. Orange
   when a face is near the AF point but its eyes are likely not in focus
-  (including a region with no clear edge, which counts as 0%); white when
+  (including a window between the eyes with no clear edge, which counts as
+  0%); white when
   Riffle does not know (no AF point, manual focus, no face near the point, or
   not computed yet).
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
