@@ -22,6 +22,11 @@ frames that Steps 2 and 3 left out so far.
   scored apart with sharpness-only rules: the bursts with no faced frame,
   and the face-free singles.
 
+A last section repeats the held-out selections with the grid limited to
+the rules without a sharpness cut (`eye_focus`, eyes open and the pose
+only), and scores the rules chosen with sharpness again without their
+sharpness cuts.
+
 Held out by folder as in keep.py: for each folder, the grid rule with the
 most marked units on the other folders (at least 30) among those whose
 training precision reaches a target, scored on the held-out folder,
@@ -121,9 +126,13 @@ def stats_row(m, p, n, npos, per):
     return [pc(prec), "-" if lift is None else f"{lift:.2f}", f"{m} ({pc(keep.rate(m, n))})", f"{p} ({pc(keep.rate(p, npos))})", spread(per)]
 
 
-def block(by, pick_items, title, unit):
-    """pick_items(name) -> list of (positive, marks) for that folder."""
+def block(by, pick_items, title, unit, allowed=None):
+    """pick_items(name) -> list of (positive, marks) for that folder. allowed
+    limits the grid rules the selections may choose (all when None); with it,
+    the fixed-rule table is left out. Returns the most chosen held-out rule
+    per target."""
     names = list(by)
+    grid = [t for t in keep.ALL if allowed is None or allowed(t)]
     per_counts = {n: counts(pick_items(n), unit) for n in names}
     tot_n = {n: len(pick_items(n)) for n in names}
     tot_pos = {n: sum(pos for pos, _ in pick_items(n)) for n in names}
@@ -138,7 +147,8 @@ def block(by, pick_items, title, unit):
         per = [keep.rate(per_counts[n][1][i], per_counts[n][0][i]) if per_counts[n][0][i] >= MIN_FOLDER else None for n in names]
         return stats_row(m, p, n_all, pos_all, per)
 
-    print(f"#### {title}: fixed rules\n")
+    if allowed is None:
+        print(f"#### {title}: fixed rules\n")
     rules = [
         ("any faced frame", (0, 0, 0, 0, 0)),
         ("sharpest frame faced (`rel >= 1`)", (4, 0, 0, 0, 0)),
@@ -153,13 +163,14 @@ def block(by, pick_items, title, unit):
         ("level 1 everywhere", (1, 1, 1, 1, 1)),
         ("level 2 everywhere", (2, 2, 2, 2, 2)),
     ]
-    keep_metrics_table(HEAD.format("Rule"), [[label] + fixed(t) for label, t in rules])
+    if allowed is None:
+        keep_metrics_table(HEAD.format("Rule"), [[label] + fixed(t) for label, t in rules])
 
     print(f"#### {title}: best grid rule at a coverage floor (in-sample)\n")
     rows = []
     for floor in (0.3, 0.2, 0.1, 0.05, 0.02, 0.01):
         best = None
-        for t in keep.ALL:
+        for t in grid:
             i = keep.index(t)
             m = sum(per_counts[n][0][i] for n in names)
             p = sum(per_counts[n][1][i] for n in names)
@@ -169,14 +180,14 @@ def block(by, pick_items, title, unit):
     keep_metrics_table(HEAD.format("Coverage floor").replace("| Precision", "| Rule | Precision", 1), rows)
 
     print(f"#### {title}: held out, the rule chosen on the other folders by a target precision\n")
-    rows = []
+    rows, picked = [], []
     for target in TARGETS:
         m = p = n = npos = 0
         per, missing, chosen = [], 0, {}
         for held in names:
             train = [x for x in names if x != held]
             best = None
-            for t in keep.ALL:
+            for t in grid:
                 i = keep.index(t)
                 tm = sum(per_counts[x][0][i] for x in train)
                 tp = sum(per_counts[x][1][i] for x in train)
@@ -195,8 +206,11 @@ def block(by, pick_items, title, unit):
             p += hp
             per.append(keep.rate(hp, hm) if hm >= MIN_FOLDER else None)
         common = max(chosen.items(), key=lambda kv: kv[1]) if chosen else None
+        if common:
+            picked.append((target, common[0]))
         rows.append([f"target {target:.0%}", missing, f"{keep.describe(common[0])} ({common[1]} folds)" if common else "-"] + stats_row(m, p, n, npos, per))
     keep_metrics_table(HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1), rows)
+    return picked
 
 
 def keep_metrics_table(head, rows):
@@ -241,12 +255,13 @@ def size_and_rule(by):
     return rows
 
 
-def heldout_size_rule(by, with_rule):
+def heldout_size_rule(by, with_rule, allowed=None):
     """Held out: the (size cut, grid rule or none) with the most training bursts
     marked among those reaching the target training precision."""
     names = list(by)
     nr = len(keep.ALL) + 1
-    combos = [(k, r) for k in SIZE_CUTS for r in (range(nr) if with_rule else (nr - 1,))]
+    rules = [r for r in range(nr - 1) if allowed is None or allowed(keep.ALL[r])] + [nr - 1]
+    combos = [(k, r) for k in SIZE_CUTS for r in (rules if with_rule else (nr - 1,))]
     cnt = {}
     for n in names:
         m = [0] * (len(SIZE_CUTS) * nr)
@@ -266,7 +281,7 @@ def heldout_size_rule(by, with_rule):
     tp = [sum(cnt[n][1][i] for n in names) for i in range(len(SIZE_CUTS) * nr)]
     allb = [b for n in names for b in by[n][0]]
     nb, npos = len(allb), sum(b[0] for b in allb)
-    rows = []
+    rows, picked = [], []
     for target in TARGETS:
         m = p = 0
         per, missing, chosen = [], 0, {}
@@ -289,11 +304,62 @@ def heldout_size_rule(by, with_rule):
             per.append(keep.rate(hp_[i], hm_[i]) if hm_[i] >= MIN_FOLDER else None)
         if chosen:
             (k, r), c = max(chosen.items(), key=lambda kv: kv[1])
+            picked.append((target, k, None if r == nr - 1 else keep.ALL[r]))
             desc = f"size >= {k}" + ("" if r == nr - 1 else ", " + keep.describe(keep.ALL[r])) + f" ({c} folds)"
         else:
             desc = "-"
         rows.append([f"target {target:.0%}", missing, desc] + stats_row(m, p, nb, npos, per))
-    return rows
+    return rows, picked
+
+
+def no_sharp(t):
+    return t[0] == 0 and t[1] == 0
+
+
+def fixed_burst(by, k, t):
+    """Pooled stats of marking the bursts of at least k frames that a rule t (or none) marks."""
+    allb = [b for bursts, _ in by.values() for b in bursts]
+    n, npos = len(allb), sum(b[0] for b in allb)
+    i = None if t is None else keep.index(t)
+    sel = [b for b in allb if b[1] >= k and (i is None or i in b[2])]
+    per = []
+    for bursts, _ in by.values():
+        s = [b for b in bursts if b[1] >= k and (i is None or i in b[2])]
+        per.append(keep.rate(sum(b[0] for b in s), len(s)) if len(s) >= MIN_FOLDER else None)
+    return stats_row(len(sel), sum(b[0] for b in sel), n, npos, per)
+
+
+def no_sharpness(by, burst_picked, size_picked):
+    print("### Without sharpness cuts (`eye_focus`, eyes open and pose only)\n")
+    print(
+        "The same held-out selections with the grid limited to the rules without a relative or absolute "
+        "sharpness cut (`eye_focus` already measures sharpness at the eyes): 64 of the 1600 rules.\n"
+    )
+    print("#### Bursts, no sharpness\n")
+    block(by, lambda n: [(b[0], b[2]) for b in by[n][0]], "Bursts, no sharpness", "bursts", no_sharp)
+    print("#### Bursts, no sharpness: held out, a size cut and a grid rule chosen together\n")
+    head = HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1)
+    keep_metrics_table(head, heldout_size_rule(by, True, no_sharp)[0])
+    print("#### Single frames, no sharpness\n")
+    block(by, lambda n: [(s[0], s[1]) for s in by[n][1]], "Single frames, no sharpness", "single frames", no_sharp)
+
+    print("#### Dropping the sharpness cuts from the rules chosen with sharpness\n")
+    print(
+        "The most chosen held-out rule per target of the with-sharpness runs, scored as a fixed rule on every "
+        "folder, then the same rule with its `rel` and absolute cuts removed.\n"
+    )
+    rows, seen = [], set()
+    cases = [(f"bursts, target {tg:.0%}", 2, t) for tg, t in burst_picked]
+    cases += [(f"size + rule, target {tg:.0%}", k, t) for tg, k, t in size_picked if t is not None]
+    for label, k, t in cases:
+        if no_sharp(t) or (k, t) in seen:
+            continue
+        seen.add((k, t))
+        d = (0, 0) + t[2:]
+        size = "" if k == 2 else f"size >= {k}, "
+        rows.append([label, size + keep.describe(t)] + fixed_burst(by, k, t))
+        rows.append(["", size + "without sharpness: " + keep.describe(d)] + fixed_burst(by, k, d))
+    keep_metrics_table(HEAD.format("Chosen for").replace("| Precision", "| Rule | Precision", 1), rows)
 
 
 def face_free(by):
@@ -319,16 +385,17 @@ def report(folders):
         f"with at least {MIN_FOLDER} marked.\n"
     )
     print("### Bursts of two or more frames\n")
-    block(by, lambda n: [(b[0], b[2]) for b in by[n][0]], "Bursts", "bursts")
+    burst_picked = block(by, lambda n: [(b[0], b[2]) for b in by[n][0]], "Bursts", "bursts")
     print("#### Bursts: by size alone (no technical feature)\n")
     keep_metrics_table(HEAD.format("Rule"), size_baseline(by))
     print("#### Bursts: size and a rule together\n")
     keep_metrics_table(HEAD.format("Rule"), size_and_rule(by))
     print("#### Bursts: held out, a size cut alone chosen by a target precision\n")
     head = HEAD.format("Training target").replace("| Precision", "| Folds without a rule | Most chosen rule | Precision", 1)
-    keep_metrics_table(head, heldout_size_rule(by, False))
+    keep_metrics_table(head, heldout_size_rule(by, False)[0])
     print("#### Bursts: held out, a size cut and a grid rule chosen together by a target precision\n")
-    keep_metrics_table(head, heldout_size_rule(by, True))
+    size_rows, size_picked = heldout_size_rule(by, True)
+    keep_metrics_table(head, size_rows)
 
     print("### Single frames\n")
     block(by, lambda n: [(s[0], s[1]) for s in by[n][1]], "Single frames", "single frames")
@@ -338,6 +405,8 @@ def report(folders):
     print(f"{len(fb)} bursts of two or more frames have no faced frame ({sum(b[0] for b in fb)} kept, base {pc(keep.rate(sum(b[0] for b in fb), len(fb)))}); {len(fs)} single frames are not faced ({sum(s[0] for s in fs)} picks, base {pc(keep.rate(sum(s[0] for s in fs), len(fs)))}).\n")
     keep_metrics_table("| Burst rule | Marked (of face-free bursts) | Precision (kept) |", rows_b)
     keep_metrics_table("| Single-frame rule | Marked (of face-free singles) | Precision (picked) |", rows_s)
+
+    no_sharpness(by, burst_picked, size_picked)
 
 
 if __name__ == "__main__":

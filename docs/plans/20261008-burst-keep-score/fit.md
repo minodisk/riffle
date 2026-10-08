@@ -93,6 +93,36 @@ scene.py <dump-dir>`, about 3 s).
   no faced frame are kept 18.5% of the time, and 24.3% when the sharpest
   frame's sharpness is at least 800 (29% of them); face-free singles stay
   at 6.6-8.1% at every floor.
+- **Without sharpness cuts (the user's question: `eye_focus` already
+  measures sharpness at the eyes).** The same held-out selections over the
+  64 grid rules that use only `eye_focus`, eyes open and the pose, side by
+  side with the full grid (held-out precision, share of bursts marked):
+
+  | Training target | Rule alone, with sharpness | Rule alone, no sharpness | Size + rule, with sharpness | Size + rule, no sharpness |
+  | --- | ---: | ---: | ---: | ---: |
+  | 50% | 50.3%, 47.5% | 50.3%, 47.5% | 51.5%, 51.2% | 51.5%, 51.2% |
+  | 60% | 55.8%, 9.0% | 57.5%, 3.6% | 59.9%, 33.6% | 61.0%, 33.3% |
+  | 70% | 49.0%, 1.0% | 65.2%, 0.9% | 69.8%, 19.1% | 70.3%, 19.2% |
+  | 75% | 48.6%, 0.7% | none | 70.2%, 10.6% | 74.8%, 10.2% |
+  | 80% | none | none | 80.7%, 9.0% | 80.4%, 8.9% |
+  | 85% | none | none | 76.2%, 4.6% | 82.2%, 3.8% |
+  | 90% | none | none | 81.7%, 2.1% | 87.4%, 1.9% |
+  | 95% | none | none | 81.5%, 1.1% | none |
+
+  Removing sharpness costs nothing held out and helps at the strict end,
+  where the smaller grid overfits less: the rule alone reaches 65.2% at a
+  70% target (46 bursts, `eye_focus` >= 0.97, eyes open >= 0.98 and a
+  15-10 frontal pose), and size with a rule reaches **87.4% on 1.9% of the
+  bursts** (95 bursts; size >= 20, `eye_focus` >= 0.95, eyes open >= 0.995
+  in 26 folds; per folder 75.7-91.7% over the 3 folders with 10 marked),
+  against 80.1% on 5.7% for size >= 20 alone. Scored as fixed rules on
+  every folder, dropping the sharpness cuts from the rules chosen with
+  sharpness lowers precision by 0.9-11.9 points and raises their coverage
+  1.1-4.5 times (for example size >= 15 with absolute >= 400, `eye_focus` >= 0.9
+  and eyes open >= 0.995: 85.1% on 188 bursts; without the absolute cut
+  81.7% on 383), so sharpness narrows rather than sharpens: held out its
+  extra cuts do not carry over. Single frames are unchanged: no rule
+  reaches 50% in training (in-sample best 25.0% on 24 singles).
 
 ## Keep mark (the reframed goal)
 
@@ -477,6 +507,102 @@ Sidecar-labeled ARW block, gap 1000 ms: 5026 bursts of two or more frames (1812 
 | abs >= 400 | 271 (53.3%) | 6.6% |
 | abs >= 600 | 189 (37.2%) | 7.4% |
 | abs >= 800 | 125 (24.6%) | 7.2% |
+
+#### Without sharpness cuts (`eye_focus`, eyes open and pose only)
+
+The same held-out selections with the grid limited to the rules without a relative or absolute sharpness cut (`eye_focus` already measures sharpness at the eyes): 64 of the 1600 rules.
+
+##### Bursts, no sharpness
+
+5026 bursts, 1812 positive (base 36.1%).
+
+##### Bursts, no sharpness: best grid rule at a coverage floor (in-sample)
+
+| Coverage floor | Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| >= 30% | ef >= 0.95 | 53.0% | 1.47 | 1521 (30.3%) | 806 (44.5%) | 54.2% (29.8%-66.3%), 22 |
+| >= 20% | ef >= 0.95, eo >= 0.98 | 56.0% | 1.55 | 1009 (20.1%) | 565 (31.2%) | 57.5% (30.0%-70.0%), 21 |
+| >= 10% | ef >= 0.95, eo >= 0.995 | 57.2% | 1.59 | 691 (13.7%) | 395 (21.8%) | 58.3% (40.0%-77.3%), 21 |
+| >= 5% | ef >= 0.97, eo >= 0.98 | 59.1% | 1.64 | 279 (5.6%) | 165 (9.1%) | 57.9% (41.7%-75.0%), 13 |
+| >= 2% | ef >= 0.97, eo >= 0.98, \|yaw\| <= 30, \|pitch\| <= 20 | 63.5% | 1.76 | 126 (2.5%) | 80 (4.4%) | 62.7% (50.0%-70.6%), 4 |
+| >= 1% | ef >= 0.97, eo >= 0.98, \|yaw\| <= 15, \|pitch\| <= 10 | 71.2% | 1.97 | 52 (1.0%) | 37 (2.0%) | 60.0% (60.0%-60.0%), 1 |
+
+##### Bursts, no sharpness: held out, the rule chosen on the other folders by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 0 | ef >= 0.9, eo >= 0.98 (26 folds) | 50.3% | 1.40 | 2388 (47.5%) | 1202 (66.3%) | 50.2% (37.8%-70.8%), 22 |
+| target 60% | 0 | ef >= 0.97, \|yaw\| <= 30, \|pitch\| <= 20 (24 folds) | 57.5% | 1.59 | 181 (3.6%) | 104 (5.7%) | 54.5% (45.0%-71.4%), 7 |
+| target 70% | 1 | ef >= 0.97, eo >= 0.98, \|yaw\| <= 15, \|pitch\| <= 10 (24 folds) | 65.2% | 1.81 | 46 (0.9%) | 30 (1.7%) | 60.0% (60.0%-60.0%), 1 |
+| target 75% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 80% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 85% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 90% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+##### Bursts, no sharpness: held out, a size cut and a grid rule chosen together
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 0 | size >= 3, ef >= 0.9 (27 folds) | 51.5% | 1.43 | 2575 (51.2%) | 1327 (73.2%) | 51.9% (37.5%-69.2%), 21 |
+| target 60% | 0 | size >= 6 (23 folds) | 61.0% | 1.69 | 1673 (33.3%) | 1020 (56.3%) | 62.8% (51.5%-75.3%), 16 |
+| target 70% | 0 | size >= 8, ef >= 0.9, eo >= 0.98 (25 folds) | 70.3% | 1.95 | 966 (19.2%) | 679 (37.5%) | 74.1% (61.8%-82.6%), 14 |
+| target 75% | 0 | size >= 15 (24 folds) | 74.8% | 2.07 | 511 (10.2%) | 382 (21.1%) | 77.4% (64.6%-89.2%), 11 |
+| target 80% | 0 | size >= 15, ef >= 0.9 (24 folds) | 80.4% | 2.23 | 449 (8.9%) | 361 (19.9%) | 81.2% (73.0%-87.5%), 11 |
+| target 85% | 0 | size >= 20, ef >= 0.9, eo >= 0.999 (25 folds) | 82.2% | 2.28 | 191 (3.8%) | 157 (8.7%) | 89.3% (60.0%-100.0%), 9 |
+| target 90% | 0 | size >= 20, ef >= 0.95, eo >= 0.995 (26 folds) | 87.4% | 2.42 | 95 (1.9%) | 83 (4.6%) | 90.0% (75.7%-91.7%), 3 |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+##### Single frames, no sharpness
+
+1943 single frames, 242 positive (base 12.5%).
+
+##### Single frames, no sharpness: best grid rule at a coverage floor (in-sample)
+
+| Coverage floor | Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| >= 30% | ef >= 0.9, eo >= 0.98 | 16.3% | 1.31 | 655 (33.7%) | 107 (44.2%) | 15.9% (0.0%-37.5%), 14 |
+| >= 20% | ef >= 0.9, eo >= 0.995 | 16.9% | 1.36 | 437 (22.5%) | 74 (30.6%) | 18.5% (5.9%-40.0%), 10 |
+| >= 10% | ef >= 0.95, eo >= 0.995 | 18.5% | 1.48 | 238 (12.2%) | 44 (18.2%) | 20.0% (0.0%-35.0%), 7 |
+| >= 5% | ef >= 0.95, eo >= 0.999 | 19.0% | 1.53 | 121 (6.2%) | 23 (9.5%) | 17.9% (3.8%-22.7%), 3 |
+| >= 2% | ef >= 0.97, eo >= 0.995 | 23.0% | 1.84 | 74 (3.8%) | 17 (7.0%) | 34.5% (23.5%-45.5%), 2 |
+| >= 1% | ef >= 0.97, eo >= 0.995, \|yaw\| <= 30, \|pitch\| <= 20 | 25.0% | 2.01 | 24 (1.2%) | 6 (2.5%) | - |
+
+##### Single frames, no sharpness: held out, the rule chosen on the other folders by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 60% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 70% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 75% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 80% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 85% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 90% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+##### Dropping the sharpness cuts from the rules chosen with sharpness
+
+The most chosen held-out rule per target of the with-sharpness runs, scored as a fixed rule on every folder, then the same rule with its `rel` and absolute cuts removed.
+
+| Chosen for | Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| bursts, target 60% | abs >= 200, ef >= 0.95, eo >= 0.995 | 60.0% | 1.66 | 552 (11.0%) | 331 (18.3%) | 58.7% (40.0%-76.2%), 20 |
+|  | without sharpness: ef >= 0.95, eo >= 0.995 | 57.2% | 1.59 | 691 (13.7%) | 395 (21.8%) | 58.3% (40.0%-77.3%), 21 |
+| bursts, target 70% | rel >= 0.9, ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 | 70.4% | 1.95 | 54 (1.1%) | 38 (2.1%) | 69.2% (69.2%-69.2%), 1 |
+|  | without sharpness: ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 | 68.4% | 1.90 | 79 (1.6%) | 54 (3.0%) | 70.7% (68.8%-72.7%), 2 |
+| bursts, target 75% | rel >= 0.9, abs >= 200, ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 | 74.3% | 2.06 | 35 (0.7%) | 26 (1.4%) | 80.0% (80.0%-80.0%), 1 |
+|  | without sharpness: ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 | 68.4% | 1.90 | 79 (1.6%) | 54 (3.0%) | 70.7% (68.8%-72.7%), 2 |
+| size + rule, target 70% | size >= 8, abs >= 200, ef >= 0.9 | 70.3% | 1.95 | 962 (19.1%) | 676 (37.3%) | 71.1% (61.4%-84.0%), 14 |
+|  | size >= 8, without sharpness: ef >= 0.9 | 69.4% | 1.93 | 1056 (21.0%) | 733 (40.5%) | 71.7% (61.2%-84.6%), 14 |
+| size + rule, target 75% | size >= 10, rel >= 0.5, abs >= 400, ef >= 0.9 | 75.6% | 2.10 | 487 (9.7%) | 368 (20.3%) | 78.4% (58.6%-100.0%), 13 |
+|  | size >= 10, without sharpness: ef >= 0.9 | 71.8% | 1.99 | 832 (16.6%) | 597 (32.9%) | 73.6% (61.9%-93.3%), 14 |
+| size + rule, target 85% | size >= 15, abs >= 400, ef >= 0.9, eo >= 0.995 | 85.1% | 2.36 | 188 (3.7%) | 160 (8.8%) | 87.1% (61.5%-94.7%), 8 |
+|  | size >= 15, without sharpness: ef >= 0.9, eo >= 0.995 | 81.7% | 2.27 | 383 (7.6%) | 313 (17.3%) | 86.0% (72.5%-90.9%), 11 |
+| size + rule, target 90% | size >= 20, rel >= 0.5, abs >= 400, ef >= 0.9, eo >= 0.995 | 90.1% | 2.50 | 91 (1.8%) | 82 (4.5%) | 88.2% (80.0%-100.0%), 3 |
+|  | size >= 20, without sharpness: ef >= 0.9, eo >= 0.995 | 83.7% | 2.32 | 202 (4.0%) | 169 (9.3%) | 84.8% (68.8%-100.0%), 9 |
+| size + rule, target 95% | size >= 20, rel >= 0.5, abs >= 600, ef >= 0.9, eo >= 0.995 | 95.6% | 2.65 | 45 (0.9%) | 43 (2.4%) | 90.0% (90.0%-90.0%), 1 |
+|  | size >= 20, without sharpness: ef >= 0.9, eo >= 0.995 | 83.7% | 2.32 | 202 (4.0%) | 169 (9.3%) | 84.8% (68.8%-100.0%), 9 |
 
 ### Keep mark
 

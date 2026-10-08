@@ -527,9 +527,11 @@ by a target precision:
   Burst size alone, a cut chosen on the training folders, gives **79.3%
   held out at 15 or more frames** (9.6% of the bursts) and **80.1% at 20
   or more** (5.7%), per folder 73-95%. Adding the technical rules to the
-  size cut gives 80.7% (size >= 15 and `eye_focus` >= 0.9) and no held-out
-  variant reaches 85%: the technical features add about one point, inside
-  the per-folder spread. A long burst is the user's own signal that the
+  size cut gives 80.7% (size >= 15 and `eye_focus` >= 0.9): the technical
+  features add about one point, inside the per-folder spread. Only at the
+  strictest end, with the sharpness cuts left out of the grid, does size
+  >= 20 with `eye_focus` >= 0.95 and eyes open >= 0.995 reach 87.4% held
+  out, on 1.9% of the bursts (95, three folders with ten or more). A long burst is the user's own signal that the
   scene mattered, and the strip's count badge on the burst band already
   shows the length, so a mark based on it adds no information.
 - **Single frames: nothing works.** No rule reaches 50% even in training;

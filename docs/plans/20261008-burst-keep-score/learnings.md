@@ -166,6 +166,15 @@
   the whole run, including a size cut times the grid held out, is about
   3 s. The held-out selection subtracts the held-out folder from the
   pooled totals instead of re-summing the other folders.
+- **Without sharpness cuts the burst-level numbers hold or improve.** The
+  user asked (2026-10-08) to drop the relative and absolute sharpness cuts,
+  since `eye_focus` already measures sharpness at the eyes. Over the 64
+  remaining rules the held-out results match the full grid up to an 80%
+  target and beat it beyond (size >= 20 with `eye_focus` >= 0.95 and eyes
+  open >= 0.995: 87.4% of 95 bursts, 1.9%, against 81.7% with sharpness):
+  the larger grid overfit at the strict end. The Decision's conclusion was
+  unchanged; its one sentence saying no held-out variant reached 85% was
+  corrected.
 
 ## Deferred issues (todo candidates)
 
