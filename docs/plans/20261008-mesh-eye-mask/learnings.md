@@ -91,3 +91,15 @@
   choice; the plan only named the rule. The pixel rule ranked higher on
   training (0.8887 against 0.8868 for the longer side), which decided the
   floor rule; under either rule the selected cell fails held-out.
+
+## Step 4: docs, todo and removing the primitives
+
+- `candidate.rs` had not changed since Step 1's commit (`35b1edce`), and that
+  commit only added lines there, so the primitives and their tests came out
+  by reverse-applying its `candidate.rs` hunk; nothing else referenced them.
+  `maskdump.patch` targets that commit, so reproducing the dump means checking
+  it out (or re-adding the primitives) before applying the patch.
+- `performance.md` points at the plan folder by its post-archive path in
+  backticks (not a link), so lychee passes before the wrap-up moves it.
+- The existing reserved-folders todo item was extended with the mask
+  comparison rather than adding a new item.

@@ -42,9 +42,13 @@ labels yet, so they were not run.
       eye regions (`docs/plans/_archived/20261008-mesh-eye-focus/`), whose
       gain over the window rests on few off frames (9 held-out off frames
       among the meshed ones), so also run that plan's `fit.py` window /
-      region comparison on them. Files: `crates/cli/src/main.rs`,
+      region comparison on them, and the eyelid contour mask comparison of
+      `docs/plans/_archived/20261008-mesh-eye-mask/` (not adopted on the
+      held-out set, but it ranked the training set's meshed frames better,
+      0.974 against 0.951). Files: `crates/cli/src/main.rs`,
       `crates/core/src/candidate.rs`,
-      `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`.
+      `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`,
+      `docs/plans/_archived/20261008-mesh-eye-mask/fit.py`.
 
 ### Docs: the "Focus candidate pass" numbers in docs/humans/performance.md are missing the app's own scan/faces log lines
 
@@ -617,13 +621,14 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       60 px). Reusing the scan's mesh needs the points stored or a path that
       runs the model only while `f` is on. Files: `crates/app/src/commands.rs`
       (`read_eyes`), `crates/app/src/index.rs`, `crates/core/src/eyes.rs`.
-- [ ] Mask each eye's region with the eyelid contour polygon instead of
-      its bounding box if the box lets hair or brow edges in (a turned or
-      rolled face). `edge_width` walks rows and columns and has no masked
-      form, so either mask the Laplacian only or add a masked walk; refit
-      and compare on the same held-out set. Files:
-      `crates/core/src/candidate.rs` (`eye_region`, `eye_measures`),
-      `docs/plans/_archived/20261008-mesh-eye-focus/fit.py`.
+- [x] Mask each eye's region with the eyelid contour polygon instead of
+      its bounding box: measured and not adopted. The best cell (both
+      measures masked, dilation 0.1, a 50-pixel floor) reached held-out AUC
+      0.797 / precision 88.56% / coverage 95.0% against the rectangle's
+      0.800 / 88.6% / 95.9%, failing all three conditions (AUC not above
+      0.800, precision below 88.65%, coverage 3 in-focus frames short); no
+      cell of the grid passed all three. See
+      `docs/plans/_archived/20261008-mesh-eye-mask/`.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame

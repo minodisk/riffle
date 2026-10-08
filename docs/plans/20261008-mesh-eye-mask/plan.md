@@ -260,7 +260,7 @@ closed either way.
       `pose.rs` or the face crop. The on-demand focus-mark drawing
       (`facemesh.ts`) is unaffected: it draws the contour, not the region.
 
-- [ ] Step 4: Bring the docs and the todo in line with the outcome
+- [x] Step 4: Bring the docs and the todo in line with the outcome
   - Done when (if adopted):
     - `docs/humans/usage.md` **Focus mark** bullet says the probability is
       measured inside each eye's eyelid contour (dilated by the chosen
