@@ -85,6 +85,109 @@
   `D:\Photos\tests\2026-10-08-burst-keep-score\handcheck\` for the user to
   re-check.
 
+## Step 3
+
+- [fit.py](fit.py) imports [metrics.py](metrics.py) from its own folder
+  (`sys.path` plus `sys.dont_write_bytecode = True`, so no `__pycache__/`
+  lands here) and is standard library only: Newton's method on
+  column-major lists with `sum(map(operator.mul, ...))` for the Hessian
+  keeps one logistic fit on 16,522 frames at about a second. The whole run
+  (every leave-one-folder-out variant, the pairwise fit on 41,944 pairs,
+  the drop-one runs) takes about 6 minutes; every fit converged in 5
+  iterations without regularization.
+- **Compare at a matched pick false-fail, not at a fixed percentile.** A
+  union of per-feature 1st percentiles fails up to the sum of them (the
+  three-feature union at p 1% fails 2.7% of the picks), which makes any
+  union look like it flags more than sharpness alone. The matched form
+  (one common p, bisected so that the union fails at most the target on
+  the training picks) is the fair comparison, and on it the combinations
+  gain 0.5-0.8 pt at 1% and nothing at 5%.
+- **The dumps predate the mesh `eye_focus`.** The Step 1 CLI was built
+  (09:21) before `20261008-mesh-eye-focus` Step 3 (#733, merged 10:08)
+  moved the cue to the mesh eye regions, so every `eye_focus` here is the
+  eye-window cue. It does not change the Decision (dropping `eye_focus`
+  raises the chosen set's flag rate), but a shipped `eye_focus` cut would
+  need a re-dump.
+- (Superseded by the approval entry below.) The Decision was first written
+  as a proposal awaiting the user's approval, as the caller asked.
+- (Superseded by the 2026-10-09 entry below.) **User intervention
+  (2026-10-08): the user approved the no-ship Decision.** Steps 4-5 were
+  struck on their headings, and Step 6 became docs-only.
+- **User intervention (2026-10-09): forget bursts and build the "good
+  photo" mark.** After the burst-level result, the user redirected the work
+  to a frame-level `goodPhoto` mark, and Steps 4-6 were rewritten and
+  approved (nothing is struck now). The burst-level no-ship conclusion of
+  the Decision stands.
+- **User intervention (2026-10-08): the goal was reframed before the first
+  Decision was approved.** The first proposal (a failure check that keeps
+  nearly every pick; nothing beat sharpness alone) went to the user, who
+  answered that catching every pick is not needed, since the human makes
+  the final choice: the mark should narrow a burst to the frames that
+  clearly meet the minimum conditions (sharp, eyes in focus, eyes open,
+  face toward the camera), and then, more strictly, those frames should be
+  almost all picks (precision near 1, marked frames a subset of the picks).
+  Step 3 was extended on the same branch with [keep.py](keep.py) and a
+  "Keep mark" part of [fit.md](fit.md), the Purpose records the reframing,
+  and the Decision was rewritten against it. The failure-check variant's
+  file was renamed to [frozen-fail-check.json](frozen-fail-check.json);
+  [frozen.json](frozen.json) now holds the keep rule of the Decision's
+  alternative.
+- **The keep mark's precision has a ceiling of about 42%.** Held out, the
+  best is the burst's sharpest frame when it is faced (41.6% picks, 11.1% of the
+  faced frames), and no grid rule reaches 60% even on its training
+  folders. The strictest face cuts do not help because the picks' and
+  non-picks' `eye_focus` and eyes-open distributions are the same at the
+  top. The hand check of 12 marked non-picks found 8 OK, 4 unsure and none
+  failed: the features find technically fine frames, and the user chooses
+  among those by what the features do not see.
+- keep.py counts every rule of the 1600-rule grid in one pass: each faced
+  frame becomes a tuple of the highest level it passes per condition, the
+  counts go into a 5-D table per folder, and a suffix sum over each
+  dimension gives every rule's marked / picked counts, so the
+  leave-one-folder-out selection is sums over folders (about 15 s in all).
+- A Git Bash heredoc into `python -` turned `"\\n"` and `\t` inside the
+  Python source into real control characters twice in this step (once in
+  this file's text, once in keep.py); text with backslashes went through
+  the Write tool or a file instead.
+- **User intervention (2026-10-08): the approved Decision was reopened.**
+  The user added that within a burst they also throw away good frames
+  depending on the timing, so which frame of a burst was picked matters
+  little, and chose to re-measure at the burst level. Step 3 was extended
+  with [scene.py](scene.py) (every burst, including those without a pick,
+  and the single frames) and a "Burst level" part of [fit.md](fit.md); the
+  Decision went back to "Proposed" and was rewritten. A local review that
+  had been stopped mid-round left partial fixes; the sound ones (the
+  "sharpest frame, when that frame is faced" wording, the approval entry
+  above) were kept, and its untracked `review-history` folder was deleted.
+- **Burst length predicts a kept scene; the technical features do not.**
+  Held out, the best technical rule marks bursts that hold a pick 55.8% of
+  the time (base 36.1%), while a size cut alone gives 79.3% at 15 or more
+  frames and 80.1% at 20 or more, and size plus a rule 80.7%. Single
+  frames stay under 50% even in training. The user shoots longer at the
+  scenes they keep, which the count badge already shows.
+- scene.py counts a burst as marked by every rule any of its faced frames
+  passes: each frame's level tuple maps to the list of rules it passes
+  (precomputed for the 1600 tuples), and the burst takes their union, so
+  the whole run, including a size cut times the grid held out, is about
+  3 s. The held-out selection subtracts the held-out folder from the
+  pooled totals instead of re-summing the other folders.
+- **Without sharpness cuts the burst-level numbers hold or improve.** The
+  user asked (2026-10-08) to drop the relative and absolute sharpness cuts,
+  since `eye_focus` already measures sharpness at the eyes. Over the 64
+  remaining rules the held-out results match the full grid up to an 80%
+  target and beat it beyond (size >= 20 with `eye_focus` >= 0.95 and eyes
+  open >= 0.995: 87.4% of 95 bursts, 1.9%, against 81.7% with sharpness):
+  the larger grid overfit at the strict end. The Decision's conclusion was
+  unchanged; its one sentence saying no held-out variant reached 85% was
+  corrected.
+- **Eyes open helps only with `eye_focus` on long bursts.** The user
+  asked (2026-10-09) whether eyes open adds anything. Split by eye
+  feature, the held-out burst-level results are within a point of size
+  alone up to an 80% target; only `eye_focus` and eyes open together
+  reach 87.4% (1.9% of the bursts), and dropping either from that rule
+  falls to 83-84%, near size >= 20 alone (82.3%). The Decision did not
+  change.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -117,3 +220,14 @@
   profile looking up behind the ball reads pitch -68 deg. Basis: Step 2
   hand check; related `crates/core/src/pose.rs`. Fits the pending review
   of the head-pose labels in `todo.md`.
+- **Re-measure the face checks with the mesh `eye_focus`.** Found in
+  Step 3 ([fit.md](fit.md), Reading, last bullet): the Step 1 dumps under
+  `D:\Photos\tests\2026-10-08-burst-keep-score\dump\` were taken with a
+  CLI built before `20261008-mesh-eye-focus` Step 3 (#733), so the burst
+  keep-check fit used the eye-window `eye_focus`. If the burst check is
+  revisited (Step 4's re-dump covers the frame-level mark), re-run
+  [dump.sh](dump.sh) with a current `riffle-cli` and re-run
+  [keep.py](keep.py) / [fit.py](fit.py) before trusting the frozen
+  `eye_focus` cuts in [frozen.json](frozen.json) and
+  [frozen-fail-check.json](frozen-fail-check.json). Related: `crates/core/src/candidate.rs`,
+  `crates/cli/src/main.rs` (`features`).

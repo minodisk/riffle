@@ -14,7 +14,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 </pr-rules>
 </plan-guide>
 
-# Keep-candidate score within a burst
+# Keep-candidate score within a burst, then the "good photo" mark
 
 ## Purpose
 
@@ -22,470 +22,431 @@ Riffle groups frames shot within `BURST_GAP_MS` = 1000 ms of each other into
 a burst (`crates/app/ui/src/burst.ts`) and marks the sharpest frame of a
 burst (`crates/app/ui/src/sharpness.ts` `relativeSharpness`, Compare's green
 bar). Sharpness alone misses the other technical failures a culler drops a
-frame for: the AF eye out of focus, closed eyes, the face turned away. Three
-of those are measured today, but only the first is stored: `eye_focus` and
-`sharpness` come from the scan's second pass (`run_faces_scan` in
-`crates/app/src/index.rs`); the eyes-open probability and the head pose are
-computed on demand for the shown file (`eyes_of` / `read_eyes` in
-`crates/app/src/commands.rs`).
+frame for: the AF eye out of focus, closed eyes, the face turned away. This
+plan set out to measure, against the user's picks under `D:\photos\2026`,
+whether a score combining sharpness, AF eye in focus, eyes open and head
+pose can rank or narrow a burst, and to ship it only if it does.
 
 **What a pick means here (the user's framing, 2026-10-08).** A pick is a
 frame that already passes the mechanical checks (in focus, eyes open, not
 turned away); among the frames that pass, the human chose by composition,
 expression and moment, which the machine does not judge. So every pick is a
 reliable positive for "technically OK", while a non-pick is unlabeled: it
-failed a check, or it passed and was simply not chosen. The score's job is
-therefore to separate the technical failures of a burst from its
-technically-OK frames, protecting every pick, not to predict which OK frame
-the human picked. A score that fails a pick is wrong; a score that passes a
-non-pick may be right.
+failed a check, or it passed and was simply not chosen.
 
-This plan decides, by measuring against the user's picks under
-`D:\photos\2026`, whether a score combining sharpness, AF eye in focus, eyes
-open and head pose can flag the failures of a burst while keeping nearly all
-picks, and ships it only if it does. Sharpness varies with lens and ISO, so
-it is compared within the burst; a frontal face is not always wanted, so the
-pose is used either as a penalty on extremes or as a difference from the
-burst's other frames.
+**Reframed by the user on 2026-10-08, during Step 3.** The mark does not
+have to catch every pick; what is wanted is to narrow a burst to the frames
+that clearly meet the minimum conditions, which should be almost entirely
+picks (precision close to 1, recall secondary). Step 3 measured strict keep
+rules by held-out precision and coverage ([keep.py](keep.py), [fit.md](fit.md)
+"Keep mark").
+
+**The user's second insight, 2026-10-08.** Within a burst the user also
+throws away good frames depending on the timing, so which frame of a burst
+got picked matters little; the measure moved to the burst (does a strict
+rule mark the scenes that hold a pick; [scene.py](scene.py), [fit.md](fit.md)
+"Burst level"). The answer, recorded in "Decision 1" below: the technical
+features do not predict picks at the frame or the burst level (non-picks are
+mostly technically fine too), burst length does, and the strip already shows
+it. No burst mark ships.
+
+**The user's third turn, 2026-10-09 (this plan's Steps 4-6).** Forget
+bursts: "I just want to find photos that are not misses". And: the face
+icon the strip draws on every focus candidate (the `f` focus mark's green,
+`span.candidate` in `strip.ts`, the filter's `AF eye: Sharp`) is on so many
+frames that it means nothing; it should become something much more
+selective. The mark is to mean **"good photo"**: shown only when **all three
+hold at once** on the AF face: **the eyes are open** (the more open the
+better), **the face is toward the camera**, and **the AF eye is in focus**
+(`eye_focus` high, sharp eyes). Sharpness is not part of it (Step 3 found
+sharpness cuts do not hold up held out once `eye_focus` is present). On the
+pose the user's preference is: **exclude only extreme turns (profiles still
+pass) if the mark narrows enough; if it barely narrows, tighten to "at
+least both eyes visible"** (roughly the yaw at which the far eye is still
+seen). The target is high precision of "not a miss" among the marked
+frames; marking few frames is acceptable.
+
+The user prefers to **implement the mark once, with provisional thresholds,
+and look at it in the real app before any labeling** (2026-10-09). So Step 4
+builds it in the frontend from the values pass 2 already stores, with the
+cuts in one place; the user then checks it on their folders; Step 5 tunes
+the cuts from that feedback (a small labeled sample only if the user wants
+numbers) and records Decision B; Step 6 writes the docs. The focus
+candidate cue's own constants, the closed-eyes judgment and the head pose
+computation stay as they are; the new rule only combines their stored
+outputs.
 
 ### What is known
 
-- **Ground truth and the data set (decided by the user, 2026-10-08).**
-  Picks are in sidecars: XMP `xmpDM:good="True"` (`xmp::read_flag`) and
-  `.dop` `ShouldProcess = 0` (`dop::read_flag`), `sidecar_path` in each
-  module; `crates/app/src/trash.rs` `collect_folder` is the precedent for
-  reading flags off disk for a folder never opened in Riffle. Rejects are
-  rare (50 in `2026-09-19`, 4 in `2026-09-13-b`, 1 in `2026-09-27-a`). The
-  **`.dop` flag is authoritative; the XMP flag counts only for a frame with
-  no `.dop`**. The DxO export subfolder `Output/` holds one JPEG per picked
-  frame, named by the RAW stem, and its count equals the `.dop` pick count
-  in every sidecar folder; **for the Leica folders of 2026-01 to 2026-05
-  that have no sidecars, a frame whose stem appears in `Output/` is a pick**,
-  and those folders are reported in rows separate from the sidecar-labeled
-  ones. The data set is **every culled ARW folder except `2026-09-13-a` and
-  `2026-09-27-c`** (both unfinished), the two Leica sidecar folders
-  (`2026-08-29-l`, `2026-09-05`), and the `Output/`-labeled Leica folders;
-  folders where every frame is picked (`2026-06-06`, `06-09`, `06-21`,
-  `06-27`, `06-02`, and the Leica folders that exported everything) carry no
-  negatives and are excluded. The inventory taken on 2026-10-08 and the
-  final list are in [data.md](data.md), with two refinements Step 1 found:
-  a picked PhotoLab virtual copy (a later `.dop` item, exported as
-  `<stem>_<n>` in `Output/`) picks its frame, which `dop::read_flag` (first
-  item only) does not see (`2026-06-05`, `2026-09-13-b`); and the DxO
-  DeepPRIME DNGs (`<stem>-DxO_DeepPRIME 3.dng`) next to the camera files of
-  the sidecar-less DNG folders are copies, so a frame is a base stem.
-- **Features and where they come from.** `scan::extract_analysis(path)`
-  returns `Analysis { cue: Cue { state, eye_focus, face, .. }, sharpness }`,
-  exactly what the scan stores. The eyes path (`read_eyes`): read the
-  preview, with a trusted AF point decode full size and
-  `faces::detect_around_rgb`, else `faces::decode_whole` and
-  `detect_whole_upright`; `eyes::judged_face(faces, point)` picks the
-  AF-nearest face, else the largest at or above 0.8; `faces::upright_rgb`,
-  `faces::face_to_upright`, then `eyes::judge_mesh(upright, uw, uh, &face)
-  -> Option<Judged { eyes: Eyes { probability (closed), state }, points,
-  pose: Option<Pose { yaw, pitch, roll }> }>`; `None` below
-  `EYES_MIN_FACE` = 60 px. The CLI's `eyes_cmd` / `eyes_line` already print
-  side, EAR, probability, state, yaw / pitch / roll per file; `candidates`
-  prints state, p, lap, edge, face box and the XMP flag per file.
-  `reader::read_metadata` gives `shot.capture_time` (`YYYY:MM:DD HH:MM:SS`)
-  and `shot.subsec` (Leica DNGs have none).
-- **Cost.** Face mesh ~35 ms per face single-threaded, the whole `eyes_of`
-  call 80-92 ms per ARW and ~117 ms per DNG (`docs/humans/performance.md`,
-  "Closed-eyes judgment on demand"); pass 2 (`riffle-cli candidates <dir>
-  24`) ~10 s on the 2134-ARW folder. The data set holds about 32,000 ARW
-  frames; a 24-thread dump of all four features is a few minutes.
-- **Bursts in the app.** `groupBursts(paths, lookup, gapMs)` in `burst.ts`
-  orders by capture time + subsec and splits at a gap over `gapMs`
-  (inclusive, a missing subsec counts as 0 ms); the strip draws a band and a
-  count badge; `relativeSharpness` marks the burst's maximum `sharpness` as
-  `best`. A shipped score must be computed on the same grouping or its mark
-  will contradict the band.
-- **Concurrent plan.** `docs/plans/20261008-mesh-eye-focus/` (Steps 1-4
-  open) measures the AF eye cue over the mesh eye regions and, if adopted,
-  runs the face mesh and the pose solve in pass 2 for every faced file; its
-  Step 4 lists "store the EAR and pose in the index" as a follow-up. Steps
-  1-3 here are CLI and documents only and do not collide; Step 4 here is
-  that follow-up and is shaped by that plan's Step 2 Decision (Trade-offs,
-  "Ordering against mesh-eye-focus").
-- **Related todo items** (`todo.md`, face/eye section): "Suggest the
-  sharpest-eye frame within a burst group" (unchecked), "Flag looking-away
-  frames from the head pose" (needs a threshold), and the user's pending
-  review of the closed-eyes and head-pose labels.
-- Samples and scratch outputs go to `D:\Photos\tests\2026-10-08-burst-keep-score\`
-  (raw dumps, scripts' working copies, crops), not the repository. A copy of
-  the analysis scripts is kept in this plan folder, as
-  `20261008-mesh-eye-focus` keeps its fitting script, so the numbers can be
-  reproduced from the saved dumps.
+- **Ground truth and the data set of Steps 1-3 (decided by the user,
+  2026-10-08).** Picks are in sidecars: XMP `xmpDM:good="True"`
+  (`xmp::read_flag`) and `.dop` `ShouldProcess = 0` (`dop::read_flag`);
+  the **`.dop` flag is authoritative; the XMP flag counts only for a frame
+  with no `.dop`**; for the sidecar-less Leica folders a frame whose stem
+  appears in the DxO `Output/` export is a pick. The data set is every
+  culled ARW folder except `2026-09-13-a` and `2026-09-27-c` (unfinished),
+  the two Leica sidecar folders and the `Output/`-labeled Leica folders;
+  all-picked folders are excluded. Inventory and refinements (virtual
+  copies, DeepPRIME DNGs) in [data.md](data.md).
+- **What the index stores now (`origin/main` at #741,
+  `20261008-mesh-eyes-index`).** Pass 2 runs the face mesh on the AF face
+  for the cue (#733, `20261008-mesh-eye-focus`) and stores, next to
+  `eye_focus` and `sharpness`, `files.eyes_ear` (the EAR of the more closed
+  eye) and `files.pose_yaw` / `pose_pitch` / `pose_roll`
+  (`crates/app/src/index.rs`, `SCHEMA_VERSION` 18, `FACES_VERSION` 7).
+  `Focus` serializes `eye_focus`, the derived `candidate`, and a flattened
+  `StoredEyes { eyes_ear, eyes (state), eyes_closed, pose }`; `FaceReady`
+  (the `faces-progress` payload) carries the same. The mesh is skipped for
+  faces under 60 px (#737), so those have no EAR or pose. The no-AF path
+  (Leica, manual focus) has no cue: `eye_focus`, EAR and pose are all
+  `None`. **Nothing new has to be computed or stored for the mark.**
+- **What the frontend has.** `main.ts`'s `Focus` interface and `focus.ts`'s
+  `MarkFocus` / `FaceReady` carry `eye_focus` and `candidate` only;
+  `applyFaceReady` patches those two; the serialized `eyes_ear`,
+  `eyes_closed` and `pose` fields arrive but are not typed or read. The
+  strip icon: `strip.ts` `candidates: Set<number>`, `setCandidate(index,
+  bool)`, `paintCandidate` toggles `cell.candidate` (Lucide `scan-face`,
+  colored `FOCUS_MARK_COLORS.candidate`); `main.ts` `applyCandidates()`
+  feeds it from `entries.get(path)?.focus?.candidate === "candidate"`. The
+  crosshair color: `drawFocusMark` uses `FOCUS_MARK_COLORS[mark.candidate]`
+  (green `#3f3` / orange `#f93` / white). The filter: `filter.ts`
+  `candidates: Set<FocusCandidate>` from the menu's `[data-candidate]`
+  items (`Sharp` / `Soft` / `Unknown`). The meta pane shows `AF eye in
+  focus`, `Eyes open`, `Head pose` (`meta.ts`); `get_view` (MCP) exposes
+  `eyes` and the pose (#739).
+- **The CLI.** `riffle-cli features <dir>... [threads]` (Step 1) dumps per
+  file the flags, `sharpness`, cue `state`, `eye_focus`, the cue face's
+  side, `af` / `noaf`, the judged face's side, EAR, eyes-open probability,
+  yaw / pitch / roll and timings; on `main` it goes through
+  `scan::extract_analysis`, so a new dump carries the **mesh-based**
+  `eye_focus` of #733, which the Step 1 dumps (taken before #733) do not.
+  `riffle-cli eyecrops` writes face and eye crops with an index;
+  `riffle-cli crop <file> <out.png> [size]` a crop around the AF point.
+- **Constants that stay fixed.** `candidate_probability()` =
+  sigmoid(`CANDIDATE_LOGIT`) = 0.772 decides `candidate`; `EYES_CLOSED_EAR`
+  = 0.137 and the logistic slope decide the open probability from the EAR
+  (it saturates near 1 above an EAR of roughly 0.2, so "more open" is only
+  visible on the EAR itself); `MAX_ROLL` = 90 deg bounds the pose. The
+  yaw sign is right on ~94% of turned faces, the yaw class agrees with the
+  eye on 68% with the gap at the frontal / oblique boundary
+  (`docs/plans/_archived/20261007-head-pose/pose-results.md`); |yaw|
+  medians were 10 deg frontal / 41 oblique / 65 profile; the pose labels
+  are unreviewed. Both eyes are normally still visible up to roughly
+  45-60 deg of yaw; the exact figure is what Step 5 would measure if the
+  tight form is needed.
+- **Labeling precedent** (if Step 5 labels): `eyes-truth.md` /
+  `pose-truth.md`, a stratified draw shuffled blind, crops on sheets, the
+  agent labels, the user's review is final.
+- Scratch outputs of Steps 1-3 are in
+  `D:\Photos\tests\2026-10-08-burst-keep-score\`; those of Steps 4-6 go to
+  `D:\Photos\tests\2026-10-09-good-mark\`.
 
 ## Steps
 
 - [x] Step 1: Add `riffle-cli features` and dump every feature, the flags and the capture time per file for the data set
   - Done when:
-    - `riffle-cli features <dir>... [threads]` (`crates/cli/src/main.rs`,
-      registered in the `main` match and the usage string) prints one
-      tab-separated record per RAW file of the given folders (not
-      recursive, `scan::is_raw_file`, sorted), header line first, the format
-      stated in a doc comment: folder, file name, `capture_time`, `subsec`,
-      the XMP flag, the `.dop` flag (`Pick` / `Reject` / `None` / `-` when
-      no sidecar, `err` when unreadable), `sharpness`, cue `state`,
-      `eye_focus`, the cue face's box side in preview px, AF point present
-      (`af` / `noaf`), the judged face's side (`-` when none), EAR, the
-      eyes-open probability (`1 - Eyes.probability`, `-` when no judgment),
-      `yaw`, `pitch`, `roll` (one decimal, `-` when none), and the per-file
-      ms of the analysis and of the eyes path. Missing values are `-`,
-      never blank, so a script can parse by column.
-    - The analysis columns come from `scan::extract_analysis` (so they are
-      what the scan stores); the eyes columns follow `read_eyes` step for
-      step (the AF path decodes once for detection and crop; the no-AF path
-      runs `decode_whole` + `detect_whole_upright` then a full decode;
-      `judged_face`; `judge_mesh` on the upright face) so the dump equals
-      what `eyes_of` would show. Both run on one rayon pool like
-      `candidates`; errors print as a record with `err` in the failing
-      columns and do not stop the run.
-    - The flag columns use `xmp::read_flag` and `dop::read_flag` on
-      `xmp::sidecar_path` / `dop::sidecar_path`; no new parsing. The script
-      applies the label rule (Step 2), not the CLI.
-    - A unit test pins one record line from synthetic inputs (the
-      `eyes_line` test's shape) including the `-` cases; the real-folder
-      run is manual.
-    - The dump runs over every folder of the data set named in "What is
-      known" and is saved as one `.tsv` per folder under
-      `D:\Photos\tests\2026-10-08-burst-keep-score\dump\`; a listing of
-      each folder's `Output/` stems is saved next to it.
-    - [data.md](data.md) in this plan folder: the label rules as decided
-      facts (`.dop` authoritative, XMP where no `.dop`, `Output/` stem for
-      the sidecar-less Leica folders, reported separately), the data set
-      and the excluded folders with the reason (unfinished, all picked, no
-      label), and the inventory table: folder, format, frames, frames with
-      a trusted AF point, frames with a cue face, frames with a judged face
-      (>= 60 px), frames with a pose, picks by `.dop`, by XMP, by `Output/`,
-      rejects, XMP / `.dop` disagreements. `learnings.md` records the
-      dump's wall time and per-file ms distribution.
-    - `mise run ci` passes.
-  - Implementation approach:
-    - Files: `crates/cli/src/main.rs` (new `features` function next to
-      `candidates` and `eyes_cmd`), this plan's `data.md`, `learnings.md`.
-    - No change to `riffle-core` or the app. Do not alter `candidates` or
-      `eyes` output (other measurements depend on them).
+    - `riffle-cli features <dir>... [threads]` (`crates/cli/src/main.rs`)
+      prints one tab-separated record per RAW file: folder, file name,
+      `capture_time`, `subsec`, the XMP and `.dop` flags, `sharpness`, cue
+      `state`, `eye_focus`, the cue face's side, `af` / `noaf`, the judged
+      face's side, EAR, the eyes-open probability, `yaw`, `pitch`, `roll`,
+      and the per-file ms; `-` for a missing value, `err` for a failed
+      stage; a unit test pins one line.
+    - The dump of the data set is under
+      `D:\Photos\tests\2026-10-08-burst-keep-score\dump\`; [data.md](data.md)
+      holds the label rules, the data set and the inventory; `learnings.md`
+      the timings. `mise run ci` passes.
 
 - [x] Step 2: Define the burst, the pick-protecting metrics and the baselines, and measure each feature and hand thresholds
   - Done when:
-    - [metrics.py](metrics.py) in this plan folder (Python, standard library plus
-      `numpy` if needed; reads only the Step 1 dumps and `Output/`
-      listings): groups each folder's records into bursts with the rule of
-      `burst.ts` (capture order, inclusive gap, missing subsec = 0 ms) at
-      1000 ms (the app's), 2000 ms and 5000 ms; applies the label rule
-      (pick = `.dop` Pick, else XMP Pick where no `.dop`; `Output/` stem
-      for the sidecar-less Leica folders; the virtual-copy and DeepPRIME
-      refinements of [data.md](data.md), as [inventory.py](inventory.py)
-      applies them; everything else non-pick = unlabeled); and over the **scorable bursts** (two or more frames, at
-      least one pick and at least one non-pick) computes, for every feature,
-      threshold rule and score:
-      - **Pick false-fail rate** (primary): the share of picks the rule
-        marks as failing, pooled and per folder; should be near 0.
-      - **Non-pick flag rate at a pick-keeping threshold** (primary): the
-        threshold chosen on the pooled picks so that 99% (and 95%) of them
-        pass, then the share of non-picks flagged, pooled and per folder,
-        and the mean share of each burst's frames that remain (how much
-        the burst narrows). Thresholds are **relative to the burst** for
-        sharpness (score over the burst maximum; the absolute form is also
-        reported) and **absolute** for `eye_focus`, the eyes-open
-        probability and the pose axes (|yaw|, |pitch|, |roll|, and each as
-        the absolute difference from the burst median as a second form).
-      - **Pick position** (primary): the share of picks in the top half /
-        top third of their burst by the score, and the distribution of the
-        worst pick rank per burst (normalized (rank - 1) / (size - 1), 0
-        best; no pick should sit near 1).
-      - **Within-burst pairwise AUC** and **absolute AUC** (supporting).
-      - **Top-1 hit rate** and **mean normalized pick rank** (secondary;
-        the choice among OK frames is the human's, so these are noisy).
-      - The counts behind every number (bursts, frames, picks, bursts
-        dropped and why, frames without a face / judgment / pose), and how
-        frames lacking a feature are treated (not flagged by that feature,
-        as a second row ranked last).
-    - Baselines on the same numbers: random, first frame, the app's current
-      cue `sharpness` alone (relative to the burst maximum).
-    - Hand threshold rules, at least: (a) relative sharpness below 0.7 /
-      0.8 of the burst max fails; (b) `eye_focus` below
-      `candidate_probability()` (the app's `Not a candidate`) fails; (c)
-      eyes-open probability below 0.5 fails; (d) |yaw| over 45 deg or
-      |pitch| over 30 deg fails (a second cut each); (e) any of a-d fails
-      ("all checks"); (f) a-c only (no pose). A frame without a face is
-      judged by (a) only, as the requirement says; the report says how many
-      bursts are face-free, mixed and all-faced.
-    - [results.md](results.md): the burst statistics per gap (bursts,
-      size distribution, bursts with one pick / several / none, per folder
-      and pooled), every table above at the 1000 ms gap with the other gaps
-      in a shorter table, in separate blocks for the sidecar-labeled ARW
-      folders, the sidecar-labeled Leica folders and the `Output/`-labeled
-      Leica folders, and a short reading of which checks fail picks, which
-      narrow bursts, and what each adds over sharpness alone. A hand check
-      of 30 flagged non-picks drawn at random (crops via `riffle-cli
-      eyecrops` or the app, looked at and tallied as failed / OK / unsure)
-      gives a rough precision the labels cannot; its tally is in
-      `results.md`, the crops in the tests folder. Scripts' working copies
-      and raw outputs go to `D:\Photos\tests\2026-10-08-burst-keep-score\`.
-    - `mise run ci` (lint, lychee on the new files) passes.
-  - Implementation approach:
-    - Assumes Step 1 is merged and its dumps exist. Pure scripting and
-      documents; no code in the workspace changes.
-    - Report per-folder numbers next to pooled ones so `2026-09-27-a`
-      (4830 frames) does not hide the rest.
+    - [metrics.py](metrics.py) groups the records into bursts with the rule
+      of `burst.ts` at 1000 / 2000 / 5000 ms and computes the pick
+      false-fail rate, the non-pick flag rate at the 99% / 95%
+      pick-keeping thresholds, the pick position, the pairwise and absolute
+      AUC and the secondary ranking metrics, with baselines and hand rules;
+      [results.md](results.md) with the tables, the reading and a hand
+      check of 30 flagged non-picks. `mise run ci` passes.
 
-- [ ] Step 3: Fit the thresholds and combinations from the picks with held-out folders and decide
+- [x] Step 3: Fit the thresholds and combinations from the picks with held-out folders and decide
   - Done when:
-    - `fit.py` in this plan folder (the Step 2 feature matrix), each
-      variant evaluated with **leave-one-folder-out** (thresholds or
-      coefficients fitted on the other folders, metrics on the held-out
-      one, then pooled) on the Step 2 metrics, the training fit alongside
-      for reference:
-      - (i) **Per-feature thresholds from the picks' distribution**
-        (one-class on picks): each feature's threshold is the 1st / 2nd /
-        5th percentile of the picks of the training folders (relative
-        sharpness, `eye_focus`, eyes-open, |yaw|, |pitch|, |roll|); a frame
-        fails if any feature is below (or beyond) it; reported with the
-        resulting pick false-fail and non-pick flag rates held out.
-      - (ii) **Positive-unlabeled logistic**: picks as positives, non-picks
-        as unlabeled, a plain logistic on the Step 2 features (ln relative
-        sharpness, the `eye_focus` logit, eyes-open, clipped |yaw| /
-        |pitch| / |roll|, pose differences from the burst median,
-        missingness indicators), its score thresholded at the 99% / 95%
-        pick-keeping point; the unknown class prior is reported as a
-        sensitivity (the ranking is unaffected by it, the calibration is).
-      - (iii) The **pairwise within-burst** fit (logistic on feature
-        differences of pick / non-pick pairs, no intercept) and (iv) the
-        pointwise logistic, kept as alternatives for the position metrics.
-      - A drop-one-feature run for the chosen variant, so each feature's
-        held-out worth is on record.
-    - `fit.md`: the tables, held-out numbers next to the best
-      hand rule and the sharpness-alone baseline of Step 2, the per-folder
-      spread, and the chosen variant's values at full precision in
-      `frozen.json` (features, transforms, clip bounds,
-      thresholds or coefficients, the face-free fallback, the gap).
-    - A **Decision** section in this plan.md states, with the numbers:
-      whether a combined check beats sharpness alone, i.e. flags clearly
-      more non-picks at the same (near-zero, held-out) pick false-fail rate
-      by more than the per-folder spread, and whether its hand-checked
-      precision supports it; which variant and features; the gap; how
-      face-free and mixed bursts are scored; and the proposed presentation
-      (Trade-offs "Presentation"). Or: nothing beats sharpness, Steps 4-6
-      are struck (marked so in Progress), the CLI dump stays as a
-      diagnostic and Step 6's place is a docs-only PR recording the
-      findings. **The user approves the Decision before Step 4 starts**
-      (the conversation is in Japanese).
+    - [fit.py](fit.py), [keep.py](keep.py), [scene.py](scene.py) held out
+      by folder; [fit.md](fit.md); [frozen.json](frozen.json) /
+      [frozen-fail-check.json](frozen-fail-check.json); "Decision 1" below.
+      `mise run ci` passes.
+
+- [ ] Step 4: Build the "good photo" mark in the frontend with provisional cuts read from a re-dump, and show it instead of the candidate icon
+  - Done when:
+    - **Re-dump first.** `riffle-cli features` from the current `main` over
+      at least five of the sidecar-labeled ARW folders of [data.md](data.md)
+      (include `2026-09-19`, `2026-09-27-a` and three smaller ones), saved
+      under `D:\Photos\tests\2026-10-09-good-mark\dump\`. The EAR and pose
+      columns are checked on 20 files against what the app's index holds
+      for the same files (the same AF face, so they must match; `sqlite3`
+      on the index or the `get_view` companion); if the dump's eyes path
+      picks another face than the cue's mesh on some files, add the cue's
+      `eyes_ear` / `pose` as columns to `features` and use those (a CLI
+      change in this step is fine, recorded in `learnings.md`).
+    - **Provisional cuts** in `provisional.md` (this plan folder): from the
+      re-dump's distributions over the faced AF frames (percentiles of
+      `eye_focus`, EAR, |yaw|, |pitch|; the pick / non-pick split alongside
+      for information only), three cuts chosen by hand: `eye_focus` high
+      (start near 0.9; well above the 0.772 candidate boundary), EAR high
+      (start near the EAR where the open probability saturates, ~0.2, so
+      "wide open" rather than "not closed"; the derived probability noted
+      beside it), pose **loose** (only extreme turns excluded: start at
+      |yaw| <= 60 and |pitch| <= 45; roll unused), and the share of faced
+      AF frames each cut and the AND of the three would mark, per folder,
+      next to the share today's green icon marks (`candidate`). The user's
+      preference is written down: the loose pose cut stays if the AND is
+      selective enough (a few percent of frames, say under ~10%); if it
+      barely narrows, the tight "both eyes visible" cut (about |yaw| <=
+      45; measured in Step 5 if needed) is the next thing to try.
+    - **The rule, in one place.** `crates/app/ui/src/focus.ts`: `MarkFocus`
+      and `FaceReady` gain the serialized fields the backend already sends
+      (`eyes_ear: number | null`, `pose: { yaw; pitch; roll } | null`;
+      `eyes_closed` typed too if read), `applyFaceReady` patches them, and
+      a pure `goodPhoto(focus: MarkFocus | null | undefined): boolean`
+      (name free) returns true only when `candidate === "candidate"` and
+      `eye_focus`, `eyes_ear` and `pose` exist and pass the cuts, which are
+      exported constants in `focus.ts` (`GOOD_EYE_FOCUS`, `GOOD_EYE_EAR`,
+      `GOOD_MAX_YAW`, `GOOD_MAX_PITCH`), each with a comment saying it is
+      provisional, the date and the re-dump percentile it sits at, so
+      Step 5 tunes numbers, not code. `focus.test.ts` pins each boundary
+      (at, just below, just above each cut), every `null` case, a
+      `not_candidate` frame with good eyes and pose (false), and the sign
+      independence of yaw / pitch.
+    - **Display, option (b).** The crosshair is **green only for a frame
+      that passes `goodPhoto`**. Orange keeps its meaning (`not_candidate`,
+      the cue's `Soft`). A focus candidate that is not good draws in a
+      fourth state, `candidate_only`, whose color (a dim green, or the
+      existing white) is decided while implementing and recorded in
+      `learnings.md`; the point is that bright green now means good.
+      `focusMark` returns the state the color is read from (`"good" |
+      "candidate_only" | "not_candidate" | "unknown"`), so `drawFocusMark` and
+      the tests change in `focus.ts` only. The strip's face icon
+      (`strip.ts` `setCandidate` / `paintCandidate`, `main.ts`
+      `applyCandidates`, renamed to `good`) shows **only on frames that
+      pass**, in bright green. The filter menu's `AF eye` section, the meta
+      pane and `get_view` are unchanged. `main.ts`'s `Focus` interface
+      mirrors `MarkFocus`.
+    - **Before / after.** `learnings.md` records, from the re-dump and the
+      cuts (not from the GUI), the share of faced AF frames the icon marks
+      before (`candidate`) and after (`goodPhoto`) per re-dumped folder,
+      and a dozen file names on `2026-09-19` that keep the icon so the user
+      can look at the same ones.
+    - **No `docs/humans` change in this step** (the cuts are provisional);
+      the `README` / `usage` paragraphs stay as they are until Step 6, and
+      `learnings.md` says so.
+    - `mise run ci` passes (`pnpm exec vp check`, `fmt`, `test`).
+  - Implementation approach:
+    - Files: `crates/app/ui/src/focus.ts`, `focus.test.ts`, `main.ts`,
+      `strip.ts` (rename only; `style.css` untouched unless a fourth color
+      needs a token), `crates/cli/src/main.rs` (only if the dump needs the
+      cue's columns), this plan's `provisional.md`, `learnings.md`.
+    - No Rust change in the app or core beyond the optional CLI columns;
+      no schema or `FACES_VERSION` change; the serialized fields are
+      already there (`StoredEyes` flattened into `Focus` and `FaceReady`).
+    - If option (b) proves awkward (the fourth color, or the rename
+      touching too much), fall back to: the icon follows `goodPhoto`, the
+      crosshair colors stay exactly as today; say so in `learnings.md` and
+      in the Progress line.
+
+- **Manual check by the user (the plan stops here until it is done).** The
+  main agent asks the user (in Japanese) to open their recent folders with
+  the Step 4 build and say: are the icons few enough to mean something; do
+  the marked frames look like good photos (sharp open eyes, face toward the
+  camera); which marked frames should not be, and which unmarked ones
+  should; does the loose pose cut let through turned faces they would not
+  call good (then the tight cut). The answers go to `learnings.md`.
+
+- [ ] Step 5: Tune the cuts from the user's feedback and record Decision B
+  - Done when:
+    - The constants in `focus.ts` are moved to the values the user's
+      feedback asks for (each change and its reason in `learnings.md`),
+      the tests' boundary values follow, and `provisional.md` gains the
+      per-folder mark rate at the final cuts (from the re-dump). The pose
+      cut follows the stated preference: **loose (extreme turns only) if
+      the mark is selective enough and the user does not see turned faces
+      marked; otherwise the "both eyes visible" cut**, placed at the yaw
+      where the far eye is still seen on the user's frames (the user names
+      the turned frames they saw; their |yaw| in the re-dump locates the
+      cut).
+    - **Optional, only if the user wants numbers:** a small labeled sample
+      as the earlier truth sets were made: 100-150 faced AF frames drawn
+      stratified over the `eye_focus` / EAR / |yaw| buckets around the
+      cuts and at random, shuffled blind, crops and sheets under
+      `D:\Photos\tests\2026-10-09-good-mark\`, labels in `miss-truth.md`:
+      `ok` (sharp AF eye, open eyes, face toward the camera with both eyes
+      visible), `miss` with the reason (`blur`, `focus`, `closed`),
+      **`turned`** (the face turned so that one eye is hidden or nearly, or
+      the back of the head; kept separate from `ok` so the pose cut can be
+      measured against it), `unsure`. The agent labels first, the user's
+      review is final. `mark.md` then reports per condition the precision
+      and coverage as its cut moves, the pose grid from tight to loose
+      (|yaw| <= 15 / 20 / 30 / 45 / 60 / 90 / none, |pitch| <= 15 / 20 / 30
+      / 45 / none), the AND at the chosen cuts with a Wilson interval, and
+      today's `candidate` icon as the baseline. Without labels, Decision B
+      rests on the user's look and the mark rate alone, and says so.
+    - **Decision B** below: the final cuts, the pose form chosen and why
+      (selectivity and what the user saw), the per-folder mark rate, the
+      labeled precision / coverage if measured, and the display kept
+      (option (b) or the fallback). The user approves it.
     - `mise run ci` passes.
   - Implementation approach:
-    - Assumes Step 2 is merged. Keep it simple: percentile thresholds need
-      no fitting library; the logistic variants are plain maximum
-      likelihood (the AF eye fit's method), regularized only if a fit does
-      not converge, and then said so. Scripts are copies in the plan
-      folder, not workspace crates.
-    - Head-pose labels are unreviewed (todo); if the pose carries the
-      Decision, say so, since a label review could move it.
+    - Assumes Step 4 is merged and the user has looked. Numbers only in
+      `focus.ts` unless the user asks for a different display; a display
+      change here is allowed but recorded as such.
+    - Files: `crates/app/ui/src/focus.ts`, `focus.test.ts`, this plan's
+      `provisional.md`, `plan.md` (Decision B), `learnings.md`; optionally
+      `miss-truth.md`, `mark.md`, `mark.py`.
 
-- [ ] Step 4 (gated on the Decision): Compute and store the eyes-open probability and the head pose in the scan
+- [ ] Step 6: Bring the user docs, `CLAUDE.md` and the todo in line
   - Done when:
-    - The faces pass stores, next to `eye_focus` / `sharpness`, the judged
-      face's eyes-open probability and `yaw` / `pitch` / `roll` (`NULL`
-      when there is no judged face, the face is under `EYES_MIN_FACE`, or
-      the pose solve failed) for every file it already analyzes;
-      `SCHEMA_VERSION` 18 with the columns added in the migration and the
-      history comment, `FACES_VERSION` bumped with its history line
-      (`crates/app/src/index.rs`; `docs/agents/tauri-app.md` "The second
-      pass has its own version" names the new values); `IndexedFile`,
-      `FaceReady` and the `faces-progress` payload carry them;
-      `crates/app/ui/src/main.ts` `entries` receive them.
-    - The stored judgment uses exactly the on-demand path's face choice,
-      crop and floor (`judged_face`, `judge_mesh`), so the meta pane's
-      `Eyes open` and `Head pose` rows and the stored values agree; the
-      rows keep coming from `eyes_of` (no behavior change there), and an
-      `#[ignore]`d real-file test (env var path, as
-      `times_eyes_of_on_real_files`) checks the stored probability equals
-      `read_eyes`'s.
-    - The second pass keeps its priority and `ScanFocus` order; the extra
-      cost per faced file is measured and recorded in `learnings.md` for
-      Step 6.
-    - The closed-eyes constants, the crop, `pose.rs`, `eyes_of` and the
-      focus candidate cue's logic and constants are untouched.
+    - `docs/humans/usage.md` **Focus mark** paragraph (and the strip icon
+      sentence) say what the green mark and the icon now mean: all three of
+      the AF eye in focus, the eyes open and the face toward the camera,
+      the cuts in words (e.g. "in-focus probability about 90% or more, eyes
+      clearly open, head turned less than about 60 degrees"), that it is
+      selective by design (most frames get neither), what orange and the
+      intermediate color mean now, that a frame without an AF point, with
+      manual focus, with no face near the point or with a face under 60 px
+      never gets it, and that a strongly turned face never gets it even
+      when intended; the labeled numbers in one clause if Step 5 measured
+      them. `usage.ja.md` in sync. `README.md` / `README.ja.md` Focus mark
+      bullet in sync (the "strip marks each candidate with a green face
+      icon" clause changes). The filter menu's `AF eye` section text stays
+      (unchanged behavior).
+    - `CLAUDE.md` Layout: `src/focus.ts` named with the good-photo rule
+      next to the focus mark; `src/strip.ts` icon sentence if present.
+    - `docs/agents/tauri-app.md` only if it names the candidate icon.
+    - `todo.md`, face/eye section: a checked item for the mark with the
+      plan folder in backticks and Decision B's cuts and mark rate;
+      "Suggest the sharpest-eye frame within a burst group" stays unchecked
+      with a pointer to [results.md](results.md) / [fit.md](fit.md) and
+      Decision 1's reason (the user picks within a burst by timing; burst
+      length, not a technical feature, predicts a kept scene; non-picks are
+      mostly technically fine); "Flag looking-away frames from the head
+      pose" is checked or rewritten to the pose cut that shipped; fully
+      specified follow-ups, unchecked: a `Good` item in the filter's `AF
+      eye` section; moving the rule to the backend (derived next to
+      `candidate` in `index.rs`) so the MCP `get_view` can carry it; a
+      labeled precision figure if Step 5 did not make one; re-tuning after
+      the closed-eyes / head-pose label reviews; the no-AF path once a cue
+      exists there.
     - `mise run ci` passes.
   - Implementation approach:
-    - Assumes Step 3's Decision was approved. **Shape depends on the
-      mesh-eye-focus plan**: if its Step 3 has merged, the mesh already
-      runs in pass 2 (`focus_cue_unless`) and this step adds the
-      EAR-derived probability and the pose to `Cue` / `Analysis` from the
-      points already in hand (no second model run). If it was not adopted
-      or has not merged, this step runs `judge_mesh` on the cue face in
-      `extract_analysis_unless` after the cue, with a cancel point before
-      it, and on the no-AF path on the largest confident whole-image face
-      from a full decode (~14 ms per DNG more). Decide which at step start
-      and record it.
-    - Files: `crates/core/src/scan.rs`, `crates/core/src/candidate.rs` or
-      `crates/core/src/eyes.rs`, `crates/app/src/index.rs`,
-      `crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
-      `docs/agents/tauri-app.md`.
-
-- [ ] Step 5 (gated on the Decision): Judge each burst's frames and present the result
-  - Done when:
-    - A new DOM- and Tauri-free module `crates/app/ui/src/keep.ts` with
-      `keepJudgments(paths, lookup, bursts)` that applies the Decision's
-      rule per file from the entry's `sharpness`, `eye_focus`, eyes-open
-      probability and pose over the burst grouping of `burst.ts` (same
-      `BURST_GAP_MS`), with the face-free fallback of the Decision, the
-      constants copied from `frozen.json` and documented with the held-out
-      numbers, returning per file whether it passes (and, if the Decision
-      kept a ranking, its score and whether it is the burst's best);
-      `keep.test.ts` covers a burst with a face on every frame, a face-free
-      burst (sharpness only), a mixed burst, missing pose, a single frame
-      (never flagged, no comparison), the threshold boundary and the tie
-      rule.
-    - The presentation the user chose in the Decision, one of: a
-      "technically failed" mark or dimming on the strip cell within a burst
-      (`strip.ts`, `style.css` with the shared tokens of
-      `docs/agents/ui-styling.md`; dimming must stay distinct from the
-      rejected dimming); a "keep candidates" mark on the frames that pass;
-      a filter menu entry hiding failed frames (`filter.ts` and its test,
-      `index.html`); or a single best mark driving `relativeSharpness`'s
-      `best` and Compare's best frame (`sharpness.ts`, `compare.ts`, their
-      tests). The Analysis group of the meta pane gets a row only if the
-      Decision asked for it.
-    - Recomputed where `bursts` and the sharpness cue are recomputed
-      (`refreshEntries`, after `refilter`, `faces-progress` / `faces-done`),
-      so the marks fill in as pass 2 lands.
-    - `docs/humans/usage.md` (the burst and sharpness cue paragraphs) and
-      `usage.ja.md` describe it: which checks, that they compare within a
-      burst only, that frames without a face are checked on sharpness
-      only, that a pass is not a recommendation (the choice among passing
-      frames is the user's), the held-out pick false-fail and narrowing
-      numbers in one clause; `README.md` / `README.ja.md` feature bullet if
-      they name the sharpness cue (check; `README.md` does name the burst
-      band and the cue).
-    - Manual checks (GUI; list in `learnings.md` as pending if not run):
-      on `D:\photos\2026\2026-09-19` no pick of a scorable burst is marked
-      failed beyond those `results.md` lists; a face-free burst flags only
-      soft frames; a Leica folder (`2026-09-05`) shows marks on the no-AF
-      path; filtering out frames leaves the marks consistent with the
-      remaining band (the `relativeSharpness` rule).
-    - `mise run ci` passes.
-  - Implementation approach:
-    - Assumes Step 4 is merged. Keep the decision logic in `keep.ts` so
-      Vitest covers it without mocks (the pattern of `burst.ts`,
-      `sharpness.ts`). Do not change `BURST_GAP_MS` here unless the
-      Decision chose another gap, and then change it once for both.
-    - Files: `crates/app/ui/src/keep.ts`, `keep.test.ts`, `strip.ts`,
-      `main.ts`, `filter.ts` / `sort.ts` / `sharpness.ts` / `compare.ts`
-      per the chosen presentation, `style.css`, `docs/humans/usage.md`,
-      `usage.ja.md`, `README.md` / `README.ja.md`.
-
-- [ ] Step 6 (gated on the Decision): Measure the scan cost and bring the docs and the todo in line
-  - Done when:
-    - `docs/humans/performance.md`: a paragraph under "Focus candidate pass"
-      with pass 2 before (the commit before Step 4) and after on
-      `D:\photos\2026\2026-09-19`, 24 threads, alternated, four runs each,
-      warm cache, Windows 11; the "Which pass carries which cost" table's
-      closed-eyes row says the eyes-open probability and the pose are now
-      stored by pass 2 while the meta pane's rows stay on demand; the app's
-      `scan faces` line if the GUI is run (else say so); `performance.ja.md`
-      in sync.
-    - `CLAUDE.md` Layout: `run_faces_scan` names the new columns; the
-      `src/eyes.rs` / `src/pose.rs` sentences no longer say the values are
-      display-only; `keep.ts` is listed next to `sharpness.ts`.
-    - `todo.md`: "Suggest the sharpest-eye frame within a burst group" is
-      checked or rewritten to what shipped, with the plan folder in
-      backticks and the held-out numbers; "Flag looking-away frames" notes
-      the pose is now stored (threshold still unlabeled, or the Decision's
-      cut if one shipped); fully specified follow-ups, unchecked: an `Eyes`
-      / `Head pose` filter section now that the values are stored; the MCP
-      companion field for the judgment; re-fitting after the user reviews
-      the closed-eyes and head-pose labels; the hand check of flagged
-      non-picks extended if the user wants a precision figure.
-    - If the Decision struck Steps 4-5: this step is the docs-only PR that
-      records the measured variants and the reason in `todo.md` (the
-      "sharpest-eye frame" item stays unchecked with a pointer to
-      `results.md` / `fit.md`) and leaves `performance.md` untouched.
-    - `mise run ci` passes.
-  - Implementation approach:
-    - Assumes Steps 4 and 5 (or the strike) are merged. A pre-change CLI can
-      be built from a temporary `git worktree` under the scratchpad with
-      `CARGO_TARGET_DIR` pointed at this worktree's `target`
-      (mesh-eye-focus Step 4's note). Grep `sharpest`, `best frame`,
-      `on demand`, `not stored` across `README*.md`, `docs/humans`,
-      `docs/agents`, `CLAUDE.md`, `todo.md` (not `docs/plans/_archived`).
+    - Assumes Step 5 is merged. Docs only. Grep `candidate icon`,
+      `face icon`, `scan-face`, `green for a focus candidate` across
+      `README*.md`, `docs/humans`, `docs/agents`, `CLAUDE.md`, `todo.md`
+      (not `docs/plans/_archived`).
 
 ## Trade-offs and risks
 
+Steps 4-6 (the mark):
+
+- **Where the rule lives (chosen at planning: the frontend, `focus.ts`).**
+  One module, constants easy to tune, no Rust change, Vitest covers it. The
+  cost: the MCP companion and a future filter item cannot see the state
+  without recomputing it; moving the rule to a derived `good` next to
+  `candidate` in `index.rs` is a follow-up if that is wanted.
+- **Display (chosen: option (b), with a fallback).** Bright green and the
+  icon only for frames that pass; orange keeps meaning `Soft` (the cue
+  alone); a candidate that is not good needs a fourth color or white. Risk:
+  a fourth color crowds the mark's palette; if it reads badly, the fallback
+  keeps the crosshair exactly as today and moves only the icon. The filter
+  is left alone in this plan so its `Sharp` / `Soft` / `Unknown` items keep
+  matching the meta pane's `AF eye in focus`.
+- **Provisional cuts are a guess from distributions**, not from labels.
+  That is the point of the user's turn: see it, then tune. The risk is a
+  cut that looks fine on `2026-09-19` and wrong on a folder with other
+  lenses or light; the before / after rates on five folders and the user's
+  look at their own recent folders are the guard.
+- **Pose cut (user's preference, decided in Step 5).** Loose (extreme turns
+  excluded, profiles pass) if the mark is selective enough; tight ("both
+  eyes visible", about |yaw| <= 45) if it barely narrows. Risks: the yaw
+  estimate is rough near profiles and at the frontal / oblique boundary;
+  the pose labels are unreviewed; with the tight cut an intended profile
+  never gets the mark, which the user accepts for this mark and the docs
+  state.
+- **Eyes condition on the EAR.** The derived open probability saturates
+  near 1 above an EAR of ~0.2, so a "wide open" cut must be on the EAR;
+  the EAR of a downcast eye reads low (counts as not good, as
+  `eyes-truth.md` ruled for closed), and sunglasses or glare give odd
+  meshes. The constant is on the EAR with the probability noted beside it.
+- **Faces the rule never reaches.** No AF point (Leica, manual focus), no
+  face near the point, a face under 60 px (no mesh), a mesh failure: never
+  marked. A folder of such frames shows no icon at all, which the docs
+  state so the absence is not read as "all misses".
+- **Face choice.** The AF face only; a good frame whose subject is a second
+  person is judged on the wrong face. Not solved here.
+- **Labels, if made, are small and reviewed late.** 100-150 frames give a
+  precision with about +/-6 points at 95%; the user's review is final and
+  may be pending; the Decision says which it rests on.
+
+Steps 1-3 (kept for the record):
+
 - **Negatives are unlabeled.** A non-pick flagged as failed may be a good
-  frame the user did not choose; no metric on these labels can tell. The
-  plan therefore holds the pick false-fail rate near zero as the hard
-  constraint, reports the non-pick flag rate as "how much the burst
-  narrows" rather than as precision, and adds a small hand check of flagged
-  non-picks for a rough precision. If the hand check shows many OK frames
-  flagged, the Decision should prefer a presentation that does not hide
-  frames (a mark over a filter).
-- **Relative vs absolute sharpness.** Relative to the burst maximum, a
-  burst whose every frame is soft still has an unflagged "sharpest" frame;
-  absolute sharpness varies with lens, ISO and subject. Both forms are
-  measured; a combination (relative, with an absolute floor) is allowed if
-  the data supports it.
-- **Pick-percentile thresholds assume no pick fails a check.** The labels
-  say otherwise at the margin: children looking down read as closed eyes
-  (`eyes-truth.md`), intentional profiles read as turned away, and the
-  pick's AF eye can be `Not a candidate` when the camera tracked the wrong
-  eye. So the 1st-5th percentile of the picks, not their minimum, is the
-  honest floor, and the pose check may legitimately be dropped if it fails
-  picks.
-- **PU logistic class prior.** The share of technically-OK frames among
-  the non-picks is unknown; the model's ranking does not depend on it, its
-  calibration does, so it is reported as a sensitivity and the threshold
-  is set on the picks (99% / 95% kept), not on a probability.
-- **Burst gap (measured at 1, 2 and 5 s; shipped at the app's 1000 ms
-  unless the Decision moves it).** A longer gap merges separate moments; a
-  shorter one splits Leica bursts (1 s stamps). Changing `BURST_GAP_MS`
-  changes the strip's bands for everyone, so a different gap for the score
-  alone is not planned.
-- **`Output/` as a label.** An export is a slightly different act from a
-  pick (and the Leica folders that exported everything are excluded as
-  having no negatives). Those folders are reported separately so the
-  Decision can rest on the sidecar-labeled folders alone if the two
-  disagree.
-- **Ordering against `20261008-mesh-eye-focus` (recommended: run Steps 1-3
-  now, start Step 4 after that plan's Step 2 Decision).** Steps 1-3 touch
-  only the CLI and documents. Step 4 either rides on that plan's pass-2
-  mesh (fields only) or brings the mesh into pass 2 itself (+~35 ms per
-  faced file, the cost that plan is also weighing). Doing both
-  independently would run the mesh twice per file. Shared files if both
-  proceed: `candidate.rs`, `scan.rs`, `index.rs` (`FACES_VERSION`),
-  `todo.md`, `performance.md`; a rebase, not a design conflict, if the
-  order above is kept.
-- **Scan cost and the on-display-only policy (user decision at the
-  Decision, confirmed by Step 6's numbers).** Storing the eyes-open
-  probability and the pose costs roughly 65 ms per ARW and 117 ms per DNG
-  single-threaded if the mesh is not already in pass 2 (2-4 min for 2000
-  frames on one core; pass 2 runs on all cores at lowest priority). The
-  closed-eyes plan chose on-demand to avoid this; the Decision weighs the
-  measured gain against it.
-- **Presentation (user choice at the Decision).** (a) A "technically
-  failed" mark or dimming within a burst: shows what the machine can judge
-  and nothing more, but adds a state to a small cell already carrying the
-  rejected dimming. (b) A "keep candidates" mark on the passing frames: the
-  positive reading of the same set. (c) A filter hiding failed frames:
-  narrows the strip fastest, but hides frames the user may have wanted
-  (see "Negatives are unlabeled"). (d) A single best mark (driving the
-  existing `best` of `relativeSharpness` / Compare): the smallest change,
-  but it claims a choice among OK frames the framing says is the human's.
-  The plan does not pre-decide.
-- **Face choice.** The checks use the one judged face (AF-nearest, else
-  the largest confident one); a burst whose pick is about a second person
-  is judged on the wrong face. Reported as a limitation, not solved here.
-- **Nothing may beat sharpness.** A valid outcome: the dump, the burst
-  statistics and the tables remain, Steps 4-6 are struck, and the todo
-  records why. The acceptance criteria are met by the recorded numbers and
-  the Decision, not by shipping.
+  frame the user did not choose; no metric on the picks can tell, which is
+  why the mark is now judged by the user's look (and labels, optionally).
+- **Relative vs absolute sharpness**, **pick-percentile thresholds**, **PU
+  class prior**, **burst gap**, **`Output/` as a label**: measured as
+  recorded in [results.md](results.md) and [fit.md](fit.md); none changed
+  the answer.
+- **Ordering against `20261008-mesh-eye-focus` / `20261008-mesh-eyes-index`**:
+  both have merged (#733, #741); the storage this plan once planned as
+  Step 4 landed there, so Steps 4-6 here build on `main` as it is.
 
-## Decision
+## Decision 1 (burst score): no mark ships
 
-(Written in Step 3.)
+Concluded on 2026-10-09: no burst mark. The user approved a no-ship
+Decision on 2026-10-08, then reopened it for the burst-level measurement
+below; that measurement's no-ship conclusion was not approved explicitly,
+and the user moved on to the good-photo mark on 2026-10-09. Numbers from
+[fit.md](fit.md) "Burst level" (every burst of the 27 sidecar-labeled ARW
+folders, gap 1000 ms: 5026 bursts of two or more frames, 36.1% of them
+holding a pick; 1943 single frames, 12.5% picked), held out by folder:
+
+- **Technical rules mark kept scenes at about 56%, not 80-90%.** The best
+  held-out result is 55.8% of the marked bursts kept (lift 1.55) on 9.0% of
+  the bursts (absolute sharpness >= 200, `eye_focus` >= 0.95, eyes open >=
+  0.995 on some frame); per folder 40.0-91.7%. From 80% up no rule reaches
+  the target even on its training folders.
+- **The burst's length is the signal, and the strip already shows it.**
+  Size alone gives 79.3% held out at 15 or more frames (9.6% of the bursts)
+  and 80.1% at 20 or more; adding the technical rules moves it by about one
+  point, inside the per-folder spread. Without the sharpness cuts, size >=
+  20 with `eye_focus` >= 0.95 and eyes open >= 0.995 reaches 87.4% held out
+  on 1.9% of the bursts, and both eye features are needed for that (either
+  alone adds 0-3 points over size). The count badge on the burst band
+  already shows the length.
+- **Single frames: nothing works** (best in-sample 32.0% on 25 singles,
+  against the 12.5% base). Face-free bursts and singles: sharpness lifts
+  kept scenes from 18.5% to at most 24.3%.
+- The earlier rounds agree: per frame the keep mark's precision stops at
+  about 42% held out ([fit.md](fit.md) "Keep mark"); the failure check flags
+  3.3% of the non-picks against sharpness alone's 2.8% at a 1% pick
+  false-fail ([fit.md](fit.md) "Failure check"). Caveats that do not change
+  the answer: `eye_focus` in those dumps is the eye-window cue from before
+  #733; the pose labels are unreviewed; the DNG blocks are too small.
+
+Outcome: no burst mark; `riffle-cli features`, [metrics.py](metrics.py),
+[fit.py](fit.py), [keep.py](keep.py), [scene.py](scene.py) and the dumps
+stay as diagnostics; the todo records the reason (Step 6). The original
+Steps 4-5 (store the eyes and pose; a burst keep mark) are replaced by the
+Steps 4-6 above, the storage having landed in #741.
+
+## Decision B (the good-photo mark)
+
+(Written in Step 5: the final cuts, the pose form chosen and why, the
+per-folder mark rate, the labeled precision / coverage if measured, the
+display kept. Awaiting the user's approval before Step 6.)
 
 ## Progress
 
 - (2026-10-08) Step 1 complete
 - (2026-10-08) Step 2 complete
+- (2026-10-09) Step 3 complete; Decision 1 concluded (no burst mark)
+- (2026-10-09) Steps 4-6 rewritten for the good-photo mark after the user's
+  third turn (implement first with provisional cuts, the user looks, then
+  tune, then docs) and approved by the user; the storage of the eyes and
+  pose landed in #741
