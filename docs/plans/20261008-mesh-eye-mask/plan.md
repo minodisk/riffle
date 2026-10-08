@@ -102,7 +102,7 @@ closed either way.
 
 ## Steps
 
-- [ ] Step 1: Add the contour mask primitives and dump the masked eye features per file, without changing the cue
+- [x] Step 1: Add the contour mask primitives and dump the masked eye features per file, without changing the cue
   - Done when:
     - `crates/core/src/candidate.rs` gains pure, mesh-free functions, unit
       tested on synthetic data, next to `eye_region` / `edge_width`:
