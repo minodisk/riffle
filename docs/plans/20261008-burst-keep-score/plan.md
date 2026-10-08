@@ -488,3 +488,4 @@ burst's other frames.
 ## Progress
 
 - (2026-10-08) Step 1 complete
+- (2026-10-08) Step 2 complete
