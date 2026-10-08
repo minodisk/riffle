@@ -62,3 +62,32 @@
   (15.2); d 0.5: 6.9 / 22.2 / 49.7 / 179 (26.3); d 1.0: 13.1 / 46.5 / 110 /
   413 (55.5). Two eyes at any dilation stay well under 1 ms per frame,
   negligible against the ~100 ms mesh.
+
+## Step 2: refit on the mask and the decision
+
+- Not adopted. The selected cell (pooled training AUC 0.889: both measures
+  masked, dilation 0.1, a 50-pixel floor) scores 0.797 / 88.6% (325 / 367) /
+  95.0% held-out against the rectangle's 0.800 / 88.6% (328 / 370) / 95.9%,
+  failing all three conditions against both the post-gate and the archived
+  baseline. See `fit.md` and the Decision in `plan.md`.
+- The archived fit reproduces bit for bit from the archived dump (the same
+  coefficients and threshold), and the mask dump's rectangle columns match the
+  archived dump's margin-0.5 regions on every meshed eye, so the two dumps
+  were joined file by file (same order, names aligned) to measure the face
+  gate's effect: one training reject (`_DSC2748.ARW`) moves to the fallback,
+  which leaves precision and coverage unchanged and the held-out AUC at
+  0.80026 after the refit (0.80001 before).
+- A masked edge width can be exactly 0 (a seed on the edge of a mask window
+  one or two pixels wide, with nowhere to walk): 8 training and 4 held-out
+  eyes, at dilations 0 and 0.1 only. `ln(0)` crashed the first run of
+  `fit.py`; the fit counts it as no edge width. In Rust,
+  `MESH_LOGIT_EDGE_WIDTH * rel.ln()` would have been `+inf` for such an eye,
+  so an adopted mask would have needed the same guard. The rectangle path
+  never gives 0 on these sets, and the primitives are removed in Step 4.
+- The archived `run` only caught a separable fit; with large floors on small
+  masks no eye counts at all (an empty row list) or `threshold` runs out of
+  picks, so `run` now treats `IndexError` as "no fit" too.
+- The pixel-count floor grid (0, 25, 50, 100, 200, 400) is this fit's own
+  choice; the plan only named the rule. The pixel rule ranked higher on
+  training (0.8887 against 0.8868 for the longer side), which decided the
+  floor rule; under either rule the selected cell fails held-out.
