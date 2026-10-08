@@ -51,7 +51,16 @@ frames a subset of the picks; recall secondary). Step 3 therefore also
 measures strict keep rules by their held-out precision and coverage
 ([keep.py](keep.py), [fit.md](fit.md) "Keep mark"), and the Decision is
 written against that goal; the failure-check measurements of the first
-framing stay in [fit.md](fit.md) as the second part.
+framing stay in [fit.md](fit.md) as its last part.
+
+**The user's second insight, 2026-10-08, after approving a no-ship
+Decision and then reopening it.** Within a burst the user also throws away
+good frames depending on the timing, so which frame of a burst got picked
+is not that important. The measure therefore moves to the burst: does a
+strict rule mark the bursts (scenes) that hold a pick, counting every
+burst including those without one, and the single frames that were picked
+([scene.py](scene.py), [fit.md](fit.md) "Burst level"). The Decision is
+rewritten against that.
 
 This plan decides, by measuring against the user's picks under
 `D:\photos\2026`, whether a score combining sharpness, AF eye in focus, eyes
@@ -496,82 +505,64 @@ burst's other frames.
 
 ## Decision
 
-**Approved by the user on 2026-10-08 (no mark ships).** Steps 4 and 5
-are struck; Step 6 is the docs-only PR. Written
-against the reframed goal (Purpose, 2026-10-08): a keep mark whose frames
-are almost all picks.
+**Proposed — awaiting user approval.** The user approved a no-ship
+Decision on 2026-10-08 and then reopened it with the burst-level insight
+(Purpose); this rewrite replaces it. Steps 4 and 5 stay struck pending the
+approval of this section, and Step 6 stays docs-only.
 
-**Decision: no rule reaches the precision the goal asks for; strike Steps
-4-5 and make Step 6 docs-only.** Numbers from [fit.md](fit.md) "Keep mark" (the 1802 scorable bursts
-of the 26 sidecar-labeled ARW folders with one, gap 1000 ms; 11,693 faced
-frames, 25.8% picks):
+**Proposal: no mark ships; keep Steps 4-5 struck and make Step 6 the
+docs-only PR.** Numbers from [fit.md](fit.md) "Burst level" (every burst of
+the 27 sidecar-labeled ARW folders, gap 1000 ms: 5026 bursts of two or
+more frames, 36.1% of them kept, i.e. holding a pick; 1943 single frames,
+12.5% picked), held out by folder with the rule chosen on the other folders
+by a target precision:
 
-- **Held-out precision tops out at about 42%, not 80-90%.** Choosing the
-  rule on the other folders by a 40% target selects `rel >= 1` (the
-  burst's sharpest faced frame) in every fold: **41.6% picks held out**
-  (lift 1.61 over the base rate, 1.37 over the marked frames' own bursts),
-  marking 11.1% of the faced frames (1298, 540 picks) in 72.0% of the
-  bursts, 24.3-57.1% per folder. A 45% or 50% target gives only 32.7% /
-  30.0% held out on 1.7% / 0.4% of the frames, and from 60% up no rule of
-  the 1600-rule grid reaches the target even on the training folders. The
-  logistic's top scores reach 35-39% (top 2%: 38.1%), and no cut from 80%
-  up.
-- **The strict face conditions do not raise it.** `eye_focus` >= 0.97
-  gives 30.1%, eyes open >= 0.999 27.6%, a frontal pose 22-25% (at or
-  under the base); the picks' and non-picks' distributions are the same at
-  the top. With the burst's sharpest frame, they move precision by -5.9 to
-  +1.3 points.
-- **Not above the simple baselines.** One mark per burst on the
-  highest-scoring faced frame gives 41.8%, the sharpest frame (the app's
-  current `best`) 40.5%, the first frame 39.5%, a random frame 29.8%; the
-  differences are inside the per-folder spread (30-58%).
-- **Why:** a hand check of 12 marked non-picks found 8 OK frames, 4
-  unsure and none failed. The rules do find technically fine frames, but
-  the user picks among those by composition, expression and moment, which
-  the features do not measure, so a mark built from them cannot be a
-  subset of the picks. The first framing's failure check did no better
-  (held out at about 1% of picks failed, the best combination flags 3.3% of
-  the non-picks against sharpness alone's 2.8%, inside the per-folder
-  spread; [fit.md](fit.md) "Failure check").
-- Caveats that do not change the answer: `eye_focus` in the dumps is the
-  eye-window cue from before `20261008-mesh-eye-focus` Step 3 (#733); the
-  pose labels are unreviewed (the pose does not carry any rule); the DNG
-  blocks are too small to fit on.
+- **Technical rules mark kept scenes at about 56%, not 80-90%.** The best
+  held-out result is **55.8% of the marked bursts kept** (lift 1.55) on
+  9.0% of the bursts, with rules such as absolute sharpness >= 200,
+  `eye_focus` >= 0.95 and eyes open >= 0.995 on some frame of the burst;
+  per folder 40.0-91.7%. Stricter targets give 49% on 1% of the bursts,
+  and from 80% up no rule reaches the target even on its training folders.
+- **The burst's length is the signal, and the strip already shows it.**
+  Burst size alone, a cut chosen on the training folders, gives **79.3%
+  held out at 15 or more frames** (9.6% of the bursts) and **80.1% at 20
+  or more** (5.7%), per folder 73-95%. Adding the technical rules to the
+  size cut gives 80.7% (size >= 15 and `eye_focus` >= 0.9) and no held-out
+  variant reaches 85%: the technical features add about one point, inside
+  the per-folder spread. A long burst is the user's own signal that the
+  scene mattered, and the strip's count badge on the burst band already
+  shows the length, so a mark based on it adds no information.
+- **Single frames: nothing works.** No rule reaches 50% even in training;
+  the best in-sample is 32.0% on 25 singles, against the 12.5% base.
+- **Face-free bursts and singles:** sharpness lifts kept scenes from 18.5%
+  to at most 24.3%, and face-free singles not at all (6.6-8.1% against
+  7.7%).
+- The earlier rounds agree: per frame, the keep mark's precision stops at
+  about 42% held out ([fit.md](fit.md) "Keep mark"), and the failure check
+  flags 3.3% of the non-picks against sharpness alone's 2.8% at a 1% pick
+  false-fail ([fit.md](fit.md) "Failure check"). Caveats that do not change
+  the answer: `eye_focus` in the dumps is the eye-window cue from before
+  `20261008-mesh-eye-focus` Step 3 (#733); the pose labels are unreviewed
+  (no chosen rule uses the pose); the DNG blocks are too small to fit on.
 
-As approved: Steps 4 and 5 are struck; `riffle-cli
-features`, [metrics.py](metrics.py), [fit.py](fit.py), [keep.py](keep.py)
-and the dumps stay as diagnostics; Step 6's place is a docs-only PR that
-records the measured rules and the reason in `todo.md` ("Suggest the
-sharpest-eye frame within a burst group" stays unchecked with a pointer to
-[results.md](results.md) / [fit.md](fit.md); "Flag looking-away frames from
-the head pose" notes that a frontal pose was picked no more often than a
-turned one) and leaves `performance.md` untouched.
+If approved: Steps 4 and 5 stay struck; `riffle-cli features`,
+[metrics.py](metrics.py), [fit.py](fit.py), [keep.py](keep.py),
+[scene.py](scene.py) and the dumps stay as diagnostics; Step 6's place is a
+docs-only PR that records the measured rules and the reason in `todo.md`
+("Suggest the sharpest-eye frame within a burst group" stays unchecked with
+a pointer to [results.md](results.md) / [fit.md](fit.md), noting that the
+user picks within a burst by timing and that burst length, not a technical
+feature, predicts a kept scene; "Flag looking-away frames from the head
+pose" notes that a frontal pose was picked no more often than a turned one)
+and leaves `performance.md` untouched.
 
-**Alternative (not chosen), if the user wants a keep mark shipped anyway, knowing it is
-"technically fine", not "would be picked".**
-
-- **Rule ([frozen.json](frozen.json)):** within a burst of two or more
-  frames, mark a frame when it is the burst's sharpest (`rel = 1`), its
-  sharpness is at least 200, `eye_focus` >= 0.9 and eyes open >= 0.98; no
-  pose. In-sample: 42.1% picks (209 of 497), 4.3% of the faced frames,
-  27.6% of the bursts (one mark per burst at most, since `rel = 1` is one
-  frame), 26.7-59.5% per folder; the hand check above was on this rule.
-  Gap: the app's 1000 ms. A frame without a cue face, an eyes judgment or
-  a pose is not marked (the sharpness-only fallback reaches 37.5% at best,
-  so a face-free burst gets no mark). The `eye_focus` cut would be
-  re-checked on a re-dump with the mesh cue first.
-- **Scan cost (Step 4):** the mesh already runs in pass 2 on the AF face
-  since #733, so for an ARW the eyes-open probability comes from the points
-  already in hand (fields only, no second model run; Step 4's first
-  shape). A DNG without an AF point has no cue face, so the rule never
-  marks it and nothing more is needed there; the pose is not stored.
-- **Presentation (Trade-offs "Presentation"):** recommended (b), a quiet
-  "keep candidate" mark on the qualifying frame of a burst, worded as
-  "sharp, eyes in focus and open", not as a recommendation. Since the
-  frame is always the burst's sharpest, the smallest form is to gate the
-  existing `best` mark of `relativeSharpness` / Compare on the face
-  conditions ((d) with the gate), which changes no strip state. Not (a) or
-  (c): the rule says nothing about the unmarked frames.
+**Alternative (not proposed), if the user wants a scene mark anyway.**
+Mark a burst of 15 or more frames whose some frame has `eye_focus` >= 0.9
+(held out 80.7% kept, 9.0% of the bursts). It would need no Step 4 (the
+scan already stores `eye_focus`; nothing new to compute or store), and
+Step 5 would draw it on the burst band next to the count badge. It is not
+proposed because the size cut alone gives 79.3% and the count badge already
+says it.
 
 ## Progress
 

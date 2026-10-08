@@ -1,16 +1,20 @@
 # Step 3 fit: keep marks and failure checks from the picks, held out by folder
 
 Measured on 2026-10-08 over the Step 1 dumps
-(`D:\Photos\tests\2026-10-08-burst-keep-score\dump\`) with two scripts that
-read the frames, labels, bursts and scorable bursts through
-[metrics.py](metrics.py), so every count is Step 2's
-([results.md](results.md)):
+(`D:\Photos\tests\2026-10-08-burst-keep-score\dump\`) with three scripts
+that read the frames, labels and bursts through [metrics.py](metrics.py),
+so every count is Step 2's ([results.md](results.md)). Newest framing
+first:
 
+- [scene.py](scene.py) (`python -I scene.py <dump-dir>`, about 3 s): the
+  **burst level** of the user's second insight, strict rules scored by the
+  kept share of the bursts they mark (every burst, also those without a
+  pick) and by the pick share of the single frames they mark.
 - [keep.py](keep.py) (`python -I keep.py <dump-dir> <frozen.json>`, about
   15 s): the **keep mark** of the reframed goal, strict rules that mark the
   frames clearly meeting the minimum conditions for a pick, scored by
-  precision. The Decision's alternative rule is in
-  [frozen.json](frozen.json).
+  precision over the scorable bursts' frames. The keep rule of that
+  round's alternative is in [frozen.json](frozen.json).
 - [fit.py](fit.py) (`python -I fit.py <dump-dir> <frozen-fail-check.json>`,
   about 6 minutes): the **failure check** of the first framing, thresholds
   and logistic fits that flag technical failures while protecting the
@@ -20,6 +24,75 @@ read the frames, labels, bursts and scorable bursts through
 The tables under "Tables" are the scripts' output as printed (headings
 demoted); the raw output, the hand-check sample and its crops are in
 `D:\Photos\tests\2026-10-08-burst-keep-score\step3\` and `keepcheck\`.
+
+## Burst level (the user's second insight)
+
+On 2026-10-08, after approving the no-ship Decision, the user reopened it:
+within a burst they also throw away good frames depending on the timing, so
+which frame of a burst got picked matters little. The question becomes
+whether a strict rule marks the **scenes** the user kept, and the single
+frames the user picked. Measured with [scene.py](scene.py) (`python -I
+scene.py <dump-dir>`, about 3 s).
+
+### Method
+
+- **Every burst counts** (the 27 sidecar-labeled ARW folders, gap
+  1000 ms): 5026 bursts of two or more frames, including the 3214 without
+  a pick that Steps 2-3 left out, and 1943 single frames.
+- **Bursts.** A burst is **kept** when at least one of its frames is a
+  pick (1812, a base of 36.1%), and **marked** by a rule when the rule
+  (keep.py's grid of 1600 frame rules, faced frames only) marks at least
+  one of its frames; `rel >= 1` in a rule therefore reads "the burst's
+  sharpest frame passes". Precision = the kept share of the marked bursts;
+  coverage = the share of the bursts marked; recall (the kept bursts
+  marked) is for reference only.
+- **Single frames.** A single frame is marked when it is faced and passes
+  the rule; precision = the pick share of the marked singles (base 12.5%,
+  242 of 1943).
+- **Held out** as in keep.py: per folder, the rule with the most marked
+  units on the other 26 folders (at least 30) among those reaching a target
+  training precision (50-95%), scored on the held-out folder, pooled.
+- **Burst size** (the number of frames) is not a technical feature but
+  turned out to be the strongest signal, so it is reported as a baseline
+  (held out, a size cut chosen by the target) and in combination with the
+  grid (a size cut and a rule chosen together).
+- Frames without a full face: the 1056 bursts with no faced frame (18.5%
+  kept) and the 508 face-free singles (7.7% picked) get sharpness-only
+  rules. The `eye_focus` caveat of the keep mark (the dumps predate #733)
+  holds here too.
+
+### Reading
+
+- **Technical rules reach about 56% of marked bursts kept, held out.**
+  With a 60% training target the chosen rules (most often absolute
+  sharpness >= 200, `eye_focus` >= 0.95, eyes open >= 0.995) give **55.8%
+  held out** (lift 1.55 over the 36.1% base) on 9.0% of the bursts, per
+  folder 40.0-91.7% (median 55.7%). A 70% or 75% target gives 49.0% /
+  48.6% on 1% of the bursts, and from 80% up no rule reaches the target on
+  any training set. In-sample the best grid rule reaches 61.9% at >= 5%
+  coverage and 73.1% only at 1% (52 bursts).
+- **Burst size alone does better than any technical rule.** A size cut
+  chosen on the training folders gives **79.3% held out at size >= 15**
+  (9.6% of the bursts, 382 of the 1812 kept, per folder 73.0-89.2%) and
+  **80.1% at size >= 20** (5.7%); size >= 6 gives 60.6% on a third of the
+  bursts. The user shot longer bursts at the scenes they kept, and no
+  technical feature carries that.
+- **Technical rules add little on top of size.** Chosen together, size
+  and a rule give 80.7% held out at an 80% target (size >= 15 and
+  `eye_focus` >= 0.9, 9.0% of the bursts), against 79.3% for size >= 15
+  alone; at 85-95% targets they give 76.2-81.7% on 1-5% of the bursts,
+  no better than size alone. In-sample, size >= 15 with absolute >= 200,
+  `eye_focus` >= 0.95 and eyes open >= 0.995 reaches 86.6% on 134 bursts
+  (2.7%), which the held-out selection does not reproduce. No held-out
+  variant reaches 85%.
+- **Single frames: no rule reaches 50% even on the training folders.**
+  The best grid rule in-sample is 32.0% on 25 singles (1.3%), the
+  strictest `eye_focus` + eyes-open cut 22.2% (36 singles), against the
+  12.5% base.
+- **Without a face, sharpness does not find kept scenes.** The bursts with
+  no faced frame are kept 18.5% of the time, and 24.3% when the sharpest
+  frame's sharpness is at least 800 (29% of them); face-free singles stay
+  at 6.6-8.1% at every floor.
 
 ## Keep mark (the reframed goal)
 
@@ -76,8 +149,8 @@ of the picks). Recall is secondary.
 
 - **No rule comes near the target precision.** The highest held-out
   precision with any coverage is about 42%: choosing on the training
-  folders by a 40% target picks `rel >= 1` (the burst's sharpest faced
-  frame) in all 26 folds and gives **41.6% held out** (lift 1.61 pooled,
+  folders by a 40% target picks `rel >= 1` (the burst's sharpest frame,
+  when that frame is faced) in all 26 folds and gives **41.6% held out** (lift 1.61 pooled,
   1.37 per burst), marking 1298 frames (11.1% of the faced frames, 540
   picks) in 72.0% of the scorable bursts, per folder 24.3-57.1% (median
   40.1%). Raising the target backfires: at 45% the chosen rules give 32.7%
@@ -230,6 +303,180 @@ of the picks). Recall is secondary.
   `eye_focus` cut would need a refit before it shipped.
 
 ## Tables
+
+### Burst level
+
+Sidecar-labeled ARW block, gap 1000 ms: 5026 bursts of two or more frames (1812 kept, 3970 with a faced frame) and 1943 single frames (242 picks, 1435 faced). Per-folder precision is over the folders with at least 10 marked.
+
+#### Bursts of two or more frames
+
+5026 bursts, 1812 positive (base 36.1%).
+
+##### Bursts: fixed rules
+
+| Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| any faced frame | 40.7% | 1.13 | 3970 (79.0%) | 1617 (89.2%) | 43.2% (31.1%-63.6%), 24 |
+| sharpest frame faced (`rel >= 1`) | 40.7% | 1.13 | 3209 (63.8%) | 1306 (72.1%) | 42.6% (31.0%-63.6%), 24 |
+| sharpest + abs 200, ef 0.9, eo 0.98 | 47.5% | 1.32 | 1046 (20.8%) | 497 (27.4%) | 47.4% (35.7%-64.7%), 20 |
+| sharpest + abs 400, ef 0.95, eo 0.995 | 55.3% | 1.53 | 152 (3.0%) | 84 (4.6%) | 50.6% (36.4%-75.0%), 6 |
+| sharpest + abs 600, ef 0.97, eo 0.999 | 53.8% | 1.49 | 13 (0.3%) | 7 (0.4%) | - |
+| sharpest + abs 800, ef 0.97, eo 0.999 | 50.0% | 1.39 | 6 (0.1%) | 3 (0.2%) | - |
+| abs 400, ef 0.95, eo 0.995 | 61.9% | 1.72 | 299 (5.9%) | 185 (10.2%) | 62.0% (45.5%-91.7%), 14 |
+| abs 800, ef 0.97, eo 0.999 | 50.0% | 1.39 | 10 (0.2%) | 5 (0.3%) | - |
+| ef 0.97, eo 0.999 | 53.1% | 1.47 | 98 (1.9%) | 52 (2.9%) | 52.5% (46.7%-58.3%), 2 |
+| ef 0.97, eo 0.999, pose 15-10 | 53.8% | 1.49 | 13 (0.3%) | 7 (0.4%) | - |
+| level 1 everywhere | 52.8% | 1.46 | 784 (15.6%) | 414 (22.8%) | 52.7% (44.1%-75.8%), 16 |
+| level 2 everywhere | 59.4% | 1.65 | 32 (0.6%) | 19 (1.0%) | - |
+
+##### Bursts: best grid rule at a coverage floor (in-sample)
+
+| Coverage floor | Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| >= 30% | ef >= 0.95 | 53.0% | 1.47 | 1521 (30.3%) | 806 (44.5%) | 54.2% (29.8%-66.3%), 22 |
+| >= 20% | ef >= 0.95, eo >= 0.98 | 56.0% | 1.55 | 1009 (20.1%) | 565 (31.2%) | 57.5% (30.0%-70.0%), 21 |
+| >= 10% | abs >= 200, ef >= 0.95, eo >= 0.995 | 60.0% | 1.66 | 552 (11.0%) | 331 (18.3%) | 58.7% (40.0%-76.2%), 20 |
+| >= 5% | abs >= 400, ef >= 0.95, eo >= 0.995 | 61.9% | 1.72 | 299 (5.9%) | 185 (10.2%) | 62.0% (45.5%-91.7%), 14 |
+| >= 2% | rel >= 0.7, abs >= 200, ef >= 0.97, \|yaw\| <= 30, \|pitch\| <= 20 | 66.7% | 1.85 | 108 (2.1%) | 72 (4.0%) | 70.6% (70.0%-75.0%), 3 |
+| >= 1% | abs >= 400, ef >= 0.9, eo >= 0.98, \|yaw\| <= 8, \|pitch\| <= 5 | 73.1% | 2.03 | 52 (1.0%) | 38 (2.1%) | 50.0% (50.0%-50.0%), 1 |
+
+##### Bursts: held out, the rule chosen on the other folders by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 0 | ef >= 0.9, eo >= 0.98 (26 folds) | 50.3% | 1.40 | 2388 (47.5%) | 1202 (66.3%) | 50.2% (37.8%-70.8%), 22 |
+| target 60% | 0 | abs >= 200, ef >= 0.95, eo >= 0.995 (12 folds) | 55.8% | 1.55 | 453 (9.0%) | 253 (14.0%) | 55.7% (40.0%-91.7%), 19 |
+| target 70% | 0 | rel >= 0.9, ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 (10 folds) | 49.0% | 1.36 | 51 (1.0%) | 25 (1.4%) | 46.2% (46.2%-46.2%), 1 |
+| target 75% | 18 | rel >= 0.9, abs >= 200, ef >= 0.97, \|yaw\| <= 15, \|pitch\| <= 10 (4 folds) | 48.6% | 1.35 | 37 (0.7%) | 18 (1.0%) | 50.0% (50.0%-50.0%), 1 |
+| target 80% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 85% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 90% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+##### Bursts: by size alone (no technical feature)
+
+| Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| size >= 2 | 36.1% | 1.00 | 5026 (100.0%) | 1812 (100.0%) | 40.9% (24.9%-63.6%), 25 |
+| size >= 3 | 42.6% | 1.18 | 3635 (72.3%) | 1547 (85.4%) | 45.2% (32.7%-64.7%), 21 |
+| size >= 4 | 52.9% | 1.47 | 2420 (48.1%) | 1280 (70.6%) | 52.3% (37.5%-70.0%), 20 |
+| size >= 5 | 56.4% | 1.56 | 2030 (40.4%) | 1144 (63.1%) | 57.1% (49.2%-73.7%), 17 |
+| size >= 6 | 60.7% | 1.68 | 1675 (33.3%) | 1016 (56.1%) | 60.5% (54.3%-75.7%), 16 |
+| size >= 8 | 66.5% | 1.85 | 1210 (24.1%) | 805 (44.4%) | 64.7% (60.0%-85.2%), 15 |
+| size >= 10 | 69.2% | 1.92 | 930 (18.5%) | 644 (35.5%) | 68.9% (61.1%-93.8%), 14 |
+| size >= 15 | 79.3% | 2.20 | 482 (9.6%) | 382 (21.1%) | 79.5% (73.0%-89.2%), 11 |
+| size >= 20 | 82.3% | 2.28 | 237 (4.7%) | 195 (10.8%) | 85.0% (72.2%-94.7%), 9 |
+
+##### Bursts: size and a rule together
+
+| Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| size >= 4, no rule | 52.9% | 1.47 | 2420 (48.1%) | 1280 (70.6%) | 52.3% (37.5%-70.0%), 20 |
+| size >= 4, any faced frame | 55.6% | 1.54 | 2133 (42.4%) | 1187 (65.5%) | 54.8% (33.3%-70.7%), 19 |
+| size >= 4, ef 0.9, eo 0.98 | 62.3% | 1.73 | 1573 (31.3%) | 980 (54.1%) | 62.3% (35.7%-78.9%), 18 |
+| size >= 4, abs 200, ef 0.95, eo 0.995 | 69.3% | 1.92 | 407 (8.1%) | 282 (15.6%) | 70.6% (59.5%-92.3%), 15 |
+| size >= 4, abs 400, ef 0.95, eo 0.995 | 71.5% | 1.98 | 228 (4.5%) | 163 (9.0%) | 72.2% (52.9%-93.8%), 9 |
+| size >= 8, no rule | 66.5% | 1.85 | 1210 (24.1%) | 805 (44.4%) | 64.7% (60.0%-85.2%), 15 |
+| size >= 8, any faced frame | 67.3% | 1.87 | 1123 (22.3%) | 756 (41.7%) | 68.6% (60.7%-85.2%), 14 |
+| size >= 8, ef 0.9, eo 0.98 | 70.8% | 1.96 | 939 (18.7%) | 665 (36.7%) | 74.1% (62.9%-82.6%), 14 |
+| size >= 8, abs 200, ef 0.95, eo 0.995 | 76.2% | 2.11 | 273 (5.4%) | 208 (11.5%) | 76.4% (63.6%-100.0%), 12 |
+| size >= 8, abs 400, ef 0.95, eo 0.995 | 78.0% | 2.16 | 159 (3.2%) | 124 (6.8%) | 80.0% (58.3%-100.0%), 7 |
+| size >= 15, no rule | 79.3% | 2.20 | 482 (9.6%) | 382 (21.1%) | 79.5% (73.0%-89.2%), 11 |
+| size >= 15, any faced frame | 79.1% | 2.19 | 473 (9.4%) | 374 (20.6%) | 78.9% (72.5%-89.2%), 11 |
+| size >= 15, ef 0.9, eo 0.98 | 80.4% | 2.23 | 433 (8.6%) | 348 (19.2%) | 81.6% (72.3%-88.6%), 11 |
+| size >= 15, abs 200, ef 0.95, eo 0.995 | 86.6% | 2.40 | 134 (2.7%) | 116 (6.4%) | 88.5% (61.5%-93.3%), 7 |
+| size >= 15, abs 400, ef 0.95, eo 0.995 | 87.1% | 2.42 | 70 (1.4%) | 61 (3.4%) | 92.3% (92.3%-92.3%), 1 |
+
+##### Bursts: held out, a size cut alone chosen by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 0 | size >= 4 (27 folds) | 52.9% | 1.47 | 2420 (48.1%) | 1280 (70.6%) | 52.3% (37.5%-70.0%), 20 |
+| target 60% | 0 | size >= 6 (26 folds) | 60.6% | 1.68 | 1654 (32.9%) | 1002 (55.3%) | 60.5% (54.3%-79.2%), 16 |
+| target 70% | 0 | size >= 15 (26 folds) | 75.4% | 2.09 | 549 (10.9%) | 414 (22.8%) | 79.5% (63.5%-89.2%), 11 |
+| target 75% | 0 | size >= 15 (27 folds) | 79.3% | 2.20 | 482 (9.6%) | 382 (21.1%) | 79.5% (73.0%-89.2%), 11 |
+| target 80% | 0 | size >= 20 (26 folds) | 80.1% | 2.22 | 287 (5.7%) | 230 (12.7%) | 85.0% (72.2%-94.7%), 9 |
+| target 85% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 90% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+##### Bursts: held out, a size cut and a grid rule chosen together by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 0 | size >= 3, ef >= 0.9 (27 folds) | 51.5% | 1.43 | 2575 (51.2%) | 1327 (73.2%) | 51.9% (37.5%-69.2%), 21 |
+| target 60% | 0 | size >= 6 (21 folds) | 59.9% | 1.66 | 1691 (33.6%) | 1013 (55.9%) | 62.4% (51.5%-75.3%), 16 |
+| target 70% | 0 | size >= 8, abs >= 200, ef >= 0.9 (19 folds) | 69.8% | 1.93 | 962 (19.1%) | 671 (37.0%) | 71.1% (61.8%-82.6%), 14 |
+| target 75% | 0 | size >= 10, rel >= 0.5, abs >= 400, ef >= 0.9 (18 folds) | 70.2% | 1.95 | 531 (10.6%) | 373 (20.6%) | 72.4% (63.8%-88.2%), 11 |
+| target 80% | 0 | size >= 15, ef >= 0.9 (24 folds) | 80.7% | 2.24 | 450 (9.0%) | 363 (20.0%) | 81.2% (73.0%-87.9%), 11 |
+| target 85% | 0 | size >= 15, abs >= 400, ef >= 0.9, eo >= 0.995 (14 folds) | 76.2% | 2.11 | 231 (4.6%) | 176 (9.7%) | 80.0% (55.6%-90.9%), 9 |
+| target 90% | 0 | size >= 20, rel >= 0.5, abs >= 400, ef >= 0.9, eo >= 0.995 (17 folds) | 81.7% | 2.27 | 104 (2.1%) | 85 (4.7%) | 75.7% (66.7%-85.0%), 3 |
+| target 95% | 0 | size >= 20, rel >= 0.5, abs >= 600, ef >= 0.9, eo >= 0.995 (23 folds) | 81.5% | 2.26 | 54 (1.1%) | 44 (2.4%) | 74.2% (66.7%-81.8%), 2 |
+
+#### Single frames
+
+1943 single frames, 242 positive (base 12.5%).
+
+##### Single frames: fixed rules
+
+| Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| any faced frame | 14.1% | 1.14 | 1435 (73.9%) | 203 (83.9%) | 14.3% (2.6%-29.2%), 19 |
+| sharpest frame faced (`rel >= 1`) | 14.1% | 1.14 | 1435 (73.9%) | 203 (83.9%) | 14.3% (2.6%-29.2%), 19 |
+| sharpest + abs 200, ef 0.9, eo 0.98 | 14.3% | 1.15 | 336 (17.3%) | 48 (19.8%) | 9.5% (4.2%-47.4%), 10 |
+| sharpest + abs 400, ef 0.95, eo 0.995 | 19.0% | 1.53 | 63 (3.2%) | 12 (5.0%) | 9.5% (9.5%-9.5%), 1 |
+| sharpest + abs 600, ef 0.97, eo 0.999 | 20.0% | 1.61 | 10 (0.5%) | 2 (0.8%) | - |
+| sharpest + abs 800, ef 0.97, eo 0.999 | 16.7% | 1.34 | 6 (0.3%) | 1 (0.4%) | - |
+| abs 400, ef 0.95, eo 0.995 | 19.0% | 1.53 | 63 (3.2%) | 12 (5.0%) | 9.5% (9.5%-9.5%), 1 |
+| abs 800, ef 0.97, eo 0.999 | 16.7% | 1.34 | 6 (0.3%) | 1 (0.4%) | - |
+| ef 0.97, eo 0.999 | 22.2% | 1.78 | 36 (1.9%) | 8 (3.3%) | 25.0% (25.0%-25.0%), 1 |
+| ef 0.97, eo 0.999, pose 15-10 | 0.0% | 0.00 | 2 (0.1%) | 0 (0.0%) | - |
+| level 1 everywhere | 13.5% | 1.09 | 133 (6.8%) | 18 (7.4%) | 25.0% (2.7%-27.3%), 3 |
+| level 2 everywhere | 22.2% | 1.78 | 9 (0.5%) | 2 (0.8%) | - |
+
+##### Single frames: best grid rule at a coverage floor (in-sample)
+
+| Coverage floor | Rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| >= 30% | ef >= 0.9, eo >= 0.98 | 16.3% | 1.31 | 655 (33.7%) | 107 (44.2%) | 15.9% (0.0%-37.5%), 14 |
+| >= 20% | ef >= 0.9, eo >= 0.995 | 16.9% | 1.36 | 437 (22.5%) | 74 (30.6%) | 18.5% (5.9%-40.0%), 10 |
+| >= 10% | ef >= 0.95, eo >= 0.995 | 18.5% | 1.48 | 238 (12.2%) | 44 (18.2%) | 20.0% (0.0%-35.0%), 7 |
+| >= 5% | ef >= 0.95, eo >= 0.999 | 19.0% | 1.53 | 121 (6.2%) | 23 (9.5%) | 17.9% (3.8%-22.7%), 3 |
+| >= 2% | abs >= 200, ef >= 0.97, eo >= 0.995 | 24.4% | 1.96 | 45 (2.3%) | 11 (4.5%) | 50.0% (50.0%-50.0%), 1 |
+| >= 1% | abs >= 600, ef >= 0.95, eo >= 0.995 | 32.0% | 2.57 | 25 (1.3%) | 8 (3.3%) | - |
+
+##### Single frames: held out, the rule chosen on the other folders by a target precision
+
+| Training target | Folds without a rule | Most chosen rule | Precision | Lift | Marked (of all) | Positives marked (recall) | Per-folder precision median (min-max), folders |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| target 50% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 60% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 70% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 75% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 80% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 85% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 90% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+| target 95% | 27 | - | - | - | 0 (0.0%) | 0 (0.0%) | - |
+
+#### Without a faced frame (sharpness only)
+
+1056 bursts of two or more frames have no faced frame (195 kept, base 18.5%); 508 single frames are not faced (39 picks, base 7.7%).
+
+| Burst rule | Marked (of face-free bursts) | Precision (kept) |
+| --- | ---: | ---: |
+| sharpest frame abs >= 0 | 1056 (100.0%) | 18.5% |
+| sharpest frame abs >= 200 | 954 (90.3%) | 18.9% |
+| sharpest frame abs >= 400 | 722 (68.4%) | 19.9% |
+| sharpest frame abs >= 600 | 479 (45.4%) | 23.0% |
+| sharpest frame abs >= 800 | 305 (28.9%) | 24.3% |
+
+| Single-frame rule | Marked (of face-free singles) | Precision (picked) |
+| --- | ---: | ---: |
+| abs >= 0 | 508 (100.0%) | 7.7% |
+| abs >= 200 | 396 (78.0%) | 8.1% |
+| abs >= 400 | 271 (53.3%) | 6.6% |
+| abs >= 600 | 189 (37.2%) | 7.4% |
+| abs >= 800 | 125 (24.6%) | 7.2% |
 
 ### Keep mark
 

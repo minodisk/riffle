@@ -108,9 +108,11 @@
   eye-window cue. It does not change the Decision (dropping `eye_focus`
   raises the chosen set's flag rate), but a shipped `eye_focus` cut would
   need a re-dump.
-- The Decision is written as a proposal awaiting the user's approval, as
-  the caller asked; Steps 4-6 are not struck in Progress until it is
-  approved.
+- (Superseded by the approval entry below.) The Decision was first written
+  as a proposal awaiting the user's approval, as the caller asked.
+- **User intervention (2026-10-08): the user approved the no-ship
+  Decision.** Steps 4-5 were struck on their headings, and Step 6 became
+  docs-only.
 - **User intervention (2026-10-08): the goal was reframed before the first
   Decision was approved.** The first proposal (a failure check that keeps
   nearly every pick; nothing beat sharpness alone) went to the user, who
@@ -126,7 +128,7 @@
   [frozen.json](frozen.json) now holds the keep rule of the Decision's
   alternative.
 - **The keep mark's precision has a ceiling of about 42%.** Held out, the
-  best is the burst's sharpest faced frame (41.6% picks, 11.1% of the
+  best is the burst's sharpest frame when it is faced (41.6% picks, 11.1% of the
   faced frames), and no grid rule reaches 60% even on its training
   folders. The strictest face cuts do not help because the picks' and
   non-picks' `eye_focus` and eyes-open distributions are the same at the
@@ -142,6 +144,28 @@
   Python source into real control characters twice in this step (once in
   this file's text, once in keep.py); text with backslashes went through
   the Write tool or a file instead.
+- **User intervention (2026-10-08): the approved Decision was reopened.**
+  The user added that within a burst they also throw away good frames
+  depending on the timing, so which frame of a burst was picked matters
+  little, and chose to re-measure at the burst level. Step 3 was extended
+  with [scene.py](scene.py) (every burst, including those without a pick,
+  and the single frames) and a "Burst level" part of [fit.md](fit.md); the
+  Decision went back to "Proposed" and was rewritten. A local review that
+  had been stopped mid-round left partial fixes; the sound ones (the
+  "sharpest frame, when that frame is faced" wording, the approval entry
+  above) were kept, and its untracked `review-history` folder was deleted.
+- **Burst length predicts a kept scene; the technical features do not.**
+  Held out, the best technical rule marks bursts that hold a pick 55.8% of
+  the time (base 36.1%), while a size cut alone gives 79.3% at 15 or more
+  frames and 80.1% at 20 or more, and size plus a rule 80.7%. Single
+  frames stay under 50% even in training. The user shoots longer at the
+  scenes they keep, which the count badge already shows.
+- scene.py counts a burst as marked by every rule any of its faced frames
+  passes: each frame's level tuple maps to the list of rules it passes
+  (precomputed for the 1600 tuples), and the burst takes their union, so
+  the whole run, including a size cut times the grid held out, is about
+  3 s. The held-out selection subtracts the held-out folder from the
+  pooled totals instead of re-summing the other folders.
 
 ## Deferred issues (todo candidates)
 
