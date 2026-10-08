@@ -157,9 +157,11 @@ pub struct Analysis {
 }
 
 /// Compute the focus candidate cue and the sharpness score of one file from
-/// one read of its preview. Only an unreadable file is `Err`; a decode,
-/// detection or scoring failure, or a panic in any of them, is an unknown
-/// cue or no score. A JPEG file gets neither, and is not read.
+/// one read of its preview. The cue runs the face detector and, on the face
+/// nearest the AF point, the face mesh (`candidate::focus_cue_unless`). Only
+/// an unreadable file is `Err`; a decode, detection or scoring failure, or a
+/// panic in any of them, is an unknown cue or no score; a mesh failure falls
+/// back to the eye window. A JPEG file gets neither, and is not read.
 pub fn extract_analysis(path: &Path) -> Result<Analysis, String> {
     extract_analysis_unless(path, &AtomicBool::new(false)).expect("a never-set flag never abandons")
 }

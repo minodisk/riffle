@@ -236,7 +236,7 @@ what the number looks at.
     - Files: `docs/plans/20261008-mesh-eye-focus/fit.md`, `frozen.json`,
       the fitting script, `plan.md` (Decision).
 
-- [ ] Step 3: Score the AF eye over the mesh eye regions in the scan, with the pose-based eye choice and the window fallback, and re-run the second pass
+- [x] Step 3: Score the AF eye over the mesh eye regions in the scan, with the pose-based eye choice and the window fallback, and re-run the second pass
   - Done when:
     - `candidate.rs`: new constants for the mesh model (`MESH_LOGIT_*`, the
       threshold, `EYE_REGION_MARGIN`, `EYE_REGION_MIN`, and, if Step 2 chose

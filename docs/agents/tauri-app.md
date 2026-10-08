@@ -941,8 +941,9 @@ retried.
 - The second pass has its own version, `FACES_VERSION`, stored as
   `files.faces_extractor`: bump it, not `EXTRACTOR_VERSION`, on a change to
   what `riffle_core::scan::extract_analysis` produces, the focus candidate cue
-  (the in-focus probability's coefficients or its threshold, the eye window,
-  the detector: `crates/core/src/candidate.rs`, `faces.rs`) or the sharpness
+  (the in-focus probability's coefficients or its threshold, the mesh eye
+  regions and the face mesh, the eye window, the detector:
+  `crates/core/src/candidate.rs`, `eyes.rs`, `faces.rs`) or the sharpness
   score (`sharpness::score_preview`, `crates/core/src/sharpness.rs`, or what
   `extract_analysis` feeds it). Only the second pass then re-runs; thumbnails
   are kept. The column and the constant keep their names although they now

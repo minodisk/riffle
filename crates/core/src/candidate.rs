@@ -1,11 +1,14 @@
 //! The focus candidate cue: how likely the eyes of the face nearest the AF
 //! point are in focus, and whether that clears `CANDIDATE_LOGIT`.
 //!
-//! The score combines two measures over a window between the eyes: the
-//! Laplacian variance of the luma (`lap`) and the mean edge width
-//! (`edge_width`) relative to the window side, in a logistic regression
-//! fitted on hand-labeled frames (`LOGIT_INTERCEPT`, `LOGIT_LAP`,
-//! `LOGIT_EDGE_WIDTH`). Its sigmoid is the in-focus probability.
+//! The score combines two measures over each eye's region of the face mesh
+//! (`eyes::mesh_of`): the Laplacian variance of the luma (`lap`) and the
+//! mean edge width (`edge_width`) relative to the region's longer side, in a
+//! logistic regression fitted on hand-labeled frames (`MESH_LOGIT_*`); the
+//! sharper eye's logit is the frame's. When no eye region counts (no mesh,
+//! or regions under `EYE_REGION_MIN` or without an edge width) the same two
+//! measures over a window between the eyes are scored with the window model
+//! (`LOGIT_*`). Its sigmoid is the in-focus probability.
 //!
 //! Faces come from `faces::detect_around_rgb` in a `CATCH_CROP` square around
 //! the trusted AF point. A Sony eye-AF frame gets the same detection: the
@@ -18,22 +21,25 @@ use anyhow::Result;
 
 use crate::arw::FocusLocation;
 use crate::decode::decode_rgb;
-use crate::eyes::{Mesh, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS};
+use crate::eyes::{mesh_of, Mesh, LEFT_EYE_CONTOUR, LEFT_IRIS, RIGHT_EYE_CONTOUR, RIGHT_IRIS};
 use crate::faces::{detect_around_rgb, Detection, Face};
 use crate::pose::Pose;
 use crate::sharpness::{laplacian_variance, window_at, Window};
 
-/// The intercept of the in-focus logit
+/// The intercept of the eye window's in-focus logit
 /// `LOGIT_INTERCEPT + LOGIT_LAP * ln(lap + 1) + LOGIT_EDGE_WIDTH * ln(edge_width / window side)`,
-/// fitted on 406 hand-labeled faced frames from 5 folders. A coefficient
-/// change is a new model: re-validate it with `riffle-cli candidates`.
+/// fitted on 406 hand-labeled faced frames from 5 folders, now the fallback
+/// for frames with no mesh eye region that counts. A coefficient change is a
+/// new model: re-validate it with `riffle-cli candidates`.
 pub const LOGIT_INTERCEPT: f64 = -4.725633355883976;
 /// The weight of `ln(lap + 1)` in the in-focus logit.
 pub const LOGIT_LAP: f64 = 0.6826458385175557;
 /// The weight of `ln(edge_width / window side)` in the in-focus logit.
 pub const LOGIT_EDGE_WIDTH: f64 = -1.1949836425055467;
 /// The logit at or above which a frame is a focus candidate (an in-focus
-/// probability of about 77%), chosen to keep the in-focus coverage of the
+/// probability of about 77%), for both the mesh eye model (whose intercept is
+/// shifted onto it) and the window model. It was chosen for the window model
+/// to keep the in-focus coverage of the
 /// earlier Laplacian-only threshold. On the 406 training frames the combined
 /// score reaches AUC 0.852 (0.816 for the Laplacian alone), and the frames at
 /// or above it are in focus 93.1% of the time and cover 91.4% of the
@@ -53,9 +59,35 @@ pub const CANDIDATE_LOGIT: f64 = 1.2194;
 pub const CANDIDATE_WINDOW_MIN: usize = 24;
 /// The margin `eye_region` grows a mesh eye's bounding box by on each side,
 /// as a fraction of the box's longer side (the eye's width, upright or on a
-/// quarter-turned preview), so the lid edges and lashes lie inside.
-/// A starting value for the measurement; not yet fitted.
-pub const EYE_REGION_MARGIN: f32 = 0.25;
+/// quarter-turned preview), so the lid edges and lashes lie inside. Chosen
+/// with `EYE_REGION_MIN` as the highest training AUC of 4 margins x 7 floors
+/// (`docs/plans/20261008-mesh-eye-focus/fit.md`).
+pub const EYE_REGION_MARGIN: f32 = 0.5;
+/// The smallest longer side of an eye region that is scored, in preview
+/// pixels; a smaller eye does not count, and a frame with no eye that counts
+/// falls back to the eye window (61% of the training frames, 57% held-out).
+pub const EYE_REGION_MIN: usize = 24;
+/// The intercept of the mesh eye logit
+/// `MESH_LOGIT_INTERCEPT + MESH_LOGIT_LAP * ln(lap + 1) + MESH_LOGIT_EDGE_WIDTH * ln(edge_width / region's longer side)`,
+/// fitted on both eyes of the 406 training frames (each eye carrying its
+/// frame's label). Together with the window fallback, taking the sharper eye
+/// reaches AUC 0.882 on the training frames, precision 93.9% and coverage
+/// 91.4%, and on the 400 held-out frames AUC 0.800, precision 88.6% and
+/// coverage 95.9%.
+///
+/// The fit's own intercept is -8.158737592019197 with its threshold at
+/// 0.8343419969086643 (midway between the boundary training pick and the
+/// next lower logit, keeping the 91.4% coverage). Both models share one
+/// threshold, `CANDIDATE_LOGIT`, because the index derives the state from
+/// the stored probability alone: the intercept here is shifted by
+/// `CANDIDATE_LOGIT - 0.8343419969086643`, which moves the mesh model's
+/// probabilities but not its states, and leaves the window model as fitted.
+pub const MESH_LOGIT_INTERCEPT: f64 = -7.773679588927861;
+/// The weight of `ln(lap + 1)` in the mesh eye logit.
+pub const MESH_LOGIT_LAP: f64 = 1.9417143647766388;
+/// The weight of `ln(edge_width / region's longer side)` in the mesh eye
+/// logit.
+pub const MESH_LOGIT_EDGE_WIDTH: f64 = -1.3161251379398846;
 
 /// Whether a frame is a focus candidate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -223,14 +255,35 @@ pub fn candidate_probability() -> f64 {
     sigmoid(CANDIDATE_LOGIT)
 }
 
+/// An eye of a face mesh, by the side of the image it is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Eye {
+    Left,
+    Right,
+}
+
+/// What `eye_focus` scored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scored {
+    /// Both eyes counted; this one had the higher logit (the left on a tie).
+    Sharper(Eye),
+    /// Only this eye counted.
+    Only(Eye),
+    /// No eye counted: the eye window, with the window model.
+    Window,
+}
+
 /// The measures behind the cue of one face.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EyeFocus {
-    /// The Laplacian variance of the luma over the eye window.
+    /// The region scored: the chosen eye's contour region, or the eye window.
+    pub window: Window,
+    /// The Laplacian variance of the luma over `window`.
     pub lap: f64,
-    /// `edge_width` over the eye window; `None` when no edge qualifies.
+    /// `edge_width` over `window`; `None` when no edge qualifies.
     pub edge_width: Option<f64>,
-    /// `edge_width` divided by the eye window's side.
+    /// `edge_width` divided by `window`'s longer side (an eye region) or its
+    /// width (the eye window).
     pub edge_width_rel: Option<f64>,
     /// The in-focus logit; `None` without an edge width.
     pub logit: Option<f64>,
@@ -240,10 +293,60 @@ pub struct EyeFocus {
     /// never left `Unknown`.
     pub probability: f64,
     pub state: FocusCandidate,
+    pub scored: Scored,
+    /// Both eyes' measures and the pose; `None` without a mesh.
+    pub mesh: Option<EyeMeasures>,
 }
 
-/// The `EyeFocus` of `gray` over the `eye_window` of `face`.
-pub fn eye_focus(gray: &[u8], width: usize, height: usize, face: &Face) -> EyeFocus {
+/// The mesh eye logit of a contour region, `None` when the eye does not
+/// count: under `EYE_REGION_MIN` on its longer side or without an edge width.
+fn mesh_logit(region: Option<RegionMeasures>) -> Option<f64> {
+    let r = region?;
+    if r.window.width.max(r.window.height) < EYE_REGION_MIN {
+        return None;
+    }
+    let rel = r.edge_width_rel?;
+    Some(
+        MESH_LOGIT_INTERCEPT
+            + MESH_LOGIT_LAP * (r.lap + 1.0).ln()
+            + MESH_LOGIT_EDGE_WIDTH * rel.ln(),
+    )
+}
+
+/// The `EyeFocus` of `gray` for `face` and its `mesh`: the higher logit of
+/// the mesh eyes that count, else the `eye_window` of `face` scored with the
+/// window model.
+pub fn eye_focus(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    face: &Face,
+    mesh: Option<&Mesh>,
+) -> EyeFocus {
+    let measures = mesh.map(|m| mesh_eye_measures(gray, width, height, m));
+    let left = measures.and_then(|m| Some((m.left.contour?, mesh_logit(m.left.contour)?)));
+    let right = measures.and_then(|m| Some((m.right.contour?, mesh_logit(m.right.contour)?)));
+    let chosen = match (left, right) {
+        (Some(l), Some(r)) if r.1 > l.1 => Some((r, Scored::Sharper(Eye::Right))),
+        (Some(l), Some(_)) => Some((l, Scored::Sharper(Eye::Left))),
+        (Some(l), None) => Some((l, Scored::Only(Eye::Left))),
+        (None, Some(r)) => Some((r, Scored::Only(Eye::Right))),
+        (None, None) => None,
+    };
+    if let Some(((region, logit), scored_eye)) = chosen {
+        let (probability, state) = scored(logit);
+        return EyeFocus {
+            window: region.window,
+            lap: region.lap,
+            edge_width: region.edge_width,
+            edge_width_rel: region.edge_width_rel,
+            logit: Some(logit),
+            probability,
+            state,
+            scored: scored_eye,
+            mesh: measures,
+        };
+    }
     let window = eye_window(width, height, face);
     let lap = laplacian_variance(gray, width, window);
     let edge_width = edge_width(gray, width, window);
@@ -252,12 +355,15 @@ pub fn eye_focus(gray: &[u8], width: usize, height: usize, face: &Face) -> EyeFo
         .map(|rel| LOGIT_INTERCEPT + LOGIT_LAP * (lap + 1.0).ln() + LOGIT_EDGE_WIDTH * rel.ln());
     let (probability, state) = logit.map_or((0.0, FocusCandidate::NotCandidate), scored);
     EyeFocus {
+        window,
         lap,
         edge_width,
         edge_width_rel,
         logit,
         probability,
         state,
+        scored: Scored::Window,
+        mesh: measures,
     }
 }
 
@@ -325,7 +431,7 @@ pub struct EyeRegions {
     pub iris: Option<RegionMeasures>,
 }
 
-/// The per-eye measures over a face mesh, for a later cue; not scored yet.
+/// The per-eye measures over a face mesh.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EyeMeasures {
     /// The eye on the left of the image.
@@ -360,6 +466,24 @@ pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) 
         },
         pose: mesh.pose,
     }
+}
+
+/// The `eye_focus` of `face` on its mesh, `None` once `cancel` is set
+/// while the mesh runs.
+fn scored_face(
+    rgb: &[u8],
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+    face: &Face,
+    cancel: &AtomicBool,
+) -> Option<EyeFocus> {
+    let mesh = mesh_of(rgb, width, height, orientation, face);
+    if cancel.load(Ordering::Relaxed) {
+        return None;
+    }
+    Some(eye_focus(gray, width, height, face, mesh.as_ref()))
 }
 
 /// The probability and state of `logit`. The state compares the logit with
@@ -399,7 +523,9 @@ pub fn focus_cue(preview: &[u8], orientation: u16, focus: Option<FocusLocation>)
 }
 
 /// `focus_cue`, abandoned (`None`) once `cancel` is set between the decode,
-/// the detection and the eye scoring.
+/// the detection, the face mesh and the eye scoring. The mesh model's plan is
+/// built once per process (`eyes`' `OnceLock`), so the first faced file of
+/// a scan pays about 180 ms more.
 pub fn focus_cue_unless(
     preview: &[u8],
     orientation: u16,
@@ -429,7 +555,18 @@ pub fn focus_cue_unless(
     if canceled() {
         return None;
     }
-    let focus = face.map(|f| eye_focus(&gray, width, height, &f));
+    let focus = match face {
+        Some(f) => Some(scored_face(
+            &rgb,
+            &gray,
+            width,
+            height,
+            orientation,
+            &f,
+            cancel,
+        )?),
+        None => None,
+    };
     Some(Ok(Cue {
         state: focus.map_or(FocusCandidate::Unknown, |f| f.state),
         eye_focus: focus.map(|f| f.probability),
@@ -569,7 +706,7 @@ mod tests {
         let narrow = Window { width: 2, ..WHOLE };
         assert_eq!(edge_width(&ramp(4), 40, narrow), None);
         let f = face(0.0, 0.0, 40.0, (10.0, 20.0), (30.0, 20.0));
-        let focus = eye_focus(&flat, 40, 40, &f);
+        let focus = eye_focus(&flat, 40, 40, &f, None);
         assert_eq!(focus.edge_width, None);
         assert_eq!(focus.logit, None);
         assert_eq!(focus.probability, 0.0);
@@ -584,9 +721,13 @@ mod tests {
     fn the_combined_score_follows_the_frozen_coefficients() {
         let f = face(0.0, 0.0, 40.0, (10.0, 20.0), (30.0, 20.0));
         let gray = ramp(4);
-        let focus = eye_focus(&gray, 40, 40, &f);
+        let focus = eye_focus(&gray, 40, 40, &f, None);
         let lap = laplacian_variance(&gray, 40, WHOLE);
         let logit = LOGIT_INTERCEPT + LOGIT_LAP * (lap + 1.0).ln() + LOGIT_EDGE_WIDTH * 0.1f64.ln();
+        assert_eq!(
+            (focus.scored, focus.window, focus.mesh),
+            (Scored::Window, WHOLE, None)
+        );
         assert_eq!(focus.lap, lap);
         assert_eq!(focus.edge_width_rel, Some(0.1));
         assert_eq!(focus.logit, Some(logit));
@@ -606,23 +747,23 @@ mod tests {
 
     #[test]
     fn an_eye_region_is_the_box_grown_by_the_margin() {
-        assert_eq!(EYE_REGION_MARGIN, 0.25);
+        assert_eq!(EYE_REGION_MARGIN, 0.5);
         assert_eq!(
             eye_region(&eye_points(100.0, 200.0), &[0, 1, 2, 3], 1000, 700),
             Some(Window {
-                x: 90,
-                y: 190,
-                width: 60,
-                height: 30
+                x: 80,
+                y: 180,
+                width: 80,
+                height: 50
             })
         );
         assert_eq!(
             eye_region(&eye_points(100.5, 200.5), &[0, 1, 2, 3], 1000, 700),
             Some(Window {
-                x: 90,
-                y: 190,
-                width: 61,
-                height: 31
+                x: 80,
+                y: 180,
+                width: 81,
+                height: 51
             }),
             "fractional edges round outward"
         );
@@ -637,10 +778,10 @@ mod tests {
         assert_eq!(
             eye_region(&turned, &[0, 1, 2, 3], 1000, 700),
             Some(Window {
-                x: 190,
-                y: 90,
-                width: 30,
-                height: 60
+                x: 180,
+                y: 80,
+                width: 50,
+                height: 80
             })
         );
     }
@@ -732,10 +873,10 @@ mod tests {
         let gray = ramp(4);
         let m = mesh_eye_measures(&gray, 40, 40, &mesh);
         let left = Window {
-            x: 2,
-            y: 2,
-            width: 12,
-            height: 12,
+            x: 0,
+            y: 0,
+            width: 16,
+            height: 16,
         };
         let (lap, edge_width, edge_width_rel) = eye_measures(&gray, 40, left);
         assert_eq!(
@@ -747,9 +888,182 @@ mod tests {
                 edge_width_rel
             })
         );
-        assert_eq!(m.right.iris.map(|r| r.window.x), Some(22));
+        assert_eq!(m.right.iris.map(|r| r.window.x), Some(20));
         assert_eq!((m.left.iris, m.right.contour), (None, None));
         assert_eq!(m.pose, Some(pose));
+    }
+
+    /// A 120 x 60 image with a vertical step edge at column 20 blurred over
+    /// `left` px and one at column 80 blurred over `right` px.
+    fn two_steps(left: usize, right: usize) -> Vec<u8> {
+        let step =
+            |x: usize, at: usize, blur: usize| (x.saturating_sub(at).min(blur) * 200 / blur) as u8;
+        let row: Vec<u8> = (0..120)
+            .map(|x| {
+                if x < 60 {
+                    step(x, 20, left)
+                } else {
+                    step(x, 80, right)
+                }
+            })
+            .collect();
+        row.repeat(60)
+    }
+
+    /// A mesh whose eye contours span boxes `(x, y, width, height)` (`None`
+    /// leaves that eye's points NaN), with `pose`.
+    fn boxed_eyes(
+        left: Option<(f32, f32, f32, f32)>,
+        right: Option<(f32, f32, f32, f32)>,
+        pose: Option<Pose>,
+    ) -> Mesh {
+        let mut points = vec![[f32::NAN; 2]; crate::eyes::LANDMARKS];
+        for (contour, eye) in [(&LEFT_EYE_CONTOUR, left), (&RIGHT_EYE_CONTOUR, right)] {
+            let Some((x, y, w, h)) = eye else { continue };
+            for (k, &i) in contour.iter().enumerate() {
+                points[i] = [x + (k % 2) as f32 * w, y + (k / 2 % 2) as f32 * h];
+            }
+        }
+        Mesh { points, pose }
+    }
+
+    /// Both eyes 20 x 10, their regions 40 x 30 around the two step edges.
+    fn both_eyes(pose: Option<Pose>) -> Mesh {
+        boxed_eyes(
+            Some((10.0, 20.0, 20.0, 10.0)),
+            Some((70.0, 20.0, 20.0, 10.0)),
+            pose,
+        )
+    }
+
+    fn two_eyed() -> Face {
+        face(0.0, 0.0, 60.0, (20.0, 25.0), (80.0, 25.0))
+    }
+
+    #[test]
+    fn the_sharper_eye_scores_the_frame_whatever_the_pose() {
+        let left = Window {
+            x: 0,
+            y: 10,
+            width: 40,
+            height: 30,
+        };
+        let right = Window { x: 60, ..left };
+        // A face turned far toward the blurred eye: the pose does not choose.
+        let turned = |yaw| Pose {
+            yaw,
+            pitch: 0.0,
+            roll: 0.0,
+        };
+        for (blurs, yaw, eye, window) in [
+            ((2, 8), 70.0, Eye::Left, left),
+            ((8, 2), -70.0, Eye::Right, right),
+        ] {
+            let gray = two_steps(blurs.0, blurs.1);
+            for pose in [None, Some(turned(yaw))] {
+                let mesh = both_eyes(pose);
+                let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+                let m = mesh_eye_measures(&gray, 120, 60, &mesh);
+                let (l, r) = (mesh_logit(m.left.contour), mesh_logit(m.right.contour));
+                assert!(l.is_some() && r.is_some());
+                assert_eq!(focus.scored, Scored::Sharper(eye));
+                assert_eq!(focus.window, window);
+                assert_eq!(focus.logit, Some(l.unwrap().max(r.unwrap())));
+                assert_eq!(focus.mesh, Some(m));
+            }
+        }
+    }
+
+    #[test]
+    fn an_eye_counts_from_the_minimum_region_side() {
+        let gray = two_steps(2, 2);
+        // A 12 px wide eye grows to a 24 px region, an 11 px one to 23 px.
+        for (w, side, scored) in [
+            (12.0, 24, Scored::Only(Eye::Left)),
+            (11.0, 23, Scored::Window),
+        ] {
+            let mesh = boxed_eyes(Some((20.0, 20.0, w, 4.0)), None, None);
+            let m = mesh_eye_measures(&gray, 120, 60, &mesh);
+            assert_eq!(m.left.contour.map(|r| r.window.width), Some(side));
+            assert!(m.left.contour.and_then(|r| r.edge_width).is_some());
+            let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+            assert_eq!(focus.scored, scored, "{side} px");
+        }
+        assert_eq!(EYE_REGION_MIN, 24);
+    }
+
+    #[test]
+    fn an_eye_that_does_not_count_leaves_the_other() {
+        let gray = two_steps(2, 8);
+        let small = Some((75.0, 20.0, 4.0, 4.0));
+        let mesh = boxed_eyes(Some((10.0, 20.0, 20.0, 10.0)), small, None);
+        let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+        assert_eq!(focus.scored, Scored::Only(Eye::Left));
+        let mut mesh = both_eyes(None);
+        mesh.points[LEFT_EYE_CONTOUR[3]] = [f32::INFINITY, 20.0];
+        let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+        assert_eq!(focus.scored, Scored::Only(Eye::Right));
+        assert_eq!(focus.mesh.map(|m| m.left.contour), Some(None));
+    }
+
+    #[test]
+    fn the_window_scores_a_face_with_no_eye_that_counts() {
+        let gray = two_steps(2, 8);
+        let window = eye_focus(&gray, 120, 60, &two_eyed(), None);
+        assert_eq!(window.scored, Scored::Window);
+        assert_eq!(window.window, eye_window(120, 60, &two_eyed()));
+        let tiny = boxed_eyes(
+            Some((20.0, 20.0, 4.0, 4.0)),
+            Some((80.0, 20.0, 4.0, 4.0)),
+            None,
+        );
+        let mut bad = both_eyes(None);
+        bad.points[LEFT_EYE_CONTOUR[0]] = [f32::NAN, 20.0];
+        bad.points[RIGHT_EYE_CONTOUR[0]] = [80.0, f32::NAN];
+        for mesh in [&tiny, &bad] {
+            let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(mesh));
+            assert_eq!(focus.scored, Scored::Window);
+            assert_eq!((focus.window, focus.logit), (window.window, window.logit));
+            assert!(focus.mesh.is_some());
+        }
+        let flat = vec![128u8; 120 * 60];
+        let focus = eye_focus(&flat, 120, 60, &two_eyed(), Some(&both_eyes(None)));
+        assert_eq!(focus.scored, Scored::Window);
+        assert_eq!(
+            focus
+                .mesh
+                .and_then(|m| m.left.contour)
+                .map(|r| r.edge_width),
+            Some(None)
+        );
+    }
+
+    #[test]
+    fn the_mesh_score_follows_the_frozen_coefficients_on_the_shared_threshold() {
+        assert_eq!(MESH_LOGIT_LAP, 1.9417143647766388);
+        assert_eq!(MESH_LOGIT_EDGE_WIDTH, -1.3161251379398846);
+        assert_eq!(
+            MESH_LOGIT_INTERCEPT,
+            -8.158737592019197 + (CANDIDATE_LOGIT - 0.8343419969086643)
+        );
+        let gray = two_steps(2, 8);
+        let mesh = boxed_eyes(Some((10.0, 20.0, 20.0, 10.0)), None, None);
+        let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
+        let window = Window {
+            x: 0,
+            y: 10,
+            width: 40,
+            height: 30,
+        };
+        let (lap, edge, rel) = eye_measures(&gray, 120, window);
+        let logit = MESH_LOGIT_INTERCEPT
+            + MESH_LOGIT_LAP * (lap + 1.0).ln()
+            + MESH_LOGIT_EDGE_WIDTH * (edge.unwrap() / 40.0).ln();
+        assert_eq!(rel, edge.map(|e| e / 40.0));
+        assert_eq!(focus.scored, Scored::Only(Eye::Left));
+        assert_eq!(focus.logit, Some(logit));
+        assert_eq!((focus.probability, focus.state), scored(logit));
+        assert_eq!(candidate(Some(focus.probability)), focus.state);
     }
 
     #[test]
@@ -811,5 +1125,20 @@ mod tests {
             "a decode failure is still an error"
         );
         assert!(focus_cue_unless(&jpeg, 1, focus, &AtomicBool::new(false)).is_some());
+    }
+
+    #[test]
+    fn a_set_flag_abandons_the_cue_after_the_mesh() {
+        let gray = two_steps(2, 8);
+        let rgb: Vec<u8> = gray.iter().flat_map(|&g| [g, g, g]).collect();
+        // Outside the image: no mesh, no model run.
+        let away = face(500.0, 500.0, 60.0, (520.0, 525.0), (580.0, 525.0));
+        let set = AtomicBool::new(true);
+        assert_eq!(scored_face(&rgb, &gray, 120, 60, 1, &away, &set), None);
+        let focus = scored_face(&rgb, &gray, 120, 60, 1, &away, &AtomicBool::new(false));
+        assert_eq!(
+            focus.map(|f| (f.scored, f.mesh)),
+            Some((Scored::Window, None))
+        );
     }
 }
