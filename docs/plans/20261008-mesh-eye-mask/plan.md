@@ -345,4 +345,8 @@ closed either way.
 
 ## Progress
 
-- (none yet)
+- 2026-10-09 Step 1 done: the eyelid contour mask primitives and their tests
+  landed in `crates/core/src/candidate.rs`. The mask dump ran on this commit
+  with the face gate already on `main`; its data is in
+  `D:\Photos\tests\2026-10-08-mesh-eye-mask\`. See `learnings.md` for the size
+  and cost tables.
