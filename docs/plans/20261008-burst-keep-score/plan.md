@@ -296,7 +296,7 @@ burst's other frames.
     - Head-pose labels are unreviewed (todo); if the pose carries the
       Decision, say so, since a label review could move it.
 
-- [ ] Step 4 (gated on the Decision): Compute and store the eyes-open probability and the head pose in the scan
+- [ ] Struck by the Decision: Step 4 (gated on the Decision): Compute and store the eyes-open probability and the head pose in the scan
   - Done when:
     - The faces pass stores, next to `eye_focus` / `sharpness`, the judged
       face's eyes-open probability and `yaw` / `pitch` / `roll` (`NULL`
@@ -337,7 +337,7 @@ burst's other frames.
       `crates/app/src/commands.rs`, `crates/app/ui/src/main.ts`,
       `docs/agents/tauri-app.md`.
 
-- [ ] Step 5 (gated on the Decision): Judge each burst's frames and present the result
+- [ ] Struck by the Decision: Step 5 (gated on the Decision): Judge each burst's frames and present the result
   - Done when:
     - A new DOM- and Tauri-free module `crates/app/ui/src/keep.ts` with
       `keepJudgments(paths, lookup, bursts)` that applies the Decision's
@@ -389,7 +389,7 @@ burst's other frames.
       per the chosen presentation, `style.css`, `docs/humans/usage.md`,
       `usage.ja.md`, `README.md` / `README.ja.md`.
 
-- [ ] Step 6 (gated on the Decision): Measure the scan cost and bring the docs and the todo in line
+- [ ] Step 6 (docs-only per the Decision): Measure the scan cost and bring the docs and the todo in line
   - Done when:
     - `docs/humans/performance.md`: a paragraph under "Focus candidate pass"
       with pass 2 before (the commit before Step 4) and after on
@@ -496,13 +496,13 @@ burst's other frames.
 
 ## Decision
 
-**Proposed — awaiting user approval.** Step 4 does not start until the
-user approves this section (or chooses the alternative below). Written
+**Approved by the user on 2026-10-08 (no mark ships).** Steps 4 and 5
+are struck; Step 6 is the docs-only PR. Written
 against the reframed goal (Purpose, 2026-10-08): a keep mark whose frames
 are almost all picks.
 
-**Proposal: no rule reaches the precision the goal asks for; strike Steps
-4-6.** Numbers from [fit.md](fit.md) "Keep mark" (the 1802 scorable bursts
+**Decision: no rule reaches the precision the goal asks for; strike Steps
+4-5 and make Step 6 docs-only.** Numbers from [fit.md](fit.md) "Keep mark" (the 1802 scorable bursts
 of the 26 sidecar-labeled ARW folders with one, gap 1000 ms; 11,693 faced
 frames, 25.8% picks):
 
@@ -538,7 +538,7 @@ frames, 25.8% picks):
   pose labels are unreviewed (the pose does not carry any rule); the DNG
   blocks are too small to fit on.
 
-If approved: Steps 4-6 are struck (marked so in Progress); `riffle-cli
+As approved: Steps 4 and 5 are struck; `riffle-cli
 features`, [metrics.py](metrics.py), [fit.py](fit.py), [keep.py](keep.py)
 and the dumps stay as diagnostics; Step 6's place is a docs-only PR that
 records the measured rules and the reason in `todo.md` ("Suggest the
@@ -547,7 +547,7 @@ sharpest-eye frame within a burst group" stays unchecked with a pointer to
 the head pose" notes that a frontal pose was picked no more often than a
 turned one) and leaves `performance.md` untouched.
 
-**Alternative, if the user wants a keep mark shipped anyway, knowing it is
+**Alternative (not chosen), if the user wants a keep mark shipped anyway, knowing it is
 "technically fine", not "would be picked".**
 
 - **Rule ([frozen.json](frozen.json)):** within a burst of two or more
