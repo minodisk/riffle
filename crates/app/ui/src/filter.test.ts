@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Exif, ExifGroup } from "./exif.js";
+import type { EyeState } from "./eyes.js";
 import type { FocusCandidate } from "./meta.js";
 import {
   type FilterState,
@@ -19,6 +20,7 @@ function state(
   labels: string[] = [],
   orientations: Orientation[] = [],
   candidates: FocusCandidate[] = [],
+  eyes: EyeState[] = [],
 ): FilterState {
   return {
     flags: new Set(flags),
@@ -26,6 +28,7 @@ function state(
     labels: new Set(labels),
     orientations: new Set(orientations),
     candidates: new Set(candidates),
+    eyes: new Set(eyes),
     exif: new Map(exif.map(([group, values]) => [group, new Set(values)])),
   };
 }
@@ -349,5 +352,51 @@ describe("passes: focus candidates", () => {
     const flagged = state(["untagged"], [], [], [], [], ["candidate"]);
     expect(passes(flagged, unjudged, undefined, 1, "candidate")).toBe(true);
     expect(passes(flagged, pickedTwo, undefined, 1, "candidate")).toBe(false);
+  });
+});
+
+describe("passes: eyes", () => {
+  const eyes = (...states: EyeState[]) => state([], [], [], [], [], [], states);
+
+  test("nothing checked passes every state", () => {
+    for (const value of ["open", "closed", "unknown", undefined] as const) {
+      expect(passes(state(), unjudged, undefined, 1, undefined, value)).toBe(true);
+    }
+  });
+
+  test("open passes open eyes only", () => {
+    expect(passes(eyes("open"), unjudged, undefined, 1, undefined, "open")).toBe(true);
+    expect(passes(eyes("open"), unjudged, undefined, 1, undefined, "closed")).toBe(false);
+    expect(passes(eyes("open"), unjudged, undefined, 1, undefined, "unknown")).toBe(false);
+    expect(passes(eyes("open"), unjudged, undefined, 1, undefined, undefined)).toBe(false);
+  });
+
+  test("closed passes closed eyes only", () => {
+    expect(passes(eyes("closed"), unjudged, undefined, 1, undefined, "closed")).toBe(true);
+    expect(passes(eyes("closed"), unjudged, undefined, 1, undefined, "open")).toBe(false);
+    expect(passes(eyes("closed"), unjudged, undefined, 1, undefined, "unknown")).toBe(false);
+    expect(passes(eyes("closed"), unjudged, undefined, 1, undefined, undefined)).toBe(false);
+  });
+
+  test("unknown passes an unknown state or a file without a focus", () => {
+    expect(passes(eyes("unknown"), unjudged, undefined, 1, undefined, "unknown")).toBe(true);
+    expect(passes(eyes("unknown"), unjudged, undefined, 1, undefined, undefined)).toBe(true);
+    expect(passes(eyes("unknown"), unjudged, undefined, 1, undefined, "open")).toBe(false);
+    expect(passes(eyes("unknown"), unjudged, undefined, 1, undefined, "closed")).toBe(false);
+  });
+
+  test("ORs the checked states", () => {
+    const either = eyes("open", "unknown");
+    expect(passes(either, unjudged, undefined, 1, undefined, "open")).toBe(true);
+    expect(passes(either, unjudged, undefined, 1, undefined, "unknown")).toBe(true);
+    expect(passes(either, unjudged, undefined, 1, undefined, "closed")).toBe(false);
+  });
+
+  test("ANDs with the other groups", () => {
+    const both = state(["untagged"], [], [], [], [], ["candidate"], ["closed"]);
+    expect(passes(both, unjudged, undefined, 1, "candidate", "closed")).toBe(true);
+    expect(passes(both, unjudged, undefined, 1, "not_candidate", "closed")).toBe(false);
+    expect(passes(both, pickedTwo, undefined, 1, "candidate", "closed")).toBe(false);
+    expect(passes(both, unjudged, undefined, 1, "candidate", "open")).toBe(false);
   });
 });

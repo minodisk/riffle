@@ -572,7 +572,13 @@ The app judges closed eyes with Face Landmarker v2 for the shown file only:
 the `eyes_of` command runs when a file is shown, outside both scan passes,
 and the meta pane's Analysis group shows `Eyes open: NN%`, the probability
 that the eyes are open. It judges one face, the face nearest a trusted AF point, else the
-largest face at or above 0.8, and none below a 60 px face side. Measured on
+largest face at or above 0.8, and none below a 60 px face side. For the face
+nearest a trusted AF point, the second pass now stores the eye aspect ratio
+and the head pose from the mesh it already runs for the focus candidate cue
+(no extra model run), and the meta pane and the filter menu's `Eyes` section
+read those; `eyes_of` still runs on every shown file, for the face parts
+overlay and for a file with no stored value (no AF point, a face under 60 px).
+Measured on
 2026-10-07 on the same Windows 11 machine, release builds, one thread, on
 `main` at `392f9c25` (the sizes before from the same day's builds before the
 app called the model):
@@ -673,7 +679,7 @@ focus candidate cue and the sharpness score:
 | Whole-preview face search without a trusted AF point (~17ms at 320x320; ~64ms at 640x448 on Windows, after a 3/8 decode of ~5ms instead of the full-size ~14ms) | first | second |
 | Focus candidate cue (crop detection + face mesh eye regions, eye window fallback) | second | second |
 | HDR PQ CR3 HEVC decode (65-125ms) | up to three times per file | twice per file (thumbnail, analysis) |
-| Closed-eyes judgment (Face Landmarker v2, ~35-45ms per face; 80-160ms per call) | - | the mesh and the pose solve also run in the second pass for the cue (~29ms per face on one thread); the judgment shown in the meta pane stays on demand for the shown file (`eyes_of`) |
+| Closed-eyes judgment (Face Landmarker v2, ~35-45ms per face; 80-160ms per call) | - | the mesh and the pose solve also run in the second pass for the cue (~29ms per face on one thread), which stores the AF face's eye aspect ratio and head pose for the meta pane and the `Eyes` filter; `eyes_of` stays on demand for the shown file, for the overlay and the files with no stored value |
 
 The first pass writes the rows in small batches (10) as their thumbnails finish, so the
 thumbnails appear at the speed of the read and the thumbnail encode, and the

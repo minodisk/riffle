@@ -35,3 +35,19 @@
   columns before setting its old `user_version`, else the v18 `ALTER TABLE
   ADD COLUMN` fails on a duplicate column. The `assert_eq!(version, 17)`
   lines became `assert_eq!(version, SCHEMA_VERSION)`.
+
+## Step 2
+
+- The stored eye fields are one `StoredEyes` interface (plus the `EyeState`
+  type) in `eyes.ts`, next to `Pose`, mirroring `index::StoredEyes`;
+  `MarkFocus` and `FaceReady` in `focus.ts` extend it, so `applyFaceReady`
+  patches the four fields with no second shape to keep in sync. `Focus` in
+  `main.ts` lists them explicitly like its other fields.
+- `metaGroups` treats the stored value as one unit: when `eyes_closed` is
+  stored, both `Eyes open` and `Head pose` come from the stored values (a
+  stored `null` pose stays out rather than mixing in `eyes_of`'s pose of
+  possibly another face); otherwise both come from the `eyes` judgment.
+- `docs/humans/usage.md` / `usage.ja.md` also described `Eyes open` as
+  "judged when the file is shown, not in the scan" and listed the filter
+  menu's sections, so they were updated with README and performance.md,
+  although the plan's Done-when names only those.

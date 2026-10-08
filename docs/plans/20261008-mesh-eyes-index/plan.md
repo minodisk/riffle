@@ -120,7 +120,7 @@ what gives the stored value its 60 px floor.
     - Docs in this step: `docs/agents/tauri-app.md` (the `FACES_VERSION`
       bullet: the columns pass 2 fills now include the EAR and the pose),
       `CLAUDE.md` layout text for `index.rs` (the columns pass 2 fills).
-- [ ] Step 2: Read the stored values in the meta pane and add the `Eyes` filter (frontend and user docs)
+- [x] Step 2: Read the stored values in the meta pane and add the `Eyes` filter (frontend and user docs)
   - Done when:
     - `Focus` in `main.ts` and `FaceReady` in `focus.ts` carry the new
       fields; `applyFaceReady` patches them in place as it does `eye_focus`.

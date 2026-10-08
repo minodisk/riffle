@@ -43,20 +43,23 @@ export const ANALYSIS_HEADING = "Analysis";
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 
 // The second scan pass's result for one file, as `Focus` in `main.ts` carries
-// it.
+// it. `eyes_closed` and `pose` are what it stored for the AF face, `null` when
+// it ran no face mesh there.
 export interface FocusCue {
   candidate: FocusCandidate;
   eye_focus: number | null;
+  eyes_closed: number | null;
+  pose: Pose | null;
 }
 
 function focusPercent(p: number | null): string | null {
   return p === null ? null : `${Math.round(p * 100)}%`;
 }
 
-// The open probability, so every file sits on the same scale whichever way it
-// was judged.
-function eyesOpenPercent(eyes: Eyes | null): string | null {
-  return eyes === null ? null : `${Math.round((1 - eyes.probability) * 100)}%`;
+// The open probability from the closed one, so every file sits on the same
+// scale whichever way it was judged.
+function eyesOpenPercent(closed: number | null): string | null {
+  return closed === null ? null : `${Math.round((1 - closed) * 100)}%`;
 }
 
 // Whole signed degrees, a yaw past 90 shown as is (a far profile
@@ -83,8 +86,9 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
 // not be read still shows its score. The AF eye's in-focus probability gets a
 // row, as a percentage, only when there is one, and so does the probability
-// that the eyes are open, judged when the file was shown, and the head pose of
-// the same face.
+// that the eyes are open and the head pose of the same face: the values the
+// scan stored for the AF face when it has them, else the `eyes` judgment taken
+// when the file was shown.
 export function metaGroups(
   meta: Metadata | null,
   sharpness: number | null,
@@ -92,6 +96,8 @@ export function metaGroups(
   eyes?: Eyes | null,
 ): MetaGroup[] {
   const groups: MetaGroup[] = [];
+  const closed = focus?.eyes_closed ?? null;
+  const stored = closed !== null;
   if (meta !== null) {
     groups.push(
       group(EXIF_HEADING, [
@@ -124,8 +130,8 @@ export function metaGroups(
     group(ANALYSIS_HEADING, [
       ["Sharpness", sharpness?.toFixed(1) ?? null],
       ["AF eye in focus", focusPercent(focus?.eye_focus ?? null)],
-      ["Eyes open", eyesOpenPercent(eyes ?? null)],
-      ["Head pose", poseValue(eyes?.pose ?? null)],
+      ["Eyes open", eyesOpenPercent(stored ? closed : (eyes?.probability ?? null))],
+      ["Head pose", poseValue(stored ? (focus?.pose ?? null) : (eyes?.pose ?? null))],
     ]),
   );
   return groups.filter(({ rows }) => rows.length > 0);

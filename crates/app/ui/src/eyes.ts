@@ -22,6 +22,19 @@ export interface Pose {
   roll: number;
 }
 
+// The eye state the scan's second pass stored for the AF face, as `Focus`
+// and `faces-progress` carry it (`StoredEyes` in `crates/app/src/index.rs`):
+// the state and the closed probability derived in Rust from the stored EAR,
+// `unknown` / `null` when nothing was stored.
+export type EyeState = "open" | "closed" | "unknown";
+
+export interface StoredEyes {
+  eyes_ear: number | null;
+  eyes: EyeState;
+  eyes_closed: number | null;
+  pose: Pose | null;
+}
+
 // What `request` hands out: the id the backend supersedes older requests by,
 // and the generation the response is settled against.
 export interface EyesTicket {

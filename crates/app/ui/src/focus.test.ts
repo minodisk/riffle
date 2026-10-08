@@ -8,6 +8,8 @@ import {
   focusMark,
 } from "./focus.js";
 
+const noEyes = { eyes_ear: null, eyes: "unknown", eyes_closed: null, pose: null } as const;
+
 const point: MarkFocus = {
   sensor_w: 7008,
   sensor_h: 4672,
@@ -17,6 +19,7 @@ const point: MarkFocus = {
   manual_focus: false,
   candidate: "unknown",
   eye_focus: null,
+  ...noEyes,
 };
 
 describe("focusMark", () => {
@@ -115,8 +118,14 @@ describe("applyFaceReady", () => {
     const touched = applyFaceReady(
       entries,
       [
-        { path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null },
-        { path: "/d/b.ARW", eye_focus: 0.3, candidate: "not_candidate", sharpness: null },
+        { path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null, ...noEyes },
+        {
+          path: "/d/b.ARW",
+          eye_focus: 0.3,
+          candidate: "not_candidate",
+          sharpness: null,
+          ...noEyes,
+        },
       ],
       "/d/b.ARW",
     );
@@ -131,12 +140,39 @@ describe("applyFaceReady", () => {
     });
   });
 
+  test("patches the stored eye state and head pose", () => {
+    const entries = rows();
+    const pose = { yaw: 12, pitch: -5, roll: 3 };
+    applyFaceReady(
+      entries,
+      [
+        {
+          path: "/d/a.ARW",
+          eye_focus: 0.9,
+          candidate: "candidate",
+          sharpness: null,
+          eyes_ear: 0.08,
+          eyes: "closed",
+          eyes_closed: 0.9,
+          pose,
+        },
+      ],
+      undefined,
+    );
+    expect(entries.get("/d/a.ARW")?.focus).toMatchObject({
+      eyes_ear: 0.08,
+      eyes: "closed",
+      eyes_closed: 0.9,
+      pose,
+    });
+  });
+
   test("a current file outside the batch is not touched", () => {
     const entries = rows();
     expect(
       applyFaceReady(
         entries,
-        [{ path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null }],
+        [{ path: "/d/a.ARW", eye_focus: 0.9, candidate: "candidate", sharpness: null, ...noEyes }],
         "/d/b.ARW",
       ),
     ).toBe(false);
@@ -149,8 +185,14 @@ describe("applyFaceReady", () => {
       applyFaceReady(
         entries,
         [
-          { path: "/d/c.ARW", eye_focus: null, candidate: "unknown", sharpness: null },
-          { path: "/d/missing.ARW", eye_focus: 0.85, candidate: "candidate", sharpness: null },
+          { path: "/d/c.ARW", eye_focus: null, candidate: "unknown", sharpness: null, ...noEyes },
+          {
+            path: "/d/missing.ARW",
+            eye_focus: 0.85,
+            candidate: "candidate",
+            sharpness: null,
+            ...noEyes,
+          },
         ],
         "/d/c.ARW",
       ),
@@ -166,6 +208,7 @@ describe("applySharpnessReady", () => {
     eye_focus: null,
     candidate: "unknown" as const,
     sharpness,
+    ...noEyes,
   });
 
   test("sets a new score in the map and the row, and reports the change", () => {
