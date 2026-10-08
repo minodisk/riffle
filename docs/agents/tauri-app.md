@@ -906,10 +906,17 @@ that already have the column, and the `ALTER TABLE` fails.
   the column, adding a duplicate and discarding the cache.
 - A migration test fixture built with `open` has the current schema, so faking
   an older version means dropping every column added since then too.
+- Put a new column at the end of `CREATE TABLE`, not next to the column it
+  relates to: `ALTER TABLE ADD COLUMN` always appends, so only an end
+  placement keeps fresh and migrated databases in the same column order
+  (v18's `eyes_ear` and `pose_*` sit after `faces_extractor`). Every older
+  fixture (v10 to v16) then has to drop the new columns too, and the version
+  asserts should read `SCHEMA_VERSION`, not a literal.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
   `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1;
-  `docs/plans/_archived/20260927-resume-last-viewed/learnings.md`, Step 1.
+  `docs/plans/_archived/20260927-resume-last-viewed/learnings.md`, Step 1;
+  `docs/plans/_archived/20261008-mesh-eyes-index/learnings.md`, Step 1.
 
 ### Bump `EXTRACTOR_VERSION`, not `SCHEMA_VERSION`, when extraction output changes (Hit)
 

@@ -556,12 +556,11 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       labels of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`
       (no eye to judge, including false detections) can seed it. Files:
       `crates/core/src/eyes.rs`, `docs/agents/tract-onnx-inference.md`.
-- [ ] Mark closed eyes in the strip. The judgment is per shown file, so a
-      mark appears only on files already shown (from `EyesCache`). The mesh
-      already runs in the second pass for the focus candidate cue (the
-      mesh-eye-focus work below), so the remaining cost of a strip mark on
-      every file is storing the judgment in the index (see the item below
-      on storing the scan's EAR and pose), not the model run. Files:
+- [ ] Mark closed eyes in the strip. Pass 2 now stores the EAR for the face
+      the cue meshes and the filter menu has an `Eyes` section (the
+      `mesh-eyes-index` work), but no tile shows a closed-eyes mark yet; the
+      stored `eyes` state (`open` / `closed` / `unknown`) is on `Focus`, so
+      the remaining work is the mark itself. Files:
       `crates/app/ui/src/strip.ts`, `crates/app/ui/src/eyes.ts`.
 - [x] Estimate the head pose of the judged face. MediaPipe's face geometry
       pipeline (perspective unprojection at its 63 deg camera, weighted
@@ -580,8 +579,10 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       Step 2 labels put frontal faces at a median |yaw| of 10 deg, oblique
       at 41, profile at 65, so the cut is somewhere in 20-50 deg), checked
       against labeled faces with a "looking away" label the head-pose plan
-      did not make. Shown in the meta pane at first (the pose is on demand
-      only). Files: `crates/app/ui/src/meta.ts`, `crates/app/ui/src/eyes.ts`,
+      did not make. The pose is now stored by pass 2 for the AF face
+      (`pose_yaw` / `pose_pitch` / `pose_roll`, carried as `Focus.pose`) and
+      the meta pane reads it, so a filter or mark needs only the threshold.
+      Files: `crates/app/ui/src/filter.ts`, `crates/app/ui/src/meta.ts`,
       `docs/plans/20261007-head-pose/pose-truth.md` (the labels to extend).
 - [x] Measure the AF eye in-focus probability over each eye's eyelid
       region from the face mesh instead of the window between the eyes.
@@ -596,30 +597,26 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       folder 12.9 -> 21.5 s at 24 threads (+66%). `FACES_VERSION` 6. See
       `docs/plans/_archived/20261008-mesh-eye-focus/` and
       `docs/humans/performance.md` "Focus candidate pass".
-- [ ] Store the scan's mesh-derived eye state and head pose in the index so
-      the strip can filter closed eyes and looking-away frames without the
-      on-demand `eyes_of`: the EAR as the open probability and the pose
-      (yaw / pitch / roll) of the face the cue meshed, in new columns next
-      to `eye_focus` (`SCHEMA_VERSION` bump), carried by `FaceReady` /
-      `Focus`, with a `FACES_VERSION` bump to fill them. Open questions: the
-      on-demand row and the stored value must agree, so both need the same
-      face, crop and 60 px floor (`eyes_of` judges the AF-nearest face, else
-      the largest; the cue meshes only the AF-nearest one and has no
-      floor); the "looking away" thresholds are unlabeled (see the item
-      above). When this lands, repoint `ViewApi.eyes` in `main.ts` (it reads
-      `eyesCache.get` today; see `docs/plans/_archived/20261008-mcp-eyes-pose/plan.md`)
-      to the stored value, keeping the `eyes` key absent from `get_view` until a
-      file is judged. Done when `get_view` answers from the stored values and
-      its existing test (key absent before and after the JSON round trip) still
-      passes. Files: `crates/app/src/index.rs`, `crates/core/src/scan.rs`,
-      `crates/core/src/candidate.rs`, `crates/app/ui/src/filter.ts`,
-      `crates/app/ui/index.html`, `crates/app/ui/src/main.ts`,
-      `crates/app/ui/src/companion.ts`.
-- [ ] Reuse the scan's mesh for `eyes_of` once the points or the EAR are
-      stored (the item above), so showing a file no longer runs the model a
-      second time for a face the scan already meshed. Files:
-      `crates/app/src/commands.rs` (`read_eyes`), `crates/app/src/index.rs`,
-      `crates/core/src/eyes.rs`.
+- [ ] Repoint the MCP `get_view` tool's `eyes` answer to the stored values.
+      Pass 2 now stores the EAR and the pose of the face it meshes (the
+      `mesh-eyes-index` work: `eyes_ear`, `eyes`, `eyes_closed` and `pose` on
+      `Focus` / `FaceReady`, `docs/plans/_archived/20261008-mesh-eyes-index/plan.md`),
+      but `ViewApi.eyes` in `main.ts` still reads `eyesCache.get`, so
+      `get_view` answers only for a file already shown (see
+      `docs/plans/_archived/20261008-mcp-eyes-pose/plan.md`). Answer from the
+      stored values when present, falling back to `eyesCache`, and keep the
+      `eyes` key absent from `get_view` until a file is judged. Done when
+      `get_view` answers from the stored values and its existing test (key
+      absent before and after the JSON round trip) still passes. Files:
+      `crates/app/ui/src/main.ts`, `crates/app/ui/src/companion.ts`.
+- [ ] Skip the second model run in `eyes_of` for a file whose scan already
+      stored the EAR and pose (the `mesh-eyes-index` work stores them, and
+      the meta pane reads them). `eyes_of` still runs for every shown file
+      because the mesh overlay (`drawFaceMesh`) needs the 478 points, and it
+      is the fallback for files with no stored value (no AF point, face under
+      60 px). Reusing the scan's mesh needs the points stored or a path that
+      runs the model only while `f` is on. Files: `crates/app/src/commands.rs`
+      (`read_eyes`), `crates/app/src/index.rs`, `crates/core/src/eyes.rs`.
 - [ ] Mask each eye's region with the eyelid contour polygon instead of
       its bounding box if the box lets hair or brow edges in (a turned or
       rolled face). `edge_width` walks rows and columns and has no masked
