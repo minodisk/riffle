@@ -386,7 +386,14 @@ impl Companion {
         compare pane, the sort order, whether a filter is active, and the current photo's \
         burst (empty when it is not part of one) with each frame's sharpness score, stars \
         (null when unrated), pick / reject flag, color label, and whether the filter shows it \
-        (a frame it hides cannot be shown or selected)."
+        (a frame it hides cannot be shown or selected). The current photo carries `eyes`, the \
+        judgment of the eyes of the face nearest the AF point (else the largest confident \
+        face): `state` (open or closed), `probability` (the probability the eyes are closed, \
+        0 to 1) and `pose` (the head pose in degrees: yaw positive when the face turns toward \
+        the image's right, pitch positive up, roll positive clockwise on screen; null when it \
+        could not be fitted). `eyes` is null when the photo has no face to judge (none found, \
+        too small, or a failure), and absent until Riffle has judged the photo, which it does \
+        a moment after showing it (never in a JPEG-only folder): call again shortly."
     )]
     async fn get_view(&self) -> CallToolResult {
         tool_result(
