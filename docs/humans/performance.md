@@ -482,7 +482,7 @@ alternated, four runs each: 9.79 / 10.33 / 10.23 / 10.31s before, 10.21 /
 
 The cue now runs the face mesh (MediaPipe Face Landmarker v2) on the face
 nearest the AF point and measures the eyes over each eye's eyelid region,
-falling back to the eye window when neither eye region is large enough (see
+falling back to the eye window when neither eye's region counts (under the 24 px floor or without a clear edge) (see
 `docs/plans/_archived/20261008-mesh-eye-focus/`), and that costs pass 2 about two
 thirds more. Measured on 2026-10-08 on the same CPU under Windows 11, the same
 folder from the local NTFS drive, warm page cache (one run of each before

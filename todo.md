@@ -600,7 +600,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       The scan's second pass runs MediaPipe Face Landmarker v2 on the face
       nearest the AF point, scores each eye's contour bounding box (margin
       0.5 of its longer side) with a refitted logistic and takes the sharper
-      eye; when neither eye's region reaches 24 px it scores the window as
+      eye; when neither eye's region counts (under 24 px or without a clear edge) it scores the window as
       before (61% of the training frames, 60% of the 2134-ARW folder's
       faces). The head pose was measured as an eye rule and did not beat the
       sharper eye, so it is not used. Held-out AUC 0.754 -> 0.800, precision

@@ -21,7 +21,7 @@ mesh, `mesh_of`, for the focus candidate cue), `src/pose.rs` the head pose (yaw 
 (the in-focus probability of the eyes of the face nearest the AF point,
 a logistic combination of the Laplacian variance and mean edge width over
 each eye's eyelid region from the face mesh, the sharper eye counting, or
-over the window between the eyes when neither region reaches the floor, and
+over the window between the eyes when neither eye's region counts (under the floor or without a clear edge), and
 whether it clears the threshold), `src/jpeg.rs` the Exif reader of a plain
 JPEG file (orientation and the standard shooting tags into the same `Shot`
 the RAW parsers fill), which `reader` and `scan` dispatch to for a `.jpg` /
