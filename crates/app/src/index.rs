@@ -131,8 +131,9 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// fallback). It stayed `6` when the scan stopped running the mesh on faces
 /// under `eyes::EYES_MIN_FACE` (`candidate::meshes_face`): no frame changed
 /// state on the 806 labeled faced frames or the 2134 files of a real folder,
-/// and the stored probability moved on one file of each (a 58 px face whose
-/// eye region had counted), not worth re-running the pass everywhere.
+/// and the stored probability moved on one file, a 58 px face whose eye
+/// region had counted (`_DSC2748.ARW`, in both the training set and that
+/// folder), not worth re-running the pass everywhere.
 pub const FACES_VERSION: i64 = 6;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read

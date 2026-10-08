@@ -172,4 +172,4 @@ cue is otherwise unchanged: no coefficient, threshold, margin or
 
 ## Progress
 
-- (none yet)
+- (2026-10-08) Step 1 complete. Deviation (see learnings.md): the gate also covers the CLI's single-file `faces` debug subcommand, not only the `candidates` report; FACES_VERSION stays 6 (0 state changes).
