@@ -85,6 +85,33 @@
   `D:\Photos\tests\2026-10-08-burst-keep-score\handcheck\` for the user to
   re-check.
 
+## Step 3
+
+- [fit.py](fit.py) imports [metrics.py](metrics.py) from its own folder
+  (`sys.path` plus `sys.dont_write_bytecode = True`, so no `__pycache__/`
+  lands here) and is standard library only: Newton's method on
+  column-major lists with `sum(map(operator.mul, ...))` for the Hessian
+  keeps one logistic fit on 16,522 frames at about a second. The whole run
+  (every leave-one-folder-out variant, the pairwise fit on 41,944 pairs,
+  the drop-one runs) takes about 6 minutes; every fit converged in 5
+  iterations without regularization.
+- **Compare at a matched pick false-fail, not at a fixed percentile.** A
+  union of per-feature 1st percentiles fails up to the sum of them (the
+  three-feature union at p 1% fails 2.7% of the picks), which makes any
+  union look like it flags more than sharpness alone. The matched form
+  (one common p, bisected so that the union fails at most the target on
+  the training picks) is the fair comparison, and on it the combinations
+  gain 0.5-0.8 pt at 1% and nothing at 5%.
+- **The dumps predate the mesh `eye_focus`.** The Step 1 CLI was built
+  (09:21) before `20261008-mesh-eye-focus` Step 3 (#733, merged 10:08)
+  moved the cue to the mesh eye regions, so every `eye_focus` here is the
+  eye-window cue. It does not change the Decision (dropping `eye_focus`
+  raises the chosen set's flag rate), but a shipped `eye_focus` cut would
+  need a re-dump.
+- The Decision is written as a proposal awaiting the user's approval, as
+  the caller asked; Steps 4-6 are not struck in Progress until it is
+  approved.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -117,3 +144,13 @@
   profile looking up behind the ball reads pitch -68 deg. Basis: Step 2
   hand check; related `crates/core/src/pose.rs`. Fits the pending review
   of the head-pose labels in `todo.md`.
+- **Re-measure the face checks with the mesh `eye_focus`.** Found in
+  Step 3 ([fit.md](fit.md), Reading, last bullet): the Step 1 dumps under
+  `D:\Photos\tests\2026-10-08-burst-keep-score\dump\` were taken with a
+  CLI built before `20261008-mesh-eye-focus` Step 3 (#733), so the burst
+  keep-check fit used the eye-window `eye_focus`. If the burst check is
+  revisited (or the alternative of the Decision is chosen), re-run
+  [dump.sh](dump.sh) with a current `riffle-cli` and re-run
+  [fit.py](fit.py) before trusting the frozen `eye_focus` cut in
+  [frozen.json](frozen.json). Related: `crates/core/src/candidate.rs`,
+  `crates/cli/src/main.rs` (`features`).

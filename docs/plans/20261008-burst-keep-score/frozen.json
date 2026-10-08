@@ -1,0 +1,28 @@
+{
+  "variant": "(i) per-feature thresholds from the picks, matched",
+  "fitted_on": "every sidecar-labeled ARW folder of the data set, scorable bursts",
+  "gap_ms": 1000,
+  "target_pick_false_fail": 0.01,
+  "common_percentile": 0.0039525628089904785,
+  "features": {
+    "rel": {
+      "definition": "sharpness / max sharpness of the burst (1.0 when the max is 0)",
+      "fails_below": 0.013370763370707533
+    },
+    "eye_focus": {
+      "definition": "the cue's eye_focus (in-focus probability of the AF eye)",
+      "fails_below": 0.1406
+    },
+    "eyes_open": {
+      "definition": "1 - Eyes.probability of the judged face (>= EYES_MIN_FACE)",
+      "fails_below": 0.0647
+    }
+  },
+  "missing_feature": "a frame lacking a feature is not failed by it (a face-free frame is judged on rel alone)",
+  "single_frame": "never flagged",
+  "heldout": {
+    "pick_false_fail": 0.011129929833051052,
+    "non_pick_flagged": 0.03309387359754621,
+    "mean_share_kept": 0.9783143913696029
+  }
+}

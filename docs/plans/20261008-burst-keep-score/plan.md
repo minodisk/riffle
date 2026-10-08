@@ -232,9 +232,9 @@ burst's other frames.
     - Report per-folder numbers next to pooled ones so `2026-09-27-a`
       (4830 frames) does not hide the rest.
 
-- [ ] Step 3: Fit the thresholds and combinations from the picks with held-out folders and decide
+- [x] Step 3: Fit the thresholds and combinations from the picks with held-out folders and decide
   - Done when:
-    - `fit.py` in this plan folder (the Step 2 feature matrix), each
+    - [fit.py](fit.py) in this plan folder (the Step 2 feature matrix), each
       variant evaluated with **leave-one-folder-out** (thresholds or
       coefficients fitted on the other folders, metrics on the held-out
       one, then pooled) on the Step 2 metrics, the training fit alongside
@@ -257,10 +257,10 @@ burst's other frames.
         pointwise logistic, kept as alternatives for the position metrics.
       - A drop-one-feature run for the chosen variant, so each feature's
         held-out worth is on record.
-    - `fit.md`: the tables, held-out numbers next to the best
+    - [fit.md](fit.md): the tables, held-out numbers next to the best
       hand rule and the sharpness-alone baseline of Step 2, the per-folder
       spread, and the chosen variant's values at full precision in
-      `frozen.json` (features, transforms, clip bounds,
+      [frozen.json](frozen.json) (features, transforms, clip bounds,
       thresholds or coefficients, the face-free fallback, the gap).
     - A **Decision** section in this plan.md states, with the numbers:
       whether a combined check beats sharpness alone, i.e. flags clearly
@@ -483,7 +483,78 @@ burst's other frames.
 
 ## Decision
 
-(Written in Step 3.)
+**Proposed — awaiting user approval.** Step 4 does not start until the
+user approves this section (or chooses the alternative below).
+
+**Proposal: nothing beats sharpness alone; strike Steps 4-6.** Numbers
+from [fit.md](fit.md) (leave-one-folder-out over the 26 sidecar-labeled ARW
+folders with a scorable burst, 1802 bursts, 4133 picks, 12,389 non-picks,
+gap 1000 ms):
+
+- At a held-out pick false-fail of about 1%, sharpness over the burst
+  maximum alone (`rel >= 0.027`) flags 2.8% of the non-picks and keeps
+  98.5% of a burst. The best combinations at the same false-fail flag
+  3.3% (`rel` + `eye_focus` + eyes open, thresholds at a common pick
+  percentile), 3.5% (the positive-unlabeled logistic on every feature) and
+  3.6% (`rel` + eyes open): +0.5 to +0.8 points. Per folder the chosen
+  set's gain is +1.2 pt on average with an sd of 2.6 pt, positive in 12 of
+  20 folders, and sharpness alone itself ranges 0.0-9.1% per folder. At 2%
+  the gains are +0.0 to +0.6 pt (4.8% against up to 5.4%); at 5% every
+  threshold set flags less than sharpness alone. So no combined check flags
+  clearly more non-picks than sharpness at the same pick false-fail, by the
+  plan's own criterion (more than the per-folder spread).
+- The pose adds nothing: adding it lowers the flag rate of the thresholds
+  at every target, and dropping it from the logistic moves the flag rate
+  by 0.1-0.2 pt. The Decision does not depend on the unreviewed pose
+  labels. An absolute sharpness floor adds 0.0-0.1 pt.
+- The hand-checked precision is high but on very few frames: of the 30
+  hand-checked non-picks of Step 2, the frozen variant flags 3, all failed
+  frames; the flagged frames as a whole are 9.0% picks against 25.0% of
+  the scorable frames. Whatever the variant, a pick-protecting check fires
+  on about 3% of the non-picks, which is not a narrowing a culler would
+  notice.
+- As a ranking, the held-out logistics reach a within-burst pairwise AUC of
+  0.59 against sharpness 0.58 and the first frame of the burst 0.65; no
+  variant is a usable "best frame" either.
+- The gap does not change this (2000 and 5000 ms within 0.3 pt), and the
+  sidecar-labeled Leica block agrees (no pick failed, 1.5-2.3% flagged).
+
+If approved: Steps 4-6 are struck (marked so in Progress); `riffle-cli
+features`, [metrics.py](metrics.py), [fit.py](fit.py) and the dumps stay as
+diagnostics; Step 6's place is a docs-only PR that records the measured
+variants and the reason in `todo.md` ("Suggest the sharpest-eye frame
+within a burst group" stays unchecked with a pointer to
+[results.md](results.md) / [fit.md](fit.md); "Flag looking-away frames from
+the head pose" notes that the pose separated picks from non-picks no
+better than chance) and leaves `performance.md` untouched.
+
+**Alternative, if the user wants a check shipped anyway.**
+
+- **Variant:** the per-feature thresholds of [frozen.json](frozen.json):
+  a frame fails if `sharpness / burst max < 0.0134`, `eye_focus < 0.1406`
+  or eyes open `< 0.0647` (the common 0.40th percentile of the picks,
+  matched to a 1% training pick false-fail; held out 1.1% of the picks
+  failed, 3.3% of the non-picks flagged, 97.8% of a burst kept). No pose.
+  Gap: the app's 1000 ms. A frame lacking a feature is not failed by it,
+  so a face-free frame (and every frame of a face-free burst) is judged on
+  sharpness alone and a mixed burst judges each frame on what it has; a
+  single frame is never flagged. The `eye_focus` cut was fitted on the
+  eye-window cue (the dumps predate `20261008-mesh-eye-focus` Step 3, #733),
+  so it would be refitted on a re-dump with the mesh cue before shipping.
+- **Scan cost (Step 4):** the mesh already runs in pass 2 on the AF face
+  since #733, so for an ARW the eyes-open probability comes from the points
+  already in hand (fields only, no second model run, Step 4's first
+  shape); for a DNG without an AF point (no cue face) it needs
+  `judge_mesh` on the largest whole-image face after a full decode, on the
+  order of the ~117 ms per DNG single-threaded of `eyes_of`. The pose would
+  not be stored for the check.
+- **Presentation (Trade-offs "Presentation"):** recommended (a), a
+  "technically failed" mark on the strip cell within a burst, since 9% of
+  the flagged frames are picks and the sharpness flags of Step 2's hand
+  check were mostly fine frames; not (c) a filter, which would hide those;
+  not (d) a single best mark, which the ranking numbers do not support.
+  (b) is the same set read positively and would mark 97.8% of the frames,
+  so it says little.
 
 ## Progress
 
