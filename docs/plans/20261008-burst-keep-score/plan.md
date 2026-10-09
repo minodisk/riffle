@@ -296,6 +296,40 @@ outputs.
       (+ test), `focus.ts` (+ test) if the helper lives there, this plan's
       `provisional.md`, `learnings.md`.
 
+- [x] Step 4c: Add a second tier below good, its strip icon, and `Good` / second-tier filter items
+  - Why (the user, 2026-10-09): to judge the mark, the user wants to
+    narrow the strip to it first; and a second tier (roughly the next
+    10% below good, so the two together cover about 20% of faced AF
+    frames) should be visible and filterable too.
+  - Done when:
+    - `focus.ts`: a second tier (working name `fair`; the label is decided
+      while implementing and recorded) with its own provisional cuts as
+      named constants next to the good ones: lower `eye_focus` and EAR
+      cuts, the same loose pose cut unless the data says otherwise, chosen
+      from the Step 4 re-dump so that good + fair mark about 20% of faced
+      AF frames pooled (per-folder shares recorded in `provisional.md`). A
+      pure `photoTier(focus): "good" | "fair" | null` (good wins);
+      `goodPhoto` stays as `photoTier(...) === "good"` or is replaced, with
+      the tests following. Tests pin the fair boundaries and that a good
+      frame is not fair.
+    - Strip: the face icon shows on good frames (bright green, as now) and
+      on fair frames in a second, clearly different color (a shared token
+      of `docs/agents/ui-styling.md` or a new one in `style.css`); the
+      crosshair state gains `fair` with the same color, `candidate_only`
+      and the rest unchanged.
+    - Filter menu, `AF eye` section: two new items, `Good` and the second
+      tier's label, each letting through only its tier (`filter.ts` and
+      its test, `index.html`, the icons colored like the strip's). The
+      existing `Sharp` / `Soft` / `Unknown` items keep their meaning, and
+      the `Sharp` item's icon no longer uses the good green (so the same
+      glyph and color never mean two things; the color chosen is
+      recorded).
+    - No `docs/humans` change here (Step 6). `mise run ci` passes.
+  - Implementation approach:
+    - Frontend only: `focus.ts` (+ test), `main.ts`, `strip.ts`,
+      `filter.ts` (+ test), `index.html`, `style.css`; this plan's
+      `provisional.md` / `provisional.py`, `learnings.md`.
+
 - [ ] Step 5: Tune the cuts from the user's feedback and record Decision B
   - Done when:
     - The constants in `focus.ts` are moved to the values the user's

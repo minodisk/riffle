@@ -15,6 +15,7 @@ import {
 import { ErrorList } from "./errors.js";
 import { token } from "./theme.js";
 import {
+  type AfEye,
   type Flag,
   type Orientation,
   anchorAfterFilter,
@@ -33,7 +34,7 @@ import {
   applySharpnessReady,
   faceMarks,
   focusMark,
-  goodPhoto,
+  photoTier,
 } from "./focus.js";
 import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
@@ -76,7 +77,7 @@ import {
   openHint,
 } from "./empty.js";
 import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
-import { type FocusCandidate, type Metadata, metaGroups } from "./meta.js";
+import { type Metadata, metaGroups } from "./meta.js";
 import { FormatGate, asksLanguage, defaultPreset } from "./firstrun.js";
 import type { LabelNames, LabelPreset } from "./labels.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
@@ -544,7 +545,7 @@ const shownFlags = new Set<Flag>();
 const shownStars = new Set<number>();
 const shownLabels = new Set<string>();
 const shownOrientations = new Set<Orientation>();
-const shownCandidates = new Set<FocusCandidate>();
+const shownCandidates = new Set<AfEye>();
 const shownEyes = new Set<EyeState>();
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
@@ -1619,6 +1620,7 @@ function passes(path: string): boolean {
     entries.get(path)?.orientation,
     entries.get(path)?.focus?.candidate,
     entries.get(path)?.focus?.eyes,
+    photoTier(entries.get(path)?.focus),
   );
 }
 
@@ -1674,7 +1676,7 @@ function refilter(
   });
   applySharpness();
   applyBursts();
-  applyGood();
+  applyTiers();
   applyFailures();
   if (files.length === 0) {
     closeContextMenu();
@@ -2062,10 +2064,10 @@ function applyBursts(): void {
   });
 }
 
-// Hand the strip whether each displayed file is a good photo.
-function applyGood(): void {
+// Hand the strip the photo tier of each displayed file.
+function applyTiers(): void {
   files.forEach((path, at) => {
-    strip.setGood(at, goodPhoto(entries.get(path)?.focus));
+    strip.setTier(at, photoTier(entries.get(path)?.focus));
   });
 }
 
@@ -2133,7 +2135,7 @@ function refreshEntries(): void {
       const sharpened = performance.now();
       applyBursts();
       const bracketed = performance.now();
-      applyGood();
+      applyTiers();
       applyFailures();
       const marked = performance.now();
       const hadPendingResume = pendingResume !== undefined;
@@ -2188,9 +2190,10 @@ function refreshEntries(): void {
 // around the point as well, in the same sensor coordinates; a body that
 // records only the point gets the crosshair alone, and a manual-focus shot,
 // whose recorded point is not trusted, gets no mark. The mark is bright green
-// for a good photo (`goodPhoto`: the eyes of the face nearest the AF point are
-// sharp and open and the face is toward the camera), dim green for a focus
-// candidate that is not one, orange when that face's eyes are not sharp, and
+// for a good photo (`photoTier`: the eyes of the face nearest the AF point are
+// sharp and open and the face is toward the camera), azure for a fair one
+// (the same, on looser cuts), dim green for a focus candidate in neither tier,
+// orange when that face's eyes are not sharp, and
 // white when Riffle does not know: no face near the point, or the second scan
 // pass has not reached the file yet.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
@@ -3690,8 +3693,8 @@ void window.__TAURI__.event.listen<{
   if (scored) {
     applySharpness();
   }
-  applyGood();
-  // The candidate and eyes filters fill in as the pass runs; the strip keeps
+  applyTiers();
+  // The candidate, tier and eyes filters fill in as the pass runs; the strip keeps
   // its scroll offset, as on a resync.
   if (shownCandidates.size > 0 || shownEyes.size > 0) {
     refilter(files[index], true);
@@ -3788,9 +3791,17 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
   "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
-const sharpFace = filterMenu.querySelector<HTMLElement>('[data-candidate="candidate"] .face')!;
-sharpFace.innerHTML = SCAN_FACE_SVG;
-sharpFace.style.color = FOCUS_MARK_COLORS.good;
+// The face icons of the `AF eye` items, colored like the focus mark: the tiers
+// like the strip's icon, `Sharp` in the dim green of a candidate in neither.
+for (const [candidate, color] of [
+  ["good", FOCUS_MARK_COLORS.good],
+  ["fair", FOCUS_MARK_COLORS.fair],
+  ["candidate", FOCUS_MARK_COLORS.candidate_only],
+] as const) {
+  const face = filterMenu.querySelector<HTMLElement>(`[data-candidate="${candidate}"] .face`)!;
+  face.innerHTML = SCAN_FACE_SVG;
+  face.style.color = color;
+}
 
 function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
@@ -3875,7 +3886,7 @@ function filterChanged(): void {
           : orientation !== undefined
             ? shownOrientations.has(orientation as Orientation)
             : candidate !== undefined
-              ? shownCandidates.has(candidate as FocusCandidate)
+              ? shownCandidates.has(candidate as AfEye)
               : eyes !== undefined
                 ? shownEyes.has(eyes as EyeState)
                 : shownStars.has(Number(stars));

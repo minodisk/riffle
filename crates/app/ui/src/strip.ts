@@ -5,7 +5,7 @@
 
 import { type BurstMark, burstBadge } from "./burst.js";
 import { carriedIndices, carriedOffset } from "./carry.js";
-import { FOCUS_MARK_COLORS } from "./focus.js";
+import { FOCUS_MARK_COLORS, type PhotoTier } from "./focus.js";
 import { CLOCK_SVG, SCAN_FACE_SVG } from "./icons.js";
 import {
   type Decision,
@@ -51,7 +51,7 @@ interface Cell {
   flag: HTMLSpanElement;
   sharpness: HTMLSpanElement;
   count: HTMLSpanElement;
-  good: HTMLSpanElement;
+  tier: HTMLSpanElement;
   reason: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
@@ -102,8 +102,8 @@ const sharpness = new Map<number, RelativeSharpness>();
 // The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
-// The indices whose file is a good photo (`goodPhoto` in `focus.ts`).
-const goods = new Set<number>();
+// The tier of the indices whose file is in one (`photoTier` in `focus.ts`).
+const tiers = new Map<number, PhotoTier>();
 // Why the scan failed on a file, per index, from the index's error row.
 const failures = new Map<number, string>();
 // The selected indices besides `current`, mirroring the selection in
@@ -178,10 +178,14 @@ function paintBurst(index: number, cell: Cell): void {
   cell.count.textContent = burstBadge(value ?? null);
 }
 
-// A face icon at the image box's bottom-left, in the focus mark's good color,
-// on a good photo.
-function paintGood(index: number, cell: Cell): void {
-  cell.good.hidden = !goods.has(index);
+// A face icon at the image box's bottom-left, in the focus mark's color of the
+// tier, on a good or fair photo.
+function paintTier(index: number, cell: Cell): void {
+  const tier = tiers.get(index);
+  cell.tier.hidden = tier === undefined;
+  if (tier !== undefined) {
+    cell.tier.style.color = FOCUS_MARK_COLORS[tier];
+  }
 }
 
 // The scan's error text of a failed file, in the cell's tooltip and, on a
@@ -253,11 +257,10 @@ function createCell(index: number): Cell {
   const count = document.createElement("span");
   count.className = "count";
   el.append(count);
-  const good = document.createElement("span");
-  good.className = "good";
-  good.innerHTML = SCAN_FACE_SVG;
-  good.style.color = FOCUS_MARK_COLORS.good;
-  el.append(good);
+  const tier = document.createElement("span");
+  tier.className = "tier";
+  tier.innerHTML = SCAN_FACE_SVG;
+  el.append(tier);
   const reason = document.createElement("span");
   reason.className = "reason";
   el.append(reason);
@@ -276,7 +279,7 @@ function createCell(index: number): Cell {
     flag,
     sharpness: sharp,
     count,
-    good,
+    tier,
     reason,
     name,
     url: null,
@@ -286,7 +289,7 @@ function createCell(index: number): Cell {
   paintRating(index, cell);
   paintSharpness(index, cell);
   paintBurst(index, cell);
-  paintGood(index, cell);
+  paintTier(index, cell);
   paintFailure(index, cell);
   return cell;
 }
@@ -482,17 +485,17 @@ export function setBurst(index: number, value: BurstMark | null): void {
   }
 }
 
-// Record whether one file is a good photo, repainting its cell when it is on
-// screen.
-export function setGood(index: number, good: boolean): void {
-  if (good) {
-    goods.add(index);
+// Record the tier of one file, `null` for neither, repainting its cell when it
+// is on screen.
+export function setTier(index: number, tier: PhotoTier | null): void {
+  if (tier === null) {
+    tiers.delete(index);
   } else {
-    goods.delete(index);
+    tiers.set(index, tier);
   }
   const cell = cells.get(index);
   if (cell !== undefined) {
-    paintGood(index, cell);
+    paintTier(index, cell);
   }
 }
 
@@ -554,7 +557,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   sharpness.clear();
   bursts.clear();
-  goods.clear();
+  tiers.clear();
   failures.clear();
   selected.clear();
   files = paths;
@@ -570,7 +573,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
     paintRating(cell.index, cell);
     paintSharpness(cell.index, cell);
     paintBurst(cell.index, cell);
-    paintGood(cell.index, cell);
+    paintTier(cell.index, cell);
   }
   strip.scrollLeft = keepScroll ? scrollLeft : 0;
   if (resume !== null) {

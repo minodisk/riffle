@@ -1,5 +1,6 @@
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import type { EyeState } from "./eyes.js";
+import type { PhotoTier } from "./focus.js";
 import type { FocusCandidate } from "./meta.js";
 import type { PickFlag } from "./selection.js";
 
@@ -10,9 +11,15 @@ import type { PickFlag } from "./selection.js";
 // when there is none; a label outside the menu's colors matches no item.
 // The menu's `AF eye` items put `candidate`, `not_candidate` or `unknown` in
 // `candidates`; a file whose state is not known yet counts as `unknown`. Its
+// `Good` and `Fair` items put the photo tier, `good` or `fair`, in the same
+// set, OR-ed with the states like any item of one group; a file in neither
+// tier matches neither. Its
 // `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.
 export type Flag = "picked" | "untagged" | "rejected";
+
+// One item of the `AF eye` section: a focus candidate state or a photo tier.
+export type AfEye = FocusCandidate | PhotoTier;
 
 // The displayed shape, decided by the EXIF Orientation tag alone: every
 // sensor Riffle reads is landscape, so a quarter turn (6 or 8) is portrait.
@@ -27,7 +34,7 @@ export interface FilterState {
   stars: Set<number>;
   labels: Set<string>;
   orientations: Set<Orientation>;
-  candidates: Set<FocusCandidate>;
+  candidates: Set<AfEye>;
   eyes: Set<EyeState>;
   exif: Map<ExifGroup, Set<string>>;
 }
@@ -45,6 +52,7 @@ export function passes(
   orientation: number | undefined,
   candidate?: FocusCandidate,
   eyes?: EyeState,
+  tier?: PhotoTier | null,
 ): boolean {
   const flag: Flag =
     pickFlag === "pick" ? "picked" : pickFlag === "reject" ? "rejected" : "untagged";
@@ -56,7 +64,9 @@ export function passes(
     (state.labels.size === 0 || state.labels.has(labelKey)) &&
     (state.orientations.size === 0 ||
       (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
-    (state.candidates.size === 0 || state.candidates.has(candidate ?? "unknown")) &&
+    (state.candidates.size === 0 ||
+      state.candidates.has(candidate ?? "unknown") ||
+      (tier !== null && tier !== undefined && state.candidates.has(tier))) &&
     (state.eyes.size === 0 || state.eyes.has(eyes ?? "unknown")) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {

@@ -282,6 +282,48 @@
   `write_text` on Windows turned them CRLF; `sed -i 's/\r$//'` restored LF.
   Write bytes (`write_bytes`) instead.
 
+## Step 4c
+
+- **The second tier is `Fair`** (`PhotoTier = "good" | "fair"`), the filter
+  item `Fair` next to `Good`. Cuts in `focus.ts`: `FAIR_EYE_FOCUS` = 0.99
+  (p67 of `eye_focus`), `FAIR_EYE_EAR` = 0.25 (p35 of the EAR, open
+  probability 0.964, openness 41), `FAIR_MAX_YAW` / `FAIR_MAX_PITCH` = 60 / 45
+  (the good tier's loose pose cut; the data gave no reason to change it).
+  Good + fair mark 20.3% of the faced AF frames pooled (good 9.0%, fair
+  11.3%); per folder 16.3-31.3% ([provisional.md](provisional.md), "The fair
+  tier"). The candidates tried: 0.995 / 0.25 gave 18.1%, 0.98 / 0.25 21.8%,
+  0.99 / 0.24 21.3%, 0.99 / 0.22 23.3%; 0.99 / 0.25 with |yaw| <= 45 19.4%.
+- **`goodPhoto` is replaced by `photoTier`**, which returns `"good"` when the
+  good cuts clear, else `"fair"` when the fair ones do, else `null` (a
+  non-candidate is always `null`). The good-boundary tests stay, through a
+  local `photoTier(...) === "good"`; a frame just below a good cut is now
+  `fair`, which a new test pins.
+- **Colors.** Fair is azure `#5af`, a new entry of `FOCUS_MARK_COLORS` (the
+  focus mark's colors are an app-semantic exception of
+  `docs/agents/ui-styling.md`, so no `style.css` token); it is used by the
+  strip icon, the crosshair's new `fair` state and the filter's `Fair` icon.
+  It keeps away from the green of good and the dim green `#8b8`, the orange
+  `#f93` of `not_candidate`, the cyan `#3ff` of the detected faces
+  (`FACE_MARK_COLOR`) and the yellow stars. The filter's `Sharp` icon moved
+  from the good green to the dim green `candidate_only` (`#8b8`), which is
+  what a focus candidate in neither tier draws in, so the bright green face
+  now only ever means good. This resolves the Step 4 deferred item about the
+  `Sharp` icon, removed from the list below.
+- **The filter items share the `AF eye` group.** `data-candidate="good"` /
+  `"fair"` go in the same `candidates` set (now `Set<AfEye>`, `AfEye =
+  FocusCandidate | PhotoTier`) and are OR-ed with `Sharp` / `Soft` /
+  `Unknown`, as the menu ORs the items of one section; `passes` takes the
+  tier as a new last argument. So `Good` + `Sharp` is just `Sharp` (a good
+  frame is a candidate). The click handler needed no change.
+- **Strip renames.** `cell.good` / `setGood` / `paintGood` / `span.good` are
+  now `tier` / `setTier` / `paintTier` / `span.tier`; the icon's color is set
+  per paint from the tier. `main.ts`'s `applyGood` is `applyTiers`.
+- **`provisional.py` takes the fair cuts** as four optional extra arguments
+  and then prints the tier table. Writing it through a bash heredoc with
+  `\n` inside a Python literal put a raw newline in the file; edit such
+  lines with the Edit tool.
+- No `docs/humans` change here (Step 6).
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -325,14 +367,6 @@
   `eye_focus` cuts in [frozen.json](frozen.json) and
   [frozen-fail-check.json](frozen-fail-check.json). Related: `crates/core/src/candidate.rs`,
   `crates/cli/src/main.rs` (`features`).
-- **The filter's `AF eye: Sharp` icon now looks like the good-photo icon.**
-  Step 4 left the filter menu unchanged as planned, so its `Sharp` item
-  (every focus candidate) still carries the bright green face icon
-  (`main.ts` `sharpFace`, `FOCUS_MARK_COLORS.good`), which on the strip now
-  means a good photo only. Step 6's follow-up "a `Good` item in the
-  filter's `AF eye` section" could take that icon, giving `Sharp` the dim
-  `candidate_only` color. Related: `crates/app/ui/src/main.ts`,
-  `crates/app/ui/index.html` (`data-candidate`).
 - **Pending manual check (the user's, Windows app build of Step 4).** Open
   recent folders (at least `D:\photos\2026\2026-09-19`) after pass 2 has
   filled them; check that the strip's face icon is on few frames (about
@@ -353,3 +387,11 @@
   `state` / `probability` / `pose` fields as the plan said; whether it should
   carry the EAR or the openness is a follow-up. Related:
   `crates/app/ui/src/companion.ts` (`EyesSummary`), `crates/app/src/mcp.rs`.
+- **Pending manual check (the user's, Windows app build of Step 4c).** On
+  `D:\photos\2026\2026-09-19` after pass 2 has filled it: the strip shows
+  the face icon in bright green on good frames and in azure on fair ones
+  (about 13% + 8% of the faced AF frames there), the crosshair is azure on a
+  fair frame; the filter's `AF eye` section lists `Good` (green face) and
+  `Fair` (azure face) above `Sharp` (now a dim green face), and checking
+  `Good` or `Fair` alone narrows the strip to that tier's icons only. Step
+  4c's checkbox was ticked on the automated criteria.

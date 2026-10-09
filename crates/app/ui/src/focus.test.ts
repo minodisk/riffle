@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import {
   EYES_CLOSED_EAR,
   EYES_WIDE_OPEN_EAR,
+  FAIR_EYE_EAR,
+  FAIR_EYE_FOCUS,
+  FAIR_MAX_PITCH,
+  FAIR_MAX_YAW,
   FOCUS_MARK_COLORS,
   GOOD_EYE_EAR,
   GOOD_EYE_FOCUS,
@@ -13,7 +17,7 @@ import {
   eyesOpenness,
   faceMarks,
   focusMark,
-  goodPhoto,
+  photoTier,
 } from "./focus.js";
 
 const noEyes = { eyes_ear: null, eyes: "unknown", eyes_closed: null, pose: null } as const;
@@ -77,8 +81,9 @@ describe("focusMark", () => {
     },
   );
 
-  test("a focus candidate is good when it passes goodPhoto, else candidate_only", () => {
+  test("a focus candidate carries its photoTier, else candidate_only", () => {
     expect(focusMark(good, 700, 468)?.state).toBe("good");
+    expect(focusMark({ ...good, eyes_ear: FAIR_EYE_EAR }, 700, 468)?.state).toBe("fair");
     expect(focusMark({ ...good, eyes_ear: 0.1 }, 700, 468)?.state).toBe("candidate_only");
     expect(focusMark({ ...point, candidate: "candidate" }, 700, 468)?.state).toBe("candidate_only");
   });
@@ -92,9 +97,10 @@ describe("focusMark", () => {
 });
 
 describe("FOCUS_MARK_COLORS", () => {
-  test("bright green for good, dim green for a candidate only, orange, white", () => {
+  test("bright green for good, azure for fair, dim green for a candidate only, orange, white", () => {
     expect(FOCUS_MARK_COLORS).toEqual({
       good: "#3f3",
+      fair: "#5af",
       candidate_only: "#8b8",
       not_candidate: "#f93",
       unknown: "#fff",
@@ -124,7 +130,9 @@ describe("eyesOpenness", () => {
   });
 });
 
-describe("goodPhoto", () => {
+describe("photoTier: good", () => {
+  const goodPhoto = (focus: MarkFocus | null | undefined) => photoTier(focus) === "good";
+
   test("passes a candidate whose eyes and pose clear every cut", () => {
     expect(goodPhoto(good)).toBe(true);
   });
@@ -177,6 +185,54 @@ describe("goodPhoto", () => {
 
   test("the roll is not a cut", () => {
     expect(goodPhoto({ ...good, pose: { yaw: 0, pitch: 0, roll: 90 } })).toBe(true);
+  });
+});
+
+describe("photoTier: fair", () => {
+  const fair: MarkFocus = { ...good, eye_focus: FAIR_EYE_FOCUS, eyes_ear: FAIR_EYE_EAR };
+
+  test("a good frame is good, not fair", () => {
+    expect(photoTier(good)).toBe("good");
+  });
+
+  test("a candidate below the good cuts that clears the fair ones is fair", () => {
+    expect(photoTier(fair)).toBe("fair");
+    expect(photoTier({ ...good, eye_focus: GOOD_EYE_FOCUS - 0.0005 })).toBe("fair");
+    expect(photoTier({ ...good, eyes_ear: GOOD_EYE_EAR - 0.001 })).toBe("fair");
+  });
+
+  test.each(["not_candidate", "unknown"] as const)(
+    "is null for a %s frame even with fair eyes and pose",
+    (candidate) => {
+      expect(photoTier({ ...fair, candidate })).toBeNull();
+    },
+  );
+
+  test("is null when any value is missing", () => {
+    expect(photoTier(null)).toBeNull();
+    expect(photoTier(undefined)).toBeNull();
+    expect(photoTier({ ...fair, eye_focus: null })).toBeNull();
+    expect(photoTier({ ...fair, eyes_ear: null })).toBeNull();
+    expect(photoTier({ ...fair, pose: null })).toBeNull();
+  });
+
+  test("the eye_focus cut passes at and above, not below", () => {
+    expect(photoTier({ ...fair, eye_focus: FAIR_EYE_FOCUS + 0.0005 })).toBe("fair");
+    expect(photoTier({ ...fair, eye_focus: FAIR_EYE_FOCUS - 0.0005 })).toBeNull();
+  });
+
+  test("the EAR cut passes at and above, not below", () => {
+    expect(photoTier({ ...fair, eyes_ear: FAIR_EYE_EAR + 0.001 })).toBe("fair");
+    expect(photoTier({ ...fair, eyes_ear: FAIR_EYE_EAR - 0.001 })).toBeNull();
+  });
+
+  test.each([1, -1])("the pose cuts pass at and within, not beyond, sign %d", (sign) => {
+    const at = (yaw: number, pitch: number) =>
+      photoTier({ ...fair, pose: { yaw: sign * yaw, pitch: sign * pitch, roll: 0 } });
+    expect(at(FAIR_MAX_YAW, 0)).toBe("fair");
+    expect(at(FAIR_MAX_YAW + 0.1, 0)).toBeNull();
+    expect(at(0, FAIR_MAX_PITCH)).toBe("fair");
+    expect(at(0, FAIR_MAX_PITCH + 0.1)).toBeNull();
   });
 });
 

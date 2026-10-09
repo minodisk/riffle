@@ -1,6 +1,7 @@
 """Distributions and mark rates of the provisional good-photo cuts (Step 4).
 
-Usage: python provisional.py <dump dir> [eye_focus ear max_yaw max_pitch]
+Usage: python provisional.py <dump dir> [eye_focus ear max_yaw max_pitch
+                                          [fair_eye_focus fair_ear fair_max_yaw fair_max_pitch]]
 
 Reads the `riffle-cli features` dumps (`<folder>.tsv`, `<folder>.output.txt`)
 of the re-dump, keeps the faced AF frames (`af` with a cue face), and prints
@@ -8,7 +9,9 @@ the percentiles of `eye_focus`, EAR, |yaw| and |pitch| (all, picks, non-picks),
 then per folder the share each cut, their AND and today's `candidate` mark,
 and the files of 2026-09-19 that pass the AND. The rule mirrors `goodPhoto`
 in `crates/app/ui/src/focus.ts`: a focus candidate whose `eye_focus`, EAR and
-pose all exist and pass.
+pose all exist and pass. The optional second set of cuts is the fair tier
+(Step 4c), `photoTier` in the same file: a frame that is not good but passes
+the looser cuts; its share and the good + fair share are printed per folder.
 """
 
 import csv
@@ -20,6 +23,7 @@ import sys
 ROOT = pathlib.Path(sys.argv[1])
 CUTS = [float(v) for v in sys.argv[2:6]] if len(sys.argv) >= 6 else [0.9, 0.2, 60.0, 45.0]
 EYE_FOCUS, EAR, MAX_YAW, MAX_PITCH = CUTS
+FAIR = [float(v) for v in sys.argv[6:10]] if len(sys.argv) >= 10 else None
 
 
 def num(v):
@@ -58,19 +62,24 @@ def frames():
     return out
 
 
-def passes(f):
+def passes(f, cuts=None):
+    eye_focus, ear, max_yaw, max_pitch = cuts or CUTS
     return {
-        "eye_focus": f["eye_focus"] is not None and f["eye_focus"] >= EYE_FOCUS,
-        "ear": f["ear"] is not None and f["ear"] >= EAR,
+        "eye_focus": f["eye_focus"] is not None and f["eye_focus"] >= eye_focus,
+        "ear": f["ear"] is not None and f["ear"] >= ear,
         "pose": f["yaw"] is not None
-        and abs(f["yaw"]) <= MAX_YAW
-        and abs(f["pitch"]) <= MAX_PITCH,
+        and abs(f["yaw"]) <= max_yaw
+        and abs(f["pitch"]) <= max_pitch,
     }
 
 
-def good(f):
-    p = passes(f)
+def good(f, cuts=None):
+    p = passes(f, cuts)
     return f["candidate"] and p["eye_focus"] and p["ear"] and p["pose"]
+
+
+def fair(f):
+    return FAIR is not None and not good(f) and good(f, FAIR)
 
 
 def percentile(values, q):
@@ -91,6 +100,8 @@ def main():
     every = [f for rows in data.values() for f in rows]
     qs = [5, 10, 25, 50, 75, 90, 95]
     print(f"cuts: eye_focus >= {EYE_FOCUS}, EAR >= {EAR}, |yaw| <= {MAX_YAW}, |pitch| <= {MAX_PITCH}")
+    if FAIR is not None:
+        print("fair cuts: eye_focus >= {}, EAR >= {}, |yaw| <= {}, |pitch| <= {}".format(*FAIR))
     print(f"faced AF frames: {len(every)}")
     print("\n| Feature | Set | n | " + " | ".join(f"p{q}" for q in qs) + " |")
     print("| --- | --- | ---: | " + " | ".join("---:" for _ in qs) + " |")
@@ -145,4 +156,31 @@ def main():
         )
 
 
+def tiers():
+    data = frames()
+    print("\n| Folder | Faced AF | Good | Fair | Good + fair | Picks among good | Picks among fair |")
+    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    tot = {"n": 0, "good": 0, "fair": 0, "gp": 0, "fp": 0}
+    for folder, rows in [*data.items(), ("**Total**", None)]:
+        if rows is None:
+            c = tot
+        else:
+            c = {
+                "n": len(rows),
+                "good": sum(good(f) for f in rows),
+                "fair": sum(fair(f) for f in rows),
+                "gp": sum(good(f) and f["pick"] for f in rows),
+                "fp": sum(fair(f) and f["pick"] for f in rows),
+            }
+            for k in tot:
+                tot[k] += c[k]
+            folder = f"`{folder}`"
+        print(
+            f"| {folder} | {c['n']} | {pct(c['good'], c['n'])} ({c['good']}) | {pct(c['fair'], c['n'])} ({c['fair']}) "
+            f"| {pct(c['good'] + c['fair'], c['n'])} | {pct(c['gp'], c['good'])} | {pct(c['fp'], c['fair'])} |"
+        )
+
+
 main()
+if FAIR is not None:
+    tiers()

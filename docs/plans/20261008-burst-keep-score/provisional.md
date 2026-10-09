@@ -120,3 +120,44 @@ and below to 100 at `EYES_WIDE_OPEN_EAR` and above, linear between
 over 7261 frames of the re-dump above (the `EAR | all` row's p90), rounded
 to **0.41**. It is a display scale, independent of `GOOD_EYE_EAR` (0.30,
 openness 60).
+
+## The fair tier (Step 4c)
+
+A second tier below good, `photoTier`'s `"fair"` in
+`crates/app/ui/src/focus.ts`: a focus candidate that is not good but clears
+looser cuts, chosen so that good + fair mark about 20% of the faced AF frames
+pooled. [provisional.py](provisional.py) takes the fair cuts as four more
+arguments:
+
+```sh
+python provisional.py /d/Photos/tests/2026-10-09-good-mark/dump 0.998 0.3 60 45 0.99 0.25 60 45
+```
+
+| Fair `eye_focus` | Fair EAR | Fair \|yaw\| | Fair \|pitch\| | Fair | Good + fair |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.995 | 0.25 | 60 | 45 | 9.2% (817) | 18.1% |
+| **0.99** | **0.25** | **60** | **45** | **11.3% (1006)** | **20.3%** |
+| 0.99 | 0.25 | 45 | 45 | 10.4% (927) | 19.4% |
+| 0.99 | 0.24 | 60 | 45 | 12.3% (1097) | 21.3% |
+| 0.98 | 0.25 | 60 | 45 | 12.8% (1139) | 21.8% |
+| 0.99 | 0.22 | 60 | 45 | 14.3% (1275) | 23.3% |
+
+- **`FAIR_EYE_FOCUS` = 0.99** (the 67th percentile of `eye_focus`).
+- **`FAIR_EYE_EAR` = 0.25** (the 35th percentile of the EAR; open probability
+  0.964, openness 41).
+- **`FAIR_MAX_YAW` = 60, `FAIR_MAX_PITCH` = 45**, the good tier's loose pose
+  cut: tightening yaw to 45 moves the total by under one point.
+
+Per folder at these cuts (shares of the faced AF frames):
+
+| Folder | Faced AF | Good | Fair | Good + fair | Picks among good | Picks among fair |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `2026-07-11` | 441 | 7.9% (35) | 19.0% (84) | 27.0% | 25.7% | 16.7% |
+| `2026-07-24` | 173 | 16.2% (28) | 10.4% (18) | 26.6% | 28.6% | 27.8% |
+| `2026-08-08` | 367 | 7.9% (29) | 23.4% (86) | 31.3% | 31.0% | 18.6% |
+| `2026-09-19` | 1952 | 13.4% (261) | 8.3% (162) | 21.7% | 17.6% | 19.8% |
+| `2026-09-27-a` | 4367 | 6.6% (288) | 9.7% (424) | 16.3% | 26.0% | 25.2% |
+| `2026-10-03` | 1615 | 9.9% (160) | 14.4% (232) | 24.3% | 13.1% | 9.1% |
+| **Total** | 8915 | 9.0% (801) | 11.3% (1006) | 20.3% | 21.0% | 19.4% |
+
+As for good, the picks columns are for information only.
