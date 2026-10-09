@@ -405,6 +405,40 @@
   would have rewritten that plumbing for no behavior change, and the type
   leaves room for the re-tune to add a tier back.
 
+## Step 6
+
+- **Written at the Step 5b rule, before the re-tune.** The usage and README
+  paragraphs state each cut in its own clause (in-focus probability 99% or
+  more, openness 41 or more, turned no more than 30°, tilted no more than
+  45°, about 14% of the faced AF frames, 40 of 43 good frames passing), so
+  Step 7 replaces numbers in place. Decision B's "Step 6's docs wait for
+  that re-tune" sentence was changed to say so.
+- **Where the Done-when predates Steps 4b-5b, what shipped was followed:**
+  the pose cut is |yaw| <= 30 / |pitch| <= 45, not "less than about 60
+  degrees"; the "intermediate color" is the dim green of a focus candidate
+  that is not good (no fair tier, no azure); a `Good` item in the filter's
+  `AF eye` section already exists, so it is documented, not listed as a
+  follow-up; no labeled precision was measured, so the docs quote the
+  user's stars instead and the todo gains the labeled measurement as a
+  follow-up. The filter menu's `AF eye` text did change (the Done-when said
+  it stays): it gains `Good`, and `Sharp` now reads "any focus candidate, a
+  bright or dim green mark".
+- **The deferred `Eyes open: NN%` wording is cleared** in `usage.md` /
+  `.ja.md` (Focus mark, Meta pane), `README.md` / `.ja.md`, and the
+  `performance.md` / `.ja.md` "Closed-eyes judgment on demand" section,
+  which keeps the old label as what the app showed when it was measured.
+  The `todo.md` manual checks that named `Eyes open: NN%` now expect
+  `Closed · 0` / `Open · NN`. `docs/agents/tauri-app.md` named no candidate
+  icon; its one stale word (the strip's per-index `candidate` map, now
+  `tiers`) was fixed.
+- **`todo.md` was edited directly** because this step's Done-when is the
+  todo update itself: checked the good-photo mark and the looking-away
+  item (shipped as the pose cut), annotated the burst suggestion with
+  Decision 1's reason, and added unchecked items for Step 7, the backend
+  rule for `get_view`, a labeled precision, the re-check after the label
+  reviews, and the no-AF path. The deferred items above are left for the
+  wrap-up.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -459,11 +493,6 @@
   marked frame, dim green on another candidate, orange and white as
   before. Step 4's checkbox was ticked on the automated criteria; this is
   the plan's separate manual-check item before Step 5.
-- **The docs still describe `Eyes open: NN%`.** Step 4b changed the meta
-  pane row to `Eyes` with `Open · NN` / `Closed · 0` (openness from the EAR);
-  `docs/humans/usage.md` (lines ~207-278), `usage.ja.md`,
-  `performance.md` (~578), `performance.ja.md` and `README.ja.md` still say
-  `Eyes open` as a probability. The plan leaves that to Step 6.
 - **The MCP `get_view` eyes summary carries no openness.** Step 4b kept its
   `state` / `probability` / `pose` fields as the plan said; whether it should
   carry the EAR or the openness is a follow-up. Related:

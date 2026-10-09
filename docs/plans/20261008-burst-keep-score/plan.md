@@ -442,7 +442,7 @@ outputs.
       `filter.ts` (+ test), `index.html`, `style.css` only if a rule names
       the fair state; this plan's `provisional.md`, `learnings.md`.
 
-- [ ] Step 6: Bring the user docs, `CLAUDE.md` and the todo in line
+- [x] Step 6: Bring the user docs, `CLAUDE.md` and the todo in line
   - Done when:
     - `docs/humans/usage.md` **Focus mark** paragraph (and the strip icon
       sentence) say what the green mark and the icon now mean: all three of
@@ -484,6 +484,34 @@ outputs.
       `face icon`, `scan-face`, `green for a focus candidate` across
       `README*.md`, `docs/humans`, `docs/agents`, `CLAUDE.md`, `todo.md`
       (not `docs/plans/_archived`).
+    - Written before the re-tune (the user, 2026-10-10): describe the rule
+      as it is after Step 5b (one good tier; `eye_focus` >= 0.99, openness
+      41 or more, |yaw| <= 30, |pitch| <= 45, the mesh-fit and image-edge
+      exclusions; the Eyes row's openness from Step 4b; the `Good` filter
+      item; Sharp's dim green icon), with the numbers that will move in
+      one clause each so Step 7 can replace them in place. The rated
+      sample's result (40 / 43 good frames pass on the user's scale, no
+      frame without a subject) may be quoted. `todo.md` gains an unchecked
+      item pointing at Step 7.
+
+- [ ] Step 7: Re-tune the good cuts on the 180 rated frames after the face-mesh roll correction lands
+  - Why: Decision B is provisional; the roll correction (plan
+    `mesh-roll`, worktree `worktree-silver-cloud-a54f`) changes the EAR,
+    `eye_focus`, the pose and `eye_offset` the rule reads.
+  - Done when (starts only after the roll correction is merged into the
+    scan):
+    - The 180 frames of `D:\photos\samples\ARW\good-mark-2026-10-09\`
+      (stars in their sidecars; 1 = no subject, 2 = likely rejected, 3+
+      = pass) are re-dumped with the new CLI; the good cuts are chosen so
+      no 1-star frame and as few 2-star frames as possible are good while
+      the share marked is as large as possible (|yaw| <= 40 and a lower
+      `eye_focus` cut among the variants tried), checked separately on
+      batch 1 (60, used for Step 5) and batch 2 (120, not used).
+    - `focus.ts` constants and tests, `provisional.md`, Decision B
+      (final, user-approved) and the numbers Step 6 wrote in
+      `docs/humans/usage.md` / `.ja.md` and `README.md` / `README.ja.md`
+      are updated; the Step 6 todo item is checked.
+    - `mise run ci` passes.
 
 ## Trade-offs and risks
 
@@ -587,8 +615,8 @@ numbers in [provisional.md](provisional.md), "The Step 5 cuts"). The cuts are
 re-tuned on the 60-frame sample once the face-mesh roll correction lands
 (a separate session, worktree `worktree-silver-cloud-a54f`, aligns the
 YuNet face upright before the mesh, which changes the EAR, `eye_focus`,
-the pose and `eye_offset`); Step 6's docs wait for that re-tune so the
-numbers are written once.
+the pose and `eye_offset`); Step 6 wrote the docs at the Step 5b cuts with
+each number in one clause, which Step 7 replaces in place.
 
 - **The rule** (`photoTier` in `crates/app/ui/src/focus.ts`): a focus
   candidate (`eye_focus` >= 0.772) whose stored values all exist is
