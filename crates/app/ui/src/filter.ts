@@ -9,12 +9,11 @@ import type { PickFlag } from "./selection.js";
 // lets everything through. `0` stars is unrated; a reject keeps its stars,
 // independent of its flag. A label is keyed lowercased, or `none`
 // when there is none; a label outside the menu's colors matches no item.
-// The menu's `AF eye` items put `candidate`, `not_candidate` or `unknown` in
-// `candidates`; a file whose state is not known yet counts as `unknown`. Its
-// `Good` item puts the photo tier, `good`, in the same set, OR-ed with the
-// states like any item of one group; a file not in the tier does not match it.
-// Its
-// `Eyes` items put the AF face's stored eye state, `open`, `closed` or
+// The menu's `AF eye` items put `good`, `candidate`, `not_candidate` or
+// `unknown` in `candidates`, and they partition the files like the focus
+// mark's colors: `good` is the photo tier, `candidate` a focus candidate not
+// in the tier, and a file whose state is not known yet counts as `unknown`.
+// Its `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.
 export type Flag = "picked" | "untagged" | "rejected";
 
@@ -64,9 +63,7 @@ export function passes(
     (state.labels.size === 0 || state.labels.has(labelKey)) &&
     (state.orientations.size === 0 ||
       (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
-    (state.candidates.size === 0 ||
-      state.candidates.has(candidate ?? "unknown") ||
-      (tier !== null && tier !== undefined && state.candidates.has(tier))) &&
+    (state.candidates.size === 0 || state.candidates.has(tier ?? candidate ?? "unknown")) &&
     (state.eyes.size === 0 || state.eyes.has(eyes ?? "unknown")) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {

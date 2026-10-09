@@ -282,10 +282,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   sunglasses are rough.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus candidate state (the
-  `AF eye` section: `Sharp` for a green focus mark, `Soft` for orange and
-  `Unknown` for white, including files the second pass has not reached;
-  checking several shows the files in any of them, and the strip refills as
-  the pass runs), the stored eye state of the face nearest the AF point (the
+  `AF eye` section: `Good` for a bright green focus mark (the good tier),
+  `Sharp only` for a dim green one (the AF eye in focus but not good),
+  `Soft` for orange and `Unknown` for white, including files the second
+  pass has not reached; each file falls under exactly one of them, checking
+  several shows the files in any of them, so `Good` and `Sharp only`
+  together show every in-focus frame, and the strip refills as the pass
+  runs), the stored eye state of the face nearest the AF point (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
   state, such as one without an AF point, with a face under about 60 pixels,
   or not reached by the second pass yet),

@@ -458,6 +458,9 @@ outputs.
       bullet in sync (the "strip marks each candidate with a green face
       icon" clause changes). The filter menu's `AF eye` section text stays
       (unchanged behavior).
+    - Note: `20261010-sharp-only-filter` already rewrote the usage / README
+      filter menu `AF eye` text (`Good` / `Sharp only` / `Soft` /
+      `Unknown`); keep it, do not revert it to the older `Sharp` text.
     - `CLAUDE.md` Layout: `src/focus.ts` named with the good-photo rule
       next to the focus mark; `src/strip.ts` icon sentence if present.
     - `docs/agents/tauri-app.md` only if it names the candidate icon.
