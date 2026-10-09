@@ -468,9 +468,10 @@
   `state` / `probability` / `pose` fields as the plan said; whether it should
   carry the EAR or the openness is a follow-up. Related:
   `crates/app/ui/src/companion.ts` (`EyesSummary`), `crates/app/src/mcp.rs`.
-- **Pending manual check (the user's, Windows app build of Step 4c).** On
-  `D:\photos\2026\2026-09-19` after pass 2 has filled it. Expected: the strip's
-  the face icon in bright green on good frames and in azure on fair ones
+- **Pending manual check (the user's, Windows app build of Step 4c;
+  superseded by Step 5b: no azure, no `Fair`).** Open
+  `D:\photos\2026\2026-09-19` after pass 2 has filled it. Expected: the strip
+  shows the face icon in bright green on good frames and in azure on fair ones
   (about 13% + 8% of the faced AF frames there), the crosshair is azure on a
   fair frame; the filter's `AF eye` section lists `Good` (green face) and
   `Fair` (azure face) above `Sharp` (now a dim green face), and checking
