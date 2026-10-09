@@ -488,3 +488,4 @@ display kept. Awaiting the user's approval before Step 6.)
   tune, then docs) and approved by the user; the storage of the eyes and
   pose landed in #741
 - (2026-10-09) Step 4 complete
+- (2026-10-09) Step 4b complete
