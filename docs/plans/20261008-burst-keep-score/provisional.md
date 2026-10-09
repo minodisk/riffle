@@ -292,3 +292,40 @@ before):
 The 60 frames are a small sample scored by one person and drawn from the
 Step 4c tiers, so the means are a direction, not a precision figure; no
 labeled `miss-truth.md` set was made.
+
+## One tier (Step 5b)
+
+The user rated a second batch of 120 frames drawn without regard to the
+tiers (seed 20261010, twelve folders; `samples-manifest-batch2.tsv` and
+`samples-scored-batch2.tsv` under `D:\Photos\tests\2026-10-09-good-mark\`).
+On it the good / fair split does not separate 4-5 stars (good 22% at 4+,
+fair 55%, none 22%) but passing (3 stars or more) is separated: good 9 / 9,
+fair 9 / 11, none 64 / 100; on the first batch at the Step 5 cuts good
+10 / 10, fair 12 / 13. Good and fair together: 40 / 43 pass, no 1-star
+frame. So the two tiers fold into one, `good`, meaning "not a miss".
+
+The folded cuts in `crates/app/ui/src/focus.ts` are the Step 5 fair cuts.
+The Step 5 good cuts were stricter on the eyes only, with the same pose cut
+and exclusions, so the folded tier marks exactly what good or fair marked:
+
+- **`GOOD_EYE_FOCUS` = 0.99** (the re-dump's 67th percentile).
+- **`GOOD_EYE_EAR` = 0.25** (the 35th percentile; open probability 0.964,
+  openness 41).
+- **`GOOD_MAX_YAW` = 30, `GOOD_MAX_PITCH` = 45.**
+- **`MAX_EYE_OFFSET` = 0.10, `MIN_EDGE_GAP` = 0.02**, unchanged.
+
+Per folder, the share of the faced AF frames the folded tier marks (the Step
+5 good + fair column above):
+
+| Folder | Faced AF | Good |
+| --- | ---: | ---: |
+| `2026-07-11` | 441 | 13.8% (61) |
+| `2026-07-24` | 173 | 17.3% (30) |
+| `2026-08-08` | 367 | 22.3% (82) |
+| `2026-09-19` | 1952 | 14.1% (276) |
+| `2026-09-27-a` | 4367 | 10.0% (437) |
+| `2026-10-03` | 1615 | 20.7% (334) |
+| **Total** | 8915 | 13.7% (1220) |
+
+The cuts are re-tuned on all 180 rated frames after the face mesh's roll
+correction lands.

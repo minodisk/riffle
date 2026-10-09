@@ -357,7 +357,7 @@ describe("passes: focus candidates", () => {
 
 describe("passes: photo tiers", () => {
   const tier = (...items: AfEye[]) => state([], [], [], [], [], items);
-  const at = (s: FilterState, t: "good" | "fair" | null | undefined) =>
+  const at = (s: FilterState, t: "good" | null | undefined) =>
     passes(
       s,
       unjudged,
@@ -369,43 +369,31 @@ describe("passes: photo tiers", () => {
     );
 
   test("off passes every tier", () => {
-    for (const t of ["good", "fair", null, undefined] as const) {
+    for (const t of ["good", null, undefined] as const) {
       expect(at(state(), t)).toBe(true);
     }
   });
 
   test("good passes a good frame only", () => {
     expect(at(tier("good"), "good")).toBe(true);
-    expect(at(tier("good"), "fair")).toBe(false);
     expect(at(tier("good"), null)).toBe(false);
     expect(at(tier("good"), undefined)).toBe(false);
   });
 
-  test("fair passes a fair frame only", () => {
-    expect(at(tier("fair"), "fair")).toBe(true);
-    expect(at(tier("fair"), "good")).toBe(false);
-    expect(at(tier("fair"), null)).toBe(false);
+  test("a candidate not in the tier does not pass good", () => {
+    expect(passes(tier("good"), unjudged, undefined, 1, "candidate", undefined, null)).toBe(false);
   });
 
-  test("a candidate in neither tier passes neither", () => {
-    expect(passes(tier("good", "fair"), unjudged, undefined, 1, "candidate", undefined, null)).toBe(
-      false,
-    );
-  });
-
-  test("ORs with the checked tiers and states", () => {
-    expect(at(tier("good", "fair"), "good")).toBe(true);
-    expect(at(tier("good", "fair"), "fair")).toBe(true);
+  test("ORs with the checked states", () => {
     const goodOrUnknown = tier("good", "unknown");
     expect(at(goodOrUnknown, "good")).toBe(true);
     expect(at(goodOrUnknown, null)).toBe(true);
-    expect(at(goodOrUnknown, "fair")).toBe(false);
+    expect(passes(goodOrUnknown, unjudged, undefined, 1, "candidate", undefined, null)).toBe(false);
   });
 
-  test("Sharp keeps passing every candidate, in a tier or not", () => {
+  test("Sharp keeps passing every candidate, in the tier or not", () => {
     const sharp = tier("candidate");
     expect(at(sharp, "good")).toBe(true);
-    expect(at(sharp, "fair")).toBe(true);
     expect(passes(sharp, unjudged, undefined, 1, "candidate", undefined, null)).toBe(true);
   });
 

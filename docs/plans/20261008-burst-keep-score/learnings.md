@@ -383,6 +383,28 @@
 - No `docs/humans` change (Step 6). `docs/agents/tauri-app.md` names the two
   new columns next to the v18 ones in its schema and `FACES_VERSION` notes.
 
+## Step 5b
+
+- **The user's star scale.** 1 = no subject at all, 2 = likely to be
+  rejected, 3 and up = a pass. So the stars measure "is this a miss" at the
+  bottom and taste above 3; the mark can only speak to the former.
+- **Batch 2 (120 frames, drawn without regard to the tiers, seed 20261010,
+  twelve folders; `D:\Photos\tests\2026-10-09-good-mark\samples-scored-batch2.tsv`,
+  `scripts\score_batch2.py`).** At 4+ stars: good 22%, fair 55%, none 22%,
+  so good / fair says nothing about quality. Passing (3+): good 9 / 9, fair
+  9 / 11 (both misses 2 stars), none 64 / 100. Batch 1 at the Step 5 cuts:
+  good 10 / 10, fair 12 / 13. Good and fair together 40 / 43, no 1-star
+  frame.
+- **The decision.** Fold the two into one `good` tier meaning "not a miss",
+  at the Step 5 fair cuts (the good cuts were stricter on the eyes alone,
+  the pose cut and exclusions shared, so the union is exactly the fair cuts),
+  and re-tune on all 180 rated frames after the mesh roll correction.
+- **`photoTier` kept its name** and returns `"good" | null` (`PhotoTier` is
+  `"good"`), so `filter.ts`, `strip.ts` and `main.ts` keep their tier
+  plumbing as is and only lose the `fair` entries; a boolean `goodPhoto`
+  would have rewritten that plumbing for no behavior change, and the type
+  leaves room for the re-tune to add a tier back.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -446,9 +468,10 @@
   `state` / `probability` / `pose` fields as the plan said; whether it should
   carry the EAR or the openness is a follow-up. Related:
   `crates/app/ui/src/companion.ts` (`EyesSummary`), `crates/app/src/mcp.rs`.
-- **Pending manual check (the user's, Windows app build of Step 4c).** On
-  `D:\photos\2026\2026-09-19` after pass 2 has filled it: the strip shows
-  the face icon in bright green on good frames and in azure on fair ones
+- **Pending manual check (the user's, Windows app build of Step 4c;
+  superseded by Step 5b: no azure, no `Fair`).** Open
+  `D:\photos\2026\2026-09-19` after pass 2 has filled it. Expected: the strip
+  shows the face icon in bright green on good frames and in azure on fair ones
   (about 13% + 8% of the faced AF frames there), the crosshair is azure on a
   fair frame; the filter's `AF eye` section lists `Good` (green face) and
   `Fair` (azure face) above `Sharp` (now a dim green face), and checking
@@ -474,3 +497,11 @@
   `2026-09-19__DSC1805` (yaw 18.5, pitch -21.8, eye offset 0.037, edge gap
   3.68). If the user says why it scored 2, that may name a fourth exclusion.
   Basis: Step 5's re-scored sample ([provisional.md](provisional.md)).
+- **Pending manual check (the user's, Windows app build of Step 5b).** Open
+  `D:\photos\2026\2026-09-19` after pass 2 has filled it. Expected: the strip's
+  face icon is bright green on every frame that had a green or azure icon at
+  Step 5 (about 14% of the faced AF frames) and no icon is azure; the
+  crosshair is never azure; the filter's `AF eye` section lists `Good` and
+  `Sharp` with no `Fair`, and `Good` alone narrows the strip to the
+  icon-bearing frames. Step 5b's checkbox was ticked on the automated
+  criteria.

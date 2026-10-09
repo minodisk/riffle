@@ -2193,8 +2193,8 @@ function refreshEntries(): void {
 // records only the point gets the crosshair alone, and a manual-focus shot,
 // whose recorded point is not trusted, gets no mark. The mark is bright green
 // for a good photo (`photoTier`: the eyes of the face nearest the AF point are
-// sharp and open and the face is toward the camera), azure for a fair one
-// (the same, on looser cuts), dim green for a focus candidate in neither tier,
+// sharp and open and the face is toward the camera), dim green for a focus
+// candidate that is not one,
 // orange when that face's eyes are not sharp, and
 // white when Riffle does not know: no face near the point, or the second scan
 // pass has not reached the file yet.
@@ -3793,11 +3793,10 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
   "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
-// The face icons of the `AF eye` items, colored like the focus mark: the tiers
-// like the strip's icon, `Sharp` in the dim green of a candidate in neither.
+// The face icons of the `AF eye` items, colored like the focus mark: `Good`
+// like the strip's icon, `Sharp` in the dim green of a candidate not good.
 for (const [candidate, color] of [
   ["good", FOCUS_MARK_COLORS.good],
-  ["fair", FOCUS_MARK_COLORS.fair],
   ["candidate", FOCUS_MARK_COLORS.candidate_only],
 ] as const) {
   const face = filterMenu.querySelector<HTMLElement>(`[data-candidate="${candidate}"] .face`)!;

@@ -981,7 +981,7 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
-/* The good / fair photo icon, at the image box's bottom-left above the file
+/* The good photo icon, at the image box's bottom-left above the file
    name, mirroring the burst count; `drop-shadow` gives the SVG strokes the
    dark halo `text-shadow` gives the other badges. */
 .cell span.tier {

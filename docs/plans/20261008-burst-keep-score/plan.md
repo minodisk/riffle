@@ -404,6 +404,44 @@ outputs.
       `provisional.md`, `plan.md` (Decision B), `learnings.md`; optionally
       `miss-truth.md`, `mark.md`, `mark.py`.
 
+- [x] Step 5b: Fold good and fair into one "good" tier meaning "not a miss"
+  - Why (the user, 2026-10-10): the user rated a second batch of 120
+    frames (`samples-manifest-batch2.tsv`, scores in
+    `samples-scored-batch2.tsv` under `D:\Photos\tests\2026-10-09-good-mark\`,
+    script `scripts\score_batch2.py`; drawn without regard to the tiers,
+    seed 20261010, from twelve folders). The user's scale: 1 = no subject
+    at all, 2 = likely to be rejected, 3 and up = a pass. On batch 2 the
+    tiers do not separate 4-5 stars (good 22% of frames at 4+, fair 55%,
+    none 22%), so a good / fair split says nothing about quality; what
+    they do separate is passing: good 9 / 9 pass, fair 9 / 11 (both
+    misses are 2 stars), none 64 / 100; on batch 1 at the Step 5 cuts good
+    10 / 10, fair 12 / 13. Good and fair together: 40 / 43 pass, no
+    1-star frame. The user decided to fold them into one tier now and
+    re-tune its cuts on all 180 rated frames after the face-mesh roll
+    correction lands.
+  - Done when:
+    - `focus.ts`: one tier, `good`, with the current fair cuts as its cuts
+      (`eye_focus` >= 0.99, EAR >= 0.25, |yaw| <= 30, |pitch| <= 45,
+      `eye_offset` <= 0.10, `edge_gap` >= 0.02), so the folded tier marks
+      exactly what good or fair marked at Step 5; the constants renamed
+      (`GOOD_*` only; no `FAIR_*`), each comment citing the 40 / 43 pass
+      figure and the coming re-tune. `photoTier` becomes a boolean
+      `goodPhoto` (or keeps its name returning `"good" | null`; say which),
+      tests follow (the fair-only cases become good, boundaries pinned at
+      the folded cuts).
+    - The `fair` crosshair state and its azure color are removed; the
+      strip icon shows on good frames only, in the bright green. The
+      filter's `Fair` item is removed; `Good` stays. `filter.ts` /
+      `filter.test.ts` / `index.html` / `strip.ts` / `main.ts` follow.
+    - `provisional.md` records the folded cuts and the per-folder share
+      they mark (the Step 5 good + fair share); `learnings.md` records the
+      user's star scale, the batch 2 numbers above and the decision.
+    - No `docs/humans` change (Step 6). `mise run ci` passes.
+  - Implementation approach:
+    - Frontend only: `focus.ts` (+ test), `main.ts`, `strip.ts`,
+      `filter.ts` (+ test), `index.html`, `style.css` only if a rule names
+      the fair state; this plan's `provisional.md`, `learnings.md`.
+
 - [ ] Step 6: Bring the user docs, `CLAUDE.md` and the todo in line
   - Done when:
     - `docs/humans/usage.md` **Focus mark** paragraph (and the strip icon
@@ -608,3 +646,5 @@ numbers are written once.
 - (2026-10-09) Step 4c complete
 - (2026-10-10) Step 5 complete; Decision B approved as provisional, re-tuned
   after the face-mesh roll correction lands
+- (2026-10-10) Step 5b complete; the strip icon stays `scan-face` (the user,
+  2026-10-10: the old problem was how often it showed, not its shape)
