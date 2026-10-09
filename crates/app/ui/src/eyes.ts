@@ -30,11 +30,16 @@ export interface Pose {
 // `unknown` / `null` when nothing was stored.
 export type EyeState = "open" | "closed" | "unknown";
 
+// `eye_offset` (how far the mesh's eyes sit from YuNet's eye landmarks) and
+// `edge_gap` (how close the face and its mesh eye regions come to the
+// preview's edge, negative outside) are in face box sides.
 export interface StoredEyes {
   eyes_ear: number | null;
   eyes: EyeState;
   eyes_closed: number | null;
   pose: Pose | null;
+  eye_offset: number | null;
+  edge_gap: number | null;
 }
 
 // What `request` hands out: the id the backend supersedes older requests by,

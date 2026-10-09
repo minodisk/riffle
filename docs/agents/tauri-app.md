@@ -909,8 +909,9 @@ that already have the column, and the `ALTER TABLE` fails.
 - Put a new column at the end of `CREATE TABLE`, not next to the column it
   relates to: `ALTER TABLE ADD COLUMN` always appends, so only an end
   placement keeps fresh and migrated databases in the same column order
-  (v18's `eyes_ear` and `pose_*` sit after `faces_extractor`). Every older
-  fixture (v10 to v16) then has to drop the new columns too, and the version
+  (v18's `eyes_ear` and `pose_*` sit after `faces_extractor`, v19's
+  `eye_offset` and `edge_gap` after them). Every fixture of an older version
+  then has to drop the new columns too, and the version
   asserts should read `SCHEMA_VERSION`, not a literal.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
@@ -957,8 +958,9 @@ retried.
   cover the score too; a change to the columns it fills (`files.eye_focus`,
   `files.sharpness`, and `files.eyes_ear` with `files.pose_yaw` /
   `pose_pitch` / `pose_roll`, the EAR of the more closed eye and the head
-  pose from the mesh the cue already runs) is a `SCHEMA_VERSION` bump as
-  well.
+  pose from the mesh the cue already runs, and `files.eye_offset` /
+  `files.edge_gap`, how well that mesh sits on the face) is a
+  `SCHEMA_VERSION` bump as well.
 - Moving the score from the first pass to the second bumped neither version:
   the score's computation did not change, so a row the old first pass scored
   (at `FACES_VERSION`) keeps a correct score, and a row the second pass has

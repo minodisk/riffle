@@ -161,3 +161,134 @@ Per folder at these cuts (shares of the faced AF frames):
 | **Total** | 8915 | 9.0% (801) | 11.3% (1006) | 20.3% | 21.0% | 19.4% |
 
 As for good, the picks columns are for information only.
+
+## The Step 5 cuts (from the user's stars)
+
+The user scored a 60-frame sample (20 good, 20 fair, 20 in neither tier at
+the Step 4c cuts, `D:\photos\samples\ARW\good-mark-2026-10-09\`, 1-5 stars in
+its `.xmp` sidecars) and named three 1-star good frames, each a different
+failure: `2026-07-11__DSC2638` (a baby lying down, the face rotated far
+in-plane, the mesh fitted upright off the face), `2026-07-11__DSC2827`
+(turned, yaw -49, the foreshortened eye inflating the EAR) and
+`2026-09-19__DSC3345` (the AF face cut by the image's left edge and out of
+focus). Step 5 adds two exclusions and tightens the pose cut for both tiers;
+the cue, the mesh, `EYES_CLOSED_EAR` and `CANDIDATE_LOGIT` are unchanged.
+
+**Two new measures**, computed in pass 2 from the mesh the cue already runs
+(`crates/core/src/candidate.rs`) and stored in `files.eye_offset` /
+`files.edge_gap` (`SCHEMA_VERSION` 19, `FACES_VERSION` 8), so the thresholds
+stay in `crates/app/ui/src/focus.ts`:
+
+- `eye_offset` (`mesh_eye_offset`): the larger distance between a mesh eyelid
+  contour's center and YuNet's eye landmark of the same face, in the pairing
+  of the eyes that keeps it smaller, over the face box's longer side.
+- `edge_gap` (`edge_gap`): the smallest distance from the face box, or from
+  either mesh eye region grown as the cue grows it, to an image edge, over the
+  box's longer side; negative outside. "Extends outside the image" alone (a
+  gap under 0) does not catch `DSC3345`: YuNet's box of a face the frame cuts
+  covers only what is visible, and ends 1 px inside the edge (gap 0.008).
+
+The re-dump: the same six folders with a `riffle-cli features` that prints
+the two columns, under `D:\Photos\tests\2026-10-09-good-mark\step5\dump\`
+(the sample's dump is `step5\samples.tsv`, the output of the script below
+`step5\tune.txt`). Every other column matches the Step 4 re-dump (the Step 4c
+rule gives the same 20.3% and the same sample tiers). [tune.py](tune.py)
+reads them:
+
+```sh
+python tune.py /d/Photos/tests/2026-10-09-good-mark/step5/dump \
+  /d/Photos/tests/2026-10-09-good-mark/step5/samples.tsv \
+  /d/photos/samples/ARW/good-mark-2026-10-09 30 0.1 0.02
+```
+
+| Measure | n | p1 | p2 | p5 | p10 | p25 | p50 | p75 | p90 | p95 | p99 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| eye_offset | 7261 | 0.013 | 0.016 | 0.021 | 0.027 | 0.040 | 0.062 | 0.111 | 0.189 | 0.246 | 0.359 |
+| edge_gap | 7261 | 0.222 | 0.370 | 0.721 | 1.313 | 3.038 | 4.537 | 5.669 | 6.556 | 7.051 | 7.818 |
+
+### The cuts chosen
+
+- **`MAX_EYE_OFFSET` = 0.10.** On the sample every tier frame whose mesh sits
+  on the face is under 0.09 (the highest, `DSC3254` at 0.086 and `DSC2827` at
+  0.087); `DSC2638` is at 0.125, and the other tier frames above 0.1 scored
+  1-3 stars (`DSC6920` 0.177 and `DSC5035` 0.220 at 1-2, `DSC4673` 0.329 at 3,
+  `DSC3345` 0.352 at 1). Over the re-dump it excludes 28.6% of the frames with
+  a mesh, mostly turned or soft ones the cuts drop anyway, but only 100 of the
+  1321 frames (7.6%) the cuts alone would put in a tier. 0.12 gives the same
+  sample tiers; 0.08 also drops a 3-star fair frame (`DSC3254`, 0.086) and
+  1.0 point of the re-dump (12.7%, against 14.0% at 0.12); 0.10 is the round
+  value between.
+- **`MIN_EDGE_GAP` = 0.02.** `DSC3345` is at 0.008. Of the faced AF frames
+  with a mesh, 23 (0.3%) are under 0.02 and 3 of them would be tiered; a look
+  at the frames between 0 and 0.06 found faces touching the edge at 0.001-0.013
+  (`2026-07-11\_DSC3003`, forehead cut by the top edge; `2026-07-24\_DSC4992`)
+  and whole faces near it from about 0.03 (`2026-09-19\_DSC3043`,
+  `2026-09-27-a\_DSC6862`). The sample's two large faces near the top edge,
+  `DSC4884` (0.093) and `DSC0148` (0.065), are whole and stay above it (a
+  first try that tested the 1.25x face crop the mesh is fitted on flagged
+  both, so it was dropped).
+- **`GOOD_MAX_YAW` = `FAIR_MAX_YAW` = 30**, the "both eyes visible" form the
+  plan kept as the fallback (56% of the 7213 poses are within). On the sample
+  the tiers keep their mean stars from 30 down to 20 and lose them from 35 up
+  (35 lets in `DSC2373`, 2 stars, at yaw -31; 40 also `DSC2050`, 1 star, at
+  -37), and over the re-dump 25 instead of 30 marks 1.7 points fewer frames:
+
+| \|yaw\| cut | Good n | Good mean | Fair n | Fair mean | Tiered 1-2 star | Re-dump good + fair |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20 | 9 | 4.00 | 11 | 3.73 | 1 | 10.3% |
+| 25 | 10 | 3.90 | 13 | 3.69 | 1 | 12.0% |
+| **30** | **10** | **3.90** | **13** | **3.69** | **1** | **13.7%** |
+| 35 | 11 | 3.91 | 16 | 3.56 | 2 | 15.0% |
+| 40 | 13 | 3.85 | 18 | 3.39 | 3 | 16.3% |
+| 45 | 14 | 3.79 | 18 | 3.39 | 3 | 17.0% |
+| 60 | 17 | 3.53 | 18 | 3.39 | 4 | 18.1% |
+
+The eye cuts (`GOOD_EYE_FOCUS` 0.998, `GOOD_EYE_EAR` 0.30, `FAIR_EYE_FOCUS`
+0.99, `FAIR_EYE_EAR` 0.25) and the pitch cut (45) stay.
+
+### The sample, re-scored
+
+| Rule | Tier | n | Mean stars | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Step 4c | good | 20 | 3.20 | 3 | 1 | 8 | 5 | 3 |
+| Step 4c | fair | 20 | 3.25 | 2 | 2 | 9 | 3 | 4 |
+| Step 4c | none | 20 | 2.40 | 4 | 7 | 6 | 3 | 0 |
+| Step 5 | good | 10 | 3.90 | 0 | 0 | 4 | 3 | 3 |
+| Step 5 | fair | 13 | 3.69 | 0 | 1 | 6 | 2 | 4 |
+| Step 5 | none | 37 | 2.43 | 9 | 9 | 13 | 6 | 0 |
+
+Spearman of the tier against the stars: 0.29 before, 0.54 now. Of the eight
+1-2 star frames the Step 4c rule tiered, one stays: `2026-09-19__DSC1805`
+(fair, 2 stars; yaw 18.5, pitch -21.8, eye offset 0.037, nothing the
+exclusions see). Seventeen frames left a tier: the three named ones, the
+other four of 1-2 stars (`DSC5035` and `DSC6920` by the eye offset,
+`DSC2373` and `DSC2050` by the yaw cut), and ten of 3-4 stars, nine of them
+by the yaw cut (the cost: `DSC0173`, `DSC4884` and `DSC0148` at 4 stars, yaw
+39, -31 and -35) and one by the eye offset (`DSC4673`, 3 stars).
+
+The three named frames, now in neither tier:
+
+| Frame | eye_focus | EAR | yaw | pitch | eye_offset | edge_gap | Excluded by |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `2026-07-11__DSC2638` | 0.999 | 0.360 | 3.0 | -11.8 | **0.125** | 0.224 | the eye offset |
+| `2026-07-11__DSC2827` | 0.998 | 0.303 | **-48.6** | 5.2 | 0.087 | 1.692 | the yaw cut |
+| `2026-09-19__DSC3345` | 0.998 | 0.314 | -15.3 | 2.7 | **0.352** | **0.008** | the edge gap and the eye offset |
+
+### Per folder at the Step 5 cuts
+
+Shares of the faced AF frames (the picks columns for information only, as
+before):
+
+| Folder | Faced AF | Good | Fair | Good + fair | Step 4c good + fair | Picks among good | Picks among fair |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `2026-07-11` | 441 | 3.4% (15) | 10.4% (46) | 13.8% | 27.0% | 33.3% | 17.4% |
+| `2026-07-24` | 173 | 11.0% (19) | 6.4% (11) | 17.3% | 26.6% | 31.6% | 36.4% |
+| `2026-08-08` | 367 | 4.6% (17) | 17.7% (65) | 22.3% | 31.3% | 41.2% | 15.4% |
+| `2026-09-19` | 1952 | 8.9% (173) | 5.3% (103) | 14.1% | 21.7% | 15.0% | 16.5% |
+| `2026-09-27-a` | 4367 | 3.9% (169) | 6.1% (268) | 10.0% | 16.3% | 26.6% | 22.0% |
+| `2026-10-03` | 1615 | 8.7% (140) | 12.0% (194) | 20.7% | 24.3% | 12.9% | 8.2% |
+| **Total** | 8915 | 6.0% (533) | 7.7% (687) | 13.7% | 20.3% | 20.1% | 16.6% |
+
+The 60 frames are a small sample scored by one person and drawn from the
+Step 4c tiers, so the means are a direction, not a precision figure; no
+labeled `miss-truth.md` set was made.

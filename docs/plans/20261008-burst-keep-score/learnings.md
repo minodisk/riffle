@@ -324,6 +324,65 @@
   lines with the Edit tool.
 - No `docs/humans` change here (Step 6).
 
+## Step 5
+
+- **The user's feedback (2026-10-09)** is in the plan's Step 5 block: stars
+  on a 60-frame sample and three 1-star good frames, each a different
+  failure. The changes, each with its reason:
+  - `GOOD_MAX_YAW` / `FAIR_MAX_YAW` 60 -> **30**: `_DSC2827` (yaw -49) was
+    good on an EAR inflated by the turned, foreshortened eye. 30 is the
+    widest cut before a turned 1-2 star sample frame comes in; 20-30 give the
+    same sample means (grid in [provisional.md](provisional.md)).
+  - New **`MAX_EYE_OFFSET` = 0.10**: `_DSC2638` (a baby lying down) had its
+    mesh fitted upright off the face yet read EAR 0.36, yaw 3, AF eye 100%.
+    Its mesh eyes sit 0.125 face sides from YuNet's eye landmarks; the
+    sample's well-fitted tier faces are all under 0.09.
+  - New **`MIN_EDGE_GAP` = 0.02**: `_DSC3345`, the AF face cut by the left
+    edge. Its YuNet box is 1 px inside the edge (gap 0.008), so "extends
+    outside the image" (gap < 0) alone would not have caught it; YuNet's
+    box of a cut face covers only the visible part. (It also fails the eye
+    offset, 0.352, since the mesh misfits a cut face.)
+- **The data was not stored, so pass 2 now stores two measures**, not
+  booleans, to keep both thresholds in `focus.ts`: `Cue::eye_offset` /
+  `Cue::edge_gap` (from `EyeMeasures`, computed in `mesh_eye_measures`,
+  which now takes the face) -> `files.eye_offset` / `files.edge_gap`
+  (`SCHEMA_VERSION` 19, the columns at the end of `CREATE TABLE`, the v10 to
+  v17 fixtures dropping them too, a new v18 migration test) and
+  `FACES_VERSION` 8 so pass 2 re-runs once. `StoredEyes` (Rust and TS)
+  carries them, so `Focus` and `FaceReady` serialize them and
+  `applyFaceReady` patches them. `eye_region` now shares its grown box with
+  `edge_gap` through `grown_bounds` (same windows; its tests pass
+  unchanged). `riffle-cli features` gained the `eye_offset` and `edge_gap`
+  columns before the timings.
+- **The eye offset**: per eye the mean of the 16 eyelid contour points
+  against YuNet's landmark, the pairing (straight or crossed) with the
+  smaller worst distance, over the box's longer side. Pairing-free so the
+  stored landmarks' left / right order on a quarter-turned preview does not
+  matter. Over the re-dump it is broad (median 0.062, p75 0.111) and
+  excludes 28.6% of the meshed frames, but only 7.6% of the frames the cuts
+  alone would tier.
+- **A first edge rule was too strict.** Testing the 1.25x face crop the mesh
+  is fitted on (`FACE_CROP`) flagged two whole, large faces near the top
+  edge on the sample (`DSC4884`, 4 stars; `DSC0148`, 4 stars), only hair
+  outside. Measuring the box and the grown eye regions with a small margin
+  instead keeps both (gaps 0.093 / 0.065).
+- **`riffle-cli faces <file> <out.png>`** draws the whole preview with the
+  boxes, which is what showed the cut face of `DSC3345` (stored orientation
+  8: the face at stored y 1 is at the upright left edge); `crop` only shows
+  the AF area.
+- **The six-folder re-dump took 50 minutes this time** (`2026-10-03` alone
+  2823 s against 105 s in Step 4, the other folders as before), probably the
+  disk; nothing failed. Every column it shares with the Step 4 re-dump gives
+  the same Step 4c tiers.
+- **Re-scored sample**: mean stars good 3.90 / fair 3.69 / neither 2.43
+  (were 3.20 / 3.25 / 2.40), Spearman 0.54 (was 0.29); one 1-2 star frame
+  stays tiered (`2026-09-19__DSC1805`, fair). Re-dump: good 6.0%, fair 7.7%,
+  13.7% together (was 20.3%), per folder 10.0-22.3%.
+- **Step 5's checkbox stays unticked**: everything in its Done-when is met
+  except the user's approval of Decision B, which is written as proposed.
+- No `docs/humans` change (Step 6). `docs/agents/tauri-app.md` names the two
+  new columns next to the v18 ones in its schema and `FACES_VERSION` notes.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -395,3 +454,23 @@
   `Fair` (azure face) above `Sharp` (now a dim green face), and checking
   `Good` or `Fair` alone narrows the strip to that tier's icons only. Step
   4c's checkbox was ticked on the automated criteria.
+- **Pending manual check (the user's, Windows app build of Step 5).** Open
+  `D:\photos\2026\2026-07-11` and `D:\photos\2026\2026-09-19` and let pass 2
+  re-run (`FACES_VERSION` 8 re-runs it on every folder once; thumbnails stay).
+  Expected: `_DSC2638`, `_DSC2827` (2026-07-11) and `_DSC3345` (2026-09-19)
+  show no face icon and a dim green crosshair; faces turned beyond about 30
+  degrees no longer carry the icon; the icons are on about 14% of the faced
+  AF frames on both folders. Step 5's checkbox is not ticked (Decision B
+  awaits the user's approval), and this check belongs with that approval.
+- **The eye offset is high on many meshed frames.** 28.6% of the faced AF
+  frames with a mesh sit above 0.10 (p75 0.111, p90 0.189), most of them
+  outside the tiers anyway. Whether that is the mesh misfitting turned or
+  small faces, or YuNet's landmarks drifting on them, was not looked at; if
+  the offset is later used for anything else (e.g. trusting the EAR or the
+  pose shown in the meta pane), sample those frames first. Basis: Step 5's
+  re-dump (`D:\Photos\tests\2026-10-09-good-mark\step5\dump\`); related
+  `crates/core/src/candidate.rs` (`mesh_eye_offset`).
+- **One 2-star frame stays fair with nothing the rule sees.**
+  `2026-09-19__DSC1805` (yaw 18.5, pitch -21.8, eye offset 0.037, edge gap
+  3.68). If the user says why it scored 2, that may name a fourth exclusion.
+  Basis: Step 5's re-scored sample ([provisional.md](provisional.md)).

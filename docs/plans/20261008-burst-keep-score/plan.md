@@ -330,7 +330,40 @@ outputs.
       `filter.ts` (+ test), `index.html`, `style.css`; this plan's
       `provisional.md` / `provisional.py`, `learnings.md`.
 
-- [ ] Step 5: Tune the cuts from the user's feedback and record Decision B
+- [x] Step 5: Tune the cuts from the user's feedback and record Decision B
+  - The user's feedback (2026-10-09), from scoring the 60-frame sample
+    `D:\photos\samples\ARW\good-mark-2026-10-09\` with 1-5 stars
+    (manifest and scores in `D:\Photos\tests\2026-10-09-good-mark\`
+    `samples-manifest.tsv` / `samples-scored.tsv`, script
+    `scripts\score_compare.py`): mean stars good 3.20, fair 3.25, none
+    2.40; Spearman tier vs stars 0.29. Three good frames got 1 star, each
+    a different failure the rule must exclude:
+    - `2026-07-11__DSC2638`: the baby's face is rotated far in-plane
+      (lying down); the mesh is fitted upright and lands off the face
+      (eyes on the hand / forehead), yet reports EAR 82 openness, yaw 3,
+      roll 12, AF eye 100%. **Fix: a frame whose mesh eye centers are far
+      from YuNet's eye landmarks for the same face is never good / fair**
+      (threshold in face-size units, chosen so DSC2638 fails and the
+      sample's well-fitted faces pass; record it).
+    - `2026-07-11__DSC2827`: turned (yaw -49) with downcast eyes; the
+      foreshortened eye width inflates the EAR (openness 61). **Fix:
+      tighten the pose cut to |yaw| <= about 30 for both tiers** (the
+      user's "both eyes visible" fallback; the exact value read from the
+      re-dump and the sample, recorded).
+    - `2026-09-19__DSC3345`: the AF face is cut by the image's left edge
+      and wholly out of focus, yet AF eye 100%, most likely the crop's
+      padding edge inside the eye region. **Fix: a frame whose face box
+      or mesh eye regions extend outside the image is never good / fair.**
+    These are exclusions on top of the cuts; the cue's computation, the
+    mesh, `EYES_CLOSED_EAR` and `CANDIDATE_LOGIT` stay unchanged. If the
+    data needed for the two exclusions (YuNet eye landmarks, the face box,
+    the image size, the mesh eye centers) is not already stored and
+    serialized, compute the two booleans in pass 2 and store them (schema /
+    `FACES_VERSION` bump allowed, noted), keeping the rule's thresholds in
+    one place. Re-score the 60-frame sample with the changed rule (the CLI
+    `features` output gains the needed columns if necessary) and report in
+    `provisional.md` the new mean stars per tier, how many 1-2 star frames
+    remain good / fair, and the per-folder good / fair shares.
   - Done when:
     - The constants in `focus.ts` are moved to the values the user's
       feedback asks for (each change and its reason in `learnings.md`),
@@ -508,9 +541,58 @@ Steps 4-6 above, the storage having landed in #741.
 
 ## Decision B (the good-photo mark)
 
-(Written in Step 5: the final cuts, the pose form chosen and why, the
-per-folder mark rate, the labeled precision / coverage if measured, the
-display kept. Awaiting the user's approval before Step 6.)
+**Approved by the user as provisional, 2026-10-09** (written in Step 5; the
+numbers in [provisional.md](provisional.md), "The Step 5 cuts"). The cuts are
+re-tuned on the 60-frame sample once the face-mesh roll correction lands
+(a separate session, worktree `worktree-silver-cloud-a54f`, aligns the
+YuNet face upright before the mesh, which changes the EAR, `eye_focus`,
+the pose and `eye_offset`); Step 6's docs wait for that re-tune so the
+numbers are written once.
+
+- **The rule** (`photoTier` in `crates/app/ui/src/focus.ts`): a focus
+  candidate (`eye_focus` >= 0.772) whose stored values all exist is
+  - **good** at `eye_focus` >= 0.998, EAR >= 0.30 (openness 60),
+  - else **fair** at `eye_focus` >= 0.99, EAR >= 0.25 (openness 41),
+  - both with **|yaw| <= 30** and |pitch| <= 45 (roll unused),
+  - and both **excluded** when the mesh's eyes sit more than **0.10** face
+    box sides from YuNet's eye landmarks (`MAX_EYE_OFFSET`: a mesh off the
+    face, e.g. a face rotated in-plane) or when the face box or a mesh eye
+    region comes closer than **0.02** face box sides to the image's edge
+    (`MIN_EDGE_GAP`: a face the frame cuts; YuNet's box of such a face ends
+    just inside the edge, so the margin is not 0).
+- **The pose form: "both eyes visible" (|yaw| <= 30), not the loose 60.**
+  The loose cut did mark few enough frames (Step 4c: 20.3% for both tiers),
+  but the user saw a turned face marked good (`2026-07-11__DSC2827`, yaw
+  -49, its foreshortened eye inflating the EAR). On the user's 60 starred
+  frames the tiers keep their mean stars from 30 down to 20 and lose them
+  from 35 up; 30 is the widest cut before a turned 1-2 star frame comes in
+  (`DSC2373`, yaw -31).
+- **What it marks**, of the faced AF frames of the six re-dumped folders:
+  good 6.0%, fair 7.7%, together 13.7% (Step 4c: 20.3%); per folder
+  `2026-07-11` 13.8%, `2026-07-24` 17.3%, `2026-08-08` 22.3%, `2026-09-19`
+  14.1%, `2026-09-27-a` 10.0%, `2026-10-03` 20.7%. Today's green icon
+  (`candidate`) was on 87.4%.
+- **The user's sample, re-scored** (60 frames, 1-5 stars): mean stars good
+  3.90 (n 10), fair 3.69 (n 13), neither 2.43 (n 37), against 3.20 / 3.25 /
+  2.40 at the Step 4c cuts; Spearman of tier vs stars 0.54 (was 0.29). One
+  1-2 star frame stays in a tier (`2026-09-19__DSC1805`, fair, 2 stars), of
+  the eight before; the three frames the user named are in neither tier
+  (`DSC2638` by the eye offset 0.125, `DSC2827` by the yaw, `DSC3345` by the
+  edge gap 0.008 and the eye offset 0.352). The cost: three 4-star frames
+  turned 31-39 deg left the tiers.
+- **No labeled precision.** No `miss-truth.md` set was made; the Decision
+  rests on the user's look, the user's stars on 60 frames drawn from the
+  Step 4c tiers, and the mark rate.
+- **Storage.** The two exclusions need `files.eye_offset` / `files.edge_gap`
+  from pass 2 (`SCHEMA_VERSION` 19, `FACES_VERSION` 8: pass 2 re-runs once on
+  every folder; thumbnails and the first pass are kept); the thresholds stay
+  in `focus.ts`. The cue's computation, the mesh, `EYES_CLOSED_EAR` and
+  `CANDIDATE_LOGIT` are unchanged.
+- **The display kept: option (b)** as built in Steps 4 and 4c: the strip's
+  face icon and the crosshair bright green on good, azure on fair, a dim
+  green crosshair on another focus candidate, orange and white as before;
+  the filter's `AF eye` section has `Good` and `Fair` above `Sharp` / `Soft`
+  / `Unknown`.
 
 ## Progress
 
@@ -524,3 +606,5 @@ display kept. Awaiting the user's approval before Step 6.)
 - (2026-10-09) Step 4 complete
 - (2026-10-09) Step 4b complete
 - (2026-10-09) Step 4c complete
+- (2026-10-10) Step 5 complete; Decision B approved as provisional, re-tuned
+  after the face-mesh roll correction lands
