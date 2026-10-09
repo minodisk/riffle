@@ -179,7 +179,7 @@ function paintBurst(index: number, cell: Cell): void {
 }
 
 // A face icon at the image box's bottom-left, in the focus mark's color of the
-// tier, on a good or fair photo.
+// tier, on a good photo.
 function paintTier(index: number, cell: Cell): void {
   const tier = tiers.get(index);
   cell.tier.hidden = tier === undefined;
@@ -485,7 +485,7 @@ export function setBurst(index: number, value: BurstMark | null): void {
   }
 }
 
-// Record the tier of one file, `null` for neither, repainting its cell when it
+// Record the tier of one file, `null` for none, repainting its cell when it
 // is on screen.
 export function setTier(index: number, tier: PhotoTier | null): void {
   if (tier === null) {

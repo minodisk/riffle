@@ -11,9 +11,9 @@ import type { PickFlag } from "./selection.js";
 // when there is none; a label outside the menu's colors matches no item.
 // The menu's `AF eye` items put `candidate`, `not_candidate` or `unknown` in
 // `candidates`; a file whose state is not known yet counts as `unknown`. Its
-// `Good` and `Fair` items put the photo tier, `good` or `fair`, in the same
-// set, OR-ed with the states like any item of one group; a file in neither
-// tier matches neither. Its
+// `Good` item puts the photo tier, `good`, in the same set, OR-ed with the
+// states like any item of one group; a file not in the tier does not match it.
+// Its
 // `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.
 export type Flag = "picked" | "untagged" | "rejected";
