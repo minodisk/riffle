@@ -63,3 +63,71 @@
   into literal tabs (the Git Bash heredoc plus Python string escapes);
   `perl -i` silently did nothing on Windows. A small Python script that
   replaces tabs on the affected lines fixed it.
+
+## Step 2: the misfit truth set, the comparison and the Decision
+
+- **`meshfit` gained three columns** (`yunet_eye_dist`, `yunet_mid_dx`,
+  `yunet_mid_dy`, appended at the end of the line so the Step 1 layout
+  holds): the guards need YuNet's eye geometry and the TSV did not carry it.
+  `faces::Face` has no nose point, so a nose-offset guard was not possible
+  without touching `faces.rs`; the eye distance turned out to be the
+  telling one. The whole dump was re-run (4 min 13 s) with the rebuilt
+  release `riffle-cli.exe`; every other column is byte-identical to Step 1.
+- **The rotation is not recommended** (Decision): always-rotate breaks 15
+  and fixes 7 of 131 readable truth frames and drops the held-out AF AUC
+  0.800 -> 0.783; the bands do the same; the eye-distance guard changes no
+  labeled outcome and recovers nothing of the 28.7%. Where the rotation
+  moves a fit, YuNet's two eye points are not on two eyes (all label
+  changes at an eye distance of 0.14 of the box side or less).
+- **`eye_offset` over 0.10 is mostly a loose comparison**: weighted to the
+  six folders, about 27% of those frames have a mesh off the face and 65%
+  an `on` mesh against YuNet points that are off the eyes. Frames with a
+  YuNet eye distance under 0.20 are 33.5% of the frames and 66% of those
+  over 0.10.
+- **YuNet's eye points are ordered by image x** (`faces.rs`), so the
+  eye-line roll is folded into -90..+90 deg; the plan's motivating
+  `_DSC2638` (a baby lying head-down) reads -11 deg and no eye-line rotation
+  can fix it. The plan had assumed the eye line gives the true roll.
+- **The planned guard selection did not work**: the AF-eye training rows
+  hold almost no tilted frontal faces (`band 10 + wide T` rotates none of
+  the 406 from T = 0.20 up), so T was read off the eye-distance
+  distribution and the truth set instead; recorded in `compare.md`.
+- **Labeling**: 140 overlays on 16 sheets of 3 x 3 (Pillow in a scratch
+  venv; neither Pillow nor ImageMagick is installed). The profile rule
+  (`on` when the visible eye's contour is on it and the other sits behind
+  the nose bridge) carried most of the judgment calls. The strata of #39 and
+  #42 were seen by accident while checking them (after their labels were
+  written), so those two are less blind.
+- The Git Bash heredoc here halves doubled backslashes even with a quoted
+  `<<'EOF'`, so Python patch scripts whose string literals hold escapes like
+  `\t` failed to match; writing the patch script with the Write tool
+  avoided it (as in Step 1).
+
+## Deferred issues (todo candidates)
+
+- **The user's review of the misfit labels** (`misfit-truth.md`, sheets
+  `D:\Photos\tests\2026-10-09-mesh-roll\sheets\s00.png`-`s15.png`): the
+  Decision's shares rest on the agent's labels. Basis: Step 2 Done-when
+  ("the user's review is final"). Files:
+  `docs/plans/20261010-mesh-roll/misfit-truth.md`.
+- **`eye_offset` is unreliable where YuNet's eye distance is under 0.20 of
+  the box side** (profiles whose two eye points sit together): about 65% of
+  the frames over `MAX_EYE_OFFSET` 0.10 have an on-face mesh. For
+  `20261008-burst-keep-score`, which owns the cut: skip the offset cut
+  below that eye distance or compare the mesh against its own geometry.
+  Basis: Step 2 truth set and `compare.md` finding 5. Files:
+  `crates/core/src/candidate.rs` (`mesh_eye_offset`),
+  `crates/app/ui/src/focus.ts` (`MAX_EYE_OFFSET`).
+- **Side faces are the dominant real misfit** (78% of the off meshes,
+  weighted): a rule that distrusts the mesh values (EAR, AF eye cue, pose)
+  on profiles, e.g. by YuNet eye distance under 0.10 or the mesh's |yaw|.
+  Basis: Step 2 truth set. Files: `crates/core/src/candidate.rs`,
+  `crates/core/src/eyes.rs`.
+- **Faces rolled past 90 deg** (a baby lying head-down, `2026-07-11__DSC2638`)
+  cannot be de-rotated from YuNet's x-ordered eye points; they need another
+  roll source (a mesh pass on rotated crops, MediaPipe's tracking loop).
+  Not planned. Basis: Decision. Files: `crates/core/src/faces.rs` (eye
+  order), `crates/core/src/eyes.rs`.
+- **Keep or remove the Step 1 opt-in functions and `riffle-cli meshfit`**
+  if the Decision (decline) is approved. Basis: Decision "If approved".
+  Files: `crates/core/src/eyes.rs`, `crates/cli/src/main.rs`.
