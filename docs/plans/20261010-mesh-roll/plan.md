@@ -425,3 +425,4 @@ misfits, the misjudgment counts before / after, what each number rests on.
 ## Progress
 
 - (2026-10-09) Plan written
+- (2026-10-10) Step 1 complete
