@@ -1517,7 +1517,7 @@ fn meshfit_header() -> String {
             .join("\t")
     };
     format!(
-        "folder\tfile\txmp\tside\taf\tyunet_roll\t{}\t{}",
+        "folder\tfile\txmp\tside\taf\tyunet_roll\t{}\t{}\tyunet_eye_dist\tyunet_mid_dx\tyunet_mid_dy",
         fit("before"),
         fit("after")
     )
@@ -1542,6 +1542,10 @@ struct MeshFitted {
     side: f32,
     /// `eyes::eye_line_roll` of the upright face, in degrees.
     roll: f32,
+    /// YuNet's eye landmarks on the upright face, over the box's longer
+    /// side: their distance, then their midpoint's x and y offset from the
+    /// box center.
+    eyes: [f32; 3],
     before: Fit,
     after: Fit,
 }
@@ -1564,8 +1568,9 @@ struct MeshFitted {
 /// (`MESHFIT_FIT`) the cue's state, `eye_focus`, the region scored
 /// (`L-sharper`, `R-only`, `window`, ...) and its logit, the EAR of the more
 /// closed eye, yaw / pitch / roll, `candidate::mesh_eye_offset` and the mesh
-/// time. `-` for a missing value (no face, no pose), `err` for a failed
-/// stage (the file in every column after the flag, the mesh in its five).
+/// time, and last YuNet's eye geometry (`MeshFitted::eyes`). `-` for a
+/// missing value (no face, no pose), `err` for a failed stage (the file in
+/// every column after the flag, the mesh in its five).
 fn meshfit(inputs: &[PathBuf], out: &Path) -> Result<()> {
     let paths = raw_paths(inputs)?;
     std::fs::create_dir_all(out)?;
@@ -1714,10 +1719,17 @@ fn meshfit_file(path: &Path, folder: &str, out: &Path) -> Result<Option<MeshFitt
         contours(after_mesh),
     );
     png.save(out.join(file))?;
+    let box_side = upright_face.width.max(upright_face.height);
+    let (le, re) = (upright_face.left_eye, upright_face.right_eye);
     Ok(Some(MeshFitted {
         af: focus.is_some(),
         side: face.width.max(face.height),
         roll,
+        eyes: [
+            (re.0 - le.0).hypot(re.1 - le.1) / box_side,
+            ((le.0 + re.0) / 2.0 - (upright_face.x + upright_face.width / 2.0)) / box_side,
+            ((le.1 + re.1) / 2.0 - (upright_face.y + upright_face.height / 2.0)) / box_side,
+        ],
         before,
         after,
     }))
@@ -1838,7 +1850,7 @@ fn meshfit_line(
         .concat()
     };
     let rest = match fitted {
-        Err(_) => vec!["err".to_string(); 3 + 2 * MESHFIT_FIT.len()],
+        Err(_) => vec!["err".to_string(); 6 + 2 * MESHFIT_FIT.len()],
         Ok(f) => [
             vec![
                 opt(f.as_ref().map(|f| f64::from(f.side)), 1),
@@ -1849,6 +1861,9 @@ fn meshfit_line(
             ],
             fit(f.as_ref().map(|f| &f.before)),
             fit(f.as_ref().map(|f| &f.after)),
+            (0..3)
+                .map(|i| opt(f.as_ref().map(|f| f64::from(f.eyes[i])), 3))
+                .collect(),
         ]
         .concat(),
     };
@@ -2184,6 +2199,7 @@ mod tests {
             af: true,
             side: 96.64,
             roll: -12.34,
+            eyes: [0.41234, -0.0251, -0.1449],
             before: fit(
                 candidate::Scored::Sharper(candidate::Eye::Right),
                 Some(2.34567),
@@ -2203,15 +2219,15 @@ mod tests {
         let line = meshfit_line("2026-07-11", "_DSC2638.ARW", "Pick", &fitted);
         assert_eq!(
             line,
-            "2026-07-11\t_DSC2638.ARW\tPick\t96.6\taf\t-12.3\tCandidate\t0.9123\tR-sharper\t2.346\t0.2123\t-12.3\t4.1\t3.0\t0.1358\t40.0\tCandidate\t0.9123\twindow\t-\terr\terr\terr\terr\terr\t41.0"
+            "2026-07-11\t_DSC2638.ARW\tPick\t96.6\taf\t-12.3\tCandidate\t0.9123\tR-sharper\t2.346\t0.2123\t-12.3\t4.1\t3.0\t0.1358\t40.0\tCandidate\t0.9123\twindow\t-\terr\terr\terr\terr\terr\t41.0\t0.412\t-0.025\t-0.145"
         );
         let header = meshfit_header();
         assert_eq!(line.split('\t').count(), header.split('\t').count());
         assert!(header.starts_with("folder\tfile\txmp\tside\taf\tyunet_roll\tbefore_state\t"));
-        assert!(header.ends_with("\tafter_eye_offset\tafter_mesh_ms"));
+        assert!(header.ends_with("\tafter_mesh_ms\tyunet_eye_dist\tyunet_mid_dx\tyunet_mid_dy"));
         let no_face = meshfit_line("x", "b.DNG", "-", &Ok(None));
-        assert_eq!(no_face, format!("x\tb.DNG\t-{}", "\t-".repeat(23)));
+        assert_eq!(no_face, format!("x\tb.DNG\t-{}", "\t-".repeat(26)));
         let failed = meshfit_line("x", "c.ARW", "err", &Err("bad".into()));
-        assert_eq!(failed, format!("x\tc.ARW\terr{}", "\terr".repeat(23)));
+        assert_eq!(failed, format!("x\tc.ARW\terr{}", "\terr".repeat(26)));
     }
 }
