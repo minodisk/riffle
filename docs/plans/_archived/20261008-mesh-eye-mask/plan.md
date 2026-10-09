@@ -24,7 +24,7 @@ over each mesh eye's **bounding rectangle** grown by `EYE_REGION_MARGIN` =
 the sharper eye counting, with the window between the eyes as the fallback
 when no eye counts (`eye_window`, `LOGIT_*`). That was Option A of the
 archived plan
-[`../_archived/20261008-mesh-eye-focus/plan.md`](../_archived/20261008-mesh-eye-focus/plan.md)
+[`../20261008-mesh-eye-focus/plan.md`](../20261008-mesh-eye-focus/plan.md)
 ("Region shape"); its `fit.md` chose margin 0.5 and the 24 px floor as the
 highest training AUC of 28 margin x floor cells. A rectangle with a 0.5
 margin is about four times the contour's area, so on a turned or rolled face
@@ -59,15 +59,15 @@ closed either way.
 - Saved data of the earlier fit in `D:\Photos\tests\2026-10-08-mesh-eye-focus\`:
   `training-dump.jsonl` / `heldout-dump.jsonl` (one JSON line per faced
   file from the scratch `riffle-cli meshdump`,
-  [`../_archived/20261008-mesh-eye-focus/meshdump.patch`](../_archived/20261008-mesh-eye-focus/meshdump.patch)),
+  [`../20261008-mesh-eye-focus/meshdump.patch`](../20261008-mesh-eye-focus/meshdump.patch)),
   `step3-training.txt` / `step3-heldout.txt` (the Step 3 `candidates`
   lines). The fit script is
-  [`../_archived/20261008-mesh-eye-focus/fit.py`](../_archived/20261008-mesh-eye-focus/fit.py)
+  [`../20261008-mesh-eye-focus/fit.py`](../20261008-mesh-eye-focus/fit.py)
   (pure Python 3; maximum-likelihood logistic by Newton's method, no
   regularization; the mesh threshold set so the training coverage stays at
   310 of 339 picks; the fallback frames' window logit shifted by `mesh
   threshold - 1.2194` for the pooled AUC; ties 0.5). The method is in
-  [`../_archived/20261008-mesh-eye-focus/fit.md`](../_archived/20261008-mesh-eye-focus/fit.md).
+  [`../20261008-mesh-eye-focus/fit.md`](../20261008-mesh-eye-focus/fit.md).
 - Region sizes: the contour's own bounding box (margin 0) has a longer side
   of p10 / median / p90 = 5 / 11 / 18 px training, 4 / 11 / 24 held-out;
   with margin 0.5, 11 / 21 / 35 and 11 / 22 / 47. Margin 0 sent half the

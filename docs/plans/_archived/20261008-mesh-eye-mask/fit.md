@@ -3,7 +3,7 @@
 The fit behind the Decision in [plan.md](plan.md). The script is
 [`fit.py`](fit.py) (pure Python 3, not part of the workspace), copied from
 the archived
-[`../_archived/20261008-mesh-eye-focus/fit.py`](../_archived/20261008-mesh-eye-focus/fit.py)
+[`../20261008-mesh-eye-focus/fit.py`](../20261008-mesh-eye-focus/fit.py)
 and extended with a loader for the mask dump. Its full output is
 [`fit-out.txt`](fit-out.txt), and [`frozen.json`](frozen.json) holds the
 selected cell at full precision.
@@ -33,7 +33,7 @@ python fit.py D:\Photos\tests\2026-10-08-mesh-eye-mask D:\Photos\tests\2026-10-0
 ## Method
 
 The archived method, unchanged (see the archived
-[`fit.md`](../_archived/20261008-mesh-eye-focus/fit.md), "Method"):
+[`fit.md`](../20261008-mesh-eye-focus/fit.md), "Method"):
 
 - Features per eye: `ln(lap + 1)` and `ln(edge_width / longer side)`, the
   longer side being the region's (for a mask, its bounding window's).

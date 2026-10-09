@@ -622,14 +622,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       60 px). Reusing the scan's mesh needs the points stored or a path that
       runs the model only while `f` is on. Files: `crates/app/src/commands.rs`
       (`read_eyes`), `crates/app/src/index.rs`, `crates/core/src/eyes.rs`.
-- [x] Mask each eye's region with the eyelid contour polygon instead of
-      its bounding box: measured and not adopted. The best cell (both
-      measures masked, dilation 0.1, a 50-pixel floor) reached held-out AUC
-      0.797 / precision 88.56% / coverage 95.0% against the rectangle's
-      0.800 / 88.6% / 95.9%, failing all three conditions (AUC not above
-      0.800, precision below 88.65%, coverage 3 in-focus frames short); no
-      cell of the grid passed all three. See
-      `docs/plans/_archived/20261008-mesh-eye-mask/`.
 - [ ] Suggest the sharpest-eye frame within a burst group.
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
