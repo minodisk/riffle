@@ -432,9 +432,12 @@ The numbers are in `compare.md` and `misfit-truth.md`.
   AUC 0.974 -> 0.973; head pose +1 face on the yaw sign and the yaw class.
   The share over 0.10 on the six folders stays 28.7% (178 frames fall
   under, 177 rise over).
-- **Dead bands do not help** (`band 10` = `always` on every table, `band
-  20` 83 `on`); `band 10-25`, the one in-sample gain on the truth set (+3
-  `on`), costs held-out AF AUC (0.787) and moves nothing else.
+- **Dead bands do not help** (`band 10` matches `always` on the truth set and
+  the pose, ties `before` on closed eyes and has the lowest held-out AF AUC
+  of all variants, 0.779; `band 20` 83 `on`); `band 10-25`, the one
+  in-sample gain on the truth set (+3 `on`), costs held-out AF AUC (0.787)
+  and moves little else (yaw sign 76 -> 77, closed-eyes AUC 0.974 -> 0.976,
+  six-folder count 2083 -> 2081).
 - **The YuNet eye-distance guard (`band 10 + wide 0.20`) is neutral**: it
   rotates 1.8% of the six-folder frames and almost none of the labeled ones
   (0 / 5 / 3 / 1 of the AF training / held-out, closed-eyes, pose faces),
@@ -451,7 +454,7 @@ The numbers are in `compare.md` and `misfit-truth.md`.
   `faces.rs` orders YuNet's eye points by image x, so the eye-line roll is
   folded into -90..+90 deg and a face past 90 deg reads nearly level; no
   eye-line rotation turns it upright.
-- **What the 28.6% is.** Weighted back to the six folders, about 8% of the
+- **What the 28.6% is** (28.6% is the Step 5 re-dump's index rows, 28.7% the `meshfit` dump's population): Weighted back to the six folders, about 8% of the
   meshed AF frames have a mesh off the face; of the frames over 0.10 about
   27% are off and about 65% are an `on` mesh compared with YuNet eye points
   that are off the eyes. Frames with a YuNet eye distance under 0.20 are

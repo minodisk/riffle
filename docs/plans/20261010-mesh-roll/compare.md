@@ -1,7 +1,8 @@
 # Before / after the eye-line roll correction (Step 2)
 
-`compare.py` (pure Python over the Step 1 `meshfit` TSVs) prints every table
-below; its output is pasted unedited under "Output". A variant picks, per
+`compare.py` (pure Python over the Step 1 `meshfit` TSVs) prints the tables
+below (the numbers marked "ad-hoc query" in the findings and in the Decision
+come from separate queries over the same TSVs, not from the script); its output is pasted unedited under "Output". A variant picks, per
 face, the `after` (rotated) fit or the `before` one from the same TSV row, so
 no variant needed a re-run.
 
@@ -13,7 +14,7 @@ no variant needed a re-run.
   columns (`yunet_eye_dist`, `yunet_mid_dx`, `yunet_mid_dy`: YuNet's eye
   distance and eye midpoint over the box's longer side, for the guards).
   Every other column is byte-identical to the Step 1 dump (266256 cells
-  compared, the mesh times aside).
+  compared, the mesh times aside; ad-hoc query).
 - The misfit truth set (`misfit-truth.md`, labels pending the user's review).
 - AF eye: the XMP flags of the focus-sample folders, training `2026-06-05`,
   `2026-07-31`, `2026-09-13-a`, `2026-09-19`, `2026-09-19-focus-sample-2`
@@ -69,23 +70,27 @@ guarded variant changes no labeled outcome.
    `on` and 15 `on` meshes `off` (86 `on` of 131 against 94). The 1.7-point
    held-out AUC drop is at the edge of the noise `fit.md` named (0.01-0.02),
    but nothing improves to offset it.
-3. **The bands do not help.** `band 10` behaves as `always` (the rotation
-   only moves a fit when the angle is large); `band 20` is worse on the
+3. **The bands do not help.** `band 10` matches `always` on the truth
+   set and the pose, ties `before` on closed eyes (0.976 / 0.957 / 11 wrong)
+   and is the worst variant on held-out AF AUC (0.779; `always` 0.783); `band 20` is worse on the
    truth set (83 `on`, 3 fixed, 14 broken). `band 10-25`, the only variant
    with a net gain on the truth set (97 `on`, 4 fixed, 1 broken, chosen
    after seeing the per-cell counts, so in-sample), still costs held-out AF
-   AUC (0.787) and leaves every other labeled number unchanged.
+   AUC (0.787) and moves little else (yaw sign 76 -> 77, closed-eyes AUC 0.974 -> 0.976,
+   six-folder count 2083 -> 2081).
 4. **The eye-distance guard is neutral, because it rotates only faces that
    already fit.** `band 10 + wide 0.20` rotates 131 of the 7267 six-folder
    frames (1.8%), 0 of the training focus frames, 5 held-out, 3 closed-eyes
-   and 1 head-pose face; no truth-set label changes, every frozen number is
+   and 1 head-pose face (ad-hoc query for the held-out, closed-eyes and pose counts); no truth-set label changes, every frozen number is
    identical but the yaw class (+1 face), the share over 0.10 is 2084
    against 2083. The 12 `tilted-wide` truth frames (tilted frontal faces,
    10-18 deg) are all `on` before the rotation: the mesh already copes with
    that roll. And it is not harmless: on the 4-star
    `2026-10-03__DSC3537` (a dark, blurred three-quarter face) it moves the
    EAR from 0.350 to 0.055, which would mark the eyes closed.
-5. **Nothing of the 28.6% is recovered.** Over 0.10: 28.7% before, 28.7%
+5. **Nothing of the 28.6% is recovered.** (28.6%, 2079 of 7261, is the
+   Step 5 re-dump's index rows; this dump's population is 7267 meshed
+   frames, so the shares below read 28.7%.) Over 0.10: 28.7% before, 28.7%
    always (178 frames fall under, 177 rise over), 28.9% `band 10`, 28.7%
    guarded. The reason is in the truth set: weighted back to the six
    folders, about 27% of the frames over 0.10 have a mesh off the face and
@@ -113,7 +118,8 @@ guarded variant changes no labeled outcome.
    2 / 47 in every variant; yaw sign 4 / 40 before, 3 always; yaw class 22 /
    56 before, 20 always; roll sign 2 / 9 throughout. The AF eye errors do
    concentrate there: 68 of 297 (23%) against 37 of the other 509 (7%); at
-   or above the 60 px floor 35 of 190 (18%) against 16 of 408 (4%). But the
+   or above the 60 px floor 35 of 190 (18%) against 16 of 408 (4%) (ad-hoc
+   query). But the
    rotation does not reduce them (71 always, 68 guarded), because the off
    meshes behind them are side faces.
 9. **Starred frames** (information only): of the 60, the guard rotates 6

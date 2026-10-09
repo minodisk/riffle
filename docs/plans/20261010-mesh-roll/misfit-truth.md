@@ -108,7 +108,7 @@ frames whose large offset is a comparison artifact:
 - **Where the rotation changes a label, YuNet's eye line is not a real one.**
   All 22 frames whose label changed under always-rotate have a YuNet eye
   distance of 0.14 of the box side or less (the frontal faces sit at
-  0.30-0.40) and 21 of them `YuNet off`: 7 went `off` -> `on`, 15 `on` ->
+  0.30-0.40) and 20 of them `YuNet off`: 7 went `off` -> `on`, 15 `on` ->
   `off`. No frame at an eye distance of 0.20 or more changed its label.
 
 ## Frames
