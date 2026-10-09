@@ -33,6 +33,7 @@ import {
   applySharpnessReady,
   faceMarks,
   focusMark,
+  goodPhoto,
 } from "./focus.js";
 import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
@@ -1673,7 +1674,7 @@ function refilter(
   });
   applySharpness();
   applyBursts();
-  applyCandidates();
+  applyGood();
   applyFailures();
   if (files.length === 0) {
     closeContextMenu();
@@ -2061,10 +2062,10 @@ function applyBursts(): void {
   });
 }
 
-// Hand the strip whether each displayed file is a focus candidate.
-function applyCandidates(): void {
+// Hand the strip whether each displayed file is a good photo.
+function applyGood(): void {
   files.forEach((path, at) => {
-    strip.setCandidate(at, entries.get(path)?.focus?.candidate === "candidate");
+    strip.setGood(at, goodPhoto(entries.get(path)?.focus));
   });
 }
 
@@ -2132,7 +2133,7 @@ function refreshEntries(): void {
       const sharpened = performance.now();
       applyBursts();
       const bracketed = performance.now();
-      applyCandidates();
+      applyGood();
       applyFailures();
       const marked = performance.now();
       const hadPendingResume = pendingResume !== undefined;
@@ -2186,11 +2187,12 @@ function refreshEntries(): void {
 // When Sony `FocusFrameSize` is valid, the AF frame the camera used is drawn
 // around the point as well, in the same sensor coordinates; a body that
 // records only the point gets the crosshair alone, and a manual-focus shot,
-// whose recorded point is not trusted, gets no mark. The mark is green for a
-// focus candidate (the eyes of the face nearest the AF point are sharp),
-// orange when that face's eyes are not sharp, and white when Riffle does not
-// know: no face near the point, or the second scan pass has not reached the
-// file yet.
+// whose recorded point is not trusted, gets no mark. The mark is bright green
+// for a good photo (`goodPhoto`: the eyes of the face nearest the AF point are
+// sharp and open and the face is toward the camera), dim green for a focus
+// candidate that is not one, orange when that face's eyes are not sharp, and
+// white when Riffle does not know: no face near the point, or the second scan
+// pass has not reached the file yet.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (!showFocus || files.length === 0) {
     return;
@@ -2199,7 +2201,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   if (mark === null) {
     return;
   }
-  const { x, y, rect, candidate } = mark;
+  const { x, y, rect, state } = mark;
   const arm = FOCUS_MARK_ARM;
   const gap = FOCUS_MARK_GAP;
   // A state color over a dark outline: the color carries the mark on most
@@ -2223,7 +2225,7 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.lineWidth = 4;
   context.stroke();
-  context.strokeStyle = FOCUS_MARK_COLORS[candidate];
+  context.strokeStyle = FOCUS_MARK_COLORS[state];
   context.lineWidth = 2;
   context.stroke();
   context.restore();
@@ -3688,7 +3690,7 @@ void window.__TAURI__.event.listen<{
   if (scored) {
     applySharpness();
   }
-  applyCandidates();
+  applyGood();
   // The candidate and eyes filters fill in as the pass runs; the strip keeps
   // its scroll offset, as on a resync.
   if (shownCandidates.size > 0 || shownEyes.size > 0) {
@@ -3788,7 +3790,7 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 const sharpFace = filterMenu.querySelector<HTMLElement>('[data-candidate="candidate"] .face')!;
 sharpFace.innerHTML = SCAN_FACE_SVG;
-sharpFace.style.color = FOCUS_MARK_COLORS.candidate;
+sharpFace.style.color = FOCUS_MARK_COLORS.good;
 
 function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);

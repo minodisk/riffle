@@ -51,7 +51,7 @@ interface Cell {
   flag: HTMLSpanElement;
   sharpness: HTMLSpanElement;
   count: HTMLSpanElement;
-  candidate: HTMLSpanElement;
+  good: HTMLSpanElement;
   reason: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
@@ -102,8 +102,8 @@ const sharpness = new Map<number, RelativeSharpness>();
 // The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
-// The indices whose file is a focus candidate.
-const candidates = new Set<number>();
+// The indices whose file is a good photo (`goodPhoto` in `focus.ts`).
+const goods = new Set<number>();
 // Why the scan failed on a file, per index, from the index's error row.
 const failures = new Map<number, string>();
 // The selected indices besides `current`, mirroring the selection in
@@ -178,10 +178,10 @@ function paintBurst(index: number, cell: Cell): void {
   cell.count.textContent = burstBadge(value ?? null);
 }
 
-// A face icon at the image box's bottom-left, in the focus mark's candidate
-// color, on a focus candidate.
-function paintCandidate(index: number, cell: Cell): void {
-  cell.candidate.hidden = !candidates.has(index);
+// A face icon at the image box's bottom-left, in the focus mark's good color,
+// on a good photo.
+function paintGood(index: number, cell: Cell): void {
+  cell.good.hidden = !goods.has(index);
 }
 
 // The scan's error text of a failed file, in the cell's tooltip and, on a
@@ -253,11 +253,11 @@ function createCell(index: number): Cell {
   const count = document.createElement("span");
   count.className = "count";
   el.append(count);
-  const candidate = document.createElement("span");
-  candidate.className = "candidate";
-  candidate.innerHTML = SCAN_FACE_SVG;
-  candidate.style.color = FOCUS_MARK_COLORS.candidate;
-  el.append(candidate);
+  const good = document.createElement("span");
+  good.className = "good";
+  good.innerHTML = SCAN_FACE_SVG;
+  good.style.color = FOCUS_MARK_COLORS.good;
+  el.append(good);
   const reason = document.createElement("span");
   reason.className = "reason";
   el.append(reason);
@@ -276,7 +276,7 @@ function createCell(index: number): Cell {
     flag,
     sharpness: sharp,
     count,
-    candidate,
+    good,
     reason,
     name,
     url: null,
@@ -286,7 +286,7 @@ function createCell(index: number): Cell {
   paintRating(index, cell);
   paintSharpness(index, cell);
   paintBurst(index, cell);
-  paintCandidate(index, cell);
+  paintGood(index, cell);
   paintFailure(index, cell);
   return cell;
 }
@@ -482,17 +482,17 @@ export function setBurst(index: number, value: BurstMark | null): void {
   }
 }
 
-// Record whether one file is a focus candidate, repainting its cell when it is
-// on screen.
-export function setCandidate(index: number, candidate: boolean): void {
-  if (candidate) {
-    candidates.add(index);
+// Record whether one file is a good photo, repainting its cell when it is on
+// screen.
+export function setGood(index: number, good: boolean): void {
+  if (good) {
+    goods.add(index);
   } else {
-    candidates.delete(index);
+    goods.delete(index);
   }
   const cell = cells.get(index);
   if (cell !== undefined) {
-    paintCandidate(index, cell);
+    paintGood(index, cell);
   }
 }
 
@@ -554,7 +554,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   sharpness.clear();
   bursts.clear();
-  candidates.clear();
+  goods.clear();
   failures.clear();
   selected.clear();
   files = paths;
@@ -570,7 +570,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
     paintRating(cell.index, cell);
     paintSharpness(cell.index, cell);
     paintBurst(cell.index, cell);
-    paintCandidate(cell.index, cell);
+    paintGood(cell.index, cell);
   }
   strip.scrollLeft = keepScroll ? scrollLeft : 0;
   if (resume !== null) {

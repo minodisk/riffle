@@ -15,24 +15,70 @@ export interface MarkFocus extends StoredEyes {
   eye_focus: number | null;
 }
 
+// The state the mark's color is read from: `good` for a frame `goodPhoto`
+// passes, `candidate_only` for a focus candidate it does not pass, else the
+// focus candidate state.
+export type MarkState = "good" | "candidate_only" | "not_candidate" | "unknown";
+
 export interface FocusMark {
   x: number;
   y: number;
   rect: { x: number; y: number; width: number; height: number } | null;
-  candidate: MarkFocus["candidate"];
+  state: MarkState;
 }
 
-// The mark's color per focus candidate state: green when the eyes of the face
-// nearest the AF point are sharp, orange when they are not, white when Riffle
-// does not know.
+// The mark's color per state: bright green for a good photo, a dim green for
+// a focus candidate that is not one, orange when the eyes of the face nearest
+// the AF point are not sharp, white when Riffle does not know.
 export const FOCUS_MARK_COLORS = {
-  candidate: "#3f3",
+  good: "#3f3",
+  candidate_only: "#8b8",
   not_candidate: "#f93",
   unknown: "#fff",
-} as const satisfies Record<MarkFocus["candidate"], string>;
+} as const satisfies Record<MarkState, string>;
+
+// The good-photo cuts on the values pass 2 stores for the AF face. All four are
+// provisional (2026-10-09, `docs/plans/20261008-burst-keep-score/provisional.md`),
+// read from the re-dump of six ARW folders (8915 faced AF frames), and are to
+// be tuned in that plan's Step 5.
+// The in-focus probability of the AF eyes, at the re-dump's 79th percentile.
+export const GOOD_EYE_FOCUS = 0.998;
+// The EAR of the more closed eye, at the 54th percentile (open probability
+// 0.991): wide open rather than not closed.
+export const GOOD_EYE_EAR = 0.3;
+// |yaw| in degrees, only extreme turns excluded: 86% of the poses are within.
+export const GOOD_MAX_YAW = 60;
+// |pitch| in degrees: 96% of the poses are within.
+export const GOOD_MAX_PITCH = 45;
+
+// A "good photo": a focus candidate whose AF eyes are in focus, whose eyes are
+// open and whose face is toward the camera, all at once. Any missing value
+// (no face near the AF point, a face too small for the mesh) is not good.
+export function goodPhoto(focus: MarkFocus | null | undefined): boolean {
+  if (focus === null || focus === undefined || focus.candidate !== "candidate") {
+    return false;
+  }
+  const { eye_focus, eyes_ear, pose } = focus;
+  return (
+    eye_focus !== null &&
+    eye_focus >= GOOD_EYE_FOCUS &&
+    eyes_ear !== null &&
+    eyes_ear >= GOOD_EYE_EAR &&
+    pose !== null &&
+    Math.abs(pose.yaw) <= GOOD_MAX_YAW &&
+    Math.abs(pose.pitch) <= GOOD_MAX_PITCH
+  );
+}
+
+function markState(focus: MarkFocus): MarkState {
+  if (focus.candidate !== "candidate") {
+    return focus.candidate;
+  }
+  return goodPhoto(focus) ? "good" : "candidate_only";
+}
 
 // `null` for a manual-focus shot, whose recorded point is not trusted. The
-// focus candidate state rides along so the mark's color is read from the mark.
+// mark state rides along so the mark's color is read from the mark.
 export function focusMark(
   focus: MarkFocus | null | undefined,
   drawWidth: number,
@@ -43,8 +89,9 @@ export function focusMark(
   }
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
+  const state = markState(focus);
   if (focus.frame === null) {
-    return { x, y, rect: null, candidate: focus.candidate };
+    return { x, y, rect: null, state };
   }
   const width = (focus.frame.width * drawWidth) / focus.sensor_w;
   const height = (focus.frame.height * drawHeight) / focus.sensor_h;
@@ -52,7 +99,7 @@ export function focusMark(
     x,
     y,
     rect: { x: x - width / 2, y: y - height / 2, width, height },
-    candidate: focus.candidate,
+    state,
   };
 }
 

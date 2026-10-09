@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
 import {
   FOCUS_MARK_COLORS,
+  GOOD_EYE_EAR,
+  GOOD_EYE_FOCUS,
+  GOOD_MAX_PITCH,
+  GOOD_MAX_YAW,
   type MarkFocus,
   applyFaceReady,
   applySharpnessReady,
   faceMarks,
   focusMark,
+  goodPhoto,
 } from "./focus.js";
 
 const noEyes = { eyes_ear: null, eyes: "unknown", eyes_closed: null, pose: null } as const;
@@ -20,6 +25,16 @@ const point: MarkFocus = {
   candidate: "unknown",
   eye_focus: null,
   ...noEyes,
+};
+
+const good: MarkFocus = {
+  ...point,
+  candidate: "candidate",
+  eye_focus: 1,
+  eyes_ear: 0.35,
+  eyes: "open",
+  eyes_closed: 0.001,
+  pose: { yaw: 10, pitch: -5, roll: 3 },
 };
 
 describe("focusMark", () => {
@@ -38,7 +53,7 @@ describe("focusMark", () => {
       x: -175,
       y: -117,
       rect: null,
-      candidate: "unknown",
+      state: "unknown",
     });
   });
 
@@ -48,16 +63,22 @@ describe("focusMark", () => {
       x: -175,
       y: -117,
       rect: { x: -218.75, y: -146.25, width: 87.5, height: 58.5 },
-      candidate: "unknown",
+      state: "unknown",
     });
   });
 
-  test.each(["candidate", "not_candidate", "unknown"] as const)(
+  test.each(["not_candidate", "unknown"] as const)(
     "carries the %s focus candidate state",
     (state) => {
-      expect(focusMark({ ...point, candidate: state }, 700, 468)?.candidate).toBe(state);
+      expect(focusMark({ ...point, candidate: state }, 700, 468)?.state).toBe(state);
     },
   );
+
+  test("a focus candidate is good when it passes goodPhoto, else candidate_only", () => {
+    expect(focusMark(good, 700, 468)?.state).toBe("good");
+    expect(focusMark({ ...good, eyes_ear: 0.1 }, 700, 468)?.state).toBe("candidate_only");
+    expect(focusMark({ ...point, candidate: "candidate" }, 700, 468)?.state).toBe("candidate_only");
+  });
 
   test("a manual-focus or missing point stays null whatever the state", () => {
     expect(
@@ -68,12 +89,69 @@ describe("focusMark", () => {
 });
 
 describe("FOCUS_MARK_COLORS", () => {
-  test("green for a candidate, orange for not a candidate, white for unknown", () => {
+  test("bright green for good, dim green for a candidate only, orange, white", () => {
     expect(FOCUS_MARK_COLORS).toEqual({
-      candidate: "#3f3",
+      good: "#3f3",
+      candidate_only: "#8b8",
       not_candidate: "#f93",
       unknown: "#fff",
     });
+  });
+});
+
+describe("goodPhoto", () => {
+  test("passes a candidate whose eyes and pose clear every cut", () => {
+    expect(goodPhoto(good)).toBe(true);
+  });
+
+  test("is false without a focus", () => {
+    expect(goodPhoto(null)).toBe(false);
+    expect(goodPhoto(undefined)).toBe(false);
+  });
+
+  test.each(["not_candidate", "unknown"] as const)(
+    "is false for a %s frame even with good eyes and pose",
+    (candidate) => {
+      expect(goodPhoto({ ...good, candidate })).toBe(false);
+    },
+  );
+
+  test("is false when any value is missing", () => {
+    expect(goodPhoto({ ...good, eye_focus: null })).toBe(false);
+    expect(goodPhoto({ ...good, eyes_ear: null })).toBe(false);
+    expect(goodPhoto({ ...good, pose: null })).toBe(false);
+  });
+
+  test("the eye_focus cut passes at and above, not below", () => {
+    expect(goodPhoto({ ...good, eye_focus: GOOD_EYE_FOCUS })).toBe(true);
+    expect(goodPhoto({ ...good, eye_focus: GOOD_EYE_FOCUS + 0.0005 })).toBe(true);
+    expect(goodPhoto({ ...good, eye_focus: GOOD_EYE_FOCUS - 0.0005 })).toBe(false);
+  });
+
+  test("the EAR cut passes at and above, not below", () => {
+    expect(goodPhoto({ ...good, eyes_ear: GOOD_EYE_EAR })).toBe(true);
+    expect(goodPhoto({ ...good, eyes_ear: GOOD_EYE_EAR + 0.001 })).toBe(true);
+    expect(goodPhoto({ ...good, eyes_ear: GOOD_EYE_EAR - 0.001 })).toBe(false);
+  });
+
+  test.each([1, -1])("the yaw cut passes at and within, not beyond, sign %d", (sign) => {
+    const at = (yaw: number) =>
+      goodPhoto({ ...good, pose: { yaw: sign * yaw, pitch: 0, roll: 0 } });
+    expect(at(GOOD_MAX_YAW)).toBe(true);
+    expect(at(GOOD_MAX_YAW - 0.1)).toBe(true);
+    expect(at(GOOD_MAX_YAW + 0.1)).toBe(false);
+  });
+
+  test.each([1, -1])("the pitch cut passes at and within, not beyond, sign %d", (sign) => {
+    const at = (pitch: number) =>
+      goodPhoto({ ...good, pose: { yaw: 0, pitch: sign * pitch, roll: 0 } });
+    expect(at(GOOD_MAX_PITCH)).toBe(true);
+    expect(at(GOOD_MAX_PITCH - 0.1)).toBe(true);
+    expect(at(GOOD_MAX_PITCH + 0.1)).toBe(false);
+  });
+
+  test("the roll is not a cut", () => {
+    expect(goodPhoto({ ...good, pose: { yaw: 0, pitch: 0, roll: 90 } })).toBe(true);
   });
 });
 
