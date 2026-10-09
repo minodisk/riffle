@@ -330,7 +330,7 @@ outputs.
       `filter.ts` (+ test), `index.html`, `style.css`; this plan's
       `provisional.md` / `provisional.py`, `learnings.md`.
 
-- [ ] Step 5: Tune the cuts from the user's feedback and record Decision B
+- [x] Step 5: Tune the cuts from the user's feedback and record Decision B
   - The user's feedback (2026-10-09), from scoring the 60-frame sample
     `D:\photos\samples\ARW\good-mark-2026-10-09\` with 1-5 stars
     (manifest and scores in `D:\Photos\tests\2026-10-09-good-mark\`
@@ -541,8 +541,13 @@ Steps 4-6 above, the storage having landed in #741.
 
 ## Decision B (the good-photo mark)
 
-**Proposed — awaiting the user's approval** (written in Step 5, 2026-10-09;
-the numbers in [provisional.md](provisional.md), "The Step 5 cuts").
+**Approved by the user as provisional, 2026-10-09** (written in Step 5; the
+numbers in [provisional.md](provisional.md), "The Step 5 cuts"). The cuts are
+re-tuned on the 60-frame sample once the face-mesh roll correction lands
+(a separate session, worktree `worktree-silver-cloud-a54f`, aligns the
+YuNet face upright before the mesh, which changes the EAR, `eye_focus`,
+the pose and `eye_offset`); Step 6's docs wait for that re-tune so the
+numbers are written once.
 
 - **The rule** (`photoTier` in `crates/app/ui/src/focus.ts`): a focus
   candidate (`eye_focus` >= 0.772) whose stored values all exist is
@@ -601,3 +606,5 @@ the numbers in [provisional.md](provisional.md), "The Step 5 cuts").
 - (2026-10-09) Step 4 complete
 - (2026-10-09) Step 4b complete
 - (2026-10-09) Step 4c complete
+- (2026-10-10) Step 5 complete; Decision B approved as provisional, re-tuned
+  after the face-mesh roll correction lands
