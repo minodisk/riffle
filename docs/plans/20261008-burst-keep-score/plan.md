@@ -679,3 +679,5 @@ each number in one clause, which Step 7 replaces in place.
   after the face-mesh roll correction lands
 - (2026-10-10) Step 5b complete; the strip icon stays `scan-face` (the user,
   2026-10-10: the old problem was how often it showed, not its shape)
+- (2026-10-10) Step 6 complete (docs at the Step 5b cuts; Step 7 waits for
+  the face-mesh roll correction)
