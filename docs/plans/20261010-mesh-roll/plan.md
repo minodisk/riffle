@@ -265,95 +265,41 @@ the good-photo thresholds.
     - Files: `misfit-truth.md`, `compare.md`, `compare.py`, optionally
       `frozen.json`, `plan.md` (Decision), `learnings.md`.
 
-- **Gate (before Step 3 starts):** the user approved the Decision. The
-  other half, `burst-keep-score-step-5` merged to `main`, holds since
-  2026-10-10 (#752: `SCHEMA_VERSION` 19 / `FACES_VERSION` 8 in
-  `crates/app/src/index.rs` on `main`), so Steps 3 and 4 no longer conflict
-  with that branch.
-
-- [ ] Step 3: Rotate the crop by the eye line on the shared mesh path and re-run pass 2
+- [ ] Step 3: Remove the unadopted rotation code and file the follow-ups
+  - Replaces the original Steps 3 and 4 (rotate on the shared mesh path,
+    record the value shift), dropped when the Decision was approved: the
+    rotation is not adopted, so nothing in the scan, the index or the stored
+    values changes.
   - Done when:
-    - `eyes.rs`: `landmarks_of` and `mesh_of` take the rotated crop of
-      Step 1 with the roll from `eye_line_roll` of the face (and the dead
-      band / guard the Decision chose, as named, documented constants); the
-      opt-in functions of Step 1 fold into them (no two public paths left);
-      the module comment no longer says "no roll correction" and says what
-      the crop is; `judge_mesh` (so `eyes_of`, the meta pane and the mesh
-      overlay) and the scan's `focus_cue_unless` change behavior through
-      the same two functions and nothing else. The on-demand `eyes_of`
-      points stay in stored preview coordinates, so `facemesh.ts` draws
-      them unchanged.
-    - The pose's roll is the true roll: solved on the mapped-back upright
-      points. A synthetic test rotates the existing orientation fixture's
-      face by a known in-plane angle and checks `Mesh::pose.roll` moves by
-      that angle with the `Pose` sign; `pose.rs` is only touched if that
-      test needs a helper. `MAX_ROLL` stays.
-    - If the Decision re-fitted: the new `MESH_LOGIT_*` / `CANDIDATE_LOGIT`
-      / `EYES_CLOSED_EAR` in `candidate.rs` / `eyes.rs` from `frozen.json`,
-      with their doc comments carrying the new training / held-out numbers
-      and the date; the frozen-coefficient tests updated. Otherwise the
-      constants are untouched and their doc comments gain one line saying
-      they were re-verified after the rotation (the numbers from
-      `compare.md`).
-    - `crates/app/src/index.rs`: `FACES_VERSION` 9 with its history line
-      ("re-runs it after the mesh crop gained the eye-line roll
-      correction"); no schema change. `docs/agents/tauri-app.md`'s
-      `FACES_VERSION` note names it.
-    - `riffle-cli candidates` on the training and held-out folders and
-      `riffle-cli eyes` on the labeled faces reproduce `compare.md`'s
-      "after" numbers within rounding (recorded in `learnings.md`);
-      `riffle-cli meshfit` keeps working as a diagnostic (its `before`
-      columns now come from a roll of 0 passed explicitly, say so in its
-      doc comment) or is reduced to the overlay writer, whichever is less
-      code.
+    - `crates/core/src/eyes.rs` loses the Step 1 opt-in functions
+      (`eye_line_roll`, `rotated_crop`, `rotate_back`,
+      `landmarks_of_rotated`, `mesh_of_rotated`) and their tests;
+      `mesh_of` / `landmarks_of`, the module comment and the constants are
+      as on `main` before Step 1.
+    - `crates/cli/src/main.rs` loses the `meshfit` subcommand, its helpers
+      and its tests; nothing else in the CLI changes. The dump, sheets and
+      the release exe that produced the numbers stay in
+      `D:\Photos\tests\2026-10-09-mesh-roll\`, and the code stays
+      reachable from #755 and this plan's Step 2 commit; `learnings.md` says
+      so.
+    - `todo.md`, face / eye section: unchecked, fully specified items for
+      (1) `20261008-burst-keep-score` to make `eye_offset` reliable where
+      YuNet's eye distance is under 0.20 of the box side (skip the cut
+      there, or compare against the mesh's own geometry), with the numbers
+      from the Decision; (2) a side-face rule for the mesh values (the
+      dominant misfit); (3) faces rolled past 90 deg, which need a roll
+      source other than YuNet's x-ordered eye points, not planned; (4) the
+      user's review of the misfit labels in `misfit-truth.md`
+      (`D:\Photos\tests\2026-10-09-mesh-roll\sheets\`). Each names this
+      plan folder in backticks.
+    - No doc outside this plan folder and `todo.md` mentions the removed
+      functions or `meshfit` (check `CLAUDE.md`, `docs/agents/`,
+      `docs/humans/`).
     - `mise run ci` passes.
   - Implementation approach:
-    - Assumes the gate above. Files: `crates/core/src/eyes.rs`,
-      `crates/core/src/candidate.rs` (constants only), `crates/core/src/pose.rs`
-      (test helper only, if at all), `crates/app/src/index.rs`,
-      `crates/cli/src/main.rs`, `docs/agents/tauri-app.md`, `learnings.md`.
-    - The mesh runs on many rayon threads; the rotation sampler allocates
-      one crop per call as `upright_crop` does. Measure the per-file mesh
-      time before / after on `2026-09-19` at 24 threads (`riffle-cli
-      candidates`), and the app's `scan faces` log line on that folder if
-      the GUI is run (else say so), for Step 4.
-
-- [ ] Step 4: Record the shift of the stored values and bring the docs and the todo in line
-  - Done when:
-    - **Shift record.** `riffle-cli features` (from `main` after Step 3)
-      over the same six folders as the Step 5 re-dump, saved under
-      `D:\Photos\tests\2026-10-09-mesh-roll\redump\`; `shift.md` in this
-      plan folder: per column the percentiles before (the Step 5 re-dump)
-      and after (EAR, `eye_focus`, `eye_offset`, yaw / pitch / roll), the
-      share over `MAX_EYE_OFFSET` 0.10 before and after, the share of
-      frames whose `candidate` state or `eyes` state changed, and the Good
-      / Fair shares the **unchanged** `focus.ts` cuts would give on the new
-      values (information for the owning plan; the cuts are not moved
-      here). `learnings.md` says the same in two lines and that the
-      good-photo thresholds (`GOOD_*` / `FAIR_*` / `MAX_EYE_OFFSET` /
-      `MIN_EDGE_GAP`) are to be re-measured by `20261008-burst-keep-score`
-      with its 60-frame scoring, not here.
-    - `todo.md`, face / eye section: a checked item for this work with the
-      plan folder in backticks, the misfit share before / after and the
-      residual kinds; an unchecked, fully specified item for the owning
-      plan's re-measurement of the `focus.ts` thresholds on the rotated
-      values (the files, the dump to use, the 60-frame sample), and one for
-      each residual misfit kind the Decision named worth a follow-up (e.g. a
-      YuNet-landmark sanity guard, a side-face rule).
-    - `docs/humans/usage.md` (Focus mark paragraph, the closed-eyes / head
-      pose sentences, if they describe the crop) and `performance.md`
-      ("Focus candidate pass", "Closed-eyes judgment on demand") updated
-      with the rotation and the Step 3 timings; `usage.ja.md` /
-      `performance.ja.md` in sync. `CLAUDE.md` Layout: `src/eyes.rs` names
-      the eye-line roll correction. `docs/agents/tract-onnx-inference.md`:
-      a short Measured item on feeding the mesh a de-rotated crop (what
-      changed in the outputs). `README*.md` only if a sentence changes
-      meaning.
-    - `mise run ci` passes.
-  - Implementation approach:
-    - Assumes Step 3 is merged. Docs and one re-dump; no code beyond a
-      scratch script kept in this plan folder if `shift.md` needs one
-      (`shift.py`).
+    - Files: `crates/core/src/eyes.rs`, `crates/cli/src/main.rs`,
+      `todo.md`, `learnings.md`. Reverting the Step 1 and Step 2 hunks of
+      those two source files is the whole code change.
 
 ## Trade-offs and risks
 
@@ -417,8 +363,10 @@ the good-photo thresholds.
 
 ## Decision
 
-**Awaiting the user's approval before Step 3.** The misfit labels it rests
-on are the agent's; **the user's review of `misfit-truth.md` is pending**.
+**Approved by the user on 2026-10-10**, together with removing the Step 1
+opt-in functions and `riffle-cli meshfit` (Step 3). The misfit labels it
+rests on are the agent's; the user approved without reviewing them, so that
+review stays pending as a todo item.
 
 **Recommendation: do not adopt the eye-line rotation in any variant; no
 re-fit; Steps 3 and 4 are not run as written** (see "If approved" below).
@@ -498,3 +446,5 @@ and `riffle-cli meshfit` stay as a diagnostic or are removed.
 
 - (2026-10-09) Plan written
 - (2026-10-10) Step 1 complete
+- (2026-10-10) Step 2 complete
+- (2026-10-10) Decision approved: no rotation; Steps 3 and 4 replaced by one removal / follow-up step
