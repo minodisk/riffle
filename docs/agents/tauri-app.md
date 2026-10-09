@@ -910,7 +910,7 @@ that already have the column, and the `ALTER TABLE` fails.
   relates to: `ALTER TABLE ADD COLUMN` always appends, so only an end
   placement keeps fresh and migrated databases in the same column order
   (v18's `eyes_ear` and `pose_*` sit after `faces_extractor`, v19's
-  `eye_offset` and `edge_gap` after them). Every older fixture (v10 to v16)
+  `eye_offset` and `edge_gap` after them). Every fixture of an older version
   then has to drop the new columns too, and the version
   asserts should read `SCHEMA_VERSION`, not a literal.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
