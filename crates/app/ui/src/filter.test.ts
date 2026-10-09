@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { Exif, ExifGroup } from "./exif.js";
 import type { EyeState } from "./eyes.js";
-import type { FocusCandidate } from "./meta.js";
 import {
+  type AfEye,
   type FilterState,
   type Flag,
   type Judgment,
@@ -19,7 +19,7 @@ function state(
   exif: [ExifGroup, string[]][] = [],
   labels: string[] = [],
   orientations: Orientation[] = [],
-  candidates: FocusCandidate[] = [],
+  candidates: AfEye[] = [],
   eyes: EyeState[] = [],
 ): FilterState {
   return {
@@ -352,6 +352,67 @@ describe("passes: focus candidates", () => {
     const flagged = state(["untagged"], [], [], [], [], ["candidate"]);
     expect(passes(flagged, unjudged, undefined, 1, "candidate")).toBe(true);
     expect(passes(flagged, pickedTwo, undefined, 1, "candidate")).toBe(false);
+  });
+});
+
+describe("passes: photo tiers", () => {
+  const tier = (...items: AfEye[]) => state([], [], [], [], [], items);
+  const at = (s: FilterState, t: "good" | "fair" | null | undefined) =>
+    passes(
+      s,
+      unjudged,
+      undefined,
+      1,
+      t === null || t === undefined ? "unknown" : "candidate",
+      undefined,
+      t,
+    );
+
+  test("off passes every tier", () => {
+    for (const t of ["good", "fair", null, undefined] as const) {
+      expect(at(state(), t)).toBe(true);
+    }
+  });
+
+  test("good passes a good frame only", () => {
+    expect(at(tier("good"), "good")).toBe(true);
+    expect(at(tier("good"), "fair")).toBe(false);
+    expect(at(tier("good"), null)).toBe(false);
+    expect(at(tier("good"), undefined)).toBe(false);
+  });
+
+  test("fair passes a fair frame only", () => {
+    expect(at(tier("fair"), "fair")).toBe(true);
+    expect(at(tier("fair"), "good")).toBe(false);
+    expect(at(tier("fair"), null)).toBe(false);
+  });
+
+  test("a candidate in neither tier passes neither", () => {
+    expect(passes(tier("good", "fair"), unjudged, undefined, 1, "candidate", undefined, null)).toBe(
+      false,
+    );
+  });
+
+  test("ORs with the checked tiers and states", () => {
+    expect(at(tier("good", "fair"), "good")).toBe(true);
+    expect(at(tier("good", "fair"), "fair")).toBe(true);
+    const goodOrUnknown = tier("good", "unknown");
+    expect(at(goodOrUnknown, "good")).toBe(true);
+    expect(at(goodOrUnknown, null)).toBe(true);
+    expect(at(goodOrUnknown, "fair")).toBe(false);
+  });
+
+  test("Sharp keeps passing every candidate, in a tier or not", () => {
+    const sharp = tier("candidate");
+    expect(at(sharp, "good")).toBe(true);
+    expect(at(sharp, "fair")).toBe(true);
+    expect(passes(sharp, unjudged, undefined, 1, "candidate", undefined, null)).toBe(true);
+  });
+
+  test("ANDs with the other groups", () => {
+    const flagged = state(["untagged"], [], [], [], [], ["good"]);
+    expect(passes(flagged, unjudged, undefined, 1, "candidate", undefined, "good")).toBe(true);
+    expect(passes(flagged, pickedTwo, undefined, 1, "candidate", undefined, "good")).toBe(false);
   });
 });
 

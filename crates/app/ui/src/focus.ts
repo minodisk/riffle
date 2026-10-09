@@ -15,10 +15,13 @@ export interface MarkFocus extends StoredEyes {
   eye_focus: number | null;
 }
 
-// The state the mark's color is read from: `good` for a frame `goodPhoto`
-// passes, `candidate_only` for a focus candidate it does not pass, else the
-// focus candidate state.
-export type MarkState = "good" | "candidate_only" | "not_candidate" | "unknown";
+// The tier `photoTier` puts a frame in: a good photo, or a fair one just below.
+export type PhotoTier = "good" | "fair";
+
+// The state the mark's color is read from: the frame's `photoTier`,
+// `candidate_only` for a focus candidate in neither tier, else the focus
+// candidate state.
+export type MarkState = PhotoTier | "candidate_only" | "not_candidate" | "unknown";
 
 export interface FocusMark {
   x: number;
@@ -27,11 +30,13 @@ export interface FocusMark {
   state: MarkState;
 }
 
-// The mark's color per state: bright green for a good photo, a dim green for
-// a focus candidate that is not one, orange when the eyes of the face nearest
-// the AF point are not sharp, white when Riffle does not know.
+// The mark's color per state: bright green for a good photo, azure for a fair
+// one, a dim green for a focus candidate in neither tier, orange when the eyes
+// of the face nearest the AF point are not sharp, white when Riffle does not
+// know.
 export const FOCUS_MARK_COLORS = {
   good: "#3f3",
+  fair: "#5af",
   candidate_only: "#8b8",
   not_candidate: "#f93",
   unknown: "#fff",
@@ -51,6 +56,17 @@ export const GOOD_MAX_YAW = 60;
 // |pitch| in degrees: 96% of the poses are within.
 export const GOOD_MAX_PITCH = 45;
 
+// The fair-tier cuts, looser than the good ones so the two tiers together mark
+// about 20% of the re-dump's faced AF frames (20.3%: good 9.0%, fair 11.3%).
+// Provisional too (2026-10-09, the same `provisional.md`).
+// At the re-dump's 67th percentile of `eye_focus`.
+export const FAIR_EYE_FOCUS = 0.99;
+// At the 35th percentile of the EAR (open probability 0.964, openness 41).
+export const FAIR_EYE_EAR = 0.25;
+// The same loose pose cut as the good tier.
+export const FAIR_MAX_YAW = 60;
+export const FAIR_MAX_PITCH = 45;
+
 // The EAR the eyes count as closed at and below, `EYES_CLOSED_EAR` in
 // `crates/core/src/eyes.rs`.
 export const EYES_CLOSED_EAR = 0.137;
@@ -68,30 +84,46 @@ export function eyesOpenness(ear: number | null): number | null {
   return Math.min(Math.max(t, 0), 1) * 100;
 }
 
-// A "good photo": a focus candidate whose AF eyes are in focus, whose eyes are
-// open and whose face is toward the camera, all at once. Any missing value
-// (no face near the AF point, a face too small for the mesh) is not good.
-export function goodPhoto(focus: MarkFocus | null | undefined): boolean {
-  if (focus === null || focus === undefined || focus.candidate !== "candidate") {
-    return false;
-  }
-  const { eye_focus, eyes_ear, pose } = focus;
+function clears(
+  { eye_focus, eyes_ear, pose }: MarkFocus,
+  minEyeFocus: number,
+  minEar: number,
+  maxYaw: number,
+  maxPitch: number,
+): boolean {
   return (
     eye_focus !== null &&
-    eye_focus >= GOOD_EYE_FOCUS &&
+    eye_focus >= minEyeFocus &&
     eyes_ear !== null &&
-    eyes_ear >= GOOD_EYE_EAR &&
+    eyes_ear >= minEar &&
     pose !== null &&
-    Math.abs(pose.yaw) <= GOOD_MAX_YAW &&
-    Math.abs(pose.pitch) <= GOOD_MAX_PITCH
+    Math.abs(pose.yaw) <= maxYaw &&
+    Math.abs(pose.pitch) <= maxPitch
   );
+}
+
+// A focus candidate whose AF eyes are in focus, whose eyes are open and whose
+// face is toward the camera, all at once: `good` when it clears the good
+// cuts, else `fair` when it clears the fair ones. Any missing value (no face
+// near the AF point, a face too small for the mesh) is in neither tier.
+export function photoTier(focus: MarkFocus | null | undefined): PhotoTier | null {
+  if (focus === null || focus === undefined || focus.candidate !== "candidate") {
+    return null;
+  }
+  if (clears(focus, GOOD_EYE_FOCUS, GOOD_EYE_EAR, GOOD_MAX_YAW, GOOD_MAX_PITCH)) {
+    return "good";
+  }
+  if (clears(focus, FAIR_EYE_FOCUS, FAIR_EYE_EAR, FAIR_MAX_YAW, FAIR_MAX_PITCH)) {
+    return "fair";
+  }
+  return null;
 }
 
 function markState(focus: MarkFocus): MarkState {
   if (focus.candidate !== "candidate") {
     return focus.candidate;
   }
-  return goodPhoto(focus) ? "good" : "candidate_only";
+  return photoTier(focus) ?? "candidate_only";
 }
 
 // `null` for a manual-focus shot, whose recorded point is not trusted. The
