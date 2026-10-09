@@ -190,7 +190,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   a focus candidate that is not good: the eyes of the face nearest the AF
   point are likely in focus (their in-focus probability, a logistic
   combination of the Laplacian variance and the mean edge width, is about
-  77% or more), but the eyes, the pose or the mesh miss a cut. The
+  77% or more), but the in-focus probability, the eyes, the pose, the mesh or the frame's edge miss a cut. The
   probability is measured over each eye's eyelid region, which a face mesh
   model (MediaPipe Face Landmarker v2) finds, and the sharper of the two
   eyes counts; when neither eye's region counts (under 24 px, as on small
