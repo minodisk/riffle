@@ -109,3 +109,4 @@ partition the frames and the menu reads like the mark's colors.
   in-focus frames outside Good. The item is renamed `Sharp only`, the docs
   (README, `docs/humans/usage`) list all four `AF eye` items, and the
   burst-keep-score plan's Step 6 carries a note about the change.
+- (2026-10-10) Step 1 complete
