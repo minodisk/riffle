@@ -676,7 +676,7 @@ fn mesh_columns(face: Option<&faces::Face>, measured: Option<&Measured>) -> Stri
 }
 
 /// The header of `features`, the column names of `features_line`.
-const FEATURES_HEADER: &str = "folder\tfile\tcapture_time\tsubsec\txmp\tdop\tsharpness\tstate\teye_focus\tcue_side\taf\tjudged_side\tear\teyes_open\tyaw\tpitch\troll\tanalysis_ms\teyes_ms";
+const FEATURES_HEADER: &str = "folder\tfile\tcapture_time\tsubsec\txmp\tdop\tsharpness\tstate\teye_focus\tcue_side\taf\tjudged_side\tear\teyes_open\tyaw\tpitch\troll\teye_offset\tedge_gap\tanalysis_ms\teyes_ms";
 
 /// Dump every feature of every RAW file of the given folders (not recursive,
 /// each folder's sorted) on a pool of `threads` threads: `FEATURES_HEADER`,
@@ -691,7 +691,8 @@ const FEATURES_HEADER: &str = "folder\tfile\tcapture_time\tsubsec\txmp\tdop\tsha
 /// height) in preview pixels; from the path `eyes_of` takes: `af` / `noaf`
 /// (a trusted AF point), the judged face's box side, the EAR of its more
 /// closed eye, the eyes-open probability (`1 -` the closed one), `yaw`,
-/// `pitch` and `roll` in degrees; then the ms of the analysis and of the eyes
+/// `pitch` and `roll` in degrees; from the analysis again, the cue mesh's
+/// `eye_offset` and `edge_gap`; then the ms of the analysis and of the eyes
 /// path. A missing value is `-`; a failed analysis or eyes path is `err` in
 /// its columns.
 fn features(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
@@ -851,15 +852,18 @@ fn features_line(
     let opt =
         |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
     let text = |v: &Option<String>| v.clone().unwrap_or_else(|| "-".into());
-    let analysis = match analysis {
-        Ok(a) => [
-            opt(a.sharpness, 4),
-            format!("{:?}", a.cue.state),
-            opt(a.cue.eye_focus, 4),
-            opt(a.cue.face.map(|f| f.width.max(f.height) as f64), 1),
-        ]
-        .join("\t"),
-        Err(_) => ["err"; 4].join("\t"),
+    let (analysis, mesh) = match analysis {
+        Ok(a) => (
+            [
+                opt(a.sharpness, 4),
+                format!("{:?}", a.cue.state),
+                opt(a.cue.eye_focus, 4),
+                opt(a.cue.face.map(|f| f.width.max(f.height) as f64), 1),
+            ]
+            .join("\t"),
+            [opt(a.cue.eye_offset, 4), opt(a.cue.edge_gap, 4)].join("\t"),
+        ),
+        Err(_) => (["err"; 4].join("\t"), ["err"; 2].join("\t")),
     };
     let (time, eyes) = match eyes {
         Ok(e) => (
@@ -877,7 +881,7 @@ fn features_line(
         ),
         Err(_) => (["err"; 2].join("\t"), ["err"; 7].join("\t")),
     };
-    format!("{folder}\t{name}\t{time}\t{xmp_flag}\t{dop_flag}\t{analysis}\t{eyes}\t{analysis_ms:.1}\t{eyes_ms:.1}")
+    format!("{folder}\t{name}\t{time}\t{xmp_flag}\t{dop_flag}\t{analysis}\t{eyes}\t{mesh}\t{analysis_ms:.1}\t{eyes_ms:.1}")
 }
 
 /// One file of `detect`: the path taken, the faces and the times in ms.
@@ -1625,6 +1629,8 @@ mod tests {
                 },
                 ear: None,
                 pose: Some(pose),
+                eye_offset: None,
+                edge_gap: None,
             }),
         };
         let measured = Measured {
@@ -1677,6 +1683,8 @@ mod tests {
                 detection: None,
                 eyes_ear: None,
                 pose: None,
+                eye_offset: Some(0.04567),
+                edge_gap: Some(0.25),
             },
             sharpness: Some(123.45678),
         });
@@ -1695,7 +1703,7 @@ mod tests {
         });
         assert_eq!(
             features_line("2026-09-19", "a.ARW", "Pick", "Pick", &analysis, 40.04, &eyes, 85.06),
-            "2026-09-19\ta.ARW\t2026:09:19 10:11:12\t345\tPick\tPick\t123.4568\tCandidate\t0.9123\t96.6\taf\t96.6\t0.2123\t0.9877\t-12.3\t4.1\t0.0\t40.0\t85.1"
+            "2026-09-19\ta.ARW\t2026:09:19 10:11:12\t345\tPick\tPick\t123.4568\tCandidate\t0.9123\t96.6\taf\t96.6\t0.2123\t0.9877\t-12.3\t4.1\t0.0\t0.0457\t0.2500\t40.0\t85.1"
         );
         let unknown = Ok(scan::Analysis::default());
         let no_face = Ok(EyesFeatures {
@@ -1719,7 +1727,7 @@ mod tests {
         );
         assert_eq!(
             line,
-            "2026-05-22\tb.DNG\t2026:05:22 08:00:00\t-\t-\tNone\t-\tUnknown\t-\t-\tnoaf\t-\t-\t-\t-\t-\t-\t30.0\t50.0"
+            "2026-05-22\tb.DNG\t2026:05:22 08:00:00\t-\t-\tNone\t-\tUnknown\t-\t-\tnoaf\t-\t-\t-\t-\t-\t-\t-\t-\t30.0\t50.0"
         );
         assert_eq!(
             line.split('\t').count(),
@@ -1737,7 +1745,7 @@ mod tests {
         );
         assert_eq!(
             failed,
-            "x\tc.ARW\terr\terr\terr\t-\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\t1.0\t2.0"
+            "x\tc.ARW\terr\terr\terr\t-\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\terr\t1.0\t2.0"
         );
     }
 

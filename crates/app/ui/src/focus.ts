@@ -42,30 +42,42 @@ export const FOCUS_MARK_COLORS = {
   unknown: "#fff",
 } as const satisfies Record<MarkState, string>;
 
-// The good-photo cuts on the values pass 2 stores for the AF face. All four are
-// provisional (2026-10-09, `docs/plans/20261008-burst-keep-score/provisional.md`),
-// read from the re-dump of six ARW folders (8915 faced AF frames), and are to
-// be tuned in that plan's Step 5.
+// The good-photo cuts on the values pass 2 stores for the AF face, read from
+// the re-dump of six ARW folders (8915 faced AF frames) on 2026-10-09 and tuned
+// in Step 5 from the user's stars on a 60-frame sample
+// (`docs/plans/20261008-burst-keep-score/provisional.md`).
 // The in-focus probability of the AF eyes, at the re-dump's 79th percentile.
 export const GOOD_EYE_FOCUS = 0.998;
 // The EAR of the more closed eye, at the 54th percentile (open probability
 // 0.991): wide open rather than not closed.
 export const GOOD_EYE_EAR = 0.3;
-// |yaw| in degrees, only extreme turns excluded: 86% of the poses are within.
-export const GOOD_MAX_YAW = 60;
+// |yaw| in degrees, "both eyes visible": a turned face foreshortens the eye
+// and inflates its EAR. 56% of the poses are within.
+export const GOOD_MAX_YAW = 30;
 // |pitch| in degrees: 96% of the poses are within.
 export const GOOD_MAX_PITCH = 45;
 
-// The fair-tier cuts, looser than the good ones so the two tiers together mark
-// about 20% of the re-dump's faced AF frames (20.3%: good 9.0%, fair 11.3%).
-// Provisional too (2026-10-09, the same `provisional.md`).
+// The fair-tier cuts, looser than the good ones on the eyes (the same
+// `provisional.md`); with the Step 5 pose cut and exclusions the two tiers
+// together mark 13.7% of the re-dump's faced AF frames (good 6.0%, fair 7.7%).
 // At the re-dump's 67th percentile of `eye_focus`.
 export const FAIR_EYE_FOCUS = 0.99;
 // At the 35th percentile of the EAR (open probability 0.964, openness 41).
 export const FAIR_EYE_EAR = 0.25;
-// The same loose pose cut as the good tier.
-export const FAIR_MAX_YAW = 60;
+// The same pose cut as the good tier.
+export const FAIR_MAX_YAW = 30;
 export const FAIR_MAX_PITCH = 45;
+
+// Exclusions from both tiers, on how well the mesh sits on the face.
+// The mesh's eyes farther than this from YuNet's eye landmarks, in face box
+// sides, mean a mesh fitted off the face (an in-plane rotated face): the
+// sample's well-fitted tier frames were all under 0.09, the misfit
+// `_DSC2638` at 0.125; 7.6% of the frames the cuts alone tier exceed it.
+export const MAX_EYE_OFFSET = 0.1;
+// The face box or a mesh eye region closer to the preview's edge than this,
+// in face box sides, means a face the frame cuts: YuNet's box ends at the
+// edge of what is visible (`_DSC3345` at 0.008), so a small margin, not 0.
+export const MIN_EDGE_GAP = 0.02;
 
 // The EAR the eyes count as closed at and below, `EYES_CLOSED_EAR` in
 // `crates/core/src/eyes.rs`.
@@ -85,7 +97,7 @@ export function eyesOpenness(ear: number | null): number | null {
 }
 
 function clears(
-  { eye_focus, eyes_ear, pose }: MarkFocus,
+  { eye_focus, eyes_ear, pose, eye_offset, edge_gap }: MarkFocus,
   minEyeFocus: number,
   minEar: number,
   maxYaw: number,
@@ -98,14 +110,19 @@ function clears(
     eyes_ear >= minEar &&
     pose !== null &&
     Math.abs(pose.yaw) <= maxYaw &&
-    Math.abs(pose.pitch) <= maxPitch
+    Math.abs(pose.pitch) <= maxPitch &&
+    eye_offset !== null &&
+    eye_offset <= MAX_EYE_OFFSET &&
+    edge_gap !== null &&
+    edge_gap >= MIN_EDGE_GAP
   );
 }
 
 // A focus candidate whose AF eyes are in focus, whose eyes are open and whose
 // face is toward the camera, all at once: `good` when it clears the good
-// cuts, else `fair` when it clears the fair ones. Any missing value (no face
-// near the AF point, a face too small for the mesh) is in neither tier.
+// cuts, else `fair` when it clears the fair ones. A mesh off the face or a
+// face the frame's edge cuts is in neither tier, nor is any missing value (no
+// face near the AF point, a face too small for the mesh).
 export function photoTier(focus: MarkFocus | null | undefined): PhotoTier | null {
   if (focus === null || focus === undefined || focus.candidate !== "candidate") {
     return null;
@@ -180,6 +197,8 @@ export function applyFaceReady<T extends { focus: MarkFocus | null }>(
     focus.eyes = item.eyes;
     focus.eyes_closed = item.eyes_closed;
     focus.pose = item.pose;
+    focus.eye_offset = item.eye_offset;
+    focus.edge_gap = item.edge_gap;
     if (item.path === current) {
       touched = true;
     }

@@ -202,6 +202,8 @@ interface Focus {
   eyes: EyeState;
   eyes_closed: number | null;
   pose: Pose | null;
+  eye_offset: number | null;
+  edge_gap: number | null;
 }
 
 interface IndexedFile {

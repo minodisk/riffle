@@ -125,6 +125,12 @@ pub struct Cue {
     pub eyes_ear: Option<f64>,
     /// The head pose of `face`; `None` without a mesh or a solve.
     pub pose: Option<Pose>,
+    /// How far the mesh's eyes sit from `face`'s YuNet eye landmarks
+    /// (`EyeMeasures::eye_offset`); `None` without a mesh.
+    pub eye_offset: Option<f64>,
+    /// How close `face` and its mesh eye regions come to the preview's edge
+    /// (`EyeMeasures::edge_gap`); `None` without a mesh.
+    pub edge_gap: Option<f64>,
 }
 
 impl Cue {
@@ -334,7 +340,7 @@ pub fn eye_focus(
     face: &Face,
     mesh: Option<&Mesh>,
 ) -> EyeFocus {
-    let measures = mesh.map(|m| mesh_eye_measures(gray, width, height, m));
+    let measures = mesh.map(|m| mesh_eye_measures(gray, width, height, face, m));
     let left = measures.and_then(|m| Some((m.left.contour?, mesh_logit(m.left.contour)?)));
     let right = measures.and_then(|m| Some((m.right.contour?, mesh_logit(m.right.contour)?)));
     let chosen = match (left, right) {
@@ -389,6 +395,25 @@ pub fn eye_region(
     width: usize,
     height: usize,
 ) -> Option<Window> {
+    let [x0, y0, x1, y1] = grown_bounds(points, indices)?;
+    let lo = |v: f32| v.floor().max(0.0) as usize;
+    let hi = |v: f32, limit: usize| (v.ceil().max(0.0) as usize).min(limit);
+    let (left, top) = (lo(x0), lo(y0));
+    let (right, bottom) = (hi(x1, width), hi(y1, height));
+    let window = Window {
+        x: left,
+        y: top,
+        width: right.saturating_sub(left),
+        height: bottom.saturating_sub(top),
+    };
+    (window.width >= 3 && window.height >= 3).then_some(window)
+}
+
+/// The bounding box `[left, top, right, bottom]` of the mesh `points` named
+/// by `indices`, grown by `EYE_REGION_MARGIN` times its longer side on each
+/// side, before `eye_region` clamps it; `None` when an index is out of range
+/// or a point is not finite.
+fn grown_bounds(points: &[[f32; 2]], indices: &[usize]) -> Option<[f32; 4]> {
     let (mut x0, mut y0) = (f32::INFINITY, f32::INFINITY);
     let (mut x1, mut y1) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
     for &i in indices {
@@ -399,17 +424,63 @@ pub fn eye_region(
         (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
     }
     let margin = (x1 - x0).max(y1 - y0) * EYE_REGION_MARGIN;
-    let lo = |v: f32| (v - margin).floor().max(0.0) as usize;
-    let hi = |v: f32, limit: usize| ((v + margin).ceil().max(0.0) as usize).min(limit);
-    let (left, top) = (lo(x0), lo(y0));
-    let (right, bottom) = (hi(x1, width), hi(y1, height));
-    let window = Window {
-        x: left,
-        y: top,
-        width: right.saturating_sub(left),
-        height: bottom.saturating_sub(top),
+    Some([x0 - margin, y0 - margin, x1 + margin, y1 + margin])
+}
+
+/// How far the mesh's eyes sit from YuNet's eye landmarks of the same
+/// `face`: the larger of the two distances between an eyelid contour's
+/// center (the mean of its points) and its landmark, in the pairing of the
+/// two eyes with the landmarks that keeps that larger distance smaller,
+/// divided by the face box's longer side. A mesh fitted off the face (an
+/// in-plane rotation the upright crop does not undo) reads far. `None` when
+/// a contour point is not finite or the box is empty.
+pub fn mesh_eye_offset(face: &Face, points: &[[f32; 2]]) -> Option<f64> {
+    let center = |indices: &[usize]| -> Option<(f32, f32)> {
+        let mut sum = (0.0, 0.0);
+        for &i in indices {
+            let [x, y] = *points.get(i)?;
+            if !x.is_finite() || !y.is_finite() {
+                return None;
+            }
+            sum = (sum.0 + x, sum.1 + y);
+        }
+        let n = indices.len() as f32;
+        Some((sum.0 / n, sum.1 / n))
     };
-    (window.width >= 3 && window.height >= 3).then_some(window)
+    let (left, right) = (center(&LEFT_EYE_CONTOUR)?, center(&RIGHT_EYE_CONTOUR)?);
+    let side = face.width.max(face.height);
+    if side <= 0.0 {
+        return None;
+    }
+    let d = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).hypot(a.1 - b.1);
+    let straight = d(left, face.left_eye).max(d(right, face.right_eye));
+    let crossed = d(left, face.right_eye).max(d(right, face.left_eye));
+    Some(f64::from(straight.min(crossed) / side))
+}
+
+/// How close `face` comes to the edge of the `width` x `height` image: the
+/// smallest distance from its box, or from either eyelid contour region of
+/// its mesh `points` (grown as `eye_region` grows it, before the clamp), to
+/// an image edge, divided by the box's longer side; negative when one
+/// extends outside. YuNet's box covers only the visible part of a face the
+/// frame's edge cuts, so such a box ends at (about) the edge. An eye whose
+/// region cannot be built is left out. `None` when the box is empty.
+pub fn edge_gap(face: &Face, points: &[[f32; 2]], width: usize, height: usize) -> Option<f64> {
+    let side = face.width.max(face.height);
+    if side <= 0.0 {
+        return None;
+    }
+    let (w, h) = (width as f32, height as f32);
+    let gap = |[x0, y0, x1, y1]: [f32; 4]| x0.min(y0).min(w - x1).min(h - y1);
+    let gap = [&LEFT_EYE_CONTOUR[..], &RIGHT_EYE_CONTOUR[..]]
+        .iter()
+        .filter_map(|indices| grown_bounds(points, indices))
+        .map(gap)
+        .fold(
+            gap([face.x, face.y, face.x + face.width, face.y + face.height]),
+            f32::min,
+        );
+    Some(f64::from(gap / side))
 }
 
 /// The Laplacian variance, the `edge_width` and the edge width over the
@@ -453,11 +524,21 @@ pub struct EyeMeasures {
     /// `eyes::judge_mesh` judges the same face on.
     pub ear: Option<f64>,
     pub pose: Option<Pose>,
+    /// `mesh_eye_offset` of the face and the mesh.
+    pub eye_offset: Option<f64>,
+    /// `edge_gap` of the face and the mesh.
+    pub edge_gap: Option<f64>,
 }
 
 /// The `EyeMeasures` of `gray` (`width` x `height`, stored coordinates) over
-/// the eyelid contour and iris regions of `mesh`.
-pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) -> EyeMeasures {
+/// the eyelid contour and iris regions of `face`'s `mesh`.
+pub fn mesh_eye_measures(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    face: &Face,
+    mesh: &Mesh,
+) -> EyeMeasures {
     let region = |indices: &[usize]| {
         eye_region(&mesh.points, indices, width, height).map(|window| {
             let (lap, edge_width, edge_width_rel) = eye_measures(gray, width, window);
@@ -480,6 +561,8 @@ pub fn mesh_eye_measures(gray: &[u8], width: usize, height: usize, mesh: &Mesh) 
         },
         ear: more_closed_ear(&mesh.points),
         pose: mesh.pose,
+        eye_offset: mesh_eye_offset(face, &mesh.points),
+        edge_gap: edge_gap(face, &mesh.points, width, height),
     }
 }
 
@@ -595,8 +678,9 @@ pub fn focus_cue_unless(
     Some(Ok(cue_of(face, detection, focus)))
 }
 
-/// The cue of `face`, picked from `detection`, scored as `focus`; the EAR
-/// and the pose come from `focus`'s mesh, so a face without one has neither.
+/// The cue of `face`, picked from `detection`, scored as `focus`; the EAR,
+/// the pose, the eye offset and the edge gap come from `focus`'s mesh, so a face
+/// without one has none of them.
 fn cue_of(face: Option<Face>, detection: Detection, focus: Option<EyeFocus>) -> Cue {
     let mesh = focus.and_then(|f| f.mesh);
     Cue {
@@ -606,6 +690,8 @@ fn cue_of(face: Option<Face>, detection: Detection, focus: Option<EyeFocus>) -> 
         detection: Some(detection),
         eyes_ear: mesh.and_then(|m| m.ear),
         pose: mesh.and_then(|m| m.pose),
+        eye_offset: mesh.and_then(|m| m.eye_offset),
+        edge_gap: mesh.and_then(|m| m.edge_gap),
     }
 }
 
@@ -905,7 +991,7 @@ mod tests {
             pose: Some(pose),
         };
         let gray = ramp(4);
-        let m = mesh_eye_measures(&gray, 40, 40, &mesh);
+        let m = mesh_eye_measures(&gray, 40, 40, &two_eyed(), &mesh);
         let left = Window {
             x: 0,
             y: 0,
@@ -997,7 +1083,7 @@ mod tests {
             for pose in [None, Some(turned(yaw))] {
                 let mesh = both_eyes(pose);
                 let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
-                let m = mesh_eye_measures(&gray, 120, 60, &mesh);
+                let m = mesh_eye_measures(&gray, 120, 60, &two_eyed(), &mesh);
                 let (l, r) = (mesh_logit(m.left.contour), mesh_logit(m.right.contour));
                 assert!(l.is_some() && r.is_some());
                 assert_eq!(focus.scored, Scored::Sharper(eye));
@@ -1017,7 +1103,7 @@ mod tests {
             (11.0, 23, Scored::Window),
         ] {
             let mesh = boxed_eyes(Some((20.0, 20.0, w, 4.0)), None, None);
-            let m = mesh_eye_measures(&gray, 120, 60, &mesh);
+            let m = mesh_eye_measures(&gray, 120, 60, &two_eyed(), &mesh);
             assert_eq!(m.left.contour.map(|r| r.window.width), Some(side));
             assert!(m.left.contour.and_then(|r| r.edge_width).is_some());
             let focus = eye_focus(&gray, 120, 60, &two_eyed(), Some(&mesh));
@@ -1203,6 +1289,70 @@ mod tests {
             (focus.state, Some(focus.probability))
         );
         assert_eq!((cue.eyes_ear, cue.pose), (ear, Some(pose)));
+        assert_eq!(
+            (cue.eye_offset, cue.edge_gap),
+            (
+                mesh_eye_offset(&two_eyed(), &mesh.points),
+                edge_gap(&two_eyed(), &mesh.points, 120, 60)
+            )
+        );
+        assert!(cue.eye_offset.is_some() && cue.edge_gap.is_some());
+    }
+
+    #[test]
+    fn the_eye_offset_is_the_farther_eye_in_the_closer_pairing_over_the_face_side() {
+        // The contour centers are (20, 25) and (80, 25), on the landmarks.
+        let mesh = both_eyes(None);
+        assert_eq!(mesh_eye_offset(&two_eyed(), &mesh.points), Some(0.0));
+        let off = face(0.0, 0.0, 60.0, (17.0, 21.0), (80.0, 31.0));
+        assert_eq!(
+            mesh_eye_offset(&off, &mesh.points),
+            Some(f64::from(6.0f32 / 60.0))
+        );
+        let swapped = face(0.0, 0.0, 60.0, (80.0, 25.0), (20.0, 25.0));
+        assert_eq!(mesh_eye_offset(&swapped, &mesh.points), Some(0.0));
+        let one_eyed = boxed_eyes(Some((10.0, 20.0, 20.0, 10.0)), None, None);
+        assert_eq!(mesh_eye_offset(&two_eyed(), &one_eyed.points), None);
+        let empty = face(0.0, 0.0, 0.0, (20.0, 25.0), (80.0, 25.0));
+        assert_eq!(mesh_eye_offset(&empty, &mesh.points), None);
+    }
+
+    #[test]
+    fn the_edge_gap_is_the_nearest_of_the_box_and_the_grown_eye_regions_to_an_edge() {
+        let side = 40.0f32;
+        let inside = face(50.0, 20.0, side, (65.0, 37.0), (80.0, 37.0));
+        // Grown by 5 px: the eye regions span y 30-45, the box y 20-60.
+        let mesh = boxed_eyes(
+            Some((60.0, 35.0, 10.0, 5.0)),
+            Some((75.0, 35.0, 10.0, 5.0)),
+            None,
+        );
+        assert_eq!(
+            edge_gap(&inside, &mesh.points, 200, 100),
+            Some(f64::from(20.0 / side))
+        );
+        let cut = Face { x: -4.0, ..inside };
+        assert_eq!(
+            edge_gap(&cut, &mesh.points, 200, 100),
+            Some(f64::from(-4.0 / side))
+        );
+        let high = boxed_eyes(Some((60.0, 2.0, 10.0, 5.0)), None, None);
+        assert_eq!(
+            edge_gap(&inside, &high.points, 200, 100),
+            Some(f64::from(-3.0 / side)),
+            "an eye region past the top while the box is inside"
+        );
+        let none = boxed_eyes(None, None, None);
+        assert_eq!(
+            edge_gap(&inside, &none.points, 200, 100),
+            Some(f64::from(20.0 / side))
+        );
+        let empty = Face {
+            width: 0.0,
+            height: 0.0,
+            ..inside
+        };
+        assert_eq!(edge_gap(&empty, &mesh.points, 200, 100), None);
     }
 
     #[test]

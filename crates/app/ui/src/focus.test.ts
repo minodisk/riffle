@@ -11,6 +11,8 @@ import {
   GOOD_EYE_FOCUS,
   GOOD_MAX_PITCH,
   GOOD_MAX_YAW,
+  MAX_EYE_OFFSET,
+  MIN_EDGE_GAP,
   type MarkFocus,
   applyFaceReady,
   applySharpnessReady,
@@ -20,7 +22,14 @@ import {
   photoTier,
 } from "./focus.js";
 
-const noEyes = { eyes_ear: null, eyes: "unknown", eyes_closed: null, pose: null } as const;
+const noEyes = {
+  eyes_ear: null,
+  eyes: "unknown",
+  eyes_closed: null,
+  pose: null,
+  eye_offset: null,
+  edge_gap: null,
+} as const;
 
 const point: MarkFocus = {
   sensor_w: 7008,
@@ -42,6 +51,8 @@ const good: MarkFocus = {
   eyes: "open",
   eyes_closed: 0.001,
   pose: { yaw: 10, pitch: -5, roll: 3 },
+  eye_offset: 0.03,
+  edge_gap: 2,
 };
 
 describe("focusMark", () => {
@@ -153,6 +164,57 @@ describe("photoTier: good", () => {
     expect(goodPhoto({ ...good, eye_focus: null })).toBe(false);
     expect(goodPhoto({ ...good, eyes_ear: null })).toBe(false);
     expect(goodPhoto({ ...good, pose: null })).toBe(false);
+    expect(goodPhoto({ ...good, eye_offset: null })).toBe(false);
+    expect(goodPhoto({ ...good, edge_gap: null })).toBe(false);
+  });
+
+  test("the eye offset passes at and below its cut, not above", () => {
+    expect(goodPhoto({ ...good, eye_offset: MAX_EYE_OFFSET })).toBe(true);
+    expect(goodPhoto({ ...good, eye_offset: MAX_EYE_OFFSET - 0.001 })).toBe(true);
+    expect(goodPhoto({ ...good, eye_offset: MAX_EYE_OFFSET + 0.001 })).toBe(false);
+  });
+
+  test("the edge gap passes at and above its cut, not below or outside", () => {
+    expect(goodPhoto({ ...good, edge_gap: MIN_EDGE_GAP })).toBe(true);
+    expect(goodPhoto({ ...good, edge_gap: MIN_EDGE_GAP + 0.001 })).toBe(true);
+    expect(goodPhoto({ ...good, edge_gap: MIN_EDGE_GAP - 0.001 })).toBe(false);
+    expect(goodPhoto({ ...good, edge_gap: -0.1 })).toBe(false);
+  });
+
+  test("the three frames the user named are in neither tier", () => {
+    // `_DSC2638`: the mesh off a rotated face.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.999,
+        eyes_ear: 0.3601,
+        pose: { yaw: 3, pitch: -11.8, roll: 11.8 },
+        eye_offset: 0.1247,
+        edge_gap: 0.2241,
+      }),
+    ).toBeNull();
+    // `_DSC2827`: turned, the EAR inflated.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9984,
+        eyes_ear: 0.3032,
+        pose: { yaw: -48.6, pitch: 5.2, roll: 9.4 },
+        eye_offset: 0.0866,
+        edge_gap: 1.6918,
+      }),
+    ).toBeNull();
+    // `_DSC3345`: cut by the left edge, its mesh off too.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9984,
+        eyes_ear: 0.314,
+        pose: { yaw: -15.3, pitch: 2.7, roll: -3.6 },
+        eye_offset: 0.3521,
+        edge_gap: 0.0076,
+      }),
+    ).toBeNull();
   });
 
   test("the eye_focus cut passes at and above, not below", () => {
@@ -214,6 +276,13 @@ describe("photoTier: fair", () => {
     expect(photoTier({ ...fair, eye_focus: null })).toBeNull();
     expect(photoTier({ ...fair, eyes_ear: null })).toBeNull();
     expect(photoTier({ ...fair, pose: null })).toBeNull();
+    expect(photoTier({ ...fair, eye_offset: null })).toBeNull();
+    expect(photoTier({ ...fair, edge_gap: null })).toBeNull();
+  });
+
+  test("the exclusions apply to the fair tier too", () => {
+    expect(photoTier({ ...fair, eye_offset: MAX_EYE_OFFSET + 0.001 })).toBeNull();
+    expect(photoTier({ ...fair, edge_gap: MIN_EDGE_GAP - 0.001 })).toBeNull();
   });
 
   test("the eye_focus cut passes at and above, not below", () => {
@@ -314,6 +383,8 @@ describe("applyFaceReady", () => {
           eyes: "closed",
           eyes_closed: 0.9,
           pose,
+          eye_offset: 0.05,
+          edge_gap: -0.01,
         },
       ],
       undefined,
@@ -323,6 +394,8 @@ describe("applyFaceReady", () => {
       eyes: "closed",
       eyes_closed: 0.9,
       pose,
+      eye_offset: 0.05,
+      edge_gap: -0.01,
     });
   });
 
