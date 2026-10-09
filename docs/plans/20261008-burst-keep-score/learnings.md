@@ -188,6 +188,73 @@
   falls to 83-84%, near size >= 20 alone (82.3%). The Decision did not
   change.
 
+## Step 4
+
+- **The frontend already carried the stored eyes and pose.** The plan's
+  "What is known" said `Focus` / `MarkFocus` / `FaceReady` carry
+  `eye_focus` and `candidate` only. On `main` at 69d49ccd (after #743)
+  `MarkFocus` and `FaceReady` extend `StoredEyes` (`eyes.ts`: `eyes_ear`,
+  `eyes`, `eyes_closed`, `pose`), `main.ts`'s `Focus` has the same fields,
+  and `applyFaceReady` already patches them (with a test). So Step 4 added
+  no field; `goodPhoto` reads what is there.
+- **The dump matches the index; no CLI change.** The app's index
+  (`%LOCALAPPDATA%\com.minodisk.riffle\index.sqlite`, read from a copy with
+  Python's `sqlite3`, no `sqlite3` binary here) held stored eyes for one
+  folder only, `2026-09-27-c`. Its `features` dump agreed with the index on
+  all 1815 files (`eye_focus`, `eyes_ear`, yaw / pitch / roll), so the
+  dump's eyes path picks the cue's face and the six re-dumped folders are
+  what the app would store. The check was on every file of that folder
+  rather than 20.
+- **The re-dump.** Six folders (`2026-09-19`, `2026-09-27-a`, `2026-10-03`,
+  `2026-07-11`, `2026-08-08`, `2026-07-24`), 9868 ARWs, 24 threads,
+  about 4.3 min of CLI time, no error, under
+  `D:\Photos\tests\2026-10-09-good-mark\dump\`;
+  [provisional.py](provisional.py) reads them.
+- **The plan's starting cuts barely narrow.** The mesh `eye_focus` is
+  saturated (p50 0.940, p75 0.997), so `candidate` is 87.4% of the faced AF
+  frames, and `eye_focus` >= 0.9 / EAR >= 0.2 / |yaw| <= 60 / |pitch| <= 45
+  still marks 41.8%. The provisional cuts are `eye_focus` >= 0.998 (p79),
+  EAR >= 0.30 (p54, open probability 0.991), |yaw| <= 60, |pitch| <= 45:
+  9.0% of the faced AF frames, so the loose pose form stays. Note the EAR
+  of 0.2 the plan called saturated reads only 0.861 open (`EYES_LOGIT_SLOPE`
+  29); the probability is near 1 from about 0.25 (0.964). Table and
+  reasoning in [provisional.md](provisional.md).
+- **Before / after (share of the faced AF frames marked by the strip icon,
+  from the re-dump and the cuts).** Before is `candidate`, after is
+  `goodPhoto`:
+
+  | Folder | Faced AF | Before | After |
+  | --- | ---: | ---: | ---: |
+  | `2026-07-11` | 441 | 98.4% | 7.9% (35) |
+  | `2026-07-24` | 173 | 98.3% | 16.2% (28) |
+  | `2026-08-08` | 367 | 95.9% | 7.9% (29) |
+  | `2026-09-19` | 1952 | 86.9% | 13.4% (261) |
+  | `2026-09-27-a` | 4367 | 84.3% | 6.6% (288) |
+  | `2026-10-03` | 1615 | 90.0% | 9.9% (160) |
+  | Total | 8915 | 87.4% | 9.0% (801) |
+
+- **A dozen `2026-09-19` files that keep the icon** (a seeded draw of the
+  261, `provisional.py`): `_DSC1853.ARW` (pick), `_DSC1966.ARW`,
+  `_DSC2022.ARW`, `_DSC2572.ARW`, `_DSC2778.ARW`, `_DSC2780.ARW` (pick),
+  `_DSC2836.ARW`, `_DSC2880.ARW`, `_DSC2944.ARW` (pick), `_DSC3361.ARW`
+  (pick), `_DSC3495.ARW`, `_DSC3598.ARW`. `_DSC1966` (pitch 39) and
+  `_DSC2022` (yaw -38, pitch 30) are the most turned of them.
+- **Display: option (b).** `focusMark` returns `state: MarkState` (`good` /
+  `candidate_only` / `not_candidate` / `unknown`) in place of `candidate`;
+  `FOCUS_MARK_COLORS` is keyed by it. `candidate_only` is a dim green,
+  `#8b8`: a focus candidate still reads as "eyes sharp" and stays apart from
+  white (unknown), while only `good` is the bright `#3f3`. Since 87% of the
+  faced frames are candidates, most crosshairs are now dim green.
+- **The rename went to the CSS class too.** `strip.ts` `candidates` /
+  `setCandidate` / `paintCandidate` / `cell.candidate` became `goods` /
+  `setGood` / `paintGood` / `cell.good`, and `main.ts` `applyCandidates`
+  became `applyGood`; the cell's `span.candidate` became `span.good`, which
+  changed its three `style.css` selectors and their comment (no new
+  token). The filter menu's `Sharp` face icon reads
+  `FOCUS_MARK_COLORS.good`, so it looks as before.
+- **No `docs/humans` or `README` change in this step**: the cuts are
+  provisional; the Focus mark paragraphs wait for Step 6.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -231,3 +298,22 @@
   `eye_focus` cuts in [frozen.json](frozen.json) and
   [frozen-fail-check.json](frozen-fail-check.json). Related: `crates/core/src/candidate.rs`,
   `crates/cli/src/main.rs` (`features`).
+- **The filter's `AF eye: Sharp` icon now looks like the good-photo icon.**
+  Step 4 left the filter menu unchanged as planned, so its `Sharp` item
+  (every focus candidate) still carries the bright green face icon
+  (`main.ts` `sharpFace`, `FOCUS_MARK_COLORS.good`), which on the strip now
+  means a good photo only. Step 6's follow-up "a `Good` item in the
+  filter's `AF eye` section" could take that icon, giving `Sharp` the dim
+  `candidate_only` color. Related: `crates/app/ui/src/main.ts`,
+  `crates/app/ui/index.html` (`data-candidate`).
+- **Pending manual check (the user's, Windows app build of Step 4).** Open
+  recent folders (at least `D:\photos\2026\2026-09-19`) after pass 2 has
+  filled them; check that the strip's face icon is on few frames (about
+  13% of the faced AF frames on `2026-09-19`), that the marked frames look
+  like good photos (sharp open eyes, face toward the camera; start with the
+  dozen files listed under Step 4), which marked frames should not be and
+  which unmarked ones should, whether turned faces pass the loose pose cut
+  (then the tight |yaw| <= 45), and that the crosshair is bright green on a
+  marked frame, dim green on another candidate, orange and white as
+  before. Step 4's checkbox was ticked on the automated criteria; this is
+  the plan's separate manual-check item before Step 5.

@@ -174,7 +174,7 @@ outputs.
       [frozen-fail-check.json](frozen-fail-check.json); "Decision 1" below.
       `mise run ci` passes.
 
-- [ ] Step 4: Build the "good photo" mark in the frontend with provisional cuts read from a re-dump, and show it instead of the candidate icon
+- [x] Step 4: Build the "good photo" mark in the frontend with provisional cuts read from a re-dump, and show it instead of the candidate icon
   - Done when:
     - **Re-dump first.** `riffle-cli features` from the current `main` over
       at least five of the sidecar-labeled ARW folders of [data.md](data.md)
