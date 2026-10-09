@@ -51,6 +51,23 @@ export const GOOD_MAX_YAW = 60;
 // |pitch| in degrees: 96% of the poses are within.
 export const GOOD_MAX_PITCH = 45;
 
+// The EAR the eyes count as closed at and below, `EYES_CLOSED_EAR` in
+// `crates/core/src/eyes.rs`.
+export const EYES_CLOSED_EAR = 0.137;
+// The EAR the openness reaches 100 at: the re-dump's 90th percentile (0.408)
+// over the faced AF frames with an EAR, rounded.
+export const EYES_WIDE_OPEN_EAR = 0.41;
+
+// How open the eyes are, 0 at `EYES_CLOSED_EAR` and below to 100 at
+// `EYES_WIDE_OPEN_EAR` and above, linear in the EAR between.
+export function eyesOpenness(ear: number | null): number | null {
+  if (ear === null) {
+    return null;
+  }
+  const t = (ear - EYES_CLOSED_EAR) / (EYES_WIDE_OPEN_EAR - EYES_CLOSED_EAR);
+  return Math.min(Math.max(t, 0), 1) * 100;
+}
+
 // A "good photo": a focus candidate whose AF eyes are in focus, whose eyes are
 // open and whose face is toward the camera, all at once. Any missing value
 // (no face near the AF point, a face too small for the mesh) is not good.

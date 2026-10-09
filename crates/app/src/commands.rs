@@ -501,6 +501,8 @@ struct EyesJudgment {
     state: &'static str,
     /// The probability that the eyes are closed, 0..1.
     probability: f64,
+    /// The EAR of the more closed eye the judgment was read from.
+    ear: f64,
     /// The head pose of the judged face (`pose::Pose`), `None` when the
     /// solve failed.
     pose: Option<index::EyesPose>,
@@ -589,6 +591,7 @@ fn read_eyes(path: &Path, current: impl Fn() -> bool) -> Result<EyesResponse, St
             eyes::EyeState::Closed => "closed",
         },
         probability: j.eyes.probability,
+        ear: j.ear,
         pose: j.pose.map(index::EyesPose::from),
         mesh: EyesMesh {
             width: w,
@@ -4133,6 +4136,7 @@ mod tests {
         let judgment = |pose| EyesJudgment {
             state: "open",
             probability: 0.25,
+            ear: 0.2,
             pose,
             mesh: EyesMesh {
                 width: 4,

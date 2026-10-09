@@ -110,3 +110,13 @@ the frames that pass that cut alone.
 The mark is selective now (7-16% per folder) but its picks share rises only
 from 14% to 21%: as the plan's Purpose says, a non-pick is unlabeled, so
 this column is no measure of "not a miss"; the user's look is.
+
+## The openness anchor (Step 4b)
+
+The meta pane's eyes row shows an openness, 0 at `EYES_CLOSED_EAR` (0.137)
+and below to 100 at `EYES_WIDE_OPEN_EAR` and above, linear between
+(`eyesOpenness` in `crates/app/ui/src/focus.ts`). The 100 anchor is the
+**90th percentile of the EAR over the faced AF frames with an EAR**: 0.4076
+over 7261 frames of the re-dump above (the `EAR | all` row's p90), rounded
+to **0.41**. It is a display scale, independent of `GOOD_EYE_EAR` (0.30,
+openness 60).

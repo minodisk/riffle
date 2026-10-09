@@ -255,6 +255,33 @@
 - **No `docs/humans` or `README` change in this step**: the cuts are
   provisional; the Focus mark paragraphs wait for Step 6.
 
+## Step 4b
+
+- **The on-demand payload lacked the EAR.** `EyesJudgment` (`commands.rs`)
+  carried only the state, the closed probability, the pose and the mesh, and
+  `riffle_core::eyes::Judged` had no EAR either. Added `ear: f64` to `Judged`
+  (filled from the `more_closed_ear` `judge_mesh` already computes) and the
+  `ear` field to `EyesJudgment` and the frontend `Eyes`. The MCP `get_view`
+  summary is a `Pick` of `state` / `probability` / `pose`, so it is unchanged.
+- **`eyesOpenness` lives in `focus.ts`** next to the good-photo cuts, with
+  `EYES_CLOSED_EAR` = 0.137 (mirroring core) and `EYES_WIDE_OPEN_EAR` = 0.41,
+  the 90th percentile (0.4076) of the EAR over the 7261 faced AF frames with
+  an EAR in the Step 4 re-dump, rounded. It returns the unrounded value; the
+  meta pane rounds.
+- **The row format.** The label is now `Eyes` (not `Eyes open`, which read
+  wrong next to `Closed`), the value `Open · 41` / `Closed · 0`: the stored
+  `eyes` state (or the judgment's `state`) then the integer openness. With
+  the 0.41 anchor: EAR 0.09 (closed) -> `Closed · 0`, 0.25 (half open) ->
+  `Open · 41`, 0.30 (`GOOD_EYE_EAR`) -> `Open · 60`, 0.45 (wide open) ->
+  `Open · 100`. An EAR just above 0.137 shows `Open · 0`; that is the
+  boundary, not a contradiction.
+- **The stored path keys on `eyes_ear`, not `eyes_closed`.** `FocusCue` now
+  carries `eyes_ear` and `eyes` (both already in `main.ts`'s `Focus`) instead
+  of `eyes_closed`, which the meta pane no longer reads.
+- **Line endings.** Editing `eyes.rs` / `commands.rs` through Python's
+  `write_text` on Windows turned them CRLF; `sed -i 's/\r$//'` restored LF.
+  Write bytes (`write_bytes`) instead.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -317,3 +344,12 @@
   marked frame, dim green on another candidate, orange and white as
   before. Step 4's checkbox was ticked on the automated criteria; this is
   the plan's separate manual-check item before Step 5.
+- **The docs still describe `Eyes open: NN%`.** Step 4b changed the meta
+  pane row to `Eyes` with `Open · NN` / `Closed · 0` (openness from the EAR);
+  `docs/humans/usage.md` (lines ~207-278), `usage.ja.md`,
+  `performance.md` (~578), `performance.ja.md` and `README.ja.md` still say
+  `Eyes open` as a probability. The plan leaves that to Step 6.
+- **The MCP `get_view` eyes summary carries no openness.** Step 4b kept its
+  `state` / `probability` / `pose` fields as the plan said; whether it should
+  carry the EAR or the openness is a follow-up. Related:
+  `crates/app/ui/src/companion.ts` (`EyesSummary`), `crates/app/src/mcp.rs`.

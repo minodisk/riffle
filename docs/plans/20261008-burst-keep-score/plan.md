@@ -259,6 +259,43 @@ outputs.
   should; does the loose pose cut let through turned faces they would not
   call good (then the tight cut). The answers go to `learnings.md`.
 
+- [x] Step 4b: Show the eyes as openness (0-100 from the EAR) instead of the open probability
+  - Why (the user, 2026-10-09): the meta pane's `Eyes open` percentage is
+    the logistic of the EAR around `EYES_CLOSED_EAR`; it saturates near
+    100% above an EAR of ~0.2, so it says neither how open the eyes are
+    nor how sure the judgment is, and reads as a probability it was never
+    checked to be (its calibration was not measured and its labels are
+    unreviewed). The user asked for an openness value instead.
+  - Done when:
+    - A pure `eyesOpenness(ear: number | null): number | null` (in
+      `focus.ts` next to the good-photo cuts, or `meta.ts`; say which)
+      maps the EAR linearly to 0-100: 0 at `EYES_CLOSED_EAR` (0.137, the
+      open / closed boundary) and below, 100 at a fixed "wide open" EAR and
+      above, clamped. The 100 anchor is a named constant read from the
+      Step 4 re-dump (e.g. the EAR's 90th percentile over faced AF frames;
+      the percentile and value recorded in `provisional.md`), not tied to
+      the tunable `GOOD_EYE_EAR`. Tests pin both anchors, the clamps, a
+      mid value and `null`.
+    - The meta pane's Analysis row shows the openness as an integer
+      percent-like value with the judgment, e.g. `Eyes open` →
+      `Open · 82` / `Closed · 0` (exact label and format decided while
+      implementing, recorded in `learnings.md`), from the stored
+      `eyes_ear` when the stored values apply and from the on-demand
+      `eyes_of` judgment's EAR otherwise (add the EAR to that payload only
+      if it is not already there; verify). The row no longer shows the
+      logistic percentage. `meta.test.ts` (or the module's test) covers
+      both paths and the missing case.
+    - The `Eyes` filter section, the closed-eyes judgment, `EYES_CLOSED_EAR`
+      and the logistic stay unchanged; the MCP `get_view` keeps its
+      fields (a follow-up todo if it should carry the openness).
+    - No `docs/humans` change here; Step 6 updates the meta pane wording.
+    - `mise run ci` passes.
+  - Implementation approach:
+    - Frontend only unless the on-demand payload lacks the EAR (then the
+      one field in `commands.rs`'s eyes reply, noted). Files: `meta.ts`
+      (+ test), `focus.ts` (+ test) if the helper lives there, this plan's
+      `provisional.md`, `learnings.md`.
+
 - [ ] Step 5: Tune the cuts from the user's feedback and record Decision B
   - Done when:
     - The constants in `focus.ts` are moved to the values the user's
@@ -451,3 +488,4 @@ display kept. Awaiting the user's approval before Step 6.)
   tune, then docs) and approved by the user; the storage of the eyes and
   pose landed in #741
 - (2026-10-09) Step 4 complete
+- (2026-10-09) Step 4b complete
