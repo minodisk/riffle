@@ -12,6 +12,7 @@ import {
   orientationOf,
   passes,
 } from "./filter.js";
+import type { FocusCandidate } from "./meta.js";
 
 function state(
   flags: Flag[] = [],
@@ -391,10 +392,27 @@ describe("passes: photo tiers", () => {
     expect(passes(goodOrUnknown, unjudged, undefined, 1, "candidate", undefined, null)).toBe(false);
   });
 
-  test("Sharp keeps passing every candidate, in the tier or not", () => {
+  test("Sharp only does not pass a good frame", () => {
     const sharp = tier("candidate");
-    expect(at(sharp, "good")).toBe(true);
+    expect(at(sharp, "good")).toBe(false);
     expect(passes(sharp, unjudged, undefined, 1, "candidate", undefined, null)).toBe(true);
+  });
+
+  test("the four items partition the frames", () => {
+    const frames: [FocusCandidate | undefined, "good" | null | undefined, AfEye][] = [
+      ["candidate", "good", "good"],
+      ["candidate", null, "candidate"],
+      ["not_candidate", null, "not_candidate"],
+      ["unknown", null, "unknown"],
+      [undefined, undefined, "unknown"],
+    ];
+    for (const item of ["good", "candidate", "not_candidate", "unknown"] as const) {
+      for (const [candidate, t, owner] of frames) {
+        expect(passes(tier(item), unjudged, undefined, 1, candidate, undefined, t)).toBe(
+          item === owner,
+        );
+      }
+    }
   });
 
   test("ANDs with the other groups", () => {
