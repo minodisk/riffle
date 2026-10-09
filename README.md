@@ -108,26 +108,33 @@ DxO PhotoLab.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
-  shots (see [What the camera records](./docs/humans/cameras.md)). The mark is green
-  for a focus candidate, where the eyes of the face nearest the AF point are
-  likely in focus (a probability combining their sharpness and edge width);
-  orange when a face is near the AF point but its eyes are likely not; and
-  white when Riffle does not know (no AF point, manual focus, no face near the
-  point, or not computed yet). The camera's face tracking no longer colors
-  the mark. The cue is computed in a second pass right after the thumbnails,
-  so the marks turn from white as it runs, the files on screen first; the
-  strip marks each candidate with a green face icon at the cell's bottom-left, the meta pane shows the
-  probability as `AF eye in focus` (a percentage) and how likely that face's
-  eyes are open as `Eyes open` (a percentage) and the face's yaw,
-  pitch and roll as `Head pose`, both stored by the same second pass for the
-  face nearest the AF point and judged when the file is shown otherwise, and the filter menu's
-  `AF eye` section (`Good` / `Sharp only` / `Soft` / `Unknown`) narrows the strip by the
-  state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
+  shots (see [What the camera records](./docs/humans/cameras.md)). The mark is
+  bright green for a good photo, one likely not a miss: the AF eyes in focus
+  (an in-focus probability of 99% or more), the eyes open (an openness of 41
+  or more) and the face toward the camera (turned no more than 30° and
+  tilted no more than 45°), with a face mesh that sits on the face and a
+  face the frame's edge does not cut. It is selective by design, on about
+  14% of the author's frames with a face at the AF point (cuts still being
+  tuned). The mark is dim green for another focus candidate, where the eyes
+  of the face nearest the AF point are likely in focus (a probability
+  combining their sharpness and edge width); orange when a face is near the
+  AF point but its eyes are likely not; and white when Riffle does not know
+  (no AF point, manual focus, no face near the point, or not computed yet).
+  The camera's face tracking no longer colors the mark. The cue is computed
+  in a second pass right after the thumbnails, so the marks turn from white
+  as it runs, the files on screen first; the strip marks each good photo
+  with a bright green face icon at the cell's bottom-left, the meta pane
+  shows the probability as `AF eye in focus` (a percentage), whether that
+  face's eyes are open and how open (0 to 100) as `Eyes` and the face's
+  yaw, pitch and roll as `Head pose`, both stored by the same second pass
+  for the face nearest the AF point and judged when the file is shown
+  otherwise, and the filter menu's `AF eye` section (`Good` / `Sharp only` /
+  `Soft` / `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
   state (a file without one, such as a shot without an AF point, is
   `Unknown`). The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
   a moment after `f`, since the detection runs when the frame is shown, and
-  the face the `Eyes open` row judged also gets the outline of its face parts (face
+  the face the `Eyes` row judged also gets the outline of its face parts (face
   oval, eyes, brows, nose, lips) and, when the eyes are judged open, the
   irises, a moment after that row.
 - **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
@@ -145,7 +152,7 @@ DxO PhotoLab.
   [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
   face mesh (Apache-2.0, converted to ONNX from Google's TFLite). Both run
   locally with no network access. The strip's
-  candidate icon, also on the filter menu's `Good` and `Sharp only` items, is
+  good-photo icon, also on the filter menu's `Good` and `Sharp only` items, is
   [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
 - **HDR PQ (HEIF) CR3 previews**: the HEVC previews of Canon CR3 files shot
   with HDR PQ on are decoded by the bundled

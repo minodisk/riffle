@@ -117,14 +117,19 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 `style.css` holds shadcn/ui's Neutral dark tokens and the shared component
 classes every control uses (see `docs/agents/ui-styling.md`),
 `src/icons.ts` the inlined Lucide icons,
-`src/context.ts` builds the items of the strip's HTML right-click menu, and
+`src/context.ts` builds the items of the strip's HTML right-click menu,
+`src/focus.ts` places the `f` focus mark and holds the good-photo rule
+(`photoTier`: the AF eyes in focus, the eyes open and the face toward the
+camera, from the values pass 2 stored for the AF face), which colors the
+mark bright green and puts the strip's face icon on a good frame, and the
+eyes' openness the meta pane shows, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability and the
 `Eyes` judgment with its openness and `Head pose`, from the values pass 2 stored for
 the AF face, else the `eyes_of` judgment), `src/eyes.ts` caches the `eyes_of` judgments per file with one
 in flight at a time, `src/facemesh.ts` holds MediaPipe's face parts
 outline and iris edges the focus mark draws over the judged face, `src/filter.ts` decides which files the strip's filter menu
-lets through (including its `AF eye` section and its `Eyes` section on the
+lets through (including its `AF eye` section, whose `Good` item applies the good-photo rule, and its `Eyes` section on the
 stored eye state), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/idle.ts`

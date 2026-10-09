@@ -1643,7 +1643,7 @@ span is still detached, so a carried cell would have no `.name` in its element
 and the resume block's `cell.name.replaceWith(input)` would be a no-op. That
 cell is released and recreated like any other cell outside the carried set,
 and is then repainted with the just-cleared per-index maps (rating, sharpness,
-burst, candidate) until `refilter` re-applies them right after — so it
+burst, tier) until `refilter` re-applies them right after — so it
 briefly matches a fresh cell, whether or not `keepScroll` is set.
 
 - Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4;

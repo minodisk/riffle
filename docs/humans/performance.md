@@ -575,8 +575,9 @@ the whole-image search uses, the classifier's eye AUC fell from 0.78 to
 
 The app judges closed eyes with Face Landmarker v2 for the shown file only:
 the `eyes_of` command runs when a file is shown, outside both scan passes,
-and the meta pane's Analysis group shows `Eyes open: NN%`, the probability
-that the eyes are open. It judges one face, the face nearest a trusted AF point, else the
+and the meta pane's Analysis group shows the `Eyes` row, open or closed with
+the openness from 0 to 100 (`Eyes open: NN%`, the probability that the eyes
+are open, when this was measured). It judges one face, the face nearest a trusted AF point, else the
 largest face at or above 0.8, and none below a 60 px face side. For the face
 nearest a trusted AF point, the second pass now stores the eye aspect ratio
 and the head pose from the mesh it already runs for the focus candidate cue

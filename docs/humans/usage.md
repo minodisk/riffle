@@ -173,41 +173,58 @@ viewer shows a prompt in its center; click it to open the folder picker.
   record it (hidden by default). A body that records only the point, such as
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
   the M11-P, and manual-focus shots show no mark (see
-  [What the camera records](./cameras.md)). The mark's color is the focus
-  candidate state: green for a focus candidate, where the eyes of the face
-  nearest the AF point are likely in focus (their in-focus probability, a
-  logistic combination of the Laplacian variance and the mean edge width, is
-  about 77% or more). It is measured over each eye's eyelid region, which a
-  face mesh model (MediaPipe Face Landmarker v2) finds, and the sharper of
-  the two eyes counts; when neither eye's region counts (under 24 px, as on small
-  faces, or without a clear edge), it is measured over the preview between the eyes instead. Orange
-  when a face is near the AF point but its eyes are likely not in focus
-  (including a window between the eyes with no clear edge, which counts as
-  0%); white when
-  Riffle does not know (no AF point, manual focus, no face near the point, or
-  not computed yet).
+  [What the camera records](./cameras.md)). The mark's color says how the
+  face nearest the AF point came out. Bright green marks a good photo, a
+  frame that is likely not a miss: the AF eyes in focus, the eyes open and
+  the face toward the camera, all at once. The cuts, still being tuned: the
+  AF eyes' in-focus probability is 99% or more; the eyes' openness (the meta
+  pane's `Eyes` row) is 41 or more; the head is turned no more than 30° left
+  or right; and it is tilted no more than 45° up or down (the roll is not
+  looked at). A frame whose face mesh sits off the face (as on a face
+  rotated far in-plane, such as a baby lying down) or whose face the frame's
+  edge cuts is never good. It is selective by design, so most frames get no
+  bright green: on six of the author's folders it marked about 14% of the
+  frames with a face at the AF point. On 180 frames the author rated (1 star
+  for no subject, 2 for likely rejected, 3 or more for a pass), 40 of the 43
+  good frames passed and none was a frame without a subject. Dim green marks
+  a focus candidate that is not good: the eyes of the face nearest the AF
+  point are likely in focus (their in-focus probability, a logistic
+  combination of the Laplacian variance and the mean edge width, is about
+  77% or more), but the in-focus probability, the eyes, the pose, the mesh or the frame's edge miss a cut. The
+  probability is measured over each eye's eyelid region, which a face mesh
+  model (MediaPipe Face Landmarker v2) finds, and the sharper of the two
+  eyes counts; when neither eye's region counts (under 24 px, as on small
+  faces, or without a clear edge), it is measured over the preview between
+  the eyes instead. Orange when a face is near the AF point but its eyes are
+  likely not in focus (including a window between the eyes with no clear
+  edge, which counts as 0%); white when Riffle does not know (no AF point,
+  manual focus, no face near the point, or not computed yet). A frame
+  without an AF point, with manual focus, with no face near the point or
+  with a face under about 60 pixels on the embedded preview is never good,
+  and neither is a strongly turned face, even when the turn was intended.
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
   is judged by the faces Riffle detects like any other. The state is computed
   in a second pass that starts right after the thumbnails and metadata of the
-  folder are in, so the marks turn from white to green or orange, the files on
-  screen first, while the status shows `analyzing N / M`. The strip marks each candidate with a green
-  face icon (Lucide's `scan-face`, ISC license, text in
-  `crates/app/ui/LICENSE-lucide`) at the cell's bottom-left, above the file
-  name, filling in as the pass runs. On the 406 hand-labeled α7 V frames with
-  a face it was fitted on, 94% of the candidates were in focus and 91% of the
-  in-focus frames were candidates; on 400 frames from other shoots it was not
-  fitted on, 89% and 96%. It is a cue, not a verdict: AF on a person in the
+  folder are in, so the marks turn from white to their color, the files on
+  screen first, while the status shows `analyzing N / M`. The strip marks
+  each good frame with a bright green face icon (Lucide's `scan-face`, ISC
+  license, text in `crates/app/ui/LICENSE-lucide`) at the cell's
+  bottom-left, above the file name, filling in as the pass runs; other
+  frames get none. On the 406 hand-labeled α7 V frames with a face the focus
+  candidate cue was fitted on, 94% of the candidates were in focus and 91%
+  of the in-focus frames were candidates; on 400 frames from other shoots it
+  was not fitted on, 89% and 96%. It is a cue, not a verdict: AF on a person in the
   background gives a sharp face and a false candidate, and the back of a
   head or an upturned face finds no face and stays white. The mark also
   draws the faces Riffle detects near the AF point (anywhere on the preview
   when there is no AF point) as a cyan box with a dot between the eyes. They
   appear a moment after `f`, because the detection runs when the frame is
   shown and is kept only for the session. The 1:1 view and Compare draw no
-  faces. How likely the eyes of the judged face are open shows in the meta
-  pane's `Eyes open` row (see **Meta pane**); that face also gets the outline of
-  the face parts the judgment looked at (face oval, eyes, brows, nose, lips)
-  and, when the eyes are judged open, the irises as rings with a dot at each
-  center, drawn as thin cyan lines a moment after the `Eyes open` row.
+  faces. Whether the eyes of the judged face are open, and how open, shows in
+  the meta pane's `Eyes` row (see **Meta pane**); that face also gets the
+  outline of the face parts the judgment looked at (face oval, eyes, brows,
+  nose, lips) and, when the eyes are judged open, the irises as rings with a
+  dot at each center, drawn as thin cyan lines a moment after the `Eyes` row.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.
@@ -255,10 +272,14 @@ viewer shows a prompt in its center; click it to open the folder picker.
   nearest the AF point that the focus candidate state is decided from (left
   out when there is none). Both come from the scan's second pass, so they
   appear a little after the file's thumbnail on a folder's first scan.
-  `Eyes open` is how likely it is that the eyes of the face nearest the AF
-  point (without an AF point, the largest face Riffle is confident of) are
-  open, as a percentage; Riffle counts them closed when that probability is 50% or
-  below (the row is rounded, so a shown `50%` may be either). For the face
+  `Eyes` says whether the eyes of the face nearest the AF point (without an
+  AF point, the largest face Riffle is confident of) are open or closed and
+  how open they are, from 0 to 100, as in `Open · 82` or `Closed · 0`. The
+  openness is read from the eye aspect ratio (the eyelid gap over the eye's
+  width) of the more closed eye: 0 at the ratio Riffle counts as closed and
+  below, 100 at a wide-open eye (the 90th percentile of the author's faces)
+  and above, linear between. It says how open the eyes are, not how sure the
+  judgment is; an eye just past the closed point shows `Open · 0`. For the face
   nearest the AF point it is stored by the scan's second pass, along with
   `Head pose`; otherwise it is judged when the file is shown. Either way it
   comes from the eyelid
@@ -275,18 +296,18 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the head tilts clockwise on screen. It comes from the same face mesh, fitted
   onto a canonical face the way MediaPipe's face geometry does it (Apache-2.0,
   provenance in `crates/core/models/LICENSE-mediapipe`), and is left out
-  whenever `Eyes open` is, and also when the fit fails. Read it as a rough
+  whenever `Eyes` is, and also when the fit fails. Read it as a rough
   direction: on hand-labeled local faces the sign was right on about 94% of
   them for yaw and pitch, but a 15-25° turn still looks frontal to the eye,
   and far profiles (past about 70°, a yaw can read past 90°) and sports
   sunglasses are rough.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
-  orientation (`Portrait` / `Landscape`), the focus candidate state (the
-  `AF eye` section: `Good` for a bright green focus mark (the good tier),
-  `Sharp only` for a dim green one (the AF eye in focus but not good),
-  `Soft` for orange and `Unknown` for white, including files the second
-  pass has not reached; each file falls under exactly one of them, checking
-  several shows the files in any of them, so `Good` and `Sharp only`
+  orientation (`Portrait` / `Landscape`), the focus mark's state (the
+  `AF eye` section: `Good` for a good photo, the bright green mark and face
+  icon; `Sharp only` for a dim green mark, the AF eye in focus but not a
+  good photo; `Soft` for orange and `Unknown` for white, including files the
+  second pass has not reached; each file falls under exactly one of them,
+  checking several shows the files in any of them, so `Good` and `Sharp only`
   together show every in-focus frame, and the strip refills as the pass
   runs), the stored eye state of the face nearest the AF point (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored

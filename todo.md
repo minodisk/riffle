@@ -579,16 +579,74 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       on 68%, the gap at the frontal / oblique boundary. See
       `docs/plans/20261007-head-pose/` and `docs/humans/performance.md`
       "Closed-eyes judgment on demand (Windows 11)".
-- [ ] Flag "looking away" frames from the head pose. Needs a threshold
-      labeled first: which |yaw| / pitch a culler calls looking away (the
-      Step 2 labels put frontal faces at a median |yaw| of 10 deg, oblique
-      at 41, profile at 65, so the cut is somewhere in 20-50 deg), checked
-      against labeled faces with a "looking away" label the head-pose plan
-      did not make. The pose is now stored by pass 2 for the AF face
-      (`pose_yaw` / `pose_pitch` / `pose_roll`, carried as `Focus.pose`) and
-      the meta pane reads it, so a filter or mark needs only the threshold.
-      Files: `crates/app/ui/src/filter.ts`, `crates/app/ui/src/meta.ts`,
-      `docs/plans/20261007-head-pose/pose-truth.md` (the labels to extend).
+- [x] Flag "looking away" frames from the head pose. Shipped as the pose
+      cut of the good-photo mark rather than a flag of its own: a frame is
+      good only with |yaw| <= 30 and |pitch| <= 45 (roll unused), the "both
+      eyes visible" form, set from the user's stars after a turned face
+      (yaw -49) was marked at the loose 60. No "looking away" label set was
+      made. See `docs/plans/20261008-burst-keep-score/` (Decision B) and `crates/app/ui/src/focus.ts`
+      (`GOOD_MAX_YAW`, `GOOD_MAX_PITCH`).
+- [x] Mark the frames that are likely not a miss: the good-photo mark.
+      `photoTier` in `crates/app/ui/src/focus.ts` makes a focus candidate
+      good when the AF eyes' in-focus probability is at least 0.99, the EAR
+      of the more closed eye at least 0.25 (openness 41), |yaw| <= 30 and
+      |pitch| <= 45, the mesh's eyes within 0.10 face sides of YuNet's
+      landmarks and the face at least 0.02 face sides inside the image (the
+      last two stored by pass 2 as `files.eye_offset` / `files.edge_gap`,
+      `SCHEMA_VERSION` 19, `FACES_VERSION` 8). A good frame gets the bright
+      green crosshair, the strip's face icon (which no longer marks every
+      focus candidate; another candidate draws dim green) and the filter's
+      `Good` item. It marks 13.7% of the faced AF frames of six re-dumped
+      folders (10.0-22.3% per folder; the candidate icon was on 87.4%); on
+      the user's stars of 180 frames 40 of the 43 good frames pass (3 stars
+      or more) and none has no subject. The meta pane's `Eyes` row now
+      shows the openness, 0-100 from the EAR, instead of the open
+      probability. See `docs/plans/20261008-burst-keep-score/` (Decision B, `provisional.md`).
+- [ ] Re-tune the good-photo cuts once the face-mesh roll correction lands
+      (`docs/plans/20261008-burst-keep-score/plan.md` Step 7). Done when the 180 rated frames of
+      `D:\photos\samples\ARW\good-mark-2026-10-09\` (stars in their
+      sidecars; 1 = no subject, 2 = likely rejected, 3+ = pass) are
+      re-dumped with the new CLI, the cuts are chosen so no 1-star and as
+      few 2-star frames as possible are good while the share marked is as
+      large as possible (checked on batch 1 and batch 2 separately), and the
+      `focus.ts` constants and tests, Decision B and the numbers in
+      `docs/humans/usage.md` / `.ja.md` and `README.md` / `README.ja.md`
+      (the Focus mark paragraphs) follow. Files:
+      `crates/app/ui/src/focus.ts`, `crates/app/ui/src/focus.test.ts`.
+- [ ] Derive the good-photo rule in the backend, next to `candidate` in
+      `crates/app/src/index.rs`, so the MCP `get_view` tool can carry it.
+      The rule lives only in `crates/app/ui/src/focus.ts` (`photoTier`) and
+      `get_view` says nothing about it. Done when the index derives the tier
+      from the stored columns with the thresholds in one place (the
+      frontend reads it instead of recomputing), `get_view` carries it for
+      the current file, and the boundary tests of `focus.test.ts` move with
+      the rule. Files: `crates/app/src/index.rs`, `crates/app/src/mcp.rs`,
+      `crates/app/ui/src/focus.ts`, `crates/app/ui/src/companion.ts`.
+- [ ] Measure the good-photo mark's precision on labels. Decision B rests
+      on the user's stars and the mark rate; no labeled set was made. Done
+      when 100-150 faced AF frames drawn stratified around the cuts and at
+      random are labeled blind (`ok`, `miss` with `blur` / `focus` /
+      `closed`, `turned`, `unsure`; the agent first, the user's review
+      final) and the precision and coverage of the mark at its cuts are
+      written with a Wilson interval, with the focus candidate as the
+      baseline (the procedure is in `docs/plans/20261008-burst-keep-score/plan.md` Step 5). Files: the plan
+      folder of that work, `crates/app/ui/src/focus.ts` if the cuts move.
+- [ ] Re-check the good-photo cuts after the closed-eyes and head-pose label
+      reviews (the items in the sections below). If the user's review
+      moves `EYES_CLOSED_EAR` in `crates/core/src/eyes.rs` or changes the
+      pose labels' frontal / oblique boundary, re-read `GOOD_EYE_EAR` (and
+      `EYES_CLOSED_EAR` / `EYES_WIDE_OPEN_EAR` in
+      `crates/app/ui/src/focus.ts`, which mirror the core value and anchor
+      the openness) and `GOOD_MAX_YAW` on the rated frames of
+      `D:\photos\samples\ARW\good-mark-2026-10-09\`. Files:
+      `crates/app/ui/src/focus.ts`, `crates/core/src/eyes.rs`.
+- [ ] Give the no-AF path a good-photo mark once it has a focus cue. A
+      frame without an AF point (every Leica M file) has no focus candidate
+      state, so it is never good, although `eyes_of` judges its largest
+      face's eyes and pose on demand. Needs a focus cue on the no-AF face
+      first (pass 2 scores the AF face only), then the same cuts checked on
+      starred DNG frames. Files: `crates/core/src/candidate.rs`,
+      `crates/app/src/index.rs`, `crates/app/ui/src/focus.ts`.
 - [x] Measure the AF eye in-focus probability over each eye's eyelid
       region from the face mesh instead of the window between the eyes.
       The scan's second pass runs MediaPipe Face Landmarker v2 on the face
@@ -622,7 +680,14 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       60 px). Reusing the scan's mesh needs the points stored or a path that
       runs the model only while `f` is on. Files: `crates/app/src/commands.rs`
       (`read_eyes`), `crates/app/src/index.rs`, `crates/core/src/eyes.rs`.
-- [ ] Suggest the sharpest-eye frame within a burst group.
+- [ ] Suggest the sharpest-eye frame within a burst group. Measured and not
+      shipped (`docs/plans/20261008-burst-keep-score/`, Decision 1, `results.md` and `fit.md`): the user
+      picks within a burst by timing, not by a technical feature; the
+      burst's length, not sharpness or the eyes, predicts a kept scene
+      (79% held out at 15 or more frames, which the burst band's count
+      already shows, against about 56% for the best technical rule); and
+      the non-picks are mostly technically fine. Revisit only with a new
+      signal; the per-frame good-photo mark above covers "is this a miss".
 - [ ] Spot-check whether the sharpness ranking within a burst changes now
       that Sony frames with face tracking are scored on the camera's AF frame
       instead of YuNet's eye midpoint. Needs a per-file score output
@@ -655,14 +720,14 @@ Files: `crates/core/src/faces.rs` (`detect_whole_upright`, `scaled_to_stored`), 
 
 ### App: real-device check of the meta pane's `Eyes` row, and the review of the closed-eyes labels
 
-`closed-eyes-detection` (`docs/plans/_archived/20261007-closed-eyes-detection/plan.md`) added `eyes_of`, which judges the shown file's eyes with MediaPipe Face Landmarker v2, and the meta pane's `Eyes` row (since `eyes-open-probability`, `docs/plans/_archived/20261007-eyes-open-probability/plan.md`, shown as `Eyes open: NN%`, the open probability `1 - p`). CI covers the unit tests (`eyes.test.ts`, `meta.test.ts`, the core `eyes` tests), and the `#[ignore]`d `times_eyes_of_on_real_files` timed the backend; the app itself was never run with it, so the preview-to-row time in `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" is missing. Steps 1 and 3 were ticked on the automated criteria. The truth set the threshold (0.137) and the AUCs come from was labeled by the agent, and the user's review of its `closed` faces is still open.
+`closed-eyes-detection` (`docs/plans/_archived/20261007-closed-eyes-detection/plan.md`) added `eyes_of`, which judges the shown file's eyes with MediaPipe Face Landmarker v2, and the meta pane's `Eyes` row (since `eyes-open-probability`, `docs/plans/_archived/20261007-eyes-open-probability/plan.md`, shown as `Eyes open: NN%`, the open probability `1 - p`, and since `burst-keep-score` Step 4b as `Open · NN` / `Closed · 0`, the openness 0-100 from the EAR). CI covers the unit tests (`eyes.test.ts`, `meta.test.ts`, the core `eyes` tests), and the `#[ignore]`d `times_eyes_of_on_real_files` timed the backend; the app itself was never run with it, so the preview-to-row time in `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" is missing. Steps 1 and 3 were ticked on the automated criteria. The truth set the threshold (0.137) and the AUCs come from was labeled by the agent, and the user's review of its `closed` faces is still open.
 
 Files: `crates/app/src/commands.rs` (`eyes_of`, `read_eyes`), `crates/app/ui/src/main.ts`, `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts`, `crates/core/src/eyes.rs`, `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`.
 
 #### TODO
 
-- [ ] On Windows 11, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19` and wait for the scan to finish. Select `_DSC1889.ARW` or `_DSC1890.ARW` (labeled closed): the Analysis group shows `Eyes open: NN%` after `AF eye in focus`, with NN below 50 (Riffle counts the eyes closed when the open probability is 50% or below). Select `_DSC1894.ARW`: `Eyes open: NN%` with NN above 50. Select `_DSC1897.ARW` (no face judged): no `Eyes open` row.
-- [ ] Open `D:\photos\2026\2026-02-01` and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the `Eyes open` row shows on the no-AF path (L1005161 below 50%, L1005155 above).
+- [ ] On Windows 11, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19` and wait for the scan to finish. Select `_DSC1889.ARW` or `_DSC1890.ARW` (labeled closed): the Analysis group shows `Eyes  Closed · 0` after `AF eye in focus`. Select `_DSC1894.ARW`: `Eyes  Open · NN`. Select `_DSC1897.ARW` (no face judged): no `Eyes` row.
+- [ ] Open `D:\photos\2026\2026-02-01` and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the `Eyes` row shows on the no-AF path (L1005161 `Closed · 0`, L1005155 `Open · NN`).
 - [ ] Hold the page key through 30 files of the ARW folder: no row of a previous file stays on a later one, and the preview keeps pace with no added stall against the previous build.
 - [ ] With the folder idle, read the `eyes total=... read=... decode=... detect=... model=... ipc=...` lines in `Riffle.log` for a few ARWs with an AF point: the row should appear within ~150 ms of the preview. Add the numbers (and the preview-to-row time) to `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" and `performance.ja.md`. Since `face-mesh-overlay` (`docs/plans/_archived/20261007-face-mesh-overlay/plan.md`) the response also carries 478 mesh points (~8-10 KB of JSON): confirm the stages still add up to about `total` and `ipc=` stays within a few ms of the figure before that change (not measured; `crates/app/src/commands.rs` `read_eyes`, `crates/app/ui/src/main.ts` `requestEyes`).
 - [ ] Review the faces labeled closed: for each file in the "Faces with a closed eye" list of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`, open its tile `D:\Photos\tests\2026-10-07-closed-eyes\tiles\<stem>.png` (or the crops under `arw\` / `dng\`) and confirm that the eye marked `c` shows no iris; note any that are open. If labels change, re-run `riffle-cli eyes` on `labeled-paths.txt` and `scratch\auc.py` there, and re-fit the threshold and the slope in `crates/core/src/eyes.rs` if the best F1 moves.
@@ -675,19 +740,19 @@ Files: `crates/app/ui/src/main.ts` (`drawFaceMesh`, `FACE_MESH_OUTLINE_WIDTH`, `
 
 #### TODO
 
-- [ ] On Windows or macOS, with `f` on, show (1) an upright ARW with an open-eyed face of 60 px or more: the cyan outline of the face parts and both iris rings with their center dots sit on the judged face a moment after the `Eyes open` row appears; (2) a portrait ARW (orientation 6 or 8) with such a face: the same, rotated with the image and scaling with the window; (3) a file labeled closed (`D:\photos\2026\2026-09-19\_DSC1889.ARW` / `_DSC1890.ARW`, per the closed-eyes todo above): the outline only, no iris ring and no iris dot; (4) a file whose only face is below 60 px on the preview: nothing drawn and no error in `Riffle.log`. Tune `FACE_MESH_OUTLINE_WIDTH` / `FACE_MESH_LINE_WIDTH` (or give the iris dots their own radius) if the outline competes with the face box or the rings collapse onto the dots.
+- [ ] On Windows or macOS, with `f` on, show (1) an upright ARW with an open-eyed face of 60 px or more: the cyan outline of the face parts and both iris rings with their center dots sit on the judged face a moment after the `Eyes` row appears; (2) a portrait ARW (orientation 6 or 8) with such a face: the same, rotated with the image and scaling with the window; (3) a file labeled closed (`D:\photos\2026\2026-09-19\_DSC1889.ARW` / `_DSC1890.ARW`, per the closed-eyes todo above): the outline only, no iris ring and no iris dot; (4) a file whose only face is below 60 px on the preview: nothing drawn and no error in `Riffle.log`. Tune `FACE_MESH_OUTLINE_WIDTH` / `FACE_MESH_LINE_WIDTH` (or give the iris dots their own radius) if the outline competes with the face box or the rings collapse onto the dots.
 
 ### App: real-device check of the meta pane's `Head pose` row
 
-`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) ports MediaPipe's face geometry to `crates/core/src/pose.rs` and returns the yaw, pitch and roll of the judged face from `eyes_of` (`EyesJudgment.pose`). The meta pane's Analysis group shows it as a `Head pose` row after `Eyes open`. CI covers the unit tests (`pose.rs`, `meta.test.ts`, the `EyesJudgment` serialization), and the core solve was timed at about 8 µs per face. The app itself was never run with the row. The Step 3 checkbox was ticked on the automated criteria.
+`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) ports MediaPipe's face geometry to `crates/core/src/pose.rs` and returns the yaw, pitch and roll of the judged face from `eyes_of` (`EyesJudgment.pose`). The meta pane's Analysis group shows it as a `Head pose` row after `Eyes`. CI covers the unit tests (`pose.rs`, `meta.test.ts`, the `EyesJudgment` serialization), and the core solve was timed at about 8 µs per face. The app itself was never run with the row. The Step 3 checkbox was ticked on the automated criteria.
 
 Files: `crates/app/src/commands.rs` (`read_eyes`, `EyesJudgment`), `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts` (`poseValue`), `crates/core/src/pose.rs`.
 
 #### TODO
 
-- [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Head pose  yaw N°, pitch N°, roll N°` after `Eyes open`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
+- [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Head pose  yaw N°, pitch N°, roll N°` after `Eyes`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
 - [ ] Open `D:\photos\2026\2026-02-01` and select a DNG with a judged face: the `Head pose` row shows on the no-AF path.
-- [ ] Select a file with no judged face (for example `_DSC1897.ARW`): neither `Eyes open` nor `Head pose` shows.
+- [ ] Select a file with no judged face (for example `_DSC1897.ARW`): neither `Eyes` nor `Head pose` shows.
 - [ ] Read the `eyes total=` lines in `Riffle.log` for a few ARWs: the total is not noticeably longer than before (the solve adds about 8 µs).
 
 ### App: the review of the head-pose labels is still open
