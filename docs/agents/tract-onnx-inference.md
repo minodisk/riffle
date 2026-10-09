@@ -215,6 +215,20 @@ and a labeled set, not only whether it loads.
   longer side, so a 24 px floor sends most frames to the window fallback.
   Choose such a floor from the AUC by bucket, not from the window's minimum.
   Source: `docs/plans/_archived/20261008-mesh-eye-focus/learnings.md`, Step 1.
+- Measuring the AF eye cue on the eyelid contour polygon (even-odd fill,
+  dilated by a disk of 0.1-1.0 x the contour box's longer side) instead of
+  the contour's margin box did not beat the rectangle: the best refit cell
+  (both measures masked, dilation 0.1, a 50 px floor) scored 0.797 / 88.6% /
+  95.0% held-out against the rectangle's 0.800 / 88.6% / 95.9%. Do not retry
+  a mask without a new reason. The masks are also tiny: at dilation 0 the
+  median window's longer side is 10 px and 89 of 600 training eyes had no
+  edge width. A masked edge width can be exactly 0 (a seed on the edge of a
+  window 1-2 px wide), so `MESH_LOGIT_EDGE_WIDTH * rel.ln()` would be `+inf`.
+  Guard `ln(0)` in any variant that measures edges on a tight mask window
+  (Measured). The primitives were removed; `maskdump.patch` targets commit
+  `35b1edce`, so reproducing the dump means checking that commit out first.
+  Source: `docs/plans/_archived/20261008-mesh-eye-mask/learnings.md`, Steps
+  1, 2 and 4.
 - Source: [closed-eyes-detection learnings](../plans/_archived/20261007-closed-eyes-detection/learnings.md),
   Steps 1 and 2.
 
