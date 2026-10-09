@@ -7,9 +7,9 @@ Reads the `riffle-cli features` dumps (`<folder>.tsv`, `<folder>.output.txt`)
 of the re-dump, keeps the faced AF frames (`af` with a cue face), and prints
 the percentiles of `eye_focus`, EAR, |yaw| and |pitch| (all, picks, non-picks),
 then per folder the share each cut, their AND and today's `candidate` mark,
-and the files of 2026-09-19 that pass the AND. The rule mirrors `goodPhoto`
-in `crates/app/ui/src/focus.ts`: a focus candidate whose `eye_focus`, EAR and
-pose all exist and pass. The optional second set of cuts is the fair tier
+and the files of 2026-09-19 that pass the AND. The rule mirrors the `"good"` tier of
+`photoTier` in `crates/app/ui/src/focus.ts`: a focus candidate whose `eye_focus`,
+EAR and pose all exist and pass. The optional second set of cuts is the fair tier
 (Step 4c), `photoTier` in the same file: a frame that is not good but passes
 the looser cuts; its share and the good + fair share are printed per folder.
 """
