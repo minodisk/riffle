@@ -31,7 +31,7 @@ over the mesh's eye regions), the EAR of the closed-eyes judgment
 0.36, yaw 3, roll 12, AF eye 100%, mesh eyes 0.125 face sides from YuNet's.
 
 The burst-keep-score plan's Step 5 (`docs/plans/20261008-burst-keep-score/`,
-branch `burst-keep-score-step-5`, **not yet merged**) adds `eye_offset`
+merged to `main` as #752 on 2026-10-10) adds `eye_offset`
 (the larger distance between a mesh eyelid contour's center and YuNet's eye
 landmark of the same face, over the box's longer side) and drops frames over
 0.10 from the Good / Fair tiers. But 28.6% of the meshed faced AF frames of
@@ -111,8 +111,8 @@ the good-photo thresholds.
   final), `20261007-head-pose` (a throwaway `posedump` / `sheet` CLI kept as
   a patch), `20261008-mesh-eye-focus` (measure through a CLI column first
   without changing the cue, fit, Decision, then the scan change).
-- **What `burst-keep-score-step-5` changes** (local branch only as of
-  2026-10-09, no PR): `crates/core/src/candidate.rs` (`mesh_eye_offset`,
+- **What `burst-keep-score-step-5` changes** (merged to `main` as #752
+  on 2026-10-10): `crates/core/src/candidate.rs` (`mesh_eye_offset`,
   `edge_gap`, `grown_bounds`; `mesh_eye_measures` takes the face; `Cue` /
   `EyeMeasures` gain the two fields), `crates/app/src/index.rs`
   (`SCHEMA_VERSION` 19, `FACES_VERSION` 8, columns `eye_offset` /
@@ -125,7 +125,7 @@ the good-photo thresholds.
 
 ## Steps
 
-- [ ] Step 1: Add the roll-corrected mesh as an opt-in function and a `riffle-cli meshfit` dump that runs both fits side by side with overlays
+- [x] Step 1: Add the roll-corrected mesh as an opt-in function and a `riffle-cli meshfit` dump that runs both fits side by side with overlays
   - Done when:
     - `crates/core/src/eyes.rs` gains, **next to and not replacing**
       `mesh_of` / `landmarks_of` (so the scan, `eyes_of` and the Step 5
@@ -168,11 +168,9 @@ the good-photo thresholds.
       no-AF path, `yunet_roll`, then for `before` and `after` each: the
       cue's state and `eye_focus` (`candidate::eye_focus` on the luma with
       the mesh; its `scored` / `logit` too), the EAR (`more_closed_ear`),
-      yaw / pitch / roll, `eye_offset` (reproduced locally in the CLI with
-      Step 5's definition: the larger contour-center-to-landmark distance in
-      the closer pairing over the longer box side; replaced by
-      `candidate::mesh_eye_offset` once Step 5 is on `main`, noted in
-      `learnings.md`), the mesh time in ms. `-` for a missing value, `err`
+      yaw / pitch / roll, `eye_offset` (`candidate::mesh_eye_offset`, on
+      `main` since Step 5 merged; the plan first had the CLI reproduce it
+      locally, see `learnings.md`), the mesh time in ms. `-` for a missing value, `err`
       for a failed stage; a unit test pins one line.
     - The same command writes, per file, one PNG into `<out-dir>`: the face
       crop (the `face_square` window, upscaled to a fixed side, e.g. 384)
@@ -267,13 +265,11 @@ the good-photo thresholds.
     - Files: `misfit-truth.md`, `compare.md`, `compare.py`, optionally
       `frozen.json`, `plan.md` (Decision), `learnings.md`.
 
-- **Gate (both must hold before Step 3 starts):** the user approved the
-  Decision, and `burst-keep-score-step-5` is merged to `main` (check `git
-  log origin/main -- crates/app/src/index.rs` for `SCHEMA_VERSION` 19 /
-  `FACES_VERSION` 8). Steps 3 and 4 touch `candidate.rs`, `index.rs` and
-  the scan; starting them earlier would conflict with that branch. If Step 5
-  is abandoned instead, say so in `learnings.md` and rebase on `main` as it
-  is.
+- **Gate (before Step 3 starts):** the user approved the Decision. The
+  other half, `burst-keep-score-step-5` merged to `main`, holds since
+  2026-10-10 (#752: `SCHEMA_VERSION` 19 / `FACES_VERSION` 8 in
+  `crates/app/src/index.rs` on `main`), so Steps 3 and 4 no longer conflict
+  with that branch.
 
 - [ ] Step 3: Rotate the crop by the eye line on the shared mesh path and re-run pass 2
   - Done when:
@@ -404,13 +400,12 @@ the good-photo thresholds.
   `eye_offset` bucket are what tell a loose comparison from an off mesh.
   If most frames at 0.10-0.15 are `on`, that is a finding for the owning
   plan, recorded, not acted on here.
-- **Ordering against `burst-keep-score-step-5`.** It is local, unmerged,
-  and changes `candidate.rs`, `index.rs`, `main.rs`, `focus.ts`. Steps 1
-  and 2 avoid `candidate.rs` / `index.rs` and keep the CLI change at the
-  end of `main.rs`; the `eye_offset` the CLI needs is reproduced locally
-  until Step 5 lands. Steps 3 and 4 wait for the merge (the gate above).
-  If Step 5 never merges, the gate falls to the Decision alone and the
-  local `eye_offset` stays in the CLI.
+- **Ordering against `burst-keep-score-step-5`.** It changed
+  `candidate.rs`, `index.rs`, `main.rs`, `focus.ts` and merged to `main`
+  (#752) before Step 1 was implemented, so the CLI reads
+  `candidate::mesh_eye_offset` directly and the ordering risk is gone;
+  Steps 1 and 2 still leave `candidate.rs` / `index.rs` alone, and Steps 3
+  and 4 wait only for the Decision.
 - **Labels are small and reviewed late.** 120-150 misfit labels give
   shares with about +/-8 points; the eyes and pose labels are the earlier,
   partly unreviewed sets. The Decision states what each number rests on
@@ -430,3 +425,4 @@ misfits, the misjudgment counts before / after, what each number rests on.
 ## Progress
 
 - (2026-10-09) Plan written
+- (2026-10-10) Step 1 complete

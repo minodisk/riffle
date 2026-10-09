@@ -100,8 +100,18 @@ fn main() -> Result<()> {
             }
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
+        Some("meshfit") => {
+            let (out, inputs) = match args[1..].split_last() {
+                Some((out, inputs)) if !inputs.is_empty() => (out, inputs),
+                _ => bail!("usage: riffle-cli meshfit <dir|file>... <out-dir>"),
+            };
+            meshfit(
+                &inputs.iter().map(PathBuf::from).collect::<Vec<_>>(),
+                Path::new(out),
+            )
+        }
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]\n       riffle-cli meshfit <dir|file>... <out-dir>"
         ),
     }
 }
@@ -1483,6 +1493,368 @@ fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
     Ok(())
 }
 
+/// The columns of one fit of `meshfit`, after its `before_` / `after_` prefix.
+const MESHFIT_FIT: [&str; 10] = [
+    "state",
+    "eye_focus",
+    "scored",
+    "logit",
+    "ear",
+    "yaw",
+    "pitch",
+    "roll",
+    "eye_offset",
+    "mesh_ms",
+];
+
+/// The header of `meshfit`, the column names of `meshfit_line`.
+fn meshfit_header() -> String {
+    let fit = |prefix: &str| {
+        MESHFIT_FIT
+            .iter()
+            .map(|c| format!("{prefix}_{c}"))
+            .collect::<Vec<_>>()
+            .join("\t")
+    };
+    format!(
+        "folder\tfile\txmp\tside\taf\tyunet_roll\t{}\t{}",
+        fit("before"),
+        fit("after")
+    )
+}
+
+/// One mesh fit of `meshfit`.
+struct Fit {
+    /// The cue's measures: on the mesh when `candidate::meshes_face` accepts
+    /// the face, as the scan scores it, else on the eye window.
+    focus: candidate::EyeFocus,
+    /// The EAR of the more closed eye, the pose and `mesh_eye_offset`;
+    /// `None` when the mesh failed.
+    mesh: Option<(Option<f64>, Option<pose::Pose>, Option<f64>)>,
+    /// The mesh time in ms.
+    ms: f64,
+}
+
+/// What `meshfit` found in one file with a face.
+struct MeshFitted {
+    af: bool,
+    /// The face box's longer side in preview pixels.
+    side: f32,
+    /// `eyes::eye_line_roll` of the upright face, in degrees.
+    roll: f32,
+    before: Fit,
+    after: Fit,
+}
+
+/// Fit the face mesh of the face the scan scores in every RAW file given or
+/// in the folders given twice, without and with the eye-line roll
+/// correction, on the global rayon pool: `meshfit_header`, then one
+/// `meshfit_line` per file on stdout, the totals on stderr, and per file
+/// with a face one PNG in `out` (`meshfit_overlay`).
+///
+/// The face is the scan's detection (`faces::detect_around` with
+/// `sharpness::trusted_focus`): the one nearest the AF point, else, without
+/// an AF point, `eyes::judged_face`'s largest confident one. Both meshes run
+/// on every face, also under `eyes::EYES_MIN_FACE`, so the EAR and the pose
+/// of every labeled face can be read; `before` is `eyes::mesh_of`, `after`
+/// `eyes::mesh_of_rotated` at `yunet_roll`.
+///
+/// The columns: the folder's name, the file name, the XMP flag (as
+/// `features`), the face box side, `af` / `noaf`, `yunet_roll`, then per fit
+/// (`MESHFIT_FIT`) the cue's state, `eye_focus`, the region scored
+/// (`L-sharper`, `R-only`, `window`, ...) and its logit, the EAR of the more
+/// closed eye, yaw / pitch / roll, `candidate::mesh_eye_offset` and the mesh
+/// time. `-` for a missing value (no face, no pose), `err` for a failed
+/// stage (the file in every column after the flag, the mesh in its five).
+fn meshfit(inputs: &[PathBuf], out: &Path) -> Result<()> {
+    let paths = raw_paths(inputs)?;
+    std::fs::create_dir_all(out)?;
+    // Build the models outside the timing.
+    let probe = faces::Face {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+        score: 1.0,
+        left_eye: (0.0, 0.0),
+        right_eye: (0.0, 0.0),
+    };
+    faces::detect(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 3], 1, 1)?;
+    faces::detect_whole(&[0; 6], 1, 2)?;
+    eyes::ear_of(&[0; 3], 1, 1, &probe)?;
+
+    let start = Instant::now();
+    let results: Vec<(String, Result<Option<MeshFitted>, String>)> = {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .map(|p| {
+                let folder = p
+                    .parent()
+                    .and_then(Path::file_name)
+                    .unwrap_or_default()
+                    .to_string_lossy();
+                let name = p.file_name().unwrap_or_default().to_string_lossy();
+                let fitted = meshfit_file(p, &folder, out).map_err(|e| format!("{e:#}"));
+                let xmp = flag_column(&xmp::sidecar_path(p), xmp::read_flag);
+                (meshfit_line(&folder, &name, &xmp, &fitted), fitted)
+            })
+            .collect()
+    };
+    let total = start.elapsed();
+    println!("{}", meshfit_header());
+    let (mut errors, mut faced) = (0, 0);
+    let (mut failed_before, mut failed_after) = (0, 0);
+    let (mut ms_before, mut ms_after) = (Vec::new(), Vec::new());
+    for (line, fitted) in &results {
+        println!("{line}");
+        match fitted {
+            Err(_) => errors += 1,
+            Ok(None) => {}
+            Ok(Some(f)) => {
+                faced += 1;
+                failed_before += f.before.mesh.is_none() as usize;
+                failed_after += f.after.mesh.is_none() as usize;
+                ms_before.push(f.before.ms);
+                ms_after.push(f.after.ms);
+            }
+        }
+    }
+    eprintln!(
+        "{} files, {errors} errors, {faced} with a face, mesh failed before {failed_before} / after {failed_after}: {:.2}s total",
+        paths.len(),
+        total.as_secs_f64()
+    );
+    for (label, ms) in [("before", ms_before), ("after", ms_after)] {
+        if !ms.is_empty() {
+            let n = ms.len();
+            let (mean, median, p95, max) = summary(ms);
+            eprintln!(
+                "mesh {label:<6} n={n:<5} mean {mean:6.1}ms  median {median:6.1}ms  p95 {p95:6.1}ms  max {max:6.1}ms"
+            );
+        }
+    }
+    Ok(())
+}
+
+/// `meshfit` on one file, its overlay written to `out`; `None` without a face.
+fn meshfit_file(path: &Path, folder: &str, out: &Path) -> Result<Option<MeshFitted>> {
+    let (a, jpeg) = reader::read_preview(path)?;
+    let focus = sharpness::trusted_focus(&a.shot);
+    let (rgb, w, h) = decode_rgb(&jpeg)?;
+    let found = if focus.is_some() {
+        faces::detect_around_rgb(&rgb, w, h, a.orientation, focus)?
+    } else {
+        faces::detect_whole_upright(&faces::decode_whole(&jpeg, a.orientation)?, a.orientation)?
+    };
+    let Some(&face) = eyes::judged_face(&found.faces, found.point) else {
+        return Ok(None);
+    };
+    let upright_face = faces::face_to_upright(face, a.orientation, w, h);
+    let roll = eyes::eye_line_roll(&upright_face);
+    let gray = candidate::luma(&rgb, w, h);
+    let fit = |roll: Option<f32>| {
+        let t = Instant::now();
+        let mesh = match roll {
+            None => eyes::mesh_of(&rgb, w, h, a.orientation, &face),
+            Some(r) => eyes::mesh_of_rotated(&rgb, w, h, a.orientation, &face, r),
+        };
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+        let scored = mesh.as_ref().filter(|_| candidate::meshes_face(&face));
+        let fit = Fit {
+            focus: candidate::eye_focus(&gray, w, h, &face, scored),
+            mesh: mesh.as_ref().map(|m| {
+                (
+                    eyes::more_closed_ear(&m.points),
+                    m.pose,
+                    candidate::mesh_eye_offset(&face, &m.points),
+                )
+            }),
+            ms,
+        };
+        (fit, mesh)
+    };
+    let (before, before_mesh) = fit(None);
+    let (after, after_mesh) = fit(Some(roll));
+    let (upright, uw, uh) = faces::upright_rgb(&rgb, w, h, a.orientation);
+    let to_upright = |p: &[f32; 2]| {
+        let (x, y) = (p[0], p[1]);
+        let (sw, sh) = (w as f32, h as f32);
+        match a.orientation {
+            6 => (sh - y, x),
+            8 => (y, sw - x),
+            3 => (sw - x, sh - y),
+            _ => (x, y),
+        }
+    };
+    let contours = |m: Option<eyes::Mesh>| {
+        m.map(|m| {
+            [&eyes::LEFT_EYE_CONTOUR[..], &eyes::RIGHT_EYE_CONTOUR[..]]
+                .map(|c| c.iter().map(|&i| to_upright(&m.points[i])).collect())
+        })
+    };
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let offset = |f: &Fit| {
+        f.mesh
+            .and_then(|m| m.2)
+            .map_or("x".to_string(), |o| format!("{o:.3}"))
+    };
+    let file = format!(
+        "{folder}_{stem}_roll{roll:+.0}_b{}_a{}.png",
+        offset(&before),
+        offset(&after)
+    );
+    let png = meshfit_overlay(
+        &upright,
+        uw,
+        uh,
+        &upright_face,
+        contours(before_mesh),
+        contours(after_mesh),
+    );
+    png.save(out.join(file))?;
+    Ok(Some(MeshFitted {
+        af: focus.is_some(),
+        side: face.width.max(face.height),
+        roll,
+        before,
+        after,
+    }))
+}
+
+/// The side of a `meshfit` overlay's longer edge, in pixels.
+const OVERLAY_SIDE: u32 = 384;
+
+/// The `eyes::face_square` crop of the upright `face` on the upright image,
+/// scaled to `OVERLAY_SIDE` on its longer edge, with YuNet's box (yellow)
+/// and eye landmarks (cyan), and the two eyelid contours of the `before`
+/// mesh (red) and the `after` one (green), each in upright image pixels.
+fn meshfit_overlay(
+    upright: &[u8],
+    width: usize,
+    height: usize,
+    face: &faces::Face,
+    before: Option<[Vec<(f32, f32)>; 2]>,
+    after: Option<[Vec<(f32, f32)>; 2]>,
+) -> image::RgbImage {
+    let (center, side) = eyes::face_square(face);
+    let (sub, win) = faces::crop_rgb(upright, width, height, center, side.max(1));
+    let crop = image::RgbImage::from_raw(win.width as u32, win.height as u32, sub)
+        .expect("the crop fills its window");
+    let k = OVERLAY_SIDE as f32 / win.width.max(win.height) as f32;
+    let mut img = image::imageops::resize(
+        &crop,
+        (win.width as f32 * k).round().max(1.0) as u32,
+        (win.height as f32 * k).round().max(1.0) as u32,
+        image::imageops::FilterType::Triangle,
+    );
+    let at = |(x, y): (f32, f32)| ((x - win.x as f32) * k, (y - win.y as f32) * k);
+    let (yellow, cyan) = ([255, 255, 0], [0, 255, 255]);
+    let corners = [
+        (face.x, face.y),
+        (face.x + face.width, face.y),
+        (face.x + face.width, face.y + face.height),
+        (face.x, face.y + face.height),
+    ]
+    .map(at);
+    for i in 0..4 {
+        draw_line(&mut img, corners[i], corners[(i + 1) % 4], yellow);
+    }
+    for eye in [face.left_eye, face.right_eye] {
+        let (x, y) = at(eye);
+        for d in -3..=3 {
+            let d = d as f32;
+            draw_line(&mut img, (x + d, y - 3.0), (x + d, y + 3.0), cyan);
+        }
+    }
+    for (contours, color) in [(before, [255, 48, 48]), (after, [48, 255, 48])] {
+        for contour in contours.iter().flatten() {
+            for (i, &p) in contour.iter().enumerate() {
+                draw_line(&mut img, at(p), at(contour[(i + 1) % contour.len()]), color);
+            }
+        }
+    }
+    img
+}
+
+/// A 2 px line from `a` to `b` in `color`, clipped to `img`.
+fn draw_line(img: &mut image::RgbImage, a: (f32, f32), b: (f32, f32), color: [u8; 3]) {
+    let steps = (b.0 - a.0).abs().max((b.1 - a.1).abs()).ceil().max(1.0) as usize;
+    for s in 0..=steps {
+        let t = s as f32 / steps as f32;
+        let (x, y) = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+        for (dx, dy) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)] {
+            let (px, py) = ((x + dx).floor(), (y + dy).floor());
+            if px >= 0.0 && py >= 0.0 && (px as u32) < img.width() && (py as u32) < img.height() {
+                img.put_pixel(px as u32, py as u32, image::Rgb(color));
+            }
+        }
+    }
+}
+
+/// One tab-separated record of `meshfit` (the columns are on `meshfit`).
+fn meshfit_line(
+    folder: &str,
+    name: &str,
+    xmp_flag: &str,
+    fitted: &Result<Option<MeshFitted>, String>,
+) -> String {
+    let opt =
+        |v: Option<f64>, digits: usize| v.map_or("-".to_string(), |v| format!("{v:.digits$}"));
+    let fit = |f: Option<&Fit>| -> Vec<String> {
+        let Some(f) = f else {
+            return vec!["-".to_string(); MESHFIT_FIT.len()];
+        };
+        let side = |e: candidate::Eye| match e {
+            candidate::Eye::Left => "L",
+            candidate::Eye::Right => "R",
+        };
+        let scored = match f.focus.scored {
+            candidate::Scored::Sharper(e) => format!("{}-sharper", side(e)),
+            candidate::Scored::Only(e) => format!("{}-only", side(e)),
+            candidate::Scored::Window => "window".to_string(),
+        };
+        let mesh = match f.mesh {
+            Some((ear, pose, offset)) => vec![
+                opt(ear, 4),
+                opt(pose.map(|p| p.yaw), 1),
+                opt(pose.map(|p| p.pitch), 1),
+                opt(pose.map(|p| p.roll), 1),
+                opt(offset, 4),
+            ],
+            None => vec!["err".to_string(); 5],
+        };
+        [
+            vec![
+                format!("{:?}", f.focus.state),
+                format!("{:.4}", f.focus.probability),
+                scored,
+                opt(f.focus.logit, 3),
+            ],
+            mesh,
+            vec![format!("{:.1}", f.ms)],
+        ]
+        .concat()
+    };
+    let rest = match fitted {
+        Err(_) => vec!["err".to_string(); 3 + 2 * MESHFIT_FIT.len()],
+        Ok(f) => [
+            vec![
+                opt(f.as_ref().map(|f| f64::from(f.side)), 1),
+                f.as_ref()
+                    .map_or("-", |f| if f.af { "af" } else { "noaf" })
+                    .to_string(),
+                opt(f.as_ref().map(|f| f64::from(f.roll)), 1),
+            ],
+            fit(f.as_ref().map(|f| &f.before)),
+            fit(f.as_ref().map(|f| &f.after)),
+        ]
+        .concat(),
+    };
+    format!("{folder}\t{name}\t{xmp_flag}\t{}", rest.join("\t"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1784,5 +2156,62 @@ mod tests {
         assert_eq!(counts["cr3"], (2, 1));
         assert_eq!(counts["jpg"], (1, 0));
         assert_eq!(counts["arw"], (0, 1));
+    }
+
+    #[test]
+    fn meshfit_line_lists_both_fits_with_dashes_and_errors() {
+        let fit = |scored, logit: Option<f64>, mesh, ms| Fit {
+            focus: candidate::EyeFocus {
+                window: sharpness::Window {
+                    x: 0,
+                    y: 0,
+                    width: 30,
+                    height: 20,
+                },
+                lap: 1.0,
+                edge_width: None,
+                edge_width_rel: None,
+                logit,
+                probability: 0.912345,
+                state: candidate::FocusCandidate::Candidate,
+                scored,
+                mesh: None,
+            },
+            mesh,
+            ms,
+        };
+        let fitted = Ok(Some(MeshFitted {
+            af: true,
+            side: 96.64,
+            roll: -12.34,
+            before: fit(
+                candidate::Scored::Sharper(candidate::Eye::Right),
+                Some(2.34567),
+                Some((
+                    Some(0.21234),
+                    Some(pose::Pose {
+                        yaw: -12.34,
+                        pitch: 4.06,
+                        roll: 3.0,
+                    }),
+                    Some(0.13579),
+                )),
+                40.04,
+            ),
+            after: fit(candidate::Scored::Window, None, None, 41.0),
+        }));
+        let line = meshfit_line("2026-07-11", "_DSC2638.ARW", "Pick", &fitted);
+        assert_eq!(
+            line,
+            "2026-07-11\t_DSC2638.ARW\tPick\t96.6\taf\t-12.3\tCandidate\t0.9123\tR-sharper\t2.346\t0.2123\t-12.3\t4.1\t3.0\t0.1358\t40.0\tCandidate\t0.9123\twindow\t-\terr\terr\terr\terr\terr\t41.0"
+        );
+        let header = meshfit_header();
+        assert_eq!(line.split('\t').count(), header.split('\t').count());
+        assert!(header.starts_with("folder\tfile\txmp\tside\taf\tyunet_roll\tbefore_state\t"));
+        assert!(header.ends_with("\tafter_eye_offset\tafter_mesh_ms"));
+        let no_face = meshfit_line("x", "b.DNG", "-", &Ok(None));
+        assert_eq!(no_face, format!("x\tb.DNG\t-{}", "\t-".repeat(23)));
+        let failed = meshfit_line("x", "c.ARW", "err", &Err("bad".into()));
+        assert_eq!(failed, format!("x\tc.ARW\terr{}", "\terr".repeat(23)));
     }
 }

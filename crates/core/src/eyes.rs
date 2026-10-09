@@ -293,6 +293,171 @@ fn upright_crop(rgb: &[u8], width: usize, height: usize, orientation: u16, win: 
     out
 }
 
+/// The in-plane roll of an upright `face` from YuNet's eye landmarks: the
+/// angle in degrees of the line from `left_eye` to `right_eye`, positive
+/// clockwise on screen (the right eye lower), the sign of `Pose::roll`.
+pub fn eye_line_roll(face: &Face) -> f32 {
+    let (dx, dy) = (
+        face.right_eye.0 - face.left_eye.0,
+        face.right_eye.1 - face.left_eye.1,
+    );
+    dy.atan2(dx).to_degrees()
+}
+
+/// The center of `win` in continuous pixel coordinates (a pixel `i` spans
+/// `i..i + 1`), the point a rotated crop turns about.
+fn window_center(win: &Window) -> (f32, f32) {
+    (
+        win.x as f32 + win.width as f32 / 2.0,
+        win.y as f32 + win.height as f32 / 2.0,
+    )
+}
+
+/// Rotate `(x, y)` about `center` by the angle of `(sin, cos)`, clockwise on
+/// screen for a positive angle.
+fn rotate_about((x, y): (f32, f32), center: (f32, f32), (sin, cos): (f32, f32)) -> (f32, f32) {
+    let (dx, dy) = (x - center.0, y - center.1);
+    (
+        center.0 + cos * dx - sin * dy,
+        center.1 + sin * dx + cos * dy,
+    )
+}
+
+/// The `win` window of a `width` x `height` upright image whose pixels
+/// `pixel` reads, turned by `roll` degrees about the window's center so a
+/// line at `roll` (see `eye_line_roll`) runs horizontal in the crop. Each
+/// crop pixel samples the image bilinearly at its center rotated by `roll`;
+/// a sample outside the image takes the nearest edge pixel. At a roll of 0
+/// every sample falls on a pixel center, so the crop is `crop_rgb`'s.
+fn rotated_crop(
+    pixel: impl Fn(usize, usize) -> [u8; 3],
+    width: usize,
+    height: usize,
+    win: Window,
+    roll: f32,
+) -> Vec<u8> {
+    let center = window_center(&win);
+    let turn = roll.to_radians().sin_cos();
+    let mut out = Vec::with_capacity(win.width * win.height * 3);
+    for y in win.y..win.y + win.height {
+        for x in win.x..win.x + win.width {
+            let (sx, sy) = rotate_about((x as f32 + 0.5, y as f32 + 0.5), center, turn);
+            let fx = (sx - 0.5).clamp(0.0, (width - 1) as f32);
+            let fy = (sy - 0.5).clamp(0.0, (height - 1) as f32);
+            let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+            let (x1, y1) = ((x0 + 1).min(width - 1), (y0 + 1).min(height - 1));
+            let (tx, ty) = (fx - x0 as f32, fy - y0 as f32);
+            let (p00, p10, p01, p11) = (pixel(x0, y0), pixel(x1, y0), pixel(x0, y1), pixel(x1, y1));
+            for c in 0..3 {
+                let a = p00[c] as f32 * (1.0 - tx) + p10[c] as f32 * tx;
+                let b = p01[c] as f32 * (1.0 - tx) + p11[c] as f32 * tx;
+                out.push((a * (1.0 - ty) + b * ty).round() as u8);
+            }
+        }
+    }
+    out
+}
+
+/// Map points on a crop `rotated_crop` cut from `win` at `roll`, already
+/// scaled onto the window by `to_full`, back onto the image: x and y turned
+/// by `roll` about the window's center, z unchanged.
+fn rotate_back(points: &[[f32; 3]], win: &Window, roll: f32) -> Vec<[f32; 3]> {
+    let center = window_center(win);
+    let turn = roll.to_radians().sin_cos();
+    points
+        .iter()
+        .map(|p| {
+            let (x, y) = rotate_about((p[0], p[1]), center, turn);
+            [x, y, p[2]]
+        })
+        .collect()
+}
+
+/// `landmarks_of` on a crop turned by `roll` degrees (`rotated_crop`), so a
+/// face whose eye line runs at `roll` is fed upright; the points come back in
+/// the full-size upright image's pixels, x and y turned back, z unchanged.
+/// At a roll of 0 it is `landmarks_of`.
+pub fn landmarks_of_rotated(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    face: &Face,
+    roll: f32,
+) -> Result<Option<Vec<[f32; 3]>>> {
+    let (cx, cy) = (face.x + face.width / 2.0, face.y + face.height / 2.0);
+    if rgb.len() < width * height * 3
+        || !(0.0..width as f32).contains(&cx)
+        || !(0.0..height as f32).contains(&cy)
+    {
+        return Ok(None);
+    }
+    let (center, side) = face_square(face);
+    let win = window_at(width, height, center.0, center.1, side.max(1));
+    let pixel = |x: usize, y: usize| {
+        let i = (y * width + x) * 3;
+        [rgb[i], rgb[i + 1], rgb[i + 2]]
+    };
+    let sub = rotated_crop(pixel, width, height, win, roll);
+    let points = landmarks(input_tensor(&sub, win.width, win.height))?;
+    Ok(Some(rotate_back(&to_full(&points, &win), &win, roll)))
+}
+
+/// `mesh_of` on a crop turned by `roll` degrees (`rotated_crop`, sampling the
+/// stored image through the orientation without rotating the rest), the
+/// points turned back before the pose is solved on them, so the pose's roll
+/// is the face's in the upright image. At a roll of 0 it is `mesh_of`.
+pub fn mesh_of_rotated(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+    face: &Face,
+    roll: f32,
+) -> Option<Mesh> {
+    let (uw, uh) = match orientation {
+        6 | 8 => (height, width),
+        _ => (width, height),
+    };
+    let up = face_to_upright(*face, orientation, width, height);
+    let (cx, cy) = (up.x + up.width / 2.0, up.y + up.height / 2.0);
+    if rgb.len() < width * height * 3
+        || !(0.0..uw as f32).contains(&cx)
+        || !(0.0..uh as f32).contains(&cy)
+    {
+        return None;
+    }
+    let (center, side) = face_square(&up);
+    let win = window_at(uw, uh, center.0, center.1, side.max(1));
+    let pixel = |x: usize, y: usize| {
+        let (sx, sy) = match orientation {
+            6 => (y, height - 1 - x),
+            8 => (width - 1 - y, x),
+            3 => (width - 1 - x, height - 1 - y),
+            _ => (x, y),
+        };
+        let i = (sy * width + sx) * 3;
+        [rgb[i], rgb[i + 1], rgb[i + 2]]
+    };
+    let sub = rotated_crop(pixel, uw, uh, win, roll);
+    // Nothing here is shared or observable after a panic, hence
+    // `AssertUnwindSafe`.
+    let points = catch_unwind(AssertUnwindSafe(|| {
+        landmarks(input_tensor(&sub, win.width, win.height))
+    }))
+    .ok()?
+    .ok()?;
+    let points = rotate_back(&to_full(&points, &win), &win, roll);
+    let pose = head_pose(&points, uw, uh);
+    let points = points
+        .iter()
+        .map(|p| {
+            let (x, y) = point_to_stored((p[0], p[1]), orientation, width, height);
+            [x, y]
+        })
+        .collect();
+    Some(Mesh { points, pose })
+}
+
 /// The EAR of the more closed eye of `face` (see `judge`), whatever the
 /// face's size; `None` when its center lies outside the image or neither
 /// eye's EAR is finite.
@@ -640,6 +805,145 @@ mod tests {
         assert_eq!(mesh_of(&rgb, 200, 150, 1, &outside), None);
         assert_eq!(mesh_of(&rgb, 150, 200, 6, &outside), None);
         assert_eq!(mesh_of(&rgb[..30], 200, 150, 1, &upright()), None);
+    }
+
+    #[test]
+    fn the_eye_line_roll_is_positive_clockwise_on_screen() {
+        let roll = |right_eye: (f32, f32)| {
+            eye_line_roll(&Face {
+                left_eye: (10.0, 20.0),
+                right_eye,
+                ..upright()
+            })
+        };
+        assert_eq!(roll((30.0, 20.0)), 0.0);
+        assert!((roll((30.0, 40.0)) - 45.0).abs() < 1e-4);
+        assert!((roll((30.0, 0.0)) + 45.0).abs() < 1e-4);
+    }
+
+    /// A `w` x `h` RGB image whose bytes all differ from their neighbors'.
+    fn pattern(w: usize, h: usize) -> Vec<u8> {
+        (0..w * h * 3).map(|i| (i * 7 % 251) as u8).collect()
+    }
+
+    #[test]
+    fn a_rotated_crop_at_roll_zero_is_the_plain_crop() {
+        let (w, h) = (37, 23);
+        let rgb = pattern(w, h);
+        let pixel = |x: usize, y: usize| {
+            let i = (y * w + x) * 3;
+            [rgb[i], rgb[i + 1], rgb[i + 2]]
+        };
+        for (center, side) in [((18, 11), 9), ((2, 3), 12), ((36, 22), 15), ((5, 5), 50)] {
+            let (want, win) = crop_rgb(&rgb, w, h, center, side);
+            assert_eq!(
+                rotated_crop(pixel, w, h, win, 0.0),
+                want,
+                "{center:?} {side}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rotated_crop_turns_a_tilted_eye_line_horizontal() {
+        let (w, h) = (100, 100);
+        let roll = 30.0f32;
+        let win = Window {
+            x: 20,
+            y: 20,
+            width: 60,
+            height: 60,
+        };
+        let center = window_center(&win);
+        let turn = roll.to_radians().sin_cos();
+        let mut rgb = vec![0u8; w * h * 3];
+        for dx in [-20.0, 20.0] {
+            let (mx, my) = rotate_about((center.0 + dx, center.1), center, turn);
+            for y in my as usize - 1..=my as usize + 1 {
+                for x in mx as usize - 1..=mx as usize + 1 {
+                    rgb[(y * w + x) * 3..][..3].copy_from_slice(&[255; 3]);
+                }
+            }
+        }
+        let pixel = |x: usize, y: usize| {
+            let i = (y * w + x) * 3;
+            [rgb[i], rgb[i + 1], rgb[i + 2]]
+        };
+        let crop = rotated_crop(pixel, w, h, win, roll);
+        let brightest = |xs: std::ops::Range<usize>| {
+            (0..win.height)
+                .flat_map(|y| xs.clone().map(move |x| (x, y)))
+                .max_by_key(|&(x, y)| crop[(y * win.width + x) * 3])
+                .unwrap()
+        };
+        let (left, right) = (brightest(0..30), brightest(30..60));
+        assert!(left.1.abs_diff(right.1) <= 1, "{left:?} {right:?}");
+        assert!(left.1.abs_diff(30) <= 1, "{left:?}");
+        assert!(left.0.abs_diff(10) <= 1 && right.0.abs_diff(50) <= 1);
+    }
+
+    #[test]
+    fn a_point_turned_onto_the_crop_and_back_returns_within_a_pixel() {
+        let win = Window {
+            x: 100,
+            y: 40,
+            width: 80,
+            height: 80,
+        };
+        let p = [[123.4, 87.9, -5.0]];
+        let center = window_center(&win);
+        let (x, y) = rotate_about(
+            (p[0][0], p[0][1]),
+            center,
+            (-23.0f32).to_radians().sin_cos(),
+        );
+        let back = rotate_back(&[[x, y, p[0][2]]], &win, 23.0);
+        assert!((back[0][0] - p[0][0]).abs() < 1.0 && (back[0][1] - p[0][1]).abs() < 1.0);
+        assert_eq!(back[0][2], p[0][2]);
+        assert_eq!(rotate_back(&p, &win, 0.0), p);
+    }
+
+    #[test]
+    fn a_rotated_mesh_at_roll_zero_is_the_mesh() {
+        // A face on a 120 x 90 upright image stored as orientation 6.
+        let (sw, sh) = (90, 120);
+        let rgb = pattern(sw, sh);
+        let up = Face {
+            x: 30.0,
+            y: 20.0,
+            width: 64.0,
+            height: 70.0,
+            ..upright()
+        };
+        let face = crate::faces::to_stored(up, 6, sw, sh);
+        let plain = mesh_of(&rgb, sw, sh, 6, &face).unwrap();
+        let turned = mesh_of_rotated(&rgb, sw, sh, 6, &face, 0.0).unwrap();
+        for (a, b) in plain.points.iter().zip(&turned.points) {
+            assert!(
+                (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3,
+                "{a:?} {b:?}"
+            );
+        }
+        match (plain.pose, turned.pose) {
+            (Some(a), Some(b)) => assert!(
+                (a.yaw - b.yaw).abs() < 0.01
+                    && (a.pitch - b.pitch).abs() < 0.01
+                    && (a.roll - b.roll).abs() < 0.01,
+                "{a:?} {b:?}"
+            ),
+            (a, b) => assert_eq!(a, b),
+        }
+        let (upright_rgb, uw, uh) = crate::faces::upright_rgb(&rgb, sw, sh, 6);
+        let a = landmarks_of(&upright_rgb, uw, uh, &up).unwrap().unwrap();
+        let b = landmarks_of_rotated(&upright_rgb, uw, uh, &up, 0.0)
+            .unwrap()
+            .unwrap();
+        for (a, b) in a.iter().zip(&b) {
+            assert!(
+                (a[0] - b[0]).abs() < 1e-3 && (a[1] - b[1]).abs() < 1e-3 && a[2] == b[2],
+                "{a:?} {b:?}"
+            );
+        }
     }
 
     #[test]
