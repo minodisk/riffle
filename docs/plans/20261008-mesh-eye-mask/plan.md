@@ -260,7 +260,7 @@ closed either way.
       `pose.rs` or the face crop. The on-demand focus-mark drawing
       (`facemesh.ts`) is unaffected: it draws the contour, not the region.
 
-- [ ] Step 4: Bring the docs and the todo in line with the outcome
+- [x] Step 4: Bring the docs and the todo in line with the outcome
   - Done when (if adopted):
     - `docs/humans/usage.md` **Focus mark** bullet says the probability is
       measured inside each eye's eyelid contour (dilated by the chosen
@@ -328,8 +328,8 @@ closed either way.
   fails too; post hoc, no cell of the 110 passes all three on held-out.
 - Caveat: the held-out set's meshed frames hold only 9-11 off frames, so the
   AUC differences of 0.003-0.007 around 0.800 are within noise; the mask did
-  rank the training set's meshed frames better (0.974 against 0.951), which did
-  not carry over. Re-validating on the reserved folders once labeled is the
+  rank the training set's meshed frames better (0.974 against the window's
+  0.951, where the rectangle reached 0.948), which did not carry over. Re-validating on the reserved folders once labeled is the
   existing todo item's follow-up.
 - So Step 3 is skipped (marked so in Progress), and Step 4 takes its
   "if not adopted" branch.
@@ -389,3 +389,5 @@ closed either way.
   0.797 against 0.800, with precision 88.56% and coverage 95.0% failing the
   rule. See `fit.md` and `frozen.json` (`adopt: false`). Step 3 is skipped
   and Step 4 takes its "if not adopted" branch.
+- (2026-10-09) Step 3 skipped (mask not adopted)
+- (2026-10-09) Step 4 complete

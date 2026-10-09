@@ -524,6 +524,11 @@ gate skips 104 of the 406 training faces and 102 of the 400 held-out ones,
 and the AUC, precision and coverage stay at 0.882 / 93.9% / 91.4% and 0.800
 / 88.6% / 95.9%.
 
+Measuring each eye inside its eyelid contour polygon instead of the
+rectangle was tried and did not beat it on the held-out set (best cell AUC
+0.797, precision 88.6%, coverage 95.0%), so the cue still uses the rectangle
+(see `docs/plans/_archived/20261008-mesh-eye-mask/`).
+
 #### Eye-state model survey (Windows 11)
 
 YuNet's five landmarks carry no eyelid points, so telling closed eyes apart
