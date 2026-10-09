@@ -104,4 +104,8 @@ partition the frames and the menu reads like the mark's colors.
 
 ## Progress
 
-- (none yet)
+- Step 1 done: `passes()` in `crates/app/ui/src/filter.ts` now does a single
+  `tier ?? candidate ?? "unknown"` lookup, so the Sharp item passes only
+  in-focus frames outside Good. The item is renamed `Sharp only`, the docs
+  (README, `docs/humans/usage`) list all four `AF eye` items, and the
+  burst-keep-score plan's Step 6 carries a note about the change.
