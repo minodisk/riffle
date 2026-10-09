@@ -646,3 +646,5 @@ numbers are written once.
 - (2026-10-09) Step 4c complete
 - (2026-10-10) Step 5 complete; Decision B approved as provisional, re-tuned
   after the face-mesh roll correction lands
+- (2026-10-10) Step 5b complete; the strip icon stays `scan-face` (the user,
+  2026-10-10: the old problem was how often it showed, not its shape)
