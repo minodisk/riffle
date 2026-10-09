@@ -389,3 +389,5 @@ closed either way.
   0.797 against 0.800, with precision 88.56% and coverage 95.0% failing the
   rule. See `fit.md` and `frozen.json` (`adopt: false`). Step 3 is skipped
   and Step 4 takes its "if not adopted" branch.
+- (2026-10-09) Step 3 skipped (mask not adopted)
+- (2026-10-09) Step 4 complete
