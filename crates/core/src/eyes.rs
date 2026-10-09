@@ -188,6 +188,8 @@ pub fn judge(rgb: &[u8], width: usize, height: usize, face: &Face) -> Option<Eye
 #[derive(Debug, Clone, PartialEq)]
 pub struct Judged {
     pub eyes: Eyes,
+    /// The EAR of the more closed eye the judgment was read from.
+    pub ear: f64,
     /// The `LANDMARKS` points in the full-size upright image's pixels, z at
     /// the scale of x (see `landmarks_of`).
     pub points: Vec<[f32; 3]>,
@@ -210,6 +212,7 @@ pub fn judge_mesh(rgb: &[u8], width: usize, height: usize, face: &Face) -> Optio
     let ear = more_closed_ear(&points)?;
     Some(Judged {
         eyes: Eyes::from_ear(ear),
+        ear,
         pose: head_pose(&points, width, height),
         points,
     })

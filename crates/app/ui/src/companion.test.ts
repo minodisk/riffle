@@ -190,6 +190,7 @@ describe("getView", () => {
   const judged: Eyes = {
     state: "closed",
     probability: 0.9,
+    ear: 0.1,
     pose: { yaw: 40, pitch: -5, roll: 2 },
     mesh: { width: 1616, height: 1080, points: [[1, 2]] },
   };

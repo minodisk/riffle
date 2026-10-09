@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  EYES_CLOSED_EAR,
+  EYES_WIDE_OPEN_EAR,
   FOCUS_MARK_COLORS,
   GOOD_EYE_EAR,
   GOOD_EYE_FOCUS,
@@ -8,6 +10,7 @@ import {
   type MarkFocus,
   applyFaceReady,
   applySharpnessReady,
+  eyesOpenness,
   faceMarks,
   focusMark,
   goodPhoto,
@@ -96,6 +99,28 @@ describe("FOCUS_MARK_COLORS", () => {
       not_candidate: "#f93",
       unknown: "#fff",
     });
+  });
+});
+
+describe("eyesOpenness", () => {
+  test("is 0 at the closed EAR and 100 at the wide open one", () => {
+    expect(eyesOpenness(EYES_CLOSED_EAR)).toBe(0);
+    expect(eyesOpenness(EYES_WIDE_OPEN_EAR)).toBe(100);
+  });
+
+  test("clamps below the closed EAR and above the wide open one", () => {
+    expect(eyesOpenness(0.05)).toBe(0);
+    expect(eyesOpenness(0)).toBe(0);
+    expect(eyesOpenness(0.6)).toBe(100);
+  });
+
+  test("is linear in the EAR between", () => {
+    expect(eyesOpenness((EYES_CLOSED_EAR + EYES_WIDE_OPEN_EAR) / 2)).toBeCloseTo(50, 10);
+    expect(eyesOpenness(0.25)).toBeCloseTo(41.39, 2);
+  });
+
+  test("is null without an EAR", () => {
+    expect(eyesOpenness(null)).toBeNull();
   });
 });
 

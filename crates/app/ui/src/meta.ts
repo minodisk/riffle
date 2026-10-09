@@ -1,4 +1,5 @@
-import type { Eyes, Pose } from "./eyes.js";
+import type { EyeState, Eyes, Pose } from "./eyes.js";
+import { eyesOpenness } from "./focus.js";
 
 // Mirrors `Metadata` in `crates/app/src/commands.rs`: already formatted for
 // display, so a field is either a string to show or null to leave out.
@@ -43,12 +44,13 @@ export const ANALYSIS_HEADING = "Analysis";
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 
 // The second scan pass's result for one file, as `Focus` in `main.ts` carries
-// it. `eyes_closed` and `pose` are what it stored for the AF face, `null` when
-// it ran no face mesh there.
+// it. `eyes_ear`, `eyes` and `pose` are what it stored for the AF face,
+// `null` / `unknown` when it ran no face mesh there.
 export interface FocusCue {
   candidate: FocusCandidate;
   eye_focus: number | null;
-  eyes_closed: number | null;
+  eyes_ear: number | null;
+  eyes: EyeState;
   pose: Pose | null;
 }
 
@@ -56,10 +58,13 @@ function focusPercent(p: number | null): string | null {
   return p === null ? null : `${Math.round(p * 100)}%`;
 }
 
-// The open probability from the closed one, so every file sits on the same
-// scale whichever way it was judged.
-function eyesOpenPercent(closed: number | null): string | null {
-  return closed === null ? null : `${Math.round((1 - closed) * 100)}%`;
+// The open / closed judgment with the openness of the eyes, `Open · 82`.
+function eyesValue(state: EyeState, ear: number | null): string | null {
+  const openness = eyesOpenness(ear);
+  if (openness === null || state === "unknown") {
+    return null;
+  }
+  return `${state === "closed" ? "Closed" : "Open"} · ${Math.round(openness)}`;
 }
 
 // Whole signed degrees, a yaw past 90 shown as is (a far profile
@@ -85,8 +90,8 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
 // not be read still shows its score. The AF eye's in-focus probability gets a
-// row, as a percentage, only when there is one, and so does the probability
-// that the eyes are open and the head pose of the same face: the values the
+// row, as a percentage, only when there is one, and so do the open / closed
+// judgment with the openness of the eyes and the head pose of the same face: the values the
 // scan stored for the AF face when it has them, else the `eyes` judgment taken
 // when the file was shown.
 export function metaGroups(
@@ -96,8 +101,8 @@ export function metaGroups(
   eyes?: Eyes | null,
 ): MetaGroup[] {
   const groups: MetaGroup[] = [];
-  const closed = focus?.eyes_closed ?? null;
-  const stored = closed !== null;
+  const ear = focus?.eyes_ear ?? null;
+  const stored = ear !== null;
   if (meta !== null) {
     groups.push(
       group(EXIF_HEADING, [
@@ -130,7 +135,12 @@ export function metaGroups(
     group(ANALYSIS_HEADING, [
       ["Sharpness", sharpness?.toFixed(1) ?? null],
       ["AF eye in focus", focusPercent(focus?.eye_focus ?? null)],
-      ["Eyes open", eyesOpenPercent(stored ? closed : (eyes?.probability ?? null))],
+      [
+        "Eyes",
+        stored
+          ? eyesValue(focus?.eyes ?? "unknown", ear)
+          : eyesValue(eyes?.state ?? "unknown", eyes?.ear ?? null),
+      ],
       ["Head pose", poseValue(stored ? (focus?.pose ?? null) : (eyes?.pose ?? null))],
     ]),
   );
