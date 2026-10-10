@@ -158,6 +158,22 @@ and a labeled set, not only whether it loads.
   because the FOV is not measurable from `Shot`, which lacks the 35 mm
   equivalent focal length (Measured).
   Source: [head-pose learnings, Steps 1, 2 and 4](../plans/_archived/20261007-head-pose/learnings.md).
+- Do not rotate the mesh crop by YuNet's eye line to correct roll (Measured,
+  declined). YuNet's two eye points are ordered by image x (`faces.rs`), so
+  the eye-line roll is folded into -90..+90 deg. A head-down face therefore
+  reads about -11 deg, and no eye-line rotation can fix it. On profile and
+  far-turned faces the two points sit together on the visible eye or the
+  nose (eye distance 0.14 of the box side or less), so the angle is bogus
+  and the rotation makes a fitting mesh worse. Always-rotate broke 15 and
+  fixed 7 of 131 readable truth frames and dropped the held-out AF AUC from
+  0.800 to 0.783. An eye-distance guard changed no labeled outcome. Most of
+  `eye_offset` > 0.10 (28.7% of frames, unchanged by rotating) is a loose
+  comparison. About 27% of those frames have a mesh off the face, and about
+  65% have an `on` mesh against YuNet points that are off the eyes. So
+  treat a large `eye_offset` as unreliable when the YuNet eye distance is
+  under 0.20, rather than as a mesh failure. The code is reachable from
+  #755 (`a5ee087e`) and #758 (`c1843389`). Source:
+  [mesh-roll learnings, Steps 1-3](../plans/_archived/20261010-mesh-roll/learnings.md).
 - The file is a tf2onnx 1.17.0 conversion of Google's TFLite (provenance in
   `crates/core/models/LICENSE-mediapipe`); tf2onnx widens the float16
   weights to float32, so the ONNX is about twice the TFLite (4.9 MB).
