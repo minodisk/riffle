@@ -448,3 +448,4 @@ and `riffle-cli meshfit` stay as a diagnostic or are removed.
 - (2026-10-10) Step 1 complete
 - (2026-10-10) Step 2 complete
 - (2026-10-10) Decision approved: no rotation; Steps 3 and 4 replaced by one removal / follow-up step
+- (2026-10-10) Step 3 complete
