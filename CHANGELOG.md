@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.6.0](https://github.com/minodisk/riffle/compare/v1.5.0...v1.6.0) (2026-10-10)
+
+
+### Features
+
+* **app:** add a fair tier below good with its strip icon and filter items (Step 4c) ([#751](https://github.com/minodisk/riffle/issues/751)) ([f5dfef9](https://github.com/minodisk/riffle/commit/f5dfef927d476aa0168889bfdf44137f77b89564))
+* **app:** add filter / set_filter commands that store a validated strip filter ([#770](https://github.com/minodisk/riffle/issues/770)) ([6e2b180](https://github.com/minodisk/riffle/commit/6e2b18010350c4599f54c16d51a1673fdd953c93))
+* **app:** draw the face mesh over the judged face ([#718](https://github.com/minodisk/riffle/issues/718)) ([cbe8f02](https://github.com/minodisk/riffle/commit/cbe8f0239dc5c5219b143d5544e9f913646ad020))
+* **app:** draw the face parts outline and irises instead of the mesh ([#722](https://github.com/minodisk/riffle/issues/722)) ([bde2366](https://github.com/minodisk/riffle/commit/bde23660efa8fc83942b9c80164e76a48f138383))
+* **app:** exclude mesh misfits and edge-cut faces from the photo tiers and tighten yaw to 30 (Step 5) ([#752](https://github.com/minodisk/riffle/issues/752)) ([f853329](https://github.com/minodisk/riffle/commit/f8533295f3dbfc2d31ba3efa29dc32cb01a24f18))
+* **app:** expose the shown file's eyes judgment and head pose in get_view ([#739](https://github.com/minodisk/riffle/issues/739)) ([4cfd319](https://github.com/minodisk/riffle/commit/4cfd319aa0628acebb9307d94af60aedca7dea50))
+* **app:** fold the good and fair tiers into one good tier (Step 5b) ([#754](https://github.com/minodisk/riffle/issues/754)) ([054d1a1](https://github.com/minodisk/riffle/commit/054d1a1d03a28cac76a2891210ff829e457a537d))
+* **app:** judge a frame with no trusted AF point on the largest confident face of the whole preview ([#768](https://github.com/minodisk/riffle/issues/768)) ([a338845](https://github.com/minodisk/riffle/commit/a33884595f63ffa35c9a7e5a2046e60c8cfe3be3))
+* **app:** judge the shown file's eyes on demand in the meta pane ([#712](https://github.com/minodisk/riffle/issues/712)) ([392f9c2](https://github.com/minodisk/riffle/commit/392f9c257db8030f4b5737c17a2ab3dfbfeb84a6))
+* **app:** mark only good photos with the strip icon and the bright green crosshair ([#748](https://github.com/minodisk/riffle/issues/748)) ([ccd18aa](https://github.com/minodisk/riffle/commit/ccd18aaa96bbd153cee9c7566736ae9bb9a41a59))
+* **app:** merge the AF eye OK state into Bad so the judgment is Good / Bad / Unknown ([#766](https://github.com/minodisk/riffle/issues/766)) ([da43e85](https://github.com/minodisk/riffle/commit/da43e8572e1a9500d46e1ee58a431f798de839da))
+* **app:** narrow the AF eye filter's Sharp item to in focus but not Good ([#756](https://github.com/minodisk/riffle/issues/756)) ([bf9e9d1](https://github.com/minodisk/riffle/commit/bf9e9d101eb1da44c78b2936e30d74b1db1d9e25))
+* **app:** re-tune the good-photo cuts on the 180 rated frames (Step 7) ([#761](https://github.com/minodisk/riffle/issues/761)) ([3e1b1a6](https://github.com/minodisk/riffle/commit/3e1b1a637bb6ce122a80b6577f515eb6a809b42a))
+* **app:** remember the strip's filter across restarts ([#772](https://github.com/minodisk/riffle/issues/772)) ([9b5f0c5](https://github.com/minodisk/riffle/commit/9b5f0c5e129dc1727b3ae4e5759f1fc9214632e6))
+* **app:** remove the sharpness bar, the compare BEST mark and the Sharpness row ([#775](https://github.com/minodisk/riffle/issues/775)) ([49d78a0](https://github.com/minodisk/riffle/commit/49d78a0eab9b6c547494d22033a5d9caea239bae))
+* **app:** rename the AF eye items to Good / OK / Bad and give each state its own icon and mark color ([#762](https://github.com/minodisk/riffle/issues/762)) ([22f01d7](https://github.com/minodisk/riffle/commit/22f01d7436d9d2a350c7898fa52454f3c6ff66ad))
+* **app:** return the face mesh points from eyes_of ([#717](https://github.com/minodisk/riffle/issues/717)) ([c1ad78d](https://github.com/minodisk/riffle/commit/c1ad78d0d76e1e396d8374abae80f14ea441ab99))
+* **app:** show the eyes as openness from the EAR in the meta pane (Step 4b) ([#750](https://github.com/minodisk/riffle/issues/750)) ([a0de444](https://github.com/minodisk/riffle/commit/a0de444152e6ccf1fa0ae52dcbf4a5fe133bf238))
+* **app:** show the Eyes row as the open probability ([#721](https://github.com/minodisk/riffle/issues/721)) ([d74d762](https://github.com/minodisk/riffle/commit/d74d762522a969105eae5171a14c9aa969b252e7))
+* **app:** show the head pose of the judged face in the meta pane ([#725](https://github.com/minodisk/riffle/issues/725)) ([9048e95](https://github.com/minodisk/riffle/commit/9048e952623b0d766c498b29f2f590a619644dba))
+* **app:** show the stored eyes and pose in the meta pane and add the Eyes filter ([#743](https://github.com/minodisk/riffle/issues/743)) ([65c70dd](https://github.com/minodisk/riffle/commit/65c70dd0bf93433a2d565df7acfbcee9051f754d))
+* **app:** store the AF face's eye EAR and head pose in the index ([#741](https://github.com/minodisk/riffle/issues/741)) ([b0fc2cf](https://github.com/minodisk/riffle/commit/b0fc2cfac0bfc7592c178d2c339842371d9a76a9))
+* **cli:** add the roll-corrected face mesh as opt-in functions and a meshfit dump (Step 1) ([#755](https://github.com/minodisk/riffle/issues/755)) ([a5ee087](https://github.com/minodisk/riffle/commit/a5ee087ea4752341a1ecf97b183fc72f619e9593))
+* **cli:** dump the burst keep-score features per file ([#732](https://github.com/minodisk/riffle/issues/732)) ([f7db5cd](https://github.com/minodisk/riffle/commit/f7db5cd3e4a28c1a3f23f4b07de7dae24db45af1))
+* **cli:** measure per-eye focus over the face mesh eye regions ([#729](https://github.com/minodisk/riffle/issues/729)) ([d509e55](https://github.com/minodisk/riffle/commit/d509e555d97b691d13e3d8e604d74872046d42da))
+* **core:** add the eyelid contour mask primitives for the AF eye measures ([#742](https://github.com/minodisk/riffle/issues/742)) ([35b1edc](https://github.com/minodisk/riffle/commit/35b1edcefbff15cdde9cd17054fb2aaadd6cadbc))
+* **core:** add the MediaPipe Face Landmarker v2 eyes module ([#710](https://github.com/minodisk/riffle/issues/710)) ([6d879cf](https://github.com/minodisk/riffle/commit/6d879cfb32a90e8e2410a5edfdfeecc850999983))
+* **core:** port MediaPipe's face geometry for the head pose ([#723](https://github.com/minodisk/riffle/issues/723)) ([135e658](https://github.com/minodisk/riffle/commit/135e65803dc71a4adb5b7a033d5ce8542de58ebd))
+* **core:** score the AF eye over the mesh eye regions in the scan ([#733](https://github.com/minodisk/riffle/issues/733)) ([a7d2fbc](https://github.com/minodisk/riffle/commit/a7d2fbc42806084cf324a8dae4e8bec3c0686b2d))
+* **core:** skip the scan's face mesh for faces under 60 px ([#737](https://github.com/minodisk/riffle/issues/737)) ([ac6f6ad](https://github.com/minodisk/riffle/commit/ac6f6ade16236e975848b9cc34f3850734ddd5a3))
+
+
+### Bug Fixes
+
+* **app:** create the main window hidden so the restored geometry shows without a default-size flash ([#769](https://github.com/minodisk/riffle/issues/769)) ([aff7059](https://github.com/minodisk/riffle/commit/aff7059b64754f222c5795620d20aa9263e35df1))
+
 ## [1.5.0](https://github.com/minodisk/riffle/compare/v1.4.0...v1.5.0) (2026-10-07)
 
 
