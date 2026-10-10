@@ -240,7 +240,7 @@ or a failure.
       check them on starred no-AF frames (the Leica folders' `.dop` picks,
       the same cuts, the share marked).
 
-- [ ] Step 3: Measure whether the sharpness score separates picks from rejects on face-free frames, and record the result
+- [x] Step 3: Measure whether the sharpness score separates picks from rejects on face-free frames, and record the result
   - Done when:
     - A script in this plan folder (e.g. `facefree.py`, reading the
       `features` dumps) and `sharpness-fallback.md` here, with:
@@ -288,6 +288,12 @@ or a failure.
       folders with real reject flags exist beyond `2026-09-19`; the
       unfinished `2026-09-13-a` / `2026-09-27-c` were excluded by the
       earlier plan and may hold rejects.
+    - The user's answer (2026-10-10): the folder with real reject flags to
+      use besides `2026-09-19` is `D:\Photos\samples\ARW\good-mark-2026-10-09`
+      (20 rejects among its 180 rated frames). `2026-09-13-a` and
+      `2026-09-27-c` hold no reject flag. Every good-mark frame has a face at
+      its AF point, so the face-free set gains no reject from it (see
+      [sharpness-fallback.md](./sharpness-fallback.md)).
 
 - [ ] Step 4: Ship the face-free Good / Bad from the sharpness score if Decision C says so, else record that those frames stay Unknown
   - Done when (ship):
@@ -428,7 +434,29 @@ or a failure.
 
 ## Decision C (the face-free sharpness fallback)
 
-Written in Step 3.
+**None: frames where no face is analyzed stay `Unknown`.** Step 4 takes its
+no-ship branch. Neither form meets the pre-registered criterion
+([sharpness-fallback.md](./sharpness-fallback.md), [facefree.py](./facefree.py)),
+on 4361 face-free frames (4059 with an AF point and no face near it, 302
+without an AF point and no face found after Step 2) in 34 folders, 549 picks
+(base 12.6%), 9 rejects:
+
+- **Absolute:** held-out (folder-stratified) AUC pick vs non-pick 0.579
+  (needed 0.70); the cut chosen on the other folders is `abs >= 200` for
+  every folder, marking 51.4% at 14.7% precision, lift 1.17 (needed 2.0);
+  no cut from 100 to 1000 reaches lift 1.25 in sample. Face-free singles:
+  AUC 0.489, every cut below the base.
+- **Within-burst relative:** within face-free bursts (244 bursts, 703
+  frames, 53 picks) pairwise AUC 0.536, held-out `rel >= 0.9` lift 1.25;
+  face-free frames of every burst against the whole burst (3970 frames)
+  AUC 0.598, held-out lift 0.95.
+- **Pick vs reject:** not testable to the criterion: no folder has 30
+  face-free rejects (most 7, `2026-09-19`); on the 9 there are, AUC 0.663
+  pooled, 0.622 within folder.
+
+The score measures the texture under the AF point, not the subject's focus
+(hand check: a pick at score 3.1 on a flat background, a non-pick at 1316 on
+a sharp jersey), which agrees with the burst-best-mark result behind Step 5.
 
 ## Progress
 
@@ -436,3 +464,4 @@ Written in Step 3.
 - (2026-10-10) Step 1 complete
 - (2026-10-10) Step 2 complete
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
+- (2026-10-10) Step 3 complete
