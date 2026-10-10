@@ -152,7 +152,7 @@ or a failure.
       internally is not needed once the helper exists.
     - Do not touch the good cuts, `crates/core`, or `crates/cli`.
 
-- [ ] Step 2: Judge a frame with no trusted AF point on the largest face YuNet finds on the whole preview
+- [x] Step 2: Judge a frame with no trusted AF point on the largest face YuNet finds on the whole preview
   - Done when:
     - `crates/core/src/candidate.rs` exposes the cue of a given face (a
       refactor of `scored_face` + `cue_of` into something like
@@ -434,4 +434,5 @@ Written in Step 3.
 
 - (2026-10-10) Plan written
 - (2026-10-10) Step 1 complete
+- (2026-10-10) Step 2 complete
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)

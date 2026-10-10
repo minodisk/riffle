@@ -31,6 +31,7 @@ import {
   FOCUS_MARK_ICONS,
   type FaceReady,
   type Faces,
+  type FocusPoint,
   applyFaceReady,
   afEyeState,
   applySharpnessReady,
@@ -192,11 +193,7 @@ function debugLog(...args: unknown[]): void {
 }
 
 interface Focus {
-  sensor_w: number;
-  sensor_h: number;
-  x: number;
-  y: number;
-  frame: { width: number; height: number } | null;
+  point: FocusPoint | null;
   manual_focus: boolean;
   candidate: "candidate" | "not_candidate" | "unknown";
   eye_focus: number | null;
@@ -2377,7 +2374,7 @@ function drawZoom(): void {
   } else if (orientation === 3) {
     context.rotate(Math.PI);
   }
-  const focus = files.length > 0 ? entries.get(files[index])?.focus : undefined;
+  const focus = files.length > 0 ? entries.get(files[index])?.focus?.point : undefined;
   if (placeholderShown !== null && focus !== undefined && focus !== null) {
     const full =
       crop !== null && crop.cropSeq === seq

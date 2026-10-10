@@ -108,18 +108,22 @@ DxO PhotoLab.
 - **Focus mark**: `f` draws the AF frame the camera used around a crosshair on
   its focus point when the camera records the frame, the crosshair alone when
   it records only a point, and nothing without an AF point or on manual-focus
-  shots (see [What the camera records](./docs/humans/cameras.md)). The mark is
+  shots (see [What the camera records](./docs/humans/cameras.md)). The mark's
+  color judges the face nearest the AF point, or, without an AF point or on
+  manual focus, the largest face Riffle finds anywhere on the preview, so
+  such a frame can be good or bad although it shows no crosshair. The mark is
   bright green for a good photo, one likely not a miss: the AF eyes in focus
   (an in-focus probability of 90% or more), the eyes open (an openness of 41
   or more) and the face toward the camera (turned no more than 35° and
   tilted no more than 45°), with a face mesh that sits on the face and a
   face the frame's edge does not cut. It is selective by design, on about
   20% of the author's frames with a face at the AF point, and bright green
-  means good only. The mark is gray when a face is near the AF point but
+  means good only. The mark is gray when a face was judged but
   the frame is not good, including when its eyes are likely not in focus (a
   probability combining their sharpness and edge width); and white when
   Riffle does not know
-  (no AF point, manual focus, no face near the point, or not computed yet).
+  (no face found near the AF point, or anywhere without one, or not computed
+  yet).
   The camera's face tracking no longer colors the mark. The cue is computed
   in a second pass right after the thumbnails, so the marks turn from white
   as it runs, the files on screen first; the strip marks each judged file
@@ -128,10 +132,9 @@ DxO PhotoLab.
   shows the probability as `AF eye in focus` (a percentage), whether that
   face's eyes are open and how open (0 to 100) as `Eyes` and the face's
   yaw, pitch and roll as `Head pose`, both stored by the same second pass
-  for the face nearest the AF point and judged when the file is shown
-  otherwise, and the filter menu's `AF eye` section (`Good` / `Bad` /
+  for the judged face and judged when the file is shown until then, and the filter menu's `AF eye` section (`Good` / `Bad` /
   `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
-  state (a file without one, such as a shot without an AF point, is
+  state (a file without one, such as a shot with no face found, is
   `Unknown`). The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
   a moment after `f`, since the detection runs when the frame is shown, and

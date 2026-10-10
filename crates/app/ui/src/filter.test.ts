@@ -309,11 +309,7 @@ describe("passes: orientation", () => {
 describe("passes: AF eye states", () => {
   const items = (...afEyes: AfEye[]) => state([], [], [], [], [], afEyes);
   const candidate: MarkFocus = {
-    sensor_w: 7008,
-    sensor_h: 4672,
-    x: 1752,
-    y: 1168,
-    frame: null,
+    point: { sensor_w: 7008, sensor_h: 4672, x: 1752, y: 1168, frame: null },
     manual_focus: false,
     candidate: "candidate",
     eye_focus: 1,
@@ -377,6 +373,9 @@ describe("passes: AF eye states", () => {
       [{ ...candidate, eyes_ear: 0.1 }, "not_candidate"],
       [{ ...candidate, candidate: "not_candidate", eye_focus: 0.1 }, "not_candidate"],
       [{ ...candidate, candidate: "unknown", eye_focus: null }, "unknown"],
+      [{ ...candidate, point: null }, "good"],
+      [{ ...candidate, point: null, candidate: "not_candidate", eye_focus: 0.1 }, "not_candidate"],
+      [{ ...candidate, point: null, candidate: "unknown", eye_focus: null }, "unknown"],
       [undefined, "unknown"],
     ];
     for (const item of ["good", "not_candidate", "unknown"] as const) {

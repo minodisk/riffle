@@ -960,7 +960,10 @@ retried.
   `pose_pitch` / `pose_roll`, the EAR of the more closed eye and the head
   pose from the mesh the cue already runs, and `files.eye_offset` /
   `files.edge_gap`, how well that mesh sits on the face) is a
-  `SCHEMA_VERSION` bump as well.
+  `SCHEMA_VERSION` bump as well. The cue covers the face nearest a trusted
+  AF point and, on a frame with none, the largest confident face of the
+  whole preview (`eyes::judged_face`); `9` added the latter, so a frame with
+  no trusted AF point now fills every one of those columns too.
 - Moving the score from the first pass to the second bumped neither version:
   the score's computation did not change, so a row the old first pass scored
   (at `FACES_VERSION`) keeps a correct score, and a row the second pass has

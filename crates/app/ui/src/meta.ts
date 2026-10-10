@@ -44,8 +44,9 @@ export const ANALYSIS_HEADING = "Analysis";
 export type FocusCandidate = "candidate" | "not_candidate" | "unknown";
 
 // The second scan pass's result for one file, as `Focus` in `main.ts` carries
-// it. `eyes_ear`, `eyes` and `pose` are what it stored for the AF face,
-// `null` / `unknown` when it ran no face mesh there.
+// it. `eyes_ear`, `eyes` and `pose` are what it stored for the judged face
+// (nearest the AF point, else the largest on the whole preview), `null` /
+// `unknown` when it ran no face mesh there.
 export interface FocusCue {
   candidate: FocusCandidate;
   eye_focus: number | null;
@@ -92,7 +93,7 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // not be read still shows its score. The AF eye's in-focus probability gets a
 // row, as a percentage, only when there is one, and so do the open / closed
 // judgment with the openness of the eyes and the head pose of the same face: the values the
-// scan stored for the AF face when it has them, else the `eyes` judgment taken
+// scan stored for the judged face when it has them, else the `eyes` judgment taken
 // when the file was shown.
 export function metaGroups(
   meta: Metadata | null,

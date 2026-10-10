@@ -649,13 +649,28 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       the openness) and `GOOD_MAX_YAW` on the rated frames of
       `D:\photos\samples\ARW\good-mark-2026-10-09\`. Files:
       `crates/app/ui/src/focus.ts`, `crates/core/src/eyes.rs`.
-- [ ] Give the no-AF path a good-photo mark once it has a focus cue. A
-      frame without an AF point (every Leica M file) has no focus candidate
-      state, so it is never good, although `eyes_of` judges its largest
-      face's eyes and pose on demand. Needs a focus cue on the no-AF face
-      first (pass 2 scores the AF face only), then the same cuts checked on
-      starred DNG frames. Files: `crates/core/src/candidate.rs`,
-      `crates/app/src/index.rs`, `crates/app/ui/src/focus.ts`.
+- [x] Give the no-AF path a good-photo mark once it has a focus cue. Done
+      in `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2: pass 2 runs
+      the cue, the EAR, the pose, the eye offset and the edge gap on the
+      largest confident face of the whole preview when a frame has no
+      trusted AF point (`FACES_VERSION` 9), and `Focus` carries the cue
+      without a point, so the same cuts mark it. The check of those cuts on
+      starred no-AF frames is the next item.
+- [ ] Check the good-photo cuts on starred frames with no trusted AF point.
+      The cuts in `crates/app/ui/src/focus.ts` (`GOOD_EYE_FOCUS`,
+      `GOOD_EYE_EAR`, `GOOD_MAX_YAW`, `GOOD_MAX_PITCH`, `MAX_EYE_OFFSET`,
+      `MIN_EDGE_GAP`) were fitted on AF faces only; since
+      `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2 they also judge
+      the largest confident face of a frame with no AF point. Run
+      `riffle-cli features` over the Leica folders with `.dop` picks
+      (`D:\photos\2026\2026-09-05` and the other DNG folders of the
+      `20261008-burst-keep-score` data set), apply the same cuts to the
+      `noaf` rows in a script, and report the share of faced frames marked
+      good, the share of `.dop` picks among them against the base rate, and
+      10 marked and 10 unmarked picks for the user to look at. Done when the
+      numbers are recorded in a plan's `learnings.md` and the cuts are either
+      kept or a separate no-AF cut is proposed with them. Files:
+      `crates/app/ui/src/focus.ts`.
 - [x] Measure the AF eye in-focus probability over each eye's eyelid
       region from the face mesh instead of the window between the eyes.
       The scan's second pass runs MediaPipe Face Landmarker v2 on the face
@@ -735,8 +750,8 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       stored the EAR and pose (the `mesh-eyes-index` work stores them, and
       the meta pane reads them). `eyes_of` still runs for every shown file
       because the mesh overlay (`drawFaceMesh`) needs the 478 points, and it
-      is the fallback for files with no stored value (no AF point, face under
-      60 px). Reusing the scan's mesh needs the points stored or a path that
+      is the fallback for files with no stored value (face under 60 px, or
+      a file pass 2 has not reached). Reusing the scan's mesh needs the points stored or a path that
       runs the model only while `f` is on. Files: `crates/app/src/commands.rs`
       (`read_eyes`), `crates/app/src/index.rs`, `crates/core/src/eyes.rs`.
 - [ ] Suggest the sharpest-eye frame within a burst group. Measured and not
@@ -786,7 +801,7 @@ Files: `crates/app/src/commands.rs` (`eyes_of`, `read_eyes`), `crates/app/ui/src
 #### TODO
 
 - [ ] On Windows 11, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19` and wait for the scan to finish. Select `_DSC1889.ARW` or `_DSC1890.ARW` (labeled closed): the Analysis group shows `Eyes  Closed · 0` after `AF eye in focus`. Select `_DSC1894.ARW`: `Eyes  Open · NN`. Select `_DSC1897.ARW` (no face judged): no `Eyes` row.
-- [ ] Open `D:\photos\2026\2026-02-01` and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the `Eyes` row shows on the no-AF path (L1005161 `Closed · 0`, L1005155 `Open · NN`).
+- [ ] Open `D:\photos\2026\2026-02-01`, let the second pass re-run (`FACES_VERSION` 9) and select `L1005161.DNG` (closed) and `L1005155.DNG` (open): the `Eyes` row shows the value pass 2 stored for the largest confident face (L1005161 `Closed · 0`, L1005155 `Open · NN`), and the strip icon and the filter's `AF eye` state follow the same face.
 - [ ] Hold the page key through 30 files of the ARW folder: no row of a previous file stays on a later one, and the preview keeps pace with no added stall against the previous build.
 - [ ] With the folder idle, read the `eyes total=... read=... decode=... detect=... model=... ipc=...` lines in `Riffle.log` for a few ARWs with an AF point: the row should appear within ~150 ms of the preview. Add the numbers (and the preview-to-row time) to `docs/humans/performance.md` "Closed-eyes judgment on demand (Windows 11)" and `performance.ja.md`. Since `face-mesh-overlay` (`docs/plans/_archived/20261007-face-mesh-overlay/plan.md`) the response also carries 478 mesh points (~8-10 KB of JSON): confirm the stages still add up to about `total` and `ipc=` stays within a few ms of the figure before that change (not measured; `crates/app/src/commands.rs` `read_eyes`, `crates/app/ui/src/main.ts` `requestEyes`).
 - [ ] Review the faces labeled closed: for each file in the "Faces with a closed eye" list of `docs/plans/_archived/20261007-closed-eyes-detection/eyes-truth.md`, open its tile `D:\Photos\tests\2026-10-07-closed-eyes\tiles\<stem>.png` (or the crops under `arw\` / `dng\`) and confirm that the eye marked `c` shows no iris; note any that are open. If labels change, re-run `riffle-cli eyes` on `labeled-paths.txt` and `scratch\auc.py` there, and re-fit the threshold and the slope in `crates/core/src/eyes.rs` if the best F1 moves.
@@ -810,7 +825,7 @@ Files: `crates/app/src/commands.rs` (`read_eyes`, `EyesJudgment`), `crates/app/u
 #### TODO
 
 - [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Head pose  yaw N°, pitch N°, roll N°` after `Eyes`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
-- [ ] Open `D:\photos\2026\2026-02-01` and select a DNG with a judged face: the `Head pose` row shows on the no-AF path.
+- [ ] Open `D:\photos\2026\2026-02-01`, let the second pass re-run (`FACES_VERSION` 9) and select a DNG with a judged face: the `Head pose` row shows the pose pass 2 stored for the largest confident face.
 - [ ] Select a file with no judged face (for example `_DSC1897.ARW`): neither `Eyes` nor `Head pose` shows.
 - [ ] Read the `eyes total=` lines in `Riffle.log` for a few ARWs: the total is not noticeably longer than before (the solve adds about 8 µs).
 
@@ -828,17 +843,17 @@ Files: `docs/plans/_archived/20261007-head-pose/pose-truth.md`, `docs/plans/_arc
       unknown or whether the label stands.
 - [ ] On Windows, open the sheets `D:\Photos\tests\2026-10-07-head-pose\sheets\s00.png` to `s16.png` (4 tiles across, row by row in the `#` order of the `pose-truth.md` table; crops in `crops\`) and compare each tile to its row. Note any label to change. If labels change, re-run `aggregate.py` (in `D:\Photos\tests\2026-10-07-head-pose\`) and update `pose-results.md` and the plan's Decision if a number moves.
 
-### Core: the no-AF-point path decodes the preview a second time in score_preview
+### Core: the no-AF-point path decodes the preview up to three times
 
 #### Background
 
-On a file with no trusted AF point, pass 2 decodes the preview twice: the DCT-scaled RGB decode for the whole-image face search, then a full-size grayscale decode in `sharpness::score_preview`. The face-detection-recall-cost work cut the first decode to 3/8, so the second is now the larger of the two. It is several ms of the roughly 20 ms per DNG spent outside `riffle-cli detect` (about 92 ms per DNG in `candidates` on one thread, against about 72 ms in `detect`). Scoring from one decode would change the score's window and its stored values, so it needs a `FACES_VERSION` bump. See `docs/plans/_archived/20261005-face-detection-recall-cost/learnings.md` (Step 3 measurements).
+On a file with no trusted AF point, pass 2 decodes the preview up to three times: the DCT-scaled RGB decode for the whole-image face search, a full-size RGB decode for the face mesh and the eye regions of the judged face (since `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2, only when a confident face is found), then a full-size grayscale decode in `sharpness::score_preview`. The face-detection-recall-cost work cut the first decode to 3/8. Step 2 measured on one thread (`riffle-cli features`, `D:\photos\2026\2026-02-01` and `2026-09-05`, Leica DNG): a faced no-AF file went from about 94 ms to about 122 ms of analysis, a file with no face did not change; the numbers are in that plan's `learnings.md`. Scoring from the full-size RGB decode (its luma) would drop the grayscale decode on faced files, but it changes the score's pixels and its stored values, so it needs a `FACES_VERSION` bump. See also `docs/plans/_archived/20261005-face-detection-recall-cost/learnings.md` (Step 3 measurements).
 
-Files: `crates/core/src/scan.rs` (`extract_analysis_unless`, `score`), `crates/core/src/sharpness.rs` (`score_preview`).
+Files: `crates/core/src/scan.rs` (`extract_analysis_unless`, `whole_image_cue`, `score`), `crates/core/src/sharpness.rs` (`score_preview`).
 
 #### TODO
 
-- [ ] Measure the share of the per-file cost taken by `score_preview`'s grayscale decode on the no-AF-point path. If it matters, score from the decode the face search already made (or a DCT-scaled one), check that the score's ranking holds on the labeled folders, and bump `FACES_VERSION`.
+- [ ] Score a faced no-AF-point file from the full-size RGB decode the cue already made (its `candidate::luma`) instead of `score_preview`'s own grayscale decode. Measure the per-file saving with `riffle-cli features` on one thread over `D:\photos\2026\2026-02-01` and `2026-09-05` before and after, check that the score's ranking within bursts holds on those folders (Spearman per burst against the old score), and bump `FACES_VERSION`. Files: `crates/core/src/scan.rs`, `crates/core/src/sharpness.rs`, `crates/app/src/index.rs`.
 
 ### Agents: confirm `pr-runner` waits for a child's hand-back on a real `/pr` run
 
