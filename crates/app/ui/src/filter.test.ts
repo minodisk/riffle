@@ -8,9 +8,11 @@ import {
   type Judgment,
   type Orientation,
   anchorAfterFilter,
+  applyStored,
   filterListChanged,
   orientationOf,
   passes,
+  toStored,
 } from "./filter.js";
 import { type MarkFocus, afEyeState } from "./focus.js";
 
@@ -435,5 +437,47 @@ describe("passes: eyes", () => {
     expect(passes(both, unjudged, undefined, 1, "not_candidate", "closed")).toBe(false);
     expect(passes(both, pickedTwo, undefined, 1, "good", "closed")).toBe(false);
     expect(passes(both, unjudged, undefined, 1, "good", "open")).toBe(false);
+  });
+});
+
+describe("toStored / applyStored", () => {
+  test("round-trips the remembered sections in set order", () => {
+    const s = state(
+      ["rejected", "picked"],
+      [5, 0],
+      [],
+      ["red", "none"],
+      ["portrait"],
+      ["unknown", "good"],
+      ["closed"],
+    );
+    const stored = toStored(s);
+    expect(stored).toEqual({
+      flags: ["rejected", "picked"],
+      stars: [5, 0],
+      labels: ["red", "none"],
+      orientations: ["portrait"],
+      candidates: ["unknown", "good"],
+      eyes: ["closed"],
+    });
+    const restored = state(["untagged"], [3]);
+    applyStored(restored, stored);
+    expect(toStored(restored)).toEqual(stored);
+  });
+
+  test("stores an empty filter as empty sections and restores it as all-pass", () => {
+    const empty = { flags: [], stars: [], labels: [], orientations: [], candidates: [], eyes: [] };
+    expect(toStored(state())).toEqual(empty);
+    const s = state(["picked"], [1], [], ["blue"], ["landscape"], ["good"], ["open"]);
+    applyStored(s, empty);
+    expect(toStored(s)).toEqual(empty);
+    expect(passes(s, rejected, undefined, undefined)).toBe(true);
+  });
+
+  test("applyStored leaves the EXIF groups alone", () => {
+    const s = state([], [], [["camera", ["ILCE-7RM5"]]]);
+    applyStored(s, toStored(state(["picked"])));
+    expect([...s.exif.get("camera")!]).toEqual(["ILCE-7RM5"]);
+    expect(toStored(s)).not.toHaveProperty("exif");
   });
 });

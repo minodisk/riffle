@@ -37,6 +37,46 @@ export interface FilterState {
   exif: Map<ExifGroup, Set<string>>;
 }
 
+// The remembered filter, the wire shape of the `filter` / `set_filter`
+// commands: every section but the EXIF groups, which stay per session.
+export interface StoredFilter {
+  flags: Flag[];
+  stars: number[];
+  labels: string[];
+  orientations: Orientation[];
+  candidates: AfEye[];
+  eyes: EyeState[];
+}
+
+export function toStored(state: FilterState): StoredFilter {
+  return {
+    flags: [...state.flags],
+    stars: [...state.stars],
+    labels: [...state.labels],
+    orientations: [...state.orientations],
+    candidates: [...state.candidates],
+    eyes: [...state.eyes],
+  };
+}
+
+// Replace the remembered sections' checks with `stored`, leaving `exif`.
+export function applyStored(state: FilterState, stored: StoredFilter): void {
+  const sections = [
+    [state.flags, stored.flags],
+    [state.stars, stored.stars],
+    [state.labels, stored.labels],
+    [state.orientations, stored.orientations],
+    [state.candidates, stored.candidates],
+    [state.eyes, stored.eyes],
+  ] as [Set<string | number>, (string | number)[]][];
+  for (const [set, values] of sections) {
+    set.clear();
+    for (const value of values) {
+      set.add(value);
+    }
+  }
+}
+
 export interface Judgment {
   rating: number | null;
   flag: PickFlag;

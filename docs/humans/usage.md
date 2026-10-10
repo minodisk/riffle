@@ -328,6 +328,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   are OR-ed, groups are AND-ed, and `Reset` clears them all. A judgment that drops
   the current file out of the filter hides it at once and moves to the next
   passing file after it, else the last one before it, else the empty view.
+  The flag, star, label, orientation, `AF eye` and `Eyes` checks are
+  remembered across restarts and apply to every folder; the EXIF checks are
+  not, and clear whenever a folder opens. `Reset` clears the remembered
+  filter too.
 - **Sort menu**: orders the strip by file name, capture time or rating;
   paging and `n / N` follow the chosen order. Capture time breaks ties by
   sub-second then file name, and files without a capture time come last.
