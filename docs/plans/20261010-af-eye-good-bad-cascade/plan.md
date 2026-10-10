@@ -434,4 +434,5 @@ Written in Step 3.
 
 - (2026-10-10) Plan written
 - (2026-10-10) Step 1 complete
+- (2026-10-10) Step 2 complete
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
