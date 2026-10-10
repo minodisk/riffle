@@ -95,6 +95,39 @@
   `run_faces_scan`, `eyes_of` and `src/candidate.rs` need "else the largest
   confident face on the whole preview when there is no trusted AF point".
 
+## Step 3: The sharpness score on face-free frames
+
+- Rejects the data actually held: 57 in the ARW folders (50 in
+  `2026-09-19`, 4 + 3 XMP-only in `2026-09-13-b`, 1 in `2026-09-27-a`) and 1
+  in `2026-09-05`, plus 20 in the folder the user named,
+  `D:\Photos\samples\ARW\good-mark-2026-10-09` (`.dop` `ShouldProcess = 1`
+  and XMP `xmpDM:good="False"`, all 1-star; its 160 other frames are
+  unflagged 2- to 5-star). `2026-09-13-a` and `2026-09-27-c` hold none. On
+  the face-free frames only **9** remain (7 in `2026-09-19`, 2 in
+  `2026-09-13-b`): every good-mark frame has a face at its AF point, so the
+  pick-vs-reject leg of the criterion (30 rejects in a folder) could not be
+  run, and the 9 are reported descriptively.
+- Decision C rests on the pick vs non-pick measures: the folder-stratified
+  AUC (0.579 absolute, 0.536 / 0.598 relative, needed 0.70) and the cut held
+  out by folder (best lift 1.25, needed 2.0 at 20% marked).
+- The score has no fitted parameter, so "held-out AUC" was defined (before
+  the numbers, in `sharpness-fallback.md`) as the folder-stratified AUC; the
+  held-out loop only chooses the cut.
+- The burst-best-mark dumps were taken at `22a309f9`, before Step 2, so all
+  36 folders plus good-mark were re-dumped with a release CLI from
+  `3df2fcb6` into `D:\Photos\tests\2026-10-10-facefree\dump\` (about 13
+  minutes at 24 threads). Against the old dumps only 708 no-AF rows changed
+  state (all `Unknown` -> a state) and no `sharpness` changed, which
+  confirms Step 2 leaves the AF branch and the score alone.
+- Only 244 bursts of two or more frames are entirely face-free; most
+  face-free frames (3267 of 3970 in bursts) share a burst with a faced
+  frame, so the relative form is also reported on those, against the whole
+  burst, as `relativeSharpness` would see them.
+- Tripped up: Python's text-mode `open(..., "w")` on Windows wrote CRLF into
+  `plan.md`; write with `newline=""` (or strip the `\r` afterwards). And
+  `riffle-cli.exe` needs `D:/...` paths, not Git Bash's `/d/...`, when
+  called from Python.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 2, checkbox ticked on the automated criteria):
@@ -110,4 +143,11 @@
   under `D:\Photos\tests\`): same, and still no crosshair. Files:
   `crates/app/ui/src/focus.ts`, `crates/app/ui/src/main.ts`,
   `crates/app/src/index.rs`.
-
+- Step 3 (Decision C, no ship): the face-free pick vs reject leg of the
+  pre-registered criterion could not be tested (9 face-free rejects, none
+  of the 20 good-mark rejects is face-free). Re-measure once a folder holds
+  30 or more face-free rejects, or a cue other than the sharpness score
+  exists for frames with no face. Basis: `sharpness-fallback.md`,
+  `facefree.py` (this plan folder); Step 4's no-ship branch already adds the
+  `todo.md` item, so this is its source, not a second item. Files:
+  `crates/app/ui/src/focus.ts` (where a rule would go).
