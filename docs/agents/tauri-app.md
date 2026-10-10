@@ -429,6 +429,21 @@ lock, before it emits `faces-done`.
 - Source: `docs/plans/_archived/20261003-follow-up-rescan-open-entries/plan.md`, Step 1;
   verification: `docs/plans/_archived/20261004-follow-up-rescan-log-check/plan.md`.
 
+### The main window is created hidden; `setup` shows it as a fallback (Inferred)
+
+The main window entry in `tauri.conf.json` has `"visible": false`, so
+`tauri-plugin-window-state` restores the saved size and position before the
+window is on screen (otherwise it flashes at the 1280x800 default first). The
+plugin (2.4.1, default `StateFlags::all()`) ends `restore_state` with `show()`
++ `set_focus()`, and the window build runs that before the app's `setup`
+closure, where an unconditional `show()` follows.
+
+- Why the plugin's show is not enough: it skips the show when the saved state
+  has `visible: false` (macOS saves that after a quit while minimized), and a
+  failing `set_position` / `set_size` / `set_fullscreen` returns through `?`
+  before its `show()`. Without the `setup` show the window would stay hidden.
+- Source: `docs/plans/_archived/20261010-startup-window-flash/plan.md`, Step 1.
+
 ### `frontendDist` resolves from the `tauri.conf.json` directory (Hit)
 
 `tauri.conf.json` lives in `crates/app/`, not the conventional `src-tauri/`, so

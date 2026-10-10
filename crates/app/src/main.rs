@@ -686,6 +686,15 @@ fn main() {
         .on_menu_event(app_menu::on_event)
         .setup(|app| {
             diagnostics::install_panic_hook();
+            // The window is created hidden so the window-state plugin can
+            // restore its geometry first. The plugin shows it afterwards, but
+            // not when the saved state has `visible: false` (a quit while
+            // minimized on macOS) or when `set_position` / `set_size` /
+            // `set_fullscreen` fails and aborts `restore_state` before its
+            // `show()`, so show it here unconditionally.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
             let path = app.path().app_cache_dir()?.join("index.sqlite");
             // The index is a thumbnail/metadata cache, not required data: an
             // unwritable cache dir degrades to "no thumbnails" rather than
