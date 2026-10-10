@@ -605,7 +605,9 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
 - [ ] Re-tune the good-photo cuts
       (`docs/plans/20261008-burst-keep-score/plan.md` Step 7, which waited
       on the face-mesh roll correction; that was declined in
-      `docs/plans/20261010-mesh-roll/`, so the wait is over). Done when the 180 rated frames of
+      `docs/plans/20261010-mesh-roll/`, so the wait is over). Done when no
+      line of that plan (Step 7 and the lines around 615 / 679 / 683) makes
+      Step 7 wait on the roll correction, and the 180 rated frames of
       `D:\photos\samples\ARW\good-mark-2026-10-09\` (stars in their
       sidecars; 1 = no subject, 2 = likely rejected, 3+ = pass) are
       re-dumped with the new CLI, the cuts are chosen so no 1-star and as

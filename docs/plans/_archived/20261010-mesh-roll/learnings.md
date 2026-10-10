@@ -134,4 +134,7 @@
   the face-mesh roll correction is merged; the correction was declined
   (this plan's Decision), so the owning plan should drop the gate. Basis:
   Step 3, found while filing the follow-ups. Files:
-  `docs/plans/20261008-burst-keep-score/plan.md`.
+  `docs/plans/20261008-burst-keep-score/plan.md`. Done when no line of that
+  plan makes Step 7 wait on the roll correction; merge into the existing
+  todo item "Re-tune the good-photo cuts once the face-mesh roll correction
+  lands" rather than adding a new one.
