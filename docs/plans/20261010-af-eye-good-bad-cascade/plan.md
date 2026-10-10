@@ -323,6 +323,46 @@ or a failure.
       focus.test.ts, main.ts}`, docs. Files (no ship): this plan, docs,
       `todo.md`.
 
+- [ ] Step 5: Remove the sharpness displays: the strip's bar, the burst "best" mark and the meta pane's Sharpness row
+  - Added 2026-10-10 at the user's request, after the burst-best-mark
+    session's measurement (its copies of `results.md`, `measure.py` and plan,
+    and fresh `features` dumps of the 36 burst-keep-score folders, are in
+    `D:\Photos\tests\2026-10-10-burst-best-mark\`): the burst's sharpest
+    frame lands on a good frame in 47.6% of the 1717 ARW bursts with one
+    (random 45.8%, first frame 55.0%), pick AUC 0.577 (first frame 0.653);
+    the score follows the texture under the AF point, not the subject's
+    focus. Step 3 reads those dumps too, and Step 4 does not ship a
+    within-burst relative form unless Step 3 overturns this.
+  - Done when:
+    - The strip draws no sharpness bar (`.sharpness` span, `paintSharpness`,
+      `setSharpness`, the bar CSS), the compare view shows no `BEST` label or
+      green outline, and the meta pane's Analysis group has no `Sharpness`
+      row.
+    - `comparisonCandidates` (`crates/app/ui/src/compare.ts`) pairs a lone
+      file with its burst's good frame (`photoTier`), else the burst's first
+      frame, not with the highest-sharpness frame; tests pin both cases.
+    - `relativeSharpness` (`crates/app/ui/src/sharpness.ts`) and its tests
+      are deleted unless Step 4 shipped a relative form that reads it; no
+      dead code is left (`applySharpness` in `main.ts`, the `sharpness`
+      timing field of `refresh.ts` if the measured call goes).
+    - The score stays computed in pass 2, stored, serialized in `Focus` /
+      `FaceReady` if Step 4 needs it, and returned by MCP `get_view` /
+      `get_photo`.
+    - Docs, pairs in sync: `README.md` / `README.ja.md`,
+      `docs/humans/usage.md` / `usage.ja.md` and the other `docs/humans`
+      pages that describe the bar, the `BEST` mark or the row
+      (`cameras*.md`, `performance*.md`), and `docs/agents/tauri-app.md`'s
+      examples, no longer describe them. `todo.md`: the item "App: the burst
+      \"best\" sharpness mark ranks the user's picks near random" is removed.
+    - `mise run ci` passes.
+  - Implementation approach (as far as it is known):
+    - Assumes Step 4 is merged (so it is known whether the score feeds the
+      AF eye state).
+    - Files: `crates/app/ui/src/{strip.ts, main.ts, compare.ts,
+      compare.test.ts, meta.ts, meta.test.ts, refresh.ts, refresh.test.ts,
+      sharpness.ts, sharpness.test.ts}`, `crates/app/ui/style.css`, docs,
+      `todo.md`. No `crates/core` change.
+
 ## CLAUDE.md follow-ups (this plan does not edit `CLAUDE.md`)
 
 - Layout, `src/focus.ts`: "puts the strip's face icon on a good frame" ->
@@ -393,3 +433,5 @@ Written in Step 3.
 ## Progress
 
 - (2026-10-10) Plan written
+- (2026-10-10) Step 1 complete
+- (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
