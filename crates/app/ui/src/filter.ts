@@ -1,7 +1,6 @@
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
 import type { EyeState } from "./eyes.js";
-import type { PhotoTier } from "./focus.js";
-import type { FocusCandidate } from "./meta.js";
+import type { MarkState } from "./focus.js";
 import type { PickFlag } from "./selection.js";
 
 // The filter menu in the strip pane, after PhotoLab's: the checked items of
@@ -9,16 +8,16 @@ import type { PickFlag } from "./selection.js";
 // lets everything through. `0` stars is unrated; a reject keeps its stars,
 // independent of its flag. A label is keyed lowercased, or `none`
 // when there is none; a label outside the menu's colors matches no item.
-// The menu's `AF eye` items put `good`, `candidate`, `not_candidate` or
-// `unknown` in `candidates`, and they partition the files like the focus
-// mark's states: `good` is the photo tier, `candidate` a focus candidate not
-// in the tier, and a file whose state is not known yet counts as `unknown`.
+// The menu's `AF eye` items put `good`, `not_candidate` (Bad) or `unknown` in
+// `candidates`, and they partition the files like the focus mark's states
+// (`afEyeState` in `focus.ts`): a file whose state is not known yet counts as
+// `unknown`.
 // Its `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.
 export type Flag = "picked" | "untagged" | "rejected";
 
-// One item of the `AF eye` section: a focus candidate state or a photo tier.
-export type AfEye = FocusCandidate | PhotoTier;
+// One item of the `AF eye` section: an AF eye state.
+export type AfEye = MarkState;
 
 // The displayed shape, decided by the EXIF Orientation tag alone: every
 // sensor Riffle reads is landscape, so a quarter turn (6 or 8) is portrait.
@@ -49,9 +48,8 @@ export function passes(
   { rating, flag: pickFlag, label }: Judgment,
   exif: Exif | null | undefined,
   orientation: number | undefined,
-  candidate?: FocusCandidate,
+  afEye?: AfEye,
   eyes?: EyeState,
-  tier?: PhotoTier | null,
 ): boolean {
   const flag: Flag =
     pickFlag === "pick" ? "picked" : pickFlag === "reject" ? "rejected" : "untagged";
@@ -63,7 +61,7 @@ export function passes(
     (state.labels.size === 0 || state.labels.has(labelKey)) &&
     (state.orientations.size === 0 ||
       (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
-    (state.candidates.size === 0 || state.candidates.has(tier ?? candidate ?? "unknown")) &&
+    (state.candidates.size === 0 || state.candidates.has(afEye ?? "unknown")) &&
     (state.eyes.size === 0 || state.eyes.has(eyes ?? "unknown")) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {

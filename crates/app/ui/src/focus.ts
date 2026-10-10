@@ -3,7 +3,7 @@
 // tested without mocks.
 
 import type { StoredEyes } from "./eyes.js";
-import { SCAN_EYE_SVG, SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
+import { SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
 export interface MarkFocus extends StoredEyes {
   sensor_w: number;
@@ -19,10 +19,11 @@ export interface MarkFocus extends StoredEyes {
 // The tier `photoTier` puts a frame in: a good photo, one that is not a miss.
 export type PhotoTier = "good";
 
-// The state the mark's color is read from: the frame's `photoTier`,
-// `candidate_only` for a focus candidate not in it, else the focus candidate
-// state.
-export type MarkState = PhotoTier | "candidate_only" | "not_candidate" | "unknown";
+// The AF eye state the mark's color, the strip's icon and the filter menu's
+// `AF eye` item are read from: the frame's `photoTier`, `not_candidate` (Bad)
+// for any other frame whose face near the AF point was judged, a focus
+// candidate not in the tier included, else `unknown`.
+export type MarkState = PhotoTier | "not_candidate" | "unknown";
 
 export interface FocusMark {
   x: number;
@@ -31,23 +32,20 @@ export interface FocusMark {
   state: MarkState;
 }
 
-// The mark's color per state: bright green for a good photo and for a focus
-// candidate that is not one, gray when the eyes of the face nearest the AF
-// point are not sharp, white when Riffle does not know.
+// The mark's color per state: bright green for a good photo, gray when the
+// face nearest the AF point was judged and the frame is not good, white when
+// Riffle does not know.
 export const FOCUS_MARK_COLORS = {
   good: "#3f3",
-  candidate_only: "#3f3",
   not_candidate: "#999",
   unknown: "#fff",
 } as const satisfies Record<MarkState, string>;
 
 // The icon per state on the strip cell and the filter menu's `AF eye` item, in
-// the mark's color: a face for a good photo, an eye for a focus candidate that
-// is not one, the bare frame when the eyes are not sharp, none when Riffle does
-// not know.
+// the mark's color: a face for a good photo, the bare frame for a bad one, none
+// when Riffle does not know.
 export const FOCUS_MARK_ICONS = {
   good: SCAN_FACE_SVG,
-  candidate_only: SCAN_EYE_SVG,
   not_candidate: SCAN_SVG,
   unknown: null,
 } as const satisfies Record<MarkState, string | null>;
@@ -128,16 +126,21 @@ export function photoTier(focus: MarkFocus | null | undefined): PhotoTier | null
   return clears(focus) ? "good" : null;
 }
 
-function markState(focus: MarkFocus): MarkState {
+// The AF eye state of a file, `unknown` without a focus: the one place the
+// strip's icon, the mark and the filter menu read it from.
+export function afEyeState(focus: MarkFocus | null | undefined): MarkState {
+  if (focus === null || focus === undefined) {
+    return "unknown";
+  }
   if (focus.candidate !== "candidate") {
     return focus.candidate;
   }
-  return photoTier(focus) ?? "candidate_only";
+  return photoTier(focus) ?? "not_candidate";
 }
 
-// The mark state of a file the strip's icon shows, `unknown` without a focus.
+// The mark state of a file the strip's icon shows.
 export function stripState(focus: MarkFocus | null | undefined): MarkState {
-  return focus === null || focus === undefined ? "unknown" : markState(focus);
+  return afEyeState(focus);
 }
 
 // `null` for a manual-focus shot, whose recorded point is not trusted. The
@@ -152,7 +155,7 @@ export function focusMark(
   }
   const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
   const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
-  const state = markState(focus);
+  const state = afEyeState(focus);
   if (focus.frame === null) {
     return { x, y, rect: null, state };
   }
