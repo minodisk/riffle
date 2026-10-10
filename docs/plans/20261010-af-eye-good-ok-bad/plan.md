@@ -26,8 +26,10 @@ judged yet; `passes()` in `crates/app/ui/src/filter.ts` checks
 read as one scale: `Sharp only` and `Soft` are a different vocabulary from
 `Good`. The user chose to rename them so the section reads `Good` / `OK` /
 `Bad` / `Unknown`. Behavior, the `data-candidate` keys (`good` / `candidate` /
-`not_candidate` / `unknown`), the `AfEye` type and the focus mark colors do not
-change; this is a label and documentation change only.
+`not_candidate` / `unknown`), the `AfEye` type do not change. The rename is
+a label and documentation change; the follow-up in Step 1 also gives each judged
+state its own icon and color (bright green `Good`, bright green `scan-eye` `OK`,
+gray `scan` `Bad`) on the strip, the filter menu and the focus mark.
 
 ## Steps
 
@@ -46,8 +48,9 @@ change; this is a label and documentation change only.
       `not_candidate passes a soft frame only` test is reworded to `Bad`; no
       assertion changes.
     - `docs/humans/usage.md` Filter menu bullet and `docs/humans/usage.ja.md`:
-      the four items are `Good` (bright green mark, the good tier), `OK` (dim
-      green, the AF eye in focus but not good), `Bad` (orange) and `Unknown`
+      the four items are `Good` (bright green mark, the good tier), `OK` (bright
+      green with the `scan-eye` icon, the AF eye in focus but not good), `Bad`
+      (gray with the `scan` icon) and `Unknown`
       (white, including files the second pass has not reached), and the
       "check `Good` and `Sharp only` together" sentence becomes "`Good` and
       `OK` together".
@@ -95,7 +98,7 @@ change; this is a label and documentation change only.
 ## Trade-offs and risks
 
 - **Other UI surfaces.** None label the same four classes: the meta pane shows
-  `AF eye in focus` as a percentage, the strip mark is color-only, and
+  `AF eye in focus` as a percentage, the strip mark carries a per-state icon and color, and
   `companion.ts` / `mcp.rs` carry no `Sharp` / `Soft` text. So the rename stays
   in the filter menu and its docs.
 - **History in the burst-keep-score plan.** Only the #756 note is updated;
