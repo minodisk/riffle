@@ -568,10 +568,10 @@ describe("applySharpnessReady", () => {
     ...noEyes,
   });
 
-  test("sets a new score in the map and the row, and reports the change", () => {
+  test("sets a new score in the map and the row", () => {
     const entries = new Map([["/d/a.ARW", { sharpness: null as number | null }]]);
     const scores = new Map<string, number>();
-    expect(applySharpnessReady(entries, scores, [ready("/d/a.ARW", 12.5)])).toBe(true);
+    applySharpnessReady(entries, scores, [ready("/d/a.ARW", 12.5)]);
     expect(scores.get("/d/a.ARW")).toBe(12.5);
     expect(entries.get("/d/a.ARW")?.sharpness).toBe(12.5);
   });
@@ -579,28 +579,15 @@ describe("applySharpnessReady", () => {
   test("a file the pass found no score for is deleted from the map and nulled in the row", () => {
     const entries = new Map([["/d/a.ARW", { sharpness: 3 as number | null }]]);
     const scores = new Map([["/d/a.ARW", 3]]);
-    expect(applySharpnessReady(entries, scores, [ready("/d/a.ARW", null)])).toBe(true);
+    applySharpnessReady(entries, scores, [ready("/d/a.ARW", null)]);
     expect(scores.has("/d/a.ARW")).toBe(false);
     expect(entries.get("/d/a.ARW")?.sharpness).toBeNull();
-  });
-
-  test("unchanged scores report no change", () => {
-    const entries = new Map([
-      ["/d/a.ARW", { sharpness: 3 as number | null }],
-      ["/d/b.ARW", { sharpness: null as number | null }],
-    ]);
-    const scores = new Map([["/d/a.ARW", 3]]);
-    expect(
-      applySharpnessReady(entries, scores, [ready("/d/a.ARW", 3), ready("/d/b.ARW", null)]),
-    ).toBe(false);
-    expect(scores.get("/d/a.ARW")).toBe(3);
-    expect(scores.has("/d/b.ARW")).toBe(false);
   });
 
   test("a file with no row still gets its score in the map", () => {
     const entries = new Map<string, { sharpness: number | null }>();
     const scores = new Map<string, number>();
-    expect(applySharpnessReady(entries, scores, [ready("/d/missing.ARW", 7)])).toBe(true);
+    applySharpnessReady(entries, scores, [ready("/d/missing.ARW", 7)]);
     expect(scores.get("/d/missing.ARW")).toBe(7);
     expect(entries.has("/d/missing.ARW")).toBe(false);
   });

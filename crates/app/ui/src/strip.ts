@@ -23,7 +23,6 @@ import {
   stemLength,
 } from "./rename.js";
 import type { Modifiers, PickFlag } from "./selection.js";
-import type { RelativeSharpness } from "./sharpness.js";
 
 // Header layout of a `thumbnail` payload, see `crates/app/src/commands.rs`.
 const THUMBNAIL_HEADER_LEN = 8;
@@ -49,7 +48,6 @@ interface Cell {
   img: HTMLImageElement;
   badge: HTMLSpanElement;
   flag: HTMLSpanElement;
-  sharpness: HTMLSpanElement;
   count: HTMLSpanElement;
   tier: HTMLSpanElement;
   reason: HTMLSpanElement;
@@ -96,9 +94,6 @@ const ratings = new Map<number, number>();
 const flags = new Map<number, "pick" | "reject">();
 // The color label per index, mirroring the `labels` map in `main.ts`.
 const labels = new Map<number, string>();
-// The relative sharpness per index, from `relativeSharpness` in
-// `sharpness.ts`; a missing entry has no score.
-const sharpness = new Map<number, RelativeSharpness>();
 // The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
@@ -158,15 +153,6 @@ function paintRating(index: number, cell: Cell): void {
         : "var(--label-other)",
   );
   cell.name.title = label ?? "";
-}
-
-// A bar up the image box's left edge, as long as the file's sharpness
-// relative to its neighbors, in the accent color on the sharpest of its run.
-function paintSharpness(index: number, cell: Cell): void {
-  const value = sharpness.get(index);
-  cell.sharpness.hidden = value === undefined;
-  cell.sharpness.style.setProperty("--ratio", String(value?.ratio ?? 0));
-  cell.sharpness.classList.toggle("best", value?.best === true);
 }
 
 // A band behind the cell, joined to the next and previous member of the same
@@ -252,9 +238,6 @@ function createCell(index: number): Cell {
   const flag = document.createElement("span");
   flag.className = "flag";
   el.append(flag);
-  const sharp = document.createElement("span");
-  sharp.className = "sharpness";
-  el.append(sharp);
   const count = document.createElement("span");
   count.className = "count";
   el.append(count);
@@ -277,7 +260,6 @@ function createCell(index: number): Cell {
     img,
     badge,
     flag,
-    sharpness: sharp,
     count,
     tier,
     reason,
@@ -287,7 +269,6 @@ function createCell(index: number): Cell {
   };
   paintName(cell);
   paintRating(index, cell);
-  paintSharpness(index, cell);
   paintBurst(index, cell);
   paintTier(index, cell);
   paintFailure(index, cell);
@@ -457,20 +438,6 @@ export function setRating(
   }
 }
 
-// Record the relative sharpness of one file, repainting its cell when it is
-// on screen. `null` is no score.
-export function setSharpness(index: number, value: RelativeSharpness | null): void {
-  if (value === null) {
-    sharpness.delete(index);
-  } else {
-    sharpness.set(index, value);
-  }
-  const cell = cells.get(index);
-  if (cell !== undefined) {
-    paintSharpness(index, cell);
-  }
-}
-
 // Record the burst band and badge of one file, repainting its cell when it is on
 // screen. `null` is not in a burst of two or more.
 export function setBurst(index: number, value: BurstMark | null): void {
@@ -555,7 +522,6 @@ export function setFiles(paths: string[], keepScroll = false): void {
   ratings.clear();
   flags.clear();
   labels.clear();
-  sharpness.clear();
   bursts.clear();
   tiers.clear();
   failures.clear();
@@ -571,7 +537,6 @@ export function setFiles(paths: string[], keepScroll = false): void {
     requested.add(cell.index);
     paintName(cell);
     paintRating(cell.index, cell);
-    paintSharpness(cell.index, cell);
     paintBurst(cell.index, cell);
     paintTier(cell.index, cell);
   }

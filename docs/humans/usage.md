@@ -117,7 +117,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   filter and sort menus. While a folder is scanned (`scanning N / M`, then
   `analyzing N / M`), the scan takes the shown file and the strip's visible
   cells first, following paging and scrolling, so their thumbnails, then
-  their focus marks and sharpness bars, arrive before the rest. Both passes
+  their focus marks, arrive before the rest. Both passes
   run below normal OS priority, the second lower still, so the viewer and the
   rest of the machine come first when they compete for the CPU.
   Several files can be selected: `Cmd+click` (`Ctrl+click` on Windows and
@@ -239,10 +239,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
 - **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
-  file selected, it instead puts that file beside the highest-scoring
-  frame in its burst (the same file appears twice when it is already the
-  highest-scoring one). Each frame is labeled with its file name and score, and
-  the highest-scoring frame is outlined as `BEST`. Click a frame to make it
+  file selected, it instead puts that file beside the first good frame (the
+  focus mark's bright green) of its burst, or the burst's first frame when
+  none is good, never the file itself. Each frame is labeled with its file
+  name. Click a frame to make it
   `ACTIVE`; a star, pick, reject or label then applies only to that frame,
   regardless of the filmstrip selection. Press `v` again to return.
 - **Judgments**: stars, a pick / reject flag and a color label, shown on
@@ -273,12 +273,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   show them, and enciphered values (shutter count, picture profile) are not
   read. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
-  holds what Riffle computes itself: the sharpness score and `AF eye in
+  holds what Riffle computes itself: `AF eye in
   focus`, the in-focus probability (a percentage) of the eyes of the judged
   face (nearest the AF point; without an AF point or in manual focus, the
   largest face Riffle is confident of) that the focus candidate state is
-  decided from (left out when there is none). Both come from the scan's second pass, so they
-  appear a little after the file's thumbnail on a folder's first scan.
+  decided from (left out when there is none). It comes from the scan's second pass, so it
+  appears a little after the file's thumbnail on a folder's first scan.
   `Eyes` says whether the eyes of the face nearest the AF point (without an
   AF point, the largest face Riffle is confident of) are open or closed and
   how open they are, from 0 to 100, as in `Open · 82` or `Closed · 0`. The
@@ -501,7 +501,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   - **What shows**: the thumbnails, the preview (the whole JPEG, turned by
     its EXIF Orientation), `z` 1:1, `v` on 2–4 selected files, and the meta pane's **EXIF**
     rows read from the JPEG's Exif. There is no **Maker note** row, no
-    sharpness score or sharpness bar, and no focus mark or face detection:
+    sharpness score, and no focus mark or face detection:
     `f` draws nothing. The status line shows
     `JPEG folder: view only` for as long as the folder is open.
   - **Order**: always capture time (the sort menu's capture-time order:
@@ -561,9 +561,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   itself. Closing the modal cancels a held clear, so it only runs while the
   modal stays open until the scan ends. The size figure refreshes each time a
   scan ends.
-- **Sharpness cue**: a thin bar up the left edge of each strip cell shows how
-  sharp the frame is next to its neighbors on the strip; the sharpest frame of
-  a run is marked in the pick color. The score is computed from the embedded
+- **Sharpness score**: Riffle scores each RAW file's sharpness from the embedded
   preview on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF focus point when the camera recorded one, even
   when a face is found elsewhere in the frame. Only when there is no AF point
@@ -572,11 +570,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license, text in `crates/core/models/LICENSE`), run locally with
-  no network access. The score ranks a burst rather than judging a frame on
-  its own, and it does not replace the 1:1 focus check. The score is computed
-  in the same second pass as the focus mark's state, so the bars fill in after
-  the thumbnails while the status shows `analyzing N / M`.
-  The meta pane shows the raw score in its Analysis group. See
+  no network access. The score is computed in the same second pass as the
+  focus mark's state and reaches MCP clients only (`get_view` and
+  `get_photo`): the app shows it nowhere, since it follows the texture under
+  the AF point rather than the subject's focus. On the author's 1717 bursts
+  that hold a good frame (the focus mark's bright green), the sharpest frame
+  was a good one 47.6% of the time, a random frame 45.8% and the first frame
+  55.0%. See
   [What the camera records](./cameras.md).
 - **Bursts**: frames shot within 1 s of the previous frame form a burst. The
   grouping follows capture order whatever the chosen sort, and files from a
@@ -613,7 +613,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `f` | toggle the focus mark |
 | `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
-| `v` | toggle comparison of selected files / the current file with its burst's highest-scoring frame |
+| `v` | toggle comparison of selected files / the current file with its burst's good frame, else its first frame |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |

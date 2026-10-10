@@ -219,18 +219,13 @@ export function applyFaceReady<T extends { focus: MarkFocus | null }>(
 }
 
 // Patch the sharpness score of each ready file into `scores` (set, or deleted
-// when the pass found none) and into its row in `entries`, if it has one. True
-// when any score changed, so the strip's bars are recomputed only then.
+// when the pass found none) and into its row in `entries`, if it has one.
 export function applySharpnessReady<T extends { sharpness: number | null }>(
   entries: Map<string, T>,
   scores: Map<string, number>,
   ready: FaceReady[],
-): boolean {
-  let changed = false;
+): void {
   for (const item of ready) {
-    if ((scores.get(item.path) ?? null) !== item.sharpness) {
-      changed = true;
-    }
     if (item.sharpness === null) {
       scores.delete(item.path);
     } else {
@@ -241,7 +236,6 @@ export function applySharpnessReady<T extends { sharpness: number | null }>(
       entry.sharpness = item.sharpness;
     }
   }
-  return changed;
 }
 
 // What the `faces_of` command returns: the faces found on one file's preview,

@@ -15,14 +15,16 @@ export function reconcileActive(
 export const COMPARE_NEEDS_FRAMES = "Select 2–4 files, or move to a burst with at least two frames";
 
 // Derive the displayed comparison from all of the state that can change it.
-// Keeping this calculation together makes scan-time score updates and
-// selection-only changes use the same rules as the initial comparison.
+// Keeping this calculation together makes selection-only changes use the same
+// rules as the initial comparison. A lone file is paired with the first good
+// frame (`photoTier`) of its displayed burst, else the burst's first displayed
+// frame, itself excepted.
 export function comparisonCandidates(
   files: readonly string[],
   focused: number,
   selected: ReadonlySet<string>,
-  bursts: ReadonlyMap<string, { burst: number }>,
-  sharpness: ReadonlyMap<string, number>,
+  bursts: ReadonlyMap<string, { burst: number; position: number }>,
+  good: (path: string) => boolean,
 ): string[] {
   if (selected.size > 1) {
     return files.filter((path) => selected.has(path)).slice(0, 4);
@@ -30,10 +32,11 @@ export function comparisonCandidates(
   const current = files[focused];
   const burst = current === undefined ? undefined : bursts.get(current)?.burst;
   if (burst === undefined) return current === undefined ? [] : [current];
-  const ranked = files
-    .filter((path) => bursts.get(path)?.burst === burst)
-    .sort((a, b) => (sharpness.get(b) ?? -Infinity) - (sharpness.get(a) ?? -Infinity));
-  return ranked.length < 2 ? [current] : [current, ranked[0]];
+  const others = files
+    .filter((path) => path !== current && bursts.get(path)?.burst === burst)
+    .sort((a, b) => (bursts.get(a)?.position ?? 0) - (bursts.get(b)?.position ?? 0));
+  if (others.length === 0) return [current];
+  return [current, others.find(good) ?? others[0]];
 }
 
 // Load the whole comparison as one transaction. If any frame fails, every

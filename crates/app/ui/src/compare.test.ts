@@ -27,30 +27,44 @@ describe("reconcileActive", () => {
 
 describe("comparisonCandidates", () => {
   const files = ["/a", "/b", "/c", "/d", "/e"];
-  const bursts = new Map(files.map((path) => [path, { burst: 1 }]));
+  const bursts = new Map(files.map((path, position) => [path, { burst: 1, position }]));
+  const none = (): boolean => false;
 
-  test("refreshes the best frame when scan-time scores change", () => {
-    const selected = new Set(["/a"]);
-    expect(comparisonCandidates(files, 0, selected, bursts, new Map([["/b", 2]]))).toEqual([
-      "/a",
-      "/b",
+  test("pairs a lone file with its burst's good frame", () => {
+    const good = (path: string): boolean => path === "/d";
+    expect(comparisonCandidates(files, 1, new Set(["/b"]), bursts, good)).toEqual(["/b", "/d"]);
+  });
+
+  test("pairs a lone file with its burst's first frame when none is good", () => {
+    expect(comparisonCandidates(files, 2, new Set(["/c"]), bursts, none)).toEqual(["/c", "/a"]);
+  });
+
+  test("never pairs a file with itself", () => {
+    const good = (path: string): boolean => path === "/a";
+    expect(comparisonCandidates(files, 0, new Set(["/a"]), bursts, good)).toEqual(["/a", "/b"]);
+    expect(comparisonCandidates(files, 0, new Set(["/a"]), bursts, none)).toEqual(["/a", "/b"]);
+  });
+
+  test("takes the first frame in capture order, whatever the displayed order", () => {
+    const sorted = ["/e", "/c", "/a"];
+    expect(comparisonCandidates(sorted, 0, new Set(), bursts, none)).toEqual(["/e", "/a"]);
+  });
+
+  test("leaves a single alone", () => {
+    const singles = new Map([
+      ["/a", { burst: 1, position: 0 }],
+      ["/b", { burst: 2, position: 0 }],
     ]);
-    expect(comparisonCandidates(files, 0, selected, bursts, new Map([["/c", 3]]))).toEqual([
-      "/a",
-      "/c",
-    ]);
+    expect(comparisonCandidates(["/a", "/b"], 0, new Set(), singles, none)).toEqual(["/a"]);
   });
 
   test("refreshes a changed range even when its focus stays at the boundary", () => {
     const before = { selected: new Set(["/a", "/e"]), anchor: "/b" };
-    expect(comparisonCandidates(files, 4, before.selected, bursts, new Map())).toEqual([
-      "/a",
-      "/e",
-    ]);
+    expect(comparisonCandidates(files, 4, before.selected, bursts, none)).toEqual(["/a", "/e"]);
     const extended = extend(before, files, 4, 1);
     expect(extended.index).toBe(4);
     expect(
-      comparisonCandidates(files, extended.index, extended.selection.selected, bursts, new Map()),
+      comparisonCandidates(files, extended.index, extended.selection.selected, bursts, none),
     ).toEqual(["/b", "/c", "/d", "/e"]);
   });
 });

@@ -23,16 +23,6 @@ Files: `crates/core/src/dop.rs`, `crates/app/src/trash.rs`.
 
 - [ ] Decide which `Items` entry's flag Riffle reads and writes, then change `read_flag` and its tests to match.
 
-### App: the burst "best" sharpness mark ranks the user's picks near random
-
-Found in `burst-keep-score` Step 2 (`docs/plans/_archived/20261008-burst-keep-score/results.md`, Reading). `relativeSharpness` in `crates/app/ui/src/sharpness.ts` (Compare's green bar) ranks the user's picks only slightly above random (pairwise AUC 0.577 against 0.495, the first frame 0.653). The hand check found sharp frames at 0.11-0.67 of the burst maximum, because the AF-region score follows the content under the AF point. Decision 1 did not replace the mark.
-
-Files: `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
-
-#### TODO
-
-- [ ] Change the mark's wording, or measure it on the face only, or drop it.
-
 ### App: re-measure a Good / Bad for frames with no face
 
 The `af-eye-good-bad-cascade` plan (Step 3, Decision C in `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`, numbers in `sharpness-fallback.md`, script `facefree.py` in the same folder) measured whether the sharpness score separates picks on frames where no face is analyzed (an AF point with no face near it, or no AF point and no face on the whole preview). It did not meet the pre-registered criterion (held-out AUC >= 0.70 pick vs non-pick and a cut at 2x the base precision marking 20% or more): absolute AUC 0.579, best held-out lift 1.25, so those frames stay `Unknown` (Step 4). The pick vs reject leg could not be run: only 9 face-free rejects exist (7 in `2026-09-19`, 2 in `2026-09-13-b`), and no folder has the 30 the criterion needs.
@@ -417,7 +407,7 @@ produced with an ARW truncated to its first 2 KB).
 - [ ] Verify the burst band and count badge by hand on a real Leica burst
       folder and note the group sizes: band visible, every member cell
       shows its `position/size` (a two-digit one like `12/15` clear of the
-      sharpness bar and the file name), unchanged by the selection, the gap above a
+      file name), unchanged by the selection, the gap above a
       non-first member is filled, and the band is distinguishable from
       `.cell.current` and `.cell.failed`. Files: `crates/app/ui/src/burst.ts`,
       `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
@@ -790,7 +780,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       focus candidate state is unknown (white), even when the camera tracked
       them. Files: `crates/core/src/candidate.rs`, `crates/core/src/faces.rs`.
 
-Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/burst.ts`.
 
 ### App: real-device check of the face boxes on the whole-image detection path
 
@@ -1480,7 +1470,7 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 - [ ] On Windows, Step 2, dialogs: clear the `sidecarFormat` key (or use a fresh profile) to see the first-run dialog and pick a format; open `Move Rejected to Trash` from the folder tree's right-click on a folder with rejects and one without; open `Sequence JPEG Timestamps…` on a JPEG folder and run it. Expect the format dialog on the `#171717` card with three outline choices; the trash dialog with rows on `--muted`, the total, a red destructive `Move to Trash` and an outline `Cancel`; the sequence preview with changed (pick color) and unchanged (`#a1a1a1`) lines, a light primary `Run` and an outline `Cancel`; disabled buttons during a run at half opacity; all four dialogs (with Settings) look like one family.
 - [ ] On Windows, Step 3, menus / strip bar / cells: open a folder; open the filter and sort menus and toggle a few items; right-click a cell for the context menu; click a cell and shift-click another; watch a fresh folder's placeholders fill in; rename a file inline. Expect hover on `#262626`; a checked item shows the check mark in its leading column with no fill, and it disappears when unchecked; labels stay aligned, nothing wraps and the filter menu still fits above the strip bar; the `AF eye` heading, the star rows (unlit stars dim), the `#filter-exif` groups and the separators are visible on `#171717` (if a separator vanishes, raise `.menu-separator` to `--input`); the context menu's `.shortcut` column is `#a1a1a1` and a radio item shows its check; the filter / sort toggles are outline buttons, the lit filter toggle is `#e5e5e5`, and the sort toggle is half-opacity in a JPEG folder; the focused cell has the light `--primary` border on `#262626`, the other selected cells the `#737373` border on the same fill, and the two read as different; the rejected dimming, burst band, badges and failed red are as before; placeholders are `#262626`; the inline rename field is `#0a0a0a` with a `#737373` outline; the strip and menu scrollbars are thin and visible.
 - [ ] On Windows, Step 4, folder tree: expand a few roots, hover rows, select two folders and open one, move the keyboard cursor while the tree has focus, expand a folder with RAW files, find (or make, e.g. an unreadable folder) a failed folder, rename a folder inline, and drag a folder over the window. Expect `#fafafa` rows with rounded `#262626` hover; the selected folders and the open one share `#262626`, the open one bold and the selected ones normal weight; the keyboard cursor shows a `#737373` ring only while the tree has focus; the count is a pill badge (its fill merges into a hovered / selected / open row, so only the number shows there); a failed folder's name is `#ff6467`; a long name on the open row ellipsizes without wrapping or pushing the count out; the inline rename field is `#0a0a0a` with a `#737373` outline; the drop outline is `#737373`; the tree scrollbar is thin and visible.
-- [ ] On Windows, Step 5, viewer / meta pane / empty states: start with no folder open, then open an empty folder and a folder whose files are all filtered out; open a fresh folder and watch it scan; make a sidecar write fail (mark a sidecar read-only and rate the file) and dismiss the error; read the meta pane of a RAW file; toggle 1:1 zoom; open Compare with three frames. Expect the empty hints (`Drop a folder…`, `This folder has no RAW or JPEG files.`, `No files match the current filter.`) centered in `#a1a1a1`; the `scanning N / M` then `analyzing N / M` notes, `1:1` and `Compare · N frames` in `#a1a1a1`; the error row in `#ff6467` (not the old amber) with a ghost `×` that hovers on `#262626` and dismisses; the meta pane's EXIF / Maker note / Analysis headings and keys in `#a1a1a1`, values `#fafafa`, a thin scrollbar; Compare's label bars `#171717` with `#fafafa` text, frames with a faint hairline border, the best frame keeping its green bar, text and border, and the active frame showing a light `#e5e5e5` inner ring.
+- [ ] On Windows, Step 5, viewer / meta pane / empty states: start with no folder open, then open an empty folder and a folder whose files are all filtered out; open a fresh folder and watch it scan; make a sidecar write fail (mark a sidecar read-only and rate the file) and dismiss the error; read the meta pane of a RAW file; toggle 1:1 zoom; open Compare with three frames. Expect the empty hints (`Drop a folder…`, `This folder has no RAW or JPEG files.`, `No files match the current filter.`) centered in `#a1a1a1`; the `scanning N / M` then `analyzing N / M` notes, `1:1` and `Compare · N frames` in `#a1a1a1`; the error row in `#ff6467` (not the old amber) with a ghost `×` that hovers on `#262626` and dismisses; the meta pane's EXIF / Maker note / Analysis headings and keys in `#a1a1a1`, values `#fafafa`, a thin scrollbar; Compare's label bars `#171717` with `#fafafa` text, frames with a faint hairline border, and the active frame showing a light `#e5e5e5` inner ring.
 - [ ] On Windows, Step 6, settings side-nav (a debug build so Debug shows, a 1280x720 window): open Settings. Expect the modal wider and taller (`min(860px, 90vw)` x `min(720px, 80vh)`) and fitting; the left nav listing Sidecar, Culling, Keyboard Shortcuts, Cache, MCP and Debug, each with its 16px icon, `#a1a1a1` at rest, hovering on `#262626`, the active one bold `#fafafa` on `#262626`; all six items fit without the nav scrolling and "Keyboard Shortcuts" reads acceptably (one line preferred); the nav's right hairline is visible (if not, raise `.sidenav`'s border to `--input`); `ArrowUp` / `ArrowDown` move and activate with wrapping, `Home` / `End` go to the first / last, `ArrowLeft` / `ArrowRight` do nothing, the focused item shows the `#737373` ring, Tab moves into the content, Shift+Tab back, Escape closes; the shortcuts table scrolls inside the content pane (thin scrollbar) while the header and nav stay put, and a status error shows under the content pane.
 - [ ] On macOS (WKWebView), repeat the six Windows passes above (Settings, first-run / trash / sequence dialogs, menus / strip bar / cells, folder tree, empty states / meta pane / status lines / Compare, settings side-nav). Also confirm that `scrollbar-color` is honored or harmlessly ignored, that native checkboxes / radios take `accent-color` (Safari 15.4+; an older engine shows the UA control), and that `:focus-visible` rings appear.
 - [ ] On Linux (WebKitGTK), repeat the six Windows passes above and the same three extra confirmations (`scrollbar-color`, `accent-color` on checkboxes / radios with WebKitGTK 2.36+, `:focus-visible` rings).
@@ -1609,28 +1599,9 @@ pass carries which cost").
 #### TODO
 
 - [ ] On Windows, clear the cache (settings modal, `Clear Cache`), open a large RAW folder (a few thousand files) in a development build with the settings modal's `Timing logs` on, and page through it with the arrow keys while `scanning N / M` and then `analyzing N / M` run. Compare the `page invoke=.. decode=.. total=.. keypressToPixels=..` lines in `Riffle.log` with the same run on the previous release (and with paging after the scan ends). Expect that during the passes they are not worse and are closer to the idle value. Note the wall time of the `scan extract` / `scan faces` summary lines of both runs, to see what the lowered priority costs while paging. No `ran at normal priority` warning may appear in the log.
-- [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks and sharpness bars during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
+- [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
 - [ ] On macOS, repeat the paging run once. Expect the analysis pass (`QOS_CLASS_BACKGROUND`, which also throttles disk IO) not to crawl; if it does, move it to `QOS_CLASS_UTILITY` and update the priority entry in `docs/agents/tauri-app.md`.
 - [ ] Done when: the measured page-latency and `scan extract` / `scan faces` numbers, with their conditions, are in `docs/humans/performance.md` ("Which pass carries which cost"), and the README wording on paging is revisited from that result.
-
-### App: real-device check of the sharpness bars filling in during the second pass
-
-`scan-priority` (docs/plans/_archived/20260930-scan-priority/plan.md) moved the
-sharpness score out of the first pass: the `faces-progress` handler now patches
-each ready item's `sharpness` into the strip bars, the compare order and the
-meta pane, and the status reads `analyzing N / M`. The unit tests
-(`focus.test.ts`) and `mise run ci` cover the patching; the real behavior on a
-desktop and the cost of `applySharpness()` on a large folder were never
-exercised (Step 3 was ticked on the automated criteria only).
-Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
-`crates/app/ui/src/focus.ts` (`applySharpnessReady`),
-`docs/humans/performance.md`.
-
-#### TODO
-
-- [ ] On the desktop app (any platform), clear the cache (settings modal, `Clear Cache`) and open a folder of a few hundred RAWs with bursts. Expect the thumbnails to appear with no sharpness bars while the status shows `scanning N / M`, then the bars (and the pick-colored best frame) to fill in while it shows `analyzing N / M`, and the meta pane's `Sharpness` row to appear for the current file once its score arrives.
-- [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
-- [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/humans/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
 ### App: real-device check that big-endian DNGs open after the EXTRACTOR_VERSION bump
 

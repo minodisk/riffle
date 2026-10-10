@@ -1414,7 +1414,7 @@ still the current file afterward — calls `move(1)` for auto-advance.
 ### A derived-state refresh has to run even when `refilter` short-circuits (Hit)
 
 `refilter` returns early when the visible file list did not change, so per-file
-UI state derived from the list (e.g. the sharpness cue's `applySharpness()`)
+UI state derived from the list (e.g. the burst bands' `applyBursts()`)
 cannot rely on `refilter` alone to recompute it.
 
 - Call the derivation explicitly wherever the underlying data is refreshed
@@ -1690,8 +1690,8 @@ resumed inline rename. `setFiles` removes that cell's input while the `name`
 span is still detached, so a carried cell would have no `.name` in its element
 and the resume block's `cell.name.replaceWith(input)` would be a no-op. That
 cell is released and recreated like any other cell outside the carried set,
-and is then repainted with the just-cleared per-index maps (rating, sharpness,
-burst, tier) until `refilter` re-applies them right after — so it
+and is then repainted with the just-cleared per-index maps (rating, burst,
+tier) until `refilter` re-applies them right after — so it
 briefly matches a fresh cell, whether or not `keepScroll` is set.
 
 - Source: `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md`, Step 4;

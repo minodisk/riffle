@@ -90,14 +90,13 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // The meta pane's rows grouped by where each value comes from: standard
 // EXIF/TIFF tags, the vendor MakerNote (itself an EXIF tag), and Riffle's own
 // analysis. The analysis group needs no `meta`, so a file whose metadata could
-// not be read still shows its score. The AF eye's in-focus probability gets a
+// not be read still shows its analysis. The AF eye's in-focus probability gets a
 // row, as a percentage, only when there is one, and so do the open / closed
 // judgment with the openness of the eyes and the head pose of the same face: the values the
 // scan stored for the judged face when it has them, else the `eyes` judgment taken
 // when the file was shown.
 export function metaGroups(
   meta: Metadata | null,
-  sharpness: number | null,
   focus?: FocusCue | null,
   eyes?: Eyes | null,
 ): MetaGroup[] {
@@ -134,7 +133,6 @@ export function metaGroups(
   }
   groups.push(
     group(ANALYSIS_HEADING, [
-      ["Sharpness", sharpness?.toFixed(1) ?? null],
       ["AF eye in focus", focusPercent(focus?.eye_focus ?? null)],
       [
         "Eyes",
