@@ -1912,6 +1912,80 @@ fn panels_setting(value: Option<&Value>) -> Value {
     })
 }
 
+/// The strip filter remembered by `set_filter`, empty (letting every file
+/// through) when the store cannot be read or holds nothing usable.
+#[tauri::command]
+pub fn filter(app: tauri::AppHandle) -> Value {
+    let store = settings(&app).ok();
+    filter_setting(store.as_ref().and_then(|s| s.get("filter")).as_ref())
+}
+
+/// Remember the strip filter. Failing to write it only means the next launch
+/// restores the previously saved filter, so it is logged, not returned.
+#[tauri::command]
+pub fn set_filter(app: tauri::AppHandle, filter: Value) {
+    let filter = filter_setting(Some(&filter));
+    let saved = settings(&app).and_then(|store| {
+        store.set("filter", filter);
+        store.save().map_err(|e| e.to_string())
+    });
+    if let Err(e) = saved {
+        log::warn!("failed to remember the filter: {e}");
+    }
+}
+
+// The filter menu's states. The source of truth is the `data-*` items of
+// `ui/index.html` and the types in `ui/src/filter.ts`, `ui/src/focus.ts`
+// (`MarkState`) and `ui/src/eyes.ts` (`EyeState`); rename a state in both.
+const FILTER_FLAGS: &[&str] = &["picked", "untagged", "rejected"];
+const FILTER_LABELS: &[&str] = &[
+    "red", "orange", "yellow", "green", "blue", "pink", "purple", "none",
+];
+const FILTER_ORIENTATIONS: &[&str] = &["portrait", "landscape"];
+const FILTER_CANDIDATES: &[&str] = &["good", "not_candidate", "unknown"];
+const FILTER_EYES: &[&str] = &["open", "closed", "unknown"];
+
+/// The stored `filter` value with every section present, each keeping only
+/// its known members, deduplicated in stored order. A non-object value or a
+/// non-array section is empty, and keys other than the six sections are
+/// dropped.
+fn filter_setting(value: Option<&Value>) -> Value {
+    let members = |name: &str| -> Vec<Value> {
+        let mut kept: Vec<Value> = Vec::new();
+        let items = value
+            .and_then(|v| v.get(name))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten();
+        for item in items {
+            let allowed = match name {
+                "stars" => item.as_u64().is_some_and(|n| n <= 5),
+                "flags" => item.as_str().is_some_and(|s| FILTER_FLAGS.contains(&s)),
+                "labels" => item.as_str().is_some_and(|s| FILTER_LABELS.contains(&s)),
+                "orientations" => item
+                    .as_str()
+                    .is_some_and(|s| FILTER_ORIENTATIONS.contains(&s)),
+                "candidates" => item
+                    .as_str()
+                    .is_some_and(|s| FILTER_CANDIDATES.contains(&s)),
+                _ => item.as_str().is_some_and(|s| FILTER_EYES.contains(&s)),
+            };
+            if allowed && !kept.contains(item) {
+                kept.push(item.clone());
+            }
+        }
+        kept
+    };
+    serde_json::json!({
+        "flags": members("flags"),
+        "stars": members("stars"),
+        "labels": members("labels"),
+        "orientations": members("orientations"),
+        "candidates": members("candidates"),
+        "eyes": members("eyes"),
+    })
+}
+
 /// Whether the MCP server is on, its port and its last bind error.
 #[tauri::command]
 pub async fn mcp_enabled(app: tauri::AppHandle) -> crate::mcp::McpState {
@@ -2881,6 +2955,62 @@ mod tests {
             super::panels_setting(Some(&json!({"left": false, "right": false, "extra": 1}))),
             json!({"left": false, "strip": true, "right": false})
         );
+    }
+
+    #[test]
+    fn filter_setting_falls_back_to_empty() {
+        use serde_json::json;
+        let empty = json!({
+            "flags": [], "stars": [], "labels": [],
+            "orientations": [], "candidates": [], "eyes": [],
+        });
+        assert_eq!(super::filter_setting(None), empty);
+        assert_eq!(super::filter_setting(Some(&json!("x"))), empty);
+        assert_eq!(super::filter_setting(Some(&json!([]))), empty);
+        assert_eq!(
+            super::filter_setting(Some(&json!({"flags": "picked", "stars": {"0": 1}}))),
+            empty
+        );
+    }
+
+    #[test]
+    fn filter_setting_drops_unknown_members() {
+        use serde_json::json;
+        assert_eq!(
+            super::filter_setting(Some(&json!({
+                "flags": ["picked", "bogus", "picked"],
+                "stars": [5, 7, "3", 2.5, 0, 6],
+                "labels": ["Red", "red", "none"],
+                "orientations": ["square", "landscape"],
+                "candidates": ["ok", "good", "unknown"],
+                "eyes": ["closed", 1],
+            }))),
+            json!({
+                "flags": ["picked"],
+                "stars": [5, 0],
+                "labels": ["red", "none"],
+                "orientations": ["landscape"],
+                "candidates": ["good", "unknown"],
+                "eyes": ["closed"],
+            })
+        );
+    }
+
+    #[test]
+    fn filter_setting_keeps_a_valid_value_and_drops_extra_keys() {
+        use serde_json::json;
+        let valid = json!({
+            "flags": ["rejected", "picked"],
+            "stars": [3, 1],
+            "labels": ["purple", "green"],
+            "orientations": ["portrait"],
+            "candidates": ["not_candidate"],
+            "eyes": ["unknown", "open"],
+        });
+        assert_eq!(super::filter_setting(Some(&valid)), valid);
+        let mut extra = valid.clone();
+        extra["exif"] = json!({"ISO": ["100"]});
+        assert_eq!(super::filter_setting(Some(&extra)), valid);
     }
 
     #[test]

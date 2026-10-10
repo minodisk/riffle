@@ -32,7 +32,7 @@ launch.
 
 ## Steps
 
-- [ ] Step 1: `filter` / `set_filter` commands and the stored value's parser
+- [x] Step 1: `filter` / `set_filter` commands and the stored value's parser
   - Done when: `crates/app/src/commands.rs` has `filter_setting(Option<&Value>) -> Value` that normalizes a stored value into the canonical shape (every section present, unknown members dropped, non-object input or a non-array section treated as empty, extra keys dropped), a `filter` command that reads the `filter` key through it, and a `set_filter(app, filter: Value)` command that normalizes and saves (a save failure is logged, not returned, like `set_sort_order`); both are registered in `generate_handler!` in `crates/app/src/main.rs`; unit tests next to `panels_setting_falls_back_to_shown` cover `None`, `"x"` and `[]` giving the empty filter, each section dropping unknown members (`"ok"` in candidates, `7` / `"3"` / `2.5` in stars, `"Red"` in labels), a valid value round-tripping unchanged, and an extra key (`"exif"`) being dropped. `mise run ci` passes.
   - Implementation approach:
     - Canonical JSON shape, also the wire shape of both commands:
@@ -59,4 +59,4 @@ launch.
 
 ## Progress
 
-- (none yet)
+- (2026-10-10) Step 1 complete

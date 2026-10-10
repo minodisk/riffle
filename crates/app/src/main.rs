@@ -778,6 +778,8 @@ fn main() {
             commands::last_folder,
             commands::sort_order,
             commands::set_sort_order,
+            commands::filter,
+            commands::set_filter,
             commands::panels,
             commands::set_panels,
             commands::preview,
