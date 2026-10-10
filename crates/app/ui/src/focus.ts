@@ -3,6 +3,7 @@
 // tested without mocks.
 
 import type { StoredEyes } from "./eyes.js";
+import { SCAN_EYE_SVG, SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
 export interface MarkFocus extends StoredEyes {
   sensor_w: number;
@@ -30,15 +31,26 @@ export interface FocusMark {
   state: MarkState;
 }
 
-// The mark's color per state: bright green for a good photo, a dim green for a
-// focus candidate that is not one, orange when the eyes of the face nearest the
-// AF point are not sharp, white when Riffle does not know.
+// The mark's color per state: bright green for a good photo and for a focus
+// candidate that is not one, gray when the eyes of the face nearest the AF
+// point are not sharp, white when Riffle does not know.
 export const FOCUS_MARK_COLORS = {
   good: "#3f3",
-  candidate_only: "#8b8",
-  not_candidate: "#f93",
+  candidate_only: "#3f3",
+  not_candidate: "#999",
   unknown: "#fff",
 } as const satisfies Record<MarkState, string>;
+
+// The icon per state on the strip cell and the filter menu's `AF eye` item, in
+// the mark's color: a face for a good photo, an eye for a focus candidate that
+// is not one, the bare frame when the eyes are not sharp, none when Riffle does
+// not know.
+export const FOCUS_MARK_ICONS = {
+  good: SCAN_FACE_SVG,
+  candidate_only: SCAN_EYE_SVG,
+  not_candidate: SCAN_SVG,
+  unknown: null,
+} as const satisfies Record<MarkState, string | null>;
 
 // The good-photo cuts on the values pass 2 stores for the AF face, read from
 // the re-dump of six ARW folders (8915 faced AF frames) on 2026-10-09, tuned
@@ -121,6 +133,11 @@ function markState(focus: MarkFocus): MarkState {
     return focus.candidate;
   }
   return photoTier(focus) ?? "candidate_only";
+}
+
+// The mark state of a file the strip's icon shows, `unknown` without a focus.
+export function stripState(focus: MarkFocus | null | undefined): MarkState {
+  return focus === null || focus === undefined ? "unknown" : markState(focus);
 }
 
 // `null` for a manual-focus shot, whose recorded point is not trusted. The

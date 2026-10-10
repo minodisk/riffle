@@ -28,6 +28,7 @@ import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } 
 import { placeholderRect } from "./zoom.js";
 import {
   FOCUS_MARK_COLORS,
+  FOCUS_MARK_ICONS,
   type FaceReady,
   type Faces,
   applyFaceReady,
@@ -35,6 +36,7 @@ import {
   faceMarks,
   focusMark,
   photoTier,
+  stripState,
 } from "./focus.js";
 import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
@@ -83,7 +85,7 @@ import type { LabelNames, LabelPreset } from "./labels.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { VIEW_ONLY_NOTE, isViewOnly, sortFor } from "./viewonly.js";
 import { initSettings } from "./settings.js";
-import { CHECK_SVG, SCAN_FACE_SVG } from "./icons.js";
+import { CHECK_SVG } from "./icons.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
 import { treeGate } from "./treekeys.js";
@@ -2066,10 +2068,10 @@ function applyBursts(): void {
   });
 }
 
-// Hand the strip the photo tier of each displayed file.
+// Hand the strip the focus mark state of each displayed file.
 function applyTiers(): void {
   files.forEach((path, at) => {
-    strip.setTier(at, photoTier(entries.get(path)?.focus));
+    strip.setTier(at, stripState(entries.get(path)?.focus));
   });
 }
 
@@ -2193,9 +2195,9 @@ function refreshEntries(): void {
 // records only the point gets the crosshair alone, and a manual-focus shot,
 // whose recorded point is not trusted, gets no mark. The mark is bright green
 // for a good photo (`photoTier`: the eyes of the face nearest the AF point are
-// sharp and open and the face is toward the camera), dim green for a focus
+// sharp and open and the face is toward the camera) and for a focus
 // candidate that is not one,
-// orange when that face's eyes are not sharp, and
+// gray when that face's eyes are not sharp, and
 // white when Riffle does not know: no face near the point, or the second scan
 // pass has not reached the file yet.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
@@ -3793,15 +3795,16 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
   "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes]",
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
-// The face icons of the `AF eye` items, colored like the focus mark: `Good`
-// like the strip's icon, `Sharp only` in the dim green of a candidate not good.
-for (const [candidate, color] of [
-  ["good", FOCUS_MARK_COLORS.good],
-  ["candidate", FOCUS_MARK_COLORS.candidate_only],
+// The icons of the `AF eye` items, the strip's icon of the same state in the
+// focus mark's color; `Unknown` keeps its slot empty.
+for (const [candidate, state] of [
+  ["good", "good"],
+  ["candidate", "candidate_only"],
+  ["not_candidate", "not_candidate"],
 ] as const) {
   const face = filterMenu.querySelector<HTMLElement>(`[data-candidate="${candidate}"] .face`)!;
-  face.innerHTML = SCAN_FACE_SVG;
-  face.style.color = color;
+  face.innerHTML = FOCUS_MARK_ICONS[state];
+  face.style.color = FOCUS_MARK_COLORS[state];
 }
 
 function exifSelected(): boolean {

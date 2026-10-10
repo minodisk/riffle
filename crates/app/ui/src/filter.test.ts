@@ -325,7 +325,7 @@ describe("passes: focus candidates", () => {
     expect(passes(s, unjudged, undefined, 1, undefined)).toBe(false);
   });
 
-  test("not_candidate passes a soft frame only", () => {
+  test("not_candidate (Bad) passes a bad frame only", () => {
     const soft = state([], [], [], [], [], ["not_candidate"]);
     expect(passes(soft, unjudged, undefined, 1, "not_candidate")).toBe(true);
     expect(passes(soft, unjudged, undefined, 1, "candidate")).toBe(false);
@@ -392,7 +392,7 @@ describe("passes: photo tiers", () => {
     expect(passes(goodOrUnknown, unjudged, undefined, 1, "candidate", undefined, null)).toBe(false);
   });
 
-  test("Sharp only does not pass a good frame", () => {
+  test("OK does not pass a good frame", () => {
     const sharp = tier("candidate");
     expect(at(sharp, "good")).toBe(false);
     expect(passes(sharp, unjudged, undefined, 1, "candidate", undefined, null)).toBe(true);
