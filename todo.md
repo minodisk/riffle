@@ -1716,3 +1716,26 @@ The folder-sidecars feature added `Rewrite Sidecars from Index…`. `rewrite_sid
 
 - [ ] Decide whether the rewrite should skip oversize sidecars like a folder open does.
 - [ ] If it should, skip them and count them in the dialog's "skipped" figure.
+
+### App: real-device checks for the main window being created hidden (startup window flash)
+
+#### Background
+
+The startup-window-flash feature sets `"visible": false` on the main window in `crates/app/tauri.conf.json`. `tauri-plugin-window-state` then restores the saved size and position before the window is shown. `crates/app/src/main.rs` also calls `show()` in the `setup` closure as a fallback. That fallback covers two cases:
+- A saved `visible: false`, for example from quitting while minimized on macOS.
+- A failed `set_position` / `set_size` / `set_fullscreen` that aborts `restore_state` before its own `show()`.
+
+CI covers only the automated criteria (`mise run ci`). No GUI session was available, so none of the checks below was ever run, and the step's checkbox was ticked on the automated criteria alone. Plan: `docs/plans/_archived/20261010-startup-window-flash/plan.md`.
+
+Files: `crates/app/tauri.conf.json`, `crates/app/src/main.rs`.
+
+#### TODO
+
+- [ ] On Windows, on a built binary (`pnpm tauri build`; the `pnpm tauri dev` binary is acceptable, so note which was used):
+  1. With a saved `.window-state.json` (app config dir) at a non-default size and position, launch. The window appears directly at the saved size and position, with no 1280x800 frame visible first.
+  2. Delete `.window-state.json` and launch. The window appears at 1280x800, OS-placed, and focused.
+  3. Edit `.window-state.json` so `main.visible` is `false` and launch. The window still appears (the fallback `show()` path).
+  4. With the app running (once normal, once minimized), launch it again. The existing window is unminimized and focused, and no second window appears.
+  5. Quit maximized and relaunch. It comes back maximized with no normal-size frame first.
+  6. Note whether a white (unpainted WebView) frame shows before the dark UI paints. If it does and bothers the user, the follow-up is `"backgroundColor": "#0a0a0a"` on the window entry in `tauri.conf.json`.
+- [ ] On macOS, minimize the window, quit with Cmd+Q, and relaunch. The window appears. This is the real-world source of a saved `visible: false`.
