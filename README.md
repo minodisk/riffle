@@ -127,8 +127,8 @@ DxO PhotoLab.
   face's eyes are open and how open (0 to 100) as `Eyes` and the face's
   yaw, pitch and roll as `Head pose`, both stored by the same second pass
   for the face nearest the AF point and judged when the file is shown
-  otherwise, and the filter menu's `AF eye` section (`Good` / `Sharp only` /
-  `Soft` / `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
+  otherwise, and the filter menu's `AF eye` section (`Good` / `OK` /
+  `Bad` / `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
   state (a file without one, such as a shot without an AF point, is
   `Unknown`). The mark also draws the faces
   Riffle detects near the AF point as a cyan box with a dot between the eyes,
@@ -151,7 +151,7 @@ DxO PhotoLab.
   [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
   face mesh (Apache-2.0, converted to ONNX from Google's TFLite). Both run
   locally with no network access. The strip's
-  good-photo icon, also on the filter menu's `Good` and `Sharp only` items, is
+  good-photo icon, also on the filter menu's `Good` and `OK` items, is
   [Lucide](https://lucide.dev)'s `scan-face` (ISC license).
 - **HDR PQ (HEIF) CR3 previews**: the HEVC previews of Canon CR3 files shot
   with HDR PQ on are decoded by the bundled

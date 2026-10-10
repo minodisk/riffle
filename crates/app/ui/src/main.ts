@@ -3794,7 +3794,7 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
 );
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 // The face icons of the `AF eye` items, colored like the focus mark: `Good`
-// like the strip's icon, `Sharp only` in the dim green of a candidate not good.
+// like the strip's icon, `OK` in the dim green of a candidate not good.
 for (const [candidate, color] of [
   ["good", FOCUS_MARK_COLORS.good],
   ["candidate", FOCUS_MARK_COLORS.candidate_only],

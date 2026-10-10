@@ -304,10 +304,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus mark's state (the
   `AF eye` section: `Good` for a good photo, the bright green mark and face
-  icon; `Sharp only` for a dim green mark, the AF eye in focus but not a
-  good photo; `Soft` for orange and `Unknown` for white, including files the
+  icon; `OK` for a dim green mark, the AF eye in focus but not a
+  good photo; `Bad` for orange and `Unknown` for white, including files the
   second pass has not reached; each file falls under exactly one of them,
-  checking several shows the files in any of them, so `Good` and `Sharp only`
+  checking several shows the files in any of them, so `Good` and `OK`
   together show every in-focus frame, and the strip refills as the pass
   runs), the stored eye state of the face nearest the AF point (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
