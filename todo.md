@@ -1749,3 +1749,19 @@ Files: `crates/app/tauri.conf.json`, `crates/app/src/main.rs`.
   5. Quit maximized and relaunch. It comes back maximized with no normal-size frame first.
   6. Note whether a white (unpainted WebView) frame shows before the dark UI paints. If it does and bothers the user, the follow-up is `"backgroundColor": "#0a0a0a"` on the window entry in `tauri.conf.json`.
 - [ ] On macOS, minimize the window, quit with Cmd+Q, and relaunch. The window appears. This is the real-world source of a saved `visible: false`.
+
+### App: real-device check that the strip's filter survives a relaunch
+
+#### Background
+
+The persist-filter feature stores the strip's filter (flags, stars, color labels, orientations, `AF eye` and `Eyes`; the EXIF groups stay per session) under the `filter` key of the settings store. It restores the filter at launch before the last folder reopens, and mirrors the menu's checks and the filter button's lit state. CI covers only the automated criteria: vitest for `toStored` / `applyStored`, the Rust unit tests for `filter_setting`, and `mise run ci`. No GUI session was available, so none of the checks below was ever run, and Step 2's checkbox was ticked on the automated criteria alone. Plan: `docs/plans/_archived/20261010-persist-filter/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/src/commands.rs`.
+
+#### TODO
+
+- [ ] On Windows, on a desktop build:
+  1. Open a folder, check e.g. `Picked` and `Good` in the filter menu, quit and relaunch. The same files are hidden, the menu shows those checks and the filter button is lit.
+  2. Press `Reset`, quit and relaunch. There is no filter and the button is not lit.
+  3. Quit, set `"filter": "bogus"` (or a value with unknown states) in the app's `settings.json`, and relaunch. The app launches unfiltered without error.
+- [ ] On macOS, repeat steps 1-3 above on a desktop build.
