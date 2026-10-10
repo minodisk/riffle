@@ -33,6 +33,16 @@ Files: `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
 
 - [ ] Change the mark's wording, or measure it on the face only, or drop it.
 
+### App: re-measure a Good / Bad for frames with no face
+
+The `af-eye-good-bad-cascade` plan (Step 3, Decision C in `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`, numbers in `sharpness-fallback.md`, script `facefree.py` in the same folder) measured whether the sharpness score separates picks on frames where no face is analyzed (an AF point with no face near it, or no AF point and no face on the whole preview). It did not meet the pre-registered criterion (held-out AUC >= 0.70 pick vs non-pick and a cut at 2x the base precision marking 20% or more): absolute AUC 0.579, best held-out lift 1.25, so those frames stay `Unknown` (Step 4). The pick vs reject leg could not be run: only 9 face-free rejects exist (7 in `2026-09-19`, 2 in `2026-09-13-b`), and no folder has the 30 the criterion needs.
+
+Files: `crates/app/ui/src/focus.ts` (where a rule would go, next to the good cuts), `crates/app/src/index.rs` (an `analyzed` flag on `Focus` / `FaceReady` so "analyzed, no face" differs from "not yet").
+
+#### TODO
+
+- [ ] Once a folder holds 30 or more face-free rejects (`.dop` `ShouldProcess` or XMP `xmpDM:good="False"`), or a cue other than the sharpness score exists for frames with no face, re-dump with `riffle-cli features`, re-run `facefree.py` against the same pre-registered criterion (pick vs reject included), and ship a face-free Good / Bad only if it passes.
+
 ### App: the MCP `get_view` eyes summary carries no openness
 
 `burst-keep-score` Step 4b made the meta pane's `Eyes` row show the openness (0-100 from the EAR) but kept `get_view`'s `state` / `probability` / `pose` fields as planned. Whether `EyesSummary` should carry the EAR or the openness is open.

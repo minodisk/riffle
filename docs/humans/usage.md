@@ -202,7 +202,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   faces, or without a clear edge), it is measured over the preview between
   the eyes instead. White when Riffle does not know: no face found (near
   the AF point when there is one, anywhere on the preview when there is
-  none), or not computed yet. A frame with no face found or with a face
+  none), or not computed yet. A frame with no face found stays white rather
+  than being judged on the sharpness score: on the author's 4361 face-free
+  frames the score barely told picks from the rest (AUC 0.58). A frame with no face found or with a face
   under about 60 pixels on the embedded preview is never good,
   and neither is a strongly turned face, even when the turn was intended.
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame

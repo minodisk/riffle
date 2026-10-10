@@ -129,6 +129,17 @@
   `riffle-cli.exe` needs `D:/...` paths, not Git Bash's `/d/...`, when
   called from Python.
 
+## Step 4: Record that face-free frames stay Unknown (no ship)
+
+- Decision C was already written with its numbers by Step 3, so Step 4
+  only added the one-sentence reason to the Focus mark text of `README.md` /
+  `README.ja.md` and `docs/humans/usage.md` / `usage.ja.md`, and the
+  `todo.md` item "App: re-measure a Good / Bad for frames with no face".
+- The plan's "57 rejects" (Context and Trade-offs) was corrected to 58,
+  matching the count above.
+- No app code changed; the `analyzed` flag of the ship branch was not
+  added.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 2, checkbox ticked on the automated criteria):
@@ -149,6 +160,7 @@
   of the 20 good-mark rejects is face-free). Re-measure once a folder holds
   30 or more face-free rejects, or a cue other than the sharpness score
   exists for frames with no face. Basis: `sharpness-fallback.md`,
-  `facefree.py` (this plan folder); Step 4's no-ship branch already adds the
-  `todo.md` item, so this is its source, not a second item. Files:
+  `facefree.py` (this plan folder); Step 4 added it to `todo.md` as "App:
+  re-measure a Good / Bad for frames with no face", so the wrap-up adds no
+  second item. Files:
   `crates/app/ui/src/focus.ts` (where a rule would go).
