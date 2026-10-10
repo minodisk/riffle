@@ -63,7 +63,7 @@ export const GOOD_MAX_PITCH = 45;
 // The mesh's eyes farther than this from YuNet's eye landmarks, in face box
 // sides, mean a mesh fitted off the face (an in-plane rotated face): the
 // sample's well-fitted tier frames were all under 0.09, the misfit
-// `_DSC2638` at 0.125; 7.6% of the frames the cuts alone tier exceed it.
+// `_DSC2638` at 0.125; 7.6% of the frames the Step 5 cuts alone tiered exceeded it.
 // Loosening it, or skipping it where YuNet's eyes sit close together (a
 // profile), lets 1-star frames in on the 180 rated frames.
 export const MAX_EYE_OFFSET = 0.1;
