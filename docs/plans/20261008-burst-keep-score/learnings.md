@@ -469,9 +469,10 @@
   of the 0.90 cut. The sample cannot tell 0.90 from the candidate cut 0.772
   (no rated frame between them clears the other cuts); 0.90 was kept, which
   marks 1.4 points fewer of the folders.
-- **The docs keep "cuts still being tuned"** (README) and "still being tuned"
-  / "調整中" (usage): only the numbers were replaced in place, as the step
-  asked; the qualifier goes once the user approves Decision B.
+- **The user approved Decision B as final (2026-10-10).** The "still being
+  tuned" / "調整中" wording left the README and usage pairs, `todo.md`'s
+  good-photo and looking-away items took the Step 7 numbers, and the Step 7
+  todo item was checked.
 - **Tripped up:** writing a file with Python's `write_text` on Windows turned
   `focus.ts` into CRLF (fixed with `sed -i 's/\r$//'`); use `write_bytes`.
   And GNU sed's BRE reads `\|` as alternation, so `s/\|yaw\|/.../` matched
@@ -572,15 +573,6 @@
   `Sharp` with no `Fair`, and `Good` alone narrows the strip to the
   icon-bearing frames. Step 5b's checkbox was ticked on the automated
   criteria.
-- **Drop the "still being tuned" qualifiers once Decision B is approved.**
-  `README.md` ("cuts still being tuned"), `docs/humans/usage.md` ("The cuts,
-  still being tuned:"), `README.ja.md` / `docs/humans/usage.ja.md` ("基準は調整中"),
-  and check the `todo.md` item "Re-tune the good-photo cuts once the face-mesh
-  roll correction lands"; the checked good-photo item above it in `todo.md`
-  still quotes the Step 5b cuts (0.99, |yaw| <= 30, 13.7%, 40 of 43) and
-  should take the Step 7 ones (0.90, 35, 19.7% of twelve folders, 54 of 58).
-  Basis: Step 7 ([plan.md](plan.md) Decision B); wrap-up's job, not edited
-  here.
 - **A mesh-fit check that does not read YuNet's eye points.** The eye offset
   stays because nothing cheaper beat it on the 180, but it still compares
   against YuNet's points, which sit together on profiles. A check from the
@@ -599,5 +591,5 @@
   is on about 25% (2026-09-19) and 14% (2026-08-29) of the faced AF frames,
   faces turned 31-35 degrees now carry it, `_DSC3345` (2026-09-19) still does
   not, and the filter's `Good` item narrows the strip to those frames. Step
-  7's checkbox is not ticked (Decision B awaits the user's approval); this
-  check belongs with that approval.
+  7's checkbox was ticked on the automated criteria and the user's approval
+  of Decision B.

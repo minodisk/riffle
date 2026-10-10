@@ -494,7 +494,7 @@ outputs.
       frame without a subject) may be quoted. `todo.md` gains an unchecked
       item pointing at Step 7.
 
-- [ ] Step 7: Re-tune the good cuts on the 180 rated frames after the face-mesh roll correction lands
+- [x] Step 7: Re-tune the good cuts on the 180 rated frames after the face-mesh roll correction lands
   - Why: Decision B is provisional; the roll correction (plan
     `mesh-roll`, worktree `worktree-silver-cloud-a54f`) was expected to
     change the EAR, `eye_focus`, the pose and `eye_offset` the rule reads.
@@ -523,10 +523,9 @@ outputs.
       `docs/humans/usage.md` / `.ja.md` and `README.md` / `README.ja.md`
       are updated; the Step 6 todo item is checked.
     - `mise run ci` passes.
-  - Status (2026-10-10): all but the approval done. The cuts moved to
-    `eye_focus` >= 0.90 and |yaw| <= 35 (the rest kept), Decision B is
-    written as proposed final, and the docs carry its numbers; the user's
-    approval of Decision B and then checking the `todo.md` item remain.
+  - Status (2026-10-10): done. The cuts moved to `eye_focus` >= 0.90 and
+    |yaw| <= 35 (the rest kept); the user approved Decision B as final, the
+    docs carry its numbers and the `todo.md` item is checked.
 
 ## Trade-offs and risks
 
@@ -625,7 +624,7 @@ Steps 4-6 above, the storage having landed in #741.
 
 ## Decision B (the good-photo mark)
 
-**Proposed final — awaiting the user's approval** (written in Step 7,
+**Approved by the user, 2026-10-10 (final)** (written in Step 7,
 2026-10-10; the numbers in [provisional.md](provisional.md), "The Step 7
 cuts"). The Step 5 cuts were approved as provisional on 2026-10-09 and
 folded into one tier in Step 5b; the face-mesh roll correction they waited

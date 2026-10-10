@@ -114,8 +114,7 @@ DxO PhotoLab.
   or more) and the face toward the camera (turned no more than 35° and
   tilted no more than 45°), with a face mesh that sits on the face and a
   face the frame's edge does not cut. It is selective by design, on about
-  20% of the author's frames with a face at the AF point (cuts still being
-  tuned). The mark is dim green for another focus candidate, where the eyes
+  20% of the author's frames with a face at the AF point. The mark is dim green for another focus candidate, where the eyes
   of the face nearest the AF point are likely in focus (a probability
   combining their sharpness and edge width); orange when a face is near the
   AF point but its eyes are likely not; and white when Riffle does not know

@@ -581,28 +581,28 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       "Closed-eyes judgment on demand (Windows 11)".
 - [x] Flag "looking away" frames from the head pose. Shipped as the pose
       cut of the good-photo mark rather than a flag of its own: a frame is
-      good only with |yaw| <= 30 and |pitch| <= 45 (roll unused), the "both
+      good only with |yaw| <= 35 and |pitch| <= 45 (roll unused), the "both
       eyes visible" form, set from the user's stars after a turned face
       (yaw -49) was marked at the loose 60. No "looking away" label set was
       made. See `docs/plans/20261008-burst-keep-score/` (Decision B) and `crates/app/ui/src/focus.ts`
       (`GOOD_MAX_YAW`, `GOOD_MAX_PITCH`).
 - [x] Mark the frames that are likely not a miss: the good-photo mark.
       `photoTier` in `crates/app/ui/src/focus.ts` makes a focus candidate
-      good when the AF eyes' in-focus probability is at least 0.99, the EAR
-      of the more closed eye at least 0.25 (openness 41), |yaw| <= 30 and
+      good when the AF eyes' in-focus probability is at least 0.90, the EAR
+      of the more closed eye at least 0.25 (openness 41), |yaw| <= 35 and
       |pitch| <= 45, the mesh's eyes within 0.10 face sides of YuNet's
       landmarks and the face at least 0.02 face sides inside the image (the
       last two stored by pass 2 as `files.eye_offset` / `files.edge_gap`,
       `SCHEMA_VERSION` 19, `FACES_VERSION` 8). A good frame gets the bright
       green crosshair, the strip's face icon (which no longer marks every
       focus candidate; another candidate draws dim green) and the filter's
-      `Good` item. It marks 13.7% of the faced AF frames of six re-dumped
-      folders (10.0-22.3% per folder; the candidate icon was on 87.4%); on
-      the user's stars of 180 frames 40 of the 43 good frames pass (3 stars
-      or more) and none has no subject. The meta pane's `Eyes` row now
+      `Good` item. It marks 19.7% of the faced AF frames of twelve dumped
+      folders (11.7-31.1% per folder; the candidate icon was on 87.4% of
+      six); on the user's stars of 180 frames 54 of the 58 good frames pass
+      (3 stars or more) and none has no subject. The meta pane's `Eyes` row now
       shows the openness, 0-100 from the EAR, instead of the open
       probability. See `docs/plans/20261008-burst-keep-score/` (Decision B, `provisional.md`).
-- [ ] Re-tune the good-photo cuts
+- [x] Re-tune the good-photo cuts
       (`docs/plans/20261008-burst-keep-score/plan.md` Step 7, which waited
       on the face-mesh roll correction; that was declined in
       `docs/plans/20261010-mesh-roll/`, so the wait is over). Done when no

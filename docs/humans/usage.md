@@ -176,7 +176,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   [What the camera records](./cameras.md)). The mark's color says how the
   face nearest the AF point came out. Bright green marks a good photo, a
   frame that is likely not a miss: the AF eyes in focus, the eyes open and
-  the face toward the camera, all at once. The cuts, still being tuned: the
+  the face toward the camera, all at once. The cuts: the
   AF eyes' in-focus probability is 90% or more; the eyes' openness (the meta
   pane's `Eyes` row) is 41 or more; the head is turned no more than 35° left
   or right; and it is tilted no more than 45° up or down (the roll is not
