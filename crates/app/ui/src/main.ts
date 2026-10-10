@@ -581,8 +581,9 @@ let grayscaleHeld: string | null = null;
 let zoomed = false;
 // Side-by-side culling view. With a multi-selection it compares up to four
 // selected files; otherwise it compares the current file with the first good
-// frame (`photoTier`) of its burst, else the burst's first frame. The bitmaps are independent of `shown`, which remains
-// ready for an immediate return to the single-image view.
+// frame (`photoTier`) of its burst, else the burst's first frame. The bitmaps
+// are independent of `shown`, which remains ready for an immediate return to
+// the single-image view.
 let comparing = false;
 let compareSeq = 0;
 let compareFrames: { path: string; bitmap: ImageBitmap; orientation: number }[] = [];
