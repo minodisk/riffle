@@ -464,3 +464,4 @@ a sharp jersey), which agrees with the burst-best-mark result behind Step 5.
 - (2026-10-10) Step 1 complete
 - (2026-10-10) Step 2 complete
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
+- (2026-10-10) Step 3 complete

@@ -97,8 +97,9 @@
 
 ## Step 3: The sharpness score on face-free frames
 
-- Rejects the data actually held: 57 in the ARW folders (50 in
-  `2026-09-19`, 4 + 3 XMP-only in `2026-09-13-b`, 1 in `2026-09-27-a`) and 1
+- Rejects the data actually held: 58 in the ARW folders (50 in
+  `2026-09-19`, 7 in `2026-09-13-b` as 4 `.dop` + 3 XMP-only, 1 in
+  `2026-09-27-a`; the plan's 57 omitted the last one) and 1
   in `2026-09-05`, plus 20 in the folder the user named,
   `D:\Photos\samples\ARW\good-mark-2026-10-09` (`.dop` `ShouldProcess = 1`
   and XMP `xmpDM:good="False"`, all 1-star; its 160 other frames are
