@@ -78,8 +78,8 @@ or a failure.
   not serialized today.
 - Ground truth for Step 3 (the `20261008-burst-keep-score` plan's
   `data.md`): the `.dop` flag is authoritative, the XMP flag counts without
-  a `.dop`. The data set holds **57 rejects** in 27 ARW folders (50 in
-  `2026-09-19`, 7 in `2026-09-13-b`) and 1 in the two DNG sidecar folders;
+  a `.dop`. The data set holds **58 rejects** in 27 ARW folders (50 in
+  `2026-09-19`, 7 in `2026-09-13-b`, 1 in `2026-09-27-a`) and 1 in the two DNG sidecar folders;
   picks are plenty (about 5500). The dumps under
   `D:\Photos\tests\2026-10-08-burst-keep-score\dump\` carry per file the
   flags, `sharpness`, cue `state`, `af` / `noaf`, `cue_side`, `judged_side`
@@ -295,7 +295,7 @@ or a failure.
       its AF point, so the face-free set gains no reject from it (see
       [sharpness-fallback.md](./sharpness-fallback.md)).
 
-- [ ] Step 4: Ship the face-free Good / Bad from the sharpness score if Decision C says so, else record that those frames stay Unknown
+- [x] Step 4: Ship the face-free Good / Bad from the sharpness score if Decision C says so, else record that those frames stay Unknown
   - Done when (ship):
     - `crates/app/src/index.rs`: `Focus` and `FaceReady` carry `analyzed:
       bool` (`faces_extractor == FACES_VERSION`), so the frontend tells
@@ -411,7 +411,7 @@ or a failure.
 - **Step 2 cuts were fitted on AF faces.** A Leica face judged by the same
   cuts may mark more or fewer frames than on ARW; a check on the Leica
   `.dop` picks is a follow-up todo, not a blocker.
-- **Step 3 ground truth is thin.** 57 rejects in the ARW data set and 1 in
+- **Step 3 ground truth is thin.** 58 rejects in the ARW data set and 1 in
   the DNG set; pick-vs-reject on face-free frames may have a handful of
   rejects. The step reports pick vs non-pick too (non-picks are unlabeled:
   failed, or fine and not chosen), pre-registers the criterion, and the
@@ -465,3 +465,4 @@ a sharp jersey), which agrees with the burst-best-mark result behind Step 5.
 - (2026-10-10) Step 2 complete
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
 - (2026-10-10) Step 3 complete
+- (2026-10-10) Step 4 complete

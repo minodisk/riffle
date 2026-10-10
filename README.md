@@ -123,7 +123,8 @@ DxO PhotoLab.
   probability combining their sharpness and edge width); and white when
   Riffle does not know
   (no face found near the AF point, or anywhere without one, or not computed
-  yet).
+  yet). A frame with no face stays white, since on the author's folders the
+  sharpness score barely told picks from the rest on such frames.
   The camera's face tracking no longer colors the mark. The cue is computed
   in a second pass right after the thumbnails, so the marks turn from white
   as it runs, the files on screen first; the strip marks each judged file
