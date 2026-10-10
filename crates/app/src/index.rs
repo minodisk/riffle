@@ -17,7 +17,7 @@ use riffle_core::candidate::{candidate, FocusCandidate};
 use riffle_core::eyes::{EyeState, Eyes};
 use riffle_core::pose::Pose;
 use riffle_core::scan::{
-    extract_all, extract_analysis_all, Analysis, Entry, Failure, Priority, ScanFocus,
+    extract_all, extract_analysis_all, is_raw_file, Analysis, Entry, Failure, Priority, ScanFocus,
 };
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
@@ -146,8 +146,10 @@ const EXTRACTOR_VERSION: i64 = 13;
 /// region had counted (`_DSC2748.ARW`, in both the training set and that
 /// folder), not worth re-running the pass everywhere. `7` re-runs it to fill
 /// `eyes_ear` and the `pose_*` columns from the mesh the cue already runs; `8`
-/// to fill `eye_offset` and `edge_gap` from it.
-pub const FACES_VERSION: i64 = 8;
+/// to fill `eye_offset` and `edge_gap` from it. `9` fills the cue, the EAR,
+/// the pose, the eye offset and the edge gap for frames with no trusted AF
+/// point from the largest confident face of the whole preview.
+pub const FACES_VERSION: i64 = 9;
 
 /// Files per transaction while scanning. `thumbnail` / `folder_entries` read
 /// through their own connection (`Index::open_reader`) and do not wait on
@@ -302,17 +304,26 @@ fn serialize_candidate<S: serde::Serializer>(
     s.serialize_str(candidate_name(*state))
 }
 
+/// The AF point the camera recorded, in sensor coordinates.
 #[derive(Debug, Clone, Copy, serde::Serialize)]
-pub struct Focus {
+pub struct FocusPoint {
     pub sensor_w: u16,
     pub sensor_h: u16,
     pub x: u16,
     pub y: u16,
     /// The AF frame size, in the same sensor coordinates as `x` / `y`.
     pub frame: Option<FocusSize>,
+}
+
+/// The AF point of a RAW file, if one was recorded, and the cue pass 2
+/// stored for its judged face: the one nearest a trusted point, else the
+/// largest confident face of the whole preview.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct Focus {
+    pub point: Option<FocusPoint>,
     pub manual_focus: bool,
-    /// The AF eye's in-focus probability. `None` when no face lies near the
-    /// AF point, or before the second pass has run.
+    /// The judged face's in-focus probability. `None` when no face was
+    /// judged, or before the second pass has run.
     pub eye_focus: Option<f64>,
     /// Derived from `eye_focus`, not stored.
     #[serde(serialize_with = "serialize_candidate")]
@@ -340,7 +351,7 @@ impl From<Pose> for EyesPose {
     }
 }
 
-/// What the second pass stored about the AF face's eyes and head
+/// What the second pass stored about the judged face's eyes and head
 /// (`Cue::eyes_ear`, `Cue::pose`, `Cue::eye_offset`, `Cue::edge_gap`), with
 /// the state and the closed probability derived from the EAR. All `None` when
 /// the cue ran no mesh, or before the second pass has run.
@@ -431,29 +442,35 @@ const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
      FROM files LEFT JOIN ratings USING (path)";
 
 fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
-    let focus = match (r.get::<_, Option<u16>>(4)?, r.get::<_, Option<u16>>(5)?) {
-        (Some(sensor_w), Some(sensor_h)) => {
-            let eye_focus = r.get(29)?;
-            let pose = match (r.get(31)?, r.get(32)?, r.get(33)?) {
-                (Some(yaw), Some(pitch), Some(roll)) => Some(EyesPose { yaw, pitch, roll }),
-                _ => None,
-            };
-            Some(Focus {
-                sensor_w,
-                sensor_h,
-                x: r.get(6)?,
-                y: r.get(7)?,
-                frame: r
-                    .get::<_, Option<u16>>(26)?
-                    .zip(r.get::<_, Option<u16>>(27)?)
-                    .map(|(width, height)| FocusSize { width, height }),
-                manual_focus: r.get(28)?,
-                eye_focus,
-                candidate: candidate(eye_focus),
-                eyes: StoredEyes::new(r.get(30)?, pose, r.get(34)?, r.get(35)?),
-            })
-        }
+    let path: String = r.get(0)?;
+    let point = match (r.get::<_, Option<u16>>(4)?, r.get::<_, Option<u16>>(5)?) {
+        (Some(sensor_w), Some(sensor_h)) => Some(FocusPoint {
+            sensor_w,
+            sensor_h,
+            x: r.get(6)?,
+            y: r.get(7)?,
+            frame: r
+                .get::<_, Option<u16>>(26)?
+                .zip(r.get::<_, Option<u16>>(27)?)
+                .map(|(width, height)| FocusSize { width, height }),
+        }),
         _ => None,
+    };
+    let focus = if point.is_some() || is_raw_file(Path::new(&path)) {
+        let eye_focus = r.get(29)?;
+        let pose = match (r.get(31)?, r.get(32)?, r.get(33)?) {
+            (Some(yaw), Some(pitch), Some(roll)) => Some(EyesPose { yaw, pitch, roll }),
+            _ => None,
+        };
+        Some(Focus {
+            point,
+            manual_focus: r.get(28)?,
+            eye_focus,
+            candidate: candidate(eye_focus),
+            eyes: StoredEyes::new(r.get(30)?, pose, r.get(34)?, r.get(35)?),
+        })
+    } else {
+        None
     };
     let rational = |num: usize| -> rusqlite::Result<Option<Rational>> {
         Ok(r.get::<_, Option<i64>>(num)?
@@ -478,7 +495,7 @@ fn indexed_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<IndexedFile> {
         }))
     };
     Ok(IndexedFile {
-        path: r.get(0)?,
+        path,
         orientation: r.get::<_, Option<u16>>(1)?.unwrap_or(1),
         capture_time: r.get(2)?,
         subsec: r.get(3)?,
@@ -1036,7 +1053,8 @@ impl Index {
     /// `riffle_core::scan::is_jpeg_file` does; SQLite's `LIKE` ignores ASCII
     /// case) are marked done at `FACES_VERSION` with no in-focus probability
     /// and no score first, in the same transaction. A RAW without a trusted AF
-    /// point is listed: its cue is unknown but it still gets a score.
+    /// point is listed: its cue judges the largest confident face of the whole
+    /// preview, and it gets a score.
     pub fn faces_todo(&mut self, dir: &str) -> Result<Vec<String>, String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         tx.execute(
@@ -2010,7 +2028,7 @@ pub(crate) mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].orientation, 6);
         assert_eq!(entries[0].subsec.as_deref(), Some("122"));
-        assert_eq!(entries[0].focus.unwrap().x, 3613);
+        assert_eq!(entries[0].focus.unwrap().point.unwrap().x, 3613);
         assert!(entries[0].has_thumb);
         assert_eq!(index.thumbnail(&entries[0].path).unwrap().0, 6);
         assert_eq!(entries[0].exif, Some(exif(&entry().shot)));
@@ -2453,7 +2471,7 @@ pub(crate) mod tests {
         let entries = index.entries("d").unwrap();
         assert_eq!(entries.len(), 1, "files are kept");
         let focus = entries[0].focus.unwrap();
-        assert!(focus.frame.is_none());
+        assert!(focus.point.unwrap().frame.is_none());
         assert!(!focus.manual_focus);
         assert_eq!(
             index.dirty_rows("d").unwrap(),
@@ -2469,6 +2487,8 @@ pub(crate) mod tests {
         let dir = temp_dir("frame");
         let a = file(&dir, "a.ARW", b"a");
         let b = file(&dir, "b.ARW", b"b");
+        let c = file(&dir, "c.DNG", b"c");
+        let j = file(&dir, "d.jpg", b"j");
         let mut index = open(&dir);
         let mut framed = entry();
         framed.shot.focus_frame = Some(FocusFrame {
@@ -2476,14 +2496,24 @@ pub(crate) mod tests {
             height: 624,
         });
         framed.shot.focus_mode = Some(0);
+        let mut no_point = entry();
+        no_point.shot.focus = None;
         index
-            .write_batch("d", &[(a, Ok(framed)), (b, Ok(entry()))])
+            .write_batch(
+                "d",
+                &[
+                    (a, Ok(framed)),
+                    (b, Ok(entry())),
+                    (c, Ok(no_point.clone())),
+                    (j, Ok(no_point)),
+                ],
+            )
             .unwrap();
 
         let entries = index.entries("d").unwrap();
         let framed = entries[0].focus.unwrap();
         assert_eq!(
-            framed.frame,
+            framed.point.unwrap().frame,
             Some(FocusSize {
                 width: 832,
                 height: 624
@@ -2491,8 +2521,25 @@ pub(crate) mod tests {
         );
         assert!(framed.manual_focus);
         let plain = entries[1].focus.unwrap();
-        assert!(plain.frame.is_none());
+        assert!(plain.point.unwrap().frame.is_none());
         assert!(!plain.manual_focus);
+        let json = serde_json::to_value(plain).unwrap();
+        assert_eq!(json["point"]["x"], 3613);
+        assert!(json["point"]["frame"].is_null());
+        assert_eq!(json["candidate"], "unknown");
+        let pointless = entries[2].focus.unwrap();
+        assert!(
+            pointless.point.is_none(),
+            "a RAW with no AF point has a cue"
+        );
+        let json = serde_json::to_value(pointless).unwrap();
+        assert!(json["point"].is_null());
+        assert_eq!(json["manual_focus"], false);
+        assert!(json["eye_focus"].is_null());
+        assert!(
+            entries[3].focus.is_none(),
+            "a JPEG with no AF point has none"
+        );
 
         remove_temp_dir(&dir);
     }
@@ -2880,9 +2927,16 @@ pub(crate) mod tests {
             .write_faces(&[
                 faces_row(&a_path, Some(0.875), None),
                 faces_row(&b_path, None, Some(1.0)),
-                faces_row(&c_path, None, Some(2.0)),
+                faces_row(&c_path, Some(0.875), Some(2.0)),
             ])
             .unwrap();
+        let no_af = index.entry(&c_path).unwrap().unwrap().focus.unwrap();
+        assert!(no_af.point.is_none());
+        assert_eq!(
+            (no_af.eye_focus, no_af.candidate),
+            (Some(0.875), FocusCandidate::Candidate),
+            "a frame with no AF point carries the cue of its judged face"
+        );
         let focus = index.entry(&a_path).unwrap().unwrap().focus.unwrap();
         assert_eq!(focus.eye_focus, Some(0.875));
         assert_eq!(focus.candidate, FocusCandidate::Candidate);

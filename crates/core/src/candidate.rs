@@ -15,7 +15,9 @@
 //!
 //! Faces come from `faces::detect_around_rgb` in a `CATCH_CROP` square around
 //! the trusted AF point. A Sony eye-AF frame gets the same detection: the
-//! camera tracking a face does not say whether that face is sharp.
+//! camera tracking a face does not say whether that face is sharp. Without a
+//! trusted AF point, `scan` judges the largest confident face of the whole
+//! preview (`eyes::judged_face`) through `face_cue_unless`.
 //! Everything is in the preview's stored (unrotated) coordinates.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -98,12 +100,13 @@ pub const MESH_LOGIT_EDGE_WIDTH: f64 = -1.3161251379398846;
 /// Whether a frame is a focus candidate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FocusCandidate {
-    /// The eyes of the face nearest the AF point are sharp.
+    /// The eyes of the judged face (nearest the AF point, else the largest
+    /// confident face of the whole preview) are sharp.
     Candidate,
-    /// A face lies near the AF point, and its eyes are not sharp.
+    /// A face was judged, and its eyes are not sharp.
     NotCandidate,
-    /// No trusted AF point, no face near it, or the preview could not be
-    /// decoded or searched.
+    /// No face near the trusted AF point, no confident face on the whole
+    /// preview without one, or the preview could not be decoded or searched.
     #[default]
     Unknown,
 }
@@ -115,10 +118,12 @@ pub struct Cue {
     /// The in-focus probability of the eyes of `face`
     /// (`EyeFocus::probability`); `None` when `state` is `Unknown`.
     pub eye_focus: Option<f64>,
-    /// The face nearest the AF point, in stored coordinates.
+    /// The judged face, in stored coordinates: the one nearest the AF point,
+    /// else the largest confident face of the whole preview.
     pub face: Option<Face>,
-    /// The detection the face was picked from; `None` without an AF point,
-    /// and in the `Cue::unknown` a caller falls back to after a failure.
+    /// The detection the face was picked from; `None` without an AF point
+    /// when no face was judged, and in the `Cue::unknown` a caller falls back
+    /// to after a failure.
     pub detection: Option<Detection>,
     /// The EAR of the more closed eye of `face` (`EyeMeasures::ear`), the
     /// closed-eyes judgment's input; `None` without a mesh.
@@ -648,7 +653,6 @@ pub fn focus_cue_unless(
         Ok(decoded) => decoded,
         Err(e) => return Some(Err(e)),
     };
-    let gray = luma(&rgb, width, height);
     if canceled() {
         return None;
     }
@@ -663,19 +667,28 @@ pub fn focus_cue_unless(
     if canceled() {
         return None;
     }
-    let focus = match face {
-        Some(f) => Some(scored_face(
-            &rgb,
-            &gray,
-            width,
-            height,
-            orientation,
-            &f,
-            cancel,
-        )?),
-        None => None,
-    };
-    Some(Ok(cue_of(face, detection, focus)))
+    match face {
+        Some(f) => face_cue_unless(&rgb, width, height, orientation, &f, detection, cancel).map(Ok),
+        None => Some(Ok(cue_of(None, detection, None))),
+    }
+}
+
+/// The cue of `face`, picked from `detection`, on the full-size decode `rgb`
+/// (`width` x `height`, stored coordinates): the face mesh when
+/// `meshes_face` accepts the face, then its eyes scored on the `luma`.
+/// `None` once `cancel` is set while the mesh runs.
+pub fn face_cue_unless(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    orientation: u16,
+    face: &Face,
+    detection: Detection,
+    cancel: &AtomicBool,
+) -> Option<Cue> {
+    let gray = luma(rgb, width, height);
+    let focus = scored_face(rgb, &gray, width, height, orientation, face, cancel)?;
+    Some(cue_of(Some(*face), detection, Some(focus)))
 }
 
 /// The cue of `face`, picked from `detection`, scored as `focus`; the EAR,
@@ -1260,6 +1273,31 @@ mod tests {
             focus.map(|f| (f.scored, f.mesh)),
             Some((Scored::Window, None))
         );
+    }
+
+    #[test]
+    fn a_given_face_gets_the_cue_of_its_eyes_unless_canceled() {
+        let gray = two_steps(2, 8);
+        let rgb: Vec<u8> = gray.iter().flat_map(|&g| [g, g, g]).collect();
+        // Outside the image: no mesh, no model run.
+        let away = face(500.0, 500.0, 60.0, (520.0, 525.0), (580.0, 525.0));
+        let detection = Detection {
+            width: 120,
+            height: 60,
+            faces: vec![away],
+            point: None,
+        };
+        let set = AtomicBool::new(true);
+        assert_eq!(
+            face_cue_unless(&rgb, 120, 60, 1, &away, detection.clone(), &set),
+            None
+        );
+        let never = AtomicBool::new(false);
+        let cue = face_cue_unless(&rgb, 120, 60, 1, &away, detection.clone(), &never).unwrap();
+        let focus = scored_face(&rgb, &gray, 120, 60, 1, &away, &never);
+        assert_eq!(cue, cue_of(Some(away), detection, focus));
+        assert_ne!(cue.state, FocusCandidate::Unknown);
+        assert!(cue.eye_focus.is_some());
     }
 
     #[test]

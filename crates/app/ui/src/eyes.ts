@@ -24,7 +24,7 @@ export interface Pose {
   roll: number;
 }
 
-// The eye state the scan's second pass stored for the AF face, as `Focus`
+// The eye state the scan's second pass stored for the judged face, as `Focus`
 // and `faces-progress` carry it (`StoredEyes` in `crates/app/src/index.rs`):
 // the state and the closed probability derived in Rust from the stored EAR,
 // `unknown` / `null` when nothing was stored.

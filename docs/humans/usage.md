@@ -174,7 +174,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the SIGMA BF, shows the crosshair alone; cameras that record none, such as
   the M11-P, and manual-focus shots show no mark (see
   [What the camera records](./cameras.md)). The mark's color says how the
-  face nearest the AF point came out. Bright green marks a good photo, a
+  judged face came out: the face nearest the AF point, or, on a frame with no
+  AF point or in manual focus, the largest face Riffle finds anywhere on the
+  preview, so such a frame can be good or bad although it shows no crosshair
+  (the strip's icon, the meta pane and the filter carry its state; a group
+  photo without an AF point is judged on that one face). Bright green marks a good photo, a
   frame that is likely not a miss: the AF eyes in focus, the eyes open and
   the face toward the camera, all at once. The cuts: the
   AF eyes' in-focus probability is 90% or more; the eyes' openness (the meta
@@ -187,8 +191,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   frames with a face at the AF point. On 180 frames the author rated (1 star
   for no subject, 2 for likely rejected, 3 or more for a pass), 54 of the 58
   good frames passed and none was a frame without a subject. Bright green
-  means good only. Gray means a face was found near the AF point but the
-  frame is not good: the in-focus probability of its eyes (a logistic
+  means good only. Gray means a face was judged but the frame is not good: the in-focus probability of its eyes (a logistic
   combination of the Laplacian variance and the mean edge width; about 77%
   or more makes a focus candidate) is under the cut, including a window
   between the eyes with no clear edge, which counts as 0%, or the eyes, the
@@ -197,10 +200,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   model (MediaPipe Face Landmarker v2) finds, and the sharper of the two
   eyes counts; when neither eye's region counts (under 24 px, as on small
   faces, or without a clear edge), it is measured over the preview between
-  the eyes instead. White when Riffle does not know (no AF point,
-  manual focus, no face near the point, or not computed yet). A frame
-  without an AF point, with manual focus, with no face near the point or
-  with a face under about 60 pixels on the embedded preview is never good,
+  the eyes instead. White when Riffle does not know: no face found (near
+  the AF point when there is one, anywhere on the preview when there is
+  none), or not computed yet. A frame with no face found or with a face
+  under about 60 pixels on the embedded preview is never good,
   and neither is a strongly turned face, even when the turn was intended.
   The camera's face tracking no longer colors the mark: a Sony eye-AF frame
   is judged by the faces Riffle detects like any other. The state is computed
@@ -269,9 +272,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   read. When a lens reports no f-number (the M11-P with an M-mount
   lens), the aperture is the camera's estimate, marked `(est.)`. **Analysis**
   holds what Riffle computes itself: the sharpness score and `AF eye in
-  focus`, the in-focus probability (a percentage) of the eyes of the face
-  nearest the AF point that the focus candidate state is decided from (left
-  out when there is none). Both come from the scan's second pass, so they
+  focus`, the in-focus probability (a percentage) of the eyes of the judged
+  face (nearest the AF point; without an AF point or in manual focus, the
+  largest face Riffle is confident of) that the focus candidate state is
+  decided from (left out when there is none). Both come from the scan's second pass, so they
   appear a little after the file's thumbnail on a folder's first scan.
   `Eyes` says whether the eyes of the face nearest the AF point (without an
   AF point, the largest face Riffle is confident of) are open or closed and
@@ -280,9 +284,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   width) of the more closed eye: 0 at the ratio Riffle counts as closed and
   below, 100 at a wide-open eye (the 90th percentile of the author's faces)
   and above, linear between. It says how open the eyes are, not how sure the
-  judgment is; an eye just past the closed point shows `Open · 0`. For the face
-  nearest the AF point it is stored by the scan's second pass, along with
-  `Head pose`; otherwise it is judged when the file is shown. Either way it
+  judgment is; an eye just past the closed point shows `Open · 0`. For that
+  face it is stored by the scan's second pass, along with `Head pose`; until
+  the pass reaches the file, it is judged when the file is shown. Either way it
   comes from the eyelid
   points of the bundled
   [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker)
@@ -306,13 +310,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   orientation (`Portrait` / `Landscape`), the focus mark's state (the
   `AF eye` section, each item with the strip's icon of its state: `Good`
   for a good photo, the bright green mark and face icon; `Bad` for gray,
-  a face near the AF point on a frame that is not good, its AF eyes in
-  focus or not; and `Unknown` for white, including files the second pass
+  a judged face on a frame that is not good, its eyes in focus or not, a
+  frame with no AF point included; and `Unknown` for white, including files the second pass
   has not reached; each file falls under exactly one of them,
   checking several shows the files in any of them, and the strip refills
-  as the pass runs), the stored eye state of the face nearest the AF point (the
+  as the pass runs), the stored eye state of the judged face (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
-  state, such as one without an AF point, with a face under about 60 pixels,
+  state, such as one with no face found, with a face under about 60 pixels,
   or not reached by the second pass yet),
   camera, lens, aperture, shutter speed, ISO and focal length (grouped into
   ranges such as `24–35 mm`). The color

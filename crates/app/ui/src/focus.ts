@@ -5,12 +5,20 @@
 import type { StoredEyes } from "./eyes.js";
 import { SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
-export interface MarkFocus extends StoredEyes {
+// The AF point the camera recorded, in sensor coordinates.
+export interface FocusPoint {
   sensor_w: number;
   sensor_h: number;
   x: number;
   y: number;
   frame: { width: number; height: number } | null;
+}
+
+// A RAW file's AF point, `null` when none was recorded, and the cue pass 2
+// stored for its judged face: the one nearest a trusted AF point, else the
+// largest confident face of the whole preview.
+export interface MarkFocus extends StoredEyes {
+  point: FocusPoint | null;
   manual_focus: boolean;
   candidate: "candidate" | "not_candidate" | "unknown";
   eye_focus: number | null;
@@ -21,8 +29,9 @@ export type PhotoTier = "good";
 
 // The AF eye state the mark's color, the strip's icon and the filter menu's
 // `AF eye` item are read from: the frame's `photoTier`, `not_candidate` (Bad)
-// for any other frame whose face near the AF point was judged, a focus
-// candidate not in the tier included, else `unknown`.
+// for any other frame whose face was judged (near the AF point, else the
+// largest on the whole preview without a trusted one), a focus candidate not
+// in the tier included, else `unknown`.
 export type MarkState = PhotoTier | "not_candidate" | "unknown";
 
 export interface FocusMark {
@@ -32,9 +41,8 @@ export interface FocusMark {
   state: MarkState;
 }
 
-// The mark's color per state: bright green for a good photo, gray when the
-// face nearest the AF point was judged and the frame is not good, white when
-// Riffle does not know.
+// The mark's color per state: bright green for a good photo, gray when a
+// face was judged and the frame is not good, white when Riffle does not know.
 export const FOCUS_MARK_COLORS = {
   good: "#3f3",
   not_candidate: "#999",
@@ -50,10 +58,11 @@ export const FOCUS_MARK_ICONS = {
   unknown: null,
 } as const satisfies Record<MarkState, string | null>;
 
-// The good-photo cuts on the values pass 2 stores for the AF face, read from
-// the re-dump of six ARW folders (8915 faced AF frames) on 2026-10-09, tuned
-// in Step 5, folded into one tier in Step 5b and re-tuned in Step 7 on the
-// user's stars of 180 frames (`docs/plans/20261008-burst-keep-score/`
+// The good-photo cuts on the values pass 2 stores for the judged face, fitted
+// on AF faces only (a face judged without an AF point gets the same cuts),
+// read from the re-dump of six ARW folders (8915 faced AF frames) on
+// 2026-10-09, tuned in Step 5, folded into one tier in Step 5b and re-tuned
+// in Step 7 on the user's stars of 180 frames (`docs/plans/20261008-burst-keep-score/`
 // `provisional.md`): 54 of the 58 frames these cuts mark pass (3 stars or
 // more), none is a 1-star frame, so the tier means "not a miss".
 // The in-focus probability of the AF eyes: the seven rated frames from 0.90 to
@@ -117,8 +126,8 @@ function clears({ eye_focus, eyes_ear, pose, eye_offset, edge_gap }: MarkFocus):
 
 // A focus candidate whose AF eyes are in focus, whose eyes are open and whose
 // face is toward the camera, all at once, is `good`. A mesh off the face or a
-// face the frame's edge cuts is not, nor is any missing value (no face near
-// the AF point, a face too small for the mesh).
+// face the frame's edge cuts is not, nor is any missing value (no face judged,
+// a face too small for the mesh).
 export function photoTier(focus: MarkFocus | null | undefined): PhotoTier | null {
   if (focus === null || focus === undefined || focus.candidate !== "candidate") {
     return null;
@@ -143,24 +152,26 @@ export function stripState(focus: MarkFocus | null | undefined): MarkState {
   return afEyeState(focus);
 }
 
-// `null` for a manual-focus shot, whose recorded point is not trusted. The
-// mark state rides along so the mark's color is read from the mark.
+// `null` without a recorded point or for a manual-focus shot, whose recorded
+// point is not trusted. The mark state rides along so the mark's color is read
+// from the mark.
 export function focusMark(
   focus: MarkFocus | null | undefined,
   drawWidth: number,
   drawHeight: number,
 ): FocusMark | null {
-  if (focus === null || focus === undefined || focus.manual_focus) {
+  if (focus === null || focus === undefined || focus.point === null || focus.manual_focus) {
     return null;
   }
-  const x = -drawWidth / 2 + (focus.x * drawWidth) / focus.sensor_w;
-  const y = -drawHeight / 2 + (focus.y * drawHeight) / focus.sensor_h;
+  const { point } = focus;
+  const x = -drawWidth / 2 + (point.x * drawWidth) / point.sensor_w;
+  const y = -drawHeight / 2 + (point.y * drawHeight) / point.sensor_h;
   const state = afEyeState(focus);
-  if (focus.frame === null) {
+  if (point.frame === null) {
     return { x, y, rect: null, state };
   }
-  const width = (focus.frame.width * drawWidth) / focus.sensor_w;
-  const height = (focus.frame.height * drawHeight) / focus.sensor_h;
+  const width = (point.frame.width * drawWidth) / point.sensor_w;
+  const height = (point.frame.height * drawHeight) / point.sensor_h;
   return {
     x,
     y,
@@ -179,7 +190,8 @@ export interface FaceReady extends StoredEyes {
 
 // Patch the focus of each ready file in `entries` in place, so the marks
 // update without re-reading the whole folder. A file with no row or no focus
-// point is left alone. True when `current` was among the patched files.
+// (a JPEG file) is left alone; a RAW file with no AF point is patched. True
+// when `current` was among the patched files.
 export function applyFaceReady<T extends { focus: MarkFocus | null }>(
   entries: Map<string, T>,
   ready: FaceReady[],

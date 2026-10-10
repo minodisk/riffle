@@ -10,6 +10,7 @@ import {
   GOOD_MAX_YAW,
   MAX_EYE_OFFSET,
   MIN_EDGE_GAP,
+  type FocusPoint,
   type MarkFocus,
   afEyeState,
   applyFaceReady,
@@ -31,12 +32,16 @@ const noEyes = {
   edge_gap: null,
 } as const;
 
-const point: MarkFocus = {
+const at: FocusPoint = {
   sensor_w: 7008,
   sensor_h: 4672,
   x: 1752,
   y: 1168,
   frame: null,
+};
+
+const point: MarkFocus = {
+  point: at,
   manual_focus: false,
   candidate: "unknown",
   eye_focus: null,
@@ -63,7 +68,14 @@ describe("focusMark", () => {
 
   test("draws nothing for a manual-focus shot", () => {
     const frame = { width: 876, height: 584 };
-    expect(focusMark({ ...point, frame, manual_focus: true }, 700, 467)).toBeNull();
+    expect(
+      focusMark({ ...point, point: { ...at, frame }, manual_focus: true }, 700, 467),
+    ).toBeNull();
+  });
+
+  test("draws nothing for a focus with no recorded point, whatever its state", () => {
+    expect(focusMark({ ...good, point: null }, 700, 467)).toBeNull();
+    expect(focusMark({ ...point, point: null }, 700, 467)).toBeNull();
   });
 
   test("a point without a frame is a crosshair only", () => {
@@ -76,7 +88,11 @@ describe("focusMark", () => {
   });
 
   test("a frame is scaled onto the preview and centered on the point", () => {
-    const mark = focusMark({ ...point, frame: { width: 876, height: 584 } }, 700, 468);
+    const mark = focusMark(
+      { ...point, point: { ...at, frame: { width: 876, height: 584 } } },
+      700,
+      468,
+    );
     expect(mark).toEqual({
       x: -175,
       y: -117,
@@ -142,6 +158,13 @@ describe("stripState", () => {
       "not_candidate",
     );
   });
+
+  test("reads the cue of a focus with no recorded point", () => {
+    expect(stripState({ ...good, point: null })).toBe("good");
+    expect(stripState({ ...good, point: null, eyes_ear: 0.1 })).toBe("not_candidate");
+    expect(stripState({ ...point, point: null, candidate: "not_candidate" })).toBe("not_candidate");
+    expect(stripState({ ...point, point: null })).toBe("unknown");
+  });
 });
 
 describe("afEyeState", () => {
@@ -193,6 +216,12 @@ describe("photoTier: good", () => {
 
   test("passes a candidate whose eyes and pose clear every cut", () => {
     expect(goodPhoto(good)).toBe(true);
+  });
+
+  test("passes a candidate with no recorded point on its values", () => {
+    expect(photoTier({ ...good, point: null })).toBe("good");
+    expect(photoTier({ ...good, point: null, manual_focus: true })).toBe("good");
+    expect(photoTier({ ...good, point: null, eye_focus: GOOD_EYE_FOCUS - 0.01 })).toBeNull();
   });
 
   test("is false without a focus", () => {
@@ -410,6 +439,7 @@ describe("applyFaceReady", () => {
       ["/d/a.ARW", { focus: { ...point } }],
       ["/d/b.ARW", { focus: { ...point } }],
       ["/d/c.ARW", { focus: null }],
+      ["/d/d.DNG", { focus: { ...point, point: null } }],
     ]);
 
   test("patches the ready files and reports whether the current one was among them", () => {
@@ -467,6 +497,30 @@ describe("applyFaceReady", () => {
       pose,
       eye_offset: 0.05,
       edge_gap: -0.01,
+    });
+  });
+
+  test("patches a focus with no recorded point", () => {
+    const entries = rows();
+    expect(
+      applyFaceReady(
+        entries,
+        [
+          {
+            path: "/d/d.DNG",
+            eye_focus: 0.95,
+            candidate: "candidate",
+            sharpness: null,
+            ...noEyes,
+          },
+        ],
+        "/d/d.DNG",
+      ),
+    ).toBe(true);
+    expect(entries.get("/d/d.DNG")?.focus).toMatchObject({
+      point: null,
+      eye_focus: 0.95,
+      candidate: "candidate",
     });
   });
 

@@ -152,7 +152,7 @@ or a failure.
       internally is not needed once the helper exists.
     - Do not touch the good cuts, `crates/core`, or `crates/cli`.
 
-- [ ] Step 2: Judge a frame with no trusted AF point on the largest face YuNet finds on the whole preview
+- [x] Step 2: Judge a frame with no trusted AF point on the largest face YuNet finds on the whole preview
   - Done when:
     - `crates/core/src/candidate.rs` exposes the cue of a given face (a
       refactor of `scored_face` + `cue_of` into something like
