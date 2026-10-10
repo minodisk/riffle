@@ -494,12 +494,23 @@ outputs.
       frame without a subject) may be quoted. `todo.md` gains an unchecked
       item pointing at Step 7.
 
-- [ ] Step 7: Re-tune the good cuts on the 180 rated frames after the face-mesh roll correction lands
+- [x] Step 7: Re-tune the good cuts on the 180 rated frames after the face-mesh roll correction lands
   - Why: Decision B is provisional; the roll correction (plan
-    `mesh-roll`, worktree `worktree-silver-cloud-a54f`) changes the EAR,
-    `eye_focus`, the pose and `eye_offset` the rule reads.
-  - Done when (starts only after the roll correction is merged into the
-    scan):
+    `mesh-roll`, worktree `worktree-silver-cloud-a54f`) was expected to
+    change the EAR, `eye_focus`, the pose and `eye_offset` the rule reads.
+  - **Update (2026-10-10): the roll correction was not adopted**
+    (`docs/plans/20261010-mesh-roll/` Decision, approved by the user, #758):
+    rotating by the YuNet eye line fitted 7 misfits but broke 15 good fits
+    of the 131 labeled, the cue's held-out AUC fell 0.800 -> 0.783, and the
+    flips were all profiles whose YuNet eye points sit on one eye or the
+    nose. So this step starts now on the current values. That plan also
+    found that of the frames with `eye_offset` > 0.10 only about 27% are
+    real mesh misfits and about 65% are fitted meshes whose YuNet eye
+    points are off the eyes (mostly profiles, YuNet eye distance under
+    about 0.20 of the box): `MAX_EYE_OFFSET` mostly drops fine frames.
+    Re-test it here: loosen it, or skip it when the YuNet eye distance is
+    small, or replace it, keeping the misfits (DSC2638) out.
+  - Done when:
     - The 180 frames of `D:\photos\samples\ARW\good-mark-2026-10-09\`
       (stars in their sidecars; 1 = no subject, 2 = likely rejected, 3+
       = pass) are re-dumped with the new CLI; the good cuts are chosen so
@@ -512,6 +523,9 @@ outputs.
       `docs/humans/usage.md` / `.ja.md` and `README.md` / `README.ja.md`
       are updated; the Step 6 todo item is checked.
     - `mise run ci` passes.
+  - Status (2026-10-10): done. The cuts moved to `eye_focus` >= 0.90 and
+    |yaw| <= 35 (the rest kept); the user approved Decision B as final, the
+    docs carry its numbers and the `todo.md` item is checked.
 
 ## Trade-offs and risks
 
@@ -610,58 +624,68 @@ Steps 4-6 above, the storage having landed in #741.
 
 ## Decision B (the good-photo mark)
 
-**Approved by the user as provisional, 2026-10-09** (written in Step 5; the
-numbers in [provisional.md](provisional.md), "The Step 5 cuts"). The cuts are
-re-tuned on the 60-frame sample once the face-mesh roll correction lands
-(a separate session, worktree `worktree-silver-cloud-a54f`, aligns the
-YuNet face upright before the mesh, which changes the EAR, `eye_focus`,
-the pose and `eye_offset`); Step 6 wrote the docs at the Step 5b cuts with
-each number in one clause, which Step 7 replaces in place.
+**Approved by the user, 2026-10-10 (final)** (written in Step 7,
+2026-10-10; the numbers in [provisional.md](provisional.md), "The Step 7
+cuts"). The Step 5 cuts were approved as provisional on 2026-10-09 and
+folded into one tier in Step 5b; the face-mesh roll correction they waited
+for was not adopted (`docs/plans/20261010-mesh-roll/`), so Step 7 re-tuned
+on the current values.
 
-- **The rule** (`photoTier` in `crates/app/ui/src/focus.ts`): a focus
-  candidate (`eye_focus` >= 0.772) whose stored values all exist is
-  - **good** at `eye_focus` >= 0.998, EAR >= 0.30 (openness 60),
-  - else **fair** at `eye_focus` >= 0.99, EAR >= 0.25 (openness 41),
-  - both with **|yaw| <= 30** and |pitch| <= 45 (roll unused),
-  - and both **excluded** when the mesh's eyes sit more than **0.10** face
-    box sides from YuNet's eye landmarks (`MAX_EYE_OFFSET`: a mesh off the
-    face, e.g. a face rotated in-plane) or when the face box or a mesh eye
-    region comes closer than **0.02** face box sides to the image's edge
-    (`MIN_EDGE_GAP`: a face the frame cuts; YuNet's box of such a face ends
-    just inside the edge, so the margin is not 0).
-- **The pose form: "both eyes visible" (|yaw| <= 30), not the loose 60.**
-  The loose cut did mark few enough frames (Step 4c: 20.3% for both tiers),
-  but the user saw a turned face marked good (`2026-07-11__DSC2827`, yaw
-  -49, its foreshortened eye inflating the EAR). On the user's 60 starred
-  frames the tiers keep their mean stars from 30 down to 20 and lose them
-  from 35 up; 30 is the widest cut before a turned 1-2 star frame comes in
-  (`DSC2373`, yaw -31).
-- **What it marks**, of the faced AF frames of the six re-dumped folders:
-  good 6.0%, fair 7.7%, together 13.7% (Step 4c: 20.3%); per folder
-  `2026-07-11` 13.8%, `2026-07-24` 17.3%, `2026-08-08` 22.3%, `2026-09-19`
-  14.1%, `2026-09-27-a` 10.0%, `2026-10-03` 20.7%. Today's green icon
-  (`candidate`) was on 87.4%.
-- **The user's sample, re-scored** (60 frames, 1-5 stars): mean stars good
-  3.90 (n 10), fair 3.69 (n 13), neither 2.43 (n 37), against 3.20 / 3.25 /
-  2.40 at the Step 4c cuts; Spearman of tier vs stars 0.54 (was 0.29). One
-  1-2 star frame stays in a tier (`2026-09-19__DSC1805`, fair, 2 stars), of
-  the eight before; the three frames the user named are in neither tier
-  (`DSC2638` by the eye offset 0.125, `DSC2827` by the yaw, `DSC3345` by the
-  edge gap 0.008 and the eye offset 0.352). The cost: three 4-star frames
-  turned 31-39 deg left the tiers.
+- **The rule** (`photoTier` in `crates/app/ui/src/focus.ts`, one tier,
+  `good`): a focus candidate (`eye_focus` >= 0.772) whose stored values all
+  exist, with `eye_focus` >= **0.90** (was 0.99), EAR >= 0.25 (openness 41),
+  |yaw| <= **35** (was 30), |pitch| <= 45 (roll unused), and **excluded**
+  when the mesh's eyes sit more than 0.10 face box sides from YuNet's eye
+  landmarks (`MAX_EYE_OFFSET`) or the face box or a mesh eye region comes
+  closer than 0.02 face box sides to the image's edge (`MIN_EDGE_GAP`).
+- **Chosen on the user's stars of 180 frames** (1 = no subject, 2 = likely
+  rejected, 3+ = a pass) for no 1-star frame, as few 2-star frames as
+  possible and as many frames marked as possible:
+
+  | Set | Cuts | Good | 3+ among good | 1 / 2 star good | Share marked | 3+ frames captured |
+  | --- | --- | ---: | ---: | ---: | ---: | ---: |
+  | Batch 1 (60, set Step 5) | Step 5b | 23 | 95.7% | 0 / 1 | 38.3% | 53.7% |
+  | Batch 1 | Step 7 | 27 | 92.6% | 0 / 2 | 45.0% | 61.0% |
+  | Batch 2 (120, not used before) | Step 5b | 20 | 90.0% | 0 / 2 | 16.7% | 22.2% |
+  | Batch 2 | Step 7 | 31 | 93.5% | 0 / 2 | 25.8% | 35.8% |
+  | Pooled (180) | Step 5b | 43 | 93.0% | 0 / 3 | 23.9% | 32.8% |
+  | Pooled | Step 7 | 58 | 93.1% | 0 / 4 | 32.2% | 44.3% |
+
+- **Why these two moves.** |yaw| 35 adds seven 3-5 star frames and one
+  2-star frame; 40 lets in a 1-star frame (`2026-10-03__DSC2050`, yaw
+  -36.6). `eye_focus` 0.90 adds seven 3-5 star frames and no 1-2 star frame;
+  the seven rated frames between 0.90 and 0.99 that clear the other cuts
+  all pass, and below 0.90 none clears them, so the cut stays at 0.90
+  rather than the candidate's 0.772. That gain rests on batch 2 only
+  (batch 1 was drawn from the Step 4c tiers and has none in that range).
+- **`MAX_EYE_OFFSET` and the edge exclusion stay.** Loosening the offset to
+  0.15 / 0.20, dropping it, or applying it only where YuNet's eye distance
+  is at least 0.15 or 0.20 of the box each let a 1-star frame in (the misfit
+  `2026-07-11__DSC2638`, or `2026-09-27-a__DSC6920` and
+  `2026-09-27-b__DSC8931`, whose YuNet eye points sit together); at the
+  chosen cuts the offset alone keeps 12 frames out, three of 1 star and
+  five of 2. A mesh-fit check independent of YuNet's eye points would need
+  a new pass-2 value and was not tried. Removing the edge exclusion changes
+  nothing on the 180.
+- **What it marks**, of the faced AF frames of twelve folders (the six
+  Step 5 re-dumps and the six batch 2 dumps, 19422 frames): 19.7% (was
+  12.0%); the six Step 5 folders 22.4% (13.7%), the six batch 2 folders
+  17.4% (10.6%); per folder 11.7-31.1% (was 5.1-24.3%). Today's green icon
+  (`candidate`) was on 87.4% of the six Step 5 folders.
+- **The pose form: "both eyes visible"**, now at 35 deg. The loose 60 was
+  dropped in Step 5 after the user saw a turned face marked good
+  (`2026-07-11__DSC2827`, yaw -48.6), which stays out.
 - **No labeled precision.** No `miss-truth.md` set was made; the Decision
-  rests on the user's look, the user's stars on 60 frames drawn from the
-  Step 4c tiers, and the mark rate.
-- **Storage.** The two exclusions need `files.eye_offset` / `files.edge_gap`
-  from pass 2 (`SCHEMA_VERSION` 19, `FACES_VERSION` 8: pass 2 re-runs once on
-  every folder; thumbnails and the first pass are kept); the thresholds stay
-  in `focus.ts`. The cue's computation, the mesh, `EYES_CLOSED_EAR` and
-  `CANDIDATE_LOGIT` are unchanged.
-- **The display kept: option (b)** as built in Steps 4 and 4c: the strip's
-  face icon and the crosshair bright green on good, azure on fair, a dim
-  green crosshair on another focus candidate, orange and white as before;
-  the filter's `AF eye` section has `Good` and `Fair` above `Sharp` / `Soft`
-  / `Unknown`.
+  rests on the user's stars (180 frames, one rater) and the mark rate. The
+  2-star frames the cuts mark (`DSC1180`, `DSC2385`, `DSC1805`, `DSC2373`)
+  show nothing the stored values see.
+- **Storage.** Unchanged since Step 5: `files.eye_offset` / `files.edge_gap`
+  (`SCHEMA_VERSION` 19, `FACES_VERSION` 8); the thresholds live in
+  `focus.ts` only, so the re-tune needs no re-scan.
+- **The display**: as Step 5b left it: one good tier, the strip's face icon
+  and the bright green crosshair on good frames, a dim green crosshair on
+  another focus candidate, orange and white as before; the filter's `AF eye`
+  section has `Good` above `Sharp only` / `Soft` / `Unknown`.
 
 ## Progress
 
@@ -681,3 +705,5 @@ each number in one clause, which Step 7 replaces in place.
   2026-10-10: the old problem was how often it showed, not its shape)
 - (2026-10-10) Step 6 complete (docs at the Step 5b cuts; Step 7 waits for
   the face-mesh roll correction)
+- (2026-10-10) Step 7 complete (the roll correction was not adopted; the cuts
+  re-tuned on the 180 rated frames; Decision B approved final)

@@ -176,16 +176,16 @@ viewer shows a prompt in its center; click it to open the folder picker.
   [What the camera records](./cameras.md)). The mark's color says how the
   face nearest the AF point came out. Bright green marks a good photo, a
   frame that is likely not a miss: the AF eyes in focus, the eyes open and
-  the face toward the camera, all at once. The cuts, still being tuned: the
-  AF eyes' in-focus probability is 99% or more; the eyes' openness (the meta
-  pane's `Eyes` row) is 41 or more; the head is turned no more than 30° left
+  the face toward the camera, all at once. The cuts: the
+  AF eyes' in-focus probability is 90% or more; the eyes' openness (the meta
+  pane's `Eyes` row) is 41 or more; the head is turned no more than 35° left
   or right; and it is tilted no more than 45° up or down (the roll is not
   looked at). A frame whose face mesh sits off the face (as on a face
   rotated far in-plane, such as a baby lying down) or whose face the frame's
   edge cuts is never good. It is selective by design, so most frames get no
-  bright green: on six of the author's folders it marked about 14% of the
+  bright green: on twelve of the author's folders it marked about 20% of the
   frames with a face at the AF point. On 180 frames the author rated (1 star
-  for no subject, 2 for likely rejected, 3 or more for a pass), 40 of the 43
+  for no subject, 2 for likely rejected, 3 or more for a pass), 54 of the 58
   good frames passed and none was a frame without a subject. Dim green marks
   a focus candidate that is not good: the eyes of the face nearest the AF
   point are likely in focus (their in-focus probability, a logistic

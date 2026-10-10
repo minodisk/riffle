@@ -329,3 +329,113 @@ Per folder, the share of the faced AF frames the folded tier marks (the Step
 
 The cuts are re-tuned on all 180 rated frames after the face mesh's roll
 correction lands.
+
+## The Step 7 cuts (re-tuned on 180 rated frames)
+
+The face-mesh roll correction was not adopted
+(`docs/plans/20261010-mesh-roll/`), so the values the rule reads are those of
+Step 5. The 180 rated frames were re-dumped with `riffle-cli features` and
+`riffle-cli meshfit` (for YuNet's eye distance over the box side) built from
+`main` at c1843389, under `D:\Photos\tests\2026-10-09-good-mark\step7\`
+(`samples.tsv`, `meshfit.tsv`, the script's output `retune.txt`); every
+`features` column the rule reads matches the Step 5 sample dump and the batch
+2 manifest. The folder shares use the Step 5 dumps of six folders
+(`step5\dump\`) and the batch 2 dumps of six more (`batch2\dump\`), 19422
+faced AF frames. [retune.py](retune.py) reads them:
+
+```sh
+T=/d/Photos/tests/2026-10-09-good-mark
+python retune.py $T/step7/samples.tsv $T/step7/meshfit.tsv \
+  /d/photos/samples/ARW/good-mark-2026-10-09 $T/samples-manifest.tsv \
+  $T/step5/dump $T/batch2/dump
+```
+
+The stars: batch 1 (60, drawn from the Step 4c tiers, used for Step 5) 9 /
+10 / 22 / 12 / 7 frames at 1-5 stars, batch 2 (120, drawn without regard to
+the tiers) 11 / 28 / 51 / 16 / 14. Per variant (one change from the Step 5b
+cuts unless several are named): the frames marked, the share of 3+ stars
+among them, the 1- and 2-star frames among them, the share of the batch
+marked, the share of its 3+ star frames marked.
+
+| Variant | B1 n | B1 3+ | B1 1 / 2 | B2 n | B2 3+ | B2 1 / 2 | Pooled n | Pooled 3+ | Pooled 1 / 2 | Marked | 3+ captured |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Step 5b cuts | 23 | 95.7% | 0 / 1 | 20 | 90.0% | 0 / 2 | 43 | 93.0% | 0 / 3 | 23.9% | 32.8% |
+| \|yaw\| <= 35 | 27 | 92.6% | 0 / 2 | 24 | 91.7% | 0 / 2 | 51 | 92.2% | 0 / 4 | 28.3% | 38.5% |
+| \|yaw\| <= 40 | 31 | 90.3% | 1 / 2 | 26 | 92.3% | 0 / 2 | 57 | 91.2% | 1 / 4 | 31.7% | 42.6% |
+| \|yaw\| <= 45 | 32 | 90.6% | 1 / 2 | 27 | 88.9% | 0 / 3 | 59 | 89.8% | 1 / 5 | 32.8% | 43.4% |
+| `eye_focus` >= 0.98 / 0.97 | 23 | 95.7% | 0 / 1 | 20 | 90.0% | 0 / 2 | 43 | 93.0% | 0 / 3 | 23.9% | 32.8% |
+| `eye_focus` >= 0.95 | 23 | 95.7% | 0 / 1 | 22 | 90.9% | 0 / 2 | 45 | 93.3% | 0 / 3 | 25.0% | 34.4% |
+| `eye_focus` >= 0.90 | 23 | 95.7% | 0 / 1 | 26 | 92.3% | 0 / 2 | 49 | 93.9% | 0 / 3 | 27.2% | 37.7% |
+| `eye_offset` <= 0.15 | 24 | 91.7% | 1 / 1 | 23 | 82.6% | 0 / 4 | 47 | 87.2% | 1 / 5 | 26.1% | 33.6% |
+| `eye_offset` <= 0.20 | 25 | 88.0% | 2 / 1 | 23 | 82.6% | 0 / 4 | 48 | 85.4% | 2 / 5 | 26.7% | 33.6% |
+| no `eye_offset` cut | 27 | 85.2% | 2 / 2 | 23 | 82.6% | 0 / 4 | 50 | 84.0% | 2 / 6 | 27.8% | 34.4% |
+| `eye_offset` only at YuNet eye distance >= 0.15 or 0.20 | 25 | 88.0% | 1 / 2 | 20 | 90.0% | 0 / 2 | 45 | 88.9% | 1 / 4 | 25.0% | 32.8% |
+| no `edge_gap` cut | 23 | 95.7% | 0 / 1 | 20 | 90.0% | 0 / 2 | 43 | 93.0% | 0 / 3 | 23.9% | 32.8% |
+| \|yaw\| <= 35, `eye_focus` >= 0.95 | 27 | 92.6% | 0 / 2 | 26 | 92.3% | 0 / 2 | 53 | 92.5% | 0 / 4 | 29.4% | 40.2% |
+| **\|yaw\| <= 35, `eye_focus` >= 0.90** | **27** | **92.6%** | **0 / 2** | **31** | **93.5%** | **0 / 2** | **58** | **93.1%** | **0 / 4** | **32.2%** | **44.3%** |
+| \|yaw\| <= 35, `eye_focus` >= 0.772 (the candidate cut) | 27 | 92.6% | 0 / 2 | 31 | 93.5% | 0 / 2 | 58 | 93.1% | 0 / 4 | 32.2% | 44.3% |
+| \|yaw\| <= 40, `eye_focus` >= 0.90 | 31 | 90.3% | 1 / 2 | 34 | 94.1% | 0 / 2 | 65 | 92.3% | 1 / 4 | 36.1% | 49.2% |
+| \|yaw\| <= 35, `eye_focus` >= 0.90, EAR >= 0.22 | 28 | 92.9% | 0 / 2 | 39 | 89.7% | 0 / 4 | 67 | 91.0% | 0 / 6 | 37.2% | 50.0% |
+| \|yaw\| <= 35, `eye_focus` >= 0.90, `eye_offset` <= 0.15 | 29 | 86.2% | 1 / 3 | 35 | 88.6% | 0 / 4 | 64 | 87.5% | 1 / 7 | 35.6% | 45.9% |
+| \|yaw\| <= 35, `eye_focus` >= 0.90, offset gated at 0.20 | 29 | 86.2% | 1 / 3 | 33 | 90.9% | 1 / 2 | 62 | 88.7% | 2 / 5 | 34.4% | 45.1% |
+
+- **The yaw cut goes to 35.** It adds seven 3-5 star frames turned 31-35 deg
+  (among them `DSC4884` and `DSC0148`, the 4-star frames Step 5 named as
+  the cost of 30) and one 2-star frame (`DSC2373`, yaw -31.2). 40 lets in
+  the 1-star `2026-10-03__DSC2050` (yaw -36.6).
+- **The `eye_focus` cut goes to 0.90.** From 0.99 down to 0.95 it adds two
+  3-star frames, to 0.90 four more, all 5 stars (at |yaw| <= 35 five, the
+  fifth 3 stars); all seven rated frames from 0.90 to 0.99 that clear the
+  other cuts at |yaw| <= 35 pass. Below 0.90 no
+  rated frame clears the other cuts (the 2-star frames there, such as
+  `DSC5396` at 0.899 and `DSC3385` at 0.879, miss only the eye offset), so
+  the sample cannot tell 0.90 from the candidate cut (0.772); 0.90 is kept,
+  marking 1.4 points fewer of the folders' faced AF frames. The gain below
+  0.99 rests on batch 2 alone: batch 1 was drawn from the Step 4c tiers and
+  has no frame between 0.90 and 0.99 that clears the other cuts.
+- **`MAX_EYE_OFFSET` stays 0.10.** Every way of loosening it lets a 1-star
+  frame in: 0.15 / 0.20 / none the misfit `2026-07-11__DSC2638` (0.125,
+  YuNet eye distance 0.247, so gating does not save it either at 0.20) and
+  at 0.20 also `2026-09-27-a__DSC6920` (0.177); applying it only where
+  YuNet's eye distance is at least 0.15 or 0.20 lets `DSC6920` in (eye
+  distance 0.057: YuNet sees a profile, the mesh a face turned 27 deg), and
+  at the chosen cuts also `2026-09-27-b__DSC8931` (1 star, 0.196, eye
+  distance 0.027). At the chosen cuts the offset alone keeps 12 frames out:
+  three 1-star (`DSC2638`, `DSC6920`, `DSC8931`), five 2-star and four of
+  3-4 stars. So on these 180 frames the frames the offset drops are mostly
+  not fine ones; the
+  mesh-roll finding (most frames over 0.10 have a fitted mesh) is about
+  frames the other cuts drop anyway. A mesh-fit check that does not read
+  YuNet's eye points needs a new pass-2 value and was not tried.
+- **The edge exclusion stays.** Removing it changes nothing on the 180
+  (`DSC3345` is also over the eye offset) and marks 0.3 points more of
+  `2026-07-11`, where it drops the faces the frame cuts.
+- **The EAR cut stays 0.25.** 0.22 adds nine frames, two of them 2 stars.
+
+The 1-2 star frames the chosen cuts mark, all 2 stars:
+`2026-07-05__DSC1180` (`eye_focus` 0.990, yaw -1.4, EAR 0.281),
+`2026-07-05__DSC2385` (0.998, -21.7, 0.285), `2026-09-19__DSC1805` (0.999,
+18.5, 0.256) and `2026-09-19__DSC2373` (0.996, -31.2, 0.323). The three
+frames the user named in Step 5 stay out (`DSC2638` and `DSC3345` by the eye
+offset, `DSC2827` by the yaw at -48.6).
+
+Per folder, the share of the faced AF frames marked (the first six folders
+are the Step 5 re-dump, the other six the batch 2 dumps):
+
+| Folder | Faced AF | Step 5b cuts | Step 7 cuts |
+| --- | ---: | ---: | ---: |
+| `2026-07-11` | 441 | 13.8% | 18.6% |
+| `2026-07-24` | 173 | 17.3% | 22.0% |
+| `2026-08-08` | 367 | 22.3% | 31.1% |
+| `2026-09-19` | 1952 | 14.1% | 25.1% |
+| `2026-09-27-a` | 4367 | 10.0% | 18.0% |
+| `2026-10-03` | 1615 | 20.7% | 30.0% |
+| `2026-06-14` | 1360 | 5.1% | 11.7% |
+| `2026-07-05` | 1231 | 6.8% | 13.7% |
+| `2026-07-18` | 1196 | 24.3% | 30.2% |
+| `2026-08-22` | 2481 | 12.8% | 20.2% |
+| `2026-08-29` | 3157 | 7.2% | 14.0% |
+| `2026-09-27-b` | 1082 | 11.7% | 18.1% |
+| The six Step 5 folders | 8915 | 13.7% | 22.4% |
+| The six batch 2 folders | 10507 | 10.6% | 17.4% |
+| **Total** | 19422 | 12.0% | 19.7% |

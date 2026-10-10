@@ -212,6 +212,56 @@ describe("photoTier: good", () => {
     ).toBeNull();
   });
 
+  test("the 1-star frames a looser yaw or eye offset cut lets in are not good", () => {
+    // `_DSC2050`: turned past the yaw cut.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9966,
+        eyes_ear: 0.3228,
+        pose: { yaw: -36.6, pitch: 11.7, roll: 5.1 },
+        eye_offset: 0.0241,
+        edge_gap: 5.1189,
+      }),
+    ).toBeNull();
+    // `_DSC6920`: the mesh off the eyes of a face YuNet sees in profile.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9913,
+        eyes_ear: 0.4054,
+        pose: { yaw: 26.8, pitch: -17.4, roll: 3.6 },
+        eye_offset: 0.1769,
+        edge_gap: 3.3674,
+      }),
+    ).toBeNull();
+  });
+
+  test("a 5-star frame the Step 5b cuts left out is good", () => {
+    // `_DSC3280`: the AF eyes at 0.92.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9218,
+        eyes_ear: 0.3468,
+        pose: { yaw: -23.9, pitch: -16.1, roll: -4.7 },
+        eye_offset: 0.0298,
+        edge_gap: 7.2376,
+      }),
+    ).toBe("good");
+    // `_DSC4912`: turned 34.5 degrees.
+    expect(
+      photoTier({
+        ...good,
+        eye_focus: 0.9986,
+        eyes_ear: 0.4194,
+        pose: { yaw: 34.5, pitch: 3.7, roll: 1.6 },
+        eye_offset: 0.0456,
+        edge_gap: 4.7066,
+      }),
+    ).toBe("good");
+  });
+
   test("the eye_focus cut passes at and above, not below", () => {
     expect(goodPhoto({ ...good, eye_focus: GOOD_EYE_FOCUS })).toBe(true);
     expect(goodPhoto({ ...good, eye_focus: GOOD_EYE_FOCUS + 0.0005 })).toBe(true);
@@ -251,10 +301,10 @@ describe("photoTier: the folded tier", () => {
     expect(photoTier({ ...good, eyes_ear: 0.1 })).toBeNull();
   });
 
-  test("the cuts are the Step 5 fair cuts", () => {
-    expect(GOOD_EYE_FOCUS).toBe(0.99);
+  test("the cuts are the Step 7 cuts", () => {
+    expect(GOOD_EYE_FOCUS).toBe(0.9);
     expect(GOOD_EYE_EAR).toBe(0.25);
-    expect(GOOD_MAX_YAW).toBe(30);
+    expect(GOOD_MAX_YAW).toBe(35);
     expect(GOOD_MAX_PITCH).toBe(45);
     expect(MAX_EYE_OFFSET).toBe(0.1);
     expect(MIN_EDGE_GAP).toBe(0.02);
