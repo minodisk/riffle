@@ -439,6 +439,44 @@
   reviews, and the no-AF path. The deferred items above are left for the
   wrap-up.
 
+## Step 7
+
+- **Started without the roll correction.** The mesh-roll Decision (#758) did
+  not adopt it, so the values the rule reads are Step 5's. The re-dump of the
+  180 with `main` at c1843389 (`D:\Photos\tests\2026-10-09-good-mark\step7\`)
+  matched the Step 5 sample dump and the batch 2 manifest on every column the
+  rule reads; `features` has no YuNet eye distance, so it came from a
+  `meshfit` dump of the same folder (its `before_` columns are the scan's),
+  no CLI change.
+- **Constants changed** (`crates/app/ui/src/focus.ts`): `GOOD_EYE_FOCUS`
+  0.99 -> 0.90 (the seven rated frames from 0.90 to 0.99 that clear the other
+  cuts all pass; below 0.90 none clears them), `GOOD_MAX_YAW` 30 -> 35 (40
+  lets in the 1-star `2026-10-03__DSC2050`). EAR, pitch, `MAX_EYE_OFFSET`
+  and `MIN_EDGE_GAP` unchanged. Pooled: 43 -> 58 good, 93.0% -> 93.1% of
+  them 3+ stars, 0 1-star, 3 -> 4 2-star; the twelve folders' faced AF
+  frames 12.0% -> 19.7% marked.
+- **The eye offset earns its place on the 180, unlike what the mesh-roll
+  labels suggested.** Every relaxation (0.15, 0.20, none, or skipping it
+  where YuNet's eye distance is under 0.15 / 0.20) lets a 1-star frame in.
+  The mesh-roll finding (about 65% of the frames over 0.10 have a fitted
+  mesh) is about the meshed frames at large, most of which the other cuts
+  drop anyway; among frames that clear the other cuts, what the offset drops
+  is mostly 1-2 star. Gating by YuNet's eye distance fails on
+  `2026-09-27-a__DSC6920`: YuNet sees a profile (eye distance 0.057), the
+  mesh a face at yaw 27, and the frame got 1 star.
+- **The `eye_focus` evidence is one-sided.** Batch 1 was drawn from the Step
+  4c tiers, so every gain below 0.99 is on batch 2; there is no held-out check
+  of the 0.90 cut. The sample cannot tell 0.90 from the candidate cut 0.772
+  (no rated frame between them clears the other cuts); 0.90 was kept, which
+  marks 1.4 points fewer of the folders.
+- **The docs keep "cuts still being tuned"** (README) and "still being tuned"
+  / "調整中" (usage): only the numbers were replaced in place, as the step
+  asked; the qualifier goes once the user approves Decision B.
+- **Tripped up:** writing a file with Python's `write_text` on Windows turned
+  `focus.ts` into CRLF (fixed with `sed -i 's/\r$//'`); use `write_bytes`.
+  And GNU sed's BRE reads `\|` as alternation, so `s/\|yaw\|/.../` matched
+  the empty string everywhere on the lines it ran on.
+
 ## Deferred issues (todo candidates)
 
 - **The app's `.dop` reader ignores a picked virtual copy.** Found in
@@ -534,3 +572,32 @@
   `Sharp` with no `Fair`, and `Good` alone narrows the strip to the
   icon-bearing frames. Step 5b's checkbox was ticked on the automated
   criteria.
+- **Drop the "still being tuned" qualifiers once Decision B is approved.**
+  `README.md` ("cuts still being tuned"), `docs/humans/usage.md` ("The cuts,
+  still being tuned:"), `README.ja.md` / `docs/humans/usage.ja.md` ("基準は調整中"),
+  and check the `todo.md` item "Re-tune the good-photo cuts once the face-mesh
+  roll correction lands"; the checked good-photo item above it in `todo.md`
+  still quotes the Step 5b cuts (0.99, |yaw| <= 30, 13.7%, 40 of 43) and
+  should take the Step 7 ones (0.90, 35, 19.7% of twelve folders, 54 of 58).
+  Basis: Step 7 ([plan.md](plan.md) Decision B); wrap-up's job, not edited
+  here.
+- **A mesh-fit check that does not read YuNet's eye points.** The eye offset
+  stays because nothing cheaper beat it on the 180, but it still compares
+  against YuNet's points, which sit together on profiles. A check from the
+  mesh alone (e.g. its eye centers against the face box, or the mesh's own
+  fit confidence) would need a new pass-2 value (schema / `FACES_VERSION`
+  bump). Basis: Step 7's variant table ([provisional.md](provisional.md),
+  "The Step 7 cuts"); related `crates/core/src/candidate.rs`
+  (`mesh_eye_offset`), `crates/app/src/index.rs`.
+- **The `eye_focus` cut 0.90 has no held-out check.** Batch 1 has no frame
+  between 0.90 and 0.99 that clears the other cuts; a future rated batch
+  should include some (and some between 0.772 and 0.90) to confirm it.
+  Basis: Step 7; related `crates/app/ui/src/focus.ts` (`GOOD_EYE_FOCUS`).
+- **Pending manual check (the user's, Windows app build of Step 7).** Open
+  `D:\photos\2026\2026-09-19` and `D:\photos\2026\2026-08-29` (no re-scan is
+  needed; the cuts are frontend-only). Expected: the bright green face icon
+  is on about 25% (2026-09-19) and 14% (2026-08-29) of the faced AF frames,
+  faces turned 31-35 degrees now carry it, `_DSC3345` (2026-09-19) still does
+  not, and the filter's `Good` item narrows the strip to those frames. Step
+  7's checkbox is not ticked (Decision B awaits the user's approval); this
+  check belongs with that approval.

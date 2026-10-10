@@ -42,19 +42,20 @@ export const FOCUS_MARK_COLORS = {
 
 // The good-photo cuts on the values pass 2 stores for the AF face, read from
 // the re-dump of six ARW folders (8915 faced AF frames) on 2026-10-09, tuned
-// in Step 5 and folded into one tier in Step 5b
-// (`docs/plans/20261008-burst-keep-score/provisional.md`): on the user's
-// stars of 180 frames, 40 of the 43 frames these cuts mark pass (3 stars or
-// more), so the tier means "not a miss". They are re-tuned on those 180 frames
-// once the face mesh's roll correction lands.
-// The in-focus probability of the AF eyes, at the re-dump's 67th percentile.
-export const GOOD_EYE_FOCUS = 0.99;
+// in Step 5, folded into one tier in Step 5b and re-tuned in Step 7 on the
+// user's stars of 180 frames (`docs/plans/20261008-burst-keep-score/`
+// `provisional.md`): 54 of the 58 frames these cuts mark pass (3 stars or
+// more), none is a 1-star frame, so the tier means "not a miss".
+// The in-focus probability of the AF eyes: the seven rated frames from 0.90 to
+// 0.99 that clear the other cuts all pass; below 0.90 none clears them, so
+// the cut stays there, above the candidate's 0.772.
+export const GOOD_EYE_FOCUS = 0.9;
 // The EAR of the more closed eye, at the 35th percentile (open probability
 // 0.964, openness 41).
 export const GOOD_EYE_EAR = 0.25;
 // |yaw| in degrees, "both eyes visible": a turned face foreshortens the eye
-// and inflates its EAR. 56% of the poses are within.
-export const GOOD_MAX_YAW = 30;
+// and inflates its EAR. 40 lets in a 1-star frame (`_DSC2050`, yaw -36.6).
+export const GOOD_MAX_YAW = 35;
 // |pitch| in degrees: 96% of the poses are within.
 export const GOOD_MAX_PITCH = 45;
 
@@ -63,6 +64,8 @@ export const GOOD_MAX_PITCH = 45;
 // sides, mean a mesh fitted off the face (an in-plane rotated face): the
 // sample's well-fitted tier frames were all under 0.09, the misfit
 // `_DSC2638` at 0.125; 7.6% of the frames the cuts alone tier exceed it.
+// Loosening it, or skipping it where YuNet's eyes sit close together (a
+// profile), lets 1-star frames in on the 180 rated frames.
 export const MAX_EYE_OFFSET = 0.1;
 // The face box or a mesh eye region closer to the preview's edge than this,
 // in face box sides, means a face the frame cuts: YuNet's box ends at the
