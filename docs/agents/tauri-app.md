@@ -984,6 +984,36 @@ zero `pick` (now `flag`), which lost a pick set during a switch.
 - Source: `docs/plans/_archived/20260920-format-switch-pick-race/learnings.md`,
   Step 1.
 
+### The good-photo mark's rule is validated against the user's stars; know what it can claim (Hit)
+
+`focus.ts` `photoTier` returns `"good"` or `null`. The type is kept as a union
+so a tier can be added back without rewriting the `filter.ts` / `strip.ts` /
+`main.ts` plumbing. The rule needs the stored `eye_focus`, `eyes_ear`, `pose`,
+`eye_offset` and `edge_gap`.
+
+- The user's star scale: 1 = no subject, 2 = likely rejected, 3 and up =
+  pass. The mark can say "not a miss" (the frames it marks were 93% 3+ stars,
+  no 1-star, on 180 rated frames). It says nothing about taste above 3: good vs.
+  not was no different at 4+ stars. Do not describe or tune it as a quality or
+  best-of-burst ranking.
+- Keep `MAX_EYE_OFFSET`. Every relaxation, including skipping it when YuNet's
+  eye distance is small, let a 1-star frame in. Gating on YuNet's eye distance
+  fails because YuNet sees a profile where the mesh sees a face
+  (`2026-09-27-a__DSC6920`).
+- Keep `MIN_EDGE_GAP` as a box-plus-grown-eye-region gap. Testing the 1.25x
+  mesh crop flags whole faces near the edge (only hair outside).
+- The EAR is inflated on a turned, foreshortened eye. That is why the yaw cut
+  is tight (|yaw| <= 35, tightened from 60), not loose.
+- `GOOD_EYE_FOCUS` 0.90 has no held-out check: the rated batches hold no
+  frame between 0.90 and 0.99 (or 0.772 and 0.90) that clears the other cuts
+  in batch 1. Include such frames in the next rated batch before moving it.
+- Burst-level technical features do not predict a kept scene: burst length
+  does (>= 15 frames: 79% hold a pick). Do not rebuild a burst "keep" or
+  "best" mark from sharpness / eyes / pose. The first frame of a burst also
+  out-ranks any feature.
+- Source: `docs/plans/_archived/20261008-burst-keep-score/learnings.md`,
+  Steps 3, 5, 5b, 7.
+
 ### Writing the `Both` sidecar format: one comparator, one stat source (Hit)
 
 `sidecar::newest` is the single newest-wins comparator (larger `mtime_ns`,
