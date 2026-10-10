@@ -407,7 +407,7 @@ produced with an ARW truncated to its first 2 KB).
 - [ ] Verify the burst band and count badge by hand on a real Leica burst
       folder and note the group sizes: band visible, every member cell
       shows its `position/size` (a two-digit one like `12/15` clear of the
-      sharpness bar and the file name), unchanged by the selection, the gap above a
+      file name), unchanged by the selection, the gap above a
       non-first member is filled, and the band is distinguishable from
       `.cell.current` and `.cell.failed`. Files: `crates/app/ui/src/burst.ts`,
       `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
@@ -1599,28 +1599,9 @@ pass carries which cost").
 #### TODO
 
 - [ ] On Windows, clear the cache (settings modal, `Clear Cache`), open a large RAW folder (a few thousand files) in a development build with the settings modal's `Timing logs` on, and page through it with the arrow keys while `scanning N / M` and then `analyzing N / M` run. Compare the `page invoke=.. decode=.. total=.. keypressToPixels=..` lines in `Riffle.log` with the same run on the previous release (and with paging after the scan ends). Expect that during the passes they are not worse and are closer to the idle value. Note the wall time of the `scan extract` / `scan faces` summary lines of both runs, to see what the lowered priority costs while paging. No `ran at normal priority` warning may appear in the log.
-- [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks and sharpness bars during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
+- [ ] On Windows, clear the cache, open the same kind of folder in a development build with `Timing logs` on, and at once jump to the middle of the strip (drag the scrollbar, then click a cell). Expect the cells around the current file to get their thumbnails during `scanning N / M`, and then their focus marks during `analyzing N / M`, before the cells at the folder's start do (by eye, or from the `scan-progress` / `faces-progress` `ready` lists in the webview devtools). Note the wall time of the `scan extract` / `scan faces` summary lines against the previous TODO's run of the same folder, so the queue's own overhead shows.
 - [ ] On macOS, repeat the paging run once. Expect the analysis pass (`QOS_CLASS_BACKGROUND`, which also throttles disk IO) not to crawl; if it does, move it to `QOS_CLASS_UTILITY` and update the priority entry in `docs/agents/tauri-app.md`.
 - [ ] Done when: the measured page-latency and `scan extract` / `scan faces` numbers, with their conditions, are in `docs/humans/performance.md` ("Which pass carries which cost"), and the README wording on paging is revisited from that result.
-
-### App: real-device check of the sharpness bars filling in during the second pass
-
-`scan-priority` (docs/plans/_archived/20260930-scan-priority/plan.md) moved the
-sharpness score out of the first pass: the `faces-progress` handler now patches
-each ready item's `sharpness` into the strip bars, the compare order and the
-meta pane, and the status reads `analyzing N / M`. The unit tests
-(`focus.test.ts`) and `mise run ci` cover the patching; the real behavior on a
-desktop and the cost of `applySharpness()` on a large folder were never
-exercised (Step 3 was ticked on the automated criteria only).
-Files: `crates/app/ui/src/main.ts` (`faces-progress` handler),
-`crates/app/ui/src/focus.ts` (`applySharpnessReady`),
-`docs/humans/performance.md`.
-
-#### TODO
-
-- [ ] On the desktop app (any platform), clear the cache (settings modal, `Clear Cache`) and open a folder of a few hundred RAWs with bursts. Expect the thumbnails to appear with no sharpness bars while the status shows `scanning N / M`, then the bars (and the pick-colored best frame) to fill in while it shows `analyzing N / M`, and the meta pane's `Sharpness` row to appear for the current file once its score arrives.
-- [ ] With the debug log on, open a ~5000-file folder and read a `refresh entries` line's `sharpness` field. Expect it to stay a few milliseconds; if it is much larger, throttle `applySharpness()` in the handler.
-- [ ] Done when: the `refresh entries` `sharpness` field on a ~5000-file folder is recorded in `docs/humans/performance.md`, and `applySharpness()` is throttled if it is much more than a few milliseconds.
 
 ### App: real-device check that big-endian DNGs open after the EXTRACTOR_VERSION bump
 
