@@ -13,6 +13,36 @@ Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/strip.ts`, `crates/app/u
 - [ ] On any desktop platform, open a folder with faced AF frames and wait for `analyzing N / M` to finish. Check that the strip shows a bright green `scan-face` on good frames, a bright green `scan-eye` on other focus candidates, a gray `scan` on not-sharp frames and nothing on unknown ones. Check that the filter menu's `AF eye` items show the same icons (`Unknown` an empty aligned slot). Check that the `f` mark is bright green for good and OK frames, gray for Bad and white for unknown, with the gray readable on photos.
 - [ ] Reword the `src/focus.ts` sentence in `CLAUDE.md`, which still says `photoTier` "puts the strip's face icon on a good frame", to describe the per-state icon (`stripState` / `FOCUS_MARK_ICONS`).
 
+### Core: the `.dop` reader ignores a picked PhotoLab virtual copy
+
+Found in `burst-keep-score` Step 1 (the inventory, `docs/plans/_archived/20261008-burst-keep-score/data.md`). `dop::read_flag` (`crates/core/src/dop.rs`, `locate`) reads only the first `Items` entry, so it returns `None` for 199 frames of `2026-06-05` and 228 of `2026-09-13-b` whose virtual copy (a later item) is picked in PhotoLab. Riffle shows those frames unflagged, and `trash.rs` `collect_folder` would not treat them as picked. Whether Riffle should read any item's flag, and which item it writes, is a product decision.
+
+Files: `crates/core/src/dop.rs`, `crates/app/src/trash.rs`.
+
+#### TODO
+
+- [ ] Decide which `Items` entry's flag Riffle reads and writes, then change `read_flag` and its tests to match.
+
+### App: the burst "best" sharpness mark ranks the user's picks near random
+
+Found in `burst-keep-score` Step 2 (`docs/plans/_archived/20261008-burst-keep-score/results.md`, Reading). `relativeSharpness` in `crates/app/ui/src/sharpness.ts` (Compare's green bar) ranks the user's picks only slightly above random (pairwise AUC 0.577 against 0.495, the first frame 0.653). The hand check found sharp frames at 0.11-0.67 of the burst maximum, because the AF-region score follows the content under the AF point. Decision 1 did not replace the mark.
+
+Files: `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+
+#### TODO
+
+- [ ] Change the mark's wording, or measure it on the face only, or drop it.
+
+### App: the MCP `get_view` eyes summary carries no openness
+
+`burst-keep-score` Step 4b made the meta pane's `Eyes` row show the openness (0-100 from the EAR) but kept `get_view`'s `state` / `probability` / `pose` fields as planned. Whether `EyesSummary` should carry the EAR or the openness is open.
+
+Files: `crates/app/ui/src/companion.ts` (`EyesSummary`), `crates/app/src/mcp.rs`.
+
+#### TODO
+
+- [ ] Decide whether `get_view`'s eyes summary carries the EAR or the openness, and add it with its test.
+
 ### App: real-device check of the 1:1 view on files with a malformed full-size JPEG
 
 The `partial-decode-error-exit` work (`docs/plans/_archived/20261002-partial-decode-error-exit/plan.md`) made `decode_region` in `crates/core/src/partial.rs` return `Err` on a fatal libjpeg error instead of calling `exit(1)`. Unit tests (empty input, non-JPEG input, a JPEG truncated inside the header) and `riffle-cli crop` / `check` on the real files cover the core path. `crop` returned `libjpeg fatal error: Not a JPEG file: starts with 0x3c 0x44` for `NIKON_D70_Nikon.nef` and `... 0x80 0x03` for `CGO3P_YUN00007.dng`. `check` over the samples ran to its summary in 23.0 s. The desktop app's 1:1 view (the `focus_crop` command, which calls the same `decode_focus_crop`) was never exercised, and neither was what the UI shows for the error. Files: `crates/app/src/commands.rs` (`focus_crop`), `crates/core/src/partial.rs`.
@@ -590,45 +620,6 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       on 68%, the gap at the frontal / oblique boundary. See
       `docs/plans/20261007-head-pose/` and `docs/humans/performance.md`
       "Closed-eyes judgment on demand (Windows 11)".
-- [x] Flag "looking away" frames from the head pose. Shipped as the pose
-      cut of the good-photo mark rather than a flag of its own: a frame is
-      good only with |yaw| <= 35 and |pitch| <= 45 (roll unused), the "both
-      eyes visible" form, set from the user's stars after a turned face
-      (yaw -49) was marked at the loose 60. No "looking away" label set was
-      made. See `docs/plans/20261008-burst-keep-score/` (Decision B) and `crates/app/ui/src/focus.ts`
-      (`GOOD_MAX_YAW`, `GOOD_MAX_PITCH`).
-- [x] Mark the frames that are likely not a miss: the good-photo mark.
-      `photoTier` in `crates/app/ui/src/focus.ts` makes a focus candidate
-      good when the AF eyes' in-focus probability is at least 0.90, the EAR
-      of the more closed eye at least 0.25 (openness 41), |yaw| <= 35 and
-      |pitch| <= 45, the mesh's eyes within 0.10 face sides of YuNet's
-      landmarks and the face at least 0.02 face sides inside the image (the
-      last two stored by pass 2 as `files.eye_offset` / `files.edge_gap`,
-      `SCHEMA_VERSION` 19, `FACES_VERSION` 8). A good frame gets the bright
-      green crosshair, the strip's face icon (which no longer marks every
-      focus candidate; another candidate draws a bright green `scan-eye`
-      icon and mark, and a not-sharp one a gray `scan`) and the filter's
-      `Good` item. It marks 19.7% of the faced AF frames of twelve dumped
-      folders (11.7-31.1% per folder; the candidate icon was on 87.4% of
-      six); on the user's stars of 180 frames 54 of the 58 good frames pass
-      (3 stars or more) and none has no subject. The meta pane's `Eyes` row now
-      shows the openness, 0-100 from the EAR, instead of the open
-      probability. See `docs/plans/20261008-burst-keep-score/` (Decision B, `provisional.md`).
-- [x] Re-tune the good-photo cuts
-      (`docs/plans/20261008-burst-keep-score/plan.md` Step 7, which waited
-      on the face-mesh roll correction; that was declined in
-      `docs/plans/20261010-mesh-roll/`, so the wait is over). Done when no
-      line of that plan (Step 7 and the lines around 615 / 679 / 683) makes
-      Step 7 wait on the roll correction, and the 180 rated frames of
-      `D:\photos\samples\ARW\good-mark-2026-10-09\` (stars in their
-      sidecars; 1 = no subject, 2 = likely rejected, 3+ = pass) are
-      re-dumped with the new CLI, the cuts are chosen so no 1-star and as
-      few 2-star frames as possible are good while the share marked is as
-      large as possible (checked on batch 1 and batch 2 separately), and the
-      `focus.ts` constants and tests, Decision B and the numbers in
-      `docs/humans/usage.md` / `.ja.md` and `README.md` / `README.ja.md`
-      (the Focus mark paragraphs) follow. Files:
-      `crates/app/ui/src/focus.ts`, `crates/app/ui/src/focus.test.ts`.
 - [ ] Derive the good-photo rule in the backend, next to `candidate` in
       `crates/app/src/index.rs`, so the MCP `get_view` tool can carry it.
       The rule lives only in `crates/app/ui/src/focus.ts` (`photoTier`) and
@@ -646,7 +637,9 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       final) and the precision and coverage of the mark at its cuts are
       written with a Wilson interval, with the focus candidate as the
       baseline (the procedure is in `docs/plans/20261008-burst-keep-score/plan.md` Step 5). Files: the plan
-      folder of that work, `crates/app/ui/src/focus.ts` if the cuts move.
+      folder of that work, `crates/app/ui/src/focus.ts` if the cuts move. Include some rated frames with eye_focus between 0.772 and 0.99 (0.90
+      cut) that clear the other cuts: GOOD_EYE_FOCUS 0.90 has no held-out
+      check, because batch 1 has none in that range.
 - [ ] Re-check the good-photo cuts after the closed-eyes and head-pose label
       reviews (the items in the sections below). If the user's review
       moves `EYES_CLOSED_EAR` in `crates/core/src/eyes.rs` or changes the
@@ -829,6 +822,10 @@ Files: `docs/plans/_archived/20261007-head-pose/pose-truth.md`, `docs/plans/_arc
 
 #### TODO
 
+- [ ] Also check hand check 16 of `docs/plans/_archived/20261008-burst-keep-score/results.md`
+      (`D:\photos\2026\2026-07-05\_DSC2445.ARW`): a profile looking up behind a ball
+      reads pitch -68 deg. Decide whether `crates/core/src/pose.rs` should call that
+      unknown or whether the label stands.
 - [ ] On Windows, open the sheets `D:\Photos\tests\2026-10-07-head-pose\sheets\s00.png` to `s16.png` (4 tiles across, row by row in the `#` order of the `pose-truth.md` table; crops in `crops\`) and compare each tile to its row. Note any label to change. If labels change, re-run `aggregate.py` (in `D:\Photos\tests\2026-10-07-head-pose\`) and update `pose-results.md` and the plan's Decision if a number moves.
 
 ### Core: the no-AF-point path decodes the preview a second time in score_preview
