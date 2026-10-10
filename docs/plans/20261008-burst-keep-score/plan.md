@@ -705,3 +705,5 @@ on the current values.
   2026-10-10: the old problem was how often it showed, not its shape)
 - (2026-10-10) Step 6 complete (docs at the Step 5b cuts; Step 7 waits for
   the face-mesh roll correction)
+- (2026-10-10) Step 7 complete (the roll correction was not adopted; the cuts
+  re-tuned on the 180 rated frames; Decision B approved final)
