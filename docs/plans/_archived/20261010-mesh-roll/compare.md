@@ -21,10 +21,10 @@ no variant needed a re-run.
   (406 frames) and held-out `2026-06-14`, `2026-07-18`, `2026-08-01`,
   `2026-08-22` (400): Pick or Reject with a logit, as `fit.py` counted them.
 - Closed eyes: the 253 open / closed faces of
-  [eyes-truth.md](../_archived/20261007-closed-eyes-detection/eyes-truth.md)
+  [eyes-truth.md](../20261007-closed-eyes-detection/eyes-truth.md)
   (57 closed); all 253 are in the dump with the face side of the label.
 - Head pose: the 159 labeled faces of
-  [pose-truth.md](../_archived/20261007-head-pose/pose-truth.md) (labels
+  [pose-truth.md](../20261007-head-pose/pose-truth.md) (labels
   unreviewed).
 - Stars: the 60 frames of `samples-scored.tsv` (the 60 the user starred, of
   the 180 now in the good-mark sample folder).
