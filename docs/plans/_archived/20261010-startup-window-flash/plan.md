@@ -126,4 +126,4 @@ after the geometry is restored and cannot bring the flash back.
 
 ## Progress
 
-- (none yet)
+- (2026-10-10) Step 1 complete
