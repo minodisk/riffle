@@ -2,6 +2,17 @@
 
 ## Cross-cutting / other
 
+### App: real-device check of the AF eye Good / OK / Bad / Unknown icons and mark colors
+
+The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
+
+Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/strip.ts`, `crates/app/ui/src/icons.ts`, `crates/app/ui/index.html`, `CLAUDE.md`.
+
+#### TODO
+
+- [ ] On any desktop platform, open a folder with faced AF frames and wait for `analyzing N / M` to finish. Check that the strip shows a bright green `scan-face` on good frames, a bright green `scan-eye` on other focus candidates, a gray `scan` on not-sharp frames and nothing on unknown ones. Check that the filter menu's `AF eye` items show the same icons (`Unknown` an empty aligned slot). Check that the `f` mark is bright green for good and OK frames, gray for Bad and white for unknown, with the gray readable on photos.
+- [ ] Reword the `src/focus.ts` sentence in `CLAUDE.md`, which still says `photoTier` "puts the strip's face icon on a good frame", to describe the per-state icon (`stripState` / `FOCUS_MARK_ICONS`).
+
 ### App: real-device check of the 1:1 view on files with a malformed full-size JPEG
 
 The `partial-decode-error-exit` work (`docs/plans/_archived/20261002-partial-decode-error-exit/plan.md`) made `decode_region` in `crates/core/src/partial.rs` return `Err` on a fatal libjpeg error instead of calling `exit(1)`. Unit tests (empty input, non-JPEG input, a JPEG truncated inside the header) and `riffle-cli crop` / `check` on the real files cover the core path. `crop` returned `libjpeg fatal error: Not a JPEG file: starts with 0x3c 0x44` for `NIKON_D70_Nikon.nef` and `... 0x80 0x03` for `CGO3P_YUN00007.dng`. `check` over the samples ran to its summary in 23.0 s. The desktop app's 1:1 view (the `focus_crop` command, which calls the same `decode_focus_crop`) was never exercised, and neither was what the UI shows for the error. Files: `crates/app/src/commands.rs` (`focus_crop`), `crates/core/src/partial.rs`.
@@ -595,7 +606,8 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       last two stored by pass 2 as `files.eye_offset` / `files.edge_gap`,
       `SCHEMA_VERSION` 19, `FACES_VERSION` 8). A good frame gets the bright
       green crosshair, the strip's face icon (which no longer marks every
-      focus candidate; another candidate draws dim green) and the filter's
+      focus candidate; another candidate draws a bright green `scan-eye`
+      icon and mark, and a not-sharp one a gray `scan`) and the filter's
       `Good` item. It marks 19.7% of the faced AF frames of twelve dumped
       folders (11.7-31.1% per folder; the candidate icon was on 87.4% of
       six); on the user's stars of 180 frames 54 of the 58 good frames pass
