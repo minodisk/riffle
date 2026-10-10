@@ -689,7 +689,7 @@ focus candidate cue and the sharpness score:
 
 The first pass writes the rows in small batches (10) as their thumbnails finish, so the
 thumbnails appear at the speed of the read and the thumbnail encode, and the
-sharpness bars fill in with the focus marks during the second pass. The
+focus marks fill in during the second pass. The
 numbers in "Sharpness scoring cost", "Face detection cost" and "Focus
 candidate pass" above were measured before the move, except the two Windows
 11 subsections of "Face detection cost" and the face mesh paragraphs of "Focus

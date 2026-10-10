@@ -329,7 +329,7 @@ or a failure.
       focus.test.ts, main.ts}`, docs. Files (no ship): this plan, docs,
       `todo.md`.
 
-- [ ] Step 5: Remove the sharpness displays: the strip's bar, the burst "best" mark and the meta pane's Sharpness row
+- [x] Step 5: Remove the sharpness displays: the strip's bar, the burst "best" mark and the meta pane's Sharpness row
   - Added 2026-10-10 at the user's request, after the burst-best-mark
     session's measurement (its copies of `results.md`, `measure.py` and plan,
     and fresh `features` dumps of the 36 burst-keep-score folders, are in
@@ -466,3 +466,4 @@ a sharp jersey), which agrees with the burst-best-mark result behind Step 5.
 - (2026-10-10) Step 5 added: remove the sharpness bar, the burst "best" mark and the meta pane's Sharpness row (user request after the burst-best-mark measurement)
 - (2026-10-10) Step 3 complete
 - (2026-10-10) Step 4 complete
+- (2026-10-10) Step 5 complete

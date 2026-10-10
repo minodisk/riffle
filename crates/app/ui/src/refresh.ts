@@ -80,7 +80,6 @@ export interface RefreshTiming {
   exif: number;
   meta: number;
   draw: number;
-  sharpness: number;
   applyBursts: number;
   candidates: number;
   refilter: number;
@@ -100,7 +99,6 @@ export function refreshTimingLine(t: RefreshTiming): string {
     `exif=${ms(t.exif)}`,
     `meta=${ms(t.meta)}`,
     `draw=${ms(t.draw)}`,
-    `sharpness=${ms(t.sharpness)}`,
     `apply_bursts=${ms(t.applyBursts)}`,
     `candidates=${ms(t.candidates)}`,
     `refilter=${ms(t.refilter)}`,

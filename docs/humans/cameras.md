@@ -185,11 +185,8 @@ does, not the sensor's pixels.
   having no AF point; DMF shots and bodies that record no focus mode are not.
 - **AF frame size and face tracking**: with both, sharpness is scored on the
   camera's eye-AF frame, which is the most reliable because it does not rely
-  on face detection. This helps culling: the sharpness cue, the bar beside
-  each thumbnail that marks the sharpest frame of a burst, is measured on the
-  eye the camera focused on, so the frame whose eye is sharp comes out
-  sharpest rather than one whose background or clothing is sharper, even when
-  Riffle's own face detection misses the face. Face tracking without an AF
+  on face detection: the score is measured on the eye the camera focused on,
+  even when Riffle's own face detection misses the face. Face tracking without an AF
   frame size gives no such benefit: sharpness is scored around the AF point as
   usual. Neither changes the focus mark's color, whose AF eye in-focus
   probability comes from Riffle's face detection. On the α7 V, `Face tracking` is also recorded when the

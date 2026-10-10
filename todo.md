@@ -23,16 +23,6 @@ Files: `crates/core/src/dop.rs`, `crates/app/src/trash.rs`.
 
 - [ ] Decide which `Items` entry's flag Riffle reads and writes, then change `read_flag` and its tests to match.
 
-### App: the burst "best" sharpness mark ranks the user's picks near random
-
-Found in `burst-keep-score` Step 2 (`docs/plans/_archived/20261008-burst-keep-score/results.md`, Reading). `relativeSharpness` in `crates/app/ui/src/sharpness.ts` (Compare's green bar) ranks the user's picks only slightly above random (pairwise AUC 0.577 against 0.495, the first frame 0.653). The hand check found sharp frames at 0.11-0.67 of the burst maximum, because the AF-region score follows the content under the AF point. Decision 1 did not replace the mark.
-
-Files: `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
-
-#### TODO
-
-- [ ] Change the mark's wording, or measure it on the face only, or drop it.
-
 ### App: re-measure a Good / Bad for frames with no face
 
 The `af-eye-good-bad-cascade` plan (Step 3, Decision C in `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`, numbers in `sharpness-fallback.md`, script `facefree.py` in the same folder) measured whether the sharpness score separates picks on frames where no face is analyzed (an AF point with no face near it, or no AF point and no face on the whole preview). It did not meet the pre-registered criterion (held-out AUC >= 0.70 pick vs non-pick and a cut at 2x the base precision marking 20% or more): absolute AUC 0.579, best held-out lift 1.25, so those frames stay `Unknown` (Step 4). The pick vs reject leg could not be run: only 9 face-free rejects exist (7 in `2026-09-19`, 2 in `2026-09-13-b`), and no folder has the 30 the criterion needs.
@@ -790,7 +780,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       focus candidate state is unknown (white), even when the camera tracked
       them. Files: `crates/core/src/candidate.rs`, `crates/core/src/faces.rs`.
 
-Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/sharpness.ts`, `crates/app/ui/src/burst.ts`.
+Related: `crates/core/src/sharpness.rs`, `crates/core/src/faces.rs`, `crates/core/src/arw.rs`, `crates/app/src/index.rs`, `crates/app/ui/src/burst.ts`.
 
 ### App: real-device check of the face boxes on the whole-image detection path
 

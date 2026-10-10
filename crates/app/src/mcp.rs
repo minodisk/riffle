@@ -458,9 +458,9 @@ impl Companion {
     #[tool(
         description = "Switch Riffle's view mode: `normal` for the fitted preview, `zoom` for \
         the 1:1 focus check of the current photo, or `compare` for the selected photos (2 to \
-        4) side by side, or the current photo and its burst's sharpest frame when only one is \
-        selected. Compare fails when there are fewer than two photos to compare. Returns the \
-        new view, as `get_view` does."
+        4) side by side, or the current photo and its burst's first good frame (else its first \
+        frame) when only one is selected. Compare fails when there are fewer than two photos \
+        to compare. Returns the new view, as `get_view` does."
     )]
     async fn set_view(&self, Parameters(args): Parameters<ViewArgs>) -> CallToolResult {
         tool_result(

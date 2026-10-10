@@ -914,29 +914,6 @@ body {
   color: var(--reject-color);
 }
 
-/* The sharpness cue, a bar up the image box's left edge whose length is the
-   file's score over the sharpest of its neighbors; overrides the name span's
-   placement above. */
-.cell span.sharpness {
-  top: 24px;
-  bottom: auto;
-  left: 2px;
-  width: 3px;
-  height: 96px;
-  padding: 0;
-  background: var(--muted-foreground);
-  transform: scaleY(var(--ratio));
-  transform-origin: bottom;
-}
-
-.cell span.sharpness.best {
-  background: var(--pick-color);
-}
-
-.cell span.sharpness[hidden] {
-  display: none;
-}
-
 /* The burst band, a tint behind the cells of a burst that reaches a little
    outside each cell and, on a member right of another, left across the gap,
    so a burst reads as one block; at a burst's first and last cell it stops

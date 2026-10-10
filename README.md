@@ -127,7 +127,8 @@ DxO PhotoLab.
   sharpness score barely told picks from the rest on such frames.
   The camera's face tracking no longer colors the mark. The cue is computed
   in a second pass right after the thumbnails, so the marks turn from white
-  as it runs, the files on screen first; the strip marks each judged file
+  as it runs, the files on screen first (both passes run below normal
+  priority, so the viewer comes first when they compete for the CPU); the strip marks each judged file
   with an icon at the cell's bottom-left in the mark's color (a face on a good
   photo, a bare frame on gray, none on white), the meta pane
   shows the probability as `AF eye in focus` (a percentage), whether that
@@ -142,14 +143,6 @@ DxO PhotoLab.
   the face the `Eyes` row judged also gets the outline of its face parts (face
   oval, eyes, brows, nose, lips) and, when the eyes are judged open, the
   irises, a moment after that row.
-- **Sharpness cue**: a bar beside each thumbnail shows which frame of a burst is
-  sharpest, scored on the camera's eye-AF frame when the camera recorded face
-  tracking, else around the AF point, else on the subject's eyes when the
-  camera recorded no AF point and a face is found, else the sharpest region
-  (see [What the camera records](./docs/humans/cameras.md)). The score is computed in
-  the same second pass as the focus mark's state, so the bars fill in after the
-  thumbnails. Both passes run below normal priority, so the viewer comes first
-  when they compete for the CPU.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license); whether the eyes of the shown file's subject are
@@ -169,7 +162,7 @@ DxO PhotoLab.
   sub-second capture time are grouped by whole seconds (see
   [What the camera records](./docs/humans/cameras.md)).
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
-  beside the sharpest frame in its burst. Click a frame to rate, pick or
+  beside its burst's first good frame (else the burst's first frame). Click a frame to rate, pick or
   reject only that one.
 - **Move Rejected to Trash**: right-click a folder in the folder tree and
   choose `Move Rejected to Trash…` to move its rejected shots to the Trash,

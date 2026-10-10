@@ -140,6 +140,31 @@
 - No app code changed; the `analyzed` flag of the ship branch was not
   added.
 
+## Step 5: Remove the sharpness displays
+
+- Removed the strip's bar (`strip.ts`, the `.cell span.sharpness` CSS),
+  `sharpness.ts` / `relativeSharpness` and its tests (Step 4 shipped no
+  relative form), `applySharpness` in `main.ts`, the `sharpness` timing
+  field of `refresh.ts`, the meta pane's `Sharpness` row (`metaGroups`
+  lost its `sharpness` parameter) and Compare's `BEST` label and green
+  outline. Compare's label also lost the score itself (a sharpness display
+  too); it shows the file name and `ACTIVE`.
+- The `sharpness` map in `main.ts` and `applySharpnessReady` stay, for the
+  MCP companion's `get_view` / `get_photo`; `applySharpnessReady` no longer
+  returns whether a score changed (nothing reads it now).
+- `comparisonCandidates` takes a `good(path)` predicate (`photoTier` of the
+  entry's focus) and the burst `position`: a lone file is paired with the
+  first displayed good frame of its burst in capture order, else the first
+  displayed frame, never with itself (the old ranking showed the same file
+  twice when it was the sharpest). The candidates are not recomputed when
+  pass 2 changes a tier mid-compare, as the old ranking was not on a score
+  change.
+- The MCP `set_view` tool description in `crates/app/src/mcp.rs` named the
+  "sharpest frame"; reworded to the new pairing.
+- `todo.md`: the "burst best sharpness mark" item is removed; the related
+  path `crates/app/ui/src/sharpness.ts` in another item's `Related:` line
+  went with the file.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 2, checkbox ticked on the automated criteria):
@@ -164,3 +189,12 @@
   re-measure a Good / Bad for frames with no face", so the wrap-up adds no
   second item. Files:
   `crates/app/ui/src/focus.ts` (where a rule would go).
+- Pending manual check (Step 5, checkbox ticked on the automated criteria):
+  on Windows or macOS, open a folder with bursts (e.g. a copy of an ARW
+  burst folder under `D:\Photos\tests\`). Expected: no bar up the left edge
+  of any strip cell; the meta pane's Analysis group has no `Sharpness` row;
+  `v` on one file of a burst shows it beside the burst's first bright-green
+  (good) frame, else the burst's first frame, with labels of the file name
+  (and `ACTIVE`) only, no `BEST`, no score, no green outline. Files:
+  `crates/app/ui/src/main.ts`, `crates/app/ui/src/compare.ts`,
+  `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.

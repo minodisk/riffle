@@ -27,7 +27,6 @@ import {
   toStored,
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
-import { relativeSharpness } from "./sharpness.js";
 import { burstFrameStep, burstMarks, burstStep, groupBursts, type BurstMember } from "./burst.js";
 import { placeholderRect } from "./zoom.js";
 import {
@@ -41,6 +40,7 @@ import {
   applySharpnessReady,
   faceMarks,
   focusMark,
+  photoTier,
   stripState,
 } from "./focus.js";
 import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
@@ -511,7 +511,7 @@ const flags = new Map<string, "pick" | "reject">();
 // `ratings`.
 const labels = new Map<string, string>();
 // The sharpness score of every file the index has one for, from
-// `folder_entries`; cleared with `labels`.
+// `folder_entries`, for the MCP companion; cleared with `labels`.
 const sharpness = new Map<string, number>();
 // The faces the focus mark draws, detected per file when first shown with
 // the mark on; cleared with `sharpness`.
@@ -580,8 +580,8 @@ let grayscaleHeld: string | null = null;
 // True while the 1:1 focus check is showing instead of the fitted preview.
 let zoomed = false;
 // Side-by-side culling view. With a multi-selection it compares up to four
-// selected files; otherwise it compares the current file with the sharpest
-// frame in its burst. The bitmaps are independent of `shown`, which remains
+// selected files; otherwise it compares the current file with the first good
+// frame (`photoTier`) of its burst, else the burst's first frame. The bitmaps are independent of `shown`, which remains
 // ready for an immediate return to the single-image view.
 let comparing = false;
 let compareSeq = 0;
@@ -738,7 +738,6 @@ function renderMeta(): void {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
     for (const group of metaGroups(
       meta,
-      sharpness.get(files[index]) ?? null,
       entries.get(files[index])?.focus,
       eyesCache.get(files[index]),
     )) {
@@ -1413,7 +1412,13 @@ function draw(): void {
 }
 
 function compareCandidates(): string[] {
-  return comparisonCandidates(files, index, selection.selected, bursts, sharpness);
+  return comparisonCandidates(
+    files,
+    index,
+    selection.selected,
+    bursts,
+    (path) => photoTier(entries.get(path)?.focus) === "good",
+  );
 }
 
 function closeCompareFrames(): void {
@@ -1444,7 +1449,6 @@ function drawCompare(): void {
   const gap = 4;
   const cellWidth = (width - gap * (columns - 1)) / columns;
   const cellHeight = (height - gap * (rows - 1)) / rows;
-  const best = Math.max(...compareFrames.map(({ path }) => sharpness.get(path) ?? -Infinity));
   compareFrames.forEach(({ path, bitmap, orientation }, at) => {
     const col = at % columns;
     const row = Math.floor(at / columns);
@@ -1467,20 +1471,16 @@ function drawCompare(): void {
     else if (orientation === 3) context.rotate(Math.PI);
     context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
     context.restore();
-    const score = sharpness.get(path);
-    const isBest = score !== undefined && score === best && compareFrames.length > 1;
     const isActive = path === compareActivePath;
-    context.fillStyle = isBest ? "#244c31" : THEME.card;
+    context.fillStyle = THEME.card;
     context.fillRect(x, y + cellHeight - labelHeight, cellWidth, labelHeight);
-    context.fillStyle = isBest ? "#6bdc8a" : THEME.foreground;
+    context.fillStyle = THEME.foreground;
     context.font = "12px system-ui, sans-serif";
     context.textBaseline = "middle";
-    const suffix =
-      (score === undefined ? "" : `  ·  ${score.toFixed(1)}`) +
-      `${isBest ? "  BEST" : ""}${isActive ? "  ACTIVE" : ""}`;
+    const suffix = isActive ? "  ACTIVE" : "";
     context.fillText(`${baseName(path)}${suffix}`, x + 8, y + cellHeight - labelHeight / 2);
-    context.strokeStyle = isBest ? "#6bdc8a" : THEME.border;
-    context.lineWidth = isBest ? 2 : 1;
+    context.strokeStyle = THEME.border;
+    context.lineWidth = 1;
     context.strokeRect(x + 0.5, y + 0.5, cellWidth - 1, cellHeight - 1);
     if (isActive) {
       context.strokeStyle = THEME.primary;
@@ -1679,7 +1679,6 @@ function refilter(
   files.forEach((path, at) => {
     strip.setRating(at, ratings.get(path) ?? null, flagOf(path), labels.get(path) ?? null);
   });
-  applySharpness();
   applyBursts();
   applyTiers();
   applyFailures();
@@ -2042,25 +2041,6 @@ function redo(): void {
   step(redoable, history, "Redid");
 }
 
-// Hand the strip each visible file's score relative to its burst, or to the
-// singles around it. The comparison runs over `allFiles` in capture order, so
-// neither the filter nor the sort changes it.
-function applySharpness(): void {
-  const result = relativeSharpness(allFiles, (path) => {
-    const entry = entries.get(path);
-    const member = bursts.get(path);
-    return {
-      captureTime: entry?.capture_time ?? undefined,
-      subsec: entry?.subsec ?? undefined,
-      score: sharpness.get(path) ?? null,
-      burst: member !== undefined && member.size > 1 ? member.burst : null,
-    };
-  });
-  files.forEach((path, at) => {
-    strip.setSharpness(at, result.get(path) ?? null);
-  });
-}
-
 // Hand the strip each displayed file's place in its burst, so the bracket
 // opens and closes where a filter or sort separates members.
 function applyBursts(): void {
@@ -2136,8 +2116,6 @@ function refreshEntries(): void {
       const metaed = performance.now();
       draw();
       const drawn = performance.now();
-      applySharpness();
-      const sharpened = performance.now();
       applyBursts();
       const bracketed = performance.now();
       applyTiers();
@@ -2157,8 +2135,7 @@ function refreshEntries(): void {
           exif: exifed - grouped,
           meta: metaed - exifed,
           draw: drawn - metaed,
-          sharpness: sharpened - drawn,
-          applyBursts: bracketed - sharpened,
+          applyBursts: bracketed - drawn,
           candidates: marked - bracketed,
           refilter: end - marked,
           setFiles,
@@ -3693,10 +3670,7 @@ void window.__TAURI__.event.listen<{
   }
   scanning = `analyzing ${payload.done} / ${payload.total}`;
   const current = applyFaceReady(entries, payload.ready, files[index]);
-  const scored = applySharpnessReady(entries, sharpness, payload.ready);
-  if (scored) {
-    applySharpness();
-  }
+  applySharpnessReady(entries, sharpness, payload.ready);
   applyTiers();
   // The candidate, tier and eyes filters fill in as the pass runs; the strip keeps
   // its scroll offset, as on a resync.
@@ -3704,9 +3678,7 @@ void window.__TAURI__.event.listen<{
     refilter(files[index], true);
   }
   renderMeta();
-  // Compare's labels and BEST bar read the scores of frames other than the
-  // current one.
-  if (current || (scored && comparing)) {
+  if (current) {
     draw();
   }
 });
