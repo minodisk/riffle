@@ -187,18 +187,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   frames with a face at the AF point. On 180 frames the author rated (1 star
   for no subject, 2 for likely rejected, 3 or more for a pass), 54 of the 58
   good frames passed and none was a frame without a subject. Bright green
-  also marks a focus candidate that is not good (the strip's icon tells the
-  two apart): the eyes of the face nearest the AF
-  point are likely in focus (their in-focus probability, a logistic
-  combination of the Laplacian variance and the mean edge width, is about
-  77% or more), but the in-focus probability, the eyes, the pose, the mesh or the frame's edge miss a cut. The
+  means good only. Gray means a face was found near the AF point but the
+  frame is not good: the in-focus probability of its eyes (a logistic
+  combination of the Laplacian variance and the mean edge width; about 77%
+  or more makes a focus candidate) is under the cut, including a window
+  between the eyes with no clear edge, which counts as 0%, or the eyes, the
+  pose, the mesh or the frame's edge miss a cut. The
   probability is measured over each eye's eyelid region, which a face mesh
   model (MediaPipe Face Landmarker v2) finds, and the sharper of the two
   eyes counts; when neither eye's region counts (under 24 px, as on small
   faces, or without a clear edge), it is measured over the preview between
-  the eyes instead. Gray when a face is near the AF point but its eyes are
-  likely not in focus (including a window between the eyes with no clear
-  edge, which counts as 0%); white when Riffle does not know (no AF point,
+  the eyes instead. White when Riffle does not know (no AF point,
   manual focus, no face near the point, or not computed yet). A frame
   without an AF point, with manual focus, with no face near the point or
   with a face under about 60 pixels on the embedded preview is never good,
@@ -210,8 +209,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   screen first, while the status shows `analyzing N / M`. The strip marks
   each judged frame with an icon in the mark's color at the cell's
   bottom-left, above the file name, filling in as the pass runs: a face
-  (Lucide's `scan-face`) on a good frame, an eye (`scan-eye`) on another
-  focus candidate and a bare frame (`scan`) on a gray one, all ISC license,
+  (Lucide's `scan-face`) on a good frame and a bare frame (`scan`) on a
+  gray one, both ISC license,
   text in `crates/app/ui/LICENSE-lucide`; white frames get none. On the 406 hand-labeled α7 V frames with a face the focus
   candidate cue was fitted on, 94% of the candidates were in focus and 91%
   of the in-focus frames were candidates; on 400 frames from other shoots it
@@ -306,13 +305,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus mark's state (the
   `AF eye` section, each item with the strip's icon of its state: `Good`
-  for a good photo, the bright green mark and face icon; `OK` for a bright
-  green mark with the eye icon, the AF eye in focus but not a good photo;
-  `Bad` for gray and `Unknown` for white, including files the second pass
+  for a good photo, the bright green mark and face icon; `Bad` for gray,
+  a face near the AF point on a frame that is not good, its AF eyes in
+  focus or not; and `Unknown` for white, including files the second pass
   has not reached; each file falls under exactly one of them,
-  checking several shows the files in any of them, so `Good` and `OK`
-  together show every in-focus frame, and the strip refills as the pass
-  runs), the stored eye state of the face nearest the AF point (the
+  checking several shows the files in any of them, and the strip refills
+  as the pass runs), the stored eye state of the face nearest the AF point (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
   state, such as one without an AF point, with a face under about 60 pixels,
   or not reached by the second pass yet),

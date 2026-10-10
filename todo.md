@@ -2,15 +2,15 @@
 
 ## Cross-cutting / other
 
-### App: real-device check of the AF eye Good / OK / Bad / Unknown icons and mark colors
+### App: real-device check of the AF eye Good / Bad / Unknown icons and mark colors
 
-The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
+The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark; the `af-eye-good-bad-cascade` plan (Step 1, `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`) then merged `OK` into `Bad`, so the states are `Good` / `Bad` / `Unknown`. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
 
 Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/strip.ts`, `crates/app/ui/src/icons.ts`, `crates/app/ui/index.html`, `CLAUDE.md`.
 
 #### TODO
 
-- [ ] On any desktop platform, open a folder with faced AF frames and wait for `analyzing N / M` to finish. Check that the strip shows a bright green `scan-face` on good frames, a bright green `scan-eye` on other focus candidates, a gray `scan` on not-sharp frames and nothing on unknown ones. Check that the filter menu's `AF eye` items show the same icons (`Unknown` an empty aligned slot). Check that the `f` mark is bright green for good and OK frames, gray for Bad and white for unknown, with the gray readable on photos.
+- [ ] On any desktop platform, open a folder with faced AF frames and wait for `analyzing N / M` to finish. Check that the strip shows a bright green `scan-face` on good frames, a gray `scan` on bad frames (a face near the AF point, the frame not good, its AF eyes in focus or not) and nothing on unknown ones. Check that the filter menu's `AF eye` items (`Good` / `Bad` / `Unknown`) show the same icons (`Unknown` an empty aligned slot). Check that the `f` mark is bright green for good, gray for bad and white for unknown, with the gray readable on photos.
 - [ ] Reword the `src/focus.ts` sentence in `CLAUDE.md`, which still says `photoTier` "puts the strip's face icon on a good frame", to describe the per-state icon (`stripState` / `FOCUS_MARK_ICONS`).
 
 ### Core: the `.dop` reader ignores a picked PhotoLab virtual copy

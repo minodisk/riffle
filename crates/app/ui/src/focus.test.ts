@@ -11,6 +11,7 @@ import {
   MAX_EYE_OFFSET,
   MIN_EDGE_GAP,
   type MarkFocus,
+  afEyeState,
   applyFaceReady,
   applySharpnessReady,
   eyesOpenness,
@@ -19,7 +20,7 @@ import {
   photoTier,
   stripState,
 } from "./focus.js";
-import { SCAN_EYE_SVG, SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
+import { SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
 const noEyes = {
   eyes_ear: null,
@@ -91,11 +92,11 @@ describe("focusMark", () => {
     },
   );
 
-  test("a focus candidate carries its photoTier, else candidate_only", () => {
+  test("a focus candidate carries its photoTier, else not_candidate", () => {
     expect(focusMark(good, 700, 468)?.state).toBe("good");
     expect(focusMark({ ...good, eyes_ear: GOOD_EYE_EAR }, 700, 468)?.state).toBe("good");
-    expect(focusMark({ ...good, eyes_ear: 0.1 }, 700, 468)?.state).toBe("candidate_only");
-    expect(focusMark({ ...point, candidate: "candidate" }, 700, 468)?.state).toBe("candidate_only");
+    expect(focusMark({ ...good, eyes_ear: 0.1 }, 700, 468)?.state).toBe("not_candidate");
+    expect(focusMark({ ...point, candidate: "candidate" }, 700, 468)?.state).toBe("not_candidate");
   });
 
   test("a manual-focus or missing point stays null whatever the state", () => {
@@ -107,10 +108,9 @@ describe("focusMark", () => {
 });
 
 describe("FOCUS_MARK_COLORS", () => {
-  test("bright green for good and a candidate only, gray, white", () => {
+  test("bright green for good, gray for bad, white for unknown", () => {
     expect(FOCUS_MARK_COLORS).toEqual({
       good: "#3f3",
-      candidate_only: "#3f3",
       not_candidate: "#999",
       unknown: "#fff",
     });
@@ -118,10 +118,9 @@ describe("FOCUS_MARK_COLORS", () => {
 });
 
 describe("FOCUS_MARK_ICONS", () => {
-  test("scan-face for good, scan-eye for a candidate only, scan, none for unknown", () => {
+  test("scan-face for good, scan for bad, none for unknown", () => {
     expect(FOCUS_MARK_ICONS).toEqual({
       good: SCAN_FACE_SVG,
-      candidate_only: SCAN_EYE_SVG,
       not_candidate: SCAN_SVG,
       unknown: null,
     });
@@ -136,12 +135,34 @@ describe("stripState", () => {
 
   test("is the mark's state, a manual-focus shot included", () => {
     expect(stripState(good)).toBe("good");
-    expect(stripState({ ...good, eyes_ear: 0.1 })).toBe("candidate_only");
+    expect(stripState({ ...good, eyes_ear: 0.1 })).toBe("not_candidate");
     expect(stripState({ ...point, candidate: "not_candidate" })).toBe("not_candidate");
     expect(stripState(point)).toBe("unknown");
     expect(stripState({ ...point, manual_focus: true, candidate: "not_candidate" })).toBe(
       "not_candidate",
     );
+  });
+});
+
+describe("afEyeState", () => {
+  test("is unknown without a focus", () => {
+    expect(afEyeState(null)).toBe("unknown");
+    expect(afEyeState(undefined)).toBe("unknown");
+  });
+
+  test("is good for the photo tier", () => {
+    expect(afEyeState(good)).toBe("good");
+  });
+
+  test("is not_candidate for a focus candidate that is not good", () => {
+    expect(afEyeState({ ...good, eyes_ear: 0.1 })).toBe("not_candidate");
+    expect(afEyeState({ ...good, eye_focus: GOOD_EYE_FOCUS - 0.01 })).toBe("not_candidate");
+    expect(afEyeState({ ...point, candidate: "candidate" })).toBe("not_candidate");
+  });
+
+  test("carries a not_candidate or unknown focus as is", () => {
+    expect(afEyeState({ ...point, candidate: "not_candidate" })).toBe("not_candidate");
+    expect(afEyeState(point)).toBe("unknown");
   });
 });
 

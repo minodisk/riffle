@@ -32,10 +32,10 @@ import {
   type FaceReady,
   type Faces,
   applyFaceReady,
+  afEyeState,
   applySharpnessReady,
   faceMarks,
   focusMark,
-  photoTier,
   stripState,
 } from "./focus.js";
 import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
@@ -1622,9 +1622,8 @@ function passes(path: string): boolean {
     },
     entries.get(path)?.exif,
     entries.get(path)?.orientation,
-    entries.get(path)?.focus?.candidate,
+    afEyeState(entries.get(path)?.focus),
     entries.get(path)?.focus?.eyes,
-    photoTier(entries.get(path)?.focus),
   );
 }
 
@@ -2195,9 +2194,8 @@ function refreshEntries(): void {
 // records only the point gets the crosshair alone, and a manual-focus shot,
 // whose recorded point is not trusted, gets no mark. The mark is bright green
 // for a good photo (`photoTier`: the eyes of the face nearest the AF point are
-// sharp and open and the face is toward the camera) and for a focus
-// candidate that is not one,
-// gray when that face's eyes are not sharp, and
+// sharp and open and the face is toward the camera), gray when that face was
+// judged and the frame is not good (its eyes not sharp included), and
 // white when Riffle does not know: no face near the point, or the second scan
 // pass has not reached the file yet.
 function drawFocusMark(drawWidth: number, drawHeight: number): void {
@@ -3797,12 +3795,8 @@ const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 // The icons of the `AF eye` items, the strip's icon of the same state in the
 // focus mark's color; `Unknown` keeps its slot empty.
-for (const [candidate, state] of [
-  ["good", "good"],
-  ["candidate", "candidate_only"],
-  ["not_candidate", "not_candidate"],
-] as const) {
-  const face = filterMenu.querySelector<HTMLElement>(`[data-candidate="${candidate}"] .face`)!;
+for (const state of ["good", "not_candidate"] as const) {
+  const face = filterMenu.querySelector<HTMLElement>(`[data-candidate="${state}"] .face`)!;
   face.innerHTML = FOCUS_MARK_ICONS[state];
   face.style.color = FOCUS_MARK_COLORS[state];
 }

@@ -101,7 +101,7 @@ or a failure.
 
 ## Steps
 
-- [ ] Step 1: Merge `OK` into `Bad`: the AF eye judgment becomes Good / Bad / Unknown
+- [x] Step 1: Merge `OK` into `Bad`: the AF eye judgment becomes Good / Bad / Unknown
   - Done when:
     - `crates/app/ui/src/focus.ts`: `MarkState` is `"good" | "not_candidate"
       | "unknown"`; `candidate_only` is gone from `MarkState`,
