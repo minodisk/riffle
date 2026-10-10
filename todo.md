@@ -602,8 +602,10 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       or more) and none has no subject. The meta pane's `Eyes` row now
       shows the openness, 0-100 from the EAR, instead of the open
       probability. See `docs/plans/20261008-burst-keep-score/` (Decision B, `provisional.md`).
-- [ ] Re-tune the good-photo cuts once the face-mesh roll correction lands
-      (`docs/plans/20261008-burst-keep-score/plan.md` Step 7). Done when the 180 rated frames of
+- [ ] Re-tune the good-photo cuts
+      (`docs/plans/20261008-burst-keep-score/plan.md` Step 7, which waited
+      on the face-mesh roll correction; that was declined in
+      `docs/plans/20261010-mesh-roll/`, so the wait is over). Done when the 180 rated frames of
       `D:\photos\samples\ARW\good-mark-2026-10-09\` (stars in their
       sidecars; 1 = no subject, 2 = likely rejected, 3+ = pass) are
       re-dumped with the new CLI, the cuts are chosen so no 1-star and as
@@ -660,6 +662,56 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       folder 12.9 -> 21.5 s at 24 threads (+66%). `FACES_VERSION` 6. See
       `docs/plans/_archived/20261008-mesh-eye-focus/` and
       `docs/humans/performance.md` "Focus candidate pass".
+- [x] Measure whether de-rotating the face crop by YuNet's eye line (the
+      MediaPipe pipeline's roll step) fits the face mesh better. It does
+      not, in any variant (always, dead bands of 10 / 20 deg, a YuNet
+      eye-distance guard): always-rotate turns 7 off meshes on and 15 on
+      meshes off on 131 readable labeled frames and drops the held-out AF
+      eye AUC 0.800 -> 0.783; the share of AF frames with `eye_offset` over
+      0.10 stays 28.7% on six folders. Where the rotation moves a fit,
+      YuNet's two eye points are not on two eyes. The residual misfits are
+      side faces (78% of the off meshes, weighted), then cut, rotated past
+      90 deg, seen from above and not-a-face. Nothing in the scan or the
+      index changed. See `docs/plans/20261010-mesh-roll/` (Decision,
+      `compare.md`, `misfit-truth.md`).
+- [ ] Make `eye_offset` reliable where YuNet's eye distance is under 0.20
+      of the face box side, for `20261008-burst-keep-score`, which owns the
+      `MAX_EYE_OFFSET` 0.10 cut. `docs/plans/20261010-mesh-roll/` found that,
+      weighted to its six folders, about 27% of the frames over 0.10 have a
+      mesh off the face and about 65% an on-face mesh compared against YuNet
+      eye points that are off the eyes (profiles whose two points sit
+      together on one eye or the nose); frames under 0.20 eye distance are
+      33.5% of the frames but 66% of those over 0.10. Done when the cut is
+      skipped below that eye distance or `eye_offset` is replaced by a check
+      of the mesh against its own geometry, and the good-photo mark's share
+      and the rated frames of `D:\photos\samples\ARW\good-mark-2026-10-09\`
+      are re-read. Files: `crates/core/src/candidate.rs`
+      (`mesh_eye_offset`), `crates/app/ui/src/focus.ts` (`MAX_EYE_OFFSET`).
+- [ ] Distrust the mesh values on side faces, the dominant mesh misfit
+      (78% of the off meshes, weighted, in
+      `docs/plans/20261010-mesh-roll/misfit-truth.md`). Done when a rule
+      (e.g. YuNet eye distance under 0.10 of the box side, or the mesh's
+      |yaw| past a bound) leaves the EAR, the AF eye cue and the pose of
+      such a face unknown instead of a plausible-looking wrong value, checked
+      on the misfit truth set and on the AF-eye, closed-eyes and head-pose
+      labeled sets. Files: `crates/core/src/candidate.rs`,
+      `crates/core/src/eyes.rs`.
+- [ ] Faces rolled past 90 deg (a baby lying head-down,
+      `D:\photos\2026\2026-07-11\_DSC2638.ARW`) get a mesh fitted as if
+      upright, and the eye line cannot de-rotate them: `faces.rs` orders
+      YuNet's eye points by image x, so the eye-line roll folds into -90..+90
+      deg. They need another roll source (a mesh pass on rotated crops,
+      MediaPipe's tracking loop). Not planned; see
+      `docs/plans/20261010-mesh-roll/` (Decision). Files:
+      `crates/core/src/faces.rs`, `crates/core/src/eyes.rs`.
+- [ ] Review the mesh misfit labels: open the sheets
+      `D:\Photos\tests\2026-10-09-mesh-roll\sheets\s00.png` to `s15.png`
+      and compare each tile to its row of
+      `docs/plans/20261010-mesh-roll/misfit-truth.md` (`before` / `after`
+      `on` or `off` with its kind, and `yunet ok` / `yunet off`). The
+      Decision's shares rest on the agent's labels; if labels change,
+      re-run `compare.py` in that plan folder and update `compare.md` and
+      the Decision if a number moves.
 - [ ] Repoint the MCP `get_view` tool's `eyes` answer to the stored values.
       Pass 2 now stores the EAR and the pose of the face it meshes (the
       `mesh-eyes-index` work: `eyes_ear`, `eyes`, `eyes_closed` and `pose` on

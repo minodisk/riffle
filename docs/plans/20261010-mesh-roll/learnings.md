@@ -103,31 +103,35 @@
   `\t` failed to match; writing the patch script with the Write tool
   avoided it (as in Step 1).
 
+## Step 3: removal and follow-ups
+
+- **The Step 1 / Step 2 code is gone**: `crates/core/src/eyes.rs` and
+  `crates/cli/src/main.rs` were restored to their state before #755 (only
+  #755 and #758 had touched them since), so `eye_line_roll`,
+  `rotated_crop`, `rotate_back`, `landmarks_of_rotated`, `mesh_of_rotated`,
+  `riffle-cli meshfit` and their tests no longer exist. The code stays
+  reachable from #755 (`a5ee087e`) and the Step 2 commit (`c1843389`,
+  #758, which added the three `yunet_*` columns). The dump, the sheets,
+  `dump.sh` and the release `riffle-cli.exe` that produced every number
+  stay in `D:\Photos\tests\2026-10-09-mesh-roll\`. No doc outside this
+  folder named the removed functions or `meshfit`.
+- **Filed in `todo.md`** (face / eye section): a checked item for this
+  measurement and unchecked ones for the `eye_offset` reliability under a
+  0.20 eye distance, a side-face rule, faces rolled past 90 deg, and the
+  review of the misfit labels. The four deferred issues Steps 1-2 had
+  recorded here were moved into those items (the fifth, keep or remove the
+  diagnostic code, was decided by the user: removed). The existing
+  "Re-tune the good-photo cuts once the face-mesh roll correction lands"
+  item was reworded to say the roll correction was declined, so its wait
+  is over; `docs/plans/20261008-burst-keep-score/plan.md` Step 7 still
+  says it waits on the roll correction and was left to that plan (another
+  session owns it).
+
 ## Deferred issues (todo candidates)
 
-- **The user's review of the misfit labels** (`misfit-truth.md`, sheets
-  `D:\Photos\tests\2026-10-09-mesh-roll\sheets\s00.png`-`s15.png`): the
-  Decision's shares rest on the agent's labels. Basis: Step 2 Done-when
-  ("the user's review is final"). Files:
-  `docs/plans/20261010-mesh-roll/misfit-truth.md`.
-- **`eye_offset` is unreliable where YuNet's eye distance is under 0.20 of
-  the box side** (profiles whose two eye points sit together): about 65% of
-  the frames over `MAX_EYE_OFFSET` 0.10 have an on-face mesh. For
-  `20261008-burst-keep-score`, which owns the cut: skip the offset cut
-  below that eye distance or compare the mesh against its own geometry.
-  Basis: Step 2 truth set and `compare.md` finding 5. Files:
-  `crates/core/src/candidate.rs` (`mesh_eye_offset`),
-  `crates/app/ui/src/focus.ts` (`MAX_EYE_OFFSET`).
-- **Side faces are the dominant real misfit** (78% of the off meshes,
-  weighted): a rule that distrusts the mesh values (EAR, AF eye cue, pose)
-  on profiles, e.g. by YuNet eye distance under 0.10 or the mesh's |yaw|.
-  Basis: Step 2 truth set. Files: `crates/core/src/candidate.rs`,
-  `crates/core/src/eyes.rs`.
-- **Faces rolled past 90 deg** (a baby lying head-down, `2026-07-11__DSC2638`)
-  cannot be de-rotated from YuNet's x-ordered eye points; they need another
-  roll source (a mesh pass on rotated crops, MediaPipe's tracking loop).
-  Not planned. Basis: Decision. Files: `crates/core/src/faces.rs` (eye
-  order), `crates/core/src/eyes.rs`.
-- **Keep or remove the Step 1 opt-in functions and `riffle-cli meshfit`**
-  if the Decision (decline) is approved. Basis: Decision "If approved".
-  Files: `crates/core/src/eyes.rs`, `crates/cli/src/main.rs`.
+- **`20261008-burst-keep-score` Step 7's gate is moot**: its plan.md
+  (Step 7 and the lines around 615 / 679 / 683) says it starts only after
+  the face-mesh roll correction is merged; the correction was declined
+  (this plan's Decision), so the owning plan should drop the gate. Basis:
+  Step 3, found while filing the follow-ups. Files:
+  `docs/plans/20261008-burst-keep-score/plan.md`.
