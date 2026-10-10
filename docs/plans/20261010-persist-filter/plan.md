@@ -40,7 +40,7 @@ launch.
     - Allowed values, from `ui/index.html`'s `data-*` items and the types in `ui/src/filter.ts`, `ui/src/focus.ts` (`MarkState`) and `ui/src/eyes.ts` (`EyeState`): flags `picked|untagged|rejected`; labels `red|orange|yellow|green|blue|pink|purple|none`; orientations `portrait|landscape`; candidates `good|not_candidate|unknown`; eyes `open|closed|unknown`. Keep them as `const` slices with a comment naming those files as the source of truth, so a renamed state (as in #766) is updated in both places.
     - Dedupe members, keep the stored order, do not sort.
     - Follow the doc-comment and `log::warn!` style of `set_sort_order` (`commands.rs` ~853-886) and `set_panels` / `panels_setting` (~1870-1913). No managed state struct is needed: nothing native reads the filter.
-- [ ] Step 2: Save the filter on every change, restore it at launch, and document it
+- [x] Step 2: Save the filter on every change, restore it at launch, and document it
   - Done when: `crates/app/ui/src/filter.ts` exports a `StoredFilter` type matching Step 1's shape plus `toStored(state: FilterState): StoredFilter` (the six sets as arrays, `exif` not included) and `applyStored(state: FilterState, stored: StoredFilter): void` (replaces the six sets' contents, leaves `exif` alone), with vitest cases in `filter.test.ts` for the round-trip, the empty filter, and `applyStored` not touching `exif`; `main.ts` invokes `set_filter` with `toStored(...)` from the change path of `filterChanged()` (every item click and `Reset` persist); at launch it invokes `filter`, applies the value to the `shown*` sets, mirrors the menu's `aria-checked` and the filter button's `active` class without rendering, and only then reopens the last folder; `docs/humans/usage.md`'s Filter menu bullet (~line 305) and `docs/humans/usage.ja.md` (line 20) say the flag, star, label, orientation, `AF eye` and `Eyes` checks are remembered across restarts and apply to every folder, while the EXIF checks are not (they clear when a folder opens, as today), and that `Reset` clears the remembered filter too. Manual check: set a filter, quit, relaunch -> same files hidden, checks and lit button shown; `Reset`, relaunch -> no filter; a bogus `filter` value in `settings.json` -> launches unfiltered. `mise run ci` passes.
   - Implementation approach:
     - Assumes Step 1 is merged.
@@ -60,3 +60,4 @@ launch.
 ## Progress
 
 - (2026-10-10) Step 1 complete
+- (2026-10-10) Step 2 complete

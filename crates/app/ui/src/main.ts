@@ -16,11 +16,15 @@ import { ErrorList } from "./errors.js";
 import { token } from "./theme.js";
 import {
   type AfEye,
+  type FilterState,
   type Flag,
   type Orientation,
+  type StoredFilter,
   anchorAfterFilter,
+  applyStored,
   filterListChanged,
   passes as filterPasses,
+  toStored,
 } from "./filter.js";
 import { type SortKey, orderFiles } from "./sort.js";
 import { relativeSharpness } from "./sharpness.js";
@@ -561,6 +565,15 @@ const exifGroups: { group: ExifGroup; heading: string }[] = [
 const shownExif = new Map<ExifGroup, Set<string>>(
   exifGroups.map(({ group }) => [group, new Set<string>()]),
 );
+const filterState: FilterState = {
+  flags: shownFlags,
+  stars: shownStars,
+  labels: shownLabels,
+  orientations: shownOrientations,
+  candidates: shownCandidates,
+  eyes: shownEyes,
+  exif: shownExif,
+};
 let showFocus = false;
 // The event.code of the key holding the grayscale preview, or null when off.
 let grayscaleHeld: string | null = null;
@@ -1603,15 +1616,7 @@ function flagOf(path: string): PickFlag {
 
 function passes(path: string): boolean {
   return filterPasses(
-    {
-      flags: shownFlags,
-      stars: shownStars,
-      labels: shownLabels,
-      orientations: shownOrientations,
-      candidates: shownCandidates,
-      eyes: shownEyes,
-      exif: shownExif,
-    },
+    filterState,
     {
       rating: ratings.get(path) ?? null,
       flag: flagOf(path),
@@ -3868,9 +3873,8 @@ function setFilterMenuOpen(open: boolean): void {
   filterToggle.setAttribute("aria-expanded", String(open));
 }
 
-// Mirror the sets onto the menu's check marks and the button's lit state,
-// then rebuild the view.
-function filterChanged(): void {
+// Mirror the sets onto the menu's check marks and the button's lit state.
+function mirrorFilter(): void {
   for (const item of filterItems) {
     const { flag, stars, label, orientation, candidate, eyes } = item.dataset;
     const checked =
@@ -3892,7 +3896,13 @@ function filterChanged(): void {
     item.setAttribute("aria-checked", String(shownExif.get(group as ExifGroup)!.has(value!)));
   }
   filterToggle.classList.toggle("active", filterActive());
+}
+
+// Mirror the sets, rebuild the view and remember the filter.
+function filterChanged(): void {
+  mirrorFilter();
   refilter();
+  void window.__TAURI__.core.invoke("set_filter", { filter: toStored(filterState) });
 }
 
 filterToggle.addEventListener("click", () => {
@@ -4149,12 +4159,21 @@ void window.__TAURI__.core.invoke<Panels>("panels").then(applyPanels, () => {});
 
 // Apply the remembered sort before the last folder opens, so it comes up in
 // that order.
-const sortLoaded = window.__TAURI__.core
-  .invoke<SortKey>("sort_order")
-  .then(setSortKey, () => {})
-  .finally(() => {
-    formatGate.whenOpen(reopenLastFolder);
-  });
+const sortLoaded = window.__TAURI__.core.invoke<SortKey>("sort_order").then(setSortKey, () => {});
+
+// Restore the remembered filter the same way, so the folder's first list is
+// already filtered. Only the menu is mirrored: no folder is open to refilter.
+const filterLoaded = window.__TAURI__.core.invoke<StoredFilter>("filter").then(
+  (stored) => {
+    applyStored(filterState, stored);
+    mirrorFilter();
+  },
+  () => {},
+);
+
+void Promise.allSettled([sortLoaded, filterLoaded]).then(() => {
+  formatGate.whenOpen(reopenLastFolder);
+});
 
 // `Settings...` in the menu. The first-launch dialog is modal already, so the
 // settings wait until it is answered.
