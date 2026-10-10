@@ -3,6 +3,7 @@ import {
   EYES_CLOSED_EAR,
   EYES_WIDE_OPEN_EAR,
   FOCUS_MARK_COLORS,
+  FOCUS_MARK_ICONS,
   GOOD_EYE_EAR,
   GOOD_EYE_FOCUS,
   GOOD_MAX_PITCH,
@@ -16,7 +17,9 @@ import {
   faceMarks,
   focusMark,
   photoTier,
+  stripState,
 } from "./focus.js";
+import { SCAN_EYE_SVG, SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
 const noEyes = {
   eyes_ear: null,
@@ -104,13 +107,41 @@ describe("focusMark", () => {
 });
 
 describe("FOCUS_MARK_COLORS", () => {
-  test("bright green for good, dim green for a candidate only, orange, white", () => {
+  test("bright green for good and a candidate only, gray, white", () => {
     expect(FOCUS_MARK_COLORS).toEqual({
       good: "#3f3",
-      candidate_only: "#8b8",
-      not_candidate: "#f93",
+      candidate_only: "#3f3",
+      not_candidate: "#999",
       unknown: "#fff",
     });
+  });
+});
+
+describe("FOCUS_MARK_ICONS", () => {
+  test("scan-face for good, scan-eye for a candidate only, scan, none for unknown", () => {
+    expect(FOCUS_MARK_ICONS).toEqual({
+      good: SCAN_FACE_SVG,
+      candidate_only: SCAN_EYE_SVG,
+      not_candidate: SCAN_SVG,
+      unknown: null,
+    });
+  });
+});
+
+describe("stripState", () => {
+  test("is unknown without a focus", () => {
+    expect(stripState(null)).toBe("unknown");
+    expect(stripState(undefined)).toBe("unknown");
+  });
+
+  test("is the mark's state, a manual-focus shot included", () => {
+    expect(stripState(good)).toBe("good");
+    expect(stripState({ ...good, eyes_ear: 0.1 })).toBe("candidate_only");
+    expect(stripState({ ...point, candidate: "not_candidate" })).toBe("not_candidate");
+    expect(stripState(point)).toBe("unknown");
+    expect(stripState({ ...point, manual_focus: true, candidate: "not_candidate" })).toBe(
+      "not_candidate",
+    );
   });
 });
 

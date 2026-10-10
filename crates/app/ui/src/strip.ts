@@ -5,8 +5,8 @@
 
 import { type BurstMark, burstBadge } from "./burst.js";
 import { carriedIndices, carriedOffset } from "./carry.js";
-import { FOCUS_MARK_COLORS, type PhotoTier } from "./focus.js";
-import { CLOCK_SVG, SCAN_FACE_SVG } from "./icons.js";
+import { FOCUS_MARK_COLORS, FOCUS_MARK_ICONS, type MarkState } from "./focus.js";
+import { CLOCK_SVG } from "./icons.js";
 import {
   type Decision,
   type InlineRename,
@@ -102,8 +102,9 @@ const sharpness = new Map<number, RelativeSharpness>();
 // The burst band and badge per index, from `burstMarks` in `burst.ts`; a missing
 // entry is not in a burst of two or more.
 const bursts = new Map<number, BurstMark>();
-// The tier of the indices whose file is in one (`photoTier` in `focus.ts`).
-const tiers = new Map<number, PhotoTier>();
+// The focus mark state of the indices whose file has one other than `unknown`
+// (`stripState` in `focus.ts`).
+const tiers = new Map<number, MarkState>();
 // Why the scan failed on a file, per index, from the index's error row.
 const failures = new Map<number, string>();
 // The selected indices besides `current`, mirroring the selection in
@@ -178,14 +179,14 @@ function paintBurst(index: number, cell: Cell): void {
   cell.count.textContent = burstBadge(value ?? null);
 }
 
-// A face icon at the image box's bottom-left, in the focus mark's color of the
-// tier, on a good photo.
+// The focus mark state's icon at the image box's bottom-left, in the mark's
+// color; none when Riffle does not know.
 function paintTier(index: number, cell: Cell): void {
-  const tier = tiers.get(index);
-  cell.tier.hidden = tier === undefined;
-  if (tier !== undefined) {
-    cell.tier.style.color = FOCUS_MARK_COLORS[tier];
-  }
+  const state = tiers.get(index) ?? "unknown";
+  const icon = FOCUS_MARK_ICONS[state];
+  cell.tier.hidden = icon === null;
+  cell.tier.innerHTML = icon ?? "";
+  cell.tier.style.color = FOCUS_MARK_COLORS[state];
 }
 
 // The scan's error text of a failed file, in the cell's tooltip and, on a
@@ -259,7 +260,6 @@ function createCell(index: number): Cell {
   el.append(count);
   const tier = document.createElement("span");
   tier.className = "tier";
-  tier.innerHTML = SCAN_FACE_SVG;
   el.append(tier);
   const reason = document.createElement("span");
   reason.className = "reason";
@@ -485,13 +485,13 @@ export function setBurst(index: number, value: BurstMark | null): void {
   }
 }
 
-// Record the tier of one file, `null` for none, repainting its cell when it
-// is on screen.
-export function setTier(index: number, tier: PhotoTier | null): void {
-  if (tier === null) {
+// Record the focus mark state of one file, repainting its cell when it is on
+// screen.
+export function setTier(index: number, state: MarkState): void {
+  if (state === "unknown") {
     tiers.delete(index);
   } else {
-    tiers.set(index, tier);
+    tiers.set(index, state);
   }
   const cell = cells.get(index);
   if (cell !== undefined) {

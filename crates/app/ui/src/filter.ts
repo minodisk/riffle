@@ -11,7 +11,7 @@ import type { PickFlag } from "./selection.js";
 // when there is none; a label outside the menu's colors matches no item.
 // The menu's `AF eye` items put `good`, `candidate`, `not_candidate` or
 // `unknown` in `candidates`, and they partition the files like the focus
-// mark's colors: `good` is the photo tier, `candidate` a focus candidate not
+// mark's states: `good` is the photo tier, `candidate` a focus candidate not
 // in the tier, and a file whose state is not known yet counts as `unknown`.
 // Its `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.

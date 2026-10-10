@@ -186,8 +186,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   bright green: on twelve of the author's folders it marked about 20% of the
   frames with a face at the AF point. On 180 frames the author rated (1 star
   for no subject, 2 for likely rejected, 3 or more for a pass), 54 of the 58
-  good frames passed and none was a frame without a subject. Dim green marks
-  a focus candidate that is not good: the eyes of the face nearest the AF
+  good frames passed and none was a frame without a subject. Bright green
+  also marks a focus candidate that is not good (the strip's icon tells the
+  two apart): the eyes of the face nearest the AF
   point are likely in focus (their in-focus probability, a logistic
   combination of the Laplacian variance and the mean edge width, is about
   77% or more), but the in-focus probability, the eyes, the pose, the mesh or the frame's edge miss a cut. The
@@ -195,7 +196,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   model (MediaPipe Face Landmarker v2) finds, and the sharper of the two
   eyes counts; when neither eye's region counts (under 24 px, as on small
   faces, or without a clear edge), it is measured over the preview between
-  the eyes instead. Orange when a face is near the AF point but its eyes are
+  the eyes instead. Gray when a face is near the AF point but its eyes are
   likely not in focus (including a window between the eyes with no clear
   edge, which counts as 0%); white when Riffle does not know (no AF point,
   manual focus, no face near the point, or not computed yet). A frame
@@ -207,10 +208,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   in a second pass that starts right after the thumbnails and metadata of the
   folder are in, so the marks turn from white to their color, the files on
   screen first, while the status shows `analyzing N / M`. The strip marks
-  each good frame with a bright green face icon (Lucide's `scan-face`, ISC
-  license, text in `crates/app/ui/LICENSE-lucide`) at the cell's
-  bottom-left, above the file name, filling in as the pass runs; other
-  frames get none. On the 406 hand-labeled α7 V frames with a face the focus
+  each judged frame with an icon in the mark's color at the cell's
+  bottom-left, above the file name, filling in as the pass runs: a face
+  (Lucide's `scan-face`) on a good frame, an eye (`scan-eye`) on another
+  focus candidate and a bare frame (`scan`) on a gray one, all ISC license,
+  text in `crates/app/ui/LICENSE-lucide`; white frames get none. On the 406 hand-labeled α7 V frames with a face the focus
   candidate cue was fitted on, 94% of the candidates were in focus and 91%
   of the in-focus frames were candidates; on 400 frames from other shoots it
   was not fitted on, 89% and 96%. It is a cue, not a verdict: AF on a person in the
@@ -303,10 +305,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   sunglasses are rough.
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus mark's state (the
-  `AF eye` section: `Good` for a good photo, the bright green mark and face
-  icon; `OK` for a dim green mark, the AF eye in focus but not a
-  good photo; `Bad` for orange and `Unknown` for white, including files the
-  second pass has not reached; each file falls under exactly one of them,
+  `AF eye` section, each item with the strip's icon of its state: `Good`
+  for a good photo, the bright green mark and face icon; `OK` for a bright
+  green mark with the eye icon, the AF eye in focus but not a good photo;
+  `Bad` for gray and `Unknown` for white, including files the second pass
+  has not reached; each file falls under exactly one of them,
   checking several shows the files in any of them, so `Good` and `OK`
   together show every in-focus frame, and the strip refills as the pass
   runs), the stored eye state of the face nearest the AF point (the

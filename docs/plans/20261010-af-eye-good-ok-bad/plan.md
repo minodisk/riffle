@@ -31,7 +31,7 @@ change; this is a label and documentation change only.
 
 ## Steps
 
-- [x] Step 1: Rename the `AF eye` filter items `Sharp only` -> `OK` and `Soft` -> `Bad` in the menu, the comments and the user docs
+- [x] Step 1: Rename the `AF eye` filter items `Sharp only` -> `OK` and `Soft` -> `Bad` in the menu, the comments and the user docs, and give each judged state its own icon and color on the strip, the filter menu and the focus mark
   - Done when:
     - `crates/app/ui/index.html`: the `data-candidate="candidate"` item's text
       is `OK` and the `data-candidate="not_candidate"` item's text is `Bad`
@@ -60,10 +60,30 @@ change; this is a label and documentation change only.
       that plan does not reintroduce `Sharp only`.
     - `rg "Sharp only"` finds nothing outside `docs/plans/_archived/`,
       `docs/plans/review-history/` and this plan folder.
+    - Icons and colors (added after the rename was implemented, at the user's
+      request): the strip cell and the filter menu item show the same icon per
+      state: `good` the Lucide `scan-face` in bright green, `candidate_only`
+      (`OK`) the Lucide `scan-eye` in bright green, `not_candidate` (`Bad`)
+      the Lucide `scan` in gray, and `unknown` no icon (the menu keeps an
+      empty slot for alignment). Today only `good` frames get the strip icon
+      and only `Good` / `OK` items get a menu icon.
+    - `FOCUS_MARK_COLORS` in `crates/app/ui/src/focus.ts` matches: the focus
+      mark of a `candidate_only` frame is the same bright green as `good`, and
+      a `not_candidate` frame's mark is the same gray as its icon (`unknown`
+      stays white). Pick one gray that reads on the dark UI and on photos.
+    - `scan-eye` and `scan` are inlined in `crates/app/ui/src/icons.ts` like
+      `SCAN_FACE_SVG` (Lucide, same license handling).
+    - The docs (`usage.md` / `usage.ja.md`, `README.md` / `README.ja.md`)
+      describe the mark colors and the strip / menu icons as they now are,
+      including the sentence about the `scan-face` icon.
+    - Tests pin the state -> icon / color mapping where a pure function holds
+      it (`focus.test.ts` for `FOCUS_MARK_COLORS` / `markState`, `strip`
+      helpers if pure).
     - `mise run ci` passes.
   - Implementation approach:
-    - Label change only. Do not touch `crates/app/ui/src/focus.ts`
-      (`markState`, `FOCUS_MARK_COLORS`, thresholds), `AfEye` /
+    - The rename part is a label change only. The icon part changes only the
+      colors in `FOCUS_MARK_COLORS` and the icon rendering; do not touch the
+      focus.ts thresholds, `photoTier` / `markState` logic, `AfEye` /
       `FocusCandidate` values, `crates/core/src/eyes.rs`,
       `crates/cli/src/main.rs` or `docs/plans/20261010-mesh-roll/`.
     - Keep each English / Japanese doc pair in sync in the same PR.
@@ -80,6 +100,9 @@ change; this is a label and documentation change only.
   in the filter menu and its docs.
 - **History in the burst-keep-score plan.** Only the #756 note is updated;
   rewriting older mentions would falsify what those steps did at the time.
+- **Good and OK share a color.** They differ by icon shape only (`scan-face`
+  vs `scan-eye`); the user chose this, and moved the focus mark to the same
+  colors so the mark and the icons agree.
 - **Label meaning.** `OK` / `Bad` no longer say on their own what is judged;
   the section heading `AF eye` and the docs carry that.
 
