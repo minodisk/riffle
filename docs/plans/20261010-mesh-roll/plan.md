@@ -265,7 +265,7 @@ the good-photo thresholds.
     - Files: `misfit-truth.md`, `compare.md`, `compare.py`, optionally
       `frozen.json`, `plan.md` (Decision), `learnings.md`.
 
-- [ ] Step 3: Remove the unadopted rotation code and file the follow-ups
+- [x] Step 3: Remove the unadopted rotation code and file the follow-ups
   - Replaces the original Steps 3 and 4 (rotate on the shared mesh path,
     record the value shift), dropped when the Decision was approved: the
     rotation is not adopted, so nothing in the scan, the index or the stored
