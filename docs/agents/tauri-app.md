@@ -978,7 +978,17 @@ retried.
   `SCHEMA_VERSION` bump as well. The cue covers the face nearest a trusted
   AF point and, on a frame with none, the largest confident face of the
   whole preview (`eyes::judged_face`); `9` added the latter, so a frame with
-  no trusted AF point now fills every one of those columns too.
+  no trusted AF point now fills every one of those columns too. That branch
+  costs one extra full-size RGB decode, the luma and the mesh per faced
+  file, about +28 ms in release (`riffle-cli features`, `analysis_ms`); a
+  file with no face pays nothing, because `whole_image_cue` returns
+  `Cue::unknown()` before any decode. The face-free frame itself stays
+  Unknown: the sharpness score did not separate picks from non-picks
+  (folder-stratified AUC 0.58 against 0.70 needed), so do not re-propose a
+  score-based Good / Bad for it without a new cue or 30 or more face-free
+  rejects. See
+  `docs/plans/_archived/20261010-af-eye-good-bad-cascade/learnings.md`,
+  Steps 2 and 3.
 - Moving the score from the first pass to the second bumped neither version:
   the score's computation did not change, so a row the old first pass scored
   (at `FACES_VERSION`) keeps a correct score, and a row the second pass has
