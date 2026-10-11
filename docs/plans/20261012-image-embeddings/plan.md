@@ -389,11 +389,12 @@ Constraints the user set, binding on every step:
       "not chosen" negatives; explicit rejects count as stronger negatives
       in any folder; unjudged frames in unfinished folders are never
       negatives.
-    - `rank.rs`: the Step 2 model (PCA basis + logistic weights, plus the
-      no per-genre offsets: Decision 2 dropped them) fit locally on the user's finished folders, shrunk
-      toward the Step 2 prior while the data is small, stored in the app
-      data dir with its version; refit on demand (a settings button) and
-      after a folder is marked finished; never changes a judgment.
+    - `rank.rs`: the Step 2 model (PCA basis + logistic weights; no
+      per-genre offsets, Decision 2 dropped them) fit locally on the
+      user's finished folders, shrunk toward the Step 2 prior while the
+      data is small, stored in the app data dir with its version; refit on
+      demand (a settings button) and after a folder is marked finished;
+      never changes a judgment.
     - `sort.ts` gets a `recommended` `SortKey`; the meta pane shows the
       score with its top contributing features as the reason (naming the
       genre when a per-genre weight drove it) and a confidence that
