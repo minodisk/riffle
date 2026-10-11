@@ -36,4 +36,4 @@ The todo item `### App: real-device check that the strip's filter survives a rel
 
 ## Progress
 
-- (none yet)
+- (2026-10-11) Step 1 complete
