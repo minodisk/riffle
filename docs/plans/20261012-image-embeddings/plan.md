@@ -390,8 +390,7 @@ Constraints the user set, binding on every step:
       in any folder; unjudged frames in unfinished folders are never
       negatives.
     - `rank.rs`: the Step 2 model (PCA basis + logistic weights, plus the
-      per-genre offsets if Decision 2 kept them, using Step 5's calibrated
-      genre scores) fit locally on the user's finished folders, shrunk
+      no per-genre offsets: Decision 2 dropped them) fit locally on the user's finished folders, shrunk
       toward the Step 2 prior while the data is small, stored in the app
       data dir with its version; refit on demand (a settings button) and
       after a folder is marked finished; never changes a judgment.
@@ -401,12 +400,16 @@ Constraints the user set, binding on every step:
       reflects the training set size; the strip shows no extra icon by
       default.
     - Step 2's evaluation is re-run on the app's stored data for the same
-      27 folders and matches `gate.md` within rounding; the numbers go in
-      `ranking.md`.
+      27 folders; the numbers go in `ranking.md`. The gate's eye and pose
+      inputs come from the `features` eyes path's judged face, not pass 2's
+      stored `eyes_ear` / `pose_*` of the cue face, so an exact match to
+      `gate.md` is not expected. Step 7 re-runs `gate.py` on a dump that
+      uses the app's face and records both numbers; the shared model must
+      still clear the gate's bar there.
     - Docs: usage / README pairs; `CLAUDE.md` layout.
   - Implementation approach (as far as it is known):
-    - Assumes Steps 3 and 4 merged, and Step 5 if per-genre weights are
-      kept. To be refined after Decision 2.
+    - Assumes Steps 3 and 4 merged. Decision 2 shipped one shared model with
+      no per-genre offsets, so Step 5 is not a dependency.
 
 ## Trade-offs and risks
 
@@ -548,3 +551,4 @@ pick x not-chosen pairs, leave one folder out.
 
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
 - (2026-10-12) Step 1 complete
+- (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)

@@ -109,6 +109,13 @@
     face, 60 px or more), not pass 2's stored `eyes_ear` of the cue face.
     The app's rule reads the latter. Both are the same face in the common
     case.
+  - The `eye_focus` baseline ranks by the model's logit input column, whose
+    probability is clipped to [0.001, 0.999], not by the raw `eye_focus`.
+    Values at or above 0.999 (or at or below 0.001) therefore tie and count
+    0.5, which departs from the pre-registered "`eye_focus` (missing ranks
+    last)". The reported 0.564 / Top-1 37.1% carries this; the baseline is
+    outside the criterion and was not re-run. The Sharpness baseline's
+    `max(ratio, 1e-3)` clip has the same effect, negligibly.
 - **Dump cost.** `features` took 1 to 84 s per folder on 24 threads, about
   11 minutes for the 27. `embed --near 404` took 611.6 s for 32,459 files
   (18.8 ms per image of wall time, peak working set 1148 MB, the
