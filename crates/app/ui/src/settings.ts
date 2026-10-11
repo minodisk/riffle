@@ -34,6 +34,7 @@ const shortcutLabels: Record<string, string> = {
   zoom: "1:1 zoom",
   grayscale: "Grayscale",
   compare: "Compare frames",
+  performance: "Performance graph",
   rate1: "1 star",
   rate2: "2 stars",
   rate3: "3 stars",

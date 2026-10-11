@@ -1037,6 +1037,17 @@ body {
   cursor: pointer;
 }
 
+/* The performance graph, over the bottom of the preview without moving it. */
+#perf:not([hidden]) {
+  display: block;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  pointer-events: none;
+}
+
 /* The first-launch sidecar format question. It covers the whole window, so
    nothing behind it can be clicked until a format is chosen. */
 #format-box {

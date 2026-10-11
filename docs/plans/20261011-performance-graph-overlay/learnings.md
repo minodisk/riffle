@@ -42,3 +42,41 @@
   prunes too, so Step 3's scrolling timer clears old points without an
   insertion. The latency axis maximum is `max(LATENCY_FLOOR_MS = 500, …)`,
   with no rounding to a "nice" value; Step 3 can round when it draws labels.
+
+## Step 3: The overlay canvas, its toggle and the sampler wiring
+
+- The plan named `#6bdc8a` as "the focus mark's green already used on the
+  canvas", but no such hex exists in `main.ts`; the focus mark's green is
+  `FOCUS_MARK_COLORS.good` (`#3f3`) in `focus.ts`, which the latency bars
+  use. All bars are that one green; no `--destructive` threshold color, so
+  Step 4 can pick a threshold from measured numbers if one is wanted.
+- The legend is color-coded text in one header row (`CPU 100%  60 s`,
+  `Riffle CPU`, `System CPU`, `Latency`) with the latency axis maximum in ms
+  at the right; the plot has grid lines at 0 / 50 / 100 %. The panel is
+  `--card` at 85 % alpha (`globalAlpha`, so no new color string).
+- The `perf-sample` listener is registered on toggle-on and unlistened on
+  toggle-off (the unlisten promise is awaited, so an off before `listen`
+  resolves still unregisters it); `PerfModel.addCpu` ignores a sample that
+  slips in after the stop anyway.
+- `performance` had to be added to `MENU_LESS` in `main.rs`'s menu test, not
+  only to `DEFAULTS` and the default-keys test: that test asserts every
+  default action is either a menu item or listed as menu-less.
+- `d` is swallowed while the folder tree has focus (`TREE_PASSTHROUGH` does
+  not list it), like `focus` / `zoom`.
+- CI attempt 1 failed on `a_stale_default_in_an_old_store_drops_only_that_key`:
+  its stored override put `d` on `next` (a WASD-style store), and a default
+  key now holds `d`, so `from_overrides` dropped it from `next`. The test's
+  `d` was arbitrary data, so it now uses the free `e`. The same thing
+  happens to a real user: an override that put `d` on another action loses
+  `d` on upgrade (deferred below).
+
+## Deferred issues (todo candidates)
+
+- A user whose stored `shortcuts` override bound `d` to another action loses
+  that key silently on upgrade, because `Keymap::from_overrides` gives a key
+  already held by a default (`performance`'s new `d`) precedence over a
+  partly applicable override. Found in Step 3 of
+  performance-graph-overlay when `a_stale_default_in_an_old_store_drops_only_that_key`
+  failed. Consider whether a newly added default should yield to an
+  existing override (or log the drop at `warn`). Files:
+  `crates/app/src/shortcuts.rs` (`DEFAULTS`, `from_overrides`).

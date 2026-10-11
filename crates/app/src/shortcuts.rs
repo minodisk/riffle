@@ -71,6 +71,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("zoom", &["z"]),
     ("grayscale", &["g"]),
     ("compare", &["v"]),
+    ("performance", &["d"]),
     ("rate1", &["1"]),
     ("rate2", &["2"]),
     ("rate3", &["3"]),
@@ -654,6 +655,7 @@ mod tests {
             ("zoom", "z"),
             ("grayscale", "g"),
             ("compare", "v"),
+            ("performance", "d"),
             ("rate1", "1"),
             ("rate2", "2"),
             ("rate3", "3"),
@@ -1186,15 +1188,15 @@ mod tests {
     fn a_stale_default_in_an_old_store_drops_only_that_key() {
         let keymap = Keymap::from_overrides(Some(&json!({
             "previous": ["arrowup", "w", "a", "h", "k"],
-            "next": ["arrowdown", "s", "d", "l", "j"],
+            "next": ["arrowdown", "s", "e", "l", "j"],
         })));
         assert_eq!(keys_of(&keymap, "previous"), vec!["w", "a", "h", "k"]);
-        assert_eq!(keys_of(&keymap, "next"), vec!["s", "d", "l", "j"]);
+        assert_eq!(keys_of(&keymap, "next"), vec!["s", "e", "l", "j"]);
         assert_eq!(keys_of(&keymap, "burstPrevious"), vec!["arrowup"]);
         assert_eq!(keys_of(&keymap, "burstNext"), vec!["arrowdown"]);
         assert_eq!(
             keymap.overrides(),
-            json!({"previous": ["w", "a", "h", "k"], "next": ["s", "d", "l", "j"]})
+            json!({"previous": ["w", "a", "h", "k"], "next": ["s", "e", "l", "j"]})
         );
         assert_eq!(Keymap::from_overrides(Some(&keymap.overrides())), keymap);
     }
