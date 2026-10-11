@@ -51,7 +51,7 @@ state across launches, a charting library.
 
 ## Steps
 
-- [ ] Step 1: Rust CPU sampler (`crates/app/src/perf.rs`) behind `set_perf_sampling`, emitting `perf-sample`
+- [x] Step 1: Rust CPU sampler (`crates/app/src/perf.rs`) behind `set_perf_sampling`, emitting `perf-sample`
   - Done when: `set_perf_sampling(true)` starts one sampler thread that emits
     `perf-sample { process: f32, system: f32 }` (both 0–100) every ~500 ms,
     skipping the first (diff-less) reading; `set_perf_sampling(false)` stops

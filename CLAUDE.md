@@ -109,7 +109,10 @@ key, its tools, and the bridge that asks the main window over the
 the panic hook, the `log_frontend` command that writes the frontend's
 `uncaught-js:` and `invariant:` lines, and the `invariant!` helper, which put
 those failures in `Riffle.log` under greppable prefixes (see
-`docs/agents/app-log.md`)).
+`docs/agents/app-log.md`), and `src/perf.rs` the performance overlay's CPU
+sampler: `set_perf_sampling` starts or stops one thread that emits Riffle's
+process CPU and the system's, each 0–100 %, as `perf-sample` every 500 ms,
+so nothing samples while the overlay is off).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
