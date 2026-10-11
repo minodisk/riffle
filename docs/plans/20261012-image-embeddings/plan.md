@@ -141,7 +141,7 @@ Constraints the user set, binding on every step:
 
 ## Steps
 
-- [ ] Step 1: `riffle-cli embed` and the `embed.rs` prototype: load the candidate models in tract and measure accuracy, speed, memory and the thumb-vs-preview agreement
+- [x] Step 1: `riffle-cli embed` and the `embed.rs` prototype: load the candidate models in tract and measure accuracy, speed, memory and the thumb-vs-preview agreement
   - Done when:
     - `crates/core/src/embed.rs` exists with `embed_with(model: &Model,
       rgb, width, height, orientation) -> Result<Vec<f32>>` (name free)
@@ -299,9 +299,10 @@ Constraints the user set, binding on every step:
       (its input layout and whatever Step 1 hit). `CLAUDE.md`'s layout
       paragraph mentions `embed.rs`, the table and the setting.
   - Implementation approach (as far as it is known):
-    - Input per Step 1's thumb Decision: decode `files.thumb` from the
-      index (no RAW read) or, if the thumb failed the agreement check,
-      read the preview through `reader` as pass 2 does.
+    - Input: the thumb failed Step 1's agreement check (Decision 1), so
+      pass 3 reads the preview through `reader` as pass 2 does and decodes
+      it with `decode::decode_upright_near(jpeg, orientation, 404)`, no
+      re-encode.
     - Thread count: pass 2's count unless Step 1's peak working set says
       fewer; write the reason in `learnings.md`.
     - No user-visible feature yet beyond the setting.
@@ -448,7 +449,67 @@ Constraints the user set, binding on every step:
 
 ## Decision 1 (model and distribution)
 
-Pending Step 1.
+Decided in Step 1 from the measurements in [models.md](models.md) (Windows
+11, i7-13700, 24 logical processors).
+
+- **Model: SigLIP 2 ViT-B/32 @256** (`google/siglip2-base-patch32-256`,
+  Apache-2.0; the image tower `onnx/vision_model.onnx` of
+  `onnx-community/siglip2-base-patch32-256-ONNX`), 768-d, spec `siglip2`
+  in `embed::SPECS`: 256x256 stretch, PIL bilinear, mean / std 0.5, RGB,
+  output `pooler_output`. It loads with `default-features = false` and
+  matches onnxruntime at cosine min 0.999997 on 12 real previews. It costs
+  132 ms per image on one thread and 16.6-17.6 ms per image of wall time on
+  24 threads (decode included). OpenCLIP B/32 costs about the same (116 ms,
+  14.4-14.6 ms) for 7.4 fewer ImageNet zero-shot points (66.6 against 74.0).
+  TinyCLIP 40M/32 costs half as much (62 ms, 7.7-8.2 ms) for 14.2 fewer
+  (59.8). SigLIP 2 is also the only shippable candidate whose cheap input
+  clears the agreement bar (below). MobileCLIP-S2 is no-ship by license and
+  is the slowest in tract anyway (328 ms).
+- **Format: FP32** (378.5 MB). onnx-community's fp16 export does not load
+  in tract 0.23 (the head `Gemm`). Its int8 / uint8 exports are dynamic
+  quantizations that are wrong in onnxruntime too (cosine min 0.638 / 0.663
+  against FP32), and the uint8 one takes 8.4 s per image in tract.
+  Weight-only re-exports (`weight_only.py`: int8 96 MB at cosine mean
+  0.99938, fp16 190 MB at 0.999998 against FP32) load. But tract re-widens
+  their weights on every run: 250-275 ms per image on one thread and
+  76-85 ms per image on 24 threads, 2x to 5x FP32's cost.
+- **Input: the preview, decoded at the DCT scale nearest 404 px with no
+  re-encode** (`decode::decode_upright_near(jpeg, orientation, 404)`), so
+  **pass 3 must read the preview**, not `files.thumb`. The stored thumbnail
+  fails the bar for every model (SigLIP 2: cosine mean 0.961, top-5
+  agreement 0.519 on 214 files). The q80 re-encode causes it, not the size:
+  a 404 px box downscale alone keeps cosine mean 0.9991 (`thumb_check.py`).
+  The scaled decode reaches cosine min 0.993 / mean 0.998 and top-5
+  agreement 0.843 against the full preview, and decodes in 9.0 ms against
+  26.1 ms (24 threads).
+- **Distribution: downloaded on the first enable.** This is the
+  recommendation; the user confirms it against the bundled-resource option
+  before Step 3 builds it.
+  - `include_bytes!` is out. It adds 378,479,104 B to every binary that
+    reaches the model, measured on `riffle-cli` (29.8 MB -> 408.2 MB).
+    `riffle-app` (about 52 MB) would grow the same for a feature that is
+    off by default, and the working set after load doubles (774 against
+    395 MB).
+  - A resource next to the binary grows every installer by about 350 MB,
+    since the FP32 weights gzip only 7% smaller (351.2 MB), for users who
+    never turn AI on.
+  - The download, on turning `aiEnabled` on, comes from
+    `https://huggingface.co/onnx-community/siglip2-base-patch32-256-ONNX/resolve/7efccb86b5b6601bfe9e14326e1c11b40b68d44c/onnx/vision_model.onnx`,
+    a pinned revision. It is written to a `.part` file, its SHA-256 is
+    checked against
+    `0ddb7507cfcb54c2cd503029949add9dc6586de67164bb69c2c09588cdcc9719`
+    (both the HF LFS oid and the file measured here), and only then is it
+    renamed to `models/siglip2-base-patch32-256/vision_model.onnx` under
+    the app's local data dir (Tauri `app_local_data_dir()`). The Apache-2.0
+    notice ships with the app under `crates/core/models/`. A failed or
+    mismatched download leaves pass 3 idle with the error shown, and a later
+    enable retries.
+- **Memory and threads for pass 3.** On top of the plan, a 214-file run
+  holds 416 MB on one thread and 637 MB on 24. `Model::load` peaks at about
+  3x the file (1145 MB), whatever the thread count, while the file's bytes,
+  the parsed protobuf and the optimized plan are alive together. Step 3
+  sizes the pass-3 thread count against those numbers, and loading from a
+  path rather than a `Vec` may lower the load peak.
 
 ## Decision 2 (ranking ships or not, per-genre weights or not)
 
