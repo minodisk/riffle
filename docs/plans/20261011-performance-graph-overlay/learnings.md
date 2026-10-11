@@ -70,6 +70,27 @@
   happens to a real user: an override that put `d` on another action loses
   `d` on upgrade (deferred below).
 
+## Step 4: Hand check and documentation
+
+- The user's hand check is in `results.md`: the bars were ~20–100 ms during
+  Riffle's own analysis pass (Riffle CPU ~80–90 %, system 100 %) and
+  ~100–200 ms under an external 24-thread `riffle-cli` hog (Riffle CPU ~0 %,
+  system 100 %); with the overlay off Task Manager showed the app at ~0 %.
+  The analysis workers' below-normal priority is what keeps the preview fast
+  while Riffle itself saturates the CPU.
+- No latency threshold color: the worst measured bar (~200 ms) is under the
+  500 ms axis floor, so there is nothing to mark yet.
+- Readability: both CPU lines were drawn at 1.5 px and the user still told
+  them apart only by apparent thickness (the brighter line reads thicker), and
+  the text-only legend did not say which was which. Following the plan's
+  fallback, `PERF_LINES` in `main.ts` now gives Riffle CPU 2 px solid and
+  system CPU 1 px dashed (`[4, 3]`), and the legend draws a 14 px swatch of
+  each line before its label. `setLineDash` takes a mutable `number[]`, so the
+  `as const` dash tuples are spread.
+- `README.md` / `README.ja.md` describe features, not a shortcut table, so
+  only `docs/humans/usage.md` / `usage.ja.md` gained the `d` row and the
+  paragraph.
+
 ## Deferred issues (todo candidates)
 
 - A user whose stored `shortcuts` override bound `d` to another action loses
@@ -80,3 +101,10 @@
   failed. Consider whether a newly added default should yield to an
   existing override (or log the drop at `warn`). Files:
   `crates/app/src/shortcuts.rs` (`DEFAULTS`, `from_overrides`).
+- **Pending manual check (legend swatches).** On any platform, open a folder,
+  press `d`, and confirm at a glance that the overlay's legend shows a thick
+  solid line before `Riffle CPU` and a thin dashed line before `System CPU`,
+  matching the two plotted CPU lines, and that the labels do not overlap the
+  swatches. Step 4 of performance-graph-overlay was ticked on the automated
+  criteria (`mise run ci`); the hand checks (a)–(c) predate this change.
+  File: `crates/app/ui/src/main.ts` (`PERF_LINES`, `drawPerf`).

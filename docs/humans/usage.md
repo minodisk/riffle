@@ -238,6 +238,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
 - **Grayscale preview**: holding `g` shows the viewed image in grayscale to
   judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
+- **Performance graph**: `d` shows a graph along the bottom of the viewer
+  with the last 60 seconds of three series: a green bar per file switch, its
+  height the time from the key or click to the preview being drawn (on a ms
+  scale at the right of the legend, at least 500 ms tall); Riffle's own CPU
+  usage (the thick solid line); and the whole system's CPU usage (the thin
+  dashed line), both 0–100 % of all cores. When the bars grow, look at the
+  lines: Riffle's line high means Riffle itself is busy (a running scan,
+  including its analysis pass, counts as Riffle's CPU); the system line pegged
+  while Riffle's stays low means another process is taking the CPU. CPU is
+  sampled only while the graph is shown, so it starts empty each time; `d`
+  again hides it, and the overlay is off at every launch.
 - **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
   file selected, it instead puts that file beside the first good frame (the
   focus mark's bright green) of its burst, or the burst's first frame when
@@ -614,6 +625,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `z` | toggle the 1:1 focus check |
 | `g` (hold) | grayscale preview |
 | `v` | toggle comparison of selected files / the current file with its burst's good frame, else its first frame |
+| `d` | toggle the performance graph |
 | `1`-`5` | rate the current file that many stars |
 | `x` | reject the current file (replaces a pick, keeps the stars) |
 | `Shift+x` | reject every other frame of the current burst, including frames the filter hides (replaces their picks) |

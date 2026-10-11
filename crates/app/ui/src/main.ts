@@ -1426,6 +1426,13 @@ function draw(): void {
 // between samples and latency points.
 const PERF_REDRAW_MS = 500;
 const PERF_HEADER = 16;
+const PERF_SWATCH = 14;
+// The two CPU lines differ by weight and dash, not only by gray, and the
+// legend draws each label's line so the series can be told apart.
+const PERF_LINES = [
+  ["system", THEME.mutedForeground, 1, [4, 3]],
+  ["process", THEME.foreground, 2, []],
+] as const;
 let perfTimer: number | null = null;
 let perfUnlisten: Promise<() => void> | null = null;
 
@@ -1496,13 +1503,11 @@ function drawPerf(): void {
     const barHeight = (Math.min(point.ms, latencyMax) / latencyMax) * plot;
     ctx.fillRect(x(point.at) - 1, bottom - barHeight, 2, barHeight);
   }
-  ctx.lineWidth = 1.5;
   ctx.lineJoin = "round";
-  for (const [series, color] of [
-    ["system", THEME.mutedForeground],
-    ["process", THEME.foreground],
-  ] as const) {
+  for (const [series, color, lineWidth, dash] of PERF_LINES) {
     ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.setLineDash([...dash]);
     ctx.beginPath();
     cpu.forEach((sample, at) => {
       const y = bottom - (sample[series] / 100) * plot;
@@ -1515,16 +1520,29 @@ function drawPerf(): void {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   let left = 6;
-  for (const [text, color] of [
-    ["CPU 100%  60 s", THEME.mutedForeground],
-    ["Riffle CPU", THEME.foreground],
-    ["System CPU", THEME.mutedForeground],
-    ["Latency", FOCUS_MARK_COLORS.good],
+  for (const [text, color, line] of [
+    ["CPU 100%  60 s", THEME.mutedForeground, null],
+    ["Riffle CPU", THEME.foreground, PERF_LINES[1]],
+    ["System CPU", THEME.mutedForeground, PERF_LINES[0]],
+    ["Latency", FOCUS_MARK_COLORS.good, null],
   ] as const) {
+    if (line !== null) {
+      const [, , lineWidth, dash] = line;
+      const y = 9.5;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.setLineDash([...dash]);
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(left + PERF_SWATCH, y);
+      ctx.stroke();
+      left += PERF_SWATCH + 4;
+    }
     ctx.fillStyle = color;
     ctx.fillText(text, left, 3);
     left += ctx.measureText(text).width + 12;
   }
+  ctx.setLineDash([]);
   ctx.textAlign = "right";
   ctx.fillStyle = THEME.mutedForeground;
   ctx.fillText(`${Math.round(latencyMax)} ms`, width - 6, 3);
