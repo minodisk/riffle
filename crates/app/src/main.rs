@@ -7,6 +7,7 @@ mod folders;
 mod foldersidecars;
 mod index;
 mod mcp;
+mod perf;
 mod photolab;
 mod rename;
 mod sequence;
@@ -733,6 +734,7 @@ fn main() {
             let (format, keymap, auto_advance, label_names, mcp_enabled) =
                 commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
+            app.manage(perf::AppPerf::default());
             app.manage(commands::AppSidecarFormat(Mutex::new(format)));
             app.manage(commands::AppLabelNames(Mutex::new(label_names)));
             app.manage(commands::AppAutoAdvance(AtomicBool::new(auto_advance)));
@@ -837,6 +839,7 @@ fn main() {
             timing_logs,
             set_timing_logs,
             log_timing,
+            perf::set_perf_sampling,
             diagnostics::log_frontend
         ])
         .build(tauri::generate_context!())
