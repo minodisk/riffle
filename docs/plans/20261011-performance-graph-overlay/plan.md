@@ -94,7 +94,7 @@ state across launches, a charting library.
       in `perf.rs`.
     - Register the command in `generate_handler!` in `main.rs`; follow the
       doc-comment style of the neighboring `timing_logs` / `set_timing_logs`.
-- [ ] Step 2: Latency points and the rolling-window model (`crates/app/ui/src/perf.ts`), with tests
+- [x] Step 2: Latency points and the rolling-window model (`crates/app/ui/src/perf.ts`), with tests
   - Done when: `perf.ts` exports a pure model (`PerfModel` or similar) that
     holds the CPU samples and latency points of the last `WINDOW_MS = 60_000`,
     prunes older ones on each insertion / tick, and exposes what the drawing
@@ -225,3 +225,4 @@ state across launches, a charting library.
 ## Progress
 
 - (2026-10-11) Step 1 complete
+- (2026-10-11) Step 2 complete

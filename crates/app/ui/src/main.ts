@@ -147,6 +147,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
+import { PerfModel, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
 // `Riffle.log`. Not gated by `debugLogging`, and the default console output is
@@ -295,6 +296,12 @@ const pageTimings = new Map<
 // request that page turn produced. A strip click or a folder open starts its
 // own request, which is not timed from a keypress.
 let pageKeypressAt: number | null = null;
+// `performance.now()` at the last `show()`, where a preview's latency starts
+// when no keypress timed it (a strip click, a folder open, or a key whose
+// request was queued behind an in-flight one).
+let switchAt = 0;
+// The performance overlay's series; it records only while the overlay is on.
+const perf = new PerfModel();
 let shown: { bitmap: ImageBitmap; orientation: number; seq: number } | null = null;
 // The `seq` whose preview failed to load or decode, so the empty overlay says
 // so over the cleared canvas until the next page turn.
@@ -2664,6 +2671,7 @@ function requestEyes(): void {
 
 function show(): void {
   seq += 1;
+  switchAt = performance.now();
   previewFailedSeq = null;
   metaStale = true;
   // While a resume target is still pending, `files[index]` is only a
@@ -2720,6 +2728,9 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
         ` total=${(drawnAt - timing.startedAt).toFixed(1)}ms` +
         sinceKeypress,
     );
+    if (perf.on) {
+      perf.addLatency({ at: drawnAt, ms: drawnAt - latencyStart(timing.keypressAt, switchAt) });
+    }
   }
 });
 

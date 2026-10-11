@@ -143,9 +143,13 @@ view-only (no judgment, capture-time order), `src/sidecars.ts` holds the
 Rewrite Sidecars from Index / Delete Sidecars dialog's text and its flow,
 `src/sequence.ts` holds the
 Sequence JPEG Timestamps dialog's text and its flow from the folder tree's right-click
-through the preview to the run's end, and `src/uncaught.ts` builds the
+through the preview to the run's end, `src/uncaught.ts` builds the
 `uncaught-js:` line of an uncaught error or unhandled rejection and the flood
-guard that caps them per session.
+guard that caps them per session, and `src/perf.ts` holds the performance
+overlay's model (the CPU samples and the per-switch preview latencies of the
+last 60 s, the latency axis maximum with its floor, recording only while the
+overlay is on) and the rule that a latency starts at the keypress, else at
+the selection change.
 
 ## Language
 
