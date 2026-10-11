@@ -4,14 +4,40 @@
 
 ### App: real-device check of the AF eye Good / Bad / Unknown icons and mark colors
 
-The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark; the `af-eye-good-bad-cascade` plan (Step 1, `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`) then merged `OK` into `Bad`, so the states are `Good` / `Bad` / `Unknown`. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
+The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark; the `af-eye-good-bad-cascade` plan (Step 1, `docs/plans/_archived/20261010-af-eye-good-bad-cascade/plan.md`) then merged `OK` into `Bad`, so the states are `Good` / `Bad` / `Unknown`. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
 
 Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/strip.ts`, `crates/app/ui/src/icons.ts`, `crates/app/ui/index.html`, `CLAUDE.md`.
 
 #### TODO
 
 - [ ] On any desktop platform, open a folder with faced AF frames and wait for `analyzing N / M` to finish. Check that the strip shows a bright green `scan-face` on good frames, a gray `scan` on bad frames (a face near the AF point, the frame not good, its AF eyes in focus or not) and nothing on unknown ones. Check that the filter menu's `AF eye` items (`Good` / `Bad` / `Unknown`) show the same icons (`Unknown` an empty aligned slot). Check that the `f` mark is bright green for good, gray for bad and white for unknown, with the gray readable on photos.
-- [ ] Reword the `src/focus.ts` sentence in `CLAUDE.md`, which still says `photoTier` "puts the strip's face icon on a good frame", to describe the per-state icon (`stripState` / `FOCUS_MARK_ICONS`).
+- [ ] Reword the `src/focus.ts` sentence in `CLAUDE.md`, which still says `photoTier` "puts the strip's face icon on a good frame", to describe the per-state icon (`stripState` / `FOCUS_MARK_ICONS`), and drop its sharpness-bar / BEST mention.
+- [ ] Update the other `CLAUDE.md` Layout sentences left stale by `docs/plans/_archived/20261010-af-eye-good-bad-cascade/`: add "else the largest confident face on the whole preview when there is no trusted AF point" to the `run_faces_scan`, `eyes_of` and `src/candidate.rs` sentences; make the `src/focus.ts` sentence name the `afEyeState` helper (Good / Bad / Unknown) and drop the sharpness displays; and make the `src/sharpness.rs` sentence say the score now feeds the MCP companion only. Done when a PR edits those sentences.
+
+### App: real-device check of the Good / Bad judgment on frames with no AF point
+
+#### Background
+
+The `af-eye-good-bad-cascade` plan (Step 2) judges a frame with no trusted AF point (every Leica M and Sigma BF file, and manual-focus frames) on the largest confident face YuNet finds on the whole preview (`FACES_VERSION` 9). `Focus` now carries the cue without a point, and `focusMark` draws no crosshair for it. Unit tests and `mise run ci` cover the state mapping and the stored-vs-on-demand agreement (checked by a temporary example on `2026-02-01` and 12 manual-focus ARWs). Nobody has looked at the rendered strip icon, filter result and meta pane for these frames in the running app. Plan: `docs/plans/_archived/20261010-af-eye-good-bad-cascade/plan.md`.
+
+Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/main.ts`, `crates/app/src/index.rs`.
+
+#### TODO
+
+- [ ] On Windows or macOS, open `D:\photos\2026\2026-02-01` in a build with this change and let the second pass re-run (`FACES_VERSION` 9). Check that Leica DNGs with a face get the strip's `scan-face` (good) or `scan` (bad) icon although `f` draws no crosshair; that the filter's `AF eye` `Good` / `Bad` items list them; that the meta pane shows `AF eye in focus`, `Eyes` and `Head pose` for them from the stored values, matching the on-demand mesh overlay; and that a DNG with no face stays without an icon and under `Unknown`.
+- [ ] On Windows or macOS, repeat on a manual-focus ARW with a face (e.g. `D:\photos\samples\ARW\ILCE-6400_DSC00405.ARW` copied into a test folder under `D:\Photos\tests\`): same results, and still no crosshair.
+
+### App: real-device check of the removed sharpness displays and the new Compare pairing
+
+#### Background
+
+The `af-eye-good-bad-cascade` plan (Step 5) removed the strip's sharpness bar, Compare's `BEST` label, score and green outline, and the meta pane's `Sharpness` row. A lone file in Compare is now paired with the first displayed good frame of its burst in capture order, else the burst's first frame. `compare.test.ts`, `meta.test.ts` and `mise run ci` cover the logic. The rendered result in the running app was never looked at. Plan: `docs/plans/_archived/20261010-af-eye-good-bad-cascade/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/compare.ts`, `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
+
+#### TODO
+
+- [ ] On Windows or macOS, open a folder with bursts (e.g. a copy of an ARW burst folder under `D:\Photos\tests\`). Expect no bar up the left edge of any strip cell and no `Sharpness` row in the meta pane's Analysis group. Press `v` on one file of a burst: it should show beside the burst's first bright-green (good) frame, else the burst's first frame, with labels of the file name (and `ACTIVE`) only, with no `BEST`, no score and no green outline.
 
 ### Core: the `.dop` reader ignores a picked PhotoLab virtual copy
 
@@ -25,7 +51,7 @@ Files: `crates/core/src/dop.rs`, `crates/app/src/trash.rs`.
 
 ### App: re-measure a Good / Bad for frames with no face
 
-The `af-eye-good-bad-cascade` plan (Step 3, Decision C in `docs/plans/20261010-af-eye-good-bad-cascade/plan.md`, numbers in `sharpness-fallback.md`, script `facefree.py` in the same folder) measured whether the sharpness score separates picks on frames where no face is analyzed (an AF point with no face near it, or no AF point and no face on the whole preview). It did not meet the pre-registered criterion (held-out AUC >= 0.70 pick vs non-pick and a cut at 2x the base precision marking 20% or more): absolute AUC 0.579, best held-out lift 1.25, so those frames stay `Unknown` (Step 4). The pick vs reject leg could not be run: only 9 face-free rejects exist (7 in `2026-09-19`, 2 in `2026-09-13-b`), and no folder has the 30 the criterion needs.
+The `af-eye-good-bad-cascade` plan (Step 3, Decision C in `docs/plans/_archived/20261010-af-eye-good-bad-cascade/plan.md`, numbers in `sharpness-fallback.md`, script `facefree.py` in the same folder) measured whether the sharpness score separates picks on frames where no face is analyzed (an AF point with no face near it, or no AF point and no face on the whole preview). It did not meet the pre-registered criterion (held-out AUC >= 0.70 pick vs non-pick and a cut at 2x the base precision marking 20% or more): absolute AUC 0.579, best held-out lift 1.25, so those frames stay `Unknown` (Step 4). The pick vs reject leg could not be run: only 9 face-free rejects exist (7 in `2026-09-19`, 2 in `2026-09-13-b`), and no folder has the 30 the criterion needs.
 
 Files: `crates/app/ui/src/focus.ts` (where a rule would go, next to the good cuts), `crates/app/src/index.rs` (an `analyzed` flag on `Focus` / `FaceReady` so "analyzed, no face" differs from "not yet").
 
@@ -650,7 +676,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       `D:\photos\samples\ARW\good-mark-2026-10-09\`. Files:
       `crates/app/ui/src/focus.ts`, `crates/core/src/eyes.rs`.
 - [x] Give the no-AF path a good-photo mark once it has a focus cue. Done
-      in `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2: pass 2 runs
+      in `docs/plans/_archived/20261010-af-eye-good-bad-cascade/` Step 2: pass 2 runs
       the cue, the EAR, the pose, the eye offset and the edge gap on the
       largest confident face of the whole preview when a frame has no
       trusted AF point (`FACES_VERSION` 9), and `Focus` carries the cue
@@ -660,7 +686,7 @@ Face/eye-aware detection and scoring (`crates/core/src/faces.rs`, `crates/core/s
       The cuts in `crates/app/ui/src/focus.ts` (`GOOD_EYE_FOCUS`,
       `GOOD_EYE_EAR`, `GOOD_MAX_YAW`, `GOOD_MAX_PITCH`, `MAX_EYE_OFFSET`,
       `MIN_EDGE_GAP`) were fitted on AF faces only; since
-      `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2 they also judge
+      `docs/plans/_archived/20261010-af-eye-good-bad-cascade/` Step 2 they also judge
       the largest confident face of a frame with no AF point. Run
       `riffle-cli features` over the Leica folders with `.dop` picks
       (`D:\photos\2026\2026-09-05` and the other DNG folders of the
@@ -847,7 +873,7 @@ Files: `docs/plans/_archived/20261007-head-pose/pose-truth.md`, `docs/plans/_arc
 
 #### Background
 
-On a file with no trusted AF point, pass 2 decodes the preview up to three times: the DCT-scaled RGB decode for the whole-image face search, a full-size RGB decode for the face mesh and the eye regions of the judged face (since `docs/plans/20261010-af-eye-good-bad-cascade/` Step 2, only when a confident face is found), then a full-size grayscale decode in `sharpness::score_preview`. The face-detection-recall-cost work cut the first decode to 3/8. Step 2 measured on one thread (`riffle-cli features`, `D:\photos\2026\2026-02-01` and `2026-09-05`, Leica DNG): a faced no-AF file went from about 94 ms to about 122 ms of analysis, a file with no face did not change; the numbers are in that plan's `learnings.md`. Scoring from the full-size RGB decode (its luma) would drop the grayscale decode on faced files, but it changes the score's pixels and its stored values, so it needs a `FACES_VERSION` bump. See also `docs/plans/_archived/20261005-face-detection-recall-cost/learnings.md` (Step 3 measurements).
+On a file with no trusted AF point, pass 2 decodes the preview up to three times: the DCT-scaled RGB decode for the whole-image face search, a full-size RGB decode for the face mesh and the eye regions of the judged face (since `docs/plans/_archived/20261010-af-eye-good-bad-cascade/` Step 2, only when a confident face is found), then a full-size grayscale decode in `sharpness::score_preview`. The face-detection-recall-cost work cut the first decode to 3/8. Step 2 measured on one thread (`riffle-cli features`, `D:\photos\2026\2026-02-01` and `2026-09-05`, Leica DNG): a faced no-AF file went from about 94 ms to about 122 ms of analysis, a file with no face did not change; the numbers are in that plan's `learnings.md`. Scoring from the full-size RGB decode (its luma) would drop the grayscale decode on faced files, but it changes the score's pixels and its stored values, so it needs a `FACES_VERSION` bump. See also `docs/plans/_archived/20261005-face-detection-recall-cost/learnings.md` (Step 3 measurements).
 
 Files: `crates/core/src/scan.rs` (`extract_analysis_unless`, `whole_image_cue`, `score`), `crates/core/src/sharpness.rs` (`score_preview`).
 

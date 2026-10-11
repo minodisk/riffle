@@ -198,3 +198,12 @@
   (and `ACTIVE`) only, no `BEST`, no score, no green outline. Files:
   `crates/app/ui/src/main.ts`, `crates/app/ui/src/compare.ts`,
   `crates/app/ui/src/strip.ts`, `crates/app/ui/style.css`.
+- CLAUDE.md promotion (needs the user's approval; this plan forbade editing
+  it): the Layout sentences still describe the pre-cascade behavior. The
+  `run_faces_scan`, `eyes_of` and `src/candidate.rs` sentences need "else
+  the largest confident face on the whole preview when there is no trusted
+  AF point"; the `src/focus.ts` sentence needs the `afEyeState` helper (Good /
+  Bad / Unknown) and must drop the sharpness displays; the `src/sharpness.rs`
+  sentence stays but should say the score now feeds the MCP companion only.
+  Why not a guide: CLAUDE.md is read every session, so a stale Layout
+  misleads every session. Done when a PR edits those sentences.
