@@ -848,6 +848,21 @@ fn embed_cmd(args: &[String]) -> Result<()> {
     let spec = embed::spec(spec_name).ok_or_else(|| anyhow!("unknown spec {spec_name}"))?;
     let paths = raw_paths(&inputs.iter().map(PathBuf::from).collect::<Vec<_>>())?;
     if let Some(dir) = &previews {
+        // Previews are named by file stem in one folder, so a repeat would overwrite.
+        let mut stems = std::collections::HashSet::new();
+        for p in &paths {
+            let stem = p
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if !stems.insert(stem) {
+                bail!(
+                    "{}: another input has the same file name; --previews needs unique stems",
+                    p.display()
+                );
+            }
+        }
         std::fs::create_dir_all(dir)?;
     }
 
@@ -864,10 +879,6 @@ fn embed_cmd(args: &[String]) -> Result<()> {
             Ok((rgb, w, h, entry.orientation))
         } else {
             let (a, jpeg) = reader::read_preview(p)?;
-            if let Some(dir) = &previews {
-                let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-                std::fs::write(dir.join(format!("{stem}.jpg")), &jpeg)?;
-            }
             if let Some(edge) = near {
                 let up = decode_upright_near(&jpeg, a.orientation, edge)?;
                 return Ok((up.rgb, up.width, up.height, 1));
@@ -925,7 +936,9 @@ fn embed_cmd(args: &[String]) -> Result<()> {
                 lines.push_str(&embed_line(&p.to_string_lossy(), &v));
                 lines.push('\n');
                 if let Some(dir) = &previews {
+                    // Written here, after the timed run, so the I/O stays out of its numbers.
                     let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+                    std::fs::write(dir.join(format!("{stem}.jpg")), reader::read_preview(p)?.1)?;
                     list.push_str(&format!(
                         "{}\t{}\t{o}\n",
                         p.display(),
@@ -1039,6 +1052,16 @@ fn compare_embeddings(
         .iter()
         .filter_map(|(p, v)| bs.get(p.as_str()).map(|w| (p.as_str(), v.as_slice(), *w)))
         .collect();
+    if let Some((p, v, w)) = pairs.iter().find(|(_, v, w)| v.len() != w.len()) {
+        bail!("{p}: vectors differ in length ({} vs {})", v.len(), w.len());
+    }
+    if let Some((p, v, _)) = pairs.iter().find(|(_, v, _)| v.len() != pairs[0].1.len()) {
+        bail!(
+            "{p}: row length {} differs from the first row's {}",
+            v.len(),
+            pairs[0].1.len()
+        );
+    }
     if pairs.len() <= k {
         bail!("{} common paths; need more than {k}", pairs.len());
     }
@@ -1861,6 +1884,10 @@ mod tests {
         assert_eq!(agreement, 1.0);
         // Too few common paths for k.
         assert!(compare_embeddings(&a[..2], &b, 2).is_err());
+        // Vectors of different lengths are an error, not a truncated cosine.
+        let mut c = a.clone();
+        c[3].1.push(0.5);
+        assert!(compare_embeddings(&a, &c, 2).is_err());
     }
 
     #[test]
