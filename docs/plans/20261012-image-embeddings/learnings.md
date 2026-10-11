@@ -92,6 +92,11 @@
   (0.707), with 1,478 of 1,801 scorable bursts in "sports".
 - **Small deviations from the pre-registered text, none touching the
   criterion:**
+  - "Leave-one-folder-out over the 27 folders" ran 26 folds: `2026-07-23`
+    (18 frames, 0 picks) has no scorable burst, so it is never held out and
+    each fold fits on 25 folders with pairs. The learning curve's "26" row
+    trains on 26 folders, 25 with pairs, and its 5 / 10 / 20 draws may hold
+    one folder fewer with pairs than labeled.
   - The random baseline uses seed 1, not seed 0. Seed 0 went to the Top-3
     tie-break vector, and reusing it would have made the random ranking and
     the tie-break the same draw. Random is not in the criterion (0.508

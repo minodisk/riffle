@@ -126,7 +126,11 @@ Run 2026-10-12 after the pre-registration commit `ce0ea14` (committed
 time, the commit is the record). `gate_dump.sh` with the release `riffle-cli`
 of this branch (copied to the gate directory) dumped the 27 folders: 32,459
 files, no feature or embedding error; `embed` took 611.6 s of wall time on 24
-threads (18.8 ms per image, peak working set 1148 MB). Then:
+threads (18.8 ms per image, peak working set 1148 MB). The folder
+`2026-07-23` (18 frames, 0 picks) has no scorable burst, so the run held out
+26 folders, not 27, and each fold fits on 25 folders that contribute pairs
+(`2026-07-23` adds only frames to the imputation, standardization and PCA).
+Then:
 
 ```sh
 python -I genre_text.py <models>/siglip2-b32-256-text genre_prompts.json <gate>/genre_text.tsv
@@ -287,6 +291,10 @@ Frames per top-level genre (frame argmax): sports 28444, portrait 178, landscape
 | 10 | 0.699 | 53.6% |
 | 20 | 0.704 | 54.2% |
 | 26 | 0.708 | 54.4% |
+
+The "26" row trains on 26 folders, of which 25 contribute pairs. The draws
+for 5, 10 and 20 sample from the other folders including `2026-07-23`, so a
+draw can hold one folder fewer with pairs than its label says.
 
 ### Weights of the shared model fit on every folder
 

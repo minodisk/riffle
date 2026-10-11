@@ -519,7 +519,8 @@ Decided in Step 1 from the measurements in [models.md](models.md) (Windows
 Decided in Step 2 by the criterion pre-registered in [gate.md](gate.md)
 (commit `ce0ea14`, before the fit), on the 27 sidecar-labeled ARW folders:
 32,459 frames, 4,419 picks, 1,801 scorable bursts at gap 1000 ms, 41,942
-pick x not-chosen pairs, leave one folder out.
+pick x not-chosen pairs, leave one folder out (26 folds: `2026-07-23` has no
+scorable burst, so it is never held out).
 
 - **Ranking ships: Step 7 proceeds, with the shared model.** Held out, the
   shared model (SigLIP 2 embedding as 32 whitened PCA dimensions + the
