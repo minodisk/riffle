@@ -224,4 +224,4 @@ state across launches, a charting library.
 
 ## Progress
 
-- (none yet)
+- (2026-10-11) Step 1 complete
