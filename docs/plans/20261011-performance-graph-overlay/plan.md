@@ -179,7 +179,7 @@ state across launches, a charting library.
       labels (`100%`, the latency maximum in ms, `60 s`). No library.
     - Gate the action like `focus` / `zoom` in `runAction` (not in a text
       input, not while a modal is open).
-- [ ] Step 4: Verify the acceptance scenario by hand and document the overlay
+- [x] Step 4: Verify the acceptance scenario by hand and document the overlay
   - Done when: `results.md` in this plan folder records a hand check on the
     user's machine: (a) overlay on, paging through a folder adds latency bars
     aligned in time with the CPU series; (b) with `riffle-cli` (or another
