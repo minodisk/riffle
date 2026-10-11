@@ -127,9 +127,18 @@ because `reject` comes before `pick`, so `p` still looked taken.
   dropped, so once the outer retry settles, recompute every partly applied
   action's keys as its originally requested keys filtered by what is free
   at that point (never a conflict, since only free keys are added).
+- Adding a new default key (`DEFAULTS`) wins over any stored override that
+  holds the same key. `from_overrides` drops that key from the user's action
+  silently on upgrade. In tests, a stored override that uses an arbitrary key
+  (for example `a_stale_default_in_an_old_store_drops_only_that_key` used `d`)
+  fails once a default takes that key, so use a key no default holds. A new
+  action also needs a `MENU_LESS` entry in `main.rs`'s menu test if it has
+  no menu item, not only a `DEFAULTS` entry and the default-keys test. A
+  main-view key that the folder tree swallows is absent from `TREE_PASSTHROUGH`.
 - Source: `docs/plans/_archived/20260920-pick-shortcut-editable/learnings.md`,
   Step 1; `docs/plans/20260929-shortcut-override-partial-conflict/learnings.md`,
-  Step 1.
+  Step 1; `docs/plans/_archived/20261011-performance-graph-overlay/learnings.md`,
+  Step 3.
 
 ### An accelerator string is not validated until Tauri parses it (Inferred)
 

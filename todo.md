@@ -1746,3 +1746,24 @@ Files: `crates/app/tauri.conf.json`, `crates/app/src/main.rs`.
   5. Quit maximized and relaunch. It comes back maximized with no normal-size frame first.
   6. Note whether a white (unpainted WebView) frame shows before the dark UI paints. If it does and bothers the user, the follow-up is `"backgroundColor": "#0a0a0a"` on the window entry in `tauri.conf.json`.
 - [ ] On macOS, minimize the window, quit with Cmd+Q, and relaunch. The window appears. This is the real-world source of a saved `visible: false`.
+
+### App: real-device check of the performance graph overlay's legend swatches
+
+#### Background
+
+`performance-graph-overlay` added an overlay toggled by the `performance` action (default key `d`) that plots per-switch preview latency, Riffle's CPU and the system CPU over 60 s. Its hand checks (a)-(c) passed on Windows (`results.md`). Afterwards the two CPU lines were restyled (Riffle CPU 2 px solid, system CPU 1 px dashed) and the legend gained a 14 px swatch of each line before its label. CI covers only the model (`perf.test.ts`) and the build. The swatch drawing and its spacing against the labels were never seen on a real screen. Plan: `docs/plans/_archived/20261011-performance-graph-overlay/plan.md`. Files: `crates/app/ui/src/main.ts` (`PERF_LINES`, `drawPerf`).
+
+#### TODO
+
+- [ ] On Windows (any platform works), open a folder and press `d`. Check at a glance that the overlay's legend shows a thick solid line before `Riffle CPU` and a thin dashed line before `System CPU`, matching the two plotted CPU lines, and that the labels do not overlap the swatches.
+
+### Shortcuts: a newly added default key silently displaces a user's stored override
+
+#### Background
+
+`performance-graph-overlay` added the default key `d`. `Keymap::from_overrides` gives a key already held by a default precedence over a partly applicable stored override. A user whose stored `shortcuts` override bound `d` to another action (for example a WASD-style layout on `next`) therefore loses that key silently on upgrade. It surfaced when `a_stale_default_in_an_old_store_drops_only_that_key` failed in CI; that test's arbitrary `d` was changed to `e`, but the real-user case is unaddressed. Plan: `docs/plans/_archived/20261011-performance-graph-overlay/plan.md`. Files: `crates/app/src/shortcuts.rs` (`DEFAULTS`, `from_overrides`).
+
+#### TODO
+
+- [ ] Decide whether a newly added default should yield to an existing override, or whether the drop should be logged at `warn` (or both).
+- [ ] Implement the chosen behavior with a Rust test covering an old store that binds the new default's key to another action.
