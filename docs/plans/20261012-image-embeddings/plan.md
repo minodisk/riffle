@@ -482,9 +482,8 @@ Decided in Step 1 from the measurements in [models.md](models.md) (Windows
   The scaled decode reaches cosine min 0.993 / mean 0.998 and top-5
   agreement 0.843 against the full preview, and decodes in 9.0 ms against
   26.1 ms (24 threads).
-- **Distribution: downloaded on the first enable.** This is the
-  recommendation; the user confirms it against the bundled-resource option
-  before Step 3 builds it.
+- **Distribution: downloaded on the first enable.** The user confirmed it
+  against the bundled-resource option on 2026-10-12.
   - `include_bytes!` is out. It adds 378,479,104 B to every binary that
     reaches the model, measured on `riffle-cli` (29.8 MB -> 408.2 MB).
     `riffle-app` (about 52 MB) would grow the same for a feature that is
@@ -518,3 +517,4 @@ Pending Step 2.
 ## Progress
 
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
+- (2026-10-12) Step 1 complete

@@ -80,12 +80,6 @@
 
 ## Deferred issues (todo candidates)
 
-- **The user confirms Decision 1's distribution before Step 3.** The plan
-  recommends downloading SigLIP 2 FP32 on the first enable over shipping it
-  as a resource next to the binary (about +350 MB to every installer).
-  `include_bytes!` is ruled out by measurement. Source: Step 1, Decision 1
-  in `docs/plans/20261012-image-embeddings/plan.md`; numbers in
-  `docs/plans/20261012-image-embeddings/models.md`.
 - **Lower `Model::load`'s peak.** It holds about 3x the model file at once
   (the bytes, the parsed protobuf, the optimized plan: 1145 MB for the 378 MB
   SigLIP 2 file). Loading through `model_for_path` or dropping the bytes
@@ -100,3 +94,9 @@
   smaller download at FP32 speed. Not needed for Step 3. Source: Step 1
   measurements in `docs/plans/20261012-image-embeddings/models.md`;
   `docs/plans/20261012-image-embeddings/weight_only.py`.
+
+## User decisions
+
+- (2026-10-12) The user confirmed Decision 1's distribution: SigLIP 2 FP32
+  is downloaded on the first enable (pinned revision, SHA-256 checked), not
+  shipped as a resource next to the binary.
