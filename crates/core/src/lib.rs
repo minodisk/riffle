@@ -5,6 +5,7 @@ pub mod candidate;
 pub mod cr3;
 pub mod decode;
 pub mod dop;
+pub mod embed;
 mod exif;
 pub mod eyes;
 pub mod faces;
