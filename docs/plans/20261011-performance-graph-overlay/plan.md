@@ -132,7 +132,7 @@ state across launches, a charting library.
       line's content.
     - Keep `pageTimings` bookkeeping as is (it is cleared for every response,
       shown or not); only add the one point.
-- [ ] Step 3: The overlay canvas, its toggle (`performance` keymap action, default `d`), the `perf-sample` listener and the sampler wiring
+- [x] Step 3: The overlay canvas, its toggle (`performance` keymap action, default `d`), the `perf-sample` listener and the sampler wiring
   - Done when: a `performance` action with the default key `d` toggles a
     `<canvas id="perf">` overlaid on `#viewer`; while on, the canvas redraws
     at least every 500 ms (each `perf-sample`, each latency point, and a timer
@@ -226,3 +226,4 @@ state across launches, a charting library.
 
 - (2026-10-11) Step 1 complete
 - (2026-10-11) Step 2 complete
+- (2026-10-11) Step 3 complete

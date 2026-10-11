@@ -147,7 +147,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { PerfModel, latencyStart } from "./perf.js";
+import { PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
 // `Riffle.log`. Not gated by `debugLogging`, and the default console output is
@@ -234,6 +234,8 @@ interface DecodeResponse {
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+const perfCanvas = document.getElementById("perf") as HTMLCanvasElement;
+const perfContext = perfCanvas.getContext("2d") as CanvasRenderingContext2D;
 const metaEl = document.getElementById("meta") as HTMLDivElement;
 const metaStatusEl = document.getElementById("meta-status") as HTMLDivElement;
 const positionEl = document.getElementById("position") as HTMLDivElement;
@@ -671,6 +673,7 @@ const THEME = {
   foreground: token(rootStyle, "--foreground", "white"),
   border: token(rootStyle, "--border", "gray"),
   primary: token(rootStyle, "--primary", "white"),
+  mutedForeground: token(rootStyle, "--muted-foreground", "gray"),
 };
 
 function baseName(path: string): string {
@@ -1417,6 +1420,114 @@ function draw(): void {
   drawFaceMarks(drawWidth, drawHeight);
   drawFaceMesh(drawWidth, drawHeight);
   context.restore();
+}
+
+// The scrolling time axis redraws on this timer too, so the graph moves
+// between samples and latency points.
+const PERF_REDRAW_MS = 500;
+const PERF_HEADER = 16;
+let perfTimer: number | null = null;
+let perfUnlisten: Promise<() => void> | null = null;
+
+// The sampler runs only while the overlay is shown; the startup call stops one
+// a reloaded window left running.
+void window.__TAURI__.core.invoke("set_perf_sampling", { enabled: false }).catch(() => {});
+
+function togglePerf(): void {
+  if (perf.on) {
+    perf.stop();
+    perfCanvas.hidden = true;
+    if (perfTimer !== null) {
+      window.clearInterval(perfTimer);
+      perfTimer = null;
+    }
+    void perfUnlisten?.then((unlisten) => unlisten());
+    perfUnlisten = null;
+    void window.__TAURI__.core.invoke("set_perf_sampling", { enabled: false }).catch(() => {});
+    return;
+  }
+  perf.start();
+  perfCanvas.hidden = false;
+  perfUnlisten = window.__TAURI__.event.listen<{ process: number; system: number }>(
+    "perf-sample",
+    ({ payload }) => {
+      perf.addCpu({ at: performance.now(), process: payload.process, system: payload.system });
+      drawPerf();
+    },
+  );
+  perfTimer = window.setInterval(drawPerf, PERF_REDRAW_MS);
+  void window.__TAURI__.core.invoke("set_perf_sampling", { enabled: true }).catch(() => {});
+  drawPerf();
+}
+
+// The CPU series on a 0-100 % scale and the latency bars on a 0-`latencyMax`
+// scale share the plot below a one-line legend, the newest at the right edge.
+function drawPerf(): void {
+  if (perfCanvas.hidden) {
+    return;
+  }
+  const width = perfCanvas.clientWidth;
+  const height = perfCanvas.clientHeight;
+  const dpr = window.devicePixelRatio;
+  perfCanvas.width = Math.round(width * dpr);
+  perfCanvas.height = Math.round(height * dpr);
+  const ctx = perfContext;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = THEME.card;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+  const now = performance.now();
+  const { cpu, latency, latencyMax } = perf.view(now);
+  const bottom = height - 4;
+  const plot = bottom - PERF_HEADER - 4;
+  const x = (at: number): number => width - ((now - at) / WINDOW_MS) * width;
+  ctx.strokeStyle = THEME.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const fraction of [0, 0.5, 1]) {
+    const y = Math.round(bottom - fraction * plot) + 0.5;
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = FOCUS_MARK_COLORS.good;
+  for (const point of latency) {
+    const barHeight = (Math.min(point.ms, latencyMax) / latencyMax) * plot;
+    ctx.fillRect(x(point.at) - 1, bottom - barHeight, 2, barHeight);
+  }
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "round";
+  for (const [series, color] of [
+    ["system", THEME.mutedForeground],
+    ["process", THEME.foreground],
+  ] as const) {
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    cpu.forEach((sample, at) => {
+      const y = bottom - (sample[series] / 100) * plot;
+      if (at === 0) ctx.moveTo(x(sample.at), y);
+      else ctx.lineTo(x(sample.at), y);
+    });
+    ctx.stroke();
+  }
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  let left = 6;
+  for (const [text, color] of [
+    ["CPU 100%  60 s", THEME.mutedForeground],
+    ["Riffle CPU", THEME.foreground],
+    ["System CPU", THEME.mutedForeground],
+    ["Latency", FOCUS_MARK_COLORS.good],
+  ] as const) {
+    ctx.fillStyle = color;
+    ctx.fillText(text, left, 3);
+    left += ctx.measureText(text).width + 12;
+  }
+  ctx.textAlign = "right";
+  ctx.fillStyle = THEME.mutedForeground;
+  ctx.fillText(`${Math.round(latencyMax)} ms`, width - 6, 3);
 }
 
 function compareCandidates(): string[] {
@@ -2730,6 +2841,7 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
     );
     if (perf.on) {
       perf.addLatency({ at: drawnAt, ms: drawnAt - latencyStart(timing.keypressAt, switchAt) });
+      drawPerf();
     }
   }
 });
@@ -4339,6 +4451,9 @@ function runAction(action: string): boolean {
     case "compare":
       toggleCompare();
       break;
+    case "performance":
+      togglePerf();
+      break;
     case "open":
       openFolder();
       break;
@@ -4430,6 +4545,7 @@ function runAction(action: string): boolean {
 
 function fitViewer(): void {
   draw();
+  drawPerf();
   if (zoomed) {
     scheduleCropForResize();
   }
