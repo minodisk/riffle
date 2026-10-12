@@ -309,7 +309,8 @@ Constraints the user set, binding on every step:
       the paging latency, not the memory (see `learnings.md`, Step 3).
     - No user-visible feature yet beyond the setting.
 
-- [ ] Step 4: Similarity search: "Show Similar" from the strip's right-click menu
+- [x] Step 4: Similarity search: "Show Similar" from the strip's right-click menu — closed without shipping (Decision 3)
+  - Closed: no cosine threshold reaches the >= 0.95 precision on the 150 labeled pairs (see [similarity.md](similarity.md)); the user chose to drop it.
   - Done when:
     - `similar_to(path, limit)` command returns the folder's files ordered
       by cosine to the given file (brute-force over the stored vectors;
@@ -366,7 +367,8 @@ Constraints the user set, binding on every step:
       vectors; SigLIP uses a sigmoid-trained space, so thresholds are per
       label, not shared).
 
-- [ ] Step 6: Visual similarity groups, separate from bursts
+- [x] Step 6: Visual similarity groups, separate from bursts — closed without shipping (Decision 3)
+  - Closed: it rests on Step 4's threshold, which the labeled pairs do not give (Decision 3); the user chose to drop it.
   - Done when:
     - Groups are built from the Step 4 threshold by connected components
       (or single-linkage agglomerative with the same cut) over the
@@ -411,8 +413,9 @@ Constraints the user set, binding on every step:
       still clear the gate's bar there.
     - Docs: usage / README pairs; `CLAUDE.md` layout.
   - Implementation approach (as far as it is known):
-    - Assumes Steps 3 and 4 merged. Decision 2 shipped one shared model with
-      no per-genre offsets, so Step 5 is not a dependency.
+    - Assumes Step 3 merged. Decision 2 shipped one shared model with
+      no per-genre offsets, so Step 5 is not a dependency; Step 4 was
+      dropped (Decision 3) and is not one either.
 
 ## Trade-offs and risks
 
@@ -449,7 +452,8 @@ Constraints the user set, binding on every step:
   `Priority::Lowest`; the vectors are cached, so it is paid once per model
   version. If Step 3's page latency measurement shows interference, drop
   the thread count before anything else.
-- **Default of `aiEnabled`.** Off until Step 4 ships a visible feature,
+- **Default of `aiEnabled`.** Off until a step ships a visible feature
+  (Step 4 was to be the first; Decision 3 dropped it, so Step 5 or 7 is),
   then the caller decides whether to flip it on; either way the setting is
   one checkbox.
 
@@ -550,6 +554,32 @@ scorable burst, so it is never held out).
   prior matters while a user has few finished folders. Explicit rejects
   (58 frames, 3 scorable bursts) are too few to measure as stronger
   negatives.
+
+## Decision 3 (similarity search and visual groups: not shipped)
+
+Decided in Step 4 on hand-labeled pairs ([similarity.md](similarity.md)):
+150 within-folder pairs from 8 folders, stratified by the SigLIP 2 cosine
+(135 across six bins, 15 within-burst anchors), labeled by the user with
+"same scene" meaning interchangeable candidates you would keep one of (the
+same player, the same play or kind of action; a different play in the same
+game is different).
+
+- **No threshold reaches the pre-registered >= 0.95 precision.** 19 same,
+  131 different, 0 unsure. By bin (same / different): 0.96-1.00 4 / 11,
+  0.93-0.96 4 / 26, 0.90-0.93 0 / 30, 0.85-0.90 1 / 27, 0.80-0.85 0 / 20,
+  0.70-0.80 0 / 12, anchors 10 / 5. The highest-cosine pair (0.974) is
+  different and above 0.93 same and different interleave; the top bin's
+  precision is about 27% (stratified pairs: 0.250 at t = 0.95, 0.267 at
+  0.96, 0.667 on 3 pairs at 0.97).
+- **Reading.** The global embedding captures the place, the sport and the
+  atmosphere, not which play within one game. A low cosine reliably means
+  different and ranking concentrates "same" at the top, but a threshold
+  "Show Similar" or connected-component groups would lump a whole game
+  together.
+- **User decision (2026-10-12): Steps 4 and 6 are dropped.** The options
+  offered were a threshold-free top-N similarity view, relabeling with a
+  looser definition, or dropping; the user chose dropping. Step 5 (genre)
+  and Step 7 (ranking) proceed; neither depends on Step 4.
 
 ## Progress
 

@@ -226,6 +226,27 @@
   script containing SQL `LIKE '%.jpg'` failed with `unexpected EOF while
   looking for matching '`. The Edit tool, or a script file, avoids it.
 
+## Step 4 (closed without shipping)
+
+- **The labeled pairs gave no usable threshold.** 150 within-folder pairs
+  from 8 folders (`pairs.py`, stratified by the SigLIP 2 cosine of Step 2's
+  `embed.tsv`) came back 19 same / 131 different / 0 unsure. The highest
+  cosine (0.974) is different; above 0.93 the labels interleave, and the
+  top bin's precision is about 27% against the pre-registered 0.95. Tables
+  in `similarity.md` (`similarity.py` recomputes them from `pairs.tsv` and
+  `labels.tsv` in `D:\Photos\tests\2026-10-12-similar-pairs\`).
+- **The definition decided the outcome.** "Same scene" had to be clarified
+  mid-labeling to "interchangeable candidates" (same player, same play or
+  kind of action; another play in the same game is different). Under that
+  definition a global embedding, which captures place, sport and
+  atmosphere, cannot separate plays within one game. Even 5 of the 15
+  within-burst anchors were different. A future similarity feature should
+  fix its definition before the labeling page goes out and should expect
+  ranking, not thresholding, to be what the embedding supports.
+- **Steps 4 and 6 were closed, Steps 5 and 7 continue** (Decision 3). Step
+  7 no longer lists Step 4 as a prerequisite, and the `aiEnabled` default
+  now waits on Step 5 or 7 instead of Step 4.
+
 ## Deferred issues (todo candidates)
 
 - **Late embedding batches can outlive `clear_index` and the renames.**
@@ -303,3 +324,8 @@
 - (2026-10-12) The user confirmed Decision 1's distribution: SigLIP 2 FP32
   is downloaded on the first enable (pinned revision, SHA-256 checked), not
   shipped as a resource next to the binary.
+- (2026-10-12) After the Step 4 labeling showed no cosine threshold near
+  0.95 precision, the user was offered a threshold-free top-N similarity
+  view, relabeling with a looser definition, or dropping; the user chose to
+  drop Steps 4 and 6 and go on to Step 5 (genre) and Step 7 (ranking)
+  (Decision 3).
