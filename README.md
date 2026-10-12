@@ -201,6 +201,16 @@ DxO PhotoLab.
   calibrated on the author's photos: reliable for sports, right about half
   the time for portrait, landscape and snap, and it never changes a judgment
   (see [AI analysis and genres](./docs/humans/usage.md#features)).
+- **Recommended order (AI analysis)**: with AI analysis on, the sort menu's
+  `Recommended` keeps the bursts in capture order and puts each burst's
+  frames in the order of a small model learned from picks, and the meta
+  pane shows the frame's place in its burst, the reasons and a confidence.
+  It starts from a model learned on the author's culling and learns yours
+  from the folders you mark `Culling Finished` in the folder tree. It is a
+  modest suggestion (held out on the author's folders, the top-ranked frame
+  was a pick in about 55% of the bursts, against 39% for the first
+  frame), and it never changes a judgment (see
+  [Recommended order](./docs/humans/usage.md#features)).
 - **MCP companion**: an MCP client, such as an AI assistant, can follow along
   while you cull: read what Riffle shows, look at a preview, move the view and
   record stars, picks / rejects and labels the way the keys do. It is off by

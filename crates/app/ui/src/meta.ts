@@ -55,6 +55,68 @@ export interface FocusCue {
   pose: Pose | null;
 }
 
+// One file's place in its burst under the personal ranking, as `Ranked` in
+// `crates/core/src/rank.rs` carries it: the score above the burst's mean in
+// logits, the place among the burst's scored frames and what moved the
+// score, `[reason, logits]`, largest first.
+export interface Ranked {
+  score: number;
+  place: number;
+  of: number;
+  reasons: [string, number][];
+}
+
+// How much of the ranking is the user's own, as `ModelInfo` in
+// `crates/app/src/rank.rs` carries it: the bursts and the folders it was fit
+// on, `none` when it is the built-in prior alone.
+export interface RankModel {
+  bursts: number;
+  folders: number;
+  confidence: "none" | "low" | "medium" | "high";
+}
+
+export interface Ranking {
+  ranked: Ranked;
+  model: RankModel;
+}
+
+// A reason smaller than this, in logits, is not worth naming.
+const MIN_REASON = 0.05;
+const REASONS_SHOWN = 3;
+
+function signed(x: number): string {
+  return `${x < 0 ? "−" : "+"}${Math.abs(x).toFixed(2)}`;
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+// The confidence with what the model was fit on, for the meta pane and the
+// settings.
+export function confidenceText(model: RankModel): string {
+  if (model.confidence === "none") {
+    return "Built-in only, nothing learned yet";
+  }
+  const level = model.confidence.charAt(0).toUpperCase() + model.confidence.slice(1);
+  return `${level} · ${plural(model.bursts, "burst")} in ${plural(model.folders, "folder")}`;
+}
+
+// The ranking's rows: the place in the burst with the score, the largest
+// reasons, and the confidence.
+export function rankingRows(ranking: Ranking): [string, string | null][] {
+  const { ranked, model } = ranking;
+  const reasons = ranked.reasons
+    .filter(([, v]) => Math.abs(v) >= MIN_REASON)
+    .slice(0, REASONS_SHOWN)
+    .map(([name, v]) => `${name} ${signed(v)}`);
+  return [
+    ["Recommended", `${ranked.place} of ${ranked.of} in its burst · ${signed(ranked.score)}`],
+    ["Reason", reasons.length === 0 ? null : reasons.join(", ")],
+    ["Confidence", confidenceText(model)],
+  ];
+}
+
 function focusPercent(p: number | null): string | null {
   return p === null ? null : `${Math.round(p * 100)}%`;
 }
@@ -94,11 +156,13 @@ function group(heading: string, rows: [string, string | null][]): MetaGroup {
 // row, as a percentage, only when there is one, and so do the open / closed
 // judgment with the openness of the eyes and the head pose of the same face: the values the
 // scan stored for the judged face when it has them, else the `eyes` judgment taken
-// when the file was shown.
+// when the file was shown. The personal ranking's rows follow while AI
+// analysis is on and the file has a score.
 export function metaGroups(
   meta: Metadata | null,
   focus?: FocusCue | null,
   eyes?: Eyes | null,
+  ranking?: Ranking | null,
 ): MetaGroup[] {
   const groups: MetaGroup[] = [];
   const ear = focus?.eyes_ear ?? null;
@@ -141,6 +205,7 @@ export function metaGroups(
           : eyesValue(eyes?.state ?? "unknown", eyes?.ear ?? null),
       ],
       ["Head pose", poseValue(stored ? (focus?.pose ?? null) : (eyes?.pose ?? null))],
+      ...(ranking === null || ranking === undefined ? [] : rankingRows(ranking)),
     ]),
   );
   return groups.filter(({ rows }) => rows.length > 0);

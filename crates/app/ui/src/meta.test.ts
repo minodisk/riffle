@@ -7,6 +7,7 @@ import {
   ANALYSIS_HEADING,
   metaGroups,
   poseValue,
+  type Ranking,
 } from "./meta.js";
 import type { Eyes } from "./eyes.js";
 
@@ -297,5 +298,54 @@ describe("metaGroups", () => {
         rows: [{ label: "AF eye in focus", value: "7%" }],
       },
     ]);
+  });
+});
+
+describe("metaGroups with the personal ranking", () => {
+  const ranking: Ranking = {
+    ranked: {
+      score: 0.734,
+      place: 1,
+      of: 6,
+      reasons: [
+        ["Look", 0.61],
+        ["Burst position", -0.3],
+        ["Sharpness", 0.04],
+        ["Eyes open", 0.02],
+      ],
+    },
+    model: { bursts: 120, folders: 3, confidence: "low" },
+  };
+
+  test("adds the place, the largest reasons and the confidence to the analysis group", () => {
+    expect(metaGroups(null, null, null, ranking)).toEqual([
+      {
+        heading: ANALYSIS_HEADING,
+        rows: [
+          { label: "Recommended", value: "1 of 6 in its burst · +0.73" },
+          { label: "Reason", value: "Look +0.61, Burst position −0.30" },
+          { label: "Confidence", value: "Low · 120 bursts in 3 folders" },
+        ],
+      },
+    ]);
+  });
+
+  test("says when the model is the built-in one alone and leaves out a reason too small to name", () => {
+    const prior: Ranking = {
+      ranked: { score: -0.01, place: 2, of: 2, reasons: [["Look", -0.01]] },
+      model: { bursts: 0, folders: 0, confidence: "none" },
+    };
+    expect(metaGroups(null, null, null, prior)[0]?.rows).toEqual([
+      { label: "Recommended", value: "2 of 2 in its burst · −0.01" },
+      { label: "Confidence", value: "Built-in only, nothing learned yet" },
+    ]);
+  });
+
+  test("counts one burst and one folder in the singular", () => {
+    const one: Ranking = { ...ranking, model: { bursts: 1, folders: 1, confidence: "low" } };
+    expect(metaGroups(null, null, null, one)[0]?.rows.at(-1)).toEqual({
+      label: "Confidence",
+      value: "Low · 1 burst in 1 folder",
+    });
   });
 });

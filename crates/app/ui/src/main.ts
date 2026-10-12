@@ -84,7 +84,7 @@ import {
   openHint,
 } from "./empty.js";
 import { type MenuItem, contextMenuGroups, folderMenuGroups, menuPosition } from "./context.js";
-import { type Metadata, metaGroups } from "./meta.js";
+import { type Metadata, type RankModel, type Ranked, metaGroups } from "./meta.js";
 import { FormatGate, asksLanguage, defaultPreset } from "./firstrun.js";
 import type { LabelNames, LabelPreset } from "./labels.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
@@ -570,6 +570,13 @@ const shownGenres = new Set<string>();
 let fileGenres = new Map<string, string[]>();
 let genresInFlight = false;
 let genresPending = false;
+// The personal ranking of the open folder's files with an embedding
+// (`ranking_of`) and the model it ran, while AI analysis is on.
+let rankingOn = false;
+let fileRanks = new Map<string, Ranked>();
+let rankModel: RankModel | null = null;
+let ranksInFlight = false;
+let ranksPending = false;
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -760,10 +767,12 @@ function renderMeta(): void {
   metaStatusEl.replaceChildren();
   if (files.length > 0) {
     metaEl.append(line("name", meta === null || metaStale ? baseName(files[index]) : meta.name));
+    const ranked = fileRanks.get(files[index]);
     for (const group of metaGroups(
       meta,
       entries.get(files[index])?.focus,
       eyesCache.get(files[index]),
+      ranked === undefined || rankModel === null ? null : { ranked, model: rankModel },
     )) {
       const block = document.createElement("div");
       block.className = "group";
@@ -1832,14 +1841,23 @@ function passes(path: string): boolean {
   );
 }
 
+// The sort in force: `recommended` reads as capture order while the ranking
+// is off.
+function sortInForce(): SortKey {
+  const key = sortFor(viewOnly, sortKey);
+  return key === "recommended" && !rankingOn ? "capture" : key;
+}
+
 function ordered(): string[] {
-  return orderFiles(sortFor(viewOnly, sortKey), allFiles, (path) => {
+  return orderFiles(sortInForce(), allFiles, (path) => {
     const entry = entries.get(path);
     return {
       captureTime: entry?.capture_time ?? undefined,
       subsec: entry?.subsec ?? undefined,
       // A reject sorts after the unrated files whatever its stars.
       rating: flagOf(path) === "reject" ? -1 : ratings.get(path),
+      burst: bursts.get(path)?.burst,
+      recommended: fileRanks.get(path)?.score,
     };
   });
 }
@@ -2361,6 +2379,7 @@ function refreshEntries(): void {
         }),
       );
       refreshGenres();
+      refreshRanks();
     })
     .catch(() => {
       entriesInFlight = false;
@@ -2414,6 +2433,44 @@ function refreshGenres(): void {
       if (shownGenres.size > 0) {
         refilter(files[index], true);
       }
+    })
+    .catch(settle);
+}
+
+// Re-read the open folder's ranking, at most one read at a time, reorder the
+// strip under the `recommended` sort and redraw the meta pane. Nothing is
+// read while AI analysis is off.
+function refreshRanks(): void {
+  if (openDir === null || !rankingOn) {
+    return;
+  }
+  if (ranksInFlight) {
+    ranksPending = true;
+    return;
+  }
+  const dir = openDir;
+  const token = folderToken;
+  ranksInFlight = true;
+  const settle = () => {
+    ranksInFlight = false;
+    if (ranksPending) {
+      ranksPending = false;
+      refreshRanks();
+    }
+  };
+  void window.__TAURI__.core
+    .invoke<{ model: RankModel; files: Record<string, Ranked> }>("ranking_of", { dir })
+    .then(({ model, files: found }) => {
+      settle();
+      if (dir !== openDir || token !== folderToken || !rankingOn) {
+        return;
+      }
+      fileRanks = new Map(Object.entries(found));
+      rankModel = model;
+      if (sortInForce() === "recommended") {
+        refilter(files[index], true);
+      }
+      renderMeta();
     })
     .catch(settle);
 }
@@ -3348,7 +3405,8 @@ function renameFile(path: string, name: string): void {
 
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
-// rename it, to expand or collapse every subfolder under it, to move its
+// rename it, to expand or collapse every subfolder under it, to mark its
+// culling finished (while AI analysis is on), to move its
 // rejects to the Trash, to rewrite its sidecars from the index or delete
 // them, or to sequence its JPEGs. On a selection of several
 // folders it offers only to move their rejects.
@@ -3363,9 +3421,22 @@ folders.init(
   },
   setStatus,
   (path, name, x, y, root, targets) => {
-    void revealLabel.then((label) => {
-      showMenu(folderMenuGroups(label, root, targets.length), x, y, (action) => {
+    const finished =
+      rankingOn && targets.length === 1
+        ? window.__TAURI__.core
+            .invoke<boolean>("culling_finished", { dir: path })
+            .catch(() => undefined)
+        : Promise.resolve(undefined);
+    void Promise.all([revealLabel, finished]).then(([label, finished]) => {
+      showMenu(folderMenuGroups(label, root, targets.length, finished), x, y, (action) => {
         switch (action) {
+          case "cullingFinished":
+            window.__TAURI__.core
+              .invoke("set_culling_finished", { dir: path, finished: !finished })
+              .catch((err: unknown) => {
+                setStatus(String(err));
+              });
+            break;
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
               setStatus(String(err));
@@ -3586,6 +3657,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     flags.clear();
     labels.clear();
     fileGenres = new Map();
+    fileRanks = new Map();
     pendingResume = resumeTarget(remembered, allFiles);
     const order = ordered();
     files = order.filter(passes);
@@ -3787,7 +3859,7 @@ const view: ViewApi = {
     return compareActivePath;
   },
   get sort() {
-    return sortFor(viewOnly, sortKey);
+    return sortInForce();
   },
   get viewOnly() {
     return viewOnly;
@@ -4016,6 +4088,7 @@ void window.__TAURI__.event.listen("index-cleared", () => {
 let aiWasActive: boolean | null = null;
 function applyAiState(state: AiState): void {
   setGenreSection(state.enabled);
+  setRanking(state.enabled);
   const active = aiActive(state);
   if (aiWasActive === false && active) {
     resync("ai");
@@ -4024,7 +4097,36 @@ function applyAiState(state: AiState): void {
 }
 void window.__TAURI__.core.invoke<AiState>("ai_enabled").then((state) => {
   setGenreSection(state.enabled);
+  setRanking(state.enabled);
   aiWasActive ??= aiActive(state);
+});
+
+// The personal ranking runs while AI analysis is on: the sort menu's
+// `Recommended` item shows, the meta pane gets its rows and the folder
+// tree's menu its `Culling Finished` check.
+function setRanking(enabled: boolean): void {
+  if (rankingOn === enabled) {
+    return;
+  }
+  rankingOn = enabled;
+  sortRecommended.hidden = !enabled;
+  syncSortChecks();
+  if (enabled) {
+    refreshRanks();
+    return;
+  }
+  fileRanks = new Map();
+  rankModel = null;
+  if (sortFor(viewOnly, sortKey) === "recommended") {
+    refilter();
+  }
+  renderMeta();
+}
+
+// A refit (the settings' button, a folder marked finished) changes every
+// score.
+void window.__TAURI__.event.listen("ranking-updated", () => {
+  refreshRanks();
 });
 
 // The filter menu's `Genre` section shows while AI analysis is on. Turning
@@ -4056,6 +4158,7 @@ void window.__TAURI__.event.listen<{ scan_id: number }>("embed-progress", ({ pay
 void window.__TAURI__.event.listen<{ scan_id: number }>("embed-done", ({ payload }) => {
   if (payload.scan_id === scanId) {
     refreshGenres();
+    refreshRanks();
   }
 });
 void window.__TAURI__.event.listen<AiState>("ai-state", ({ payload }) => {
@@ -4273,6 +4376,7 @@ filterExif.addEventListener("click", (event) => {
 const sortToggle = document.getElementById("sort-toggle") as HTMLButtonElement;
 const sortMenu = document.getElementById("sort-menu") as HTMLDivElement;
 const sortItems = sortMenu.querySelectorAll<HTMLButtonElement>("[data-sort]");
+const sortRecommended = document.getElementById("sort-recommended") as HTMLDivElement;
 
 function setSortMenuOpen(open: boolean): void {
   sortMenu.hidden = !open;
@@ -4316,8 +4420,15 @@ function setViewOnly(next: boolean): void {
 
 function setSortKey(key: SortKey): void {
   sortKey = key;
+  syncSortChecks();
+}
+
+// Checks the item of the sort in force, so `Capture time` shows checked while
+// the hidden `Recommended` is the persisted key.
+function syncSortChecks(): void {
+  const inForce = sortKey === "recommended" && !rankingOn ? "capture" : sortKey;
   for (const item of sortItems) {
-    item.setAttribute("aria-checked", String(item.dataset.sort === key));
+    item.setAttribute("aria-checked", String(item.dataset.sort === inForce));
   }
 }
 

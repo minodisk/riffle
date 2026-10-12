@@ -39,6 +39,8 @@ export default defineConfig({
       "crates/app/tauri.conf.json",
       // Written by the image-embeddings plan's genre_vectors.py.
       "crates/core/genres/**",
+      // Written by the image-embeddings plan's rank_prior.py.
+      "crates/core/ranking/**",
       "target/**",
       "crates/app/ui/dist/**",
       ".claude/**",

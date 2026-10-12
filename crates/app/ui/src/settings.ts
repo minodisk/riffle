@@ -1,4 +1,5 @@
 import { type AiState, aiStatus } from "./ai.js";
+import { type RankModel, confidenceText } from "./meta.js";
 import {
   BUG_SVG,
   DATABASE_SVG,
@@ -93,6 +94,9 @@ export function initSettings(hooks: SettingsHooks): Settings {
   const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
   const aiEnabled = document.getElementById("ai-enabled") as HTMLInputElement;
   const aiStatusLine = document.getElementById("ai-status") as HTMLParagraphElement;
+  const rankingSettings = document.getElementById("ranking-settings") as HTMLDivElement;
+  const rankingStatus = document.getElementById("ranking-status") as HTMLParagraphElement;
+  const rankingRefit = document.getElementById("ranking-refit") as HTMLButtonElement;
   const mcpEnabled = document.getElementById("mcp-enabled") as HTMLInputElement;
   const mcpStatusLine = document.getElementById("mcp-status") as HTMLParagraphElement;
   const mcpEndpointText = document.getElementById("mcp-endpoint") as HTMLPreElement;
@@ -291,7 +295,17 @@ export function initSettings(hooks: SettingsHooks): Settings {
   function showAiState(state: AiState): void {
     aiEnabled.checked = state.enabled;
     aiStatusLine.textContent = aiStatus(state);
+    rankingSettings.hidden = !state.enabled;
   }
+
+  function showRankModel(model: RankModel): void {
+    rankingStatus.textContent = `Ranking: ${confidenceText(model)}`;
+  }
+
+  void window.__TAURI__.core.invoke<RankModel>("ranking_model").then(showRankModel);
+  void window.__TAURI__.event.listen<RankModel>("ranking-updated", ({ payload }) => {
+    showRankModel(payload);
+  });
 
   void window.__TAURI__.core.invoke<AiState>("ai_enabled").then(showAiState);
   void window.__TAURI__.event.listen<AiState>("ai-state", ({ payload }) => {
@@ -379,6 +393,19 @@ export function initSettings(hooks: SettingsHooks): Settings {
       .invoke("set_ai_enabled", { enabled: aiEnabled.checked })
       .catch((error: unknown) => {
         status.textContent = String(error);
+      });
+  });
+
+  rankingRefit.addEventListener("click", () => {
+    rankingRefit.disabled = true;
+    rankingStatus.textContent = "Ranking: refitting…";
+    window.__TAURI__.core
+      .invoke<RankModel>("refit_ranking")
+      .then(showRankModel, (error: unknown) => {
+        rankingStatus.textContent = String(error);
+      })
+      .finally(() => {
+        rankingRefit.disabled = false;
       });
   });
 
