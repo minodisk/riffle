@@ -2,6 +2,10 @@
 
 ## Step 1: the `trash_files` command
 
+- `groups_of` checks that each path's parent is `dir` (canonicalized) and
+  reports any other as a `Failure` ("not in the folder") without moving it,
+  so a sidecar of `dir` never goes to the Trash with a same-stem file of
+  another folder (review round 1).
 - `trash_files` does not call `state.stop_embedding()`: like
   `trash_rejected_run`, it moves no index rows; the third pass reads each
   file by path and skips one that vanished, and the next rescan's reconcile

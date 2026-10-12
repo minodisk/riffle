@@ -421,14 +421,31 @@ pub(crate) fn sidecars_of<'a>(
         .collect()
 }
 
-/// One group per path of `paths`, in their order, for `commands::trash_files`:
-/// a RAW with the `.xmp` and `.dop` sidecars of `sidecars` that exist for it,
-/// whatever format is selected, and a JPEG alone, since nothing next to a
-/// JPEG is read or written.
-pub fn groups_of(paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> Vec<Group> {
-    paths
-        .iter()
-        .map(|path| Group {
+/// One group per path of `paths` that lives directly in `dir`, in their
+/// order, for `commands::trash_files`: a RAW with the `.xmp` and `.dop`
+/// sidecars of `sidecars` (the listing of `dir`) that exist for it, whatever
+/// format is selected, and a JPEG alone, since nothing next to a JPEG is read
+/// or written. A path of another folder is returned as a `Failure` and not
+/// grouped, so a sidecar of `dir` is never taken along with it.
+pub fn groups_of(
+    dir: &Path,
+    paths: &[String],
+    sidecars: &HashMap<String, SidecarStat>,
+) -> (Vec<Group>, Vec<Failure>) {
+    let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    let mut groups = Vec::new();
+    let mut foreign = Vec::new();
+    for path in paths {
+        let parent = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
+        let parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        if parent != dir {
+            foreign.push(Failure {
+                path: path.clone(),
+                message: "not in the folder".to_string(),
+            });
+            continue;
+        }
+        groups.push(Group {
             raw: PathBuf::from(path),
             sidecars: if riffle_core::scan::is_raw_file(Path::new(path)) {
                 sidecars_of(SidecarFormat::Both, path, sidecars)
@@ -438,8 +455,9 @@ pub fn groups_of(paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> V
             } else {
                 Vec::new()
             },
-        })
-        .collect()
+        });
+    }
+    (groups, foreign)
 }
 
 /// The flag of one RAW, by the rule the folder open applies in
@@ -1835,6 +1853,23 @@ mod tests {
     }
 
     #[test]
+    fn a_file_of_another_folder_is_not_grouped_with_the_sidecars_of_the_folder() {
+        let dir = temp_dir("groups-of-foreign");
+        let other = temp_dir("groups-of-foreign-other");
+        for path in [dir.join("x.xmp"), dir.join("y.ARW"), other.join("x.ARW")] {
+            write(&path);
+        }
+        let listing = read_listing(&dir, Some(SidecarFormat::Both)).unwrap();
+        let sidecars = stat_sidecars(&listing.sidecars);
+        let paths = [key(&other.join("x.ARW")), key(&dir.join("y.ARW"))];
+        let (groups, foreign) = groups_of(&dir, &paths, &sidecars);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].raw.file_name().unwrap(), "y.ARW");
+        assert_eq!(foreign.len(), 1);
+        assert_eq!(foreign[0].path, paths[0]);
+    }
+
+    #[test]
     fn files_are_grouped_with_the_sidecars_that_exist_for_raws_only() {
         let dir = temp_dir("groups-of");
         for name in [
@@ -1852,7 +1887,8 @@ mod tests {
         let listing = read_listing(&dir, Some(SidecarFormat::Both)).unwrap();
         let sidecars = stat_sidecars(&listing.sidecars);
         let paths = ["c.DNG", "a.ARW", "d.jpg", "b.NEF"].map(|name| key(&dir.join(name)));
-        let groups = groups_of(&paths, &sidecars);
+        let (groups, foreign) = groups_of(&dir, &paths, &sidecars);
+        assert!(foreign.is_empty());
         let found: Vec<(String, Vec<String>)> = groups
             .iter()
             .map(|g| {

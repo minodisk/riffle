@@ -110,7 +110,8 @@ Investigation notes (what exists already, so nothing new is needed for it):
       used ("both `.xmp` and `.dop` when both are there, whatever format is
       selected"); a JPEG moves alone (Riffle never reads or writes a sidecar
       next to a JPEG). Put the pure grouping in `trash.rs` (e.g.
-      `pub fn groups_of(paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> Vec<Group>`)
+      `pub fn groups_of(dir: &Path, paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> (Vec<Group>, Vec<Failure>)`,
+      a path outside `dir` coming back as a `Failure` instead of a group)
       so it is unit-tested like `collect_folder`'s tests were; keep the path
       order the frontend gives (strip order).
     - `trash::run(groups, trash_one)`, `summary.run_id = Runs::record(moved)`,

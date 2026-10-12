@@ -2759,7 +2759,8 @@ pub async fn trash_rejected_run(
 /// Move `paths`, files of the folder `dir` as the listing gave them, to the
 /// OS trash in their order, each RAW together with the `.xmp` and `.dop`
 /// sidecars that exist for it and a JPEG alone (see `trash::groups_of`). A
-/// path gone meanwhile fails in the mover. The guards are
+/// path outside `dir` fails without being moved, one gone meanwhile fails in
+/// the mover. The guards are
 /// `trash_rejected_run`'s: the sidecar writer is drained first, and a running
 /// scan is refused under the `Scans` lock, which is held across the moves.
 #[tauri::command]
@@ -2778,8 +2779,13 @@ pub async fn trash_files(
             return Err(SCAN_RUNNING.to_string());
         }
         let listing = read_listing(Path::new(&canonicalize(&dir)), Some(SidecarFormat::Both))?;
-        let groups = trash::groups_of(&paths, &stat_sidecars(&listing.sidecars));
+        let (groups, foreign) = trash::groups_of(
+            Path::new(&canonicalize(&dir)),
+            &paths,
+            &stat_sidecars(&listing.sidecars),
+        );
         let (mut summary, moved) = trash::run(groups, trash_one);
+        summary.failed.extend(foreign);
         summary.run_id = app.state::<trash::Runs>().record(moved);
         log::info!("moved files to the trash: {summary:?}");
         drop(state);
