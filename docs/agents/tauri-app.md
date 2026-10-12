@@ -1479,7 +1479,7 @@ first inserted, not where it was last updated.
 
 ### A judgment's own move must not double up with `refilter`'s move (Inferred)
 
-`judge` returns whether it changed anything. The keydown handler records the
+`judge` returns how many targets it addressed. The keydown handler records the
 current path *before* the switch/commit runs, then — only if that path is
 still the current file afterward — calls `move(1)` for auto-advance.
 
@@ -1492,11 +1492,15 @@ still the current file afterward — calls `move(1)` for auto-advance.
   need its own bounds check.
 - Source: `docs/plans/_archived/20260919-auto-advance/learnings.md`, Step 3.
 
-- `judge` now returns the number of targets it changed (0 when nothing
-  changed), not just whether it changed anything; auto-advance fires only
-  when that count is 1, i.e. only for a single-file, non-batch judgment.
-  Source: `docs/plans/_archived/20260922-strip-multi-select/learnings.md`,
-  Step 3.
+- `judge` returns the number of targets it addressed, changed or not (0 only
+  with no files or in a view-only folder); `record` keeps returning whether
+  anything changed. Auto-advance fires only when that count is 1 (decided by
+  the pure `shouldAdvance` in `advance.ts`), i.e. only for a single-file,
+  non-batch judgment, and also when the file already held the value, which
+  writes nothing. An unchanged file never refilters, so the repeat press
+  always takes the `move(1)` branch. Sources:
+  `docs/plans/_archived/20260922-strip-multi-select/learnings.md`, Step 3;
+  `docs/plans/20261012-repeat-judgment-advance/plan.md`, Step 1.
 
 ### A derived-state refresh has to run even when `refilter` short-circuits (Hit)
 
