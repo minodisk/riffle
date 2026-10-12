@@ -2757,6 +2757,45 @@ pub async fn trash_rejected_run(
     .map_err(|e| e.to_string())?
 }
 
+/// Move `paths`, files of the folder `dir` as the listing gave them, to the
+/// OS trash in their order, each RAW together with the `.xmp` and `.dop`
+/// sidecars that exist for it and a JPEG alone (see `trash::groups_of`). A
+/// path outside `dir` fails without being moved, one gone meanwhile fails in
+/// the mover. The guards are
+/// `trash_rejected_run`'s: the sidecar writer is drained first, and a running
+/// scan is refused under the `Scans` lock, which is held across the moves.
+#[tauri::command]
+pub async fn trash_files(
+    app: tauri::AppHandle,
+    dir: String,
+    paths: Vec<String>,
+) -> Result<trash::Summary, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Summary, String> {
+        if let Some(writer) = &app.state::<AppWriter>().0 {
+            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
+        }
+        let scans = app.state::<Scans>();
+        let state = index::lock(&scans.0);
+        if state.scanning() {
+            return Err(SCAN_RUNNING.to_string());
+        }
+        let listing = read_listing(Path::new(&canonicalize(&dir)), Some(SidecarFormat::Both))?;
+        let (groups, foreign) = trash::groups_of(
+            Path::new(&canonicalize(&dir)),
+            &paths,
+            &stat_sidecars(&listing.sidecars),
+        );
+        let (mut summary, moved) = trash::run(groups, trash_one);
+        summary.failed.extend(foreign);
+        summary.run_id = app.state::<trash::Runs>().record(moved);
+        log::info!("moved files to the trash: {summary:?}");
+        drop(state);
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Move every file the run `run_id` of `trash_rejected_run` moved back to
 /// where it came from, RAW before its sidecars, never overwriting (see
 /// `trash::restore`). An unknown run is an `Err`; a run is forgotten once

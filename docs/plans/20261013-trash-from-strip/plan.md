@@ -83,7 +83,7 @@ Investigation notes (what exists already, so nothing new is needed for it):
 
 ## Steps
 
-- [ ] Step 1: Add the `trash_files` command (backend)
+- [x] Step 1: Add the `trash_files` command (backend)
   - Done when: a `trash_files` Tauri command moves the given files of one
     folder and the sidecars that exist for each to the OS Trash through the
     existing mover, records the run in `trash::Runs` so
@@ -110,7 +110,8 @@ Investigation notes (what exists already, so nothing new is needed for it):
       used ("both `.xmp` and `.dop` when both are there, whatever format is
       selected"); a JPEG moves alone (Riffle never reads or writes a sidecar
       next to a JPEG). Put the pure grouping in `trash.rs` (e.g.
-      `pub fn groups_of(paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> Vec<Group>`)
+      `pub fn groups_of(dir: &Path, paths: &[String], sidecars: &HashMap<String, SidecarStat>) -> (Vec<Group>, Vec<Failure>)`,
+      a path outside `dir` coming back as a `Failure` instead of a group)
       so it is unit-tested like `collect_folder`'s tests were; keep the path
       order the frontend gives (strip order).
     - `trash::run(groups, trash_one)`, `summary.run_id = Runs::record(moved)`,
@@ -254,4 +255,4 @@ Investigation notes (what exists already, so nothing new is needed for it):
 
 ## Progress
 
-- (none yet)
+- (2026-10-13) Step 1 complete

@@ -211,8 +211,9 @@ impl Runs {
     }
 }
 
-/// What `trash_rejected_undo` returns: the RAWs that came back and every
-/// file, RAW or sidecar, that did not, with the reason.
+/// What `trash_rejected_undo` returns: the RAWs (or, for a run of
+/// `trash_files` in a JPEG folder, the JPEGs) that came back and every file,
+/// RAW, JPEG or sidecar, that did not, with the reason.
 #[derive(Debug, Default, Serialize)]
 pub struct Restored {
     pub restored: Vec<String>,
@@ -420,6 +421,45 @@ pub(crate) fn sidecars_of<'a>(
         .collect()
 }
 
+/// One group per path of `paths` that lives directly in `dir`, in their
+/// order, for `commands::trash_files`: a RAW with the `.xmp` and `.dop`
+/// sidecars of `sidecars` (the listing of `dir`) that exist for it, whatever
+/// format is selected, and a JPEG alone, since nothing next to a JPEG is read
+/// or written. A path of another folder is returned as a `Failure` and not
+/// grouped, so a sidecar of `dir` is never taken along with it.
+pub fn groups_of(
+    dir: &Path,
+    paths: &[String],
+    sidecars: &HashMap<String, SidecarStat>,
+) -> (Vec<Group>, Vec<Failure>) {
+    let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    let mut groups = Vec::new();
+    let mut foreign = Vec::new();
+    for path in paths {
+        let parent = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
+        let parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        if parent != dir {
+            foreign.push(Failure {
+                path: path.clone(),
+                message: "not in the folder".to_string(),
+            });
+            continue;
+        }
+        groups.push(Group {
+            raw: PathBuf::from(path),
+            sidecars: if riffle_core::scan::is_raw_file(Path::new(path)) {
+                sidecars_of(SidecarFormat::Both, path, sidecars)
+                    .iter()
+                    .map(|stat| stat.0.clone())
+                    .collect()
+            } else {
+                Vec::new()
+            },
+        });
+    }
+    (groups, foreign)
+}
+
 /// The flag of one RAW, by the rule the folder open applies in
 /// `reconcile_sidecars_of`: a dirty row (a judgment the writer has not
 /// flushed) wins, a clean row is trusted while its stored stat is the newest
@@ -586,10 +626,11 @@ pub fn restore<I>(
     let mut restored = Restored::default();
     let mut raw_back = true;
     for trashed in &run.moved {
-        let is_raw = riffle_core::scan::is_raw_file(&trashed.path);
+        let is_media = riffle_core::scan::is_raw_file(&trashed.path)
+            || riffle_core::scan::is_jpeg_file(&trashed.path);
         let destination = trashed.destination();
         let path = destination.to_string_lossy().into_owned();
-        let result = if !is_raw && !raw_back {
+        let result = if !is_media && !raw_back {
             Err(RAW_NOT_RESTORED.to_string())
         } else if exists(destination) {
             Err(ALREADY_EXISTS.to_string())
@@ -599,13 +640,13 @@ pub fn restore<I>(
                 None => Err(NOT_IN_TRASH.to_string()),
             }
         };
-        if is_raw {
+        if is_media {
             raw_back = result.is_ok();
         }
         match result {
             Ok(()) => {
                 restored.back.push(destination.to_path_buf());
-                if is_raw {
+                if is_media {
                     restored.restored.push(path);
                 }
             }
@@ -794,10 +835,12 @@ pub fn newest_by_path(items: Vec<::trash::TrashItem>) -> HashMap<String, ::trash
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes, collect, create_missing, newest_by_path, nothing_to_trash, preview, redo, relocate,
-        restore, restore_recorded, run, trash_key, Collection, FolderCount, Group, Restored, Runs,
-        TrashRun, Trashed, ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH, RAW_NOT_RESTORED,
+        bytes, collect, create_missing, groups_of, newest_by_path, nothing_to_trash, preview, redo,
+        relocate, restore, restore_recorded, run, trash_key, Collection, FolderCount, Group,
+        Restored, Runs, TrashRun, Trashed, ALREADY_EXISTS, GONE, MAX_RUNS, NOT_IN_TRASH,
+        RAW_NOT_RESTORED,
     };
+    use crate::commands::{read_listing, stat_sidecars};
     use crate::index::RowFlag;
     use crate::sidecar::SidecarFormat;
     use riffle_core::Flag;
@@ -1798,6 +1841,81 @@ mod tests {
         assert_eq!(summary.failed[0].path, key(&dir.join("fail.xmp")));
         assert!(trash.join("d.ARW").exists());
         assert!(trash.join("d.ARW.dop").exists());
+    }
+
+    #[test]
+    fn a_run_of_jpegs_is_restored_and_listed() {
+        let run = trash_run(&["a.jpg", "b.JPEG"]);
+        let (restored, asked) = restore_with(&run, &["a.jpg", "b.JPEG"], &[]);
+        assert_eq!(restored.restored, ["a.jpg", "b.JPEG"]);
+        assert!(restored.failed.is_empty());
+        assert_eq!(asked, ["a.jpg", "b.JPEG"]);
+    }
+
+    #[test]
+    fn a_file_of_another_folder_is_not_grouped_with_the_sidecars_of_the_folder() {
+        let dir = temp_dir("groups-of-foreign");
+        let other = temp_dir("groups-of-foreign-other");
+        for path in [dir.join("x.xmp"), dir.join("y.ARW"), other.join("x.ARW")] {
+            write(&path);
+        }
+        let listing = read_listing(&dir, Some(SidecarFormat::Both)).unwrap();
+        let sidecars = stat_sidecars(&listing.sidecars);
+        let paths = [key(&other.join("x.ARW")), key(&dir.join("y.ARW"))];
+        let (groups, foreign) = groups_of(&dir, &paths, &sidecars);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].raw.file_name().unwrap(), "y.ARW");
+        assert_eq!(foreign.len(), 1);
+        assert_eq!(foreign[0].path, paths[0]);
+    }
+
+    #[test]
+    fn files_are_grouped_with_the_sidecars_that_exist_for_raws_only() {
+        let dir = temp_dir("groups-of");
+        for name in [
+            "a.ARW",
+            "a.xmp",
+            "a.ARW.dop",
+            "b.NEF",
+            "B.XMP",
+            "c.DNG",
+            "d.jpg",
+            "d.xmp",
+        ] {
+            write(&dir.join(name));
+        }
+        let listing = read_listing(&dir, Some(SidecarFormat::Both)).unwrap();
+        let sidecars = stat_sidecars(&listing.sidecars);
+        let paths = ["c.DNG", "a.ARW", "d.jpg", "b.NEF"].map(|name| key(&dir.join(name)));
+        let (groups, foreign) = groups_of(&dir, &paths, &sidecars);
+        assert!(foreign.is_empty());
+        let found: Vec<(String, Vec<String>)> = groups
+            .iter()
+            .map(|g| {
+                let mut names: Vec<String> = g
+                    .sidecars
+                    .iter()
+                    .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+                    .collect();
+                names.sort();
+                (
+                    g.raw.file_name().unwrap().to_string_lossy().into_owned(),
+                    names,
+                )
+            })
+            .collect();
+        assert_eq!(
+            found,
+            [
+                ("c.DNG".to_string(), vec![]),
+                (
+                    "a.ARW".to_string(),
+                    vec!["a.ARW.dop".to_string(), "a.xmp".to_string()]
+                ),
+                ("d.jpg".to_string(), vec![]),
+                ("b.NEF".to_string(), vec!["B.XMP".to_string()]),
+            ]
+        );
     }
 
     #[test]

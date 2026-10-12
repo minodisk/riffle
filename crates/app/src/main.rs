@@ -840,6 +840,7 @@ fn main() {
             commands::clear_index,
             commands::trash_rejected_preview,
             commands::trash_rejected_run,
+            commands::trash_files,
             commands::trash_rejected_undo,
             commands::trash_rejected_redo,
             foldersidecars::rewrite_sidecars_preview,
