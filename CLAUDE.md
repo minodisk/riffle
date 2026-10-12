@@ -127,9 +127,11 @@ the panic hook, the `log_frontend` command that writes the frontend's
 `uncaught-js:` and `invariant:` lines, and the `invariant!` helper, which put
 those failures in `Riffle.log` under greppable prefixes (see
 `docs/agents/app-log.md`), and `src/perf.rs` the performance overlay's CPU
-sampler: `set_perf_sampling` starts or stops one thread that emits Riffle's
-process CPU and the system's, each 0–100 %, as `perf-sample` every 500 ms,
-so nothing samples while the overlay is off).
+and disk sampler: `set_perf_sampling` starts or stops one thread that emits
+Riffle's process CPU and the system's, each 0–100 %, Riffle's read
+throughput in bytes per second and the system's disk busy time, 0–100 %
+(PDH on Windows, `/sys/block` on Linux, `null` on macOS), as `perf-sample`
+every 500 ms, so nothing samples while the overlay is off).
 
 The frontend lives under `crates/app/ui` (TypeScript built by Vite+, configured
 in the root `vite.config.ts`; `pnpm exec vp {dev,build,check,fmt,test}`) and is
@@ -164,10 +166,11 @@ Sequence JPEG Timestamps dialog's text and its flow from the folder tree's right
 through the preview to the run's end, `src/uncaught.ts` builds the
 `uncaught-js:` line of an uncaught error or unhandled rejection and the flood
 guard that caps them per session, and `src/perf.ts` holds the performance
-overlay's model (the CPU samples and the per-switch preview latencies of the
-last 60 s, the latency axis maximum with its floor, recording only while the
-overlay is on) and the rule that a latency starts at the keypress, else at
-the selection change.
+overlay's model (the CPU and disk samples and the per-switch preview
+latencies of the last 60 s, the latency axis maximum and the read throughput
+axis maximum, each with its floor, recording only while the overlay is on)
+and the rule that a latency starts at the keypress, else at the selection
+change.
 
 ## Language
 

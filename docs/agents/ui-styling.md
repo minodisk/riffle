@@ -63,6 +63,14 @@ build target (the grays are exact, `--destructive` rounds). Source: the
 | `--radius` | `0.625rem` | `0.625rem` | the base radius |
 | `--radius-sm` / `-md` / `-lg` | `* 0.6` / `* 0.8` / `var(--radius)` | same `calc()` | chips, menu items, rows / buttons, inputs, menus / dialog boxes |
 
+The performance overlay's chart palette is Riffle's own, not shadcn's
+(Tailwind's 400 shades, chosen by the user): `--chart-cpu` (`#60a5fa`, blue,
+both CPU lines), `--chart-disk` (`#4ade80`, green, both disk lines) and
+`--chart-latency` (`#f87171`, red, the preview latency bars), read into
+`main.ts`'s `THEME` as `chartCpu`, `chartDisk` and `chartLatency`. A pair of
+lines in one color differs by weight and dash (Riffle thick solid, the system
+thin dashed).
+
 `--muted`, `--accent`, `--secondary` and `--sidebar-accent` are the same
 `#262626` in Neutral, so hover and selection look alike; tell states apart
 by weight, border or a check mark (below), not by a new color.

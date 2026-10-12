@@ -68,6 +68,11 @@
   --label-pink: #d95fa8;
   --label-purple: #8a5fd0;
   --label-other: #808080;
+  /* The performance overlay's chart: the CPU lines, the disk lines and the
+     preview latency bars. */
+  --chart-cpu: #60a5fa;
+  --chart-disk: #4ade80;
+  --chart-latency: #f87171;
 }
 
 /* Reset
