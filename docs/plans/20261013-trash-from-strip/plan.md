@@ -255,4 +255,4 @@ Investigation notes (what exists already, so nothing new is needed for it):
 
 ## Progress
 
-- (none yet)
+- (2026-10-13) Step 1 complete
