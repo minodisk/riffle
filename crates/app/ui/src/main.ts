@@ -1879,9 +1879,9 @@ function record(
   if (viewOnly) {
     return false;
   }
-  // Idempotent: pressing the current value again does nothing at all, which
-  // is what makes key auto-repeat harmless. A forced label still goes out
-  // while the file's real label is unknown.
+  // Writes nothing and pushes no undo entry when the pressed value is already
+  // the current one (the caller may still advance). A forced label still goes
+  // out while the file's real label is unknown.
   const changes: Change[] = judgments(
     paths,
     focused,

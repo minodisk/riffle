@@ -1500,7 +1500,7 @@ still the current file afterward — calls `move(1)` for auto-advance.
   writes nothing. An unchanged file never refilters, so the repeat press
   always takes the `move(1)` branch. Sources:
   `docs/plans/_archived/20260922-strip-multi-select/learnings.md`, Step 3;
-  `docs/plans/20261012-repeat-judgment-advance/plan.md`, Step 1.
+  `docs/plans/_archived/20261012-repeat-judgment-advance/learnings.md`, Step 1.
 
 ### A derived-state refresh has to run even when `refilter` short-circuits (Hit)
 

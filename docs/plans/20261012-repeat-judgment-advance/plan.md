@@ -117,4 +117,4 @@ value").
 
 ## Progress
 
-- (none yet)
+- (2026-10-12) Step 1 complete
