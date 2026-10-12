@@ -1,17 +1,22 @@
 //! A CLIP-style image embedding of a preview, run through `tract`.
 //!
-//! The model bytes and the `ModelSpec` come from the caller: no model is
-//! bundled until the plan's distribution Decision. The image is rotated
+//! The candidates' `ModelSpec`s are in `SPECS`; the app runs `SHIPPED`, whose
+//! file it downloads on the first enable (`MODEL_URL`, checked against
+//! `MODEL_SHA256`) rather than bundling it, and builds its plan once
+//! (`shared`). The image is rotated
 //! upright by its Exif orientation, resized with PIL's resampling filters
 //! (the Python processors of every candidate resize through PIL), optionally
 //! center-cropped, normalized per channel and fed as NCHW; the output vector
 //! is L2-normalized.
 
 use std::io::Cursor;
+use std::path::Path;
+use std::sync::OnceLock;
 
 use anyhow::{bail, Context, Result};
 use tract_onnx::prelude::*;
 
+use crate::decode::decode_upright_near;
 use crate::faces::upright_rgb;
 
 /// How the upright image becomes the square model input.
@@ -103,6 +108,36 @@ pub fn spec(name: &str) -> Option<&'static ModelSpec> {
     SPECS.iter().find(|s| s.name == name)
 }
 
+/// The model the app runs (the plan's Decision 1): SigLIP 2 ViT-B/32 @256
+/// FP32, `onnx-community/siglip2-base-patch32-256-ONNX`
+/// `onnx/vision_model.onnx`, Apache-2.0 (`crates/core/models/LICENSE-siglip2`).
+pub const SHIPPED: &ModelSpec = &SPECS[0];
+
+/// The version of what `embed_preview` stores: the model (`SHIPPED`, its file
+/// pinned by `MODEL_SHA256`), its preprocessing (`input_tensor`: a 256x256
+/// stretch with PIL's bilinear filter, mean / std 0.5, RGB, `pooler_output`
+/// L2-normalized) and its input (the preview decoded at the DCT scale nearest
+/// `INPUT_LONG_EDGE`). Bump it on any change to one of them; the app then
+/// embeds every file again.
+pub const EMBED_VERSION: i64 = 1;
+
+/// The long edge the preview is decoded near, with no re-encode: the stored
+/// 404 px thumbnail's q80 re-encode moves the vector too far (the plan's
+/// Decision 1).
+pub const INPUT_LONG_EDGE: usize = 404;
+
+/// Where the app downloads `SHIPPED`'s file from, at a pinned revision.
+pub const MODEL_URL: &str = "https://huggingface.co/onnx-community/siglip2-base-patch32-256-ONNX/resolve/7efccb86b5b6601bfe9e14326e1c11b40b68d44c/onnx/vision_model.onnx";
+
+/// The SHA-256 of the file at `MODEL_URL`, in lowercase hex.
+pub const MODEL_SHA256: &str = "0ddb7507cfcb54c2cd503029949add9dc6586de67164bb69c2c09588cdcc9719";
+
+/// The size of the file at `MODEL_URL`, in bytes.
+pub const MODEL_SIZE: u64 = 378_478_689;
+
+/// Where the downloaded file lives, relative to the app's local data dir.
+pub const MODEL_FILE: &str = "models/siglip2-base-patch32-256/vision_model.onnx";
+
 type Plan = Arc<TypedRunnableModel>;
 
 /// An optimized plan of one embedding model, shareable across threads.
@@ -119,8 +154,22 @@ impl Model {
         let model = tract_onnx::onnx()
             .with_ignore_value_info(true)
             .with_ignore_output_shapes(true)
-            .model_for_read(&mut Cursor::new(bytes))?
-            .with_input_fact(0, f32::fact([1, 3, spec.size, spec.size]).into())?;
+            .model_for_read(&mut Cursor::new(bytes))?;
+        Model::build(model, spec)
+    }
+
+    /// `load` of the ONNX file at `path`, which tract maps rather than
+    /// reads, so the file's bytes are not held next to the parsed model.
+    pub fn load_path(path: &Path, spec: &ModelSpec) -> Result<Model> {
+        let model = tract_onnx::onnx()
+            .with_ignore_value_info(true)
+            .with_ignore_output_shapes(true)
+            .model_for_path(path)?;
+        Model::build(model, spec)
+    }
+
+    fn build(model: InferenceModel, spec: &ModelSpec) -> Result<Model> {
+        let model = model.with_input_fact(0, f32::fact([1, 3, spec.size, spec.size]).into())?;
         let names: Vec<String> = model
             .output_outlets()?
             .iter()
@@ -141,6 +190,25 @@ impl Model {
     pub fn spec(&self) -> &ModelSpec {
         &self.spec
     }
+}
+
+/// The plan of `SHIPPED` loaded from `path`, built on the first call and
+/// shared by every later one, whatever path it passes; a failed build is
+/// kept too, so it fails every call quickly with the same message. Call it
+/// only once the file is in place, or the missing file's error sticks.
+pub fn shared(path: &Path) -> Result<&'static Model, String> {
+    static MODEL: OnceLock<Result<Model, String>> = OnceLock::new();
+    MODEL
+        .get_or_init(|| Model::load_path(path, SHIPPED).map_err(|e| format!("{e:#}")))
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+/// The embedding of a preview JPEG of Exif `orientation`, decoded upright at
+/// the DCT scale nearest `INPUT_LONG_EDGE`, as the app stores it.
+pub fn embed_preview(model: &Model, jpeg: &[u8], orientation: u16) -> Result<Vec<f32>> {
+    let up = decode_upright_near(jpeg, orientation, INPUT_LONG_EDGE)?;
+    embed_with(model, &up.rgb, up.width, up.height, 1)
 }
 
 /// The L2-normalized embedding of the stored `width` x `height` RGB image of

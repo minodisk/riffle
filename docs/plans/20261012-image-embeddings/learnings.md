@@ -149,14 +149,85 @@
   several minutes for the dump tripped the 600 s stream watchdog. Long
   steps run in the background, polled by short bounded loops.
 
+## Step 3
+
+- **Loading from the path lowers the load peak by a third.** The deferred
+  "lower `Model::load`'s peak" item, measured with a throwaway switch in
+  `riffle-cli embed` (12 reference previews, 1 thread, `--near 404`, run
+  twice each): `Model::load` on the bytes peaked at 1145-1161 MB,
+  `Model::load_path` (`model_for_path`, which maps the file) at 773 MB. The
+  plan build time (538 ms) and the 395 MB after the load were the same.
+  `model_for_read` copies the caller's bytes into a `Vec` of its own before
+  decoding, so three copies were alive at once. The app loads through
+  `load_path`; the CLI switch was reverted.
+- **Pass 3 on `D:\photos\2026\2026-09-19` (2134 ARW), measured without the
+  GUI.** The ignored test `embed_pass_on_a_real_folder` (`commands.rs`) runs
+  the app's own `run_scan`, `run_faces_pass` and `run_embed_pass` into a
+  fresh index at the app's priorities. It samples the process's working set
+  every 20 ms and times a preview read + full decode on a normal-priority
+  thread every 250 ms, a stand-in for the viewer's paging. Release build,
+  Windows 11, i7-13700 (24 logical cores), warm page cache after the first
+  run:
+
+  | Pass 3 threads | Pass 3 wall time | ms/file | Peak working set | Preview read + decode during pass 3 (median / p95) |
+  |---|---|---|---|---|
+  | 22 (first run, cold) | 47.2 s | 22.1 | 812 MB | 32.0 / 39.1 ms |
+  | 22 | 41.3 s | 19.4 | 745 MB | 32.8 / 37.8 ms |
+  | 11 | 56.1 s | 26.3 | 800 MB | 22.1 / 28.4 ms |
+  | 6 | 70.3 s | 33.0 | 796 MB | 14.6 / 23.9 ms |
+
+  The same probe read a median of 9.9-10.2 ms (p95 12.1-15.6 ms) idle, and
+  27.0-34.1 ms (p95 30.5-38.3 ms) during pass 2 on 22 threads (16.5-19.7 s,
+  peak 338-356 MB). Pass 1 took 32.6 s cold. After each run
+  `embeddings_missing` was empty, so a rescan embeds 0 files (the test
+  asserts it). 0 errors.
+- **Pass 3 runs on a quarter of the cores, not on pass 2's count.** The plan
+  said pass 2's count unless memory said fewer, and "drop the thread count
+  before anything else" if the latency showed interference. Memory does not
+  set the count: the load sets the peak at any thread count. The latency
+  does: at 22 threads the probe tripled, as during pass 2, but pass 3 runs
+  for 40+ s while the user culls, after `faces-done`. `embed_threads()` =
+  cores / 4 (6 here) keeps the probe at 1.5x idle for 70 s instead of 41 s.
+  `Priority::Lowest` alone does not protect the viewer's thread: SMT
+  siblings and the all-core clock ignore thread priority.
+- **The download works end to end.** The ignored test
+  `the_pinned_model_downloads_and_matches_its_hash` (`ai.rs`) fetched
+  `MODEL_URL` through `reqwest::blocking` + rustls (`ring` provider, platform
+  verifier) and installed it after the size and SHA-256 checks in 9.8 s.
+  Hugging Face redirects the `resolve` URL to its CDN, and reqwest follows
+  it. reqwest 0.13, rustls 0.23 and sha2 0.10 were already in `Cargo.lock`
+  through the updater and Tauri, so the lock only gained edges.
+- **Design choices beyond the plan's text:**
+  - `embeddings` has a `dir` column, so `evict_folder`, `rename_dir` and
+    `reconcile` handle it like `files` / `ratings`.
+  - A failed embedding is stored with `vec` `NULL` and is not retried until
+    the file's stat or `EMBED_VERSION` moves, as pass 2 stores unreadable
+    files. Otherwise one corrupt preview would reload the 378 MB model on
+    every rescan.
+  - `faces-done` keeps its time, so the frontend's `scanRunning` clears
+    before pass 3. Pass 3 therefore does not count as scanning
+    (`ScansState.embedding`). Otherwise trash, renames and Clear Cache,
+    released at `faces-done`, would be refused with "a scan is running" for
+    a minute. `clear_index`, the renames and `set_ai_enabled(false)` cancel
+    it (`stop_embedding`). A late batch is swept by
+    `drop_stray_embeddings` (evict / clear) or by `reconcile`.
+  - A switch-off between `embed_work` and marking the pass is caught by
+    re-checking `aiEnabled` under the `Scans` lock, which `set_ai_enabled`
+    takes after switching off.
+  - A launch with `aiEnabled` on and the model missing starts the download
+    again, as a later enable would.
+  - Error rows (a failed first pass) are never listed: their preview is
+    unreadable.
+- **No unit test runs `run_embed_scan` itself.** It needs the 378 MB model.
+  The ignored harness covers it on real data, and the unit tests cover the
+  table, the staleness rule, the `ScansState` phase and the download's
+  `install` with a local reader.
+- **Heredocs with `'%.jpg'` broke the Bash tool.** A `python - <<'EOF'`
+  script containing SQL `LIKE '%.jpg'` failed with `unexpected EOF while
+  looking for matching '`. The Edit tool, or a script file, avoids it.
+
 ## Deferred issues (todo candidates)
 
-- **Lower `Model::load`'s peak.** It holds about 3x the model file at once
-  (the bytes, the parsed protobuf, the optimized plan: 1145 MB for the 378 MB
-  SigLIP 2 file). Loading through `model_for_path` or dropping the bytes
-  before optimizing may lower it, so measure it in Step 3. Source: Step 1
-  `riffle-cli embed` working-set lines; `crates/core/src/embed.rs`
-  `Model::load`.
 - **A 190 MB download at FP32 speed is untested.** tract runs the
   weight-only fp16 re-export (`weight_only.py`) at 2-5x FP32's cost because
   it re-widens the weights on every run. Widening the float16 initializers
@@ -165,6 +236,56 @@
   smaller download at FP32 speed. Not needed for Step 3. Source: Step 1
   measurements in `docs/plans/20261012-image-embeddings/models.md`;
   `docs/plans/20261012-image-embeddings/weight_only.py`.
+
+- **Pending manual check: pass 3 in the real app on Windows.** Step 3's
+  checkbox was ticked on the automated criteria: the headless harness
+  numbers above, the download test and the unit tests. What only the GUI
+  shows is unchecked. On the Windows 11 machine, with a build of this
+  branch:
+  1. Settings > Culling: tick "AI analysis of what each photo shows". The
+     status line should count `Downloading the model: N / 378 MB` up to
+     `On`. The model should then be at
+     `%LOCALAPPDATA%\com.minodisk.riffle\models\siglip2-base-patch32-256\vision_model.onnx`
+     (378,478,689 bytes).
+  2. With `D:\photos\2026\2026-09-19` open, the folder should rescan by
+     itself once the status reads `On`. `Riffle.log` should get an
+     `embed model ready` and a `scan embed: dir=... files=2134 ... errors=0
+     threads=6` line.
+  3. While that pass runs, Task Manager should show the app's working set
+     (expected about 800 MB above its usual footprint). Page through the
+     strip with Timing logs on, or with the performance graph overlay. The
+     page latency should sit close to its level with AI off; the harness
+     proxy read 15 ms against 10 ms idle.
+  4. Reload the folder (`File > Reload Folder`). No new `scan embed` line
+     should appear (0 files to embed).
+  5. Untick the checkbox during a pass. `Riffle.log` should show the pass
+     ending with `canceled=true`. Ticking it again should finish the
+     remaining files only.
+  Source: Step 3 Done-when "Measured ... page latency while it runs";
+  `crates/app/src/commands.rs` `run_embed_pass`, `crates/app/src/ai.rs`.
+- **Pending manual check: the model download on macOS and Linux.** It was
+  verified on Windows only (`the_pinned_model_downloads_and_matches_its_hash`,
+  9.8 s). rustls' platform verifier uses each OS's trust store. On a Mac
+  and on Linux, run `cargo test --release -p riffle-app
+  the_pinned_model_downloads_and_matches_its_hash -- --ignored --nocapture`,
+  or tick the setting in the app. Expected: the download completes and
+  passes the hash check. Source: `crates/app/src/ai.rs` `fetch`.
+- **The embedding plan stays resident after pass 3.** `embed::shared` keeps
+  the SigLIP 2 plan (about 395 MB of working set) in a `OnceLock` for the
+  rest of the process once one pass has run, even with `aiEnabled` turned
+  off. Dropping it after a pass would cost the ~0.5 s build and the 773 MB
+  load peak again on the next folder. Revisit if memory becomes a
+  complaint. Source: Step 3; `crates/core/src/embed.rs` `shared`.
+- **Turning AI off keeps the 378 MB model file on disk.** Nothing removes
+  `models/siglip2-base-patch32-256/vision_model.onnx` from the local data
+  dir; a "remove the model" action could go next to the checkbox. A cut
+  download restarts from zero (no HTTP range resume). Source: Step 3;
+  `crates/app/src/ai.rs`.
+- **No progress for pass 3 in the UI.** `embed-progress` / `embed-done` are
+  emitted but nothing listens yet. The status line shows nothing while the
+  pass runs, which is fine while no feature reads the vectors (Step 4 may
+  want an `embedding N / M` status). Source: Step 3;
+  `crates/app/src/commands.rs` `start_scan`.
 
 ## User decisions
 

@@ -90,6 +90,7 @@ import type { LabelNames, LabelPreset } from "./labels.js";
 import { type McpRequest, type ViewApi, respond } from "./companion.js";
 import { VIEW_ONLY_NOTE, isViewOnly, sortFor } from "./viewonly.js";
 import { initSettings } from "./settings.js";
+import { type AiState, aiActive } from "./ai.js";
 import { CHECK_SVG } from "./icons.js";
 import { SettingsModal, cycleFocus } from "./modal.js";
 import { type Panels, toggle, toggleSides } from "./panels.js";
@@ -3889,6 +3890,24 @@ void window.__TAURI__.event.listen("index-cleared", () => {
   openDirectory(openDir, newFolderToken()).catch((err: unknown) => {
     setStatus(String(err));
   });
+});
+
+// AI analysis turned on with its model in place (the settings checkbox, or a
+// model download finishing): rescan the open folder so its third pass
+// embeds it. The initial read only sets the baseline.
+let aiWasActive: boolean | null = null;
+function applyAiState(state: AiState): void {
+  const active = aiActive(state);
+  if (aiWasActive === false && active) {
+    resync("ai");
+  }
+  aiWasActive = active;
+}
+void window.__TAURI__.core.invoke<AiState>("ai_enabled").then((state) => {
+  aiWasActive ??= aiActive(state);
+});
+void window.__TAURI__.event.listen<AiState>("ai-state", ({ payload }) => {
+  applyAiState(payload);
 });
 
 // The settings modal's "Timing logs" item toggles this; read the backend's

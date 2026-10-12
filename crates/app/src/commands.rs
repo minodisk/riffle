@@ -648,9 +648,11 @@ fn take_legacy_last_folder(file: &Path) -> Option<String> {
 /// Load the settings at launch: move a legacy `last_folder` file into the
 /// store once, then return the selected sidecar format. A store that cannot
 /// be read is logged and falls back to the defaults, followed by the keymap,
-/// the `autoAdvance` setting, the `labelNames` setting and the `mcpEnabled`
-/// setting.
-pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, LabelNames, bool) {
+/// the `autoAdvance` setting, the `labelNames` setting, the `mcpEnabled`
+/// setting and the `aiEnabled` setting.
+pub fn load_settings(
+    app: &tauri::AppHandle,
+) -> (SidecarFormat, Keymap, bool, LabelNames, bool, bool) {
     let store = match settings(app) {
         Ok(store) => store,
         Err(e) => {
@@ -662,6 +664,7 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
                 auto_advance_setting(None),
                 LabelNames::default(),
                 mcp_enabled_setting(None),
+                ai_enabled_setting(None),
             );
         }
     };
@@ -684,7 +687,8 @@ pub fn load_settings(app: &tauri::AppHandle) -> (SidecarFormat, Keymap, bool, La
     let auto_advance = auto_advance_setting(store.get("autoAdvance").as_ref());
     let names = label_names_setting(store.get("labelNames").as_ref());
     let mcp_enabled = mcp_enabled_setting(store.get("mcpEnabled").as_ref());
-    (format, keymap, auto_advance, names, mcp_enabled)
+    let ai_enabled = ai_enabled_setting(store.get("aiEnabled").as_ref());
+    (format, keymap, auto_advance, names, mcp_enabled, ai_enabled)
 }
 
 /// The stored `autoAdvance` value; missing or non-boolean means on.
@@ -694,6 +698,11 @@ fn auto_advance_setting(value: Option<&Value>) -> bool {
 
 /// The stored `mcpEnabled` value; missing or non-boolean means off.
 fn mcp_enabled_setting(value: Option<&Value>) -> bool {
+    value.and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// The stored `aiEnabled` value; missing or non-boolean means off.
+fn ai_enabled_setting(value: Option<&Value>) -> bool {
     value.and_then(Value::as_bool).unwrap_or(false)
 }
 
@@ -1116,6 +1125,10 @@ pub(crate) struct ScansState {
     /// refuses while this is nonzero, or it could run against a folder that
     /// is mid-open with no scan indicated by `running`. See `Preparing`.
     preparing: u32,
+    /// The id of the scan in `running` once it has reached its third pass
+    /// (`run_embed_pass`). That pass writes only `embeddings`, so it does not
+    /// count as scanning, and a `scan_folder` that joins it reports no change.
+    embedding: Option<u64>,
 }
 
 impl ScansState {
@@ -1126,10 +1139,41 @@ impl ScansState {
 
     /// Whether a scan is genuinely in progress: a `scan_folder` past minting
     /// its id and not yet returned, a prepared scan waiting for `start_scan`,
-    /// or a spawned scan task that has not yet run to completion. The single
-    /// definition every guard uses.
+    /// or a spawned scan task that has not yet run to completion, short of
+    /// its third pass. The single definition every guard uses.
     pub(crate) fn scanning(&self) -> bool {
-        self.preparing > 0 || self.running.is_some() || !self.pending.is_empty()
+        self.preparing > 0
+            || (self.running.is_some() && !self.in_embed_pass())
+            || !self.pending.is_empty()
+    }
+
+    /// Whether the scan in `running` is in its third pass.
+    fn in_embed_pass(&self) -> bool {
+        self.running
+            .as_ref()
+            .is_some_and(|(id, _, _, _)| self.embedding == Some(*id))
+    }
+
+    /// Record that the scan spawned under `scan_id` entered its third pass,
+    /// if it is still the one stored.
+    fn start_embedding(&mut self, scan_id: u64) {
+        if self
+            .running
+            .as_ref()
+            .is_some_and(|(id, _, _, _)| *id == scan_id)
+        {
+            self.embedding = Some(scan_id);
+        }
+    }
+
+    /// Cancel the running scan if it is in its third pass, which then stops
+    /// at its next file; its stored embeddings stay. Called when `aiEnabled`
+    /// turns off and before an operation that deletes or moves index rows
+    /// (`clear_index`, the renames), so no batch lands after them.
+    pub(crate) fn stop_embedding(&self) {
+        if let Some((_, cancel, _, _)) = self.running.as_ref().filter(|_| self.in_embed_pass()) {
+            cancel.store(true, Ordering::Relaxed);
+        }
     }
 
     /// Drop the entry of the scan spawned under `scan_id`, if it is still the
@@ -1142,6 +1186,9 @@ impl ScansState {
             .is_some_and(|(id, _, _, _)| *id == scan_id)
         {
             self.running = None;
+        }
+        if self.embedding == Some(scan_id) {
+            self.embedding = None;
         }
     }
 
@@ -1243,6 +1290,17 @@ fn scan_threads() -> usize {
     cores.saturating_sub(2).max(1)
 }
 
+/// Threads the third pass runs on: a quarter of the cores. It runs while the
+/// user culls, after `faces-done`. On 2134 ARW files (24 logical cores), a
+/// preview read + full decode on a normal-priority thread took a median 10
+/// ms idle, 33 ms during the pass on 22 threads (41 s), 22 ms on 11 (56 s)
+/// and 15 ms on 6 (70 s), so it trades a longer pass for paging. Memory does
+/// not set it: the model's load sets the peak whatever the count.
+fn embed_threads() -> usize {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    (cores / 4).max(1)
+}
+
 /// What `scan_folder` returns: the number of files that need scanning and the
 /// id the caller must match against `scan-progress`/`scan-done` and
 /// `faces-progress`/`faces-done` events to tell this scan's events apart from
@@ -1275,20 +1333,23 @@ pub struct ScanStarted {
 #[tauri::command]
 pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStarted, String> {
     let scans = app.state::<Scans>();
-    let (scan_id, previous, _preparing) = {
+    let (scan_id, previous, previous_embedding, _preparing) = {
         let mut state = index::lock(&scans.0);
         let scan_id = state.next_id();
         state.latest_id = scan_id;
+        let previous_embedding = state.in_embed_pass();
         let previous = state.running.take();
         let preparing = Preparing::start(app.clone(), &mut state);
-        (scan_id, previous, preparing)
+        (scan_id, previous, previous_embedding, preparing)
     };
     let canonical = canonicalize(&dir);
     crate::watch::set(&app, &canonical, &dir);
     let dir = canonical;
     let cancel = Arc::new(AtomicBool::new(false));
 
-    let joined_previous = previous.is_some();
+    // A scan joined in its third pass wrote no `files` row since its
+    // `faces-done`, so it changes nothing the frontend shows.
+    let joined_previous = previous.is_some() && !previous_embedding;
     if let Some((_, previous_cancel, _, previous_handle)) = previous {
         previous_cancel.store(true, Ordering::Relaxed);
         let _ = previous_handle.await;
@@ -1336,6 +1397,7 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     );
 
     let reconcile_started = std::time::Instant::now();
+    let embedding = app.state::<crate::ai::AppAi>().model_if_enabled().is_some();
     let (todo, removed, idle) = {
         let (dir, index, listed) = (dir.clone(), index.clone(), listed.clone());
         tauri::async_runtime::spawn_blocking(move || {
@@ -1345,10 +1407,15 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
                 .collect();
             let mut index = index::lock(&index);
             let (todo, removed) = index.reconcile(&dir, &files)?;
-            // Neither pass has anything to do, so no scan task is queued. A
-            // failed faces listing leaves it to the faces pass to report.
-            let idle =
-                todo.is_empty() && index.faces_todo(&dir).is_ok_and(|faces| faces.is_empty());
+            // No pass has anything to do, so no scan task is queued. A
+            // failed faces or embeddings listing leaves it to that pass to
+            // report.
+            let idle = todo.is_empty()
+                && index.faces_todo(&dir).is_ok_and(|faces| faces.is_empty())
+                && (!embedding
+                    || index
+                        .embeddings_missing(&dir)
+                        .is_ok_and(|missing| missing.is_empty()));
             Ok::<_, String>((todo, removed, idle))
         })
         .await
@@ -1451,10 +1518,10 @@ pub async fn scan_folder(app: tauri::AppHandle, dir: String) -> Result<ScanStart
     })
 }
 
-/// Emit an empty `scan-done` and `faces-done`, for a `scan_id` `start_scan` is
-/// not going to spawn a real scan for. The frontend clears its `scanRunning`
-/// flag off `faces-done`, so every `scan_id` it hands a scan for must
-/// eventually get one, even the ids that turn out to be no-ops here.
+/// Emit an empty `scan-done`, `faces-done` and `embed-done`, for a `scan_id`
+/// `start_scan` is not going to spawn a real scan for. The frontend clears
+/// its `scanRunning` flag off `faces-done`, so every `scan_id` it hands a scan
+/// for must eventually get one, even the ids that turn out to be no-ops here.
 fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
     let done = Done {
         dir,
@@ -1463,7 +1530,80 @@ fn emit_empty_scan_events(app: &tauri::AppHandle, dir: &str, scan_id: u64) {
         errors: 0,
     };
     let _ = app.emit("scan-done", done.clone());
-    let _ = app.emit("faces-done", done);
+    let _ = app.emit("faces-done", done.clone());
+    let _ = app.emit("embed-done", done);
+}
+
+/// The model and the files of `dir` the third pass would embed: `None`, so
+/// the pass is skipped, once `cancel` is set, while `aiEnabled` is off or the
+/// model is not in place, or when no RAW file lacks a valid embedding (a
+/// JPEG-only, view-only folder never has one).
+fn embed_work(
+    app: &tauri::AppHandle,
+    index: &Mutex<Index>,
+    dir: &str,
+    cancel: &AtomicBool,
+) -> Option<(PathBuf, Vec<index::EmbedTodo>)> {
+    if cancel.load(Ordering::Relaxed) {
+        return None;
+    }
+    let model = app.state::<crate::ai::AppAi>().model_if_enabled()?;
+    match index::lock(index).embeddings_missing(dir) {
+        Ok(todo) if !todo.is_empty() => Some((model, todo)),
+        Ok(_) => None,
+        Err(e) => {
+            log::error!("failed to list the embed pass of {dir}: {e}");
+            None
+        }
+    }
+}
+
+/// The third pass of a scan: the image embedding of every file `embed_work`
+/// listed, with the model at `model` (built once per process, on the first
+/// pass that needs it). A model that fails to build embeds nothing.
+#[allow(clippy::too_many_arguments)]
+fn run_embed_pass<P>(
+    index: &Mutex<Index>,
+    dir: &str,
+    model: &Path,
+    todo: &[index::EmbedTodo],
+    threads: usize,
+    focus: &ScanFocus,
+    cancel: &AtomicBool,
+    progress: P,
+) -> index::ScanSummary
+where
+    P: Fn(usize, usize) + Send + Sync,
+{
+    let started = std::time::Instant::now();
+    let model = match riffle_core::embed::shared(model) {
+        Ok(model) => model,
+        Err(e) => {
+            log::error!(
+                "failed to load the embedding model {}: {e}",
+                model.display()
+            );
+            return index::ScanSummary {
+                total: 0,
+                errors: 0,
+            };
+        }
+    };
+    log::info!(
+        "embed model ready: dir={dir} in {}ms",
+        started.elapsed().as_millis()
+    );
+    index::run_embed_scan(
+        index,
+        dir,
+        todo,
+        model,
+        threads,
+        focus,
+        cancel,
+        index::PROGRESS_INTERVAL,
+        progress,
+    )
 }
 
 /// The second pass of a scan: the AF eye's in-focus probability and the
@@ -1526,6 +1666,16 @@ where
 /// `faces_extractor`, so the next scan of the folder resumes them; and a
 /// resync's `reconcile` runs only after that join, so `write_faces` never
 /// races a row deletion.
+///
+/// After `faces-done`, at its unchanged time, a third pass,
+/// `run_embed_scan`, embeds the RAW files `embeddings_missing` lists when
+/// `aiEnabled` is on and the model is in place, reporting `embed-progress`
+/// and ending in `embed-done`, which is emitted at once when the pass is
+/// skipped. It keeps the `running` entry, so `scan_folder` cancels and joins
+/// it and `set_scan_focus` reaches it, but `scanning()` is false through it:
+/// it writes only `embeddings`, and the operations that guard on a scan
+/// would otherwise wait out minutes of embedding after the frontend's
+/// `scanRunning` cleared.
 ///
 /// The latest-id check and the store into `running` happen under the same
 /// lock as `scan_folder`'s own id-minting and `running`-taking, so a
@@ -1637,9 +1787,11 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                         );
                     },
                 );
-                // Drop the entry before `faces-done`: the frontend drains a
-                // deferred rescan off that event, and its `scan_folder` must
-                // not find this scan still in `running`, or `joined_previous`
+                let mut embed = embed_work(&app, &index, &dir, &cancel);
+                // Drop the entry before `faces-done`, or mark it as in its
+                // third pass: the frontend drains a deferred rescan off that
+                // event, and its `scan_folder` must not find this scan still
+                // in `running` short of that pass, or `joined_previous`
                 // makes `changed` nonzero and forces a `folder_entries` read
                 // of an unchanged folder (see `refreshOnScanDone` in
                 // `refresh.ts`). `scanning()` thus goes false a moment before
@@ -1647,10 +1799,61 @@ pub async fn start_scan(app: tauri::AppHandle, scan_id: u64) -> Result<(), Strin
                 // `clear_index` already in flight run slightly earlier.
                 {
                     let scans = app.state::<Scans>();
-                    index::lock(&scans.0).finish(scan_id);
+                    let mut state = index::lock(&scans.0);
+                    // `set_ai_enabled(false)` switches off before it takes
+                    // this lock to `stop_embedding`, so checking again under
+                    // the lock misses no switch-off.
+                    if !app.state::<crate::ai::AppAi>().enabled() {
+                        embed = None;
+                    }
+                    if embed.is_some() {
+                        state.start_embedding(scan_id);
+                    } else {
+                        state.finish(scan_id);
+                    }
                 }
                 let _ = app.emit(
                     "faces-done",
+                    Done {
+                        dir: &dir,
+                        scan_id,
+                        total: summary.total,
+                        errors: summary.errors,
+                    },
+                );
+                let summary = match embed {
+                    Some((model, todo)) => {
+                        let summary = run_embed_pass(
+                            &index,
+                            &dir,
+                            &model,
+                            &todo,
+                            embed_threads(),
+                            &focus,
+                            &cancel,
+                            |done, total| {
+                                let _ = app.emit(
+                                    "embed-progress",
+                                    EmbedProgress {
+                                        dir: &dir,
+                                        scan_id,
+                                        done,
+                                        total,
+                                    },
+                                );
+                            },
+                        );
+                        let scans = app.state::<Scans>();
+                        index::lock(&scans.0).finish(scan_id);
+                        summary
+                    }
+                    None => index::ScanSummary {
+                        total: 0,
+                        errors: 0,
+                    },
+                };
+                let _ = app.emit(
+                    "embed-done",
                     Done {
                         dir: &dir,
                         scan_id,
@@ -1706,6 +1909,14 @@ struct FacesProgress<'a> {
     /// The files the second pass committed since the previous event, with
     /// their result, so the frontend can patch its entries in place.
     ready: Vec<index::FaceReady>,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct EmbedProgress<'a> {
+    dir: &'a str,
+    scan_id: u64,
+    done: usize,
+    total: usize,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -2017,6 +2228,44 @@ pub async fn set_mcp_enabled(app: tauri::AppHandle, enabled: bool) -> crate::mcp
         log::warn!("failed to save the MCP setting: {e}");
     }
     crate::mcp::switch(&app, enabled).await
+}
+
+/// Whether AI analysis is on, whether its model is in place, and how far a
+/// running download of it got.
+#[tauri::command]
+pub fn ai_enabled(app: tauri::AppHandle) -> crate::ai::AiState {
+    crate::ai::state(&app)
+}
+
+/// Turn AI analysis on or off and persist it under `aiEnabled`. On downloads
+/// the model when it is not in place (see `ai::switch`); the frontend rescans
+/// the open folder once the state says it is ready, which runs the third
+/// pass. Off cancels a running third pass, keeping the stored embeddings. A
+/// save failure is logged and the switch stands.
+#[tauri::command]
+pub async fn set_ai_enabled(app: tauri::AppHandle, enabled: bool) -> crate::ai::AiState {
+    let saving = app.clone();
+    let saved = tauri::async_runtime::spawn_blocking(move || {
+        settings(&saving).and_then(|store| {
+            store.set("aiEnabled", enabled);
+            store.save().map_err(|e| e.to_string())
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|saved| saved);
+    if let Err(e) = saved {
+        log::warn!("failed to save the AI setting: {e}");
+    }
+    let state = crate::ai::switch(&app, enabled);
+    if !enabled {
+        // The `Scans` lock can be held for seconds (a clear, a trash run).
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            index::lock(&app.state::<Scans>().0).stop_embedding();
+        })
+        .await;
+    }
+    state
 }
 
 /// The `xmp:Label` names written for Red ... Purple, in the shape stored
@@ -2387,6 +2636,7 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
+        state.stop_embedding();
         let summary = index::lock(&index).clear()?;
         log::info!("index cleared: {summary:?}");
         drop(state);
@@ -2800,6 +3050,182 @@ mod tests {
     }
 
     #[test]
+    fn a_scan_in_its_embed_pass_is_not_scanning_and_stops_on_request() {
+        let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
+        let (go, handle) = spawn_scan(&scans, 1);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut state = index::lock(&scans.0);
+        state.running = Some((1, cancel.clone(), ScanFocus::default(), handle));
+        state.stop_embedding();
+        assert!(!cancel.load(Ordering::Relaxed), "passes 1 and 2 go on");
+        assert!(state.scanning());
+
+        state.start_embedding(2);
+        assert!(state.scanning(), "another id's pass 3 is not this one's");
+        state.start_embedding(1);
+        assert!(!state.scanning());
+        assert!(state.in_embed_pass());
+        state.stop_embedding();
+        assert!(cancel.load(Ordering::Relaxed));
+
+        state.finish(1);
+        assert_eq!(state.embedding, None);
+        assert!(!state.scanning());
+        drop(state);
+        let _ = go.send(());
+    }
+
+    /// The plan's Step 3 measurement of the third pass without the GUI: the
+    /// folder `RIFFLE_EMBED_DIR` through the app's three passes into a fresh
+    /// index, at the app's priorities and thread counts (`RIFFLE_EMBED_THREADS`
+    /// overrides the third pass's), with the model file
+    /// `RIFFLE_EMBED_MODEL`. It prints each pass's wall time and the
+    /// process's largest working set sampled during it, and the read + full
+    /// decode time of a preview on a normal-priority thread (a stand-in for
+    /// the viewer's paging) idle and during the second and third passes; then
+    /// checks that a rescan has nothing left to embed. `cargo test --release
+    /// -p riffle-app embed_pass_on_a_real_folder -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "needs RIFFLE_EMBED_DIR and RIFFLE_EMBED_MODEL"]
+    fn embed_pass_on_a_real_folder() {
+        use std::time::{Duration, Instant};
+        let (Ok(dir), Ok(model)) = (
+            std::env::var("RIFFLE_EMBED_DIR"),
+            std::env::var("RIFFLE_EMBED_MODEL"),
+        ) else {
+            panic!("set RIFFLE_EMBED_DIR and RIFFLE_EMBED_MODEL");
+        };
+        let embed_threads = std::env::var("RIFFLE_EMBED_THREADS")
+            .ok()
+            .and_then(|t| t.parse().ok())
+            .unwrap_or_else(embed_threads);
+        let tmp = temp_dir("embed-real");
+        let index = sidecar_index(&tmp);
+        let mut files: Vec<FileStat> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| riffle_core::scan::is_raw_file(p))
+            .filter_map(|p| index::stat(&p).ok())
+            .collect();
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        let (todo, _) = index::lock(&index).reconcile(&dir, &files).unwrap();
+        let (focus, cancel, threads) =
+            (ScanFocus::default(), AtomicBool::new(false), scan_threads());
+
+        let probe = |i: usize| {
+            let path = &files[(i * 37) % files.len()].path;
+            let t = Instant::now();
+            let (_, jpeg) = riffle_core::reader::read_preview(path).unwrap();
+            riffle_core::decode::decode_rgb(&jpeg).unwrap();
+            t.elapsed().as_secs_f64() * 1000.0
+        };
+        let summarize = |mut ms: Vec<f64>| {
+            ms.sort_by(f64::total_cmp);
+            let at = |q: f64| ms[((ms.len() - 1) as f64 * q).round() as usize];
+            format!(
+                "n={} median {:.1} ms, p95 {:.1} ms",
+                ms.len(),
+                at(0.5),
+                at(0.95)
+            )
+        };
+        // Runs `pass` with the working-set sampler and the preview probe
+        // alongside, and prints what they saw.
+        let measured = |name: &str, pass: &dyn Fn() -> index::ScanSummary| {
+            let running = AtomicBool::new(true);
+            let (summary, wall, peak, busy) = std::thread::scope(|s| {
+                let sampler = s.spawn(|| {
+                    let pid = sysinfo::get_current_pid().unwrap();
+                    let mut sys = sysinfo::System::new();
+                    let mut peak = 0;
+                    while running.load(Ordering::Relaxed) {
+                        sys.refresh_processes_specifics(
+                            sysinfo::ProcessesToUpdate::Some(&[pid]),
+                            false,
+                            sysinfo::ProcessRefreshKind::nothing().with_memory(),
+                        );
+                        peak = peak.max(sys.process(pid).map_or(0, |p| p.memory()));
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    peak
+                });
+                let prober = s.spawn(|| {
+                    let mut ms = Vec::new();
+                    while running.load(Ordering::Relaxed) {
+                        ms.push(probe(ms.len()));
+                        std::thread::sleep(Duration::from_millis(250));
+                    }
+                    ms
+                });
+                let t = Instant::now();
+                let summary = pass();
+                let wall = t.elapsed();
+                running.store(false, Ordering::Relaxed);
+                (
+                    summary,
+                    wall,
+                    sampler.join().unwrap(),
+                    prober.join().unwrap(),
+                )
+            });
+            eprintln!(
+                "{name}: {} files, {} errors, in {:.1} s ({:.1} ms/file); peak working set {:.0} MB; preview read + decode {}",
+                summary.total,
+                summary.errors,
+                wall.as_secs_f64(),
+                wall.as_secs_f64() * 1000.0 / summary.total.max(1) as f64,
+                peak as f64 / 1e6,
+                summarize(busy)
+            );
+            summary
+        };
+
+        let t = Instant::now();
+        let first = index::run_scan(
+            &index,
+            &dir,
+            &todo,
+            threads,
+            &focus,
+            &cancel,
+            index::PROGRESS_INTERVAL,
+            |_, _, _| {},
+        );
+        eprintln!(
+            "pass 1: {} files in {:.1} s",
+            first.total,
+            t.elapsed().as_secs_f64()
+        );
+        let idle: Vec<f64> = (0..40).map(probe).collect();
+        eprintln!("preview read + decode, idle: {}", summarize(idle));
+        measured(&format!("pass 2 ({threads} threads)"), &|| {
+            run_faces_pass(&index, &dir, threads, &focus, &cancel, |_, _, _| {})
+        });
+        let todo = index::lock(&index).embeddings_missing(&dir).unwrap();
+        let summary = measured(&format!("pass 3 ({embed_threads} threads)"), &|| {
+            run_embed_pass(
+                &index,
+                &dir,
+                Path::new(&model),
+                &todo,
+                embed_threads,
+                &focus,
+                &cancel,
+                |_, _| {},
+            )
+        });
+        assert_eq!(summary.total, todo.len());
+        assert!(
+            index::lock(&index)
+                .embeddings_missing(&dir)
+                .unwrap()
+                .is_empty(),
+            "a rescan embeds 0 files"
+        );
+        remove_temp_dir(&tmp);
+    }
+
+    #[test]
     fn the_scan_focus_reaches_the_running_scan_only() {
         let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
         let (go, handle) = spawn_scan(&scans, 2);
@@ -3020,6 +3446,15 @@ mod tests {
         assert!(super::auto_advance_setting(Some(&json!(true))));
         assert!(!super::auto_advance_setting(Some(&json!(false))));
         assert!(super::auto_advance_setting(Some(&json!("true"))));
+    }
+
+    #[test]
+    fn ai_enabled_setting_reads_a_boolean_or_defaults_to_off() {
+        use serde_json::json;
+        assert!(!super::ai_enabled_setting(None));
+        assert!(super::ai_enabled_setting(Some(&json!(true))));
+        assert!(!super::ai_enabled_setting(Some(&json!(false))));
+        assert!(!super::ai_enabled_setting(Some(&json!("true"))));
     }
 
     use std::time::Duration;

@@ -1,3 +1,4 @@
+import { type AiState, aiStatus } from "./ai.js";
 import {
   BUG_SVG,
   DATABASE_SVG,
@@ -90,6 +91,8 @@ export function initSettings(hooks: SettingsHooks): Settings {
   const labelNamesLanguage = document.getElementById("label-names-language") as HTMLSelectElement;
   let labelPresets: LabelPreset[] = [];
   const autoAdvance = document.getElementById("auto-advance") as HTMLInputElement;
+  const aiEnabled = document.getElementById("ai-enabled") as HTMLInputElement;
+  const aiStatusLine = document.getElementById("ai-status") as HTMLParagraphElement;
   const mcpEnabled = document.getElementById("mcp-enabled") as HTMLInputElement;
   const mcpStatusLine = document.getElementById("mcp-status") as HTMLParagraphElement;
   const mcpEndpointText = document.getElementById("mcp-endpoint") as HTMLPreElement;
@@ -285,6 +288,15 @@ export function initSettings(hooks: SettingsHooks): Settings {
     );
   }
 
+  function showAiState(state: AiState): void {
+    aiEnabled.checked = state.enabled;
+    aiStatusLine.textContent = aiStatus(state);
+  }
+
+  void window.__TAURI__.core.invoke<AiState>("ai_enabled").then(showAiState);
+  void window.__TAURI__.event.listen<AiState>("ai-state", ({ payload }) => {
+    showAiState(payload);
+  });
   void window.__TAURI__.core.invoke<McpState>("mcp_enabled").then(showMcpState);
   void window.__TAURI__.event.listen<McpState>("mcp-state", ({ payload }) => {
     showMcpState(payload);
@@ -356,6 +368,15 @@ export function initSettings(hooks: SettingsHooks): Settings {
       .then(() => {
         hooks.setAutoAdvance(enabled);
       })
+      .catch((error: unknown) => {
+        status.textContent = String(error);
+      });
+  });
+
+  aiEnabled.addEventListener("change", () => {
+    status.textContent = "";
+    window.__TAURI__.core
+      .invoke("set_ai_enabled", { enabled: aiEnabled.checked })
       .catch((error: unknown) => {
         status.textContent = String(error);
       });
