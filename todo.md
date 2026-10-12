@@ -1767,3 +1767,20 @@ Files: `crates/app/tauri.conf.json`, `crates/app/src/main.rs`.
 
 - [ ] Decide whether a newly added default should yield to an existing override, or whether the drop should be logged at `warn` (or both).
 - [ ] Implement the chosen behavior with a Rust test covering an old store that binds the new default's key to another action.
+
+### App: real-device check of auto-advance on a repeated star, reject or pick
+
+#### Background
+
+The `repeat-judgment-advance` feature makes a repeat press of the value a file already holds (`3` on a 3-star file, `x` on a rejected file, `p` on a picked file) move to the next file when `Auto-advance after a star, reject or pick` is on. The press still writes nothing and adds no undo entry. The pure decision `shouldAdvance` is covered by Vitest in `advance.test.ts`, and `mise run ci` passes. The behavior was never exercised in the desktop app: the implementation agent had no GUI session. See `docs/plans/_archived/20261012-repeat-judgment-advance/plan.md` (Step 1). Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/advance.ts`.
+
+#### TODO
+
+- [ ] On Windows, with the app open and `Auto-advance after a star, reject or pick` on:
+  - Press `3` twice on a file. The second press moves to the next file, adds no undo entry and leaves the status line untouched.
+  - Press `x` on a rejected file and `p` on a picked file. Both move to the next file.
+  - On the last file, a repeat press stays on it.
+  - With a 2-file selection, a repeat press does not advance.
+  - In Compare, a repeat press does not advance.
+  - In a JPEG-only folder (view-only), the keys do nothing.
+- [ ] On macOS, repeat the same checks as on Windows.
