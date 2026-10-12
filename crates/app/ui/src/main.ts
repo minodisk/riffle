@@ -2,7 +2,7 @@ import { type Binding, isModifierCode, keyName } from "./keys.js";
 import * as strip from "./strip.js";
 import * as folders from "./folders.js";
 import { type Exif, type ExifGroup, exifKey } from "./exif.js";
-import { advancesAfter } from "./advance.js";
+import { shouldAdvance } from "./advance.js";
 import {
   type Entry,
   type TrashEntry,
@@ -1864,14 +1864,16 @@ function refilter(
 // then tell the backend per file. The invokes are never awaited for anything
 // visible; only a failure is, which reverts that file (if the folder is still
 // the one it belongs to) and says so in the status line. Returns the number
-// of targets when anything changed, else 0.
+// of targets it addressed, changed or not (a repeated value still advances),
+// else 0 when there are no files or the folder is view-only.
 function judge(command: Command, forceLabel = false): number {
-  if (files.length === 0) {
+  if (files.length === 0 || viewOnly) {
     return 0;
   }
   const current = (comparing ? compareActivePath : null) ?? files[index];
   const paths = comparing ? [current] : targets(selection, files, index);
-  return record(paths, current, command, forceLabel) ? paths.length : 0;
+  record(paths, current, command, forceLabel);
+  return paths.length;
 }
 
 // The changes `command` makes to `paths`, its value decided from `focused`,
@@ -1887,9 +1889,9 @@ function record(
   if (viewOnly) {
     return false;
   }
-  // Idempotent: pressing the current value again does nothing at all, which
-  // is what makes key auto-repeat harmless. A forced label still goes out
-  // while the file's real label is unknown.
+  // Writes nothing and pushes no undo entry when the pressed value is already
+  // the current one (the caller may still advance). A forced label still goes
+  // out while the file's real label is unknown.
   const changes: Change[] = judgments(
     paths,
     focused,
@@ -4671,11 +4673,13 @@ function runAction(action: string): boolean {
   }
   // A file that dropped out of the filter already moved the cursor on.
   if (
-    judged === 1 &&
-    autoAdvance &&
-    !comparing &&
-    advancesAfter(action) &&
-    files[index] === current
+    shouldAdvance({
+      action,
+      targets: judged,
+      autoAdvance,
+      comparing,
+      stillCurrent: files[index] === current,
+    })
   ) {
     move(1);
   }

@@ -6,3 +6,24 @@ const ADVANCING = new Set(["rate1", "rate2", "rate3", "rate4", "rate5", "reject"
 export function advancesAfter(action: string): boolean {
   return ADVANCING.has(action);
 }
+
+export interface AdvanceInput {
+  action: string;
+  targets: number;
+  autoAdvance: boolean;
+  comparing: boolean;
+  stillCurrent: boolean;
+}
+
+// Whether a judgment key moves on to the next file: one file addressed,
+// changed or already holding the value, outside Compare, and still the
+// current file (a file the judgment filtered out already moved the cursor).
+export function shouldAdvance({
+  action,
+  targets,
+  autoAdvance,
+  comparing,
+  stillCurrent,
+}: AdvanceInput): boolean {
+  return targets === 1 && autoAdvance && !comparing && advancesAfter(action) && stillCurrent;
+}

@@ -559,10 +559,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `~/.local/share/com.minodisk.riffle/logs/` on Linux.
 - **Auto-advance**: when `Auto-advance after a star, reject or pick` is on in
   `Riffle > Settings...` (on by default), `1`-`5`, reject and pick move to the
-  next file once they change the current one; pressing the value the file
-  already has does not. The last file stays selected. A file the judgment
+  next file, also when the file already has the value pressed (which leaves
+  it as it is and writes nothing), so a run of files that are already right
+  can be confirmed with the same key. The last file stays selected. A file the judgment
   drops out of the active filter already hands the cursor to the next file, so
-  it is not skipped twice. A judgment that changes more than one selected
+  it is not skipped twice. A judgment on more than one selected
   file does not advance.
 - **Clear Cache**: the `Cache` tab of `Riffle > Settings...` shows how much disk
   the folder index takes, and `Clear Cache` empties it after a confirmation. It
