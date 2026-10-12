@@ -2223,9 +2223,19 @@ function refreshEntries(): void {
   const token = folderToken;
   entriesInFlight = true;
   const start = performance.now();
-  void window.__TAURI__.core
-    .invoke<IndexedFile[]>("folder_entries", { dir })
-    .then((rows) => {
+  // A checked `Genre` item filters on the labels, so the refilter below that
+  // consumes `pendingResume` needs the folder's labels already in hand.
+  const genresNow =
+    !filterGenre.hidden && shownGenres.size > 0
+      ? window.__TAURI__.core
+          .invoke<Record<string, string[]>>("genres_of", { dir })
+          .catch(() => null)
+      : Promise.resolve(null);
+  void Promise.all([
+    window.__TAURI__.core.invoke<IndexedFile[]>("folder_entries", { dir }),
+    genresNow,
+  ])
+    .then(([rows, found]) => {
       const invoked = performance.now();
       entriesInFlight = false;
       if (entriesPending) {
@@ -2234,6 +2244,9 @@ function refreshEntries(): void {
       }
       if (dir !== openDir || token !== folderToken) {
         return;
+      }
+      if (found !== null) {
+        fileGenres = new Map(Object.entries(found));
       }
       entries.clear();
       sharpness.clear();
@@ -3515,6 +3528,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     ratings.clear();
     flags.clear();
     labels.clear();
+    fileGenres = new Map();
     pendingResume = resumeTarget(remembered, allFiles);
     const order = ordered();
     files = order.filter(passes);
