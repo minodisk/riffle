@@ -10,6 +10,7 @@ mod index;
 mod mcp;
 mod perf;
 mod photolab;
+mod rank;
 mod rename;
 mod sequence;
 mod shortcuts;
@@ -753,6 +754,7 @@ fn main() {
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
             app.manage(ai::AppAi::new(ai_enabled, ai::model_path(app.handle())));
+            app.manage(rank::AppRank::default());
             // A model still missing at launch (a download cut short by a
             // quit or a failure) is fetched again, as a later enable would.
             if ai_enabled {
@@ -805,6 +807,11 @@ fn main() {
             commands::set_scan_focus,
             commands::folder_entries,
             commands::genres_of,
+            rank::ranking_of,
+            rank::ranking_model,
+            rank::refit_ranking,
+            rank::culling_finished,
+            rank::set_culling_finished,
             commands::last_viewed,
             commands::set_last_viewed,
             commands::thumbnail,

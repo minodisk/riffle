@@ -865,6 +865,7 @@ fn parse_sort_order(value: Option<&str>) -> &'static str {
     match value {
         Some("capture") => "capture",
         Some("rating") => "rating",
+        Some("recommended") => "recommended",
         _ => "name",
     }
 }
@@ -3250,6 +3251,121 @@ mod tests {
         remove_temp_dir(&tmp);
     }
 
+    /// The ranking's input as the app stores it, for the plan's `ranking.md`:
+    /// indexes every folder of `RIFFLE_RANK_DIRS` (separated like `PATH`)
+    /// into `RIFFLE_RANK_OUT/index.sqlite` with the app's three passes and
+    /// its sidecar reconciliation (XMP and `.dop`), resuming what an earlier
+    /// run left, then writes what `Index::rank_rows` reads:
+    /// `RIFFLE_RANK_OUT/app/<folder>.tsv` and `RIFFLE_RANK_OUT/embed.tsv`.
+    /// `RIFFLE_EMBED_MODEL` is the SigLIP 2 file. Run it with `cargo test
+    /// --release -p riffle-app rank_dump_of_real_folders -- --ignored
+    /// --nocapture`.
+    #[test]
+    #[ignore = "needs RIFFLE_RANK_DIRS, RIFFLE_RANK_OUT and RIFFLE_EMBED_MODEL"]
+    fn rank_dump_of_real_folders() {
+        use std::io::Write;
+        let (Some(dirs), Ok(out), Ok(model)) = (
+            std::env::var_os("RIFFLE_RANK_DIRS"),
+            std::env::var("RIFFLE_RANK_OUT"),
+            std::env::var("RIFFLE_EMBED_MODEL"),
+        ) else {
+            panic!("set RIFFLE_RANK_DIRS, RIFFLE_RANK_OUT and RIFFLE_EMBED_MODEL");
+        };
+        let out = PathBuf::from(out);
+        std::fs::create_dir_all(out.join("app")).unwrap();
+        let index = sidecar_index(&out);
+        let (focus, cancel, threads) =
+            (ScanFocus::default(), AtomicBool::new(false), scan_threads());
+        let mut embed = std::fs::File::create(out.join("embed.tsv")).unwrap();
+        let opt = |v: Option<f64>| v.map_or("-".to_string(), |v| v.to_string());
+        for dir in std::env::split_paths(&dirs) {
+            let started = std::time::Instant::now();
+            let dir = canonicalize(&dir.to_string_lossy());
+            let (listed, sidecars) = list_folder_in(Path::new(&dir), SidecarFormat::Both).unwrap();
+            let files: Vec<FileStat> = listed
+                .iter()
+                .filter_map(|p| index::stat(Path::new(p)).ok())
+                .collect();
+            let (todo, _) = index::lock(&index).reconcile(&dir, &files).unwrap();
+            reconcile_sidecars_of(
+                &dir,
+                &listed,
+                &sidecars,
+                &index,
+                SidecarFormat::Both,
+                &LabelNames::default(),
+            )
+            .unwrap();
+            let first = index::run_scan(
+                &index,
+                &dir,
+                &todo,
+                threads,
+                &focus,
+                &cancel,
+                index::PROGRESS_INTERVAL,
+                |_, _, _| {},
+            );
+            let second = run_faces_pass(&index, &dir, threads, &focus, &cancel, |_, _, _| {});
+            let todo = index::lock(&index).embeddings_missing(&dir).unwrap();
+            let third = run_embed_pass(
+                &index,
+                &dir,
+                Path::new(&model),
+                &todo,
+                threads,
+                &focus,
+                &cancel,
+                |_, _| {},
+            );
+            let rows = index::lock(&index).rank_rows(&dir).unwrap();
+            let folder = Path::new(&dir).file_name().unwrap().to_string_lossy();
+            let mut tsv =
+                std::fs::File::create(out.join("app").join(format!("{folder}.tsv"))).unwrap();
+            writeln!(tsv, "file\tflag\tcapture_time\tsubsec\tsharpness\tstate\teye_focus\tear\teyes_open\tyaw\tpitch\troll\teye_offset\tedge_gap").unwrap();
+            for row in &rows {
+                let f = &row.frame;
+                writeln!(
+                    tsv,
+                    "{}\t{:?}\t{}\t{}\t{}\t{:?}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    f.name,
+                    row.flag,
+                    f.capture_time.as_deref().unwrap_or("-"),
+                    f.subsec.as_deref().unwrap_or("-"),
+                    opt(f.sharpness),
+                    riffle_core::candidate::candidate(f.eye_focus),
+                    opt(f.eye_focus),
+                    opt(f.eyes_ear),
+                    opt(f
+                        .eyes_ear
+                        .map(|e| 1.0 - riffle_core::eyes::closed_probability(e))),
+                    opt(f.pose.map(|p| p.yaw)),
+                    opt(f.pose.map(|p| p.pitch)),
+                    opt(f.pose.map(|p| p.roll)),
+                    opt(f.eye_offset),
+                    opt(f.edge_gap),
+                )
+                .unwrap();
+                if let Some(vec) = &f.vec {
+                    let vec: Vec<String> = vec.iter().map(f32::to_string).collect();
+                    writeln!(embed, "{}\t{}", row.path, vec.join("\t")).unwrap();
+                }
+            }
+            eprintln!(
+                "{folder}: {} rows, {} with a vector; pass 1 {} files ({} errors), pass 2 {} ({}), pass 3 {} ({}); {:.1} s",
+                rows.len(),
+                rows.iter().filter(|r| r.frame.vec.is_some()).count(),
+                first.total,
+                first.errors,
+                second.total,
+                second.errors,
+                third.total,
+                third.errors,
+                started.elapsed().as_secs_f64()
+            );
+        }
+    }
+
     #[test]
     fn the_scan_focus_reaches_the_running_scan_only() {
         let scans = Arc::new(Scans(Mutex::new(ScansState::default())));
@@ -4206,6 +4322,7 @@ mod tests {
     fn an_unknown_sort_order_falls_back_to_name() {
         assert_eq!(parse_sort_order(Some("capture")), "capture");
         assert_eq!(parse_sort_order(Some("rating")), "rating");
+        assert_eq!(parse_sort_order(Some("recommended")), "recommended");
         assert_eq!(parse_sort_order(Some("size")), "name");
         assert_eq!(parse_sort_order(None), "name");
     }

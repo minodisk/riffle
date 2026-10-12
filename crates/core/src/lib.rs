@@ -18,6 +18,7 @@ pub mod orf;
 pub mod partial;
 pub mod pose;
 pub mod raf;
+pub mod rank;
 pub mod reader;
 pub mod scan;
 pub mod sequence;

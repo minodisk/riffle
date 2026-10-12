@@ -194,6 +194,28 @@ describe("folderMenuGroups", () => {
   });
 });
 
+describe("folderMenuGroups while AI analysis is on", () => {
+  test("adds the Culling Finished check above the trash items, checked as the folder is", () => {
+    for (const finished of [false, true]) {
+      const groups = folderMenuGroups("Reveal in Finder", false, 1, finished);
+      expect(groups.map((group) => group.map(({ action }) => action))).toEqual([
+        ["revealFolder"],
+        ["copyPath", "copyFolderName"],
+        ["refreshFolder"],
+        ["renameFolder"],
+        ["expandAll", "collapseAll"],
+        ["cullingFinished"],
+        ["trashRejected", "trashRejectedTree"],
+        ["rewriteSidecars", "deleteSidecars"],
+        ["sequenceTimestamps"],
+      ]);
+      expect(groups[5]).toEqual([
+        { action: "cullingFinished", label: "Culling Finished", shortcut: "", checked: finished },
+      ]);
+    }
+  });
+});
+
 describe("folderMenuGroups with several folders selected", () => {
   test("offers only the trash items, naming the count", () => {
     expect(folderMenuGroups("Reveal in Finder", false, 3)).toEqual([

@@ -91,7 +91,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   and `Move Rejected to Trash, Including Subfolders…` (the latter not
   offered on home or a volume at the top level) move the rejects of that
   folder, or of it and every folder below it, to the Trash (see
-  **Move Rejected to Trash…**). Then `Rewrite Sidecars from Index…` writes
+  **Move Rejected to Trash…**); while AI analysis is on, a `Culling
+  Finished` check sits just above them (see **Recommended order**). Then `Rewrite Sidecars from Index…` writes
   the judgments Riffle holds for that folder back into its sidecars, and
   `Delete Sidecars…` moves its sidecars to the Trash (see
   **Rewrite Sidecars from Index… and Delete Sidecars…**). Last,
@@ -318,7 +319,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   direction: on hand-labeled local faces the sign was right on about 94% of
   them for yaw and pitch, but a 15-25° turn still looks frontal to the eye,
   and far profiles (past about 70°, a yaw can read past 90°) and sports
-  sunglasses are rough.
+  sunglasses are rough. While AI analysis is on, `Recommended`, `Reason`
+  and `Confidence` follow for a file with an embedding (see
+  **Recommended order**).
 - **Filter menu**: narrows the strip by pick flag, stars, color label,
   orientation (`Portrait` / `Landscape`), the focus mark's state (the
   `AF eye` section, each item with the strip's icon of its state: `Good`
@@ -347,11 +350,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   not, and clear whenever a folder opens. The `Genre` checks last until the
   app quits or AI analysis is turned off. `Reset` clears the remembered
   filter too.
-- **Sort menu**: orders the strip by file name, capture time or rating;
+- **Sort menu**: orders the strip by file name, capture time or rating, or,
+  while AI analysis is on, `Recommended` (see **Recommended order**);
   paging and `n / N` follow the chosen order. Capture time breaks ties by
   sub-second then file name, and files without a capture time come last.
   Rating puts higher stars first, then unrated files, then rejects, with file
-  name breaking ties.
+  name breaking ties. With AI analysis off, `Recommended` reads as capture
+  time.
   The order settles while a folder is scanned for the first time, and the
   choice is remembered across launches.
 - **Open Folder…**: `File > Open Folder…` opens the folder picker, the same as
@@ -596,6 +601,38 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Landscape` and `Snap`; `Unknown` mostly catches frames that do have a
   genre. The thresholds were calibrated on one photographer's folders and
   will fit other photography less well.
+- **Recommended order**: while AI analysis is on, the sort menu gains
+  `Recommended` and the meta pane's Analysis group gains three rows for a
+  file with an embedding. The ranking compares the frames of one burst (see
+  **Bursts**) and nothing across bursts: `Recommended` keeps the bursts in
+  capture order and puts each burst's frames in the order of a score
+  learned from picks, highest first, a frame without an embedding yet after
+  the scored ones of its burst. The `Recommended` row shows the frame's
+  place among the scored frames of its burst and its score, how far above
+  (`+`) or below (`−`) the burst's average it sits in the model's units;
+  `Reason` names up to three of what moved it most: `Look` (the image
+  embedding: composition, expression, the moment), `Burst position`,
+  `Sharpness`, `AF eye focus`, `Eyes open`, `Head pose` and `Good photo`.
+  The model starts from a built-in one, learned from the author's picks on
+  27 culled shooting days, and learns your taste from the folders you mark
+  finished: right-click a folder in the folder tree and check `Culling
+  Finished` once you have picked everything you want from it. In a finished
+  folder every frame you did not pick counts as not chosen; a reject counts
+  as a stronger no in any folder; the unjudged frames of a folder not marked
+  finished never count. Marking or unmarking a folder refits the model in
+  the background, and `Refit Ranking` in the `Culling` tab of
+  `Riffle > Settings...` refits it at any time, for example after more picks
+  in a finished folder; the fit is stored as `ranking.json` in the app's
+  local data dir. With few finished folders it stays close to the built-in
+  model. `Confidence` reads `Built-in only, no finished folder yet` until a
+  finished folder gives something to learn from, then `Low`, `Medium` or
+  `High` with the bursts and folders it learned from. It is a modest
+  suggestion, not a best-shot pick: held out on the author's folders, the
+  top-ranked frame of a burst was a pick in about 55% of the bursts, against
+  39% for the burst's first frame. It never changes a star or a flag.
+  A folder's `Culling Finished` mark lives in the cache, so `Clear Cache`
+  and the cache's eviction of a folder not opened for a month forget it (the
+  fit already made stays until the next refit).
 - **Sharpness score**: Riffle scores each RAW file's sharpness from the embedded
   preview on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF focus point when the camera recorded one, even

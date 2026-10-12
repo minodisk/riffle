@@ -79,6 +79,17 @@
               >
                 Rating
               </button>
+              <div id="sort-recommended" hidden>
+                <button
+                  type="button"
+                  class="menu-item"
+                  role="menuitemradio"
+                  aria-checked="false"
+                  data-sort="recommended"
+                >
+                  Recommended
+                </button>
+              </div>
             </div>
           </div>
           <div id="filter">
@@ -689,6 +700,18 @@
                 the model from Hugging Face.
               </p>
               <p id="ai-status"></p>
+              <div id="ranking-settings" hidden>
+                <p>
+                  The Recommended sort learns from your picks in the folders you mark Culling
+                  Finished in the folder tree. It never changes a judgment.
+                </p>
+                <p id="ranking-status"></p>
+                <div class="dialog-actions">
+                  <button id="ranking-refit" class="button outline" type="button">
+                    Refit Ranking
+                  </button>
+                </div>
+              </div>
             </section>
             <section
               id="shortcuts"

@@ -64,8 +64,15 @@ export function contextMenuGroups(
 // JPEGs. Renaming, expanding / collapsing all and
 // the recursive trash item are not offered on a root (home or a volume). With
 // `count` folders selected, only the trash items are offered, naming the
-// count; `root` then says whether any of them is a root.
-export function folderMenuGroups(revealLabel: string, root: boolean, count = 1): MenuItem[][] {
+// count; `root` then says whether any of them is a root. `finished`, given
+// only while AI analysis is on, adds the `Culling Finished` check above the
+// trash items, checked when the folder is marked so.
+export function folderMenuGroups(
+  revealLabel: string,
+  root: boolean,
+  count = 1,
+  finished?: boolean,
+): MenuItem[][] {
   if (count > 1) {
     const label = `Move Rejected in ${count} Folders to Trash`;
     return [
@@ -98,6 +105,18 @@ export function folderMenuGroups(revealLabel: string, root: boolean, count = 1):
           [
             { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
             { action: "collapseAll", label: "Collapse All", shortcut: "", checked: undefined },
+          ],
+        ]),
+    ...(finished === undefined
+      ? []
+      : [
+          [
+            {
+              action: "cullingFinished",
+              label: "Culling Finished",
+              shortcut: "",
+              checked: finished,
+            },
           ],
         ]),
     [

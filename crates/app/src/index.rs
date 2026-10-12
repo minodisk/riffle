@@ -17,6 +17,7 @@ use riffle_core::candidate::{candidate, FocusCandidate};
 use riffle_core::embed::{Model, EMBED_VERSION};
 use riffle_core::eyes::{EyeState, Eyes};
 use riffle_core::pose::Pose;
+use riffle_core::rank;
 use riffle_core::scan::{
     embed_all, extract_all, extract_analysis_all, is_raw_file, Analysis, Entry, Failure, Priority,
     ScanFocus,
@@ -87,8 +88,11 @@ use crate::exif::{exif, Exif};
 /// regions come to the preview's edge (`NULL` = none); a v10 to v18 database
 /// gains them in place with an `ALTER TABLE` and keeps `files`, `ratings` and
 /// `folders`. v20 added `embeddings`, one image embedding per file (pass 3);
-/// every older database gains the empty table and keeps the rest.
-const SCHEMA_VERSION: i64 = 20;
+/// every older database gains the empty table and keeps the rest. v21 added
+/// `folders.culling_finished`, whether the user marked the folder's culling
+/// finished (the ranking's negatives); a v8 to v20 database gains it in place
+/// with an `ALTER TABLE`, defaulting to `0`, and keeps the rest.
+const SCHEMA_VERSION: i64 = 21;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG/NEF/CR3/RAF/ORF parsing
@@ -451,6 +455,14 @@ pub struct EmbedRow {
     pub vec: Option<Vec<f32>>,
 }
 
+/// One file as the ranking reads it (`rank_rows`).
+#[derive(Debug, Clone)]
+pub struct RankRow {
+    pub path: String,
+    pub flag: Flag,
+    pub frame: rank::Frame,
+}
+
 /// The columns `indexed_file` reads, before the `WHERE` clause.
 const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
             focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
@@ -637,6 +649,7 @@ impl Index {
             17,
             18,
             19,
+            20,
             SCHEMA_VERSION,
         ]
         .contains(&version)
@@ -711,10 +724,13 @@ impl Index {
                  -- `opened_at` is seconds since the epoch, set by `reconcile`.
                  -- `last_viewed` is the path of the file that was current
                  -- in the strip, set by `set_last_viewed`.
+                 -- `culling_finished` is `1` once the user marked the
+                 -- folder's culling finished, set by `set_culling_finished`.
                  CREATE TABLE IF NOT EXISTS folders (
                      dir TEXT PRIMARY KEY,
                      opened_at INTEGER NOT NULL,
-                     last_viewed TEXT
+                     last_viewed TEXT,
+                     culling_finished INTEGER NOT NULL DEFAULT 0
                  );
                  -- One image embedding per file, apart from `files` so a
                  -- first-pass `INSERT OR REPLACE` keeps it. Valid while
@@ -822,6 +838,13 @@ impl Index {
             tx.execute_batch(
                 "ALTER TABLE files ADD COLUMN eye_offset REAL;
                  ALTER TABLE files ADD COLUMN edge_gap REAL;",
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        // Below v8 `folders` was just created with the column.
+        if (8..21).contains(&version) {
+            tx.execute_batch(
+                "ALTER TABLE folders ADD COLUMN culling_finished INTEGER NOT NULL DEFAULT 0;",
             )
             .map_err(|e| e.to_string())?;
         }
@@ -1339,6 +1362,114 @@ impl Index {
             )
             .map(|_| ())
             .map_err(|e| e.to_string())
+    }
+
+    /// Whether the user marked `dir`'s culling finished.
+    pub fn culling_finished(&self, dir: &str) -> Result<bool, String> {
+        self.conn
+            .query_row(
+                "SELECT culling_finished FROM folders WHERE dir = ?1",
+                params![dir],
+                |r| r.get::<_, bool>(0),
+            )
+            .optional()
+            .map(|f| f.unwrap_or(false))
+            .map_err(|e| e.to_string())
+    }
+
+    /// Mark `dir`'s culling finished or not, creating the `folders` row when
+    /// the folder was never opened.
+    pub fn set_culling_finished(&mut self, dir: &str, finished: bool) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO folders (dir, opened_at, culling_finished) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (dir) DO UPDATE SET culling_finished = excluded.culling_finished",
+                params![dir, now_secs(), finished],
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
+    /// The folders a ranking fit reads, `(dir, finished)`: the ones marked
+    /// finished and the ones holding an explicit reject, in `dir` order.
+    pub fn rank_dirs(&self) -> Result<Vec<(String, bool)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT dir, MAX(finished) FROM (
+                     SELECT dir, 1 AS finished FROM folders WHERE culling_finished = 1
+                     UNION ALL
+                     SELECT dir, 0 FROM ratings WHERE flag = 2
+                 ) GROUP BY dir ORDER BY dir",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())
+    }
+
+    /// What the ranking reads of every `files` row of `dir`, in file-name
+    /// order: the flag, the capture time, the second pass's values when the
+    /// row is at `FACES_VERSION`, and the embedding when it is valid (as
+    /// `embeddings` tells).
+    pub fn rank_rows(&self, dir: &str) -> Result<Vec<RankRow>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT files.path, COALESCE(ratings.flag, 0), capture_time, subsec,
+                     faces_extractor = ?3, sharpness, eye_focus, eyes_ear,
+                     pose_yaw, pose_pitch, pose_roll, eye_offset, edge_gap, embeddings.vec
+                 FROM files LEFT JOIN ratings USING (path)
+                 LEFT JOIN embeddings ON embeddings.path = files.path
+                     AND embeddings.version = ?2 AND embeddings.size = files.size
+                     AND embeddings.mtime_ns = files.mtime_ns
+                 WHERE files.dir = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir, EMBED_VERSION, FACES_VERSION], |r| {
+                let path: String = r.get(0)?;
+                let current: bool = r.get(4)?;
+                let value = |i: usize| -> rusqlite::Result<Option<f64>> {
+                    Ok(if current { r.get(i)? } else { None })
+                };
+                let pose = match (value(8)?, value(9)?, value(10)?) {
+                    (Some(yaw), Some(pitch), Some(roll)) => Some(Pose { yaw, pitch, roll }),
+                    _ => None,
+                };
+                let vec: Option<Vec<u8>> = r.get(13)?;
+                Ok(RankRow {
+                    flag: flag_from_code(r.get(1)?),
+                    frame: rank::Frame {
+                        name: Path::new(&path)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                        capture_time: r.get(2)?,
+                        subsec: r.get(3)?,
+                        sharpness: value(5)?,
+                        eye_focus: value(6)?,
+                        eyes_ear: value(7)?,
+                        pose,
+                        eye_offset: value(11)?,
+                        edge_gap: value(12)?,
+                        vec: vec.map(|v| {
+                            v.chunks_exact(4)
+                                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                                .collect()
+                        }),
+                    },
+                    path,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        let mut rows: Vec<RankRow> = rows
+            .collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())?;
+        rows.sort_by(|a, b| a.frame.name.cmp(&b.frame.name));
+        Ok(rows)
     }
 
     /// Move every row of the folder `old` and of the folders under it to
@@ -2511,6 +2642,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 10;",
                 )
                 .unwrap();
@@ -2698,6 +2830,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 11;",
                 )
                 .unwrap();
@@ -2745,6 +2878,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 12;",
                 )
                 .unwrap();
@@ -3060,6 +3194,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      UPDATE files SET faces_extractor = 6;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 17;",
                 )
                 .unwrap();
@@ -3134,6 +3269,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      UPDATE files SET faces_extractor = 7;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 18;",
                 )
                 .unwrap();
@@ -3192,6 +3328,7 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
                          ('/rated.ARW', 'd', 4, 1, 1);
                      DROP TABLE embeddings;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 19;",
                 )
                 .unwrap();
@@ -3211,6 +3348,196 @@ pub(crate) mod tests {
         assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
         assert_eq!(index.embeddings_missing("d").unwrap(), [todo_of(&a)]);
         assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v20_database_gains_culling_finished_and_keeps_its_folders() {
+        let dir = temp_dir("migrate-v20");
+        let db = dir.join("index.sqlite");
+        let a = file(&dir, "a.ARW", b"a");
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index.reconcile("d", std::slice::from_ref(&a)).unwrap();
+            index.set_last_viewed("d", "/d/a.ARW").unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "ALTER TABLE folders DROP COLUMN culling_finished;
+                     PRAGMA user_version = 20;",
+                )
+                .unwrap();
+        }
+
+        let mut index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+        assert!(!index.culling_finished("d").unwrap());
+        index.set_culling_finished("d", true).unwrap();
+        assert!(index.culling_finished("d").unwrap());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn culling_finished_is_set_on_any_folder_and_survives_a_rename() {
+        let dir = temp_dir("culling-finished");
+        let mut index = open(&dir);
+        assert!(!index.culling_finished("/never/opened").unwrap());
+        index.set_culling_finished("/never/opened", true).unwrap();
+        assert!(index.culling_finished("/never/opened").unwrap());
+        index
+            .set_last_viewed("/never/opened", "/never/opened/a.ARW")
+            .unwrap();
+        assert!(
+            index.culling_finished("/never/opened").unwrap(),
+            "remembering the viewed file keeps the mark"
+        );
+        index.rename_dir("/never/opened", "/renamed").unwrap();
+        assert!(index.culling_finished("/renamed").unwrap());
+        index.set_culling_finished("/renamed", false).unwrap();
+        assert!(!index.culling_finished("/renamed").unwrap());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn the_rank_dirs_are_the_finished_folders_and_those_holding_a_reject() {
+        let dir = temp_dir("rank-dirs");
+        let mut index = open(&dir);
+        index.set_culling_finished("/finished", true).unwrap();
+        index.set_culling_finished("/unmarked", false).unwrap();
+        index
+            .conn
+            .execute_batch(
+                "INSERT INTO ratings (path, dir, flag) VALUES
+                     ('/finished/a.ARW', '/finished', 2),
+                     ('/rejects/a.ARW', '/rejects', 2),
+                     ('/rejects/b.ARW', '/rejects', 2),
+                     ('/picks/a.ARW', '/picks', 1);",
+            )
+            .unwrap();
+        assert_eq!(
+            index.rank_dirs().unwrap(),
+            [
+                ("/finished".to_string(), true),
+                ("/rejects".to_string(), false)
+            ]
+        );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn rank_rows_read_the_current_second_pass_and_the_valid_embedding_only() {
+        let dir = temp_dir("rank-rows");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        index
+            .write_batch("d", &[(b.clone(), Ok(entry())), (a.clone(), Ok(entry()))])
+            .unwrap();
+        let path = |f: &FileStat| f.path.to_string_lossy().into_owned();
+        index
+            .write_faces(&[
+                FacesRow {
+                    path: path(&a),
+                    eye_focus: Some(0.95),
+                    sharpness: Some(120.0),
+                    eyes_ear: Some(0.3),
+                    pose: Some(EyesPose {
+                        yaw: 10.0,
+                        pitch: -5.0,
+                        roll: 2.0,
+                    }),
+                    eye_offset: Some(0.05),
+                    edge_gap: Some(0.2),
+                },
+                FacesRow {
+                    path: path(&b),
+                    eye_focus: Some(0.5),
+                    sharpness: Some(80.0),
+                    eyes_ear: None,
+                    pose: None,
+                    eye_offset: None,
+                    edge_gap: None,
+                },
+            ])
+            .unwrap();
+        index
+            .conn
+            .execute(
+                "UPDATE files SET faces_extractor = ?2 WHERE path = ?1",
+                params![path(&b), FACES_VERSION - 1],
+            )
+            .unwrap();
+        index
+            .write_embeddings(
+                "d",
+                &[
+                    embedded(&a, Some(vec![0.6, 0.8])),
+                    EmbedRow {
+                        file: EmbedTodo {
+                            size: b.size + 1,
+                            ..todo_of(&b)
+                        },
+                        vec: Some(vec![1.0]),
+                    },
+                ],
+            )
+            .unwrap();
+        index
+            .conn
+            .execute(
+                "INSERT INTO ratings (path, dir, flag) VALUES (?1, 'd', 1)",
+                params![path(&a)],
+            )
+            .unwrap();
+
+        let rows = index.rank_rows("d").unwrap();
+        assert_eq!(
+            rows.iter().map(|r| r.path.clone()).collect::<Vec<_>>(),
+            [path(&a), path(&b)],
+            "in file-name order"
+        );
+        let (ra, rb) = (&rows[0], &rows[1]);
+        assert_eq!((ra.flag, rb.flag), (Flag::Pick, Flag::None));
+        assert_eq!(ra.frame.name, "a.ARW");
+        assert_eq!(
+            ra.frame.capture_time.as_deref(),
+            Some("2026:09:13 09:23:33")
+        );
+        assert_eq!(ra.frame.subsec.as_deref(), Some("122"));
+        assert_eq!(
+            (ra.frame.eye_focus, ra.frame.sharpness, ra.frame.eyes_ear),
+            (Some(0.95), Some(120.0), Some(0.3))
+        );
+        assert_eq!(
+            ra.frame.pose,
+            Some(Pose {
+                yaw: 10.0,
+                pitch: -5.0,
+                roll: 2.0
+            })
+        );
+        assert_eq!(
+            (ra.frame.eye_offset, ra.frame.edge_gap),
+            (Some(0.05), Some(0.2))
+        );
+        assert_eq!(ra.frame.vec, Some(vec![0.6, 0.8]));
+        assert_eq!(
+            (rb.frame.eye_focus, rb.frame.sharpness),
+            (None, None),
+            "a row behind FACES_VERSION has no second-pass values"
+        );
+        assert_eq!(rb.frame.vec, None, "an embedding stale by stat is left out");
 
         remove_temp_dir(&dir);
     }
@@ -3658,6 +3985,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 14;",
                 )
                 .unwrap();
@@ -3719,6 +4047,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 15;",
                 )
                 .unwrap();
@@ -3789,6 +4118,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 13;",
                 )
                 .unwrap();
@@ -5270,6 +5600,7 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 16;",
                 )
                 .unwrap();
@@ -5544,6 +5875,7 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 8;",
                 )
                 .unwrap();
@@ -5583,6 +5915,7 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      ALTER TABLE folders DROP COLUMN last_viewed;
+                     ALTER TABLE folders DROP COLUMN culling_finished;
                      PRAGMA user_version = 9;",
                 )
                 .unwrap();

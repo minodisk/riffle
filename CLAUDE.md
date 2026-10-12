@@ -49,14 +49,21 @@ its preprocessing), `src/genre.rs` the genre labels of an embedding (a cosine
 per label against the text vectors and per-label calibrated thresholds of
 `crates/core/genres/siglip2.json`, written offline by the image-embeddings
 plan's `genre_vectors.py`, a sub-genre bringing its parent, `Unknown` when
-none clears), and
+none clears), `src/rank.rs` the personal best-shot ranking (the bursts as
+`burst.ts` forms them, a pairwise logistic over each frame's embedding
+projected to 32 whitened PCA dimensions, the pass-2 values and its position
+in the burst, the prior in `crates/core/ranking/siglip2.json` written offline
+by the plan's `rank_prior.py`, `fit` refitting the weights on the user's
+judgments pulled toward the prior's, `rank` the place, the score and the
+reasons of each frame within its burst), and
 `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
-which also keeps each folder's last viewed file in `folders.last_viewed`,
+which also keeps each folder's last viewed file in `folders.last_viewed`
+and whether the user marked its culling finished in `folders.culling_finished`,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in three
 passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /
@@ -74,7 +81,12 @@ priority (the second and third lower still) and take the on-screen files first
 through the shared `ScanFocus` handle, `src/ai.rs` the `aiEnabled` setting
 (persisted in the `aiEnabled` key, set by `set_ai_enabled`) and the download
 of the embedding model into the app's local data dir on the first enable,
-checked against its size and SHA-256,
+checked against its size and SHA-256, `src/rank.rs` the personal ranking's
+commands (`ranking_of`, the rank of a folder's files from `Index::rank_rows`
+and the weights in use; `refit_ranking`, the settings' refit, also run by
+`set_culling_finished`, the folder tree's `Culling Finished` check, while
+`aiEnabled` is on; the weights stored in `ranking.json` under the app's local
+data dir, the prior's when none fits),
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
 `faces_of`, which detects the faces the focus mark
@@ -146,7 +158,10 @@ eyes' openness the meta pane shows, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability and the
 `Eyes` judgment with its openness and `Head pose`, from the values pass 2 stored for
-the AF face, else the `eyes_of` judgment), `src/eyes.ts` caches the `eyes_of` judgments per file with one
+the AF face, else the `eyes_of` judgment, and, while `aiEnabled` is on, the
+personal ranking's place in the burst, reasons and confidence), `src/sort.ts`
+orders the strip (file name, capture time, rating, or `recommended`: bursts in
+capture order, each by the ranking's score), `src/eyes.ts` caches the `eyes_of` judgments per file with one
 in flight at a time, `src/facemesh.ts` holds MediaPipe's face parts
 outline and iris edges the focus mark draws over the judged face, `src/filter.ts` decides which files the strip's filter menu
 lets through (including its `AF eye` section, whose `Good` item applies the good-photo rule, its `Eyes` section on the

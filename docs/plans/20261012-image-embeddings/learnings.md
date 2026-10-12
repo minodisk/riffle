@@ -288,7 +288,107 @@
   exist while AI is on; they clear when AI turns off, so a hidden item never
   filters.
 
+## Step 7
+
+- **The user's index could not serve the re-run.** It held no embedding and
+  only 4 of the 27 folders, so the dump went through the app's code path
+  into a fresh index: the ignored test `rank_dump_of_real_folders` runs
+  `scan_folder`'s listing and sidecar reconciliation and the three passes,
+  then writes what `Index::rank_rows` reads. 32,459 files took 3889 s on
+  22 threads; pass 2 dominates on the large folders (`2026-08-01`, 3401
+  files, 571 s). The test binary was copied out of `target/` before the run
+  so that rebuilding during the hour did not hit a locked file.
+- **The app's inputs equal Step 2's.** The plan expected the stored eye and
+  pose values (pass 2's cue face) to differ from `riffle-cli features`'
+  eyes path. Since `FACES_VERSION` 9 they are the same face: every value is
+  equal at the TSV's precision and the embeddings match at cosine 1.0. The
+  gate moved from 0.708 to 0.710 only through the TSV rounding Step 2's
+  inputs went through, and the prior's weights match gate.md's to the third
+  decimal.
+- **A Rust cross-check pays for itself.** `the_scores_match_rank_prior_py`
+  scores the 32,459 frames through `rank_rows` + `rank::rows` with the
+  shipped prior and compares with the Python fit's scores (max difference
+  2.9e-6). It is what shows the Rust burst grouping, the `photoTier` port,
+  the imputation and the whitened PCA projection are the ones the prior was
+  fit on; no unit test on synthetic data would.
+- **`.menu-item` overrides `hidden`.** Its `display: flex` beats the UA's
+  `[hidden] { display: none }`, so the sort menu's `Recommended` item sits
+  in a `<div hidden>` wrapper (like the filter menu's `Genre` section)
+  rather than carrying `hidden` itself.
+- **Migration tests drop the new column.** Every test that builds a current
+  database and then sets `user_version` to 8-19 to simulate an old one now
+  also drops `folders.culling_finished`; otherwise the `ALTER TABLE ... ADD
+  COLUMN` hits a duplicate column, `prepare` fails and the database is
+  discarded.
+- **Bash heredocs again.** A `python - <<'EOF'` patch with Rust code
+  (`'static`, SQL quotes) broke the Bash tool's quoting twice; the Edit
+  tool, or a script file in the scratchpad, was the way.
+- **Labels in the app.** The app's `ratings.flag` agrees with the sidecar
+  flag gate.md reads on every frame; gate.md's 427 extra picks are virtual
+  copies in `Output/`, which the app never sees, so the app's own fit on
+  these folders has 1602 scorable bursts instead of 1801.
+
 ## Deferred issues (todo candidates)
+
+- **A finished folder's mark and its training data age out of the cache.**
+  `folders.culling_finished` lives on the `folders` row, which `evict` drops
+  for a folder not opened for 30 days (or under the size cap) and
+  `clear_index` drops for every folder; the folder's `files` and
+  `embeddings` rows go with it. The stored fit survives, but the next refit
+  (the settings button, or marking another folder) no longer sees that
+  folder, so the model forgets older finished folders as they age out.
+  Options: exempt finished folders from the age rule in `evict`, keep the
+  mark in a table `evict` / `clear` do not touch, or store each finished
+  folder's training columns (44 floats per frame) outside the cache. This is
+  a product decision (cache size against a long memory). Source: Step 7
+  implementation; `crates/app/src/index.rs` `evict`, `evict_folder`,
+  `clear`, `rank_dirs`; `crates/app/src/rank.rs` `refit`.
+- **No refit when a finished folder's embeddings arrive.** Marking a folder
+  finished before its third pass ran (AI off at the time, or the pass still
+  running) refits without its frames; only `Refit Ranking` or another mark
+  brings them in. Refitting at `embed-done` of a finished folder would close
+  it. Source: Step 7; `crates/app/src/rank.rs` `set_culling_finished`,
+  `crates/app/src/commands.rs` `start_scan`.
+- **`REJECT_WEIGHT` = 2 is a choice, not a fit.** The 58 explicit rejects
+  (3 scorable bursts) cannot measure how much stronger a reject should count
+  than a frame merely not chosen. Revisit once a user's data holds enough
+  rejects. Source: Step 7, `ranking.md`; `crates/core/src/rank.rs`.
+- **The confidence levels are coarse.** `none` / `low` (< 300 bursts) /
+  `medium` (< 1000) / `high` are read off Step 2's learning curve of the
+  author's own folders, where the prior already is the user's taste; for
+  another photographer the prior is someone else's, and the levels say
+  nothing about how far the fit has moved from it. Source: Step 7;
+  `crates/app/src/rank.rs` `confidence`.
+- **Pending manual check: the ranking in the real app on Windows.** Step 7's
+  checkbox was ticked on the automated criteria (the re-run in
+  `ranking.md`, the Rust / Python cross-check, the unit tests). On the
+  Windows 11 machine, with a build of this branch and AI analysis on (the
+  model downloaded):
+  1. Open `D:\photos\2026\2026-09-19` and let pass 3 finish. The sort menu
+     should show `Recommended` below `Rating`; choosing it should keep each
+     burst together (the burst bands contiguous) and reorder frames within
+     bursts. The meta pane's Analysis group should show `Recommended`
+     (`N of M in its burst · +0.xx`), `Reason` (up to three, e.g. `Look
+     +0.62, Burst position −0.31`) and `Confidence` (`Built-in only, no
+     finished folder yet` on a fresh install).
+  2. Right-click the folder in the tree: a `Culling Finished` check should
+     sit above `Move Rejected to Trash…`. Check it; `Riffle.log` should get
+     a `ranking fit: N bursts from 1 folders` line, the meta pane's
+     `Confidence` should change to `Low · N bursts in 1 folder` and the
+     settings' Culling tab should read `Ranking: Low · ...`. Right-click
+     again: the item should show checked; uncheck it and the fit should go
+     back to `Built-in only` (0 bursts), unless some indexed folder holds a
+     burst with both a pick and a reject.
+  3. Settings > Culling: `Refit Ranking` should show `refitting…`, then the
+     status. Untick AI analysis: the `Recommended` item, the meta rows, the
+     refit block and the tree's check should disappear, and a strip sorted
+     by `Recommended` should fall back to capture order. Tick it again: they
+     return.
+  4. No judgment should change at any point (stars, flags and labels as
+     before, no sidecar written by the ranking).
+  Source: Step 7 Done-when (folder tree toggle, refit button, sort, meta
+  pane); `crates/app/ui/src/main.ts` `refreshRanks` / `setRanking`,
+  `crates/app/ui/src/settings.ts`, `crates/app/src/rank.rs`.
 
 - **Late embedding batches can outlive `clear_index` and the renames.**
   `stop_embedding` only sets the cancel flag, so a worker `flush` blocked on

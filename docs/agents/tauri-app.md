@@ -1327,6 +1327,25 @@ JPEG-only (view-only) folder never lists anything.
   a `Genre` item is checked, at most one call in flight. The `Genre`
   section and its checks exist only while `aiEnabled` is on; turning it
   off clears them, and they are not part of the stored filter.
+- **The ranking is derived too; only its weights are stored.**
+  `ranking_of(dir)` reads `Index::rank_rows` (every `files` row of the
+  folder with its flag, capture time, the pass-2 values when the row is at
+  `FACES_VERSION`, and the valid embedding) and ranks each burst with
+  `riffle_core::rank::rank` on every call. `rank.rs` forms the bursts as
+  `burst.ts` `groupBursts` does (capture order, 1000 ms gap), so the
+  frontend's burst ids and the backend's bursts agree; the `recommended`
+  sort orders by the frontend's burst id, then the score. The weights live
+  in `ranking.json` under the app's local data dir with `RANK_VERSION` and
+  `EMBED_VERSION`; a file at other versions, or none, means the prior
+  (`crates/core/ranking/siglip2.json`, written by the plan's
+  `rank_prior.py`). `refit_ranking` and a `set_culling_finished` while
+  `aiEnabled` is on refit on `Index::rank_dirs` (the folders marked
+  finished plus any folder holding a reject), one folder per reader lock,
+  and emit `ranking-updated`. The fit keeps the prior's PCA basis and
+  standardization and pulls the weights toward the prior's at the prior's
+  own `1 / (2 C)`, so the stored file is 44 weights, not a basis.
+  `folders.culling_finished` goes with the `folders` row: `rename_dir`
+  carries it, and `evict` / `clear` drop it with the row.
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores

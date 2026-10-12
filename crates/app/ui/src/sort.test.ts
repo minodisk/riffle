@@ -84,6 +84,36 @@ describe("orderFiles", () => {
     expect(orderFiles("name", paths, lookupFrom({}))).toEqual(paths);
   });
 
+  test("recommended keeps the bursts in order and puts each burst's best score first", () => {
+    const paths = ["/f/a.ARW", "/f/b.ARW", "/f/c.ARW", "/f/d.ARW", "/f/e.ARW", "/f/f.ARW"];
+    const lookup = lookupFrom({
+      "/f/a.ARW": { burst: 0, recommended: -0.4, captureTime: "2026:09:19 10:00:00" },
+      "/f/b.ARW": { burst: 0, recommended: 0.9, captureTime: "2026:09:19 10:00:01" },
+      "/f/c.ARW": { burst: 0, captureTime: "2026:09:19 10:00:01", subsec: "5" },
+      "/f/d.ARW": { burst: 0, recommended: -0.5, captureTime: "2026:09:19 10:00:02" },
+      "/f/e.ARW": { burst: 1, recommended: 2, captureTime: "2026:09:19 10:00:09" },
+      "/f/f.ARW": { burst: 1, captureTime: "2026:09:19 10:00:08" },
+    });
+    expect(orderFiles("recommended", paths, lookup)).toEqual([
+      "/f/b.ARW",
+      "/f/a.ARW",
+      "/f/d.ARW",
+      "/f/c.ARW",
+      "/f/e.ARW",
+      "/f/f.ARW",
+    ]);
+  });
+
+  test("recommended without scores is capture order", () => {
+    const paths = ["/f/a.ARW", "/f/b.ARW", "/f/c.ARW"];
+    const lookup = lookupFrom({
+      "/f/a.ARW": { burst: 1, captureTime: "2026:09:19 10:00:05" },
+      "/f/b.ARW": { burst: 0, captureTime: "2026:09:19 10:00:00", subsec: "5" },
+      "/f/c.ARW": { burst: 0, captureTime: "2026:09:19 10:00:00", subsec: "1" },
+    });
+    expect(orderFiles("recommended", paths, lookup)).toEqual(["/f/c.ARW", "/f/b.ARW", "/f/a.ARW"]);
+  });
+
   test("does not mutate its input", () => {
     const paths = ["/f/b.ARW", "/f/a.ARW"];
     const copy = [...paths];
