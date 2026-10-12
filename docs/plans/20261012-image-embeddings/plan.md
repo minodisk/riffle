@@ -556,3 +556,4 @@ scorable burst, so it is never held out).
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
 - (2026-10-12) Step 1 complete
 - (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)
+- (2026-10-12) Step 3 complete
