@@ -219,7 +219,7 @@ kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--muted); border
 <body>
 <header>
   <strong>類似ペアのラベル付け</strong>
-  <span class="def">「同じ」の定義: 同じ場所・同じ被写体・同じ場面（構図が多少違っても同じシーンなら「同じ」）。迷ったら「わからない」。</span>
+  <span class="def">「同じ」の定義: 取捨選択で1枚だけ残す入れ替え可能な候補（同じ選手の同じプレー、または同じ種類の動き）。同じ試合の別のプレーは「違う」。迷ったら「わからない」。</span>
   <span id="progress"></span>
   <button id="export">TSV を書き出す</button>
 </header>

@@ -315,8 +315,8 @@
   `crates/app/src/ai.rs`.
 - **No progress for pass 3 in the UI.** `embed-progress` / `embed-done` are
   emitted but nothing listens yet. The status line shows nothing while the
-  pass runs, which is fine while no feature reads the vectors (Step 4 may
-  want an `embedding N / M` status). Source: Step 3;
+  pass runs, which is fine while no feature reads the vectors (the first step to
+  ship a visible feature, Step 5 or 7, may want an `embedding N / M` status). Source: Step 3;
   `crates/app/src/commands.rs` `start_scan`.
 
 ## User decisions

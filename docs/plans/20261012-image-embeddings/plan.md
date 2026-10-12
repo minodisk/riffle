@@ -587,3 +587,4 @@ game is different).
 - (2026-10-12) Step 1 complete
 - (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)
 - (2026-10-12) Step 3 complete
+- (2026-10-12) Steps 4 and 6 closed without shipping (Decision 3: no cosine threshold reaches the 0.95 precision on the 150 labeled pairs; the user chose to drop them)
