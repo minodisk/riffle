@@ -37,6 +37,11 @@ variants (no Tailwind, no React, nothing added to `package.json`).
   `.dialog-box [hidden] { display: none }`, which is kept last in the block,
   and an id rule that sets `display` on something that can be hidden is
   scoped `:not([hidden])` (see [`tauri-app.md`](./tauri-app.md)).
+- `.menu-item` sets `display: flex`, which beats the UA's `[hidden] { display: none }`
+  (Hit). Do not put `hidden` on the item itself. Wrap it in a `<div hidden>`
+  that the code toggles, as the sort menu's `Recommended` item and the filter
+  menu's `Genre` section do.
+  Source: `docs/plans/_archived/20261012-image-embeddings/learnings.md`, Step 7.
 
 ## Tokens
 

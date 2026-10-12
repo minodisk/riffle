@@ -72,7 +72,7 @@ new model's ops load with this setting before turning the defaults back on.
   initializers widened by `Cast` / `DequantizeLinear`) load and are
   accurate, but tract re-widens those weights on every run, at 2x to 5x
   FP32's cost. So the app runs the FP32 file. Source:
-  [image-embeddings models.md](../plans/20261012-image-embeddings/models.md).
+  [image-embeddings models.md](../plans/_archived/20261012-image-embeddings/models.md).
 - Load a large model with `model_for_path`, not `model_for_read` on the bytes
   (Measured). `model_for_read` copies the bytes into a `Vec` of its own
   before decoding, so the caller's bytes, that copy, the parsed protobuf and
@@ -82,7 +82,7 @@ new model's ops load with this setting before turning the defaults back on.
   395 MB after the load. `embed::Model::load_path` is that path.
   `include_bytes!` is no help either: the static's pages plus `load`'s copy
   left 774 MB after the load. Source:
-  [image-embeddings learnings](../plans/20261012-image-embeddings/learnings.md),
+  [image-embeddings learnings](../plans/_archived/20261012-image-embeddings/learnings.md),
   Step 3.
 
 ## Input and output
@@ -302,7 +302,7 @@ side resize and a center crop for OpenCLIP and TinyCLIP).
   failed build for good like `faces.rs`'s, so it is called only once the
   file is in place (`AppAi::model_if_enabled`). Once built, the plan stays
   resident (about 395 MB) for the rest of the process.
-- Source: [image-embeddings models.md](../plans/20261012-image-embeddings/models.md)
+- Source: [image-embeddings models.md](../plans/_archived/20261012-image-embeddings/models.md)
   and the plan's Decision 1.
 
 ### An embedded model only weighs on the binaries that call it (Measured)

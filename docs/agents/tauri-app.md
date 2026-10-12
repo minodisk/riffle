@@ -1360,7 +1360,7 @@ JPEG-only (view-only) folder never lists anything.
   and the workers' buffers add about 220 MB from 1 to 24 threads
   (`riffle-cli embed`). The harness is the ignored test
   `embed_pass_on_a_real_folder` in `commands.rs`.
-- Source: [image-embeddings learnings](../plans/20261012-image-embeddings/learnings.md),
+- Source: [image-embeddings learnings](../plans/_archived/20261012-image-embeddings/learnings.md),
   Step 3.
 
 ### `focus_crop`'s header carries the full JPEG size (Hit)
@@ -2302,6 +2302,11 @@ them.
 - Adding `vp fmt` to `mise run fmt` before the reformat commit would have made
   every pre-commit `mise run fmt` reformat the frontend; land the reformat
   together with (or before) the task change.
+- `vp fmt` formats every JSON file in the repository, so a generated data file
+  such as `crates/core/genres/**` (768 floats per vector) would end up with
+  one float per line. List such paths in `vite.config.ts`'s
+  `fmt.ignorePatterns` when a script writes them.
+  Source: `docs/plans/_archived/20261012-image-embeddings/learnings.md`, Step 5.
 - Source: `docs/plans/20260919-vite-plus/learnings.md`, Steps 1-4.
 
 ### Rolldown drops `/*!` legal comments under minify; an explicit `comments` object replaces Vite's defaults rather than merging (Hit)
@@ -2475,6 +2480,15 @@ single file.
   claim and copied forward as one.
 - State what was actually measured next to the number, and say plainly what
   still needs a real-folder measurement.
+
+### Run a multi-minute step in the background and poll it in short loops (Hit)
+
+A single Bash tool call that blocks for several minutes (a feature dump of
+11 minutes, a 1-hour index rebuild) trips the 600 s stream watchdog and stalls
+the agent. Start the step with `run_in_background` (or detached) and poll its
+output file with short bounded loops.
+
+- Source: `docs/plans/_archived/20261012-image-embeddings/learnings.md`, Steps 2 and 7.
 
 ### Verify a platform workaround's threshold on the production code path (Hit)
 

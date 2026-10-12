@@ -1794,3 +1794,119 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 #### TODO
 
 - [ ] On Windows, with the overlay on (`d`), open a large RAW folder that has not been scanned (or force a rescan) and browse with the arrow keys during the scan. Expected: the green lines (`Riffle disk` thick solid in MB/s, `System disk` thin dashed on 0-100 %) update every 500 ms, the CPU lines are blue, the latency bars are red, and a latency spike lines up with high disk activity (or does not, which is also a result). Record the observed idle and scan read rates (MB/s) and retune `READ_FLOOR_BPS` in `crates/app/ui/src/perf.ts` (provisionally 10 MB/s).
+
+### App: real-device checks of AI analysis (pass 3 and the model download) on Windows
+
+#### Background
+
+`image-embeddings` Step 3 added the `aiEnabled` setting, the first-enable download of the SigLIP 2 model, and pass 3 (`run_embed_pass`), which fills the `embeddings` table after pass 2. CI covers the table, the staleness rule, the `ScansState` phase and the download's `install` with a local reader. An ignored headless harness (`embed_pass_on_a_real_folder`) timed pass 3 on `D:\photos\2026\2026-09-19`, and `the_pinned_model_downloads_and_matches_its_hash` ran the download (9.8 s). The settings checkbox, the status line, the log lines, the working set seen in Task Manager, and the paging latency under the GUI were never exercised. The step's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/commands.rs` (`run_embed_pass`), `crates/app/src/ai.rs`.
+
+#### TODO
+
+- [ ] On Windows 11, with AI off and the model not downloaded, open Settings > Culling and tick "AI analysis of what each photo shows". Expected: the status line counts `Downloading the model: N / 378 MB` up to `On`, and the model sits at `%LOCALAPPDATA%\com.minodisk.riffle\models\siglip2-base-patch32-256\vision_model.onnx` (378,478,689 bytes).
+- [ ] On Windows, with `D:\photos\2026\2026-09-19` open, expect the folder to rescan by itself once the status reads `On`. `Riffle.log` should get an `embed model ready` line and a `scan embed: dir=... files=2134 ... errors=0 threads=6` line.
+- [ ] On Windows, while that pass runs, Task Manager should show the app's working set about 800 MB above its usual footprint. Page through the strip with Timing logs on, or with the performance graph overlay. Page latency should sit close to its level with AI off (the harness proxy read 15 ms against 10 ms idle).
+- [ ] On Windows, run `File > Reload Folder`. Expected: no new `scan embed` line (0 files to embed).
+- [ ] On Windows, untick the checkbox during a pass. Expected: `Riffle.log` shows the pass ending with `canceled=true`. Ticking it again finishes only the remaining files.
+- [ ] On macOS and on Linux, tick the setting in the app, or run `cargo test --release -p riffle-app the_pinned_model_downloads_and_matches_its_hash -- --ignored --nocapture`. Expected: the download completes and passes the hash check. rustls' platform verifier uses each OS's trust store, and the download was verified on Windows only.
+
+### App: real-device check of the Genre filter section
+
+#### Background
+
+`image-embeddings` Step 5 added a `Genre` section to the strip's filter menu, fed by `genres_of` from the stored embeddings and hidden when `aiEnabled` is off. CI covers the calibration (`genres.md`) and the `genre.rs`, `filter.ts` and `index.rs` unit tests. The filter menu in a real window, the hide and show on the setting, and the live fill-in during pass 3 were never exercised. The step's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/ui/src/main.ts` (`refreshGenres`, `setGenreSection`), `crates/app/ui/src/filter.ts`, `crates/app/src/commands.rs` (`genres_of`).
+
+#### TODO
+
+- [ ] On Windows 11, with AI analysis on, open `D:/photos/2026/2026-09-19` after its embeddings exist. Expected: the filter menu shows a `Genre` section (Sports, Basketball, Portrait, Group photo, Landscape, Birds / animals, Pets, Snap, Camping, Unknown) below `Eyes`.
+- [ ] On Windows, check `Basketball`: the strip keeps the basketball frames (most of that folder). Check `Unknown` alone: the strip shows the frames with no genre and any not embedded yet.
+- [ ] On Windows, untick "AI analysis of what each photo shows" in the settings. Expected: the section disappears and the strip shows everything again. Tick it again: the section returns with nothing checked.
+- [ ] On Windows, on a folder never embedded, with a `Genre` item checked, expect the strip to fill in as pass 3 runs (`embed-progress`) and be complete at `embed-done`.
+
+### App: real-device check of the personal ranking (Recommended sort, Culling Finished, Refit Ranking)
+
+#### Background
+
+`image-embeddings` Step 7 added the `Recommended` sort key, the meta pane's `Recommended` / `Reason` / `Confidence` rows, the folder tree's `Culling Finished` check and the settings' `Refit Ranking` button, all behind `aiEnabled`. CI covers the re-run in `ranking.md`, the Rust / Python cross-check `the_scores_match_rank_prior_py` and the unit tests. The menus, the meta rows, the `Riffle.log` fit line and the settings status in the real app were never exercised. The step's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/ui/src/main.ts` (`refreshRanks`, `setRanking`), `crates/app/ui/src/settings.ts`, `crates/app/src/rank.rs`.
+
+#### TODO
+
+- [ ] On Windows 11, with AI analysis on (model downloaded), open `D:\photos\2026\2026-09-19` and let pass 3 finish. Expected: the sort menu shows `Recommended` below `Rating`. Choosing it keeps each burst together (burst bands contiguous) and reorders frames within bursts. The meta pane's Analysis group shows `Recommended` (`N of M in its burst · +0.xx`), `Reason` (up to three, e.g. `Look +0.62, Burst position −0.31`) and `Confidence` (`Built-in only, nothing learned yet` on a fresh install).
+- [ ] On Windows, right-click the folder in the tree. Expected: a `Culling Finished` check sits above `Move Rejected to Trash…`. Check it. `Riffle.log` gets a `ranking fit: N bursts from 1 folders` line, the meta pane's `Confidence` changes to `Low · N bursts in 1 folder`, and the settings' Culling tab reads `Ranking: Low · ...`. Right-click again: the item shows checked. Uncheck it: the fit goes back to `Built-in only` (0 bursts), unless some indexed folder holds a burst with both a pick and a reject.
+- [ ] On Windows, in Settings > Culling, press `Refit Ranking`. Expected: `refitting…`, then the status. Untick AI analysis: the `Recommended` item, the meta rows, the refit block and the tree's check disappear, and a strip sorted by `Recommended` falls back to capture order. Tick it again: they return.
+- [ ] On Windows, at every point above, no judgment changes (stars, flags and labels as before, no sidecar written by the ranking).
+- [ ] On Windows, mark a folder `Culling Finished`, then set its `folders.last_opened` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while an unfinished folder of the same age is evicted; `Clear Cache` still removes it.
+
+### Core: the ranking's pull toward the prior is untested for one to three finished folders
+
+#### Background
+
+`rank.rs` `fit` shrinks toward the built-in prior with tau = 1/(2C) = 5 in total. A single finished folder (about 70 scorable bursts) may outweigh that several times over, and the one measured move (0.300) came from 1602 bursts. Found in the `image-embeddings` Step 7 local review. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/core/src/rank.rs`, `docs/plans/_archived/20261012-image-embeddings/ranking.md`.
+
+#### TODO
+
+- [ ] Refit from the prior on 1, 3 and 5 finished folders, compare the held-out weighted AUC with the prior's, and pick the strength (for example tau scaled by the prior's burst count).
+
+### App: no ranking refit when a finished folder's embeddings arrive
+
+#### Background
+
+Marking a folder `Culling Finished` before its pass 3 ran (AI off at the time, or the pass still running) refits without its frames. Only `Refit Ranking` or another mark brings them in. Deferred in `image-embeddings` Step 7. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/rank.rs` (`set_culling_finished`), `crates/app/src/commands.rs` (`start_scan`).
+
+#### TODO
+
+- [ ] Refit at `embed-done` of a finished folder.
+
+### Core: the ranking's reject weight and confidence levels are choices, not fits
+
+#### Background
+
+`REJECT_WEIGHT` = 2 (`crates/core/src/rank.rs`) is a choice: the 58 explicit rejects (3 scorable bursts) in the author's data cannot measure how much stronger a reject should count than a frame merely not chosen. The confidence levels (`none` / `low` under 300 bursts / `medium` under 1000 / `high`, `crates/app/src/rank.rs` `confidence`) are read off Step 2's learning curve of the author's own folders, where the prior already is the user's taste. For another photographer the prior is someone else's, and the levels say nothing about how far the fit has moved from it. Found in `image-embeddings` Step 7 (`ranking.md`). Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`.
+
+#### TODO
+
+- [ ] Revisit `REJECT_WEIGHT` once a user's data holds enough explicit rejects to measure it.
+- [ ] Base the confidence on how far the fit has moved from the prior, not only on the burst count.
+
+### App: late embedding batches can outlive `clear_index` and the renames
+
+#### Background
+
+`stop_embedding` only sets the cancel flag, so a worker `flush` blocked on the index lock, or the task's trailing flush, can still write after `clear()` / `rename_dir` / `rename_file`. `drop_stray_embeddings` misses rows whose folder row survives. Found in the `image-embeddings` Step 7 local review. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/index.rs`, `crates/app/src/commands.rs`.
+
+#### TODO
+
+- [ ] Make `write_embeddings` insert only when a `files` row with the same `path`, `size` and `mtime_ns` exists (`INSERT ... SELECT ... FROM files WHERE ...`), so every late write is a no-op, then remove `drop_stray_embeddings`. The embedding tests must create `files` rows first.
+
+### App: the AI model's footprint (resident plan, kept 378 MB file, 190 MB fp16 option)
+
+#### Background
+
+Three leftovers from `image-embeddings` Step 3. (1) `embed::shared` keeps the SigLIP 2 plan (about 395 MB of working set) in a `OnceLock` for the rest of the process once one pass has run, even with `aiEnabled` off. Dropping it would cost the ~0.5 s build and the 773 MB load peak again on the next folder. (2) Turning AI off keeps `models/siglip2-base-patch32-256/vision_model.onnx` (378 MB) in the local data dir, and a cut download restarts from zero (no HTTP range resume). (3) tract runs the weight-only fp16 re-export (190 MB, `weight_only.py`) at 2-5x FP32's cost because it re-widens the weights on every run. Widening the float16 initializers in the ONNX protobuf before tract builds the plan (`tract_onnx::onnx().proto_model_for_read`, then `model_for_proto_model`) might give the smaller download at FP32 speed. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/core/src/embed.rs` (`shared`), `crates/app/src/ai.rs`, `docs/plans/_archived/20261012-image-embeddings/weight_only.py`, `docs/plans/_archived/20261012-image-embeddings/models.md`.
+
+#### TODO
+
+- [ ] Revisit dropping the plan after a pass if memory becomes a complaint.
+- [ ] Add a "remove the model" action next to the AI checkbox, and consider HTTP range resume for the download.
+- [ ] Try widening the fp16 initializers before the plan is built, and measure ms/image against the FP32 file (129 ms on one thread).
+
+### App: AI analysis UI follow-ups (pass 3 progress, `genres_of` cost)
+
+#### Background
+
+Two leftovers from `image-embeddings` Steps 3 and 5. (1) `embed-progress` / `embed-done` are emitted but nothing listens, so the status line shows nothing while pass 3 runs (`crates/app/src/commands.rs` `start_scan`). Now that the Genre filter and the ranking read the vectors, an `embedding N / M` status may be wanted. (2) `genres_of` reads every valid embedding blob of the folder (about 3 KB each, 6.6 MB for 2134 files) and scores 9 labels on each call, after every `folder_entries` refresh and on each `embed-progress` while a Genre item is checked. It is expected to take tens of milliseconds and was never timed on a real folder (`crates/app/src/commands.rs` `genres_of`, `crates/app/src/index.rs` `embeddings`). `aiEnabled` stays off by default: the user decided this on 2026-10-12, since on means a 378 MB download for every user. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`.
+
+#### TODO
+
+- [ ] Show an `embedding N / M` status from `embed-progress` / `embed-done`, or decide it is not wanted.
+- [ ] Time `genres_of` with Timing logs on `D:\photos\2026\2026-09-19`. If it is slow, cache the labels per path in the backend.
+
+### Core: soccer and macro genres need labeled positives to come back
+
+#### Background
+
+Decision 4 of `image-embeddings` dropped soccer, macro and other from the genre list: the labels hold no soccer or macro frame, so no threshold could be set or justified. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `docs/plans/_archived/20261012-image-embeddings/genres.md`, `crates/core/genres/`.
+
+#### TODO
+
+- [ ] Label frames from a soccer game and from a macro session, add them to `genre_prompts.json`, then re-run `genre_vectors.py` and `genre_calibrate.py`.
