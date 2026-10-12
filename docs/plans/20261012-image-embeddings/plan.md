@@ -263,7 +263,7 @@ Constraints the user set, binding on every step:
     - The 27 folders likely lean toward a few genres; report the per-genre
       burst counts so a thin genre's result is read as such.
 
-- [ ] Step 3: Pass 3 in the app: the `embeddings` table, `run_embed_pass`, the `aiEnabled` setting
+- [x] Step 3: Pass 3 in the app: the `embeddings` table, `run_embed_pass`, the `aiEnabled` setting
   - Done when:
     - `embed.rs` gets its `OnceLock` plan and the model bytes per
       Decision 1 (bundled under `crates/core/models/` with its LICENSE, or
@@ -305,6 +305,8 @@ Constraints the user set, binding on every step:
       re-encode.
     - Thread count: pass 2's count unless Step 1's peak working set says
       fewer; write the reason in `learnings.md`.
+      Measured in Step 3: a quarter of the cores (`embed_threads()`), for
+      the paging latency, not the memory (see `learnings.md`, Step 3).
     - No user-visible feature yet beyond the setting.
 
 - [ ] Step 4: Similarity search: "Show Similar" from the strip's right-click menu
@@ -554,3 +556,4 @@ scorable burst, so it is never held out).
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
 - (2026-10-12) Step 1 complete
 - (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)
+- (2026-10-12) Step 3 complete

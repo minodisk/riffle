@@ -1265,6 +1265,74 @@ least 5), `run_faces_scan` `Priority::Lowest` (`THREAD_PRIORITY_LOWEST`,
   `lock()`.
 - Source: `docs/plans/_archived/20260930-scan-priority/learnings.md`, Steps 4-6.
 
+### The third pass: `embeddings` is its own table, and the pass is not "scanning" (Inferred)
+
+`start_scan`'s task runs a third pass, `run_embed_pass`, after `faces-done`.
+It embeds each RAW file's preview with the SigLIP 2 model
+(`riffle_core::embed`) into the `embeddings` table and reports
+`embed-progress` (`done`, `total`), then `embed-done`. It shares the scan's
+cancel flag and `ScanFocus`, at `Priority::Lowest`, on `embed_threads()`. It
+is skipped, with `embed-done` emitted at once, when `aiEnabled` is off, the
+model file is not in place, or `embeddings_missing` lists nothing. A
+JPEG-only (view-only) folder never lists anything.
+
+- **A table of its own.** `write_batch` does `INSERT OR REPLACE` of whole
+  `files` rows, so a column on `files` would be wiped by every first-pass
+  rewrite. `embeddings(path, dir, size, mtime_ns, version, vec)` carries a
+  `dir` column (not in the plan's sketch) so `evict_folder`, `rename_dir`
+  and `reconcile` treat it like `files` and `ratings`. A row is valid while
+  `version` is `EMBED_VERSION` and `size` / `mtime_ns` match the `files`
+  row; `vec` is little-endian f32. `NULL` marks a file that could not be
+  embedded, which is not retried until its stat or the version moves.
+  `reconcile` drops the embeddings of files gone or changed. A row
+  re-extracted for an `EXTRACTOR_VERSION` bump keeps its embedding. Bump
+  `EMBED_VERSION` (`crates/core/src/embed.rs`) on any change to the model,
+  its preprocessing or its input decode.
+- **Not scanning.** `faces-done` keeps its time, so the frontend's
+  `scanRunning` clears and its held operations (trash, renames, Clear Cache)
+  run while the third pass may still be embedding for minutes. The pass
+  therefore keeps the `running` entry (`scan_folder` cancels and joins it,
+  `set_scan_focus` reaches it) but marks it in `ScansState.embedding`. With
+  that mark, `scanning()` is false, and `scan_folder`'s `joined_previous`
+  does not count the joined scan, since it wrote no `files` row after
+  `faces-done`. `stop_embedding` cancels the pass when `aiEnabled` turns off,
+  and under the `Scans` lock before `clear_index` and the renames delete or
+  move rows. A batch already in flight can still land after them. `evict` and `clear` drop the embeddings of any `dir` without a
+  `folders` row (`drop_stray_embeddings`), and `reconcile` drops a renamed
+  file's old path, but that does not cover everything: a late batch under a
+  folder whose `folders` row survives a clear (it has dirty ratings) stays,
+  and so does the old path after `rename_file` until the next reconcile. The
+  deferred guarded insert in `write_embeddings` (see `learnings.md` of the
+  plan) would close this.
+- **The model is downloaded, not bundled** (the plan's Decision 1).
+  `set_ai_enabled(true)` persists `aiEnabled` and, when the file is missing,
+  `ai::switch` downloads `embed::MODEL_URL` on a plain thread through
+  `reqwest::blocking`. Each `install` call writes its own `MODEL_FILE.part-{n}` file under
+  `app_local_data_dir()` (a shared name let a canceled download delete the new
+  one's file; `AppAi::new` removes leftover `MODEL_FILE.part*` files at launch), checks `MODEL_SIZE` and `MODEL_SHA256`, and only
+  then renames the file into place. Progress and failures go out as
+  `ai-state`. The main window rescans the open folder when the state turns
+  enabled and ready, which runs the third pass. A launch with `aiEnabled`
+  on and the file missing downloads again. reqwest is built with
+  `rustls-no-provider`, the same crates the updater already pulls in, so
+  `fetch` installs rustls' `ring` provider first when none is set, as the
+  updater does. Its blocking reads time out after 30 s without data, not
+  on the whole 378 MB.
+- **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
+  `scan_threads()` (Measured). Priority does not keep the viewer's reads
+  fast against 22 busy workers on 24 logical cores: shared physical cores
+  (SMT) and an all-core clock do not care about thread priority. On
+  `2026-09-19` (2134 ARW), a preview read + full decode on a
+  normal-priority thread took a median 10 ms idle and 27-34 ms during pass 2
+  on 22 threads. During pass 3 it took 33 ms on 22 threads (41 s for the
+  pass), 22 ms on 11 (56 s) and 15 ms on 6 (70 s). Memory does not set the
+  count: the model's load sets the process peak (745-812 MB in that run),
+  and the workers' buffers add about 220 MB from 1 to 24 threads
+  (`riffle-cli embed`). The harness is the ignored test
+  `embed_pass_on_a_real_folder` in `commands.rs`.
+- Source: [image-embeddings learnings](../plans/20261012-image-embeddings/learnings.md),
+  Step 3.
+
 ### `focus_crop`'s header carries the full JPEG size (Hit)
 
 `riffle_core::partial::Crop` carries the full JPEG's `image_width`/

@@ -14,10 +14,12 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use riffle_core::arw::{Rational, Shot};
 use riffle_core::candidate::{candidate, FocusCandidate};
+use riffle_core::embed::{Model, EMBED_VERSION};
 use riffle_core::eyes::{EyeState, Eyes};
 use riffle_core::pose::Pose;
 use riffle_core::scan::{
-    extract_all, extract_analysis_all, is_raw_file, Analysis, Entry, Failure, Priority, ScanFocus,
+    embed_all, extract_all, extract_analysis_all, is_raw_file, Analysis, Entry, Failure, Priority,
+    ScanFocus,
 };
 use riffle_core::sharpness::manual_focus;
 use riffle_core::Flag;
@@ -84,8 +86,9 @@ use crate::exif::{exif, Exif};
 /// landmarks, and `files.edge_gap`, how close the face and its mesh eye
 /// regions come to the preview's edge (`NULL` = none); a v10 to v18 database
 /// gains them in place with an `ALTER TABLE` and keeps `files`, `ratings` and
-/// `folders`.
-const SCHEMA_VERSION: i64 = 19;
+/// `folders`. v20 added `embeddings`, one image embedding per file (pass 3);
+/// every older database gains the empty table and keeps the rest.
+const SCHEMA_VERSION: i64 = 20;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG/NEF/CR3/RAF/ORF parsing
@@ -430,6 +433,24 @@ pub struct FacesRow {
     pub edge_gap: Option<f64>,
 }
 
+/// One file the third pass has to embed, with the `files` row's stat the
+/// embedding is stored against.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmbedTodo {
+    pub path: String,
+    pub size: i64,
+    pub mtime_ns: i64,
+}
+
+/// One file's embedding, as `write_embeddings` stores it: `None` when the
+/// file could not be embedded, which is not retried until its stat or
+/// `EMBED_VERSION` moves.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmbedRow {
+    pub file: EmbedTodo,
+    pub vec: Option<Vec<f32>>,
+}
+
 /// The columns `indexed_file` reads, before the `WHERE` clause.
 const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
             focus_w, focus_h, focus_x, focus_y, thumb IS NOT NULL,
@@ -615,6 +636,7 @@ impl Index {
             16,
             17,
             18,
+            19,
             SCHEMA_VERSION,
         ]
         .contains(&version)
@@ -693,7 +715,21 @@ impl Index {
                      dir TEXT PRIMARY KEY,
                      opened_at INTEGER NOT NULL,
                      last_viewed TEXT
-                 );",
+                 );
+                 -- One image embedding per file, apart from `files` so a
+                 -- first-pass `INSERT OR REPLACE` keeps it. Valid while
+                 -- `version` is `EMBED_VERSION` and `size` / `mtime_ns`
+                 -- match the `files` row; `vec` is little-endian f32, `NULL`
+                 -- for a file that could not be embedded.
+                 CREATE TABLE IF NOT EXISTS embeddings (
+                     path TEXT PRIMARY KEY,
+                     dir TEXT NOT NULL,
+                     size INTEGER NOT NULL,
+                     mtime_ns INTEGER NOT NULL,
+                     version INTEGER NOT NULL,
+                     vec BLOB
+                 );
+                 CREATE INDEX IF NOT EXISTS embeddings_dir ON embeddings (dir);",
         )
         .map_err(|e| e.to_string())?;
         // `files` was just dropped, so this seeds nothing; kept so a v7
@@ -796,6 +832,8 @@ impl Index {
 
     /// Drop the rows under `dir` whose file is gone, whose `size`/`mtime_ns`
     /// no longer match, or that were written at an older `EXTRACTOR_VERSION`,
+    /// and the embeddings of the files gone or changed (a row at an older
+    /// `EXTRACTOR_VERSION` keeps its embedding),
     /// and return the files that have no valid row, in the
     /// order given, along with the number of rows dropped. Paths are compared
     /// with the same lossy conversion
@@ -815,6 +853,17 @@ impl Index {
                 .query_map(params![dir], |r| {
                     Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
                 })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<rusqlite::Result<_>>()
+                .map_err(|e| e.to_string())?
+        };
+        let embedded: Vec<(String, i64, i64)> = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT path, size, mtime_ns FROM embeddings WHERE dir = ?1")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map(params![dir], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
                 .map_err(|e| e.to_string())?;
             rows.collect::<rusqlite::Result<_>>()
                 .map_err(|e| e.to_string())?
@@ -843,6 +892,15 @@ impl Index {
         {
             removed += tx
                 .execute("DELETE FROM files WHERE path = ?1", params![path])
+                .map_err(|e| e.to_string())?;
+        }
+        for (path, ..) in embedded.iter().filter(|(p, s, m)| {
+            listed
+                .get(p.as_str())
+                .map(|(size, mtime, _)| (*size, *mtime))
+                != Some((*s, *m))
+        }) {
+            tx.execute("DELETE FROM embeddings WHERE path = ?1", params![path])
                 .map_err(|e| e.to_string())?;
         }
         tx.commit().map_err(|e| e.to_string())?;
@@ -889,6 +947,7 @@ impl Index {
             summary.rows += self.evict_folder(dir)?;
             summary.folders += 1;
         }
+        summary.rows += self.drop_stray_embeddings()?;
         self.vacuum_if_deleted(&mut summary)?;
         Ok(summary)
     }
@@ -915,6 +974,7 @@ impl Index {
             summary.rows += self.evict_folder(dir)?;
             summary.folders += 1;
         }
+        summary.rows += self.drop_stray_embeddings()?;
         if self.vacuum_if_deleted(&mut summary)? {
             // `VACUUM` writes the rebuilt database through the WAL, which
             // keeps the old size on disk until a checkpoint truncates it. A
@@ -952,13 +1012,29 @@ impl Index {
         Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)
     }
 
+    /// Drop the embeddings of folders with no `folders` row. A third pass
+    /// keeps writing while a clear, a trash or a rename runs (it does not
+    /// count as scanning), so a late batch can land under a folder just
+    /// evicted or renamed away.
+    fn drop_stray_embeddings(&mut self) -> Result<usize, String> {
+        self.conn
+            .execute(
+                "DELETE FROM embeddings WHERE dir NOT IN (SELECT dir FROM folders)",
+                [],
+            )
+            .map_err(|e| e.to_string())
+    }
+
     /// One folder's share of the deletion `evict` and `clear` do: the `files`
-    /// rows, the clean `ratings` rows, and the `folders` row when no rating is
-    /// left. Returns the rows deleted.
+    /// rows, the embeddings, the clean `ratings` rows, and the `folders` row
+    /// when no rating is left. Returns the rows deleted.
     fn evict_folder(&mut self, dir: &str) -> Result<usize, String> {
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         let mut rows = tx
             .execute("DELETE FROM files WHERE dir = ?1", params![dir])
+            .map_err(|e| e.to_string())?;
+        rows += tx
+            .execute("DELETE FROM embeddings WHERE dir = ?1", params![dir])
             .map_err(|e| e.to_string())?;
         rows += tx
             .execute(
@@ -1110,6 +1186,72 @@ impl Index {
         tx.commit().map_err(|e| e.to_string())
     }
 
+    /// The files of `dir` the third pass still has to embed, in file-name
+    /// order like `entries`: the RAW rows (not a JPEG, told by the extension
+    /// as `faces_todo` does, and not a failed extraction, whose preview is
+    /// unreadable) with no embedding, or one at another `EMBED_VERSION`, or
+    /// one stored against another `size` / `mtime_ns` than the row's.
+    pub fn embeddings_missing(&self, dir: &str) -> Result<Vec<EmbedTodo>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT files.path, files.size, files.mtime_ns FROM files
+                 LEFT JOIN embeddings USING (path)
+                 WHERE files.dir = ?1 AND files.error IS NULL
+                     AND files.path NOT LIKE '%.jpg' AND files.path NOT LIKE '%.jpeg'
+                     AND (embeddings.path IS NULL OR embeddings.version != ?2
+                         OR embeddings.size != files.size
+                         OR embeddings.mtime_ns != files.mtime_ns)",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir, EMBED_VERSION], |r| {
+                Ok(EmbedTodo {
+                    path: r.get(0)?,
+                    size: r.get(1)?,
+                    mtime_ns: r.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        let mut todo: Vec<EmbedTodo> = rows
+            .collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())?;
+        todo.sort_by(|a, b| {
+            Path::new(&a.path)
+                .file_name()
+                .cmp(&Path::new(&b.path).file_name())
+        });
+        Ok(todo)
+    }
+
+    /// Store each embedding at `EMBED_VERSION` against the stat it was
+    /// listed with, replacing what the path had, in a single transaction.
+    pub fn write_embeddings(&mut self, dir: &str, rows: &[EmbedRow]) -> Result<(), String> {
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
+        for row in rows {
+            let vec: Option<Vec<u8>> = row
+                .vec
+                .as_ref()
+                .map(|v| v.iter().flat_map(|x| x.to_le_bytes()).collect());
+            tx.execute(
+                "INSERT INTO embeddings (path, dir, size, mtime_ns, version, vec)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT (path) DO UPDATE SET dir = ?2, size = ?3, mtime_ns = ?4,
+                     version = ?5, vec = ?6",
+                params![
+                    row.file.path,
+                    dir,
+                    row.file.size,
+                    row.file.mtime_ns,
+                    EMBED_VERSION,
+                    vec
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        tx.commit().map_err(|e| e.to_string())
+    }
+
     /// The indexed files of `dir`, in file-name order like `list_arw`.
     pub fn entries(&self, dir: &str) -> Result<Vec<IndexedFile>, String> {
         let mut stmt = self
@@ -1170,8 +1312,8 @@ impl Index {
     }
 
     /// Move every row of the folder `old` and of the folders under it to
-    /// `new`, in one transaction: the `dir` and `path` of `files` and
-    /// `ratings`, and the `dir` and `last_viewed` of `folders`. Every other
+    /// `new`, in one transaction: the `dir` and `path` of `files`, `ratings`
+    /// and `embeddings`, and the `dir` and `last_viewed` of `folders`. Every other
     /// column is kept, so nothing is re-extracted and no dirty judgment is
     /// lost. Rows already stored under `new` belong to a folder that no
     /// longer exists there (the rename's target did not exist) and are
@@ -1187,7 +1329,7 @@ impl Index {
         let old_prefix = format!("{old}{}", std::path::MAIN_SEPARATOR);
         let new_prefix = format!("{new}{}", std::path::MAIN_SEPARATOR);
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for table in ["files", "ratings", "folders"] {
+        for table in ["files", "ratings", "embeddings", "folders"] {
             tx.execute(
                 &format!(
                     "DELETE FROM {table}
@@ -1198,7 +1340,7 @@ impl Index {
             .map_err(|e| e.to_string())?;
         }
         let mut moved = 0;
-        for table in ["files", "ratings"] {
+        for table in ["files", "ratings", "embeddings"] {
             let count = tx
                 .execute(
                     &format!(
@@ -1229,7 +1371,8 @@ impl Index {
     }
 
     /// Move the rows of the file `old` to `new` in the same folder, in one
-    /// transaction: the `path` of `files` and `ratings` (their `dir` stays)
+    /// transaction: the `path` of `files`, `ratings` and `embeddings` (their
+    /// `dir` stays)
     /// and `folders.last_viewed` where it names `old`. Every other column is
     /// kept. Rows already stored under `new` belong to a file that no longer
     /// exists there and are dropped first, as in `rename_dir`.
@@ -1238,7 +1381,7 @@ impl Index {
             return Ok(());
         }
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        for table in ["files", "ratings"] {
+        for table in ["files", "ratings", "embeddings"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE path = ?1"),
                 params![new],
@@ -1944,6 +2087,121 @@ where
     };
     log::info!(
         "scan faces: dir={dir} files={total} done={} errors={} threads={threads} canceled={} in {}ms",
+        summary.total,
+        summary.errors,
+        cancel.load(Ordering::Relaxed),
+        started.elapsed().as_millis()
+    );
+    summary
+}
+
+/// Run the third pass (`embed_all`) of `model` over `todo` and store each
+/// embedding in `index`, the way `run_faces_scan` runs the second:
+/// `BATCH`-sized transactions through `write_embeddings`, `progress(done,
+/// total)` at most every `progress_interval`, always on the first file and
+/// once more after the trailing flush. A file that could not be embedded
+/// counts as an error and is stored with no vector, so it is not retried
+/// until its stat or `EMBED_VERSION` moves; a file abandoned by `cancel` is
+/// neither written nor counted. The same no-panic rule as `run_scan` holds
+/// for `on_item`. Its workers run at `Priority::Lowest`, as the second
+/// pass's, and take the files `focus` lists first.
+#[allow(clippy::too_many_arguments)]
+pub fn run_embed_scan<P>(
+    index: &Mutex<Index>,
+    dir: &str,
+    todo: &[EmbedTodo],
+    model: &Model,
+    threads: usize,
+    focus: &ScanFocus,
+    cancel: &AtomicBool,
+    progress_interval: Duration,
+    progress: P,
+) -> ScanSummary
+where
+    P: Fn(usize, usize) + Send + Sync,
+{
+    let total = todo.len();
+    let paths: Vec<PathBuf> = todo.iter().map(|t| PathBuf::from(&t.path)).collect();
+    let pending: Mutex<Vec<(EmbedRow, bool)>> = Mutex::new(Vec::new());
+    let done = AtomicUsize::new(0);
+    let errors = AtomicUsize::new(0);
+    let last = Mutex::new(None::<Instant>);
+
+    let flush = |batch: Vec<(EmbedRow, bool)>| {
+        if batch.is_empty() {
+            return;
+        }
+        let embedded = batch.iter().filter(|(_, ok)| *ok).count();
+        let rows: Vec<EmbedRow> = batch.into_iter().map(|(row, _)| row).collect();
+        if let Err(e) = lock(index).write_embeddings(dir, &rows) {
+            log::error!("failed to write an embeddings batch for {dir}: {e}");
+            // Files that could not be embedded are already counted in `on_item`.
+            errors.fetch_add(embedded, Ordering::Relaxed);
+        }
+    };
+
+    let on_item = |i: usize, result: Result<Vec<f32>, String>| {
+        let ok = result.is_ok();
+        if !ok {
+            errors.fetch_add(1, Ordering::Relaxed);
+        }
+        let batch = {
+            let mut pending = lock(&pending);
+            pending.push((
+                EmbedRow {
+                    file: todo[i].clone(),
+                    vec: result.ok(),
+                },
+                ok,
+            ));
+            if pending.len() >= BATCH {
+                std::mem::take(&mut *pending)
+            } else {
+                Vec::new()
+            }
+        };
+        flush(batch);
+
+        let done = done.fetch_add(1, Ordering::Relaxed) + 1;
+        let now = Instant::now();
+        let due = {
+            let mut last = lock(&last);
+            if last.is_none_or(|t| now.duration_since(t) >= progress_interval) {
+                *last = Some(now);
+                true
+            } else {
+                false
+            }
+        };
+        if due {
+            progress(done, total);
+        }
+    };
+
+    let started = Instant::now();
+    match embed_all(
+        &paths,
+        threads,
+        Priority::Lowest,
+        focus,
+        model,
+        on_item,
+        cancel,
+    ) {
+        Ok(Some(e)) => log::warn!("embed scan of {dir} ran at normal priority: {e}"),
+        Ok(None) => {}
+        Err(e) => log::error!("embed scan of {dir} failed: {e}"),
+    }
+    flush(std::mem::take(&mut *lock(&pending)));
+    let done_count = done.load(Ordering::Relaxed);
+    progress(done_count, total);
+
+    let summary = ScanSummary {
+        total: done_count,
+        errors: errors.load(Ordering::Relaxed),
+    };
+    log::info!(
+        "scan embed: dir={dir} files={total} done={} errors={} threads={threads} canceled={} in {}ms",
         summary.total,
         summary.errors,
         cancel.load(Ordering::Relaxed),
@@ -2884,6 +3142,314 @@ pub(crate) mod tests {
         );
         assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
         assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v19_database_gains_the_embeddings_table_and_keeps_its_files_ratings_and_folders() {
+        let dir = temp_dir("migrate-v19");
+        let db = dir.join("index.sqlite");
+        let a = file(&dir, "a.ARW", b"a");
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index.reconcile("d", std::slice::from_ref(&a)).unwrap();
+            index.set_last_viewed("d", "/d/a.ARW").unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
+                         ('/rated.ARW', 'd', 4, 1, 1);
+                     DROP TABLE embeddings;
+                     PRAGMA user_version = 19;",
+                )
+                .unwrap();
+        }
+
+        let mut index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
+        assert_eq!(
+            index.dirty_rows("d").unwrap(),
+            [("/rated.ARW".to_string(), Some(4), Flag::Pick, None, true)]
+        );
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+        assert_eq!(index.embeddings_missing("d").unwrap(), [todo_of(&a)]);
+        assert!(index.reconcile("d", &[a]).unwrap().0.is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    fn todo_of(file: &FileStat) -> EmbedTodo {
+        EmbedTodo {
+            path: file.path.to_string_lossy().into_owned(),
+            size: file.size,
+            mtime_ns: file.mtime_ns,
+        }
+    }
+
+    fn embedded(file: &FileStat, vec: Option<Vec<f32>>) -> EmbedRow {
+        EmbedRow {
+            file: todo_of(file),
+            vec,
+        }
+    }
+
+    /// The stored rows of `embeddings`: `(path, dir, version, vec)`.
+    fn embedding_rows(index: &Index) -> Vec<(String, String, i64, Option<Vec<f32>>)> {
+        index
+            .conn
+            .prepare("SELECT path, dir, version, vec FROM embeddings ORDER BY path")
+            .unwrap()
+            .query_map([], |r| {
+                let vec: Option<Vec<u8>> = r.get(3)?;
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    vec.map(|b| {
+                        b.chunks_exact(4)
+                            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                            .collect()
+                    }),
+                ))
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn embeddings_missing_lists_the_raw_rows_without_a_valid_embedding() {
+        let dir = temp_dir("embed-missing");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let c = file(&dir, "c.ARW", b"c");
+        let d = file(&dir, "d.ARW", b"d");
+        let jpeg = file(&dir, "e.JPG", b"e");
+        let broken = file(&dir, "f.ARW", b"f");
+        let mut index = open(&dir);
+        index
+            .write_batch(
+                "d",
+                &[
+                    (a.clone(), Ok(entry())),
+                    (b.clone(), Ok(entry())),
+                    (c.clone(), Ok(entry())),
+                    (d.clone(), Ok(entry())),
+                    (jpeg.clone(), Ok(entry())),
+                    (broken.clone(), Err("unreadable".into())),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            index.embeddings_missing("d").unwrap(),
+            [todo_of(&a), todo_of(&b), todo_of(&c), todo_of(&d)],
+            "a JPEG and a failed extraction are never listed"
+        );
+
+        index
+            .write_embeddings(
+                "d",
+                &[
+                    embedded(&a, Some(vec![0.6, 0.8])),
+                    embedded(&b, None),
+                    EmbedRow {
+                        file: EmbedTodo {
+                            mtime_ns: c.mtime_ns + 1,
+                            ..todo_of(&c)
+                        },
+                        vec: Some(vec![1.0]),
+                    },
+                    embedded(&d, Some(vec![1.0])),
+                ],
+            )
+            .unwrap();
+        index
+            .conn
+            .execute(
+                "UPDATE embeddings SET version = ?2 WHERE path = ?1",
+                params![todo_of(&d).path, EMBED_VERSION - 1],
+            )
+            .unwrap();
+        assert_eq!(
+            index.embeddings_missing("d").unwrap(),
+            [todo_of(&c), todo_of(&d)],
+            "stale by stat or by version; a failed embedding is not retried"
+        );
+
+        index
+            .write_embeddings("d", &[embedded(&c, Some(vec![0.0, 1.0]))])
+            .unwrap();
+        index
+            .write_embeddings("d", &[embedded(&d, Some(vec![1.0, 0.0]))])
+            .unwrap();
+        assert!(index.embeddings_missing("d").unwrap().is_empty());
+        let rows = embedding_rows(&index);
+        assert_eq!(rows.len(), 4, "an upsert replaces the row");
+        assert_eq!(rows[0].3, Some(vec![0.6, 0.8]));
+        assert_eq!(rows[1].3, None);
+        assert!(rows.iter().all(|r| r.1 == "d" && r.2 == EMBED_VERSION));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn reconcile_drops_the_embeddings_of_changed_and_gone_files_only() {
+        let dir = temp_dir("embed-reconcile");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let c = file(&dir, "c.ARW", b"c");
+        let mut index = open(&dir);
+        let rows = [a.clone(), b.clone(), c.clone()].map(|f| (f, Ok(entry())));
+        index.write_batch("d", &rows).unwrap();
+        index
+            .write_embeddings(
+                "d",
+                &[
+                    embedded(&a, Some(vec![1.0])),
+                    embedded(&b, Some(vec![1.0])),
+                    embedded(&c, Some(vec![1.0])),
+                ],
+            )
+            .unwrap();
+        index
+            .conn
+            .execute(
+                "UPDATE files SET extractor = 0 WHERE path = ?1",
+                params![todo_of(&a).path],
+            )
+            .unwrap();
+        let b_changed = FileStat {
+            mtime_ns: b.mtime_ns + 1,
+            ..b.clone()
+        };
+        index.reconcile("d", &[a.clone(), b_changed]).unwrap();
+        let paths: Vec<String> = embedding_rows(&index).into_iter().map(|r| r.0).collect();
+        assert_eq!(
+            paths,
+            [todo_of(&a).path],
+            "a re-extracted row keeps its embedding"
+        );
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn eviction_and_clear_drop_the_embeddings_and_strays() {
+        let dir = temp_dir("embed-evict");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let mut index = open(&dir);
+        index
+            .write_batch("old", &[(a.clone(), Ok(entry()))])
+            .unwrap();
+        index
+            .write_batch("new", &[(b.clone(), Ok(entry()))])
+            .unwrap();
+        index.reconcile("old", std::slice::from_ref(&a)).unwrap();
+        index.reconcile("new", std::slice::from_ref(&b)).unwrap();
+        set_opened_at(&index, "old", 0);
+        let stray = FileStat {
+            path: PathBuf::from("/renamed-away/c.ARW"),
+            size: 1,
+            mtime_ns: 1,
+        };
+        index
+            .write_embeddings("old", &[embedded(&a, Some(vec![1.0]))])
+            .unwrap();
+        index
+            .write_embeddings("new", &[embedded(&b, Some(vec![1.0]))])
+            .unwrap();
+        index
+            .write_embeddings("/renamed-away", &[embedded(&stray, Some(vec![1.0]))])
+            .unwrap();
+
+        let summary = index.evict(now_secs(), EVICT_POLICY).unwrap();
+        assert_eq!(summary.folders, 1);
+        let dirs: Vec<String> = embedding_rows(&index).into_iter().map(|r| r.1).collect();
+        assert_eq!(dirs, ["new"], "the evicted folder's and the stray go");
+
+        index.clear().unwrap();
+        assert!(embedding_rows(&index).is_empty());
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn used_bytes_counts_the_embedding_pages() {
+        let dir = temp_dir("embed-bytes");
+        let mut index = open(&dir);
+        let before = index.used_bytes().unwrap();
+        let rows: Vec<EmbedRow> = (0..100)
+            .map(|i| EmbedRow {
+                file: EmbedTodo {
+                    path: format!("/d/{i}.ARW"),
+                    size: 1,
+                    mtime_ns: 1,
+                },
+                vec: Some(vec![0.5; 768]),
+            })
+            .collect();
+        index.write_embeddings("d", &rows).unwrap();
+        assert!(index.used_bytes().unwrap() >= before + 100 * 768 * 4);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn renames_carry_the_embeddings() {
+        let dir = temp_dir("embed-rename");
+        let mut index = open(&dir);
+        let sep = std::path::MAIN_SEPARATOR;
+        let row = |path: String| EmbedRow {
+            file: EmbedTodo {
+                path,
+                size: 1,
+                mtime_ns: 1,
+            },
+            vec: Some(vec![1.0]),
+        };
+        let old = format!("{sep}p{sep}old");
+        let new = format!("{sep}p{sep}new");
+        let sub = format!("{old}{sep}sub");
+        index
+            .write_embeddings(&old, &[row(format!("{old}{sep}a.ARW"))])
+            .unwrap();
+        index
+            .write_embeddings(&sub, &[row(format!("{sub}{sep}b.ARW"))])
+            .unwrap();
+        index
+            .write_embeddings(&new, &[row(format!("{new}{sep}stale.ARW"))])
+            .unwrap();
+
+        index.rename_dir(&old, &new).unwrap();
+        let rows: Vec<(String, String)> = embedding_rows(&index)
+            .into_iter()
+            .map(|r| (r.0, r.1))
+            .collect();
+        let new_sub = format!("{new}{sep}sub");
+        assert_eq!(
+            rows,
+            [
+                (format!("{new}{sep}a.ARW"), new.clone()),
+                (format!("{new_sub}{sep}b.ARW"), new_sub.clone()),
+            ]
+        );
+
+        index
+            .rename_file(&format!("{new}{sep}a.ARW"), &format!("{new}{sep}c.ARW"))
+            .unwrap();
+        let paths: Vec<String> = embedding_rows(&index).into_iter().map(|r| r.0).collect();
+        assert_eq!(
+            paths,
+            [format!("{new}{sep}c.ARW"), format!("{new_sub}{sep}b.ARW")]
+        );
 
         remove_temp_dir(&dir);
     }

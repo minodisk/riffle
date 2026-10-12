@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod commands;
 mod diagnostics;
 mod exif;
@@ -732,7 +733,7 @@ fn main() {
                     );
                 })
             });
-            let (format, keymap, auto_advance, label_names, mcp_enabled) =
+            let (format, keymap, auto_advance, label_names, mcp_enabled, ai_enabled) =
                 commands::load_settings(app.handle());
             app.manage(TimingLogs(AtomicBool::new(false)));
             app.manage(perf::AppPerf::default());
@@ -751,6 +752,12 @@ fn main() {
             app.manage(commands::AppIndex(index));
             app.manage(commands::AppIndexReader(reader));
             app.manage(commands::Scans::default());
+            app.manage(ai::AppAi::new(ai_enabled, ai::model_path(app.handle())));
+            // A model still missing at launch (a download cut short by a
+            // quit or a failure) is fetched again, as a later enable would.
+            if ai_enabled {
+                ai::switch(app.handle(), true);
+            }
             app.manage(commands::EyesRequests::default());
             app.manage(sequence::Sequences::default());
             app.manage(trash::Runs::default());
@@ -816,6 +823,8 @@ fn main() {
             commands::set_auto_advance,
             commands::mcp_enabled,
             commands::set_mcp_enabled,
+            commands::ai_enabled,
+            commands::set_ai_enabled,
             commands::mcp_reply,
             commands::label_names,
             commands::set_label_names,

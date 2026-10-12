@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use crate::arw::{FocusLocation, Shot};
 use crate::candidate::{face_cue_unless, focus_cue_unless, Cue};
 use crate::decode::{decode_rgb, thumbnail_jpeg, thumbnail_jpeg_near};
+use crate::embed::{embed_preview, Model};
 use crate::eyes::judged_face;
 use crate::faces::{detect_around, Detection, Face};
 use crate::reader::{read_metadata, read_preview};
@@ -345,6 +346,45 @@ where
         on_item,
         cancel,
     )
+}
+
+/// Run `embed::embed_preview` of `model` over `paths` the way `extract_all`
+/// runs `extract`: same pool, same `focus` order, same `cancel`, same
+/// `threads == 0` error, the same priority report, and the same rule that
+/// `on_item` must not panic. A file whose preview cannot be read, decoded or
+/// embedded, or that panics, is an `Err`; a JPEG file is read like a RAW, so
+/// the caller leaves it out.
+pub fn embed_all<F>(
+    paths: &[PathBuf],
+    threads: usize,
+    priority: Priority,
+    focus: &ScanFocus,
+    model: &Model,
+    on_item: F,
+    cancel: &AtomicBool,
+) -> Result<Option<String>, String>
+where
+    F: Fn(usize, Result<Vec<f32>, String>) + Send + Sync,
+{
+    let per_file = |path: &Path, cancel: &AtomicBool| {
+        let (arw, preview) = match read_preview(path) {
+            Ok(read) => read,
+            Err(e) => return Some(Err(e.to_string())),
+        };
+        if canceled(cancel) {
+            return None;
+        }
+        Some(
+            match catch_unwind(AssertUnwindSafe(|| {
+                embed_preview(model, &preview, arw.orientation)
+            })) {
+                Ok(Ok(v)) => Ok(v),
+                Ok(Err(e)) => Err(format!("{e:#}")),
+                Err(_) => Err(format!("panic while embedding {}", path.display())),
+            },
+        )
+    };
+    for_each_path(paths, threads, priority, focus, per_file, on_item, cancel)
 }
 
 /// The paths a running scan takes first, nearest the user's view first. One

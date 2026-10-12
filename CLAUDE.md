@@ -40,7 +40,12 @@ Olympus ORF parser (IFD0 and the Exif IFD of its `IIRO` TIFF, the preview from
 the MakerNote's CameraSettings, with note-relative offsets), which `reader`
 dispatches to for a `.orf`, `src/sequence.rs` the JPEG timestamp sequencer ported
 from lapse (orders a folder's JPEGs by capture time and writes copies with
-unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), and
+unique `DateTimeOriginal` seconds into `<folder>-sequenced/`), `src/embed.rs`
+the SigLIP 2 image embedding of a preview (decoded near 404 px, 768-d,
+L2-normalized; the model is downloaded, not bundled, its pinned URL, size and
+SHA-256 here and its Apache-2.0 notice in `crates/core/models/LICENSE-siglip2`,
+one plan shared through `embed::shared`, `EMBED_VERSION` naming the model and
+its preprocessing), and
 `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
@@ -48,7 +53,7 @@ the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 which also keeps each folder's last viewed file in `folders.last_viewed`,
-re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in two
+re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in three
 passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /
 `faces_extractor` columns with the focus candidate cue the `f` focus mark is
@@ -56,9 +61,16 @@ colored by (YuNet, then the face mesh on the face nearest the AF point) and
 the sharpness score, and the `eyes_ear` / `pose_yaw` / `pose_pitch` /
 `pose_roll` columns with the EAR of the more closed eye and the head pose
 from that same mesh, and streams them as `faces-progress` /
-`faces-done` events; both passes run on worker threads below normal OS
-priority (the second pass lower still) and take the on-screen files first
-through the shared `ScanFocus` handle,
+`faces-done` events, then, when the `aiEnabled` setting is on and its model
+downloaded, `run_embed_scan`, which stores each RAW file's image embedding in
+the separate `embeddings` table (valid while `EMBED_VERSION` and the file's
+size / mtime match) and streams `embed-progress` / `embed-done`, without
+counting as scanning; the passes run on worker threads below normal OS
+priority (the second and third lower still) and take the on-screen files first
+through the shared `ScanFocus` handle, `src/ai.rs` the `aiEnabled` setting
+(persisted in the `aiEnabled` key, set by `set_ai_enabled`) and the download
+of the embedding model into the app's local data dir on the first enable,
+checked against its size and SHA-256,
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
 `faces_of`, which detects the faces the focus mark

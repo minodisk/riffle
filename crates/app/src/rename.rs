@@ -95,6 +95,7 @@ pub async fn rename_folder(
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
+        state.stop_embedding();
         let old = std::fs::canonicalize(&dir)
             .map_err(|e| format!("{dir}: {e}"))?
             .to_string_lossy()
@@ -234,6 +235,7 @@ pub async fn rename_file(
         if state.scanning() {
             return Err(SCAN_RUNNING.to_string());
         }
+        state.stop_embedding();
         let dir = std::fs::canonicalize(&dir).map_err(|e| format!("{dir}: {e}"))?;
         let plan = file_plan(&dir, &path, &name)?;
         file_run(plan, |from, to| {
