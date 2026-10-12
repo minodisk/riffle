@@ -1784,3 +1784,13 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
   - In Compare, a repeat press does not advance.
   - In a JPEG-only folder (view-only), the keys do nothing.
 - [ ] On macOS, repeat the same checks as on Windows.
+
+### App: real-device check of the disk read and disk busy series in the performance overlay
+
+#### Background
+
+`perf-overlay-disk` added Riffle's disk read throughput (`Riffle disk`, MB/s on its own axis, thick solid green) and the system's disk busy % (`System disk`, 0-100 %, thin dashed green) to the performance overlay (`d`). It also recolored the CPU lines blue and the latency bars red. Latency spikes of about 4.5 s have been seen with both CPU lines near 0, and the overlay is meant to show whether they line up with disk activity. CI covers the pure delta / ratio computations, the `PerfModel` (`perf.test.ts`) and the build. A PDH read of the busy counter was run ad hoc on Windows. The overlay drawing, the 500 ms updates, the colors, the latency-vs-disk alignment during a scan and the provisional `READ_FLOOR_BPS` (10 MB/s) were never seen on a real screen. The step's checkbox was ticked on the automated criteria only. The Linux `/sys/block` busy path and the macOS (no busy line) path were never run. Plan: `docs/plans/_archived/20261012-perf-overlay-disk/plan.md`. Files: `crates/app/src/perf.rs`, `crates/app/ui/src/perf.ts` (`READ_FLOOR_BPS`), `crates/app/ui/src/main.ts` (`drawPerf`, `PERF_LINES`), `crates/app/ui/style.css` (chart tokens).
+
+#### TODO
+
+- [ ] On Windows, with the overlay on (`d`), open a large RAW folder that has not been scanned (or force a rescan) and browse with the arrow keys during the scan. Expected: the green lines (`Riffle disk` thick solid in MB/s, `System disk` thin dashed on 0-100 %) update every 500 ms, the CPU lines are blue, the latency bars are red, and a latency spike lines up with high disk activity (or does not, which is also a result). Record the observed idle and scan read rates (MB/s) and retune `READ_FLOOR_BPS` in `crates/app/ui/src/perf.ts` (provisionally 10 MB/s).

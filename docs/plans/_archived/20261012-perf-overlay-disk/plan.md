@@ -141,3 +141,4 @@ at a glance, on the same 60 s window and 500 ms cadence as the CPU lines.
   Round 1 review: the Windows busy line now reads the busiest disk through
   `\PhysicalDisk(*)` instead of the `_Total` average, and the legend hides
   only an empty `System disk`.
+- (2026-10-12) Step 1 complete
