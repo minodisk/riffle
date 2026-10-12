@@ -209,7 +209,7 @@ Constraints the user set, binding on every step:
       as `features` does; `tract` plans are `Send + Sync` behind an `Arc`.
     - Do not change `crates/app` in this step.
 
-- [ ] Step 2: Offline ranking feasibility gate on the 27 labeled ARW folders, with and without per-genre weights
+- [x] Step 2: Offline ranking feasibility gate on the 27 labeled ARW folders, with and without per-genre weights
   - Done when:
     - A dump exists under `D:\Photos\tests\2026-10-12-embed-gate\`: the
       Step 1 vectors of the chosen model for every file of the 27 folders
@@ -389,24 +389,28 @@ Constraints the user set, binding on every step:
       "not chosen" negatives; explicit rejects count as stronger negatives
       in any folder; unjudged frames in unfinished folders are never
       negatives.
-    - `rank.rs`: the Step 2 model (PCA basis + logistic weights, plus the
-      per-genre offsets if Decision 2 kept them, using Step 5's calibrated
-      genre scores) fit locally on the user's finished folders, shrunk
-      toward the Step 2 prior while the data is small, stored in the app
-      data dir with its version; refit on demand (a settings button) and
-      after a folder is marked finished; never changes a judgment.
+    - `rank.rs`: the Step 2 model (PCA basis + logistic weights; no
+      per-genre offsets, Decision 2 dropped them) fit locally on the
+      user's finished folders, shrunk toward the Step 2 prior while the
+      data is small, stored in the app data dir with its version; refit on
+      demand (a settings button) and after a folder is marked finished;
+      never changes a judgment.
     - `sort.ts` gets a `recommended` `SortKey`; the meta pane shows the
       score with its top contributing features as the reason (naming the
       genre when a per-genre weight drove it) and a confidence that
       reflects the training set size; the strip shows no extra icon by
       default.
     - Step 2's evaluation is re-run on the app's stored data for the same
-      27 folders and matches `gate.md` within rounding; the numbers go in
-      `ranking.md`.
+      27 folders; the numbers go in `ranking.md`. The gate's eye and pose
+      inputs come from the `features` eyes path's judged face, not pass 2's
+      stored `eyes_ear` / `pose_*` of the cue face, so an exact match to
+      `gate.md` is not expected. Step 7 re-runs `gate.py` on a dump that
+      uses the app's face and records both numbers; the shared model must
+      still clear the gate's bar there.
     - Docs: usage / README pairs; `CLAUDE.md` layout.
   - Implementation approach (as far as it is known):
-    - Assumes Steps 3 and 4 merged, and Step 5 if per-genre weights are
-      kept. To be refined after Decision 2.
+    - Assumes Steps 3 and 4 merged. Decision 2 shipped one shared model with
+      no per-genre offsets, so Step 5 is not a dependency.
 
 ## Trade-offs and risks
 
@@ -512,9 +516,41 @@ Decided in Step 1 from the measurements in [models.md](models.md) (Windows
 
 ## Decision 2 (ranking ships or not, per-genre weights or not)
 
-Pending Step 2.
+Decided in Step 2 by the criterion pre-registered in [gate.md](gate.md)
+(commit `ce0ea14`, before the fit), on the 27 sidecar-labeled ARW folders:
+32,459 frames, 4,419 picks, 1,801 scorable bursts at gap 1000 ms, 41,942
+pick x not-chosen pairs, leave one folder out (26 folds: `2026-07-23` has no
+scorable burst, so it is never held out).
+
+- **Ranking ships: Step 7 proceeds, with the shared model.** Held out, the
+  shared model (SigLIP 2 embedding as 32 whitened PCA dimensions + the
+  technical features + the position in the burst, pairwise L2 logistic)
+  reads a weighted pairwise AUC of **0.708** against the bar of 0.703
+  (first frame 0.650 here, 0.653 in burst-keep-score), and a Top-1 of
+  **54.4%** against the first frame's 39.4%: a gain of 15.0 points against
+  the first frame's per-folder SD of 8.7. Both checks pass, the AUC one by
+  0.005, which is less than the per-folder SD of 0.060: the ranking is a
+  modest recommendation, not a reliable best-shot pick, and Step 7 should
+  present it that way (an ignorable sort order, as planned). Top-3 is
+  87.7% against the first frame's 79.2%.
+- **The embedding is what clears the bar.** The same model without the
+  embedding reads 0.652 (Top-1 44.5%), level with the first frame; the
+  embedding alone reads 0.668 (51.5%).
+- **No per-genre weights.** The per-genre variant (shared weights + 10x
+  penalized per-genre offsets on the technical feature differences) reads
+  0.707 (Top-1 55.2%), level with the shared model against a required gain
+  of 0.060 (the shared model's per-folder SD). The provisional genres put
+  1,478 of the scorable bursts in sports and 287 in snap, 20 or fewer in
+  each other genre, so the data cannot show a per-genre effect; Step 7 drops
+  the offsets and does not depend on Step 5.
+- **Data size.** The learning curve reads 0.687 (5 training folders), 0.699
+  (10), 0.704 (20), 0.708 (26), so Step 7's shrinkage toward the Step 2
+  prior matters while a user has few finished folders. Explicit rejects
+  (58 frames, 3 scorable bursts) are too few to measure as stronger
+  negatives.
 
 ## Progress
 
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
 - (2026-10-12) Step 1 complete
+- (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)

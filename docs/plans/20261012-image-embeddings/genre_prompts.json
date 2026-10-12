@@ -1,0 +1,80 @@
+{
+  "note": "Provisional, uncalibrated prompt list for the initial genres (Step 2 gate features; Step 5 starts from it). parent null = a top-level genre.",
+  "labels": [
+    {
+      "label": "sports",
+      "parent": null,
+      "prompts": [
+        "a photo of a sports game",
+        "a photo of athletes playing a sport",
+        "a sports photo"
+      ]
+    },
+    {
+      "label": "basketball",
+      "parent": "sports",
+      "prompts": ["a photo of a basketball game", "a photo of people playing basketball"]
+    },
+    {
+      "label": "soccer",
+      "parent": "sports",
+      "prompts": ["a photo of a soccer match", "a photo of children playing soccer"]
+    },
+    {
+      "label": "portrait",
+      "parent": null,
+      "prompts": ["a portrait photo of a person", "a close-up portrait of a person's face"]
+    },
+    {
+      "label": "group photo",
+      "parent": "portrait",
+      "prompts": [
+        "a group photo of people posing together",
+        "a photo of a group of people looking at the camera"
+      ]
+    },
+    {
+      "label": "landscape",
+      "parent": null,
+      "prompts": ["a landscape photo", "a photo of mountains and sky", "a scenic photo of nature"]
+    },
+    {
+      "label": "birds / animals",
+      "parent": null,
+      "prompts": ["a photo of a bird", "a photo of a wild animal"]
+    },
+    {
+      "label": "pets",
+      "parent": "birds / animals",
+      "prompts": ["a photo of a pet dog", "a photo of a pet cat"]
+    },
+    {
+      "label": "snap",
+      "parent": null,
+      "prompts": [
+        "a candid snapshot of everyday life",
+        "a street snapshot",
+        "a casual photo of people"
+      ]
+    },
+    {
+      "label": "camping",
+      "parent": "snap",
+      "prompts": ["a photo of a campsite with a tent", "a photo of people camping outdoors"]
+    },
+    {
+      "label": "macro",
+      "parent": null,
+      "prompts": [
+        "a macro photo of a flower",
+        "a close-up macro photo of an insect",
+        "a macro photo of a small object"
+      ]
+    },
+    {
+      "label": "other",
+      "parent": null,
+      "prompts": ["a photo", "a photo of an object"]
+    }
+  ]
+}

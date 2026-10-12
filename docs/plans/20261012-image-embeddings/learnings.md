@@ -78,6 +78,77 @@
   `sys.dont_write_bytecode`, otherwise `-I` still writes a `__pycache__`
   into the plan folder.
 
+## Step 2
+
+- **Pre-registration as its own commit.** `gate.md`'s criterion section was
+  committed alone (`ce0ea14`, 2026-10-12T08:12:18+09:00) before `gate.py`
+  existed, so the history shows it predates the fit. Its first line says
+  "08:15", the planned time; the commit time is the record. Nothing in that
+  section changed afterwards.
+- **The gate passed narrowly.** Weighted pairwise AUC 0.708 against the
+  0.703 bar; Top-1 +15.0 points over the first frame against an SD of 8.7.
+  Without the embedding the model reads 0.652, level with the first frame,
+  so the embedding is what carries the gain. Per-genre offsets gave nothing
+  (0.707), with 1,478 of 1,801 scorable bursts in "sports".
+- **Small deviations from the pre-registered text, none touching the
+  criterion:**
+  - "Leave-one-folder-out over the 27 folders" ran 26 folds: `2026-07-23`
+    (18 frames, 0 picks) has no scorable burst, so it is never held out and
+    each fold fits on 25 folders with pairs. The learning curve's "26" row
+    trains on 26 folders, 25 with pairs, and its 5 / 10 / 20 draws may hold
+    one folder fewer with pairs than labeled.
+  - The random baseline uses seed 1, not seed 0. Seed 0 went to the Top-3
+    tie-break vector, and reusing it would have made the random ranking and
+    the tie-break the same draw. Random is not in the criterion (0.508
+    weighted AUC).
+  - The inner cross-validation that picks `C` reuses the outer fold's
+    imputation, standardization and PCA, which are fit on every training
+    folder, instead of refitting them per inner fold. They are unsupervised
+    and never see the held-out folder. Refitting would have multiplied the
+    PCA fits by 20.
+  - Each pair enters once, as `(d, 1)` or `(-d, 0)` alternately, with
+    double weight, instead of as both rows. Without an intercept the logistic
+    loss of `(-d, 0)` equals that of `(d, 1)`, so the objective is the same
+    and the rows are halved.
+  - `photoTier` reads the `features` TSV's `ear` (the eyes path's judged
+    face, 60 px or more), not pass 2's stored `eyes_ear` of the cue face.
+    The app's rule reads the latter. Both are the same face in the common
+    case.
+  - The `eye_focus` baseline ranks by the model's logit input column, whose
+    probability is clipped to [0.001, 0.999], not by the raw `eye_focus`.
+    Values at or above 0.999 (or at or below 0.001) therefore tie and count
+    0.5, which departs from the pre-registered "`eye_focus` (missing ranks
+    last)". The reported 0.564 / Top-1 37.1% carries this; the baseline is
+    outside the criterion and was not re-run. The Sharpness baseline's
+    `max(ratio, 1e-3)` clip has the same effect, negligibly.
+- **Dump cost.** `features` took 1 to 84 s per folder on 24 threads, about
+  11 minutes for the 27. `embed --near 404` took 611.6 s for 32,459 files
+  (18.8 ms per image of wall time, peak working set 1148 MB, the
+  `Model::load` peak again). One `fork: retry: Resource temporarily
+  unavailable` from Git Bash after `2026-08-01` did not lose anything: all 27
+  TSVs are complete (0 errors) and 27 `.output.txt` listings exist.
+- **SigLIP 2 text tower.** `onnx/text_model.onnx` (1.13 GB FP32) takes
+  `input_ids` only and outputs `pooler_output`. The tokenizer settings come
+  from `tokenizer_config.json`: lowercase, no BOS, EOS appended, right-pad
+  with `<pad>` to 64. `exp(logit_scale)` = 111.83 and `logit_bias` =
+  -16.77 are not in the ONNX files. They were read from the first bytes
+  after the header of `google/siglip2-base-patch32-256`'s
+  `model.safetensors` (`HfFileSystem`, seekable mode), without downloading
+  the 1.5 GB file. The sigmoid scores are tiny for all but the best label
+  (cosines 0.05 to 0.15), which is why the gate's genre feature is a softmax
+  over the top-level genres.
+- **The provisional prompts call 88% of the frames "sports".** 28,444
+  frames go to sports, 3,681 to snap and 334 to everything else. Step 5's
+  calibration starts from a heavily skewed set, and these folders hold
+  almost no landscape, animal or macro frames to calibrate on.
+- **The Bash tool rewrites backslashes in heredocs.** A `python - <<'EOF'`
+  body with `D:\\Photos\\tests\\2026...` reached Python as `\t` and `\201`
+  escapes and wrote control characters into `gate.md`. Write such a script
+  with the Write tool to the scratchpad and run it, or avoid backslashes.
+- **Blocking waits stall the agent stream.** A single tool call that waits
+  several minutes for the dump tripped the 600 s stream watchdog. Long
+  steps run in the background, polled by short bounded loops.
+
 ## Deferred issues (todo candidates)
 
 - **Lower `Model::load`'s peak.** It holds about 3x the model file at once
