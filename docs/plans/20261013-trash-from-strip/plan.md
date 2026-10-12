@@ -83,7 +83,7 @@ Investigation notes (what exists already, so nothing new is needed for it):
 
 ## Steps
 
-- [ ] Step 1: Add the `trash_files` command (backend)
+- [x] Step 1: Add the `trash_files` command (backend)
   - Done when: a `trash_files` Tauri command moves the given files of one
     folder and the sidecars that exist for each to the OS Trash through the
     existing mover, records the run in `trash::Runs` so
