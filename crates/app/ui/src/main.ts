@@ -55,6 +55,7 @@ import {
   canRun,
   emptyFoldersLine,
   failureText as trashFailureText,
+  filesLine,
   folderRows,
   opensTarget,
   restoredInto,
@@ -844,11 +845,13 @@ function renderTitle(): void {
 
 // The confirmation of `trashRejectedIn`: the rejects per folder, the folders
 // with none folded into one line, the ones that could not be read, and the
-// total count and size.
+// total count and size. The strip's `Move to Trash…` asks in it with the
+// count alone (`confirmTrashFiles`).
 const trashFlow = new TrashFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
 const trashKeys = new SettingsModal();
 const trashDialog = document.getElementById("trash-dialog") as HTMLDivElement;
+const trashTitle = document.getElementById("trash-title") as HTMLHeadingElement;
 const trashRows = document.getElementById("trash-rows") as HTMLUListElement;
 const trashEmpty = document.getElementById("trash-empty") as HTMLParagraphElement;
 const trashFailed = document.getElementById("trash-failed") as HTMLUListElement;
@@ -894,6 +897,7 @@ function showTrashPreview(preview: TrashPreview): void {
   setFilterMenuOpen(false);
   setSortMenuOpen(false);
   closeContextMenu();
+  trashTitle.textContent = "Move Rejected to Trash";
   trashRows.replaceChildren(...folderRows(preview).map(listItem));
   const empty = emptyFoldersLine(preview);
   trashEmpty.textContent = empty ?? "";
@@ -906,6 +910,68 @@ function showTrashPreview(preview: TrashPreview): void {
   trashCancelButton.disabled = false;
   trashDialog.hidden = false;
   (trashRunButton.disabled ? trashCancelButton : trashRunButton).focus();
+}
+
+// Ask whether to move `paths`, files of the open folder taken when the strip's
+// `Move to Trash…` was chosen, to the Trash.
+function confirmTrashFiles(paths: string[]): void {
+  if (
+    openDir === null ||
+    paths.length === 0 ||
+    !formatDialog.hidden ||
+    settings.isOpen ||
+    sequenceFlow.busy ||
+    sidecarFlow.busy ||
+    !trashFlow.start({ dirs: [openDir], recursive: false, paths }) ||
+    !trashFlow.previewed()
+  ) {
+    return;
+  }
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  trashTitle.textContent = "Move to Trash";
+  trashRows.replaceChildren();
+  trashEmpty.textContent = "";
+  trashEmpty.hidden = true;
+  trashFailed.replaceChildren();
+  trashTotal.textContent = filesLine(paths.length);
+  trashRunButton.disabled = false;
+  trashCancelButton.disabled = false;
+  trashDialog.hidden = false;
+  trashRunButton.focus();
+}
+
+// Move `paths` of `dir` and their sidecars to the Trash through
+// `trash_files`, once no scan runs. Dropped when another folder was opened
+// meanwhile; the run's result is reported even if one was opened while it
+// ran, since the backend recorded it for undo.
+function trashFilesIn(dir: string, paths: string[]): void {
+  const token = folderToken;
+  whenIdle("Move to Trash", () => {
+    if (
+      dir !== openDir ||
+      token !== folderToken ||
+      trashFlow.busy ||
+      sidecarFlow.busy ||
+      sequenceFlow.busy
+    ) {
+      return;
+    }
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashSummary>("trash_files", { dir, paths })
+        .then((summary) => {
+          if (summary.run_id !== null) {
+            redoable.clear();
+          }
+          trashed(summary, [dir], false);
+        })
+        .catch((err: unknown) => {
+          setStatus(String(err));
+        }),
+    );
+  });
 }
 
 function closeTrashDialog(): void {
@@ -922,7 +988,12 @@ function runTrash(): void {
   if (target === null) {
     return;
   }
-  const { dirs, recursive } = target;
+  const { dirs, recursive, paths } = target;
+  if (paths !== undefined && dirs[0] !== undefined) {
+    closeTrashDialog();
+    trashFilesIn(dirs[0], paths);
+    return;
+  }
   trashRunButton.disabled = true;
   trashCancelButton.disabled = true;
   settleIdle(
@@ -2182,7 +2253,7 @@ function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb
 // the rescan brings their thumbnails and judgments back. The current file
 // and the selection stay.
 function undoTrash(entry: TrashEntry): void {
-  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move to Trash";
   whenIdle(`Undo ${label}`, () => {
     if (trashStep !== null || history.peek() !== entry) {
       return;
@@ -2231,7 +2302,7 @@ function undoTrash(entry: TrashEntry): void {
 // scan like the run does, and stays on `redoable` until the backend has
 // moved the files, so a refusal leaves it redoable.
 function redoTrash(entry: TrashEntry): void {
-  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move to Trash";
   whenIdle(`Redo ${label}`, () => {
     if (trashStep !== null || redoable.peek() !== entry) {
       return;
@@ -3128,11 +3199,14 @@ function openContextMenu(x: number, y: number): void {
     flag: flagOf(focused),
     label: labels.get(focused) ?? null,
   };
-  showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, (action) => {
-    if (action !== "renameFile") {
-      runAction(action);
-    } else {
+  const paths = comparing ? [focused] : targets(selection, files, index);
+  showMenu(contextMenuGroups(keyBindings, state, viewOnly, paths.length), x, y, (action) => {
+    if (action === "renameFile") {
       strip.startRename(index);
+    } else if (action === "trashFiles") {
+      confirmTrashFiles(paths);
+    } else {
+      runAction(action);
     }
   });
 }

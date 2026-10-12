@@ -25,7 +25,7 @@ const defaults = [
 const unset = { rating: null, flag: "none" as const, label: null };
 
 describe("contextMenuGroups", () => {
-  test("lists Select All above the flag, rating and label groups, then Rename…", () => {
+  test("lists Select All above the flag, rating and label groups, then Rename…, then Move to Trash…", () => {
     const groups = contextMenuGroups(defaults, unset);
     expect(groups.map((group) => group.map(({ action, label }) => [action, label]))).toEqual([
       [["selectAll", "Select All"]],
@@ -53,6 +53,7 @@ describe("contextMenuGroups", () => {
         ["clearlabel", "No label"],
       ],
       [["renameFile", "Rename…"]],
+      [["trashFiles", "Move to Trash…"]],
     ]);
   });
 
@@ -74,6 +75,7 @@ describe("contextMenuGroups", () => {
         "ctrl+alt+7",
         "ctrl+alt+0",
       ],
+      [""],
       [""],
     ]);
   });
@@ -105,7 +107,7 @@ describe("contextMenuGroups", () => {
     const shortcuts = contextMenuGroups([], unset).flatMap((group) =>
       group.map((item) => item.shortcut),
     );
-    expect(shortcuts).toHaveLength(19);
+    expect(shortcuts).toHaveLength(20);
     expect(shortcuts.every((shortcut) => shortcut === "")).toBe(true);
   });
 
@@ -125,10 +127,24 @@ describe("contextMenuGroups", () => {
     expect(checked).toEqual(["pick", "rate3", "orange"]);
   });
 
-  test("keeps only Select All in a view-only folder", () => {
+  test("keeps only Select All and Move to Trash… in a view-only folder", () => {
     expect(contextMenuGroups(defaults, unset, true)).toEqual([
       [{ action: "selectAll", label: "Select All", shortcut: "meta+a", checked: undefined }],
+      [{ action: "trashFiles", label: "Move to Trash…", shortcut: "", checked: undefined }],
     ]);
+  });
+
+  test("names the count of a multi-selection in Move to Trash…", () => {
+    expect(contextMenuGroups(defaults, unset, false, 3).at(-1)).toEqual([
+      { action: "trashFiles", label: "Move 3 Files to Trash…", shortcut: "", checked: undefined },
+    ]);
+    expect(contextMenuGroups(defaults, unset, true, 2).at(-1)?.[0]?.label).toBe(
+      "Move 2 Files to Trash…",
+    );
+  });
+
+  test("keeps Move to Trash… singular for one file", () => {
+    expect(contextMenuGroups(defaults, unset, false, 1).at(-1)?.[0]?.label).toBe("Move to Trash…");
   });
 });
 

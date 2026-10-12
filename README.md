@@ -96,7 +96,10 @@ DxO PhotoLab.
   Right-click a file and choose `Rename…`, or click the shown file's name
   again after a moment, to rename it in place: `Enter` or a click away
   renames, `Escape` cancels, and its XMP and `.dop` sidecars and its
-  ratings move with it.
+  ratings move with it. Right-click and choose `Move to Trash…` to move the
+  file, or the whole selection, to the Trash with its sidecars after a
+  count-only confirmation (filter to the rejects and select all to clear
+  them out); `Edit > Undo` brings them back.
   `Ctrl+Alt+ArrowDown` (`Alt+Cmd+ArrowDown` on macOS) hides the filmstrip,
   `…ArrowLeft` the folder tree, `…ArrowRight` the meta pane and `Tab` both
   side panes, to give the viewer more room (the first three are also check
