@@ -1297,15 +1297,19 @@ JPEG-only (view-only) folder never lists anything.
   does not count the joined scan, since it wrote no `files` row after
   `faces-done`. `stop_embedding` cancels the pass when `aiEnabled` turns off,
   and under the `Scans` lock before `clear_index` and the renames delete or
-  move rows. A batch already in flight can still land after them, so
-  `evict` and `clear` also drop the embeddings of any `dir` without a
+  move rows. A batch already in flight can still land after them. `evict` and `clear` drop the embeddings of any `dir` without a
   `folders` row (`drop_stray_embeddings`), and `reconcile` drops a renamed
-  file's old path.
+  file's old path, but that does not cover everything: a late batch under a
+  folder whose `folders` row survives a clear (it has dirty ratings) stays,
+  and so does the old path after `rename_file` until the next reconcile. The
+  deferred guarded insert in `write_embeddings` (see `learnings.md` of the
+  plan) would close this.
 - **The model is downloaded, not bundled** (the plan's Decision 1).
   `set_ai_enabled(true)` persists `aiEnabled` and, when the file is missing,
   `ai::switch` downloads `embed::MODEL_URL` on a plain thread through
-  `reqwest::blocking`. It writes `MODEL_FILE` + `.part` under
-  `app_local_data_dir()`, checks `MODEL_SIZE` and `MODEL_SHA256`, and only
+  `reqwest::blocking`. Each `install` call writes its own `MODEL_FILE.part-{n}` file under
+  `app_local_data_dir()` (a shared name let a canceled download delete the new
+  one's file; `AppAi::new` removes leftover `MODEL_FILE.part*` files at launch), checks `MODEL_SIZE` and `MODEL_SHA256`, and only
   then renames the file into place. Progress and failures go out as
   `ai-state`. The main window rescans the open folder when the state turns
   enabled and ready, which runs the third pass. A launch with `aiEnabled`
