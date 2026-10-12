@@ -1,9 +1,10 @@
 {
-  "note": "Provisional, uncalibrated prompt list for the initial genres (Step 2 gate features; Step 5 starts from it). parent null = a top-level genre.",
+  "note": "The shipped genre prompts (Step 5) and the per-label thresholds genre_calibrate.py chose on the hand labels (genres.md); genre_vectors.py turns this into crates/core/genres/siglip2.json. Step 2's provisional list is this file's first version in git; Step 5 revised the group photo, birds / animals, snap and camping prompts and dropped soccer, macro and other. parent null = a top-level genre.",
   "labels": [
     {
       "label": "sports",
       "parent": null,
+      "threshold": 0.0958,
       "prompts": [
         "a photo of a sports game",
         "a photo of athletes playing a sport",
@@ -13,68 +14,66 @@
     {
       "label": "basketball",
       "parent": "sports",
+      "threshold": 0.1045,
       "prompts": ["a photo of a basketball game", "a photo of people playing basketball"]
-    },
-    {
-      "label": "soccer",
-      "parent": "sports",
-      "prompts": ["a photo of a soccer match", "a photo of children playing soccer"]
     },
     {
       "label": "portrait",
       "parent": null,
+      "threshold": 0.0544,
       "prompts": ["a portrait photo of a person", "a close-up portrait of a person's face"]
     },
     {
       "label": "group photo",
       "parent": "portrait",
+      "threshold": 0.0842,
       "prompts": [
         "a group photo of people posing together",
-        "a photo of a group of people looking at the camera"
+        "a commemorative group photo of people lined up facing the camera"
       ]
     },
     {
       "label": "landscape",
       "parent": null,
+      "threshold": 0.0652,
       "prompts": ["a landscape photo", "a photo of mountains and sky", "a scenic photo of nature"]
     },
     {
       "label": "birds / animals",
       "parent": null,
-      "prompts": ["a photo of a bird", "a photo of a wild animal"]
+      "threshold": 0.0827,
+      "prompts": [
+        "a photo of a bird",
+        "a photo of a wild animal",
+        "a photo of an animal at the zoo"
+      ]
     },
     {
       "label": "pets",
       "parent": "birds / animals",
+      "threshold": 0.082,
       "prompts": ["a photo of a pet dog", "a photo of a pet cat"]
     },
     {
       "label": "snap",
       "parent": null,
+      "threshold": 0.0776,
       "prompts": [
         "a candid snapshot of everyday life",
         "a street snapshot",
-        "a casual photo of people"
+        "a casual snapshot of people",
+        "a candid photo of a moment of daily life"
       ]
     },
     {
       "label": "camping",
       "parent": "snap",
-      "prompts": ["a photo of a campsite with a tent", "a photo of people camping outdoors"]
-    },
-    {
-      "label": "macro",
-      "parent": null,
+      "threshold": 0.0812,
       "prompts": [
-        "a macro photo of a flower",
-        "a close-up macro photo of an insect",
-        "a macro photo of a small object"
+        "a photo of a campsite with a tent",
+        "a photo of people camping outdoors",
+        "a photo of a campfire"
       ]
-    },
-    {
-      "label": "other",
-      "parent": null,
-      "prompts": ["a photo", "a photo of an object"]
     }
   ]
 }

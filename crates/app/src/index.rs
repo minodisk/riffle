@@ -1252,6 +1252,36 @@ impl Index {
         tx.commit().map_err(|e| e.to_string())
     }
 
+    /// The valid embeddings of `dir`'s files, `(path, vec)`: at
+    /// `EMBED_VERSION`, stored against the `files` row's `size` / `mtime_ns`,
+    /// and not a failed embedding.
+    pub fn embeddings(&self, dir: &str) -> Result<Vec<(String, Vec<f32>)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT files.path, embeddings.vec FROM files
+                 JOIN embeddings USING (path)
+                 WHERE files.dir = ?1 AND embeddings.version = ?2
+                     AND embeddings.size = files.size
+                     AND embeddings.mtime_ns = files.mtime_ns
+                     AND embeddings.vec IS NOT NULL",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![dir, EMBED_VERSION], |r| {
+                let vec: Vec<u8> = r.get(1)?;
+                Ok((
+                    r.get(0)?,
+                    vec.chunks_exact(4)
+                        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                        .collect(),
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<_>>()
+            .map_err(|e| e.to_string())
+    }
+
     /// The indexed files of `dir`, in file-name order like `list_arw`.
     pub fn entries(&self, dir: &str) -> Result<Vec<IndexedFile>, String> {
         let mut stmt = self
@@ -3295,6 +3325,59 @@ pub(crate) mod tests {
         assert_eq!(rows[0].3, Some(vec![0.6, 0.8]));
         assert_eq!(rows[1].3, None);
         assert!(rows.iter().all(|r| r.1 == "d" && r.2 == EMBED_VERSION));
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn embeddings_returns_the_valid_vectors_only() {
+        let dir = temp_dir("embed-valid");
+        let a = file(&dir, "a.ARW", b"a");
+        let b = file(&dir, "b.ARW", b"b");
+        let c = file(&dir, "c.ARW", b"c");
+        let d = file(&dir, "d.ARW", b"d");
+        let mut index = open(&dir);
+        index
+            .write_batch(
+                "d",
+                &[
+                    (a.clone(), Ok(entry())),
+                    (b.clone(), Ok(entry())),
+                    (c.clone(), Ok(entry())),
+                    (d.clone(), Ok(entry())),
+                ],
+            )
+            .unwrap();
+        index
+            .write_embeddings(
+                "d",
+                &[
+                    embedded(&a, Some(vec![0.6, 0.8])),
+                    embedded(&b, None),
+                    EmbedRow {
+                        file: EmbedTodo {
+                            size: c.size + 1,
+                            ..todo_of(&c)
+                        },
+                        vec: Some(vec![1.0]),
+                    },
+                    embedded(&d, Some(vec![1.0])),
+                ],
+            )
+            .unwrap();
+        index
+            .conn
+            .execute(
+                "UPDATE embeddings SET version = ?2 WHERE path = ?1",
+                params![todo_of(&d).path, EMBED_VERSION - 1],
+            )
+            .unwrap();
+        assert_eq!(
+            index.embeddings("d").unwrap(),
+            [(todo_of(&a).path, vec![0.6, 0.8])],
+            "a failed, stale-by-stat or stale-by-version embedding is left out"
+        );
+        assert!(index.embeddings("other").unwrap().is_empty());
 
         remove_temp_dir(&dir);
     }

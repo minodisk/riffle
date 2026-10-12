@@ -1955,6 +1955,29 @@ pub async fn folder_entries(
     Ok(rows)
 }
 
+/// The genre labels of `dir`'s files with a valid embedding (`genre`), keyed
+/// by path; a file without one is absent. Empty when the index cache is
+/// unavailable.
+#[tauri::command]
+pub async fn genres_of(
+    app: tauri::AppHandle,
+    dir: String,
+) -> Result<HashMap<String, Vec<&'static str>>, String> {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndexReader>().0.clone() else {
+        return Ok(HashMap::new());
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let rows = index::lock(&index).embeddings(&dir)?;
+        Ok(rows
+            .into_iter()
+            .map(|(path, vec)| (path, riffle_core::genre::genres_of(&vec)))
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The file that was current in the strip when `dir` was last viewed, as
 /// stored; the frontend decides whether it is still listed. `None` when the
 /// index cache is unavailable or the read fails.

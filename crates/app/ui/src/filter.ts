@@ -14,6 +14,9 @@ import type { PickFlag } from "./selection.js";
 // `unknown`.
 // Its `Eyes` items put the AF face's stored eye state, `open`, `closed` or
 // `unknown`, in `eyes`; a file without one counts as `unknown` the same way.
+// Its `Genre` items put genre labels (`genre.rs`'s, `Unknown` included) in
+// `genres`; a file passes when one of its labels is checked, and a file
+// without an embedding yet counts as `Unknown` the same way.
 export type Flag = "picked" | "untagged" | "rejected";
 
 // One item of the `AF eye` section: an AF eye state.
@@ -34,11 +37,16 @@ export interface FilterState {
   orientations: Set<Orientation>;
   candidates: Set<AfEye>;
   eyes: Set<EyeState>;
+  genres: Set<string>;
   exif: Map<ExifGroup, Set<string>>;
 }
 
+// The genre label of a frame no genre clears, as `genre.rs` names it.
+export const UNKNOWN_GENRE = "Unknown";
+
 // The remembered filter, the wire shape of the `filter` / `set_filter`
-// commands: every section but the EXIF groups, which stay per session.
+// commands: every section but the EXIF groups and the genres, which stay per
+// session.
 export interface StoredFilter {
   flags: Flag[];
   stars: number[];
@@ -90,6 +98,7 @@ export function passes(
   orientation: number | undefined,
   afEye?: AfEye,
   eyes?: EyeState,
+  genres?: readonly string[],
 ): boolean {
   const flag: Flag =
     pickFlag === "pick" ? "picked" : pickFlag === "reject" ? "rejected" : "untagged";
@@ -103,6 +112,7 @@ export function passes(
       (orientation !== undefined && state.orientations.has(orientationOf(orientation)))) &&
     (state.candidates.size === 0 || state.candidates.has(afEye ?? "unknown")) &&
     (state.eyes.size === 0 || state.eyes.has(eyes ?? "unknown")) &&
+    (state.genres.size === 0 || (genres ?? [UNKNOWN_GENRE]).some((g) => state.genres.has(g))) &&
     [...state.exif].every(([group, set]) => {
       if (set.size === 0) {
         return true;

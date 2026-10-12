@@ -192,6 +192,15 @@ DxO PhotoLab.
   times can be checked in Riffle: thumbnails, the preview and the EXIF rows,
   in capture-time order. Stars, flags, color labels, sidecars and the focus
   cue do not apply there.
+- **Genres (AI analysis)**: with `AI analysis of what each photo shows` on
+  in the settings (off by default; the first enable downloads a 378 MB model
+  from Hugging Face), a background pass embeds each RAW file's preview
+  locally with SigLIP 2, and the filter menu's `Genre` section narrows the
+  strip to sports (basketball), portrait (group photo), landscape,
+  birds / animals (pets), snap (camping) or `Unknown`. It is a rough sort,
+  calibrated on the author's photos: reliable for sports, right about half
+  the time for portrait, landscape and snap, and it never changes a judgment
+  (see [AI analysis and genres](./docs/humans/usage.md#features)).
 - **MCP companion**: an MCP client, such as an AI assistant, can follow along
   while you cull: read what Riffle shows, look at a preview, move the view and
   record stars, picks / rejects and labels the way the keys do. It is off by

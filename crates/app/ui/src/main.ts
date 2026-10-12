@@ -562,6 +562,14 @@ const shownLabels = new Set<string>();
 const shownOrientations = new Set<Orientation>();
 const shownCandidates = new Set<AfEye>();
 const shownEyes = new Set<EyeState>();
+// The checked `Genre` items, per session like the EXIF groups.
+const shownGenres = new Set<string>();
+// The genre labels of the open folder's files with an embedding
+// (`genres_of`); a file absent from it counts as `Unknown`. Empty while AI
+// analysis is off.
+let fileGenres = new Map<string, string[]>();
+let genresInFlight = false;
+let genresPending = false;
 // The EXIF groups, keyed by label (two estimated apertures with one label can
 // differ in value). Focal length is keyed by the range's label instead.
 const exifGroups: { group: ExifGroup; heading: string }[] = [
@@ -582,6 +590,7 @@ const filterState: FilterState = {
   orientations: shownOrientations,
   candidates: shownCandidates,
   eyes: shownEyes,
+  genres: shownGenres,
   exif: shownExif,
 };
 let showFocus = false;
@@ -1764,6 +1773,7 @@ function passes(path: string): boolean {
     entries.get(path)?.orientation,
     afEyeState(entries.get(path)?.focus),
     entries.get(path)?.focus?.eyes,
+    fileGenres.get(path),
   );
 }
 
@@ -2213,9 +2223,19 @@ function refreshEntries(): void {
   const token = folderToken;
   entriesInFlight = true;
   const start = performance.now();
-  void window.__TAURI__.core
-    .invoke<IndexedFile[]>("folder_entries", { dir })
-    .then((rows) => {
+  // A checked `Genre` item filters on the labels, so the refilter below that
+  // consumes `pendingResume` needs the folder's labels already in hand.
+  const genresNow =
+    !filterGenre.hidden && shownGenres.size > 0
+      ? window.__TAURI__.core
+          .invoke<Record<string, string[]>>("genres_of", { dir })
+          .catch(() => null)
+      : Promise.resolve(null);
+  void Promise.all([
+    window.__TAURI__.core.invoke<IndexedFile[]>("folder_entries", { dir }),
+    genresNow,
+  ])
+    .then(([rows, found]) => {
       const invoked = performance.now();
       entriesInFlight = false;
       if (entriesPending) {
@@ -2224,6 +2244,9 @@ function refreshEntries(): void {
       }
       if (dir !== openDir || token !== folderToken) {
         return;
+      }
+      if (found !== null) {
+        fileGenres = new Map(Object.entries(found));
       }
       entries.clear();
       sharpness.clear();
@@ -2280,6 +2303,7 @@ function refreshEntries(): void {
           total: end - start,
         }),
       );
+      refreshGenres();
     })
     .catch(() => {
       entriesInFlight = false;
@@ -2299,6 +2323,42 @@ function refreshEntries(): void {
         refilter(anchor, true, true);
       }
     });
+}
+
+// Re-read the open folder's genre labels, at most one read at a time, and
+// refilter when a `Genre` item is checked. Nothing is read while AI analysis
+// is off.
+function refreshGenres(): void {
+  if (openDir === null || filterGenre.hidden) {
+    return;
+  }
+  if (genresInFlight) {
+    genresPending = true;
+    return;
+  }
+  const dir = openDir;
+  const token = folderToken;
+  genresInFlight = true;
+  const settle = () => {
+    genresInFlight = false;
+    if (genresPending) {
+      genresPending = false;
+      refreshGenres();
+    }
+  };
+  void window.__TAURI__.core
+    .invoke<Record<string, string[]>>("genres_of", { dir })
+    .then((found) => {
+      settle();
+      if (dir !== openDir || token !== folderToken || filterGenre.hidden) {
+        return;
+      }
+      fileGenres = new Map(Object.entries(found));
+      if (shownGenres.size > 0) {
+        refilter(files[index], true);
+      }
+    })
+    .catch(settle);
 }
 
 // FocusLocation is in unrotated sensor coordinates, so the point is scaled
@@ -3468,6 +3528,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     ratings.clear();
     flags.clear();
     labels.clear();
+    fileGenres = new Map();
     pendingResume = resumeTarget(remembered, allFiles);
     const order = ordered();
     files = order.filter(passes);
@@ -3897,6 +3958,7 @@ void window.__TAURI__.event.listen("index-cleared", () => {
 // embeds it. The initial read only sets the baseline.
 let aiWasActive: boolean | null = null;
 function applyAiState(state: AiState): void {
+  setGenreSection(state.enabled);
   const active = aiActive(state);
   if (aiWasActive === false && active) {
     resync("ai");
@@ -3904,7 +3966,40 @@ function applyAiState(state: AiState): void {
   aiWasActive = active;
 }
 void window.__TAURI__.core.invoke<AiState>("ai_enabled").then((state) => {
+  setGenreSection(state.enabled);
   aiWasActive ??= aiActive(state);
+});
+
+// The filter menu's `Genre` section shows while AI analysis is on. Turning
+// it off unchecks the section, so a hidden item filters nothing.
+function setGenreSection(enabled: boolean): void {
+  if (filterGenre.hidden !== enabled) {
+    return;
+  }
+  filterGenre.hidden = !enabled;
+  if (enabled) {
+    refreshGenres();
+    return;
+  }
+  fileGenres = new Map();
+  if (shownGenres.size > 0) {
+    shownGenres.clear();
+    mirrorFilter();
+    refilter();
+  }
+}
+
+// The third pass stores embeddings as it runs: a checked `Genre` item fills
+// in as it goes, and its end brings every label in.
+void window.__TAURI__.event.listen<{ scan_id: number }>("embed-progress", ({ payload }) => {
+  if (payload.scan_id === scanId && shownGenres.size > 0) {
+    refreshGenres();
+  }
+});
+void window.__TAURI__.event.listen<{ scan_id: number }>("embed-done", ({ payload }) => {
+  if (payload.scan_id === scanId) {
+    refreshGenres();
+  }
 });
 void window.__TAURI__.event.listen<AiState>("ai-state", ({ payload }) => {
   applyAiState(payload);
@@ -3925,8 +4020,9 @@ void window.__TAURI__.core.invoke<boolean>("auto_advance").then((enabled) => {
 const filterToggle = document.getElementById("filter-toggle") as HTMLButtonElement;
 const filterMenu = document.getElementById("filter-menu") as HTMLDivElement;
 const filterItems = filterMenu.querySelectorAll<HTMLButtonElement>(
-  "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes]",
+  "[data-flag], [data-stars], [data-label], [data-orientation], [data-candidate], [data-eyes], [data-genre]",
 );
+const filterGenre = document.getElementById("filter-genre") as HTMLDivElement;
 const filterExif = document.getElementById("filter-exif") as HTMLDivElement;
 // The icons of the `AF eye` items, the strip's icon of the same state in the
 // focus mark's color; `Unknown` keeps its slot empty.
@@ -3940,8 +4036,8 @@ function exifSelected(): boolean {
   return [...shownExif.values()].some((set) => set.size > 0);
 }
 
-// Whether any flag, star, label, orientation, candidate, eyes or EXIF filter
-// is checked.
+// Whether any flag, star, label, orientation, candidate, eyes, genre or EXIF
+// filter is checked.
 function filterActive(): boolean {
   return (
     shownFlags.size +
@@ -3949,7 +4045,8 @@ function filterActive(): boolean {
       shownLabels.size +
       shownOrientations.size +
       shownCandidates.size +
-      shownEyes.size >
+      shownEyes.size +
+      shownGenres.size >
       0 || exifSelected()
   );
 }
@@ -4009,7 +4106,7 @@ function setFilterMenuOpen(open: boolean): void {
 // Mirror the sets onto the menu's check marks and the button's lit state.
 function mirrorFilter(): void {
   for (const item of filterItems) {
-    const { flag, stars, label, orientation, candidate, eyes } = item.dataset;
+    const { flag, stars, label, orientation, candidate, eyes, genre } = item.dataset;
     const checked =
       flag !== undefined
         ? shownFlags.has(flag as Flag)
@@ -4021,7 +4118,9 @@ function mirrorFilter(): void {
               ? shownCandidates.has(candidate as AfEye)
               : eyes !== undefined
                 ? shownEyes.has(eyes as EyeState)
-                : shownStars.has(Number(stars));
+                : genre !== undefined
+                  ? shownGenres.has(genre)
+                  : shownStars.has(Number(stars));
     item.setAttribute("aria-checked", String(checked));
   }
   for (const item of filterExif.querySelectorAll<HTMLButtonElement>("[data-group]")) {
@@ -4055,7 +4154,7 @@ document.addEventListener("mousedown", (event) => {
 for (const item of filterItems) {
   item.addEventListener("click", () => {
     item.blur();
-    const { flag, stars, label, orientation, candidate, eyes } = item.dataset;
+    const { flag, stars, label, orientation, candidate, eyes, genre } = item.dataset;
     const set: Set<string | number> =
       flag !== undefined
         ? shownFlags
@@ -4067,8 +4166,10 @@ for (const item of filterItems) {
               ? shownCandidates
               : eyes !== undefined
                 ? shownEyes
-                : shownStars;
-    const value = flag ?? label ?? orientation ?? candidate ?? eyes ?? Number(stars);
+                : genre !== undefined
+                  ? shownGenres
+                  : shownStars;
+    const value = flag ?? label ?? orientation ?? candidate ?? eyes ?? genre ?? Number(stars);
     if (set.has(value)) {
       set.delete(value);
     } else {
@@ -4104,6 +4205,7 @@ filterExif.addEventListener("click", (event) => {
     shownOrientations.clear();
     shownCandidates.clear();
     shownEyes.clear();
+    shownGenres.clear();
     for (const set of shownExif.values()) {
       set.clear();
     }
