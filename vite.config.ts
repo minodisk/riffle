@@ -37,6 +37,8 @@ export default defineConfig({
       "release-please-config.json",
       "crates/app/capabilities/**",
       "crates/app/tauri.conf.json",
+      // Written by the image-embeddings plan's genre_vectors.py.
+      "crates/core/genres/**",
       "target/**",
       "crates/app/ui/dist/**",
       ".claude/**",

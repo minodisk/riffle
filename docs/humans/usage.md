@@ -330,7 +330,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   as the pass runs), the stored eye state of the judged face (the
   `Eyes` section: `Open`, `Closed`, or `Unknown` for a file with no stored
   state, such as one with no face found, with a face under about 60 pixels,
-  or not reached by the second pass yet),
+  or not reached by the second pass yet), the genre (the `Genre` section,
+  shown while AI analysis is on; see **AI analysis and genres**),
   camera, lens, aperture, shutter speed, ISO and focal length (grouped into
   ranges such as `24–35 mm`). The color
   label group lists the seven colors and `No label`; a label outside those
@@ -343,7 +344,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   passing file after it, else the last one before it, else the empty view.
   The flag, star, label, orientation, `AF eye` and `Eyes` checks are
   remembered across restarts and apply to every folder; the EXIF checks are
-  not, and clear whenever a folder opens. `Reset` clears the remembered
+  not, and clear whenever a folder opens. The `Genre` checks last until the
+  app quits or AI analysis is turned off. `Reset` clears the remembered
   filter too.
 - **Sort menu**: orders the strip by file name, capture time or rating;
   paging and `n / N` follow the chosen order. Capture time breaks ties by
@@ -572,6 +574,27 @@ viewer shows a prompt in its center; click it to open the folder picker.
   itself. Closing the modal cancels a held clear, so it only runs while the
   modal stays open until the scan ends. The size figure refreshes each time a
   scan ends.
+- **AI analysis and genres**: `AI analysis of what each photo shows` in the
+  `Culling` tab of `Riffle > Settings...` (off by default) turns on a third
+  background pass after a folder's scan. It embeds each RAW file's preview
+  with SigLIP 2 ViT-B/32 (Apache-2.0, notice in
+  `crates/core/models/LICENSE-siglip2`), locally; turning the setting on the
+  first time downloads the 378 MB model from Hugging Face, checked against
+  its SHA-256. The embeddings are cached and not recomputed unless a file
+  changes, JPEG-only folders are skipped, and turning the setting off keeps
+  them. While the setting is on, the filter menu shows a `Genre` section:
+  `Sports` (with `Basketball`), `Portrait` (with `Group photo`),
+  `Landscape`, `Birds / animals` (with `Pets`), `Snap` (with `Camping`) and
+  `Unknown`. A file can have several genres, a sub-genre always brings its
+  parent, and `Unknown` holds the files no genre fits plus those the pass
+  has not reached yet. The genres are a rough sort, not a judgment, and
+  never change a star or a flag. On 300 of the author's frames labeled by
+  hand, about 9 in 10 of the files under `Sports` and `Basketball` were
+  right, about 8 in 10 under `Birds / animals`, `Pets` and `Group photo`,
+  about 6 in 10 under `Camping`, and only about half under `Portrait`,
+  `Landscape` and `Snap`; `Unknown` mostly catches frames that do have a
+  genre. The thresholds were calibrated on one photographer's folders and
+  will fit other photography less well.
 - **Sharpness score**: Riffle scores each RAW file's sharpness from the embedded
   preview on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF focus point when the camera recorded one, even

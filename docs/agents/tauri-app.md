@@ -1318,6 +1318,15 @@ JPEG-only (view-only) folder never lists anything.
   `fetch` installs rustls' `ring` provider first when none is set, as the
   updater does. Its blocking reads time out after 30 s without data, not
   on the whole 378 MB.
+- **Genres are derived, not stored.** `genres_of(dir)` reads the folder's
+  valid embeddings (`Index::embeddings`) and scores each with
+  `riffle_core::genre::genres_of` on every call, so a new genre data file
+  never needs a rescan; files without a valid embedding are absent and the
+  frontend counts them as `Unknown`. The main window calls it after each
+  `folder_entries` refresh, on `embed-done`, and on `embed-progress` while
+  a `Genre` item is checked, at most one call in flight. The `Genre`
+  section and its checks exist only while `aiEnabled` is on; turning it
+  off clears them, and they are not part of the stored filter.
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores

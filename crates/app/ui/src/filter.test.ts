@@ -13,6 +13,7 @@ import {
   orientationOf,
   passes,
   toStored,
+  UNKNOWN_GENRE,
 } from "./filter.js";
 import { type MarkFocus, afEyeState } from "./focus.js";
 
@@ -24,6 +25,7 @@ function state(
   orientations: Orientation[] = [],
   candidates: AfEye[] = [],
   eyes: EyeState[] = [],
+  genres: string[] = [],
 ): FilterState {
   return {
     flags: new Set(flags),
@@ -32,6 +34,7 @@ function state(
     orientations: new Set(orientations),
     candidates: new Set(candidates),
     eyes: new Set(eyes),
+    genres: new Set(genres),
     exif: new Map(exif.map(([group, values]) => [group, new Set(values)])),
   };
 }
@@ -437,6 +440,50 @@ describe("passes: eyes", () => {
     expect(passes(both, unjudged, undefined, 1, "not_candidate", "closed")).toBe(false);
     expect(passes(both, pickedTwo, undefined, 1, "good", "closed")).toBe(false);
     expect(passes(both, unjudged, undefined, 1, "good", "open")).toBe(false);
+  });
+});
+
+describe("passes: genres", () => {
+  const genres = (...labels: string[]) => state([], [], [], [], [], [], [], labels);
+  const check = (s: FilterState, labels: string[] | undefined) =>
+    passes(s, unjudged, undefined, 1, undefined, undefined, labels);
+
+  test("nothing checked passes every file", () => {
+    expect(check(state(), ["sports"])).toBe(true);
+    expect(check(state(), undefined)).toBe(true);
+  });
+
+  test("a file passes when one of its labels is checked", () => {
+    expect(check(genres("sports"), ["sports", "basketball"])).toBe(true);
+    expect(check(genres("basketball"), ["sports", "basketball"])).toBe(true);
+    expect(check(genres("portrait"), ["sports", "basketball"])).toBe(false);
+  });
+
+  test("ORs the checked labels", () => {
+    const either = genres("portrait", "landscape");
+    expect(check(either, ["landscape"])).toBe(true);
+    expect(check(either, ["portrait", "snap"])).toBe(true);
+    expect(check(either, ["snap"])).toBe(false);
+  });
+
+  test("Unknown passes a frame no genre clears or one without an embedding", () => {
+    expect(check(genres(UNKNOWN_GENRE), [UNKNOWN_GENRE])).toBe(true);
+    expect(check(genres(UNKNOWN_GENRE), undefined)).toBe(true);
+    expect(check(genres(UNKNOWN_GENRE), ["snap"])).toBe(false);
+    expect(check(genres("snap"), undefined)).toBe(false);
+  });
+
+  test("ANDs with the other groups", () => {
+    const both = state(["untagged"], [], [], [], [], [], [], ["sports"]);
+    expect(passes(both, unjudged, undefined, 1, undefined, undefined, ["sports"])).toBe(true);
+    expect(passes(both, pickedTwo, undefined, 1, undefined, undefined, ["sports"])).toBe(false);
+  });
+
+  test("is not remembered", () => {
+    expect(toStored(genres("sports"))).not.toHaveProperty("genres");
+    const s = genres("sports");
+    applyStored(s, toStored(state(["picked"])));
+    expect([...s.genres]).toEqual(["sports"]);
   });
 });
 

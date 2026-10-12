@@ -45,7 +45,11 @@ the SigLIP 2 image embedding of a preview (decoded near 404 px, 768-d,
 L2-normalized; the model is downloaded, not bundled, its pinned URL, size and
 SHA-256 here and its Apache-2.0 notice in `crates/core/models/LICENSE-siglip2`,
 one plan shared through `embed::shared`, `EMBED_VERSION` naming the model and
-its preprocessing), and
+its preprocessing), `src/genre.rs` the genre labels of an embedding (a cosine
+per label against the text vectors and per-label calibrated thresholds of
+`crates/core/genres/siglip2.json`, written offline by the image-embeddings
+plan's `genre_vectors.py`, a sub-genre bringing its parent, `Unknown` when
+none clears), and
 `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
@@ -75,7 +79,8 @@ checked against its size and SHA-256,
 the running scan the current file and the strip's visible range,
 `faces_of`, which detects the faces the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
-and `eyes_of`, which judges with `eyes` whether the eyes of the shown file's
+`genres_of`, which gives the folder's genre labels from its stored
+embeddings, and `eyes_of`, which judges with `eyes` whether the eyes of the shown file's
 AF face are closed, also on demand, a newer request superseding an older one,
 and returns the face mesh points it judged on in stored preview coordinates,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
@@ -144,8 +149,9 @@ and Analysis, whose rows include the AF eye in-focus probability and the
 the AF face, else the `eyes_of` judgment), `src/eyes.ts` caches the `eyes_of` judgments per file with one
 in flight at a time, `src/facemesh.ts` holds MediaPipe's face parts
 outline and iris edges the focus mark draws over the judged face, `src/filter.ts` decides which files the strip's filter menu
-lets through (including its `AF eye` section, whose `Good` item applies the good-photo rule, and its `Eyes` section on the
-stored eye state), `src/companion.ts` answers the MCP bridge's
+lets through (including its `AF eye` section, whose `Good` item applies the good-photo rule, its `Eyes` section on the
+stored eye state, and its `Genre` section on the `genres_of` labels, shown
+while `aiEnabled` is on), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/idle.ts`
 holds an operation pressed during a scan (Move Rejected to Trash, the

@@ -804,6 +804,7 @@ fn main() {
             commands::start_scan,
             commands::set_scan_focus,
             commands::folder_entries,
+            commands::genres_of,
             commands::last_viewed,
             commands::set_last_viewed,
             commands::thumbnail,

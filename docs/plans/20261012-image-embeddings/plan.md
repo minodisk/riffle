@@ -25,9 +25,11 @@ knows nothing about what a photo shows. One local CLIP-style image embedding
 per file, computed once in the background and cached in the index, gives
 three features that share it:
 
-- **Visual similarity**: "show me the frames that look like this one" across
-  a folder, independent of the time-based bursts (`crates/app/ui/src/burst.ts`,
-  `BURST_GAP_MS` 1000, untouched), and the visual groups built from it.
+- **Visual similarity** (dropped, Decision 3): "show me the frames that look
+  like this one" across a folder, independent of the time-based bursts
+  (`crates/app/ui/src/burst.ts`, `BURST_GAP_MS` 1000, untouched), and the
+  visual groups built from it. No cosine threshold separated scenes on the
+  labeled pairs, so Steps 4 and 6 were closed without shipping.
 - **Genre classification**: multi-label genres (sports, portrait, landscape,
   birds / animals, snap, macro, other, with sub-genres) from precomputed
   prompt text vectors, with a calibrated `Unknown`, as a filter menu
@@ -282,7 +284,8 @@ Constraints the user set, binding on every step:
       the frontend. Skipped entirely, with an immediate `embed-done`, when
       `aiEnabled` is off or the folder is view-only.
     - Settings: `aiEnabled` (default off until a user-facing feature
-      ships in Step 4; the default may flip then) read like `mcpEnabled`
+      ships; Step 4 was dropped (Decision 3), so that is Step 5's genre
+      filter or Step 7's ranking, and the default may flip then) read like `mcpEnabled`
       in the settings tuple and set by `set_ai_enabled`; a checkbox in the
       settings modal with the one-line explanation that analysis runs
       locally in the background. Turning it on triggers pass 3 for the
@@ -335,7 +338,8 @@ Constraints the user set, binding on every step:
       ANN only if a real folder shows otherwise (record the measured time).
     - To be refined after Decision 1 (vector size, model).
 
-- [ ] Step 5: Genre classification: a genre data file, precomputed prompt vectors, a filter menu section
+- [x] Step 5: Genre classification: a genre data file, precomputed prompt vectors, a filter menu section
+  - Shipped with sports, basketball, portrait, group photo, landscape, birds / animals, pets, snap and camping; soccer, macro and other were dropped (Decision 4, [genres.md](genres.md)). The data file is embedded with `include_str!` in `genre.rs` rather than through `build.rs`: there is one file for the one shipped model, so a generated file list had no second user.
   - Done when:
     - `crates/core/genres/<model>.json` (embedded by `build.rs` like
       `i18n/`) lists each genre and sub-genre with its prompt ensemble,
@@ -581,6 +585,36 @@ game is different).
   looser definition, or dropping; the user chose dropping. Step 5 (genre)
   and Step 7 (ranking) proceed; neither depends on Step 4.
 
+## Decision 4 (genre labels and thresholds)
+
+Decided in Step 5 on 300 hand-labeled frames from 56 folders
+([genres.md](genres.md)); thresholds maximize F1 per label, checked
+leave one folder out.
+
+- **Shipped: sports, basketball, portrait, group photo, landscape,
+  birds / animals, pets, snap, camping, and `Unknown`.** Held out, sports
+  and basketball read about 0.90 precision and recall; birds / animals
+  (0.85 / 0.50), pets (0.75 / 0.82) and group photo (0.80 / 0.53) are usable
+  on thin data; camping reads 0.61 / 0.73.
+- **Portrait, landscape and snap are weak** (held-out precision 0.49, 0.48,
+  0.55): about half of what each lets through is wrong, and no threshold
+  makes portrait precise at a useful recall. They ship as a rough sort, and
+  the usage docs say so; dropping them is the alternative.
+- **`Unknown` means "no genre matched"**, not "nothing to see": the 14
+  unidentifiable frames all clear some genre, and `Unknown` reads 0.26
+  precision / 0.29 recall held out against the frames with no shipped
+  genre. A file without an embedding yet also counts as `Unknown` in the
+  filter, as the `AF eye` and `Eyes` sections count a file not reached yet.
+- **Dropped: soccer, macro, other.** The labels hold no soccer or macro
+  frame, and the 22 frames each was most confident about in the library were
+  all something else, so no threshold can be set or justified; adding them
+  back needs labeled positives. `other` reads 0.27 precision held out with
+  either prompt set and is folded into `Unknown`.
+- **Prompts**: the better of Step 2's provisional prompts and one revision,
+  per label, by held-out F1 (revised: group photo, birds / animals, snap,
+  camping). The choice was made on the same labels, so the held-out numbers
+  are slightly optimistic for it.
+
 ## Progress
 
 - (2026-10-12) Plan written; the user added per-genre ranking weights (a Step 2 variant, kept for Step 7 only if it wins held out).
@@ -588,3 +622,4 @@ game is different).
 - (2026-10-12) Step 2 complete (gate passed narrowly: weighted pairwise AUC 0.708 vs the 0.703 bar; Decision 2: ship a shared model, no per-genre offsets)
 - (2026-10-12) Step 3 complete
 - (2026-10-12) Steps 4 and 6 closed without shipping (Decision 3: no cosine threshold reaches the 0.95 precision on the 150 labeled pairs; the user chose to drop them)
+- (2026-10-12) Step 5 complete

@@ -247,6 +247,47 @@
   7 no longer lists Step 4 as a prerequisite, and the `aiEnabled` default
   now waits on Step 5 or 7 instead of Step 4.
 
+## Step 5
+
+- **The labels file uses label names, not ids.** `labels.tsv` holds the
+  names (`birds / animals`, `group photo`), comma-separated, and `frames.tsv`
+  maps the frame id to the path; the embed.tsv paths mix `/` and `\`
+  (`D:/photos/2026/2026-06-05\_DSC0440.ARW`), so `genre_calibrate.py`
+  normalizes them before the join. All 300 frames were found in the two
+  embed.tsv files.
+- **Rounding a threshold moves frames.** The first file rounded the chosen
+  cosines to 4 decimals, which dropped the frame sitting exactly at the
+  threshold for pets and birds / animals (pets recall 1.00 -> 0.91).
+  `genre_calibrate.py` now prints them rounded down, and its `file` columns
+  confirm the shipped thresholds reproduce the chosen ones.
+- **Unknown is not an "unidentifiable" detector.** All 14 `none` frames
+  clear some genre: a dark or blurred frame's embedding still sits near a
+  genre's text. `Unknown` = "no genre matched" is the honest reading, and
+  with `other` dropped its ground truth is the frames with no shipped genre
+  (0.26 / 0.29 held out).
+- **A prompt revision helps some labels and hurts others.** Written from the
+  labeling definitions, it lifted group photo (0.36 -> 0.64 held-out F1)
+  and snap (0.51 -> 0.64) and lowered portrait, landscape and other. The
+  shipped file takes the better per label; that choice is on the same
+  labels.
+- **`vp fmt` would explode the data file.** It formats every JSON in the
+  repository and puts each of the 768 floats of each vector on its own line.
+  `crates/core/genres/**` is in `vite.config.ts`'s `fmt.ignorePatterns`,
+  since `genre_vectors.py` writes it.
+- **`include_str!` instead of `build.rs`.** The plan said "embedded by
+  `build.rs` like `i18n/`"; `i18n/` needs `build.rs` because the languages
+  are discovered from the folder. One data file for the one shipped model
+  does not, and `include_str!` already makes cargo rebuild on its change.
+- **Local CI, first run: dead code under `-D warnings`.** `genre.rs`'s
+  `model` / `embed_version` fields are read only by the unit test that
+  checks them against `EMBED_VERSION`, so the non-test build failed clippy.
+  They carry `#[cfg_attr(not(test), expect(dead_code))]`; the second run
+  passed.
+- **The Genre checks are per session.** Adding them to the stored filter
+  would have meant changing the backend's `StoredFilter` for labels that only
+  exist while AI is on; they clear when AI turns off, so a hidden item never
+  filters.
+
 ## Deferred issues (todo candidates)
 
 - **Late embedding batches can outlive `clear_index` and the renames.**
@@ -318,6 +359,44 @@
   pass runs, which is fine while no feature reads the vectors (the first step to
   ship a visible feature, Step 5 or 7, may want an `embedding N / M` status). Source: Step 3;
   `crates/app/src/commands.rs` `start_scan`.
+
+- **Pending manual check: the Genre filter in the real app.** Step 5's
+  checkbox was ticked on the automated criteria (the calibration in
+  `genres.md`, the `genre.rs` / `filter.ts` / `index.rs` unit tests). On the
+  Windows 11 machine, with a build of this branch and AI analysis on:
+  1. Open `D:/photos/2026/2026-09-19` after its embeddings exist. The
+     filter menu should show a `Genre` section (Sports, Basketball,
+     Portrait, Group photo, Landscape, Birds / animals, Pets, Snap, Camping,
+     Unknown) below `Eyes`.
+  2. Check `Basketball`: the strip should keep the basketball frames (most
+     of that folder). Check `Unknown` alone: the frames with no genre and
+     any not embedded yet.
+  3. Untick `AI analysis of what each photo shows` in the settings: the
+     section should disappear and the strip should show everything again.
+     Tick it again: the section returns with nothing checked.
+  4. On a folder never embedded, with a `Genre` item checked, the strip
+     should fill in as pass 3 runs (`embed-progress`) and be complete at
+     `embed-done`.
+  Source: Step 5 Done-when (filter menu section); `crates/app/ui/src/main.ts`
+  `refreshGenres` / `setGenreSection`.
+- **`genres_of` was not timed on a real folder.** It reads every valid
+  embedding blob of the folder (about 3 KB each, 6.6 MB for 2134 files) and
+  scores 9 labels on each call, after every `folder_entries` refresh and
+  on each `embed-progress` while a Genre item is checked. Expected to be
+  tens of milliseconds; caching the labels per path in the backend would be
+  the fix if Timing logs show otherwise. Source: Step 5;
+  `crates/app/src/commands.rs` `genres_of`, `crates/app/src/index.rs`
+  `embeddings`.
+- **The `aiEnabled` default is still off.** Step 5 is the first visible AI
+  feature, the point at which the plan said the default may flip. It stays
+  off here (a 378 MB download for every user otherwise); flipping it is the
+  user's call. Source: plan.md Trade-offs "Default of `aiEnabled`";
+  `crates/app/src/commands.rs` `ai_enabled_setting`.
+- **Soccer and macro need labeled positives to come back.** Dropped in
+  Decision 4; re-adding them means labeling frames from a soccer game and a
+  macro session, adding the labels to `genre_prompts.json` and re-running
+  `genre_vectors.py` and `genre_calibrate.py`. Source: Step 5;
+  `docs/plans/20261012-image-embeddings/genres.md`.
 
 ## User decisions
 
