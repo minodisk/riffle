@@ -4055,6 +4055,7 @@ function setRanking(enabled: boolean): void {
   }
   rankingOn = enabled;
   sortRecommended.hidden = !enabled;
+  syncSortChecks();
   if (enabled) {
     refreshRanks();
     return;
@@ -4364,8 +4365,15 @@ function setViewOnly(next: boolean): void {
 
 function setSortKey(key: SortKey): void {
   sortKey = key;
+  syncSortChecks();
+}
+
+// Checks the item of the sort in force, so `Capture time` shows checked while
+// the hidden `Recommended` is the persisted key.
+function syncSortChecks(): void {
+  const inForce = sortKey === "recommended" && !rankingOn ? "capture" : sortKey;
   for (const item of sortItems) {
-    item.setAttribute("aria-checked", String(item.dataset.sort === key));
+    item.setAttribute("aria-checked", String(item.dataset.sort === inForce));
   }
 }
 

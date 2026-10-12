@@ -336,6 +336,14 @@
 
 ## Deferred issues (todo candidates)
 
+- **The pull toward the prior is untested for one to three finished
+  folders.** `fit` shrinks toward the prior with tau = 1/(2C) = 5 in total,
+  and a single finished folder (about 70 scorable bursts) may outweigh it
+  several times over; the one measured move (0.300) came from 1602 bursts.
+  Refit from the prior on 1, 3 and 5 folders, compare the held-out weighted
+  AUC with the prior's and pick the strength (for example tau scaled by the
+  prior's burst count). Source: local review Round 1 item 1; `crates/core/src/rank.rs`,
+  `crates/core/ranking/ranking.md`.
 - **No refit when a finished folder's embeddings arrive.** Marking a folder
   finished before its third pass ran (AI off at the time, or the pass still
   running) refits without its frames; only `Refit Ranking` or another mark
@@ -362,8 +370,8 @@
      burst together (the burst bands contiguous) and reorder frames within
      bursts. The meta pane's Analysis group should show `Recommended`
      (`N of M in its burst · +0.xx`), `Reason` (up to three, e.g. `Look
-     +0.62, Burst position −0.31`) and `Confidence` (`Built-in only, no
-     finished folder yet` on a fresh install).
+     +0.62, Burst position −0.31`) and `Confidence` (`Built-in only,
+     nothing learned yet` on a fresh install).
   2. Right-click the folder in the tree: a `Culling Finished` check should
      sit above `Move Rejected to Trash…`. Check it; `Riffle.log` should get
      a `ranking fit: N bursts from 1 folders` line, the meta pane's

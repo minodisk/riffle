@@ -623,8 +623,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the background, and `Refit Ranking` in the `Culling` tab of
   `Riffle > Settings...` refits it at any time, for example after more picks
   in a finished folder; the fit is stored as `ranking.json` in the app's
-  local data dir. With few finished folders it stays close to the built-in
-  model. `Confidence` reads `Built-in only, no finished folder yet` until a
+  local data dir. `Confidence` reads `Built-in only, nothing learned yet` until a
   finished folder gives something to learn from, then `Low`, `Medium` or
   `High` with the bursts and folders it learned from. It is a modest
   suggestion, not a best-shot pick: held out on the author's folders, the

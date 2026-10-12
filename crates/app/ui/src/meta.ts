@@ -96,7 +96,7 @@ function plural(n: number, word: string): string {
 // settings.
 export function confidenceText(model: RankModel): string {
   if (model.confidence === "none") {
-    return "Built-in only, no finished folder yet";
+    return "Built-in only, nothing learned yet";
   }
   const level = model.confidence.charAt(0).toUpperCase() + model.confidence.slice(1);
   return `${level} · ${plural(model.bursts, "burst")} in ${plural(model.folders, "folder")}`;

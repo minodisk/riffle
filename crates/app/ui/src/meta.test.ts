@@ -337,7 +337,7 @@ describe("metaGroups with the personal ranking", () => {
     };
     expect(metaGroups(null, null, null, prior)[0]?.rows).toEqual([
       { label: "Recommended", value: "2 of 2 in its burst · −0.01" },
-      { label: "Confidence", value: "Built-in only, no finished folder yet" },
+      { label: "Confidence", value: "Built-in only, nothing learned yet" },
     ]);
   });
 

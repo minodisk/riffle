@@ -8,8 +8,7 @@
 //! plan's offline `rank_prior.py`: the PCA basis, the imputation means, the
 //! standardization and the weights. `fit` refits the weights on the user's
 //! own judgments in the prior's coordinates, shrunk toward the prior's
-//! weights, so a few finished folders move the model a little and many move
-//! it far.
+//! weights; how far a few finished folders move the model is not measured.
 
 use std::cmp::Ordering;
 use std::sync::OnceLock;
