@@ -945,33 +945,36 @@ function confirmTrashFiles(paths: string[]): void {
 // Move `paths` of `dir` and their sidecars to the Trash through
 // `trash_files`, once no scan runs. Dropped when another folder was opened
 // meanwhile; the run's result is reported even if one was opened while it
-// ran, since the backend recorded it for undo.
+// ran, since the backend recorded it for undo. The confirm dialog stays open
+// in its running phase until the invoke settles, so the strip does not get
+// the keyboard back mid-move; when the idle gate holds the move for a scan's
+// end, the dialog closes at once instead.
 function trashFilesIn(dir: string, paths: string[]): void {
   const token = folderToken;
-  whenIdle("Move to Trash", () => {
-    if (
-      dir !== openDir ||
-      token !== folderToken ||
-      trashFlow.busy ||
-      sidecarFlow.busy ||
-      sequenceFlow.busy
-    ) {
+  const held = whenIdle("Move to Trash", () => {
+    if (dir !== openDir || token !== folderToken || sidecarFlow.busy || sequenceFlow.busy) {
+      closeTrashDialog();
       return;
     }
     settleIdle(
       window.__TAURI__.core
         .invoke<TrashSummary>("trash_files", { dir, paths })
         .then((summary) => {
+          closeTrashDialog();
           if (summary.run_id !== null) {
             redoable.clear();
           }
           trashed(summary, [dir], false);
         })
         .catch((err: unknown) => {
+          closeTrashDialog();
           setStatus(String(err));
         }),
     );
   });
+  if (held) {
+    closeTrashDialog();
+  }
 }
 
 function closeTrashDialog(): void {
@@ -979,7 +982,8 @@ function closeTrashDialog(): void {
   trashDialog.hidden = true;
 }
 
-// The run collects again under the backend's `Scans` lock, so a folder that
+// A strip run (`paths`) goes through `trashFilesIn`. The reject run collects
+// again under the backend's `Scans` lock, so a folder that
 // could not be read in the preview is left out again. When the open folder
 // was among the targets, its state is pruned by the moved paths and it is
 // re-listed; read at the end, since the open folder may change meanwhile.
@@ -989,13 +993,12 @@ function runTrash(): void {
     return;
   }
   const { dirs, recursive, paths } = target;
+  trashRunButton.disabled = true;
+  trashCancelButton.disabled = true;
   if (paths !== undefined && dirs[0] !== undefined) {
-    closeTrashDialog();
     trashFilesIn(dirs[0], paths);
     return;
   }
-  trashRunButton.disabled = true;
-  trashCancelButton.disabled = true;
   settleIdle(
     window.__TAURI__.core
       .invoke<TrashSummary>("trash_rejected_run", { dirs, recursive })
