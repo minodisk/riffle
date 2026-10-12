@@ -343,7 +343,7 @@
   Refit from the prior on 1, 3 and 5 folders, compare the held-out weighted
   AUC with the prior's and pick the strength (for example tau scaled by the
   prior's burst count). Source: local review Round 1 item 1; `crates/core/src/rank.rs`,
-  `crates/core/ranking/ranking.md`.
+  `docs/plans/20261012-image-embeddings/ranking.md`.
 - **No refit when a finished folder's embeddings arrive.** Marking a folder
   finished before its third pass ran (AI off at the time, or the pass still
   running) refits without its frames; only `Refit Ranking` or another mark
