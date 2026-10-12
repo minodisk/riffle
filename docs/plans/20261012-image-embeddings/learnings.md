@@ -228,6 +228,17 @@
 
 ## Deferred issues (todo candidates)
 
+- **Late embedding batches can outlive `clear_index` and the renames.**
+  `stop_embedding` only sets the cancel flag, so a worker `flush` blocked on
+  the index lock, or the task's trailing flush, can still write after
+  `clear()` / `rename_dir` / `rename_file`. `drop_stray_embeddings` misses
+  rows whose folder row survives. Making `write_embeddings` insert only when
+  a `files` row with the same `path`, `size` and `mtime_ns` exists (`INSERT
+  ... SELECT ... FROM files WHERE ...`) would make every late write a no-op
+  and let `drop_stray_embeddings` go; it needs the embedding tests to create
+  `files` rows first. Source: local review Round 1, item 2. Files:
+  `crates/app/src/index.rs`, `crates/app/src/commands.rs`.
+
 - **A 190 MB download at FP32 speed is untested.** tract runs the
   weight-only fp16 re-export (`weight_only.py`) at 2-5x FP32's cost because
   it re-widens the weights on every run. Widening the float16 initializers

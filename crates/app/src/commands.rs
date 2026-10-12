@@ -1169,7 +1169,9 @@ impl ScansState {
     /// Cancel the running scan if it is in its third pass, which then stops
     /// at its next file; its stored embeddings stay. Called when `aiEnabled`
     /// turns off and before an operation that deletes or moves index rows
-    /// (`clear_index`, the renames), so no batch lands after them.
+    /// (`clear_index`, the renames). It only sets the flag: a batch already
+    /// waiting on the index lock may still land afterwards, and the index's
+    /// `drop_stray_embeddings` covers only rows without a live folder.
     pub(crate) fn stop_embedding(&self) {
         if let Some((_, cancel, _, _)) = self.running.as_ref().filter(|_| self.in_embed_pass()) {
             cancel.store(true, Ordering::Relaxed);

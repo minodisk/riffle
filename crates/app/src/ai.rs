@@ -53,6 +53,20 @@ pub struct AiState {
 
 impl AppAi {
     pub fn new(enabled: bool, model: Option<PathBuf>) -> Self {
+        // Part files a previous run left behind; no download runs yet.
+        if let Some(path) = &model {
+            let prefix = format!(
+                "{}.part",
+                path.file_name().unwrap_or_default().to_string_lossy()
+            );
+            if let Some(Ok(entries)) = path.parent().map(std::fs::read_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_name().to_string_lossy().starts_with(&prefix) {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
         AppAi {
             status: Mutex::new(Status {
                 enabled,
@@ -203,7 +217,7 @@ fn fetch(url: &str) -> Result<reqwest::blocking::Response, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Copy `src` to `dest` through `dest` + `.part`, reporting the bytes copied
+/// Copy `src` to `dest` through a `dest` + `.part-{n}` file, reporting the bytes copied
 /// so far to `progress`, and rename it into place only when it is exactly
 /// `size` bytes long with the lowercase hex SHA-256 `sha256`. Stops with an
 /// `Err` once `cancel` is set or `src` runs past `size`; every `Err` removes
@@ -216,7 +230,13 @@ pub fn install(
     cancel: &AtomicBool,
     mut progress: impl FnMut(u64),
 ) -> Result<(), String> {
-    let part = with_suffix(dest, ".part");
+    // One part file per call, so a canceled download still winding down
+    // cannot truncate or delete the one a newer download is writing.
+    static PART_SEQ: AtomicU64 = AtomicU64::new(0);
+    let part = with_suffix(
+        dest,
+        &format!(".part-{}", PART_SEQ.fetch_add(1, Ordering::Relaxed)),
+    );
     let result = (|| {
         if let Some(dir) = dest.parent() {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -281,6 +301,23 @@ mod tests {
         dir
     }
 
+    fn part_files(dest: &Path) -> Vec<PathBuf> {
+        let prefix = format!("{}.part", dest.file_name().unwrap().to_string_lossy());
+        std::fs::read_dir(dest.parent().unwrap())
+            .map(|d| {
+                d.flatten()
+                    .map(|e| e.path())
+                    .filter(|p| {
+                        p.file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .starts_with(&prefix)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     fn sha256_of(bytes: &[u8]) -> String {
         Sha256::digest(bytes)
             .iter()
@@ -303,7 +340,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), DATA);
-        assert!(!with_suffix(&dest, ".part").exists());
+        assert!(part_files(&dest).is_empty());
         assert_eq!(seen.last(), Some(&(DATA.len() as u64)));
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -323,7 +360,7 @@ mod tests {
         .unwrap_err();
         assert!(e.contains("SHA-256"), "{e}");
         assert!(!dest.exists());
-        assert!(!with_suffix(&dest, ".part").exists());
+        assert!(part_files(&dest).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -352,7 +389,7 @@ mod tests {
         );
         assert!(long.unwrap_err().contains("more than"));
         assert!(!dest.exists());
-        assert!(!with_suffix(&dest, ".part").exists());
+        assert!(part_files(&dest).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -371,7 +408,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(e, "canceled");
         assert!(!dest.exists());
-        assert!(!with_suffix(&dest, ".part").exists());
+        assert!(part_files(&dest).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
