@@ -1555,8 +1555,10 @@ function drawPerf(): void {
   ctx.lineJoin = "round";
   // A series without a reading (the system disk on macOS) has no line and no
   // legend entry.
-  const shown = PERF_LINES.filter((line) =>
-    samples.some((sample) => line.value(sample, readMax) !== null),
+  const shown = PERF_LINES.filter(
+    (line) =>
+      line.label !== "System disk" ||
+      samples.some((sample) => line.value(sample, readMax) !== null),
   );
   for (const line of shown) {
     ctx.strokeStyle = line.color;

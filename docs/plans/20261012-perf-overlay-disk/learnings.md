@@ -29,8 +29,8 @@
   the tens to hundreds of KB/s, stays within a few percent of the axis. A
   scan reading RAW files from an SSD exceeds the floor and rescales the
   axis. Retune from the hand check below.
-- The legend hides a series that has no reading in the window (the system
-  disk line on macOS), so on Windows / Linux the `System disk` entry appears
+- The legend hides the `System disk` series when it has no reading in the window (the
+  system disk line on macOS), so on Windows / Linux the `System disk` entry appears
   with the first sample rather than when the overlay opens.
 
 ## Deferred issues (todo candidates)

@@ -6,9 +6,9 @@
 //! The read throughput is sysinfo's per-process read counter, which on
 //! Windows counts every read the process issues (files, pipes, sockets), so
 //! it carries a small non-disk baseline; that is fine for this overlay. The
-//! disk busy time is `100 - \PhysicalDisk(_Total)\% Idle Time` from PDH on
-//! Windows, the busiest whole disk's `io_ticks` share of the interval on
-//! Linux, and `None` elsewhere.
+//! disk busy time is the busiest disk's, `100 - \PhysicalDisk(*)\% Idle Time`
+//! from PDH (minimum idle over the instances, `_Total` skipped) on Windows,
+//! its `io_ticks` share of the interval on Linux, and `None` elsewhere.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -56,6 +56,17 @@ fn busy_from_idle(idle: f64) -> f32 {
     (100.0 - idle).clamp(0.0, 100.0) as f32
 }
 
+/// The busiest disk's busy share from `(instance, % Idle Time)` pairs,
+/// skipping the `_Total` average; `None` when no disk is listed.
+#[cfg(any(windows, test))]
+fn busiest(idles: &[(String, f64)]) -> Option<f32> {
+    idles
+        .iter()
+        .filter(|(name, _)| name != "_Total")
+        .map(|(_, idle)| busy_from_idle(*idle))
+        .reduce(f32::max)
+}
+
 /// The share of `elapsed` a disk spent on I/O (`io_ticks`, in milliseconds),
 /// clamped to 0–100; nothing elapsed reads as 0.
 #[cfg(any(target_os = "linux", test))]
@@ -78,11 +89,12 @@ fn io_ticks(stat: &str) -> Option<u64> {
 mod disk {
     use windows::core::{w, PCWSTR};
     use windows::Win32::System::Performance::{
-        PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterValue,
-        PdhOpenQueryW, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
+        PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterArrayW,
+        PdhOpenQueryW, PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
+        PDH_MORE_DATA,
     };
 
-    /// One PDH query on `\PhysicalDisk(_Total)\% Idle Time`, closed on drop.
+    /// One PDH query on `\PhysicalDisk(*)\% Idle Time`, closed on drop.
     pub struct DiskBusy {
         query: Option<(PDH_HQUERY, PDH_HCOUNTER)>,
         primed: bool,
@@ -107,12 +119,7 @@ mod disk {
             // SAFETY: `query` is open and the out pointer is a live local. The
             // English path works whatever the Windows display language.
             let status = unsafe {
-                PdhAddEnglishCounterW(
-                    query,
-                    w!("\\PhysicalDisk(_Total)\\% Idle Time"),
-                    0,
-                    &mut counter,
-                )
+                PdhAddEnglishCounterW(query, w!("\\PhysicalDisk(*)\\% Idle Time"), 0, &mut counter)
             };
             if status != 0 {
                 // SAFETY: `query` was opened above and is not used again.
@@ -137,17 +144,46 @@ mod disk {
             if !std::mem::replace(&mut self.primed, true) {
                 return None;
             }
-            let mut value = PDH_FMT_COUNTERVALUE::default();
-            // SAFETY: the counter is valid and `value` is a live local.
-            let status =
-                unsafe { PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) };
+            let mut size = 0u32;
+            let mut count = 0u32;
+            // SAFETY: a null buffer with a zero size only asks for the size.
+            let status = unsafe {
+                PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut size, &mut count, None)
+            };
+            if status != PDH_MORE_DATA {
+                self.warn(status);
+                return None;
+            }
+            // u64 elements keep the buffer aligned for the items.
+            let mut buffer = vec![0u64; (size as usize).div_ceil(8)];
+            let items = buffer.as_mut_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>();
+            // SAFETY: `buffer` holds at least `size` bytes, aligned for the items.
+            let status = unsafe {
+                PdhGetFormattedCounterArrayW(
+                    counter,
+                    PDH_FMT_DOUBLE,
+                    &mut size,
+                    &mut count,
+                    Some(items),
+                )
+            };
             if status != 0 {
                 self.warn(status);
                 return None;
             }
-            // SAFETY: PDH_FMT_DOUBLE fills the union's `doubleValue`.
-            let idle = unsafe { value.Anonymous.doubleValue };
-            Some(super::busy_from_idle(idle))
+            // SAFETY: PDH filled `count` items, and their names point into
+            // `buffer`; PDH_FMT_DOUBLE fills the union's `doubleValue`.
+            let idles: Vec<(String, f64)> =
+                unsafe { std::slice::from_raw_parts(items, count as usize) }
+                    .iter()
+                    .map(|item| unsafe {
+                        (
+                            item.szName.to_string().unwrap_or_default(),
+                            item.FmtValue.Anonymous.doubleValue,
+                        )
+                    })
+                    .collect();
+            super::busiest(&idles)
         }
 
         fn warn(&mut self, status: u32) {
@@ -371,6 +407,18 @@ mod tests {
         assert_eq!(busy_from_idle(25.0), 75.0);
         assert_eq!(busy_from_idle(120.0), 0.0);
         assert_eq!(busy_from_idle(-5.0), 100.0);
+    }
+
+    #[test]
+    fn busiest_is_the_least_idle_disk_without_the_total() {
+        let idles = [
+            ("0 C:".to_string(), 99.0),
+            ("1 D:".to_string(), 10.0),
+            ("_Total".to_string(), 54.5),
+        ];
+        assert_eq!(busiest(&idles), Some(90.0));
+        assert_eq!(busiest(&[("_Total".to_string(), 50.0)]), None);
+        assert_eq!(busiest(&[]), None);
     }
 
     #[test]

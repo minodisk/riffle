@@ -245,8 +245,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   usage (the thick solid blue line) and the whole system's (the thin dashed
   blue line), both 0–100 % of all cores; Riffle's own reads (the thick solid
   green line, on an MB/s scale at the right of the legend, at least 10 MB/s
-  tall); and how busy the system's disks are (the thin dashed green line,
-  0–100 % of the time). When the bars grow, look at the lines: Riffle's CPU
+  tall); and how busy the busiest of the system's disks is (the thin dashed green
+  line, 0–100 % of the time). When the bars grow, look at the lines: Riffle's CPU
   line high means Riffle itself is busy (a running scan, including its
   analysis pass, counts as Riffle's CPU); the system CPU line pegged while
   Riffle's stays low means another process is taking the CPU; both CPU lines

@@ -69,10 +69,11 @@ at a glance, on the same 60 s window and 500 ms cadence as the CPU lines.
       under a new `[target.'cfg(windows)'.dependencies]` table in
       `crates/app/Cargo.toml` (same shape as `crates/core`'s) and confirm
       `cargo tree -d` shows no second `windows` version. Open one query with
-      `PdhOpenQueryW`, add `\PhysicalDisk(_Total)\% Idle Time` with
+      `PdhOpenQueryW`, add `\PhysicalDisk(*)\% Idle Time` with
       `PdhAddEnglishCounterW` (English path, so it works on a Japanese
       Windows), call `PdhCollectQueryData` each period and read it with
-      `PdhGetFormattedCounterValue(PDH_FMT_DOUBLE)`; busy = `100 - idle`,
+      `PdhGetFormattedCounterArrayW(PDH_FMT_DOUBLE)`; busy = `100 - min(idle)`
+      over the instances, `_Total` skipped (the busiest disk, as on Linux),
       clamped to 0–100. The first collection has no rate yet, which the
       existing "drop the first reading" rule in `Readings` already covers.
       Close the query (`PdhCloseQuery`) when the thread exits. Keep all
@@ -135,4 +136,8 @@ at a glance, on the same 60 s window and 500 ms cadence as the CPU lines.
 
 ## Progress
 
-- (none yet)
+- Step 1 done on the automated criteria (`mise run ci`). The Windows hand
+  check, the last Done-when item, is still pending (see `learnings.md`).
+  Round 1 review: the Windows busy line now reads the busiest disk through
+  `\PhysicalDisk(*)` instead of the `_Total` average, and the legend hides
+  only an empty `System disk`.
