@@ -1360,7 +1360,7 @@ JPEG-only (view-only) folder never lists anything.
   and the workers' buffers add about 220 MB from 1 to 24 threads
   (`riffle-cli embed`). The harness is the ignored test
   `embed_pass_on_a_real_folder` in `commands.rs`.
-- Source: [image-embeddings learnings](../plans/20261012-image-embeddings/learnings.md),
+- Source: [image-embeddings learnings](../plans/_archived/20261012-image-embeddings/learnings.md),
   Step 3.
 
 ### `focus_crop`'s header carries the full JPEG size (Hit)

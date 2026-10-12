@@ -11,7 +11,7 @@ recorded in `learnings.md` with its reason and does not touch the criterion.
 ### Data
 
 - The 27 sidecar-labeled ARW folders of
-  [burst-keep-score data.md](../_archived/20261008-burst-keep-score/data.md),
+  [burst-keep-score data.md](../20261008-burst-keep-score/data.md),
   dumped fresh by [`gate_dump.sh`](gate_dump.sh) into
   `D:\Photos\tests\2026-10-12-embed-gate\`: `features/<folder>.tsv`
   (`riffle-cli features`, 24 threads), `features/<folder>.output.txt` (the

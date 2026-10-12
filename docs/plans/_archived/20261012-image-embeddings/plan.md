@@ -75,7 +75,7 @@ Constraints the user set, binding on every step:
   Erf, Softmax, MatMul, MatMulInteger and DynamicQuantizeLinear are
   registered without `tract-transformers`; only the ORT fused
   `Attention` / `MultiHeadAttention` ops are gated, so use plain exports.
-  Follow [`tract-onnx-inference.md`](../../agents/tract-onnx-inference.md):
+  Follow [`tract-onnx-inference.md`](../../../agents/tract-onnx-inference.md):
   ignore `value_info`, pin the input fact, resolve outputs by outlet label,
   one `OnceLock` plan shared by the rayon workers (`faces.rs`, `eyes.rs`),
   and `include_bytes!` lands on every binary that links the module.
@@ -95,7 +95,7 @@ Constraints the user set, binding on every step:
   cancel flag; priorities are `scan::Priority` (`BelowNormal` for pass 1,
   `Lowest` for pass 2).
 - **Labels for the ranking.** Of about 33k labeled frames only 58 are
-  explicit rejects ([burst-keep-score data.md](../_archived/20261008-burst-keep-score/data.md)).
+  explicit rejects ([burst-keep-score data.md](../20261008-burst-keep-score/data.md)).
   Approved reading: in a folder marked "culling finished", a non-pick is a
   "not chosen" negative, kept distinct from an explicit reject (which, when
   present, counts as a stronger negative, also in unfinished folders); an
