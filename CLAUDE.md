@@ -63,7 +63,9 @@ the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 which also keeps each folder's last viewed file in `folders.last_viewed`
-and whether the user marked its culling finished in `folders.culling_finished`,
+and whether the user marked its culling finished in `folders.culling_finished`
+(a finished folder is spared by the 30-day eviction, not by the size cap or
+Clear Cache),
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in three
 passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /

@@ -148,6 +148,10 @@ near it.
   the user's folders would change the coordinates the prior's weights live
   in, and the shrinkage toward them would lose its meaning; the basis was
   fit on 32,459 frames and does not need the user's few folders.
+- **Finished folders outlive the 30-day eviction.** Their index rows are
+  the fit's training data, so `evict`'s age rule skips a folder marked
+  culling finished (the user's decision after Step 7); the 1 GB size cap and
+  Clear Cache still drop it.
 - **Explicit rejects count double** (`REJECT_WEIGHT` = 2) within their burst.
   The 58 rejects in 3 scorable bursts cannot measure the weight; 2 is a
   choice, not a fit.

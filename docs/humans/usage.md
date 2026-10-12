@@ -630,9 +630,11 @@ viewer shows a prompt in its center; click it to open the folder picker.
   suggestion, not a best-shot pick: held out on the author's folders, the
   top-ranked frame of a burst was a pick in about 55% of the bursts, against
   39% for the burst's first frame. It never changes a star or a flag.
-  A folder's `Culling Finished` mark lives in the cache, so `Clear Cache`
-  and the cache's eviction of a folder not opened for a month forget it (the
-  fit already made stays until the next refit).
+  The cache keeps a finished folder (its mark, thumbnails, metadata and
+  embeddings) past the month after which it drops a folder not opened, so
+  the model can keep learning from it; only `Clear Cache`, or the cache's
+  1 GB size limit, forgets it (the fit already made stays until the next
+  refit).
 - **Sharpness score**: Riffle scores each RAW file's sharpness from the embedded
   preview on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF focus point when the camera recorded one, even

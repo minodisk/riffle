@@ -944,28 +944,36 @@ impl Index {
     }
 
     /// Drop the `files` rows and clean `ratings` rows of folders last opened
-    /// more than `policy.max_age_secs` before `now`, then of the
-    /// least-recently-opened folders until the pages in use fit
+    /// more than `policy.max_age_secs` before `now`, except the ones marked
+    /// culling finished (the ranking's training data), then of the
+    /// least-recently-opened folders, finished or not, until the pages in use fit
     /// `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
     /// keeping a dirty rating keeps its `folders` row, so it is reconsidered
     /// next time. `VACUUM` rewrites the whole file, so call this with no scan
     /// running.
     pub fn evict(&mut self, now: i64, policy: EvictPolicy) -> Result<EvictSummary, String> {
-        let folders: Vec<(String, i64)> = {
+        let folders: Vec<(String, i64, bool)> = {
             let mut stmt = self
                 .conn
-                .prepare("SELECT dir, opened_at FROM folders ORDER BY opened_at, dir")
+                .prepare(
+                    "SELECT dir, opened_at, culling_finished FROM folders
+                     ORDER BY opened_at, dir",
+                )
                 .map_err(|e| e.to_string())?;
             let rows = stmt
-                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
                 .map_err(|e| e.to_string())?;
             rows.collect::<rusqlite::Result<_>>()
                 .map_err(|e| e.to_string())?
         };
         let mut summary = EvictSummary::default();
-        for (dir, opened_at) in &folders {
-            if *opened_at >= now - policy.max_age_secs && self.used_bytes()? <= policy.max_bytes {
-                break;
+        for (dir, opened_at, finished) in &folders {
+            let young = *opened_at >= now - policy.max_age_secs;
+            if (young || *finished) && self.used_bytes()? <= policy.max_bytes {
+                if young {
+                    break;
+                }
+                continue;
             }
             summary.rows += self.evict_folder(dir)?;
             summary.folders += 1;
@@ -5579,6 +5587,41 @@ pub(crate) mod tests {
 
         assert_eq!(index.evict(NOW, NO_CAP).unwrap().folders, 1);
         assert_eq!(index.last_viewed("old").unwrap(), None);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn the_age_rule_spares_a_finished_folder_and_clear_does_not() {
+        let dir = temp_dir("evict-finished");
+        let mut index = open(&dir);
+        let finished = synthetic(&dir, 0);
+        index
+            .write_batch("finished", &[(finished.clone(), Ok(entry()))])
+            .unwrap();
+        index
+            .write_embeddings("finished", &[embedded(&finished, Some(vec![1.0]))])
+            .unwrap();
+        index
+            .write_batch("stale", &[(synthetic(&dir, 1), Ok(entry()))])
+            .unwrap();
+        set_opened_at(&index, "finished", NOW - 90 * DAY);
+        set_opened_at(&index, "stale", NOW - 31 * DAY);
+        index.set_culling_finished("finished", true).unwrap();
+
+        let summary = index.evict(NOW, NO_CAP).unwrap();
+        assert_eq!(
+            summary.folders, 1,
+            "the older stale folder behind it still goes"
+        );
+        assert!(index.entries("stale").unwrap().is_empty());
+        assert_eq!(index.entries("finished").unwrap().len(), 1);
+        assert_eq!(index.embeddings("finished").unwrap().len(), 1);
+        assert!(index.culling_finished("finished").unwrap());
+
+        index.clear().unwrap();
+        assert!(index.entries("finished").unwrap().is_empty());
+        assert!(!index.culling_finished("finished").unwrap());
 
         remove_temp_dir(&dir);
     }

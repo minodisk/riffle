@@ -391,7 +391,7 @@ Constraints the user set, binding on every step:
       threshold behaves on whole folders.
 
 - [x] Step 7: Personal ranking (only if Decision 2 passes): culling-finished folders, a local model, a recommended sort, a reason display
-  - Shipped behind `aiEnabled` (still off by default): on the app's own stored data the shared model reads a held-out weighted pairwise AUC of 0.710 (bar 0.703) and a Top-1 of 54.9% against the first frame's 39.4% ([ranking.md](ranking.md)). The reason display names no genre (Decision 2 dropped the per-genre weights). The local fit keeps the prior's PCA basis and standardization and refits only the weights, pulled toward the prior's; explicit rejects count double.
+  - Shipped behind `aiEnabled` (still off by default): on the app's own stored data the shared model reads a held-out weighted pairwise AUC of 0.710 (bar 0.703) and a Top-1 of 54.9% against the first frame's 39.4% ([ranking.md](ranking.md)). The reason display names no genre (Decision 2 dropped the per-genre weights). The local fit keeps the prior's PCA basis and standardization and refits only the weights, pulled toward the prior's; explicit rejects count double. A finished folder is exempt from the cache's 30-day eviction (user decision after Step 7; Clear Cache and the size cap still drop it).
   - Done when:
     - `folders.culling_finished` (a `SCHEMA_VERSION` bump) is toggled from
       the folder tree's right-click; only finished folders contribute

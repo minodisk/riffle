@@ -323,6 +323,12 @@
 - **Bash heredocs again.** A `python - <<'EOF'` patch with Rust code
   (`'static`, SQL quotes) broke the Bash tool's quoting twice; the Edit
   tool, or a script file in the scratchpad, was the way.
+- **Finished folders are exempt from the 30-day eviction.** A first
+  version let `evict` drop a finished folder's mark and rows like any other,
+  so the next refit forgot it; the user chose (2026-10-13) to exempt finished
+  folders from the age rule only. The size cap and Clear Cache still drop
+  them. `evict` now skips such a folder and keeps walking, since a younger
+  folder behind it may still be past the age.
 - **Labels in the app.** The app's `ratings.flag` agrees with the sidecar
   flag gate.md reads on every frame; gate.md's 427 extra picks are virtual
   copies in `Output/`, which the app never sees, so the app's own fit on
@@ -330,19 +336,6 @@
 
 ## Deferred issues (todo candidates)
 
-- **A finished folder's mark and its training data age out of the cache.**
-  `folders.culling_finished` lives on the `folders` row, which `evict` drops
-  for a folder not opened for 30 days (or under the size cap) and
-  `clear_index` drops for every folder; the folder's `files` and
-  `embeddings` rows go with it. The stored fit survives, but the next refit
-  (the settings button, or marking another folder) no longer sees that
-  folder, so the model forgets older finished folders as they age out.
-  Options: exempt finished folders from the age rule in `evict`, keep the
-  mark in a table `evict` / `clear` do not touch, or store each finished
-  folder's training columns (44 floats per frame) outside the cache. This is
-  a product decision (cache size against a long memory). Source: Step 7
-  implementation; `crates/app/src/index.rs` `evict`, `evict_folder`,
-  `clear`, `rank_dirs`; `crates/app/src/rank.rs` `refit`.
 - **No refit when a finished folder's embeddings arrive.** Marking a folder
   finished before its third pass ran (AI off at the time, or the pass still
   running) refits without its frames; only `Refit Ranking` or another mark
@@ -499,6 +492,11 @@
   `docs/plans/20261012-image-embeddings/genres.md`.
 
 ## User decisions
+
+- (2026-10-13) After Step 7: folders marked Culling Finished are exempt from
+  the cache's 30-day automatic eviction (rows, files and embeddings stay);
+  a manual Clear Cache still clears everything. Refit on late embeddings
+  stays deferred, `aiEnabled` stays off by default.
 
 - (2026-10-12) The user confirmed Decision 1's distribution: SigLIP 2 FP32
   is downloaded on the first enable (pinned revision, SHA-256 checked), not

@@ -1345,7 +1345,9 @@ JPEG-only (view-only) folder never lists anything.
   standardization and pulls the weights toward the prior's at the prior's
   own `1 / (2 C)`, so the stored file is 44 weights, not a basis.
   `folders.culling_finished` goes with the `folders` row: `rename_dir`
-  carries it, and `evict` / `clear` drop it with the row.
+  carries it, `evict`'s 30-day age rule skips a finished folder (its rows
+  are the fit's training data) while its size cap does not, and `clear`
+  drops everything.
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores
