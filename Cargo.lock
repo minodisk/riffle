@@ -3788,6 +3788,7 @@ dependencies = [
  "tokio-util",
  "tower",
  "trash",
+ "windows 0.62.2",
 ]
 
 [[package]]

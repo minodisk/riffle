@@ -148,7 +148,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
+import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
 // `Riffle.log`. Not gated by `debugLogging`, and the default console output is
@@ -684,6 +684,9 @@ const THEME = {
   border: token(rootStyle, "--border", "gray"),
   primary: token(rootStyle, "--primary", "white"),
   mutedForeground: token(rootStyle, "--muted-foreground", "gray"),
+  chartCpu: token(rootStyle, "--chart-cpu", "blue"),
+  chartDisk: token(rootStyle, "--chart-disk", "green"),
+  chartLatency: token(rootStyle, "--chart-latency", "red"),
 };
 
 function baseName(path: string): string {
@@ -1437,12 +1440,47 @@ function draw(): void {
 const PERF_REDRAW_MS = 500;
 const PERF_HEADER = 16;
 const PERF_SWATCH = 14;
-// The two CPU lines differ by weight and dash, not only by gray, and the
-// legend draws each label's line so the series can be told apart.
-const PERF_LINES = [
-  ["system", THEME.mutedForeground, 1, [4, 3]],
-  ["process", THEME.foreground, 2, []],
-] as const;
+// CPU lines are blue and disk lines green; within each pair Riffle's is thick
+// and solid, the system's thin and dashed, and the legend draws each label's
+// line so the series can be told apart. `value` is the series' height as a
+// fraction of the plot, null where it has no reading.
+interface PerfLine {
+  label: string;
+  color: string;
+  width: number;
+  dash: readonly number[];
+  value: (sample: PerfSample, readMax: number) => number | null;
+}
+const PERF_LINES: readonly PerfLine[] = [
+  {
+    label: "Riffle CPU",
+    color: THEME.chartCpu,
+    width: 2,
+    dash: [],
+    value: (sample) => sample.process / 100,
+  },
+  {
+    label: "System CPU",
+    color: THEME.chartCpu,
+    width: 1,
+    dash: [4, 3],
+    value: (sample) => sample.system / 100,
+  },
+  {
+    label: "Riffle disk",
+    color: THEME.chartDisk,
+    width: 2,
+    dash: [],
+    value: (sample, readMax) => Math.min(sample.read, readMax) / readMax,
+  },
+  {
+    label: "System disk",
+    color: THEME.chartDisk,
+    width: 1,
+    dash: [4, 3],
+    value: (sample) => (sample.disk === null ? null : sample.disk / 100),
+  },
+];
 let perfTimer: number | null = null;
 let perfUnlisten: Promise<() => void> | null = null;
 
@@ -1465,10 +1503,10 @@ function togglePerf(): void {
   }
   perf.start();
   perfCanvas.hidden = false;
-  perfUnlisten = window.__TAURI__.event.listen<{ process: number; system: number }>(
+  perfUnlisten = window.__TAURI__.event.listen<Omit<PerfSample, "at">>(
     "perf-sample",
     ({ payload }) => {
-      perf.addCpu({ at: performance.now(), process: payload.process, system: payload.system });
+      perf.addSample({ at: performance.now(), ...payload });
       drawPerf();
     },
   );
@@ -1477,8 +1515,9 @@ function togglePerf(): void {
   drawPerf();
 }
 
-// The CPU series on a 0-100 % scale and the latency bars on a 0-`latencyMax`
-// scale share the plot below a one-line legend, the newest at the right edge.
+// The CPU and disk busy series on a 0-100 % scale, Riffle's reads on a
+// 0-`readMax` scale and the latency bars on a 0-`latencyMax` scale share the
+// plot below a one-line legend, the newest at the right edge.
 function drawPerf(): void {
   if (perfCanvas.hidden) {
     return;
@@ -1495,7 +1534,7 @@ function drawPerf(): void {
   ctx.fillRect(0, 0, width, height);
   ctx.globalAlpha = 1;
   const now = performance.now();
-  const { cpu, latency, latencyMax } = perf.view(now);
+  const { samples, latency, latencyMax, readMax } = perf.view(now);
   const bottom = height - 4;
   const plot = bottom - PERF_HEADER - 4;
   const x = (at: number): number => width - ((now - at) / WINDOW_MS) * width;
@@ -1508,22 +1547,34 @@ function drawPerf(): void {
     ctx.lineTo(width, y);
   }
   ctx.stroke();
-  ctx.fillStyle = FOCUS_MARK_COLORS.good;
+  ctx.fillStyle = THEME.chartLatency;
   for (const point of latency) {
     const barHeight = (Math.min(point.ms, latencyMax) / latencyMax) * plot;
     ctx.fillRect(x(point.at) - 1, bottom - barHeight, 2, barHeight);
   }
   ctx.lineJoin = "round";
-  for (const [series, color, lineWidth, dash] of PERF_LINES) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.setLineDash([...dash]);
+  // A series without a reading (the system disk on macOS) has no line and no
+  // legend entry.
+  const shown = PERF_LINES.filter((line) =>
+    samples.some((sample) => line.value(sample, readMax) !== null),
+  );
+  for (const line of shown) {
+    ctx.strokeStyle = line.color;
+    ctx.lineWidth = line.width;
+    ctx.setLineDash([...line.dash]);
     ctx.beginPath();
-    cpu.forEach((sample, at) => {
-      const y = bottom - (sample[series] / 100) * plot;
-      if (at === 0) ctx.moveTo(x(sample.at), y);
-      else ctx.lineTo(x(sample.at), y);
-    });
+    let drawing = false;
+    for (const sample of samples) {
+      const value = line.value(sample, readMax);
+      if (value === null) {
+        drawing = false;
+        continue;
+      }
+      const y = bottom - value * plot;
+      if (drawing) ctx.lineTo(x(sample.at), y);
+      else ctx.moveTo(x(sample.at), y);
+      drawing = true;
+    }
     ctx.stroke();
   }
   ctx.font = "11px system-ui, sans-serif";
@@ -1531,17 +1582,15 @@ function drawPerf(): void {
   ctx.textAlign = "left";
   let left = 6;
   for (const [text, color, line] of [
-    ["CPU 100%  60 s", THEME.mutedForeground, null],
-    ["Riffle CPU", THEME.foreground, PERF_LINES[1]],
-    ["System CPU", THEME.mutedForeground, PERF_LINES[0]],
-    ["Latency", FOCUS_MARK_COLORS.good, null],
+    ["100%  60 s", THEME.mutedForeground, null],
+    ...shown.map((line) => [line.label, line.color, line] as const),
+    ["Latency", THEME.chartLatency, null],
   ] as const) {
     if (line !== null) {
-      const [, , lineWidth, dash] = line;
       const y = 9.5;
       ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.setLineDash([...dash]);
+      ctx.lineWidth = line.width;
+      ctx.setLineDash([...line.dash]);
       ctx.beginPath();
       ctx.moveTo(left, y);
       ctx.lineTo(left + PERF_SWATCH, y);
@@ -1555,7 +1604,11 @@ function drawPerf(): void {
   ctx.setLineDash([]);
   ctx.textAlign = "right";
   ctx.fillStyle = THEME.mutedForeground;
-  ctx.fillText(`${Math.round(latencyMax)} ms`, width - 6, 3);
+  ctx.fillText(
+    `${Math.round(readMax / 1_000_000)} MB/s  ${Math.round(latencyMax)} ms`,
+    width - 6,
+    3,
+  );
 }
 
 function compareCandidates(): string[] {

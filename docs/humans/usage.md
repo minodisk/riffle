@@ -239,16 +239,23 @@ viewer shows a prompt in its center; click it to open the folder picker.
   judge composition; releasing it restores color. It is momentary and
   display-only: nothing is written or remembered.
 - **Performance graph**: `d` shows a graph along the bottom of the viewer
-  with the last 60 seconds of three series: a green bar per file switch, its
+  with the last 60 seconds of five series: a red bar per file switch, its
   height the time from the key or click to the preview being drawn (on a ms
   scale at the right of the legend, at least 500 ms tall); Riffle's own CPU
-  usage (the thick solid line); and the whole system's CPU usage (the thin
-  dashed line), both 0–100 % of all cores. When the bars grow, look at the
-  lines: Riffle's line high means Riffle itself is busy (a running scan,
-  including its analysis pass, counts as Riffle's CPU); the system line pegged
-  while Riffle's stays low means another process is taking the CPU. CPU is
-  sampled only while the graph is shown, so it starts empty each time; `d`
-  again hides it, and the overlay is off at every launch.
+  usage (the thick solid blue line) and the whole system's (the thin dashed
+  blue line), both 0–100 % of all cores; Riffle's own reads (the thick solid
+  green line, on an MB/s scale at the right of the legend, at least 10 MB/s
+  tall); and how busy the system's disks are (the thin dashed green line,
+  0–100 % of the time). When the bars grow, look at the lines: Riffle's CPU
+  line high means Riffle itself is busy (a running scan, including its
+  analysis pass, counts as Riffle's CPU); the system CPU line pegged while
+  Riffle's stays low means another process is taking the CPU; both CPU lines
+  low while the disk lines rise means the preview is waiting on the disk,
+  often behind a scan reading RAW files. On Windows Riffle's read line counts
+  every read Riffle makes, not only from disk, so it never sits quite at
+  zero. The disk busy line is absent on macOS. Everything is sampled only
+  while the graph is shown, so it starts empty each time; `d` again hides it,
+  and the overlay is off at every launch.
 - **Compare**: `v` lays 2–4 selected files out in the viewer. With only one
   file selected, it instead puts that file beside the first good frame (the
   focus mark's bright green) of its burst, or the burst's first frame when
