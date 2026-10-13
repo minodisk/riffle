@@ -1,7 +1,7 @@
 import { relation } from "./tree.js";
 
-// The folder tree's `Move Rejected to Trash…` items: the confirmation
-// dialog's text and flow, what the status line says once the run comes back,
+// The folder tree's `Move Rejected to Trash…` items and the strip's `Move to
+// Trash…`: the confirmation dialog's text and flow, what the status line says once the run comes back,
 // and whether the open folder was among the folders it trashed in.
 
 export type TrashFailure = { path: string; message: string };
@@ -21,7 +21,8 @@ export type TrashPreview = {
   size_text: string;
 };
 
-// The `Summary` that `trash_rejected_run` returns: the RAWs it moved, which the
+// The `Summary` that `trash_rejected_run` and `trash_files` return: the RAWs
+// (or JPEGs) it moved, which the
 // frontend prunes its state by, every file whose move to the Trash failed,
 // and every file or folder `collect` never got to try because it could not
 // be read (an unreadable folder, a sidecar that does not parse, an index
@@ -34,7 +35,7 @@ export type TrashSummary = {
   run_id: number | null;
 };
 
-// What `trash_rejected_undo` returns: the RAWs that came back, and every
+// What `trash_rejected_undo` returns: the RAWs and JPEGs that came back, and every
 // file (RAW or sidecar) that did not, with the reason. The backend keeps
 // what came back, sidecars included, for `trash_rejected_redo`.
 export type TrashRestored = {
@@ -46,8 +47,8 @@ function files(count: number): string {
   return count === 1 ? "file" : "files";
 }
 
-// What a recorded run moved: RAWs with their sidecars (`Move Rejected to
-// Trash…`), or sidecars alone (`Delete Sidecars…`).
+// What a recorded run moved: RAWs with their sidecars or JPEGs (`Move Rejected
+// to Trash…`, `Move to Trash…`), or sidecars alone (`Delete Sidecars…`).
 export type TrashWhat = "files" | "sidecars";
 
 function noun(count: number, what: TrashWhat): string {
@@ -89,6 +90,11 @@ export function totalLine(preview: TrashPreview): string {
   return `Move ${count} rejected ${files(count)} (${preview.size_text}) to the Trash?`;
 }
 
+// The strip's `Move to Trash…` asks with the count alone.
+export function filesLine(count: number): string {
+  return `Move ${count} ${files(count)} to the Trash?`;
+}
+
 export function canRun(preview: TrashPreview): boolean {
   return preview.total_files > 0;
 }
@@ -104,10 +110,12 @@ export function trashedStatus(summary: TrashSummary, what: TrashWhat = "files"):
 }
 
 // The run an undo restored: what it moved and how many files. Its `count`
-// is read only for sidecars, since `restored` lists RAWs alone.
+// is read only for sidecars, since `restored` lists the RAWs and JPEGs that
+// came back, never a sidecar.
 export type UndoneRun = { what?: TrashWhat; count: number };
 
-// How many of the run's files came back: the RAWs `restored` lists, or, for
+// How many of the run's files came back: the RAWs and JPEGs `restored`
+// lists, or, for
 // a run of sidecars, those that did not fail.
 export function restoredCount(result: TrashRestored, run?: UndoneRun): number {
   if (run?.what === "sidecars") {
@@ -122,7 +130,7 @@ export function restoredStatus(result: TrashRestored, run?: UndoneRun): string {
   return result.failed.length === 0 ? restored : `${restored}, ${result.failed.length} failed`;
 }
 
-// The restored RAWs that sit directly in `openDir`, not yet in `allFiles`.
+// The restored files that sit directly in `openDir`, not yet in `allFiles`.
 // The backend spells them canonically (with the verbatim prefix on Windows),
 // as `list_arw` spells `allFiles`, while `openDir` may lack the prefix.
 export function restoredInto(
@@ -161,7 +169,9 @@ export function opensTarget(
   });
 }
 
-export type TrashTarget = { dirs: string[]; recursive: boolean };
+// `paths`, given by the strip's `Move to Trash…`, are the files of `dirs[0]`
+// to move; without it the rejects of `dirs` are.
+export type TrashTarget = { dirs: string[]; recursive: boolean; paths?: string[] };
 
 // The flow of one trashing, from the menu item through the dialog to the
 // run's end. A second start while one is under way does nothing. The dialog

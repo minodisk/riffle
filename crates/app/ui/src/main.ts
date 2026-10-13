@@ -55,6 +55,7 @@ import {
   canRun,
   emptyFoldersLine,
   failureText as trashFailureText,
+  filesLine,
   folderRows,
   opensTarget,
   restoredInto,
@@ -844,11 +845,13 @@ function renderTitle(): void {
 
 // The confirmation of `trashRejectedIn`: the rejects per folder, the folders
 // with none folded into one line, the ones that could not be read, and the
-// total count and size.
+// total count and size. The strip's `Move to Trash…` asks in it with the
+// count alone (`confirmTrashFiles`).
 const trashFlow = new TrashFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
 const trashKeys = new SettingsModal();
 const trashDialog = document.getElementById("trash-dialog") as HTMLDivElement;
+const trashTitle = document.getElementById("trash-title") as HTMLHeadingElement;
 const trashRows = document.getElementById("trash-rows") as HTMLUListElement;
 const trashEmpty = document.getElementById("trash-empty") as HTMLParagraphElement;
 const trashFailed = document.getElementById("trash-failed") as HTMLUListElement;
@@ -894,6 +897,7 @@ function showTrashPreview(preview: TrashPreview): void {
   setFilterMenuOpen(false);
   setSortMenuOpen(false);
   closeContextMenu();
+  trashTitle.textContent = "Move Rejected to Trash";
   trashRows.replaceChildren(...folderRows(preview).map(listItem));
   const empty = emptyFoldersLine(preview);
   trashEmpty.textContent = empty ?? "";
@@ -908,12 +912,94 @@ function showTrashPreview(preview: TrashPreview): void {
   (trashRunButton.disabled ? trashCancelButton : trashRunButton).focus();
 }
 
+// Ask whether to move `paths`, files of the open folder taken when the strip's
+// `Move to Trash…` was chosen, to the Trash.
+function confirmTrashFiles(paths: string[]): void {
+  if (
+    openDir === null ||
+    paths.length === 0 ||
+    !formatDialog.hidden ||
+    settings.isOpen ||
+    sequenceFlow.busy ||
+    sidecarFlow.busy ||
+    !trashFlow.start({ dirs: [openDir], recursive: false, paths }) ||
+    !trashFlow.previewed()
+  ) {
+    return;
+  }
+  setFilterMenuOpen(false);
+  setSortMenuOpen(false);
+  closeContextMenu();
+  trashTitle.textContent = "Move to Trash";
+  trashRows.replaceChildren();
+  trashEmpty.textContent = "";
+  trashEmpty.hidden = true;
+  trashFailed.replaceChildren();
+  trashTotal.textContent = filesLine(paths.length);
+  trashRunButton.disabled = false;
+  trashCancelButton.disabled = false;
+  trashDialog.hidden = false;
+  trashRunButton.focus();
+}
+
+// Move `paths` of `dir` and their sidecars to the Trash through
+// `trash_files`, once no scan runs. Dropped when another folder was opened
+// meanwhile; the run's result is reported even if one was opened while it
+// ran, since the backend recorded it for undo. The confirm dialog stays open
+// in its running phase until the invoke settles, so the strip does not get
+// the keyboard back mid-move. When the idle gate holds the move for a scan's
+// end, the dialog closes at once instead and the held closure leaves the
+// dialog alone, since it may belong to another trashing by then; it also
+// waits out any trash dialog that is open or running.
+function trashFilesIn(dir: string, paths: string[]): void {
+  const token = folderToken;
+  let sync = true;
+  const held = whenIdle("Move to Trash", () => {
+    const own = sync;
+    const done = (): void => {
+      if (own) {
+        closeTrashDialog();
+      }
+    };
+    if (
+      dir !== openDir ||
+      token !== folderToken ||
+      sidecarFlow.busy ||
+      sequenceFlow.busy ||
+      (!own && trashFlow.busy)
+    ) {
+      done();
+      return;
+    }
+    settleIdle(
+      window.__TAURI__.core
+        .invoke<TrashSummary>("trash_files", { dir, paths })
+        .then((summary) => {
+          done();
+          if (summary.run_id !== null) {
+            redoable.clear();
+          }
+          trashed(summary, [dir], false);
+        })
+        .catch((err: unknown) => {
+          done();
+          setStatus(String(err));
+        }),
+    );
+  });
+  sync = false;
+  if (held) {
+    closeTrashDialog();
+  }
+}
+
 function closeTrashDialog(): void {
   trashFlow.end();
   trashDialog.hidden = true;
 }
 
-// The run collects again under the backend's `Scans` lock, so a folder that
+// A strip run (`paths`) goes through `trashFilesIn`. The reject run collects
+// again under the backend's `Scans` lock, so a folder that
 // could not be read in the preview is left out again. When the open folder
 // was among the targets, its state is pruned by the moved paths and it is
 // re-listed; read at the end, since the open folder may change meanwhile.
@@ -922,9 +1008,13 @@ function runTrash(): void {
   if (target === null) {
     return;
   }
-  const { dirs, recursive } = target;
+  const { dirs, recursive, paths } = target;
   trashRunButton.disabled = true;
   trashCancelButton.disabled = true;
+  if (paths !== undefined && dirs[0] !== undefined) {
+    trashFilesIn(dirs[0], paths);
+    return;
+  }
   settleIdle(
     window.__TAURI__.core
       .invoke<TrashSummary>("trash_rejected_run", { dirs, recursive })
@@ -2182,7 +2272,7 @@ function step(from: History<Entry<Judgment>>, to: History<Entry<Judgment>>, verb
 // the rescan brings their thumbnails and judgments back. The current file
 // and the selection stay.
 function undoTrash(entry: TrashEntry): void {
-  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move to Trash";
   whenIdle(`Undo ${label}`, () => {
     if (trashStep !== null || history.peek() !== entry) {
       return;
@@ -2231,7 +2321,7 @@ function undoTrash(entry: TrashEntry): void {
 // scan like the run does, and stays on `redoable` until the backend has
 // moved the files, so a refusal leaves it redoable.
 function redoTrash(entry: TrashEntry): void {
-  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move Rejected to Trash";
+  const label = entry.what === "sidecars" ? "Delete Sidecars" : "Move to Trash";
   whenIdle(`Redo ${label}`, () => {
     if (trashStep !== null || redoable.peek() !== entry) {
       return;
@@ -3128,11 +3218,14 @@ function openContextMenu(x: number, y: number): void {
     flag: flagOf(focused),
     label: labels.get(focused) ?? null,
   };
-  showMenu(contextMenuGroups(keyBindings, state, viewOnly), x, y, (action) => {
-    if (action !== "renameFile") {
-      runAction(action);
-    } else {
+  const paths = comparing ? [focused] : targets(selection, files, index);
+  showMenu(contextMenuGroups(keyBindings, state, viewOnly, paths.length), x, y, (action) => {
+    if (action === "renameFile") {
       strip.startRename(index);
+    } else if (action === "trashFiles") {
+      confirmTrashFiles(paths);
+    } else {
+      runAction(action);
     }
   });
 }

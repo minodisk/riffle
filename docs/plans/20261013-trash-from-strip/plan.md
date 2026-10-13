@@ -121,7 +121,7 @@ Investigation notes (what exists already, so nothing new is needed for it):
     - Tests: `trash.rs` grouping (a RAW with both sidecars, a RAW with one, a
       RAW with none, a JPEG with a stray `.xmp` that is not taken), in the
       style of `a_reject_is_grouped_with_the_sidecars_of_both_formats`.
-- [ ] Step 2: Add `Move to Trash` to the filmstrip's right-click menu (frontend)
+- [x] Step 2: Add `Move to Trash` to the filmstrip's right-click menu (frontend)
   - Done when: right-clicking a strip cell shows a `Move to Trash…` item
     (`Move N Files to Trash…` when the right-clicked file is in a
     multi-selection of N) as the last group, after `Rename…`, in a view-only
@@ -256,3 +256,4 @@ Investigation notes (what exists already, so nothing new is needed for it):
 ## Progress
 
 - (2026-10-13) Step 1 complete
+- (2026-10-13) Step 2 complete

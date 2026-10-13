@@ -5,6 +5,7 @@ import {
   canRun,
   emptyFoldersLine,
   failureText,
+  filesLine,
   folderRows,
   opensTarget,
   restoredInto,
@@ -229,6 +230,11 @@ describe("the confirmation dialog", () => {
     expect(totalLine(preview([100, 48]))).toBe("Move 148 rejected files (23.4 GB) to the Trash?");
     expect(totalLine(preview([1], "24.0 MB"))).toBe("Move 1 rejected file (24.0 MB) to the Trash?");
     expect(totalLine(preview([0]))).toBe("No rejected files to move to the Trash");
+  });
+
+  test("asks with the count alone for the strip's files", () => {
+    expect(filesLine(1)).toBe("Move 1 file to the Trash?");
+    expect(filesLine(12)).toBe("Move 12 files to the Trash?");
   });
 
   test("lists a folder that could not be read as left out", () => {

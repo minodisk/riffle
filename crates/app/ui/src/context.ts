@@ -34,21 +34,28 @@ const SECTIONS: Entry[][] = [
   ],
   [...LABEL_ENTRIES, ["clearlabel", "No label", (state) => state.label === null]],
   [["renameFile", "Rename…"]],
+  [["trashFiles", "Move to Trash…"]],
 ];
 
 // A view-only (JPEG) folder takes no judgment and no rename, so only
-// `Select All` is left. `Rename…` acts on the focused file alone.
+// `Select All` and `Move to Trash…` are left. `Rename…` acts on the focused
+// file alone; `Move to Trash…` on the `count` files it targets, naming them
+// when there are several.
 export function contextMenuGroups(
   bindings: Binding[],
   state: MenuState,
   viewOnly = false,
+  count = 1,
 ): MenuItem[][] {
-  return (viewOnly ? SECTIONS.slice(0, 1) : SECTIONS).map((section) =>
+  const sections = viewOnly
+    ? SECTIONS.filter((_, i) => i === 0 || i === SECTIONS.length - 1)
+    : SECTIONS;
+  return sections.map((section) =>
     section.map(([action, label, checked]) => {
       const key = bindings.find((binding) => binding.action === action)?.keys[0];
       return {
         action,
-        label,
+        label: action === "trashFiles" && count > 1 ? `Move ${count} Files to Trash…` : label,
         shortcut: key === undefined ? "" : displayKey(key),
         checked: checked?.(state),
       };

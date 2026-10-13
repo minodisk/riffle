@@ -134,8 +134,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the selection collapses it to that cell; one inside keeps it, so the context
   menu items act on the whole selection. Files the filter hides leave the
   selection.
-  The right-click menu ends with `Rename…` (not offered in a view-only
-  JPEG folder), which acts on the shown file alone, whatever else is
+  Next to last in the right-click menu comes `Rename…` (not offered in a
+  view-only JPEG folder), which acts on the shown file alone, whatever else is
   selected: its name turns into a text box with the part before the
   extension selected. A slow second click on the shown file's name (a
   click, then another about half a second later, not a double-click) does
@@ -156,7 +156,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   and the status line saying `Rename… was canceled`, as it does when you
   cancel it yourself. A name that is invalid, already taken or refused by
   the OS shows its error in the status line with the file left as it
-  was.
+  was. The menu ends with `Move to Trash…` (`Move N Files to Trash…` when
+  the right-clicked file is in a selection of N), offered in a view-only
+  JPEG folder too, which moves the right-clicked file, or the whole
+  selection, to the Trash (see **Move to Trash…**).
 - **Panels**: `Alt+Cmd+ArrowLeft` on macOS (`Ctrl+Alt+ArrowLeft` on
   Windows and Linux) hides and shows the left pane (the folder tree),
   `…ArrowRight` the right pane (the metadata), `…ArrowDown` the filmstrip,
@@ -418,6 +421,25 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the dialog (a file that could not come back is not touched, and one gone
   from its place since is listed as an error), and that move is undoable in
   turn.
+- **Move to Trash…**: right-click a file in the filmstrip and choose
+  `Move to Trash…` to move it to the OS Trash, or, when it is part of a
+  multi-selection, `Move N Files to Trash…` to move every selected file.
+  Since `Select All` selects exactly what the filter shows, filtering to the
+  rejects, pressing `CmdOrCtrl+A` and choosing it moves the folder's
+  rejects. Each RAW goes with the sidecars sitting next to it — both `.xmp`
+  and `.ARW.dop` when both are there, no matter which format is currently
+  selected; in a view-only JPEG folder each JPEG goes alone. It asks first
+  with the count alone ("Move 3 files to the Trash?"): `Move to Trash` moves
+  them, `Cancel` or `Escape` leaves everything untouched. Once they went,
+  the strip shows the neighbour of the shown file, the gone files leave the
+  selection, and the status line says how many went ("Moved 3 files to the
+  Trash", with how many failed); whatever could not be moved is listed as
+  an error and stays in the folder. Nothing is deleted, and, as for
+  **Move Rejected to Trash…**, one `Edit > Undo` brings the whole move back
+  with the judgments and `Edit > Redo` moves it to the Trash again.
+  Confirmed while a scan runs, it waits for the scan, the status line
+  saying so, and moves the files when the scan ends; opening another folder
+  meanwhile drops it.
 - **Rewrite Sidecars from Index… and Delete Sidecars…**: right-click a
   single folder in the folder tree (neither is offered with several folders
   selected) to push Riffle's judgments of its files back out to their
@@ -537,8 +559,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   - **What is off**: the star, flag and color label keys, `c` (clear all),
     `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` of a judgment
     do nothing (undoing and redoing a `Move Rejected to Trash…` still
-    work), and
-    the strip's right-click menu holds only `Select All`. Navigation,
+    work, and so do a `Move to Trash…` and its undo and redo), and
+    the strip's right-click menu holds only `Select All` and
+    `Move to Trash…`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
     folder reopens at its last viewed file like any other. The MCP
     `set_judgment` tool is refused with
@@ -552,13 +575,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   is undone as one. A reject-rest (`Shift+x`) is undone as
   one, restoring every frame it rejected and staying on the current file. The judgment history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes. A
-  `Move Rejected to Trash…` is one step of the same history and outlives a
-  folder switch: undoing it restores the files from the Trash (see
+  `Move Rejected to Trash…` or `Move to Trash…` is one step of the same
+  history and outlives a folder switch: undoing it restores the files from the Trash (see
   **Move Rejected to Trash…**), after which further presses reach the
   judgments made before it.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
   undone judgment, the same way round. After an undone
-  `Move Rejected to Trash…` it moves the files that came back to the Trash
+  `Move Rejected to Trash…` or `Move to Trash…` it moves the files that came back to the Trash
   again, without the dialog. The redo history is forgotten as soon as you
   judge a file again, and like the undo history its judgments are cleared
   when another folder opens or the sidecar format changes.
