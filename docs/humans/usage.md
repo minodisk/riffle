@@ -88,7 +88,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Collapse All` collapses every folder below it, leaving the folder itself
   open or closed as it was; neither is offered on home or a volume at the
   top level. While AI analysis is on, a `Culling Finished` check comes
-  next (see **Recommended order**). Then `Rewrite Sidecars from Index…` writes
+  next; Riffle checks it by itself once every frame of the folder has been
+  shown in the preview, and you can still check or clear it by hand (see
+  **Recommended order**). Then `Rewrite Sidecars from Index…` writes
   the judgments Riffle holds for that folder back into its sidecars, and
   `Delete Sidecars…` moves its sidecars to the Trash (see
   **Rewrite Sidecars from Index… and Delete Sidecars…**). Last,
@@ -605,9 +607,18 @@ viewer shows a prompt in its center; click it to open the folder picker.
   embedding: composition, expression, the moment), `Burst position`,
   `Sharpness`, `AF eye focus`, `Eyes open`, `Head pose` and `Good photo`.
   The model starts from a built-in one, learned from the author's picks on
-  27 culled shooting days, and learns your taste from the folders you mark
-  finished: right-click a folder in the folder tree and check `Culling
-  Finished` once you have picked everything you want from it. In a finished
+  27 culled shooting days, and learns your taste from the folders marked
+  finished. Riffle marks a folder `Culling Finished` by itself once every
+  frame of it has been shown in the preview, across sessions and whatever
+  the strip filter hides (a frame filtered out counts once you show it;
+  jumping to the last frame does not finish the folder, and a frame whose
+  preview cannot be read counts once its error is shown). The marking is
+  recorded whether AI analysis is on or not, and a JPEG-only folder is
+  never marked. You can also set or clear the mark by hand: right-click the
+  folder in the folder tree and toggle `Culling Finished`. Once you toggle
+  it by hand Riffle never marks that folder by itself again, so a folder
+  you cleared stays clear, and a mark set by itself stays when new files
+  appear. In a finished
   folder every frame you did not pick counts as not chosen; a reject counts
   as a stronger no in any folder; the unjudged frames of a folder not marked
   finished never count. Marking or unmarking a folder refits the model in
@@ -624,7 +635,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   embeddings) past the month after which it drops a folder not opened, so
   the model can keep learning from it; only `Clear Cache`, or the cache's
   1 GB size limit, forgets it (the fit already made stays until the next
-  refit).
+  refit). Which frames you have viewed outlives the cache's eviction too,
+  so a folder left halfway finishes when you come back weeks later; only
+  `Clear Cache` forgets it. An evicted folder also forgets that you toggled
+  its mark by hand, so its next full viewing can mark it again.
 - **Sharpness score**: Riffle scores each RAW file's sharpness from the embedded
   preview on the camera's eye-AF frame when the camera recorded face
   tracking, else around the AF focus point when the camera recorded one, even

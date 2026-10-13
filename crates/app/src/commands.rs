@@ -2016,6 +2016,42 @@ pub async fn set_last_viewed(app: tauri::AppHandle, dir: String, path: String) {
     }
 }
 
+/// The files of `dir` shown in the preview at least once. Empty when the
+/// index cache is unavailable or the read fails.
+#[tauri::command]
+pub async fn viewed_files(app: tauri::AppHandle, dir: String) -> Vec<String> {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndexReader>().0.clone() else {
+        return Vec::new();
+    };
+    let read = tauri::async_runtime::spawn_blocking(move || index::lock(&index).viewed_files(&dir))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|read| read);
+    read.unwrap_or_else(|e| {
+        log::warn!("failed to read the viewed files: {e}");
+        Vec::new()
+    })
+}
+
+/// Record `paths` of `dir` as shown in the preview. Failing to write them
+/// only loses view history, so it is logged, not returned.
+#[tauri::command]
+pub async fn mark_viewed(app: tauri::AppHandle, dir: String, paths: Vec<String>) {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return;
+    };
+    let written =
+        tauri::async_runtime::spawn_blocking(move || index::lock(&index).mark_viewed(&dir, &paths))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|written| written);
+    if let Err(e) = written {
+        log::warn!("failed to record the viewed files: {e}");
+    }
+}
+
 /// The cached thumbnail of one file, in the same envelope as `preview`.
 #[tauri::command]
 pub async fn thumbnail(app: tauri::AppHandle, path: String) -> Result<Response, String> {

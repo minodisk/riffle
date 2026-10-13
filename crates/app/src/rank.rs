@@ -236,17 +236,39 @@ pub async fn set_culling_finished(
     };
     tauri::async_runtime::spawn_blocking(move || {
         lock(&index).set_culling_finished(&dir, finished)?;
-        if app.state::<crate::ai::AppAi>().enabled() {
-            std::thread::spawn(move || {
-                if let Err(e) = refit(&app) {
-                    log::error!("ranking fit failed: {e}");
-                }
-            });
-        }
+        refit_in_background(app);
         Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Mark `dir`'s culling finished because the frontend saw every file of it
+/// in the preview, unless it is marked already or the user toggled it by
+/// hand, then refit in the background when it changed and AI analysis is on.
+#[tauri::command]
+pub async fn finish_culling(app: AppHandle, dir: String) -> Result<(), String> {
+    let dir = canonicalize(&dir);
+    let Some(index) = app.state::<AppIndex>().0.clone() else {
+        return Ok(());
+    };
+    tauri::async_runtime::spawn_blocking(move || match lock(&index).finish_culling(&dir) {
+        Ok(true) => refit_in_background(app),
+        Ok(false) => {}
+        Err(e) => log::warn!("finish_culling {dir}: {e}"),
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+fn refit_in_background(app: AppHandle) {
+    if app.state::<crate::ai::AppAi>().enabled() {
+        std::thread::spawn(move || {
+            if let Err(e) = refit(&app) {
+                log::error!("ranking fit failed: {e}");
+            }
+        });
+    }
 }
 
 #[cfg(test)]

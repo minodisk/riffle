@@ -954,7 +954,12 @@ that already have the column, and the `ALTER TABLE` fails.
   fire for v2-v7 databases, whose `folders` table has just been created with
   the column, adding a duplicate and discarding the cache.
 - A migration test fixture built with `open` has the current schema, so faking
-  an older version means dropping every column added since then too.
+  an older version means dropping every column added since then too, and
+  every table added since then (`DROP TABLE views;` for the v22 bump). Only
+  the v8+ fixtures need this: the v2-v7 fixtures create their own tables or
+  drop `folders` entirely, and `CREATE TABLE IF NOT EXISTS` recreates the new
+  table anyway. When a bump touches many fixtures, a regex over the previous
+  bump's `DROP COLUMN ...;` line adds the new drops in one pass.
 - Put a new column at the end of `CREATE TABLE`, not next to the column it
   relates to: `ALTER TABLE ADD COLUMN` always appends, so only an end
   placement keeps fresh and migrated databases in the same column order
@@ -966,7 +971,8 @@ that already have the column, and the `ALTER TABLE` fails.
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
   `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1;
   `docs/plans/_archived/20260927-resume-last-viewed/learnings.md`, Step 1;
-  `docs/plans/_archived/20261008-mesh-eyes-index/learnings.md`, Step 1.
+  `docs/plans/_archived/20261008-mesh-eyes-index/learnings.md`, Step 1;
+  `docs/plans/_archived/20261013-auto-culling-finished/learnings.md`, Step 1.
 
 ### Bump `EXTRACTOR_VERSION`, not `SCHEMA_VERSION`, when extraction output changes (Hit)
 
@@ -1373,6 +1379,28 @@ JPEG-only (view-only) folder never lists anything.
   carries it, `evict`'s 30-day age rule skips a finished folder (its rows
   are the fit's training data) while its size cap does not, and `clear`
   drops everything.
+- **`Culling Finished` is also set automatically, decided by the
+  frontend.** `main.ts` records a file as viewed when its preview is drawn
+  for the current `seq` (or `failPreview` shows its failure, so an
+  unreadable file cannot block the folder), not for strip thumbnails, the
+  compare pane, a provisional file before the resume target resolves, or a
+  view-only folder, and sends the paths in batches through `viewed.ts`'s
+  `viewedWriter` (`mark_viewed`). Once the set loaded from `viewed_files`
+  plus this session's views covers `allFiles` (the complete `list_arw`
+  listing, filter-independent), it calls `finish_culling` once per open.
+  The backend only applies the override rules: `Index::finish_culling`
+  sets the mark unless it is set or `folders.culling_manual` is `1`, which
+  every `set_culling_finished` (the hand toggle, either way) records, and
+  the refit runs only when it changed something and `aiEnabled` is on. The
+  frontend decides completeness because the `files` rows are incomplete
+  while a scan re-extracts. `views` is its own table, not a `files`
+  column, because `reconcile` deletes and pass 1 `INSERT OR REPLACE`s a
+  `files` row on any size / mtime / `EXTRACTOR_VERSION` change; it
+  survives eviction (a folder abandoned mid-cull still finishes weeks
+  later), `rename_dir` / `rename_file` carry it, and only `clear` drops it.
+  Eviction drops the `folders` row and with it `culling_manual`, so a
+  hand-cleared folder evicted and reopened can be auto-marked again
+  (accepted).
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores

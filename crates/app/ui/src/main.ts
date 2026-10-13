@@ -143,6 +143,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
+import { allViewed, viewedWriter } from "./viewed.js";
 import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
@@ -490,6 +491,14 @@ let pendingResume: string | undefined;
 // Records the current file of the open folder, so the next open resumes there.
 const rememberViewed = lastViewedWriter(({ dir, path }) =>
   window.__TAURI__.core.invoke("set_last_viewed", { dir, path }),
+);
+// The open folder's files shown in the preview at least once, across
+// sessions, loaded by `openDirectory` and grown by `markViewed`.
+let viewedFiles = new Set<string>();
+// Whether `finish_culling` was already invoked for this open of the folder.
+let cullingFinishSent = false;
+const recordViewed = viewedWriter(({ dir, paths }) =>
+  window.__TAURI__.core.invoke("mark_viewed", { dir, paths }),
 );
 // True while a `folder_entries` invoke is outstanding. Keeps at most one
 // request in flight, so a 10/s `scan-progress` stream while the user is
@@ -2821,6 +2830,26 @@ function failPreview(): void {
   shown?.bitmap.close();
   shown = null;
   draw();
+  markViewed();
+}
+
+// The current file's preview (or its failure) is on screen: record it as
+// viewed, and mark the folder's culling finished once every listed file has
+// been. A view-only folder and a provisional file shown before the resume
+// target resolves do not count.
+function markViewed(): void {
+  const path = files[index];
+  if (viewOnly || openDir === null || pendingResume !== undefined || path === undefined) {
+    return;
+  }
+  if (!viewedFiles.has(path)) {
+    viewedFiles.add(path);
+    recordViewed(openDir, path);
+  }
+  if (!cullingFinishSent && allViewed(allFiles, viewedFiles)) {
+    cullingFinishSent = true;
+    window.__TAURI__.core.invoke("finish_culling", { dir: openDir }).catch(() => undefined);
+  }
 }
 
 function requestPreview(): void {
@@ -3015,6 +3044,7 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
   setStatus();
   const decodedAt = performance.now();
   draw();
+  markViewed();
   if (timing !== undefined) {
     const drawnAt = performance.now();
     const sinceKeypress =
@@ -3630,7 +3660,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
   return Promise.all([
     window.__TAURI__.core.invoke<string[]>("list_arw", { dir: folder }),
     window.__TAURI__.core.invoke<string | null>("last_viewed", { dir: folder }),
-  ]).then(([found, remembered]) => {
+    window.__TAURI__.core.invoke<string[]>("viewed_files", { dir: folder }),
+  ]).then(([found, remembered, viewed]) => {
     if (token !== folderToken) {
       return;
     }
@@ -3648,6 +3679,8 @@ function openDirectory(folder: string, token: number): Promise<void> {
     fileGenres = new Map();
     fileRanks = new Map();
     pendingResume = resumeTarget(remembered, allFiles);
+    viewedFiles = new Set(viewed);
+    cullingFinishSent = false;
     const order = ordered();
     files = order.filter(passes);
     index = 0;
