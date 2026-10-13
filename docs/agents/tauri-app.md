@@ -954,7 +954,12 @@ that already have the column, and the `ALTER TABLE` fails.
   fire for v2-v7 databases, whose `folders` table has just been created with
   the column, adding a duplicate and discarding the cache.
 - A migration test fixture built with `open` has the current schema, so faking
-  an older version means dropping every column added since then too.
+  an older version means dropping every column added since then too, and
+  every table added since then (`DROP TABLE views;` for the v22 bump). Only
+  the v8+ fixtures need this: the v2-v7 fixtures create their own tables or
+  drop `folders` entirely, and `CREATE TABLE IF NOT EXISTS` recreates the new
+  table anyway. When a bump touches many fixtures, a regex over the previous
+  bump's `DROP COLUMN ...;` line adds the new drops in one pass.
 - Put a new column at the end of `CREATE TABLE`, not next to the column it
   relates to: `ALTER TABLE ADD COLUMN` always appends, so only an end
   placement keeps fresh and migrated databases in the same column order
@@ -966,7 +971,8 @@ that already have the column, and the `ALTER TABLE` fails.
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
   `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1;
   `docs/plans/_archived/20260927-resume-last-viewed/learnings.md`, Step 1;
-  `docs/plans/_archived/20261008-mesh-eyes-index/learnings.md`, Step 1.
+  `docs/plans/_archived/20261008-mesh-eyes-index/learnings.md`, Step 1;
+  `docs/plans/_archived/20261013-auto-culling-finished/learnings.md`, Step 1.
 
 ### Bump `EXTRACTOR_VERSION`, not `SCHEMA_VERSION`, when extraction output changes (Hit)
 

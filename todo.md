@@ -1802,6 +1802,11 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 - [ ] On Windows, in Settings > Culling, press `Refit Ranking`. Expected: `refitting…`, then the status. Untick AI analysis: the `Recommended` item, the meta rows, the refit block and the tree's check disappear, and a strip sorted by `Recommended` falls back to capture order. Tick it again: they return.
 - [ ] On Windows, at every point above, no judgment changes (stars, flags and labels as before, no sidecar written by the ranking).
 - [ ] On Windows, mark a folder `Culling Finished`, then set its `folders.last_opened` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while an unfinished folder of the same age is evicted; `Clear Cache` still removes it.
+- [ ] (auto-culling-finished: the mark is set by itself once every file of a RAW folder has been previewed; `markViewed` in `crates/app/ui/src/main.ts`, `crates/app/ui/src/viewed.ts`, `finish_culling` in `crates/app/src/rank.rs`; plan `docs/plans/_archived/20261013-auto-culling-finished/plan.md`.) On Windows 11, with AI analysis on, open a RAW folder never viewed before. Hide one frame with a strip filter, page through every other frame, then clear the filter and show the hidden one. Right-click the folder in the tree. Expected: `Culling Finished` is checked, and the ranks and status refreshed by the refit (`ranking-updated`).
+- [ ] On Windows, clear that check by hand, then page through the folder again (or reopen it). Expected: the check stays clear.
+- [ ] On Windows, open a JPEG-only (view-only) folder and page through all of it. Expected: the folder is never marked.
+- [ ] On Windows, in a fresh RAW folder, jump straight to the last frame only. Expected: the folder is not marked.
+- [ ] On Windows, page halfway through a fresh RAW folder, quit Riffle, relaunch, reopen the folder and view the rest. Expected: the folder is marked.
 
 ### Core: the ranking's pull toward the prior is untested for one to three finished folders
 

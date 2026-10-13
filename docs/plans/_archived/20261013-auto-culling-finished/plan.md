@@ -95,3 +95,4 @@ approved with the plan):
 ## Progress
 
 - Step 1 landed: the frontend invokes `finish_culling` once every file of the open folder has been previewed, and the backend marks the folder Culling Finished unless it is marked already or was toggled by hand (an index failure is logged with `log::warn!`, a missing index cache is a quiet no-op). The manual GUI check is still pending, as recorded in `learnings.md`.
+- (2026-10-13) Step 1 complete
