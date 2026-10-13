@@ -947,31 +947,47 @@ function confirmTrashFiles(paths: string[]): void {
 // meanwhile; the run's result is reported even if one was opened while it
 // ran, since the backend recorded it for undo. The confirm dialog stays open
 // in its running phase until the invoke settles, so the strip does not get
-// the keyboard back mid-move; when the idle gate holds the move for a scan's
-// end, the dialog closes at once instead.
+// the keyboard back mid-move. When the idle gate holds the move for a scan's
+// end, the dialog closes at once instead and the held closure leaves the
+// dialog alone, since it may belong to another trashing by then; it also
+// waits out any trash dialog that is open or running.
 function trashFilesIn(dir: string, paths: string[]): void {
   const token = folderToken;
+  let sync = true;
   const held = whenIdle("Move to Trash", () => {
-    if (dir !== openDir || token !== folderToken || sidecarFlow.busy || sequenceFlow.busy) {
-      closeTrashDialog();
+    const own = sync;
+    const done = (): void => {
+      if (own) {
+        closeTrashDialog();
+      }
+    };
+    if (
+      dir !== openDir ||
+      token !== folderToken ||
+      sidecarFlow.busy ||
+      sequenceFlow.busy ||
+      (!own && trashFlow.busy)
+    ) {
+      done();
       return;
     }
     settleIdle(
       window.__TAURI__.core
         .invoke<TrashSummary>("trash_files", { dir, paths })
         .then((summary) => {
-          closeTrashDialog();
+          done();
           if (summary.run_id !== null) {
             redoable.clear();
           }
           trashed(summary, [dir], false);
         })
         .catch((err: unknown) => {
-          closeTrashDialog();
+          done();
           setStatus(String(err));
         }),
     );
   });
+  sync = false;
   if (held) {
     closeTrashDialog();
   }
