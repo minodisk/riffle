@@ -149,7 +149,7 @@ describe("contextMenuGroups", () => {
 });
 
 describe("folderMenuGroups", () => {
-  test("holds the reveal item, then the copy items, then the refresh item, then the rename item, then the expand / collapse items, then the trash items, then the rewrite sidecars item, then the sequence item, without a shortcut or checked state", () => {
+  test("holds the reveal item, then the copy items, then the refresh item, then the rename item, then the expand / collapse items, then the rewrite sidecars item, then the sequence item, without a shortcut or checked state", () => {
     expect(folderMenuGroups("Reveal in Finder", false)).toEqual([
       [{ action: "revealFolder", label: "Reveal in Finder", shortcut: "", checked: undefined }],
       [
@@ -161,20 +161,6 @@ describe("folderMenuGroups", () => {
       [
         { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
         { action: "collapseAll", label: "Collapse All", shortcut: "", checked: undefined },
-      ],
-      [
-        {
-          action: "trashRejected",
-          label: "Move Rejected to Trash…",
-          shortcut: "",
-          checked: undefined,
-        },
-        {
-          action: "trashRejectedTree",
-          label: "Move Rejected to Trash, Including Subfolders…",
-          shortcut: "",
-          checked: undefined,
-        },
       ],
       [
         {
@@ -196,14 +182,13 @@ describe("folderMenuGroups", () => {
     ]);
   });
 
-  test("leaves the rename item, the expand / collapse items and the recursive trash item out for a root", () => {
+  test("leaves the rename item and the expand / collapse items out for a root", () => {
     expect(
       folderMenuGroups("Reveal in Finder", true).map((group) => group.map(({ action }) => action)),
     ).toEqual([
       ["revealFolder"],
       ["copyPath", "copyFolderName"],
       ["refreshFolder"],
-      ["trashRejected"],
       ["rewriteSidecars", "deleteSidecars"],
       ["sequenceTimestamps"],
     ]);
@@ -211,9 +196,9 @@ describe("folderMenuGroups", () => {
 });
 
 describe("folderMenuGroups while AI analysis is on", () => {
-  test("adds the Culling Finished check above the trash items, checked as the folder is", () => {
+  test("adds the Culling Finished check above the sidecar items, checked as the folder is", () => {
     for (const finished of [false, true]) {
-      const groups = folderMenuGroups("Reveal in Finder", false, 1, finished);
+      const groups = folderMenuGroups("Reveal in Finder", false, finished);
       expect(groups.map((group) => group.map(({ action }) => action))).toEqual([
         ["revealFolder"],
         ["copyPath", "copyFolderName"],
@@ -221,7 +206,6 @@ describe("folderMenuGroups while AI analysis is on", () => {
         ["renameFolder"],
         ["expandAll", "collapseAll"],
         ["cullingFinished"],
-        ["trashRejected", "trashRejectedTree"],
         ["rewriteSidecars", "deleteSidecars"],
         ["sequenceTimestamps"],
       ]);
@@ -229,39 +213,6 @@ describe("folderMenuGroups while AI analysis is on", () => {
         { action: "cullingFinished", label: "Culling Finished", shortcut: "", checked: finished },
       ]);
     }
-  });
-});
-
-describe("folderMenuGroups with several folders selected", () => {
-  test("offers only the trash items, naming the count", () => {
-    expect(folderMenuGroups("Reveal in Finder", false, 3)).toEqual([
-      [
-        {
-          action: "trashRejected",
-          label: "Move Rejected in 3 Folders to Trash…",
-          shortcut: "",
-          checked: undefined,
-        },
-        {
-          action: "trashRejectedTree",
-          label: "Move Rejected in 3 Folders to Trash, Including Subfolders…",
-          shortcut: "",
-          checked: undefined,
-        },
-      ],
-    ]);
-  });
-
-  test("leaves the recursive item out when any of them is a root", () => {
-    expect(
-      folderMenuGroups("Reveal in Finder", true, 2).map((group) => group.map(({ label }) => label)),
-    ).toEqual([["Move Rejected in 2 Folders to Trash…"]]);
-  });
-
-  test("keeps the one-folder labels for a single selection", () => {
-    expect(folderMenuGroups("Reveal in Finder", false, 1)).toEqual(
-      folderMenuGroups("Reveal in Finder", false),
-    );
   });
 });
 

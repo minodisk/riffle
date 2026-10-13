@@ -47,21 +47,15 @@ import { type EyeState, type Eyes, EyesCache, type Pose } from "./eyes.js";
 import { FaceCache, NO_FACES } from "./faces.js";
 import { meshEdges, meshPoints } from "./facemesh.js";
 import {
-  type TrashPreview,
   type TrashRestored,
   type TrashSummary,
   type TrashWhat,
   TrashFlow,
-  canRun,
-  emptyFoldersLine,
-  failureText as trashFailureText,
   filesLine,
-  folderRows,
   opensTarget,
   restoredInto,
   restoredStatus,
   stillHeld,
-  totalLine,
   trashedStatus,
 } from "./trash.js";
 import {
@@ -543,9 +537,9 @@ let selection: Selection = single(undefined);
 const fileIndex = new Map<string, number>();
 // A judgment's file and its state before it, for `Edit > Undo`. An entry is
 // a batch, undone as one: a single key judges one file, reject-rest several;
-// or a `Move Rejected to Trash` run, undone by restoring it from the Trash.
+// or a `Move to Trash` run, undone by restoring it from the Trash.
 // Judgments are per folder: `openDirectory` drops them. A trash run stays,
-// since it may span folders and needs none open.
+// since it needs no folder open.
 type Judgment = { path: string; rating: number | null; flag: PickFlag; label: string | null };
 const history = new History<Entry<Judgment>>(100);
 // The pre-undo state of each undone batch, for `Edit > Redo`, and each
@@ -843,73 +837,20 @@ function renderTitle(): void {
   void window.__TAURI__.window.getCurrentWindow().setTitle(title);
 }
 
-// The confirmation of `trashRejectedIn`: the rejects per folder, the folders
-// with none folded into one line, the ones that could not be read, and the
-// total count and size. The strip's `Move to Trash…` asks in it with the
-// count alone (`confirmTrashFiles`).
+// The confirmation of the strip's `Move to Trash…`, asking with the count
+// alone (`confirmTrashFiles`).
 const trashFlow = new TrashFlow();
 // Only its key decisions are used: Escape and Tab, as in the settings modal.
 const trashKeys = new SettingsModal();
 const trashDialog = document.getElementById("trash-dialog") as HTMLDivElement;
-const trashTitle = document.getElementById("trash-title") as HTMLHeadingElement;
-const trashRows = document.getElementById("trash-rows") as HTMLUListElement;
-const trashEmpty = document.getElementById("trash-empty") as HTMLParagraphElement;
-const trashFailed = document.getElementById("trash-failed") as HTMLUListElement;
 const trashTotal = document.getElementById("trash-total") as HTMLParagraphElement;
 const trashRunButton = document.getElementById("trash-run") as HTMLButtonElement;
 const trashCancelButton = document.getElementById("trash-cancel") as HTMLButtonElement;
-
-// Collect the rejects of `dirs` (and their subfolders when `recursive`) and
-// show them in the dialog. The folder tree's right-click items land here. A
-// second call while one is under way does nothing.
-function trashRejectedIn(dirs: string[], recursive: boolean): void {
-  whenIdle("Move Rejected to Trash", () => {
-    if (
-      !formatDialog.hidden ||
-      settings.isOpen ||
-      sequenceFlow.busy ||
-      sidecarFlow.busy ||
-      !trashFlow.start({ dirs, recursive })
-    ) {
-      return;
-    }
-    window.__TAURI__.core
-      .invoke<TrashPreview>("trash_rejected_preview", { dirs, recursive })
-      .then((preview) => {
-        if (trashFlow.previewed()) {
-          showTrashPreview(preview);
-        }
-      })
-      .catch((err: unknown) => {
-        trashFlow.end();
-        setStatus(String(err));
-      });
-  });
-}
 
 function listItem(text: string): HTMLLIElement {
   const item = document.createElement("li");
   item.textContent = text;
   return item;
-}
-
-function showTrashPreview(preview: TrashPreview): void {
-  setFilterMenuOpen(false);
-  setSortMenuOpen(false);
-  closeContextMenu();
-  trashTitle.textContent = "Move Rejected to Trash";
-  trashRows.replaceChildren(...folderRows(preview).map(listItem));
-  const empty = emptyFoldersLine(preview);
-  trashEmpty.textContent = empty ?? "";
-  trashEmpty.hidden = empty === null;
-  trashFailed.replaceChildren(
-    ...preview.failed.map((failure) => listItem(trashFailureText(failure))),
-  );
-  trashTotal.textContent = totalLine(preview);
-  trashRunButton.disabled = !canRun(preview);
-  trashCancelButton.disabled = false;
-  trashDialog.hidden = false;
-  (trashRunButton.disabled ? trashCancelButton : trashRunButton).focus();
 }
 
 // Ask whether to move `paths`, files of the open folder taken when the strip's
@@ -922,19 +863,13 @@ function confirmTrashFiles(paths: string[]): void {
     settings.isOpen ||
     sequenceFlow.busy ||
     sidecarFlow.busy ||
-    !trashFlow.start({ dirs: [openDir], recursive: false, paths }) ||
-    !trashFlow.previewed()
+    !trashFlow.start({ dir: openDir, paths })
   ) {
     return;
   }
   setFilterMenuOpen(false);
   setSortMenuOpen(false);
   closeContextMenu();
-  trashTitle.textContent = "Move to Trash";
-  trashRows.replaceChildren();
-  trashEmpty.textContent = "";
-  trashEmpty.hidden = true;
-  trashFailed.replaceChildren();
   trashTotal.textContent = filesLine(paths.length);
   trashRunButton.disabled = false;
   trashCancelButton.disabled = false;
@@ -979,7 +914,7 @@ function trashFilesIn(dir: string, paths: string[]): void {
           if (summary.run_id !== null) {
             redoable.clear();
           }
-          trashed(summary, [dir], false);
+          trashed(summary, [dir]);
         })
         .catch((err: unknown) => {
           done();
@@ -998,38 +933,16 @@ function closeTrashDialog(): void {
   trashDialog.hidden = true;
 }
 
-// A strip run (`paths`) goes through `trashFilesIn`. The reject run collects
-// again under the backend's `Scans` lock, so a folder that
-// could not be read in the preview is left out again. When the open folder
-// was among the targets, its state is pruned by the moved paths and it is
-// re-listed; read at the end, since the open folder may change meanwhile.
+// The confirmed files go to `trashFilesIn`, which closes the dialog once
+// the run comes back.
 function runTrash(): void {
   const target = trashFlow.run();
   if (target === null) {
     return;
   }
-  const { dirs, recursive, paths } = target;
   trashRunButton.disabled = true;
   trashCancelButton.disabled = true;
-  if (paths !== undefined && dirs[0] !== undefined) {
-    trashFilesIn(dirs[0], paths);
-    return;
-  }
-  settleIdle(
-    window.__TAURI__.core
-      .invoke<TrashSummary>("trash_rejected_run", { dirs, recursive })
-      .then((summary) => {
-        closeTrashDialog();
-        if (summary.run_id !== null) {
-          redoable.clear();
-        }
-        trashed(summary, dirs, recursive);
-      })
-      .catch((err: unknown) => {
-        closeTrashDialog();
-        setStatus(String(err));
-      }),
-  );
+  trashFilesIn(target.dir, target.paths);
 }
 
 // What a run or a redo does once its files went to the Trash: prune the open
@@ -1041,11 +954,10 @@ function runTrash(): void {
 function trashed(
   summary: TrashSummary,
   dirs: string[],
-  recursive: boolean,
   what: TrashWhat = "files",
   rescan = true,
 ): void {
-  const refresh = openDir !== null && opensTarget(openDir, dirs, recursive, folders.ignoreCase);
+  const refresh = openDir !== null && opensTarget(openDir, dirs, folders.ignoreCase);
   if (refresh && what === "sidecars") {
     if (summary.moved.length > 0) {
       clearShownJudgments();
@@ -1070,15 +982,11 @@ function trashed(
       runId: summary.run_id,
       count: summary.moved.length,
       dirs,
-      recursive,
       ...(what === "sidecars" ? { what } : {}),
     });
   }
   for (const { path, message } of summary.failed) {
     errors.add(path, `${baseName(path)}: could not move to the Trash: ${message}`);
-  }
-  for (const { path, message } of summary.unread) {
-    errors.add(path, `${baseName(path)}: could not be read: ${message}`);
   }
   setStatus(trashedStatus(summary, what));
   if (refresh && rescan) {
@@ -1437,7 +1345,7 @@ function runSidecars(): void {
           if (summary.run_id !== null) {
             redoable.clear();
           }
-          trashed(summary, [dir], false, "sidecars", false);
+          trashed(summary, [dir], "sidecars", false);
         })
         .catch((err: unknown) => {
           closeSidecarDialog();
@@ -2292,10 +2200,7 @@ function undoTrash(entry: TrashEntry): void {
             errors.add(path, `${baseName(path)}: could not restore from the Trash: ${message}`);
           }
           setStatus(restoredStatus(result, entry));
-          if (
-            openDir !== null &&
-            opensTarget(openDir, entry.dirs, entry.recursive, folders.ignoreCase)
-          ) {
+          if (openDir !== null && opensTarget(openDir, entry.dirs, folders.ignoreCase)) {
             const back = restoredInto(openDir, result.restored, allFiles, folders.ignoreCase);
             if (back.length > 0) {
               allFiles = [...allFiles, ...back];
@@ -2333,7 +2238,7 @@ function redoTrash(entry: TrashEntry): void {
         .then((summary) => {
           trashStep = null;
           redoable.remove(entry);
-          trashed(summary, entry.dirs, entry.recursive, entry.what);
+          trashed(summary, entry.dirs, entry.what);
         })
         .catch((err: unknown) => {
           trashStep = null;
@@ -3499,10 +3404,8 @@ function renameFile(path: string, name: string): void {
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
 // rename it, to expand or collapse every subfolder under it, to mark its
-// culling finished (while AI analysis is on), to move its
-// rejects to the Trash, to rewrite its sidecars from the index or delete
-// them, or to sequence its JPEGs. On a selection of several
-// folders it offers only to move their rejects.
+// culling finished (while AI analysis is on), to rewrite its sidecars from
+// the index or delete them, or to sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -3513,15 +3416,14 @@ folders.init(
     });
   },
   setStatus,
-  (path, name, x, y, root, targets) => {
-    const finished =
-      rankingOn && targets.length === 1
-        ? window.__TAURI__.core
-            .invoke<boolean>("culling_finished", { dir: path })
-            .catch(() => undefined)
-        : Promise.resolve(undefined);
+  (path, name, x, y, root) => {
+    const finished = rankingOn
+      ? window.__TAURI__.core
+          .invoke<boolean>("culling_finished", { dir: path })
+          .catch(() => undefined)
+      : Promise.resolve(undefined);
     void Promise.all([revealLabel, finished]).then(([label, finished]) => {
-      showMenu(folderMenuGroups(label, root, targets.length, finished), x, y, (action) => {
+      showMenu(folderMenuGroups(label, root, finished), x, y, (action) => {
         switch (action) {
           case "cullingFinished":
             window.__TAURI__.core
@@ -3547,7 +3449,7 @@ folders.init(
             break;
           case "refreshFolder":
             folders.refresh(path);
-            if (openDir !== null && opensTarget(openDir, [path], false, folders.ignoreCase)) {
+            if (openDir !== null && opensTarget(openDir, [path], folders.ignoreCase)) {
               resync("refresh");
             }
             break;
@@ -3559,12 +3461,6 @@ folders.init(
             break;
           case "collapseAll":
             folders.collapseAll(path);
-            break;
-          case "trashRejected":
-            trashRejectedIn(targets, false);
-            break;
-          case "trashRejectedTree":
-            trashRejectedIn(targets, true);
             break;
           case "rewriteSidecars":
             rewriteSidecarsIn(path);
@@ -3832,7 +3728,7 @@ function modalOpen(): boolean {
   return (
     settings.isOpen ||
     sequenceFlow.isOpen ||
-    trashFlow.isOpen ||
+    trashFlow.busy ||
     sidecarFlow.isOpen ||
     folders.isEditing() ||
     strip.isEditing()
@@ -4726,7 +4622,7 @@ window.addEventListener("keydown", (event) => {
     sequenceKeydown(event);
     return;
   }
-  if (trashFlow.isOpen) {
+  if (trashFlow.busy) {
     trashKeydown(event);
     return;
   }

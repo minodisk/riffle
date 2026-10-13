@@ -86,7 +86,7 @@ describe("History", () => {
 
 describe("undo entries", () => {
   type J = { path: string };
-  const run: TrashEntry = { kind: "trash", runId: 1, count: 2, dirs: ["/a"], recursive: false };
+  const run: TrashEntry = { kind: "trash", runId: 1, count: 2, dirs: ["/a"] };
 
   test("pruning judgments keeps the trash entries", () => {
     const history = new History<Entry<J>>(10);

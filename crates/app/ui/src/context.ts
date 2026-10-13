@@ -66,38 +66,16 @@ export function contextMenuGroups(
 // The folder tree's right-click menu: the reveal item, labeled per platform by
 // the `reveal_label` command, then copying the folder's path or name, then re-listing it (Refresh), then
 // renaming it, then expanding or collapsing every subfolder under it, then
-// moving its rejects to the Trash, with or without its subfolders, then
 // rewriting its sidecars from the index or deleting them, then the sequencing of the folder's
-// JPEGs. Renaming, expanding / collapsing all and
-// the recursive trash item are not offered on a root (home or a volume). With
-// `count` folders selected, only the trash items are offered, naming the
-// count; `root` then says whether any of them is a root. `finished`, given
-// only while AI analysis is on, adds the `Culling Finished` check above the
-// trash items, checked when the folder is marked so.
+// JPEGs. Renaming and expanding / collapsing all are not offered on a root
+// (home or a volume). `finished`, given only while AI analysis is on, adds
+// the `Culling Finished` check above the sidecar items, checked when the
+// folder is marked so.
 export function folderMenuGroups(
   revealLabel: string,
   root: boolean,
-  count = 1,
   finished?: boolean,
 ): MenuItem[][] {
-  if (count > 1) {
-    const label = `Move Rejected in ${count} Folders to Trash`;
-    return [
-      [
-        { action: "trashRejected", label: `${label}…`, shortcut: "", checked: undefined },
-        ...(root
-          ? []
-          : [
-              {
-                action: "trashRejectedTree",
-                label: `${label}, Including Subfolders…`,
-                shortcut: "",
-                checked: undefined,
-              },
-            ]),
-      ],
-    ];
-  }
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
     [
@@ -126,24 +104,6 @@ export function folderMenuGroups(
             },
           ],
         ]),
-    [
-      {
-        action: "trashRejected",
-        label: "Move Rejected to Trash…",
-        shortcut: "",
-        checked: undefined,
-      },
-      ...(root
-        ? []
-        : [
-            {
-              action: "trashRejectedTree",
-              label: "Move Rejected to Trash, Including Subfolders…",
-              shortcut: "",
-              checked: undefined,
-            },
-          ]),
-    ],
     [
       {
         action: "rewriteSidecars",

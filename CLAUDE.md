@@ -107,12 +107,10 @@ renames the folder and carries its index rows to the new path), `src/watch.rs`
 the open folder's watcher and `src/treewatch.rs` the folder tree's watchers on
 its expanded folders (`set_tree_watches`, per-folder `tree-changed` events),
 `src/trash.rs` the
-reject collection and the move behind the `trash_rejected_preview` and
-`trash_rejected_run` commands (it finds the rejects of a list of folders,
-optionally with their subfolders, from the index rows or else the sidecars on
-disk, so a folder never opened counts too, counts them and their bytes per
-folder for the confirmation dialog, and moves each RAW and its sidecars to
-the OS trash, recording every run that moved something in `Runs`, the newest
+move behind the strip's `Move to Trash…` and the `trash_files` command (it
+groups the given files of one folder, each RAW with the `.xmp` and `.dop`
+sidecars that exist for it and a JPEG alone, and moves them to the OS trash,
+RAW first, recording every run that moved something in `Runs`, the newest
 100, which `trash_rejected_undo` takes one from to restore its files, RAW
 before its sidecars, never overwriting, keeping what came back for
 `trash_rejected_redo` to move to the Trash again), `src/foldersidecars.rs`
@@ -173,7 +171,7 @@ stored eye state, and its `Genre` section on the `genres_of` labels, shown
 while `aiEnabled` is on), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/idle.ts`
-holds an operation pressed during a scan (Move Rejected to Trash, the
+holds an operation pressed during a scan (Move to Trash, the
 renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens
 view-only (no judgment, capture-time order), `src/sidecars.ts` holds the

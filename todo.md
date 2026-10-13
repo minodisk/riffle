@@ -41,9 +41,9 @@ Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/compare.ts`, `crates/app/
 
 ### Core: the `.dop` reader ignores a picked PhotoLab virtual copy
 
-Found in `burst-keep-score` Step 1 (the inventory, `docs/plans/_archived/20261008-burst-keep-score/data.md`). `dop::read_flag` (`crates/core/src/dop.rs`, `locate`) reads only the first `Items` entry, so it returns `None` for 199 frames of `2026-06-05` and 228 of `2026-09-13-b` whose virtual copy (a later item) is picked in PhotoLab. Riffle shows those frames unflagged, and `trash.rs` `collect_folder` would not treat them as picked. Whether Riffle should read any item's flag, and which item it writes, is a product decision.
+Found in `burst-keep-score` Step 1 (the inventory, `docs/plans/_archived/20261008-burst-keep-score/data.md`). `dop::read_flag` (`crates/core/src/dop.rs`, `locate`) reads only the first `Items` entry, so it returns `None` for 199 frames of `2026-06-05` and 228 of `2026-09-13-b` whose virtual copy (a later item) is picked in PhotoLab. Riffle shows those frames unflagged, so the strip's filter does not count them as picked. Whether Riffle should read any item's flag, and which item it writes, is a product decision.
 
-Files: `crates/core/src/dop.rs`, `crates/app/src/trash.rs`.
+Files: `crates/core/src/dop.rs`.
 
 #### TODO
 
@@ -188,59 +188,40 @@ must be wider than the source crop.
       `docs/plans/_archived/20260921-app-icon-enlarge-marks/learnings.md` for
       the concrete numbers. If it does not recur, drop this item.
 
-### App: the manual GUI checks for Move Rejected to Trash are still open
+### App: the macOS / Linux manual checks for Move to Trash are still open
 
-From `trash-rejected`'s implementation and its follow-ups: GUI automation is
-unavailable on this Mac, so nothing of the action's visible behavior has been
-run by a human on macOS or Linux. The action is now only the folder tree's
-right-click items (`Move Rejected to Trash…`,
-`Move Rejected to Trash, Including Subfolders…`, and the
-`Move Rejected in N Folders to Trash…` pair for a multi-selection); the File
-menu item, and with it its template icon, was removed by
-`file-menu-folder-items` (#537). The confirmation is the in-window
-`#trash-dialog` (`crates/app/ui/index.html`, `crates/app/ui/src/trash.ts`),
-driven by the `trash_rejected_preview` / `trash_rejected_run` commands
-(`crates/app/src/commands.rs`). On macOS the mover is `trash::trash_file`
-(`crates/app/src/trash.rs`, `undo-trash-rejected` #547), which calls
-`NSFileManager.trashItemAtURL` directly rather than the `trash` crate's
-`DeleteMethod::NsFileManager`; one point is specifically unverified: whether
-the Trash's "Put Back" entry is actually created, since the `trash` crate
-documents that on some macOS systems files moved through `NSFileManager` get
-no "Put Back" entry (trash-rs#14); dragging them out of the Trash still
-restores them. Files: `crates/app/src/commands.rs`, `crates/app/src/trash.rs`,
-`crates/app/ui/src/trash.ts`, `crates/app/ui/src/main.ts`. A manual run on
-Windows on 2026-09-28 (`mise run tauri:dev`) passed for the earlier flow with
-the OS's own confirm dialog (it predates the in-window dialog of #529): the
-confirmation showed the count and the button labels, Cancel changed nothing,
-confirming moved the RAW, its `.xmp` and `.ARW.dop` to the Recycle Bin with
-the right original location, the strip moved to the next file, restoring all
-three showed the file still as a reject, and a folder with 0 rejects got a
-message. The Windows checks of the tree items and the dialog are in
-`### App: Windows real-device check of the merged folder-tree, scan-wait and strip-scroll work`.
-Sources: `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`
-(#518, #521, #526, #529) and
+The strip's `Move to Trash…` (`trash-from-strip`, which replaced the folder
+tree's `Move Rejected to Trash…` family) moves files through the same mover
+and records the same `trash::Runs` runs the removed feature did, and that
+mover has never been run by a human on macOS or Linux. On macOS the mover
+is `trash::trash_file` (`crates/app/src/trash.rs`, `undo-trash-rejected`
+#547), which calls `NSFileManager.trashItemAtURL` directly rather than the
+`trash` crate's `DeleteMethod::NsFileManager`; one point is specifically
+unverified: whether the Trash's "Put Back" entry is actually created, since
+the `trash` crate documents that on some macOS systems files moved through
+`NSFileManager` get no "Put Back" entry (trash-rs#14); dragging them out of
+the Trash still restores them. The Windows checks of the strip flow are the
+pending manual check recorded in
+`docs/plans/_archived/20261013-trash-from-strip/learnings.md` (Step 2).
+Files: `crates/app/src/commands.rs` (`trash_files`, `trash_one`),
+`crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
+`crates/app/ui/src/main.ts`. Sources:
 `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md` Step 2
-(#547).
+(#547) and `docs/plans/_archived/20261013-trash-from-strip/plan.md`.
 
 #### TODO
 
-- [ ] On macOS, right-click a folder in the tree and pick
-      `Move Rejected to Trash…`: `#trash-dialog` names the right count (and
-      the singular for one file) with `Move to Trash` / `Cancel`; Cancel
-      leaves the folder untouched; confirming moves the RAW plus its `.xmp`
-      and `.ARW.dop` to the Trash and the strip shows the next passing file;
-      a folder with zero rejects writes its message to `#status` with no
-      dialog; a press during a scan is held by `whenIdle` until the scan
-      ends (`crates/app/ui/src/idle.ts`); a "Put Back" from the Trash
-      restores the file with its judgment, and if no "Put Back" entry
-      exists, dragging it out does. (Source:
-      `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`,
-      #521, #529.)
+- [ ] On macOS, right-click a strip cell and pick `Move to Trash…`:
+      `#trash-dialog` asks `Move 1 file to the Trash?` with `Move to Trash` /
+      `Cancel`; Cancel leaves the folder untouched; confirming moves the RAW
+      plus its `.xmp` and `.ARW.dop` to the Trash and the strip shows the
+      neighbouring file; a "Put Back" from the Trash restores the file with
+      its judgment, and if no "Put Back" entry exists, dragging it out does.
 - [ ] Verify the same flow on Linux (the `trash` crate's freedesktop backend
       has never been run here).
-- [ ] On macOS, trash the rejects of a folder, then `Edit > Undo`: the files
-      come back with the reject flag, and a file with the same name placed
-      at the original location beforehand is reported
+- [ ] On macOS, move a rejected file to the Trash, then `Edit > Undo`: the
+      file comes back with the reject flag, and a file with the same name
+      placed at the original location beforehand is reported
       (`already exists at the original location`) and not overwritten.
       (Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`
       Step 2, #547.)
@@ -466,22 +447,16 @@ copying 100 ARWs into an open folder. Files: `crates/app/src/treewatch.rs`,
 not listed: that item was removed by `file-menu-folder-items` (#537). The
 tree trash checks come from
 `docs/plans/_archived/20260928-trash-rejected-from-tree/learnings.md`
-Steps 2–4 and the bodies of #521, #526 and #529; the undo / redo checks are in
-`### App: the manual GUI checks for Undo and Redo of Move Rejected to Trash are still open`.
+Steps 2–4 and the bodies of #521, #526 and #529; the tree's trash items and
+their confirmation dialog were removed by `trash-from-strip`, so only the
+selection checks remain; the undo / redo checks are in
+`### App: the manual GUI checks for Undo and Redo of Move to Trash are still open`.
 
 #### TODO
 
 - [ ] Tree watch on Windows: with a folder expanded, create, delete and
       rename a subfolder in Explorer and confirm the tree follows; confirm
       renaming a folder from the app still works with the watch on.
-- [ ] Tree trash items on Windows (#521): a non-root folder offers
-      `Move Rejected to Trash…` and
-      `Move Rejected to Trash, Including Subfolders…`; the home root and a
-      volume root offer only the first; the recursive item trashes the
-      rejects of the folder and every visible subfolder (dot and hidden
-      folders skipped); when the open folder is a target, the strip
-      refreshes; when it is not, only the status line and the error list
-      change.
 - [ ] Tree multi-selection on Windows (#526): `Ctrl+click` toggles a folder
       in and out of the selection (the open folder can be toggled off, and
       the selection can go empty); `Shift+click` selects the range from the
@@ -491,27 +466,9 @@ Steps 2–4 and the bodies of #521, #526 and #529; the undo / redo checks are in
       it; selected rows draw `.selected` distinct from `.current` /
       `.cursor`; the container has `aria-multiselectable` and each row
       `aria-selected` following the selection; collapsing a parent or a
-      `tree-changed` re-list drops folders no longer drawn; right-clicking a
-      selected folder acts on the whole selection, and the menu offers only
-      `Move Rejected in N Folders to Trash…` and its `Including Subfolders`
-      twin (the latter hidden when any selected folder is a root);
-      right-clicking an unselected folder selects it alone first.
-- [ ] Trash confirmation dialog on Windows (#529): `#trash-dialog` lists one
-      row per folder with its reject count (the verbatim `\\?\` prefix
-      stripped), hides zero-reject folders behind a summary line, shows the
-      total count and the space freed, and opens with `Move to Trash`
-      focused so Enter runs it; Escape and `Cancel` close it with nothing
-      moved; a folder that cannot be read (for example one removed after the
-      right-click, or a sidecar that does not parse) appears in the failure
-      list with its error and is excluded from the run, and when every
-      folder has zero rejects but one failed, the dialog still opens with
-      `Move to Trash` disabled; a folder with zero rejects and no failure
-      writes `No rejected files in …` to the status line with no dialog; the
-      dialog, the sequence dialog and the settings modal never open on top
-      of each other (`Ctrl+,` and the tree's `Sequence JPEG Timestamps…` do
-      nothing while it is up); confirming shows `Moved N files to the Trash`
-      and the failures, if any, in the error list.
-- [ ] Scan-wait on Windows: press Move Rejected to Trash and a rename while
+      `tree-changed` re-list drops folders no longer drawn; right-clicking
+      any folder, selected or not, selects it alone and shows its own menu.
+- [ ] Scan-wait on Windows: confirm the strip's Move to Trash and a rename while
       a large folder scans; confirm the status line says what is waiting and
       each runs when the scan ends. The Clear Cache hold is covered by
       checks (4) and (5) of "the Clear Cache button's manual GUI
@@ -519,18 +476,19 @@ Steps 2–4 and the bodies of #521, #526 and #529; the undo / redo checks are in
 - [ ] Strip scroll on Windows: repeat the 100-ARW copy into an open folder
       and confirm the strip's scroll position holds without flicker.
 
-### App: the manual GUI checks for Undo and Redo of Move Rejected to Trash are still open
+### App: the manual GUI checks for Undo and Redo of Move to Trash are still open
 
-`undo-trash-rejected` merged as #540, #547, #549 and #551: a Move Rejected to
-Trash run is one undo unit; `Edit > Undo` / `Ctrl+Z` restores it through
-`trash_rejected_undo`, and `Edit > Redo` / `Ctrl+Shift+Z` moves the restored
+`undo-trash-rejected` merged as #540, #547, #549 and #551: a trash run (now
+the strip's `Move to Trash…`, which replaced the folder tree's
+`Move Rejected to Trash…` in `trash-from-strip`) is one undo unit;
+`Edit > Undo` / `Ctrl+Z` restores it through `trash_rejected_undo`, and `Edit > Redo` / `Ctrl+Shift+Z` moves the restored
 files to the Trash again through `trash_rejected_redo`, without the dialog.
 The backend side was verified against the real Recycle Bin with throwaway
 tests; the GUI side has not been run at all, since an agent session cannot
 drive the app. The resume-selection check that used to sit here is in
 `### App: the manual GUI checks for the resume landing's selection are still open`
 (#553); the macOS undo check is in
-`### App: the manual GUI checks for Move Rejected to Trash are still open`.
+`### App: the macOS / Linux manual checks for Move to Trash are still open`.
 Files: `crates/app/src/trash.rs`, `crates/app/src/commands.rs`,
 `crates/app/ui/src/undo.ts`, `crates/app/ui/src/trash.ts`,
 `crates/app/ui/src/main.ts`. Source:
@@ -539,14 +497,14 @@ and 4 (#549, #551).
 
 #### TODO
 
-- [ ] On Windows, trash the rejects in the open folder, then `Ctrl+Z`: the
+- [ ] On Windows, move rejected files of the open folder to the Trash with
+      the strip's `Move to Trash…`, then `Ctrl+Z`: the
       files come back, the strip shows them again with the reject flag (read
       from the sidecars), the status line says
       `Restored N files from the Trash`, and the folder tree's count follows
       on its next re-list.
-- [ ] The same from the tree for a folder that is not open: only the status
+- [ ] The same with another folder opened since the move: only the status
       line changes.
-- [ ] A run over several selected folders is undone by one `Ctrl+Z`.
 - [ ] A conflict: copy a trashed RAW back by hand before the undo; the
       status line says `…, N failed`, the error list shows
       `could not restore from the Trash: already exists at the original location`,
@@ -561,7 +519,7 @@ and 4 (#549, #551).
 - [ ] `Ctrl+Z` (files back), `Ctrl+Shift+Z` (moved to the Trash again with
       no dialog, the strip refreshed, status `Moved N files to the Trash`),
       then `Ctrl+Z` again (back again).
-- [ ] The same undo / redo / undo from the tree with no folder open.
+- [ ] The same undo / redo / undo with another folder open.
 - [ ] A judgment made after the undo clears the redo: `Ctrl+Shift+Z` does
       nothing.
 
@@ -1276,9 +1234,9 @@ its `learnings.md`. Files: `crates/app/src/foldersidecars.rs`,
       PhotoLab-written `.dop` (with corrections), open the folder in Riffle
       under `XMP and .dop`, rate, flag and label a few files, then
       right-click the folder and choose `Rewrite Sidecars from Index…`.
-      Expect the item after the `Move Rejected to Trash…` group and before
-      `Sequence JPEG Timestamps…`, and absent with several folders
-      selected; the dialog titled `Rewrite Sidecars from Index` shows the
+      Expect the item after the `Expand All` / `Collapse All` group (after
+      `Culling Finished` while AI analysis is on) and before
+      `Sequence JPEG Timestamps…`; the dialog titled `Rewrite Sidecars from Index` shows the
       judged / unjudged / skipped rows and `Rewrite the XMP and .dop
       sidecars of N files in <name>?` with a primary `Rewrite`; `Rewrite`
       disables both buttons and shows the running note, then the status
@@ -1390,13 +1348,12 @@ still held behind a scan must still be re-editable as before. Plan:
       cancel, keep) as before, in both views.
 - [ ] On Windows, run the same check as above.
 
-### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename are still open
+### App: the wait-for-scan manual checks for Move to Trash and Rename are still open
 
 #### Background
 
-`wait-for-scan` made Move Rejected to Trash (now the folder tree's
-`Move Rejected to Trash…` item; the File menu item was removed by
-`file-menu-folder-items`, #537), the folder / file
+`wait-for-scan` made Move Rejected to Trash (now the strip's
+`Move to Trash…`, which replaced it in `trash-from-strip`), the folder / file
 `Rename…` and the settings modal's `Clear Cache` wait for a running scan
 instead of refusing with `a scan is running; wait for it to finish`: the
 frontend's `IdleGate` holds one pressed operation (a second press replaces
@@ -1405,34 +1362,29 @@ the scan ends. The backend `SCAN_RUNNING` refusals (`crates/app/src/commands.rs`
 for trash, `crates/app/src/rename.rs` for renames) remain as the last line of
 defense. None of it has been run by hand; the user's Windows setup is where
 these checks will
-first be run. The trash confirmation is now an in-window HTML dialog
-(`trash-rejected-from-tree`, #529), so the archived plan's "closing the
+first be run. The trash confirmation is an in-window HTML dialog that asks
+before the wait, so the archived plan's "closing the
 confirm dialog refocuses the window" race no longer applies to trash, only to
 Clear Cache's native confirm. The Clear Cache checks live in
 `### App: the Clear Cache button's manual GUI verification is still open`
 and are not repeated here. Basis: `wait-for-scan`
 (`docs/plans/_archived/20260928-wait-for-scan/plan.md`, #519 and #522).
 Files: `crates/app/ui/src/idle.ts`, `crates/app/ui/src/main.ts` (`whenIdle`,
-`settleIdle`, `trashRejectedIn`, `renameFolder`, `renameFile`, the
+`settleIdle`, `trashFilesIn`, `renameFolder`, `renameFile`, the
 `faces-done` `idle.drain()` and the `openDirectory` `idle.discard()`),
 `crates/app/ui/src/strip.ts` (`setFiles` carrying the live inline edit across
 a rebuild).
 
 #### TODO
 
-- [ ] In an ARW folder, reject a file, switch to a terminal and straight back
-      (the `tauri://focus` `resync()` starts a rescan), press
-      the folder tree's `Move Rejected to Trash…` on that folder (the File
-      menu item was removed by `file-menu-folder-items`, #537): the status
-      line briefly shows
-      `Move Rejected to Trash: waiting for the scan to finish` and the
-      in-window trash dialog (`#trash-dialog`) follows with no error.
-- [ ] During a long first scan (thousands of files) press Move Rejected to
-      Trash: the status line stays visible for the whole scan and the dialog
-      appears when the scan ends.
-- [ ] Un-reject a file while the trash waits: it is absent from the dialog's
-      counts and is not trashed (the held closure calls
-      `trash_rejected_preview` at run time, not press time).
+- [ ] In an ARW folder, switch to a terminal and straight back (the
+      `tauri://focus` `resync()` starts a rescan), right-click a strip cell,
+      choose `Move to Trash…` and confirm: the dialog closes, the status
+      line briefly shows `Move to Trash: waiting for the scan to finish`,
+      and the file moves when the scan ends with no error.
+- [ ] During a long first scan (thousands of files) confirm the strip's
+      `Move to Trash…`: the status line stays visible for the whole scan
+      and the files move when the scan ends.
 - [ ] Switch folders while an operation waits: it is dropped
       (`idle.discard()` in `openDirectory`) and the status line clears.
 - [ ] Rename a folder (tree inline edit) and a file (strip inline edit)
@@ -1443,7 +1395,7 @@ a rebuild).
       cell's marks under the new name; an inline edit still being typed
       survives the strip being rebuilt by the scan's `setFiles` without
       losing typed text or confirming early.
-- [ ] Pressing `Move to Trash` in the trash dialog (`trash_rejected_run`
+- [ ] Pressing `Move to Trash` in the trash dialog (`trash_files`
       through `settleIdle`) and confirming a rename never make the backend
       refuse with `a scan is running`; the native-confirm refocus case
       (closing a dialog refocuses `main` and `resync()` starts a scan) is
@@ -1453,7 +1405,7 @@ a rebuild).
       folder tree and the strip: a rename confirmed during a scan shows the
       new name muted and italic after the clock icon (hover: `Renames when
       the scan finishes`) at once, and the normal name when it runs; pressing
-      Move Rejected to Trash (or another rename) meanwhile, or opening
+      Move to Trash (or another rename) meanwhile, or opening
       another folder, reverts the name with `Rename… was canceled`; a rename
       that fails at the scan's end reverts with its error; re-editing the
       pending cell starts from the pending name, a different name replaces
@@ -1493,7 +1445,7 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 #### TODO
 
 - [ ] On Windows (`mise run tauri:dev`), Step 1, Settings: walk every tab (Sidecar with both XMP and `.dop` so `#label-names` shows and hides, Culling, Keyboard Shortcuts with a chip removed and a key captured, Cache, MCP with `Copy`). Expect the modal to read as shadcn Neutral dark: near-black backdrop over the `#0a0a0a` window, `#171717` box, hairline `rgb(255 255 255 / 10%)` borders, `#fafafa` text, outline buttons, `#737373` focus ring. Every control is consistent with the others, the Tab trap cycles through the same controls, and the modal's size and scrolling (a long shortcuts table) are unchanged. Also check that the selected-tab and hover fills, and the chip `×` hover, are told apart (`--muted` and `--accent` are both `#262626`); if the chip `×` hover is invisible, lift it to `--input`.
-- [ ] On Windows, Step 2, dialogs: clear the `sidecarFormat` key (or use a fresh profile) to see the first-run dialog and pick a format; open `Move Rejected to Trash` from the folder tree's right-click on a folder with rejects and one without; open `Sequence JPEG Timestamps…` on a JPEG folder and run it. Expect the format dialog on the `#171717` card with three outline choices; the trash dialog with rows on `--muted`, the total, a red destructive `Move to Trash` and an outline `Cancel`; the sequence preview with changed (pick color) and unchanged (`#a1a1a1`) lines, a light primary `Run` and an outline `Cancel`; disabled buttons during a run at half opacity; all four dialogs (with Settings) look like one family.
+- [ ] On Windows, Step 2, dialogs: clear the `sidecarFormat` key (or use a fresh profile) to see the first-run dialog and pick a format; open `Move to Trash…` from a strip cell's right-click; open `Sequence JPEG Timestamps…` on a JPEG folder and run it. Expect the format dialog on the `#171717` card with three outline choices; the trash dialog with its count line, a red destructive `Move to Trash` and an outline `Cancel`; the sequence preview with changed (pick color) and unchanged (`#a1a1a1`) lines, a light primary `Run` and an outline `Cancel`; disabled buttons during a run at half opacity; all four dialogs (with Settings) look like one family.
 - [ ] On Windows, Step 3, menus / strip bar / cells: open a folder; open the filter and sort menus and toggle a few items; right-click a cell for the context menu; click a cell and shift-click another; watch a fresh folder's placeholders fill in; rename a file inline. Expect hover on `#262626`; a checked item shows the check mark in its leading column with no fill, and it disappears when unchecked; labels stay aligned, nothing wraps and the filter menu still fits above the strip bar; the `AF eye` heading, the star rows (unlit stars dim), the `#filter-exif` groups and the separators are visible on `#171717` (if a separator vanishes, raise `.menu-separator` to `--input`); the context menu's `.shortcut` column is `#a1a1a1` and a radio item shows its check; the filter / sort toggles are outline buttons, the lit filter toggle is `#e5e5e5`, and the sort toggle is half-opacity in a JPEG folder; the focused cell has the light `--primary` border on `#262626`, the other selected cells the `#737373` border on the same fill, and the two read as different; the rejected dimming, burst band, badges and failed red are as before; placeholders are `#262626`; the inline rename field is `#0a0a0a` with a `#737373` outline; the strip and menu scrollbars are thin and visible.
 - [ ] On Windows, Step 4, folder tree: expand a few roots, hover rows, select two folders and open one, move the keyboard cursor while the tree has focus, expand a folder with RAW files, find (or make, e.g. an unreadable folder) a failed folder, rename a folder inline, and drag a folder over the window. Expect `#fafafa` rows with rounded `#262626` hover; the selected folders and the open one share `#262626`, the open one bold and the selected ones normal weight; the keyboard cursor shows a `#737373` ring only while the tree has focus; the count is a pill badge (its fill merges into a hovered / selected / open row, so only the number shows there); a failed folder's name is `#ff6467`; a long name on the open row ellipsizes without wrapping or pushing the count out; the inline rename field is `#0a0a0a` with a `#737373` outline; the drop outline is `#737373`; the tree scrollbar is thin and visible.
 - [ ] On Windows, Step 5, viewer / meta pane / empty states: start with no folder open, then open an empty folder and a folder whose files are all filtered out; open a fresh folder and watch it scan; make a sidecar write fail (mark a sidecar read-only and rate the file) and dismiss the error; read the meta pane of a RAW file; toggle 1:1 zoom; open Compare with three frames. Expect the empty hints (`Drop a folder…`, `This folder has no RAW or JPEG files.`, `No files match the current filter.`) centered in `#a1a1a1`; the `scanning N / M` then `analyzing N / M` notes, `1:1` and `Compare · N frames` in `#a1a1a1`; the error row in `#ff6467` (not the old amber) with a ghost `×` that hovers on `#262626` and dismisses; the meta pane's EXIF / Maker note / Analysis headings and keys in `#a1a1a1`, values `#fafafa`, a thin scrollbar; Compare's label bars `#171717` with `#fafafa` text, frames with a faint hairline border, and the active frame showing a light `#e5e5e5` inner ring.
@@ -1501,7 +1453,7 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/index.html`, `crates/app/ui/src
 - [ ] On macOS (WKWebView), repeat the six Windows passes above (Settings, first-run / trash / sequence dialogs, menus / strip bar / cells, folder tree, empty states / meta pane / status lines / Compare, settings side-nav). Also confirm that `scrollbar-color` is honored or harmlessly ignored, that native checkboxes / radios take `accent-color` (Safari 15.4+; an older engine shows the UA control), and that `:focus-visible` rings appear.
 - [ ] On Linux (WebKitGTK), repeat the six Windows passes above and the same three extra confirmations (`scrollbar-color`, `accent-color` on checkboxes / radios with WebKitGTK 2.36+, `:focus-visible` rings).
 
-### App: real-device check of an ORF folder in the strip, sidecars and Move Rejected to Trash
+### App: real-device check of an ORF folder in the strip, sidecars and Move to Trash
 
 `orf.rs` and the `.orf` arm of `scan::is_raw_file` / `reader::parse_raw`
 were verified by unit tests and `riffle-cli bench` / `scan` / `focusbox` on
@@ -1521,8 +1473,8 @@ Files: `crates/core/src/orf.rs`, `crates/core/src/scan.rs`,
       upright; (3) the meta pane shows the EXIF rows (camera without
       trailing spaces, lens, exposure, capture time); (4) a star, a flag and
       a color label write an XMP and a `.dop` next to the file; (5)
-      rejecting a file and running `Move Rejected to Trash…` moves the ORF
-      and its sidecars, and Undo restores them.
+      the strip's `Move to Trash…` on a file moves the ORF and its
+      sidecars, and Undo restores them.
 
 ### App: real-device checks for the flex / grid gap layout (no-margin-layout) are still open
 
@@ -1534,7 +1486,7 @@ Files: `crates/app/ui/style.css`, `crates/app/ui/src/main.ts`, `crates/app/ui/sr
 
 #### TODO
 
-- [ ] On Windows (`mise run tauri:dev`), measure in devtools the settings spacing on a pre-change build first (the old `p`-to-`p` and label-to-`#label-names` distances), then on the current `main`, and record it. Expect an even 8px rhythm in the settings panels. Then walk the pass. Dialogs: the first-run format dialog (clear `sidecarFormat` or use a fresh profile; the error line under the note when a write fails), `Move Rejected to Trash…` on a folder with rejects and one without (rows, the empty note, the failed list, the total, the button row), and `Sequence JPEG Timestamps…` on a JPEG folder (source / output lines, rebuild note, rows, count, the running note during a run), all spaced as before. Settings: Sidecar with XMP and `.dop` so `#label-names` shows and hides; Culling; Keyboard Shortcuts with a chip removed and a key captured on a row with enough keys to wrap (chips, the `Press a key...` prompt and `+` vertically centered against the label and Reset cells, 0.2rem / 0.3rem gaps, a one-line row keeping its height, which validates the `div.keys` choice); Cache with the clear note visible during a scan; MCP with the endpoint and both example blocks. Strip bar: the `N / M` counter at the right edge and the toggles at the left, also with `· K selected`; the filter / sort / context menus open and their separators still bleed edge to edge. Folder tree: a long name ellipsizing before its badge, the badge at the right edge, the open folder bold, a collapsed folder without a badge, an inline rename filling the name column without the row jumping, the keyboard cursor ring. Meta pane: the EXIF / Maker note / Analysis headings 0.75rem below the previous block and 0.125rem above their lists; the status notes (scan progress, `1:1`, Compare, an error with its `×`) unchanged. Empty states: no folder, no files, filtered out.
+- [ ] On Windows (`mise run tauri:dev`), measure in devtools the settings spacing on a pre-change build first (the old `p`-to-`p` and label-to-`#label-names` distances), then on the current `main`, and record it. Expect an even 8px rhythm in the settings panels. Then walk the pass. Dialogs: the first-run format dialog (clear `sidecarFormat` or use a fresh profile; the error line under the note when a write fails), the strip's `Move to Trash…` (the count line, the button row), and `Sequence JPEG Timestamps…` on a JPEG folder (source / output lines, rebuild note, rows, count, the running note during a run), all spaced as before. Settings: Sidecar with XMP and `.dop` so `#label-names` shows and hides; Culling; Keyboard Shortcuts with a chip removed and a key captured on a row with enough keys to wrap (chips, the `Press a key...` prompt and `+` vertically centered against the label and Reset cells, 0.2rem / 0.3rem gaps, a one-line row keeping its height, which validates the `div.keys` choice); Cache with the clear note visible during a scan; MCP with the endpoint and both example blocks. Strip bar: the `N / M` counter at the right edge and the toggles at the left, also with `· K selected`; the filter / sort / context menus open and their separators still bleed edge to edge. Folder tree: a long name ellipsizing before its badge, the badge at the right edge, the open folder bold, a collapsed folder without a badge, an inline rename filling the name column without the row jumping, the keyboard cursor ring. Meta pane: the EXIF / Maker note / Analysis headings 0.75rem below the previous block and 0.125rem above their lists; the status notes (scan progress, `1:1`, Compare, an error with its `×`) unchanged. Empty states: no folder, no files, filtered out.
 - [ ] On macOS (WKWebView), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: Safari 14.1 / macOS 11).
 - [ ] On Linux (WebKitGTK), repeat the Windows pass above, and confirm that flex `gap` renders (the guide's floor: WebKitGTK 2.32).
 - [ ] On macOS and Linux, confirm that Settings > Sidecar's `#label-names > label` rows (`grid-template-columns: subgrid`, Chromium 117+ / Safari 16+, see the subgrid bullet in `docs/agents/ui-styling.md` "CSS features") still line up; if not, replace the subgrid with explicit columns.
@@ -1600,7 +1552,7 @@ Files: `crates/app/src/trash.rs` (`restore_recorded`), `crates/app/src/commands.
 
 #### TODO
 
-- [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), run `Move Rejected to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with a recursive run over a parent whose subfolder is renamed. Then `Redo` should move them to the Recycle Bin again.
+- [ ] On Windows, reject two files in a copy under `D:\photos\samples\X` (ideally one with both sidecar formats), move them to the Trash with the strip's `Move to Trash…`, rename the folder in the tree (`Rename…`), then `Undo`. Expect the files and their sidecars back in the renamed folder, the strip (reopened under the new path) showing them with their reject marks, and no empty old-name folder left behind. Repeat with the folder's parent renamed instead. Then `Redo` should move them to the Recycle Bin again.
 - [ ] On macOS, repeat the undo / redo after a rename (`restore_recorded` renames the Trash file straight to the new destination, with no `relocate`). Expect the files back in the renamed folder and no old-name folder appearing.
 
 ### App: real-device check of the scan priority and on-screen-first order on a large RAW folder
@@ -1832,7 +1784,7 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 #### TODO
 
 - [ ] On Windows 11, with AI analysis on (model downloaded), open `D:\photos\2026\2026-09-19` and let pass 3 finish. Expected: the sort menu shows `Recommended` below `Rating`. Choosing it keeps each burst together (burst bands contiguous) and reorders frames within bursts. The meta pane's Analysis group shows `Recommended` (`N of M in its burst · +0.xx`), `Reason` (up to three, e.g. `Look +0.62, Burst position −0.31`) and `Confidence` (`Built-in only, nothing learned yet` on a fresh install).
-- [ ] On Windows, right-click the folder in the tree. Expected: a `Culling Finished` check sits above `Move Rejected to Trash…`. Check it. `Riffle.log` gets a `ranking fit: N bursts from 1 folders` line, the meta pane's `Confidence` changes to `Low · N bursts in 1 folder`, and the settings' Culling tab reads `Ranking: Low · ...`. Right-click again: the item shows checked. Uncheck it: the fit goes back to `Built-in only` (0 bursts), unless some indexed folder holds a burst with both a pick and a reject.
+- [ ] On Windows, right-click the folder in the tree. Expected: a `Culling Finished` check sits above `Rewrite Sidecars from Index…`. Check it. `Riffle.log` gets a `ranking fit: N bursts from 1 folders` line, the meta pane's `Confidence` changes to `Low · N bursts in 1 folder`, and the settings' Culling tab reads `Ranking: Low · ...`. Right-click again: the item shows checked. Uncheck it: the fit goes back to `Built-in only` (0 bursts), unless some indexed folder holds a burst with both a pick and a reject.
 - [ ] On Windows, in Settings > Culling, press `Refit Ranking`. Expected: `refitting…`, then the status. Untick AI analysis: the `Recommended` item, the meta rows, the refit block and the tree's check disappear, and a strip sorted by `Recommended` falls back to capture order. Tick it again: they return.
 - [ ] On Windows, at every point above, no judgment changes (stars, flags and labels as before, no sidecar written by the ranking).
 - [ ] On Windows, mark a folder `Culling Finished`, then set its `folders.last_opened` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while an unfinished folder of the same age is evicted; `Clear Cache` still removes it.

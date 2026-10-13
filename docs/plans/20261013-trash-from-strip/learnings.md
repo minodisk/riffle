@@ -45,6 +45,39 @@
 - The `trash.ts` comments that said `restored` lists RAWs alone now say RAWs
   and JPEGs (Step 1 made `restore` count JPEGs).
 
+## Step 3: removing the folder tree's Move Rejected to Trash family
+
+- `index.rs` `row_flags` / `RowFlag` are kept (Decision 4) but only tests
+  call them once `collect_rejected` is gone, so `cargo build` warned them
+  dead; both are now `#[cfg(test)]`.
+- `Summary.unread` was only ever filled by the reject collection
+  (`collect_rejected`'s unreadable folders and sidecars); `trash_files`,
+  `trash_rejected_redo` and `delete_sidecars_run` never set it. It was
+  removed from the Rust `Summary`, the `TrashSummary` type and `trashed`,
+  together with `failureText`, whose only use was those rows.
+- Nothing passes `recursive: true` any more, so it was dropped from
+  `TrashEntry`, `trashed` and `opensTarget` (which now checks "same folder"
+  only), as the plan allowed.
+- `TrashFlow` lost its `previewing` phase (`idle` -> `asking` -> `running`)
+  and its `isOpen` getter, which equalled `busy` once nothing is fetched
+  before the dialog shows; `TrashTarget` is `{ dir, paths }`.
+- The folder tree's right-click now always selects the clicked folder alone
+  (`folders.ts` `menuTarget`), and the `targets` argument of the tree's
+  context menu callback is gone (Decision 6).
+- The removed `Move Rejected to Trash` bullet of `usage.md` / `usage.ja.md`
+  carried the undo details (nothing overwritten, works with any folder
+  open, redo without the dialog); they moved into the `Move to Trash…`
+  bullet rather than being lost.
+- `todo.md`: the macOS / Linux checks section was retitled to
+  `Move to Trash` and its checks rewritten for the strip (the mover, "Put
+  Back" and the undo collision still apply); the tree-only checks (the
+  tree trash items, the per-folder dialog, the multi-folder pair, the
+  un-reject-while-waiting preview check) were dropped; the wait-for-scan
+  section was retitled to `Move to Trash and Rename` and
+  `.claude/agents/todo-curator.md`'s quote of it follows.
+- Python on Windows writes CRLF in text mode; open files with
+  `newline=''` when scripting edits, or the working copy flips to CRLF.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check (user, Windows, `mise run tauri:dev`)** for Step 2

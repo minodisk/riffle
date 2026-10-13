@@ -208,8 +208,7 @@ Implementation notes:
 entry only, as the app does. When the user picks a PhotoLab virtual copy, the
 `.dop`'s second item has `ShouldProcess = 0`, the master item stays `2`
 (unflagged), and `Output/` holds `<stem>_<n>.jpg`. Riffle then shows the frame
-unflagged, and `trash.rs` `collect_folder` does not count it as picked. Seen on
-199 frames of one folder and about 230 of another.
+unflagged. Seen on 199 frames of one folder and about 230 of another.
 
 - When reading a user's `.dop` folders for an analysis, do not trust the
   `read_flag` column alone. A frame whose `<stem>_<n>` is in `Output/` is
@@ -235,7 +234,7 @@ inside. `rename.rs`'s `file_plan` moves a `.dop` unchanged when a RAW is
 renamed, so the sidecar's inner `Name` and PhotoLab's own database still
 say the old name until PhotoLab re-indexes — check this against a real
 PhotoLab install before assuming the moved `.dop` still matches. Likewise,
-`file_plan`, like `trash::plan`, takes `a.xmp` as `a.ARW`'s sidecar even
+`file_plan`, like `trash::groups_of`, takes `a.xmp` as `a.ARW`'s sidecar even
 when an `a.DNG` in the same folder shares that same `a.xmp`; renaming or
 trashing `a.ARW` alone carries the DNG's sidecar away too. See
 `docs/plans/_archived/20260928-rename-from-tree-and-strip/learnings.md` for

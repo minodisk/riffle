@@ -200,8 +200,8 @@ Each such proposal's pasteable Markdown contains:
 
 Match the shape of the existing
 `### App: real-device checks for the View menu` and
-`### App: the wait-for-scan manual checks for Move Rejected to Trash and Rename
-are still open` items.
+`### App: the wait-for-scan manual checks for Move to Trash and Rename are
+still open` items.
 
 If `todo.md` already has an item covering the same check, do not file a second
 one. Search the headings, the `#### TODO` lines and the Backgrounds for the

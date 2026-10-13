@@ -172,7 +172,7 @@ Investigation notes (what exists already, so nothing new is needed for it):
       Filmstrip / right-click menu paragraph (including the view-only menu)
       and a `Move to Trash` feature bullet (what moves, sidecars, the
       confirmation, undo / redo, scan wait), and `usage.ja.md`.
-- [ ] Step 3: Remove the folder tree's Move Rejected to Trash family and update the docs
+- [x] Step 3: Remove the folder tree's Move Rejected to Trash family and update the docs
   - Done when: the folder tree's menu no longer offers `Move Rejected to
     Trash…`, `… Including Subfolders…` or the `Move Rejected in N Folders…`
     pair; `trash_rejected_preview`, `trash_rejected_run`, `collect_rejected`
@@ -257,3 +257,4 @@ Investigation notes (what exists already, so nothing new is needed for it):
 
 - (2026-10-13) Step 1 complete
 - (2026-10-13) Step 2 complete
+- (2026-10-13) Step 3 complete

@@ -838,8 +838,6 @@ fn main() {
             commands::set_label_names,
             commands::index_size,
             commands::clear_index,
-            commands::trash_rejected_preview,
-            commands::trash_rejected_run,
             commands::trash_files,
             commands::trash_rejected_undo,
             commands::trash_rejected_redo,
