@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.0](https://github.com/minodisk/riffle/compare/v1.6.0...v1.7.0) (2026-10-13)
+
+
+### Features
+
+* **app:** add Move to Trash to the filmstrip's right-click menu ([#797](https://github.com/minodisk/riffle/issues/797)) ([8ee27ce](https://github.com/minodisk/riffle/commit/8ee27ce38d3655e08dcd64e59ee49b42014b3974))
+* **app:** add the trash_files command ([#795](https://github.com/minodisk/riffle/issues/795)) ([d692a15](https://github.com/minodisk/riffle/commit/d692a158bb2a4e22902b5c53fa3a6ed451307168))
+* **app:** mark a folder Culling Finished once every file has been previewed ([#800](https://github.com/minodisk/riffle/issues/800)) ([3a9b9f0](https://github.com/minodisk/riffle/commit/3a9b9f0dd98db3403e5e0d4e4a5a779b4122ae4e))
+* **app:** rank each burst's frames by a personal model behind aiEnabled ([#794](https://github.com/minodisk/riffle/issues/794)) ([0a994e8](https://github.com/minodisk/riffle/commit/0a994e857365962c9b975cac7645ad59cd20960a))
+* **app:** show disk read and disk busy series in the performance overlay ([#791](https://github.com/minodisk/riffle/issues/791)) ([e47b000](https://github.com/minodisk/riffle/commit/e47b0009db82d82af6de74736b285f15060064ab))
+
 ## [1.6.0](https://github.com/minodisk/riffle/compare/v1.5.0...v1.6.0) (2026-10-12)
 
 
