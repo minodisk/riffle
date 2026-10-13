@@ -250,16 +250,15 @@ pub async fn set_culling_finished(
 pub async fn finish_culling(app: AppHandle, dir: String) -> Result<(), String> {
     let dir = canonicalize(&dir);
     let Some(index) = app.state::<AppIndex>().0.clone() else {
-        return Err("no index cache available".to_string());
+        return Ok(());
     };
-    tauri::async_runtime::spawn_blocking(move || {
-        if lock(&index).finish_culling(&dir)? {
-            refit_in_background(app);
-        }
-        Ok(())
+    tauri::async_runtime::spawn_blocking(move || match lock(&index).finish_culling(&dir) {
+        Ok(true) => refit_in_background(app),
+        Ok(false) => {}
+        Err(e) => log::warn!("finish_culling {dir}: {e}"),
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
 }
 
 fn refit_in_background(app: AppHandle) {
