@@ -5,9 +5,9 @@
 //! Every write goes through the sidecar writer, which patches only the
 //! judgment fields of an existing sidecar (so Lightroom's develop settings
 //! and PhotoLab's corrections survive) and mints one only for a row holding
-//! a judgment. A delete is recorded in `trash::Runs` like a `Move Rejected to
-//! Trash` run, so `trash_rejected_undo` / `trash_rejected_redo` take it back
-//! and move it again. Only the current `SidecarFormat`'s kinds are touched.
+//! a judgment. A delete is recorded in `trash::Runs` like a `Move to Trash`
+//! run, so `trash_rejected_undo` / `trash_rejected_redo` take it back and
+//! move it again. Only the current `SidecarFormat`'s kinds are touched.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -182,7 +182,7 @@ pub async fn rewrite_sidecars_preview(
 
 /// Rewrite the sidecars of `dir` from its `ratings` rows once the dialog
 /// `rewrite_sidecars_preview` fed was confirmed. The writer is drained first,
-/// as in `trash_rejected_run`, and a running scan is refused under the
+/// as in `trash_files`, and a running scan is refused under the
 /// `Scans` lock, which is held across the index write and the drain.
 #[tauri::command]
 pub async fn rewrite_sidecars_run(app: tauri::AppHandle, dir: String) -> Result<Summary, String> {

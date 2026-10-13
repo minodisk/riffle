@@ -1,7 +1,7 @@
 import { type TrashRestored, type TrashWhat, restoredCount } from "./trash.js";
 
-// One `Move Rejected to Trash` run, undone by restoring it from the Trash:
-// its backend `run_id`, the RAWs it moved, and the folders it ran on. A
+// One `Move to Trash` run, undone by restoring it from the Trash: its
+// backend `run_id`, the RAWs (or JPEGs) it moved, and the folder it ran on. A
 // `Delete Sidecars…` run is one too, with `what` set to "sidecars" and
 // `count` the sidecars it moved.
 export type TrashEntry = {
@@ -9,7 +9,6 @@ export type TrashEntry = {
   runId: number;
   count: number;
   dirs: string[];
-  recursive: boolean;
   what?: TrashWhat;
 };
 

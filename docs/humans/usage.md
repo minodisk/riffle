@@ -87,12 +87,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   ancestor), and
   `Collapse All` collapses every folder below it, leaving the folder itself
   open or closed as it was; neither is offered on home or a volume at the
-  top level. Then `Move Rejected to Trash…`
-  and `Move Rejected to Trash, Including Subfolders…` (the latter not
-  offered on home or a volume at the top level) move the rejects of that
-  folder, or of it and every folder below it, to the Trash (see
-  **Move Rejected to Trash…**); while AI analysis is on, a `Culling
-  Finished` check sits just above them (see **Recommended order**). Then `Rewrite Sidecars from Index…` writes
+  top level. While AI analysis is on, a `Culling Finished` check comes
+  next (see **Recommended order**). Then `Rewrite Sidecars from Index…` writes
   the judgments Riffle holds for that folder back into its sidecars, and
   `Delete Sidecars…` moves its sidecars to the Trash (see
   **Rewrite Sidecars from Index… and Delete Sidecars…**). Last,
@@ -105,13 +101,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Shift+click` selects the visible folders between the last one clicked and
   this one; neither opens a folder. A plain click, or opening a folder any
   other way, selects that folder alone, and collapsing a folder drops the
-  folders under it from the selection. Right-clicking a selected folder acts
-  on the whole selection, right-clicking another selects it alone first.
-  With several folders selected the menu offers only
-  `Move Rejected in N Folders to Trash…` and
-  `Move Rejected in N Folders to Trash, Including Subfolders…` (the latter
-  not offered when a selected folder is home or a volume at the top level),
-  which trash the rejects of every selected folder in one go.
+  folders under it from the selection. A right-click selects the folder it
+  is on alone first, even within a larger selection, and its menu acts on
+  that folder.
 - **Filmstrip**: thumbnails run along the bottom, under the viewer and the
   folder tree, follow paging and show the file you click. The mouse wheel
   scrolls it sideways. Its header bar holds the `N / M` counter and the
@@ -379,48 +371,6 @@ viewer shows a prompt in its center; click it to open the folder picker.
   (`CmdOrCtrl+R`) to do the same. Only what changed is read again; the stars,
   flags and color labels already given, the current file and the strip's
   position all stay as they were.
-- **Move Rejected to Trash…**: right-click a folder in the folder tree, open
-  or not, and choose `Move Rejected to Trash…` to move every file of that
-  folder marked as a reject to the OS Trash, together with the sidecars
-  sitting next to it — both `.xmp` and `.ARW.dop` when both are there, no
-  matter which format is currently selected. `Move Rejected to Trash,
-  Including Subfolders…` does the same for that folder and every visible
-  folder below it (hidden and dot folders are skipped, and a symbolic link is
-  not followed). With several folders selected in the tree, the same two
-  items act on all of them together. A folder's rejects are read from
-  its sidecars on disk, so a judgment made in Lightroom or PhotoLab counts
-  too, and a folder never opened in Riffle counts as well. It asks first in a dialog
-  that lists each folder holding rejects with how many it holds, folds the
-  folders with none into one line ("12 more folders with no rejects"), lists
-  any folder or file that could not be read with its error (left out of the
-  move), and ends with the total and the space it frees ("Move 148 rejected
-  files (23.4 GB) to the Trash?", sizes counted the way the platform's file
-  manager counts them). `Move to Trash` moves them, `Cancel` or `Escape`
-  leaves everything untouched; `Move to Trash` is disabled when nothing was
-  found to move. Once the move ends the dialog closes and the status line
-  says how many files went. Nothing is
-  deleted: the file and its sidecars all go to the Trash, so restoring them
-  brings back the stars, the flag and the color label. Whatever could not be
-  moved is listed as an error and stays in the folder. Chosen while a scan
-  runs, it waits for the scan, the status line saying so, and asks when the
-  scan ends; opening another folder meanwhile drops it. When the folders hold
-  no rejects (and none failed to read) the status line says so instead. When
-  the open folder is among the folders trashed in, the strip is refreshed.
-  One `Edit > Undo` (`CmdOrCtrl+Z`) takes the whole move back, whichever
-  folder is open (none at all included): every file and sidecar it moved
-  goes back where it came from, the status line says how many came back
-  ("Restored 148 files from the Trash", with how many failed), and when the
-  open folder is among the folders it moved from, the strip shows the files
-  again with their judgments. Nothing is overwritten: a file with the same
-  name back at the original location, a Trash emptied since, or a file
-  already put back by hand is listed as an error and left as it is, and the
-  sidecars of a file that could not come back stay in the Trash too. The
-  move stays undoable after another folder opens; like the move, the undo
-  waits for a running scan. `Edit > Redo` (`CmdOrCtrl+Shift+Z`) then moves
-  the files that came back, with their sidecars, to the Trash again without
-  the dialog (a file that could not come back is not touched, and one gone
-  from its place since is listed as an error), and that move is undoable in
-  turn.
 - **Move to Trash…**: right-click a file in the filmstrip and choose
   `Move to Trash…` to move it to the OS Trash, or, when it is part of a
   multi-selection, `Move N Files to Trash…` to move every selected file.
@@ -434,15 +384,27 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the strip shows the neighbour of the shown file, the gone files leave the
   selection, and the status line says how many went ("Moved 3 files to the
   Trash", with how many failed); whatever could not be moved is listed as
-  an error and stays in the folder. Nothing is deleted, and, as for
-  **Move Rejected to Trash…**, one `Edit > Undo` brings the whole move back
-  with the judgments and `Edit > Redo` moves it to the Trash again.
-  Confirmed while a scan runs, it waits for the scan, the status line
-  saying so, and moves the files when the scan ends; opening another folder
-  meanwhile drops it.
+  an error and stays in the folder. Nothing is deleted: the file and its
+  sidecars all go to the Trash, so restoring them brings back the stars,
+  the flag and the color label. Confirmed while a scan runs, it waits for
+  the scan, the status line saying so, and moves the files when the scan
+  ends; opening another folder meanwhile drops it. One `Edit > Undo`
+  (`CmdOrCtrl+Z`) takes the whole move back, whichever folder is open (none
+  at all included): every file and sidecar it moved goes back where it came
+  from, the status line says how many came back ("Restored 3 files from the
+  Trash", with how many failed), and when the open folder is the one it
+  moved from, the strip shows the files again with their judgments.
+  Nothing is overwritten: a file with the same name back at the original
+  location, a Trash emptied since, or a file already put back by hand is
+  listed as an error and left as it is, and the sidecars of a file that
+  could not come back stay in the Trash too. The move stays undoable after
+  another folder opens; like the move, the undo waits for a running scan.
+  `Edit > Redo` (`CmdOrCtrl+Shift+Z`) then moves the files that came back,
+  with their sidecars, to the Trash again without the dialog (a file that
+  could not come back is not touched, and one gone from its place since is
+  listed as an error), and that move is undoable in turn.
 - **Rewrite Sidecars from Index… and Delete Sidecars…**: right-click a
-  single folder in the folder tree (neither is offered with several folders
-  selected) to push Riffle's judgments of its files back out to their
+  folder in the folder tree to push Riffle's judgments of its files back out to their
   sidecars, or to remove the sidecars altogether, for instance after a write
   that failed, a sidecar another program overwrote, or a switch of sidecar
   format. Both act only on the sidecars of the currently selected format
@@ -476,7 +438,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
     left alone. Riffle forgets the judgments of those files, so when the
     folder is open the strip drops their stars, flags and color labels at
     once. When the folder holds no sidecar of the format the status line
-    says so (`No XMP sidecars in <name>`). Like **Move Rejected to Trash…**,
+    says so (`No XMP sidecars in <name>`). Like **Move to Trash…**,
     one `Edit > Undo` puts the sidecars back (`Restored N sidecars from the
     Trash`) and, when the folder is open, the judgments come back with
     them; `Edit > Redo` moves them to the Trash again.
@@ -558,8 +520,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
     RAW folder opens in it.
   - **What is off**: the star, flag and color label keys, `c` (clear all),
     `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` of a judgment
-    do nothing (undoing and redoing a `Move Rejected to Trash…` still
-    work, and so do a `Move to Trash…` and its undo and redo), and
+    do nothing (a `Move to Trash…` and its undo and redo still work), and
     the strip's right-click menu holds only `Select All` and
     `Move to Trash…`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
@@ -575,13 +536,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   is undone as one. A reject-rest (`Shift+x`) is undone as
   one, restoring every frame it rejected and staying on the current file. The judgment history belongs to the open folder
   and is cleared when another folder opens or the sidecar format changes. A
-  `Move Rejected to Trash…` or `Move to Trash…` is one step of the same
+  `Move to Trash…` is one step of the same
   history and outlives a folder switch: undoing it restores the files from the Trash (see
-  **Move Rejected to Trash…**), after which further presses reach the
+  **Move to Trash…**), after which further presses reach the
   judgments made before it.
 - **Redo**: `Edit > Redo` (`CmdOrCtrl+Shift+Z`) re-applies the most recently
   undone judgment, the same way round. After an undone
-  `Move Rejected to Trash…` or `Move to Trash…` it moves the files that came back to the Trash
+  `Move to Trash…` it moves the files that came back to the Trash
   again, without the dialog. The redo history is forgotten as soon as you
   judge a file again, and like the undo history its judgments are cleared
   when another folder opens or the sidecar format changes.
@@ -725,8 +686,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
 | `u` | un-reject or un-pick the current file |
 | `0` | clear the stars |
 | `c` | clear every flag of the current file: stars, reject, pick and color label |
-| `CmdOrCtrl+Z` | undo the last judgment or `Move Rejected to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
-| `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move Rejected to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Z` | undo the last judgment or `Move to Trash…` (also `Edit > Undo`, whose accelerator follows this key) |
+| `CmdOrCtrl+Shift+Z` | redo the last undone judgment or `Move to Trash…` (also `Edit > Redo`, whose accelerator follows this key) |
 | `Alt+Cmd+ArrowLeft` / `Ctrl+Alt+ArrowLeft` | show / hide the folder tree (also `View > Folders`, whose accelerator follows this key) |
 | `Alt+Cmd+ArrowRight` / `Ctrl+Alt+ArrowRight` | show / hide the metadata pane (also `View > Metadata`, whose accelerator follows this key) |
 | `Alt+Cmd+ArrowDown` / `Ctrl+Alt+ArrowDown` | show / hide the filmstrip (also `View > Filmstrip`, whose accelerator follows this key) |

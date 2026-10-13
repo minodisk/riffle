@@ -75,7 +75,7 @@ Rules:
 ### An index/scan mutation that must not race a rescan holds the `Scans` lock across the disk op and the index write (Hit)
 
 `rename.rs` holds `Scans`' inner mutex across the rename on disk and the
-subsequent index write, the same pattern `trash_rejected_run` uses. Do the same
+subsequent index write, the same pattern `trash_files` uses. Do the same
 for any new command that both changes what is on disk and writes rows for
 it, so a scan cannot start mid-way and index the half-renamed state.
 
@@ -1625,7 +1625,7 @@ folder changed" event has to pick the right one.
   scan first; a focus change during a 5000-file first scan would otherwise
   restart it. Repeat triggers collapse into the single `resyncPending` slot, which keeps the first deferred trigger (`??=`), so the drained run is logged with `deferred=true` and the trigger that first asked for it.
   It defers the same way while an operation held by `idle.ts`'s `IdleGate`
-  (Move Rejected to Trash, the two renames) has its invoke out
+  (Move to Trash, the two renames) has its invoke out
   (`idle.inFlight`, set by `settleIdle`), whose settle drains it: the
   confirm dialog closing refocuses the window, and a rescan started then
   would make the command's own scan guard refuse it.

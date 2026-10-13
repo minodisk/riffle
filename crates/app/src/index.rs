@@ -1838,8 +1838,9 @@ impl Index {
     }
 
     /// Every `ratings` row of `dir`, keyed by path: its flag, the sidecar
-    /// stat it was stored with and whether it is dirty, for the reject
-    /// collection of `trash::collect`.
+    /// stat it was stored with and whether it is dirty, for the tests that
+    /// check what a run left in the index.
+    #[cfg(test)]
     pub fn row_flags(
         &self,
         dir: &str,
@@ -1983,6 +1984,7 @@ struct RatingRow {
 /// The part of a `ratings` row `row_flags` hands out: the flag, the stat of
 /// the sidecar it was stored with (`xmp_size`, `xmp_mtime_ns`) and whether
 /// it is still waiting to be written.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RowFlag {
     pub flag: Flag,

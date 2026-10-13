@@ -1239,7 +1239,7 @@ body {
   user-select: text;
 }
 
-/* The Sequence JPEG Timestamps dialog, the Move Rejected to Trash
+/* The Sequence JPEG Timestamps dialog, the Move to Trash
    confirmation and the folder sidecars confirmation, over the whole window
    like Settings. The list scrolls; the buttons stay in view. */
 #sequence-box,
@@ -1263,13 +1263,11 @@ body {
 
 #sequence-rebuild,
 #sequence-running,
-#trash-empty,
 #sidecar-running {
   color: var(--muted-foreground);
 }
 
 #sequence-rows,
-#trash-rows,
 #sidecar-rows {
   flex: 1;
   min-height: 0;
@@ -1282,13 +1280,11 @@ body {
   white-space: pre;
 }
 
-#trash-rows,
 #sidecar-rows {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-#trash-rows:empty,
 #sidecar-rows:empty {
   display: none;
 }
@@ -1301,21 +1297,12 @@ body {
   color: var(--pick-color);
 }
 
-#sequence-failed,
-#trash-failed {
+#sequence-failed {
   padding-left: 1.2rem;
   color: var(--destructive);
 }
 
-#trash-failed {
-  flex: 0 1 auto;
-  max-height: 30vh;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-#sequence-failed:empty,
-#trash-failed:empty {
+#sequence-failed:empty {
   display: none;
 }
 

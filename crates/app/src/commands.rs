@@ -2674,96 +2674,16 @@ pub async fn clear_index(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(true)
 }
 
-/// The rejects of `dirs` (and of their subfolders when `recursive`) that
-/// `trash_rejected_run` would move, per folder with the bytes they free, for
-/// the confirmation dialog. The rejects are collected here (see
-/// `trash::collect`), so folders never opened count too. No rejects and
-/// nothing unreadable is an `Err` the status line shows.
-///
-/// A running scan is refused and the sidecar writer is drained first, so the
-/// rows read are the flushed ones. The `Scans` lock is not held: the dialog
-/// stays open for as long as the user wants, and the run collects again.
-#[tauri::command]
-pub async fn trash_rejected_preview(
-    app: tauri::AppHandle,
-    dirs: Vec<String>,
-    recursive: bool,
-) -> Result<trash::Preview, String> {
-    {
-        let scans = app.state::<Scans>();
-        let state = index::lock(&scans.0);
-        if state.scanning() {
-            return Err(SCAN_RUNNING.to_string());
-        }
-    }
-    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Preview, String> {
-        if let Some(writer) = &app.state::<AppWriter>().0 {
-            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
-        }
-        let collection = collect_rejected(&app, &dirs, recursive);
-        if collection.count() == 0 && collection.failed.is_empty() {
-            return Err(trash::nothing_to_trash(&dirs, recursive));
-        }
-        Ok(trash::preview(collection, |bytes| {
-            format_bytes(bytes, SIZE_BASE)
-        }))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-/// Move the rejected files of `dirs` (and of their subfolders when
-/// `recursive`) to the OS trash, together with the `.xmp` and `.dop`
-/// sidecars that exist on disk for them, once the dialog
-/// `trash_rejected_preview` fed was confirmed. The rejects are collected
-/// again under the `Scans` lock, which is held across the moves.
-///
-/// A running scan is refused under the `Scans` lock, and the sidecar writer
-/// is drained first, as in `clear_index`: a judgment still inside its
-/// debounce window would otherwise mint a sidecar for a file that is already
-/// gone.
-#[tauri::command]
-pub async fn trash_rejected_run(
-    app: tauri::AppHandle,
-    dirs: Vec<String>,
-    recursive: bool,
-) -> Result<trash::Summary, String> {
-    tauri::async_runtime::spawn_blocking(move || -> Result<trash::Summary, String> {
-        if let Some(writer) = &app.state::<AppWriter>().0 {
-            writer.flush(crate::sidecar::DRAIN_TIMEOUT);
-        }
-        let scans = app.state::<Scans>();
-        let state = index::lock(&scans.0);
-        if state.scanning() {
-            return Err(SCAN_RUNNING.to_string());
-        }
-        let collection = collect_rejected(&app, &dirs, recursive);
-        for folder in collection.folders.iter().filter(|f| !f.groups.is_empty()) {
-            log::info!("rejected files in {}: {}", folder.dir, folder.groups.len());
-        }
-        let groups = collection
-            .folders
-            .into_iter()
-            .flat_map(|folder| folder.groups)
-            .collect();
-        let (mut summary, moved) = trash::run(groups, trash_one);
-        summary.unread = collection.failed;
-        summary.run_id = app.state::<trash::Runs>().record(moved);
-        log::info!("moved rejected files to the trash: {summary:?}");
-        drop(state);
-        Ok(summary)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
 /// Move `paths`, files of the folder `dir` as the listing gave them, to the
 /// OS trash in their order, each RAW together with the `.xmp` and `.dop`
 /// sidecars that exist for it and a JPEG alone (see `trash::groups_of`). A
 /// path outside `dir` fails without being moved, one gone meanwhile fails in
-/// the mover. The guards are
-/// `trash_rejected_run`'s: the sidecar writer is drained first, and a running
-/// scan is refused under the `Scans` lock, which is held across the moves.
+/// the mover.
+///
+/// A running scan is refused under the `Scans` lock, which is held across
+/// the moves, and the sidecar writer is drained first, as in `clear_index`:
+/// a judgment still inside its debounce window would otherwise mint a
+/// sidecar for a file that is already gone.
 #[tauri::command]
 pub async fn trash_files(
     app: tauri::AppHandle,
@@ -2796,11 +2716,11 @@ pub async fn trash_files(
     .map_err(|e| e.to_string())?
 }
 
-/// Move every file the run `run_id` of `trash_rejected_run` moved back to
-/// where it came from, RAW before its sidecars, never overwriting (see
-/// `trash::restore`). An unknown run is an `Err`; a run is forgotten once
-/// undone, whatever came back, and what came back is kept for
-/// `trash_rejected_redo` under the same id.
+/// Move every file the run `run_id` of `trash_files` (or of `Delete
+/// Sidecars…`) moved back to where it came from, RAW before its sidecars,
+/// never overwriting (see `trash::restore`). An unknown run is an `Err`; a
+/// run is forgotten once undone, whatever came back, and what came back is
+/// kept for `trash_rejected_redo` under the same id.
 ///
 /// A running scan is refused under the `Scans` lock, which is held across
 /// the moves. The sidecar writer is not drained: nothing pending can target
@@ -2838,7 +2758,7 @@ pub async fn trash_rejected_undo(
 /// move is recorded as a new run, whose id the `Summary` carries. An
 /// unknown run is an `Err`; it is forgotten once redone.
 ///
-/// The guards are `trash_rejected_run`'s: the sidecar writer is drained
+/// The guards are `trash_files`'s: the sidecar writer is drained
 /// first, and a running scan is refused under the `Scans` lock, which is
 /// held across the moves.
 #[tauri::command]
@@ -2915,7 +2835,7 @@ fn restore_run(run: &trash::TrashRun) -> trash::Restored {
     trash::restore_recorded(run)
 }
 
-/// The mover of `trash_rejected_run`. On macOS it goes through
+/// The mover of `trash_files`. On macOS it goes through
 /// `NSFileManager` itself to keep where the file went; the crate's default
 /// there drives the Finder through AppleScript, which needs Automation
 /// permission.
@@ -2924,26 +2844,13 @@ pub(crate) fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
     trash::trash_file(path).map(Some)
 }
 
-/// The mover of `trash_rejected_run`: the Trash is listed at undo time, so
+/// The mover of `trash_files`: the Trash is listed at undo time, so
 /// where the file went is not kept.
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn trash_one(path: &Path) -> Result<Option<PathBuf>, String> {
     ::trash::delete(path)
         .map(|()| None)
         .map_err(|e| e.to_string())
-}
-
-/// The rejects of `dirs` as `trash::collect` finds them. The dirs are
-/// canonicalized first: the index keys its rows by that spelling. The caller
-/// drains the sidecar writer before, so the rows read are the flushed ones.
-fn collect_rejected(app: &tauri::AppHandle, dirs: &[String], recursive: bool) -> trash::Collection {
-    let dirs: Vec<String> = dirs.iter().map(|dir| canonicalize(dir)).collect();
-    let index = app.state::<AppIndex>().0.clone();
-    let format = *index::lock(&app.state::<AppSidecarFormat>().0);
-    trash::collect(&dirs, recursive, format, |dir| match &index {
-        Some(index) => index::lock(index).row_flags(dir),
-        None => Ok(HashMap::new()),
-    })
 }
 
 /// Resolve symlinks and normalize a folder path so the same folder reached

@@ -84,7 +84,6 @@ let contextMenu: (
   x: number,
   y: number,
   root: boolean,
-  targets: string[],
 ) => void = () => {};
 let rename: (path: string, name: string) => void = () => {};
 let cancelPending: (path: string) => void = () => {};
@@ -190,20 +189,15 @@ function modifiers(event: MouseEvent): { toggle: boolean; range: boolean } {
   return { toggle: isMac ? event.metaKey : event.ctrlKey, range: event.shiftKey };
 }
 
-// The folders a right-click on `path` acts on, in drawn order: the whole
-// selection when `path` is in it, else `path` alone (which becomes the
-// selection).
-function menuTargets(path: string): { targets: string[]; root: boolean } {
-  if (!selection.selected.has(path)) {
+// A right-click acts on `path` alone, which becomes the selection even when
+// it was part of a larger one. Whether `path` is a root.
+function menuTarget(path: string): boolean {
+  if (selection.selected.size !== 1 || !selection.selected.has(path)) {
     selection = selectOnly(path);
     selectionEdits++;
     render();
   }
-  const chosen = rows(tree).filter(({ node }) => selection.selected.has(node.path));
-  return {
-    targets: chosen.map(({ node }) => node.path),
-    root: chosen.some(({ depth }) => depth === 0),
-  };
+  return rows(tree).some(({ node, depth }) => node.path === path && depth === 0);
 }
 
 function render(): void {
@@ -248,8 +242,8 @@ function render(): void {
       if (editing?.path === node.path || ended === node.path) {
         return;
       }
-      const { targets, root } = menuTargets(node.path);
-      contextMenu(node.path, node.name, event.clientX, event.clientY, root, targets);
+      const root = menuTarget(node.path);
+      contextMenu(node.path, node.name, event.clientX, event.clientY, root);
     });
     const expander = document.createElement("span");
     expander.className = "expander";
@@ -824,14 +818,7 @@ void window.__TAURI__.event.listen<{ dir: string }>("tree-changed", ({ payload }
 export function init(
   onOpen: (path: string) => void,
   onError: (message: string) => void,
-  onContextMenu: (
-    path: string,
-    name: string,
-    x: number,
-    y: number,
-    root: boolean,
-    targets: string[],
-  ) => void,
+  onContextMenu: (path: string, name: string, x: number, y: number, root: boolean) => void,
   onRename: (path: string, name: string) => void,
   onCancelPending: (path: string) => void,
 ): void {

@@ -78,13 +78,10 @@ DxO PhotoLab.
   arrows, `Home` / `End`, `Enter` and typing a name move through and open
   folders, with the culling keys off until `Escape`. Right-click a folder
   to reveal it in Finder / File Explorer / the file manager, copy its
-  path or name, rename it with `Rename…`, move its rejects to the Trash,
-  with or without its subfolders, rewrite its sidecars from Riffle's index
-  with `Rewrite Sidecars from Index…` (patching only the judgments, so
-  Lightroom's and PhotoLab's edits stay) or move them to the Trash with
-  `Delete Sidecars…`; `Cmd+click` / `Ctrl+click` and
-  `Shift+click` select several folders whose rejects the right-click then
-  moves together; a slow second click on the
+  path or name, rename it with `Rename…`, rewrite its sidecars from
+  Riffle's index with `Rewrite Sidecars from Index…` (patching only the
+  judgments, so Lightroom's and PhotoLab's edits stay) or move them to the
+  Trash with `Delete Sidecars…`; a slow second click on the
   open folder's name renames it too. The name is edited in place: `Enter`
   or a click away renames, `Escape` cancels, and the index, the ratings
   and the remembered position follow the folder, which reopens under its
@@ -99,7 +96,8 @@ DxO PhotoLab.
   ratings move with it. Right-click and choose `Move to Trash…` to move the
   file, or the whole selection, to the Trash with its sidecars after a
   count-only confirmation (filter to the rejects and select all to clear
-  them out); `Edit > Undo` brings them back.
+  them out). Nothing is deleted: one `Edit > Undo` brings the whole move
+  back with the judgments, and `Edit > Redo` moves it to the Trash again.
   `Ctrl+Alt+ArrowDown` (`Alt+Cmd+ArrowDown` on macOS) hides the filmstrip,
   `…ArrowLeft` the folder tree, `…ArrowRight` the meta pane and `Tab` both
   side panes, to give the viewer more room (the first three are also check
@@ -167,18 +165,6 @@ DxO PhotoLab.
 - **Compare**: `v` shows 2–4 selected shots together, or the current shot
   beside its burst's first good frame (else the burst's first frame). Click a frame to rate, pick or
   reject only that one.
-- **Move Rejected to Trash**: right-click a folder in the folder tree and
-  choose `Move Rejected to Trash…` to move its rejected shots to the Trash,
-  even a folder you have not opened, or
-  `Move Rejected to Trash, Including Subfolders…` to do it for a whole year
-  folder at once, or select several
-  folders with `Cmd+click` / `Ctrl+click` / `Shift+click` and right-click to
-  do it for all of them together. A dialog lists the rejects per folder and
-  the total space freed before anything moves. Nothing is deleted, and one
-  `Edit > Undo` brings the whole move back with the judgments; a file with
-  the same name at the original location, an emptied Trash or a file already
-  restored by hand is reported and left as it is. `Edit > Redo` then moves
-  what came back to the Trash again.
 - **Sequence JPEG Timestamps**: after culling in Riffle and exporting the keepers
   as JPEGs from your RAW developer, right-click the export folder in the
   folder tree and choose `Sequence JPEG Timestamps…` to space the capture
