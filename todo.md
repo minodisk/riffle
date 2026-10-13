@@ -200,9 +200,8 @@ is `trash::trash_file` (`crates/app/src/trash.rs`, `undo-trash-rejected`
 unverified: whether the Trash's "Put Back" entry is actually created, since
 the `trash` crate documents that on some macOS systems files moved through
 `NSFileManager` get no "Put Back" entry (trash-rs#14); dragging them out of
-the Trash still restores them. The Windows checks of the strip flow are the
-pending manual check recorded in
-`docs/plans/_archived/20261013-trash-from-strip/learnings.md` (Step 2).
+the Trash still restores them. The Windows checks of the strip flow are in
+`### App: the Windows real-device checks for the filmstrip's Move to Trash are still open`.
 Files: `crates/app/src/commands.rs` (`trash_files`, `trash_one`),
 `crates/app/src/trash.rs`, `crates/app/ui/src/trash.ts`,
 `crates/app/ui/src/main.ts`. Sources:
@@ -225,6 +224,21 @@ Files: `crates/app/src/commands.rs` (`trash_files`, `trash_one`),
       (`already exists at the original location`) and not overwritten.
       (Source: `docs/plans/_archived/20260928-undo-trash-rejected/learnings.md`
       Step 2, #547.)
+
+### App: the Windows real-device checks for the filmstrip's Move to Trash are still open
+
+`trash-from-strip` added `Move to Trash…` to the filmstrip's right-click menu (`Move N Files to Trash…` for a multi-selection) and removed the folder tree's `Move Rejected to Trash…` family. Step 2 was ticked on the automated criteria only (`vp test` and `mise run ci`: the menu item, its label, the view-only menu). Nobody has run the flow in the app on Windows, since an agent session cannot drive it. Use a copy of a folder under `D:\Photos\tests\<date>-trash-from-strip\`. See `docs/plans/_archived/20261013-trash-from-strip/plan.md`.
+Files: `crates/app/ui/src/main.ts` (`confirmTrashFiles`, `trashFilesIn`), `crates/app/ui/src/context.ts`, `crates/app/src/commands.rs` (`trash_files`).
+
+#### TODO
+
+- [ ] On Windows (`mise run tauri:dev`), right-click one file and pick `Move to Trash…`. Expect the dialog to say `Move 1 file to the Trash?`. `Move to Trash` should move the RAW and its `.xmp` / `.dop` to the Recycle Bin, the strip should show the neighbouring file, and the status line should say `Moved 1 file to the Trash`.
+- [ ] On Windows, select 3 files and right-click one of them. Expect the item to read `Move 3 Files to Trash…`, and confirming should move exactly those 3.
+- [ ] On Windows, `Cancel` and `Escape` in the dialog leave everything untouched.
+- [ ] On Windows, filter to rejects, press `Ctrl+A`, then pick `Move N Files to Trash…`. Expect only the filtered files to move.
+- [ ] On Windows, `Ctrl+Z` brings the moved files back with their judgments, and `Ctrl+Shift+Z` moves them to the Trash again.
+- [ ] On Windows, confirm the dialog while a scan is running. Expect the status line to say it is waiting for the scan, and the files to move when the scan ends.
+- [ ] On Windows, in a JPEG-only folder the menu is `Select All` + `Move to Trash…`. A JPEG should move alone without sidecars, and undo should restore it (`Restored 1 file from the Trash`).
 
 ### App: the muda template-icon fork is a temporary bridge
 

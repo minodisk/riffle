@@ -778,6 +778,31 @@ the plan).
 - Source: `docs/plans/_archived/20261005-folder-sidecars/learnings.md`,
   Step 2.
 
+### A new kind of primary file in a trash run: check `trash::restore`'s notion of "primary" (Hit)
+
+`trash::restore` counted only RAWs as a run's primary files, so a run of
+JPEGs (the filmstrip's `Move to Trash…` in a view-only, JPEG-only folder)
+would have come back from the Trash but listed nothing in
+`Restored.restored`. The UI would then say `Restored 0 files`, and
+`restoredInto` would not place them. It now treats a JPEG like a RAW
+(`is_jpeg_file`). `redo` needed no change, because a JPEG after a JPEG
+already forms its own group. When `Runs` starts recording a new file kind,
+test restore's `restored` list for it, not just that the files return.
+
+- `trash_files` (the strip's move) checks each path's parent against `dir`
+  in `groups_of` and reports any other as a `Failure` without moving it.
+  That keeps a sidecar from going to the Trash with a same-stem file of
+  another folder. It also does not call `state.stop_embedding()`, because
+  it moves no index rows. The third pass skips a vanished file, and the
+  next rescan's reconcile drops the gone rows.
+- On the UI side, after the `trash_files` invoke returns, `trashed` must run
+  even if `openDir` / `folderToken` changed meanwhile. The backend has
+  already recorded the run, so returning early would lose its undo entry.
+  Only the strip refresh is conditional on the open folder being the run's
+  folder.
+- Source: `docs/plans/_archived/20261013-trash-from-strip/learnings.md`,
+  Steps 1-2.
+
 ### Sony MakerNote fields: verify each tag's type and model `Condition` in Sony.pm directly (Hit)
 
 Don't infer a new Sony MakerNote tag's type or model gate from a
