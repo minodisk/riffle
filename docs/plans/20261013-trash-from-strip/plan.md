@@ -256,3 +256,4 @@ Investigation notes (what exists already, so nothing new is needed for it):
 ## Progress
 
 - (2026-10-13) Step 1 complete
+- (2026-10-13) Step 2 complete
