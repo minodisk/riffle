@@ -134,9 +134,9 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `c1` | -0.002 | no | -0.4 | no | 10 of 20 | no | 0.829 (`ball visible`) | yes | fail |
 
-### Reading aids (not in the criterion)
+#### Reading aids (not in the criterion)
 
-### Each column alone as a within-burst ranking
+#### Each column alone as a within-burst ranking
 
 | Candidate | Column | Weighted AUC | Top-1 | Top-3 |
 | --- | ---: | ---: | ---: | ---: |
@@ -145,27 +145,27 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | `c1` | ball visible minus no ball | 0.583 | 39.8% | 77.8% |
 | `c1` | contested carrier minus single player | 0.579 | 36.3% | 76.8% |
 
-### Columns gated by the burst's sports probability
+#### Columns gated by the burst's sports probability
 
 | Model | Weighted AUC | Minus reference | Top-1 | Minus reference, points |
 | --- | ---: | ---: | ---: | ---: |
 | `c1` x P(sports) | 0.709 | -0.001 | 54.6% | -0.2 |
 
-### Sports and non-sports bursts
+#### Sports and non-sports bursts
 
 | Model | Sports AUC (1478) | Top-1 | Other AUC (323) | Top-1 |
 | --- | ---: | ---: | ---: | ---: |
 | Reference (shared model) | 0.729 | 56.4% | 0.621 | 48.0% |
 | `c1` | 0.727 | 56.0% | 0.617 | 47.4% |
 
-### Pick vs explicit reject
+#### Pick vs explicit reject
 
 | Model | Bursts | Weighted AUC | Unweighted AUC |
 | --- | ---: | ---: | ---: |
 | Reference (shared model) | 3 | 0.926 | 0.963 |
 | `c1` | 3 | 0.926 | 0.963 |
 
-### Learning curve (`c1`)
+#### Learning curve (`c1`)
 
 | Training folders | Weighted AUC | Top-1 |
 | --- | ---: | ---: |
@@ -174,7 +174,7 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | 20 | 0.706 | 54.5% |
 | 26 | 0.708 | 54.4% |
 
-### Weights of each candidate fit on every folder
+#### Weights of each candidate fit on every folder
 
 `c1`: `C` = 0.1 (27 folders); standardized columns.
 

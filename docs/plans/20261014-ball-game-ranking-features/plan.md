@@ -509,3 +509,4 @@ Candidate 1: 0.708 / 54.4%.
 
 - (2026-10-14) Plan written with the pre-registered criteria, confirmed by the user; no score computed yet.
 - (2026-10-14) Step 1 complete
+- (2026-10-15) Step 2 complete (Candidate 1 fails bars 1-3, bar 4 met at 0.829)
