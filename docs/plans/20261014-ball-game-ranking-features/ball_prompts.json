@@ -1,0 +1,51 @@
+{
+  "note": "Candidate 1's prompt ensembles, written in Step 1 from the definitions below before any prompt vector, cosine or fit existed, and without looking at any frame. Same shape as the archived genre_prompts.json (label, parent, prompts), so genre_text.py tokenizes it as is. The criterion reads this first version unless a revision is written blind (plan.md, Pre-registered criteria). Each pair is used as a contrast: `ball visible` minus `no ball`, `contested carrier` minus `single player`.",
+  "labels": [
+    {
+      "label": "ball visible",
+      "parent": null,
+      "definition": "The ball of the game is in the frame, in a hand, in the air or on the ground, whatever its size.",
+      "prompts": [
+        "a photo with a ball visible in the frame",
+        "a sports photo where the ball can be seen",
+        "a player holding the ball",
+        "a ball flying in the air during a game",
+        "a ball in the picture"
+      ]
+    },
+    {
+      "label": "no ball",
+      "parent": null,
+      "definition": "The ball is not in the frame.",
+      "prompts": [
+        "a photo with no ball in the picture",
+        "a sports photo where the ball is not visible",
+        "players on the court with no ball in view",
+        "a photo without any ball"
+      ]
+    },
+    {
+      "label": "contested carrier",
+      "parent": null,
+      "definition": "The player in control of the ball and at least one opposing player are both in the frame.",
+      "prompts": [
+        "a ball carrier contested by a defender",
+        "a player with the ball guarded closely by an opponent",
+        "two opposing players fighting for the ball",
+        "a player dribbling the ball while a defender blocks the way",
+        "an attacker with the ball and a defender in front of them"
+      ]
+    },
+    {
+      "label": "single player",
+      "parent": null,
+      "definition": "One player is shown alone, with no opponent near them.",
+      "prompts": [
+        "a single player alone",
+        "one athlete alone in the frame with no opponent",
+        "a player on their own with nobody near them",
+        "a lone player without any defender"
+      ]
+    }
+  ]
+}
