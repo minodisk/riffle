@@ -498,3 +498,4 @@ Until then: pending.)
 ## Progress
 
 - (2026-10-14) Plan written with the pre-registered criteria, confirmed by the user; no score computed yet.
+- (2026-10-14) Step 1 complete
