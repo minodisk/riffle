@@ -70,7 +70,7 @@ Decisions taken in this plan (confirmed by the user before Step 1):
 
 ## Steps
 
-- [ ] Step 1: Offline evaluation of the hierarchical offsets on the app dump, and the decision
+- [x] Step 1: Offline evaluation of the hierarchical offsets on the app dump, and the decision
   - Done when:
     - First, confirm that every implementation PR of
       `../20261014-per-file-viewed-ranking/plan.md` (PR #801's plan; the
@@ -262,4 +262,4 @@ Decisions taken in this plan (confirmed by the user before Step 1):
 
 ## Progress
 
-- (none yet)
+- (2026-10-15) Step 1 complete: keep on, OFFSET_SHRINK = 30, all columns (offsets.md)
