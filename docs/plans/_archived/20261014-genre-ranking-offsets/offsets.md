@@ -3,7 +3,7 @@
 The offline evaluation of the hierarchical (shared + per-genre offset)
 ranking model on the app dump `D:\Photos\tests\2026-10-12-rank-app`, by
 [genre_offsets.py](genre_offsets.py) on top of the archived
-[gate.py](../_archived/20261012-image-embeddings/gate.py).
+[gate.py](../20261012-image-embeddings/gate.py).
 
 ## The bar (written before the run)
 

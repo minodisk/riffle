@@ -1843,6 +1843,16 @@ The ranking refits on `Refit Ranking`, at startup and when the open folder switc
 - [ ] Revisit `REJECT_WEIGHT` once a user's data holds enough explicit rejects to measure it.
 - [ ] Base the confidence on how far the fit has moved from the prior, not only on the burst count.
 
+### Core: portrait bursts lean negative under the per-genre ranking offsets
+
+#### Background
+
+The `genre-ranking-offsets` feature kept per-genre offsets on the shared ranking weights (`OFFSET_SHRINK` 30). No genre shows a significant gain. In the offline evaluation, portrait bursts (57) have a paired difference of -0.024 [-0.067, +0.003]; the technical-only shape's is significantly negative at -0.058 [-0.115, -0.016]. Unknown also leans negative, with an interval that includes zero. The plan's bar has no per-genre condition, so this did not fail it, but with only 57 portrait bursts it should be re-checked once more non-sports judgments have accumulated. Basis: `docs/plans/_archived/20261014-genre-ranking-offsets/offsets.md`. Files: `crates/core/src/rank.rs`, `docs/plans/_archived/20261014-genre-ranking-offsets/genre_offsets.py`.
+
+#### TODO
+
+- [ ] Once more non-sports judgments have accumulated, take a fresh app dump and re-run `genre_offsets.py` (it needs the scikit-learn venv, e.g. `%TEMP%\embedvenv`; the run takes about 50 minutes on 20 workers and prints only at the end). If portrait's (or Unknown's) paired difference stays negative with an interval that excludes zero, raise `OFFSET_SHRINK` or drop the offsets for that genre; otherwise leave it as is.
+
 ### App: late embedding batches can outlive `clear_index` and the renames
 
 #### Background
