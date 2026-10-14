@@ -313,16 +313,17 @@ describe("metaGroups with the personal ranking", () => {
         ["Sharpness", 0.04],
         ["Eyes open", 0.02],
       ],
+      genre: "sports",
     },
     model: { bursts: 120, folders: 3, confidence: "low" },
   };
 
-  test("adds the place, the largest reasons and the confidence to the analysis group", () => {
+  test("adds the place with the genre, the largest reasons and the confidence to the analysis group", () => {
     expect(metaGroups(null, null, null, ranking)).toEqual([
       {
         heading: ANALYSIS_HEADING,
         rows: [
-          { label: "Recommended", value: "1 of 6 in its burst · +0.73" },
+          { label: "Recommended", value: "1 of 6 in its burst · +0.73 · as sports" },
           { label: "Reason", value: "Look +0.61, Burst position −0.30" },
           { label: "Confidence", value: "Low · 120 bursts in 3 folders" },
         ],
@@ -330,9 +331,9 @@ describe("metaGroups with the personal ranking", () => {
     ]);
   });
 
-  test("says when the model is the built-in one alone and leaves out a reason too small to name", () => {
+  test("says when the model is the built-in one alone, names no genre for an unknown one and leaves out a reason too small to name", () => {
     const prior: Ranking = {
-      ranked: { score: -0.01, place: 2, of: 2, reasons: [["Look", -0.01]] },
+      ranked: { score: -0.01, place: 2, of: 2, reasons: [["Look", -0.01]], genre: null },
       model: { bursts: 0, folders: 0, confidence: "none" },
     };
     expect(metaGroups(null, null, null, prior)[0]?.rows).toEqual([

@@ -324,6 +324,8 @@ pub struct Ranked {
     /// What moved the score off the burst's mean, `(reason, logits)`,
     /// largest first by size; the logits sum to `score`.
     pub reasons: Vec<(&'static str, f64)>,
+    /// The genre the burst was ranked as, `None` for `genre::UNKNOWN`.
+    pub genre: Option<&'static str>,
 }
 
 /// The rank of every frame with an embedding within its burst under
@@ -341,7 +343,8 @@ pub fn rank(frames: &[Frame], weights: &Weights) -> Vec<Option<Ranked>> {
         if scored.is_empty() {
             continue;
         }
-        let weights = weights.of(genre_of(frames, burst));
+        let label = genre_of(frames, burst);
+        let weights = weights.of(label);
         let n = scored.len() as f64;
         let mut mean = [0.0; COLUMNS];
         for (_, row) in &scored {
@@ -370,6 +373,7 @@ pub fn rank(frames: &[Frame], weights: &Weights) -> Vec<Option<Ranked>> {
                 place: 1 + scores.iter().filter(|&&s| s > scores[k]).count(),
                 of: scored.len(),
                 reasons,
+                genre: Some(label).filter(|g| *g != genre::UNKNOWN),
             });
         }
     }
@@ -900,10 +904,9 @@ mod tests {
         for label in &top[1..] {
             assert_eq!(fit.weights.offsets[*label], [0.0; COLUMNS]);
             let burst = of_genre(label, true, 0);
-            assert_eq!(
-                rank(&burst.frames, &fit.weights),
-                rank(&burst.frames, &shared)
-            );
+            let ranked = rank(&burst.frames, &fit.weights);
+            assert_eq!(ranked, rank(&burst.frames, &shared));
+            assert_eq!(ranked[0].as_ref().unwrap().genre, Some(*label));
         }
         assert_eq!(fit.genres[0], (top[0], 20));
         assert!(fit.genres[1..].iter().all(|(_, n)| *n == 0));
@@ -950,7 +953,9 @@ mod tests {
             offsets,
             ..shared.clone()
         };
-        assert_eq!(rank(&frames, &with), rank(&frames, &shared));
+        let ranked = rank(&frames, &with);
+        assert_eq!(ranked, rank(&frames, &shared));
+        assert_eq!(ranked[0].as_ref().unwrap().genre, None);
     }
 
     #[test]

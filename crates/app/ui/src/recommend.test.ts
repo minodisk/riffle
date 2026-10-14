@@ -3,7 +3,7 @@ import type { Ranked } from "./meta.js";
 import { recommended } from "./recommend.js";
 
 function ranked(place: number, of: number, score = 0): Ranked {
-  return { score, place, of, reasons: [] };
+  return { score, place, of, reasons: [], genre: null };
 }
 
 describe("recommended", () => {

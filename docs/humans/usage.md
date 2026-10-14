@@ -624,7 +624,9 @@ viewer shows a prompt in its center; click it to open the folder picker.
   `Landscape`, `Birds / animals`, `Snap`; a burst counts as the genre most of its
   frames show, see **AI analysis and genres**): a genre you have judged
   little in is ranked as the rest are until it has enough judgments, and
-  one you have judged a lot in can move away from them. While AI analysis is on, the
+  one you have judged a lot in can move away from them. When a burst has a
+  genre, the `Recommended` row ends with the one it was ranked as
+  (`2 of 5 in its burst · +0.31 · as sports`). While AI analysis is on, the
   model relearns from your judgments so far in the background at startup
   and each time you move to another folder; `Refit Ranking` in the
   `Culling` tab of `Riffle > Settings...` relearns it now, for example
