@@ -146,4 +146,4 @@ this icon does not reuse its `.best` bar).
 
 ## Progress
 
-- (none yet)
+- 2026-10-14: Step 1 landed (the strip marks the first-ranked frame of each burst with an icon). The manual check is pending, recorded in `learnings.md`.
