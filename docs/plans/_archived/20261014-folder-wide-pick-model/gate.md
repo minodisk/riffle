@@ -6,7 +6,7 @@ Written 2026-10-14T13:00+09:00, before `folder_gate.py` exists and before any
 fit has run, and merged on its own before the fit (the merge commit of the
 PR that adds this section, without the results below, is the record, as
 `ce0ea14` was for the in-burst
-[gate](../_archived/20261012-image-embeddings/gate.md)). Nothing in this
+[gate](../20261012-image-embeddings/gate.md)). Nothing in this
 section changes after the results are in; a deviation found while
 implementing Step 2 is recorded in `learnings.md` with its reason and does
 not touch the criterion.
@@ -19,13 +19,13 @@ already give?
 ### Data
 
 - The 27 sidecar-labeled ARW folders of
-  [burst-keep-score data.md](../_archived/20261008-burst-keep-score/data.md),
+  [burst-keep-score data.md](../20261008-burst-keep-score/data.md),
   read from the app dump in `D:\Photos\tests\2026-10-12-rank-app\` as is:
   `features/<folder>.tsv`, `features/<folder>.output.txt` (the stems of
   `Output/`), `embed.tsv`, `genre_text.tsv`, `prior_scores.tsv`, through the
-  archived [`gate.py`](../_archived/20261012-image-embeddings/gate.py)'s
+  archived [`gate.py`](../20261012-image-embeddings/gate.py)'s
   `load` and `build`, imported (not copied) the way
-  [`rank_prior.py`](../_archived/20261012-image-embeddings/rank_prior.py)
+  [`rank_prior.py`](../20261012-image-embeddings/rank_prior.py)
   does.
 - Labels as the in-burst gate's, through `gate.load`: a frame is a pick when
   its `.dop` flag (first item) is Pick, or it has a virtual copy in `Output/`
