@@ -178,7 +178,9 @@ stored eye state, and its `Genre` section on the `genres_of` labels, shown
 while `aiEnabled` is on), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/viewed.ts`
-batches the `mark_viewed` writes of the files shown in the preview and
+batches the `mark_viewed` writes of the files shown in the preview, counting
+a file as viewed once its decoded preview has stayed on screen for
+`VIEW_DWELL_MS` (500 ms, `dwellTimer`), and
 tells a switch to another folder, which refits the ranking,
 `src/idle.ts`
 holds an operation pressed during a scan (Move to Trash, the

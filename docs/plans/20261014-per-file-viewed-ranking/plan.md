@@ -209,7 +209,7 @@ Decisions (user decisions on 2026-10-14):
       command (or reuse `refit_ranking` without awaiting) when it changes
       from a non-null folder to a different one.
 
-- [ ] Step 3: Count a file as viewed only after a dwell
+- [x] Step 3: Count a file as viewed only after a dwell
   - Done when:
     - `crates/app/ui/src/viewed.ts` exports `VIEW_DWELL_MS = 500` and a
       `dwellTimer(onViewed, schedule = setTimeout, cancel = clearTimeout)`

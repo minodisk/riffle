@@ -144,7 +144,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { switchesFolder, viewedWriter } from "./viewed.js";
+import { dwellTimer, switchesFolder, viewedWriter } from "./viewed.js";
 import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
@@ -494,10 +494,22 @@ const rememberViewed = lastViewedWriter(({ dir, path }) =>
   window.__TAURI__.core.invoke("set_last_viewed", { dir, path }),
 );
 // The open folder's files shown in the preview at least once, across
-// sessions, loaded by `openDirectory` and grown by `markViewed`.
+// sessions, loaded by `openDirectory` and grown by `dwell`.
 let viewedFiles = new Set<string>();
 const recordViewed = viewedWriter(({ dir, paths }) =>
   window.__TAURI__.core.invoke("mark_viewed", { dir, paths }),
+);
+// Records the file on screen as viewed once its preview has stayed up for
+// `VIEW_DWELL_MS`; `show`, `openDirectory` and an emptied list cancel it.
+const dwell = dwellTimer(
+  (path) => viewedFiles.has(path),
+  (path) => {
+    if (openDir === null) {
+      return;
+    }
+    viewedFiles.add(path);
+    recordViewed(openDir, path);
+  },
 );
 // True while a `folder_entries` invoke is outstanding. Keeps at most one
 // request in flight, so a 10/s `scan-progress` stream while the user is
@@ -1916,6 +1928,7 @@ function refilter(
     selection = prune(selection, files, index);
     if (comparing) stopComparing();
     seq += 1;
+    dwell.cancel();
     shown?.bitmap.close();
     shown = null;
     meta = null;
@@ -2839,21 +2852,17 @@ function failPreview(): void {
   shown?.bitmap.close();
   shown = null;
   draw();
-  markViewed();
 }
 
-// The current file's preview (or its failure) is on screen: record it as
-// viewed. A view-only folder and a provisional file shown before the resume
-// target resolves do not count.
-function markViewed(): void {
+// The current file's preview is on screen: start its dwell. A view-only
+// folder and a provisional file shown before the resume target resolves do
+// not count.
+function startDwell(): void {
   const path = files[index];
   if (viewOnly || openDir === null || pendingResume !== undefined || path === undefined) {
     return;
   }
-  if (!viewedFiles.has(path)) {
-    viewedFiles.add(path);
-    recordViewed(openDir, path);
-  }
+  dwell.shown(path);
 }
 
 function requestPreview(): void {
@@ -3003,6 +3012,7 @@ function requestEyes(): void {
 
 function show(): void {
   seq += 1;
+  dwell.cancel();
   switchAt = performance.now();
   previewFailedSeq = null;
   metaStale = true;
@@ -3048,7 +3058,7 @@ worker.addEventListener("message", (event: MessageEvent<DecodeResponse>) => {
   setStatus();
   const decodedAt = performance.now();
   draw();
-  markViewed();
+  startDwell();
   if (timing !== undefined) {
     const drawnAt = performance.now();
     const sinceKeypress =
@@ -3697,6 +3707,7 @@ function openDirectory(folder: string, token: number): Promise<void> {
     refreshEntries();
     strip.setFiles(files);
     seq += 1;
+    dwell.cancel();
     shown?.bitmap.close();
     shown = null;
     draw();

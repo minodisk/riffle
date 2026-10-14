@@ -614,7 +614,10 @@ viewer shows a prompt in its center; click it to open the folder picker.
   viewed: a frame you have shown in the preview and neither picked nor
   rejected counts as not chosen, in whatever folder it sits, and a reject
   counts as a stronger no whether you viewed it or not; a frame you never
-  showed and did not judge never counts. Which frames you viewed is recorded
+  showed and did not judge never counts. A frame counts as viewed once its
+  preview has been on screen for about half a second, so frames flipped past
+  while holding an arrow key do not count, nor does a frame whose preview
+  cannot be read. Which frames you viewed is recorded
   across sessions whether AI analysis is on or not (a JPEG-only folder
   records none), so there is nothing to mark. While AI analysis is on, the
   model relearns from your judgments so far in the background at startup
