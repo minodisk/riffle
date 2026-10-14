@@ -264,3 +264,4 @@ Decisions taken in this plan (confirmed by the user before Step 1):
 
 - (2026-10-15) Step 1 complete: keep on, OFFSET_SHRINK = 30, all columns (offsets.md)
 - (2026-10-15) Step 2 complete
+- (2026-10-15) Step 3 complete
