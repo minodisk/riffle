@@ -414,7 +414,7 @@ qualifying folders), held out by folder.
 | Full model | 0.666 | 0.710 | 0.611 | 2.08 |
 | Without embedding | 0.624 | 0.726 | 0.602 | 1.74 |
 | Burst size, larger first | 0.540 | 0.751 | 0.500 | 1.00 |
-| `eye_focus` (missing last) | 0.580 | 0.670 | 0.564 | 1.53 |
+| `eye_focus` (missing last) | 0.579 | 0.673 | 0.562 | 1.42 |
 | In-burst prior's score, folder-wide | 0.671 | 0.697 | 0.523 | 2.26 |
 
 The embedding helps rank frames across a folder (check 1 holds in 20 of 25

@@ -351,7 +351,7 @@ def main(gate_dir, jobs):
         LATER: d["order"],
         SIZE: d["size"],
         SHARP: np.where(np.isnan(d["sharp"]), -np.inf, d["sharp"]),
-        EYE: np.where(np.isnan(tech[:, 1]), -np.inf, tech[:, 1]),
+        EYE: np.array([-np.inf if f["ef"] is None else f["ef"] for f in d["rows"]]),
         TIER: tech[:, 6],
         PRIOR: d["prior"],
     }

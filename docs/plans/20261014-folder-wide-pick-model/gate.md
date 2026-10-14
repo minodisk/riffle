@@ -199,7 +199,7 @@ show; if it does, the shipped model depends on `genre.rs` at run time.
 
 ## Results
 
-Run 2026-10-14 with `python -I folder_gate.py D:\Photos\tests\2026-10-12-rank-app 20` (the `%TEMP%\embedvenv` interpreter of the in-burst gate: numpy 2.5.4, scikit-learn 1.9.1, scipy 1.18.1, so the Wilcoxon test is `scipy.stats.wilcoxon`); its output, saved as `folder_gate.out.md` next to the dump, is pasted below with its headings one level down. Wall time 120 s on 20 jobs.
+Run 2026-10-14 with `python -I folder_gate.py D:\Photos\tests\2026-10-12-rank-app 20` (the `%TEMP%\embedvenv` interpreter of the in-burst gate: numpy 2.5.4, scikit-learn 1.9.1, scipy 1.18.1, so the Wilcoxon test is `scipy.stats.wilcoxon`); its output, saved as `folder_gate.out.md` next to the dump, is pasted below with its headings one level down. Wall time 141 s on 20 jobs.
 
 ### Data
 
@@ -232,7 +232,7 @@ Each cell: the mean over the qualifying folders (per-folder SD in brackets); `n`
 | Capture order, later first | 0.500 (0.075) | 0.535 (0.110) | 25 | 0.542 (0.163) | 13 | 0.783 (0.308) |
 | Burst size, larger first | 0.540 (0.081) | 0.751 (0.066) | 25 | 0.500 (0.000) | 13 | 0.998 (0.513) |
 | Absolute sharpness | 0.515 (0.058) | 0.580 (0.111) | 25 | 0.458 (0.108) | 13 | 0.979 (0.556) |
-| `eye_focus` (missing last) | 0.580 (0.047) | 0.670 (0.071) | 25 | 0.564 (0.152) | 13 | 1.528 (0.497) |
+| `eye_focus` (missing last) | 0.579 (0.048) | 0.673 (0.074) | 25 | 0.562 (0.152) | 13 | 1.415 (0.524) |
 | `photoTier` good | 0.546 (0.050) | 0.623 (0.058) | 25 | 0.530 (0.046) | 13 | 1.489 (0.901) |
 | In-burst prior's score | 0.671 (0.099) | 0.697 (0.076) | 25 | 0.523 (0.117) | 13 | 2.256 (0.970) |
 
@@ -314,7 +314,7 @@ SD-gap reading (the earlier gates' rule; for reading only, does not decide):
 | Capture order, later first | 3 | 0.646 |
 | Burst size, larger first | 3 | 0.711 |
 | Absolute sharpness | 3 | 0.531 |
-| `eye_focus` (missing last) | 3 | 0.632 |
+| `eye_focus` (missing last) | 3 | 0.633 |
 | `photoTier` good | 3 | 0.587 |
 | In-burst prior's score | 3 | 0.912 |
 
@@ -374,7 +374,7 @@ bursts better than their length does; the embedding adds frame-level signal
 but not the "was this the right moment" signal across bursts that would let
 one score compare a burst's best frame with another burst's or with a single.
 The rest agrees: singles AUC is 0.611 over the 13 folders with enough singles
-(the without-embedding variant 0.602, `eye_focus` 0.564); the in-burst prior
+(the without-embedding variant 0.602, `eye_focus` 0.562); the in-burst prior
 applied folder-wide reads 0.671 frame AUC rather than near chance, because
 most of a folder's pick vs not-chosen comparisons are within bursts where it
 was trained, and it too stays under burst size on burst AUC (0.697); the

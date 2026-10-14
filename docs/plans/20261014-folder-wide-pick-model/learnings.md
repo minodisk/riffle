@@ -66,7 +66,12 @@
     uniform draw.
   - Capture order is the frame's index within its folder in
     `gate.order_key` order (what `gate.build` already sorts by), so a frame
-    without a capture time sorts last rather than being dropped.
+    without a capture time takes the last index (it ranks last for earlier
+    first and first for later first) rather than being dropped; there are
+    none in the data.
+  - The `eye_focus` baseline scores the raw value (missing as -inf), not
+    `gate.tech_row`'s logit, which clamps to [1e-3, 1 - 1e-3] and ties the
+    15% of frames at or above 0.999.
   - Pick vs reject counts a reject that is also a pick (a virtual copy) as a
     pick only; there are none in the data.
   - The genre columns are computed in float64 from the L2-normalized
