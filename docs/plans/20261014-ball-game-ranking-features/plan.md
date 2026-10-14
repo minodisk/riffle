@@ -105,7 +105,7 @@ numbers, and the plan is finished.**
   the input fact, outputs by outlet label, `OnceLock` plan, check against a
   Python reference on real images).
 - **Parallel session.** The per-file-viewed-ranking plan
-  ([plan](../20261014-per-file-viewed-ranking/plan.md)) changes `rank.rs`
+  ([plan](../_archived/20261014-per-file-viewed-ranking/plan.md)) changes `rank.rs`
   `Labeled` / `pairs` / `fit`, `Index::rank_dirs` / `rank_rows` (`viewed`),
   app `rank.rs` `refit` and `the_scores_match_rank_prior_py`, and bumps
   `SCHEMA_VERSION` to 23. At the time of writing none of its steps is on
