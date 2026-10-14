@@ -19,7 +19,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 ## Purpose
 
 The personal ranking (`crates/core/src/rank.rs`, shipped by
-[image-embeddings Step 7](../_archived/20261012-image-embeddings/plan.md))
+[image-embeddings Step 7](../20261012-image-embeddings/plan.md))
 is a pairwise model trained only on pick vs not-chosen pairs **within one
 burst**. Its features are burst-relative (sharpness as a ratio to the
 burst's sharpest frame, position = index within the burst) and its score is
@@ -67,11 +67,11 @@ modified, a recommendation never changes a judgment; everything behind the
   `features/<folder>.tsv` (+ `.output.txt`), `embed.tsv`, `genre_text.tsv`,
   `genres.tsv` (per-file genre sigmoid scores), `prior_scores.tsv` (the
   in-burst prior's score of every frame) and `index.sqlite`. Labels as
-  [gate.md](../_archived/20261012-image-embeddings/gate.md): a pick is a
+  [gate.md](../20261012-image-embeddings/gate.md): a pick is a
   `.dop` Pick, a virtual copy in `Output/`, or an XMP Pick with no `.dop`;
   every other frame is not chosen (these folders count as culled); 58
   explicit rejects. Folder pick rates run from about 10% to 25%
-  ([burst-keep-score data.md](../_archived/20261008-burst-keep-score/data.md)).
+  ([burst-keep-score data.md](../20261008-burst-keep-score/data.md)).
 - **Tooling to reuse.** `gate.py` (`load`, `build`, `bursts_of`,
   `tech_row`, `design`, `choose_c`, the Markdown table helpers),
   `rank_prior.py` (how a prior JSON is written and cross-checked against
@@ -221,7 +221,7 @@ The user asked for whichever option gives the more accurate judgment:
       `D:\Photos\tests\2026-10-12-rank-app\` is read as is; if it is gone,
       regenerate it with the ignored test `rank_dump_of_real_folders`
       (`crates/app/src/commands.rs`) and `rank_dump.py` as
-      [ranking.md](../_archived/20261012-image-embeddings/ranking.md)
+      [ranking.md](../20261012-image-embeddings/ranking.md)
       describes, and note the run time.
     - `gate.build` already yields `tech`, `pos`, `emb`, `burst_of`,
       `folder_of`, `pick`, `reject` and the burst spans; add `ln burst size`
