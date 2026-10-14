@@ -198,7 +198,8 @@ DxO PhotoLab.
   and the strip marks each burst's first-ranked frame with an icon.
   It starts from a model learned on the author's culling and learns yours
   from the frames you viewed (on screen for about half a second) and did not
-  pick, and from your rejects. It is a
+  pick, and from your rejects, with a correction per genre once you have
+  judged enough of it. It is a
   modest suggestion (held out on the author's folders, the top-ranked frame
   was a pick in about 55% of the bursts, against 39% for the first
   frame), and it never changes a judgment (see

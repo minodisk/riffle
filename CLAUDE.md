@@ -49,13 +49,16 @@ its preprocessing), `src/genre.rs` the genre labels of an embedding (a cosine
 per label against the text vectors and per-label calibrated thresholds of
 `crates/core/genres/siglip2.json`, written offline by the image-embeddings
 plan's `genre_vectors.py`, a sub-genre bringing its parent, `Unknown` when
-none clears), `src/rank.rs` the personal best-shot ranking (the bursts as
+none clears; `of_burst` the genre of a burst, the top-level label on for the
+most of its frames, which the ranking keeps an offset per), `src/rank.rs` the personal best-shot ranking (the bursts as
 `burst.ts` forms them, a pairwise logistic over each frame's embedding
 projected to 32 whitened PCA dimensions, the pass-2 values and its position
 in the burst, the prior in `crates/core/ranking/siglip2.json` written offline
-by the plan's `rank_prior.py`, `fit` refitting the weights on the user's
-judgments pulled toward the prior's, `rank` the place, the score and the
-reasons of each frame within its burst), and
+by the plan's `rank_prior.py`, `fit` refitting the shared weights on the
+user's judgments pulled toward the prior's plus one offset per top-level genre
+pulled toward zero `OFFSET_SHRINK` times harder, `rank` the place, the score
+and the reasons of each frame within its burst by the shared weights plus its
+burst's genre offset), and
 `src/sharpness.rs` the
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
@@ -92,8 +95,8 @@ viewed files left unflagged, also run in the background by
 `refit_in_background` at startup and by `refit_ranking_in_background` when
 the frontend switches to another folder (`viewed.ts`'s `switchesFolder`),
 while `aiEnabled` is on, one at a time with the requests meanwhile
-collapsed into one rerun; the weights stored in `ranking.json` under the app's local
-data dir, the prior's when none fits),
+collapsed into one rerun; the shared weights and the per-genre offsets stored in
+`ranking.json` under the app's local data dir, the prior's when none fits),
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
 `faces_of`, which detects the faces the focus mark

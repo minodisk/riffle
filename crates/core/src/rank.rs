@@ -9,9 +9,15 @@
 //! standardization and the weights. `fit` refits the weights on the user's
 //! own judgments in the prior's coordinates, shrunk toward the prior's
 //! weights; how far a few folders of viewed frames move the model is not
-//! measured.
+//! measured. On top of those shared weights, `fit` learns one offset per
+//! top-level genre (`genre::top_level`), pulled toward zero by a fixed
+//! penalty, and `rank` ranks a burst of genre `g` (`genre::of_burst`) by the
+//! shared weights plus `g`'s offset. The prior carries no offsets (all zero),
+//! so moving `RANK_VERSION` to 2 for them only edited its `rankVersion` by
+//! hand (and `rank_prior.py`'s constant); `rank_prior.py` was not re-run.
 
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use chrono::NaiveDateTime;
@@ -19,13 +25,14 @@ use serde::Deserialize;
 
 use crate::candidate::{candidate, FocusCandidate};
 use crate::eyes::closed_probability;
+use crate::genre;
 use crate::pose::Pose;
 use crate::Flag;
 
 /// The version of the columns below, their order and what each reads. The
 /// prior and a stored fit carry it; bump it (and re-run `rank_prior.py`) on
 /// any change to them.
-pub const RANK_VERSION: i64 = 1;
+pub const RANK_VERSION: i64 = 2;
 
 /// The largest gap between two frames of one burst, `BURST_GAP_MS` in
 /// `burst.ts`.
@@ -41,6 +48,13 @@ pub const COLUMNS: usize = TECH + POSITION + PCA_DIMS;
 /// An explicit reject counts this many times a frame merely not chosen in the
 /// pairs of its burst.
 pub const REJECT_WEIGHT: f64 = 2.0;
+
+/// How much harder a genre's offset is pulled toward zero than the shared
+/// weights toward the prior's: `OFFSET_SHRINK * tau / 2 * ||offset||^2` per
+/// genre, `tau = 1 / (2 C)`. Chosen by the genre-ranking-offsets plan's
+/// Step 1 (`docs/plans/20261014-genre-ranking-offsets/offsets.md`): the
+/// highest pooled held-out AUC among the values that do no harm.
+pub const OFFSET_SHRINK: f64 = 30.0;
 
 /// The good-photo cuts of `photoTier` in `focus.ts`.
 const GOOD_EYE_FOCUS: f64 = 0.9;
@@ -101,9 +115,29 @@ fn prior() -> &'static Prior {
     })
 }
 
-/// The prior's weights, what the ranking uses before any fit.
-pub fn prior_weights() -> &'static [f64] {
-    &prior().weights
+/// The weights a burst is ranked by: `shared` plus the offset of the burst's
+/// genre, a label absent from `offsets` (and `genre::UNKNOWN`) adding zero.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Weights {
+    pub shared: Vec<f64>,
+    pub offsets: BTreeMap<String, Vec<f64>>,
+}
+
+impl Weights {
+    fn of(&self, genre: &str) -> Vec<f64> {
+        match self.offsets.get(genre).filter(|_| genre != genre::UNKNOWN) {
+            Some(offset) => self.shared.iter().zip(offset).map(|(s, o)| s + o).collect(),
+            None => self.shared.clone(),
+        }
+    }
+}
+
+/// The prior's weights with no offsets, what the ranking uses before any fit.
+pub fn prior_weights() -> Weights {
+    Weights {
+        shared: prior().weights.clone(),
+        offsets: BTreeMap::new(),
+    }
 }
 
 /// What the ranking reads of one file: its name and capture time for the
@@ -267,6 +301,11 @@ pub fn rows(frames: &[Frame], bursts: &[Vec<usize>]) -> Vec<Option<Row>> {
     out
 }
 
+/// The genre of `burst` of `frames`, from the embeddings of its frames.
+fn genre_of(frames: &[Frame], burst: &[usize]) -> &'static str {
+    genre::of_burst(burst.iter().filter_map(|&i| frames[i].vec.as_deref()))
+}
+
 fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(a, b)| a * b).sum()
 }
@@ -288,8 +327,9 @@ pub struct Ranked {
 }
 
 /// The rank of every frame with an embedding within its burst under
-/// `weights`; `None` for a frame without one.
-pub fn rank(frames: &[Frame], weights: &[f64]) -> Vec<Option<Ranked>> {
+/// `weights` and the offset of the burst's genre; `None` for a frame without
+/// one.
+pub fn rank(frames: &[Frame], weights: &Weights) -> Vec<Option<Ranked>> {
     let bursts = bursts(frames);
     let rows = rows(frames, &bursts);
     let mut out = vec![None; frames.len()];
@@ -301,6 +341,7 @@ pub fn rank(frames: &[Frame], weights: &[f64]) -> Vec<Option<Ranked>> {
         if scored.is_empty() {
             continue;
         }
+        let weights = weights.of(genre_of(frames, burst));
         let n = scored.len() as f64;
         let mut mean = [0.0; COLUMNS];
         for (_, row) in &scored {
@@ -308,7 +349,7 @@ pub fn rank(frames: &[Frame], weights: &[f64]) -> Vec<Option<Ranked>> {
                 *m += x / n;
             }
         }
-        let scores: Vec<f64> = scored.iter().map(|(_, r)| dot(&r[..], weights)).collect();
+        let scores: Vec<f64> = scored.iter().map(|(_, r)| dot(&r[..], &weights)).collect();
         for (k, &(i, row)) in scored.iter().enumerate() {
             let part = |j: usize| weights[j] * (row[j] - mean[j]);
             let mut reasons: Vec<(&'static str, f64)> = REASONS
@@ -347,22 +388,31 @@ pub struct Labeled {
 /// What `fit` found.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fit {
-    pub weights: Vec<f64>,
+    /// Its `offsets` hold every `genre::top_level` label.
+    pub weights: Weights,
     /// The bursts that gave at least one pair.
     pub bursts: usize,
+    /// Those bursts per genre, every `genre::top_level` label then
+    /// `genre::UNKNOWN`, in that order.
+    pub genres: Vec<(&'static str, usize)>,
     /// The folders that gave at least one pair.
     pub folders: usize,
 }
 
-/// One weighted pick-minus-other difference.
+/// One weighted pick-minus-other difference, of a burst whose genre is
+/// `genre::top_level()[genre]`, or `genre::UNKNOWN` at `top_level().len()`.
 struct Pair {
     diff: Row,
     weight: f64,
+    genre: usize,
 }
 
-fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
+/// The pairs, the bursts that gave one per genre (indexed as `Pair.genre`)
+/// and the folders that gave one.
+fn pairs(folders: &[Labeled], top: &[&str]) -> (Vec<Pair>, Vec<usize>, usize) {
     let mut out = Vec::new();
-    let (mut bursts_used, mut folders_used) = (0, 0);
+    let mut bursts_used = vec![0; top.len() + 1];
+    let mut folders_used = 0;
     for folder in folders {
         let bursts = bursts(&folder.frames);
         let rows = rows(&folder.frames, &bursts);
@@ -389,6 +439,8 @@ fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
             if total == 0.0 {
                 continue;
             }
+            let label = genre_of(&folder.frames, burst);
+            let genre = top.iter().position(|t| *t == label).unwrap_or(top.len());
             for pick in &picks {
                 for (other, weight) in &others {
                     let mut diff = [0.0; COLUMNS];
@@ -398,10 +450,11 @@ fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
                     out.push(Pair {
                         diff,
                         weight: weight / total,
+                        genre,
                     });
                 }
             }
-            bursts_used += 1;
+            bursts_used[genre] += 1;
             used = true;
         }
         folders_used += usize::from(used);
@@ -414,40 +467,87 @@ fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
 /// frame the user viewed at 1), each burst's pairs weighing 1 in all,
 /// by the pairwise logistic loss plus an L2 pull toward the prior's weights
 /// as strong as the prior's own regularization (`1 / (2 C)` per burst, the
-/// same objective as scikit-learn's at `C`). With no pair it returns the
-/// prior's weights.
+/// same objective as scikit-learn's at `C`). A pair of a burst of genre `g`
+/// is scored by the shared weights plus `g`'s offset, each offset pulled
+/// toward zero at `OFFSET_SHRINK` times that strength; a pair of an
+/// `UNKNOWN` burst reaches the shared weights only, and a genre with no pair
+/// keeps an offset of exactly zero. With no pair it returns the prior's
+/// weights.
 pub fn fit(folders: &[Labeled]) -> Fit {
     let prior = prior();
-    let (pairs, bursts, folders_used) = pairs(folders);
+    let top = genre::top_level();
+    let g = top.len();
+    let (pairs, bursts, folders_used) = pairs(folders, &top);
     let tau = 1.0 / (2.0 * prior.c);
-    let mut w = prior.weights.clone();
+    let n = (1 + g) * COLUMNS;
+    // The shared weights, then each genre's offset.
+    let mut w = vec![0.0; n];
+    w[..COLUMNS].copy_from_slice(&prior.weights);
     for _ in 0..50 {
-        let mut grad: Vec<f64> = w
-            .iter()
-            .zip(&prior.weights)
-            .map(|(w, p)| tau * (w - p))
+        let weights: Vec<Vec<f64>> = (0..=g)
+            .map(|k| {
+                let mut v = w[..COLUMNS].to_vec();
+                if k < g {
+                    let offset = &w[(1 + k) * COLUMNS..(2 + k) * COLUMNS];
+                    v.iter_mut().zip(offset).for_each(|(v, o)| *v += o);
+                }
+                v
+            })
             .collect();
-        let mut hess = vec![0.0; COLUMNS * COLUMNS];
-        for j in 0..COLUMNS {
-            hess[j * COLUMNS + j] = tau;
-        }
+        // The data's gradient and Hessian per genre, `UNKNOWN` last.
+        let mut grads = vec![[0.0; COLUMNS]; g + 1];
+        let mut blocks = vec![vec![0.0; COLUMNS * COLUMNS]; g + 1];
         for pair in &pairs {
-            let m = dot(&pair.diff, &w);
+            let m = dot(&pair.diff, &weights[pair.genre]);
             let s = 1.0 / (1.0 + m.exp());
-            for (g, d) in grad.iter_mut().zip(&pair.diff) {
-                *g -= pair.weight * s * d;
+            for (gr, d) in grads[pair.genre].iter_mut().zip(&pair.diff) {
+                *gr -= pair.weight * s * d;
             }
             let h = pair.weight * s * (1.0 - s);
+            let block = &mut blocks[pair.genre];
             for j in 0..COLUMNS {
                 let hj = h * pair.diff[j];
                 for k in j..COLUMNS {
-                    hess[j * COLUMNS + k] += hj * pair.diff[k];
+                    block[j * COLUMNS + k] += hj * pair.diff[k];
                 }
             }
         }
+        for block in &mut blocks {
+            for j in 0..COLUMNS {
+                for k in 0..j {
+                    block[j * COLUMNS + k] = block[k * COLUMNS + j];
+                }
+            }
+        }
+        // The shared block is every genre's plus `tau I`; a genre's diagonal
+        // block is its own plus `OFFSET_SHRINK * tau I`, its off-diagonal
+        // blocks its own.
+        let mut grad = vec![0.0; n];
+        let mut hess = vec![0.0; n * n];
         for j in 0..COLUMNS {
-            for k in 0..j {
-                hess[j * COLUMNS + k] = hess[k * COLUMNS + j];
+            grad[j] = tau * (w[j] - prior.weights[j]);
+            hess[j * n + j] = tau;
+        }
+        for (k, (gr, block)) in grads.iter().zip(&blocks).enumerate() {
+            for j in 0..COLUMNS {
+                grad[j] += gr[j];
+                for l in 0..COLUMNS {
+                    hess[j * n + l] += block[j * COLUMNS + l];
+                }
+            }
+            if k == g {
+                continue;
+            }
+            let at = (1 + k) * COLUMNS;
+            for j in 0..COLUMNS {
+                grad[at + j] = OFFSET_SHRINK * tau * w[at + j] + gr[j];
+                hess[(at + j) * n + at + j] = OFFSET_SHRINK * tau;
+                for l in 0..COLUMNS {
+                    let h = block[j * COLUMNS + l];
+                    hess[(at + j) * n + at + l] += h;
+                    hess[(at + j) * n + l] = h;
+                    hess[j * n + at + l] = h;
+                }
             }
         }
         let step = solve(hess, grad);
@@ -458,17 +558,32 @@ pub fn fit(folders: &[Labeled]) -> Fit {
             break;
         }
     }
+    let offsets = top
+        .iter()
+        .enumerate()
+        .map(|(k, label)| {
+            let at = (1 + k) * COLUMNS;
+            (label.to_string(), w[at..at + COLUMNS].to_vec())
+        })
+        .collect();
+    w.truncate(COLUMNS);
     Fit {
-        weights: w,
-        bursts,
+        weights: Weights { shared: w, offsets },
+        bursts: bursts.iter().sum(),
+        genres: top
+            .iter()
+            .copied()
+            .chain([genre::UNKNOWN])
+            .zip(bursts)
+            .collect(),
         folders: folders_used,
     }
 }
 
 /// `x` with `a x = b` for a symmetric positive definite `a` (row-major,
-/// `COLUMNS` square), by Cholesky.
+/// `b.len()` square), by Cholesky.
 fn solve(mut a: Vec<f64>, mut b: Vec<f64>) -> Vec<f64> {
-    let n = COLUMNS;
+    let n = b.len();
     for j in 0..n {
         let d = (a[j * n + j] - (0..j).map(|k| a[j * n + k].powi(2)).sum::<f64>()).sqrt();
         a[j * n + j] = d;
@@ -500,6 +615,13 @@ mod tests {
             subsec: Some(subsec.into()),
             vec: Some(vec![0.0; 768]),
             ..Frame::default()
+        }
+    }
+
+    fn shared_only(shared: Vec<f64>) -> Weights {
+        Weights {
+            shared,
+            offsets: BTreeMap::new(),
         }
     }
 
@@ -645,7 +767,7 @@ mod tests {
         let mut weights = vec![0.0; COLUMNS];
         weights[0] = 1.0;
         weights[TECH] = -0.5;
-        let ranked = rank(&frames, &weights);
+        let ranked = rank(&frames, &shared_only(weights));
         let (a, b) = (ranked[0].clone().unwrap(), ranked[1].clone().unwrap());
         assert_eq!((b.place, b.of, a.place, a.of), (1, 2, 2, 2));
         assert!(
@@ -689,7 +811,8 @@ mod tests {
             labeled(Flag::None, Flag::None, [true, true], 0),
             labeled(Flag::Pick, Flag::Pick, [true, true], 0),
         ]);
-        assert_eq!(fit.weights, prior_weights());
+        assert_eq!(fit.weights.shared, prior_weights().shared);
+        assert!(fit.weights.offsets.values().all(|o| o == &[0.0; COLUMNS]));
         assert_eq!((fit.bursts, fit.folders), (0, 0));
     }
 
@@ -710,7 +833,7 @@ mod tests {
         assert_eq!((viewed.bursts, viewed.folders), (1, 1));
         let unviewed = fit(&[labeled(Flag::Pick, Flag::None, [true, false], 0)]);
         assert_eq!((unviewed.bursts, unviewed.folders), (0, 0));
-        assert_eq!(unviewed.weights, prior_weights());
+        assert_eq!(unviewed.weights.shared, prior_weights().shared);
     }
 
     #[test]
@@ -726,29 +849,129 @@ mod tests {
         let rows = rows(&frames, &bursts(&frames));
         let (pick, other) = (rows[0].unwrap(), rows[1].unwrap());
         let margin = |w: &[f64]| dot(&pick, w) - dot(&other, w);
-        assert!(margin(&few.weights) > margin(prior_weights()));
-        assert!(margin(&many.weights) > margin(&few.weights));
+        assert!(margin(&few.weights.shared) > margin(&prior_weights().shared));
+        assert!(margin(&many.weights.shared) > margin(&few.weights.shared));
         assert_eq!((many.bursts, many.folders), (500, 500));
+    }
+
+    /// One burst of two frames of `genre`, the first `sharper` (at 100
+    /// against 20) or not, the `pick`ed one picked and the other viewed.
+    fn of_genre(genre: &str, sharper: bool, pick: usize) -> Labeled {
+        let vec = genre::vector_of(genre);
+        let mut frames = vec![
+            frame("a.ARW", "2026:09:19 10:00:00", "0"),
+            frame("b.ARW", "2026:09:19 10:00:01", "0"),
+        ];
+        for (k, f) in frames.iter_mut().enumerate() {
+            f.vec = Some(vec.clone());
+            f.sharpness = Some(if (k == 0) == sharper { 100.0 } else { 20.0 });
+        }
+        let mut flags = vec![Flag::None; 2];
+        flags[pick] = Flag::Pick;
+        Labeled {
+            frames,
+            flags,
+            viewed: vec![true; 2],
+        }
+    }
+
+    /// `count` bursts of `genre` whose picks are the sharper frame (or the
+    /// blurrier one), at either position in turn.
+    fn bursts_of(genre: &str, count: usize, pick_sharper: bool) -> Vec<Labeled> {
+        (0..count)
+            .map(|i| of_genre(genre, (i % 2 == 0) == pick_sharper, i % 2))
+            .collect()
+    }
+
+    /// The scores of a burst's two frames.
+    fn scores(folder: &Labeled, weights: &Weights) -> (f64, f64) {
+        let ranked = rank(&folder.frames, weights);
+        let score = |i: usize| ranked[i].as_ref().unwrap().score;
+        (score(0), score(1))
+    }
+
+    #[test]
+    fn a_genre_with_no_pair_keeps_a_zero_offset_and_ranks_as_the_shared_weights() {
+        let top = genre::top_level();
+        let fit = fit(&bursts_of(top[0], 20, true));
+        assert_eq!(fit.weights.offsets.len(), top.len());
+        assert!(fit.weights.offsets[top[0]].iter().any(|o| *o != 0.0));
+        let shared = shared_only(fit.weights.shared.clone());
+        for label in &top[1..] {
+            assert_eq!(fit.weights.offsets[*label], [0.0; COLUMNS]);
+            let burst = of_genre(label, true, 0);
+            assert_eq!(
+                rank(&burst.frames, &fit.weights),
+                rank(&burst.frames, &shared)
+            );
+        }
+        assert_eq!(fit.genres[0], (top[0], 20));
+        assert!(fit.genres[1..].iter().all(|(_, n)| *n == 0));
+        assert_eq!(fit.genres.last().unwrap().0, genre::UNKNOWN);
+    }
+
+    #[test]
+    fn a_genre_ranks_as_the_shared_model_until_it_has_many_contradicting_bursts() {
+        let top = genre::top_level();
+        let burst = of_genre(top[1], true, 0);
+        let fit_with = |few: usize| {
+            let mut folders = bursts_of(top[0], 300, true);
+            folders.extend(bursts_of(top[1], few, false));
+            fit(&folders)
+        };
+        let few = fit_with(2);
+        let (a, b) = scores(&burst, &shared_only(few.weights.shared.clone()));
+        assert!(a > b, "the shared model prefers the sharper frame");
+        let (a, b) = scores(&burst, &few.weights);
+        assert!(a > b, "two bursts leave the genre at the shared model");
+        let many = fit_with(300);
+        let (a, b) = scores(&burst, &shared_only(many.weights.shared.clone()));
+        assert!(a > b, "the shared model still prefers the sharper frame");
+        let (a, b) = scores(&burst, &many.weights);
+        assert!(a < b, "300 bursts turn the genre to the blurrier frame");
+    }
+
+    #[test]
+    fn an_unknown_burst_ranks_as_the_shared_weights_under_any_offsets() {
+        let mut frames = vec![
+            frame("a.ARW", "2026:09:19 10:00:00", "0"),
+            frame("b.ARW", "2026:09:19 10:00:01", "0"),
+        ];
+        frames[0].sharpness = Some(100.0);
+        frames[1].sharpness = Some(20.0);
+        assert_eq!(genre_of(&frames, &[0, 1]), genre::UNKNOWN);
+        let shared = prior_weights();
+        let offsets = genre::top_level()
+            .into_iter()
+            .map(|label| (label.to_string(), vec![3.0; COLUMNS]))
+            .chain([(genre::UNKNOWN.to_string(), vec![3.0; COLUMNS])])
+            .collect();
+        let with = Weights {
+            offsets,
+            ..shared.clone()
+        };
+        assert_eq!(rank(&frames, &with), rank(&frames, &shared));
     }
 
     #[test]
     fn solve_inverts_a_symmetric_positive_definite_matrix() {
-        let n = COLUMNS;
-        let mut a = vec![0.0; n * n];
-        for i in 0..n {
-            for j in 0..n {
-                a[i * n + j] = if i == j {
-                    4.0
-                } else {
-                    1.0 / (1 + i + j) as f64
-                };
+        for n in [COLUMNS, 6 * COLUMNS] {
+            let mut a = vec![0.0; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    a[i * n + j] = if i == j {
+                        4.0
+                    } else {
+                        1.0 / (1 + i + j) as f64
+                    };
+                }
             }
+            let x: Vec<f64> = (0..n).map(|i| i as f64 - 20.0).collect();
+            let b: Vec<f64> = (0..n)
+                .map(|i| (0..n).map(|j| a[i * n + j] * x[j]).sum())
+                .collect();
+            let solved = solve(a, b);
+            assert!(solved.iter().zip(&x).all(|(s, x)| (s - x).abs() < 1e-9));
         }
-        let x: Vec<f64> = (0..n).map(|i| i as f64 - 20.0).collect();
-        let b: Vec<f64> = (0..n)
-            .map(|i| (0..n).map(|j| a[i * n + j] * x[j]).sum())
-            .collect();
-        let solved = solve(a, b);
-        assert!(solved.iter().zip(&x).all(|(s, x)| (s - x).abs() < 1e-9));
     }
 }

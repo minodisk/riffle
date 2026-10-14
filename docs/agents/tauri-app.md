@@ -1371,11 +1371,18 @@ JPEG-only (view-only) folder never lists anything.
   `riffle_core::rank::rank` on every call. `rank.rs` forms the bursts as
   `burst.ts` `groupBursts` does (capture order, 1000 ms gap), so the
   frontend's burst ids and the backend's bursts agree; the `recommended`
-  sort orders by the frontend's burst id, then the score. The weights live
-  in `ranking.json` under the app's local data dir with `RANK_VERSION` and
-  `EMBED_VERSION`; a file at other versions, or none, means the prior
-  (`crates/core/ranking/siglip2.json`, written by the plan's
-  `rank_prior.py`). `refit_ranking` refits on `Index::rank_dirs` (the
+  sort orders by the frontend's burst id, then the score. The shared
+  weights and the per-genre offsets (`offsets`, one 44-vector per top-level
+  genre of `genre::top_level`; `rank` adds the burst's `genre::of_burst`
+  offset, none for `Unknown`) live in `ranking.json` under the app's local
+  data dir with `RANK_VERSION` and `EMBED_VERSION`; a file at other
+  versions, or none, means the prior (`crates/core/ranking/siglip2.json`,
+  written by the plan's `rank_prior.py`, no offsets), so a version-1 file
+  from before the offsets reads as the prior until the next refit (the
+  startup one rebuilds it). `Stored::parse` drops an offset whose label is
+  no longer a top-level genre or whose length is not `COLUMNS`, not the
+  file. The `ranking fit:` log line ends with the bursts per genre
+  (`per genre: sports 120, snap 9`). `refit_ranking` refits on `Index::rank_dirs` (the
   folders holding a `views` row or a reject, `RANK_DIRS`), one folder per
   reader lock, and emits `ranking-updated`, which `main.ts` answers with
   `refreshRanks` and the settings with the model's size. The same fit runs
@@ -1390,7 +1397,9 @@ JPEG-only (view-only) folder never lists anything.
   judgments made during a fit are fit on one fit later rather than dropped;
   a rerun after `aiEnabled` turned off skips the fit. The fit keeps the prior's PCA
   basis and standardization and pulls the weights toward the prior's at
-  the prior's own `1 / (2 C)`, so the stored file is 44 weights, not a
+  the prior's own `1 / (2 C)`, and each genre's offset toward zero at
+  `OFFSET_SHRINK` times that, so a genre with few judgments ranks as the
+  shared weights do; the stored file is 44 weights plus 44 per genre, not a
   basis. `evict`'s 30-day age rule skips a folder `RANK_DIRS` lists (its
   rows are the fit's training data; the one SQL fragment keeps the
   exemption and the training set from drifting apart) while its size cap

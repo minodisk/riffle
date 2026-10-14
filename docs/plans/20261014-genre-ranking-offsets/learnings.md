@@ -26,6 +26,35 @@
   Git Bash turned `\t` and `\20` in a Windows path into a tab and a control
   character; building the path with `chr(92)` fixed it.
 
+## Step 2
+
+- **`rank.rs` on `main` matched the plan's assumptions.** `Labeled` (with
+  `viewed`) and `pairs` (with `REJECT_WEIGHT`) were as the plan expected;
+  `pairs` only gained the burst's genre index per pair and returns the
+  bursts per genre. No deviation to record.
+- **`UNKNOWN` must be excluded in `Weights::of`, not only at parse.** The
+  first draft looked the burst's genre up in `offsets` directly, so a
+  `Weights` carrying an `Unknown` key (the test builds one on purpose)
+  shifted unknown bursts. `of` now ignores `genre::UNKNOWN`; the app's
+  `Stored::parse` also drops it as a non-top-level label.
+- **Test vectors of one genre.** The label vectors themselves turn every
+  label on (the text-text cosines are far above the image-text thresholds
+  of 0.05 to 0.10), so `genre::vector_of` removes the projection onto every
+  other label's vector and scales the rest to a dot of 1 with its own: it
+  turns on that label alone (and its parent for a sub-genre).
+- **The offset-at-work test passes with the shipped `OFFSET_SHRINK` = 30.**
+  300 contradicting bursts in a second genre against 300 in the first turn
+  that genre's burst to the blurrier frame while the shared weights still
+  prefer the sharper one; 2 contradicting bursts do not move it. The pick
+  alternates between the two positions so the position columns cancel.
+- **The exact-zero offset is exact by construction.** A genre with no pair
+  has zero gradient and a Hessian block uncoupled from the rest, so the
+  Cholesky solve gives exactly 0.0 for its rows; the test compares with
+  `==`.
+- **Heredocs with long Rust bodies failed in Git Bash** (`unexpected EOF
+  while looking for matching`), so the edits went through Python scripts
+  written to the scratchpad with the Write tool.
+
 ## Deferred issues (todo candidates)
 
 - **Portrait leans negative under the offsets.** At `OFFSET_SHRINK` 30 the
@@ -36,3 +65,13 @@
   e.g. by re-running `genre_offsets.py` on a fresh dump. Basis: Step 1's
   run, `docs/plans/20261014-genre-ranking-offsets/offsets.md`; related
   `crates/core/src/rank.rs`.
+- **Pending manual check (Step 2): the fit line lists bursts per genre and
+  `ranking.json` holds `offsets`.** Already added to `todo.md`'s
+  "App: real-device check of the personal ranking" section by this step,
+  as the plan's Done-when asks; the wrap-up need not add it again. On
+  Windows 11, with AI analysis on and a `ranking.json` from before this
+  change, start Riffle; expected: the startup `ranking fit:` line in
+  `Riffle.log` ends with `per genre: sports N, ...`, and `ranking.json` then
+  has `"rankVersion":2` and an `offsets` object keyed by the five top-level
+  genres, 44 numbers each. The step's checkbox was ticked on the automated
+  criteria. Files: `crates/app/src/rank.rs`, `crates/core/src/rank.rs`.
