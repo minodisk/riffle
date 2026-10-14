@@ -1421,6 +1421,13 @@ JPEG-only (view-only) folder never lists anything.
   survives eviction, `rename_dir` / `rename_file` carry it, and only
   `clear` drops it. Since it is never pruned, a viewed folder is spared by
   the age rule for good; the size cap and `clear` still reclaim it.
+  Test fixtures for this: `Index::set_rating` always writes `dirty = 1` and
+  `evict_folder` keeps dirty `ratings` rows, so a reject the eviction may drop
+  needs a clean `ratings` row inserted with SQL; `Index::clear` only walks
+  `folders` rows, so a `write_batch` without a `folders` row (no `reconcile` /
+  `set_opened_at`) survives a `clear`; and to show that eviction keeps `views`,
+  evict through the size cap (`max_bytes: 0`), since the age rule now spares a
+  folder holding a `views` row.
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores
