@@ -1717,6 +1717,15 @@ folder changed" event has to pick the right one.
   (`.cell span.name span.pending-icon`). Prepend the icon rather than append
   it, so the name's ellipsis never clips it. Source:
   `docs/plans/_archived/20261006-pending-rename-display/learnings.md`, Step 1.
+  The same applies to the bottom-left `.cell span.marks` flex row (face and
+  sparkles icons): its child spans need `position: static; width: auto;
+  padding: 0`, and the `[hidden] { display: none }` rule belongs on the row's
+  children so a hidden face icon leaves no gap before the sparkles. The
+  recommended-frame icons are applied by `applyRecommended()` in `refilter`
+  (the one place that rebuilds the strip, since `strip.setFiles` clears the
+  per-index sets), `refreshRanks` and `setRanking`'s off branch; a new
+  per-index strip mark must be re-applied in `refilter`. Source:
+  `docs/plans/_archived/20261014-recommended-icon/learnings.md`, Step 1.
 - The scan progress bar (`#scan-progress`) is shown only from `openDirectory`
   (`setScanProgress("0%")`), never from `startScan`: every `resync()` ends in
   `startScan`, so showing it there would flash the bar on each focus / watcher

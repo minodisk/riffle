@@ -1877,3 +1877,16 @@ Decision 4 of `image-embeddings` dropped soccer, macro and other from the genre 
 #### TODO
 
 - [ ] Label frames from a soccer game and from a macro session, add them to `genre_prompts.json`, then re-run `genre_vectors.py` and `genre_calibrate.py`.
+
+### App: real-device check of the recommended icon on the strip
+
+#### Background
+
+The recommended-icon feature marks the filmstrip cell of every frame the personal ranking places first in its burst with a Lucide `sparkles` icon, while AI analysis (`aiEnabled`) is on. CI and the vitest unit test cover the criterion `recommended(ranked)` (`place === 1 && of >= 2`). The icon's real rendering and its refresh behavior in the running app were never exercised: its placement beside the face icon in the bottom-left row, how that row sits against the burst count `n/m` at the bottom-right, and the updates after a refit, a sort or filter change, and turning AI off. Plan: `docs/plans/_archived/20261014-recommended-icon/plan.md`.
+
+Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`, `crates/app/ui/style.css`, `crates/app/ui/src/recommend.ts`.
+
+#### TODO
+
+- [ ] On Windows, open a folder with bursts while AI analysis is on and the embeddings are in. Expect the cell of each burst's first-ranked frame to show the `sparkles` icon in the bottom-left row, right of the face icon when the frame is also a good frame (alone at the left edge otherwise). It must not collide with the burst count `n/m` at the bottom-right, and a lone frame must show none.
+- [ ] On Windows, click `Refit Ranking` in Settings > Culling (icons may move). Change the sort and a filter (icons stay on the same files). Turn AI analysis off in Settings (every icon disappears).
