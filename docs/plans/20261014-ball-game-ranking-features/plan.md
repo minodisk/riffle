@@ -248,7 +248,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
       (`%TEMP%\embedvenv\Scripts\python.exe`).
     - No crate changes in this step.
 
-- [ ] Step 2: Candidate 1: prompt vectors, cosines, the gate run
+- [x] Step 2: Candidate 1: prompt vectors, cosines, the gate run
   - Precondition: `labels.tsv` holds the user's labels for the Step 1
     sample (at least 200 frames with a `ball` label).
   - Done when:
@@ -495,7 +495,18 @@ adopted candidate, the weights of the fit on every folder, and the chosen
 the combination, the shippability checks, and the choice rule's outcome.
 Until then: pending.)
 
+### Candidate 1: fail on bars 1-4 (bars 1-3 missed, bar 4 met)
+
+From Step 2 ([candidate1.md](candidate1.md)), the first and only prompt set.
+Reference re-run in the same process: 0.710 weighted AUC / 54.9% Top-1;
+Candidate 1: 0.708 / 54.4%.
+
+| Candidate | 1. AUC minus reference (>= 0.010) | Met | 2. Top-1 minus reference, points (>= 2.0) | Met | 3. Folders at or above (>= 13) | Met | 4. `ball` column AUC vs label (>= 0.75) | Met | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `c1` | -0.002 | no | -0.4 | no | 10 of 20 | no | 0.829 (`ball visible`) | yes | fail |
+
 ## Progress
 
 - (2026-10-14) Plan written with the pre-registered criteria, confirmed by the user; no score computed yet.
 - (2026-10-14) Step 1 complete
+- (2026-10-15) Step 2 complete (Candidate 1 fails bars 1-3, bar 4 met at 0.829)

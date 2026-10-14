@@ -119,14 +119,14 @@ kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--muted); border
 const FRAMES = __FRAMES__;
 const QUESTIONS = [
   { id: "ball", title: "ボール", options: [
-    { id: "visible", name: "写っている", key: "1", def: "競技のボールがフレーム内にある（手の中・空中・床の上、大きさやブレは問わない）。一部でも見えれば「写っている」。" },
-    { id: "none", name: "写っていない", key: "2", def: "ボールがフレーム内にない。" },
-    { id: "unsure", name: "判断できない", key: "3", def: "ボールらしきものはあるが確信が持てない。" },
+    { id: "visible", name: "写っている", key: "z", def: "競技のボールがフレーム内にある（手の中・空中・床の上、大きさやブレは問わない）。一部でも見えれば「写っている」。" },
+    { id: "none", name: "写っていない", key: "x", def: "ボールがフレーム内にない。" },
+    { id: "unsure", name: "判断できない", key: "c", def: "ボールらしきものはあるが確信が持てない。" },
   ] },
   { id: "contest", title: "競り合い", options: [
-    { id: "yes", name: "あり", key: "q", def: "ボールを持っている（操っている）選手と、相手チームの選手が少なくとも 1 人、両方フレーム内にいる。" },
-    { id: "no", name: "なし", key: "w", def: "球技の場面だが、ボール保持者がいない・写っていない、または保持者の相手選手が写っていない。" },
-    { id: "na", name: "該当しない", key: "e", def: "球技の場面ではない、またはチームや保持者が判断できない。" },
+    { id: "yes", name: "あり", key: "a", def: "ボールを持っている（操っている）選手と、相手チームの選手が少なくとも 1 人、両方フレーム内にいる。" },
+    { id: "no", name: "なし", key: "s", def: "球技の場面だが、ボール保持者がいない・写っていない、または保持者の相手選手が写っていない。" },
+    { id: "na", name: "該当しない", key: "d", def: "球技の場面ではない、またはチームや保持者が判断できない。" },
   ] },
 ];
 const KEY = "riffle-ball-labels-v1";

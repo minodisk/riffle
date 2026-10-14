@@ -58,6 +58,15 @@ before any prompt vector, detector output or fit existed.
   (460 of 32,459 missing) stops the run as intended. Those numbers are
   not results and are not recorded.
 
+- **Labeling keys changed by the user (recorded in Step 2).** At the user's
+  request the labeling page's keys were changed from 1/2/3 and Q/W/E to
+  **Z/X/C** for `ball` (visible / none / unsure) and **A/S/D** for
+  `contest` (yes / no / na). The user edited
+  `D:\Photos\tests\2026-10-14-ball-labels\label.html` by hand; Step 2's
+  commit makes `ball_sample.py`'s `PAGE` generate the same six keys (the
+  only difference between the hand-edited page and the template, checked
+  by a diff). The sample was not regenerated.
+
 ### Dry run (random noise)
 
 A two-column extras file of uniform noise (`ball noise`, `noise 2`, seed 7)
@@ -82,15 +91,39 @@ P(sports) 0.708 (-0.002), 53.9%; sports bursts 0.729 -> 0.731, other 0.621
 gives the noise columns +0.007 and +0.060 at `C` = 0.1. Folders with 20 or
 more scorable bursts: 20, as the criterion assumed.
 
+## Step 2
+
+- **Labels in.** The user labeled the sample (Step 1's pending manual
+  step, done, so it is no longer under the deferred issues): 240 rows,
+  `ball` visible 137 / none 103 / unsure 0, `contest` yes 98 / no 99 /
+  na 42 and one blank, which `ballgate.py`'s `label_auc` drops like `na`.
+- **Scripts.** `ball_text.py` imports the archived `genre_text.py` and calls
+  its `main` on `ball_prompts.json` (the format and the vector rule are
+  unchanged); `ball_scores.py` uses `gate.load_embed` / `gate.load_text`, so
+  the keys are `gate.py`'s `(folder, file)`. Outputs under
+  `D:\Photos\tests\2026-10-14-ball-labels\` (`ball_text.tsv`,
+  `extras_c1.tsv`, next to the labels), not in the app dump. Column names:
+  `ball visible` first, so bar 4 reads it; the contrasts are
+  `... minus no ball` / `... minus single player`.
+- **The raw cosines sit in the expected band** (`ball visible` mean 0.088,
+  `contested carrier` 0.097); the ball contrast is tiny (mean -0.007, SD
+  0.007) and reads only 0.593 against the `ball` label, while the raw
+  `ball visible` reads 0.829. The contest contrast reads 0.814 against
+  `contest`, the raw 0.802.
+- **No prompt revision.** The first set's scores were seen before any
+  revision could be written, so a revision could not be the one the
+  criterion reads; with bars 1-3 missed (0.012 AUC and 2.4 Top-1 points
+  short of the bars) it was not run.
+- **Result: Candidate 1 fails** (0.708 / 54.4% against 0.710 / 54.9%, 10
+  of 20 folders; bar 4 met at 0.829). The gate run (reference, `c1`, the
+  gated aid and the curve) took about 3 minutes with 8 jobs, `-I -B`; no
+  `__pycache__` appeared.
+- **Backslashes through the Bash tool's heredoc.** Even a quoted heredoc
+  (`<<'EOF'`) collapsed `\\` to `\` here, so a docstring's `\\t` became a
+  tab escape and a Windows path in a Python string turned into control
+  characters. Write files with backslashes through the Edit / Write tools,
+  or build them with `chr(92)`.
+
 ## Deferred issues (todo candidates)
 
-- **Pending manual step (the user's): label the 240-frame sample before
-  Step 2's fit.** Open `D:\Photos\tests\2026-10-14-ball-labels\label.html`
-  in a browser (file://), answer `ボール` and `競り合い` for each frame
-  (keys 1/2/3 and Q/W/E, Enter for the next; clicking the photo shows it at
-  full size), then `TSV を書き出す` and replace that folder's `labels.tsv`
-  with the download. Expected: at least 200 frames with a `ball` label
-  (Step 2's precondition). Basis: plan.md Step 1 / Step 2 precondition;
-  files `docs/plans/20261014-ball-game-ranking-features/ball_sample.py`,
-  `D:\Photos\tests\2026-10-14-ball-labels\`. Step 1's checkbox was ticked on
-  the automated criteria (the sample is drawn; labeling is the user's).
+(None open: Step 1's labeling step is done.)
