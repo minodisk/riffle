@@ -144,7 +144,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { viewedWriter } from "./viewed.js";
+import { switchesFolder, viewedWriter } from "./viewed.js";
 import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
@@ -3675,6 +3675,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
     files = order.filter(passes);
     index = 0;
     selection = single(files[index]);
+    if (switchesFolder(openDir, folder, folders.ignoreCase)) {
+      void window.__TAURI__.core.invoke("refit_ranking_in_background");
+    }
     openDir = folder;
     void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });

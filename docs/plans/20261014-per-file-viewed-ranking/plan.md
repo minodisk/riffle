@@ -172,7 +172,7 @@ Decisions (user decisions on 2026-10-14):
       every page turn would send a write, and Step 3's dwell timer uses the
       set to skip files already viewed.
 
-- [ ] Step 2: Refit at startup and on folder switch
+- [x] Step 2: Refit at startup and on folder switch
   - Done when:
     - While `aiEnabled` is on, the app refits the ranking in the background
       (the same fit as `refit_ranking`, on the Step 1 per-file training set,

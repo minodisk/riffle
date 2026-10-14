@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type ViewedBatch, viewedWriter } from "./viewed.js";
+import { switchesFolder, type ViewedBatch, viewedWriter } from "./viewed.js";
 
 describe("viewedWriter", () => {
   function recorder(): {
@@ -76,5 +76,25 @@ describe("viewedWriter", () => {
     await settle();
     push("/d", "/d/c.ARW");
     expect(sent).toHaveLength(3);
+  });
+});
+
+describe("switchesFolder", () => {
+  test("opening another folder switches", () => {
+    expect(switchesFolder("/photos/a", "/photos/b")).toBe(true);
+  });
+
+  test("the first open after launch does not", () => {
+    expect(switchesFolder(null, "/photos/a")).toBe(false);
+  });
+
+  test("reopening the same folder does not", () => {
+    expect(switchesFolder("/photos/a", "/photos/a")).toBe(false);
+    expect(switchesFolder("/photos/a", "/Photos/A", true)).toBe(false);
+    expect(switchesFolder("/photos/a", "/Photos/A")).toBe(true);
+  });
+
+  test("opening a subfolder switches", () => {
+    expect(switchesFolder("/photos", "/photos/a")).toBe(true);
   });
 });

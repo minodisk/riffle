@@ -17,3 +17,35 @@
   refit for now, and Step 2 rewrites that sentence.
 - Git Bash refused one long `python - <<'EOF'` heredoc ("unexpected EOF while looking for matching
   `'`"); writing the script to the scratchpad and running it worked.
+
+## Step 2: Refit at startup and on folder switch
+
+- Coalescing over skipping: `AppRank.queue` (a `Queue { running, pending }`) runs one background
+  fit at a time and turns every request made while it runs into one rerun after it, so the
+  judgments made during a fit are never left out for longer than one more fit. The state machine
+  (`request` / `finish`) is pure, so it is unit-tested without threads. The rerun checks
+  `aiEnabled` again and skips the fit when it was turned off meanwhile.
+- The settings' `Refit Ranking` still calls `refit` directly; `AppRank.fit` already serializes it
+  against a background fit, so it never runs two fits in parallel either.
+- The switch rule lives in `viewed.ts` as `switchesFolder(previous, next, ignoreCase)` on top of
+  `tree.ts`'s `relation` (so a case-only difference on macOS / Windows is the same folder);
+  `openDirectory` checks it against `openDir` just before reassigning it. The reopens through
+  `openDirectory(openDir, …)` (`sidecar-format`, `index-cleared`) therefore do not refit.
+- A rename of the open folder reopens it under its new path, which `switchesFolder` counts as a
+  switch and so refits once. Harmless (the fit is seconds at most), left as is.
+- The startup refit is kicked from `setup` right after `AppRank` is managed; `ranking-updated` may
+  fire before the main window registers its listener, which is fine since `ranking_of` reads the
+  stored weights whenever the frontend asks.
+- A stray `cat > file` with no heredoc in a chained Bash command blocked on stdin until the 120 s
+  timeout; kill the `cat` and remove the empty file it created.
+
+## Deferred issues (todo candidates)
+
+- Pending manual check (Step 2, Windows 11, already added to `todo.md` under "App: real-device
+  check of the personal ranking" as the plan's Done-when asks; the step's checkbox was ticked on
+  the automated criteria only): with AI analysis on, judge frames in folder A, open folder B
+  without `Refit Ranking` -> a `ranking fit:` line in `Riffle.log` and A's Recommended order
+  changed on reopen; restart Riffle -> a fit line at startup; with AI analysis off, start and move
+  between folders -> no fit line. Files: `crates/app/src/rank.rs` (`refit_in_background`),
+  `crates/app/ui/src/viewed.ts` (`switchesFolder`), `crates/app/ui/src/main.ts`
+  (`openDirectory`).

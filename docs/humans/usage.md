@@ -616,10 +616,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   counts as a stronger no whether you viewed it or not; a frame you never
   showed and did not judge never counts. Which frames you viewed is recorded
   across sessions whether AI analysis is on or not (a JPEG-only folder
-  records none), so there is nothing to mark. `Refit Ranking` in the
-  `Culling` tab of `Riffle > Settings...` relearns the model from your
-  judgments so far, for example after a culling session; the fit is stored
-  as `ranking.json` in the app's local data dir. `Confidence` reads
+  records none), so there is nothing to mark. While AI analysis is on, the
+  model relearns from your judgments so far in the background at startup
+  and each time you move to another folder; `Refit Ranking` in the
+  `Culling` tab of `Riffle > Settings...` relearns it now, for example
+  after a culling session. The fit is stored as `ranking.json` in the app's
+  local data dir. `Confidence` reads
   `Built-in only, nothing learned yet` until a pick shares a burst with a
   viewed frame or a reject, then `Low`, `Medium` or
   `High` with the bursts and folders it learned from. It is a modest

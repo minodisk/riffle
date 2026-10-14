@@ -1803,6 +1803,9 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 - [ ] On Windows, view a few frames of a folder, then set its `folders.opened_at` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while a never-viewed folder without a reject of the same age is evicted; `Clear Cache` still removes it.
 - [ ] (per-file-viewed-ranking Step 1: `rank_rows` reads `views`, `fit` counts an unflagged frame only when viewed; `crates/app/src/index.rs`, `crates/core/src/rank.rs`; plan `docs/plans/20261014-per-file-viewed-ranking/plan.md`.) On Windows 11, with AI analysis on, in a fresh RAW folder whose frames all have their pass 3 embedding (a frame without one makes no pair), turn `Auto-advance after a star, reject or pick` off, click one frame of a burst in the strip and pick it without showing the others (do not page with the arrow keys), press `Refit Ranking` and note the fit line in `Riffle.log`. Then click another frame of that burst in the strip, leave it unflagged and press `Refit Ranking` again. Expected: the second fit line counts one more burst (the viewed, unpicked frame paired against the pick) and the meta pane's `Confidence` follows.
 - [ ] On Windows, open a JPEG-only (view-only) folder and page through all of it, then press `Refit Ranking`. Expected: the fit line counts no folder for it.
+- [ ] (per-file-viewed-ranking Step 2: the background refit at startup and on a folder switch; `crates/app/src/rank.rs` `refit_in_background`, `crates/app/ui/src/viewed.ts` `switchesFolder`; plan `docs/plans/20261014-per-file-viewed-ranking/plan.md`; the step's checkbox was ticked on the automated criteria only.) On Windows 11, with AI analysis on, in folder A (embedded by pass 3) sorted by `Recommended`, view and pick or reject a few frames of a burst, note A's order, then open folder B without pressing `Refit Ranking`. Expected: `Riffle.log` gets a `ranking fit:` line when B opens, and reopening A shows its Recommended order and `Confidence` changed. Clicking the open folder again in the folder tree, or switching the sidecar format in Settings (which reopens it), adds no fit line.
+- [ ] On Windows, judge a few frames, quit and start Riffle again. Expected: a `ranking fit:` line at startup, and the Recommended order of the judged folder reflects the judgments without pressing `Refit Ranking`.
+- [ ] On Windows, with AI analysis off, start Riffle and move between two folders. Expected: no `ranking fit:` line in `Riffle.log`.
 
 ### Core: the ranking's pull toward the prior is untested for one to three culled folders
 
@@ -1818,7 +1821,7 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 
 #### Background
 
-The ranking refits only on `Refit Ranking` (the startup / folder-switch refit is `per-file-viewed-ranking` Step 2). A refit run before a viewed folder's pass 3 ran (AI off at the time, or the pass still running) fits without its frames, and nothing refits when its embeddings arrive. Deferred in `image-embeddings` Step 7. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/rank.rs` (`refit`), `crates/app/src/commands.rs` (`start_scan`).
+The ranking refits on `Refit Ranking`, at startup and when the open folder switches to another (`per-file-viewed-ranking` Step 2). A refit run before a viewed folder's pass 3 ran (AI off at the time, or the pass still running) fits without its frames, and nothing refits when its embeddings arrive. Deferred in `image-embeddings` Step 7. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/rank.rs` (`refit`), `crates/app/src/commands.rs` (`start_scan`).
 
 #### TODO
 

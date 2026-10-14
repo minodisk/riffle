@@ -1,8 +1,10 @@
 //! The personal ranking in the app (`riffle_core::rank`): the weights fit on
 //! the user's judgments (the picks against the rejects and the viewed frames
 //! left unflagged), stored as
-//! `ranking.json` in the app's local data dir, and the per-file rank the meta
-//! pane and the `recommended` sort read. It never changes a judgment.
+//! `ranking.json` in the app's local data dir, refit in the background at
+//! startup and on each switch to another folder while `aiEnabled` is on, and
+//! the per-file rank the meta pane and the `recommended` sort read. It never
+//! changes a judgment.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -19,11 +21,45 @@ use crate::index::lock;
 const FILE: &str = "ranking.json";
 
 /// The weights in use, read from `FILE` on first use; `fit` serializes the
-/// refits.
+/// refits and `queue` coalesces the background ones.
 #[derive(Default)]
 pub struct AppRank {
     stored: Mutex<Option<Stored>>,
     fit: Mutex<()>,
+    queue: Mutex<Queue>,
+}
+
+/// The background refits: one runs at a time, and the requests made while it
+/// runs collapse into one rerun after it, so the judgments made meanwhile
+/// are fit on at most one fit later.
+#[derive(Default)]
+struct Queue {
+    running: bool,
+    pending: bool,
+}
+
+impl Queue {
+    /// Whether the caller starts a fit now; otherwise a rerun is queued.
+    fn request(&mut self) -> bool {
+        if self.running {
+            self.pending = true;
+            false
+        } else {
+            self.running = true;
+            true
+        }
+    }
+
+    /// Whether the fit that just ended runs again.
+    fn finish(&mut self) -> bool {
+        if self.pending {
+            self.pending = false;
+            true
+        } else {
+            self.running = false;
+            false
+        }
+    }
 }
 
 /// What `FILE` holds: the weights with the versions they were fit at and the
@@ -212,9 +248,47 @@ pub async fn refit_ranking(app: AppHandle) -> Result<ModelInfo, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// Refit on a background thread while `aiEnabled` is on, coalesced through
+/// `Queue`: at startup and on each switch to another folder.
+pub fn refit_in_background(app: &AppHandle) {
+    let enabled = |app: &AppHandle| app.state::<crate::ai::AppAi>().enabled();
+    if !enabled(app) || !lock(&app.state::<AppRank>().queue).request() {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || loop {
+        if enabled(&app) {
+            if let Err(e) = refit(&app) {
+                log::error!("ranking fit failed: {e}");
+            }
+        }
+        if !lock(&app.state::<AppRank>().queue).finish() {
+            break;
+        }
+    });
+}
+
+/// The frontend's switch from one open folder to another.
+#[tauri::command]
+pub fn refit_ranking_in_background(app: AppHandle) {
+    refit_in_background(&app);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn requests_during_a_fit_collapse_into_one_rerun() {
+        let mut queue = Queue::default();
+        assert!(queue.request());
+        assert!(!queue.request());
+        assert!(!queue.request());
+        assert!(queue.finish());
+        assert!(!queue.finish());
+        assert!(queue.request());
+        assert!(!queue.finish());
+    }
 
     #[test]
     fn a_fit_at_other_versions_or_of_another_size_falls_back_to_the_prior() {
