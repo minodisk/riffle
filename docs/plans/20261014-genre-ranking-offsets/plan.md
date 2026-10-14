@@ -198,7 +198,7 @@ Decisions taken in this plan (confirmed by the user before Step 1):
     - Rename `prior_weights` only if it keeps the code clearer; do not
       restructure the prior file or `Prior`.
 
-- [ ] Step 3: Show the genre a burst was ranked as in the meta pane
+- [x] Step 3: Show the genre a burst was ranked as in the meta pane
   - Done when:
     - `Ranked` (`rank.rs`) gains `genre: Option<&'static str>`, `None` for
       `UNKNOWN`; `meta.ts`'s `Ranked` mirrors it, and `rankingRows` appends

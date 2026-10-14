@@ -55,6 +55,17 @@
   while looking for matching`), so the edits went through Python scripts
   written to the scratchpad with the Write tool.
 
+## Step 3
+
+- **The suffix shows the raw label.** The genre data file's labels are
+  lowercase (`sports`, `birds / animals`), so the row reads `· as sports`
+  as the plan's example does, while the usage docs name the genres
+  capitalized (`Sports`) in prose. No mapping was added.
+- **`Ranked.genre` is set even when the burst has one scored frame.** It
+  names the label the weights came from; `recommend.ts` ignores the field,
+  so the sparkles icon is unchanged (its test fixture only gained
+  `genre: null`).
+
 ## Deferred issues (todo candidates)
 
 - **Portrait leans negative under the offsets.** At `OFFSET_SHRINK` 30 the
@@ -75,3 +86,12 @@
   has `"rankVersion":2` and an `offsets` object keyed by the five top-level
   genres, 44 numbers each. The step's checkbox was ticked on the automated
   criteria. Files: `crates/app/src/rank.rs`, `crates/core/src/rank.rs`.
+- **Pending manual check (Step 3): the `Recommended` row's genre suffix.**
+  Already added to `todo.md`'s "App: real-device check of the personal
+  ranking" section by this step, as the plan's Done-when asks; the wrap-up
+  need not add it again. On Windows 11, with AI analysis on, select a frame
+  of a sports burst in a folder embedded by pass 3; expected: the meta
+  pane's `Recommended` row reads `N of M in its burst · +0.xx · as sports`,
+  and a burst whose frames show no genre has no suffix. The step's
+  checkbox was ticked on the automated criteria. Files:
+  `crates/core/src/rank.rs`, `crates/app/ui/src/meta.ts`.

@@ -57,13 +57,15 @@ export interface FocusCue {
 
 // One file's place in its burst under the personal ranking, as `Ranked` in
 // `crates/core/src/rank.rs` carries it: the score above the burst's mean in
-// logits, the place among the burst's scored frames and what moved the
-// score, `[reason, logits]`, largest first.
+// logits, the place among the burst's scored frames, what moved the
+// score, `[reason, logits]`, largest first, and the genre the burst was
+// ranked as, `null` when it has none.
 export interface Ranked {
   score: number;
   place: number;
   of: number;
   reasons: [string, number][];
+  genre: string | null;
 }
 
 // How much of the ranking is the user's own, as `ModelInfo` in
@@ -102,16 +104,20 @@ export function confidenceText(model: RankModel): string {
   return `${level} · ${plural(model.bursts, "burst")} in ${plural(model.folders, "folder")}`;
 }
 
-// The ranking's rows: the place in the burst with the score, the largest
-// reasons, and the confidence.
+// The ranking's rows: the place in the burst with the score and the genre
+// it was ranked as, the largest reasons, and the confidence.
 export function rankingRows(ranking: Ranking): [string, string | null][] {
   const { ranked, model } = ranking;
   const reasons = ranked.reasons
     .filter(([, v]) => Math.abs(v) >= MIN_REASON)
     .slice(0, REASONS_SHOWN)
     .map(([name, v]) => `${name} ${signed(v)}`);
+  const genre = ranked.genre === null ? "" : ` · as ${ranked.genre}`;
   return [
-    ["Recommended", `${ranked.place} of ${ranked.of} in its burst · ${signed(ranked.score)}`],
+    [
+      "Recommended",
+      `${ranked.place} of ${ranked.of} in its burst · ${signed(ranked.score)}${genre}`,
+    ],
     ["Reason", reasons.length === 0 ? null : reasons.join(", ")],
     ["Confidence", confidenceText(model)],
   ];
