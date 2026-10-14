@@ -1397,9 +1397,16 @@ JPEG-only (view-only) folder never lists anything.
   does not, and `clear` drops everything. A pick-only folder is not read
   (no negative to pair against) and so not spared.
 - **`views` feeds the fit per file.** `main.ts` records a file as viewed
-  when its preview is drawn for the current `seq` (or `failPreview` shows
-  its failure), not for strip thumbnails, the compare pane, a provisional
-  file before the resume target resolves, or a view-only folder, and sends
+  once its preview has stayed on screen for `viewed.ts`'s `VIEW_DWELL_MS`
+  (500 ms, `dwellTimer`), measured from the worker `message` handler's
+  `draw()` of the current `seq`'s bitmap, not from `show()`: the preview
+  request and decode take 10-100 ms and a held key repeats every ~30 ms,
+  so a clock started at `show()` would count frames whose bitmap never
+  reached the screen. `show()`, `openDirectory` and an emptied list cancel
+  the clock. A failed preview (`failPreview`) does not count: the user saw
+  an error, not the photo, and such a file has no embedding to rank. Nor
+  do strip thumbnails, the compare pane, a provisional file before the
+  resume target resolves, or a view-only folder. It sends
   the paths in batches through `viewed.ts`'s `viewedWriter`
   (`mark_viewed`), each path once per folder (`viewedFiles`, loaded from
   `viewed_files`). `Index::rank_rows` joins `views`, so `RankRow.viewed`

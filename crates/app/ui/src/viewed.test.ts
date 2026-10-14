@@ -1,5 +1,11 @@
-import { describe, expect, test } from "vitest";
-import { switchesFolder, type ViewedBatch, viewedWriter } from "./viewed.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  dwellTimer,
+  switchesFolder,
+  VIEW_DWELL_MS,
+  type ViewedBatch,
+  viewedWriter,
+} from "./viewed.js";
 
 describe("viewedWriter", () => {
   function recorder(): {
@@ -96,5 +102,77 @@ describe("switchesFolder", () => {
 
   test("opening a subfolder switches", () => {
     expect(switchesFolder("/photos", "/photos/a")).toBe(true);
+  });
+});
+
+describe("dwellTimer", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function recorder(): { recorded: string[]; dwell: ReturnType<typeof dwellTimer> } {
+    const recorded: string[] = [];
+    const viewed = new Set<string>();
+    const dwell = dwellTimer(
+      (path) => viewed.has(path),
+      (path) => {
+        viewed.add(path);
+        recorded.push(path);
+      },
+    );
+    return { recorded, dwell };
+  }
+
+  test("a display cancelled before the dwell records nothing", () => {
+    const { recorded, dwell } = recorder();
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS - 1);
+    dwell.cancel();
+    vi.advanceTimersByTime(VIEW_DWELL_MS);
+    expect(recorded).toEqual([]);
+  });
+
+  test("a display replaced before the dwell records only the one that stays", () => {
+    const { recorded, dwell } = recorder();
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(30);
+    dwell.shown("/d/b.ARW");
+    vi.advanceTimersByTime(30);
+    dwell.shown("/d/c.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS);
+    expect(recorded).toEqual(["/d/c.ARW"]);
+  });
+
+  test("a display past the dwell records once", () => {
+    const { recorded, dwell } = recorder();
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS);
+    expect(recorded).toEqual(["/d/a.ARW"]);
+    vi.advanceTimersByTime(VIEW_DWELL_MS * 4);
+    expect(recorded).toEqual(["/d/a.ARW"]);
+  });
+
+  test("showing a recorded path again does not record it again", () => {
+    const { recorded, dwell } = recorder();
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS);
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS);
+    expect(recorded).toEqual(["/d/a.ARW"]);
+  });
+
+  test("a new path restarts the clock", () => {
+    const { recorded, dwell } = recorder();
+    dwell.shown("/d/a.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS - 100);
+    dwell.shown("/d/b.ARW");
+    vi.advanceTimersByTime(VIEW_DWELL_MS - 1);
+    expect(recorded).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(recorded).toEqual(["/d/b.ARW"]);
   });
 });

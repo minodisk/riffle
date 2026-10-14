@@ -39,6 +39,18 @@
 - A stray `cat > file` with no heredoc in a chained Bash command blocked on stdin until the 120 s
   timeout; kill the `cat` and remove the empty file it created.
 
+## Step 3: Count a file as viewed only after a dwell
+
+- The "already viewed" guard lives in `dwellTimer` as its `viewed` predicate (`main.ts` passes
+  `viewedFiles.has`), not at `main.ts`'s call site, so the "a second `shown` of a recorded path
+  does not re-fire" rule is unit-tested. `dwellTimer` uses the global `setTimeout` /
+  `clearTimeout` and the tests drive it with `vi.useFakeTimers` instead of injected fakes.
+- `main.ts`'s `markViewed` became `startDwell` (the same view-only / `openDir` / `pendingResume`
+  skips, now starting the clock); `dwell.cancel()` sits next to each `seq += 1` (`show`,
+  `openDirectory`, the empty-list branch of `refilter`), the only three places `seq` moves.
+- Writing `main.ts` through Python's text mode on Windows turned its line endings into CRLF;
+  a `sed` pass stripping the trailing carriage returns restored LF before `mise run fmt`.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 2, Windows 11, already added to `todo.md` under "App: real-device
@@ -49,3 +61,12 @@
   between folders -> no fit line. Files: `crates/app/src/rank.rs` (`refit_in_background`),
   `crates/app/ui/src/viewed.ts` (`switchesFolder`), `crates/app/ui/src/main.ts`
   (`openDirectory`).
+- Pending manual check (Step 3, Windows 11, already added to `todo.md` under "App: real-device
+  check of the personal ranking" as the plan's Done-when asks; the step's checkbox was ticked on
+  the automated criteria only): in a fresh RAW folder, hold `ArrowRight` across a dozen frames ->
+  `SELECT path FROM views WHERE dir = '<folder>'` in `index.sqlite` lists only the frames dwelt on
+  (start and stop), not those flown past; stay on one frame over half a second -> it gains a
+  `views` row, a frame left within a quarter second does not; with AI analysis on, pick one frame
+  of a burst, dwell on another unjudged, `Refit Ranking` -> the `ranking fit:` line counts the
+  folder. Files: `crates/app/ui/src/viewed.ts` (`dwellTimer`), `crates/app/ui/src/main.ts`
+  (`startDwell`).

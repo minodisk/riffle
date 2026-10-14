@@ -43,3 +43,39 @@ export function viewedWriter(
 export function switchesFolder(previous: string | null, next: string, ignoreCase = false): boolean {
   return previous !== null && relation(next, previous, ignoreCase) !== "same";
 }
+
+// How long a file's decoded preview has to stay on screen before it counts
+// as viewed, so frames flown past while holding an arrow key do not.
+export const VIEW_DWELL_MS = 500;
+
+export interface DwellTimer {
+  shown(path: string): void;
+  cancel(): void;
+}
+
+// One dwell clock for the file on screen: `shown` (re)starts it for `path`,
+// skipping a path already `viewed`, and `cancel` stops it. `onViewed` fires
+// once the path has stayed `VIEW_DWELL_MS` without either being called.
+export function dwellTimer(
+  viewed: (path: string) => boolean,
+  onViewed: (path: string) => void,
+): DwellTimer {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = (): void => {
+    clearTimeout(timer);
+    timer = undefined;
+  };
+  return {
+    shown: (path) => {
+      cancel();
+      if (viewed(path)) {
+        return;
+      }
+      timer = setTimeout(() => {
+        timer = undefined;
+        onViewed(path);
+      }, VIEW_DWELL_MS);
+    },
+    cancel,
+  };
+}
