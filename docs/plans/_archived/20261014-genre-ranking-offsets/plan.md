@@ -28,7 +28,7 @@ offset starts at zero, is pulled toward zero by an L2 penalty that is fixed
 while the genre's pairs grow, so a genre with few judgments ranks exactly or
 nearly as the shared model does and a genre with many judgments moves away
 from it (partial pooling). The image-embeddings plan's Decision 2
-(`../_archived/20261012-image-embeddings/gate.md`) tried per-genre offsets
+(`../20261012-image-embeddings/gate.md`) tried per-genre offsets
 on the technical columns with a 10x penalty and found no gain (weighted AUC
 0.707 vs 0.708) on data that is 82% sports, so this plan starts with an
 offline evaluation that measures the effect and checks the offsets do no
@@ -78,7 +78,7 @@ Decisions taken in this plan (confirmed by the user before Step 1):
       switch refit, the dwell) is merged into `main`. If not, stop this
       plan here and say so; do not start.
     - `genre_offsets.py` in this plan folder (next to no other code;
-      imports `gate.py` from `../_archived/20261012-image-embeddings/` by
+      imports `gate.py` from `../20261012-image-embeddings/` by
       path, as `rank_prior.py` does) runs the leave-one-folder-out
       evaluation of `gate.py` on the app dump
       `D:\Photos\tests\2026-10-12-rank-app` for: the shared model (as a
