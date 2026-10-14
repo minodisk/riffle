@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   type SequenceDone,
   SequenceFlow,
-  changedLine,
+  captureTimeLine,
   doneStatus,
   failureText,
   folderError,
@@ -10,6 +10,7 @@ import {
   rebuildNotice,
   revealAfter,
   rowParts,
+  writtenLine,
 } from "./sequence.js";
 
 const row = (path: string, changed: boolean) => ({
@@ -65,11 +66,29 @@ describe("text", () => {
     expect(rebuildNotice({ ...preview, output_exists: false })).toBeNull();
   });
 
-  test("counts the files that get a new time", () => {
-    expect(changedLine([row("/a.jpg", false), row("/b.jpg", true), row("/c.jpg", true)])).toBe(
-      "2 of 3 files get a new time",
+  test("the written line counts every row and names the output folder", () => {
+    expect(writtenLine([row("/a.jpg", false), row("/b.jpg", true)], "/x/export-sequenced")).toBe(
+      "2 files will be written to export-sequenced",
     );
-    expect(changedLine([row("/a.jpg", false)])).toBe("0 of 1 file gets a new time");
+    expect(writtenLine([row("C:\\x\\a.jpg", false)], "C:\\x\\export-sequenced")).toBe(
+      "1 file will be written to export-sequenced",
+    );
+  });
+
+  test("the capture time line counts the rows whose time changes", () => {
+    expect(captureTimeLine([row("/a.jpg", false), row("/b.jpg", true), row("/c.jpg", true)])).toBe(
+      "2 of them get a new capture time",
+    );
+    expect(captureTimeLine([row("/a.jpg", false), row("/b.jpg", true)])).toBe(
+      "1 of them gets a new capture time",
+    );
+    expect(captureTimeLine([row("/a.jpg", false)])).toBe("0 of them get a new capture time");
+  });
+
+  test("a row changed only by its DateTime does not get a new capture time", () => {
+    expect(captureTimeLine([{ ...row("/a.jpg", false), changed: true }])).toBe(
+      "0 of them get a new capture time",
+    );
   });
 
   test("a failure names the file", () => {
