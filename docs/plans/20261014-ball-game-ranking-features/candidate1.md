@@ -134,7 +134,7 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `c1` | -0.002 | no | -0.4 | no | 10 of 20 | no | 0.829 (`ball visible`) | yes | fail |
 
-#### Reading aids (not in the criterion)
+### Reading aids (not in the criterion)
 
 #### Each column alone as a within-burst ranking
 
@@ -165,7 +165,7 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | Reference (shared model) | 3 | 0.926 | 0.963 |
 | `c1` | 3 | 0.926 | 0.963 |
 
-#### Learning curve (`c1`)
+### Learning curve (`c1`)
 
 | Training folders | Weighted AUC | Top-1 |
 | --- | ---: | ---: |
@@ -174,7 +174,7 @@ Reference: weighted AUC 0.710, Top-1 54.9% (archived ranking.md: 0.710 / 54.9%).
 | 20 | 0.706 | 54.5% |
 | 26 | 0.708 | 54.4% |
 
-#### Weights of each candidate fit on every folder
+### Weights of each candidate fit on every folder
 
 `c1`: `C` = 0.1 (27 folders); standardized columns.
 
