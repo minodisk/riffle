@@ -8,7 +8,8 @@
 //! plan's offline `rank_prior.py`: the PCA basis, the imputation means, the
 //! standardization and the weights. `fit` refits the weights on the user's
 //! own judgments in the prior's coordinates, shrunk toward the prior's
-//! weights; how far a few finished folders move the model is not measured.
+//! weights; how far a few folders of viewed frames move the model is not
+//! measured.
 
 use std::cmp::Ordering;
 use std::sync::OnceLock;
@@ -334,13 +335,13 @@ pub fn rank(frames: &[Frame], weights: &[f64]) -> Vec<Option<Ranked>> {
     out
 }
 
-/// One folder's frames and judgments for `fit`. Only a finished folder (the
-/// user marked its culling finished) counts its frames neither picked nor
-/// rejected as negatives.
+/// One folder's frames and judgments for `fit`. `viewed`, parallel to
+/// `flags`, says which files the user looked at: only a viewed frame neither
+/// picked nor rejected counts as a negative.
 pub struct Labeled {
     pub frames: Vec<Frame>,
     pub flags: Vec<Flag>,
-    pub finished: bool,
+    pub viewed: Vec<bool>,
 }
 
 /// What `fit` found.
@@ -378,7 +379,7 @@ fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
                     let weight = match folder.flags[i] {
                         Flag::Pick => return None,
                         Flag::Reject => REJECT_WEIGHT,
-                        Flag::None if folder.finished => 1.0,
+                        Flag::None if folder.viewed[i] => 1.0,
                         Flag::None => return None,
                     };
                     rows[i].as_ref().map(|r| (r, weight))
@@ -410,7 +411,7 @@ fn pairs(folders: &[Labeled]) -> (Vec<Pair>, usize, usize) {
 
 /// Fit the weights on `folders`: every pick against every other frame of its
 /// burst that counts as a negative (a reject at `REJECT_WEIGHT`, any other
-/// frame of a finished folder at 1), each burst's pairs weighing 1 in all,
+/// frame the user viewed at 1), each burst's pairs weighing 1 in all,
 /// by the pairwise logistic loss plus an L2 pull toward the prior's weights
 /// as strong as the prior's own regularization (`1 / (2 C)` per burst, the
 /// same objective as scikit-learn's at `C`). With no pair it returns the
@@ -667,7 +668,7 @@ mod tests {
     }
 
     /// Two frames a second apart in one burst, the `sharper` one at 100.
-    fn labeled(first: Flag, second: Flag, finished: bool, sharper: usize) -> Labeled {
+    fn labeled(first: Flag, second: Flag, viewed: [bool; 2], sharper: usize) -> Labeled {
         let mut frames = vec![
             frame("a.ARW", "2026:09:19 10:00:00", "0"),
             frame("b.ARW", "2026:09:19 10:00:01", "0"),
@@ -677,41 +678,51 @@ mod tests {
         Labeled {
             frames,
             flags: vec![first, second],
-            finished,
+            viewed: viewed.to_vec(),
         }
     }
 
     #[test]
     fn a_fit_without_a_pair_is_the_prior() {
         let fit = fit(&[
-            labeled(Flag::Pick, Flag::None, false, 0),
-            labeled(Flag::None, Flag::None, true, 0),
-            labeled(Flag::Pick, Flag::Pick, true, 0),
+            labeled(Flag::Pick, Flag::None, [true, false], 0),
+            labeled(Flag::None, Flag::None, [true, true], 0),
+            labeled(Flag::Pick, Flag::Pick, [true, true], 0),
         ]);
         assert_eq!(fit.weights, prior_weights());
         assert_eq!((fit.bursts, fit.folders), (0, 0));
     }
 
     #[test]
-    fn a_fit_counts_rejects_anywhere_and_the_rest_in_finished_folders_only() {
+    fn a_fit_counts_rejects_viewed_or_not_and_the_rest_only_when_viewed() {
         let fit = fit(&[
-            labeled(Flag::Pick, Flag::Reject, false, 0),
-            labeled(Flag::Pick, Flag::None, true, 0),
-            labeled(Flag::Pick, Flag::None, false, 0),
+            labeled(Flag::Pick, Flag::Reject, [false, false], 0),
+            labeled(Flag::Pick, Flag::Reject, [true, true], 0),
+            labeled(Flag::Pick, Flag::None, [true, true], 0),
+            labeled(Flag::Pick, Flag::None, [true, false], 0),
         ]);
-        assert_eq!((fit.bursts, fit.folders), (2, 2));
+        assert_eq!((fit.bursts, fit.folders), (3, 3));
+    }
+
+    #[test]
+    fn an_unflagged_frame_is_a_negative_only_when_viewed() {
+        let viewed = fit(&[labeled(Flag::Pick, Flag::None, [false, true], 0)]);
+        assert_eq!((viewed.bursts, viewed.folders), (1, 1));
+        let unviewed = fit(&[labeled(Flag::Pick, Flag::None, [true, false], 0)]);
+        assert_eq!((unviewed.bursts, unviewed.folders), (0, 0));
+        assert_eq!(unviewed.weights, prior_weights());
     }
 
     #[test]
     fn a_fit_leans_toward_what_the_picks_have_and_more_with_more_data() {
         let few: Vec<Labeled> = (0..5)
-            .map(|_| labeled(Flag::Pick, Flag::None, true, 0))
+            .map(|_| labeled(Flag::Pick, Flag::None, [true, true], 0))
             .collect();
         let many: Vec<Labeled> = (0..500)
-            .map(|_| labeled(Flag::Pick, Flag::None, true, 0))
+            .map(|_| labeled(Flag::Pick, Flag::None, [true, true], 0))
             .collect();
         let (few, many) = (fit(&few), fit(&many));
-        let frames = labeled(Flag::Pick, Flag::None, true, 0).frames;
+        let frames = labeled(Flag::Pick, Flag::None, [true, true], 0).frames;
         let rows = rows(&frames, &bursts(&frames));
         let (pick, other) = (rows[0].unwrap(), rows[1].unwrap());
         let margin = |w: &[f64]| dot(&pick, w) - dot(&other, w);

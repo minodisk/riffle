@@ -1,10 +1,3 @@
-// Whether every file of the open folder's complete listing has been shown in
-// the preview at least once. Paths in `viewed` that are no longer listed do
-// not matter; an empty listing is never finished.
-export function allViewed(allFiles: readonly string[], viewed: ReadonlySet<string>): boolean {
-  return allFiles.length > 0 && allFiles.every((path) => viewed.has(path));
-}
-
 export interface ViewedBatch {
   dir: string;
   paths: string[];

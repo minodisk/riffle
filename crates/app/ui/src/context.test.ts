@@ -195,27 +195,6 @@ describe("folderMenuGroups", () => {
   });
 });
 
-describe("folderMenuGroups while AI analysis is on", () => {
-  test("adds the Culling Finished check above the sidecar items, checked as the folder is", () => {
-    for (const finished of [false, true]) {
-      const groups = folderMenuGroups("Reveal in Finder", false, finished);
-      expect(groups.map((group) => group.map(({ action }) => action))).toEqual([
-        ["revealFolder"],
-        ["copyPath", "copyFolderName"],
-        ["refreshFolder"],
-        ["renameFolder"],
-        ["expandAll", "collapseAll"],
-        ["cullingFinished"],
-        ["rewriteSidecars", "deleteSidecars"],
-        ["sequenceTimestamps"],
-      ]);
-      expect(groups[5]).toEqual([
-        { action: "cullingFinished", label: "Culling Finished", shortcut: "", checked: finished },
-      ]);
-    }
-  });
-});
-
 describe("menuPosition", () => {
   test("leaves an interior point alone", () => {
     expect(menuPosition(100, 100, 50, 40, 800, 600)).toEqual({ left: 100, top: 100 });

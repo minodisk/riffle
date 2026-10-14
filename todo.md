@@ -1248,8 +1248,7 @@ its `learnings.md`. Files: `crates/app/src/foldersidecars.rs`,
       PhotoLab-written `.dop` (with corrections), open the folder in Riffle
       under `XMP and .dop`, rate, flag and label a few files, then
       right-click the folder and choose `Rewrite Sidecars from Index…`.
-      Expect the item after the `Expand All` / `Collapse All` group (after
-      `Culling Finished` while AI analysis is on) and before
+      Expect the item after the `Expand All` / `Collapse All` group and before
       `Sequence JPEG Timestamps…`; the dialog titled `Rewrite Sidecars from Index` shows the
       judged / unjudged / skipped rows and `Rewrite the XMP and .dop
       sidecars of N files in <name>?` with a primary `Rewrite`; `Rewrite`
@@ -1789,44 +1788,41 @@ The `repeat-judgment-advance` feature makes a repeat press of the value a file a
 - [ ] On Windows, untick "AI analysis of what each photo shows" in the settings. Expected: the section disappears and the strip shows everything again. Tick it again: the section returns with nothing checked.
 - [ ] On Windows, on a folder never embedded, with a `Genre` item checked, expect the strip to fill in as pass 3 runs (`embed-progress`) and be complete at `embed-done`.
 
-### App: real-device check of the personal ranking (Recommended sort, Culling Finished, Refit Ranking)
+### App: real-device check of the personal ranking (Recommended sort, viewed frames, Refit Ranking)
 
 #### Background
 
-`image-embeddings` Step 7 added the `Recommended` sort key, the meta pane's `Recommended` / `Reason` / `Confidence` rows, the folder tree's `Culling Finished` check and the settings' `Refit Ranking` button, all behind `aiEnabled`. CI covers the re-run in `ranking.md`, the Rust / Python cross-check `the_scores_match_rank_prior_py` and the unit tests. The menus, the meta rows, the `Riffle.log` fit line and the settings status in the real app were never exercised. The step's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/ui/src/main.ts` (`refreshRanks`, `setRanking`), `crates/app/ui/src/settings.ts`, `crates/app/src/rank.rs`.
+`image-embeddings` Step 7 added the `Recommended` sort key, the meta pane's `Recommended` / `Reason` / `Confidence` rows and the settings' `Refit Ranking` button, all behind `aiEnabled`; `per-file-viewed-ranking` Step 1 replaced the folder tree's `Culling Finished` check with the per-file `views` (an unflagged frame counts as not chosen once it was shown in the preview; plan `docs/plans/20261014-per-file-viewed-ranking/plan.md`). CI covers the re-run in `ranking.md`, the Rust / Python cross-check `the_scores_match_rank_prior_py` and the unit tests. The menus, the meta rows, the `Riffle.log` fit line and the settings status in the real app were never exercised. The step's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/ui/src/main.ts` (`refreshRanks`, `setRanking`), `crates/app/ui/src/settings.ts`, `crates/app/src/rank.rs`.
 
 #### TODO
 
 - [ ] On Windows 11, with AI analysis on (model downloaded), open `D:\photos\2026\2026-09-19` and let pass 3 finish. Expected: the sort menu shows `Recommended` below `Rating`. Choosing it keeps each burst together (burst bands contiguous) and reorders frames within bursts. The meta pane's Analysis group shows `Recommended` (`N of M in its burst · +0.xx`), `Reason` (up to three, e.g. `Look +0.62, Burst position −0.31`) and `Confidence` (`Built-in only, nothing learned yet` on a fresh install).
-- [ ] On Windows, right-click the folder in the tree. Expected: a `Culling Finished` check sits above `Rewrite Sidecars from Index…`. Check it. `Riffle.log` gets a `ranking fit: N bursts from 1 folders` line, the meta pane's `Confidence` changes to `Low · N bursts in 1 folder`, and the settings' Culling tab reads `Ranking: Low · ...`. Right-click again: the item shows checked. Uncheck it: the fit goes back to `Built-in only` (0 bursts), unless some indexed folder holds a burst with both a pick and a reject.
-- [ ] On Windows, in Settings > Culling, press `Refit Ranking`. Expected: `refitting…`, then the status. Untick AI analysis: the `Recommended` item, the meta rows, the refit block and the tree's check disappear, and a strip sorted by `Recommended` falls back to capture order. Tick it again: they return.
+- [ ] On Windows, page through the folder, pick a few frames, then press `Refit Ranking` in Settings > Culling. Expected: `Riffle.log` gets a `ranking fit: N bursts from 1 folders` line, the meta pane's `Confidence` changes to `Low · N bursts in 1 folder`, and the settings' Culling tab reads `Ranking: Low · ...`. The folder tree's right-click menu has no `Culling Finished` item.
+- [ ] On Windows, in Settings > Culling, press `Refit Ranking`. Expected: `refitting…`, then the status. Untick AI analysis: the `Recommended` item, the meta rows and the refit block disappear, and a strip sorted by `Recommended` falls back to capture order. Tick it again: they return.
 - [ ] On Windows, at every point above, no judgment changes (stars, flags and labels as before, no sidecar written by the ranking).
-- [ ] On Windows, mark a folder `Culling Finished`, then set its `folders.last_opened` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while an unfinished folder of the same age is evicted; `Clear Cache` still removes it.
-- [ ] (auto-culling-finished: the mark is set by itself once every file of a RAW folder has been previewed; `markViewed` in `crates/app/ui/src/main.ts`, `crates/app/ui/src/viewed.ts`, `finish_culling` in `crates/app/src/rank.rs`; plan `docs/plans/_archived/20261013-auto-culling-finished/plan.md`.) On Windows 11, with AI analysis on, open a RAW folder never viewed before. Hide one frame with a strip filter, page through every other frame, then clear the filter and show the hidden one. Right-click the folder in the tree. Expected: `Culling Finished` is checked, and the ranks and status refreshed by the refit (`ranking-updated`).
-- [ ] On Windows, clear that check by hand, then page through the folder again (or reopen it). Expected: the check stays clear.
-- [ ] On Windows, open a JPEG-only (view-only) folder and page through all of it. Expected: the folder is never marked.
-- [ ] On Windows, in a fresh RAW folder, jump straight to the last frame only. Expected: the folder is not marked.
-- [ ] On Windows, page halfway through a fresh RAW folder, quit Riffle, relaunch, reopen the folder and view the rest. Expected: the folder is marked.
+- [ ] On Windows, view a few frames of a folder, then set its `folders.opened_at` back more than 30 days (or wait) and trigger eviction. Expected: the folder's rows and embeddings stay, while a never-viewed folder without a reject of the same age is evicted; `Clear Cache` still removes it.
+- [ ] (per-file-viewed-ranking Step 1: `rank_rows` reads `views`, `fit` counts an unflagged frame only when viewed; `crates/app/src/index.rs`, `crates/core/src/rank.rs`; plan `docs/plans/20261014-per-file-viewed-ranking/plan.md`.) On Windows 11, with AI analysis on, in a fresh RAW folder whose frames all have their pass 3 embedding (a frame without one makes no pair), turn `Auto-advance after a star, reject or pick` off, click one frame of a burst in the strip and pick it without showing the others (do not page with the arrow keys), press `Refit Ranking` and note the fit line in `Riffle.log`. Then click another frame of that burst in the strip, leave it unflagged and press `Refit Ranking` again. Expected: the second fit line counts one more burst (the viewed, unpicked frame paired against the pick) and the meta pane's `Confidence` follows.
+- [ ] On Windows, open a JPEG-only (view-only) folder and page through all of it, then press `Refit Ranking`. Expected: the fit line counts no folder for it.
 
-### Core: the ranking's pull toward the prior is untested for one to three finished folders
+### Core: the ranking's pull toward the prior is untested for one to three culled folders
 
 #### Background
 
-`rank.rs` `fit` shrinks toward the built-in prior with tau = 1/(2C) = 5 in total. A single finished folder (about 70 scorable bursts) may outweigh that several times over, and the one measured move (0.300) came from 1602 bursts. Found in the `image-embeddings` Step 7 local review. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/core/src/rank.rs`, `docs/plans/_archived/20261012-image-embeddings/ranking.md`.
+`rank.rs` `fit` shrinks toward the built-in prior with tau = 1/(2C) = 5 in total. A single culled folder (about 70 scorable bursts) may outweigh that several times over, and the one measured move (0.300) came from 1602 bursts. Found in the `image-embeddings` Step 7 local review. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/core/src/rank.rs`, `docs/plans/_archived/20261012-image-embeddings/ranking.md`.
 
 #### TODO
 
-- [ ] Refit from the prior on 1, 3 and 5 finished folders, compare the held-out weighted AUC with the prior's, and pick the strength (for example tau scaled by the prior's burst count).
+- [ ] Refit from the prior on 1, 3 and 5 culled folders, compare the held-out weighted AUC with the prior's, and pick the strength (for example tau scaled by the prior's burst count).
 
-### App: no ranking refit when a finished folder's embeddings arrive
+### App: no ranking refit when a viewed folder's embeddings arrive
 
 #### Background
 
-Marking a folder `Culling Finished` before its pass 3 ran (AI off at the time, or the pass still running) refits without its frames. Only `Refit Ranking` or another mark brings them in. Deferred in `image-embeddings` Step 7. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/rank.rs` (`set_culling_finished`), `crates/app/src/commands.rs` (`start_scan`).
+The ranking refits only on `Refit Ranking` (the startup / folder-switch refit is `per-file-viewed-ranking` Step 2). A refit run before a viewed folder's pass 3 ran (AI off at the time, or the pass still running) fits without its frames, and nothing refits when its embeddings arrive. Deferred in `image-embeddings` Step 7. Plan: `docs/plans/_archived/20261012-image-embeddings/plan.md`. Files: `crates/app/src/rank.rs` (`refit`), `crates/app/src/commands.rs` (`start_scan`).
 
 #### TODO
 
-- [ ] Refit at `embed-done` of a finished folder.
+- [ ] Refit at `embed-done` of a folder holding a viewed file or a reject.
 
 ### Core: the ranking's reject weight and confidence levels are choices, not fits
 
