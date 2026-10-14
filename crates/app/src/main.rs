@@ -755,6 +755,7 @@ fn main() {
             app.manage(commands::Scans::default());
             app.manage(ai::AppAi::new(ai_enabled, ai::model_path(app.handle())));
             app.manage(rank::AppRank::default());
+            rank::refit_in_background(app.handle());
             // A model still missing at launch (a download cut short by a
             // quit or a failure) is fetched again, as a later enable would.
             if ai_enabled {
@@ -810,6 +811,7 @@ fn main() {
             rank::ranking_of,
             rank::ranking_model,
             rank::refit_ranking,
+            rank::refit_ranking_in_background,
             commands::last_viewed,
             commands::set_last_viewed,
             commands::viewed_files,

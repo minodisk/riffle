@@ -1,3 +1,5 @@
+import { relation } from "./tree.js";
+
 export interface ViewedBatch {
   dir: string;
   paths: string[];
@@ -32,4 +34,12 @@ export function viewedWriter(
       next();
     }
   };
+}
+
+// Whether opening `next` while `previous` is open switches to another
+// folder, which refits the ranking on the views and judgments left behind.
+// The first open after launch does not (the startup refit covers it), nor
+// does reopening the same folder.
+export function switchesFolder(previous: string | null, next: string, ignoreCase = false): boolean {
+  return previous !== null && relation(next, previous, ignoreCase) !== "same";
 }

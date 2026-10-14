@@ -1377,7 +1377,18 @@ JPEG-only (view-only) folder never lists anything.
   (`crates/core/ranking/siglip2.json`, written by the plan's
   `rank_prior.py`). `refit_ranking` refits on `Index::rank_dirs` (the
   folders holding a `views` row or a reject, `RANK_DIRS`), one folder per
-  reader lock, and emits `ranking-updated`. The fit keeps the prior's PCA
+  reader lock, and emits `ranking-updated`, which `main.ts` answers with
+  `refreshRanks` and the settings with the model's size. The same fit runs
+  in the background, while `aiEnabled` is on, from `refit_in_background`:
+  once in `setup` (after `AppAi` / `AppRank` are managed) and on
+  `refit_ranking_in_background`, which `openDirectory` invokes when
+  `viewed.ts`'s `switchesFolder` says the open folder changed from one
+  folder to another (not the first open after launch, which startup covers,
+  nor a reopen of the same folder; a rename of the open folder counts as a
+  switch). `AppRank.queue` (`Queue`) runs one background fit at a time and
+  collapses the requests made meanwhile into one rerun after it, so the
+  judgments made during a fit are fit on one fit later rather than dropped;
+  a rerun after `aiEnabled` turned off skips the fit. The fit keeps the prior's PCA
   basis and standardization and pulls the weights toward the prior's at
   the prior's own `1 / (2 C)`, so the stored file is 44 weights, not a
   basis. `evict`'s 30-day age rule skips a folder `RANK_DIRS` lists (its

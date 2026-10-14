@@ -144,7 +144,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { viewedWriter } from "./viewed.js";
+import { switchesFolder, viewedWriter } from "./viewed.js";
 import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
@@ -3675,6 +3675,9 @@ function openDirectory(folder: string, token: number): Promise<void> {
     files = order.filter(passes);
     index = 0;
     selection = single(files[index]);
+    if (switchesFolder(openDir, folder, folders.ignoreCase)) {
+      void window.__TAURI__.core.invoke("refit_ranking_in_background");
+    }
     openDir = folder;
     void folders.reveal(folder, () => token === folderToken);
     void window.__TAURI__.core.invoke("remember_folder", { dir: folder });
@@ -4135,7 +4138,8 @@ function setRanking(enabled: boolean): void {
   renderMeta();
 }
 
-// A refit (the settings' button) changes every score.
+// A refit (the settings' button, or the background refit at startup and on a
+// folder switch) changes every score.
 void window.__TAURI__.event.listen("ranking-updated", () => {
   refreshRanks();
 });

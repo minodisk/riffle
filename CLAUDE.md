@@ -88,7 +88,11 @@ checked against its size and SHA-256, `src/rank.rs` the personal ranking's
 commands (`ranking_of`, the rank of a folder's files from `Index::rank_rows`
 and the weights in use; `refit_ranking`, the settings' refit on the
 folders `Index::rank_dirs` lists, the picks against the rejects and the
-viewed files left unflagged; the weights stored in `ranking.json` under the app's local
+viewed files left unflagged, also run in the background by
+`refit_in_background` at startup and by `refit_ranking_in_background` when
+the frontend switches to another folder (`viewed.ts`'s `switchesFolder`),
+while `aiEnabled` is on, one at a time with the requests meanwhile
+collapsed into one rerun; the weights stored in `ranking.json` under the app's local
 data dir, the prior's when none fits),
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
@@ -174,7 +178,8 @@ stored eye state, and its `Genre` section on the `genres_of` labels, shown
 while `aiEnabled` is on), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/viewed.ts`
-batches the `mark_viewed` writes of the files shown in the preview,
+batches the `mark_viewed` writes of the files shown in the preview and
+tells a switch to another folder, which refits the ranking,
 `src/idle.ts`
 holds an operation pressed during a scan (Move to Trash, the
 renames) until the scan ends, `src/viewonly.ts`
