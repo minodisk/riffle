@@ -113,7 +113,7 @@ The user asked for whichever option gives the more accurate judgment:
 
 ## Steps
 
-- [ ] Step 1: Pre-register the folder-wide gate (criterion, data, model family, baselines, metrics) in `gate.md`, with no fit run
+- [x] Step 1: Pre-register the folder-wide gate (criterion, data, model family, baselines, metrics) in `gate.md`, with no fit run
   - Done when:
     - `gate.md` in this plan folder has a "Pre-registration" section
       written and merged **before any script exists or any fit runs** (the
@@ -403,3 +403,4 @@ The user asked for whichever option gives the more accurate judgment:
 ## Progress
 
 - (2026-10-14) Plan written
+- (2026-10-14) Step 1: pre-registered the folder-wide gate in `gate.md` (no script, no fit); deviations from the plan text in `learnings.md`
