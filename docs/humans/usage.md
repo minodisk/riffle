@@ -597,7 +597,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   **Bursts**) and nothing across bursts: `Recommended` keeps the bursts in
   capture order and puts each burst's frames in the order of a score
   learned from picks, highest first, a frame without an embedding yet after
-  the scored ones of its burst. The `Recommended` row shows the frame's
+  the scored ones of its burst. Whatever the sort, the strip marks the
+  frame the ranking puts first in its burst with Lucide's `sparkles` icon
+  (ISC license, text in `crates/app/ui/LICENSE-lucide`) at the cell's
+  bottom-left, right of the focus mark icon; frames tied for first are each
+  marked, and a lone scored frame or a frame without an embedding gets
+  none. The icon follows the model, so it can move after a refit, and it
+  is the same modest suggestion as the order. The `Recommended` row shows the frame's
   place among the scored frames of its burst and its score, how far above
   (`+`) or below (`−`) the burst's average it sits in the model's units;
   `Reason` names up to three of what moved it most: `Look` (the image

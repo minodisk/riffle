@@ -162,7 +162,9 @@ eyes' openness the meta pane shows, and
 and Analysis, whose rows include the AF eye in-focus probability and the
 `Eyes` judgment with its openness and `Head pose`, from the values pass 2 stored for
 the AF face, else the `eyes_of` judgment, and, while `aiEnabled` is on, the
-personal ranking's place in the burst, reasons and confidence), `src/sort.ts`
+personal ranking's place in the burst, reasons and confidence), `src/recommend.ts` decides from a file's
+ranking entry whether the strip marks it with the recommended icon (first
+of two or more scored frames of its burst), `src/sort.ts`
 orders the strip (file name, capture time, rating, or `recommended`: bursts in
 capture order, each by the ranking's score), `src/eyes.ts` caches the `eyes_of` judgments per file with one
 in flight at a time, `src/facemesh.ts` holds MediaPipe's face parts

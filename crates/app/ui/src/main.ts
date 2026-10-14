@@ -128,6 +128,7 @@ import {
   targets,
 } from "./selection.js";
 import { progressWidth } from "./progress.js";
+import { recommended } from "./recommend.js";
 import { firstEntriesAnchor, lastViewedWriter, mustReshow, resumeTarget } from "./resume.js";
 import {
   DELETE_RUNNING_NOTE,
@@ -1907,6 +1908,7 @@ function refilter(
   });
   applyBursts();
   applyTiers();
+  applyRecommended();
   applyFailures();
   if (files.length === 0) {
     closeContextMenu();
@@ -2281,6 +2283,14 @@ function applyTiers(): void {
   });
 }
 
+// Hand the strip which displayed files the personal ranking puts first in
+// their burst; none while AI analysis is off, since `fileRanks` is empty.
+function applyRecommended(): void {
+  files.forEach((path, at) => {
+    strip.setRecommended(at, recommended(fileRanks.get(path)));
+  });
+}
+
 // Hand the strip why the scan failed on each displayed file.
 function applyFailures(): void {
   files.forEach((path, at) => {
@@ -2472,6 +2482,7 @@ function refreshRanks(): void {
       if (sortInForce() === "recommended") {
         refilter(files[index], true);
       }
+      applyRecommended();
       renderMeta();
     })
     .catch(settle);
@@ -4120,6 +4131,7 @@ function setRanking(enabled: boolean): void {
   if (sortFor(viewOnly, sortKey) === "recommended") {
     refilter();
   }
+  applyRecommended();
   renderMeta();
 }
 
