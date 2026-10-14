@@ -194,7 +194,7 @@ The user asked for whichever option gives the more accurate judgment:
       so the numbers are comparable with the in-burst gate; say so.
     - No Python, no Rust in this PR.
 
-- [ ] Step 2: `folder_gate.py`, the results and Decision 1 (ship or not)
+- [x] Step 2: `folder_gate.py`, the results and Decision 1 (ship or not)
   - Done when:
     - `folder_gate.py` in this plan folder (`python -I folder_gate.py
       <app-dump-dir> [jobs]`) imports the archived `gate.py` for loading,
@@ -237,7 +237,7 @@ The user asked for whichever option gives the more accurate judgment:
     - Record wall time and `jobs`; the in-burst gate took about three
       minutes on 12 workers and this one fits fewer models per fold.
 
-- [ ] Step 3 (only if Decision 1 passes): `crates/core/src/pick.rs`, the folder-wide prior and its cross-check
+- [ ] ~~Step 3 (only if Decision 1 passes): `crates/core/src/pick.rs`, the folder-wide prior and its cross-check~~ dropped (Decision 1)
   - Done when:
     - `crates/core/src/pick.rs` (name free; not inside `rank.rs`) holds the
       per-frame model: `PICK_VERSION`, the column layout of Step 1, `rows`
@@ -287,7 +287,7 @@ The user asked for whichever option gives the more accurate judgment:
     - Sample weighting in the Rust fit as pre-registered: per folder total
       1, picks and negatives each half.
 
-- [ ] Step 4 (only if Decision 1 passes): the app's pick scores, the stored fit and the refit hook
+- [ ] ~~Step 4 (only if Decision 1 passes): the app's pick scores, the stored fit and the refit hook~~ dropped (Decision 1)
   - Done when:
     - `crates/app/src/rank.rs`: `Stored` (or a sibling struct in the same
       `ranking.json`) carries the pick model's weights with `PICK_VERSION`,
@@ -316,7 +316,7 @@ The user asked for whichever option gives the more accurate judgment:
       `D:\photos\2026\2026-09-19` (2134 files) before and after: the pick
       score is one dot product per file, so it should not move.
 
-- [ ] Step 5 (only if Decision 1 passes): the frontend's folder-wide order and row, and the user docs
+- [ ] ~~Step 5 (only if Decision 1 passes): the frontend's folder-wide order and row, and the user docs~~ dropped (Decision 1)
   - Done when:
     - `sort.ts`: a new `SortKey` (e.g. `"picks"`, label `Likely picks`)
       orders the whole folder by the pick probability, highest first,
@@ -397,8 +397,34 @@ The user asked for whichever option gives the more accurate judgment:
 
 ## Decision 1 (folder-wide model ships or not)
 
-(Written at the end of Step 2 from the pre-registered criterion in
-`gate.md`.)
+**Fail: the folder-wide model does not ship; Steps 3–5 are dropped and the
+plan ends with the wrap-up.** Decided 2026-10-14 by the pre-registered
+criterion in [gate.md](gate.md) (full tables in its "Results" section),
+run by `folder_gate.py` on the 27 folders (32,459 frames, 4,419 picks, 25
+qualifying folders), held out by folder.
+
+| Check (full model; the genre variant was not adopted, p = 0.245) | Statistic | p (one-sided Wilcoxon) | Result |
+| --- | ---: | ---: | ---: |
+| 1. Frame AUC above the best non-embedding comparison (without embedding, 0.624) | W+ = 287, mean gain +0.042 | 0.0002 | met |
+| 2. Burst AUC above burst size, larger first (0.751) | W+ = 39, mean gain −0.041 | 0.9998 | not met |
+| 3. Mean lift at the top tenth >= 2.0 | 2.082 | - | met |
+
+| Score (held out, mean over qualifying folders) | Frame AUC | Burst AUC | Singles AUC (13 folders) | Lift at top tenth |
+| --- | ---: | ---: | ---: | ---: |
+| Full model | 0.666 | 0.710 | 0.611 | 2.08 |
+| Without embedding | 0.624 | 0.726 | 0.602 | 1.74 |
+| Burst size, larger first | 0.540 | 0.751 | 0.500 | 1.00 |
+| `eye_focus` (missing last) | 0.580 | 0.670 | 0.564 | 1.53 |
+| In-burst prior's score, folder-wide | 0.671 | 0.697 | 0.523 | 2.26 |
+
+The embedding helps rank frames across a folder (check 1 holds in 20 of 25
+folders), but which bursts hold a pick is told better by burst length alone
+(the model beats it in 3 of 25 folders), so one score does not compare a
+burst's best frame with another burst's or with a single any better than
+"longer bursts first". The learning curve is flat from 20 to 26 training
+folders, so more folders of the same kind would not close the gap. Nothing
+in the app changes; the artifacts are `gate.md`, `folder_gate.py` and this
+plan.
 
 ## Progress
 
