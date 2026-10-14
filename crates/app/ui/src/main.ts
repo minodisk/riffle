@@ -4138,7 +4138,8 @@ function setRanking(enabled: boolean): void {
   renderMeta();
 }
 
-// A refit (the settings' button) changes every score.
+// A refit (the settings' button, or the background refit at startup and on a
+// folder switch) changes every score.
 void window.__TAURI__.event.listen("ranking-updated", () => {
   refreshRanks();
 });
