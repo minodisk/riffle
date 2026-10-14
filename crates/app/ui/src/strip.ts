@@ -6,7 +6,7 @@
 import { type BurstMark, burstBadge } from "./burst.js";
 import { carriedIndices, carriedOffset } from "./carry.js";
 import { FOCUS_MARK_COLORS, FOCUS_MARK_ICONS, type MarkState } from "./focus.js";
-import { CLOCK_SVG } from "./icons.js";
+import { CLOCK_SVG, SPARKLES_SVG } from "./icons.js";
 import {
   type Decision,
   type InlineRename,
@@ -50,6 +50,7 @@ interface Cell {
   flag: HTMLSpanElement;
   count: HTMLSpanElement;
   tier: HTMLSpanElement;
+  recommended: HTMLSpanElement;
   reason: HTMLSpanElement;
   name: HTMLSpanElement;
   url: string | null;
@@ -100,6 +101,9 @@ const bursts = new Map<number, BurstMark>();
 // The focus mark state of the indices whose file has one other than `unknown`
 // (`stripState` in `focus.ts`).
 const tiers = new Map<number, MarkState>();
+// The indices the personal ranking puts first in their burst (`recommended`
+// in `recommend.ts`).
+const recommendations = new Set<number>();
 // Why the scan failed on a file, per index, from the index's error row.
 const failures = new Map<number, string>();
 // The selected indices besides `current`, mirroring the selection in
@@ -175,6 +179,13 @@ function paintTier(index: number, cell: Cell): void {
   cell.tier.style.color = FOCUS_MARK_COLORS[state];
 }
 
+// The recommended icon, right of the focus mark state's icon.
+function paintRecommended(index: number, cell: Cell): void {
+  const on = recommendations.has(index);
+  cell.recommended.hidden = !on;
+  cell.recommended.innerHTML = on ? SPARKLES_SVG : "";
+}
+
 // The scan's error text of a failed file, in the cell's tooltip and, on a
 // `failed` cell, where the thumbnail would be.
 function paintFailure(index: number, cell: Cell): void {
@@ -241,9 +252,14 @@ function createCell(index: number): Cell {
   const count = document.createElement("span");
   count.className = "count";
   el.append(count);
+  const marks = document.createElement("span");
+  marks.className = "marks";
   const tier = document.createElement("span");
   tier.className = "tier";
-  el.append(tier);
+  const recommended = document.createElement("span");
+  recommended.className = "recommended";
+  marks.append(tier, recommended);
+  el.append(marks);
   const reason = document.createElement("span");
   reason.className = "reason";
   el.append(reason);
@@ -262,6 +278,7 @@ function createCell(index: number): Cell {
     flag,
     count,
     tier,
+    recommended,
     reason,
     name,
     url: null,
@@ -271,6 +288,7 @@ function createCell(index: number): Cell {
   paintRating(index, cell);
   paintBurst(index, cell);
   paintTier(index, cell);
+  paintRecommended(index, cell);
   paintFailure(index, cell);
   return cell;
 }
@@ -466,6 +484,20 @@ export function setTier(index: number, state: MarkState): void {
   }
 }
 
+// Record whether one file is its burst's recommended frame, repainting its
+// cell when it is on screen.
+export function setRecommended(index: number, on: boolean): void {
+  if (on) {
+    recommendations.add(index);
+  } else {
+    recommendations.delete(index);
+  }
+  const cell = cells.get(index);
+  if (cell !== undefined) {
+    paintRecommended(index, cell);
+  }
+}
+
 // Record why the scan failed on one file, repainting its cell when it is on
 // screen. `null` is a file that did not fail.
 export function setFailure(index: number, message: string | null): void {
@@ -524,6 +556,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
   labels.clear();
   bursts.clear();
   tiers.clear();
+  recommendations.clear();
   failures.clear();
   selected.clear();
   files = paths;
@@ -539,6 +572,7 @@ export function setFiles(paths: string[], keepScroll = false): void {
     paintRating(cell.index, cell);
     paintBurst(cell.index, cell);
     paintTier(cell.index, cell);
+    paintRecommended(cell.index, cell);
   }
   strip.scrollLeft = keepScroll ? scrollLeft : 0;
   if (resume !== null) {

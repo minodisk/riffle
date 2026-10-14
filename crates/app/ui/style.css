@@ -963,26 +963,39 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
-/* The focus mark state's icon, at the image box's bottom-left above the file
-   name, mirroring the burst count; `drop-shadow` gives the SVG strokes the
-   dark halo `text-shadow` gives the other badges. */
-.cell span.tier {
+/* The focus mark state's icon and, right of it, the recommended icon, in a
+   row at the image box's bottom-left above the file name, mirroring the
+   burst count; `drop-shadow` gives the SVG strokes the dark halo
+   `text-shadow` gives the other badges. */
+.cell span.marks {
   bottom: 26px;
   left: 2px;
   right: auto;
   width: auto;
   padding: 0;
+  display: flex;
+  gap: 2px;
   line-height: 0;
   filter: drop-shadow(0 0 2px #000);
 }
 
-.cell span.tier svg {
+.cell span.marks span {
+  position: static;
+  width: auto;
+  padding: 0;
+}
+
+.cell span.marks span.recommended {
+  color: var(--foreground);
+}
+
+.cell span.marks svg {
   width: 12px;
   height: 12px;
   display: block;
 }
 
-.cell span.tier[hidden] {
+.cell span.marks span[hidden] {
   display: none;
 }
 

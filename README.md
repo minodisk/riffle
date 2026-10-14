@@ -152,7 +152,8 @@ DxO PhotoLab.
   face mesh (Apache-2.0, converted to ONNX from Google's TFLite). Both run
   locally with no network access. The strip's
   focus mark icons, also on the filter menu's `Good` and `Bad` items, are
-  [Lucide](https://lucide.dev)'s `scan-face` and `scan` (ISC license).
+  [Lucide](https://lucide.dev)'s `scan-face` and `scan`, and its
+  recommended icon is Lucide's `sparkles` (ISC license).
 - **HDR PQ (HEIF) CR3 previews**: the HEVC previews of Canon CR3 files shot
   with HDR PQ on are decoded by the bundled
   [hpvcd](https://github.com/awxkee/hpvcd) (BSD-3-Clause OR Apache-2.0).
@@ -193,7 +194,8 @@ DxO PhotoLab.
 - **Recommended order (AI analysis)**: with AI analysis on, the sort menu's
   `Recommended` keeps the bursts in capture order and puts each burst's
   frames in the order of a small model learned from picks, and the meta
-  pane shows the frame's place in its burst, the reasons and a confidence.
+  pane shows the frame's place in its burst, the reasons and a confidence,
+  and the strip marks each burst's first-ranked frame with an icon.
   It starts from a model learned on the author's culling and learns yours
   from the frames you viewed and did not pick, and from your rejects. It is a
   modest suggestion (held out on the author's folders, the top-ranked frame
