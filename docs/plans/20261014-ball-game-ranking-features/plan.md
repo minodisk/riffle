@@ -209,7 +209,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
 
 ## Steps
 
-- [ ] Step 1: Pre-register, prepare the evaluation harness and the hand-label sample
+- [x] Step 1: Pre-register, prepare the evaluation harness and the hand-label sample
   - Done when:
     - This plan (with the criteria above) is committed before any score
       exists; `learnings.md` starts with the commit hash.
