@@ -966,8 +966,7 @@ impl Index {
     /// more than `policy.max_age_secs` before `now`, except a folder the
     /// ranking reads (any viewed file or reject, `RANK_DIRS`), then of the
     /// least-recently-opened folders, read by the ranking or not, until the
-    /// pages in use fit
-    /// `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
+    /// pages in use fit `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
     /// keeping a dirty rating keeps its `folders` row, so it is reconsidered
     /// next time. `VACUUM` rewrites the whole file, so call this with no scan
     /// running.
@@ -1441,9 +1440,9 @@ impl Index {
     }
 
     /// What the ranking reads of every `files` row of `dir`, in file-name
-    /// order: the flag, whether the file was viewed, the capture time, the second pass's values when the
-    /// row is at `FACES_VERSION`, and the embedding when it is valid (as
-    /// `embeddings` tells).
+    /// order: the flag, whether the file was viewed, the capture time, the
+    /// second pass's values when the row is at `FACES_VERSION`, and the
+    /// embedding when it is valid (as `embeddings` tells).
     pub fn rank_rows(&self, dir: &str) -> Result<Vec<RankRow>, String> {
         let mut stmt = self
             .conn
