@@ -78,4 +78,4 @@ stay as they are.
 
 ## Progress
 
-- (none yet)
+- (2026-10-15) Step 1 complete
