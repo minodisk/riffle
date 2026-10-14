@@ -39,7 +39,7 @@ reported but not required.
   turns one on.
 - **Hierarchical design**: `gate.py`'s shared columns (10 technical, 2
   position, 32 whitened PCA, standardized on the training folders) plus,
-  per top-level genre `g`, `[burst is g] * ( / sqrt(OFFSET_SHRINK)` over the
+  per top-level genre `g`, `[burst is g] * x / sqrt(OFFSET_SHRINK)` over the
   offset's columns (all 44, or the 10 technical). One L2 penalty on every
   coefficient at `C` then is the shared weights at `1 / (2 C)` and each
   offset at `OFFSET_SHRINK` times that. `Unknown` bursts have no offset.
