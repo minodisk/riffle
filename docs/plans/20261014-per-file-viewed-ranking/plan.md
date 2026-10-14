@@ -68,7 +68,7 @@ Decisions (user decisions on 2026-10-14):
 
 ## Steps
 
-- [ ] Step 1: Remove Culling Finished and fit on per-file views
+- [x] Step 1: Remove Culling Finished and fit on per-file views
   - Done when:
     - `crates/core/src/rank.rs`: `Labeled` loses `finished: bool` and gains
       `viewed: Vec<bool>` parallel to `flags`; `pairs` weighs `Flag::None`

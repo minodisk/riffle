@@ -967,6 +967,12 @@ that already have the column, and the `ALTER TABLE` fails.
   `eye_offset` and `edge_gap` after them). Every fixture of an older version
   then has to drop the new columns too, and the version
   asserts should read `SCHEMA_VERSION`, not a literal.
+- Dropping a column is the reverse: key the `DROP COLUMN` guard to the
+  versions that had it (v23 drops `folders.culling_finished` for
+  `(21..23)` and `culling_manual` for `version == 22`), remove the column
+  from `CREATE TABLE` and from every older fixture's drop list, and have
+  the fixtures faking a version that had it add the column back with
+  `ALTER TABLE ... ADD COLUMN` instead of dropping it.
 - Source: `docs/plans/_archived/20260919-sharpness-cue/learnings.md`, Step 2;
   `docs/plans/_archived/20260920-app-quick-fixes/learnings.md`, Step 3;
   `docs/plans/_archived/20260924-index-extractor-version/learnings.md`, Step 1;
@@ -1369,38 +1375,34 @@ JPEG-only (view-only) folder never lists anything.
   in `ranking.json` under the app's local data dir with `RANK_VERSION` and
   `EMBED_VERSION`; a file at other versions, or none, means the prior
   (`crates/core/ranking/siglip2.json`, written by the plan's
-  `rank_prior.py`). `refit_ranking` and a `set_culling_finished` while
-  `aiEnabled` is on refit on `Index::rank_dirs` (the folders marked
-  finished plus any folder holding a reject), one folder per reader lock,
-  and emit `ranking-updated`. The fit keeps the prior's PCA basis and
-  standardization and pulls the weights toward the prior's at the prior's
-  own `1 / (2 C)`, so the stored file is 44 weights, not a basis.
-  `folders.culling_finished` goes with the `folders` row: `rename_dir`
-  carries it, `evict`'s 30-day age rule skips a finished folder (its rows
-  are the fit's training data) while its size cap does not, and `clear`
-  drops everything.
-- **`Culling Finished` is also set automatically, decided by the
-  frontend.** `main.ts` records a file as viewed when its preview is drawn
-  for the current `seq` (or `failPreview` shows its failure, so an
-  unreadable file cannot block the folder), not for strip thumbnails, the
-  compare pane, a provisional file before the resume target resolves, or a
-  view-only folder, and sends the paths in batches through `viewed.ts`'s
-  `viewedWriter` (`mark_viewed`). Once the set loaded from `viewed_files`
-  plus this session's views covers `allFiles` (the complete `list_arw`
-  listing, filter-independent), it calls `finish_culling` once per open.
-  The backend only applies the override rules: `Index::finish_culling`
-  sets the mark unless it is set or `folders.culling_manual` is `1`, which
-  every `set_culling_finished` (the hand toggle, either way) records, and
-  the refit runs only when it changed something and `aiEnabled` is on. The
-  frontend decides completeness because the `files` rows are incomplete
-  while a scan re-extracts. `views` is its own table, not a `files`
+  `rank_prior.py`). `refit_ranking` refits on `Index::rank_dirs` (the
+  folders holding a `views` row or a reject, `RANK_DIRS`), one folder per
+  reader lock, and emits `ranking-updated`. The fit keeps the prior's PCA
+  basis and standardization and pulls the weights toward the prior's at
+  the prior's own `1 / (2 C)`, so the stored file is 44 weights, not a
+  basis. `evict`'s 30-day age rule skips a folder `RANK_DIRS` lists (its
+  rows are the fit's training data; the one SQL fragment keeps the
+  exemption and the training set from drifting apart) while its size cap
+  does not, and `clear` drops everything. A pick-only folder is not read
+  (no negative to pair against) and so not spared.
+- **`views` feeds the fit per file.** `main.ts` records a file as viewed
+  when its preview is drawn for the current `seq` (or `failPreview` shows
+  its failure), not for strip thumbnails, the compare pane, a provisional
+  file before the resume target resolves, or a view-only folder, and sends
+  the paths in batches through `viewed.ts`'s `viewedWriter`
+  (`mark_viewed`), each path once per folder (`viewedFiles`, loaded from
+  `viewed_files`). `Index::rank_rows` joins `views`, so `RankRow.viewed`
+  becomes `Labeled.viewed`: an unflagged frame is a negative (weight 1)
+  only when its file was viewed, a reject (`REJECT_WEIGHT`) whether viewed
+  or not, and an unflagged unviewed frame is ignored. This replaced the
+  folder-level `Culling Finished` mark (schema v21 / v22, dropped at v23),
+  which let one unviewed frame keep a whole folder out and a hand-set mark
+  count frames never shown. `views` is its own table, not a `files`
   column, because `reconcile` deletes and pass 1 `INSERT OR REPLACE`s a
   `files` row on any size / mtime / `EXTRACTOR_VERSION` change; it
-  survives eviction (a folder abandoned mid-cull still finishes weeks
-  later), `rename_dir` / `rename_file` carry it, and only `clear` drops it.
-  Eviction drops the `folders` row and with it `culling_manual`, so a
-  hand-cleared folder evicted and reopened can be auto-marked again
-  (accepted).
+  survives eviction, `rename_dir` / `rename_file` carry it, and only
+  `clear` drops it. Since it is never pruned, a viewed folder is spared by
+  the age rule for good; the size cap and `clear` still reclaim it.
 - **Threads: a quarter of the cores** (`embed_threads()`), not pass 2's
   `scan_threads()` (Measured). Priority does not keep the viewer's reads
   fast against 22 busy workers on 24 logical cores: shared physical cores

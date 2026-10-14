@@ -89,14 +89,13 @@ use crate::exif::{exif, Exif};
 /// gains them in place with an `ALTER TABLE` and keeps `files`, `ratings` and
 /// `folders`. v20 added `embeddings`, one image embedding per file (pass 3);
 /// every older database gains the empty table and keeps the rest. v21 added
-/// `folders.culling_finished`, whether the user marked the folder's culling
-/// finished (the ranking's negatives); a v8 to v20 database gains it in place
-/// with an `ALTER TABLE`, defaulting to `0`, and keeps the rest. v22 added
-/// `views`, the files shown in the preview (the auto Culling Finished mark),
-/// which every older database gains empty, and `folders.culling_manual`,
-/// whether the user toggled the mark by hand; a v8 to v21 database gains it
-/// in place with an `ALTER TABLE`, defaulting to `0`, and keeps the rest.
-const SCHEMA_VERSION: i64 = 22;
+/// `folders.culling_finished`, a hand-set mark that the folder's culling was
+/// finished. v22 added `views`, the files shown in the preview, which every
+/// older database gains empty, and `folders.culling_manual`, whether the mark
+/// was toggled by hand. v23 dropped both `folders` columns, the ranking
+/// reading `views` per file instead; a v21 or v22 database drops them in
+/// place with an `ALTER TABLE` and keeps the rest.
+const SCHEMA_VERSION: i64 = 23;
 
 /// The version of what `riffle_core::scan::extract` produces, stored on every
 /// `files` row. Bump it on any change to that output: ARW/DNG/NEF/CR3/RAF/ORF parsing
@@ -464,8 +463,14 @@ pub struct EmbedRow {
 pub struct RankRow {
     pub path: String,
     pub flag: Flag,
+    pub viewed: bool,
     pub frame: rank::Frame,
 }
+
+/// The folders the ranking reads, which the age rule of `evict` also spares:
+/// the ones holding a viewed file or a reject.
+const RANK_DIRS: &str =
+    "SELECT DISTINCT dir FROM views UNION SELECT DISTINCT dir FROM ratings WHERE flag = 2";
 
 /// The columns `indexed_file` reads, before the `WHERE` clause.
 const INDEXED_FILE: &str = "SELECT path, orientation, capture_time, subsec,
@@ -655,6 +660,7 @@ impl Index {
             19,
             20,
             21,
+            22,
             SCHEMA_VERSION,
         ]
         .contains(&version)
@@ -729,17 +735,10 @@ impl Index {
                  -- `opened_at` is seconds since the epoch, set by `reconcile`.
                  -- `last_viewed` is the path of the file that was current
                  -- in the strip, set by `set_last_viewed`.
-                 -- `culling_finished` is `1` once the user marked the
-                 -- folder's culling finished, set by `set_culling_finished`
-                 -- or by `finish_culling` once every file was previewed.
-                 -- `culling_manual` is `1` once the user toggled it by hand,
-                 -- which keeps `finish_culling` off the folder.
                  CREATE TABLE IF NOT EXISTS folders (
                      dir TEXT PRIMARY KEY,
                      opened_at INTEGER NOT NULL,
-                     last_viewed TEXT,
-                     culling_finished INTEGER NOT NULL DEFAULT 0,
-                     culling_manual INTEGER NOT NULL DEFAULT 0
+                     last_viewed TEXT
                  );
                  -- One image embedding per file, apart from `files` so a
                  -- first-pass `INSERT OR REPLACE` keeps it. Valid while
@@ -860,19 +859,13 @@ impl Index {
             )
             .map_err(|e| e.to_string())?;
         }
-        // Below v8 `folders` was just created with the column.
-        if (8..21).contains(&version) {
-            tx.execute_batch(
-                "ALTER TABLE folders ADD COLUMN culling_finished INTEGER NOT NULL DEFAULT 0;",
-            )
-            .map_err(|e| e.to_string())?;
+        if (21..23).contains(&version) {
+            tx.execute_batch("ALTER TABLE folders DROP COLUMN culling_finished;")
+                .map_err(|e| e.to_string())?;
         }
-        // Below v8 `folders` was just created with the column.
-        if (8..22).contains(&version) {
-            tx.execute_batch(
-                "ALTER TABLE folders ADD COLUMN culling_manual INTEGER NOT NULL DEFAULT 0;",
-            )
-            .map_err(|e| e.to_string())?;
+        if version == 22 {
+            tx.execute_batch("ALTER TABLE folders DROP COLUMN culling_manual;")
+                .map_err(|e| e.to_string())?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
@@ -970,9 +963,10 @@ impl Index {
     }
 
     /// Drop the `files` rows and clean `ratings` rows of folders last opened
-    /// more than `policy.max_age_secs` before `now`, except the ones marked
-    /// culling finished (the ranking's training data), then of the
-    /// least-recently-opened folders, finished or not, until the pages in use fit
+    /// more than `policy.max_age_secs` before `now`, except a folder the
+    /// ranking reads (any viewed file or reject, `RANK_DIRS`), then of the
+    /// least-recently-opened folders, read by the ranking or not, until the
+    /// pages in use fit
     /// `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
     /// keeping a dirty rating keeps its `folders` row, so it is reconsidered
     /// next time. `VACUUM` rewrites the whole file, so call this with no scan
@@ -981,10 +975,10 @@ impl Index {
         let folders: Vec<(String, i64, bool)> = {
             let mut stmt = self
                 .conn
-                .prepare(
-                    "SELECT dir, opened_at, culling_finished FROM folders
-                     ORDER BY opened_at, dir",
-                )
+                .prepare(&format!(
+                    "SELECT dir, opened_at, dir IN ({RANK_DIRS}) FROM folders
+                     ORDER BY opened_at, dir"
+                ))
                 .map_err(|e| e.to_string())?;
             let rows = stmt
                 .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
@@ -993,9 +987,9 @@ impl Index {
                 .map_err(|e| e.to_string())?
         };
         let mut summary = EvictSummary::default();
-        for (dir, opened_at, finished) in &folders {
+        for (dir, opened_at, ranked) in &folders {
             let young = *opened_at >= now - policy.max_age_secs;
-            if (young || *finished) && self.used_bytes()? <= policy.max_bytes {
+            if (young || *ranked) && self.used_bytes()? <= policy.max_bytes {
                 if young {
                     break;
                 }
@@ -1402,56 +1396,6 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
-    /// Whether `dir`'s culling is marked finished, by hand or by `finish_culling`.
-    pub fn culling_finished(&self, dir: &str) -> Result<bool, String> {
-        self.conn
-            .query_row(
-                "SELECT culling_finished FROM folders WHERE dir = ?1",
-                params![dir],
-                |r| r.get::<_, bool>(0),
-            )
-            .optional()
-            .map(|f| f.unwrap_or(false))
-            .map_err(|e| e.to_string())
-    }
-
-    /// Mark `dir`'s culling finished or not by hand, creating the `folders`
-    /// row when the folder was never opened. Records `culling_manual`, so
-    /// `finish_culling` leaves the folder alone from then on.
-    pub fn set_culling_finished(&mut self, dir: &str, finished: bool) -> Result<(), String> {
-        self.conn
-            .execute(
-                "INSERT INTO folders (dir, opened_at, culling_finished, culling_manual)
-                 VALUES (?1, ?2, ?3, 1)
-                 ON CONFLICT (dir) DO UPDATE SET culling_finished = excluded.culling_finished,
-                     culling_manual = 1",
-                params![dir, now_secs(), finished],
-            )
-            .map(|_| ())
-            .map_err(|e| e.to_string())
-    }
-
-    /// Mark `dir`'s culling finished because every file was previewed,
-    /// unless it is already marked or the user toggled it by hand. Returns
-    /// whether it changed anything. The caller decides completeness.
-    pub fn finish_culling(&mut self, dir: &str) -> Result<bool, String> {
-        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        tx.execute(
-            "INSERT OR IGNORE INTO folders (dir, opened_at) VALUES (?1, ?2)",
-            params![dir, now_secs()],
-        )
-        .map_err(|e| e.to_string())?;
-        let changed = tx
-            .execute(
-                "UPDATE folders SET culling_finished = 1
-                 WHERE dir = ?1 AND culling_finished = 0 AND culling_manual = 0",
-                params![dir],
-            )
-            .map_err(|e| e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())?;
-        Ok(changed > 0)
-    }
-
     /// Record `paths` of `dir` as shown in the preview, keeping the first
     /// `viewed_at` of a path already recorded.
     pub fn mark_viewed(&mut self, dir: &str, paths: &[String]) -> Result<(), String> {
@@ -1482,28 +1426,22 @@ impl Index {
             .map_err(|e| e.to_string())
     }
 
-    /// The folders a ranking fit reads, `(dir, finished)`: the ones marked
-    /// finished and the ones holding an explicit reject, in `dir` order.
-    pub fn rank_dirs(&self) -> Result<Vec<(String, bool)>, String> {
+    /// The folders a ranking fit reads (any viewed file or reject,
+    /// `RANK_DIRS`), in `dir` order.
+    pub fn rank_dirs(&self) -> Result<Vec<String>, String> {
         let mut stmt = self
             .conn
-            .prepare(
-                "SELECT dir, MAX(finished) FROM (
-                     SELECT dir, 1 AS finished FROM folders WHERE culling_finished = 1
-                     UNION ALL
-                     SELECT dir, 0 FROM ratings WHERE flag = 2
-                 ) GROUP BY dir ORDER BY dir",
-            )
+            .prepare(&format!("{RANK_DIRS} ORDER BY dir"))
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .query_map([], |r| r.get(0))
             .map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<_>>()
             .map_err(|e| e.to_string())
     }
 
     /// What the ranking reads of every `files` row of `dir`, in file-name
-    /// order: the flag, the capture time, the second pass's values when the
+    /// order: the flag, whether the file was viewed, the capture time, the second pass's values when the
     /// row is at `FACES_VERSION`, and the embedding when it is valid (as
     /// `embeddings` tells).
     pub fn rank_rows(&self, dir: &str) -> Result<Vec<RankRow>, String> {
@@ -1512,11 +1450,13 @@ impl Index {
             .prepare(
                 "SELECT files.path, COALESCE(ratings.flag, 0), capture_time, subsec,
                      faces_extractor = ?3, sharpness, eye_focus, eyes_ear,
-                     pose_yaw, pose_pitch, pose_roll, eye_offset, edge_gap, embeddings.vec
+                     pose_yaw, pose_pitch, pose_roll, eye_offset, edge_gap, embeddings.vec,
+                     views.path IS NOT NULL
                  FROM files LEFT JOIN ratings USING (path)
                  LEFT JOIN embeddings ON embeddings.path = files.path
                      AND embeddings.version = ?2 AND embeddings.size = files.size
                      AND embeddings.mtime_ns = files.mtime_ns
+                 LEFT JOIN views ON views.path = files.path
                  WHERE files.dir = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -1534,6 +1474,7 @@ impl Index {
                 let vec: Option<Vec<u8>> = r.get(13)?;
                 Ok(RankRow {
                     flag: flag_from_code(r.get(1)?),
+                    viewed: r.get(14)?,
                     frame: rank::Frame {
                         name: Path::new(&path)
                             .file_name()
@@ -2736,8 +2677,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 10;",
                 )
@@ -2926,8 +2865,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 11;",
                 )
@@ -2976,8 +2913,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 12;",
                 )
@@ -3294,8 +3229,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      UPDATE files SET faces_extractor = 6;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 17;",
                 )
@@ -3371,8 +3304,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      UPDATE files SET faces_extractor = 7;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 18;",
                 )
@@ -3432,8 +3363,6 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating, flag, dirty) VALUES
                          ('/rated.ARW', 'd', 4, 1, 1);
                      DROP TABLE embeddings;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 19;",
                 )
@@ -3459,7 +3388,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_v20_database_gains_culling_finished_and_keeps_its_folders() {
+    fn a_v20_database_gains_views_and_keeps_its_folders() {
         let dir = temp_dir("migrate-v20");
         let db = dir.join("index.sqlite");
         let a = file(&dir, "a.ARW", b"a");
@@ -3471,15 +3400,13 @@ pub(crate) mod tests {
             index
                 .conn
                 .execute_batch(
-                    "ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
-                     DROP TABLE views;
+                    "DROP TABLE views;
                      PRAGMA user_version = 20;",
                 )
                 .unwrap();
         }
 
-        let mut index = Index::open(&db).unwrap();
+        let index = Index::open(&db).unwrap();
         let version: i64 = index
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
@@ -3487,37 +3414,25 @@ pub(crate) mod tests {
         assert_eq!(version, SCHEMA_VERSION);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
         assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
-        assert!(!index.culling_finished("d").unwrap());
-        index.set_culling_finished("d", true).unwrap();
-        assert!(index.culling_finished("d").unwrap());
+        assert!(index.viewed_files("d").unwrap().is_empty());
 
         remove_temp_dir(&dir);
     }
 
-    #[test]
-    fn culling_finished_is_set_on_any_folder_and_survives_a_rename() {
-        let dir = temp_dir("culling-finished");
-        let mut index = open(&dir);
-        assert!(!index.culling_finished("/never/opened").unwrap());
-        index.set_culling_finished("/never/opened", true).unwrap();
-        assert!(index.culling_finished("/never/opened").unwrap());
+    /// The column names of `folders`, in order.
+    fn folder_columns(index: &Index) -> Vec<String> {
         index
-            .set_last_viewed("/never/opened", "/never/opened/a.ARW")
-            .unwrap();
-        assert!(
-            index.culling_finished("/never/opened").unwrap(),
-            "remembering the viewed file keeps the mark"
-        );
-        index.rename_dir("/never/opened", "/renamed").unwrap();
-        assert!(index.culling_finished("/renamed").unwrap());
-        index.set_culling_finished("/renamed", false).unwrap();
-        assert!(!index.culling_finished("/renamed").unwrap());
-
-        remove_temp_dir(&dir);
+            .conn
+            .prepare("SELECT name FROM pragma_table_info('folders')")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
     }
 
     #[test]
-    fn a_v21_database_gains_views_and_culling_manual_and_keeps_its_folders() {
+    fn a_v21_database_gains_views_and_drops_culling_finished() {
         let dir = temp_dir("migrate-v21");
         let db = dir.join("index.sqlite");
         let a = file(&dir, "a.ARW", b"a");
@@ -3528,25 +3443,57 @@ pub(crate) mod tests {
             index
                 .conn
                 .execute_batch(
-                    "DROP TABLE views;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
+                    "ALTER TABLE folders ADD COLUMN culling_finished INTEGER NOT NULL DEFAULT 0;
                      UPDATE folders SET culling_finished = 1 WHERE dir = 'd';
+                     DROP TABLE views;
                      PRAGMA user_version = 21;",
                 )
                 .unwrap();
         }
 
-        let mut index = Index::open(&db).unwrap();
+        let index = Index::open(&db).unwrap();
         let version: i64 = index
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
         assert_eq!(version, SCHEMA_VERSION);
         assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
-        assert!(index.culling_finished("d").unwrap());
         assert!(index.viewed_files("d").unwrap().is_empty());
-        assert!(index.finish_culling("e").unwrap());
-        assert!(index.culling_finished("e").unwrap());
+        assert_eq!(folder_columns(&index), ["dir", "opened_at", "last_viewed"]);
+
+        remove_temp_dir(&dir);
+    }
+
+    #[test]
+    fn a_v22_database_drops_the_culling_columns_and_keeps_its_folders() {
+        let dir = temp_dir("migrate-v22");
+        let db = dir.join("index.sqlite");
+        let a = file(&dir, "a.ARW", b"a");
+        {
+            let mut index = open(&dir);
+            index.write_batch("d", &[(a.clone(), Ok(entry()))]).unwrap();
+            index.reconcile("d", std::slice::from_ref(&a)).unwrap();
+            index.set_last_viewed("d", "/d/a.ARW").unwrap();
+            index
+                .conn
+                .execute_batch(
+                    "ALTER TABLE folders ADD COLUMN culling_finished INTEGER NOT NULL DEFAULT 0;
+                     ALTER TABLE folders ADD COLUMN culling_manual INTEGER NOT NULL DEFAULT 0;
+                     UPDATE folders SET culling_finished = 1, culling_manual = 1;
+                     PRAGMA user_version = 22;",
+                )
+                .unwrap();
+        }
+
+        let index = Index::open(&db).unwrap();
+        let version: i64 = index
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(index.entries("d").unwrap().len(), 1, "files are kept");
+        assert_eq!(index.last_viewed("d").unwrap().as_deref(), Some("/d/a.ARW"));
+        assert_eq!(folder_columns(&index), ["dir", "opened_at", "last_viewed"]);
 
         remove_temp_dir(&dir);
     }
@@ -3582,41 +3529,6 @@ pub(crate) mod tests {
             )
             .unwrap();
         assert_eq!(first, 1, "a second view keeps the first viewed_at");
-
-        remove_temp_dir(&dir);
-    }
-
-    #[test]
-    fn finish_culling_marks_an_untouched_folder_once_and_never_a_toggled_one() {
-        let dir = temp_dir("finish-culling");
-        let mut index = open(&dir);
-        assert!(index.finish_culling("/auto").unwrap());
-        assert!(index.culling_finished("/auto").unwrap());
-        assert!(!index.finish_culling("/auto").unwrap(), "already marked");
-
-        index.set_culling_finished("/cleared", true).unwrap();
-        index.set_culling_finished("/cleared", false).unwrap();
-        assert!(!index.finish_culling("/cleared").unwrap());
-        assert!(!index.culling_finished("/cleared").unwrap());
-
-        let manual = |index: &Index, dir: &str| -> bool {
-            index
-                .conn
-                .query_row(
-                    "SELECT culling_manual FROM folders WHERE dir = ?1",
-                    params![dir],
-                    |r| r.get(0),
-                )
-                .unwrap()
-        };
-        assert!(!manual(&index, "/auto"));
-        assert!(manual(&index, "/cleared"));
-        index.set_culling_finished("/auto", false).unwrap();
-        assert!(
-            manual(&index, "/auto"),
-            "a hand clear of an auto mark records it"
-        );
-        assert!(!index.finish_culling("/auto").unwrap());
 
         remove_temp_dir(&dir);
     }
@@ -3672,7 +3584,11 @@ pub(crate) mod tests {
             .mark_viewed("old", &["old/a.ARW".to_string()])
             .unwrap();
 
-        assert_eq!(index.evict(NOW, NO_CAP).unwrap().folders, 1);
+        let policy = EvictPolicy {
+            max_age_secs: MAX_AGE_SECS,
+            max_bytes: 0,
+        };
+        assert_eq!(index.evict(NOW, policy).unwrap().folders, 1);
         assert_eq!(index.viewed_files("old").unwrap(), ["old/a.ARW"]);
 
         index.clear().unwrap();
@@ -3682,28 +3598,23 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_rank_dirs_are_the_finished_folders_and_those_holding_a_reject() {
+    fn the_rank_dirs_are_the_folders_holding_a_view_or_a_reject() {
         let dir = temp_dir("rank-dirs");
         let mut index = open(&dir);
-        index.set_culling_finished("/finished", true).unwrap();
-        index.set_culling_finished("/unmarked", false).unwrap();
+        set_opened_at(&index, "/untouched", NOW);
+        index
+            .mark_viewed("/viewed", &["/viewed/a.ARW".to_string()])
+            .unwrap();
         index
             .conn
             .execute_batch(
                 "INSERT INTO ratings (path, dir, flag) VALUES
-                     ('/finished/a.ARW', '/finished', 2),
                      ('/rejects/a.ARW', '/rejects', 2),
                      ('/rejects/b.ARW', '/rejects', 2),
                      ('/picks/a.ARW', '/picks', 1);",
             )
             .unwrap();
-        assert_eq!(
-            index.rank_dirs().unwrap(),
-            [
-                ("/finished".to_string(), true),
-                ("/rejects".to_string(), false)
-            ]
-        );
+        assert_eq!(index.rank_dirs().unwrap(), ["/rejects", "/viewed"]);
 
         remove_temp_dir(&dir);
     }
@@ -3773,6 +3684,7 @@ pub(crate) mod tests {
                 params![path(&a)],
             )
             .unwrap();
+        index.mark_viewed("d", &[path(&b)]).unwrap();
 
         let rows = index.rank_rows("d").unwrap();
         assert_eq!(
@@ -3782,6 +3694,7 @@ pub(crate) mod tests {
         );
         let (ra, rb) = (&rows[0], &rows[1]);
         assert_eq!((ra.flag, rb.flag), (Flag::Pick, Flag::None));
+        assert_eq!((ra.viewed, rb.viewed), (false, true));
         assert_eq!(ra.frame.name, "a.ARW");
         assert_eq!(
             ra.frame.capture_time.as_deref(),
@@ -4258,8 +4171,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 14;",
                 )
@@ -4322,8 +4233,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 15;",
                 )
@@ -4395,8 +4304,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 13;",
                 )
@@ -5863,36 +5770,59 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_age_rule_spares_a_finished_folder_and_clear_does_not() {
-        let dir = temp_dir("evict-finished");
+    fn the_age_rule_spares_a_viewed_or_rejected_folder_and_clear_does_not() {
+        let dir = temp_dir("evict-ranked");
         let mut index = open(&dir);
-        let finished = synthetic(&dir, 0);
+        let files: Vec<FileStat> = (0..4).map(|i| synthetic(&dir, i)).collect();
+        let folders = ["viewed", "rejected", "picked", "stale"];
+        for (name, file) in folders.iter().zip(&files) {
+            index
+                .write_batch(name, &[(file.clone(), Ok(entry()))])
+                .unwrap();
+            index
+                .write_embeddings(name, &[embedded(file, Some(vec![1.0]))])
+                .unwrap();
+            set_opened_at(&index, name, NOW - 90 * DAY);
+        }
+        let path = |f: &FileStat| f.path.to_string_lossy().into_owned();
+        index.mark_viewed("viewed", &[path(&files[0])]).unwrap();
         index
-            .write_batch("finished", &[(finished.clone(), Ok(entry()))])
+            .conn
+            .execute(
+                "INSERT INTO ratings (path, dir, flag) VALUES
+                     (?1, 'rejected', 2), (?2, 'picked', 1)",
+                params![path(&files[1]), path(&files[2])],
+            )
             .unwrap();
-        index
-            .write_embeddings("finished", &[embedded(&finished, Some(vec![1.0]))])
-            .unwrap();
-        index
-            .write_batch("stale", &[(synthetic(&dir, 1), Ok(entry()))])
-            .unwrap();
-        set_opened_at(&index, "finished", NOW - 90 * DAY);
-        set_opened_at(&index, "stale", NOW - 31 * DAY);
-        index.set_culling_finished("finished", true).unwrap();
 
         let summary = index.evict(NOW, NO_CAP).unwrap();
-        assert_eq!(
-            summary.folders, 1,
-            "the older stale folder behind it still goes"
-        );
-        assert!(index.entries("stale").unwrap().is_empty());
-        assert_eq!(index.entries("finished").unwrap().len(), 1);
-        assert_eq!(index.embeddings("finished").unwrap().len(), 1);
-        assert!(index.culling_finished("finished").unwrap());
+        assert_eq!(summary.folders, 2, "the pick-only and untouched folders go");
+        for gone in ["picked", "stale"] {
+            assert!(index.entries(gone).unwrap().is_empty());
+            assert!(index.embeddings(gone).unwrap().is_empty());
+        }
+        for kept in ["viewed", "rejected"] {
+            assert_eq!(index.entries(kept).unwrap().len(), 1);
+            assert_eq!(index.embeddings(kept).unwrap().len(), 1);
+        }
 
+        let policy = EvictPolicy {
+            max_age_secs: MAX_AGE_SECS,
+            max_bytes: 0,
+        };
+        index.evict(NOW, policy).unwrap();
+        assert!(
+            index.entries("viewed").unwrap().is_empty(),
+            "the size cap still removes a spared folder"
+        );
+
+        index
+            .write_batch("viewed", &[(files[0].clone(), Ok(entry()))])
+            .unwrap();
+        set_opened_at(&index, "viewed", NOW - 90 * DAY);
         index.clear().unwrap();
-        assert!(index.entries("finished").unwrap().is_empty());
-        assert!(!index.culling_finished("finished").unwrap());
+        assert!(index.entries("viewed").unwrap().is_empty());
+        assert!(index.rank_dirs().unwrap().is_empty());
 
         remove_temp_dir(&dir);
     }
@@ -5914,8 +5844,6 @@ pub(crate) mod tests {
                      ALTER TABLE files DROP COLUMN eye_offset;
                      ALTER TABLE files DROP COLUMN edge_gap;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 16;",
                 )
@@ -6191,8 +6119,6 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 8;",
                 )
@@ -6233,8 +6159,6 @@ pub(crate) mod tests {
                     "INSERT INTO ratings (path, dir, rating) VALUES ('x', 'd', 3);
                      ALTER TABLE ratings RENAME COLUMN flag TO pick;
                      ALTER TABLE folders DROP COLUMN last_viewed;
-                     ALTER TABLE folders DROP COLUMN culling_finished;
-                     ALTER TABLE folders DROP COLUMN culling_manual;
                      DROP TABLE views;
                      PRAGMA user_version = 9;",
                 )

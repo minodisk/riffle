@@ -63,12 +63,10 @@ the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
 benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 which also keeps each folder's last viewed file in `folders.last_viewed`
-and whether its culling is finished in `folders.culling_finished`
-(a finished folder is spared by the 30-day eviction, not by the size cap or
-Clear Cache), set by hand or by `finish_culling` once every file was
-previewed unless `folders.culling_manual` records a hand toggle, and the
-files shown in the preview in the separate `views` table (kept by eviction,
-dropped by Clear Cache),
+and the files shown in the preview in the separate `views` table (kept by
+eviction, dropped by Clear Cache), which gives the ranking its negatives
+(a viewed file left unflagged) and spares a folder holding a viewed file or
+a reject from the 30-day eviction, not from the size cap or Clear Cache,
 re-extracting rows written by an older `EXTRACTOR_VERSION` and filled in three
 passes on the one scan task: `run_scan` (thumbnail, metadata), then
 `run_faces_scan`, which fills the `eye_focus` / `sharpness` /
@@ -88,11 +86,9 @@ through the shared `ScanFocus` handle, `src/ai.rs` the `aiEnabled` setting
 of the embedding model into the app's local data dir on the first enable,
 checked against its size and SHA-256, `src/rank.rs` the personal ranking's
 commands (`ranking_of`, the rank of a folder's files from `Index::rank_rows`
-and the weights in use; `refit_ranking`, the settings' refit, also run by
-`set_culling_finished`, the folder tree's `Culling Finished` check, and by
-`finish_culling`, which the frontend calls once every file of the open
-folder has been previewed and which marks it unless it is marked or was
-toggled by hand, while `aiEnabled` is on; the weights stored in `ranking.json` under the app's local
+and the weights in use; `refit_ranking`, the settings' refit on the
+folders `Index::rank_dirs` lists, the picks against the rejects and the
+viewed files left unflagged; the weights stored in `ranking.json` under the app's local
 data dir, the prior's when none fits),
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
@@ -176,8 +172,8 @@ stored eye state, and its `Genre` section on the `genres_of` labels, shown
 while `aiEnabled` is on), `src/companion.ts` answers the MCP bridge's
 requests over the main window's view state, `src/resume.ts` picks the file a
 folder reopens at and coalesces the writes that remember it, `src/viewed.ts`
-decides whether every listed file of the open folder has been previewed and
-batches the `mark_viewed` writes, `src/idle.ts`
+batches the `mark_viewed` writes of the files shown in the preview,
+`src/idle.ts`
 holds an operation pressed during a scan (Move to Trash, the
 renames) until the scan ends, `src/viewonly.ts`
 decides from the listed paths whether a folder is JPEG-only and so opens

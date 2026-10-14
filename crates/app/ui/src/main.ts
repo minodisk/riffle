@@ -143,7 +143,7 @@ import {
   rewrittenStatus,
 } from "./sidecars.js";
 import { UncaughtGate, uncaughtLine } from "./uncaught.js";
-import { allViewed, viewedWriter } from "./viewed.js";
+import { viewedWriter } from "./viewed.js";
 import { type PerfSample, PerfModel, WINDOW_MS, latencyStart } from "./perf.js";
 
 // Registered before anything else runs so an early throw still reaches
@@ -495,8 +495,6 @@ const rememberViewed = lastViewedWriter(({ dir, path }) =>
 // The open folder's files shown in the preview at least once, across
 // sessions, loaded by `openDirectory` and grown by `markViewed`.
 let viewedFiles = new Set<string>();
-// Whether `finish_culling` was already invoked for this open of the folder.
-let cullingFinishSent = false;
 const recordViewed = viewedWriter(({ dir, paths }) =>
   window.__TAURI__.core.invoke("mark_viewed", { dir, paths }),
 );
@@ -2834,8 +2832,7 @@ function failPreview(): void {
 }
 
 // The current file's preview (or its failure) is on screen: record it as
-// viewed, and mark the folder's culling finished once every listed file has
-// been. A view-only folder and a provisional file shown before the resume
+// viewed. A view-only folder and a provisional file shown before the resume
 // target resolves do not count.
 function markViewed(): void {
   const path = files[index];
@@ -2845,10 +2842,6 @@ function markViewed(): void {
   if (!viewedFiles.has(path)) {
     viewedFiles.add(path);
     recordViewed(openDir, path);
-  }
-  if (!cullingFinishSent && allViewed(allFiles, viewedFiles)) {
-    cullingFinishSent = true;
-    window.__TAURI__.core.invoke("finish_culling", { dir: openDir }).catch(() => undefined);
   }
 }
 
@@ -3433,9 +3426,8 @@ function renameFile(path: string, name: string): void {
 
 // A folder clicked in the tree opens the way a drop does; a right-click
 // offers to reveal it in the OS file manager, to copy its path or name, to
-// rename it, to expand or collapse every subfolder under it, to mark its
-// culling finished (while AI analysis is on), to rewrite its sidecars from
-// the index or delete them, or to sequence its JPEGs.
+// rename it, to expand or collapse every subfolder under it, to rewrite its
+// sidecars from the index or delete them, or to sequence its JPEGs.
 folders.init(
   (path) => {
     if (!formatGate.isOpen) {
@@ -3447,21 +3439,9 @@ folders.init(
   },
   setStatus,
   (path, name, x, y, root) => {
-    const finished = rankingOn
-      ? window.__TAURI__.core
-          .invoke<boolean>("culling_finished", { dir: path })
-          .catch(() => undefined)
-      : Promise.resolve(undefined);
-    void Promise.all([revealLabel, finished]).then(([label, finished]) => {
-      showMenu(folderMenuGroups(label, root, finished), x, y, (action) => {
+    void revealLabel.then((label) => {
+      showMenu(folderMenuGroups(label, root), x, y, (action) => {
         switch (action) {
-          case "cullingFinished":
-            window.__TAURI__.core
-              .invoke("set_culling_finished", { dir: path, finished: !finished })
-              .catch((err: unknown) => {
-                setStatus(String(err));
-              });
-            break;
           case "revealFolder":
             window.__TAURI__.core.invoke("reveal_folder", { path }).catch((err: unknown) => {
               setStatus(String(err));
@@ -3680,7 +3660,6 @@ function openDirectory(folder: string, token: number): Promise<void> {
     fileRanks = new Map();
     pendingResume = resumeTarget(remembered, allFiles);
     viewedFiles = new Set(viewed);
-    cullingFinishSent = false;
     const order = ordered();
     files = order.filter(passes);
     index = 0;
@@ -4124,8 +4103,7 @@ void window.__TAURI__.core.invoke<AiState>("ai_enabled").then((state) => {
 });
 
 // The personal ranking runs while AI analysis is on: the sort menu's
-// `Recommended` item shows, the meta pane gets its rows and the folder
-// tree's menu its `Culling Finished` check.
+// `Recommended` item shows and the meta pane gets its rows.
 function setRanking(enabled: boolean): void {
   if (rankingOn === enabled) {
     return;
@@ -4145,8 +4123,7 @@ function setRanking(enabled: boolean): void {
   renderMeta();
 }
 
-// A refit (the settings' button, a folder marked finished) changes every
-// score.
+// A refit (the settings' button) changes every score.
 void window.__TAURI__.event.listen("ranking-updated", () => {
   refreshRanks();
 });

@@ -68,14 +68,8 @@ export function contextMenuGroups(
 // renaming it, then expanding or collapsing every subfolder under it, then
 // rewriting its sidecars from the index or deleting them, then the sequencing of the folder's
 // JPEGs. Renaming and expanding / collapsing all are not offered on a root
-// (home or a volume). `finished`, given only while AI analysis is on, adds
-// the `Culling Finished` check above the sidecar items, checked when the
-// folder is marked so.
-export function folderMenuGroups(
-  revealLabel: string,
-  root: boolean,
-  finished?: boolean,
-): MenuItem[][] {
+// (home or a volume).
+export function folderMenuGroups(revealLabel: string, root: boolean): MenuItem[][] {
   return [
     [{ action: "revealFolder", label: revealLabel, shortcut: "", checked: undefined }],
     [
@@ -90,18 +84,6 @@ export function folderMenuGroups(
           [
             { action: "expandAll", label: "Expand All", shortcut: "", checked: undefined },
             { action: "collapseAll", label: "Collapse All", shortcut: "", checked: undefined },
-          ],
-        ]),
-    ...(finished === undefined
-      ? []
-      : [
-          [
-            {
-              action: "cullingFinished",
-              label: "Culling Finished",
-              shortcut: "",
-              checked: finished,
-            },
           ],
         ]),
     [

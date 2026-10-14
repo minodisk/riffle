@@ -1,5 +1,6 @@
-//! The personal ranking in the app (`riffle_core::rank`): the folders marked
-//! culling finished, the weights fit on the user's judgments, stored as
+//! The personal ranking in the app (`riffle_core::rank`): the weights fit on
+//! the user's judgments (the picks against the rejects and the viewed frames
+//! left unflagged), stored as
 //! `ranking.json` in the app's local data dir, and the per-file rank the meta
 //! pane and the `recommended` sort read. It never changes a judgment.
 
@@ -11,7 +12,7 @@ use riffle_core::embed::EMBED_VERSION;
 use riffle_core::rank::{self, Labeled, Ranked, COLUMNS, RANK_VERSION};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::commands::{canonicalize, AppIndex, AppIndexReader};
+use crate::commands::{canonicalize, AppIndexReader};
 use crate::index::lock;
 
 /// The fit's file under the app's local data dir.
@@ -167,12 +168,12 @@ fn refit(app: &AppHandle) -> Result<ModelInfo, String> {
     let dirs = lock(&index).rank_dirs()?;
     let folders: Vec<Labeled> = dirs
         .into_iter()
-        .map(|(dir, finished)| {
+        .map(|dir| {
             let rows = lock(&index).rank_rows(&dir)?;
             Ok(Labeled {
                 flags: rows.iter().map(|r| r.flag).collect(),
+                viewed: rows.iter().map(|r| r.viewed).collect(),
                 frames: rows.into_iter().map(|r| r.frame).collect(),
-                finished,
             })
         })
         .collect::<Result<_, String>>()?;
@@ -209,66 +210,6 @@ pub async fn refit_ranking(app: AppHandle) -> Result<ModelInfo, String> {
     tauri::async_runtime::spawn_blocking(move || refit(&app))
         .await
         .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn culling_finished(app: AppHandle, dir: String) -> Result<bool, String> {
-    let dir = canonicalize(&dir);
-    let Some(index) = app.state::<AppIndexReader>().0.clone() else {
-        return Ok(false);
-    };
-    tauri::async_runtime::spawn_blocking(move || lock(&index).culling_finished(&dir))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-/// Mark `dir`'s culling finished or not from the folder tree, then refit in
-/// the background while AI analysis is on.
-#[tauri::command]
-pub async fn set_culling_finished(
-    app: AppHandle,
-    dir: String,
-    finished: bool,
-) -> Result<(), String> {
-    let dir = canonicalize(&dir);
-    let Some(index) = app.state::<AppIndex>().0.clone() else {
-        return Err("no index cache available".to_string());
-    };
-    tauri::async_runtime::spawn_blocking(move || {
-        lock(&index).set_culling_finished(&dir, finished)?;
-        refit_in_background(app);
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-/// Mark `dir`'s culling finished because the frontend saw every file of it
-/// in the preview, unless it is marked already or the user toggled it by
-/// hand, then refit in the background when it changed and AI analysis is on.
-#[tauri::command]
-pub async fn finish_culling(app: AppHandle, dir: String) -> Result<(), String> {
-    let dir = canonicalize(&dir);
-    let Some(index) = app.state::<AppIndex>().0.clone() else {
-        return Ok(());
-    };
-    tauri::async_runtime::spawn_blocking(move || match lock(&index).finish_culling(&dir) {
-        Ok(true) => refit_in_background(app),
-        Ok(false) => {}
-        Err(e) => log::warn!("finish_culling {dir}: {e}"),
-    })
-    .await
-    .map_err(|e| e.to_string())
-}
-
-fn refit_in_background(app: AppHandle) {
-    if app.state::<crate::ai::AppAi>().enabled() {
-        std::thread::spawn(move || {
-            if let Err(e) = refit(&app) {
-                log::error!("ranking fit failed: {e}");
-            }
-        });
-    }
 }
 
 #[cfg(test)]
@@ -309,8 +250,8 @@ mod tests {
     /// `rank_prior.py`: every folder of `RIFFLE_RANK_OUT/index.sqlite` (the
     /// index `rank_dump_of_real_folders` wrote) scored with the prior's
     /// weights from `rank_rows`, against `RIFFLE_RANK_OUT/prior_scores.tsv`;
-    /// then the fit on those folders as if all were marked finished, with
-    /// the app's own flags. Run it with `cargo test --release -p riffle-app
+    /// then the fit on those folders as if every file were viewed, with the
+    /// app's own flags. Run it with `cargo test --release -p riffle-app
     /// the_scores_match_rank_prior_py -- --ignored --nocapture`.
     #[test]
     #[ignore = "needs RIFFLE_RANK_OUT"]
@@ -362,8 +303,8 @@ mod tests {
             }
             folders.push(Labeled {
                 flags: rows.iter().map(|r| r.flag).collect(),
+                viewed: vec![true; rows.len()],
                 frames,
-                finished: true,
             });
         }
         eprintln!(

@@ -1,25 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { allViewed, type ViewedBatch, viewedWriter } from "./viewed.js";
-
-describe("allViewed", () => {
-  const all = ["/d/a.ARW", "/d/b.ARW", "/d/c.ARW"];
-
-  test("an empty listing is never finished", () => {
-    expect(allViewed([], new Set())).toBe(false);
-  });
-
-  test("a partial set", () => {
-    expect(allViewed(all, new Set(["/d/a.ARW", "/d/c.ARW"]))).toBe(false);
-  });
-
-  test("a full set", () => {
-    expect(allViewed(all, new Set(all))).toBe(true);
-  });
-
-  test("paths no longer listed do not matter", () => {
-    expect(allViewed(all, new Set([...all, "/d/gone.ARW"]))).toBe(true);
-  });
-});
+import { type ViewedBatch, viewedWriter } from "./viewed.js";
 
 describe("viewedWriter", () => {
   function recorder(): {
