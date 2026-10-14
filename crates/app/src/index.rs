@@ -966,10 +966,10 @@ impl Index {
     /// more than `policy.max_age_secs` before `now`, except a folder the
     /// ranking reads (any viewed file or reject, `RANK_DIRS`), then of the
     /// least-recently-opened folders, read by the ranking or not, until the
-    /// pages in use fit `policy.max_bytes`, and `VACUUM` if anything was deleted. A folder
-    /// keeping a dirty rating keeps its `folders` row, so it is reconsidered
-    /// next time. `VACUUM` rewrites the whole file, so call this with no scan
-    /// running.
+    /// pages in use fit `policy.max_bytes`, and `VACUUM` if anything was
+    /// deleted. A folder keeping a dirty rating keeps its `folders` row, so it
+    /// is reconsidered next time. `VACUUM` rewrites the whole file, so call
+    /// this with no scan running.
     pub fn evict(&mut self, now: i64, policy: EvictPolicy) -> Result<EvictSummary, String> {
         let folders: Vec<(String, i64, bool)> = {
             let mut stmt = self
