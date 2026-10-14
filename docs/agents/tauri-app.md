@@ -1374,7 +1374,10 @@ JPEG-only (view-only) folder never lists anything.
   sort orders by the frontend's burst id, then the score. The shared
   weights and the per-genre offsets (`offsets`, one 44-vector per top-level
   genre of `genre::top_level`; `rank` adds the burst's `genre::of_burst`
-  offset, none for `Unknown`) live in `ranking.json` under the app's local
+  offset, none for `Unknown`; `Weights::of` itself ignores `genre::UNKNOWN`,
+  so a `Weights` that carries an `Unknown` key still ranks unknown bursts
+  with the shared weights, and `Stored::parse` drops it too) live in
+  `ranking.json` under the app's local
   data dir with `RANK_VERSION` and `EMBED_VERSION`; a file at other
   versions, or none, means the prior (`crates/core/ranking/siglip2.json`,
   written by the plan's `rank_prior.py`, no offsets), so a version-1 file
