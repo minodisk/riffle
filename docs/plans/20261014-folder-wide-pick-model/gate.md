@@ -144,11 +144,14 @@ the qualifying folders.
      and on all 26, reading the mean frame AUC and burst AUC;
    - the weights of the full model fit on all 27 folders (`C` by the same
      inner cross-validation on all 27), each column and, per group, the
-     L2 norm, grouped as `rank.rs`'s `REASONS` group them: `Look` (the PCA
-     columns), `Burst context` (position, first frame, `ln burst size`),
-     `Sharpness` (both sharpness columns), `AF eye focus`, `Eyes open`,
-     `Head pose`, `Good photo`, each missing-value indicator joining the
-     group of the value it stands for;
+     L2 norm, grouped as `rank.rs`'s `REASONS` group them, with two
+     extensions: `Burst position` (there the two `POSITION` columns only) is
+     renamed `Burst context` and also takes `ln burst size`, and `Sharpness`
+     (there column 0 only) also takes the new absolute `ln sharpness` column.
+     The groups are `Look` (the PCA columns), `Burst context` (position,
+     first frame, `ln burst size`), `Sharpness` (both sharpness columns),
+     `AF eye focus`, `Eyes open`, `Head pose`, `Good photo`, each
+     missing-value indicator joining the group of the value it stands for;
    - the data counts (frames, picks, explicit rejects, bursts, singles,
      per-folder pick rates), the `C` chosen per fold for every variant, and
      the per-folder table of the full model, the without-embedding variant

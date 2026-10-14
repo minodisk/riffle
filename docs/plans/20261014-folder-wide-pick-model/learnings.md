@@ -28,3 +28,7 @@
 - Before writing, only the dump's file list, column headers and the range
   of the sharpness score (all 32,459 positive, so `ln sharpness` needs no
   floor) were looked at; no label-dependent number was computed.
+- Weight groups: `gate.md` follows `rank.rs`'s `REASONS` grouping with two
+  extensions. `Burst position` is renamed `Burst context` (plan.md Step 3
+  uses that name) and also takes `ln burst size`; `Sharpness` also takes the
+  new absolute `ln sharpness` column, which `rank.rs` does not have.

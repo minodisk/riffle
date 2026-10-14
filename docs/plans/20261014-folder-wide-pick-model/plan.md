@@ -403,3 +403,4 @@ The user asked for whichever option gives the more accurate judgment:
 ## Progress
 
 - (2026-10-14) Plan written
+- (2026-10-14) Step 1: pre-registered the folder-wide gate in `gate.md` (no script, no fit); deviations from the plan text in `learnings.md`
