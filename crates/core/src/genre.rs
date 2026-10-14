@@ -7,7 +7,9 @@
 //! of its L2-normalized prompt vectors, normalized again) reaches its
 //! threshold, calibrated per label on hand-labeled frames (SigLIP's sigmoid
 //! space gives no shared cut), or when one of its sub-genres is on. A frame
-//! with no label on is `UNKNOWN`.
+//! with no label on is `UNKNOWN`. A burst's genre is the top-level label
+//! on for the most of its frames (`of_burst`), which the personal ranking
+//! keeps one offset per.
 
 use std::sync::OnceLock;
 
@@ -78,6 +80,68 @@ pub fn genres_of(vec: &[f32]) -> Vec<&'static str> {
     }
 }
 
+/// The labels with no parent, in the data file's order.
+pub fn top_level() -> Vec<&'static str> {
+    file()
+        .labels
+        .iter()
+        .filter(|l| l.parent.is_none())
+        .map(|l| l.label.as_str())
+        .collect()
+}
+
+/// The genre of a burst whose frames have the embeddings `vecs`: the
+/// top-level label `genres_of` turns on for the most of them (a frame
+/// counting toward every top-level label it turns on), a tie going to the
+/// label earlier in the data file; `UNKNOWN` when no frame turns one on.
+pub fn of_burst<'a>(vecs: impl IntoIterator<Item = &'a [f32]>) -> &'static str {
+    let top = top_level();
+    let mut counts = vec![0usize; top.len()];
+    for vec in vecs {
+        for label in genres_of(vec) {
+            if let Some(k) = top.iter().position(|t| *t == label) {
+                counts[k] += 1;
+            }
+        }
+    }
+    let mut best: Option<usize> = None;
+    for (k, &count) in counts.iter().enumerate() {
+        if count > 0 && best.is_none_or(|b| count > counts[b]) {
+            best = Some(k);
+        }
+    }
+    best.map_or(UNKNOWN, |k| top[k])
+}
+
+/// A vector `genres_of` turns `label` on for (and its parent), and no other
+/// label: `label`'s vector with its projection onto every other label's
+/// removed, scaled so its dot with `label`'s vector is 1.
+#[cfg(test)]
+pub(crate) fn vector_of(label: &str) -> Vec<f32> {
+    let labels = &file().labels;
+    let to_f64 = |v: &[f32]| v.iter().map(|x| f64::from(*x)).collect::<Vec<f64>>();
+    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+    let target = labels.iter().find(|l| l.label == label).unwrap();
+    let mut basis: Vec<Vec<f64>> = Vec::new();
+    for other in labels.iter().filter(|l| l.label != label) {
+        let mut v = to_f64(&other.vector);
+        for b in &basis {
+            let p = dot(&v, b);
+            v.iter_mut().zip(b).for_each(|(x, b)| *x -= p * b);
+        }
+        let norm = dot(&v, &v).sqrt();
+        basis.push(v.iter().map(|x| x / norm).collect());
+    }
+    let t = to_f64(&target.vector);
+    let mut u = t.clone();
+    for b in &basis {
+        let p = dot(&u, b);
+        u.iter_mut().zip(b).for_each(|(x, b)| *x -= p * b);
+    }
+    let scale = dot(&u, &t);
+    u.iter().map(|x| (x / scale) as f32).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,5 +190,57 @@ mod tests {
     #[test]
     fn a_vector_no_label_clears_is_unknown() {
         assert_eq!(genres_of(&[0.0; 768]), [UNKNOWN]);
+    }
+
+    #[test]
+    fn the_top_level_labels_are_those_without_a_parent_in_file_order() {
+        let top = top_level();
+        let expected: Vec<&str> = file()
+            .labels
+            .iter()
+            .filter(|l| l.parent.is_none())
+            .map(|l| l.label.as_str())
+            .collect();
+        assert_eq!(top, expected);
+        assert!(top.len() >= 2);
+        for label in &top {
+            assert_eq!(genres_of(&vector_of(label)), [*label]);
+        }
+    }
+
+    #[test]
+    fn a_burst_goes_to_the_label_most_of_its_frames_turn_on() {
+        let top = top_level();
+        let (a, b) = (vector_of(top[0]), vector_of(top[1]));
+        assert_eq!(of_burst([&b[..], &a[..], &b[..]]), top[1]);
+    }
+
+    #[test]
+    fn a_tie_goes_to_the_label_earlier_in_the_file() {
+        let top = top_level();
+        let (a, b) = (vector_of(top[0]), vector_of(top[1]));
+        assert_eq!(of_burst([&b[..], &a[..]]), top[0]);
+        assert_eq!(of_burst([&a[..], &b[..]]), top[0]);
+    }
+
+    #[test]
+    fn a_frame_counts_toward_every_top_level_label_it_turns_on() {
+        let top = top_level();
+        let (a, b) = (vector_of(top[0]), vector_of(top[1]));
+        let both: Vec<f32> = a.iter().zip(&b).map(|(a, b)| a + b).collect();
+        assert_eq!(genres_of(&both), [top[0], top[1]]);
+        // Were `both` counted for one label only, one of these would go the
+        // other way.
+        assert_eq!(of_burst([&a[..], &b[..], &both[..]]), top[0]);
+        assert_eq!(of_burst([&a[..], &b[..], &b[..], &both[..]]), top[1]);
+        let sub = file().labels.iter().find(|l| l.parent.is_some()).unwrap();
+        let parent = sub.parent.as_deref().unwrap();
+        assert_eq!(of_burst([&vector_of(&sub.label)[..]]), parent);
+    }
+
+    #[test]
+    fn no_vector_or_no_label_on_is_unknown() {
+        assert_eq!(of_burst(std::iter::empty::<&[f32]>()), UNKNOWN);
+        assert_eq!(of_burst([&[0.0f32; 768][..], &[0.0; 768][..]]), UNKNOWN);
     }
 }

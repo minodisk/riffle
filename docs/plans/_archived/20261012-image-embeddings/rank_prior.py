@@ -19,6 +19,11 @@ embedding and the column layout it was made for (`embed::SHIPPED.name`,
 them. With [scores.tsv], also writes each frame's score (`folder`, `file`,
 the weights times its standardized columns) for the cross-check against
 rank.rs. Re-running this script is the only way the prior changes.
+
+The prior carries no per-genre offsets (rank.rs starts every genre's offset
+at zero), so when the genre-ranking-offsets plan moved `RANK_VERSION` to 2
+for the offsets in `ranking.json`, the shipped JSON's `rankVersion` was
+edited to 2 by hand and this script was not re-run.
 """
 
 import os
@@ -33,7 +38,7 @@ import gate  # noqa: E402
 
 MODEL = "siglip2"
 EMBED_VERSION = 1
-RANK_VERSION = 1
+RANK_VERSION = 2
 
 
 def numbers(v, fmt):

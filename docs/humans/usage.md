@@ -619,7 +619,12 @@ viewer shows a prompt in its center; click it to open the folder picker.
   while holding an arrow key do not count, nor does a frame whose preview
   cannot be read. Which frames you viewed is recorded
   across sessions whether AI analysis is on or not (a JPEG-only folder
-  records none), so there is nothing to mark. While AI analysis is on, the
+  records none), so there is nothing to mark. On top of what it learns for
+  every photo, the model learns a correction per genre (`Sports`, `Portrait`,
+  `Landscape`, `Birds / animals`, `Snap`; a burst counts as the genre most of its
+  frames show, see **AI analysis and genres**): a genre you have judged
+  little in is ranked as the rest are until it has enough judgments, and
+  one you have judged a lot in can move away from them. While AI analysis is on, the
   model relearns from your judgments so far in the background at startup
   and each time you move to another folder; `Refit Ranking` in the
   `Culling` tab of `Riffle > Settings...` relearns it now, for example

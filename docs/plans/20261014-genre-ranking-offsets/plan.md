@@ -126,7 +126,7 @@ Decisions taken in this plan (confirmed by the user before Step 1):
     - Expect the genre counts to differ from Decision 2's (1478 sports /
       287 snap under the provisional softmax); report them as they come.
 
-- [ ] Step 2: Learn and rank with the offsets in `riffle-core`, store them in the app
+- [x] Step 2: Learn and rank with the offsets in `riffle-core`, store them in the app
   - Done when:
     - `crates/core/src/genre.rs`: `pub fn top_level() -> Vec<&'static str>`
       (the labels with no parent, in file order) and
@@ -263,3 +263,4 @@ Decisions taken in this plan (confirmed by the user before Step 1):
 ## Progress
 
 - (2026-10-15) Step 1 complete: keep on, OFFSET_SHRINK = 30, all columns (offsets.md)
+- (2026-10-15) Step 2 complete

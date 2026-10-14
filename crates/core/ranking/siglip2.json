@@ -1,7 +1,7 @@
 {
   "model": "siglip2",
   "embedVersion": 1,
-  "rankVersion": 1,
+  "rankVersion": 2,
   "folders": 27,
   "bursts": 1801,
   "c": 0.1,

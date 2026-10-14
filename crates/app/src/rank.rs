@@ -1,17 +1,18 @@
 //! The personal ranking in the app (`riffle_core::rank`): the weights fit on
 //! the user's judgments (the picks against the rejects and the viewed frames
-//! left unflagged), stored as
+//! left unflagged), shared and one offset per top-level genre, stored as
 //! `ranking.json` in the app's local data dir, refit in the background at
 //! startup and on each switch to another folder while `aiEnabled` is on, and
 //! the per-file rank the meta pane and the `recommended` sort read. It never
 //! changes a judgment.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use riffle_core::embed::EMBED_VERSION;
-use riffle_core::rank::{self, Labeled, Ranked, COLUMNS, RANK_VERSION};
+use riffle_core::genre;
+use riffle_core::rank::{self, Labeled, Ranked, Weights, COLUMNS, RANK_VERSION};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{canonicalize, AppIndexReader};
@@ -62,39 +63,57 @@ impl Queue {
     }
 }
 
-/// What `FILE` holds: the weights with the versions they were fit at and the
-/// size of what they were fit on. Zero bursts means the prior's weights.
+/// What `FILE` holds: the shared weights and the per-genre offsets with the
+/// versions they were fit at and the size of what they were fit on. Zero
+/// bursts means the prior's weights.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stored {
     rank_version: i64,
     embed_version: i64,
     weights: Vec<f64>,
+    offsets: BTreeMap<String, Vec<f64>>,
     bursts: usize,
     folders: usize,
 }
 
 impl Stored {
     fn prior() -> Self {
+        let prior = rank::prior_weights();
         Stored {
             rank_version: RANK_VERSION,
             embed_version: EMBED_VERSION,
-            weights: rank::prior_weights().to_vec(),
+            weights: prior.shared,
+            offsets: prior.offsets,
             bursts: 0,
             folders: 0,
         }
     }
 
-    /// `json`'s fit when it was made at the current versions, else the prior.
+    /// `json`'s fit when it was made at the current versions, else the prior,
+    /// without an offset whose label is no longer a top-level genre or whose
+    /// size is not `COLUMNS`.
     fn parse(json: &str) -> Self {
-        serde_json::from_str::<Stored>(json)
+        let mut stored = serde_json::from_str::<Stored>(json)
             .ok()
             .filter(|s| {
                 s.rank_version == RANK_VERSION
                     && s.embed_version == EMBED_VERSION
                     && s.weights.len() == COLUMNS
             })
-            .unwrap_or_else(Stored::prior)
+            .unwrap_or_else(Stored::prior);
+        let top = genre::top_level();
+        stored
+            .offsets
+            .retain(|label, offset| top.contains(&label.as_str()) && offset.len() == COLUMNS);
+        stored
+    }
+
+    fn weights(&self) -> Weights {
+        Weights {
+            shared: self.weights.clone(),
+            offsets: self.offsets.clone(),
+        }
     }
 }
 
@@ -175,7 +194,7 @@ pub async fn ranking_of(app: AppHandle, dir: String) -> Result<RankingOf, String
         let frames: Vec<rank::Frame> = rows.iter().map(|r| r.frame.clone()).collect();
         let files = rows
             .into_iter()
-            .zip(rank::rank(&frames, &stored.weights))
+            .zip(rank::rank(&frames, &stored.weights()))
             .filter_map(|(row, ranked)| ranked.map(|r| (row.path, r)))
             .collect();
         Ok(RankingOf { model, files })
@@ -214,8 +233,15 @@ fn refit(app: &AppHandle) -> Result<ModelInfo, String> {
         })
         .collect::<Result<_, String>>()?;
     let fit = rank::fit(&folders);
+    let genres: Vec<String> = fit
+        .genres
+        .iter()
+        .filter(|(_, bursts)| *bursts > 0)
+        .map(|(label, bursts)| format!("{label} {bursts}"))
+        .collect();
     let stored = Stored {
-        weights: fit.weights,
+        weights: fit.weights.shared,
+        offsets: fit.weights.offsets,
         bursts: fit.bursts,
         folders: fit.folders,
         ..Stored::prior()
@@ -228,11 +254,16 @@ fn refit(app: &AppHandle) -> Result<ModelInfo, String> {
         std::fs::write(&path, json).map_err(|e| format!("{}: {e}", path.display()))?;
     }
     log::info!(
-        "ranking fit: {} bursts from {} folders ({} read) in {}ms",
+        "ranking fit: {} bursts from {} folders ({} read) in {}ms, per genre: {}",
         stored.bursts,
         stored.folders,
         folders.len(),
-        started.elapsed().as_millis()
+        started.elapsed().as_millis(),
+        if genres.is_empty() {
+            "none".to_string()
+        } else {
+            genres.join(", ")
+        }
     );
     let info = info(&stored);
     *lock(&state.stored) = Some(stored);
@@ -292,14 +323,30 @@ mod tests {
 
     #[test]
     fn a_fit_at_other_versions_or_of_another_size_falls_back_to_the_prior() {
+        let top = genre::top_level();
         let fit = Stored {
             weights: vec![0.5; COLUMNS],
+            offsets: top
+                .iter()
+                .map(|label| (label.to_string(), vec![0.1; COLUMNS]))
+                .collect(),
             bursts: 120,
             folders: 3,
             ..Stored::prior()
         };
         let json = serde_json::to_string(&fit).unwrap();
         assert_eq!(Stored::parse(&json), fit);
+        let mut odd = fit.clone();
+        odd.offsets
+            .insert("no such genre".to_string(), vec![0.1; COLUMNS]);
+        odd.offsets
+            .insert(genre::UNKNOWN.to_string(), vec![0.1; COLUMNS]);
+        odd.offsets
+            .insert(top[0].to_string(), vec![0.1; COLUMNS - 1]);
+        let mut kept = fit.clone();
+        kept.offsets.remove(top[0]);
+        let json = serde_json::to_string(&odd).unwrap();
+        assert_eq!(Stored::parse(&json), kept, "only the bad offsets go");
         for stale in [
             Stored {
                 rank_version: RANK_VERSION - 1,
@@ -369,7 +416,7 @@ mod tests {
                 };
                 let got: f64 = x
                     .iter()
-                    .zip(rank::prior_weights())
+                    .zip(&rank::prior_weights().shared)
                     .map(|(a, b)| a * b)
                     .sum();
                 worst = worst.max((got - want).abs());
@@ -386,22 +433,24 @@ mod tests {
             expected.len()
         );
         let fit = rank::fit(&folders);
+        let prior = rank::prior_weights().shared;
         let moved = fit
             .weights
+            .shared
             .iter()
-            .zip(rank::prior_weights())
+            .zip(&prior)
             .map(|(a, b)| (a - b).powi(2))
             .sum::<f64>()
             .sqrt();
-        let norm = rank::prior_weights()
-            .iter()
-            .map(|w| w * w)
-            .sum::<f64>()
-            .sqrt();
+        let norm = prior.iter().map(|w| w * w).sum::<f64>().sqrt();
         eprintln!(
             "fit on {} bursts from {} folders: weights moved {moved:.3} from the prior's (norm {norm:.3})",
             fit.bursts, fit.folders
         );
+        for (label, offset) in &fit.weights.offsets {
+            let norm = offset.iter().map(|o| o * o).sum::<f64>().sqrt();
+            eprintln!("offset of {label}: norm {norm:.3}");
+        }
         assert_eq!(compared, expected.len());
         assert!(worst < 1e-4, "{worst}");
     }
