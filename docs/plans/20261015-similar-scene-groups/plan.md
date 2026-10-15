@@ -221,7 +221,10 @@ previous plan, asked for the more accurate judgment where there is a choice:
       pre-registrations; keep their vocabulary.
     - No Python, no Rust in this PR; a doc-only PR.
 
-- [ ] Step 2: `scene_pairs.py` draws the pairs and writes the labeling page; stop for the user to label
+- [x] Step 2: `scene_pairs.py` draws the pairs and writes the labeling page; stop for the user to label
+  - Status: **awaiting labels.** The page is at
+    `D:\Photos\tests\2026-10-15-scene-pairs\label.html`; Step 3 waits for
+    the user's `labels.tsv` saved beside `pairs.tsv` there.
   - Done when:
     - A fresh dump of `2026-09-05` and `2026-08-29-l` exists in
       `D:\Photos\tests\2026-10-15-scene-embed\` in the dump format
@@ -398,3 +401,4 @@ previous plan, asked for the more accurate judgment where there is a choice:
 
 - (2026-10-15) Plan written
 - (2026-10-15) Step 1 complete
+- (2026-10-15) Step 2 complete
