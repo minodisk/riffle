@@ -23,9 +23,9 @@ wherever they are: a single shot or a frame of a burst alike; bursts are not
 special. The shipped ranking (`crates/core/src/rank.rs`: a pairwise logistic
 on pick vs not-chosen pairs **within one burst**, scores centered on the
 burst's mean, singles unranked) and every evaluation so far
-([image-embeddings gate.md](../_archived/20261012-image-embeddings/gate.md),
-[genre-ranking-offsets offsets.md](../_archived/20261014-genre-ranking-offsets/offsets.md),
-[ball-game-ranking-features](../_archived/20261014-ball-game-ranking-features/plan.md))
+([image-embeddings gate.md](../20261012-image-embeddings/gate.md),
+[genre-ranking-offsets offsets.md](../20261014-genre-ranking-offsets/offsets.md),
+[ball-game-ranking-features](../20261014-ball-game-ranking-features/plan.md))
 compare frames only inside a burst. Under that metric every scene-level cue
 (the genre, the ball-game composition, how a frame looks against the rest of
 the day) cancels out, and a single shot never enters. The "no gain" verdicts
@@ -46,8 +46,8 @@ dropped. App changes, if any, come in a follow-up plan.
 ### What is known (investigated 2026-10-15)
 
 - **A folder-wide gate already ran once.**
-  [folder-wide-pick-model](../_archived/20261014-folder-wide-pick-model/plan.md)
-  (`folder_gate.py`, [gate.md](../_archived/20261014-folder-wide-pick-model/gate.md))
+  [folder-wide-pick-model](../20261014-folder-wide-pick-model/plan.md)
+  (`folder_gate.py`, [gate.md](../20261014-folder-wide-pick-model/gate.md))
   fit a per-frame logistic (44 shipped columns + `ln burst size` + absolute
   `ln sharpness`), leave one folder out, on the same dump. Held out, over
   the 25 qualifying folders: per-folder frame AUC 0.666 (full), 0.624
@@ -85,22 +85,22 @@ dropped. App changes, if any, come in a follow-up plan.
   downloads, not needed here).
 - **Harnesses to import, not copy** (`sys.path.insert(0, <folder>)`,
   `sys.dont_write_bytecode = True`, as `rank_prior.py` does):
-  - [gate.py](../_archived/20261012-image-embeddings/gate.py): `load`,
+  - [gate.py](../20261012-image-embeddings/gate.py): `load`,
     `build` (`tech`, `pos`, `emb`, `burst_of`, `folder_of`, `bursts`,
     `pick`, `reject`), `scorable`, `design(d, mask, "shared")`, `pairs`,
     `fit`, `choose_c`, `lofo` (held-out within-burst-trained scores for
     every frame of a folder, uncentered `x @ w`), `burst_metrics`,
     `summarize`, `table`, `f3`; `TECH` (10 names), `POSITION`, `CS`.
-  - [folder_gate.py](../_archived/20261014-folder-wide-pick-model/folder_gate.py):
+  - [folder_gate.py](../20261014-folder-wide-pick-model/folder_gate.py):
     `extend` (burst size, order, absolute sharpness, shipped genre 0 / 1
     columns from `crates/core/genres/siglip2.json`, the per-folder
     class-balanced sample weights), pointwise `design` / `fit` / `choose_c`
     / `lofo`, `folder_metrics` (frame AUC, burst AUC, singles AUC, lift,
     pick vs reject), `signed_rank`, `paired`, `mean_sd`.
-  - [ballgate.py](../_archived/20261014-ball-game-ranking-features/ballgate.py):
+  - [ballgate.py](../20261014-ball-game-ranking-features/ballgate.py):
     `load_extras(paths, d)` (joins an extras TSV to `d["rows"]`, fails
     above 0.1% missing).
-  - [genre_offsets.py](../_archived/20261014-genre-ranking-offsets/genre_offsets.py):
+  - [genre_offsets.py](../20261014-genre-ranking-offsets/genre_offsets.py):
     `burst_genres` (the shipped `of_burst` rule), `hier_design` (the
     `[burst is g] * x / sqrt(OFFSET_SHRINK)` columns).
   - Python: the venv `%TEMP%\embedvenv` (numpy 2.5.4, scikit-learn 1.9.1,
@@ -118,7 +118,7 @@ dropped. App changes, if any, come in a follow-up plan.
 - **Out of scope, owned elsewhere (do not touch):** `rank.rs`'s `pairs`,
   `Labeled`, `fit` and the `views` training data; the dlg-genre-weights,
   dlg-folder-best and dlg-likely-pick-icon sessions; the
-  [similar-scene-groups](../_archived/20261015-similar-scene-groups/plan.md)
+  [similar-scene-groups](../20261015-similar-scene-groups/plan.md)
   plan (stopped and archived by its session in #826; it read the same dump
   read-only).
   This plan adds files only under its own folder and writes data only to
@@ -247,7 +247,7 @@ dropped. App changes, if any, come in a follow-up plan.
     - `mise run lint` passes (lychee on the links).
   - Implementation approach:
     - Model the section on the archived
-      [folder-wide gate.md](../_archived/20261014-folder-wide-pick-model/gate.md)
+      [folder-wide gate.md](../20261014-folder-wide-pick-model/gate.md)
       and keep its vocabulary (qualifying folders, held out, per-folder SD).
     - Before writing, look only at file lists and headers (the extras
       coverage was already counted label-free); compute no label-dependent
@@ -495,7 +495,7 @@ points R-precision, so it would not pass there either.
 
 What the earlier "no gain" verdicts mean now:
 
-- **Genre offsets** ([offsets.md](../_archived/20261014-genre-ranking-offsets/offsets.md),
+- **Genre offsets** ([offsets.md](../20261014-genre-ranking-offsets/offsets.md),
   within bursts): the verdict **stands**, and is not only an artifact of
   the within-burst metric. Within bursts the offsets still add nothing
   (+0.001 / -0.000 wAUC). Folder-wide they do carry something the old
@@ -507,7 +507,7 @@ What the earlier "no gain" verdicts mean now:
 - **Genre columns** (the archived folder-wide gate's +0.001): **stands**
   (+0.001 on `F0+ctx`, +0.004 on `W0`, neither reaches R-precision).
 - **Candidates 1 and 2**
-  ([ball-game-ranking-features](../_archived/20261014-ball-game-ranking-features/plan.md),
+  ([ball-game-ranking-features](../20261014-ball-game-ranking-features/plan.md),
   within bursts): the verdict **stands and was not an artifact**. Folder-wide
   they read -0.003 to +0.000 frame AUC on both bases. Alone they carry
   signal (c1 alone 0.585 frame AUC, 0.600 within bursts), but the full
