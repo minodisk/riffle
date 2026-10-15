@@ -58,9 +58,18 @@ export function rebuildNotice(preview: SequencePreview): string | null {
   return preview.output_exists ? "will be rebuilt: its JPEG files are replaced" : null;
 }
 
-export function changedLine(rows: SequenceRow[]): string {
-  const changed = rows.filter((row) => row.changed).length;
-  return `${changed} of ${rows.length} ${rows.length === 1 ? "file gets" : "files get"} a new time`;
+// Every readable file is written, the unchanged ones too; a failed file is
+// not a row.
+export function writtenLine(rows: SequenceRow[], outputDir: string): string {
+  const files = rows.length === 1 ? "file" : "files";
+  return `${rows.length} ${files} will be written to ${baseName(outputDir)}`;
+}
+
+// Counts the rows whose `DateTimeOriginal` changes, the green ones, not
+// `changed`, which an exported JPEG's `DateTime` alone turns true.
+export function captureTimeLine(rows: SequenceRow[]): string {
+  const count = rows.filter((row) => row.old !== row.new).length;
+  return `${count} of them ${count === 1 ? "gets" : "get"} a new capture time`;
 }
 
 export function failureText(failure: SequenceFailure): string {

@@ -63,13 +63,14 @@ import {
   type SequenceDone,
   SequenceFlow,
   type SequencePreview,
-  changedLine,
+  captureTimeLine,
   doneStatus,
   failureText,
   progressStatus,
   rebuildNotice,
   revealAfter,
   rowParts,
+  writtenLine,
 } from "./sequence.js";
 import {
   FILTERED_TEXT,
@@ -1064,6 +1065,7 @@ const sequenceSource = document.getElementById("sequence-source") as HTMLSpanEle
 const sequenceOutput = document.getElementById("sequence-output") as HTMLSpanElement;
 const sequenceRebuild = document.getElementById("sequence-rebuild") as HTMLParagraphElement;
 const sequenceRows = document.getElementById("sequence-rows") as HTMLOListElement;
+const sequenceWritten = document.getElementById("sequence-written") as HTMLParagraphElement;
 const sequenceCount = document.getElementById("sequence-count") as HTMLParagraphElement;
 const sequenceFailed = document.getElementById("sequence-failed") as HTMLUListElement;
 const sequenceRunning = document.getElementById("sequence-running") as HTMLParagraphElement;
@@ -1128,11 +1130,12 @@ function showSequencePreview(dir: string, preview: SequencePreview): void {
         diff.textContent = parts.diff;
         item.append(diff);
       }
-      item.classList.toggle("unchanged", !row.changed);
+      item.classList.toggle("unchanged", row.old === row.new);
       return item;
     }),
   );
-  sequenceCount.textContent = changedLine(preview.rows);
+  sequenceWritten.textContent = writtenLine(preview.rows, preview.output_dir);
+  sequenceCount.textContent = captureTimeLine(preview.rows);
   sequenceFailed.replaceChildren(
     ...preview.failed.map((failure) => {
       const item = document.createElement("li");

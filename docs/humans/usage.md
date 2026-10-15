@@ -467,8 +467,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
     are overwritten in place, so every other byte, including the image data,
     stays identical.
   - **Preview**: a dialog lists every file in the computed order as
-    `old -> new` (files that keep their time are dimmed), how many get a new
-    time, the files that could not be read, and the output folder. When
+    `old -> new`, the changed part of a new `DateTimeOriginal` in green and
+    the files whose `DateTimeOriginal` stays dimmed, then two lines: how many
+    files will be written to the output folder (every file that could be
+    read, e.g. `247 files will be written to Output-sequenced`) and how many
+    of them get a new capture time, the green ones (e.g. `68 of them get a
+    new capture time`), then the files that could not be read and the output
+    folder. When
     `<folder>-sequenced/` already exists, a notice says it will be rebuilt:
     its JPEG files are replaced. `Run` writes; `Cancel` or `Escape` closes
     without touching anything.
