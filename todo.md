@@ -1918,3 +1918,47 @@ The ball-game-ranking-features plan added `crates/core/tests/detector_tract.rs` 
 #### TODO
 
 - [ ] Decide whether to keep `crates/core/tests/detector_tract.rs` as the reusable harness or delete it. If kept, say in the file's header comment what it is for.
+
+### Core: a plan to drop the genre from the personal ranking (scope decision pending)
+
+#### Background
+
+The `folder-wide-ranking-eval` feature re-measured the ranking folder-wide. Its Decision 1 (part 4) applied the pre-registered rule "keep the genre only when `+genre cols` or `+genre off` passes on either base". No genre comparison passed (bars met: 1, 3, 2 and 2 of 5). The shipped per-genre offsets (`W0+off` against `W0`) read +0.003 frame AUC, -0.7 points R-precision and -0.000 within-burst wAUC, so removing them changes nothing visible. The evidence is from one photographer's library, where 1,439 of 1,801 scorable bursts are sports. Decision 1 leaves the scope to the user: (a) ranking only, which the plan recommends, or (b) the whole feature. The `rank.rs` part touches `fit`, which another session owns, so this waits for that session to finish. Basis: `docs/plans/_archived/20261015-folder-wide-ranking-eval/plan.md` (Decision 1, parts 4-5) and `docs/plans/_archived/20261015-folder-wide-ranking-eval/folderwide.md`. Files: `crates/core/src/rank.rs`, `crates/core/src/genre.rs`, `crates/core/genres/siglip2.json`, `crates/app/src/commands.rs` (`genres_of`), `crates/app/ui/src/filter.ts`, `crates/app/ui/src/meta.ts`.
+
+#### TODO
+
+- [ ] Ask the user to choose the scope: (a) ranking only, or (b) the whole feature.
+- [ ] After the session owning `rank.rs`'s `fit` is done, write and run a plan for the chosen scope.
+  - (a) Remove `Weights.offsets`, `OFFSET_SHRINK` and the `of_burst` lookup in `fit` / `rank`. Bump `RANK_VERSION` so stored `ranking.json` offsets are ignored. Remove the meta pane's genre suffix after the ranking place. Keep `genre.rs`, `siglip2.json`, `genres_of` and `filter.ts`'s Genre section.
+  - (b) Do (a), and also remove `genre.rs`, `crates/core/genres/siglip2.json`, `genres_of`, `filter.ts`'s Genre section and its docs (`CLAUDE.md`, `README.md` / `README.ja.md`, the usage docs). The embedding stays, because the ranking needs it.
+- [ ] When this lands, delete `### Core: portrait bursts lean negative under the per-genre ranking offsets`, whose premise goes with the offsets.
+
+### Core: the shipped ranking weights score single frames at chance
+
+#### Background
+
+The `folder-wide-ranking-eval` feature found that the within-burst weights do not carry over to single frames. Held out, `W0` reads singles AUC 0.508, against 0.611 for `F0+ctx` (13 folders with at least 5 single picks and 5 single non-picks). This is a reading aid, not a bar. The app ranks only within bursts today, so nothing shows it. If a later plan ranks or marks singles (a folder-wide "best" view), it should not reuse the within-burst weights as they are. Basis: `docs/plans/_archived/20261015-folder-wide-ranking-eval/folderwide.md`. Files: `crates/core/src/rank.rs`.
+
+#### TODO
+
+- [ ] Before any feature ranks or marks single frames, fit or evaluate a separate model for them (the pointwise `F0+ctx` shape reads 0.611) instead of reusing the within-burst weights.
+
+### Agents: the archived plan scripts' import paths broke when their folders moved
+
+#### Background
+
+`docs/plans/_archived/20261014-folder-wide-pick-model/folder_gate.py`, `docs/plans/_archived/20261014-ball-game-ranking-features/ballgate.py` and `docs/plans/_archived/20261014-genre-ranking-offsets/genre_offsets.py` insert `<their folder>/../_archived/20261012-image-embeddings` on `sys.path`. They were written before the archive move, so that now resolves to `_archived/_archived/...`. `folder_gate.py`'s `GENRES` also points at `docs/crates/core/genres/siglip2.json`. Run directly, any of them fails at `import gate` (or at `extend`). They still work when imported after `gate`, as `folderwide.py` does, and `folderwide.py` overrides `GENRES`. Found in `folder-wide-ranking-eval` Step 2. Files: the three scripts above.
+
+#### TODO
+
+- [ ] Either fix the paths in the archived scripts, or state in the archive convention that a plan's scripts are frozen as run and must be imported the way `docs/plans/_archived/20261015-folder-wide-ranking-eval/folderwide.py` does.
+
+### Agents: a plan linking a sibling plan in flight breaks lint on main once the sibling is archived
+
+#### Background
+
+PR #827 linked `../20261015-similar-scene-groups/plan.md`; PR #826 archived that folder and merged first. Each PR passed lint alone, but main's lychee (`mise run lint`) failed after both merged; the folder-wide-ranking-eval Step 1 PR fixed it by retargeting the link to `_archived/`. Basis: `docs/plans/_archived/20261015-folder-wide-ranking-eval/learnings.md` (Step 1, Deferred issues). Files: `.claude/skills/develop/SKILL.md` or the planner's plan-writing instructions, or a new `docs/agents/` plans guide.
+
+#### TODO
+
+- [ ] Put the rule in the chosen place: link only archived or stable plan targets from a plan, and re-run `mise run lint` after rebasing onto the latest main when a linked plan may move. Done when the procedure tells the author to re-run lint after rebasing onto a main where plans moved.

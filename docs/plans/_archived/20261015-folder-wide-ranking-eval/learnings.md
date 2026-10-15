@@ -154,3 +154,14 @@
   still work when imported after `gate`, as `folderwide.py` does. Either fix
   the paths in the archived scripts or note in the archive convention that a
   plan's scripts are frozen as run.
+
+- **A plan linking a sibling plan in flight breaks lint on main after the
+  sibling is archived.** #827 linked `../20261015-similar-scene-groups/plan.md`;
+  #826 archived that folder and merged first; each PR passed lint alone, and
+  main's lychee failed after both merged (fixed in Step 1 by retargeting to
+  `_archived/`). Change: put a rule in the `develop` skill or the plan-writing
+  instructions (or a new `docs/agents/` plans guide): link only archived or
+  stable plan targets from a plan, and re-run `mise run lint` after rebasing
+  onto the latest main when a linked plan may move. Done when the rule is in
+  the chosen place and the procedure tells the author to re-run lint after
+  rebasing onto a main where plans moved.
