@@ -22,7 +22,7 @@ The personal best-shot ranking (`crates/core/src/rank.rs`, the `recommended`
 sort) scores each frame of a burst from 10 technical values, 2 burst-position
 values and the SigLIP 2 embedding compressed to 32 whitened PCA dimensions.
 The embedding is what cleared the gate
-([image-embeddings gate.md](../_archived/20261012-image-embeddings/gate.md):
+([image-embeddings gate.md](../20261012-image-embeddings/gate.md):
 0.708 against 0.652 without it), but 32 dimensions of a global embedding
 carry the place, the sport and the atmosphere, not whether the ball is in the
 frame or whether the carrier is contested. 1,478 of the 1,801 scorable bursts
@@ -63,18 +63,18 @@ numbers, and the plan is finished.**
   `RANK_VERSION` 1. The prior `crates/core/ranking/siglip2.json` holds the
   imputation means, the PCA mean and whitened basis, the standardization,
   the weights and `C`, written by
-  [`rank_prior.py`](../_archived/20261012-image-embeddings/rank_prior.py),
+  [`rank_prior.py`](../20261012-image-embeddings/rank_prior.py),
   which imports `gate.py`'s `load` / `build` / `choose_c` / `fit`. Any
   column change bumps `RANK_VERSION`, re-runs `rank_prior.py`, and the app's
   `Stored::parse` falls back to the prior until the next refit.
 - **Evaluation harness.**
-  [`gate.py`](../_archived/20261012-image-embeddings/gate.py) (leave one
+  [`gate.py`](../20261012-image-embeddings/gate.py) (leave one
   folder out, weighted pairwise AUC, Top-1 / Top-3, per-folder spread,
   learning curve, the baselines) run on the **app dump**
   `D:\Photos\tests\2026-10-12-rank-app\` (`features/<folder>.tsv`,
   `embed.tsv`, `genre_text.tsv`, `index.sqlite`; 32,459 frames, 1,801
   scorable bursts, 41,942 pairs) reads **0.710 weighted AUC / 54.9% Top-1**
-  for the shared model ([ranking.md](../_archived/20261012-image-embeddings/ranking.md)).
+  for the shared model ([ranking.md](../20261012-image-embeddings/ranking.md)).
   That is the reference every candidate is compared against, re-run in the
   same process. The Step 2 dump `D:\Photos\tests\2026-10-12-embed-gate\`
   (`riffle-cli features` values) is the fallback. Labels are the sidecar
@@ -86,7 +86,7 @@ numbers, and the plan is finished.**
   `python -I` from outside the plan folder and the download directories.
   The SigLIP 2 text tower and tokenizer are at
   `D:\Photos\tests\2026-10-12-embed-models\siglip2-b32-256-text\`
-  ([`genre_text.py`](../_archived/20261012-image-embeddings/genre_text.py)
+  ([`genre_text.py`](../20261012-image-embeddings/genre_text.py)
   has the tokenization: lowercase, no BOS, EOS, pad to 64).
 - **Previews for a detector.** `riffle-cli embed ... --previews <dir>`
   writes each file's full preview JPEG and a `list.tsv`, but refuses
@@ -105,7 +105,7 @@ numbers, and the plan is finished.**
   the input fact, outputs by outlet label, `OnceLock` plan, check against a
   Python reference on real images).
 - **Parallel session.** The per-file-viewed-ranking plan
-  ([plan](../_archived/20261014-per-file-viewed-ranking/plan.md)) changes `rank.rs`
+  ([plan](../20261014-per-file-viewed-ranking/plan.md)) changes `rank.rs`
   `Labeled` / `pairs` / `fit`, `Index::rank_dirs` / `rank_rows` (`viewed`),
   app `rank.rs` `refit` and `the_scores_match_rank_prior_py`, and bumps
   `SCHEMA_VERSION` to 23. At the time of writing none of its steps is on
@@ -234,7 +234,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
       (seeded, one per scorable burst, 200 sports / 40 other) into
       `D:\Photos\tests\2026-10-14-ball-labels\frames.tsv` with a contact
       sheet or per-frame JPEGs for labeling (reuse what
-      [`genre_sample.py`](../_archived/20261012-image-embeddings/genre_sample.py)
+      [`genre_sample.py`](../20261012-image-embeddings/genre_sample.py)
       did), and a `labels.tsv` template (`id\tball\tcontest`). The sample is
       drawn in this step and the user labels it before Step 2's fit runs.
     - A dry run of `ballgate.py` with a random-noise extras file reproduces

@@ -1908,3 +1908,13 @@ Files: `crates/app/ui/src/strip.ts`, `crates/app/ui/src/main.ts`, `crates/app/ui
 
 - [ ] On Windows, open a folder with bursts while AI analysis is on and the embeddings are in. Expect the cell of each burst's first-ranked frame to show the `sparkles` icon in the bottom-left row, right of the face icon when the frame is also a good frame (alone at the left edge otherwise). It must not collide with the burst count `n/m` at the bottom-right, and a lone frame must show none.
 - [ ] On Windows, click `Refit Ranking` in Settings > Culling (icons may move). Change the sort and a filter (icons stay on the same files). Turn AI analysis off in Settings (every icon disappears).
+
+### Core: keep or remove the ignored `detector_tract.rs` test left by ball-game-ranking-features
+
+#### Background
+
+The ball-game-ranking-features plan added `crates/core/tests/detector_tract.rs` in Step 3 as the check that a detector can ship. It is an `#[ignore]` test that reads `RIFFLE_DETECTOR_ONNX`, `RIFFLE_DETECTOR_INPUT` and `RIFFLE_DETECTOR_TENSORS`. Step 4 was meant to remove it or keep it as its seed, but Decision 1 (no detector ships) dropped Step 4. The test costs nothing in CI because it is ignored. It is the load / cost / box-agreement harness a later detector would reuse. Related: `docs/plans/_archived/20261014-ball-game-ranking-features/plan.md`, `docs/plans/_archived/20261014-ball-game-ranking-features/detect_eval.py` (`--tensors` / `--compare`).
+
+#### TODO
+
+- [ ] Decide whether to keep `crates/core/tests/detector_tract.rs` as the reusable harness or delete it. If kept, say in the file's header comment what it is for.
