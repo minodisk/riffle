@@ -217,3 +217,53 @@ groups goes to the user before Step 5.
 
 Steps 4–6 are dropped; Decision 1 in [plan.md](plan.md) records the tables
 and the numbers that decided; the plan ends with the wrap-up.
+
+## Draw
+
+Drawn 2026-10-15 by [`scene_pairs.py`](scene_pairs.py) (seed `20261015`)
+from the app dump `D:\Photos\tests\2026-10-12-rank-app\` and the fresh DNG
+dump `D:\Photos\tests\2026-10-15-scene-embed\` into
+`D:\Photos\tests\2026-10-15-scene-pairs\` (`pairs.tsv`, `img/`,
+`label.html`), before any label:
+
+```sh
+python -I scene_pairs.py D:/Photos/tests/2026-10-12-rank-app \
+  D:/Photos/tests/2026-10-15-scene-embed D:/Photos/tests/2026-10-15-scene-pairs
+```
+
+- **Pool**: 15 folders, 3926 frames (the 13 ARW folders, 3304 frames with
+  the 24 excluded `2026-08-08` files left out, plus `2026-09-05` 411 and
+  `2026-08-29-l` 211). Every frame of the dumps has a capture time and a
+  vector, so none is left out of the draw.
+- **Pairs drawn per cell**: every cell got its pre-registered count; no
+  shortfall. 185 cross-burst pairs (105 at cosine >= 0.90), 15 anchors, 200
+  pairs over 400 distinct files.
+
+  | cosine \ gap | <= 60 s | 60–300 s | 300–1800 s | > 1800 s | total |
+  |---|---:|---:|---:|---:|---:|
+  | 0.70–0.80 | 4 | 4 | 4 | 4 | 16 |
+  | 0.80–0.85 | 6 | 6 | 6 | 6 | 24 |
+  | 0.85–0.90 | 10 | 10 | 10 | 10 | 40 |
+  | 0.90–0.93 | 16 | 12 | 8 | 4 | 40 |
+  | 0.93–0.96 | 18 | 12 | 5 | 5 | 40 |
+  | 0.96–1.00 | 18 | 6 | 0 | 1 | 25 |
+
+- **Candidate pairs per cell** with the DNG folders added (the ARW part
+  matches the pre-registration's sizing table but for one pair at the
+  cosine 0.85 edge, see `learnings.md`):
+
+  | cosine \ gap | <= 60 s | 60–300 s | 300–1800 s | > 1800 s |
+  |---|---:|---:|---:|---:|
+  | 0.70–0.80 | 8510 | 27585 | 64321 | 182693 |
+  | 0.80–0.85 | 9851 | 21003 | 24655 | 17346 |
+  | 0.85–0.90 | 11174 | 12272 | 8341 | 3317 |
+  | 0.90–0.93 | 6242 | 1855 | 531 | 214 |
+  | 0.93–0.96 | 3868 | 612 | 17 | 76 |
+  | 0.96–1.00 | 713 | 34 | 0 | 1 |
+
+- **Pairs per folder**: `2026-08-16` 9, `2026-08-15` 16, `2026-08-08` 16,
+  `2026-08-02` 12, `2026-07-31` 12, `2026-07-30` 18, `2026-07-26` 4,
+  `2026-07-24` 10, `2026-07-23` 6, `2026-07-22` 16, `2026-07-21` 8,
+  `2026-07-11` 18, `2026-07-02` 16, `2026-09-05` 28, `2026-08-29-l` 11.
+- **Sports share**: 3 of the 200 pairs have a frame whose top-level genre is
+  sports; 39 (the DNG folders') have no genre scores; 158 are neither.
