@@ -118,14 +118,15 @@ dropped. App changes, if any, come in a follow-up plan.
 - **Out of scope, owned elsewhere (do not touch):** `rank.rs`'s `pairs`,
   `Labeled`, `fit` and the `views` training data; the dlg-genre-weights,
   dlg-folder-best and dlg-likely-pick-icon sessions; the
-  [similar-scene-groups](../20261015-similar-scene-groups/plan.md) plan
-  (being stopped by its session; it reads the same dump read-only).
+  [similar-scene-groups](../_archived/20261015-similar-scene-groups/plan.md)
+  plan (stopped and archived by its session in #826; it read the same dump
+  read-only).
   This plan adds files only under its own folder and writes data only to
   `D:\Photos\tests\2026-10-15-folder-wide-eval\`.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the folder-wide metric, the variants, the ablations and the bars in `folderwide.md`, no script and no fit
+- [x] Step 1: Pre-register the folder-wide metric, the variants, the ablations and the bars in `folderwide.md`, no script and no fit
   - Done when:
     - `folderwide.md` in this plan folder has a "Pre-registration" section
       merged **before any script exists or any fit runs** (the merge commit
@@ -449,3 +450,4 @@ dropped. App changes, if any, come in a follow-up plan.
 ## Progress
 
 - (2026-10-15) Plan written; bar option C chosen by the user
+- (2026-10-15) Step 1 complete: pre-registration written in `folderwide.md` (no script, no fit); fixed the similar-scene-groups link broken by #826
