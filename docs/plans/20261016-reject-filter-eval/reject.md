@@ -198,9 +198,13 @@ recall and `RN`, no curve); a graded one gets the full treatment.
 - `rule count`: the graded score "number of the four rules of `any of` that
   fire" (0–4), more fired removed first, ties by the seed-0 draw.
 
-For a binary rule and for `rule count`, `RN@r` is the point itself when the
-rule's realized recall is >= r, else "does not reach r" (a rule cannot be
-relaxed); the table shows the pair.
+For a binary rule, `RN@r` is the point itself when the rule's realized recall
+is >= r, else "does not reach r" (a rule cannot be relaxed); the table shows
+the pair. In every mean, bootstrap interval, count and Wilcoxon of the
+comparison below, a folder where a binary rule does not reach r scores
+`RN@r` = 0 (the rule cannot be applied safely there). `rule count` is graded
+(any prefix length can be cut, ties by the seed-0 draw), so its `RN@r` is
+always defined.
 
 ### Reject-trained variants
 
@@ -280,9 +284,10 @@ Two bars, over the 25 qualifying folders:
     target); and
   - the mean `RN` is >= **25%**.
 
-Not corrected for multiplicity: about 25 score rows, 15 comparisons and 60
-ablation cells are read at p < 0.05 or interval-below-zero, so two or three
-false positives are expected; the Decision reads a lone marginal pass as
+Not corrected for multiplicity: about 33 score rows (15 scores, 8 baselines,
+8 rule rows, `R0`, `G0`), about 45 comparisons (each row against `W0`, 10
+cue-vs-base, 2 against `F0+ctx`) and 60 ablation cells are read at p < 0.05
+or interval-below-zero, so a few false positives are expected; the Decision reads a lone marginal pass as
 such.
 
 Applied as:
@@ -295,8 +300,9 @@ Applied as:
   the bootstrap interval entirely below zero; reported per column, as
   Decision 1 did.
 - **Genre under this criterion**: Decision 1's "drop for the ranking"
-  **stands** unless `+genre cols` or `+genre off` passes the comparison bar
-  against its base on `RN@95`; otherwise it is **reopened** and recorded as
+  **stands** unless `F0+ctx +genre cols`, `F0+ctx +genre off`, `W0 +genre cols` or
+  `W0+off` passes the comparison bar against its base (`F0+ctx` or `W0`) on
+  `RN@95`; otherwise it is **reopened** and recorded as
   such (the scope question, ranking only or the whole feature, stays where
   Decision 1 left it).
 - **Follow-up**: an app change is recommended only when the best filter

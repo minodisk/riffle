@@ -274,8 +274,9 @@ recommendation only. No app change happens in this plan.
           with the bootstrap interval entirely below zero (reported per
           column, as Decision 1 did).
         - *Genre keep / drop under this criterion*: Decision 1's "drop"
-          **stands** unless `+genre cols` or `+genre off` passes the
-          comparison bar against its base on `RN@95`; otherwise it is
+          **stands** unless `F0+ctx +genre cols`, `F0+ctx +genre off`,
+          `W0 +genre cols` or `W0+off` passes the comparison bar against its
+          base on `RN@95`; otherwise it is
           **reopened** and recorded as such.
         - *Follow-up*: an app change is recommended only when the best
           filter passes the worth-a-filter bar.
@@ -430,8 +431,8 @@ recommendation only. No app change happens in this plan.
   never of "rejects found"; the recommendation names this as the thing a
   later in-app measurement (the `views` table, explicit rejects accumulating)
   could close.
-- **Multiplicity.** About 25 score rows, 15 comparisons and 60 ablation
-  cells are read at p < 0.05 / interval-below-zero; two or three false
+- **Multiplicity.** About 33 score rows, 45 comparisons and 60 ablation
+  cells are read at p < 0.05 / interval-below-zero; a few false
   positives are expected and a lone marginal pass is read as such.
 - **The archived harnesses are frozen and all have stale paths.** This
   plan works around them by import order and constant override, as
