@@ -254,7 +254,7 @@ dropped. App changes, if any, come in a follow-up plan.
       number.
     - Doc-only PR; no Python, no Rust.
 
-- [ ] Step 2: `folderwide.py`: the variants, the baselines, the reference checks and the results tables
+- [x] Step 2: `folderwide.py`: the variants, the baselines, the reference checks and the results tables
   - Done when:
     - `folderwide.py` in this plan folder (`python -I folderwide.py
       <app-dump-dir> <ball-labels-dir> <out-dir> [jobs]`) imports the four
