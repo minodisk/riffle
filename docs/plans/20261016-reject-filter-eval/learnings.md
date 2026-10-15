@@ -8,8 +8,8 @@
   filters may need). No bottom-oriented number was computed.
 - The plan's "ten cue variants" count `W0+off` among them (the genre offsets
   on `W0`); `scores.tsv` has nine further cue columns. `reject.md` lists
-  `W0+off` with the cue variants and reads it against `W0` for the genre
-  criterion, so "`+genre off` against its base" covers both bases.
+  `W0+off` with the cue variants and names it explicitly in the genre
+  criterion against `W0`, next to the other three genre columns.
 - The `rule count` score is the number of the four rules of `any of` that
   fire (`eyes closed`, `eye focus low`, `face away`, `sharpness bottom 10%`);
   `not good` is not one of them, as the plan's list implies.

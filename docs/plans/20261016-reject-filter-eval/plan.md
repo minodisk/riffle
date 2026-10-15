@@ -217,8 +217,9 @@ recommendation only. No app change happens in this plan.
         - `face away`: remove frames with `|yaw| > GOOD_MAX_YAW` or
           `|pitch| > GOOD_MAX_PITCH`;
         - `sharpness bottom q`: remove the folder's bottom q by absolute
-          sharpness, q = 10% / 20% (graded: the absolute-sharpness baseline
-          already gives the curve);
+          sharpness, q = 10% / 20% (one cut at a fixed q, so a binary
+          rule for `RN@r`; the curve is the absolute-sharpness baseline's
+          row);
         - `any of`: `eyes closed` or `eye focus low` or `face away` or
           `sharpness bottom 10%`;
         - `rule count`: the graded score "number of the four rules that
