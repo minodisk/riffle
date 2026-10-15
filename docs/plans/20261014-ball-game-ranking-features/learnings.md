@@ -124,6 +124,73 @@ more scorable bursts: 20, as the criterion assumed.
   characters. Write files with backslashes through the Edit / Write tools,
   or build them with `chr(92)`.
 
+## Step 3
+
+- **Previews through a new `riffle-cli previews` subcommand**, not by
+  letting `embed --previews` take `--near`: `embed` runs the embedding model
+  on every file, which the detector export does not need. `previews
+  <out-dir> <dir|file>... --near <px> [threads]` writes the
+  `decode_upright_near` image (the embedding's input path) as a q92 JPEG to
+  `<out-dir>/<folder>/<stem>.jpg` plus `list.tsv`; the option parsing has a
+  unit test. `--near 640` gives 808 x 540: the 3/8 scale of a 1616-px
+  preview is 606, under 640, so the rule takes 4/8. All 32,459 frames in
+  247 s with 12 threads, 4.2 GB, none failed. The command was run from a
+  copy of the exe in the scratchpad so a rebuild could not hit a locked
+  file.
+- **`GridSample` loads in tract 0.23 with `default-features = false`.** The
+  plan expected D-FINE / RT-DETRv2 to fail the load; the onnx-community
+  exports of D-FINE N / S and RT-DETRv2 R18 load and run, but at 1.0 / 2.4 /
+  2.8 s per image on one thread (onnxruntime: 85 / 254 / 464 ms), so they
+  are no-ship on cost, not on ops. tract runs the transformer heads 9-12x
+  slower than onnxruntime, the conv detectors 2-4x (NanoDet 73.5 against
+  34.9 ms, YOLOX Nano 53.1 against 14.5).
+- **Deviation: RTMDet and DEIM were not measured.** Neither publishes an
+  ONNX (RTMDet needs an mmdeploy export with PyTorch and mmcv, not set up
+  here; onnx-community has no DEIM COCO export), and DEIM shares D-FINE's
+  decoder, whose tract cost already rules that family out. `detectors.md`
+  tables them as not measured.
+- **NanoDet-Plus's ONNX lists its initializers as graph inputs.**
+  onnxruntime warns once per weight (silenced with `log_severity_level = 3`)
+  and cannot fold them as constants, so its ms is a little pessimistic;
+  tract pins only input 0 and takes the rest as constants, and the boxes
+  match onnxruntime's exactly on the 240 labeled frames.
+- **Preprocessing mirrored, not imported.** OpenCV is not in the venv;
+  `detect_eval.py`'s `resize_linear` reimplements `cv2.resize`
+  INTER_LINEAR (half-pixel centers, no antialias, rounded to uint8) for
+  YOLOX and the half-pixel-free sampling of NanoDet's `warpPerspective`.
+  The boxes were checked by eye on three labeled frames before the runs.
+- **Feature rules the pre-registration left open**, fixed in
+  `detect_features.py` before the gate run: the ball for `contested` and
+  `ball size` is the top-confidence `sports ball` box and counts only at or
+  above the best-F1 confidence (0.13574, the exact value from
+  `detections.tsv`, which matches `detect_eval.py`'s 0.136); the carrier is
+  the person box containing the ball's center, else the nearest by the
+  point-to-box distance, ties by the box center; "within one carrier-box
+  width" is the Euclidean gap between the two boxes against the carrier's
+  width, an overlap being gap 0; persons are counted at NanoDet's default
+  0.35.
+- **`detections.tsv` is 385 MB** (5.6 M lines) because every detection at
+  0.05 or above is kept, so a threshold change needs no re-run; the run took
+  478 s with 12 one-thread onnxruntime workers.
+- **Result: Candidate 2 and the combination fail** bars 1-3 (0.709 / 55.0%
+  and 0.705 / 54.1% against 0.710 / 54.9%; 10 and 8 of 20 folders), bar 4 met
+  (0.759 for `ball present`; the combination's bar 4 reads Candidate 1's
+  `ball visible`, 0.829, as Step 1 noted). The detector's `contested` reads
+  0.519 against the `contest` label. Decision 1: none ships, Steps 4-6
+  dropped. The gate run took about 6 minutes; no `__pycache__` appeared.
+- **The heredoc backslash collapse hit again**, in a Python heredoc that
+  patched `crates/cli/src/main.rs`: `\\t` / `\\n` in a Rust string became a
+  real tab and newline. Fixed with the Edit tool; the Step 2 note stands.
+
 ## Deferred issues (todo candidates)
 
-(None open: Step 1's labeling step is done.)
+- **Keep or remove `crates/core/tests/detector_tract.rs`.** Step 3 added it
+  as the shippability check (an `#[ignore]` test reading
+  `RIFFLE_DETECTOR_ONNX`, `RIFFLE_DETECTOR_INPUT` and
+  `RIFFLE_DETECTOR_TENSORS`); the plan said Step 4 could remove it or keep it
+  as its seed, and Step 4 is dropped (Decision 1). It costs nothing in CI
+  (ignored) and is the loading / cost / box-agreement harness a later
+  detector would reuse; decide whether to keep it. Related:
+  `crates/core/tests/detector_tract.rs`,
+  `docs/plans/20261014-ball-game-ranking-features/detect_eval.py`
+  (`--tensors` / `--compare`).
