@@ -450,4 +450,4 @@ dropped. App changes, if any, come in a follow-up plan.
 ## Progress
 
 - (2026-10-15) Plan written; bar option C chosen by the user
-- (2026-10-15) Step 1: pre-registration written in `folderwide.md` (no script, no fit); fixed the similar-scene-groups link broken by #826
+- (2026-10-15) Step 1 complete: pre-registration written in `folderwide.md` (no script, no fit); fixed the similar-scene-groups link broken by #826
