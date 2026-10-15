@@ -120,6 +120,9 @@
     metric", which has two parts.
   - The each-alone table gives the held-out means without intervals (the
     pre-registration asks for intervals only on the drop-one changes).
+  - The drop-one change in Top-1 is a bare point difference with no
+    bootstrap interval (as in Step 2's paired table), which deviates from the
+    Done-when text; no bar or contribution reading uses it.
   - The fitted weights: `W0` on every scorable burst, `F0+ctx` on every
     frame, `C` by the same inner grouped CV over all 27 folders (`W0` 0.1,
     `F0+ctx` 1). Look is reported as the L2 norm of its 32 PCA weights.
