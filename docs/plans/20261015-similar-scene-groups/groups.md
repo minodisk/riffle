@@ -57,8 +57,12 @@ number is reported. The labeling page carries this definition in Japanese.
   scores (the DNG folders) counts as unknown and is reported apart.
 - **Capture time**: the dump's capture time and subsec as
   `pairs.capture_ms` reads them (subsec right-padded to milliseconds). A
-  frame without a vector or a capture time is not drawn and stays its own
-  group; the number of such frames is reported.
+  frame without a capture time is not drawn and stays its own group; a
+  frame without a vector is not drawn but keeps its burst (it joins or opens
+  a group with its burst), and a burst whose boundary frame (the first frame
+  when joining, the open group's last frame when being joined) lacks a vector
+  does not chain: it opens a new group. The number of such frames is
+  reported.
 - **Bursts**: `rank::bursts`, which is `burst.ts` `groupBursts` at gap
   1000 ms (capture time, subsec, file name; a gap equal to 1000 ms stays in
   the burst). A **single** is a burst of one frame.
@@ -78,8 +82,9 @@ number is reported. The labeling page carries this definition in Japanese.
   frame is <= `W`, else it opens a new group.
 - **Grid**: `t` in 0.80, 0.81, …, 0.98 (19 values, step 0.01) crossed with
   `W` in {unbounded, 60 s, 300 s, 1800 s}: 76 rules.
-- **Fallbacks**, evaluated only if no chained rule that meets the precision
-  bar also meets the recall bar (to limit the search), on the same grid:
+- **Fallbacks**, evaluated only if at least one chained rule meets the
+  precision bar and none of those meets the recall bar (to limit the
+  search), on the same grid:
   - single linkage: a burst joins the open group when the cosine between any
     frame of the burst and any member of the group is >= `t` and the capture
     gap to the group's last frame is <= `W`;
@@ -129,9 +134,10 @@ bursts (the DNG folders add to these when dumped):
   the highest cosine bin down and, within a bin, from the longest gap bin
   down (the scarce cells first), then the anchors. For each pair a folder is
   chosen uniformly among the pool folders that still have a candidate in the
-  cell whose two files are both unused, then one such candidate uniformly, as
-  the archived [`pairs.py`](../_archived/20261012-image-embeddings/pairs.py)
-  `draw` does. **No file is reused** across the whole draw, anchors included.
+  cell whose two files are both unused, then one such candidate uniformly
+  (adapted from the archived
+  [`pairs.py`](../_archived/20261012-image-embeddings/pairs.py) `draw`, which
+  differs in detail). **No file is reused** across the whole draw, anchors included.
   A cell that runs out of usable candidates contributes what it has; the
   shortfall is not refilled from another cell and is reported under "Draw".
 - **Page**: ids given after a seeded shuffle, the sides of each pair swapped
