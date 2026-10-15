@@ -102,12 +102,13 @@ fn main() -> Result<()> {
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
         Some("embed") => embed_cmd(&args[1..]),
+        Some("previews") => previews(&parse_previews(&args[1..])?),
         Some("embed-compare") => match &args[1..] {
             [a, b] => embed_compare(Path::new(a), Path::new(b)),
             _ => bail!("usage: {EMBED_COMPARE_USAGE}"),
         },
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]\n       {EMBED_USAGE}\n       {EMBED_COMPARE_USAGE}"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]\n       {EMBED_USAGE}\n       {EMBED_COMPARE_USAGE}\n       {PREVIEWS_USAGE}"
         ),
     }
 }
@@ -993,6 +994,140 @@ fn embed_cmd(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+const PREVIEWS_USAGE: &str = "riffle-cli previews <out-dir> <dir|file>... --near <px> [threads]";
+/// The JPEG quality `previews` re-encodes at.
+const PREVIEWS_QUALITY: u8 = 92;
+
+/// `previews`' arguments: the output folder, the inputs, the long edge of
+/// the DCT scale and the thread count.
+#[derive(Debug, PartialEq)]
+struct PreviewsArgs {
+    out: PathBuf,
+    inputs: Vec<PathBuf>,
+    near: usize,
+    threads: usize,
+}
+
+fn parse_previews(args: &[String]) -> Result<PreviewsArgs> {
+    let mut near = None;
+    let mut rest = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--near" => {
+                near = Some(
+                    it.next()
+                        .ok_or(anyhow!("--near needs a long edge"))?
+                        .parse::<usize>()?,
+                )
+            }
+            _ => rest.push(a.as_str()),
+        }
+    }
+    let threads = match rest.last().map(|t| t.parse::<usize>()) {
+        Some(Ok(n)) if rest.len() > 2 => {
+            rest.pop();
+            n
+        }
+        _ => 1,
+    };
+    if threads == 0 {
+        bail!("threads must be at least 1");
+    }
+    let (Some(near), [out, inputs @ ..]) = (near, rest.as_slice()) else {
+        bail!("usage: {PREVIEWS_USAGE}");
+    };
+    if inputs.is_empty() || near == 0 {
+        bail!("usage: {PREVIEWS_USAGE}");
+    }
+    Ok(PreviewsArgs {
+        out: PathBuf::from(out),
+        inputs: inputs.iter().map(PathBuf::from).collect(),
+        near,
+        threads,
+    })
+}
+
+/// Write every RAW file's preview, decoded at the DCT scale nearest
+/// `--near` and turned upright (`decode::decode_upright_near`, the embedding's
+/// input), as a JPEG to `<out-dir>/<folder>/<stem>.jpg`, `<folder>` being the
+/// RAW file's folder name, and a `list.tsv` of `path\tjpeg\twidth\theight`.
+fn previews(a: &PreviewsArgs) -> Result<()> {
+    let paths = raw_paths(&a.inputs)?;
+    let target = |p: &Path| {
+        let folder = p
+            .parent()
+            .and_then(|d| d.file_name())
+            .unwrap_or_default()
+            .to_os_string();
+        a.out.join(folder).join(format!(
+            "{}.jpg",
+            p.file_stem().unwrap_or_default().to_string_lossy()
+        ))
+    };
+    let mut seen = std::collections::HashSet::new();
+    for p in &paths {
+        if !seen.insert(target(p)) {
+            bail!(
+                "{}: another input has the same folder and file name",
+                p.display()
+            );
+        }
+    }
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(a.threads)
+        .build()?;
+    let start = Instant::now();
+    let results: Vec<Result<(PathBuf, usize, usize)>> = pool.install(|| {
+        use rayon::prelude::*;
+        paths
+            .par_iter()
+            .map(|p| {
+                let (meta, jpeg) = reader::read_preview(p)?;
+                let up = decode_upright_near(&jpeg, meta.orientation, a.near)?;
+                let mut bytes = Vec::new();
+                image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, PREVIEWS_QUALITY)
+                    .encode(
+                        &up.rgb,
+                        up.width as u32,
+                        up.height as u32,
+                        image::ExtendedColorType::Rgb8,
+                    )?;
+                let out = target(p);
+                std::fs::create_dir_all(out.parent().unwrap_or(&a.out))?;
+                std::fs::write(&out, bytes)?;
+                Ok((out, up.width, up.height))
+            })
+            .collect()
+    });
+    let mut list = String::new();
+    let mut failed = 0;
+    for (p, r) in paths.iter().zip(results) {
+        match r {
+            Ok((out, w, h)) => {
+                list.push_str(&format!("{}\t{}\t{w}\t{h}\n", p.display(), out.display()))
+            }
+            Err(e) => {
+                failed += 1;
+                eprintln!("{}: {e:#}", p.display());
+            }
+        }
+    }
+    std::fs::create_dir_all(&a.out)?;
+    std::fs::write(a.out.join("list.tsv"), list)?;
+    eprintln!(
+        "{} files near {} px, {} threads, {failed} failed: {:.2}s total",
+        paths.len(),
+        a.near,
+        a.threads,
+        start.elapsed().as_secs_f64()
+    );
+    if failed > 0 {
+        bail!("{failed} file(s) failed");
+    }
+    Ok(())
+}
+
 /// One file's vector, decode ms, embed ms and the orientation it was fed with.
 type Embedded = (Vec<f32>, f64, f64, u16);
 
@@ -1862,6 +1997,37 @@ fn crop(path: &Path, out: &Path, size: Option<usize>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn previews_takes_the_out_dir_inputs_near_and_threads() {
+        let args = |s: &str| s.split(' ').map(String::from).collect::<Vec<_>>();
+        assert_eq!(
+            parse_previews(&args("out a b --near 640 8")).unwrap(),
+            PreviewsArgs {
+                out: PathBuf::from("out"),
+                inputs: vec![PathBuf::from("a"), PathBuf::from("b")],
+                near: 640,
+                threads: 8,
+            }
+        );
+        let one = parse_previews(&args("--near 800 out a")).unwrap();
+        assert_eq!((one.inputs.len(), one.near, one.threads), (1, 800, 1));
+        // With only the out dir and one input, a numeric last argument is the input.
+        assert_eq!(
+            parse_previews(&args("out 8 --near 640")).unwrap().inputs,
+            vec![PathBuf::from("8")]
+        );
+        for bad in [
+            "out a",
+            "out --near 640",
+            "out a --near",
+            "out a --near x",
+            "out a b --near 640 0",
+            "out a --near 0",
+        ] {
+            assert!(parse_previews(&args(bad)).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn embed_lines_round_trip_and_compare_by_path() {

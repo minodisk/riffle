@@ -271,7 +271,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
     - Expect cosines in the 0.05-0.15 band; the standardization handles the
       scale, the contrast columns handle a shared offset.
 
-- [ ] Step 3: Candidate 2: detector shortlist, previews, detections, the gate run; Decision 1
+- [x] Step 3: Candidate 2: detector shortlist, previews, detections, the gate run; Decision 1
   - Done when:
     - `detectors.md` in this folder tables the shortlist (YOLOX Nano / Tiny
       / S, RTMDet tiny / s, NanoDet-Plus, and D-FINE / RT-DETRv2 / DEIM if
@@ -325,7 +325,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
       drop them from the shortlist at the first tract load failure and say
       which op.
 
-- [ ] Step 4 (only if Candidate 2 or the combination ships): the detector in `riffle-core` and `riffle-cli`
+- [ ] ~~Step 4 (only if Candidate 2 or the combination ships): the detector in `riffle-core` and `riffle-cli`~~ dropped (Decision 1)
   - Done when:
     - `crates/core/src/objects.rs` (name free) loads the chosen ONNX as
       `faces.rs` / `embed.rs` do (ignore `value_info`, pinned input fact,
@@ -354,7 +354,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
       boxes, not only that it loads.
     - No `crates/app` change in this step.
 
-- [ ] Step 5 (only if Candidate 2 or the combination ships): detections stored by the AI pass, read by `rank_rows`
+- [ ] ~~Step 5 (only if Candidate 2 or the combination ships): detections stored by the AI pass, read by `rank_rows`~~ dropped (Decision 1)
   - Precondition: the per-file-viewed-ranking plan's Step 1 is on `main`
     (`SCHEMA_VERSION` 23, `Labeled.viewed`); rebase onto it before starting.
   - Done when:
@@ -390,7 +390,7 @@ adopted candidate, the weights of the fit on every folder, and the chosen
     - Storing detections rather than features means a feature-rule change
       in Step 6 or later needs no rescan, the pattern the embedding set.
 
-- [ ] Step 6: the new ranking columns, `RANK_VERSION` 2, the regenerated prior, the reason display, docs
+- [ ] ~~Step 6: the new ranking columns, `RANK_VERSION` 2, the regenerated prior, the reason display, docs~~ dropped (Decision 1)
   - Precondition: the per-file-viewed-ranking plan's Step 1 is on `main`;
     rebase onto it before starting (it rewrites `Labeled`, `pairs`, app
     `refit` and `the_scores_match_rank_prior_py`, all touched here).
@@ -491,9 +491,19 @@ adopted candidate, the weights of the fit on every folder, and the chosen
 
 ## Decision 1 (adopt / which / drop)
 
-(Written in Step 3 with the criterion tables of Candidate 1, Candidate 2 and
-the combination, the shippability checks, and the choice rule's outcome.
-Until then: pending.)
+**Outcome: no candidate passes. Nothing ships; Steps 4-6 are dropped and the
+plan is finished.** All three miss bars 1-3 while meeting bar 4: each cue's
+`ball` column measures the ball (0.829 for the prompt cosine, 0.759 for the
+detector's top ball confidence), but neither adds within-burst ordering to
+the shared model, alone or together. The choice rule has no passing
+candidate to choose among. Reference re-run in the same process each time:
+0.710 weighted AUC / 54.9% Top-1, as in the archived `ranking.md`.
+
+| Candidate | 1. AUC minus reference (>= 0.010) | Met | 2. Top-1 minus reference, points (>= 2.0) | Met | 3. Folders at or above (>= 13) | Met | 4. `ball` column AUC vs label (>= 0.75) | Met | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `c1` | -0.002 | no | -0.4 | no | 10 of 20 | no | 0.829 (`ball visible`) | yes | fail |
+| `c2` | -0.001 | no | +0.1 | no | 10 of 20 | no | 0.759 (`ball present`) | yes | fail |
+| `c1+c2` | -0.005 | no | -0.8 | no | 8 of 20 | no | 0.829 (`ball visible`; `c2`'s `ball present` 0.759) | yes | fail |
 
 ### Candidate 1: fail on bars 1-4 (bars 1-3 missed, bar 4 met)
 
@@ -505,8 +515,33 @@ Candidate 1: 0.708 / 54.4%.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `c1` | -0.002 | no | -0.4 | no | 10 of 20 | no | 0.829 (`ball visible`) | yes | fail |
 
+### Candidate 2: fail on bars 1-4 (bars 1-3 missed, bar 4 met); shippable
+
+From Step 3 ([candidate2.md](candidate2.md), [detectors.md](detectors.md)).
+The detector is **NanoDet-Plus m 416** (Apache-2.0 code and weights), the
+best ball F1 among the shippable models (0.752 at confidence 0.13574 on the
+hand labels, against YOLOX Tiny's 0.708 and YOLOX Nano's 0.597); YOLOX S,
+D-FINE N / S and RT-DETRv2 R18 detect the ball better (F1 0.833-0.890) but
+cost 394-2,819 ms per image on one thread in tract, over the 132 ms bar.
+Candidate 2: 0.709 / 55.0%. Its `contested` column reads 0.519 against the
+`contest` label, chance level.
+
+| Shippability check (NanoDet-Plus m 416) | Bar | Result | Met |
+| --- | --- | --- | ---: |
+| License | Apache-2.0, MIT or BSD | Apache-2.0 code and weights | yes |
+| tract 0.23, `default-features = false` | loads, runs | loads, runs | yes |
+| Boxes against onnxruntime, labeled frames | same boxes, IoU >= 0.9 | 240 of 240 frames, 9,827 of 9,827 boxes at 0.13574 | yes |
+| One-thread warm cost at 416 x 416 | <= 132 ms | 73.5 ms | yes |
+| File size | <= 100 MB | 4.8 MB | yes |
+
+### Combination: fail on bars 1-4 (bars 1-3 missed, bar 4 met)
+
+`extras_c1.tsv` + `extras_c2.tsv` ([candidate2.md](candidate2.md)): 0.705 /
+54.1%, below either candidate alone.
+
 ## Progress
 
 - (2026-10-14) Plan written with the pre-registered criteria, confirmed by the user; no score computed yet.
 - (2026-10-14) Step 1 complete
 - (2026-10-15) Step 2 complete (Candidate 1 fails bars 1-3, bar 4 met at 0.829)
+- (2026-10-15) Step 3 complete; Decision 1: no candidate ships, Steps 4-6 dropped, plan finished
