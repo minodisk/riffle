@@ -118,7 +118,7 @@ recommendation only. No app change happens in this plan.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the bottom metrics, the thresholds, the variants, the rules, the ablations and the bars in `reject.md`, no script and no score
+- [x] Step 1: Pre-register the bottom metrics, the thresholds, the variants, the rules, the ablations and the bars in `reject.md`, no script and no score
   - Done when:
     - `reject.md` in this plan folder has a "Pre-registration" section
       merged **before any script exists or any bottom number is computed**
@@ -456,3 +456,4 @@ recommendation only. No app change happens in this plan.
 ## Progress
 
 - (2026-10-16) Plan written; bar option B and variants option (b) chosen
+- (2026-10-16) Step 1 complete
