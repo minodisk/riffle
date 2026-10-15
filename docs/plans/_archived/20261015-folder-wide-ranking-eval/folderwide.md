@@ -6,8 +6,8 @@ Written 2026-10-15, before `folderwide.py` or `ablate.py` exists and before
 any fit of this plan has run, and merged on its own before the fit (the merge
 commit of the PR that adds this section, without results, is the record, as
 for the archived
-[folder-wide gate](../_archived/20261014-folder-wide-pick-model/gate.md) and
-the in-burst [gate](../_archived/20261012-image-embeddings/gate.md)). Nothing
+[folder-wide gate](../20261014-folder-wide-pick-model/gate.md) and
+the in-burst [gate](../20261012-image-embeddings/gate.md)). Nothing
 in this section changes after the results are in; a deviation found while
 implementing Step 2 or Step 3 is recorded in `learnings.md` with its reason
 and does not touch the bars.
@@ -21,7 +21,7 @@ does each column group contribute, folder-wide and within a burst?
 ### What was known before this section
 
 This pre-registration is **not blind**. The archived folder-wide gate
-([gate.md](../_archived/20261014-folder-wide-pick-model/gate.md),
+([gate.md](../20261014-folder-wide-pick-model/gate.md),
 `folder_gate.py`) ran on the same dump and reported, held out over the same 25
 qualifying folders:
 
@@ -36,9 +36,9 @@ qualifying folders:
 
 The in-burst gate gave the shipped model's within-burst numbers (weighted
 pairwise AUC 0.710, Top-1 54.9%), and
-[offsets.md](../_archived/20261014-genre-ranking-offsets/offsets.md) gave
+[offsets.md](../20261014-genre-ranking-offsets/offsets.md) gave
 0.709 with the shipped per-genre offsets. The
-[ball-game-ranking-features](../_archived/20261014-ball-game-ranking-features/plan.md)
+[ball-game-ranking-features](../20261014-ball-game-ranking-features/plan.md)
 plan measured Candidates 1 and 2 only within bursts.
 
 Not known before this section, with no prior number: R-precision of any
@@ -53,7 +53,7 @@ plan** (option C of the plan's trade-offs), not tuned to the numbers above.
 
 - The 27 folders of the app dump in `D:\Photos\tests\2026-10-12-rank-app\`,
   read through the archived
-  [`gate.py`](../_archived/20261012-image-embeddings/gate.py)'s `load` and
+  [`gate.py`](../20261012-image-embeddings/gate.py)'s `load` and
   `build`, imported by path (not copied).
 - Picks by the gate label rule (`gate.load`): a frame is a pick when its
   `.dop` flag is Pick, or it has a virtual copy in `Output/`, or it has no
