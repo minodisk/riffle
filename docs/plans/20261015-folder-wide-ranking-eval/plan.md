@@ -587,3 +587,4 @@ reported, not acted on).
 - (2026-10-15) Plan written; bar option C chosen by the user
 - (2026-10-15) Step 1 complete: pre-registration written in `folderwide.md` (no script, no fit); fixed the similar-scene-groups link broken by #826
 - (2026-10-16) Step 2 complete
+- (2026-10-16) Step 3 complete
