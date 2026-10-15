@@ -84,6 +84,17 @@ new model's ops load with this setting before turning the defaults back on.
   left 774 MB after the load. Source:
   [image-embeddings learnings](../plans/_archived/20261012-image-embeddings/learnings.md),
   Step 3.
+- Object detectors load too, but the transformer heads cost too much (Measured).
+  The onnx-community exports of D-FINE N / S and RT-DETRv2 R18 load (including
+  `GridSample`) and run with `default-features = false`, contrary to the
+  expectation that they would fail. tract runs them 9-12x slower than
+  onnxruntime (1.0 / 2.4 / 2.8 s per image against 85 / 254 / 464 ms on one
+  thread), while conv detectors cost 2-4x (NanoDet-Plus 73.5 against 34.9 ms,
+  YOLOX Nano 53.1 against 14.5). A transformer-head detector is therefore ruled
+  out on cost, not on ops: judge a candidate by its tract ms, not by whether
+  it loads. Source:
+  [ball-game-ranking-features learnings](../plans/_archived/20261014-ball-game-ranking-features/learnings.md),
+  Step 3.
 
 ## Input and output
 
