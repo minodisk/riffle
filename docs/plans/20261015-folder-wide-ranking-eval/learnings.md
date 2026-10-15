@@ -87,7 +87,60 @@
   with `python -I -B` (`-I` ignores `PYTHONDONTWRITEBYTECODE`) and check
   `git status` for stray `__pycache__/` afterwards.
 
+## Step 3
+
+- **Wall time** 356 s on 20 jobs (Windows 11) for 1,140 held-out fits
+  (22 `F0+ctx` models x 27 folds + 21 `W0` models x 26 folds) plus 3 s for
+  the two all-folder fits, far below the plan's one-hour budget. Run with
+  `python -I -B`; no `__pycache__/` was left this time.
+- **The unablated rerun matches `scores.tsv`** to 5e-6 (the file's
+  6-significant-digit rounding) on both bases, so the column-mask path is
+  the Step 2 model and every drop-one difference is against the same
+  held-out score.
+- **`python -I` drops the script's own folder from `sys.path`**, so
+  `ablate.py` inserts its folder before `import folderwide`; the loky
+  workers inherit the parent's `sys.path` and import it too.
+- Choices the pre-registered text left open (none changes a bar):
+  - Each ablation masks the columns of the base's per-fold design after it
+    is built and standardized. Per-column standardization makes that the
+    same as building it without them; the PCA is still fit on the training
+    folders as before. Every masked model reruns the inner CV over
+    `gate.CS`.
+  - On `F0+ctx`, the `Sharpness` group is the relative `ln rel sharpness`
+    and the absolute `ln sharpness` (as `folder_gate.GROUPS`), and
+    `Burst position` is `position` and `first frame` only; `ln burst size`
+    is its own drop-one row and is not in "burst position alone".
+  - Dropping `|yaw|`, `|pitch|` or `|roll|` alone keeps `no pose`.
+  - "Alone" on `W0` is the within-burst pairwise fit on those columns,
+    on `F0+ctx` the weighted pointwise fit; c1, c2 and the genre labels
+    alone are their block mean-imputed and standardized on the training
+    folders (`folderwide.append_block` on an empty design).
+  - "Contributes" is read on each metric separately (frame AUC,
+    R-precision, within-burst wAUC); the pre-registration says "the primary
+    metric", which has two parts.
+  - The each-alone table gives the held-out means without intervals (the
+    pre-registration asks for intervals only on the drop-one changes).
+  - The drop-one change in Top-1 is a bare point difference with no
+    bootstrap interval (as in Step 2's paired table), which deviates from the
+    Done-when text; no bar or contribution reading uses it.
+  - The fitted weights: `W0` on every scorable burst, `F0+ctx` on every
+    frame, `C` by the same inner grouped CV over all 27 folders (`W0` 0.1,
+    `F0+ctx` 1). Look is reported as the L2 norm of its 32 PCA weights.
+- Decision 1 cites one non-pre-registered number: `F0+ctx +genre off`
+  against `W0`, taken as the difference of the two table means (+0.012
+  frame AUC, -0.9 points R-precision), with no interval or test, to show it
+  would not pass against the reference either.
+
 ## Deferred issues (todo candidates)
+
+- **The shipped model scores singles at chance folder-wide.** Basis: Step 2
+  results and Step 3's Decision 1 (reading aid, not a bar). Held out, `W0`
+  reads singles AUC 0.508 against 0.611 for `F0+ctx` (13 folders with >= 5
+  single picks and 5 single non-picks). The app ranks only within bursts
+  today, so nothing shows it; if a later plan ever ranks or marks singles
+  (a folder-wide "best" view), the within-burst weights should not be used
+  for them as is. Files: `crates/core/src/rank.rs`,
+  `docs/plans/20261015-folder-wide-ranking-eval/folderwide.md`.
 
 - **The archived harnesses cannot run standalone any more.** Basis: Step 2
   implementation (the import paths found while importing them).

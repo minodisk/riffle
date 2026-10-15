@@ -432,3 +432,151 @@ Facts only; the Decision is Step 3's, after the ablations.
   0.611 for `F0+ctx` (13 folders). The burst-centered `W0` score (what the
   app displays) reads frame AUC 0.662, not near chance as the
   pre-registration expected. Pick vs explicit reject covers only 3 folders.
+
+## Ablations
+
+Run 2026-10-16 by `python -I -B ablate.py D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-14-ball-labels D:\Photos\tests\2026-10-15-folder-wide-eval 20`
+(Windows 11, 20 jobs). Its stdout is `ablate.out.md` in
+`D:\Photos\tests\2026-10-15-folder-wide-eval\`, next to `folderwide.out.md`.
+The unablated reference of every comparison is the held-out score of Step 2's
+`scores.tsv`; the script also reruns the unablated model through the same
+column-mask path as a check. The tables below are that output as printed,
+headings one level down. Implementation choices are in `learnings.md`
+(Step 3); the decision is the plan's Decision 1.
+
+### Check: the unablated rerun against Step 2's `scores.tsv`
+
+| Base | Max abs score difference | Frame AUC, `scores.tsv` | Frame AUC, rerun | Within-burst wAUC, `scores.tsv` | Within-burst wAUC, rerun |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `F0+ctx` | 5.00e-06 | 0.666 | 0.666 | 0.698 | 0.698 |
+| `W0` | 5.00e-06 | 0.666 | 0.666 | 0.710 | 0.710 |
+
+### Drop one (ablated minus unablated)
+
+Each row is a full held-out rerun (leave one folder out, the same `C` grid and inner CV) without the named columns, against the unablated model's held-out score in Step 2's `scores.tsv`. Frame AUC and R-precision: the mean paired per-folder difference over the 25 qualifying folders with the 1,000-draw folder bootstrap 95% interval (seed 0). Within-burst: the per-burst weighted AUC difference with `genre_offsets.boot`'s per-burst bootstrap, and the Top-1 difference. *Contributes* when the interval lies entirely below zero.
+
+#### `F0+ctx`
+
+| Dropped | Frame AUC | Contributes | R-precision, points | Contributes | Within-burst wAUC | Contributes | Top-1, points |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Look | -0.042 [-0.059, -0.023] | yes | -4.5 [-8.0, -0.2] | yes | -0.054 [-0.064, -0.045] | yes | -9.3 |
+| Burst position | -0.009 [-0.018, +0.002] | no | +0.2 [-1.7, +2.4] | no | -0.021 [-0.038, -0.006] | yes | -0.7 |
+| Sharpness | -0.004 [-0.007, -0.000] | yes | +0.1 [-1.0, +1.9] | no | -0.003 [-0.007, +0.001] | no | -0.3 |
+| AF eye focus | -0.000 [-0.005, +0.004] | no | +0.8 [-0.4, +2.5] | no | +0.001 [-0.003, +0.005] | no | +0.3 |
+| Eyes open | -0.007 [-0.013, -0.002] | yes | -0.9 [-1.7, -0.3] | yes | -0.002 [-0.006, +0.001] | no | -0.2 |
+| Head pose | +0.001 [-0.001, +0.003] | no | -0.0 [-0.5, +0.5] | no | +0.001 [-0.001, +0.004] | no | +0.4 |
+| Good photo | +0.001 [-0.003, +0.006] | no | -0.3 [-1.0, +0.3] | no | -0.001 [-0.004, +0.003] | no | -0.2 |
+| \|yaw\| | +0.000 [-0.002, +0.002] | no | -0.2 [-0.9, +0.4] | no | +0.000 [-0.002, +0.003] | no | -0.1 |
+| \|pitch\| | +0.001 [-0.000, +0.002] | no | -0.2 [-0.5, +0.1] | no | -0.001 [-0.002, +0.001] | no | -0.7 |
+| \|roll\| | +0.001 [-0.000, +0.002] | no | +0.6 [-0.4, +2.1] | no | -0.001 [-0.003, +0.000] | no | -0.1 |
+| ln burst size | -0.003 [-0.008, +0.002] | no | +0.9 [-0.7, +3.0] | no | +0.001 [-0.003, +0.005] | no | +0.2 |
+
+#### `W0`
+
+| Dropped | Frame AUC | Contributes | R-precision, points | Contributes | Within-burst wAUC | Contributes | Top-1, points |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Look | -0.051 [-0.075, -0.025] | yes | -5.3 [-9.9, -0.1] | yes | -0.058 [-0.070, -0.046] | yes | -10.3 |
+| Burst position | -0.008 [-0.013, -0.001] | yes | -0.2 [-2.3, +2.0] | no | -0.027 [-0.040, -0.014] | yes | -1.6 |
+| Sharpness | -0.001 [-0.006, +0.002] | no | -0.5 [-2.0, +0.6] | no | -0.003 [-0.008, +0.001] | no | -0.3 |
+| AF eye focus | -0.002 [-0.005, +0.001] | no | -0.5 [-2.2, +0.6] | no | -0.000 [-0.004, +0.004] | no | +0.2 |
+| Eyes open | -0.007 [-0.014, -0.002] | yes | -0.4 [-0.9, +0.1] | no | -0.006 [-0.011, -0.001] | yes | -0.7 |
+| Head pose | +0.000 [-0.002, +0.002] | no | -0.3 [-0.7, +0.2] | no | -0.001 [-0.004, +0.002] | no | -0.3 |
+| Good photo | -0.003 [-0.009, +0.002] | no | -0.6 [-2.1, +0.4] | no | +0.000 [-0.004, +0.004] | no | +0.8 |
+| \|yaw\| | +0.001 [-0.000, +0.002] | no | -0.0 [-0.3, +0.3] | no | -0.002 [-0.004, +0.000] | no | -0.6 |
+| \|pitch\| | +0.001 [-0.000, +0.002] | no | +0.1 [-0.2, +0.5] | no | -0.001 [-0.003, +0.001] | no | -0.2 |
+| \|roll\| | -0.001 [-0.002, +0.001] | no | -0.0 [-0.4, +0.3] | no | -0.001 [-0.004, +0.001] | no | -0.5 |
+
+### Each group alone
+
+A model of only that group's columns (with its missing-value indicators), held out as above. Frame AUC and R-precision: the mean over the 25 qualifying folders (per-folder SD in brackets); R-precision chance 13.8%. Within-burst: weighted pairwise AUC and Top-1 over the scorable bursts. On `F0+ctx`, sharpness is the relative and the absolute `ln sharpness`, burst position is position and first frame (no `ln burst size`).
+
+| Alone | `F0+ctx` frame AUC | R-precision % | Within-burst wAUC | Top-1 | `W0` frame AUC | R-precision % | Within-burst wAUC | Top-1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Head pose | 0.533 (0.057) | 15.6 (5.9) | 0.538 | 32.3% | 0.539 (0.050) | 15.8 (4.0) | 0.531 | 31.8% |
+| Sharpness | 0.517 (0.058) | 14.2 (6.2) | 0.583 | 40.5% | 0.530 (0.057) | 15.6 (8.5) | 0.583 | 40.5% |
+| AF eye focus | 0.583 (0.048) | 20.7 (7.0) | 0.566 | 36.8% | 0.584 (0.046) | 20.7 (7.0) | 0.564 | 36.7% |
+| Eyes open | 0.575 (0.040) | 16.5 (6.2) | 0.541 | 32.5% | 0.573 (0.041) | 16.5 (6.2) | 0.542 | 32.5% |
+| Good photo | 0.546 (0.050) | 19.5 (9.4) | 0.533 | 33.9% | 0.546 (0.050) | 19.5 (9.4) | 0.533 | 33.9% |
+| Burst position | 0.578 (0.081) | 17.7 (8.2) | 0.643 | 38.8% | 0.583 (0.078) | 18.0 (8.9) | 0.647 | 39.3% |
+| Embedding (Look) | 0.629 (0.111) | 25.3 (11.1) | 0.659 | 51.7% | 0.636 (0.105) | 26.7 (10.2) | 0.668 | 51.5% |
+| c1 | 0.585 (0.065) | 20.6 (4.6) | 0.600 | 41.3% | 0.581 (0.079) | 19.8 (7.4) | 0.612 | 42.7% |
+| c2 | 0.558 (0.062) | 19.6 (5.6) | 0.585 | 42.3% | 0.559 (0.067) | 18.9 (5.6) | 0.597 | 43.2% |
+| Genre labels | 0.513 (0.054) | 14.8 (6.2) | 0.510 | 30.4% | 0.511 (0.050) | 15.0 (7.5) | 0.514 | 31.0% |
+| All (`F0+ctx` unablated) | 0.666 (0.102) | 27.0 (11.5) | 0.698 | 52.7% |  |  |  |  |
+| All (`W0` unablated) |  |  |  |  | 0.666 (0.095) | 28.6 (10.8) | 0.710 | 54.9% |
+
+### Fitted weights (all 27 folders)
+
+Each base fit on every folder (`W0` on every scorable burst) with `C` chosen by the same inner grouped CV, on standardized columns, so the weights compare across columns. Grouped as `rank.rs`'s `REASONS`; Look is the L2 norm of its 32 PCA weights.
+
+| Reason | Column | `W0` | `F0+ctx` |
+| --- | ---: | ---: | ---: |
+|  | `C` | 0.1 | 1 |
+|  | Intercept | - | -0.199 |
+| Look | L2 norm of 32 PCA weights | 1.225 | 0.490 |
+| Burst position | position | -0.373 | -0.225 |
+| Burst position | first frame | -0.156 | +0.023 |
+| Sharpness | ln rel sharpness | +0.231 | +0.107 |
+| Sharpness | ln sharpness | - | +0.029 |
+| AF eye focus | `eye_focus` logit | +0.170 | +0.144 |
+| AF eye focus | no `eye_focus` | -0.048 | -0.060 |
+| Eyes open | eyes open | +0.211 | +0.117 |
+| Eyes open | no eyes judgment | +0.203 | -0.007 |
+| Head pose | \|yaw\| | -0.024 | +0.061 |
+| Head pose | \|pitch\| | +0.028 | +0.025 |
+| Head pose | \|roll\| | +0.026 | +0.017 |
+| Head pose | no pose | -0.171 | -0.010 |
+| Good photo | `photoTier` good | +0.125 | +0.088 |
+| (context) | ln burst size | - | +0.154 |
+
+`C` chosen per fold (count of folds):
+
+| Model | 0.01 | 0.1 | 1.0 | 10.0 |
+| --- | ---: | ---: | ---: | ---: |
+| `F0+ctx` Unablated (rerun) | 0 | 0 | 20 | 7 |
+| `F0+ctx` drop Look | 0 | 0 | 9 | 18 |
+| `F0+ctx` drop Burst position | 0 | 2 | 20 | 5 |
+| `F0+ctx` drop Sharpness | 0 | 2 | 21 | 4 |
+| `F0+ctx` drop AF eye focus | 0 | 3 | 22 | 2 |
+| `F0+ctx` drop Eyes open | 0 | 0 | 14 | 13 |
+| `F0+ctx` drop Head pose | 0 | 0 | 23 | 4 |
+| `F0+ctx` drop Good photo | 0 | 1 | 18 | 8 |
+| `F0+ctx` drop \|yaw\| | 0 | 0 | 22 | 5 |
+| `F0+ctx` drop \|pitch\| | 0 | 0 | 22 | 5 |
+| `F0+ctx` drop \|roll\| | 0 | 0 | 22 | 5 |
+| `F0+ctx` drop ln burst size | 0 | 0 | 20 | 7 |
+| `F0+ctx` alone Head pose | 24 | 3 | 0 | 0 |
+| `F0+ctx` alone Sharpness | 5 | 5 | 4 | 13 |
+| `F0+ctx` alone AF eye focus | 4 | 6 | 3 | 14 |
+| `F0+ctx` alone Eyes open | 0 | 6 | 12 | 9 |
+| `F0+ctx` alone Good photo | 27 | 0 | 0 | 0 |
+| `F0+ctx` alone Burst position | 0 | 0 | 14 | 13 |
+| `F0+ctx` alone Embedding (Look) | 0 | 10 | 9 | 8 |
+| `F0+ctx` alone c1 | 0 | 0 | 16 | 11 |
+| `F0+ctx` alone c2 | 0 | 1 | 3 | 23 |
+| `F0+ctx` alone Genre labels | 12 | 6 | 2 | 7 |
+| `W0` Unablated (rerun) | 6 | 7 | 5 | 8 |
+| `W0` drop Look | 25 | 1 | 0 | 0 |
+| `W0` drop Burst position | 7 | 6 | 2 | 11 |
+| `W0` drop Sharpness | 11 | 3 | 5 | 7 |
+| `W0` drop AF eye focus | 4 | 13 | 6 | 3 |
+| `W0` drop Eyes open | 11 | 6 | 5 | 4 |
+| `W0` drop Head pose | 8 | 7 | 6 | 5 |
+| `W0` drop Good photo | 8 | 8 | 8 | 2 |
+| `W0` drop \|yaw\| | 4 | 9 | 8 | 5 |
+| `W0` drop \|pitch\| | 5 | 8 | 4 | 9 |
+| `W0` drop \|roll\| | 4 | 9 | 7 | 6 |
+| `W0` alone Head pose | 4 | 12 | 7 | 3 |
+| `W0` alone Sharpness | 26 | 0 | 0 | 0 |
+| `W0` alone AF eye focus | 16 | 4 | 6 | 0 |
+| `W0` alone Eyes open | 15 | 11 | 0 | 0 |
+| `W0` alone Good photo | 26 | 0 | 0 | 0 |
+| `W0` alone Burst position | 26 | 0 | 0 | 0 |
+| `W0` alone Embedding (Look) | 1 | 9 | 7 | 9 |
+| `W0` alone c1 | 0 | 0 | 7 | 19 |
+| `W0` alone c2 | 20 | 4 | 0 | 2 |
+| `W0` alone Genre labels | 5 | 17 | 4 | 0 |
+
+### Wall time
+
+1140 held-out fits 347 s, the all-folder fits 3 s, total 356 s on 20 jobs.
