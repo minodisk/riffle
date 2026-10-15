@@ -27,12 +27,12 @@ singles — in the user's snap folders 30–80% of the bursts have one frame
 those frames get place 1 of 1, score 0, and no recommendation at all.
 
 Two earlier attempts bear on this. The sports similarity check
-([similarity.md](../_archived/20261012-image-embeddings/similarity.md), 150
+([similarity.md](../20261012-image-embeddings/similarity.md), 150
 hand-labeled pairs from 8 folders) found no SigLIP 2 cosine threshold that
 separates "same play" from "different play" at 0.95 precision: the embedding
 carries the place, the sport and the atmosphere, not which play. A low
 cosine did reliably mean different (no "same" below 0.87). The folder-wide
-pick model ([folder-wide-pick-model](../_archived/20261014-folder-wide-pick-model/plan.md))
+pick model ([folder-wide-pick-model](../20261014-folder-wide-pick-model/plan.md))
 failed its gate: comparing frames across bursts with one per-frame score did
 not beat burst size (burst AUC 0.710 vs 0.751). The idea left is to widen
 the *group* and keep comparing only within it: in non-sports shooting,
@@ -104,11 +104,11 @@ Pillow; the system Python has no numpy).
   `.dop` Pick, else a virtual copy in `Output/`, else XMP Pick with no
   `.dop`). Pick rates run 10–17%.
 - **Tooling to reuse** (import or run, do not copy):
-  [pairs.py](../_archived/20261012-image-embeddings/pairs.py) (`load`,
+  [pairs.py](../20261012-image-embeddings/pairs.py) (`load`,
   the `BINS` draw, `previews`, the `PAGE` labeling template with S / D / U
   keys and `labels.tsv` export),
-  [similarity.py](../_archived/20261012-image-embeddings/similarity.py)
-  (threshold table), [gate.py](../_archived/20261012-image-embeddings/gate.py)
+  [similarity.py](../20261012-image-embeddings/similarity.py)
+  (threshold table), [gate.py](../20261012-image-embeddings/gate.py)
   (`load`, `bursts_of`, label rule). `exiftool` is on PATH (`previews`
   needs it). `riffle-cli embed <model.onnx> siglip2 <dir>... [threads]
   --near 404 --out <tsv>` and `riffle-cli features <dir>... [threads]`
@@ -216,8 +216,8 @@ previous plan, asked for the more accurate judgment where there is a choice:
     - `mise run lint` passes (lychee on the links).
   - Implementation approach:
     - Model the section on the archived
-      [gate.md](../_archived/20261012-image-embeddings/gate.md) and
-      [folder-wide gate.md](../_archived/20261014-folder-wide-pick-model/gate.md)
+      [gate.md](../20261012-image-embeddings/gate.md) and
+      [folder-wide gate.md](../20261014-folder-wide-pick-model/gate.md)
       pre-registrations; keep their vocabulary.
     - No Python, no Rust in this PR; a doc-only PR.
 
@@ -261,7 +261,7 @@ previous plan, asked for the more accurate judgment where there is a choice:
     - Keep `scene_pairs.py` small: reuse, do not re-implement, the
       previews and page.
 
-- [ ] Step 3: `scene_groups.py`, the results and Decision 1 (ship or not)
+- [ ] ~~Step 3: `scene_groups.py`, the results and Decision 1 (ship or not)~~ (dropped, Decision 1)
   - Done when:
     - `scene_groups.py` in this plan folder (`python -I scene_groups.py
       <pairs-dir> <dump-dir> [<dump-dir>...]`) joins `pairs.tsv` and
@@ -287,7 +287,7 @@ previous plan, asked for the more accurate judgment where there is a choice:
       (0 when k = 0; for k = n the closed form `0.05 ** (1 / n)`).
     - Unsure labels dropped, as before.
 
-- [ ] Step 4 (only if Decision 1 passes): `crates/core/src/scene.rs`, the scene grouping, used by `rank` for placing and scoring
+- [ ] ~~Step 4 (only if Decision 1 passes): `crates/core/src/scene.rs`, the scene grouping, used by `rank` for placing and scoring~~ (dropped, Decision 1)
   - Done when:
     - `scene.rs` exposes `pub fn groups(frames: &[Frame]) -> Vec<Vec<usize>>`
       implementing the chosen rule: start from `rank::bursts`, then chain
@@ -315,7 +315,7 @@ previous plan, asked for the more accurate judgment where there is a choice:
       `ball-game-ranking-features` PR that touches `rank.rs` if one lands
       first; the diff here is one call site plus the `group` field.
 
-- [ ] Step 5 (only if Decision 1 passes): the app orders and marks by scene group
+- [ ] ~~Step 5 (only if Decision 1 passes): the app orders and marks by scene group~~ (dropped, Decision 1)
   - Done when:
     - `ranking_of` returns the `group` with each `Ranked` (serialized by
       the Step 4 field; `crates/app/src/rank.rs` needs no logic change,
@@ -340,7 +340,7 @@ previous plan, asked for the more accurate judgment where there is a choice:
     - Depends on Step 4 merged.
     - Surgical: do not touch `burst.ts`.
 
-- [ ] Step 6 (only if Decision 1 passes): user docs
+- [ ] ~~Step 6 (only if Decision 1 passes): user docs~~ (dropped, Decision 1)
   - Done when:
     - `docs/humans/usage.md` "Recommended order" and `README.md`
       "Recommended order (AI analysis)" say the ranking compares frames of
@@ -394,11 +394,28 @@ previous plan, asked for the more accurate judgment where there is a choice:
 
 ## Decision 1 (scene groups ship or not)
 
-(Written at the end of Step 3 from the pre-registered criterion in
-`groups.md`.)
+Stopped before labeling (2026-10-15); not decided by the pre-registered
+criterion. No pair was labeled and `scene_groups.py` was not written.
+
+The user redefined the ranking's goal the same day: find good photos
+anywhere in a folder, a single shot or a burst frame alike, without
+treating bursts as special. Scene groups extend the within-burst choice
+("which frame of this group") to singles, so they serve the old framing,
+not the new one, and the user chose to stop the plan. Steps 3–6 are
+dropped. The folder-wide measurement the new goal calls for starts from
+the archived `20261014-folder-wide-pick-model` results (`folder_gate.py`:
+frame AUC 0.666, singles AUC 0.611, top-tenth lift 2.08).
+
+What remains: `groups.md` (the pre-registration), `scene_pairs.py`, and
+outside the repository the 200 drawn pairs and the unused labeling page in
+`D:\Photos\tests\2026-10-15-scene-pairs\` and the DNG dump in
+`D:\Photos\tests\2026-10-15-scene-embed\`. Should scene groups be wanted
+again (for example to fold near-duplicates), labeling those pairs and
+running Step 3 as pre-registered is still valid.
 
 ## Progress
 
 - (2026-10-15) Plan written
 - (2026-10-15) Step 1 complete
 - (2026-10-15) Step 2 complete
+- (2026-10-15) Stopped before labeling; Steps 3–6 dropped (Decision 1)

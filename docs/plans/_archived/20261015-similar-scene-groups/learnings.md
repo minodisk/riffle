@@ -82,11 +82,6 @@
 
 ## Deferred issues (todo candidates)
 
-- Pending manual check (Step 2 hand-off, the user's): open
-  `D:\Photos\tests\2026-10-15-scene-pairs\label.html` in a browser (as a
-  `file://` page), label all 200 pairs with S / D / U, press "TSV を書き出す"
-  and save the downloaded `labels.tsv` into
-  `D:\Photos\tests\2026-10-15-scene-pairs\` beside `pairs.tsv`. Expected:
-  `labels.tsv` with a header `id\tlabel` and 200 rows. Step 3 starts only
-  then. Step 2's checkbox was ticked on the automated criteria (the dump,
-  the draw and the page exist).
+- None. The pending labeling hand-off was cancelled when the plan was
+  stopped (Decision 1); the unlabeled pairs and page stay in
+  `D:\Photos\tests\2026-10-15-scene-pairs\` should Step 3 be resumed.

@@ -6,7 +6,7 @@ Written 2026-10-15T08:55+09:00, before `scene_pairs.py` or `scene_groups.py`
 exists, before any pair is drawn and before any label is given, and merged on
 its own (the merge commit of the PR that adds this section, without the draw
 and the results below, is the record, as `ce0ea14` was for the in-burst
-[gate](../_archived/20261012-image-embeddings/gate.md)). Nothing in this
+[gate](../20261012-image-embeddings/gate.md)). Nothing in this
 section changes after the labels are in; a deviation found while implementing
 Steps 2 and 3 is recorded in `learnings.md` with its reason and does not touch
 the criterion.
@@ -67,7 +67,7 @@ number is reported. The labeling page carries this definition in Japanese.
   1000 ms (capture time, subsec, file name; a gap equal to 1000 ms stays in
   the burst). A **single** is a burst of one frame.
 - **Picks** (for the interaction check only): the in-burst gate's rule, via
-  the archived [`gate.py`](../_archived/20261012-image-embeddings/gate.py)'s
+  the archived [`gate.py`](../20261012-image-embeddings/gate.py)'s
   `load`: a frame is a pick when its `.dop` flag is Pick, or it has a virtual
   copy in `Output/` (`<stem>_<n>`), or it has no `.dop` and its XMP flag is
   Pick; every other frame is a non-pick.
@@ -136,7 +136,7 @@ bursts (the DNG folders add to these when dumped):
   chosen uniformly among the pool folders that still have a candidate in the
   cell whose two files are both unused, then one such candidate uniformly
   (adapted from the archived
-  [`pairs.py`](../_archived/20261012-image-embeddings/pairs.py) `draw`, which
+  [`pairs.py`](../20261012-image-embeddings/pairs.py) `draw`, which
   differs in detail). **No file is reused** across the whole draw, anchors included.
   A cell that runs out of usable candidates contributes what it has; the
   shortfall is not refilled from another cell and is reported under "Draw".
