@@ -149,7 +149,7 @@ previous plan, asked for the more accurate judgment where there is a choice:
 
 ## Steps
 
-- [ ] Step 1: Pre-register the scene-group evaluation in `groups.md` (definition, data, grouping candidates, sampling, bars, confidence rule), no pair drawn
+- [x] Step 1: Pre-register the scene-group evaluation in `groups.md` (definition, data, grouping candidates, sampling, bars, confidence rule), no pair drawn
   - Done when:
     - `groups.md` in this plan folder has a "Pre-registration" section
       merged **before any script exists, any pair is drawn or any label is
@@ -397,3 +397,4 @@ previous plan, asked for the more accurate judgment where there is a choice:
 ## Progress
 
 - (2026-10-15) Plan written
+- (2026-10-15) Step 1 complete
