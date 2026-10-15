@@ -309,7 +309,7 @@ dropped. App changes, if any, come in a follow-up plan.
       plus a fallback check).
     - Strip CRLF before pasting into `folderwide.md` (`sed 's/\r$//'`).
 
-- [ ] Step 3: `ablate.py`: the column and group ablations with intervals, and Decision 1 (training criterion, cues, genre keep / drop)
+- [x] Step 3: `ablate.py`: the column and group ablations with intervals, and Decision 1 (training criterion, cues, genre keep / drop)
   - Done when:
     - `ablate.py` in this plan folder (`python -I ablate.py <app-dump-dir>
       <ball-labels-dir> <out-dir> [jobs]`, importing `folderwide.py`'s
@@ -444,8 +444,143 @@ dropped. App changes, if any, come in a follow-up plan.
 
 ## Decision 1 (training criterion, cues, columns, genre keep / drop)
 
-(Written at the end of Step 3 from the pre-registered bars in
-`folderwide.md`.)
+Written 2026-10-16 at the end of Step 3, after both the Step 2 results and
+the ablation tables existed, against the bars pre-registered in Step 1
+(option C: mean frame AUC gain >= +0.010, mean R-precision gain >= +2.0
+points, >= 16 of the 25 qualifying folders at or above, one-sided Wilcoxon
+p < 0.05 on both). Every number is held out (leave one folder out) and
+comes from [folderwide.md](folderwide.md) "Results" and "Ablations".
+
+**1. Folder-wide training does not win.** The best folder-wide formulation
+by mean frame AUC is `F0+ctx` (pointwise, the 44 shipped columns +
+`ln burst size` + absolute `ln sharpness`). Against `W0` (the shipped
+within-burst model scored folder-wide):
+
+| Comparison | Frame AUC | p | R-precision, points | p | Folders at or above | Within-burst wAUC | Bars met |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `F0+ctx` - `W0` | -0.000 [-0.017, +0.014] | 0.298 | -1.6 [-3.8, +0.6] | 0.963 | 15 of 25 | -0.012 [-0.021, -0.002] | 0 of 5 |
+| `F0` - `W0` | -0.002 [-0.020, +0.013] | 0.490 | -1.0 [-2.9, +1.0] | 0.895 | 12 of 25 | -0.011 [-0.020, -0.002] | 0 of 5 |
+| `P0` - `W0` | -0.002 [-0.022, +0.015] | 0.594 | -1.7 [-4.3, +0.8] | 0.924 | 11 of 25 | -0.014 [-0.023, -0.006] | 0 of 5 |
+
+None of the three meets a single bar, and all three lose within bursts with
+intervals below zero. The burst-size share of `F0+ctx` is small: dropping
+`ln burst size` moves its frame AUC by -0.003 [-0.008, +0.002] and its
+R-precision by +0.9 points. The shipped model is already as good
+folder-wide as a model trained for it (frame AUC 0.666 both, R-precision
+28.6% against 27.0%, chance 13.8%). The one place folder-wide training reads
+better is singles AUC (0.508 for `W0`, 0.611 for `F0+ctx`, 13 folders), a
+reading aid that decides nothing; the app does not rank singles today.
+
+**2. No cue adds value folder-wide, on either base.**
+
+| Cue | Base | Frame AUC | p | R-precision, points | p | Folders | Within-burst wAUC | Bars met |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| genre columns | `F0+ctx` | +0.001 [-0.009, +0.010] | 0.245 | +0.2 [-1.3, +2.1] | 0.594 | 18 | +0.001 [-0.004, +0.005] | 1 of 5 |
+| genre offsets | `F0+ctx` | +0.011 [+0.005, +0.019] | 0.001 | +0.7 [-0.8, +2.0] | 0.106 | 21 | +0.001 [-0.004, +0.005] | 3 of 5 |
+| c1 | `F0+ctx` | -0.002 [-0.006, +0.002] | 0.922 | -0.0 [-1.1, +1.7] | 0.956 | 7 | -0.003 [-0.006, +0.000] | 0 of 5 |
+| c2 | `F0+ctx` | -0.003 [-0.005, +0.000] | 0.967 | -0.4 [-1.2, +0.2] | 0.849 | 9 | -0.001 [-0.004, +0.002] | 0 of 5 |
+| c1 + c2 | `F0+ctx` | -0.001 [-0.004, +0.003] | 0.880 | +0.2 [-1.4, +2.1] | 0.660 | 8 | -0.000 [-0.004, +0.004] | 0 of 5 |
+| genre columns | `W0` | +0.004 [+0.001, +0.008] | 0.021 | +0.4 [-0.8, +2.2] | 0.609 | 17 | -0.002 [-0.007, +0.003] | 2 of 5 |
+| genre offsets (`W0+off`, shipped) | `W0` | +0.003 [-0.001, +0.007] | 0.033 | -0.7 [-2.6, +0.8] | 0.689 | 18 | -0.000 [-0.006, +0.005] | 2 of 5 |
+| c1 | `W0` | +0.000 [-0.002, +0.002] | 0.374 | +0.0 [-0.7, +0.6] | 0.356 | 12 | -0.002 [-0.006, +0.001] | 0 of 5 |
+| c2 | `W0` | -0.003 [-0.006, -0.001] | 0.980 | -0.5 [-2.3, +0.8] | 0.568 | 8 | -0.001 [-0.005, +0.005] | 0 of 5 |
+| c1 + c2 | `W0` | -0.002 [-0.005, +0.001] | 0.918 | +0.2 [-0.9, +1.1] | 0.372 | 8 | -0.005 [-0.010, +0.001] | 0 of 5 |
+
+Ten comparisons were read; none passes. The nearest is the genre offsets on
+`F0+ctx`, which clear the frame AUC size, the folder count and the frame AUC
+p but not R-precision (+0.7 points, p = 0.106), with `C` at the top of the
+grid in every fold. Against `W0` directly (not a pre-registered comparison,
+the difference of the two table means) it reads +0.012 frame AUC and -0.9
+points R-precision, so it would not pass there either.
+
+What the earlier "no gain" verdicts mean now:
+
+- **Genre offsets** ([offsets.md](../_archived/20261014-genre-ranking-offsets/offsets.md),
+  within bursts): the verdict **stands**, and is not only an artifact of
+  the within-burst metric. Within bursts the offsets still add nothing
+  (+0.001 / -0.000 wAUC). Folder-wide they do carry something the old
+  metric could not see: a small, consistent frame AUC gain on the
+  pointwise model (+0.011 in 21 of 25 folders). But that gain does not reach
+  the top of the folder (R-precision), where the user looks, and on the
+  shipped model it is +0.003. So: a real but small whole-folder effect, not
+  one worth an app change under the bars.
+- **Genre columns** (the archived folder-wide gate's +0.001): **stands**
+  (+0.001 on `F0+ctx`, +0.004 on `W0`, neither reaches R-precision).
+- **Candidates 1 and 2**
+  ([ball-game-ranking-features](../_archived/20261014-ball-game-ranking-features/plan.md),
+  within bursts): the verdict **stands and was not an artifact**. Folder-wide
+  they read -0.003 to +0.000 frame AUC on both bases. Alone they carry
+  signal (c1 alone 0.585 frame AUC, 0.600 within bursts), but the full
+  model already has it: the embedding and the technical columns cover what
+  the ball-game composition says.
+
+**3. Column contributions** (from the drop-one table; "yes" = the ablation
+lowers the metric with its bootstrap interval entirely below zero; frame AUC /
+R-precision / within-burst wAUC; each-alone frame AUC beside it):
+
+| Columns | `F0+ctx` drop: frame / R-prec / within | `W0` drop: frame / R-prec / within | Alone frame AUC (`F0+ctx` / `W0`) |
+| --- | --- | --- | ---: |
+| Look (32 PCA) | yes / yes / yes (-0.042, -4.5, -0.054) | yes / yes / yes (-0.051, -5.3, -0.058) | 0.629 / 0.636 |
+| Burst position | no / no / yes (-0.009, +0.2, -0.021) | yes / no / yes (-0.008, -0.2, -0.027) | 0.578 / 0.583 |
+| Sharpness | yes / no / no (-0.004, +0.1, -0.003) | no / no / no (-0.001, -0.5, -0.003) | 0.517 / 0.530 |
+| AF eye focus | no / no / no (-0.000, +0.8, +0.001) | no / no / no (-0.002, -0.5, -0.000) | 0.583 / 0.584 |
+| Eyes open | yes / yes / no (-0.007, -0.9, -0.002) | yes / no / yes (-0.007, -0.4, -0.006) | 0.575 / 0.573 |
+| Head pose (all) | no / no / no (+0.001, -0.0, +0.001) | no / no / no (+0.000, -0.3, -0.001) | 0.533 / 0.539 |
+| `\|yaw\|` | no / no / no | no / no / no | - |
+| `\|pitch\|` | no / no / no | no / no / no | - |
+| `\|roll\|` | no / no / no | no / no / no | - |
+| Good photo | no / no / no (+0.001, -0.3, -0.001) | no / no / no (-0.003, -0.6, +0.000) | 0.546 / 0.546 |
+| `ln burst size` | no / no / no (-0.003, +0.9, +0.001) | (not in `W0`) | - |
+
+Reading: the embedding carries most of the ranking on every metric (alone it
+is within 0.03-0.04 frame AUC of the full model). Burst position matters
+within bursts. Eyes open is the one technical group that contributes on both
+bases folder-wide. Sharpness contributes on one cell, marginally (-0.004
+[-0.007, -0.000]). AF eye focus and good photo carry signal alone (0.583,
+0.546) but are redundant with the other columns. Head pose contributes
+nothing on any reading, together or per axis, and is the weakest alone
+(0.533-0.539). About 60 cells were read, so one or two "yes" at the edge of
+zero are expected by chance; Look, burst position within bursts and eyes
+open are well clear of it. Nothing here is acted on in this plan.
+
+**4. Genre: drop for the ranking.** By the pre-registered rule (keep only
+when `+genre cols` or `+genre off` passes on either base), no genre
+comparison passes (bars met: 1, 3, 2 and 2 of 5), so the genre leaves the
+ranking. Recorded for this library (one photographer, 1,439 of 1,801 scorable
+bursts sports); a genre effect that the data cannot show here may exist
+elsewhere.
+
+What "drop" covers is the user's choice, between two scopes:
+
+- **(a) Ranking only** (recommended, since the evaluation speaks only to the
+  ranking): remove the per-genre offsets from `rank.rs` (`Weights.offsets`,
+  `OFFSET_SHRINK`, the `of_burst` lookup in `fit` / `rank`, a
+  `RANK_VERSION` bump so stored `ranking.json` offsets are ignored) and the
+  meta pane's genre suffix after the ranking place, which names the offset
+  applied. Keep `genre.rs`, `crates/core/genres/siglip2.json`, the
+  `genres_of` command and `filter.ts`'s Genre section. Consequences: the
+  ranking loses an effect measured at +0.003 frame AUC, -0.7 points
+  R-precision and -0.000 within-burst wAUC (shipped `W0+off` against `W0`),
+  so no visible change; fewer weights to fit on few judgments; the filter
+  stays a scene finder, which is a product use the pick labels cannot
+  measure (genre labels alone are near chance for picks, 0.511-0.513 frame
+  AUC, as expected of a label that says what a photo shows, not how good it
+  is). The `rank.rs` part touches `fit`, which another session owns, so it
+  waits for that session.
+- **(b) The whole feature**: (a) plus `genre.rs`,
+  `crates/core/genres/siglip2.json`, `genres_of`, `filter.ts`'s Genre
+  section and its docs (`CLAUDE.md`, `README.md` / `README.ja.md`, the
+  usage docs). Consequences: the same ranking outcome, plus the user loses
+  the Genre filter section; less code and one shipped data file fewer; the
+  embedding itself stays (the ranking needs it). Reversible only by
+  restoring the labels' calibration file.
+
+**5. Follow-up.** One app change: a follow-up plan that drops the genre
+from the ranking (scope (a) or (b), the user's choice), started after the
+session owning `rank.rs`'s `fit` is done. No folder-wide `fit` in `rank.rs`
+(it does not win and loses within bursts); no Candidate 1 / 2 cue
+(no gain on either metric); no column removed (the contributions are
+reported, not acted on).
 
 ## Progress
 
