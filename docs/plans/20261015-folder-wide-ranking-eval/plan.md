@@ -254,7 +254,7 @@ dropped. App changes, if any, come in a follow-up plan.
       number.
     - Doc-only PR; no Python, no Rust.
 
-- [ ] Step 2: `folderwide.py`: the variants, the baselines, the reference checks and the results tables
+- [x] Step 2: `folderwide.py`: the variants, the baselines, the reference checks and the results tables
   - Done when:
     - `folderwide.py` in this plan folder (`python -I folderwide.py
       <app-dump-dir> <ball-labels-dir> <out-dir> [jobs]`) imports the four
@@ -451,3 +451,4 @@ dropped. App changes, if any, come in a follow-up plan.
 
 - (2026-10-15) Plan written; bar option C chosen by the user
 - (2026-10-15) Step 1 complete: pre-registration written in `folderwide.md` (no script, no fit); fixed the similar-scene-groups link broken by #826
+- (2026-10-16) Step 2 complete
