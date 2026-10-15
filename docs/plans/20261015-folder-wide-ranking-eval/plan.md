@@ -539,8 +539,7 @@ bases folder-wide. Sharpness contributes on one cell, marginally (-0.004
 [-0.007, -0.000]). AF eye focus and good photo carry signal alone (0.583,
 0.546) but are redundant with the other columns. Head pose contributes
 nothing on any reading, together or per axis, and is near chance alone
-(0.533-0.539 frame AUC; the weakest of the technical groups on within-burst
-wAUC). About 60 cells were read, so one or two "yes" at the edge of
+(0.533-0.539 frame AUC). About 60 cells were read, so one or two "yes" at the edge of
 zero are expected by chance; Look, burst position within bursts and eyes
 open are well clear of it. Nothing here is acted on in this plan.
 
