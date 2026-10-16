@@ -103,3 +103,54 @@
 - **Wall time.** 63 s on 20 jobs (load 4 s, the `R0` check 11 s, `R0` 10 s,
   `G0` 17 s, the `G0` raw-weight check 20 s, metrics 1 s). No `__pycache__/` appeared in the archived
   folders or the data folders.
+
+## Step 3: rejectablate.py and Decision 2
+
+- **Import.** `rejectablate.py` puts its own folder on `sys.path`, imports
+  `rejectfilter as rf` (which sets up the five archived folders and the
+  `GENRES` override, see Step 2), then `import ablate`: its `import
+  folderwide as fw` hits the already-loaded module, so the archived
+  `ablate.specs` / `ablate.task` run unchanged. The setup mirrors
+  `ablate.main` (`dw` keeps a copy of `d["tech"]` taken before
+  `folder_gate.extend`; `W0` folds are the 26 folders with a scorable burst).
+- **Reference check.** The unablated reruns reproduce the stored held-out
+  scores to 5.00e-06 (the files' rounding) for `F0+ctx` and `W0`
+  (`scores.tsv`) and for `G0` (`scores_reject.tsv`), with identical `RN@95` /
+  `pAUC95`.
+- **Choice: the `G0` ablations run all 11 drop-one rows of `F0+ctx`'s
+  `ablate.specs`** (the 7 groups plus `|yaw|`, `|pitch|`, `|roll|` and
+  `ln burst size`), not only the 7 `REASONS` groups. The pre-registration
+  says "the drop-one groups only", read as "the drop-one rows, not the
+  each-alone ones"; the per-axis rows were cheap and Decision 2's item 2
+  asks per head-pose axis. A reader holding to the literal 7 groups can
+  ignore the 4 extra rows; none of them contributes.
+- **`G0` drop-one fold** is `rejectfilter.g0_fold` (weights rescaled to mean
+  1 per training fold, NaN put back into the technical columns) with the
+  design's columns masked; written beside it in `rejectablate.py` rather
+  than adding a parameter to the Step 2 script.
+- **Each alone** runs on `F0+ctx` and `W0` (both bases, as the archived
+  ablations did); the table reports `RN@95`, `RN@99`, `pAUC95`, the
+  `quantile@95` pair and the frame AUC (the last reproduces the archived
+  each-alone frame AUCs, e.g. Look 0.629 / 0.636).
+- **`scores_ablate.tsv`** columns are `<base> <row label>` with the Markdown
+  escapes removed (`F0+ctx drop |yaw|`), 55 columns (22 `F0+ctx`, 21 `W0`,
+  12 `G0`), `nan` for the `W0` family on `2026-07-23`.
+- **Wall time.** 1,464 held-out fits in 523 s on 20 jobs (load 4 s, metrics
+  2 s, total 530 s); the archived 1,140 linear fits took 356 s, the 324
+  `G0` fits are the rest. No `__pycache__/` appeared in the archived folders,
+  this plan folder or the data folders.
+- **Decision 2 outcome.** `G0` is the best filter at 95% and 99% and passes
+  the comparison bar against `W0` only with the per-fold weight rescale (on
+  the raw weights it fails); no filter passes the worth-a-filter bar (`G0`'s
+  `quantile@95` 94.7% recall / 16.8% `RN` against the 25% floor), so no app
+  change is recommended. Genre's "drop for the ranking" stands.
+
+## Deferred issues (todo candidates)
+
+- **Core: update the genre-drop todo with Decision 2's confirmation.** The
+  todo "Core: a plan to drop the genre from the personal ranking" should note
+  that the reject-filter criterion (Decision 2, item 3, in
+  `docs/plans/20261016-reject-filter-eval/plan.md`) confirms Decision 1's
+  "drop for the ranking": none of the four genre comparisons passes on
+  `RN@95` (best `W0 +genre cols` +1.0 points, p = 0.064, 1 of 3 bars). Basis:
+  Step 3 of this plan; the plan names this as the wrap-up's job.
