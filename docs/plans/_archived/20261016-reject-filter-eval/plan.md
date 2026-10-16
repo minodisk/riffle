@@ -23,8 +23,8 @@ personal-ranking feature is a **reject filter**: drop the clearly bad photos,
 single shots and burst frames alike (bursts are not special), and leave a
 candidate set the human picks from. Every evaluation so far, including the
 just-finished
-[folder-wide-ranking-eval](../_archived/20261015-folder-wide-ranking-eval/plan.md)
-(Decision 1, [folderwide.md](../_archived/20261015-folder-wide-ranking-eval/folderwide.md)),
+[folder-wide-ranking-eval](../20261015-folder-wide-ranking-eval/plan.md)
+(Decision 1, [folderwide.md](../20261015-folder-wide-ranking-eval/folderwide.md)),
 judged the scores on **top-oriented** metrics: frame AUC, R-precision
 (precision at k = the folder's pick count), within-burst Top-1. A filter is
 judged at the **bottom** under a recall constraint: how many non-picks can be
@@ -88,21 +88,21 @@ recommendation only. No app change happens in this plan.
   `sys.path`, import `gate` first, then `folderwide as fw` (and `ablate`),
   then set `fw.GENRES = folder_gate.GENRES = <repo>/crates/core/genres/siglip2.json`
   before `folder_gate.extend`. What is reused:
-  - [gate.py](../_archived/20261012-image-embeddings/gate.py): `load`,
+  - [gate.py](../20261012-image-embeddings/gate.py): `load`,
     `build`, `scorable`, `design`, `choose_c`, `fit`, `lofo`, `TECH`, `CS`,
     `table`, `f3`, `pc`.
-  - [folder_gate.py](../_archived/20261014-folder-wide-pick-model/folder_gate.py):
+  - [folder_gate.py](../20261014-folder-wide-pick-model/folder_gate.py):
     `extend`, `design(d, mask, "full")`, `fit`, `choose_c`, `auc`,
     `signed_rank`, `paired`, `mean_sd`, `values`, `MIN_FRAMES`, `MIN_PICKS`.
-  - [ballgate.py](../_archived/20261014-ball-game-ranking-features/ballgate.py):
+  - [ballgate.py](../20261014-ball-game-ranking-features/ballgate.py):
     `load_extras`.
-  - [genre_offsets.py](../_archived/20261014-genre-ranking-offsets/genre_offsets.py):
+  - [genre_offsets.py](../20261014-genre-ranking-offsets/genre_offsets.py):
     `burst_genres`.
-  - [folderwide.py](../_archived/20261015-folder-wide-ranking-eval/folderwide.py):
+  - [folderwide.py](../20261015-folder-wide-ranking-eval/folderwide.py):
     `point_lofo`, `point_fold`, `append_block`, `collect`, `boot_folders`,
     `ci`, `pm`, the variant name constants, and its baseline construction
     (the `baselines` dict in `main`, to be rebuilt the same way).
-  - [ablate.py](../_archived/20261015-folder-wide-ranking-eval/ablate.py):
+  - [ablate.py](../20261015-folder-wide-ranking-eval/ablate.py):
     `specs`, `task`, `load_scores`, `GROUPS`, `ALONE`, `DROPS`, `BASES`.
   - Python: the venv `%TEMP%\embedvenv` (numpy 2.5.4, scikit-learn 1.9.1,
     scipy 1.18.1, joblib), run as `python -I -B` from outside the data
@@ -191,7 +191,7 @@ recommendation only. No app change happens in this plan.
         picks inside that bottom share; the "what if the user just hides
         the bottom fifth" reading); the explicit-reject removal share at
         `RN@95` / `quantile@95`; the frame AUC from
-        [folderwide.md](../_archived/20261015-folder-wide-ranking-eval/folderwide.md)
+        [folderwide.md](../20261015-folder-wide-ranking-eval/folderwide.md)
         beside each row, so the top and the bottom are read side by side.
       - **Scores from `scores.tsv`, no refit** (names as there): `W0` (the
         **reference**: the shipped weights' uncentered score), `W0+off`
@@ -286,7 +286,7 @@ recommendation only. No app change happens in this plan.
     - `mise run lint` passes.
   - Implementation approach:
     - Model the section on the archived
-      [folderwide.md](../_archived/20261015-folder-wide-ranking-eval/folderwide.md)
+      [folderwide.md](../20261015-folder-wide-ranking-eval/folderwide.md)
       pre-registration and keep its vocabulary. Link only `_archived/` or
       stable targets.
     - Before writing, read only headers and file lists (the `scores.tsv`
