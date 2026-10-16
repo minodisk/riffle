@@ -118,7 +118,7 @@ recommendation only. No app change happens in this plan.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the bottom metrics, the thresholds, the variants, the rules, the ablations and the bars in `reject.md`, no script and no score
+- [x] Step 1: Pre-register the bottom metrics, the thresholds, the variants, the rules, the ablations and the bars in `reject.md`, no script and no score
   - Done when:
     - `reject.md` in this plan folder has a "Pre-registration" section
       merged **before any script exists or any bottom number is computed**
@@ -217,8 +217,9 @@ recommendation only. No app change happens in this plan.
         - `face away`: remove frames with `|yaw| > GOOD_MAX_YAW` or
           `|pitch| > GOOD_MAX_PITCH`;
         - `sharpness bottom q`: remove the folder's bottom q by absolute
-          sharpness, q = 10% / 20% (graded: the absolute-sharpness baseline
-          already gives the curve);
+          sharpness, q = 10% / 20% (one cut at a fixed q, so a binary
+          rule for `RN@r`; the curve is the absolute-sharpness baseline's
+          row);
         - `any of`: `eyes closed` or `eye focus low` or `face away` or
           `sharpness bottom 10%`;
         - `rule count`: the graded score "number of the four rules that
@@ -274,8 +275,9 @@ recommendation only. No app change happens in this plan.
           with the bootstrap interval entirely below zero (reported per
           column, as Decision 1 did).
         - *Genre keep / drop under this criterion*: Decision 1's "drop"
-          **stands** unless `+genre cols` or `+genre off` passes the
-          comparison bar against its base on `RN@95`; otherwise it is
+          **stands** unless `F0+ctx +genre cols`, `F0+ctx +genre off`,
+          `W0 +genre cols` or `W0+off` passes the comparison bar against its
+          base on `RN@95`; otherwise it is
           **reopened** and recorded as such.
         - *Follow-up*: an app change is recommended only when the best
           filter passes the worth-a-filter bar.
@@ -430,8 +432,8 @@ recommendation only. No app change happens in this plan.
   never of "rejects found"; the recommendation names this as the thing a
   later in-app measurement (the `views` table, explicit rejects accumulating)
   could close.
-- **Multiplicity.** About 25 score rows, 15 comparisons and 60 ablation
-  cells are read at p < 0.05 / interval-below-zero; two or three false
+- **Multiplicity.** About 33 score rows, 45 comparisons and 60 ablation
+  cells are read at p < 0.05 / interval-below-zero; a few false
   positives are expected and a lone marginal pass is read as such.
 - **The archived harnesses are frozen and all have stale paths.** This
   plan works around them by import order and constant override, as
@@ -456,3 +458,4 @@ recommendation only. No app change happens in this plan.
 ## Progress
 
 - (2026-10-16) Plan written; bar option B and variants option (b) chosen
+- (2026-10-16) Step 1 complete
