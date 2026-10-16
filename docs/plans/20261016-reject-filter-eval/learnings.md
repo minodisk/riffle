@@ -45,19 +45,24 @@
   `features/<folder>.tsv` (`load_ear`) and removes `ear <= 0.137` (2,385 of
   the 21,563 frames with a judgment). This also changes `any of` and
   `rule count`.
-- **Choice: `G0`'s weights are rescaled to mean 1 per training fold, and it
-  matters.** `folder_gate.extend`'s weights sum to 1 per folder (about
+- **Deviation: `G0`'s weights are rescaled to mean 1 per training fold, and
+  it matters.** The plan's implementation approach says `sample_weight =
+  d["weight"]`; `folder_gate.extend`'s weights sum to 1 per folder (about
   6e-4 per frame), so `HistGradientBoostingClassifier`'s `l2_regularization`
   1.0 and `min_hessian_to_split` act against leaf hessian sums of about
   0.01 and shrink every leaf about a hundredfold; the fixed setting was
-  meant for unit-scale weights. The rescale (a constant per fold, so the
-  weighted objective is the same up to the regularization) was decided
-  before the first run. A side check outside the script (scratch, not
-  committed) on the raw weights read `RN@95` 17.6%, `RN@99` 9.0%, `pAUC95`
-  0.551, frame AUC 0.649 (with sklearn's default early stopping on, 17.4% /
-  8.5% / 0.548 / 0.648), against the rescaled 22.0% / 11.5% / 0.568 / 0.670.
-  So `G0`'s pass of the comparison bar rests on this choice; Step 3's
-  Decision should read it with that said. Reported in `reject.md`'s Reading.
+  meant for unit-scale weights. The script therefore passes `w * len(idx) /
+  w.sum()` (a constant per fold, so the weighted objective is the same up to
+  the regularization), decided before the first run. The literal-plan fit is
+  a committed check row, `G0 on the raw weights (check)` (`g0_fold(...,
+  rescale=False)`), printed in `reject.md`'s Results: `RN@95` 17.6%, `RN@99`
+  9.0%, `pAUC95` 0.551, frame AUC 0.649, against the rescaled 22.0% / 11.5% /
+  0.568 / 0.670; its paired difference against `W0` is +1.0 points (p =
+  0.2891, 13 of 25 folders, 0 of 3 bars) and against `F0+ctx` -0.9 (p =
+  0.7546, 11 of 25, 0 of 3). So `G0`'s pass of the comparison bar rests on
+  this deviation; Step 3's Decision should read it with that said. (An
+  earlier scratch check with sklearn's default early stopping on is not
+  reproduced here and is dropped.) Reported in `reject.md`'s Reading.
 - **Choice: `G0` gets the missing values as NaN.** The pre-registration says
   "missing values handled natively so the indicator columns stay"; the
   implementation approach says `folder_gate.design(d, mask, "full")`, which
@@ -95,6 +100,6 @@
     readable; the 99% label-free pairs are extra.
   - Rejects are counted as `reject & ~pick`: all 58 are non-picks, all in
     qualifying folders.
-- **Wall time.** 48 s on 20 jobs (load 4 s, the `R0` check 15 s, `R0` 10 s,
-  `G0` 18 s, metrics 1 s). No `__pycache__/` appeared in the archived
+- **Wall time.** 63 s on 20 jobs (load 4 s, the `R0` check 11 s, `R0` 10 s,
+  `G0` 17 s, the `G0` raw-weight check 20 s, metrics 1 s). No `__pycache__/` appeared in the archived
   folders or the data folders.

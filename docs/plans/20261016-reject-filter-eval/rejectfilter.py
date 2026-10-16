@@ -236,13 +236,13 @@ def r0_fold(d, held, mult, chooser, tb, qual_set):
     return held, c, x[d["folder_of"] == held] @ wt + b
 
 
-def g0_fold(d, held):
+def g0_fold(d, held, rescale=True):
     train_mask = d["folder_of"] != held
     x = folder_gate.design(d, train_mask, "full")
     x[:, : d["tech"].shape[1]][np.isnan(d["tech"])] = np.nan
     idx = np.where(train_mask)[0]
     w = d["weight"][idx]
-    m = HistGradientBoostingClassifier(**HGB).fit(x[idx], d["pick"][idx].astype(int), sample_weight=w * len(idx) / w.sum())
+    m = HistGradientBoostingClassifier(**HGB).fit(x[idx], d["pick"][idx].astype(int), sample_weight=w * len(idx) / w.sum() if rescale else w)
     return held, None, m.decision_function(x[d["folder_of"] == held])
 
 
@@ -271,7 +271,7 @@ def load_ear(dump, d):
     for name in os.listdir(feats):
         if name.endswith(".tsv"):
             with open(os.path.join(feats, name), newline="", encoding="utf-8") as f:
-                for r in csv.DictReader(f, delimiter="	"):
+                for r in csv.DictReader(f, delimiter="\t"):
                     by[(name[:-4], r["file"])] = gate.num(r["ear"])
     return np.array([np.nan if by[(f["folder"], f["file"])] is None else by[(f["folder"], f["file"])] for f in d["rows"]])
 
@@ -364,6 +364,8 @@ def main(dump, labels_dir, eval_dir, out_dir, jobs):
     run(check, lambda h: delayed(r0_fold)(d, h, 1, "auc", tb, qual_set))
     run(R0, lambda h: delayed(r0_fold)(d, h, PICK_WEIGHT, "rn", tb, qual_set))
     run(G0, lambda h: delayed(g0_fold)(d, h))
+    g0_raw = "G0 on the raw weights (check)"
+    run(g0_raw, lambda h: delayed(g0_fold)(d, h, False))
 
     with open(os.path.join(out_dir, "scores_reject.tsv"), "w", encoding="utf-8", newline="") as out:
         cols = {R0: models[R0], G0: models[G0], COUNT: count}
@@ -398,6 +400,7 @@ def main(dump, labels_dir, eval_dir, out_dir, jobs):
     pf[R0] = evaluate(R0, models[R0], d, tb, qual, rej)
     pf[G0] = evaluate(G0, models[G0], d, tb, qual, rej)
     pf_check = evaluate(check, models[check], d, tb, qual, rej)
+    pf[g0_raw] = evaluate(g0_raw, models[g0_raw], d, tb, qual, rej)
     metric_time = time.time() - t
     for k in order:
         for fi in qual:
@@ -545,6 +548,34 @@ def main(dump, labels_dir, eval_dir, out_dir, jobs):
         cell = fw.ci(*fw.boot_folders(pa)) if pa else "-"
         checks = [m95 >= BAR_GAIN, above >= BAR_FOLDERS, p95 < ALPHA]
         rows.append([f"{code(v)} - {code(base)}", fw.ci(m95, lo95, hi95, 1), f"{p95:.4f}", f"{above} of {len(a95)}", fw.ci(m99, lo99, hi99, 1), cell,
+                     f"{sum(checks)} of 3", "pass" if all(checks) else "fail"])
+    gate.table("| Comparison | `RN@95`, points | p | Folders at or above | `RN@99`, points | `pAUC95` | Bars met | Result |", rows)
+
+    print("## `G0` on the raw weights (check)\n")
+    print(
+        "`G0` fit with `sample_weight` the dump's per-frame weight as is (it sums to 1 per folder), not rescaled to mean 1 per "
+        "training fold; everything else as `G0`. The plan's literal text; shown so the reader can see whether the comparison "
+        "bar still passes without the rescale.\n"
+    )
+    rows = []
+    for k in (G0, g0_raw):
+        m95, s95, _ = mean(k, "rn95")
+        m99, s99, _ = mean(k, "rn99")
+        pa, ps, _ = mean(k, "pauc")
+        rows.append([f"`{k}`", fw.pm(m95, s95, digits=1), fw.pm(m99, s99, digits=1), fw.pm(pa, ps), gate.f3(mean(k, "frame")[0])])
+    gate.table("| Score | `RN@95` % | `RN@99` % | `pAUC95` | Frame AUC |", rows)
+    rows = []
+    for base in (W0, F0_CTX):
+        a95 = folder_gate.paired(vals(g0_raw, "rn95"), vals(base, "rn95"))
+        a99 = folder_gate.paired(vals(g0_raw, "rn99"), vals(base, "rn99"))
+        pa = folder_gate.paired(vals(g0_raw, "pauc"), vals(base, "pauc"))
+        m95, lo95, hi95 = fw.boot_folders(a95)
+        m99, lo99, hi99 = fw.boot_folders(a99)
+        _, p95, _ = folder_gate.signed_rank(a95)
+        above = sum(1 for x in a95 if x >= 0)
+        cell = fw.ci(*fw.boot_folders(pa)) if pa else "-"
+        checks = [m95 >= BAR_GAIN, above >= BAR_FOLDERS, p95 < ALPHA]
+        rows.append([f"`{g0_raw}` - {code(base)}", fw.ci(m95, lo95, hi95, 1), f"{p95:.4f}", f"{above} of {len(a95)}", fw.ci(m99, lo99, hi99, 1), cell,
                      f"{sum(checks)} of 3", "pass" if all(checks) else "fail"])
     gate.table("| Comparison | `RN@95`, points | p | Folders at or above | `RN@99`, points | `pAUC95` | Bars met | Result |", rows)
 

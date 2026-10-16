@@ -327,9 +327,10 @@ scores of the new models per frame `scores_reject.tsv` (`R0`, `G0` and
 value keeps), both in `D:\Photos\tests\2026-10-16-reject-filter-eval\`. The
 tables below are that output as printed. Deviations from the pre-registered
 text and the choices it left open are in `learnings.md` (Step 2); the two
-that move numbers: the `eyes closed` rule reads the raw EAR (the dump's
-`eyes_open` is never 0), and `G0`'s sample weights are rescaled to mean 1 per
-training fold.
+deviations that move numbers: the `eyes closed` rule reads the raw EAR (the
+dump's `eyes_open` is never 0), and `G0`'s sample weights are rescaled to mean
+1 per training fold (the plan's text says `sample_weight = d["weight"]`; the
+unrescaled fit is printed below as a check).
 
 ### Data
 
@@ -533,6 +534,20 @@ Over the 25 qualifying folders: the mean paired per-folder difference with the 1
 | `R0` - `F0+ctx` | -0.1 [-1.0, +1.0] | 0.8561 | 12 of 25 | -0.3 [-0.9, +0.3] | -0.000 [-0.004, +0.003] | 0 of 3 | fail |
 | `G0` - `F0+ctx` | +3.6 [+0.8, +7.0] | 0.0275 | 17 of 25 | +3.3 [+0.8, +6.8] | +0.017 [+0.004, +0.035] | 3 of 3 | pass |
 
+### `G0` on the raw weights (check)
+
+`G0` fit with `sample_weight` the dump's per-frame weight as is (it sums to 1 per folder), not rescaled to mean 1 per training fold; everything else as `G0`. The plan's literal text; shown so the reader can see whether the comparison bar still passes without the rescale.
+
+| Score | `RN@95` % | `RN@99` % | `pAUC95` | Frame AUC |
+| --- | ---: | ---: | ---: | ---: |
+| `G0` | 22.0 (11.5) | 11.5 (12.1) | 0.568 (0.059) | 0.670 |
+| `G0 on the raw weights (check)` | 17.6 (10.1) | 9.0 (8.0) | 0.551 (0.042) | 0.649 |
+
+| Comparison | `RN@95`, points | p | Folders at or above | `RN@99`, points | `pAUC95` | Bars met | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0 on the raw weights (check)` - `W0` | +1.0 [-1.2, +3.4] | 0.2891 | 13 of 25 | +1.8 [+0.1, +3.7] | +0.007 [-0.002, +0.017] | 0 of 3 | fail |
+| `G0 on the raw weights (check)` - `F0+ctx` | -0.9 [-3.5, +1.8] | 0.7546 | 11 of 25 | +0.8 [-1.2, +3.0] | +0.001 [-0.010, +0.012] | 0 of 3 | fail |
+
 ### Best filter and the worth-a-filter bar
 
 | Reading | Score | Oracle `RN` % | Label-free `quantile` recall / `RN` (gap) | Worth-a-filter bar (`quantile@95` recall >= 93%, `RN` >= 25%) |
@@ -586,12 +601,14 @@ Best filter by mean `RN@95`: `G0`. Label-free pairs only for the qualifying fold
 | Stage | Seconds |
 | --- | ---: |
 | Load (dump, cue files, `scores.tsv`, rules) | 4 |
-| R0 at pick weight 1, `C` by AUC (check) | 15 |
+| R0 at pick weight 1, `C` by AUC (check) | 11 |
 | R0 | 10 |
-| G0 | 18 |
+| G0 | 17 |
+| G0 on the raw weights (check) | 20 |
 | Metrics | 1 |
 
-Total 48 s on 20 jobs.
+Total 63 s on 20 jobs.
+
 ### Reading
 
 Facts only; the Decision is Step 3's, after the ablations.
@@ -612,11 +629,15 @@ Facts only; the Decision is Step 3's, after the ablations.
   per folder its realized recall is below 95% in 9 of the 25 folders and
   below 90% in 5 (80.0% at the lowest, `2026-07-02`, 15 picks); `W0`'s is
   below 95% in 8 and below 90% in 4.
-- `G0`'s numbers depend on a choice the pre-registration left open: its
-  per-folder class-balanced weights are rescaled to mean 1 on each fold's
-  training frames. Fit on the raw weights (each folder summing to 1), the
-  same setting reads `RN@95` 17.6%, `RN@99` 9.0%, `pAUC95` 0.551, frame AUC
-  0.649 (a side check outside the script, recorded in `learnings.md`).
+- `G0`'s pass depends on a deviation from the plan: its per-folder
+  class-balanced weights are rescaled to mean 1 on each fold's training
+  frames, where the plan says `sample_weight = d["weight"]` (each folder
+  summing to 1). Fit on the raw weights, the same setting (the committed
+  check row `G0 on the raw weights (check)`) reads `RN@95` 17.6%, `RN@99`
+  9.0%, `pAUC95` 0.551, frame AUC 0.649; against `W0` +1.0 points [-1.2,
+  +3.4], p = 0.2891, 13 of 25 folders at or above, 0 of 3 bars met; against
+  `F0+ctx` -0.9 [-3.5, +1.8], p = 0.7546, 11 of 25, 0 of 3. So without the
+  rescale `G0` does not pass the comparison bar.
 - `R0` reads as `F0+ctx` (-0.1 points [-1.0, +1.0]); its inner CV chose
   `C` = 0.1 in 17 of 27 folds.
 - No other score passes the comparison bar against `W0`. Closest: `F0`
