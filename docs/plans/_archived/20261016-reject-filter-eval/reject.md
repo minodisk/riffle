@@ -6,9 +6,9 @@ Written 2026-10-16, before `rejectfilter.py` or `rejectablate.py` exists and
 before any bottom-oriented number of this plan has been computed, and merged
 on its own before any script (the merge commit of the PR that adds this
 section, without results, is the record, as for the archived
-[folder-wide evaluation](../_archived/20261015-folder-wide-ranking-eval/folderwide.md),
-the [folder-wide gate](../_archived/20261014-folder-wide-pick-model/gate.md)
-and the in-burst [gate](../_archived/20261012-image-embeddings/gate.md)).
+[folder-wide evaluation](../20261015-folder-wide-ranking-eval/folderwide.md),
+the [folder-wide gate](../20261014-folder-wide-pick-model/gate.md)
+and the in-burst [gate](../20261012-image-embeddings/gate.md)).
 Nothing in this section changes after the results are in; a deviation found
 while implementing Step 2 or Step 3 is recorded in `learnings.md` with its
 reason and does not touch the bars.
@@ -26,9 +26,9 @@ change at all?
 
 This pre-registration is **not blind**. On the same dump and the same 25
 qualifying folders, the archived
-[folder-wide evaluation](../_archived/20261015-folder-wide-ranking-eval/folderwide.md)
+[folder-wide evaluation](../20261015-folder-wide-ranking-eval/folderwide.md)
 (Decision 1 in its
-[plan](../_archived/20261015-folder-wide-ranking-eval/plan.md)) reported,
+[plan](../20261015-folder-wide-ranking-eval/plan.md)) reported,
 held out:
 
 - the per-folder frame AUC of every variant, 0.663–0.678 (`W0` 0.666,
@@ -58,9 +58,9 @@ The reject-trained variants were chosen by the user the same day (option
 
 - The 27 folders of the app dump in `D:\Photos\tests\2026-10-12-rank-app\`,
   read through the archived
-  [`gate.py`](../_archived/20261012-image-embeddings/gate.py)'s `load` and
+  [`gate.py`](../20261012-image-embeddings/gate.py)'s `load` and
   `build` and
-  [`folder_gate.py`](../_archived/20261014-folder-wide-pick-model/folder_gate.py)'s
+  [`folder_gate.py`](../20261014-folder-wide-pick-model/folder_gate.py)'s
   `extend`, imported by path (not copied, not modified).
 - Picks by the gate label rule (`gate.load`): a frame is a pick when its
   `.dop` flag is Pick, or it has a virtual copy in `Output/`, or it has no
@@ -81,7 +81,7 @@ The reject-trained variants were chosen by the user the same day (option
   burst-centered `W0` reading.
 - The cue files of `D:\Photos\tests\2026-10-14-ball-labels\`
   (`extras_c1.tsv`, `extras_c2.tsv`, full coverage), joined by
-  [`ballgate.py`](../_archived/20261014-ball-game-ranking-features/ballgate.py)'s
+  [`ballgate.py`](../20261014-ball-game-ranking-features/ballgate.py)'s
   `load_extras`, for the ablations' each-alone readings and the new fits'
   inputs where a variant names them.
 
@@ -152,7 +152,7 @@ means its `quantile@95` pair unless stated.
 - The **explicit-reject removal share** (of the 58) at `RN@95` and at
   `quantile@95`.
 - The **frame AUC** from the archived
-  [folderwide.md](../_archived/20261015-folder-wide-ranking-eval/folderwide.md)
+  [folderwide.md](../20261015-folder-wide-ranking-eval/folderwide.md)
   beside each row, so the top and the bottom are read side by side.
 
 ### Scores
