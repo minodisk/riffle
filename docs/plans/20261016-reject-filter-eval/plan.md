@@ -293,7 +293,7 @@ recommendation only. No app change happens in this plan.
       header, the features TSV header); compute no bottom metric.
     - Doc-only PR; no Python, no Rust.
 
-- [ ] Step 2: `rejectfilter.py`: the bottom metrics on every existing score, the baselines, the rule filters and the reject-trained variants
+- [x] Step 2: `rejectfilter.py`: the bottom metrics on every existing score, the baselines, the rule filters and the reject-trained variants
   - Done when:
     - `rejectfilter.py` in this plan folder (`python -I -B rejectfilter.py
       <app-dump-dir> <ball-labels-dir> <folder-wide-eval-dir> <out-dir>
@@ -459,3 +459,4 @@ recommendation only. No app change happens in this plan.
 
 - (2026-10-16) Plan written; bar option B and variants option (b) chosen
 - (2026-10-16) Step 1 complete
+- (2026-10-16) Step 2 complete
