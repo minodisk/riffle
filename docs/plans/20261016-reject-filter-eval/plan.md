@@ -543,8 +543,8 @@ For the added cues the bracket is the cue variant minus its base on `RN@95`
   pose and good photo contribute to `RN@95` on no base. Alone each removes
   6.5–10.0% of the non-picks at 95%, about what the simple baselines remove,
   and as rules none holds 95% of the picks across folders (1 above). The one
-  hint of the hypothesis is in `G0`: eyes open and AF eye focus lower its
-  high-recall readings (`RN@99`, `pAUC95`) when dropped, which the linear
+  hint of the hypothesis is in `G0`: eyes open lowers its
+  `RN@99` and `pAUC95` when dropped, and AF eye focus lowers its `pAUC95`, which the linear
   models do not show, but not its `RN@95`; with about 100 drop-one cells
   read (11 rows, 3 metrics, 3 bases), this is a weak, unconfirmed signal.
 - What carries the bottom is what carries the top: the embedding (Look) and

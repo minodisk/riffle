@@ -801,7 +801,7 @@ Facts only; the Decision is in the plan.
   zero on `RN@95`.
 - Each group alone removes less than the full model on every base: at most
   13.4% of the non-picks at 95% (Look on `F0+ctx`) against 18.4% (`F0+ctx`)
-  and 16.6% (`W0`). The technical groups alone read 6.5–10.0%, between random
-  (5.8%) and the baselines' best (9.3%); c1 9.3% / 10.6%, c2 7.7% / 7.9%, the
+  and 16.6% (`W0`). The technical groups alone read 6.5–10.0%, against random
+  (5.8%) and the simple baselines' 5.8–9.3%; c1 9.3% / 10.6%, c2 7.7% / 7.9%, the
   genre labels 7.2% / 7.1% (`F0+ctx` / `W0`). Their label-free `quantile@95`
   pairs keep 94.6–95.0% of the picks and remove 5.3–9.9% of the non-picks.
