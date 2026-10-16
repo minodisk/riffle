@@ -342,7 +342,7 @@ recommendation only. No app change happens in this plan.
       metric) so every comparison is read on the same folder draws.
     - Strip CRLF before pasting into `reject.md`.
 
-- [ ] Step 3: `rejectablate.py`: the column and group ablations and each-alone models on the bottom metrics, and Decision 2
+- [x] Step 3: `rejectablate.py`: the column and group ablations and each-alone models on the bottom metrics, and Decision 2
   - Done when:
     - `rejectablate.py` in this plan folder (same arguments as
       `rejectfilter.py`) imports the archived `ablate.specs` / `ablate.task`
@@ -453,10 +453,154 @@ recommendation only. No app change happens in this plan.
 
 ## Decision 2 (best filter, bottom cues, genre under this criterion, follow-up)
 
-(Written at the end of Step 3 from the pre-registered bars in `reject.md`.)
+Written 2026-10-16 at the end of Step 3, after both the Step 2 results and
+the ablation tables existed, against the bars pre-registered in Step 1
+(option B). Comparison bar: mean `RN@95` gain >= +3.0 points, >= 16 of the 25
+qualifying folders at or above, one-sided Wilcoxon p < 0.05. Worth-a-filter
+bar: on the best filter's label-free `quantile@95` pair, mean realized pick
+recall >= 93% and mean `RN` >= 25%. Every number is held out (leave one
+folder out) and comes from [reject.md](reject.md) "Results" and "Ablations".
+
+**1. Best filter: `G0`, and it is not worth a filter.** `G0` (gradient
+boosting on `F0+ctx`'s columns) has the highest mean `RN@95` and `RN@99`:
+
+| Reading | `RN@95` % | `RN@99` % | `pAUC95` | `quantile@95` recall / `RN` (gap) | `quantile@99` recall / `RN` (gap) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `G0` | 22.0 | 11.5 | 0.568 | 94.7 / 16.8 (-0.3) | 99.0 / 5.9 (+0.0) |
+| `F0+ctx` | 18.4 | 8.1 | 0.550 | 95.0 / 14.6 (+0.0) | 98.6 / 3.2 (-0.4) |
+| `W0` (reference) | 16.6 | 7.1 | 0.544 | 95.0 / 11.5 (+0.0) | 98.9 / 3.0 (-0.1) |
+
+| Comparison | `RN@95`, points | p | Folders at or above | `RN@99`, points | Bars met |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `G0` - `W0` | +5.4 [+2.3, +9.0] | 0.0021 | 19 of 25 | +4.3 [+1.4, +7.8] | 3 of 3 |
+| `G0` - `F0+ctx` | +3.6 [+0.8, +7.0] | 0.0275 | 17 of 25 | +3.3 [+0.8, +6.8] | 3 of 3 |
+| `G0` on the raw weights - `W0` | +1.0 [-1.2, +3.4] | 0.2891 | 13 of 25 | +1.8 [+0.1, +3.7] | 0 of 3 |
+| `G0` on the raw weights - `F0+ctx` | -0.9 [-3.5, +1.8] | 0.7546 | 11 of 25 | +0.8 [-1.2, +3.0] | 0 of 3 |
+| `R0` - `F0+ctx` | -0.1 [-1.0, +1.0] | 0.8561 | 12 of 25 | -0.3 [-0.9, +0.3] | 0 of 3 |
+
+- **`G0` passes the comparison bar against `W0` (and `F0+ctx`) only with the
+  per-fold weight rescale**, a recorded deviation (Step 2 in
+  [learnings.md](learnings.md)): its per-folder class-balanced weights are
+  rescaled to mean 1 on each fold's training frames, where the plan's text
+  passes them as they are (each folder summing to 1). **On the raw weights
+  the same setting fails** both comparisons (0 of 3 bars). The rescale was
+  decided before the first run for a stated reason (the fixed
+  regularization was meant for unit-scale weights), but the pass rests on
+  it, so it is read as "`G0` wins under a choice the pre-registration did
+  not fix", not as a clean pre-registered win.
+- **No filter passes the worth-a-filter bar.** `G0`'s label-free
+  `quantile@95` keeps 94.7% of the picks (the 93% recall floor is met) but
+  removes **16.8%** of the non-picks, against the **25%** floor. Even its
+  oracle cut, which uses the held-out folder's own labels, removes 22.0%,
+  below the floor. No other graded score's `quantile@95` removes more than
+  15.9% (`F0+ctx +c1+c2`). Per folder, `G0`'s realized recall at
+  `quantile@95` falls below 90% in 5 of the 25 folders (80.0% at the
+  lowest). At 99% pick recall the best label-free removal is 5.9% (`G0`).
+- **No rule filter is competitive.** No binary rule keeps 95% of the picks
+  in more than 11 of the 25 folders; scored 0 where they do not, their mean
+  `RN@95` is 0.0–3.9%, 12.7–16.6 points below `W0`. The rule points nearest
+  to safe (`eyes closed` 92.8% recall / 11.3% `RN`, `sharpness bottom 10%`
+  93.4% / 10.3%) remove less than `W0`'s label-free cut (95.0% / 11.5%)
+  while losing more picks; the ones that remove a quarter or more lose a
+  quarter or more of the picks (`face away` 75.1% / 23.5%, `any of` 59.7% /
+  49.6%, `not good` 28.8% / 80.3%). The graded `rule count` reads `RN@95`
+  7.9%, within the baselines' range (5.8–9.3%).
+- **What `G0`'s nonlinearity buys.** Over `F0+ctx`: +3.6 points of `RN@95`
+  rescaled, -0.9 on the raw weights; `R0`'s asymmetric pick weight buys
+  nothing (-0.1). So a linear model trained to keep the picks does not move
+  the bottom, and the nonlinear one moves it only in the rescaled fit. Its
+  drop-one table (2 below) is the one place the "any single failure" cues
+  register at the bottom at all.
+
+**2. Column contributions at the bottom** ("yes" = the drop-one lowers
+`RN@95` with its bootstrap interval entirely below zero; the `RN@95` change
+in points in brackets, with the secondary readings whose interval is below
+zero), beside Decision 1's top-oriented verdict (frame AUC / R-precision /
+within-burst wAUC):
+
+| Columns | Bottom, `F0+ctx` | Bottom, `W0` | Bottom, `G0` | Alone `RN@95` % (`F0+ctx` / `W0`) | Decision 1, `F0+ctx` | Decision 1, `W0` |
+| --- | --- | --- | --- | ---: | --- | --- |
+| Look (32 PCA) | no (-4.2) | no (-3.0) | **yes** (-5.6; `RN@99`, `pAUC95` too) | 13.4 / 12.1 | yes / yes / yes | yes / yes / yes |
+| Burst position | no (-1.5) | **yes** (-1.9; `pAUC95` too) | **yes** (-2.2) | 12.7 / 12.7 | no / no / yes | yes / no / yes |
+| Sharpness | no (+0.2) | no (-0.8; `RN@99`, `pAUC95` below zero) | no (-0.4) | 9.1 / 9.9 | yes / no / no | no / no / no |
+| AF eye focus | no (-0.4) | no (-0.6) | no (-0.9; `pAUC95` below zero) | 9.0 / 9.5 | no / no / no | no / no / no |
+| Eyes open | no (-0.4) | no (+0.1) | no (-2.0; `RN@99`, `pAUC95` below zero) | 10.0 / 9.7 | yes / yes / no | yes / no / yes |
+| Head pose (all) | no (+0.2) | no (+0.3) | no (-1.2) | 6.9 / 6.5 | no / no / no | no / no / no |
+| `\|yaw\|` | no (-0.3; `RN@99`, `pAUC95` below zero) | no (+0.1) | no (+0.8) | - | no / no / no | no / no / no |
+| `\|pitch\|` | no (+0.2) | no (+0.4) | no (-0.4) | - | no / no / no | no / no / no |
+| `\|roll\|` | no (+0.2) | no (-0.1) | no (-0.2) | - | no / no / no | no / no / no |
+| Good photo | no (-0.1) | no (-0.4) | no (+0.4) | 9.3 / 9.3 | no / no / no | no / no / no |
+| `ln burst size` | no (+0.5) | (not in `W0`) | no (-0.1) | - | no / no / no | (not in `W0`) |
+| c1 (added) | no gain (-0.7) | no gain (+0.6) | - | 9.3 / 10.6 | no gain | no gain |
+| c2 (added) | no gain (+0.1) | no gain (-0.9) | - | 7.7 / 7.9 | no gain | no gain |
+| Genre (added) | no gain (cols -0.7, off +0.8) | no gain (cols +1.0, off +0.8) | - | 7.2 / 7.1 | no gain | no gain |
+
+For the added cues the bracket is the cue variant minus its base on `RN@95`
+(none passes the comparison bar); random reads 5.8% `RN@95`.
+
+- **The "obviously bad" cues do not matter more at the bottom than at the
+  top**, on the primary metric. Sharpness, AF eye focus, eyes open, head
+  pose and good photo contribute to `RN@95` on no base. Alone each removes
+  6.5–10.0% of the non-picks at 95%, about what the simple baselines remove,
+  and as rules none holds 95% of the picks across folders (1 above). The one
+  hint of the hypothesis is in `G0`: eyes open and AF eye focus lower its
+  high-recall readings (`RN@99`, `pAUC95`) when dropped, which the linear
+  models do not show, but not its `RN@95`; with about 100 drop-one cells
+  read (11 rows, 3 metrics, 3 bases), this is a weak, unconfirmed signal.
+- What carries the bottom is what carries the top: the embedding (Look) and
+  burst position. Look's drop is the largest on every base (-3.0 to -5.6
+  points), though its interval reaches zero on the two linear bases. Eyes
+  open, which contributed at the top on both bases in Decision 1, does not
+  contribute at the bottom on either linear base.
+
+**3. Genre under this criterion: Decision 1's "drop for the ranking"
+stands.** None of the four genre comparisons passes the comparison bar on
+`RN@95` against its base: `F0+ctx +genre cols` -0.7 points [-2.6, +1.2]
+(p = 0.6159, 13 of 25, 0 of 3 bars); `F0+ctx +genre off` +0.8 [-0.7, +2.3]
+(p = 0.1498, 14 of 25, 0 of 3); `W0 +genre cols` +1.0 [-0.2, +2.0]
+(p = 0.0640, 16 of 25, 1 of 3); `W0+off` (shipped) +0.8 [-0.7, +2.5]
+(p = 0.3110, 14 of 25, 0 of 3). The genre labels alone remove 7.2% / 7.1%
+of the non-picks at 95% (random 5.8%). Nothing here changes the todo "Core:
+a plan to drop the genre from the personal ranking" or its scope question
+((a) ranking only or (b) the whole feature, as Decision 1 left it); the
+wrap-up updates the todo to say this criterion confirms it.
+
+**4. Follow-up: none.** By the pre-registered rule an app change is
+recommended only when the best filter passes the worth-a-filter bar, and none
+does, so this plan recommends **no app change**: no "likely reject" filter
+item, no dimming in the strip, no `G0` model type, no rule filter, and
+nothing asked of the `rank.rs` session. What a filter would cost on today's
+evidence: at the label-free cut that keeps about 95% of the picks (one pick
+in twenty lost on average, more than one in ten in 5 of 25 folders), the
+best score hides about a sixth of the non-picks.
+
+For a later attempt, these are what would have to change for the answer to
+differ (conditions, not a plan; whether and when to pursue any of them is
+the user's call):
+
+- **Negatives that are bad, not merely unpicked.** Every non-pick counted as
+  a negative here, so the second-best frame of a burst and a duplicate count
+  against a filter as much as a blurred frame; the removed share is an upper
+  bound on "bad removed", and the 58 explicit rejects in 3 folders are too
+  few to measure precision on. Explicit rejects and `views` rows (viewed and
+  left unflagged) accumulating in the app would let a later evaluation
+  measure a filter on "bad" and train on it.
+- **More data.** 27 folders of one photographer, mostly basketball; a
+  nonlinear model fit on them may not carry over, and per-folder recall
+  scatters at small pick counts.
+- **`G0`'s weight scale fixed in advance.** Its pass depends on a rescaling
+  the pre-registration did not fix; a later plan would pre-register the
+  weight scale (or tune it in the inner CV) before reading `G0` again.
+- **Label-free threshold calibration.** The label-free cut gives up about 5
+  points of `RN` against the oracle for `G0` (16.8% against 22.0%) and
+  scatters per folder; a calibrated threshold (for example one learned on
+  each fold's training folders, the alternative not taken in "Trade-offs and
+  risks") could close part of that gap. It cannot pass the bar alone on this
+  data, since even the oracle cut is below 25%.
 
 ## Progress
 
 - (2026-10-16) Plan written; bar option B and variants option (b) chosen
 - (2026-10-16) Step 1 complete
 - (2026-10-16) Step 2 complete
+- (2026-10-16) Step 3 complete

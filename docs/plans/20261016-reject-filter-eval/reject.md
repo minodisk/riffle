@@ -664,3 +664,144 @@ Facts only; the Decision is Step 3's, after the ablations.
   `not good` 54.
 - Over the 22 folders with >= 20 picks the order holds: `G0` `RN@95` 20.4%,
   `F0+ctx` 18.6%, `W0` 16.9%.
+
+## Ablations
+
+Run 2026-10-16 by `python -I -B rejectablate.py D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-14-ball-labels D:\Photos\tests\2026-10-15-folder-wide-eval D:\Photos\tests\2026-10-16-reject-filter-eval 20`
+(Windows 11, 20 jobs). It fits the archived `ablate.specs` through the
+archived `ablate.task` unchanged on `F0+ctx` (27 folds) and `W0` (the 26
+folds with a scorable burst), and, because Step 2 named `G0` the best filter,
+the drop-one rows of `F0+ctx`'s specs on `G0` (its Step 2 fold function, the
+weights rescaled to mean 1 per training fold, on the masked design). The
+metrics are `rejectfilter.py`'s, imported by path. Its stdout is
+`rejectablate.out.md` and every ablated held-out score per frame
+`scores_ablate.tsv` (one column per base and row, named `<base> <row>`),
+both in `D:\Photos\tests\2026-10-16-reject-filter-eval\`. The tables below are
+that output as printed. Deviations are in `learnings.md` (Step 3).
+
+### Check: the unablated rerun against the stored scores
+
+| Base | Stored in | Max abs score difference | `RN@95` %, stored | `RN@95` %, rerun | `pAUC95`, stored | `pAUC95`, rerun |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `F0+ctx` | `scores.tsv` | 5.00e-06 | 18.4 | 18.4 | 0.550 | 0.550 |
+| `W0` | `scores.tsv` | 5.00e-06 | 16.6 | 16.6 | 0.544 | 0.544 |
+| `G0` | `scores_reject.tsv` | 5.00e-06 | 22.0 | 22.0 | 0.568 | 0.568 |
+
+### Drop one (ablated minus unablated)
+
+Each row is a full held-out rerun (leave one folder out; for `F0+ctx` and `W0` the same `C` grid and inner CV as the archived ablations, for `G0` its fixed setting) without the named columns, against the unablated model's stored held-out score. The ablated mean `RN@95`, then the mean paired per-folder difference over the 25 qualifying folders with the 1,000-draw folder bootstrap 95% interval (seed 0, fresh per comparison and metric), in points for `RN`. *Contributes* when the interval lies entirely below zero. `G0` runs the drop-one rows only (Step 2 named it the best filter).
+
+#### `F0+ctx`
+
+| Dropped | `RN@95` % | `RN@95`, points | Contributes | `RN@99`, points | Contributes | `pAUC95` | Contributes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Look | 14.2 | -4.2 [-9.0, +0.8] | no | -1.9 [-6.2, +2.6] | no | -0.015 [-0.038, +0.009] | no |
+| Burst position | 16.9 | -1.5 [-3.0, +0.1] | no | -0.8 [-2.2, +0.6] | no | -0.005 [-0.010, +0.001] | no |
+| Sharpness | 18.6 | +0.2 [-0.6, +1.2] | no | -0.3 [-0.9, +0.3] | no | -0.001 [-0.003, +0.001] | no |
+| AF eye focus | 18.0 | -0.4 [-1.1, +0.3] | no | -0.6 [-1.3, +0.1] | no | -0.003 [-0.006, +0.000] | no |
+| Eyes open | 18.0 | -0.4 [-1.4, +0.8] | no | -0.4 [-1.4, +0.9] | no | -0.001 [-0.006, +0.005] | no |
+| Head pose | 18.6 | +0.2 [-0.5, +0.8] | no | -0.3 [-0.7, +0.1] | no | -0.001 [-0.002, +0.001] | no |
+| Good photo | 18.3 | -0.1 [-0.9, +1.1] | no | +0.4 [-0.4, +1.5] | no | +0.001 [-0.002, +0.007] | no |
+| \|yaw\| | 18.1 | -0.3 [-0.8, +0.2] | no | -0.4 [-0.7, -0.1] | yes | -0.001 [-0.002, -0.000] | yes |
+| \|pitch\| | 18.6 | +0.2 [-0.3, +0.8] | no | +0.1 [-0.2, +0.4] | no | +0.001 [-0.001, +0.002] | no |
+| \|roll\| | 18.6 | +0.2 [-0.1, +0.7] | no | +0.2 [-0.1, +0.4] | no | +0.000 [-0.000, +0.001] | no |
+| ln burst size | 18.9 | +0.5 [-0.6, +1.7] | no | +0.1 [-0.8, +1.1] | no | +0.002 [-0.002, +0.008] | no |
+
+#### `W0`
+
+| Dropped | `RN@95` % | `RN@95`, points | Contributes | `RN@99`, points | Contributes | `pAUC95` | Contributes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Look | 13.6 | -3.0 [-6.9, +1.0] | no | -0.8 [-4.5, +2.5] | no | -0.009 [-0.027, +0.009] | no |
+| Burst position | 14.7 | -1.9 [-3.4, -0.3] | yes | -0.4 [-1.9, +1.0] | no | -0.006 [-0.014, -0.000] | yes |
+| Sharpness | 15.8 | -0.8 [-2.1, +0.3] | no | -1.1 [-1.9, -0.3] | yes | -0.006 [-0.012, -0.002] | yes |
+| AF eye focus | 16.0 | -0.6 [-1.8, +0.6] | no | -0.5 [-1.1, +0.3] | no | -0.003 [-0.007, +0.000] | no |
+| Eyes open | 16.7 | +0.1 [-0.7, +0.9] | no | +0.0 [-0.7, +0.8] | no | -0.000 [-0.004, +0.004] | no |
+| Head pose | 16.9 | +0.3 [-0.2, +0.9] | no | +0.0 [-0.6, +0.5] | no | +0.000 [-0.002, +0.003] | no |
+| Good photo | 16.2 | -0.4 [-2.0, +0.7] | no | -0.8 [-2.2, +0.1] | no | -0.005 [-0.012, +0.000] | no |
+| \|yaw\| | 16.7 | +0.1 [-0.3, +0.5] | no | +0.2 [-0.2, +0.5] | no | -0.001 [-0.004, +0.002] | no |
+| \|pitch\| | 16.9 | +0.4 [-0.1, +0.9] | no | -0.0 [-0.3, +0.2] | no | -0.000 [-0.002, +0.001] | no |
+| \|roll\| | 16.5 | -0.1 [-0.7, +0.5] | no | -0.2 [-0.8, +0.4] | no | -0.000 [-0.003, +0.002] | no |
+
+#### `G0`
+
+| Dropped | `RN@95` % | `RN@95`, points | Contributes | `RN@99`, points | Contributes | `pAUC95` | Contributes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Look | 16.4 | -5.6 [-8.9, -2.1] | yes | -3.0 [-6.1, -0.1] | yes | -0.021 [-0.037, -0.005] | yes |
+| Burst position | 19.8 | -2.2 [-3.6, -0.7] | yes | -0.8 [-1.9, +0.4] | no | -0.005 [-0.010, +0.000] | no |
+| Sharpness | 21.6 | -0.4 [-3.5, +2.2] | no | -1.3 [-3.8, +1.0] | no | -0.003 [-0.016, +0.008] | no |
+| AF eye focus | 21.1 | -0.9 [-3.4, +1.2] | no | -1.5 [-3.5, +0.1] | no | -0.009 [-0.019, -0.001] | yes |
+| Eyes open | 20.0 | -2.0 [-4.7, +0.2] | no | -2.4 [-4.6, -0.6] | yes | -0.011 [-0.023, -0.002] | yes |
+| Head pose | 20.8 | -1.2 [-4.5, +1.4] | no | -0.8 [-3.9, +2.0] | no | -0.005 [-0.021, +0.008] | no |
+| Good photo | 22.3 | +0.4 [-1.1, +1.7] | no | +0.1 [-1.5, +1.5] | no | +0.001 [-0.006, +0.007] | no |
+| \|yaw\| | 22.8 | +0.8 [-0.5, +2.3] | no | +0.0 [-1.2, +1.3] | no | +0.002 [-0.003, +0.008] | no |
+| \|pitch\| | 21.6 | -0.4 [-2.1, +0.9] | no | -0.3 [-1.9, +1.0] | no | -0.003 [-0.011, +0.002] | no |
+| \|roll\| | 21.7 | -0.2 [-2.0, +1.3] | no | -0.5 [-2.2, +0.8] | no | -0.003 [-0.011, +0.004] | no |
+| ln burst size | 21.9 | -0.1 [-1.6, +1.4] | no | -1.0 [-2.5, +0.5] | no | -0.003 [-0.011, +0.003] | no |
+
+### Each group alone
+
+A model of only that group's columns (with its missing-value indicators), held out as above; the mean over the 25 qualifying folders (per-folder SD in brackets) and the label-free `quantile@95` pair (mean realized pick recall % / mean `RN` %, gap to 95 in brackets). On `F0+ctx`, sharpness is the relative and the absolute `ln sharpness`, burst position is position and first frame (no `ln burst size`). Random (seed 0) reads `RN@95` 5.8%, `pAUC95` 0.504.
+
+#### `F0+ctx`
+
+| Alone | `RN@95` % | `RN@99` % | `pAUC95` | `quantile@95` recall / `RN` (gap) | Frame AUC |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Head pose | 6.9 (2.9) | 2.8 (2.9) | 0.506 (0.008) | 95.0 / 6.4 (-0.0) | 0.533 |
+| Sharpness | 9.1 (5.6) | 4.9 (6.0) | 0.521 (0.029) | 94.9 / 8.4 (-0.1) | 0.517 |
+| AF eye focus | 9.0 (4.3) | 4.1 (5.4) | 0.518 (0.024) | 94.9 / 8.6 (-0.1) | 0.583 |
+| Eyes open | 10.0 (6.6) | 5.0 (7.8) | 0.522 (0.037) | 94.9 / 8.0 (-0.1) | 0.575 |
+| Good photo | 9.3 (10.7) | 4.9 (11.6) | 0.502 (0.003) | 95.0 / 7.3 (-0.0) | 0.546 |
+| Burst position | 12.7 (8.3) | 3.9 (3.6) | 0.520 (0.024) | 94.7 / 8.1 (-0.3) | 0.578 |
+| Embedding (Look) | 13.4 (7.2) | 5.2 (4.2) | 0.529 (0.023) | 94.9 / 9.9 (-0.1) | 0.629 |
+| c1 | 9.3 (5.3) | 2.8 (3.9) | 0.515 (0.019) | 94.8 / 6.9 (-0.2) | 0.585 |
+| c2 | 7.7 (3.5) | 2.9 (2.7) | 0.511 (0.013) | 95.0 / 7.4 (+0.0) | 0.558 |
+| Genre labels | 7.2 (6.7) | 3.9 (7.1) | 0.506 (0.013) | 95.0 / 5.3 (-0.0) | 0.513 |
+| All (`F0+ctx` unablated) | 18.4 (10.8) | 8.1 (8.9) | 0.550 (0.046) | 95.0 / 14.6 (+0.0) | 0.666 |
+
+#### `W0`
+
+| Alone | `RN@95` % | `RN@99` % | `pAUC95` | `quantile@95` recall / `RN` (gap) | Frame AUC |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Head pose | 6.5 (3.9) | 2.9 (4.6) | 0.508 (0.021) | 95.0 / 6.2 (+0.0) | 0.539 |
+| Sharpness | 9.9 (7.4) | 5.5 (8.4) | 0.523 (0.041) | 94.8 / 7.7 (-0.2) | 0.530 |
+| AF eye focus | 9.5 (4.5) | 4.2 (5.4) | 0.519 (0.024) | 94.9 / 9.5 (-0.1) | 0.584 |
+| Eyes open | 9.7 (6.7) | 5.0 (7.8) | 0.522 (0.037) | 94.9 / 8.0 (-0.1) | 0.573 |
+| Good photo | 9.3 (10.7) | 4.9 (11.6) | 0.502 (0.003) | 95.0 / 7.3 (-0.0) | 0.546 |
+| Burst position | 12.7 (8.3) | 3.9 (3.6) | 0.520 (0.024) | 94.7 / 8.1 (-0.3) | 0.583 |
+| Embedding (Look) | 12.1 (6.6) | 4.3 (4.7) | 0.524 (0.023) | 95.0 / 9.8 (-0.0) | 0.636 |
+| c1 | 10.6 (5.3) | 4.1 (5.4) | 0.522 (0.025) | 94.6 / 8.8 (-0.4) | 0.581 |
+| c2 | 7.9 (3.9) | 2.9 (2.2) | 0.511 (0.013) | 95.0 / 6.6 (-0.0) | 0.559 |
+| Genre labels | 7.1 (5.3) | 3.4 (5.3) | 0.505 (0.009) | 95.0 / 5.7 (+0.0) | 0.511 |
+| All (`W0` unablated) | 16.6 (9.2) | 7.1 (8.4) | 0.544 (0.041) | 95.0 / 11.5 (+0.0) | 0.666 |
+
+### Wall time
+
+Load 4 s, 1464 held-out fits 523 s, metrics 2 s, total 530 s on 20 jobs.
+
+### Reading (ablations)
+
+Facts only; the Decision is in the plan.
+
+- The unablated reruns reproduce the stored held-out scores to 5e-6 (the
+  files' 6-significant-digit rounding) on all three bases, with the same
+  `RN@95` and `pAUC95`.
+- `F0+ctx`: no drop-one lowers `RN@95` with its interval below zero. The
+  largest drops are Look (-4.2 points [-9.0, +0.8]) and burst position (-1.5
+  [-3.0, +0.1]). `|yaw|` reads below zero on `RN@99` (-0.4 [-0.7, -0.1]) and
+  `pAUC95` (-0.001), both small.
+- `W0`: burst position lowers `RN@95` by -1.9 points [-3.4, -0.3]; sharpness
+  lowers `RN@99` (-1.1 [-1.9, -0.3]) and `pAUC95` (-0.006) but not `RN@95`
+  (-0.8 [-2.1, +0.3]); burst position also lowers `pAUC95`. Look reads -3.0
+  [-6.9, +1.0].
+- `G0`: Look (-5.6 points [-8.9, -2.1]) and burst position (-2.2 [-3.6,
+  -0.7]) lower `RN@95`. Eyes open reads -2.0 [-4.7, +0.2] on `RN@95` and
+  lowers `RN@99` (-2.4 [-4.6, -0.6]) and `pAUC95` (-0.011); AF eye focus
+  lowers `pAUC95` only (-0.009 [-0.019, -0.001]). Sharpness, head pose (all
+  and per axis), good photo and `ln burst size` read within about a point of
+  zero on `RN@95`.
+- Each group alone removes less than the full model on every base: at most
+  13.4% of the non-picks at 95% (Look on `F0+ctx`) against 18.4% (`F0+ctx`)
+  and 16.6% (`W0`). The technical groups alone read 6.5–10.0%, between random
+  (5.8%) and the baselines' best (9.3%); c1 9.3% / 10.6%, c2 7.7% / 7.9%, the
+  genre labels 7.2% / 7.1% (`F0+ctx` / `W0`). Their label-free `quantile@95`
+  pairs keep 94.6–95.0% of the picks and remove 5.3–9.9% of the non-picks.
