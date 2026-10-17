@@ -503,7 +503,7 @@ or the within-sample ones. The best existing filter (highest `BR` with `NL`
 <= 5%) is **`R0` at q5: it costs `NL` 3.7% [2.5, 5.1] of the not-bad frames
 and removes `BR` 19.3% [10.9, 30.0] of the bad ones at `P` 23.1% [13.3,
 35.6]**; `G0` at q5 reads 18.9% / 2.9% / 27.3%, absolute sharpness 16.8% /
-2.6% / 27.1%. The highest `P` at any cut is 27.3% against the 50% floor;
+2.6% / 27.1%. The highest `P` at any full-dump cut is 27.3% (29.9% within-sample, `G0` q5) against the 50% floor;
 `BR` reaches 50% only at cuts losing a quarter or more of the not-bad
 frames. At this base rate `P` >= 50% needs `BR` >= 17.1 x `NL`, so at `NL`
 5% a filter would have to remove about 86% of the bad frames, about four

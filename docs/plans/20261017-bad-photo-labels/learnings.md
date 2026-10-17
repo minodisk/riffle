@@ -192,8 +192,8 @@
   removal pair, not a frame share; the pair is what was matched, the share
   is recorded.
 - **Headline.** Weighted base rate 5.52% [4.15, 7.04]; no score, baseline
-  or rule passes the worth-a-filter bar at any cut (the highest `P` is
-  27.3%); the best existing filter at `NL` <= 5% is `R0` q5 (`BR` 19.3%,
+  or rule passes the worth-a-filter bar at any cut (the highest `P` at a full-dump cut is
+  27.3%, 29.9% within-sample); the best existing filter at `NL` <= 5% is `R0` q5 (`BR` 19.3%,
   `NL` 3.7%, `P` 23.1%); only the sharpness decile 1 catches bad photos by
   the cue rule (3.20x). See `badfilter.md` "Results".
 - **Deviations.** None from the pre-registered metrics, cuts, intervals or
