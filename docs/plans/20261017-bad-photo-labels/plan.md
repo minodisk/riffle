@@ -335,7 +335,7 @@ happens in this plan.
       leave the sample with their reason recorded; their inclusion
       probabilities are not re-normalized (reported as a deviation).
 
-- [ ] Step 4: `badfilter.py`: every existing score, rule and cue against the labels, reweighted to the library, with intervals
+- [x] Step 4: `badfilter.py`: every existing score, rule and cue against the labels, reweighted to the library, with intervals
   - Done when:
     - `badfilter.py` in this plan folder (`python -I -B badfilter.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
