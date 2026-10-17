@@ -21,10 +21,10 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 What the user wants from the AI / ranking feature is a **bad-photo filter**:
 drop the clearly bad frames, single shots and burst frames alike, and leave a
 candidate set the human picks from. The two evaluations so far,
-[folder-wide-ranking-eval](../_archived/20261015-folder-wide-ranking-eval/plan.md)
+[folder-wide-ranking-eval](../20261015-folder-wide-ranking-eval/plan.md)
 (Decision 1) and
-[reject-filter-eval](../_archived/20261016-reject-filter-eval/plan.md)
-(Decision 2, [reject.md](../_archived/20261016-reject-filter-eval/reject.md)),
+[reject-filter-eval](../20261016-reject-filter-eval/plan.md)
+(Decision 2, [reject.md](../20261016-reject-filter-eval/reject.md)),
 could not answer that question because their labels conflate **bad** with
 **not picked**: a culled folder's non-picks are the blurred frames *and* the
 second-best frame of a burst and the duplicates, so the removed share was
@@ -94,7 +94,7 @@ happens in this plan.
   rows of the meta pane and the embedding pass stay out of the way.
 - **Harnesses, imported by path, none modified** (the workaround recorded
   in the archived
-  [learnings](../_archived/20261016-reject-filter-eval/learnings.md), Step
+  [learnings](../20261016-reject-filter-eval/learnings.md), Step
   2: the five archived folders on `sys.path`, `gate` first, then
   `folder_gate`, `ballgate`, `genre_offsets`, `folderwide as fw`, then
   `fw.GENRES = folder_gate.GENRES = <repo>/crates/core/genres/siglip2.json`
@@ -303,7 +303,7 @@ happens in this plan.
   - Implementation approach:
     - Assumes Step 1 merged (the stratum sizes are quoted). Model the
       section on the archived
-      [reject.md](../_archived/20261016-reject-filter-eval/reject.md)
+      [reject.md](../20261016-reject-filter-eval/reject.md)
       pre-registration and keep its vocabulary. Doc-only PR.
 
 - [x] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
