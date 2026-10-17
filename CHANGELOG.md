@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0](https://github.com/minodisk/riffle/compare/v1.7.0...v1.8.0) (2026-10-17)
+
+
+### Features
+
+* **app:** count a file as viewed only after a 500 ms dwell ([#813](https://github.com/minodisk/riffle/issues/813)) ([97453c8](https://github.com/minodisk/riffle/commit/97453c8e4448eff9c7d17d782fec1c4ec98017b2))
+* **app:** fit the ranking on per-file views instead of Culling Finished ([#806](https://github.com/minodisk/riffle/issues/806)) ([9083383](https://github.com/minodisk/riffle/commit/908338306604931da00ff497f632c38fc1869a6f))
+* **app:** mark the burst's first-ranked frame with an icon on the strip ([#805](https://github.com/minodisk/riffle/issues/805)) ([ab278ae](https://github.com/minodisk/riffle/commit/ab278ae61fe6fda7d45ede5e908b2d1f5add3167))
+* **app:** refit the ranking at startup and on a folder switch ([#810](https://github.com/minodisk/riffle/issues/810)) ([f924609](https://github.com/minodisk/riffle/commit/f924609c17f7510222d5e92a83cc6ac254c62002))
+* **app:** show the genre a burst was ranked as in the meta pane ([#817](https://github.com/minodisk/riffle/issues/817)) ([e12286b](https://github.com/minodisk/riffle/commit/e12286bd2801fea8c8285b6af85f33b4cb89d4f8))
+* **core:** learn and rank with per-genre offsets on the shared ranking weights ([#816](https://github.com/minodisk/riffle/issues/816)) ([4dcc2b2](https://github.com/minodisk/riffle/commit/4dcc2b2e4a692c3c5bbca74024b9111ee941e30b))
+* **plans:** add the bad-photo label sampler and labeling guide (Step 1) ([#838](https://github.com/minodisk/riffle/issues/838)) ([1e9215d](https://github.com/minodisk/riffle/commit/1e9215df9032a4028c5a0b4436106226dd5f5df0))
+* **plans:** fit the dedicated bad-photo models B0 / L0 and record the Decision (Step 5) ([#842](https://github.com/minodisk/riffle/issues/842)) ([df1071a](https://github.com/minodisk/riffle/commit/df1071a48b46ea6df9ab4b154b4ddad2b0145ad7))
+* **plans:** measure every score, rule and cue against the bad-photo labels (Step 4) ([#841](https://github.com/minodisk/riffle/issues/841)) ([1bc10e0](https://github.com/minodisk/riffle/commit/1bc10e053a6ee97f0c913ae7274ad432736866d7))
+* **plans:** read the user's bad-photo labels into labels.tsv (Step 3) ([#840](https://github.com/minodisk/riffle/issues/840)) ([a5d4150](https://github.com/minodisk/riffle/commit/a5d4150b741ceffe7bc643682e608508ef72f848))
+
+
+### Bug Fixes
+
+* **app:** show the written count and capture-time changes in the sequence preview ([#821](https://github.com/minodisk/riffle/issues/821)) ([8b2f788](https://github.com/minodisk/riffle/commit/8b2f788d80b519e434183cd932e6684c7b28d611))
+
 ## [1.7.0](https://github.com/minodisk/riffle/compare/v1.6.0...v1.7.0) (2026-10-13)
 
 
