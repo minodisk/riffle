@@ -117,7 +117,7 @@ happens in this plan.
 
 ## Steps
 
-- [ ] Step 1: `sample.py`, the sample folder of copies with its manifest, and the labeling guide `labeling.md`
+- [x] Step 1: `sample.py`, the sample folder of copies with its manifest, and the labeling guide `labeling.md`
   - Done when:
     - `sample.py` in this plan folder (`python -I -B sample.py <app-dump-dir>
       <folder-wide-eval-dir> <reject-filter-eval-dir> <out-dir> [n]`,
@@ -190,7 +190,8 @@ happens in this plan.
       would not mind keeping); the setup (open
       `D:\Photos\tests\2026-10-17-bad-labels\sample`, `aiEnabled` off,
       file-name sort, no filter, let the scan finish first); the key (`x`
-      reject, press again to clear; `shift+x` must not be used, it rejects
+      reject, sticky, so `u` (unflag) or undo clears it, not a second `x`
+      (corrected in Step 1); `shift+x` must not be used, it rejects
       the rest); the rule to look at the picture, not the `f` mark or the
       meta pane; the pace (1–2 s per frame, about 20–40 minutes for 1,200,
       in as many sittings as wanted, nothing to save); the **stopping
@@ -482,3 +483,4 @@ happens in this plan.
 ## Progress
 
 - (2026-10-17) Plan written; 1,200 frames cue-heavy, shuffled order and bar option B chosen by the user
+- (2026-10-17) Step 1 complete except the manual check that the sample opens in Riffle with 1,200 unflagged frames (pending, see `learnings.md` "Deferred issues"; do it before the user starts labeling)
