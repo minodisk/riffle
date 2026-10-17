@@ -236,6 +236,61 @@
   `badfilter.md`) hung on the Git Bash `python` stub and was moved to the
   background; it never ran, and the edit was made by hand instead.
 
+## Step 5: badmodel.py, the dedicated model, and the Decision
+
+- **Run.** `python -I -B badmodel.py D:\Photos\tests\2026-10-12-rank-app
+  D:\Photos\tests\2026-10-15-folder-wide-eval
+  D:\Photos\tests\2026-10-16-reject-filter-eval
+  D:\Photos\tests\2026-10-17-bad-labels 4` from the scratchpad; 42 s inside
+  the script (load 4 s, the 27 folds with `B0`, `L0` and the permutations
+  on 4 jobs 28 s, cuts / metrics / both bootstraps 10 s). Writes
+  `scores_bad.tsv` and `badmodel.out.md` in the data folder. A second run
+  (after only de-duplicating the paired-difference rows) gave identical
+  numbers. No `__pycache__/` appeared.
+- **Import.** `badfilter` by path (this plan folder on `sys.path`), which
+  brings `rejectfilter` and the archived harnesses; the archived `ablate`
+  (already on `sys.path` through `rejectfilter`) for its `GROUPS`, the
+  `REASONS` groups on `F0+ctx`'s column layout, which is `G0`'s 46 columns.
+- **Headline.** Neither `B0` (q5: `BR` 16.4%, `NL` 3.0%, `P` 24.2%) nor `L0`
+  (q5: 23.6% / 2.8% / 32.9%) passes the worth-a-filter bar; against the
+  best existing within-sample score `G0` q5 (22.8%) the gains are −6.4
+  [−17.5, +2.0] and +0.8 [−12.2, +12.8]; the dedicated-model bar is not
+  met. `L0` has the highest AUC of any score (0.786). The Decision is in
+  `plan.md`; recommendation none.
+- **Deviations.** None from the pre-registered model, weights, folds, cuts,
+  intervals or bars.
+- **Choices the text left open:**
+  - The design's label-free parts (the mean fill of missing technical
+    values, the PCA and the standardization inside `folder_gate.design`)
+    are fit on every dump frame of the other 26 folders, as
+    `rejectfilter.g0_fold` does; the models are fit on those folders'
+    sampled frames only.
+  - `B0` / `L0` scores are the negated `decision_function` (the models
+    predict bad; every score in this plan keeps the higher end).
+  - `L0`'s "columns standardized on the training frames": the design's
+    columns re-standardized (unweighted mean and standard deviation) on the
+    fold's sampled training frames; NaN stays as the design's mean fill.
+    `max_iter` 2000 as `folder_gate.fit`. Class balance: each class's `1/π`
+    weights rescaled to a total of half the training frame count, so the
+    weights average 1 like `B0`'s.
+  - The best existing score for the dedicated-model bar is taken on the
+    within-sample cuts (`G0` at q5), as the bar's "(on the within-sample
+    cuts)" reads; the full-dump best of Step 4 (`R0` at q5) is compared on
+    its within-sample cut as well. The bar is not met against either.
+  - The within-sample cut compares the `1/π` prefix sum with q% of the
+    folder's sum with a 1e-12 relative tolerance (float sums).
+  - Permutation importance: the group's columns permuted jointly among the
+    held-out folder's sampled frames, 5 repeats with `default_rng(0)` per
+    fold, read as the drop of the pooled weighted AUC and partial AUC; the
+    repeat count and the metric were not fixed in the plan.
+  - The paired-difference table also gives same-`q` rows at q5 / q10 and
+    the folder-cluster interval beside the stratified one; only the best-cut
+    row with the stratified interval decides.
+- **The Git Bash `python3` stub hung again** on a `python3 -` heredoc
+  (meant for a text edit, as in Step 4); it was killed by its PID (not by
+  image name) and the edit made with the editor instead. Use the venv's
+  `python.exe` by full path, or no Python, for edits.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open

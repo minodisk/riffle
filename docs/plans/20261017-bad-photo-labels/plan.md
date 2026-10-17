@@ -367,7 +367,7 @@ happens in this plan.
       reuses the same draws across scores so paired differences are read on
       the same frames.
 
-- [ ] Step 5: The dedicated model `B0` / `L0` held out by folder, and the Decision
+- [x] Step 5: The dedicated model `B0` / `L0` held out by folder, and the Decision
   - Done when:
     - `badmodel.py` in this plan folder (same arguments as `badfilter.py`,
       plus `[jobs]`) imports `badfilter` by path for the metrics, fits `B0`
@@ -477,8 +477,99 @@ happens in this plan.
 
 ## Decision (usable bad-photo filter, cues that catch bad photos, dedicated model)
 
-(Written at the end of Step 5 from the pre-registered bars in
-`badfilter.md`.)
+Written 2026-10-18 at the end of Step 5, after both the Step 4 results and
+the dedicated-model tables existed, against the bars pre-registered in Step 2
+(option B: worth-a-filter `NL` <= 5%, `BR` >= 50% with its stratified 2.5%
+quantile above 40%, `P` >= 50%; dedicated model +10 points of `BR` with the
+paired interval above zero, or a pass where no existing score passes; a cue
+catches at >= 2x the base rate with the interval above it). Every number is
+weighted to the dump's 32,459 frames (`1/π`), held out where it comes from a
+model, with the stratified bootstrap 95% interval, and comes from
+[badfilter.md](badfilter.md) "Results" and "Dedicated model". No bar was
+changed after the labels were read.
+
+**1. Base rate: 5.52% of the dump's frames are bad** [4.15, 7.04]
+(folder-cluster [3.71, 7.61]; 80 of 1,200 sampled frames, 6.67%
+unweighted). It sits just above the 5% the Pre-registration names as very
+low, with its lower bound below it. Among the dump's non-picks the bad rate
+is 6.41% [4.79, 8.22], so about **94% of the non-picks the earlier
+evaluations counted as negatives are not bad**: the non-pick criterion of
+Decisions 1 and 2 overstated "bad" about fifteenfold. No sampled pick is bad
+(0 of 167); 4 of the 6 sampled explicit rejects are.
+
+**2. No usable bad-photo filter exists today.** No score, baseline or rule
+passes the worth-a-filter bar at any pre-listed cut, on the full-dump cuts
+or the within-sample ones. The best existing filter (highest `BR` with `NL`
+<= 5%) is **`R0` at q5: it costs `NL` 3.7% [2.5, 5.1] of the not-bad frames
+and removes `BR` 19.3% [10.9, 30.0] of the bad ones at `P` 23.1% [13.3,
+35.6]**; `G0` at q5 reads 18.9% / 2.9% / 27.3%, absolute sharpness 16.8% /
+2.6% / 27.1%. The highest `P` at any full-dump cut is 27.3% (29.9% within-sample, `G0` q5) against the 50% floor;
+`BR` reaches 50% only at cuts losing a quarter or more of the not-bad
+frames. At this base rate `P` >= 50% needs `BR` >= 17.1 x `NL`, so at `NL`
+5% a filter would have to remove about 86% of the bad frames, about four
+times the best measured. The low base rate is itself the finding the
+Pre-registration named: the dump holds few bad frames to filter, and the
+ones it holds are not ranked low enough by any existing score.
+
+**3. Only one cue catches bad photos: the folder's bottom sharpness
+decile.** Firing bins against the base rate 5.52%, beside Decision 2's
+"contributes at the bottom" column (drop-one on the non-pick criterion, for
+`F0+ctx` / `W0` / `G0`):
+
+| Cue (firing bin) | Bad rate % [95%] | x base | Catches | Decision 2, bottom |
+| --- | ---: | ---: | --- | --- |
+| Sharpness decile 1 | 17.7 [11.1, 25.5] | 3.20 | **yes** (cluster lower bound 10.5%) | no / no / no |
+| AF eye focus (`eye_focus` < 0.9) | 8.6 [4.4, 13.3] | 1.55 | no | no / no / no |
+| Eyes open (raw EAR <= 0.137) | 9.2 [4.2, 15.0] | 1.66 | no | no / no / no |
+| Head pose (`\|yaw\|` > 35) | 5.6 [2.2, 9.3] | 1.02 | no | no / no / no (`\|yaw\|`) |
+| Head pose (`\|pitch\|` > 45) | 17.6 [0.0, 40.5] | 3.20 | no (3 of 19 sampled) | no / no / no (`\|pitch\|`) |
+| Good photo (`tier` not good) | 6.6 [4.9, 8.4] | 1.19 | no | no / no / no |
+
+So on "bad" labels sharpness becomes the one cue that catches, where it did
+not contribute at the bottom on the non-pick criterion; the other "obviously
+bad" cues still do not. Outside the pre-registered firing bins (a reading,
+not a bar): frames with no AF face read 14.6% [10.8, 19.1] (2.65x), and
+`photoTier` good frames 0.2% (1 of 256), so the good-photo rule is a strong
+"not bad" signal but its complement is not a bad one. In `B0`, the held-out
+ranking rests on Look (AUC drop +0.104), then Sharpness, AF eye focus and
+Eyes open (+0.027 to +0.038); Head pose, Burst position and Good photo carry
+nothing. A lone pass among about 20 cue bins is read with multiplicity in
+mind, but this one is backed by the `sharp10` stratum's own rate (21.7%) and
+the folder-cluster interval.
+
+**4. Dedicated model: the bar is not met.** On the within-sample cuts the
+best existing score is `G0` at q5 (`BR` 22.8%, `NL` 3.1%, `P` 29.9%). `B0`
+at q5 reads `BR` 16.4% / `NL` 3.0% / `P` 24.2%, a gain of **−6.4 points
+[−17.5, +2.0]**; `L0` at q5 reads 23.6% / 2.8% / 32.9%, **+0.8 [−12.2,
++12.8]**, both short of +10 with the interval above zero; against `R0` (the
+full-dump best, read within-sample) the gains are −1.0 and +6.2 [−6.1,
++18.8]. Neither model passes the worth-a-filter bar, so the second branch
+(no existing score passes but the model does) does not hold either.
+Threshold-free, `L0` has the highest AUC of any score, 0.786 [0.716, 0.858]
+(`B0` 0.764, `G0` 0.731, `eye_focus` 0.746), which is not a bar quantity.
+
+**Recommendation: none** of the pre-listed follow-ups, as a
+recommendation only. Not "a plan that trains and ships a bad-photo model":
+the dedicated-model bar is not met. Not "a larger labeling round with the
+same sampler" for this bar: a second round would narrow the intervals
+(about ±10 points of `BR` now, on 80 bad frames, 13 of 27 held-out folders
+holding none), but the best point estimates (`P` 33%, `BR` 24% at `NL` <=
+5%) sit far from the bar's 50% / 50%, and at a 5.5% base rate the bar asks
+for about 86% `BR` at 5% `NL`; more labels of the same kind would not be
+expected to close that gap with these columns. The labeled sample, the
+sampler and the bars stay as reusable artifacts. No app change follows from
+this plan.
+
+Left for the user to decide (no plan is opened for them here):
+
+- whether the goal stays a **removal** filter at these bars, or a later plan
+  pre-registers a different use of the labels, such as a cue shown to the
+  human rather than a cut (the sharpness bottom decile catches at 3.2x, and
+  frames with no AF face read 2.65x), with its own bar;
+- whether a second labeling round is wanted for a **different question**
+  than this bar (for example the cue readings with more power, where `|pitch|`
+  > 45 reads 3.2x on 19 sampled frames), knowing it would not be expected to
+  change the answer of 2 and 4.
 
 ## Progress
 
