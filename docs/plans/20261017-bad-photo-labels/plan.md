@@ -306,7 +306,7 @@ happens in this plan.
       [reject.md](../_archived/20261016-reject-filter-eval/reject.md)
       pre-registration and keep its vocabulary. Doc-only PR.
 
-- [ ] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
+- [x] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
   - Done when:
     - **The user has said "done"** after reviewing every frame of
       `D:\Photos\tests\2026-10-17-bad-labels\sample` in Riffle per
