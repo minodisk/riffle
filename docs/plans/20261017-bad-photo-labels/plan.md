@@ -212,7 +212,7 @@ happens in this plan.
       copying; copy last. Copy time is minutes (54 GB).
     - Script and docs only; no Rust, no app change.
 
-- [ ] Step 2: Pre-register the metrics, the scores, the dedicated model and the bars in `badfilter.md`, before any label exists
+- [x] Step 2: Pre-register the metrics, the scores, the dedicated model and the bars in `badfilter.md`, before any label exists
   - Done when:
     - `badfilter.md` in this plan folder has a "Pre-registration" section
       merged **before the user has labeled anything and before any label is
@@ -484,3 +484,4 @@ happens in this plan.
 
 - (2026-10-17) Plan written; 1,200 frames cue-heavy, shuffled order and bar option B chosen by the user
 - (2026-10-17) Step 1 complete except the manual check that the sample opens in Riffle with 1,200 unflagged frames (pending, see `learnings.md` "Deferred issues"; do it before the user starts labeling)
+- (2026-10-17) Step 2 complete

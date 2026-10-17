@@ -77,6 +77,40 @@
   rejects the other frames of the burst, which still forms among the copies
   since they keep their capture times.
 
+## Step 2: the pre-registration in badfilter.md
+
+- **Blindness.** Written from the plan, the archived `reject.md` /
+  Decision 2 and Step 1's label-free outputs (`strata.tsv`,
+  `sample.out.md`); the sample folder's sidecars were not opened (Step 1
+  found none, and labeling has not started). The stratum sizes and `π` are
+  quoted from `strata.tsv`; Decision 2's numbers from the archived
+  `reject.md` "Results".
+- **Choices the plan's text left open, fixed in the pre-registration:**
+  - `G0`'s `quantile@95` share: `rejectfilter` computes it only for the 25
+    qualifying folders; the 2 non-qualifying folders (`2026-07-21`,
+    `2026-07-23`) get the share computed the same way from all 25.
+  - The cue bins (EAR <= 0.137 / (0.137, 0.25] / > 0.25 / missing;
+    `eye_focus` < 0.5 / [0.5, 0.9) / >= 0.9 / missing; `|yaw|` 35,
+    `|pitch|` 45; sharpness per-folder deciles on the full dump; `tier`) and
+    each cue's firing bin (the one its rule removes; `eye_focus`'s two lower
+    bins pooled).
+  - `B0` / `L0`'s within-sample cut is weighted by `1/π` (the removed `1/π`
+    sum reaching `q`% of the folder's), and the best existing score is also
+    read on that within-sample cut for the paired dedicated-model
+    comparison, so the difference compares like with like.
+  - `L0`: columns standardized on the training frames, class balance by
+    rescaling each class's weights to equal totals within the fold.
+  - The bootstrap holds the cuts and scores fixed (no refit of `B0` / `L0`
+    per draw); "interval above X" means the 2.5% quantile above X.
+  - The weighted AUC / partial AUC are pooled over the sampled frames, with
+    missing values at the folder's lowest finite score minus 1, as the
+    archived `pAUC95`.
+  - A copy whose sidecar holds a Pick or a rating counts by its reject state
+    alone.
+- **Links.** Only `../_archived/20261016-reject-filter-eval/` targets are
+  linked; this plan's own files (`labeling.md`, `strata.tsv`) are named in
+  backticks.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open
