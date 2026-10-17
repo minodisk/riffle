@@ -465,7 +465,9 @@ def main(dump, eval_dir, reject_dir, out_dir):
         m = np.where(folder_of == fi)[0]
         v = m[~np.isnan(sharp[m])]
         o = v[rf.bottom(sharp[v], tb[v])]
-        dec[o] = np.arange(len(o)) * 10 // len(o) + 1
+        # Decile 1 is the `sharpness bottom 10%` rule's set (floor of 10% of the folder's frames); the others follow the rank.
+        r = np.arange(len(o))
+        dec[o] = np.where(r < 10 * len(m) // 100, 1, np.maximum(r * 10 // len(o) + 1, 2))
     dc = dec[idx]
     with np.errstate(invalid="ignore"):
         bins = [
@@ -562,7 +564,7 @@ def main(dump, eval_dir, reject_dir, out_dir):
 
     print("## Wall time\n")
     gate.table("| Stage | Seconds |", [("Load (dump, stored scores, rules, labels)", f"{load_time:.0f}"), ("Cuts, metrics and bootstraps", f"{metric_time:.0f}")])
-    print(f"Total {time.time() - start:.0f} s.")
+    print(f"Total {time.time() - start:.0f} s.\n")
     sys.stdout = tee.stream
     with open(os.path.join(out_dir, "badfilter.out.md"), "w", encoding="utf-8", newline="") as out:
         out.write("".join(tee.parts))

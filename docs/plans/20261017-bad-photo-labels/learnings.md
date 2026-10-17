@@ -171,7 +171,7 @@
   D:\Photos\tests\2026-10-15-folder-wide-eval
   D:\Photos\tests\2026-10-16-reject-filter-eval
   D:\Photos\tests\2026-10-17-bad-labels` from the scratchpad; 94 s wall
-  (48 s inside the script: load 4 s, cuts / metrics / both bootstraps 44 s;
+  (55 s inside the script: load 4 s, cuts / metrics / both bootstraps 51 s;
   the rest is the imports). Stdout saved by the script as
   `badfilter.out.md` in the data folder. No `__pycache__/` appeared.
 - **Import.** `rejectfilter` by path as in Step 1, plus this plan folder on
@@ -195,7 +195,7 @@
   or rule passes the worth-a-filter bar at any cut (the highest `P` is
   27.3%); the best existing filter at `NL` <= 5% is `R0` q5 (`BR` 19.3%,
   `NL` 3.7%, `P` 23.1%); only the sharpness decile 1 catches bad photos by
-  the cue rule (3.18x). See `badfilter.md` "Results".
+  the cue rule (3.20x). See `badfilter.md` "Results".
 - **Deviations.** None from the pre-registered metrics, cuts, intervals or
   bars.
 - **Choices the text left open:**
@@ -223,13 +223,15 @@
     `quantile@95`, on the keep / remove split (as the archived frame AUC
     is), with their bootstrap intervals.
   - Sharpness deciles: per folder over its frames with a sharpness, ties by
-    the seed-0 draw, decile `floor(10 * rank / n) + 1`; no sampled frame
-    lacks sharpness.
+    the seed-0 draw, decile `floor(10 * rank / n) + 1` for deciles 2-10, while decile 1 is
+    exactly the `sharpness bottom 10%` rule's set (`floor(10 * n_folder /
+    100)` frames, so the firing bin and the rule's `P` agree); no sampled
+    frame lacks sharpness.
   - `|yaw|` > 35 and `|pitch|` > 45 are read as separate firing bins (the
     `face away` rule fires on either).
   - A "fragile" mark on the folder-cluster table would flag a pass or a
     catching cue whose cluster 2.5% quantile falls below its bar; none
-    occurred (sharpness decile 1's cluster lower bound is 10.4%).
+    occurred (sharpness decile 1's cluster lower bound is 10.5%).
 - **A stray tool call.** A `python -` heredoc (meant to patch
   `badfilter.md`) hung on the Git Bash `python` stub and was moved to the
   background; it never ran, and the edit was made by hand instead.

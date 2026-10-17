@@ -463,8 +463,8 @@ The weighted bad rate of each bin (stratified 95% interval; sampled frames and b
 | `\|pitch\|` | <= 45 | 728 | 25 | 4.1 [2.4, 6.0] | 3.4 | 0.74 |  |  |
 | `\|pitch\|` | > 45 | 19 | 3 | 17.6 [0.0, 40.5] | 15.8 | 3.20 | yes | no |
 | `\|pitch\|` | missing | 453 | 52 | 7.4 [5.3, 10.0] | 11.5 | 1.33 |  |  |
-| Sharpness decile | 1 | 159 | 33 | 17.6 [11.0, 25.3] | 20.8 | 3.18 | yes | yes |
-| Sharpness decile | 2 | 112 | 8 | 7.4 [2.4, 13.3] | 7.1 | 1.33 |  |  |
+| Sharpness decile | 1 | 156 | 33 | 17.7 [11.1, 25.5] | 21.2 | 3.20 | yes | yes |
+| Sharpness decile | 2 | 115 | 8 | 7.3 [2.4, 13.3] | 7.0 | 1.32 |  |  |
 | Sharpness decile | 3 | 124 | 7 | 7.7 [2.1, 14.5] | 5.6 | 1.40 |  |  |
 | Sharpness decile | 4 | 113 | 6 | 5.7 [0.9, 12.3] | 5.3 | 1.03 |  |  |
 | Sharpness decile | 5 | 99 | 3 | 1.0 [0.0, 2.4] | 3.0 | 0.19 |  |  |
@@ -585,7 +585,7 @@ The 1,000-draw folder-cluster bootstrap (resample the 27 folders, seed 0) beside
 | `eye_focus` | < 0.9 (the two lower bins) | 8.6 [4.4, 13.3] | [4.1, 14.8] | no |
 | `\|yaw\|` | > 35 | 5.6 [2.2, 9.3] | [1.4, 10.7] | no |
 | `\|pitch\|` | > 45 | 17.6 [0.0, 40.5] | [0.0, 38.4] | no |
-| Sharpness decile | 1 | 17.6 [11.0, 25.3] | [10.4, 25.0] | yes |
+| Sharpness decile | 1 | 17.7 [11.1, 25.5] | [10.5, 25.2] | yes |
 | `tier` | not good | 6.6 [4.9, 8.4] | [4.4, 9.0] | no |
 
 ### Wall time
@@ -593,9 +593,10 @@ The 1,000-draw folder-cluster bootstrap (resample the 27 folders, seed 0) beside
 | Stage | Seconds |
 | --- | ---: |
 | Load (dump, stored scores, rules, labels) | 4 |
-| Cuts, metrics and bootstraps | 44 |
+| Cuts, metrics and bootstraps | 51 |
 
-Total 48 s.
+Total 55 s.
+
 ### Reading
 
 The facts, without the Decision (Step 5 writes it against the bars):
@@ -629,8 +630,8 @@ The facts, without the Decision (Step 5 writes it against the bars):
   and `eye focus low` remove more bad frames than `W0` at q5, at a higher
   `NL`.
 - **Per cue, only the sharpness decile 1 catches bad photos** by the
-  pre-registered rule: 17.6% [11.0, 25.3], 3.18x the base rate
-  (folder-cluster lower bound 10.4%, also above it). The other firing bins
+  pre-registered rule: 17.7% [11.1, 25.5], 3.20x the base rate
+  (folder-cluster lower bound 10.5%, also above it). The other firing bins
   do not: raw EAR <= 0.137 9.2% (1.66x), `eye_focus` < 0.9 8.6% (1.55x),
   `|yaw|` > 35 5.6% (1.02x), `|pitch|` > 45 17.6% (3.20x, but 3 of 19
   sampled frames, interval [0.0, 40.5]), `tier` not good 6.6% (1.19x).
