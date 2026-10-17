@@ -1972,8 +1972,42 @@ The `reject-filter-eval` feature measured the personal ranking, its cues and a f
 - More folders and more photographers than the 27 folders, mostly basketball, of one photographer.
 - `G0`'s weight scale pre-registered, or tuned in the inner CV, before it is read again.
 - A calibrated label-free threshold (for example one learned on each fold's training folders) to close part of the 5-point gap between the label-free and oracle cuts. It cannot pass the bar alone on this data.
+The `bad-photo-labels` feature later labeled 1,200 sampled frames for badness (plan: `docs/plans/_archived/20261017-bad-photo-labels/plan.md`, Decision). 5.52% of the dump is bad, about 94% of the non-picks are not bad, and no filter or dedicated model met its bar (best `R0` at q5: `BR` 19.3%, `P` 23.1%). So the non-pick criterion overstated the bad share about fifteenfold, and a re-run on in-app rejects would measure a different, smaller set of frames than that dump's non-picks.
 Basis: `docs/plans/_archived/20261016-reject-filter-eval/plan.md` (Decision 2, item 4) and `docs/plans/_archived/20261016-reject-filter-eval/reject.md`. Files: `docs/plans/_archived/20261016-reject-filter-eval/rejectfilter.py`, `docs/plans/_archived/20261016-reject-filter-eval/rejectablate.py`, `crates/core/src/rank.rs`.
 
 #### TODO
 
-- [ ] When the app's explicit rejects and `views` rows have accumulated (the user judges when), write a plan that re-runs the bottom-oriented, recall-constrained evaluation with those as the negatives, reusing `rejectfilter.py` and `rejectablate.py`. It must pre-register `G0`'s weight scale and a label-free threshold calibration before reading any score.
+- [ ] When the app's explicit rejects and `views` rows have accumulated (the user judges when), write a plan that re-runs the evaluation with those as the negatives, reusing `rejectfilter.py`, `rejectablate.py` and the `bad-photo-labels` `badfilter.py` bars (worth-a-filter `NL` <= 5%, `BR` >= 50%, `P` >= 50%). It must pre-register `G0`'s weight scale and a label-free threshold calibration before reading any score, and start from the finding that a bad-photo bar is far from met on the 80 labeled bad frames.
+
+### App: real-device check that the bad-photo label sample opens in Riffle with 1,200 unflagged frames
+
+#### Background
+
+The `bad-photo-labels` feature sampled 1,200 frames of the dump into `D:\Photos\tests\2026-10-17-bad-labels\sample` for the user to label. Tests and the index cover that the folder holds 1,200 scanned `files` rows and that, after labeling, no copy carries a Pick, rating or color label (only 80 Rejects). The strip's visual reading was never confirmed: the user reported "done" without separately confirming it, and Step 1's checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261017-bad-photo-labels/plan.md`.
+
+Files: `docs/plans/_archived/20261017-bad-photo-labels/sample.py`, `docs/plans/_archived/20261017-bad-photo-labels/labeling.md`.
+
+#### TODO
+
+- [ ] On Windows, start Riffle, open `D:\Photos\tests\2026-10-17-bad-labels\sample`, sort by File name, clear all filters and let the scan finish. Expected: the strip shows 1,200 frames sorted from `0001_...`, and none shows a pick, reject or rating (labeled Rejects will now show; check an unlabeled copy of the sample if it still exists, otherwise treat the reading as moot and delete this item).
+
+### Core: decide whether a bad-photo cue shown to the human replaces the removal filter
+
+#### Background
+
+The `bad-photo-labels` Decision found no usable removal filter. The base rate of bad frames is 5.52% [4.15, 7.04], and about 94% of the non-picks the earlier evaluations counted as negatives are not bad. The best filter, `R0` at q5, removes 19.3% of the bad frames at `P` 23.1%, against the 50% / 50% bars. The dedicated models `B0` / `L0` did not meet the +10 point bar. One cue catches bad frames: the folder's bottom sharpness decile, a bad rate of 17.7% [11.1, 25.5], which is 3.2x the base rate. Frames with no AF face read 14.6% (2.65x), outside the pre-registered bins. The Decision left open whether the goal stays a removal filter at these bars or a later plan pre-registers a different use, such as a cue shown to the human rather than a cut, with its own bar. No plan was opened. Basis: `docs/plans/_archived/20261017-bad-photo-labels/plan.md` (Decision, "Left for the user to decide") and `docs/plans/_archived/20261017-bad-photo-labels/badfilter.md`. Files: `docs/plans/_archived/20261017-bad-photo-labels/labels.py`, `docs/plans/_archived/20261017-bad-photo-labels/badfilter.py`, `docs/plans/_archived/20261017-bad-photo-labels/badmodel.py`.
+
+#### TODO
+
+- [ ] Ask the user whether the goal stays a removal filter or becomes a cue shown to the human (for example marking the folder's bottom sharpness decile, or frames with no AF face).
+- [ ] If a cue, write a plan that pre-registers its own bar (precision of the marked frames against the 5.52% base rate, share of the bad frames covered, and the cost of the marks) before reading any number. It reuses `labels.tsv` and the sampler.
+
+### Core: decide whether a second bad-photo labeling round for the cue readings is wanted
+
+#### Background
+
+The `bad-photo-labels` labels hold 80 bad frames of 1,200, with 13 of 27 held-out folders holding none. The Decision does not expect a second round of the same kind to change its answer on a removal filter. A round for a different question could give the cue readings more power: `|pitch|` > 45 reads 3.2x the base rate on only 19 sampled frames, with an interval of [0.0, 40.5]. The Decision left this to the user. Basis: `docs/plans/_archived/20261017-bad-photo-labels/plan.md` (Decision, "Left for the user to decide"). Files: `docs/plans/_archived/20261017-bad-photo-labels/sample.py`, `docs/plans/_archived/20261017-bad-photo-labels/labeling.md`, `docs/plans/_archived/20261017-bad-photo-labels/labels.py`.
+
+#### TODO
+
+- [ ] Ask the user whether a second labeling round is wanted and for which question (for example the `|pitch|` > 45 stratum). If so, write a plan that pre-registers the question and its bar, and oversamples that stratum with `sample.py`.

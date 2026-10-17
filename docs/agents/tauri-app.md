@@ -2477,6 +2477,14 @@ nested `'''` strings can also fail outright in the Bash tool ("unexpected EOF
 while looking for matching"); write the script to the scratchpad with the
 Write tool and run that file.
 
+A third failure: on this setup the Git Bash `python` / `python3` command can
+be a stub, and a `python -` / `python3 -` heredoc hung on it twice without
+running anything (the call ended up in the background). Kill the hung process
+by its PID, not by image name. Use the venv's `python.exe` by full path on a
+script file written with the Write tool, or make a text edit with the Edit
+tool and no Python at all.
+
+- Source: `docs/plans/_archived/20261017-bad-photo-labels/learnings.md`, Steps 4 and 5.
 - Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1); face-detection-recall-cost learnings, Steps 2 and 3.
 
 ### On Windows, the Bash tool halves doubled backslashes, even in a quoted heredoc (Hit)

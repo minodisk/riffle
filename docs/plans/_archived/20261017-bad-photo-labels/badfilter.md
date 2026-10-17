@@ -11,7 +11,7 @@ sidecars were not opened for it. It is merged on its own, before
 `labels.py`, `badfilter.py` or `badmodel.py` exists; the merge commit of the
 PR that adds this section, without results, is the record, as for the
 archived
-[reject-filter evaluation](../_archived/20261016-reject-filter-eval/reject.md)
+[reject-filter evaluation](../20261016-reject-filter-eval/reject.md)
 and the folder-wide evaluation before it. Nothing in this section changes
 after the labels are in; a deviation found while implementing Steps 3–5 is
 recorded in `learnings.md` with its reason and does not touch the bars.
@@ -26,9 +26,9 @@ next plan?
 
 This pre-registration is **not blind** to the scores. On the same dump of 27
 folders and 32,459 frames, the archived
-[reject-filter evaluation](../_archived/20261016-reject-filter-eval/reject.md)
+[reject-filter evaluation](../20261016-reject-filter-eval/reject.md)
 (Decision 2 in its
-[plan](../_archived/20261016-reject-filter-eval/plan.md)) reported, held
+[plan](../20261016-reject-filter-eval/plan.md)) reported, held
 out, on the **non-pick** criterion (every non-pick a negative, so an upper
 bound on "bad removed"):
 
