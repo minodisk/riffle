@@ -165,6 +165,77 @@
   labeling is not known (not asked). With no picks in the sample folder the
   ranking forms no pairs from it either way.
 
+## Step 4: badfilter.py, the measurement
+
+- **Run.** `python -I -B badfilter.py D:\Photos\tests\2026-10-12-rank-app
+  D:\Photos\tests\2026-10-15-folder-wide-eval
+  D:\Photos\tests\2026-10-16-reject-filter-eval
+  D:\Photos\tests\2026-10-17-bad-labels` from the scratchpad; 94 s wall
+  (55 s inside the script: load 4 s, cuts / metrics / both bootstraps 51 s;
+  the rest is the imports). Stdout saved by the script as
+  `badfilter.out.md` in the data folder. No `__pycache__/` appeared.
+- **Import.** `rejectfilter` by path as in Step 1, plus this plan folder on
+  `sys.path` to import `sample` for `ALLOCATION`, `BOTTOM_SHARE` and
+  `score_bottom` (so the strata are recomputed by Step 1's own code); `-I`
+  drops the script's directory from `sys.path`, hence the explicit insert.
+- **Reference checks, all as expected.** The 33 `strata.tsv` rows
+  (population, drawn, `π`) recomputed from the dump: 0 differ; the sampled
+  frames' recomputed stratum / `π` against `labels.tsv`: 0 / 0 differ;
+  `manifest.tsv`'s `G0` / `W0` / `sharpness` against the dump's: 0 / 0 / 0
+  differ; the sum of `1/π` over the 1,200 sampled frames is 32,459.0;
+  random (seed 0) reads weighted `BR` 4.7 / 13.1 / 24.0 / 32.0 / 45.6% at
+  q = 5 / 10 / 20 / 30 / 40 and AUC 0.542 / partial AUC 0.512 (intervals
+  include 0.5); `G0`'s `quantile@95` cut reproduces `reject.md`'s mean
+  realized pick recall / non-pick removal over the 25 qualifying folders,
+  94.7 / 16.8 (and `rf.label_free`'s own 94.7 / 16.8), removing 15.2% of
+  the dump's frames (4,943). `reject.md` reports that cut's recall and
+  removal pair, not a frame share; the pair is what was matched, the share
+  is recorded.
+- **Headline.** Weighted base rate 5.52% [4.15, 7.04]; no score, baseline
+  or rule passes the worth-a-filter bar at any cut (the highest `P` is
+  27.3%); the best existing filter at `NL` <= 5% is `R0` q5 (`BR` 19.3%,
+  `NL` 3.7%, `P` 23.1%); only the sharpness decile 1 catches bad photos by
+  the cue rule (3.20x). See `badfilter.md` "Results".
+- **Deviations.** None from the pre-registered metrics, cuts, intervals or
+  bars.
+- **Choices the text left open:**
+  - The cue values, rule flags and stored scores are taken from the dump
+    arrays (indexed by (`folder`, `file`) of `labels.tsv`), not from
+    `manifest.tsv`; the manifest is joined by `name` only as the check above
+    (they agree), since the cuts need the full dump's vectors anyway.
+  - "`default_rng(0)` afresh per quantity" is implemented as one count
+    matrix (1,000 draws x 1,200 frames) drawn once from `default_rng(0)`
+    and reused for every quantity, which is what drawing afresh with the
+    same seed gives; the folder-cluster bootstrap likewise (folder counts
+    from `default_rng(0)`, 1,000 x 27).
+  - Primary cut: the score's cut with the weighted `NL` nearest 5%, ties to
+    the smaller `q`. A rule and `G0` `quantile@95` have one cut, which is
+    their primary.
+  - Paired differences: a graded score and a graded comparison at the
+    score's primary cut (both at the same `q`); a rule or `G0`
+    `quantile@95` against the comparison at the comparison's primary cut.
+    Frames outside either score's coverage (`W0`'s 8 sampled frames of
+    `2026-07-23`) are left out of both.
+  - A folder is outside a graded score's coverage when any of its frames
+    has a NaN (only the `W0` family on `2026-07-23`); `-inf` (missing
+    sharpness / `eye_focus`, "missing last") is ranked, not excluded.
+  - The AUC / partial AUC are also given for the binary rules and `G0`
+    `quantile@95`, on the keep / remove split (as the archived frame AUC
+    is), with their bootstrap intervals.
+  - Sharpness deciles: per folder over its frames with a sharpness, ties by
+    the seed-0 draw, decile `floor(10 * rank / n) + 1` for deciles 2-10, while decile 1 is
+    exactly the `sharpness bottom 10%` rule's set (`floor(10 * n_folder /
+    100)` frames, so the firing bin and the rule's `P` agree); no sampled
+    frame lacks sharpness.
+  - `|yaw|` > 35 and `|pitch|` > 45 are read as separate firing bins (the
+    `face away` rule fires on either).
+  - A "fragile" mark on the folder-cluster table would flag a pass or a
+    catching cue whose cluster 2.5% quantile falls below its bar; none
+    occurred (sharpness decile 1's cluster lower bound is 10.5%).
+- **A stray tool call.** A `python -` heredoc (meant to patch
+  `badfilter.md`) hung on the Git Bash `python` stub and was moved to the
+  background; it never ran, and the edit was made by hand instead.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open
