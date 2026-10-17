@@ -483,4 +483,4 @@ happens in this plan.
 ## Progress
 
 - (2026-10-17) Plan written; 1,200 frames cue-heavy, shuffled order and bar option B chosen by the user
-- (2026-10-17) Step 1 complete
+- (2026-10-17) Step 1 complete except the manual check that the sample opens in Riffle with 1,200 unflagged frames (pending, see `learnings.md` "Deferred issues"; do it before the user starts labeling)
