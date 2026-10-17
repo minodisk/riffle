@@ -638,3 +638,211 @@ The facts, without the Decision (Step 5 writes it against the bars):
   Outside the firing bins: frames with no AF face (`eye_focus` missing) read
   14.6% [10.8, 19.1] (2.65x); `tier` good reads 0.2% (1 of 256 sampled);
   the sharpness deciles above 1 read 0.6–7.7%.
+
+## Dedicated model
+
+Run 2026-10-18 by `badmodel.py` (Step 5) as `python -I -B badmodel.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval D:\Photos\tests\2026-10-17-bad-labels 4`;
+the tables below are its stdout, saved as `badmodel.out.md` in the data
+folder, and the held-out scores are in `scores_bad.tsv` there (`B0` and `L0`
+are the negated decision functions, so higher keeps, as for every other
+score). The fits follow the Pre-registration's Dedicated model section;
+nothing in the Pre-registration was changed, and the choices its text left
+open are recorded in `learnings.md` (Step 5).
+
+### Dedicated model: data and fits
+
+| Reading | Value |
+| --- | ---: |
+| Sampled frames / bad / not bad / folds (leave one folder out) | 1200 / 80 / 1120 / 27 |
+| Design columns (`folder_gate.design(d, mask, "full")`) | 46 |
+| Training frames per fold: min / max; bad among them: min / max | 1037 / 1192; 63 / 80 |
+| Held-out folders with no bad sampled frame | 13 |
+
+### Dedicated model: within-sample cuts
+
+Every score cut **within each folder's sampled frames**: remove the lowest-scored sampled frames (ties by the seed-0 draw) while their `1/π` sum stays <= q% of the folder's `1/π` sum (the Pre-registration's Dedicated model cut; coarse on about 45 frames per folder). Weighted `BR` / `NL` / `P` with the stratified 95% interval and the unweighted value in brackets; Bar: the worth-a-filter bar. The binary rules and `G0` `quantile@95` have one cut, the same as in Results. `B0` and `L0` first, then every existing score.
+
+| Score | Cut | Out | `BR` % | `NL` % | `P` % | Bar |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `B0` | q5 (best) | 0 | 16.4 [10.0, 24.3] (28.8) | 3.0 [2.0, 4.1] (4.6) | 24.2 [15.4, 37.3] (30.7) | - |
+| `B0` | q10 | 0 | 34.1 [22.2, 48.4] (43.8) | 7.5 [5.8, 9.3] (9.7) | 21.0 [13.2, 29.9] (24.3) | - |
+| `B0` | q20 | 0 | 51.4 [37.6, 67.1] (63.8) | 16.7 [14.3, 19.2] (20.4) | 15.2 [10.6, 20.8] (18.3) | - |
+| `B0` | q30 | 0 | 69.2 [56.1, 82.2] (77.5) | 26.4 [23.3, 29.4] (30.0) | 13.3 [9.4, 17.6] (15.6) | - |
+| `B0` | q40 | 0 | 76.3 [63.5, 88.8] (83.8) | 36.7 [33.6, 40.0] (39.8) | 10.8 [8.0, 14.2] (13.1) | - |
+| `L0` | q5 (best) | 0 | 23.6 [14.4, 35.1] (33.8) | 2.8 [2.0, 3.8] (4.8) | 32.9 [21.2, 46.2] (33.3) | - |
+| `L0` | q10 | 0 | 39.5 [26.7, 53.4] (46.2) | 7.4 [5.9, 9.0] (10.0) | 23.8 [16.2, 33.3] (24.8) | - |
+| `L0` | q20 | 0 | 51.8 [38.5, 66.9] (61.2) | 16.6 [14.3, 19.1] (20.9) | 15.4 [10.7, 21.0] (17.3) | - |
+| `L0` | q30 | 0 | 68.4 [54.4, 82.5] (76.2) | 25.9 [23.1, 28.8] (29.0) | 13.4 [9.7, 17.8] (15.8) | - |
+| `L0` | q40 | 0 | 78.0 [65.5, 88.7] (81.2) | 36.1 [32.8, 39.3] (38.4) | 11.2 [8.2, 14.8] (13.1) | - |
+| `W0` | q5 (best) | 8 | 13.0 [5.7, 23.3] (16.2) | 3.1 [2.3, 3.9] (5.8) | 19.5 [8.9, 33.0] (16.9) | - |
+| `W0` | q10 | 8 | 28.9 [17.0, 43.1] (33.8) | 7.7 [6.1, 9.2] (11.9) | 18.1 [10.9, 26.9] (17.0) | - |
+| `W0` | q20 | 8 | 37.6 [25.6, 51.7] (47.5) | 17.7 [15.2, 20.1] (22.8) | 11.1 [7.1, 16.0] (13.0) | - |
+| `W0` | q30 | 8 | 47.8 [35.0, 62.6] (62.5) | 27.9 [25.1, 31.0] (33.4) | 9.1 [6.3, 12.5] (11.9) | - |
+| `W0` | q40 | 8 | 58.6 [44.0, 73.5] (70.0) | 37.3 [34.1, 40.3] (43.3) | 8.4 [5.8, 11.5] (10.4) | - |
+| `W0+off` | q5 (best) | 8 | 12.8 [7.4, 20.0] (21.2) | 3.1 [2.2, 4.1] (5.5) | 19.1 [11.1, 29.8] (21.8) | - |
+| `W0+off` | q10 | 8 | 27.2 [16.5, 39.9] (37.5) | 7.3 [5.8, 9.0] (10.9) | 17.8 [11.1, 25.8] (19.9) | - |
+| `W0+off` | q20 | 8 | 37.8 [25.7, 52.6] (50.0) | 18.0 [15.3, 20.7] (22.5) | 10.9 [7.1, 15.8] (13.8) | - |
+| `W0+off` | q30 | 8 | 52.4 [38.4, 68.1] (65.0) | 27.2 [24.4, 30.1] (32.8) | 10.1 [6.8, 13.9] (12.5) | - |
+| `W0+off` | q40 | 8 | 58.1 [43.4, 73.5] (68.8) | 37.5 [34.4, 40.5] (43.8) | 8.3 [5.7, 11.4] (10.1) | - |
+| `F0` | q5 (best) | 0 | 19.1 [10.7, 30.1] (26.2) | 3.0 [2.0, 3.9] (5.2) | 27.2 [16.3, 40.6] (26.6) | - |
+| `F0` | q10 | 0 | 30.8 [19.9, 44.9] (42.5) | 7.2 [5.6, 9.0] (10.5) | 20.0 [12.7, 28.4] (22.4) | - |
+| `F0` | q20 | 0 | 37.7 [26.4, 52.9] (55.0) | 17.4 [15.0, 20.1] (22.7) | 11.2 [7.6, 15.7] (14.8) | - |
+| `F0` | q30 | 0 | 49.5 [36.4, 64.7] (66.2) | 27.0 [24.3, 30.0] (33.1) | 9.7 [6.7, 13.1] (12.5) | - |
+| `F0` | q40 | 0 | 53.0 [39.7, 67.4] (70.0) | 38.1 [34.9, 41.3] (43.6) | 7.5 [5.3, 10.1] (10.3) | - |
+| `F0+ctx` | q5 (best) | 0 | 18.5 [10.5, 29.2] (25.0) | 3.1 [2.0, 4.3] (4.6) | 25.8 [15.0, 40.1] (28.2) | - |
+| `F0+ctx` | q10 | 0 | 34.3 [22.8, 48.6] (43.8) | 7.0 [5.4, 8.7] (10.2) | 22.1 [14.6, 31.3] (23.5) | - |
+| `F0+ctx` | q20 | 0 | 42.2 [29.5, 57.0] (57.5) | 17.5 [15.1, 20.2] (22.1) | 12.4 [8.4, 17.2] (15.6) | - |
+| `F0+ctx` | q30 | 0 | 47.9 [35.3, 62.6] (65.0) | 27.4 [24.7, 30.3] (33.2) | 9.3 [6.4, 12.7] (12.3) | - |
+| `F0+ctx` | q40 | 0 | 51.7 [38.7, 67.1] (68.8) | 38.0 [34.8, 41.2] (43.9) | 7.4 [5.1, 9.9] (10.1) | - |
+| `P0` | q5 (best) | 0 | 17.3 [9.3, 28.2] (22.5) | 3.0 [2.2, 3.8] (5.2) | 25.5 [14.7, 37.8] (23.7) | - |
+| `P0` | q10 | 0 | 25.6 [16.8, 37.7] (38.8) | 7.7 [6.2, 9.5] (11.4) | 16.2 [10.4, 23.4] (19.5) | - |
+| `P0` | q20 | 0 | 41.0 [28.3, 55.2] (55.0) | 17.3 [14.9, 19.9] (21.9) | 12.2 [8.1, 16.7] (15.2) | - |
+| `P0` | q30 | 0 | 45.7 [32.9, 60.6] (62.5) | 27.6 [24.7, 30.7] (33.0) | 8.8 [6.0, 12.1] (11.9) | - |
+| `P0` | q40 | 0 | 53.0 [39.7, 67.8] (70.0) | 38.0 [34.7, 41.2] (43.2) | 7.5 [5.2, 10.1] (10.4) | - |
+| `R0` | q5 (best) | 0 | 17.4 [9.3, 28.3] (23.8) | 3.0 [2.0, 4.0] (4.9) | 25.6 [14.5, 38.9] (25.7) | - |
+| `R0` | q10 | 0 | 31.9 [20.8, 46.2] (45.0) | 7.3 [5.7, 9.2] (10.2) | 20.2 [13.0, 29.6] (24.0) | - |
+| `R0` | q20 | 0 | 39.5 [28.0, 54.8] (56.2) | 17.8 [15.4, 20.5] (22.3) | 11.5 [7.9, 16.0] (15.3) | - |
+| `R0` | q30 | 0 | 49.5 [36.4, 65.2] (66.2) | 27.2 [24.4, 30.0] (33.0) | 9.6 [6.7, 12.9] (12.5) | - |
+| `R0` | q40 | 0 | 52.9 [39.7, 67.7] (71.2) | 38.0 [34.9, 41.1] (43.2) | 7.5 [5.4, 10.1] (10.5) | - |
+| `G0` | q5 (best) | 0 | 22.8 [14.0, 33.9] (35.0) | 3.1 [2.2, 4.2] (5.5) | 29.9 [18.9, 42.0] (31.1) | - |
+| `G0` | q10 | 0 | 33.4 [22.6, 47.4] (50.0) | 7.8 [6.3, 9.3] (13.6) | 20.1 [13.3, 28.5] (20.8) | - |
+| `G0` | q20 | 0 | 40.9 [29.2, 55.8] (60.0) | 16.9 [14.7, 19.3] (24.6) | 12.4 [8.6, 17.0] (14.9) | - |
+| `G0` | q30 | 0 | 54.2 [40.8, 70.5] (68.8) | 26.5 [23.6, 29.4] (33.1) | 10.7 [7.5, 14.6] (12.9) | - |
+| `G0` | q40 | 0 | 64.3 [50.9, 78.3] (73.8) | 37.0 [33.7, 40.2] (42.1) | 9.2 [6.5, 12.6] (11.1) | - |
+| `rule count` | q5 (best) | 0 | 9.5 [2.3, 19.0] (7.5) | 3.0 [1.6, 4.4] (2.1) | 15.7 [3.9, 32.1] (20.7) | - |
+| `rule count` | q10 | 0 | 18.6 [6.5, 30.7] (11.2) | 7.7 [5.7, 9.7] (5.4) | 12.4 [4.3, 22.0] (12.9) | - |
+| `rule count` | q20 | 0 | 29.6 [14.3, 43.6] (18.8) | 18.2 [15.6, 20.9] (13.2) | 8.7 [3.8, 14.0] (9.2) | - |
+| `rule count` | q30 | 0 | 49.7 [34.9, 62.5] (36.2) | 26.9 [24.1, 29.7] (21.0) | 9.7 [5.8, 14.0] (11.0) | - |
+| `rule count` | q40 | 0 | 58.0 [43.7, 70.1] (45.0) | 37.4 [34.6, 39.8] (29.5) | 8.3 [5.2, 11.6] (9.8) | - |
+| `W0 burst-centered (what the app displays)` | q5 (best) | 8 | 12.2 [6.9, 19.3] (20.0) | 3.3 [2.3, 4.3] (5.4) | 18.0 [10.2, 27.1] (21.1) | - |
+| `W0 burst-centered (what the app displays)` | q10 | 8 | 22.8 [13.5, 34.8] (30.0) | 8.4 [6.6, 10.3] (11.5) | 13.7 [7.7, 21.2] (15.8) | - |
+| `W0 burst-centered (what the app displays)` | q20 | 8 | 30.2 [19.4, 43.5] (40.0) | 17.6 [15.3, 20.3] (21.1) | 9.1 [5.7, 13.2] (12.0) | - |
+| `W0 burst-centered (what the app displays)` | q30 | 8 | 40.0 [27.4, 53.9] (48.8) | 27.8 [24.7, 30.9] (31.8) | 7.8 [5.2, 11.0] (9.9) | - |
+| `W0 burst-centered (what the app displays)` | q40 | 8 | 56.2 [42.4, 71.2] (65.0) | 37.5 [34.4, 40.8] (41.7) | 8.0 [5.5, 11.1] (10.1) | - |
+| `Random (seed 0)` | q5 (best) | 0 | 4.7 [1.3, 9.7] (7.5) | 3.8 [2.5, 5.3] (3.9) | 6.7 [1.8, 14.9] (12.0) | - |
+| `Random (seed 0)` | q10 | 0 | 7.6 [3.0, 14.0] (12.5) | 9.0 [7.0, 11.0] (9.7) | 4.7 [1.8, 8.6] (8.4) | - |
+| `Random (seed 0)` | q20 | 0 | 25.3 [14.1, 38.1] (28.8) | 18.4 [15.8, 21.0] (19.6) | 7.4 [4.1, 11.7] (9.5) | - |
+| `Random (seed 0)` | q30 | 0 | 33.6 [20.9, 47.6] (33.8) | 28.6 [25.5, 31.6] (29.4) | 6.4 [3.7, 9.8] (7.6) | - |
+| `Random (seed 0)` | q40 | 0 | 42.3 [28.7, 56.6] (42.5) | 38.2 [35.1, 41.4] (39.7) | 6.1 [3.8, 8.9] (7.1) | - |
+| `Absolute sharpness` | q5 (best) | 0 | 18.1 [10.2, 28.9] (26.2) | 2.9 [2.0, 3.8] (5.2) | 26.8 [15.9, 41.4] (26.6) | - |
+| `Absolute sharpness` | q10 | 0 | 28.2 [18.0, 40.6] (38.8) | 7.5 [5.9, 9.2] (10.6) | 18.0 [11.7, 25.4] (20.7) | - |
+| `Absolute sharpness` | q20 | 0 | 43.6 [29.7, 58.3] (51.2) | 17.2 [14.7, 19.9] (20.1) | 12.9 [8.3, 18.3] (15.4) | - |
+| `Absolute sharpness` | q30 | 0 | 56.4 [41.4, 71.0] (60.0) | 27.2 [24.3, 30.3] (28.8) | 10.8 [7.3, 14.9] (12.9) | - |
+| `Absolute sharpness` | q40 | 0 | 71.0 [58.5, 82.0] (67.5) | 36.5 [33.3, 39.9] (38.0) | 10.2 [7.1, 13.7] (11.2) | - |
+| `eye_focus` (missing last) | q5 (best) | 0 | 13.2 [7.7, 20.8] (25.0) | 3.6 [2.7, 4.6] (5.8) | 17.5 [10.6, 25.9] (23.5) | - |
+| `eye_focus` (missing last) | q10 | 0 | 20.7 [13.4, 31.0] (37.5) | 8.6 [7.1, 10.3] (11.6) | 12.4 [8.1, 17.3] (18.8) | - |
+| `eye_focus` (missing last) | q20 | 0 | 41.1 [29.3, 55.5] (60.0) | 17.2 [14.8, 19.5] (19.9) | 12.3 [8.6, 16.8] (17.7) | - |
+| `eye_focus` (missing last) | q30 | 0 | 54.6 [40.6, 68.8] (68.8) | 26.7 [23.8, 29.5] (25.4) | 10.7 [7.5, 14.5] (16.2) | - |
+| `eye_focus` (missing last) | q40 | 0 | 74.0 [62.5, 84.7] (76.2) | 36.7 [34.0, 39.5] (32.9) | 10.5 [7.6, 14.1] (14.2) | - |
+| `photoTier` good | q5 (best) | 0 | 5.8 [1.8, 11.2] (8.8) | 3.8 [2.4, 5.3] (3.8) | 8.1 [2.5, 16.7] (14.0) | - |
+| `photoTier` good | q10 | 0 | 11.0 [5.6, 18.6] (17.5) | 8.5 [6.6, 10.5] (9.2) | 7.0 [3.6, 11.9] (12.0) | - |
+| `photoTier` good | q20 | 0 | 29.6 [17.8, 43.5] (32.5) | 18.4 [15.7, 21.2] (17.9) | 8.6 [5.0, 13.1] (11.5) | - |
+| `photoTier` good | q30 | 0 | 35.4 [22.4, 49.5] (36.2) | 28.2 [25.2, 31.3] (27.7) | 6.8 [4.1, 10.3] (8.6) | - |
+| `photoTier` good | q40 | 0 | 51.1 [37.0, 64.7] (50.0) | 38.2 [35.1, 41.3] (37.5) | 7.2 [4.7, 10.2] (8.7) | - |
+| G0 `quantile@95` | q@95 | 0 | 35.6 [24.5, 50.0] (55.0) | 10.6 [8.9, 12.5] (17.5) | 16.4 [11.0, 23.0] (18.3) | - |
+| `eyes closed` | rule | 0 | 12.2 [5.9, 19.4] (13.8) | 7.1 [6.7, 7.4] (9.7) | 9.2 [4.2, 15.0] (9.2) | - |
+| `eye focus low` | rule | 0 | 43.5 [27.0, 56.7] (20.0) | 27.1 [26.0, 28.1] (11.8) | 8.6 [4.4, 13.3] (10.8) | - |
+| `face away` | rule | 0 | 26.3 [12.2, 39.7] (12.5) | 26.3 [23.9, 28.5] (16.2) | 5.5 [2.2, 9.1] (5.2) | - |
+| `sharpness bottom 10%` | rule | 0 | 30.7 [19.4, 43.8] (41.2) | 8.3 [6.7, 10.2] (11.0) | 17.7 [11.1, 25.5] (21.2) | - |
+| `any of` | rule | 0 | 72.2 [61.0, 81.9] (61.2) | 52.6 [51.8, 53.3] (38.5) | 7.4 [5.0, 10.2] (10.2) | - |
+| `not good` | rule | 0 | 99.5 [98.2, 100.0] (98.8) | 82.8 [80.9, 84.6] (77.2) | 6.6 [4.9, 8.4] (8.4) | - |
+
+### Dedicated model: the best existing score, within-sample beside full-dump
+
+The best existing score by the bar's rule (highest weighted `BR` among the cuts with `NL` <= 5%): on the full-dump cuts (Results) `R0` at `q5`; on the within-sample cuts `G0` at `q5`. Each row: its best cut on each reading.
+
+| Score | Cuts | Best cut (`NL` <= 5%) | `BR` % | `NL` % | `P` % |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `R0` | full-dump | q5 | 19.3 [10.9, 30.0] | 3.7 [2.5, 5.1] | 23.1 [13.3, 35.6] |
+| `R0` | within-sample | q5 | 17.4 [9.3, 28.3] | 3.0 [2.0, 4.0] | 25.6 [14.5, 38.9] |
+| `G0` | full-dump | q5 | 18.9 [10.6, 29.6] | 2.9 [1.9, 4.2] | 27.3 [16.1, 41.4] |
+| `G0` | within-sample | q5 | 22.8 [14.0, 33.9] | 3.1 [2.2, 4.2] | 29.9 [18.9, 42.0] |
+| `B0` | within-sample | q5 | 16.4 [10.0, 24.3] | 3.0 [2.0, 4.1] | 24.2 [15.4, 37.3] |
+| `L0` | within-sample | q5 | 23.6 [14.4, 35.1] | 2.8 [2.0, 3.8] | 32.9 [21.2, 46.2] |
+
+### Dedicated model: paired differences
+
+Model minus comparison, in points, each at its best within-sample cut with `NL` <= 5% (the dedicated-model bar's reading), and at the same `q` for q5 / q10 (omitted where it repeats the best-cut row); stratified bootstrap 95% interval (the same draws for both) and the folder-cluster interval. Frames outside either score's coverage are left out of both. Bar: `BR` difference >= +10 points with its stratified 2.5% quantile above zero.
+
+| Comparison | Cuts | `BR`, points | `NL`, points | `P`, points |
+| --- | ---: | ---: | ---: | ---: |
+| `B0` (q5) - `G0` (q5) | best | -6.4 [-17.5, +2.0] (cluster [-20.0, +2.1]) | -0.1 [-1.4, +1.1] (cluster [-0.8, +0.5]) | -5.7 [-18.8, +7.9] (cluster [-20.2, +6.7]) |
+| `B0` (q10) - `G0` (q10) | same q | +0.7 [-14.7, +15.5] (cluster [-20.2, +17.0]) | -0.3 [-2.4, +1.9] (cluster [-1.5, +1.0]) | +0.9 [-7.6, +10.0] (cluster [-10.2, +12.8]) |
+| `B0` (q5) - `R0` (q5) | best | -1.0 [-12.0, +8.1] (cluster [-12.8, +7.3]) | +0.0 [-1.4, +1.3] (cluster [-0.6, +0.7]) | -1.4 [-15.3, +13.3] (cluster [-14.6, +9.2]) |
+| `B0` (q10) - `R0` (q10) | same q | +2.2 [-12.6, +16.9] (cluster [-13.4, +13.7]) | +0.2 [-2.2, +2.6] (cluster [-1.0, +1.5]) | +0.8 [-8.6, +10.4] (cluster [-8.6, +9.3]) |
+| `B0` (q5) - `L0` (q5) | best | -7.2 [-17.6, +2.1] (cluster [-14.4, -0.5]) | +0.2 [-1.1, +1.4] (cluster [-0.8, +0.8]) | -8.7 [-22.2, +5.6] (cluster [-18.5, +0.9]) |
+| `B0` (q10) - `L0` (q10) | same q | -5.4 [-20.8, +10.3] (cluster [-16.8, +6.2]) | +0.1 [-1.9, +2.2] (cluster [-0.9, +1.2]) | -2.8 [-12.1, +6.2] (cluster [-10.5, +4.5]) |
+| `L0` (q5) - `G0` (q5) | best | +0.8 [-12.2, +12.8] (cluster [-13.8, +11.7]) | -0.3 [-1.6, +1.0] (cluster [-1.2, +0.7]) | +3.0 [-12.2, +17.5] (cluster [-15.7, +20.7]) |
+| `L0` (q10) - `G0` (q10) | same q | +6.1 [-8.9, +21.5] (cluster [-14.3, +21.6]) | -0.3 [-2.6, +1.7] (cluster [-1.5, +0.7]) | +3.6 [-4.9, +12.8] (cluster [-6.6, +15.2]) |
+| `L0` (q5) - `R0` (q5) | best | +6.2 [-6.1, +18.8] (cluster [-6.5, +15.8]) | -0.1 [-1.5, +1.2] (cluster [-0.9, +0.7]) | +7.3 [-9.0, +22.5] (cluster [-10.6, +22.8]) |
+| `L0` (q10) - `R0` (q10) | same q | +7.7 [-7.4, +23.4] (cluster [-6.4, +19.0]) | +0.1 [-2.2, +2.6] (cluster [-0.9, +1.1]) | +3.5 [-5.6, +13.1] (cluster [-4.7, +11.7]) |
+
+### Dedicated model: threshold-free
+
+| Score | AUC | Partial AUC (`NL` <= 10%) |
+| --- | ---: | ---: |
+| `B0` | 0.764 [0.677, 0.844] (0.807) | 0.628 [0.580, 0.693] (0.641) |
+| `L0` | 0.786 [0.716, 0.858] (0.818) | 0.671 [0.613, 0.738] (0.664) |
+| `R0` | 0.683 [0.603, 0.763] (0.732) | 0.570 [0.526, 0.627] (0.557) |
+| `G0` | 0.731 [0.657, 0.801] (0.758) | 0.602 [0.555, 0.662] (0.620) |
+
+### `B0` feature importance (permutation, held out)
+
+Each group's columns (`rank.rs`'s `REASONS` groups on `F0+ctx`'s layout, the missing-value indicators with their group, as the archived ablations) permuted jointly among each held-out folder's sampled frames, 5 repeats (`default_rng(0)` per fold), the fold's fitted `B0` rescoring them; the drop of the pooled weighted AUC / partial AUC from the unpermuted held-out score, the mean over the repeats with the smallest and largest drop. Positive: the group carries `B0`'s held-out ranking.
+
+| Group | Columns | AUC drop | Partial AUC drop |
+| --- | ---: | ---: | ---: |
+| Look | 32 | +0.104 [+0.085, +0.119] | +0.057 [+0.045, +0.085] |
+| Sharpness | 2 | +0.038 [+0.019, +0.068] | +0.050 [+0.023, +0.072] |
+| AF eye focus | 2 | +0.037 [+0.005, +0.075] | +0.024 [-0.000, +0.045] |
+| Eyes open | 2 | +0.027 [-0.011, +0.051] | +0.040 [+0.033, +0.053] |
+| Good photo | 1 | +0.000 [-0.000, +0.001] | -0.000 [-0.000, +0.000] |
+| Burst position | 2 | -0.001 [-0.003, +0.000] | -0.003 [-0.006, -0.002] |
+| Head pose | 4 | -0.005 [-0.009, -0.001] | -0.003 [-0.007, +0.003] |
+
+### Dedicated-model bar
+
+| Model | Best cut | `BR` gain over `G0` (points) | +10 with interval above zero | Passes the worth-a-filter bar at | No existing passes and the model does | Dedicated-model bar |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `B0` | q5 | -6.4 [-17.5, +2.0] | no | no | no | not met |
+| `L0` | q5 | +0.8 [-12.2, +12.8] | no | no | no | not met |
+
+Existing scores or rules passing the worth-a-filter bar on any full-dump or within-sample cut: none.
+
+### Wall time
+
+| Stage | Seconds |
+| --- | ---: |
+| Load (dump, stored scores, rules, labels) | 4 |
+| 27 folds, `B0` + `L0` + permutations (4 jobs) | 28 |
+| Cuts, metrics and bootstraps | 10 |
+
+Total 42 s.
+
+### Reading (dedicated model)
+
+The facts, against the bars (the Decision in the plan reads them):
+
+- **Neither `B0` nor `L0` passes the worth-a-filter bar** on any
+  within-sample cut. Their best cuts with `NL` <= 5% are q5: `B0` `BR` 16.4%
+  [10.0, 24.3], `NL` 3.0%, `P` 24.2%; `L0` `BR` 23.6% [14.4, 35.1], `NL`
+  2.8%, `P` 32.9% [21.2, 46.2]. No existing score or rule passes on any
+  full-dump or within-sample cut either.
+- **The dedicated-model bar is not met.** The best existing score on the
+  within-sample cuts is `G0` at q5 (`BR` 22.8%, `NL` 3.1%, `P` 29.9%); the
+  gain is −6.4 points [−17.5, +2.0] for `B0` and +0.8 [−12.2, +12.8] for
+  `L0`, against +10 with the interval above zero. Against `R0`, the best
+  existing score on the full-dump cuts, read within-sample (q5: 17.4%), the
+  gains are −1.0 [−12.0, +8.1] and +6.2 [−6.1, +18.8]: not met either.
+- Threshold-free, `L0` reads the highest weighted AUC of any score, 0.786
+  [0.716, 0.858] (partial AUC 0.671 [0.613, 0.738]), `B0` 0.764 [0.677,
+  0.844] (0.628), against `G0`'s 0.731 (0.602) and `eye_focus`'s 0.746
+  (0.560); the AUC is not a bar quantity.
+- `B0`'s held-out ranking rests on Look (the 32 PCA columns; AUC drop
+  +0.104), then Sharpness (+0.038), AF eye focus (+0.037) and Eyes open
+  (+0.027; partial AUC drop +0.040); Good photo, Burst position and Head
+  pose carry nothing (drops within ±0.005).
+- 13 of the 27 held-out folders hold no bad sampled frame; each fold trains
+  on 63–80 bad frames.
