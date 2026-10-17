@@ -212,7 +212,7 @@ happens in this plan.
       copying; copy last. Copy time is minutes (54 GB).
     - Script and docs only; no Rust, no app change.
 
-- [ ] Step 2: Pre-register the metrics, the scores, the dedicated model and the bars in `badfilter.md`, before any label exists
+- [x] Step 2: Pre-register the metrics, the scores, the dedicated model and the bars in `badfilter.md`, before any label exists
   - Done when:
     - `badfilter.md` in this plan folder has a "Pre-registration" section
       merged **before the user has labeled anything and before any label is
@@ -237,7 +237,7 @@ happens in this plan.
       - **Cuts.** Every graded score is cut **per folder at a quantile**,
         as the archived label-free `quantile@r` does: remove the bottom
         `q`% of the folder's frames by the score (ties by the seed-0 draw),
-        `q` = 10 / 20 / 30 / 40 (the "keep rate" 90 / 80 / 70 / 60%); plus
+        `q` = 5 / 10 / 20 / 30 / 40 (the "keep rate" 95 / 90 / 80 / 70 / 60%); plus
         the one cut Decision 2 named, **`G0` at its label-free `quantile@95`
         share** (the share that kept 95% of the picks). A binary rule is one
         cut. The cut is computed on the full dump (all frames of the
@@ -467,7 +467,7 @@ happens in this plan.
   Decision's "train a dedicated model" means a next plan with more labels
   (the same sampler, a second round) or a different design, not shipping
   `B0`.
-- **Multiplicity.** About 25 score rows, 5 cuts and 20 cue bins are read;
+- **Multiplicity.** About 25 score rows, 6 cuts and 20 cue bins are read;
   a lone marginal pass is read as such.
 - **Fail path is a valid outcome.** If no score passes and `B0` does not
   either, the artifacts are the labeled sample (reusable by any later
@@ -484,3 +484,4 @@ happens in this plan.
 
 - (2026-10-17) Plan written; 1,200 frames cue-heavy, shuffled order and bar option B chosen by the user
 - (2026-10-17) Step 1 complete except the manual check that the sample opens in Riffle with 1,200 unflagged frames (pending, see `learnings.md` "Deferred issues"; do it before the user starts labeling)
+- (2026-10-17) Step 2 complete
