@@ -118,6 +118,53 @@
   linked; this plan's own files (`labeling.md`, `strata.tsv`) are named in
   backticks.
 
+## Step 3: the user's labels and labels.py
+
+- **The user's remarks.** The user said "done" with no further notes: no
+  frame reported as failing to open, no doubt about the definition reported,
+  no time taken reported. `skip.txt` was therefore not written; no copy left
+  the sample.
+- **Run.** `python -I -B labels.py D:\Photos\tests\2026-10-17-bad-labels`
+  from the scratchpad, stdout saved as `labels.out.md` beside
+  `labels.tsv`; seconds. No `__pycache__/` appeared.
+- **Counts.** 1,200 manifest rows, 1,200 labeled, 0 copies missing, no
+  other file in `sample\` beyond the 1,200 copies and their sidecars.
+  **80 bad / 1,120 not bad** (6.7% unweighted). Per stratum (bad / drawn):
+  `closed` 11 / 120, `focus_low` 9 / 120, `away` 3 / 120, `sharp10` 26 / 120,
+  `g0_bottom` 19 / 150, `w0_bottom` 2 / 70, `rest` 10 / 500. The weighted
+  base rate is Step 4's.
+- **Sidecars.** 81 copies carry both a `.dop` and a `<stem>.xmp` (the
+  user's `sidecarFormat` is `both`), 1,119 none; no copy has only one.
+  80 hold a Reject in both (`ShouldProcess = 1`, `xmpDM:good="False"`); one,
+  `0467_2026-09-27-a__DSC8339.ARW`, holds `ShouldProcess = 2` and no
+  `xmpDM:good` (rejected, then unflagged), so it is `not_bad`. The `.dop`
+  and the XMP agree on every copy. No Pick, no rating (`Rating = 0` /
+  `xmp:Rating="0"` everywhere) and no color label in any sidecar.
+- **Index cross-check (read only, outside `labels.py`).** A scratchpad query
+  of `index.sqlite` opened `mode=ro` (the `ratings` and `files` rows of the
+  sample dir, which the index keys with the `\\?\` prefix; `views` not read)
+  found 1,200 `files` rows and 81 `ratings` rows: 80 `flag` 2 (reject), 1
+  `flag` 0 (`0467`), none dirty, no rating or label, agreeing with the
+  sidecar labels on all 1,200 copies.
+- **Dump-label consistency.** 167 sampled dump picks, 0 labeled bad; 6
+  sampled explicit dump rejects, 4 labeled bad.
+- **Deviation: `labels.tsv` keeps only the label-free manifest columns.**
+  The plan says "plus the manifest's columns"; to keep Step 4 blind,
+  `labels.py` reads and carries only `source`, `folder`, `file`, `draw`,
+  `stratum`, `inclusion_prob`, `pick`, `reject`, `single`, `burst_size`,
+  `capture_ms` (the design and the dump labels), not the cue values, the
+  rule flags, `genre` or the stored scores. Step 4 joins those from
+  `manifest.tsv` by `name`.
+- **Choices the text left open:** `source_sidecar` is the deciding sidecar
+  (`dop`, `xmp`, or `-` for none); an XMP is looked for as `<name>.xmp` and
+  `<stem>.xmp`, the first found used; a legacy `xmp:Rating="-1"` would count
+  as a Reject; a skipped copy (from `skip.txt`) leaves `labels.tsv` and is
+  listed with its reason.
+- **`aiEnabled` is on now.** `settings.json` reads `aiEnabled: true` after
+  labeling; `labeling.md` asked for it off. Whether it was off during the
+  labeling is not known (not asked). With no picks in the sample folder the
+  ranking forms no pairs from it either way.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open
@@ -129,3 +176,11 @@
   implementation agent (the user or the main agent does it, per the plan);
   Step 1's checkbox was ticked on the automated criteria. Basis: Step 1's
   "Checks" in `docs/plans/20261017-bad-photo-labels/plan.md`.
+  - Step 3 update: the user did not separately confirm this check before
+    labeling (only "done" was reported). What the data shows instead: the
+    index holds 1,200 `files` rows for the sample folder (all copies opened
+    and scanned), and after labeling the sidecars and the index hold no
+    Pick, no rating and no color label on any copy, only 80 Rejects and one
+    unflagged `.dop` (see Step 3). Step 1 found no sidecar in `sample\`
+    before labeling, so every copy started unflagged. The strip's visual
+    "1,200 unflagged frames" reading itself remains unconfirmed.
