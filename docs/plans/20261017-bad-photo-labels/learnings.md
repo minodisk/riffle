@@ -94,10 +94,17 @@
     `|pitch|` 45; sharpness per-folder deciles on the full dump; `tier`) and
     each cue's firing bin (the one its rule removes; `eye_focus`'s two lower
     bins pooled).
-  - `B0` / `L0`'s within-sample cut is weighted by `1/π` (the removed `1/π`
-    sum reaching `q`% of the folder's), and the best existing score is also
+  - `B0` / `L0`'s within-sample cut is weighted by `1/π` (the longest prefix
+    of the lowest-scored frames whose `1/π` sum is <= `q`% of the folder's,
+    the crossing frame kept), and the best existing score is also
     read on that within-sample cut for the paired dedicated-model
     comparison, so the difference compares like with like.
+  - The bootstrap resamples `rest` within each (`rest`, folder) cell,
+    keeping each cell's drawn count (`plan.md` only says "within each
+    stratum"), so each draw's total `1/π` stays at the design's.
+  - `q` = 5 was added to the plan's cut grid (5 / 10 / 20 / 30 / 40): with
+    `q` = 10 as the smallest cut, `NL` <= 5% is infeasible at a low or
+    moderate base rate.
   - `L0`: columns standardized on the training frames, class balance by
     rescaling each class's weights to equal totals within the fold.
   - The bootstrap holds the cuts and scores fixed (no refit of `B0` / `L0`
