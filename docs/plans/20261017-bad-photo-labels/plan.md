@@ -237,7 +237,7 @@ happens in this plan.
       - **Cuts.** Every graded score is cut **per folder at a quantile**,
         as the archived label-free `quantile@r` does: remove the bottom
         `q`% of the folder's frames by the score (ties by the seed-0 draw),
-        `q` = 10 / 20 / 30 / 40 (the "keep rate" 90 / 80 / 70 / 60%); plus
+        `q` = 5 / 10 / 20 / 30 / 40 (the "keep rate" 95 / 90 / 80 / 70 / 60%); plus
         the one cut Decision 2 named, **`G0` at its label-free `quantile@95`
         share** (the share that kept 95% of the picks). A binary rule is one
         cut. The cut is computed on the full dump (all frames of the
@@ -467,7 +467,7 @@ happens in this plan.
   Decision's "train a dedicated model" means a next plan with more labels
   (the same sampler, a second round) or a different design, not shipping
   `B0`.
-- **Multiplicity.** About 25 score rows, 5 cuts and 20 cue bins are read;
+- **Multiplicity.** About 25 score rows, 6 cuts and 20 cue bins are read;
   a lone marginal pass is read as such.
 - **Fail path is a valid outcome.** If no score passes and `B0` does not
   either, the artifacts are the labeled sample (reusable by any later

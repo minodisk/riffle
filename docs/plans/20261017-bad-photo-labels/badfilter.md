@@ -61,7 +61,7 @@ data folder): the strata, their population, draw and inclusion probability
 | `sharp10` (folder's bottom 10% by sharpness) | 1,422 | 120 | 0.0844 |
 | `g0_bottom` (folder's bottom 15% by `G0`) | 1,441 | 150 | 0.1041 |
 | `w0_bottom` (folder's bottom 15% by `W0`) | 945 | 70 | 0.0741 |
-| `rest` (per folder, floor 8) | 12,645 | 500 | 0.0345–0.5714 per folder, 0.0395 overall |
+| `rest` (per folder, floor 8) | 12,645 | 500 | 0.0338–0.5714 per folder, 0.0395 overall |
 | Total | 32,459 | 1,200 | |
 
 The sample holds 167 picks, 6 explicit rejects (5 from `2026-09-19`), 82
@@ -107,8 +107,9 @@ folder-cluster bootstrap (Intervals).
 - Every graded score is cut **per folder at a quantile**, as the archived
   label-free `quantile@r` is: remove the bottom `q`% of the folder's frames
   by the score (`floor(q * n / 100)` frames, ties by the seed-0 draw the
-  archived metrics use), **`q` = 10 / 20 / 30 / 40** (keep rate 90 / 80 / 70
-  / 60%).
+  archived metrics use), **`q` = 5 / 10 / 20 / 30 / 40** (keep rate 95 / 90 / 80
+  / 70 / 60%). `q` = 5 is there because the smallest cut must be able to
+  reach `NL` <= 5% (see Bars, feasibility).
 - Plus the one cut Decision 2 named: **`G0` at its label-free `quantile@95`
   share**, the per-folder share `rejectfilter` computes for a qualifying
   folder (the largest share whose mean pick recall over the other qualifying
@@ -191,7 +192,11 @@ keeps.
 - **Cuts**: `B0` and `L0` score sampled frames only, so their per-folder
   quantile cuts are taken **within the folder's sampled frames**, weighted by
   `1/π` (remove the lowest-scored sampled frames until their `1/π` sum
-  reaches `q`% of the folder's `1/π` sum). Caveat: on about 45 frames per
+  reaches `q`% of the folder's `1/π` sum: the **longest prefix whose `1/π`
+  sum is <= `q`%** of it, so the crossing frame is not removed; ties by the
+  seed-0 draw). A folder's `1/π` sum is its estimated frame count, not the
+  sampled count; one heavy cue-stratum frame can exceed `q`% alone, and then
+  nothing is removed in that folder. Caveat: on about 45 frames per
   folder this cut is coarse, and it is not the full-dump cut the stored
   scores get. So in the dedicated-model comparison the best existing score is
   read **on the same within-sample cut as well**, beside its full-dump row,
@@ -203,7 +208,9 @@ keeps.
 - The weighted **bad base rate** with its interval is the first number
   reported.
 - A 1,000-draw **stratified bootstrap** over the sampled frames (resample
-  with replacement within each stratum, its drawn count kept,
+  with replacement within each stratum, its drawn count kept; `rest` is
+  resampled within each (`rest`, folder) cell, keeping each cell's drawn
+  count, so the design's fixed cell sizes and the total `1/π` are kept,
   `np.random.default_rng(0)` afresh per quantity), the cuts and the scores
   held fixed (only which sampled frames enter is resampled; `B0` / `L0` are
   not refit per draw), for every weighted metric and for **paired
@@ -221,7 +228,7 @@ along) and option C (L 2%, R 60%, P 60%: near-perfect, likely declared
 "none" whatever the cues do).
 
 - **Worth-a-filter bar**: a score or rule is a **usable bad-photo filter**
-  when at some pre-listed cut (`q` = 10 / 20 / 30 / 40, `G0`'s
+  when at some pre-listed cut (`q` = 5 / 10 / 20 / 30 / 40, `G0`'s
   `quantile@95`, a binary rule's own point) all of these hold, weighted:
   - `NL` <= **5%**;
   - `BR` >= **50%**, with the stratified bootstrap 2.5% quantile of `BR`
@@ -247,7 +254,15 @@ Applied as:
 - **A very low base rate** (under 5%) makes every `P` floor hard to reach;
   if it occurs, that is itself a finding ("the library has few bad frames to
   filter") and is stated, not a reason to move a bar.
-- **Multiplicity**: about 25 score rows, 5 cuts and 20 cue bins are read
+- **Feasibility of `NL` <= 5%**: a graded cut at `q` removes `q`% of every
+  folder, so `NL` <= 5% needs `BR · b` >= `q`/100 − 0.05·(1 − b) with `b` the
+  base rate, i.e. at `q` = 5 it is feasible at any `b`, but at `q` >= 10 it
+  needs `BR` >= 55% at `b` = 10%, and is impossible for `b` below about
+  5.3% at `q` = 10. At a low or moderate base rate only the `q` = 5 cut, the
+  binary rules and `G0`'s `quantile@95` cut can be live candidates; a "no
+  usable filter" outcome there is read with this limit in mind, not as
+  evidence about the scores alone.
+- **Multiplicity**: about 25 score rows, 6 cuts and 20 cue bins are read
   without correction, so a few chance passes are expected; the Decision
   reads a lone marginal pass as such.
 - The folder-cluster bootstrap does not decide; a pass whose cluster
