@@ -108,8 +108,9 @@ and returns the face mesh points it judged on in stored preview coordinates,
 `src/exif.rs` the shooting-settings display formatting shared by the meta pane
 and the filter menu, `src/folders.rs` the folder tree's commands (the
 home and volume roots, one folder's subfolders and RAW count, and
-`reveal_folder`, the right-click item that reveals a folder in the OS file
-manager under the per-platform `REVEAL_LABEL`), `src/rename.rs` the
+`reveal_folder`, the right-click item that reveals a folder, or from the
+strip's menu a file, in the OS file manager under the per-platform
+`REVEAL_LABEL`), `src/rename.rs` the
 `rename_folder` command (it checks the new name, releases the folder watcher,
 renames the folder and carries its index rows to the new path), `src/watch.rs`
 the open folder's watcher and `src/treewatch.rs` the folder tree's watchers on
@@ -159,7 +160,9 @@ formatted, linted, type-checked and tested by `mise run ci`; its
 `style.css` holds shadcn/ui's Neutral dark tokens and the shared component
 classes every control uses (see `docs/agents/ui-styling.md`),
 `src/icons.ts` the inlined Lucide icons,
-`src/context.ts` builds the items of the strip's HTML right-click menu,
+`src/context.ts` builds the items of the strip's HTML right-click menu
+(including the file's reveal item and `Copy Path` / `Copy File Name`, which
+copy every targeted file, one per line),
 `src/focus.ts` places the `f` focus mark and holds the good-photo rule
 (`photoTier`: the AF eyes in focus, the eyes open and the face toward the
 camera, from the values pass 2 stored for the AF face), which colors the

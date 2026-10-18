@@ -98,6 +98,8 @@ DxO PhotoLab.
   count-only confirmation (filter to the rejects and select all to clear
   them out). Nothing is deleted: one `Edit > Undo` brings the whole move
   back with the judgments, and `Edit > Redo` moves it to the Trash again.
+  The right-click menu also reveals the file in Finder / File Explorer and
+  copies its path or file name (every selected file's, one per line).
   `Ctrl+Alt+ArrowDown` (`Alt+Cmd+ArrowDown` on macOS) hides the filmstrip,
   `…ArrowLeft` the folder tree, `…ArrowRight` the meta pane and `Tab` both
   side panes, to give the viewer more room (the first three are also check

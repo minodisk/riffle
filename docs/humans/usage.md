@@ -125,6 +125,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   the selection collapses it to that cell; one inside keeps it, so the context
   menu items act on the whole selection. Files the filter hides leave the
   selection.
+  Below `Select All` in the right-click menu come the reveal item, which
+  shows the right-clicked file selected in the OS file manager
+  (`Reveal in Finder` on macOS, `Reveal in File Explorer` on Windows,
+  `Open Containing Folder` on Linux), then `Copy Path` and
+  `Copy File Name` (the name with its extension), which copy the
+  right-clicked file's full path or name, or, on a selection, every selected
+  file's, one per line. All three are offered in a view-only JPEG folder too.
   Next to last in the right-click menu comes `Rename…` (not offered in a
   view-only JPEG folder), which acts on the shown file alone, whatever else is
   selected: its name turns into a text box with the part before the
@@ -525,8 +532,8 @@ viewer shows a prompt in its center; click it to open the folder picker.
   - **What is off**: the star, flag and color label keys, `c` (clear all),
     `Shift+x` (reject the rest of a burst) and `Undo` / `Redo` of a judgment
     do nothing (a `Move to Trash…` and its undo and redo still work), and
-    the strip's right-click menu holds only `Select All` and
-    `Move to Trash…`. Navigation,
+    the strip's right-click menu holds only `Select All`, the reveal item,
+    `Copy Path`, `Copy File Name` and `Move to Trash…`. Navigation,
     selection, the filter menu and the panel toggles keep working, and the
     folder reopens at its last viewed file like any other. The MCP
     `set_judgment` tool is refused with

@@ -2,6 +2,18 @@
 
 ## Cross-cutting / other
 
+### App: real-device check of the strip menu's reveal and copy items
+
+`strip-file-reveal-copy` (docs/plans/_archived/20261018-strip-file-reveal-copy/plan.md) added three items to the filmstrip's right-click menu, after `Select All`: the platform's reveal label (`Reveal in Finder` / `Reveal in File Explorer` / `Open Containing Folder`, calling `reveal_folder` on the focused file), `Copy Path` and `Copy File Name`. On a multi-selection the copy items write every targeted file, one per line with no trailing newline. CI and the `context.test.ts` unit tests cover the menu composition, including the view-only menu. The OS file manager reveal and the clipboard contents were never exercised on a real machine: the step was ticked on the automated criteria only.
+
+Files: `crates/app/ui/src/main.ts` (`openContextMenu`), `crates/app/ui/src/context.ts` (`contextMenuGroups`), `crates/app/src/folders.rs` (`reveal_folder`, `REVEAL_LABEL`).
+
+#### TODO
+
+- [ ] On Windows, open a RAW folder, right-click a file and choose `Reveal in File Explorer`. File Explorer should open the folder with that file selected. Repeat in a view-only JPEG folder. If a file directly under a drive root fails with `NoParent`, check that the error lands on the status line.
+- [ ] On Windows, select three files, right-click one of them and choose `Copy Path`, then paste into an editor. Expect three full paths, one per line, with no trailing newline. Then choose `Copy File Name` and paste. Expect three names with extensions, one per line.
+- [ ] On macOS and Linux, repeat the reveal check (`Reveal in Finder` / `Open Containing Folder` should select the file in the file manager) and the multi-file copy check.
+
 ### App: real-device check of the AF eye Good / Bad / Unknown icons and mark colors
 
 The `af-eye-good-ok-bad` feature renamed the filter menu's `AF eye` items to `Good` / `OK` / `Bad` / `Unknown` and gave each judged state its own icon and color on the strip, the filter menu and the `f` focus mark; the `af-eye-good-bad-cascade` plan (Step 1, `docs/plans/_archived/20261010-af-eye-good-bad-cascade/plan.md`) then merged `OK` into `Bad`, so the states are `Good` / `Bad` / `Unknown`. CI and the unit tests cover the state -> icon / color mapping (`stripState`, `FOCUS_MARK_ICONS`, `FOCUS_MARK_COLORS` in `focus.test.ts`) and the filter logic. Nobody has looked at the rendered result in the running app, including whether the gray `#999` reads on photos. Plan: `docs/plans/_archived/20261010-af-eye-good-ok-bad/plan.md`.
