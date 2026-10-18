@@ -146,6 +146,58 @@
   rating other than 1"); a cleared rating is therefore visible in the
   list rather than silently absent.
 
+## Step 4: discardfilter.py, the measurement
+
+- **Import.** `discardfilter.py` imports only the archived `badfilter` (as
+  `bf`, which brings `rejectfilter` and the archived `sample`), as Step 1's
+  `sample.py` does; it does not import this plan's `sample.py`, so the
+  module-name clash never arises. The bands are recomputed directly with
+  `bf.graded_cut` on `G0` (q5 / q10 / q20, seed-0 `tb`). Run from the
+  scratchpad as `python -I -B`; no `__pycache__/` appeared.
+- **Run.** Arguments as in the plan, stdout saved as
+  `discardfilter.out.md` in `D:\Photos\tests\2026-10-18-discard-labels\`.
+  18 s in total (load 5 s, metrics and bootstraps 12 s).
+- **Reference checks, all passed.** `strata.tsv`: 0 of 30 rows differ
+  (population, drawn, `π`) when recomputed from the dump; 0 sampled frames
+  whose recomputed band or `π` differ from `labels.tsv`; 0 sampled frames
+  in the strict sample; sum of `1/π` 31,259.0 = the population; random
+  `DR` at q5 / q10 / q20 2.6 / 10.6 / 21.0 (q5 low but its interval [0.8,
+  5.4] covers 5) and AUC 0.528; `G0` `quantile@95` mean pick recall /
+  non-pick removal 94.7 / 16.8 (and `rf.label_free` 94.7 / 16.8); strict
+  base rate recomputed from the strict sample 5.52% [4.15, 7.04].
+- **Headline.** Discardable base rate 48.45% [42.03, 55.11]. No `G0` cut
+  is usable: q5 `RR` 17.3% [11.3, 24.0] (fails the 15% point bar, passes
+  the quantile) and its `DP` lead over random +30.7 has a 2.5% quantile of
+  -3.8; q10 / q20 / `quantile@95` `RR` 23.7 / 27.9 / 26.0. Hypothesis
+  `RR@5` <= 5% not confirmed. The second branch's conditions of the
+  follow-up rule hold (`RR@5` 17.3 <= 30, `DO@5` 46.7 >= 20).
+- **Choices the text left open:**
+  - The stratified bootstrap reuses `bf.strat_counts` by setting
+    `bf.STRATA` to `b05`, `b10`, `b20`, `rest` for the call (restored
+    after) and naming `control` `rest` in the sample's stratum column,
+    since `bf.cells_of` reads the module global and the literal `rest` for
+    the per-folder cells. The strict sample's interval uses
+    `bf.strat_counts` with the archived strata unchanged.
+  - The metrics reuse `bf.ratio`, `bf.quant`, `bf.aucs` (with
+    `s["bad"]` = `discard`), `bf.cluster_counts`, `bf.graded_cut`,
+    `bf.g0_q95_cut` and `bf.finite_by_folder`; `DP` / `DR` / `DO` are
+    computed in `metrics` rather than through `bf.rates`, whose third
+    column has no `DO`.
+  - `PL` and the removed share of a score are read on the folders the
+    score covers (`W0` leaves `2026-07-23` out), as `badfilter` did; for
+    every `G0` cut that is the whole dump.
+  - "The weighted share of sampled picks labeled `discard`" is reported
+    once overall (24.4%, 12 of 39) and per cut as a count (sampled picks
+    removed / of them `discard`), not as a per-cut weighted share (2–16
+    sampled picks per cut).
+  - The "beats random" condition uses the stratified paired difference on
+    the frames both cuts cover; the folder-cluster quantile is printed as
+    sensitivity ("fragile" would apply only to a pass). For
+    `quantile@95`, random at q20, as Step 2 fixed.
+  - The AUC is reported without the partial AUC (`bf.aucs` computes both;
+    the pre-registration names only the AUC).
+- **No deviation** from the pre-registration; no bar moved.
+
 ## Deferred issues (todo candidates)
 
 - **Narrowed manual check: the strip showed no judgment before labeling.**

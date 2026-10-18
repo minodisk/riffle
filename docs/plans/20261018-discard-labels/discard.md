@@ -303,3 +303,186 @@ outcome against these bars and names the follow-up by the rule above (an
 in-app discard candidates view with a rescue loop; a retrain on the rescue
 labels with the controls as negatives; or nothing), as a recommendation
 only.
+
+## Results
+
+Run 2026-10-19 by `discardfilter.py` (`python -I -B discardfilter.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-18-discard-labels`), its stdout saved as
+`discardfilter.out.md` in the data folder. On the 600 labels of Step 3 (211
+`keep`, 389 `discard`, none skipped). Every interval is the stratified
+bootstrap's 95% (1,000 draws, seed 0); values are weighted by `1/π` unless
+marked unweighted. Wall time 18 s (load 5 s; cuts, metrics and bootstraps
+12 s).
+
+### Reference checks
+
+| Check | Expected | This run |
+| --- | ---: | ---: |
+| `strata.tsv` rows whose population, drawn count or `π` differ when recomputed from the dump | 0 | 0 of 30 |
+| Sampled frames whose recomputed `G0` band / `π` differ from `labels.tsv` | 0 / 0 | 0 / 0 |
+| Sampled frames in the strict sample | 0 | 0 |
+| Sum of `1/π` over the sampled frames | 31,259 | 31,259.0 |
+| Random (seed 0) `DR` % at q5 / q10 / q20 | near q | 2.6 / 10.6 / 21.0 |
+| Random (seed 0) AUC | near 0.5 | 0.528 |
+| `G0` `quantile@95`: mean pick recall / non-pick removal % over the qualifying folders | 94.7 / 16.8 | 94.7 / 16.8 |
+| Strict base rate from the strict sample, % | 5.52 [4.15, 7.04] | 5.52 [4.15, 7.04] |
+
+### Discardable base rate
+
+**48.45% [42.03, 55.11]** of the population's frames are labeled `discard`
+(folder-cluster [40.74, 53.87]; unweighted 64.83%, the sample being
+weighted toward the bands).
+
+### Per band
+
+| Band | Population | Sampled / discard | `discard` rate % | Pick share % (label-free) | Strict sample frames / strict bad | Strict-bad rate % | Strict below discard |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `b05` | 1,538 | 150 / 124 | 82.7 [76.0, 88.7] | 1.89 | 71 / 22 | 27.3 [16.1, 41.4] | yes |
+| `b10` | 1,548 | 150 / 105 | 70.0 [62.7, 78.0] | 3.68 | 77 / 10 | 12.5 [3.9, 25.3] | yes |
+| `b20` | 3,102 | 150 / 102 | 68.0 [60.7, 75.3] | 4.13 | 146 / 17 | 10.1 [5.2, 16.9] | yes |
+| `control` | 25,071 | 150 / 58 | 42.6 [34.8, 50.7] | 16.11 | 906 / 31 | 3.7 [2.2, 5.2] | yes |
+
+The strict-bad rate is read on the strict sample (disjoint frames) with its
+own `π` and strata.
+
+### Main table
+
+`DP` / `RR` / `DR` / `MR` / `DO` weighted with the stratified interval and
+the unweighted value in brackets; `PL` on the full dump (population after
+the slash), label-free; Removed: the population's share (the full dump's
+after the slash), label-free; Sampled: the sampled frames the cut removes /
+of them `discard`; Picks removed / discard: the sampled dump picks the cut removes / of them `discard`; Out: sampled frames in folders the score does not cover. `W0` leaves out the 4 sampled frames of `2026-07-23`.
+
+| Score | Cut | Out | Sampled / discard | Picks removed / discard | `DP` % | `RR` % | `PL` % | `DR` % | `MR` % | `DO` % | Removed % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0` | q5 | 0 | 150 / 124 | 7 / 5 | 82.7 [76.0, 88.7] (82.7) | 17.3 [11.3, 24.0] (17.3) | 0.68 / 0.68 | 8.4 [7.2, 9.8] (31.9) | 91.6 [90.2, 92.8] (68.1) | 46.7 [39.9, 53.8] (58.9) | 4.92 / 4.96 |
+| `G0` | q10 | 0 | 300 / 229 | 11 / 6 | 76.3 [71.3, 81.3] (76.3) | 23.7 [18.7, 28.7] (23.7) | 2.10 / 2.02 | 15.5 [13.6, 18.1] (58.9) | 84.5 [81.9, 86.4] (41.1) | 45.4 [38.3, 52.9] (53.3) | 9.87 / 9.96 |
+| `G0` | q20 | 0 | 450 / 331 | 16 / 8 | 72.1 [67.5, 76.7] (73.6) | 27.9 [23.3, 32.5] (26.4) | 5.18 / 5.03 | 29.5 [25.9, 33.9] (85.1) | 70.5 [66.1, 74.1] (14.9) | 42.6 [34.8, 50.7] (38.7) | 19.80 / 19.97 |
+| `G0` `quantile@95` | q@95 | 0 | 375 / 281 | 12 / 6 | 74.0 [69.0, 78.7] (74.9) | 26.0 [21.3, 31.0] (25.1) | 3.64 / 3.55 | 22.7 [19.5, 26.3] (72.2) | 77.3 [73.7, 80.5] (27.8) | 44.0 [36.6, 51.9] (48.0) | 15.05 / 15.23 |
+| `W0` | q5 | 4 | 91 / 74 | 2 / 1 | 76.9 [63.6, 88.6] (81.3) | 23.1 [11.4, 36.4] (18.7) | 1.68 / 1.69 | 7.1 [4.7, 10.4] (19.0) | 92.9 [89.6, 95.3] (81.0) | 47.2 [40.8, 54.0] (62.4) | 4.91 / 4.96 |
+| `W0` | q10 | 4 | 180 / 139 | 9 / 5 | 66.6 [52.5, 80.2] (77.2) | 33.4 [19.8, 47.5] (22.8) | 4.05 / 4.05 | 13.7 [9.9, 18.4] (35.7) | 86.3 [81.6, 90.1] (64.3) | 46.5 [39.6, 53.5] (60.1) | 9.86 / 9.97 |
+| `W0` | q20 | 4 | 303 / 233 | 13 / 7 | 64.1 [54.2, 73.8] (76.9) | 35.9 [26.2, 45.8] (23.1) | 7.34 / 7.32 | 33.1 [25.9, 40.7] (59.9) | 66.9 [59.3, 74.1] (40.1) | 43.3 [35.6, 51.3] (53.2) | 19.88 / 19.97 |
+| `R0` | q5 | 0 | 123 / 104 | 7 / 6 | 82.1 [71.1, 92.3] (84.6) | 17.9 [7.7, 28.9] (15.4) | 1.02 / 1.01 | 9.1 [6.5, 12.6] (26.7) | 90.9 [87.4, 93.5] (73.3) | 46.5 [39.9, 53.5] (59.7) | 4.89 / 4.96 |
+| `R0` | q10 | 0 | 212 / 173 | 8 / 6 | 77.0 [66.3, 87.3] (81.6) | 23.0 [12.7, 33.7] (18.4) | 2.24 / 2.23 | 17.6 [13.0, 22.6] (44.5) | 82.4 [77.4, 87.0] (55.5) | 44.9 [38.1, 52.2] (55.7) | 9.90 / 9.96 |
+| `R0` | q20 | 0 | 347 / 271 | 11 / 6 | 73.6 [65.0, 81.9] (78.1) | 26.4 [18.1, 35.0] (21.9) | 5.43 / 5.41 | 32.4 [25.8, 39.2] (69.7) | 67.6 [60.8, 74.2] (30.3) | 41.6 [34.2, 49.8] (46.6) | 19.87 / 19.97 |
+| Absolute sharpness | q5 | 0 | 73 / 55 | 6 / 2 | 78.0 [57.6, 92.4] (75.3) | 22.0 [7.6, 42.4] (24.7) | 2.47 / 2.42 | 9.7 [5.0, 15.5] (14.1) | 90.3 [84.5, 95.0] (85.9) | 46.6 [39.9, 53.5] (63.4) | 4.93 / 4.96 |
+| Absolute sharpness | q10 | 0 | 108 / 79 | 7 / 3 | 72.2 [53.5, 89.0] (73.1) | 27.8 [11.0, 46.5] (26.9) | 6.04 / 6.00 | 15.5 [9.5, 22.6] (20.3) | 84.5 [77.4, 90.5] (79.7) | 45.7 [38.9, 52.8] (63.0) | 9.85 / 9.96 |
+| Absolute sharpness | q20 | 0 | 164 / 119 | 11 / 5 | 60.3 [45.7, 75.2] (72.6) | 39.7 [24.8, 54.3] (27.4) | 15.09 / 15.05 | 24.6 [17.2, 32.5] (30.6) | 75.4 [67.5, 82.8] (69.4) | 45.5 [38.5, 52.5] (61.9) | 19.88 / 19.97 |
+| `eye_focus` (missing last) | q5 | 0 | 38 / 33 | 2 / 1 | 83.2 [56.7, 98.8] (86.8) | 16.8 [1.2, 43.3] (13.2) | 4.44 / 4.44 | 8.1 [3.7, 13.2] (8.5) | 91.9 [86.8, 96.3] (91.5) | 46.7 [40.4, 53.4] (63.3) | 4.83 / 4.96 |
+| `eye_focus` (missing last) | q10 | 0 | 82 / 72 | 3 / 2 | 85.7 [70.1, 97.1] (87.8) | 14.3 [2.9, 29.9] (12.2) | 9.14 / 8.98 | 15.2 [9.4, 22.0] (18.5) | 84.8 [78.0, 90.6] (81.5) | 45.0 [38.6, 51.9] (61.2) | 9.78 / 9.96 |
+| `eye_focus` (missing last) | q20 | 0 | 189 / 160 | 8 / 5 | 71.7 [59.8, 84.3] (84.7) | 28.3 [15.7, 40.2] (15.3) | 15.59 / 15.50 | 31.7 [24.1, 40.0] (41.1) | 68.3 [60.0, 75.9] (58.9) | 42.1 [35.1, 49.9] (55.7) | 19.87 / 19.97 |
+| Random (seed 0) | q5 | 0 | 27 / 16 | 0 / 0 | 52.0 [19.8, 85.5] (59.3) | 48.0 [14.5, 80.2] (40.7) | 4.71 / 4.70 | 2.6 [0.8, 5.4] (4.1) | 97.4 [94.6, 99.2] (95.9) | 48.4 [41.9, 55.2] (65.1) | 4.95 / 4.96 |
+| Random (seed 0) | q10 | 0 | 52 / 36 | 1 / 1 | 61.5 [37.9, 84.8] (69.2) | 38.5 [15.2, 62.1] (30.8) | 9.48 / 9.48 | 10.6 [5.4, 16.7] (9.3) | 89.4 [83.3, 94.6] (90.7) | 47.3 [40.7, 54.0] (64.4) | 9.99 / 9.96 |
+| Random (seed 0) | q20 | 0 | 121 / 77 | 6 / 2 | 56.0 [40.5, 71.5] (63.6) | 44.0 [28.5, 59.5] (36.4) | 19.26 / 19.36 | 21.0 [13.8, 28.2] (19.8) | 79.0 [71.8, 86.2] (80.2) | 46.8 [39.9, 54.4] (65.1) | 19.98 / 19.97 |
+
+Weighted AUC of `discard` vs `keep` (unweighted in brackets): `G0` 0.710
+[0.646, 0.771] (0.699), `W0` 0.671 [0.601, 0.737] (0.651), `R0` 0.740
+[0.673, 0.800] (0.716), absolute sharpness 0.540 [0.463, 0.615] (0.502),
+`eye_focus` (missing last) 0.777 [0.716, 0.841] (0.803), random 0.528
+[0.455, 0.604] (0.502).
+
+### Paired differences
+
+`G0` minus the comparison at the same `q`, in points, with the stratified
+interval and the folder-cluster interval.
+
+| Comparison | `DP`, points | Cluster | `DR`, points | Cluster |
+| --- | ---: | ---: | ---: | ---: |
+| `G0` q5 - `W0` q5 | +5.8 [-7.0, +19.8] | [-6.8, +19.8] | +1.3 [-2.0, +3.8] | [-1.6, +4.2] |
+| `G0` q5 - `R0` q5 | +0.5 [-9.5, +11.7] | [-9.9, +14.5] | -0.8 [-4.0, +1.6] | [-3.7, +1.8] |
+| `G0` q5 - sharpness q5 | +4.7 [-10.8, +25.6] | [-10.3, +33.6] | -1.3 [-7.1, +3.5] | [-6.2, +4.4] |
+| `G0` q5 - `eye_focus` q5 | -0.5 [-18.3, +26.6] | [-18.7, +31.6] | +0.3 [-5.1, +5.1] | [-4.4, +5.1] |
+| `G0` q5 - random q5 | +30.7 [-3.8, +63.9] | [-1.2, +67.1] | +5.8 [+2.8, +8.2] | [+2.2, +9.5] |
+| `G0` q10 - `W0` q10 | +9.7 [-4.3, +24.4] | [-4.5, +26.8] | +1.9 [-3.0, +5.4] | [-2.5, +5.9] |
+| `G0` q10 - `R0` q10 | -0.7 [-10.6, +10.4] | [-11.5, +12.0] | -2.0 [-7.0, +2.3] | [-6.3, +2.5] |
+| `G0` q10 - sharpness q10 | +4.1 [-13.0, +23.1] | [-12.8, +24.9] | +0.0 [-7.1, +6.5] | [-5.4, +6.8] |
+| `G0` q10 - `eye_focus` q10 | -9.4 [-21.2, +7.6] | [-20.8, +4.2] | +0.4 [-6.3, +6.6] | [-5.5, +7.2] |
+| `G0` q10 - random q10 | +14.8 [-8.7, +38.6] | [-17.8, +39.4] | +4.9 [-1.2, +11.3] | [-0.6, +10.9] |
+| `G0` q20 - `W0` q20 | +8.3 [-1.2, +18.9] | [-6.1, +23.4] | -3.7 [-11.9, +4.2] | [-13.2, +4.6] |
+| `G0` q20 - `R0` q20 | -1.5 [-9.0, +6.5] | [-10.2, +8.8] | -2.9 [-9.9, +3.3] | [-10.1, +4.3] |
+| `G0` q20 - sharpness q20 | +11.9 [-3.0, +26.7] | [-7.2, +25.1] | +4.8 [-3.8, +13.4] | [-4.0, +14.8] |
+| `G0` q20 - `eye_focus` q20 | +0.4 [-12.1, +12.6] | [-9.1, +9.6] | -2.2 [-11.3, +6.3] | [-10.1, +7.4] |
+| `G0` q20 - random q20 | +16.1 [+0.3, +31.7] | [-5.2, +34.6] | +8.4 [+0.6, +17.1] | [-1.0, +17.8] |
+| `G0` `quantile@95` - random q20 | +18.0 [+2.0, +34.7] | [-5.4, +37.9] | +1.6 [-5.9, +10.1] | [-8.2, +11.0] |
+
+### The non-pick framing
+
+| Reading | Sampled / discard | Weighted % | Folder-cluster 95% | Unweighted % |
+| --- | ---: | ---: | ---: | ---: |
+| `discard` rate among the dump's non-picks | 561 / 377 | 51.7 [44.9, 59.0] | [43.8, 57.2] | 67.2 |
+| `discard` rate among the dump's picks | 39 / 12 | 24.4 [8.6, 42.8] | [2.8, 47.7] | 30.8 |
+| `discard` share of the non-picks `G0` `quantile@95` removes (`RN`) | 363 / 275 | 74.8 [69.9, 79.4] | [65.2, 82.3] | 75.8 |
+
+Dump-label consistency: 12 of the 39 sampled dump picks are labeled
+`discard` (weighted 24.4% [8.6, 42.8]); 0 of the 5 sampled explicit rejects
+are labeled `keep`. The per-band `discard` rate beside the band's pick
+share is in the per-band table.
+
+### The secondary label set
+
+The strict-bad rate of every `G0` band is below its `discard` rate (the
+per-band table): `b05` 27.3% vs 82.7%, `b10` 12.5% vs 70.0%, `b20` 10.1% vs
+68.0%, `control` 3.7% vs 42.6%; overall 5.52% strict bad vs 48.45%
+discardable. The expected ordering holds in every band; there is no
+inversion.
+
+### Folder-cluster sensitivity
+
+| Reading | Cut | `RR` % (stratified) | Cluster | `DR` % (stratified) | Cluster | `DO` % (stratified) | Cluster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Discardable base rate | - | 48.5 [42.0, 55.1] | [40.7, 53.9] | | | | |
+| `G0` | q5 | 17.3 [11.3, 24.0] | [11.7, 25.7] | 8.4 [7.2, 9.8] | [6.7, 10.8] | 46.7 [39.9, 53.8] | [38.7, 52.4] |
+| `G0` | q10 | 23.7 [18.7, 28.7] | [17.9, 32.8] | 15.5 [13.6, 18.1] | [13.0, 18.5] | 45.4 [38.3, 52.9] | [37.2, 51.3] |
+| `G0` | q20 | 27.9 [23.3, 32.5] | [21.4, 36.3] | 29.5 [25.9, 33.9] | [25.1, 33.9] | 42.6 [34.8, 50.7] | [33.9, 49.3] |
+| `G0` `quantile@95` | q@95 | 26.0 [21.3, 31.0] | [18.4, 35.8] | 22.7 [19.5, 26.3] | [18.2, 26.9] | 44.0 [36.6, 51.9] | [35.2, 50.4] |
+
+The paired `DP` differences against random above are given with their
+cluster interval too: the two stratified passes of the random condition
+(q20 and `quantile@95`) have cluster 2.5% quantiles below zero (-5.2,
+-5.4). Likewise `G0` q5's `RR` 97.5% quantile pass (24.0) has a cluster
+97.5% quantile of 25.7, above 25%.
+
+### The bars applied
+
+| Cut | `RR` <= 15% | `RR` 97.5% quantile <= 25% | `PL` <= 5% | Removed >= 4.5% | `DP` > random, 2.5% quantile > 0 | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0` q5 | no (17.3) | yes (24.0) | yes (0.68) | yes (4.92) | no (+30.7, 2.5% quantile -3.8) | not usable |
+| `G0` q10 | no (23.7) | no (28.7) | yes (2.10) | yes (9.87) | no (+14.8, -8.7) | not usable |
+| `G0` q20 | no (27.9) | no (32.5) | no (5.18) | yes (19.80) | yes (+16.1, +0.3) | not usable |
+| `G0` `quantile@95` | no (26.0) | no (31.0) | yes (3.64) | yes (15.05) | yes (+18.0 vs random q20, +2.0) | not usable |
+
+**No usable discard cut; no best cut.**
+
+The follow-up rule's inputs: no usable cut; weighted `RR@5` 17.3% (within
+2x the `RR` bar, <= 30%); `DO@5` 46.7% (>= 20%).
+
+**Hypothesis `RR@5` <= 5%: not confirmed.** Weighted `RR@5` 17.3% [11.3,
+24.0] (unweighted 17.3%, 26 of the 150 sampled `b05` frames marked keep),
+against about 1 in 71 in the unblinded review.
+
+### Reading
+
+On blind labels, about half of the population's frames (48.5% [42.0, 55.1])
+are ones the user would not miss, almost nine times the 5.5% strict-bad
+rate. `G0`'s bands order the `discard` rate as expected (82.7% in `b05`,
+70.0% in `b10`, 68.0% in `b20`, 42.6% in the controls) and its AUC is
+0.710, but no `G0` cut meets the bars. The shallowest, q5, rescues 17.3%
+[11.3, 24.0] of what it removes, above the 15% bar with its upper quantile
+just under 25% (cluster 25.7), and its `DP` lead over random (+30.7 points) has a
+stratified 2.5% quantile of -3.8, the random q5 cut removing only 27
+sampled frames; the deeper cuts rescue 24–28%. The unblinded 70/71 (`RR@5`
+about 1.4%) did not hold blind: the blind `RR@5` is about twelve times
+higher. Every cut leaves the discardable share among the kept frames near
+the base rate (`DO` 42.6–46.7%) and removes 8–30% of the discardable
+frames. Against the other scores at the same `q`, every paired `DP` and
+`DR` difference of `G0` has an interval spanning zero; `eye_focus` (missing
+last) has the highest AUC (0.777), then `R0` (0.740), and sharpness is
+near chance (0.540). On the non-pick framing, half of the non-picks are
+`discard` (51.7%) and so are a quarter of the sampled picks (24.4%, 12 of
+39); of the non-picks `quantile@95` removes, 74.8% are `discard`. The
+strict-bad rate is below the `discard` rate in every band. On these
+numbers the conditions of the follow-up rule's second branch (no usable
+cut, `RR@5` <= 30%, `DO@5` >= 20%) hold; the Decision (Step 5) reads them.
