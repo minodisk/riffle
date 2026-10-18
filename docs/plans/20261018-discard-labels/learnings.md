@@ -86,6 +86,39 @@
   advancing set, `clear` is not; a rating is set, not toggled, so pressing
   `1` again keeps it.
 
+## Step 2: the pre-registration in discard.md
+
+- **No label existed.** Before writing, `sample\` was listed by file name
+  only (600 files, 0 `.xmp` / `.dop`); no sidecar was opened.
+- **Two bars are decided label-free.** `G0` q20's pick loss is 5.18% on
+  the full dump and 5.03% on the population, above the 5% bar on either
+  definition, so q20 fails. And `G0` q5 removes 4.96% of the dump's frames
+  (4.92% of the population's), under the ">= 5% of frames" condition,
+  because `floor(q * n / 100)` rounds each folder down, so as first
+  written q5 failed it too.
+- **User decision (2026-10-18, before any labeling).** On that finding the
+  user lowered the removed-share condition from >= 5% to **>= 4.5%** of the
+  population's frames, to allow for the rounding. Now q5 (4.92%, `PL`
+  0.68%) and q10 (9.87%, `PL` 2.10%) pass both label-free conditions, q20
+  fails `PL`, and `quantile@95` (15.2%) clears the removed share with its
+  pooled `PL` left to Step 4. Applied to `discard.md` (Bars, the label-free
+  verdicts, the rejected "delete" option's text) and `plan.md` (Choices,
+  Step 2). No bar moves after this.
+- **Choices the text left open:**
+  - `PL` for the bar is read on the **full dump** (32,459 frames, 4,419
+    picks), the population value beside it: the cut is defined on the full
+    dump, a shipped cut acts on every frame of a folder, the strict-sample
+    exclusion is a property of the labeling sample, and the full-dump value
+    is the higher (conservative) one at every `G0` cut.
+  - The removed-share condition keeps the plan's wording, the
+    **population's** frames, the full dump's beside it; both give the same
+    verdict at every `G0` cut.
+  - `quantile@95` has no `q`, so its "beats random" condition compares it
+    with random at q20, the nearest grid cut at or above its 15.2% removed
+    share.
+  - The hypothesis `RR@5` <= 5% is called confirmed on the weighted point
+    estimate, its interval beside it; it is not a bar.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open
