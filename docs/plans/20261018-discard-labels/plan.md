@@ -125,7 +125,7 @@ names a separate later plan.
 
 ## Steps
 
-- [ ] Step 1: `sample.py`, the blind review sample of `G0` candidates and controls with its manifest, and the labeling guide `labeling.md`
+- [x] Step 1: `sample.py`, the blind review sample of `G0` candidates and controls with its manifest, and the labeling guide `labeling.md`
   - Done when:
     - `sample.py` in this plan folder (`python -I -B sample.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
@@ -395,3 +395,6 @@ names a separate later plan.
 
 - (2026-10-18) Plan written; the five choices decided by the user (see
   Purpose, "Choices")
+- (2026-10-18) Step 1 complete except the manual check that the 600-frame
+  sample opens unjudged in Riffle (pending, see `learnings.md` "Deferred
+  issues (todo candidates)"; do it before the user starts labeling)
