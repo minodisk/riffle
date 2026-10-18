@@ -417,7 +417,7 @@ frames the user would keep (or want to see), and 24.4% [8.6, 42.8] of the
 sampled picks (12 of 39) are `discard`. "Non-pick" overstates "OK to
 discard" about twofold (where it overstated strict bad about fifteenfold),
 and it misses in the other direction too. Of the non-picks `G0`'s
-`quantile@95` removes (Decision 2's `RN`), 74.8% [69.9, 79.4] are `discard`.
+`quantile@95` removes (the reject-filter evaluation's Decision 2 `RN`), 74.8% [69.9, 79.4] are `discard`.
 
 **2. No usable discard cut exists; there is no best cut.** Per `G0` cut
 (the bars applied in discard.md):
@@ -435,7 +435,7 @@ quantile 24.0% passes, but the folder-cluster one, 25.7%, does not), and it
 leaves 91.6% of the discardable frames in place (`DO@5` 46.7%, near the base
 rate). Its `DP` lead over random is large on the point (+30.7) but not
 separated from zero, random q5 removing only 27 sampled frames. Every deeper
-cut rescues a quarter or more. **The unblinded 70/71 did not hold up
+cut rescues 24-28% (q10 23.7%, `quantile@95` 26.0%, q20 27.9%). **The unblinded 70/71 did not hold up
 blind**: the hypothesis `RR@5` <= 5% is not confirmed, the blind `RR@5`
 being 17.3% [11.3, 24.0] (26 of the 150 sampled `b05` frames marked keep)
 against about 1.4% (1 of 71) when the user knew the frames were the model's
@@ -445,7 +445,10 @@ dump), the unblinded one on the strict sample's 71 frames of it. This is a
 finding about **automation bias in the rescue scheme**: shown a frame as a
 discard candidate, the user accepted the discard far more often than when
 judging it blind, so a rescue loop that labels its frames as candidates
-would understate what it costs.
+would understate what it costs. The unblinded frames had also had a strict
+pass first, and 22 of the 71 were strict-bad and not re-asked (1 of 49
+rescued among the rest), so prior exposure is a second explanation the two
+readings cannot separate.
 
 **3. `G0` is not distinguishable from the other scores; `eye_focus` has the
 highest AUC.** At q5 every paired `DP` and `DR` difference between `G0` and
@@ -492,7 +495,7 @@ this plan. That later plan would need to specify:
 - **The evaluation**: held out by folder (27 folders, 3 to 96 sampled frames
   each) or on a fresh blind sample drawn as Step 1 drew this one, with
   candidates and random frames mixed and unmarked, given the automation-bias
-  finding of 2.
+  finding of item 2 above.
 - **The bars, pre-registered before training**: the same "hide / sort last"
   bars as here (`RR` <= 15% with the 97.5% quantile <= 25%, `PL` <= 5%,
   removed share >= 4.5%, `DP` above random's), plus a paired gain over `G0`
@@ -502,10 +505,11 @@ this plan. That later plan would need to specify:
 
 The recommendation would change:
 
-- to **an in-app discard candidates view with a rescue loop** at q5 if a
-  fresh blind round (or the trained model of the later plan) put a cut's
-  weighted `RR` at or under 15% with the quantile at or under 25% and its
-  `DP` separated from random's; that plan would then have to specify the
+- to **an in-app discard candidates view with a rescue loop** at the best
+  cut's depth if a fresh blind round (or the trained model of the later plan)
+  put a cut over every usable-cut bar (weighted `RR` at or under 15% with the
+  97.5% quantile at or under 25%, `PL` at or under 5%, removed share at or
+  above 4.5%, `DP` above random's with the paired 2.5% quantile above zero); that plan would then have to specify the
   depth, the "hide / sort last" semantics and the app surface (a filter or a
   sort that puts the candidates last, the rescue key, and how the rescue
   marks are kept), and, by the automation-bias finding, how its rescue rate
