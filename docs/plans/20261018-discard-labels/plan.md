@@ -323,7 +323,7 @@ names a separate later plan.
     - Ask the user explicitly for the time taken (the last round did not
       record it) so the next workload estimate is grounded.
 
-- [ ] Step 4: `discardfilter.py`: every pre-registered cut, metric, comparison and reading against the labels, reweighted, with intervals
+- [x] Step 4: `discardfilter.py`: every pre-registered cut, metric, comparison and reading against the labels, reweighted, with intervals
   - Done when:
     - `discardfilter.py` in this plan folder (`python -I -B
       discardfilter.py <app-dump-dir> <folder-wide-eval-dir>
