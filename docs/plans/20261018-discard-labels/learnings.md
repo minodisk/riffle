@@ -198,6 +198,22 @@
     the pre-registration names only the AUC).
 - **No deviation** from the pre-registration; no bar moved.
 
+## Step 5: the Decision
+
+- **Labeling workload, for the next round's sizing.** The user took about
+  30 minutes for the 600 frames, against the plan's estimate of 15–25
+  minutes (1.5–2.5 s per frame): about **3 s per frame**, 20–100% over the
+  estimate. Size the next blind round at about 3 s per frame (1,000 frames
+  about 50 minutes), not at the earlier estimate.
+- **Follow-up branch.** The pre-registered rule's second branch holds (no
+  usable cut, `RR@5` 17.3% <= 30%, `DO@5` 46.7% >= 20%), so the Decision
+  recommends a later plan that trains on the rescue labels with the
+  controls as negatives; no plan is opened. No bar moved.
+- **The 70/71 gap.** The unblinded `RR@5` (about 1.4%) against the blind
+  17.3% [11.3, 24.0] is recorded in the Decision as an automation-bias
+  finding about the rescue scheme: any later in-app rescue loop that shows
+  its frames as candidates would need its own blind measurement.
+
 ## Deferred issues (todo candidates)
 
 - **Narrowed manual check: the strip showed no judgment before labeling.**
