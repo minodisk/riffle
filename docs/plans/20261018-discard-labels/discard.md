@@ -442,7 +442,8 @@ inversion.
 The paired `DP` differences against random above are given with their
 cluster interval too: the two stratified passes of the random condition
 (q20 and `quantile@95`) have cluster 2.5% quantiles below zero (-5.2,
--5.4).
+-5.4). Likewise `G0` q5's `RR` 97.5% quantile pass (24.0) has a cluster
+97.5% quantile of 25.7, above 25%.
 
 ### The bars applied
 
@@ -470,7 +471,7 @@ rate. `G0`'s bands order the `discard` rate as expected (82.7% in `b05`,
 70.0% in `b10`, 68.0% in `b20`, 42.6% in the controls) and its AUC is
 0.710, but no `G0` cut meets the bars. The shallowest, q5, rescues 17.3%
 [11.3, 24.0] of what it removes, above the 15% bar with its upper quantile
-just under 25%, and its `DP` lead over random (+30.7 points) has a
+just under 25% (cluster 25.7), and its `DP` lead over random (+30.7 points) has a
 stratified 2.5% quantile of -3.8, the random q5 cut removing only 27
 sampled frames; the deeper cuts rescue 24–28%. The unblinded 70/71 (`RR@5`
 about 1.4%) did not hold blind: the blind `RR@5` is about twelve times
