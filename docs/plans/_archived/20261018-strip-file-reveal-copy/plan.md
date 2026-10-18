@@ -123,4 +123,5 @@ Decided with the user: the new items go right after `Select All` (reveal, then
 
 ## Progress
 
+- (2026-10-18) Step 1 complete
 - Step 1: the strip right-click menu gained reveal-in-file-manager and copy path / copy name items (commit 1287fa70). The Windows manual check is still pending (see `learnings.md`, Deferred issues).
