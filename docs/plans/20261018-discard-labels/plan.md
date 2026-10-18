@@ -125,7 +125,7 @@ names a separate later plan.
 
 ## Steps
 
-- [ ] Step 1: `sample.py`, the blind review sample of `G0` candidates and controls with its manifest, and the labeling guide `labeling.md`
+- [x] Step 1: `sample.py`, the blind review sample of `G0` candidates and controls with its manifest, and the labeling guide `labeling.md`
   - Done when:
     - `sample.py` in this plan folder (`python -I -B sample.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
