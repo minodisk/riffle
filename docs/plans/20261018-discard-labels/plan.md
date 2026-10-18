@@ -205,7 +205,7 @@ names a separate later plan.
       background copy killed after 482 files.
     - Script and docs only; no Rust, no app change.
 
-- [ ] Step 2: Pre-register the labels, cuts, metrics, comparisons and bars in `discard.md`, before any label exists
+- [x] Step 2: Pre-register the labels, cuts, metrics, comparisons and bars in `discard.md`, before any label exists
   - Done when:
     - `discard.md` in this plan folder has a "Pre-registration" section
       merged **before the user has marked anything and before any label is
