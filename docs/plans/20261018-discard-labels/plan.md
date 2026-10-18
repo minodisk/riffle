@@ -402,3 +402,6 @@ names a separate later plan.
 - (2026-10-18) Step 1 complete except the manual check that the 600-frame
   sample opens unjudged in Riffle (pending, see `learnings.md` "Deferred
   issues (todo candidates)"; do it before the user starts labeling)
+- (2026-10-18) Step 2 complete: `discard.md` pre-registration written before any
+  label; removed-share bar lowered from 5% to 4.5% by the user before labeling
+  (see "Choices" and `learnings.md` Step 2)
