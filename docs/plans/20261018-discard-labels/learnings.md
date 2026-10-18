@@ -94,9 +94,16 @@
   the full dump and 5.03% on the population, above the 5% bar on either
   definition, so q20 fails. And `G0` q5 removes 4.96% of the dump's frames
   (4.92% of the population's), under the ">= 5% of frames" condition,
-  because `floor(q * n / 100)` rounds each folder down: applied as written,
-  q5 fails it too. Only q10 and `quantile@95` remain live `G0` candidates.
-  The bars were not moved; `discard.md` states both facts up front.
+  because `floor(q * n / 100)` rounds each folder down, so as first
+  written q5 failed it too.
+- **User decision (2026-10-18, before any labeling).** On that finding the
+  user lowered the removed-share condition from >= 5% to **>= 4.5%** of the
+  population's frames, to allow for the rounding. Now q5 (4.92%, `PL`
+  0.68%) and q10 (9.87%, `PL` 2.10%) pass both label-free conditions, q20
+  fails `PL`, and `quantile@95` (15.2%) clears the removed share with its
+  pooled `PL` left to Step 4. Applied to `discard.md` (Bars, the label-free
+  verdicts, the rejected "delete" option's text) and `plan.md` (Choices,
+  Step 2). No bar moves after this.
 - **Choices the text left open:**
   - `PL` for the bar is read on the **full dump** (32,459 frames, 4,419
     picks), the population value beside it: the cut is defined on the full
@@ -113,16 +120,6 @@
     estimate, its interval beside it; it is not a bar.
 
 ## Deferred issues (todo candidates)
-
-- **The q5 removed-share condition cannot pass as written.** `G0` q5
-  removes 4.96% of the dump (4.92% of the population), under the
-  pre-registered ">= 5% of frames" condition, because of
-  `floor(q * n / 100)`. If the user meant q5 to qualify, the bar would have
-  to change before any label is read (that is, before the user starts
-  labeling); after that, it stays. Basis: Step 1's label-free table in
-  `D:\Photos\tests\2026-10-18-discard-labels\sample.out.md`; files
-  `docs/plans/20261018-discard-labels/discard.md` (Bars),
-  `docs/plans/20261018-discard-labels/plan.md` (Step 2).
 
 - **Pending manual check: the sample opens in Riffle.** What: open
   `D:\Photos\tests\2026-10-18-discard-labels\sample` once in Riffle

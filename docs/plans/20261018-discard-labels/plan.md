@@ -49,8 +49,12 @@ names a separate later plan.
 
 - **Discard semantics: "hide / sort last"** (rejected: "delete"). Bars:
   rescue rate `RR` <= **15%** with its stratified 97.5% quantile <= **25%**,
-  pick loss `PL` <= **5%** (the rejected "delete" option was `RR` <= 5% with
-  the quantile <= 15% and `PL` <= 1%).
+  pick loss `PL` <= **5%**, removed share >= **4.5%** of the population's
+  frames (the rejected "delete" option was `RR` <= 5% with the quantile <=
+  15% and `PL` <= 1%). The removed-share floor was lowered from 5% to 4.5%
+  by the user on 2026-10-18, before any label, to allow for the per-folder
+  `floor(q * n / 100)` rounding that puts `G0` q5 at 4.92% of the
+  population's frames.
 - **Cuts (bands): `G0` per-folder 5 / 10 / 20** (bands 0–5, 5–10, 10–20,
   controls above 20) (rejected: 10 / 20 / 30).
 - **Sample size: 600** frames, 150 per band for the three candidate bands and
@@ -267,8 +271,8 @@ names a separate later plan.
       - **Bars** ("hide / sort last" semantics, written out with the
         rejected "delete" option): a cut of `G0` is a **usable discard
         cut** when its weighted `RR` <= 15% with the stratified 97.5%
-        quantile <= 25%, `PL` <= 5%, it removes >= 5% of the population's
-        frames, and its `DP` exceeds random's at the same `q` with the
+        quantile <= 25%, `PL` <= 5%, it removes >= 4.5% of the population's
+        frames (lowered from 5% before any label, see "Choices"), and its `DP` exceeds random's at the same `q` with the
         paired 2.5% quantile above zero. The **best cut** is the deepest
         passing one. The **follow-up rule**: a usable cut exists → the
         Decision recommends a later plan for an in-app discard candidates

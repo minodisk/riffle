@@ -81,22 +81,24 @@ The pick share of each band and the pick loss of each `G0` cut, label-free:
 | `G0` q10 | 9.96% / 9.87% | 2.10% / 2.02% |
 | `G0` q20 | 19.97% / 19.80% | **5.18% / 5.03%** |
 
-So two of the bars below are already decided for two `G0` cuts **before any
-label**, and are stated here so no one reads them as a result:
+So the label-free conditions of the bars below are already decided for the
+three `G0` `q` cuts **before any label**, and are stated here so no one
+reads them as a result:
 
 - **q20's pick loss sits at the 5% bar**, 5.18% on the full dump (5.03% on
   the population), above it on either definition: `G0` q20 fails the `PL`
   bar whatever the labels say.
-- **q5 removes 4.96% of the full dump's frames (4.92% of the
-  population's)**, under the ">= 5% of frames" condition, because
-  `floor(q * n / 100)` rounds each folder down: applied as written, `G0` q5
-  fails the removed-share condition whatever the labels say. Its labels are
-  still read for every other metric, the hypothesis and the follow-up rule.
+- **q5 removes 4.92% of the population's frames (4.96% of the full
+  dump's)**, under 5% because `floor(q * n / 100)` rounds each folder down.
+  The removed-share condition is therefore set at **>= 4.5%** (Bars), which
+  allows for that rounding: q5 passes it, and its `PL` (0.68%) passes too.
+- **q10** removes 9.87% of the population's frames with `PL` 2.10%: it
+  passes both label-free conditions.
 
-So among `G0`'s three `q` cuts only q10 can pass; `G0`'s `quantile@95`
-cut (15.2% of the dump's frames) is the fourth candidate, its pooled pick
-loss computed in Step 4 (Decision 2's mean per-folder pick recall 94.7%
-puts it near the bar).
+So q5 and q10 can pass, q20 cannot; `G0`'s `quantile@95` cut (15.2% of the
+dump's frames, so it clears the removed-share condition) is the fourth
+candidate, its pooled pick loss computed in Step 4 (Decision 2's mean
+per-folder pick recall 94.7% puts it near the bar).
 
 The sample holds 39 picks, 5 explicit rejects and 34 singles, and every
 folder (3 to 96 frames).
@@ -241,14 +243,18 @@ any label: a discard cut hides its frames from what the user picks from, or
 sorts them last, and they stay recoverable. Rejected: **"delete"** semantics
 (the cut's frames go to the Trash), whose bars would have been `RR` <= **5%**
 with the stratified 97.5% quantile <= **15%** and `PL` <= **1%**, the other
-conditions the same.
+conditions the same (removed share >= 4.5% of the population's frames, `DP`
+above random's).
 
 - **Usable discard cut**: a cut of `G0` (q5, q10, q20 or `quantile@95`) is
   usable when all of these hold:
   - weighted `RR` <= **15%**, with the stratified bootstrap 97.5% quantile
     of `RR` <= **25%**;
   - `PL` <= **5%** (full dump, label-free, Primary metrics 3);
-  - it removes **>= 5%** of the population's frames (label-free);
+  - it removes **>= 4.5%** of the population's frames (label-free; set by
+    the user on 2026-10-18 before any label, down from the plan's first
+    5%, to allow for the per-folder `floor(q * n / 100)` rounding that puts
+    q5 at 4.92%);
   - its weighted `DP` exceeds random's at the same `q`, with the paired
     stratified bootstrap **2.5% quantile above zero** (for `quantile@95`,
     against random at q20, the nearest grid cut at or above its removed
@@ -274,9 +280,10 @@ conditions the same.
 Applied as:
 
 - **Known before labels** (above): `G0` q20 fails the `PL` bar (5.18%) and
-  `G0` q5 fails the removed-share condition (4.96% / 4.92%); both are
-  reported with their labeled metrics anyway. The bars are not moved for
-  either.
+  is reported with its labeled metrics anyway; `G0` q5 (4.92%) and q10
+  (9.87%) pass the removed-share condition and the `PL` bar (0.68%,
+  2.10%), so their verdicts rest on `RR` and the random comparison alone.
+  The bars are not moved after this section.
 - The comparison scores are not candidates for the usable-cut bar; they are
   read through the paired differences only.
 - **A low discardable base rate** makes `DP` hard to raise at any cut; if it
