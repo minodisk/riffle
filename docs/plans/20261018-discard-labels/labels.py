@@ -77,6 +77,9 @@ def main(out_dir):
                 name, _, reason = line.partition("\t")
                 skip[name.strip()] = reason.strip()
     names = {r["name"] for r in manifest}
+    unknown = sorted(n for n in skip if n not in names)
+    if unknown:
+        sys.exit("skip.txt names not in the manifest: " + ", ".join(unknown))
     listing = set(os.listdir(sample))
     expected = set()
     rows, unexpected, formats, mismatch, missing = [], [], Counter(), [], []

@@ -405,3 +405,7 @@ names a separate later plan.
 - (2026-10-18) Step 2 complete: `discard.md` pre-registration written before any
   label; removed-share bar lowered from 5% to 4.5% by the user before labeling
   (see "Choices" and `learnings.md` Step 2)
+- (2026-10-19) Step 3 complete: 600 labeled, 211 keep / 389 discard, 0
+  skipped. The user's remarks on time taken and whether `aiEnabled` was
+  off are still open (see `learnings.md` "Deferred issues (todo
+  candidates)"); Step 4/5 need them

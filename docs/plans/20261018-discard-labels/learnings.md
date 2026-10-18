@@ -124,7 +124,9 @@
 - **User remarks (2026-10-18).** The user said "done" after viewing the
   sample, with no remarks: no frame reported as failing to open, no doubt
   about the definition, no `skip.txt`. Time taken: not reported (asked).
-  Whether `aiEnabled` stayed off: not reported (asked).
+  Whether `aiEnabled` stayed off: not reported (asked). Both are still
+  open and recorded in "Deferred issues (todo candidates)" below (Step 4
+  and Step 5 read them).
 - **Run.** `labels.py D:\Photos\tests\2026-10-18-discard-labels`, stdout
   saved as `labels.out.md` beside `labels.tsv`. 600 manifest rows, 600
   labeled, 0 skipped, 0 copies missing, 0 other files in `sample\`.
@@ -147,14 +149,20 @@
 
 ## Deferred issues (todo candidates)
 
-- **Pending manual check: the sample opens in Riffle.** What: open
-  `D:\Photos\tests\2026-10-18-discard-labels\sample` once in Riffle
-  (Windows, the user's machine) and confirm the strip shows 600 frames,
-  none rated, picked, rejected or labeled, sorted by file name from
-  `0001_...`. Steps: turn `aiEnabled` off, open the folder, sort by File
-  name, clear filters, let the scan finish. Expected: 600 frames with no
-  judgment shown. Not done by the implementation agent (the user does it
-  when labeling, per Step 3); Step 1's checkbox was ticked on the
-  automated criteria. Basis: Step 1's checks in
-  `docs/plans/20261018-discard-labels/plan.md`; the last round recorded
-  this check as never confirmed visually.
+- **Open user remarks of Step 3: time taken and whether `aiEnabled` was
+  off.** What: the user said "done" without reporting either. Both are
+  needed later: Step 5's Done-when wants the labeling workload actually
+  spent against the estimate, and `aiEnabled` off is what keeps the labels
+  blind (with it on, the recommended icon and the ranking rows show).
+  Ask the user for both and record them here before Step 4/5 relies on
+  them; do not infer them. Basis: review Round 1, item 1, of Step 3
+  (`docs/plans/review-history/discard-labels-step-3/review-20261019-0000.md`).
+- **Narrowed manual check: the strip showed no judgment before labeling.**
+  Outcome from Step 3: the user viewed all 600 frames and reported none
+  failing to open. Before labeling, `sample\` had 0 sidecars (Step 2), and
+  `labels.py` found no Pick, Reject or color label afterwards. What was
+  never confirmed: that the strip showed no judgment (rating, pick, reject,
+  label) before labeling began, and that `aiEnabled` was off at that time
+  (see the previous entry). Basis: Step 1's checks in
+  `docs/plans/20261018-discard-labels/plan.md`; review Round 1, item 2, of
+  Step 3.
