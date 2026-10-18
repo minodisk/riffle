@@ -119,16 +119,41 @@
   - The hypothesis `RR@5` <= 5% is called confirmed on the weighted point
     estimate, its interval beside it; it is not a bar.
 
+## Step 3: the labels in labels.tsv
+
+- **User remarks (2026-10-18).** The user said "done" after viewing the
+  sample, with no remarks: no frame reported as failing to open, no doubt
+  about the definition, no `skip.txt`. Asked afterwards (2026-10-19), the
+  user reported: time taken about 30 minutes (the estimate was 15–25, so
+  about 3 s per frame); `aiEnabled` stayed off throughout.
+- **Run.** `labels.py D:\Photos\tests\2026-10-18-discard-labels`, stdout
+  saved as `labels.out.md` beside `labels.tsv`. 600 manifest rows, 600
+  labeled, 0 skipped, 0 copies missing, 0 other files in `sample\`.
+- **Counts.** `keep` 211, `discard` 389. Per band (label counts only, no
+  score read): `b05` 26 keep / 124 discard, `b10` 45 / 105, `b20` 48 /
+  102, `control` 92 / 58 (150 each).
+- **Sidecars.** 212 copies carry a `.dop` + `.xmp` pair (both Riffle's,
+  the setting writes both), 388 none; the `.dop` decides on all 212; 0
+  `.dop` / XMP disagreements on rating 1. One copy holds rating 0 in both
+  sidecars (`0381_2026-07-21__DSC4605.ARW`: marked, then cleared with
+  `0`), listed as unexpected and labeled `discard` by the rating-1 rule.
+  No Pick, Reject or color label in any sidecar (a `.dop`
+  `ShouldProcess = 2` is the unflagged value).
+- **Dump-label consistency.** Sampled dump picks 39: 27 keep, 12
+  discard. Sampled explicit rejects 5: 0 keep, 5 discard.
+- **Choice the text left open.** `labels.py` reports the rating of every
+  sidecar not equal to 1, including 0, as unexpected (the brief said "a
+  rating other than 1"); a cleared rating is therefore visible in the
+  list rather than silently absent.
+
 ## Deferred issues (todo candidates)
 
-- **Pending manual check: the sample opens in Riffle.** What: open
-  `D:\Photos\tests\2026-10-18-discard-labels\sample` once in Riffle
-  (Windows, the user's machine) and confirm the strip shows 600 frames,
-  none rated, picked, rejected or labeled, sorted by file name from
-  `0001_...`. Steps: turn `aiEnabled` off, open the folder, sort by File
-  name, clear filters, let the scan finish. Expected: 600 frames with no
-  judgment shown. Not done by the implementation agent (the user does it
-  when labeling, per Step 3); Step 1's checkbox was ticked on the
-  automated criteria. Basis: Step 1's checks in
-  `docs/plans/20261018-discard-labels/plan.md`; the last round recorded
-  this check as never confirmed visually.
+- **Narrowed manual check: the strip showed no judgment before labeling.**
+  Outcome from Step 3: the user viewed all 600 frames and reported none
+  failing to open. Before labeling, `sample\` had 0 sidecars (Step 2), and
+  `labels.py` found no Pick, Reject or color label afterwards. What was
+  never confirmed: that the strip showed no judgment (rating, pick, reject,
+  label) before labeling began (the user reported `aiEnabled` off
+  throughout). Basis: Step 1's checks in
+  `docs/plans/20261018-discard-labels/plan.md`; review Round 1, item 2, of
+  Step 3.
