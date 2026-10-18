@@ -406,6 +406,6 @@ names a separate later plan.
   label; removed-share bar lowered from 5% to 4.5% by the user before labeling
   (see "Choices" and `learnings.md` Step 2)
 - (2026-10-19) Step 3 complete: 600 labeled, 211 keep / 389 discard, 0
-  skipped. The user's remarks on time taken and whether `aiEnabled` was
-  off are still open (see `learnings.md` "Deferred issues (todo
-  candidates)"); Step 4/5 need them
+  skipped. The user later reported about 30 minutes taken and `aiEnabled`
+  off throughout (`learnings.md` Step 3)
+- (2026-10-19) Step 4 complete
