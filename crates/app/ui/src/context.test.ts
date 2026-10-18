@@ -23,12 +23,18 @@ const defaults = [
 ];
 
 const unset = { rating: null, flag: "none" as const, label: null };
+const reveal = "Reveal in File Explorer";
 
 describe("contextMenuGroups", () => {
-  test("lists Select All above the flag, rating and label groups, then Rename…, then Move to Trash…", () => {
-    const groups = contextMenuGroups(defaults, unset);
+  test("lists Select All, the reveal and copy items, the flag, rating and label groups, Rename…, then Move to Trash…", () => {
+    const groups = contextMenuGroups(defaults, unset, reveal);
     expect(groups.map((group) => group.map(({ action, label }) => [action, label]))).toEqual([
       [["selectAll", "Select All"]],
+      [["revealFile", "Reveal in File Explorer"]],
+      [
+        ["copyPath", "Copy Path"],
+        ["copyFileName", "Copy File Name"],
+      ],
       [
         ["pick", "Pick"],
         ["reject", "Reject"],
@@ -58,11 +64,13 @@ describe("contextMenuGroups", () => {
   });
 
   test("shows the default keys", () => {
-    const shortcuts = contextMenuGroups(defaults, unset).map((group) =>
+    const shortcuts = contextMenuGroups(defaults, unset, reveal).map((group) =>
       group.map((item) => item.shortcut),
     );
     expect(shortcuts).toEqual([
       ["meta+a"],
+      [""],
+      ["", ""],
       ["p", "x", "u"],
       ["1", "2", "3", "4", "5", "0"],
       [
@@ -84,35 +92,35 @@ describe("contextMenuGroups", () => {
     const bindings = defaults.map((binding) =>
       binding.action === "rate3" ? { action: "rate3", keys: ["space"] } : binding,
     );
-    expect(contextMenuGroups(bindings, unset)[2]?.[2]?.shortcut).toBe("Space");
+    expect(contextMenuGroups(bindings, unset, reveal)[4]?.[2]?.shortcut).toBe("Space");
   });
 
   test("shows an overridden Select All key", () => {
     const bindings = defaults.map((binding) =>
       binding.action === "selectAll" ? { action: "selectAll", keys: ["ctrl+alt+a"] } : binding,
     );
-    expect(contextMenuGroups(bindings, unset)[0]?.[0]?.shortcut).toBe("ctrl+alt+a");
+    expect(contextMenuGroups(bindings, unset, reveal)[0]?.[0]?.shortcut).toBe("ctrl+alt+a");
   });
 
   test("gives Select All no checked state", () => {
-    expect(contextMenuGroups(defaults, unset)[0]?.[0]?.checked).toBeUndefined();
+    expect(contextMenuGroups(defaults, unset, reveal)[0]?.[0]?.checked).toBeUndefined();
   });
 
   test("shows the first key when an action has several", () => {
     const bindings = [{ action: "reject", keys: ["d", "x"] }];
-    expect(contextMenuGroups(bindings, unset)[1]?.[1]?.shortcut).toBe("d");
+    expect(contextMenuGroups(bindings, unset, reveal)[3]?.[1]?.shortcut).toBe("d");
   });
 
   test("gives an empty shortcut for an unbound action", () => {
-    const shortcuts = contextMenuGroups([], unset).flatMap((group) =>
+    const shortcuts = contextMenuGroups([], unset, reveal).flatMap((group) =>
       group.map((item) => item.shortcut),
     );
-    expect(shortcuts).toHaveLength(20);
+    expect(shortcuts).toHaveLength(23);
     expect(shortcuts.every((shortcut) => shortcut === "")).toBe(true);
   });
 
   test("marks the unset items when nothing is set", () => {
-    const checked = contextMenuGroups(defaults, unset)
+    const checked = contextMenuGroups(defaults, unset, reveal)
       .flat()
       .filter((item) => item.checked)
       .map((item) => item.action);
@@ -120,31 +128,61 @@ describe("contextMenuGroups", () => {
   });
 
   test("marks the current flag, rating and label", () => {
-    const checked = contextMenuGroups(defaults, { rating: 3, flag: "pick", label: "Orange" })
+    const checked = contextMenuGroups(
+      defaults,
+      { rating: 3, flag: "pick", label: "Orange" },
+      reveal,
+    )
       .flat()
       .filter((item) => item.checked)
       .map((item) => item.action);
     expect(checked).toEqual(["pick", "rate3", "orange"]);
   });
 
-  test("keeps only Select All and Move to Trash… in a view-only folder", () => {
-    expect(contextMenuGroups(defaults, unset, true)).toEqual([
+  test("keeps only Select All, the reveal and copy items and Move to Trash… in a view-only folder", () => {
+    expect(contextMenuGroups(defaults, unset, reveal, true)).toEqual([
       [{ action: "selectAll", label: "Select All", shortcut: "meta+a", checked: undefined }],
+      [{ action: "revealFile", label: reveal, shortcut: "", checked: undefined }],
+      [
+        { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
+        { action: "copyFileName", label: "Copy File Name", shortcut: "", checked: undefined },
+      ],
       [{ action: "trashFiles", label: "Move to Trash…", shortcut: "", checked: undefined }],
     ]);
   });
 
   test("names the count of a multi-selection in Move to Trash…", () => {
-    expect(contextMenuGroups(defaults, unset, false, 3).at(-1)).toEqual([
+    expect(contextMenuGroups(defaults, unset, reveal, false, 3).at(-1)).toEqual([
       { action: "trashFiles", label: "Move 3 Files to Trash…", shortcut: "", checked: undefined },
     ]);
-    expect(contextMenuGroups(defaults, unset, true, 2).at(-1)?.[0]?.label).toBe(
+    expect(contextMenuGroups(defaults, unset, reveal, true, 2).at(-1)?.[0]?.label).toBe(
       "Move 2 Files to Trash…",
     );
   });
 
+  test("gives the reveal and copy items no shortcut and no checked state", () => {
+    expect(contextMenuGroups(defaults, unset, reveal).slice(1, 3)).toEqual([
+      [{ action: "revealFile", label: reveal, shortcut: "", checked: undefined }],
+      [
+        { action: "copyPath", label: "Copy Path", shortcut: "", checked: undefined },
+        { action: "copyFileName", label: "Copy File Name", shortcut: "", checked: undefined },
+      ],
+    ]);
+  });
+
+  test("keeps the reveal and copy labels for a multi-selection", () => {
+    const groups = contextMenuGroups(defaults, unset, reveal, false, 3);
+    expect(groups.slice(1, 3).map((group) => group.map((item) => item.label))).toEqual([
+      [reveal],
+      ["Copy Path", "Copy File Name"],
+    ]);
+    expect(groups.at(-1)?.[0]?.label).toBe("Move 3 Files to Trash…");
+  });
+
   test("keeps Move to Trash… singular for one file", () => {
-    expect(contextMenuGroups(defaults, unset, false, 1).at(-1)?.[0]?.label).toBe("Move to Trash…");
+    expect(contextMenuGroups(defaults, unset, reveal, false, 1).at(-1)?.[0]?.label).toBe(
+      "Move to Trash…",
+    );
   });
 });
 

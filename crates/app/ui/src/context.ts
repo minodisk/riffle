@@ -17,8 +17,7 @@ const LABEL_ENTRIES: Entry[] = ["Red", "Orange", "Yellow", "Green", "Blue", "Pin
   (name) => [name.toLowerCase(), name, (state) => state.label === name],
 );
 
-const SECTIONS: Entry[][] = [
-  [["selectAll", "Select All"]],
+const JUDGMENT_SECTIONS: Entry[][] = [
   [
     ["pick", "Pick", (state) => state.flag === "pick"],
     ["reject", "Reject", (state) => state.flag === "reject"],
@@ -34,22 +33,32 @@ const SECTIONS: Entry[][] = [
   ],
   [...LABEL_ENTRIES, ["clearlabel", "No label", (state) => state.label === null]],
   [["renameFile", "Rename…"]],
-  [["trashFiles", "Move to Trash…"]],
 ];
 
-// A view-only (JPEG) folder takes no judgment and no rename, so only
-// `Select All` and `Move to Trash…` are left. `Rename…` acts on the focused
-// file alone; `Move to Trash…` on the `count` files it targets, naming them
+// `Select All`, then the reveal item, labeled per platform by the
+// `reveal_label` command, and copying the targeted files' paths or names, then
+// the judgment groups and `Rename…`, then `Move to Trash…`. A view-only (JPEG)
+// folder takes no judgment and no rename, so those are left out. `Rename…`
+// and the reveal item act on the focused file alone; the copy items and
+// `Move to Trash…` on the `count` files they target, the latter naming them
 // when there are several.
 export function contextMenuGroups(
   bindings: Binding[],
   state: MenuState,
+  revealLabel: string,
   viewOnly = false,
   count = 1,
 ): MenuItem[][] {
-  const sections = viewOnly
-    ? SECTIONS.filter((_, i) => i === 0 || i === SECTIONS.length - 1)
-    : SECTIONS;
+  const sections: Entry[][] = [
+    [["selectAll", "Select All"]],
+    [["revealFile", revealLabel]],
+    [
+      ["copyPath", "Copy Path"],
+      ["copyFileName", "Copy File Name"],
+    ],
+    ...(viewOnly ? [] : JUDGMENT_SECTIONS),
+    [["trashFiles", "Move to Trash…"]],
+  ];
   return sections.map((section) =>
     section.map(([action, label, checked]) => {
       const key = bindings.find((binding) => binding.action === action)?.keys[0];

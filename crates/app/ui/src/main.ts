@@ -3171,14 +3171,29 @@ function openContextMenu(x: number, y: number): void {
     label: labels.get(focused) ?? null,
   };
   const paths = comparing ? [focused] : targets(selection, files, index);
-  showMenu(contextMenuGroups(keyBindings, state, viewOnly, paths.length), x, y, (action) => {
-    if (action === "renameFile") {
-      strip.startRename(index);
-    } else if (action === "trashFiles") {
-      confirmTrashFiles(paths);
-    } else {
-      runAction(action);
-    }
+  void revealLabel.then((label) => {
+    const groups = contextMenuGroups(keyBindings, state, label, viewOnly, paths.length);
+    showMenu(groups, x, y, (action) => {
+      if (action === "renameFile") {
+        strip.startRename(index);
+      } else if (action === "trashFiles") {
+        confirmTrashFiles(paths);
+      } else if (action === "revealFile") {
+        window.__TAURI__.core.invoke("reveal_folder", { path: focused }).catch((err: unknown) => {
+          setStatus(String(err));
+        });
+      } else if (action === "copyPath") {
+        navigator.clipboard.writeText(paths.join("\n")).catch((err: unknown) => {
+          setStatus(String(err));
+        });
+      } else if (action === "copyFileName") {
+        navigator.clipboard.writeText(paths.map(baseName).join("\n")).catch((err: unknown) => {
+          setStatus(String(err));
+        });
+      } else {
+        runAction(action);
+      }
+    });
   });
 }
 
