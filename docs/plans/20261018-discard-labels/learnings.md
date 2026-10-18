@@ -119,6 +119,32 @@
   - The hypothesis `RR@5` <= 5% is called confirmed on the weighted point
     estimate, its interval beside it; it is not a bar.
 
+## Step 3: the labels in labels.tsv
+
+- **User remarks (2026-10-18).** The user said "done" after viewing the
+  sample, with no remarks: no frame reported as failing to open, no doubt
+  about the definition, no `skip.txt`. Time taken: not reported (asked).
+  Whether `aiEnabled` stayed off: not reported (asked).
+- **Run.** `labels.py D:\Photos\tests\2026-10-18-discard-labels`, stdout
+  saved as `labels.out.md` beside `labels.tsv`. 600 manifest rows, 600
+  labeled, 0 skipped, 0 copies missing, 0 other files in `sample\`.
+- **Counts.** `keep` 211, `discard` 389. Per band (label counts only, no
+  score read): `b05` 26 keep / 124 discard, `b10` 45 / 105, `b20` 48 /
+  102, `control` 92 / 58 (150 each).
+- **Sidecars.** 212 copies carry a `.dop` + `.xmp` pair (both Riffle's,
+  the setting writes both), 388 none; the `.dop` decides on all 212; 0
+  `.dop` / XMP disagreements on rating 1. One copy holds rating 0 in both
+  sidecars (`0381_2026-07-21__DSC4605.ARW`: marked, then cleared with
+  `0`), listed as unexpected and labeled `discard` by the rating-1 rule.
+  No Pick, Reject or color label in any sidecar (a `.dop`
+  `ShouldProcess = 2` is the unflagged value).
+- **Dump-label consistency.** Sampled dump picks 39: 27 keep, 12
+  discard. Sampled explicit rejects 5: 0 keep, 5 discard.
+- **Choice the text left open.** `labels.py` reports the rating of every
+  sidecar not equal to 1, including 0, as unexpected (the brief said "a
+  rating other than 1"); a cleared rating is therefore visible in the
+  list rather than silently absent.
+
 ## Deferred issues (todo candidates)
 
 - **Pending manual check: the sample opens in Riffle.** What: open

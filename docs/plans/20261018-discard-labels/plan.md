@@ -293,7 +293,7 @@ names a separate later plan.
       [badfilter.md](../_archived/20261017-bad-photo-labels/badfilter.md)
       pre-registration and keep its vocabulary. Doc-only PR.
 
-- [ ] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
+- [x] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
   - Done when:
     - **The user has said "done"** after viewing every frame of
       `D:\Photos\tests\2026-10-18-discard-labels\sample` in Riffle per
