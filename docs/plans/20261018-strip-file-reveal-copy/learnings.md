@@ -18,7 +18,7 @@
   missing `vite-plus` binary until `mise exec -- pnpm install
   --frozen-lockfile` (bare `pnpm` is not on PATH in Git Bash).
 - Editing files with Python's text mode on Windows writes CRLF; open them with
-  `newline=""` (or strip `` afterwards) to keep the repository's LF.
+  `newline=""` (or strip `\r` afterwards) to keep the repository's LF.
 
 ## Deferred issues (todo candidates)
 
