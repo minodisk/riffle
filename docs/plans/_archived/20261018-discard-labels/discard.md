@@ -10,9 +10,9 @@ no `.xmp` / `.dop` file (its file names were listed, none opened), so no
 discard label existed anywhere. It is merged on its own, before `labels.py`
 or `discardfilter.py` exists; the merge commit of the PR that adds this
 section, without results, is the record, as for the archived
-[bad-photo filter evaluation](../_archived/20261017-bad-photo-labels/badfilter.md)
+[bad-photo filter evaluation](../20261017-bad-photo-labels/badfilter.md)
 and the
-[reject-filter evaluation](../_archived/20261016-reject-filter-eval/reject.md)
+[reject-filter evaluation](../20261016-reject-filter-eval/reject.md)
 before it. Nothing in this section changes after the labels are in; a
 deviation found while implementing Steps 3–5 is recorded in `learnings.md`
 with its reason and does not touch the bars.
@@ -32,7 +32,7 @@ unblinded reading of the same question. On the same dump of 27 folders and
 32,459 frames:
 
 - the archived
-  [bad-photo-labels](../_archived/20261017-bad-photo-labels/plan.md) plan,
+  [bad-photo-labels](../20261017-bad-photo-labels/plan.md) plan,
   on its **strict** labels ("you would never keep this frame on its own; when
   unsure, do not reject", 1,200 frames, 80 strict-bad): strict base rate
   5.52% [4.15, 7.04]; `G0` q5 `BR` 18.9% / `NL` 2.9% / `P` 27.3%; the
@@ -41,7 +41,7 @@ unblinded reading of the same question. On the same dump of 27 folders and
   non-pick criterion overstated **strict** bad about fifteenfold; no usable
   bad-photo filter (best `R0` / `G0` at q5, `P` 23–27% against a 50% bar);
 - Decision 2 of the archived
-  [reject-filter evaluation](../_archived/20261016-reject-filter-eval/plan.md):
+  [reject-filter evaluation](../20261016-reject-filter-eval/plan.md):
   `G0`'s label-free `quantile@95` cut keeps 94.7% of the picks (mean over
   the qualifying folders), removes 16.8% of the non-picks and 15.2% of the
   dump's frames;

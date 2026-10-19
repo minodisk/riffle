@@ -1985,6 +1985,7 @@ The `reject-filter-eval` feature measured the personal ranking, its cues and a f
 - `G0`'s weight scale pre-registered, or tuned in the inner CV, before it is read again.
 - A calibrated label-free threshold (for example one learned on each fold's training folders) to close part of the 5-point gap between the label-free and oracle cuts. It cannot pass the bar alone on this data.
 The `bad-photo-labels` feature later labeled 1,200 sampled frames for badness (plan: `docs/plans/_archived/20261017-bad-photo-labels/plan.md`, Decision). 5.52% of the dump is bad, about 94% of the non-picks are not bad, and no filter or dedicated model met its bar (best `R0` at q5: `BR` 19.3%, `P` 23.1%). So the non-pick criterion overstated the bad share about fifteenfold, and a re-run on in-app rejects would measure a different, smaller set of frames than that dump's non-picks.
+The `discard-labels` feature measured the same premise for the "OK to discard?" question (plan: `docs/plans/_archived/20261018-discard-labels/plan.md`, Decision, item 1). 51.7% [44.9, 59.0] of the dump's non-picks are OK to discard, so "non-pick = negative" overstates it about twofold. It also misses the other way: 24.4% [8.6, 42.8] of the sampled picks (12 of 39) are OK to discard, so the picks are not a clean "keep" class. A re-run that treats unflagged or viewed-unflagged frames as negatives inherits both errors.
 Basis: `docs/plans/_archived/20261016-reject-filter-eval/plan.md` (Decision 2, item 4) and `docs/plans/_archived/20261016-reject-filter-eval/reject.md`. Files: `docs/plans/_archived/20261016-reject-filter-eval/rejectfilter.py`, `docs/plans/_archived/20261016-reject-filter-eval/rejectablate.py`, `crates/core/src/rank.rs`.
 
 #### TODO
@@ -2009,6 +2010,8 @@ Files: `docs/plans/_archived/20261017-bad-photo-labels/sample.py`, `docs/plans/_
 
 The `bad-photo-labels` Decision found no usable removal filter. The base rate of bad frames is 5.52% [4.15, 7.04], and about 94% of the non-picks the earlier evaluations counted as negatives are not bad. The best filter, `R0` at q5, removes 19.3% of the bad frames at `P` 23.1%, against the 50% / 50% bars. The dedicated models `B0` / `L0` did not meet the +10 point bar. One cue catches bad frames: the folder's bottom sharpness decile, a bad rate of 17.7% [11.1, 25.5], which is 3.2x the base rate. Frames with no AF face read 14.6% (2.65x), outside the pre-registered bins. The Decision left open whether the goal stays a removal filter at these bars or a later plan pre-registers a different use, such as a cue shown to the human rather than a cut, with its own bar. No plan was opened. Basis: `docs/plans/_archived/20261017-bad-photo-labels/plan.md` (Decision, "Left for the user to decide") and `docs/plans/_archived/20261017-bad-photo-labels/badfilter.md`. Files: `docs/plans/_archived/20261017-bad-photo-labels/labels.py`, `docs/plans/_archived/20261017-bad-photo-labels/badfilter.py`, `docs/plans/_archived/20261017-bad-photo-labels/badmodel.py`.
 
+The `discard-labels` feature later measured a different question, "OK to discard?" with "hide / sort last" semantics, on 600 blind labels (plan: `docs/plans/_archived/20261018-discard-labels/plan.md`, Decision). 48.45% [42.03, 55.11] of the frames are OK to discard, so the strict 5.52% base rate is the narrow subset. No `G0` cut is usable: q5 `RR` 17.3% [11.3, 24.0] against the 15% bar, q10 23.7%, q20 27.9%. A strict-bad rate sits below the discard rate in every `G0` band, so the two labels rank the bands alike. A cue shown to the human (a discard candidate marked, not cut) was not measured as such. The Decision found automation bias: the unblinded `RR@5` was about 1.4% (1 of 71) against 17.3% blind. A cue shown to the human therefore needs its own blind measurement.
+
 #### TODO
 
 - [ ] Ask the user whether the goal stays a removal filter or becomes a cue shown to the human (for example marking the folder's bottom sharpness decile, or frames with no AF face).
@@ -2020,6 +2023,37 @@ The `bad-photo-labels` Decision found no usable removal filter. The base rate of
 
 The `bad-photo-labels` labels hold 80 bad frames of 1,200, with 13 of 27 held-out folders holding none. The Decision does not expect a second round of the same kind to change its answer on a removal filter. A round for a different question could give the cue readings more power: `|pitch|` > 45 reads 3.2x the base rate on only 19 sampled frames, with an interval of [0.0, 40.5]. The Decision left this to the user. Basis: `docs/plans/_archived/20261017-bad-photo-labels/plan.md` (Decision, "Left for the user to decide"). Files: `docs/plans/_archived/20261017-bad-photo-labels/sample.py`, `docs/plans/_archived/20261017-bad-photo-labels/labeling.md`, `docs/plans/_archived/20261017-bad-photo-labels/labels.py`.
 
+The `discard-labels` feature ran a blind 600-frame round for the "OK to discard?" question (plan: `docs/plans/_archived/20261018-discard-labels/plan.md`, Decision). It took the user about 30 minutes, about 3 s per frame against the 1.5-2.5 s estimated, so size a further round at about 3 s per frame (1,000 frames about 50 minutes). It did not oversample the `|pitch|` > 45 stratum.
+
 #### TODO
 
 - [ ] Ask the user whether a second labeling round is wanted and for which question (for example the `|pitch|` > 45 stratum). If so, write a plan that pre-registers the question and its bar, and oversamples that stratum with `sample.py`.
+
+### App: real-device check that the discard-label sample opened with no judgment shown on the strip
+
+#### Background
+
+The `discard-labels` feature copied 600 frames into `D:\Photos\tests\2026-10-18-discard-labels\sample` for a blind "OK to discard?" review. Tests and the checks cover that the folder had 600 RAW copies and no `.xmp` / `.dop` before labeling (Step 2 listing), and that afterwards no sidecar held a Pick, Reject or color label (`labels.py`). The user viewed all 600 frames and reported none failing to open, with `aiEnabled` off throughout. Never confirmed: that the strip showed no judgment (rating, pick, reject, label) before labeling began. Plan: `docs/plans/_archived/20261018-discard-labels/plan.md`.
+
+Files: `docs/plans/_archived/20261018-discard-labels/sample.py`, `docs/plans/_archived/20261018-discard-labels/labeling.md`.
+
+#### TODO
+
+- [ ] On Windows, if an unlabeled copy of the sample still exists (the labeled folder now carries 212 rating-1 sidecar pairs, so it no longer qualifies), open it in Riffle with `aiEnabled` off, sort by File name, clear all filters and let the scan finish. Expected: the strip shows 600 frames sorted from `0001_...` and none shows a pick, reject, rating or color label. Otherwise treat the reading as moot and delete this item.
+
+### Core: write a plan that trains on the discard (rescue) labels with the controls as negatives
+
+#### Background
+
+The `discard-labels` feature measured `G0`'s discard cuts against 600 blind labels (211 keep, 389 discard) and found no usable "hide / sort last" cut: q5 `RR` 17.3% [11.3, 24.0] against 15%, q10 23.7%, q20 27.9%, `quantile@95` 26.0%. The model also misses much that is discardable (`DO@5` 46.7%, `MR@5` 91.6%). By the pre-registered follow-up rule the Decision recommends a later plan that trains on the rescue labels, never on candidates alone, with the 150 controls (58 discard, standing for 25,071 frames) as the negatives. `eye_focus` had the highest AUC (0.777) against `G0` 0.710. No plan was opened. Basis: `docs/plans/_archived/20261018-discard-labels/plan.md` (Decision, item 5). Files: `docs/plans/_archived/20261018-discard-labels/discard.md`, `docs/plans/_archived/20261018-discard-labels/discardfilter.py`, `docs/plans/_archived/20261018-discard-labels/sample.py`, `crates/core/src/rank.rs`.
+
+#### TODO
+
+- [ ] Ask the user first whether the goal stays "hide / sort last". With "delete" semantics (`RR` <= 5%, `PL` <= 1%) every cut here misses by more than three times, and the recommendation becomes nothing.
+- [ ] Write a plan, offline and apart from `rank.rs`'s `fit` and `ranking.json`, that pre-registers before reading any score:
+  - the training labels and weights (the 600 labels with their `π`; whether the 1,200 strict labels enter as a second set; whether a second blind round is drawn first to give the controls more weight);
+  - the features and model form (the embedding PCA, `eye_focus`, the pass-2 cues, `R0`'s inputs);
+  - the evaluation (held out by folder, or a fresh blind sample drawn as `sample.py` drew this one, with candidates and random frames mixed and unmarked, given the automation-bias finding);
+  - the bars: the same "hide / sort last" bars (`RR` <= 15% with the 97.5% quantile <= 25%, `PL` <= 5%, removed share >= 4.5%, `DP` above random's) plus a paired gain over `G0` at the same `q`;
+  - the labeling budget at about 3 s per frame;
+  - what follows a pass (an in-app discard candidates view with a rescue loop).
