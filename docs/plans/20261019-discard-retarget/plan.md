@@ -143,7 +143,7 @@ labels, or nothing. **No app code changes in this plan.**
 
 ## Steps
 
-- [ ] Step 1: `burstfeat.py`, the burst-relative feature set `B` on every dump frame, label-free
+- [x] Step 1: `burstfeat.py`, the burst-relative feature set `B` on every dump frame, label-free
   - Done when:
     - `burstfeat.py` in this plan folder (`python -I -B burstfeat.py
       <app-dump-dir> <out-dir>`) loads the dump through the archived
