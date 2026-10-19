@@ -131,7 +131,8 @@ labels, or nothing. **No app code changes in this plan.**
   would otherwise shadow the archived bad-photo `sample` that `badfilter`
   imports (the discard-labels learnings, Step 1). This plan names none of
   its scripts `sample.py`.
-- **Python**: the venv `%TEMP%\embedvenv\Scripts\python.exe -I -B` on script
+- **Python**: the venv `D:\Photos\tests\.venv-eval\Scripts\python.exe -I -B`
+  (the old `%TEMP%\embedvenv` was wiped on 2026-10-19) on script
   files only, run from the scratchpad; never `python -` heredocs (the Git
   Bash stub hangs). Check `git status` for stray `__pycache__/`.
 - **Where the data goes**: `D:\Photos\tests\2026-10-19-discard-retarget\`
@@ -417,3 +418,6 @@ labels, or nothing. **No app code changes in this plan.**
 
 - (2026-10-19) Plan written; the four choices decided by the user (see
   Purpose, "Choices")
+- (2026-10-20) Step 1 complete: burst_features.tsv for 32,459 frames;
+  interpreter moved to D:\Photos\tests\.venv-eval after %TEMP%\embedvenv was
+  wiped (see learnings.md Step 1)

@@ -12,15 +12,15 @@
   (unknown location)`). With the user's approval a new venv was built at
   `D:\Photos\tests\.venv-eval\Scripts\python.exe` with the same versions
   (numpy 2.5.4, scikit-learn 1.9.1, scipy 1.18.1, joblib 1.6.0, threadpoolctl
-  3.7.0). The plan text that names `%TEMP%\embedvenv` is left as is; read it
-  as this path for the later steps.
+  3.7.0). plan.md's "What is known" now names this path as the
+  interpreter for the later steps.
 - **No scipy in the script**: the first run failed on `scipy.stats.spearmanr`
   (an early symptom of the wiped venv), so the Spearman correlation is a
   local average-rank helper over numpy; the script needs only numpy plus
   the archived harnesses.
 - **Counts**: 32,459 frames, 6,969 bursts, 1,943 singles. Frames with a
   value: `nn_cos`, `sharp_z`, `sharp_rank` 30,516 (94.0%, NaN exactly on the
-  singles, so every frame has a sharpness); `ef_gap`, `ef_rank` 26,523
+  singles, so every frame of a multi-frame burst has a sharpness); `ef_gap`, `ef_rank` 26,523
   (81.7%); `ear_gap`, `ear_rank` 19,718 (60.7%).
 - **Quantiles** (q0 / q5 / q25 / q50 / q75 / q95 / q100; mean):
 
