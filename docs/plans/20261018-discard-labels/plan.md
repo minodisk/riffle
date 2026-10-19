@@ -353,7 +353,7 @@ names a separate later plan.
       `rates`, `aucs` and the bootstrap matrices by import; metric-only
       work, seconds to run.
 
-- [ ] Step 5: The Decision
+- [x] Step 5: The Decision
   - Done when:
     - A "Decision" section in this plan, written against the Step 2 bars
       with the numbers that decided it: (1) the discardable base rate and
@@ -395,6 +395,133 @@ names a separate later plan.
   blind rescue labels, the sampler, the bars and the per-band readings,
   reusable by any later plan.
 
+## Decision (usable discard cut, the non-pick framing, follow-up)
+
+Written 2026-10-19 at Step 5, after the Step 4 Results existed, against the
+bars pre-registered in Step 2 ("hide / sort last": weighted `RR` <= 15%
+with its stratified 97.5% quantile <= 25%, `PL` <= 5% on the full dump,
+removed share >= 4.5% of the population's frames, `DP` above random's at the
+same `q` with the paired 2.5% quantile above zero). Every number is weighted
+to the population of 31,259 frames (`1/π`) with the stratified bootstrap 95%
+interval, and comes from [discard.md](discard.md) "Results". No bar was
+changed after the labels were read.
+
+**1. Base rate: 48.45% of the population's frames are OK to discard**
+[42.03, 55.11] (folder-cluster [40.74, 53.87]; 389 of 600 sampled frames,
+64.83% unweighted, the sample leaning toward the bands). That is almost nine
+times the 5.52% strict-bad rate: about half of the library is frames the
+user would not miss, so the low-base-rate obstacle of the strict round does
+not apply here. **The non-pick framing does not hold**: 51.7% [44.9, 59.0]
+of the dump's non-picks are `discard`, so about half of the non-picks are
+frames the user would keep (or want to see), and 24.4% [8.6, 42.8] of the
+sampled picks (12 of 39) are `discard`. "Non-pick" overstates "OK to
+discard" about twofold (where it overstated strict bad about fifteenfold),
+and it misses in the other direction too. Of the non-picks `G0`'s
+`quantile@95` removes (the reject-filter evaluation's Decision 2 `RN`), 74.8% [69.9, 79.4] are `discard`.
+
+**2. No usable discard cut exists; there is no best cut.** Per `G0` cut
+(the bars applied in discard.md):
+
+| Cut | `RR` % | `PL` % | `MR` % | Removed % | `DP` - random, points | Fails |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| q5 | 17.3 [11.3, 24.0] | 0.68 | 91.6 [90.2, 92.8] | 4.92 | +30.7 [-3.8, +63.9] | `RR` point; random |
+| q10 | 23.7 [18.7, 28.7] | 2.10 | 84.5 [81.9, 86.4] | 9.87 | +14.8 [-8.7, +38.6] | `RR` point and quantile; random |
+| q20 | 27.9 [23.3, 32.5] | 5.18 | 70.5 [66.1, 74.1] | 19.80 | +16.1 [+0.3, +31.7] | `RR` point and quantile; `PL` |
+| `quantile@95` | 26.0 [21.3, 31.0] | 3.64 | 77.3 [73.7, 80.5] | 15.05 | +18.0 [+2.0, +34.7] (vs random q20) | `RR` point and quantile |
+
+The nearest is q5: it would hide 4.92% of the frames, lose 0.68% of the
+picks, and the user would rescue 17.3% of what it hides, above the 15% bar (its upper
+quantile 24.0% passes, but the folder-cluster one, 25.7%, does not), and it
+leaves 91.6% of the discardable frames in place (`DO@5` 46.7%, near the base
+rate). Its `DP` lead over random is large on the point (+30.7) but not
+separated from zero, random q5 removing only 27 sampled frames. Every deeper
+cut rescues 24-28% (q10 23.7%, `quantile@95` 26.0%, q20 27.9%). **The unblinded 70/71 did not hold up
+blind**: the hypothesis `RR@5` <= 5% is not confirmed, the blind `RR@5`
+being 17.3% [11.3, 24.0] (26 of the 150 sampled `b05` frames marked keep)
+against about 1.4% (1 of 71) when the user knew the frames were the model's
+candidates, about twelve times higher, with the interval far above 5%. The
+two readings are of the same band (`G0`'s per-folder bottom 5% on the full
+dump), the unblinded one on the strict sample's 71 frames of it. This is a
+finding about **automation bias in the rescue scheme**: shown a frame as a
+discard candidate, the user accepted the discard far more often than when
+judging it blind, so a rescue loop that labels its frames as candidates
+would understate what it costs. The unblinded frames had also had a strict
+pass first, and 22 of the 71 were strict-bad and not re-asked (1 of 49
+rescued among the rest), so prior exposure is a second explanation the two
+readings cannot separate.
+
+**3. `G0` is not distinguishable from the other scores; `eye_focus` has the
+highest AUC.** At q5 every paired `DP` and `DR` difference between `G0` and
+`W0`, `R0`, absolute sharpness and `eye_focus` has an interval spanning zero
+(`DP` +5.8, +0.5, +4.7, -0.5 points; `DR` +1.3, -0.8, -1.3, +0.3), and so
+does every one at q10 and q20. Against random, `G0` q5 removes more of the
+discardable frames (`DR` +5.8 points [+2.8, +8.2]) but its `DP` lead is not
+separated from zero. Threshold-free, the weighted AUC of `discard` vs `keep`
+is highest for `eye_focus` (missing last) 0.777 [0.716, 0.841], then `R0`
+0.740, `G0` 0.710, `W0` 0.671, absolute sharpness 0.540 and random 0.528.
+`eye_focus` reaches `RR` 14.3% at q10, under the point bar, but at `PL`
+9.14%, and the comparison scores are not candidates for the usable-cut bar.
+Multiplicity (about 6 scores, 4 cuts) applies: none of these differences
+reads as a pass.
+
+**4. The strict labels are coherent with the discard labels.** In every
+`G0` band the strict-bad rate (from the disjoint strict sample) is below the
+`discard` rate: `b05` 27.3% vs 82.7%, `b10` 12.5% vs 70.0%, `b20` 10.1% vs
+68.0%, `control` 3.7% vs 42.6%; overall 5.52% vs 48.45%. Both fall from the
+bottom band to the controls in the same order, so the two questions rank
+the bands alike, and strict bad is the narrow subset of "OK to discard" it
+was meant to be. No inversion.
+
+**5. Recommendation: a later plan that trains on the rescue labels with the
+controls as negatives**, by the pre-registered follow-up rule's second
+branch: there is no usable cut, but `RR@5` 17.3% is within twice the `RR`
+bar (<= 30%) and `DO@5` 46.7% is >= 20%, so the model misses much that is
+discardable and there is something to learn. Not an in-app discard
+candidates view: the first branch needs a usable cut. This is a
+recommendation only; no plan is opened here and no app change follows from
+this plan. That later plan would need to specify:
+
+- **The training labels and their weights**: these 600 blind labels
+  (`labels.tsv`, `keep` / `discard`) with their `π`, the 150 controls
+  included so the model sees frames `G0` did not choose (never the 450
+  candidates alone), and whether the 1,200 strict labels enter as a second
+  set (strict bad is coherent with `discard`, 4); and whether a second blind
+  round is drawn first to give the controls more weight (150 controls, 58
+  `discard`, now stand for 25,071 frames).
+- **The features and the model**: which of the stored columns it combines
+  (the embedding PCA, `eye_focus`, which reads the highest AUC here, the
+  pass-2 cues, `R0`'s inputs), its form, and that it stays offline, apart
+  from `rank.rs`'s `fit` and `ranking.json`.
+- **The evaluation**: held out by folder (27 folders, 3 to 96 sampled frames
+  each) or on a fresh blind sample drawn as Step 1 drew this one, with
+  candidates and random frames mixed and unmarked, given the automation-bias
+  finding of item 2 above.
+- **The bars, pre-registered before training**: the same "hide / sort last"
+  bars as here (`RR` <= 15% with the 97.5% quantile <= 25%, `PL` <= 5%,
+  removed share >= 4.5%, `DP` above random's), plus a paired gain over `G0`
+  at the same `q`, and what follows a pass (then the in-app view plan of the
+  first branch, with its depth, semantics and app surface).
+- **The labeling budget**, sized at about 3 s per frame (learnings Step 5).
+
+The recommendation would change:
+
+- to **an in-app discard candidates view with a rescue loop** at the best
+  cut's depth if a fresh blind round (or the trained model of the later plan)
+  put a cut over every usable-cut bar (weighted `RR` at or under 15% with the
+  97.5% quantile at or under 25%, `PL` at or under 5%, removed share at or
+  above 4.5%, `DP` above random's with the paired 2.5% quantile above zero); that plan would then have to specify the
+  depth, the "hide / sort last" semantics and the app surface (a filter or a
+  sort that puts the candidates last, the rescue key, and how the rescue
+  marks are kept), and, by the automation-bias finding, how its rescue rate
+  is measured while the user can see which frames are candidates;
+- to **nothing** if the user moves to "delete" semantics (`RR` <= 5%, `PL`
+  <= 1%), which every cut here misses by more than three times on `RR`, or if
+  a re-read put `RR@5` above 30% or `DO@5` under 20%;
+- in its reach, not its branch, if the goal moves away from removing frames
+  before the human picks: the 24.4% of picks labeled `discard` says the
+  user's own picks are not a clean "keep" class, which a later plan training
+  on picks rather than on these labels would have to face.
+
 ## Progress
 
 - (2026-10-18) Plan written; the five choices decided by the user (see
@@ -409,3 +536,4 @@ names a separate later plan.
   skipped. The user later reported about 30 minutes taken and `aiEnabled`
   off throughout (`learnings.md` Step 3)
 - (2026-10-19) Step 4 complete
+- (2026-10-19) Step 5 complete
