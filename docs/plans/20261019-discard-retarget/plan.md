@@ -189,7 +189,7 @@ labels, or nothing. **No app code changes in this plan.**
       never compares with itself; ties count as not higher.
     - Script and docs only; no Rust, no app change.
 
-- [ ] Step 2: Pre-register the cells, training, evaluation, effects and bars in `retarget.md`, before any new score exists
+- [x] Step 2: Pre-register the cells, training, evaluation, effects and bars in `retarget.md`, before any new score exists
   - Done when:
     - `retarget.md` in this plan folder has a "Pre-registration" section
       merged **before `retargetfit.py` exists and before any score of
@@ -375,10 +375,12 @@ labels, or nothing. **No app code changes in this plan.**
 
 - **The four choices** are recorded under Purpose, "Choices", with the
   rejected options. Under the chosen looser bar `G0` q5 (17.3 [11.3, 24.0])
-  and `G0` q10 (23.7 [18.7, 28.7]) already meet the `RR` conditions, so a
-  pass of a new cell rests on the "beat random" (base rate) and "beat `G0`"
-  conditions; the Decision must say that `G0` itself would have met the
-  rescue conditions under this bar.
+  and `G0` q10 (23.7 [18.7, 28.7]) already meet the `RR` conditions, and
+  with `PL`, removed share and the base-rate "beat random" (`DP` 2.5%
+  quantile 76.0 / 71.3 > 48.45) they meet every condition but "beat `G0`"
+  (retarget.md, Bars), so a pass of a new cell at q5 / q10 rests on the
+  "beat `G0`" condition alone; the Decision must say that `G0` itself would
+  have met the rescue and base-rate conditions under this bar.
 - **Model selection on the same 600 labels can overfit**: the plan's design
   was chosen after reading `G0`'s numbers on them, and `D0` / `D0+B` are
   trained on them. Handling: no hyperparameter or feature selection at all
@@ -402,7 +404,7 @@ labels, or nothing. **No app code changes in this plan.**
   variant is not pre-registered (one more look); if the ESS is very low it is
   named as the next round's question.
 - **Bootstrap scope.** The intervals resample the labeled frames with the
-  models fixed, as before; the training variance of `D0` / `D0+B` (575–597
+  models fixed, as before; the training variance of `D0` / `D0+B` (504–597
   training frames per fold) is not in them. The folder-cluster bootstrap
   partially covers it and is reported beside.
 - **B already partly in the base features.** `log(sharp / burst top)`, log
@@ -421,3 +423,4 @@ labels, or nothing. **No app code changes in this plan.**
 - (2026-10-20) Step 1 complete: burst_features.tsv for 32,459 frames;
   interpreter moved to D:\Photos\tests\.venv-eval after %TEMP%\embedvenv was
   wiped (see learnings.md Step 1)
+- (2026-10-20) Step 2 complete

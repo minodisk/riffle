@@ -58,6 +58,29 @@
   row; `sharp_rank` is 0 exactly where `tech[:, 0]` is 0 among the frames
   with a `sharp_rank`; `nn_cos` is NaN exactly on the singles.
 
+## Step 2: the Pre-registration in `retarget.md`
+
+- Written before `retargetfit.py` exists; no model of this plan was fit and
+  no new score was computed or read.
+- **`G0` already passes conditions 1–4 at q5 and q10 under the chosen bar.**
+  With the looser `RR` bar and the base-rate form of "beat random", `G0`'s
+  discard.md numbers meet `RR` <= 25% (17.3 / 23.7), the 97.5% quantile <=
+  35% (24.0 / 28.7), `PL` <= 5% (0.68 / 2.10), removed >= 4.5% (4.92 /
+  9.87) and `DP` 2.5% quantile > 48.45% (76.0 / 71.3). So at q5 / q10 a new
+  cell's pass rests on "beat `G0`" (condition 5) alone; at q20 `G0` fails
+  `RR` (27.9) and `PL` (5.18). plan.md's Trade-offs said the pass rests on
+  "beat random" and "beat `G0`"; corrected to "beat `G0`" alone, since `G0`
+  meets the base-rate condition too. No bar moved.
+- **Training-set size of `D0`**: plan.md's Trade-offs gave 575–597 training
+  frames per fold, but the sampled frames per folder run 3 to 96
+  (discard.md, Unit), so a fold trains on 504–597; corrected in plan.md and
+  stated in retarget.md.
+- Choices left open by the plan text and fixed here: the "beat random"
+  base rate is the fixed point estimate, not resampled; the effects table
+  adds A+B (`D0+B` − `G0`) explicitly, since the follow-up rule's branch 2
+  reads it; the coherence check reads each new cell's own bottom bands
+  (per-folder q5, 5–10%, 10–20%, above 20%).
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1.
