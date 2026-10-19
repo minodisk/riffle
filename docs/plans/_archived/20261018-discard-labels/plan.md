@@ -20,7 +20,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 What the user wants from the AI feature is that it **discards** photos so the
 human picks from what remains. The archived
-[bad-photo-labels](../_archived/20261017-bad-photo-labels/plan.md) plan
+[bad-photo-labels](../20261017-bad-photo-labels/plan.md) plan
 measured every score against a **strict** label ("you would never keep this
 frame on its own; when unsure, do not reject") and found a 5.5% base rate
 and no usable filter (its Decision: best `R0` / `G0` at q5, `P` 23–27%
@@ -87,7 +87,7 @@ names a separate later plan.
   `g0_bottom` stratum (bottom 15% by `G0`) strict-bad rate 12.7%; `G0`
   `quantile@95` (label-free) keeps 94.7% of the picks, removes 16.8% of the
   non-picks and 15.2% of the dump's frames
-  ([reject.md](../_archived/20261016-reject-filter-eval/reject.md),
+  ([reject.md](../20261016-reject-filter-eval/reject.md),
   Decision 2); the strict-bad rate among the dump's non-picks is 6.41%, so
   the non-pick criterion overstated **strict** bad about fifteenfold.
 - **What enters the personal ranking's refit (read in code).**
@@ -290,7 +290,7 @@ names a separate later plan.
   - Implementation approach:
     - Assumes Step 1 merged (band sizes and pick shares quoted). Model the
       section on the archived
-      [badfilter.md](../_archived/20261017-bad-photo-labels/badfilter.md)
+      [badfilter.md](../20261017-bad-photo-labels/badfilter.md)
       pre-registration and keep its vocabulary. Doc-only PR.
 
 - [x] Step 3: The user labels the sample folder (manual, the plan pauses here), then `labels.py` exports `labels.tsv`
