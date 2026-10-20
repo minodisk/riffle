@@ -24,6 +24,14 @@
   `eye_focus` stays in the upper part of `G0 | ef-rule`; `stack` uses
   `ln sharpness` with `C = 1.0`; the empty-set branch of the discard rule
   (q5, then no winner); "16 of 25 scaled" as 5 of 7 lockbox folders.
+- **Local review led to two more pre-registered decisions** (modelsearch.md):
+  a `stack` winner is trained for the Step 5 pick confirmation on the pick fit
+  set's held-out `G0` scores of the 20 exploration folders (as in the
+  exploration), with its `eye_focus` logit / `ln sharpness` fill and
+  standardization fit on those folders; and `stack` is the one candidate whose
+  held-out claim is not exact: its training rows' `G0` scores came from models
+  that saw the held-out folder (its picks), accepted and not nested. Steps 3
+  and 5 should read `stack`'s out-of-folder numbers with that caveat.
 - **References are trained with more folders than the pick candidates**:
   the stored `W0` / `F0+ctx` / `G0` are leave-one-folder-out on all 27, so
   on the exploration and lockbox folders they saw the other lockbox folders.
