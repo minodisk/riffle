@@ -81,7 +81,7 @@
   rows inside any pick-set fold's training folders; 0 strict-sample frames
   among the labeled training frames.
 - **`HGB-mono` keeps the NaN**: the fit with `monotonic_cst` and NaN raised
-  nothing on sklearn 1.9.1 and, on the spot fold for both targets, no step
+  nothing on sklearn 1.9.1 and, on the spot fold for both targets (the pick target's check trained on the exploration folders only, so no lockbox frame or pick enters it), no step
   against a constraint over a 9-point grid of each constrained column's
   non-missing values (200 held-out rows, other columns as they are). The
   mean-filled fallback was not triggered.
@@ -115,7 +115,7 @@
   - `G0 ⊕ ef`: the normalized rank is `(average rank − 1) / (m − 1)` over the
     folder's frames with a score (0.5 for a folder of one); `eye_focus` is
     ranked among the frames that have it. `G0 | ef-rule` is `G0`'s
-    normalized rank plus 1 in the upper part, so the per-folder cut orders
+    normalized rank plus 2 in the upper part (beyond the rank span, so the parts never tie), so the per-folder cut orders
     the lower part first, each part by `G0`.
   - `stack`'s mean fill and standardization are fit on every frame of the
     training folders (as `design` does), its fit on their labeled frames.

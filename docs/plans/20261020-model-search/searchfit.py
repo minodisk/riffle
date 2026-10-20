@@ -218,13 +218,13 @@ def combine(d, g0, ef):
         if has.any():
             plus[m[has]] = (rg[has] + norm_rank(ef[m][has])) / 2
         upper = ~has | (ef[m] >= gate.GOOD_EYE_FOCUS)
-        rule[m] = rg + upper
+        rule[m] = rg + 2 * upper
     return plus, rule
 
 
-def mono_check(d, s, held, target, cap):
+def mono_check(d, s, held, target, cap, pool):
     """`HGB-mono` on `All@32`, one fold: whether the fit raises, and the largest step against the constraint over a grid of each constrained column's non-missing values, other columns as they are."""
-    tm, idx, y, w = training(d, s, [f for f in range(len(d["folders"])) if f != held], target, cap)
+    tm, idx, y, w = training(d, s, [f for f in pool if f != held], target, cap)
     x = design(d, tm, True, 32)
     nt = d["tech"].shape[1]
     x[:, :nt][np.isnan(d["tech"])] = np.nan
@@ -318,7 +318,7 @@ def main(dump, eval_dir, reject_dir, labels_dir, strict_dir, retarget_dir, out_d
     sm = folder_of == spot
 
     t = time.time()
-    mono = {target: mono_check(d, s, spot, target, cap) for target in TARGETS}
+    mono = {target: mono_check(d, s, spot, target, cap, sets[target]) for target in TARGETS}
     mono_time = time.time() - t
     filled = any(status != "fit" or worst > 1e-9 for status, worst in mono.values())
     print(f"HGB-mono check: {mono}, filled fallback {filled}", file=sys.stderr, flush=True)
