@@ -87,9 +87,10 @@
   D:\Photos\tests\2026-10-15-folder-wide-eval
   D:\Photos\tests\2026-10-16-reject-filter-eval
   D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
-  D:\Photos\tests\2026-10-19-discard-retarget 8` from the scratchpad, in the
-  background; it wrote `scores_retarget.tsv` (full `repr` precision, so Step 4's
-  cuts see no rounding ties) and `retargetfit.out.md` there.
+  D:\Photos\tests\2026-10-19-discard-retarget 8` in the background; it wrote
+  `scores_retarget.tsv` (full `repr` precision, so Step 4's cuts see no rounding
+  ties) and `retargetfit.out.md` into
+  `D:\Photos\tests\2026-10-19-discard-retarget\`.
 - **No new score was read against `labels.tsv`.** The labels entered the
   training of `D0` / `D0+B` only (target and `1/π` weights of the other
   folders' labeled frames); no `DP`, `RR` or AUC was computed. The strict
