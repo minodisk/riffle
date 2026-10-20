@@ -193,6 +193,48 @@
   x (3 cuts x 2 metrics + AUC)); a lone interval that excludes zero is one
   of many.
 
+## Step 5: the Decision
+
+- Doc-only; written against the Step 2 bars with retarget.md's numbers (the
+  Kish ESS from Step 3 above). No bar moved. Outcome: no usable cut under
+  either bar option, the follow-up rule's branch 3 (nothing).
+- **Compute spent**: Step 1 67 s, Step 3 75 s on 8 jobs (`G0+B` 32 s, `D0`
+  15 s, `D0+B` 16 s, checks 7 s, load 5 s), Step 4 16 s: under 3 minutes of
+  machine time in all. No new labeling: the round reused the 600 blind
+  labels of discard-labels (labeled there, at about 3 s per frame). The cost of this round was the plan and review work, not compute.
+- **What a next round would need** (none is recommended; the rule chose
+  nothing):
+  - **More labels, mostly controls**: the `D0` folds' Kish ESS of
+    166.1–195.0 on 504–597 frames comes from the 150 controls standing for
+    25,071 frames (`π` down to 0.0042). A second blind round that
+    oversamples the controls would lighten the `1/π` of the keep frames
+    behind the 32.7–42.7% weighted `RR` (13.8–18.4% unweighted). About 3 s
+    per frame: 600 frames about 30 minutes, 1,000 about 50 minutes.
+  - **A pre-registered model change**, decided before any score, since each
+    is one more look: clipped `1/π` weights, a linear `D0` (the bad-photo
+    round's `L0` read the highest AUC there), or a target that keeps picks
+    out of the cut (24.4% of the sampled picks are `discard`).
+  - **A fresh blind evaluation sample** for whatever passes, as the
+    pre-registration's branch 1 already required.
+  - The B columns would need replacing rather than adding: the sharpness
+    pair and `ef_gap` restate base columns, and the whole set moved `DP` by
+    nothing separable from zero.
+- **Not done here, left as a question for the user**: whether the existing
+  `G0` at q5–q10, sorted last, is worth shipping as it is (it meets
+  conditions 1–4 of the chosen bar; condition 5 cannot apply to it). The
+  Decision states it as a question only; it would need its own
+  pre-registered question and a fresh blind confirmation round.
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1, Step 3 or Step 4.
+- **Open question for the user, not a recommendation (Step 5 Decision,
+  "Facts the user may weigh")**: is the existing `G0` at per-folder q5–q10,
+  sorted last (not hidden), worth shipping as it is? Under the looser bar it
+  meets conditions 1–4 (`RR` 17.3 [11.3, 24.0] / 23.7 [18.7, 28.7], `PL`
+  0.68 / 2.10%); the bar was chosen after `G0`'s numbers on the same 600
+  labels were read, and discard-labels found automation bias (unblinded 70
+  of 71 vs blind `RR@5` 17.3%), so a yes would need its own pre-registered
+  question and a fresh blind confirmation round before any app work. Files:
+  `docs/plans/20261019-discard-retarget/plan.md` (Decision),
+  `docs/plans/20261019-discard-retarget/retarget.md` (Results).
