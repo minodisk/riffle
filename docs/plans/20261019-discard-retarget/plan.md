@@ -317,7 +317,7 @@ labels, or nothing. **No app code changes in this plan.**
     - Measure the wall time; `G0+B` fits 27 HGB models on about 31k rows
       each, which `rejectfilter` ran with 8 jobs.
 
-- [ ] Step 4: `retargetread.py`, every pre-registered metric, effect and bar against the labels, and the Results in `retarget.md`
+- [x] Step 4: `retargetread.py`, every pre-registered metric, effect and bar against the labels, and the Results in `retarget.md`
   - Done when:
     - `retargetread.py` in this plan folder (`python -I -B retargetread.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
@@ -425,3 +425,4 @@ labels, or nothing. **No app code changes in this plan.**
   wiped (see learnings.md Step 1)
 - (2026-10-20) Step 2 complete
 - (2026-10-20) Step 3 complete
+- (2026-10-20) Step 4 complete

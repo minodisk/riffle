@@ -132,6 +132,67 @@
   does not perturb HGB; every score of the three cells finite on all 32,459
   frames; no labeled training frame is in the strict sample.
 
+## Step 4: `retargetread.py`
+
+- **Run**: `python -I -B retargetread.py D:\Photos\tests\2026-10-12-rank-app
+  D:\Photos\tests\2026-10-15-folder-wide-eval
+  D:\Photos\tests\2026-10-16-reject-filter-eval
+  D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+  D:\Photos\tests\2026-10-19-discard-retarget` from the scratchpad, 16 s (load
+  4 s; cuts, metrics, AUCs and bootstraps 12 s); it wrote
+  `retargetread.out.md` into the data folder. No refit.
+- **Imports**: `badfilter` first, then `_archived/20261018-discard-labels` on
+  `sys.path` and `discardfilter` (`metrics`, `unweighted`, `counts`, `name`,
+  `QS`, the bars' constants), as in Step 3.
+- **Reference checks, all pass** (the script exits non-zero otherwise): the
+  30 `strata.tsv` rows recompute from the dump with 0 differences, 0 / 0
+  sampled frames with a differing `G0` band / `π`, 0 sampled frames in the
+  strict sample; the sum of `1/π` is 31,259.0; the base rate reads 48.45
+  [42.03, 55.11]; `G0`'s `DP` and `RR` with intervals at q5 / q10 / q20
+  (`RR@5` 17.3 [11.3, 24.0]), its `PL`, its cluster `RR` 97.5% quantiles and
+  its AUC 0.710 [0.646, 0.771]; `eye_focus`'s `RR`, `PL` and AUC 0.777
+  [0.716, 0.841]; random's `DP` and AUC 0.528 [0.455, 0.604]; and `G0` q5 −
+  random q5 +30.7 [-3.8, +63.9], all equal to discard.md's strings. `G0`'s
+  own bands in the coherence table reproduce discard.md's per-band table.
+- **Choices the text left open, fixed here** (none moves a bar or changes a
+  verdict):
+  - `<folder-wide-eval-dir>` is accepted but not read (`W0` / `R0` are not
+    in this pre-registration), so the command line matches Step 3's.
+  - Condition 4 compares with the computed base rate point estimate, which
+    is 48.45% to two decimals (the pre-registration's fixed value).
+  - Condition 5 ("beats `G0`") requires the point difference above zero as
+    well as its paired 2.5% quantile, as discardfilter's random condition
+    did; every 2.5% quantile is at or below zero, so the extra point
+    condition decides nothing.
+  - Fragile: a pass whose cluster `RR` 97.5% quantile, cluster `DP` 2.5%
+    quantile or cluster `DP` − `G0` 2.5% quantile crosses its bar. No pass,
+    so it is unused.
+  - Best cut: the deepest `q` with a passing cut, then the cell with the
+    largest `DP` gain over `G0` there. No pass, so it is unused.
+  - The AUC effects need the per-draw AUCs, which `bf.aucs` does not return
+    (only quantiles), so the script has its own `roc_auc_score` loop over
+    the same count matrices (stratified and cluster); its `G0`, `eye_focus`
+    and random AUC intervals equal `bf.aucs`'s in discard.md.
+  - The interaction, A+B and the reference comparisons are linear
+    combinations of the per-draw metrics; since no score leaves a sampled
+    frame out of a cut, discardfilter's "frames both cover" restriction is
+    moot and every difference is on all 600 frames.
+  - The coherence table adds `G0`'s own bands beside the three new cells as
+    the reference (it reproduces discard.md's per-band rows).
+- **Headline** (facts only; the Decision is Step 5): no cut of a new cell is
+  usable under either bar. `G0+B` q5 / q10 meet conditions 1–4 like `G0`
+  and fail "beats `G0`" (`DP` −1.9 [−6.5, +2.9], +1.4 [−2.9, +5.9]). `D0` /
+  `D0+B` have weighted `RR` 32.7–42.7% at every cut but unweighted
+  13.8–18.4%: inside their cuts the frames marked keep carry larger `1/π`
+  (consistent with the heavy `control` weights behind Step 3's Kish ESS of
+  166–195; which strata those keep frames come from was not read).
+  `D0` has the best AUC of the new cells (0.761) but below `eye_focus`
+  (0.777); B lowers the AUC on both targets. The follow-up rule's inputs
+  select its third branch (A at q5 2.5% quantile −48.1, A+B −43.9).
+- About 84 paired effect intervals are read without correction (12 effects
+  x (3 cuts x 2 metrics + AUC)); a lone interval that excludes zero is one
+  of many.
+
 ## Deferred issues (todo candidates)
 
-- None from Step 1 or Step 3.
+- None from Step 1, Step 3 or Step 4.
