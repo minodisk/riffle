@@ -257,7 +257,7 @@ the top rather than the bottom, the text says so.
       uses the mean-filled technical columns. The lockbox draw may run a
       small label-free script (folder sizes and pick counts only).
 
-- [ ] Step 2: `searchfit.py`, every candidate's held-out score on every dump frame, label-free readings only
+- [x] Step 2: `searchfit.py`, every candidate's held-out score on every dump frame, label-free readings only
   - Done when:
     - `searchfit.py` in this plan folder (`python -I -B searchfit.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
@@ -461,3 +461,4 @@ the top rather than the bottom, the text says so.
 - (2026-10-20) Plan written; the user's choices decided (see Purpose,
   "Choices")
 - (2026-10-20) Step 1 complete
+- (2026-10-21) Step 2 complete
