@@ -136,7 +136,7 @@ DxO PhotoLab.
   photo, a bare frame on gray, none on white), the meta pane
   shows the probability as `AF eye in focus` (a percentage), whether that
   face's eyes are open and how open (0 to 100) as `Eyes` and the face's
-  yaw, pitch and roll as `Head pose`, both stored by the same second pass
+  yaw, pitch and roll as `Yaw`, `Pitch` and `Roll`, both stored by the same second pass
   for the judged face and judged when the file is shown until then, and the filter menu's `AF eye` section (`Good` / `Bad` /
   `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
   state (a file without one, such as a shot with no face found, is

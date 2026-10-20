@@ -307,7 +307,7 @@ viewer shows a prompt in its center; click it to open the folder picker.
   below, 100 at a wide-open eye (the 90th percentile of the author's faces)
   and above, linear between. It says how open the eyes are, not how sure the
   judgment is; an eye just past the closed point shows `Open · 0`. For that
-  face it is stored by the scan's second pass, along with `Head pose`; until
+  face it is stored by the scan's second pass, along with `Yaw`, `Pitch` and `Roll`; until
   the pass reaches the file, it is judged when the file is shown. Either way it
   comes from the eyelid
   points of the bundled
@@ -317,13 +317,13 @@ viewer shows a prompt in its center; click it to open the folder picker.
   access), so a judged one appears a moment after the preview. It is left out when
   there is no face, when the face is under about 60 pixels on the embedded
   preview (too small to judge), and for JPEG files. A downcast eye shows no
-  iris either, so it counts as closed like a blink. `Head pose` is the yaw,
-  pitch and roll of that same face in whole degrees: yaw is positive when the
+  iris either, so it counts as closed like a blink. `Yaw`, `Pitch` and `Roll`
+  are the head pose of that same face in whole degrees: yaw is positive when the
   face turns toward the image's right, pitch when it tilts up, and roll when
-  the head tilts clockwise on screen. It comes from the same face mesh, fitted
+  the head tilts clockwise on screen. They come from the same face mesh, fitted
   onto a canonical face the way MediaPipe's face geometry does it (Apache-2.0,
-  provenance in `crates/core/models/LICENSE-mediapipe`), and is left out
-  whenever `Eyes` is, and also when the fit fails. Read it as a rough
+  provenance in `crates/core/models/LICENSE-mediapipe`), and are left out
+  whenever `Eyes` is, and also when the fit fails. Read them as a rough
   direction: on hand-labeled local faces the sign was right on about 94% of
   them for yaw and pitch, but a 15-25° turn still looks frontal to the eye,
   and far profiles (past about 70°, a yaw can read past 90°) and sports
@@ -872,7 +872,7 @@ launches.
 
 | Tool | What it does |
 |------|--------------|
-| `get_view` | What Riffle is showing: the open folder, how many photos the filter leaves, the current photo and its position, the selection, the view mode (`normal`, `zoom` or `compare`) and the active compare frame, the sort and whether a filter is on, the current photo's burst with each frame's sharpness score, stars, flag and label, and the current photo's `eyes`: whether its eyes are open or closed, the probability they are closed (0 to 1), and the head pose (yaw, pitch and roll in degrees, signed as the meta pane's `Head pose`, null when it could not be fitted); `eyes` is null when there is no face to judge, and absent until the photo has been judged a moment after it is shown (never in a JPEG-only folder) |
+| `get_view` | What Riffle is showing: the open folder, how many photos the filter leaves, the current photo and its position, the selection, the view mode (`normal`, `zoom` or `compare`) and the active compare frame, the sort and whether a filter is on, the current photo's burst with each frame's sharpness score, stars, flag and label, and the current photo's `eyes`: whether its eyes are open or closed, the probability they are closed (0 to 1), and the head pose (yaw, pitch and roll in degrees, signed as the meta pane's `Yaw`, `Pitch` and `Roll`, null when it could not be fitted); `eyes` is null when there is no face to judge, and absent until the photo has been judged a moment after it is shown (never in a JPEG-only folder) |
 | `get_photo` | One photo's stars, flag and label, sharpness score, AF point and frame, manual focus, orientation, capture time and shooting settings (camera, lens, aperture, shutter, ISO, focal length, exposure bias, focus distance); the current photo when no path is given |
 | `get_preview` | A small upright JPEG of one photo, scaled from the embedded preview (never the RAW) to a long edge of 1024 pixels, or of the requested size from 256 to 1616 |
 | `show_photo` | Show one photo, as clicking it in the filmstrip does |

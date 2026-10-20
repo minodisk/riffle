@@ -36,7 +36,7 @@ Files: `crates/app/ui/src/focus.ts`, `crates/app/ui/src/main.ts`, `crates/app/sr
 
 #### TODO
 
-- [ ] On Windows or macOS, open `D:\photos\2026\2026-02-01` in a build with this change and let the second pass re-run (`FACES_VERSION` 9). Check that Leica DNGs with a face get the strip's `scan-face` (good) or `scan` (bad) icon although `f` draws no crosshair; that the filter's `AF eye` `Good` / `Bad` items list them; that the meta pane shows `AF eye in focus`, `Eyes` and `Head pose` for them from the stored values, matching the on-demand mesh overlay; and that a DNG with no face stays without an icon and under `Unknown`.
+- [ ] On Windows or macOS, open `D:\photos\2026\2026-02-01` in a build with this change and let the second pass re-run (`FACES_VERSION` 9). Check that Leica DNGs with a face get the strip's `scan-face` (good) or `scan` (bad) icon although `f` draws no crosshair; that the filter's `AF eye` `Good` / `Bad` items list them; that the meta pane shows `AF eye in focus`, `Eyes`, `Yaw`, `Pitch` and `Roll` for them from the stored values, matching the on-demand mesh overlay; and that a DNG with no face stays without an icon and under `Unknown`.
 - [ ] On Windows or macOS, repeat on a manual-focus ARW with a face (e.g. `D:\photos\samples\ARW\ILCE-6400_DSC00405.ARW` copied into a test folder under `D:\Photos\tests\`): same results, and still no crosshair.
 
 ### App: real-device check of the removed sharpness displays and the new Compare pairing
@@ -826,17 +826,17 @@ Files: `crates/app/ui/src/main.ts` (`drawFaceMesh`, `FACE_MESH_OUTLINE_WIDTH`, `
 
 - [ ] On Windows or macOS, with `f` on, show (1) an upright ARW with an open-eyed face of 60 px or more: the cyan outline of the face parts and both iris rings with their center dots sit on the judged face a moment after the `Eyes` row appears; (2) a portrait ARW (orientation 6 or 8) with such a face: the same, rotated with the image and scaling with the window; (3) a file labeled closed (`D:\photos\2026\2026-09-19\_DSC1889.ARW` / `_DSC1890.ARW`, per the closed-eyes todo above): the outline only, no iris ring and no iris dot; (4) a file whose only face is below 60 px on the preview: nothing drawn and no error in `Riffle.log`. Tune `FACE_MESH_OUTLINE_WIDTH` / `FACE_MESH_LINE_WIDTH` (or give the iris dots their own radius) if the outline competes with the face box or the rings collapse onto the dots.
 
-### App: real-device check of the meta pane's `Head pose` row
+### App: real-device check of the meta pane's `Yaw`, `Pitch` and `Roll` rows
 
-`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) ports MediaPipe's face geometry to `crates/core/src/pose.rs` and returns the yaw, pitch and roll of the judged face from `eyes_of` (`EyesJudgment.pose`). The meta pane's Analysis group shows it as a `Head pose` row after `Eyes`. CI covers the unit tests (`pose.rs`, `meta.test.ts`, the `EyesJudgment` serialization), and the core solve was timed at about 8 µs per face. The app itself was never run with the row. The Step 3 checkbox was ticked on the automated criteria.
+`head-pose` (`docs/plans/_archived/20261007-head-pose/plan.md`) ports MediaPipe's face geometry to `crates/core/src/pose.rs` and returns the yaw, pitch and roll of the judged face from `eyes_of` (`EyesJudgment.pose`). The meta pane's Analysis group shows it as `Yaw`, `Pitch` and `Roll` rows after `Eyes` (one `Head pose` row until `split-head-pose-rows`, `docs/plans/20261021-split-head-pose-rows/plan.md`). CI covers the unit tests (`pose.rs`, `meta.test.ts`, the `EyesJudgment` serialization), and the core solve was timed at about 8 µs per face. The app itself was never run with the rows. The Step 3 checkbox was ticked on the automated criteria.
 
-Files: `crates/app/src/commands.rs` (`read_eyes`, `EyesJudgment`), `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts` (`poseValue`), `crates/core/src/pose.rs`.
+Files: `crates/app/src/commands.rs` (`read_eyes`, `EyesJudgment`), `crates/app/ui/src/eyes.ts`, `crates/app/ui/src/meta.ts` (`metaGroups`), `crates/core/src/pose.rs`.
 
 #### TODO
 
-- [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Head pose  yaw N°, pitch N°, roll N°` after `Eyes`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
-- [ ] Open `D:\photos\2026\2026-02-01`, let the second pass re-run (`FACES_VERSION` 9) and select a DNG with a judged face: the `Head pose` row shows the pose pass 2 stored for the largest confident face.
-- [ ] Select a file with no judged face (for example `_DSC1897.ARW`): neither `Eyes` nor `Head pose` shows.
+- [ ] On Windows, in a `mise run dev` build with Settings > `Timing logs` on, open `D:\photos\2026\2026-09-19`. Select a frontal ARW: the Analysis group shows `Yaw  N°`, `Pitch  N°` and `Roll  N°`, in that order, after `Eyes`, with |yaw| small. Select an ARW labeled oblique in `docs/plans/_archived/20261007-head-pose/pose-truth.md`: the yaw sign matches the labeled direction (right positive, up positive for pitch, clockwise positive for roll).
+- [ ] Open `D:\photos\2026\2026-02-01`, let the second pass re-run (`FACES_VERSION` 9) and select a DNG with a judged face: the `Yaw`, `Pitch` and `Roll` rows show the pose pass 2 stored for the largest confident face.
+- [ ] Select a file with no judged face (for example `_DSC1897.ARW`): none of `Eyes`, `Yaw`, `Pitch` and `Roll` shows.
 - [ ] Read the `eyes total=` lines in `Riffle.log` for a few ARWs: the total is not noticeably longer than before (the solve adds about 8 µs).
 
 ### App: the review of the head-pose labels is still open

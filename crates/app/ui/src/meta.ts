@@ -142,12 +142,6 @@ function degrees(angle: number): string {
   return `${Math.round(angle)}°`;
 }
 
-export function poseValue(pose: Pose | null): string | null {
-  return pose === null
-    ? null
-    : `yaw ${degrees(pose.yaw)}, pitch ${degrees(pose.pitch)}, roll ${degrees(pose.roll)}`;
-}
-
 function group(heading: string, rows: [string, string | null][]): MetaGroup {
   return {
     heading,
@@ -173,6 +167,7 @@ export function metaGroups(
   const groups: MetaGroup[] = [];
   const ear = focus?.eyes_ear ?? null;
   const stored = ear !== null;
+  const pose = stored ? (focus?.pose ?? null) : (eyes?.pose ?? null);
   if (meta !== null) {
     groups.push(
       group(EXIF_HEADING, [
@@ -210,7 +205,9 @@ export function metaGroups(
           ? eyesValue(focus?.eyes ?? "unknown", ear)
           : eyesValue(eyes?.state ?? "unknown", eyes?.ear ?? null),
       ],
-      ["Head pose", poseValue(stored ? (focus?.pose ?? null) : (eyes?.pose ?? null))],
+      ["Yaw", pose === null ? null : degrees(pose.yaw)],
+      ["Pitch", pose === null ? null : degrees(pose.pitch)],
+      ["Roll", pose === null ? null : degrees(pose.roll)],
       ...(ranking === null || ranking === undefined ? [] : rankingRows(ranking)),
     ]),
   );
