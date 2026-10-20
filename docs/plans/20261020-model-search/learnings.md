@@ -178,8 +178,70 @@
   quantile above zero, two of them failing the q10 `PL` condition, so the
   rule did not select them.
 
+## Step 4: the pre-registration of the confirmation and the fresh sample
+
+- **Order kept**: the "Pre-registration of the confirmation" (winners, the
+  strata, the allocation, the draw seed, the bars, the follow-up rule) was
+  written into modelsearch.md before `confirmsample.py` first ran; the
+  "As drawn" paragraph was added after the draw and holds label-free numbers
+  only. No lockbox pick and no fresh label has been read; the new sample
+  has no sidecar, and none of its files other than the copies' bytes (for
+  the SHA-256 check) was read.
+- **Facts written beside the bars, not moving them**: `G0 ⊕ ef` did not beat
+  `eye_focus` on AUC in the exploration (−0.015 [-0.062, +0.030]), so
+  condition 6 is the likely failure; the pick winner's `P@10` was below
+  `W0`'s on the exploration folders (−0.9 points); the winner's q20 already
+  fails `PL` (5.73%), so a pass needs q5 or q10. New and label-free: on the
+  fresh population the winner's q5 removes **4.52%**, 0.02 points above the
+  4.5% bar (the earlier samples took more of the winner's bottom 5% than of
+  the rest, 223 of 1,609 frames).
+- **Importing the discard-labels `sample.py` by path**: `badfilter` already
+  imports the bad-photo `sample` under the module name `sample`, so a plain
+  `import sample` after it returns the cached bad-photo module.
+  `confirmsample.py` loads the discard-labels file with
+  `importlib.util.spec_from_file_location("discard_sample", ...)`; that file
+  only re-imports the cached `badfilter` and defines constants (`CUTS`,
+  `CONTROL_FLOOR`, `LIBRARY`, `SIDECARS`) and `bs`, the bad-photo `sample`,
+  whose `allocate`, `under`, `listing`, `sha256` and `cell` are the helpers
+  reused. Its copy loop is inline in its `main`, so it is repeated in
+  `confirmsample.py`, not imported.
+- **Choices the text left open**:
+  - The draw uses its own generator, `default_rng(20261021)`, rather than
+    the archived sampler's continuation of the seed-0 tie-break generator,
+    so the new draw does not share a random stream with the earlier one; the
+    tie-break draw stays `default_rng(0).random(n)` as every read.
+  - A `control` folder cell with no population frame would be skipped (none
+    is empty: the smallest, `2026-07-23`, has 4).
+  - The manifest adds the winner's score, its per-folder rank share, `G0`'s
+    rank share and `G0`'s band (`b05` / `b10` / `b20` / `above`), and drops
+    the discard-labels manifest's `strict_label` column; Step 5's
+    `confirmlabels.py` must drop it from the archived `labels.py`'s `KEPT`
+    and use the five strata.
+  - `--no-copy` writes the manifest and prints the tables and the draw
+    checks without copying, so the draw was checked (5 s) before the copy.
+  - An audit hook records every file opened under the two earlier rounds'
+    folders: `manifest.tsv` only in each (no `labels.tsv`).
+- **Copy**: 27.4 GB, run in the background with its stdout in
+  `confirmsample.out.md` and its progress in `confirmsample.err` (data
+  folder), waited on with a bounded `tail -f | grep -m1` rather than a
+  sleep: copy 504 s, SHA-256 of sources and copies 316 s, 832 s in total,
+  so one run is longer than a 10-minute tool call; a rerun skips the copies
+  whose size and mtime match, so it is resumable. The background run drew
+  the same sample as the `--no-copy` run (its tables are identical). Every
+  copy check passes.
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1.
 - None from Step 2.
 - None from Step 3.
+- **Pending manual check (Step 4): the fresh sample opens unjudged in
+  Riffle.** On Windows, before labeling: turn `aiEnabled` off, open
+  `D:\Photos\tests\2026-10-20-model-search\sample`, sort by File name, let
+  the scan finish. Expected: 600 files `0001_…` to `0600_…`, every one
+  without a rating, Pick / Reject flag or color label, no `.xmp` / `.dop`
+  in the folder before the first key press, and no recommended icon or
+  ranking rows. `confirmsample.py` checked 0 sidecars in `sample\` and the
+  copies' bytes; the in-app view is not checked. Step 4's checkbox was
+  ticked on the automated criteria. Basis: Step 4 of
+  `docs/plans/20261020-model-search/plan.md`, `labeling.md`.

@@ -326,7 +326,7 @@ the top rather than the bottom, the text says so.
       `boot_folders` / `pooled`; add the top-q precision and recall next
       to `r_precision`. Metric-only, seconds to a minute to run.
 
-- [ ] Step 4: Pre-register the confirmation (the frozen winners and the bars) and draw the fresh blind sample
+- [x] Step 4: Pre-register the confirmation (the frozen winners and the bars) and draw the fresh blind sample
   - Done when:
     - `modelsearch.md` has a "Pre-registration of the confirmation" section
       merged **before any lockbox pick or fresh label is read**. It names
@@ -463,3 +463,4 @@ the top rather than the bottom, the text says so.
 - (2026-10-20) Step 1 complete
 - (2026-10-21) Step 2 complete
 - (2026-10-21) Step 3 complete
+- (2026-10-21) Step 4 complete

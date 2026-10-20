@@ -726,3 +726,222 @@ winner, ⊕ `eye_focus` raises its q10 `DP` from 81.7 to 88.4 and its AUC from
 0.714 to 0.767 and lowers its `P@10` from 30.4 to 28.9. These are a few of
 several hundred intervals read without correction; Step 4 fixes the bars
 and Step 5 reads the two winners once.
+
+## Pre-registration of the confirmation
+
+Written 2026-10-21, after Step 3's exploration read and **before any lockbox
+pick or fresh label is read**: no lockbox folder's picks have been read
+against a candidate (Step 3 read the 18 qualifying exploration folders only),
+and the fresh sample below had not been drawn when its strata, allocation
+and seed were written here; it has no labels yet. The merge commit of the
+PR that adds this section is the record. Nothing in this section changes
+after Step 5's read; a deviation found while implementing Step 5 is recorded
+in `learnings.md` with its reason and does not touch the bars or the
+follow-up rule.
+
+### The frozen winners
+
+Exactly as Step 3's rule chose them ("Results of the exploration"):
+
+- **Discard winner: `G0 ⊕ ef`**, the mean of the per-folder normalized
+  ranks of the stored `G0` and `eye_focus` (a frame without `eye_focus`
+  takes `G0`'s rank alone). Step 5 reads its stored column of
+  `scores_discard.tsv` as it is: it is built without a training step from
+  the stored `G0` and the dump's `eye_focus`, so no label of either round
+  enters it. Runner-up `All@32 / LR-L2 / discard`, named and **not read** in
+  Step 5.
+- **Pick winner: `All@32 / HGB-mono / pick`** (`rf.HGB` with the
+  `monotonic_cst` of "The search space", the NaN kept, the pick target),
+  **fit once on all 20 exploration folders** (PCA, mean fill and
+  standardization on them; the pick target on their frames, their per-folder
+  class weights rescaled to mean 1) and scored on every frame of the 7
+  lockbox folders, as "Two fit sets" fixes. Runner-up `G0 ⊕ ef` (built on the
+  pick fit set), named and **not read** in Step 5.
+
+### Already known about the winners
+
+These are readings of the exploration, on the labels and folders the winners
+were selected on; they are not verdicts, and **no bar below was set or moved
+because of them**:
+
+- `G0 ⊕ ef` **did not beat `eye_focus` on AUC** in the exploration: AUC −
+  `eye_focus` −0.015 [-0.062, +0.030] (stratified; cluster [-0.071,
+  +0.040]). Its exploration `DP` − `G0` was +5.7 [+0.4, +11.4] at q5 and
+  +13.7 [+9.8, +17.7] at q10; `RR` 11.6 / 10.0% at q5 / q10.
+- Its label-free conditions are known before any fresh label, since they
+  read the full dump: `PL` (full dump) **0.77%** at q5, **2.10%** at q10,
+  **5.73%** at q20, so **q20 fails `PL` <= 5%** whatever the fresh labels
+  say; the removed shares of the fresh population are printed by
+  `confirmsample.py` (below).
+- The pick winner's mean `P@10` on the 18 qualifying exploration folders,
+  30.4%, is **below `W0`'s** 31.2% (−0.9 [-2.7, +0.5] points, 12 of 18
+  folders at or above `W0`); no candidate reached `W0` there.
+
+### The fresh discard sample
+
+Drawn by `confirmsample.py` in this plan folder (the archived discard-labels
+`sample.py`'s design and its helpers, imported by path after `badfilter`):
+
+- **Population**: the dump minus the 1,800 frames already labeled, the 1,200
+  of `D:\Photos\tests\2026-10-17-bad-labels\manifest.tsv` and the 600 of
+  `D:\Photos\tests\2026-10-18-discard-labels\manifest.tsv`: **30,659
+  frames**. Only those two manifests are opened in the earlier rounds' folders
+  (no `labels.tsv`).
+- **Strata**, every population frame in exactly one, with the cuts of
+  `bf.graded_cut` on the full dump (per folder, the bottom `floor(q · n /
+  100)` by score, ties by `numpy.random.default_rng(0).random(n)`, the same
+  draw as every read):
+  - `b05`: the winner's bottom 5%; `b10`: its bottom 10% minus `b05`;
+    `b20`: its bottom 20% minus its bottom 10%;
+  - `g0only`: `G0`'s bottom 20% minus the winner's bottom 20%, so that
+    "beats `G0`" is read on a sample that holds both cuts' frames;
+  - `control`: the rest, drawn **per folder** with `bs.allocate`'s
+    proportional allocation and a **floor of 3** (or the whole cell).
+- **Allocation**: **600 frames, 120 per stratum** (`b05`, `b10`, `b20`,
+  `g0only`, `control`); each stratum (each `control` folder cell) a simple
+  random sample without replacement; `π` the drawn count over the cell's
+  population, written to `strata.tsv`.
+- **Draw seed**: `numpy.random.default_rng(20261021)`, one generator for the
+  draws in the order `b05`, `b10`, `b20`, `g0only`, then the `control`
+  cells by folder name, then the shuffle of the 600.
+- **Files**: `manifest.tsv` and `strata.tsv` in the data folder
+  `D:\Photos\tests\2026-10-20-model-search\`, and the shuffled RAW copies
+  named `<nnnn>_<folder>_<file>` in its `sample\`, with no sidecar; the script
+  refuses to write under `D:\Photos\2026` and checks every copy against its
+  source by size and SHA-256.
+- **Labeling**: by [labeling.md](labeling.md), the discard-labels guide with
+  the new path: the same "OK to discard?" question, rating 1 = keep,
+  unmarked = discard, `aiEnabled` off, every frame viewed once.
+
+**As drawn** (added after the draw; label-free): `python -I -B
+confirmsample.py D:\Photos\tests\2026-10-12-rank-app
+D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-20-model-search`, its stdout saved as
+`confirmsample.out.md` in the data folder. The 1,200 and 600 earlier frames
+are disjoint; the population is 30,659 frames and the sum of `1/π` over the
+600 drawn frames equals it.
+
+| Stratum | Dump frames | Earlier-sample frames removed | Population | Drawn | `π` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `b05` | 1,609 | 223 | 1,386 | 120 | 0.0865801 |
+| `b10` | 1,625 | 148 | 1,477 | 120 | 0.0812458 |
+| `b20` | 3,248 | 201 | 3,047 | 120 | 0.039383 |
+| `g0only` | 1,896 | 232 | 1,664 | 120 | 0.0721154 |
+| `control` (27 folder cells) | 24,081 | 996 | 23,085 | 120 | 0.00519818 overall; 0.00355872–0.75 per cell |
+
+The `control` cells draw 3 to 13 frames (`2026-07-23`'s 4 population frames
+give `π` 0.75, `2026-07-21`'s 15 give 0.2; the large folders 0.0036–0.0047).
+Of the winner's bands, `b05` holds 861 of `G0`'s bottom 5% frames of the
+population, and `g0only` holds 161 / 334 / 1,169 frames of `G0`'s `b05` /
+`b10` / `b20`. Label-free, on the fresh population: the winner removes
+**4.52%** at q5 (condition 3 holds by 0.02 points), 9.34% at q10 and
+19.28% at q20; `G0` 4.53%, 9.09%, 18.72%. `PL` (full dump) reproduces
+Step 3: the winner 0.77 / 2.10 / 5.73%, `G0` 0.68 / 2.10 / 5.18%. The
+sample holds 36 dump picks and 3 explicit rejects. The copies (27.4 GB): 600 files in `sample\`, 0 whose size or SHA-256
+differs from the source, 0 `.xmp` / `.dop`, 0 files not in the manifest,
+and the 58,227 library files of the 27 folders unchanged (size and mtime).
+
+### The confirmation read (Step 5)
+
+- **Labels**: `confirmlabels.py` (the archived discard-labels `labels.py`
+  recipe: rating 1 = `keep`, reviewed and unmarked = `discard`, unexpected
+  marks listed, not dropped). **`discard` is the positive class**. Every
+  estimate Horvitz–Thompson weighted by `1/π` from the new `strata.tsv`, the
+  unweighted value beside it. The exploration's 600 labels are not read.
+- **Scores read on the fresh labels**: the discard winner, `G0` (stored),
+  `eye_focus` (missing last; in the AUC as `bf.finite_by_folder`'s folder
+  minimum minus 1) and random (`default_rng(0)`), each at q5 / q10 / q20 with
+  `bf.graded_cut` on the full dump as above, and the weighted discard AUC.
+  Metrics as discard.md's (`DP`, `RR`, `PL` full dump, `DR`, `MR`, `DO`,
+  removed share of the fresh population).
+- **Intervals**: a 1,000-draw **stratified bootstrap** within `b05`, `b10`,
+  `b20`, `g0only` and each (`control`, folder) cell of the new `strata.tsv`,
+  seed 0, **one count matrix for every score and quantity** (paired
+  differences share draws); the 2.5% / 97.5% quantiles. A **folder-cluster
+  bootstrap** (the 27 folders with replacement, seed 0, 1,000 draws) beside
+  it; it does not decide, and a pass whose cluster interval crosses its bar
+  is reported as **fragile**.
+- **Base rate**: the weighted share of `discard` over the fresh labels (the
+  fresh population's discardable share), its point estimate the bar's value,
+  not resampled; its interval printed beside.
+- **Pick**: the pick winner fit as above, `W0` from its stored scores, on the
+  **7 lockbox folders** (all qualifying): per folder `P@5` / `P@10` / `P@20`,
+  `R@10`, R-precision and the frame AUC, Step 3's `pick_folder`; the mean
+  over the 7 with the per-folder SD and the pooled value; the paired
+  per-folder difference against `W0` with `fw.boot_folders` (1,000 draws,
+  seed 0) and the one-sided Wilcoxon signed-rank p. `W0` was fit leave one
+  folder out on all 27, so it saw the other lockbox folders; that favors
+  `W0`.
+- Each winner is read **once**. The runner-ups and every other candidate are
+  not read on the fresh labels or the lockbox picks.
+
+### Bars
+
+"Hide / sort last" semantics, as discard-labels: the cut's frames are hidden
+from what the user picks from, or sorted last, and stay recoverable.
+
+- **Discard**: a cut of the discard winner at **q5 or q10** is **usable**
+  when all of these hold on the fresh labels:
+  1. weighted `RR` <= **25%**, and its stratified 97.5% quantile <= **35%**;
+  2. `PL` <= **5%** (full dump, label-free);
+  3. it removes **>= 4.5%** of the fresh population's frames (label-free);
+  4. **beats the base rate**: `DP`'s stratified 2.5% quantile is above the
+     base rate measured on the fresh labels (point estimate);
+  5. **beats `G0`**: weighted `DP` minus `G0`'s at the same `q`, paired,
+     stratified **2.5% quantile above zero**;
+  6. **beats `eye_focus`-alone**: weighted discard AUC minus `eye_focus`'s,
+     paired, stratified **2.5% quantile above zero** (one value for every
+     cut).
+
+  **q20** is read with the same six conditions and reported, but a pass
+  needs q5 or q10 (q20 already fails condition 2, 5.73%). **Best cut**: the
+  deepest passing one of q5 and q10. The discard winner **passes** when at
+  least one of q5 / q10 is usable.
+- **Pick**: on the 7 lockbox folders, the pick winner **passes** when all of
+  these hold:
+  1. mean `P@10` >= `W0`'s mean `P@10` **+ 2.0 points**;
+  2. the folder-bootstrap **2.5% quantile** of the mean paired `P@10`
+     difference against `W0` is **above zero**;
+  3. **at least 5 of the 7** folders have `P@10` at or above `W0`'s (16 of
+     25 scaled, 64% of 7 rounded up).
+
+  The frame AUC and `R@10` (and `P@5`, `P@20`, R-precision) are reported
+  beside, not decided on.
+
+### Follow-up rule
+
+Applied per task, in this order; the Decision (Step 6) names the outcome as
+a recommendation:
+
+1. **The winner passes its bars** → an **in-app suggestion plan** for that
+   task: for discard, discard candidates **sorted last** with a rescue loop
+   at the best cut's depth; for pick, a **strip mark or sort for the
+   folder's top 10%**.
+2. **No pass, but close** → **more labels or more folders**, a later plan
+   sized at about 3 s per frame (600 frames about 30 minutes):
+   - discard: at q5 or q10 the winner's `RR` point is <= 25% and conditions
+     2 and 3 hold, and every failing condition is a quantile condition (the
+     `RR` 97.5% quantile, the `DP` 2.5% quantile against the base rate) or a
+     "beats" condition (5 or 6); **or** its `DP` − `G0` point at q5 or q10
+     is positive with the stratified interval spanning zero;
+   - pick: the mean `P@10` gain over `W0` is positive with the
+     folder-bootstrap interval spanning zero.
+3. **Otherwise** → **nothing** for that task.
+
+### Multiplicity and population
+
+- **Multiplicity**: two frozen winners, each read once; the discard winner
+  on two eligible cuts with six conditions each, the pick winner on one
+  read with three. The selection's multiplicity (69 candidates × 2 tasks ×
+  3 cuts) is spent in the exploration; the confirmation adds no selection.
+  The Decision reads a lone marginal pass, or one fragile on the cluster
+  bootstrap, as such.
+- **Selection bias that the confirmation cannot remove**: the discard
+  winner is a rank mix of `G0` and `eye_focus`, the two scores this plan's
+  design was chosen after, and the fresh strata are cut by the winner and
+  `G0` themselves; the fresh labels are new frames, not a new population.
+- **Population caveat**: one photographer's 27 folders, mostly basketball;
+  600 fresh labels on 30,659 frames; the pick read on 7 folders, so its
+  folder bootstrap is wide and a fail is weakly informative.
