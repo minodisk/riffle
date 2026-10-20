@@ -298,3 +298,230 @@ No step of this plan changes the app. Step 3 fits the three new cells and
 prints only label-free readings; Step 4 reads every quantity above against
 the labels; the Decision (Step 5) records the outcome against these bars and
 names the follow-up by the rule above, as a recommendation only.
+
+## Results
+
+Run 2026-10-20 by `retargetread.py` (`python -I -B retargetread.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-19-discard-retarget`), its stdout saved as
+`retargetread.out.md` in the data folder. On the 600 labels (211 `keep`, 389
+`discard`) and the scores of Step 3 (`scores_retarget.tsv`). Every interval
+is the stratified bootstrap's 95% (1,000 draws, seed 0, one count matrix for
+every quantity and cell) unless marked cluster (the folder-cluster bootstrap,
+1,000 draws, seed 0); values are weighted by `1/π` unless marked unweighted.
+No cut leaves a frame out (every score is finite on every frame;
+`eye_focus`'s missing values sort last). Wall time 16 s (load 4 s; cuts,
+metrics, AUCs and bootstraps 12 s).
+
+### Reference checks
+
+Every check passes: the stored `G0`, `eye_focus` and random reproduce
+discard.md's Results digit for digit on this code path.
+
+| Check | Expected | This run |
+| --- | ---: | ---: |
+| `strata.tsv` rows whose population, drawn count or `π` differ when recomputed from the dump | 0 of 30 | 0 of 30 |
+| Sampled frames whose recomputed `G0` band / `π` differ from `labels.tsv` | 0 / 0 | 0 / 0 |
+| Sampled frames in the strict sample | 0 | 0 |
+| Sum of `1/π` over the sampled frames | 31,259 | 31,259.0 |
+| Discardable base rate % | 48.45 [42.03, 55.11] | 48.45 [42.03, 55.11] (cluster [40.74, 53.87]; unweighted 64.83) |
+| `G0` `RR` % q5 / q10 / q20 | 17.3 [11.3, 24.0] / 23.7 [18.7, 28.7] / 27.9 [23.3, 32.5] | the same |
+| `G0` `PL` % q5 / q10 / q20; cluster `RR` 97.5% quantile | 0.68 / 2.10 / 5.18; 25.7 / 32.8 / 36.3 | the same |
+| `G0` AUC | 0.710 [0.646, 0.771] | 0.710 [0.646, 0.771] |
+| `eye_focus` `RR` % q5 / q10 / q20; `PL` % | 16.8 [1.2, 43.3] / 14.3 [2.9, 29.9] / 28.3 [15.7, 40.2]; 4.44 / 9.14 / 15.59 | the same |
+| `eye_focus` AUC | 0.777 [0.716, 0.841] | 0.777 [0.716, 0.841] |
+| Random `DP` % q5 / q10 / q20 | 52.0 [19.8, 85.5] / 61.5 [37.9, 84.8] / 56.0 [40.5, 71.5] | the same |
+| Random AUC | 0.528 [0.455, 0.604] | 0.528 [0.455, 0.604] |
+| `G0` q5 − random q5, `DP` points | +30.7 [-3.8, +63.9] | +30.7 [-3.8, +63.9] |
+
+### Main table
+
+`DP` / `RR` / `DR` / `MR` / `DO` weighted with the stratified interval and
+the unweighted value in brackets; `PL` on the full dump (population after
+the slash), label-free; Removed: the population's share (the full dump's
+after the slash), label-free; Sampled: the sampled frames the cut removes /
+of them `discard`; Picks: the sampled dump picks the cut removes / of them
+`discard`.
+
+| Score | Cut | Sampled / discard | Picks / discard | `DP` % | `RR` % | `PL` % | `DR` % | `MR` % | `DO` % | Removed % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0` | q5 | 150 / 124 | 7 / 5 | 82.7 [76.0, 88.7] (82.7) | 17.3 [11.3, 24.0] (17.3) | 0.68 / 0.68 | 8.4 [7.2, 9.8] (31.9) | 91.6 [90.2, 92.8] (68.1) | 46.7 [39.9, 53.8] (58.9) | 4.92 / 4.96 |
+| `G0` | q10 | 300 / 229 | 11 / 6 | 76.3 [71.3, 81.3] (76.3) | 23.7 [18.7, 28.7] (23.7) | 2.10 / 2.02 | 15.5 [13.6, 18.1] (58.9) | 84.5 [81.9, 86.4] (41.1) | 45.4 [38.3, 52.9] (53.3) | 9.87 / 9.96 |
+| `G0` | q20 | 450 / 331 | 16 / 8 | 72.1 [67.5, 76.7] (73.6) | 27.9 [23.3, 32.5] (26.4) | 5.18 / 5.03 | 29.5 [25.9, 33.9] (85.1) | 70.5 [66.1, 74.1] (14.9) | 42.6 [34.8, 50.7] (38.7) | 19.80 / 19.97 |
+| `G0+B` | q5 | 147 / 119 | 6 / 4 | 80.8 [74.2, 86.9] (81.0) | 19.2 [13.1, 25.8] (19.0) | 0.77 / 0.75 | 8.3 [6.9, 9.9] (30.6) | 91.7 [90.1, 93.1] (69.4) | 46.8 [40.0, 53.8] (59.6) | 4.91 / 4.96 |
+| `G0+B` | q10 | 249 / 196 | 9 / 5 | 77.8 [72.1, 83.1] (78.7) | 22.2 [16.9, 27.9] (21.3) | 2.04 / 2.00 | 14.3 [12.0, 16.9] (50.4) | 85.7 [83.1, 88.0] (49.6) | 45.6 [38.7, 53.0] (55.0) | 9.87 / 9.96 |
+| `G0+B` | q20 | 411 / 309 | 14 / 8 | 72.5 [64.1, 80.1] (75.2) | 27.5 [19.9, 35.9] (24.8) | 4.93 / 4.87 | 31.6 [26.0, 37.8] (79.4) | 68.4 [62.2, 74.0] (20.6) | 42.0 [34.3, 50.3] (42.3) | 19.83 / 19.97 |
+| `D0` | q5 | 58 / 50 | 1 / 0 | 59.5 [35.0, 93.3] (86.2) | 40.5 [6.7, 65.0] (13.8) | 2.29 / 2.26 | 5.3 [3.2, 8.5] (12.9) | 94.7 [91.5, 96.8] (87.1) | 48.0 [41.6, 55.0] (62.5) | 4.97 / 4.96 |
+| `D0` | q10 | 113 / 94 | 2 / 1 | 65.3 [46.6, 85.9] (83.2) | 34.7 [14.1, 53.4] (16.8) | 4.84 / 4.87 | 11.0 [7.2, 15.8] (24.2) | 89.0 [84.2, 92.8] (75.8) | 47.0 [40.3, 53.8] (60.6) | 9.97 / 9.96 |
+| `D0` | q20 | 222 / 187 | 7 / 3 | 66.5 [53.7, 79.7] (84.2) | 33.5 [20.3, 46.3] (15.8) | 11.59 / 11.64 | 26.2 [19.7, 33.7] (48.1) | 73.8 [66.3, 80.3] (51.9) | 44.2 [37.2, 51.7] (53.4) | 20.02 / 19.97 |
+| `D0+B` | q5 | 58 / 50 | 0 / 0 | 67.3 [40.5, 94.3] (86.2) | 32.7 [5.7, 59.5] (13.8) | 2.26 / 2.26 | 7.5 [3.8, 11.8] (12.9) | 92.5 [88.2, 96.2] (87.1) | 47.4 [40.8, 54.1] (62.5) | 4.96 / 4.96 |
+| `D0+B` | q10 | 125 / 102 | 2 / 0 | 57.3 [41.0, 76.1] (81.6) | 42.7 [23.9, 59.0] (18.4) | 5.09 / 5.15 | 15.5 [9.9, 21.6] (26.2) | 84.5 [78.4, 90.1] (73.8) | 47.1 [40.4, 54.4] (60.4) | 10.00 / 9.96 |
+| `D0+B` | q20 | 231 / 191 | 10 / 5 | 64.7 [52.3, 77.7] (82.7) | 35.3 [22.3, 47.7] (17.3) | 11.38 / 11.52 | 28.2 [21.4, 36.0] (49.1) | 71.8 [64.0, 78.6] (50.9) | 44.1 [36.9, 51.6] (53.7) | 20.02 / 19.97 |
+| `eye_focus` (missing last) | q5 | 38 / 33 | 2 / 1 | 83.2 [56.7, 98.8] (86.8) | 16.8 [1.2, 43.3] (13.2) | 4.44 / 4.44 | 8.1 [3.7, 13.2] (8.5) | 91.9 [86.8, 96.3] (91.5) | 46.7 [40.4, 53.4] (63.3) | 4.83 / 4.96 |
+| `eye_focus` (missing last) | q10 | 82 / 72 | 3 / 2 | 85.7 [70.1, 97.1] (87.8) | 14.3 [2.9, 29.9] (12.2) | 9.14 / 8.98 | 15.2 [9.4, 22.0] (18.5) | 84.8 [78.0, 90.6] (81.5) | 45.0 [38.6, 51.9] (61.2) | 9.78 / 9.96 |
+| `eye_focus` (missing last) | q20 | 189 / 160 | 8 / 5 | 71.7 [59.8, 84.3] (84.7) | 28.3 [15.7, 40.2] (15.3) | 15.59 / 15.50 | 31.7 [24.1, 40.0] (41.1) | 68.3 [60.0, 75.9] (58.9) | 42.1 [35.1, 49.9] (55.7) | 19.87 / 19.97 |
+| Random (seed 0) | q5 | 27 / 16 | 0 / 0 | 52.0 [19.8, 85.5] (59.3) | 48.0 [14.5, 80.2] (40.7) | 4.71 / 4.70 | 2.6 [0.8, 5.4] (4.1) | 97.4 [94.6, 99.2] (95.9) | 48.4 [41.9, 55.2] (65.1) | 4.95 / 4.96 |
+| Random (seed 0) | q10 | 52 / 36 | 1 / 1 | 61.5 [37.9, 84.8] (69.2) | 38.5 [15.2, 62.1] (30.8) | 9.48 / 9.48 | 10.6 [5.4, 16.7] (9.3) | 89.4 [83.3, 94.6] (90.7) | 47.3 [40.7, 54.0] (64.4) | 9.99 / 9.96 |
+| Random (seed 0) | q20 | 121 / 77 | 6 / 2 | 56.0 [40.5, 71.5] (63.6) | 44.0 [28.5, 59.5] (36.4) | 19.26 / 19.36 | 21.0 [13.8, 28.2] (19.8) | 79.0 [71.8, 86.2] (80.2) | 46.8 [39.9, 54.4] (65.1) | 19.98 / 19.97 |
+
+The folder-cluster intervals of every row are in `retargetread.out.md`; the
+bars' quantities carry theirs in the bars tables below.
+
+### Threshold-free: weighted AUC of `discard` vs `keep`
+
+| Score | AUC | Cluster | Unweighted |
+| --- | ---: | ---: | ---: |
+| `G0` | 0.710 [0.646, 0.771] | [0.655, 0.759] | 0.699 |
+| `G0+B` | 0.689 [0.622, 0.755] | [0.635, 0.740] | 0.699 |
+| `D0` | 0.761 [0.697, 0.827] | [0.683, 0.820] | 0.791 |
+| `D0+B` | 0.731 [0.667, 0.798] | [0.658, 0.793] | 0.786 |
+| `eye_focus` (missing last) | 0.777 [0.716, 0.841] | [0.719, 0.832] | 0.803 |
+| Random (seed 0) | 0.528 [0.455, 0.604] | [0.445, 0.627] | 0.502 |
+
+### Effects
+
+Paired on the same draws (labeled frames resampled, models and cuts fixed):
+the point, the stratified interval and the cluster interval, in points of
+weighted `DP` and `DR` and in AUC.
+
+`DP`, points:
+
+| Effect | q5 | Cluster | q10 | Cluster | q20 | Cluster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A: `D0` − `G0` | -23.2 [-48.1, +10.2] | [-45.6, +9.0] | -11.0 [-30.4, +8.9] | [-26.3, +12.1] | -5.6 [-18.6, +7.6] | [-18.8, +5.8] |
+| A: `D0+B` − `G0+B` | -13.5 [-41.4, +14.2] | [-36.8, +16.0] | -20.5 [-38.0, -2.2] | [-36.0, -4.0] | -7.8 [-22.2, +7.7] | [-21.6, +5.7] |
+| B: `G0+B` − `G0` | -1.9 [-6.5, +2.9] | [-6.7, +2.1] | +1.4 [-2.9, +5.9] | [-2.2, +5.7] | +0.3 [-7.8, +6.7] | [-6.6, +7.4] |
+| B: `D0+B` − `D0` | +7.9 [-3.1, +19.6] | [-2.4, +19.2] | -8.0 [-25.2, +5.6] | [-25.0, +1.8] | -1.9 [-7.9, +4.2] | [-9.9, +5.6] |
+| Interaction | +9.7 [-2.7, +22.0] | [+2.3, +18.8] | -9.5 [-26.8, +4.9] | [-29.5, +2.0] | -2.2 [-11.4, +8.3] | [-13.3, +8.6] |
+| A+B: `D0+B` − `G0` | -15.3 [-43.9, +11.8] | [-39.5, +12.3] | -19.0 [-36.7, -0.8] | [-33.0, -3.5] | -7.5 [-20.1, +5.7] | [-19.3, +3.7] |
+| `G0+B` − `eye_focus` | -2.4 [-20.6, +24.2] | [-21.4, +29.5] | -8.0 [-20.3, +8.7] | [-19.9, +6.9] | +0.7 [-13.1, +14.2] | [-10.8, +12.6] |
+| `G0+B` − random | +28.8 [-5.7, +61.1] | [-3.3, +65.0] | +16.3 [-7.8, +40.9] | [-17.0, +41.9] | +16.4 [+2.0, +31.7] | [-1.1, +34.8] |
+| `D0` − `eye_focus` | -23.7 [-57.3, +15.7] | [-57.9, +30.4] | -20.4 [-43.4, +3.0] | [-39.1, +6.8] | -5.2 [-16.1, +5.4] | [-15.2, +3.9] |
+| `D0` − random | +7.5 [-32.7, +52.6] | [-36.8, +55.2] | +3.8 [-25.6, +33.2] | [-29.6, +39.7] | +10.5 [-7.5, +29.8] | [-15.3, +34.4] |
+| `D0+B` − `eye_focus` | -15.8 [-48.6, +19.1] | [-47.5, +31.3] | -28.4 [-48.6, -7.6] | [-46.3, -6.7] | -7.0 [-17.3, +3.4] | [-17.0, +2.2] |
+| `D0+B` − random | +15.4 [-27.2, +59.0] | [-27.6, +59.5] | -4.2 [-32.7, +23.7] | [-41.5, +29.3] | +8.7 [-9.2, +27.9] | [-14.8, +32.4] |
+
+`DR`, points, and AUC:
+
+| Effect | `DR` q5 | Cluster | `DR` q10 | Cluster | `DR` q20 | Cluster | AUC | Cluster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A: `D0` − `G0` | -3.1 [-5.6, +0.1] | [-6.5, +0.2] | -4.5 [-8.8, +0.3] | [-8.9, -1.0] | -3.3 [-10.9, +4.8] | [-11.9, +4.0] | +0.050 [-0.017, +0.126] | [-0.034, +0.125] |
+| A: `D0+B` − `G0+B` | -0.8 [-4.9, +4.1] | [-5.2, +3.0] | +1.2 [-4.6, +7.7] | [-3.7, +5.5] | -3.4 [-11.9, +5.6] | [-11.4, +2.6] | +0.042 [-0.027, +0.120] | [-0.040, +0.114] |
+| B: `G0+B` − `G0` | -0.1 [-1.1, +1.0] | [-1.3, +0.6] | -1.3 [-2.5, +0.1] | [-2.7, +0.1] | +2.1 [-2.5, +7.6] | [-2.0, +6.7] | -0.021 [-0.046, +0.002] | [-0.043, +0.006] |
+| B: `D0+B` − `D0` | +2.2 [-0.7, +6.0] | [-0.5, +5.4] | +4.5 [+0.4, +9.4] | [+0.4, +9.4] | +2.0 [-2.5, +6.7] | [-2.6, +7.6] | -0.029 [-0.052, -0.007] | [-0.054, -0.006] |
+| Interaction | +2.3 [-1.0, +6.2] | [-0.2, +5.5] | +5.8 [+1.5, +10.9] | [+2.3, +9.8] | -0.1 [-7.4, +7.1] | [-4.7, +4.2] | -0.008 [-0.043, +0.025] | [-0.039, +0.018] |
+| A+B: `D0+B` − `G0` | -0.9 [-4.7, +3.7] | [-5.9, +3.1] | -0.1 [-5.9, +6.2] | [-5.7, +4.6] | -1.3 [-9.3, +7.2] | [-8.4, +4.2] | +0.021 [-0.046, +0.098] | [-0.066, +0.095] |
+| `G0+B` − `eye_focus` | +0.2 [-5.3, +5.1] | [-4.3, +4.8] | -0.9 [-7.7, +5.3] | [-6.9, +6.2] | -0.1 [-9.5, +8.7] | [-8.6, +9.5] | -0.088 [-0.166, -0.020] | [-0.164, -0.017] |
+| `G0+B` − random | +5.6 [+2.4, +8.4] | [+2.3, +8.7] | +3.6 [-2.6, +10.0] | [-1.3, +9.5] | +10.5 [+1.1, +21.1] | [-0.3, +22.3] | +0.161 [+0.056, +0.259] | [+0.073, +0.223] |
+| `D0` − `eye_focus` | -2.7 [-8.6, +2.8] | [-8.1, +3.2] | -4.2 [-10.2, +0.3] | [-8.1, +0.6] | -5.5 [-11.3, +0.2] | [-11.1, -1.3] | -0.017 [-0.059, +0.026] | [-0.054, +0.019] |
+| `D0` − random | +2.7 [-0.8, +6.7] | [-1.7, +6.6] | +0.4 [-5.0, +5.9] | [-5.1, +5.9] | +5.2 [-4.2, +16.7] | [-9.1, +17.4] | +0.233 [+0.139, +0.330] | [+0.086, +0.345] |
+| `D0+B` − `eye_focus` | -0.6 [-5.4, +4.1] | [-4.4, +3.7] | +0.3 [-6.8, +7.5] | [-5.6, +7.4] | -3.5 [-10.1, +2.8] | [-10.0, +2.9] | -0.046 [-0.085, -0.006] | [-0.086, -0.011] |
+| `D0+B` − random | +4.8 [+0.3, +10.0] | [-0.5, +9.9] | +4.9 [-2.0, +12.0] | [-2.3, +12.1] | +7.2 [-1.6, +18.0] | [-7.2, +19.7] | +0.203 [+0.111, +0.308] | [+0.059, +0.311] |
+
+The interaction is (`D0+B` − `D0`) − (`G0+B` − `G0`).
+
+### The coherence check on the strict labels
+
+Each cell's own per-folder bands on the full dump: the `discard` rate on the
+600 labels beside the strict-bad rate on the strict sample (its own `π` and
+strata). `G0`'s rows reproduce discard.md's per-band table.
+
+| Score | Band | Sampled / discard | `discard` rate % | Strict frames / strict bad | Strict-bad rate % | Strict below discard |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0` | bottom 5% | 150 / 124 | 82.7 [76.0, 88.7] | 71 / 22 | 27.3 [16.1, 41.4] | yes |
+| `G0` | 5–10% | 150 / 105 | 70.0 [62.7, 78.0] | 77 / 10 | 12.5 [3.9, 25.3] | yes |
+| `G0` | 10–20% | 150 / 102 | 68.0 [60.7, 75.3] | 146 / 17 | 10.1 [5.2, 16.9] | yes |
+| `G0` | above 20% | 150 / 58 | 42.6 [34.8, 50.7] | 906 / 31 | 3.7 [2.2, 5.2] | yes |
+| `G0+B` | bottom 5% | 147 / 119 | 80.8 [74.2, 86.9] | 74 / 17 | 17.4 [9.9, 26.6] | yes |
+| `G0+B` | 5–10% | 102 / 77 | 73.9 [64.6, 83.5] | 75 / 11 | 15.2 [5.4, 28.4] | yes |
+| `G0+B` | 10–20% | 162 / 113 | 68.6 [55.5, 81.3] | 135 / 19 | 12.4 [6.4, 20.5] | yes |
+| `G0+B` | above 20% | 189 / 80 | 42.0 [34.3, 50.3] | 916 / 33 | 3.7 [2.3, 5.3] | yes |
+| `D0` | bottom 5% | 58 / 50 | 59.5 [35.0, 93.3] | 56 / 10 | 10.6 [3.4, 21.5] | yes |
+| `D0` | 5–10% | 55 / 44 | 71.9 [44.3, 93.2] | 61 / 10 | 13.9 [3.9, 25.6] | yes |
+| `D0` | 10–20% | 109 / 93 | 67.5 [50.3, 85.1] | 106 / 11 | 7.1 [2.8, 13.3] | yes |
+| `D0` | above 20% | 378 / 202 | 44.2 [37.2, 51.7] | 977 / 49 | 4.5 [3.1, 6.1] | yes |
+| `D0+B` | bottom 5% | 58 / 50 | 67.3 [40.5, 94.3] | 57 / 11 | 12.4 [4.4, 23.9] | yes |
+| `D0+B` | 5–10% | 67 / 52 | 50.3 [29.7, 74.8] | 50 / 7 | 7.4 [2.7, 14.7] | yes |
+| `D0+B` | 10–20% | 106 / 89 | 76.7 [60.2, 93.0] | 117 / 16 | 14.2 [6.4, 23.1] | yes |
+| `D0+B` | above 20% | 369 / 198 | 44.1 [36.9, 51.6] | 976 / 46 | 4.0 [2.7, 5.5] | yes |
+
+### The bars applied
+
+Under the **chosen bar** (`RR` <= 25%, 97.5% quantile <= 35%). Conditions in
+order: (1) `RR`, (1) its quantile, (2) `PL` <= 5%, (3) removed >= 4.5%, (4)
+`DP` 2.5% quantile > 48.45%, (5) `DP` − `G0` > 0 with its paired 2.5%
+quantile > 0. Cluster values in parentheses.
+
+| Cell | Cut | `RR` % / 97.5% quantile (cluster) | `PL` % | Removed % | `DP` 2.5% quantile (cluster) | `DP` − `G0`, points / 2.5% quantile (cluster) | Conditions 1 / 1 / 2 / 3 / 4 / 5 | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0+B` | q5 | 19.2 / 25.8 (28.1) | 0.77 | 4.91 | 74.2 (71.9) | -1.9 / -6.5 (-6.7) | yes / yes / yes / yes / yes / no | not usable |
+| `G0+B` | q10 | 22.2 / 27.9 (30.7) | 2.04 | 9.87 | 72.1 (69.3) | +1.4 / -2.9 (-2.2) | yes / yes / yes / yes / yes / no | not usable |
+| `G0+B` | q20 | 27.5 / 35.9 (35.3) | 4.93 | 19.83 | 64.1 (64.7) | +0.3 / -7.8 (-6.6) | no / no / yes / yes / yes / no | not usable |
+| `D0` | q5 | 40.5 / 65.0 (65.7) | 2.29 | 4.97 | 35.0 (34.3) | -23.2 / -48.1 (-45.6) | no / no / yes / yes / no / no | not usable |
+| `D0` | q10 | 34.7 / 53.4 (51.2) | 4.84 | 9.97 | 46.6 (48.8) | -11.0 / -30.4 (-26.3) | no / no / yes / yes / no / no | not usable |
+| `D0` | q20 | 33.5 / 46.3 (49.4) | 11.59 | 20.02 | 53.7 (50.6) | -5.6 / -18.6 (-18.8) | no / no / no / yes / yes / no | not usable |
+| `D0+B` | q5 | 32.7 / 59.5 (59.0) | 2.26 | 4.96 | 40.5 (41.0) | -15.3 / -43.9 (-39.5) | no / no / yes / yes / no / no | not usable |
+| `D0+B` | q10 | 42.7 / 59.0 (60.1) | 5.09 | 10.00 | 41.0 (39.9) | -19.0 / -36.7 (-33.0) | no / no / no / yes / no / no | not usable |
+| `D0+B` | q20 | 35.3 / 47.7 (50.0) | 11.38 | 20.02 | 52.3 (50.0) | -7.5 / -20.1 (-19.3) | no / no / no / yes / yes / no | not usable |
+
+**No usable discard cut under the chosen bar; no best cut.**
+
+Under the **rejected bar** (`RR` <= 15%, 97.5% quantile <= 25%), **a reading
+only**; conditions 2–5 and every quantity as above.
+
+| Cell | Cut | `RR` <= 15% | 97.5% quantile <= 25% | Conditions 2 / 3 / 4 / 5 | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `G0+B` | q5 | no (19.2) | no (25.8) | yes / yes / yes / no | not usable |
+| `G0+B` | q10 | no (22.2) | no (27.9) | yes / yes / yes / no | not usable |
+| `G0+B` | q20 | no (27.5) | no (35.9) | yes / yes / yes / no | not usable |
+| `D0` | q5 | no (40.5) | no (65.0) | yes / yes / no / no | not usable |
+| `D0` | q10 | no (34.7) | no (53.4) | yes / yes / no / no | not usable |
+| `D0` | q20 | no (33.5) | no (46.3) | no / yes / yes / no | not usable |
+| `D0+B` | q5 | no (32.7) | no (59.5) | yes / yes / no / no | not usable |
+| `D0+B` | q10 | no (42.7) | no (59.0) | no / yes / no / no | not usable |
+| `D0+B` | q20 | no (35.3) | no (47.7) | no / yes / yes / no | not usable |
+
+No usable cut under the rejected bar either; no best cut.
+
+### The follow-up rule's inputs
+
+| Input | Value |
+| --- | ---: |
+| A usable cut under the chosen bar | no |
+| A at q5: `D0` − `G0`, `DP` points (cluster) | -23.2 [-48.1, +10.2] ([-45.6, +9.0]) |
+| A+B at q5: `D0+B` − `G0`, `DP` points (cluster) | -15.3 [-43.9, +11.8] ([-39.5, +12.3]) |
+| The branch these inputs select | 3 (otherwise: nothing) |
+
+Neither paired 2.5% quantile is above zero, so branch 2 does not apply; the
+Decision (Step 5) reads this.
+
+### Reading
+
+The stored `G0`, `eye_focus` and random reproduce discard.md exactly, and
+the strata, `π` and base rate (48.45%) check. No cut of `G0+B`, `D0` or
+`D0+B` meets the chosen bar, and none meets the rejected one. `G0+B` q5 and
+q10 meet conditions 1–4 (`RR` 19.2 [13.1, 25.8] and 22.2 [16.9, 27.9], as
+`G0`'s 17.3 and 23.7 do) and fail condition 5: their `DP` differs from
+`G0`'s by -1.9 [-6.5, +2.9] and +1.4 [-2.9, +5.9] points. The discard
+target's cells rescue 32.7–42.7% of what they remove at every cut (weighted),
+their `DP` 2.5% quantiles are below 48.45% at q5 and q10, and they put
+2.26–2.29% of the picks into the q5 cut against `G0`'s 0.68%; their
+unweighted `RR` is 13.8–18.4%, so the frames marked keep inside their cuts
+carry larger `1/π` than the ones marked discard. Threshold-free, `D0` has
+the highest AUC of the three new cells, 0.761 [0.697, 0.827], against `G0`'s
+0.710 (effect A +0.050 [-0.017, +0.126]) and `eye_focus`'s 0.777 (`D0` −
+`eye_focus` -0.017 [-0.059, +0.026]). The B columns lower the AUC in both
+targets (`G0+B` − `G0` -0.021 [-0.046, +0.002], `D0+B` − `D0` -0.029
+[-0.052, -0.007]). At the cuts, effect A in `DP` is negative at every `q`
+with intervals spanning zero except with B at q10 (`D0+B` − `G0+B` -20.5
+[-38.0, -2.2]; A+B -19.0 [-36.7, -0.8]); B on the discard target raises
+`DR` at q10 (+4.5 [+0.4, +9.4], interaction +5.8 [+1.5, +10.9]). Against
+`eye_focus`, every new cell's AUC difference is negative, with intervals
+below zero for `G0+B` (-0.088) and `D0+B` (-0.046); against random, every
+AUC difference is above zero with intervals above zero. These are a few of
+about 84 paired intervals read without correction. The strict-bad rate is
+below the `discard` rate in every band of every cell. The follow-up rule's
+inputs (no usable cut; A and A+B at q5 with 2.5% quantiles of -48.1 and
+-43.9) are those of its third branch; the Decision (Step 5) reads them.
