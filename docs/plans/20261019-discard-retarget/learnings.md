@@ -121,7 +121,7 @@
   Every cut removes >= 4.5%. So by the label-free conditions alone the
   candidates left for Step 4 are `G0+B` q5 / q10 / q20, `D0` q5 / q10 and
   `D0+B` q5; `D0` q20, `D0+B` q10 and `D0+B` q20 are already not usable. The
-  discard target puts 3–4x more picks into the cut than the pick target, as
+  discard target puts about 3x more picks into the cut at q5 and about 2.2–2.5x at q10 / q20 than the pick target, as
   expected (24.4% of the sampled picks are labeled `discard`). The stored
   `G0` rows reproduce discard.md's removed shares and `PL` exactly.
 - **Checks, all pass**: `burst_features.tsv` equals Step 1's `features`
