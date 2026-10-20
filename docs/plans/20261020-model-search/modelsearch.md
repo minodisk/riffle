@@ -194,7 +194,7 @@ Which fit each read uses:
 | Discard table, AUCs, label-free conditions and the discard selection rule (27 folders, 600 labels) | 3 | discard fit set |
 | Reading aids (dimension curve, forms, targets): pick-side rows / discard-side rows | 3 | pick fit set / discard fit set |
 | Discard confirmation on the fresh labels | 5 | discard fit set, the winner's stored score (the fresh labels never enter a fit) |
-| Pick confirmation on the 7 lockbox folders | 5 | the pick winner's recipe fit **once on all 20 exploration folders** (PCA, fill, standardization and inner `C` choice on them), scored on every lockbox frame; a combination winner from this fit's `All@32 / HGB / pick` |
+| Pick confirmation on the 7 lockbox folders | 5 | the pick winner's recipe fit **once on all 20 exploration folders** (PCA, fill, standardization and inner `C` choice on them), scored on every lockbox frame; a combination winner from this fit's `All@32 / HGB / pick` as `G0`; a `stack` winner is trained on the 20 exploration folders' labeled frames with `G0` taken from the pick fit set's held-out scores (option (a), as in the exploration), its `eye_focus` logit / `ln sharpness` mean fill and standardization fit on those 20 folders, then applied to the lockbox frames |
 
 The references are read from their stored scores in both tasks (`W0`,
 `F0+ctx` from the folder-wide-eval `scores.tsv`; `G0` from
@@ -275,6 +275,17 @@ discard-target model scored by `-decision_function`).
     trained on the training folders' labeled frames with the clipped
     weights, target `discard`, held out by folder, scored by
     `-decision_function`.
+    Its `G0` column is each frame's score from the fit set's own
+    leave-one-folder-out run (pick fit set: the held-out `G0` pick scores;
+    discard fit set: the stored `G0`). That column is out of fold only for
+    the frame it scores: when `stack` holds out folder i, its training rows'
+    `G0` scores came from `G0` models that saw folder i (its picks in the
+    pick fit set, the stored `G0` in the discard fit set), so folder i
+    reaches `stack` second-hand. This is accepted and not nested; it is
+    stated here so the "did not see its folder" claim above is read as exact
+    for every candidate except `stack`, and the label-free combinations (no
+    training step) are exact. The held-out folder's discard labels never
+    enter this way.
   - The same two label-free combinations applied to the pick winner are
     printed in Step 3 as a reading only, not as candidates.
 - **66 + 3 = 69 candidates.**
