@@ -411,7 +411,9 @@ pub(crate) fn read_preview(path: &Path) -> Result<(u16, Vec<u8>), String> {
     Ok((arw.orientation, jpeg))
 }
 
-/// The faces `faces_of` found, in the preview's stored pixel coordinates.
+/// The faces `faces_of` found, each with its YuNet score and its five
+/// landmarks (the eyes, the nose tip and the mouth corners, each pair left of
+/// the image first), in the preview's stored pixel coordinates.
 #[derive(Debug, serde::Serialize)]
 pub struct FacesResponse {
     width: usize,
@@ -425,14 +427,24 @@ struct FaceBox {
     y: f32,
     width: f32,
     height: f32,
-    /// The midpoint between the eyes.
-    eye: FacePoint,
+    score: f32,
+    left_eye: FacePoint,
+    right_eye: FacePoint,
+    nose: FacePoint,
+    mouth_left: FacePoint,
+    mouth_right: FacePoint,
 }
 
 #[derive(Debug, serde::Serialize)]
 struct FacePoint {
     x: f32,
     y: f32,
+}
+
+impl From<(f32, f32)> for FacePoint {
+    fn from((x, y): (f32, f32)) -> Self {
+        FacePoint { x, y }
+    }
 }
 
 /// Refuses `what` on a file that is not a RAW file: a JPEG folder is
@@ -473,10 +485,12 @@ fn read_faces(path: &Path) -> Result<FacesResponse, String> {
                 y: f.y,
                 width: f.width,
                 height: f.height,
-                eye: FacePoint {
-                    x: (f.left_eye.0 + f.right_eye.0) / 2.0,
-                    y: (f.left_eye.1 + f.right_eye.1) / 2.0,
-                },
+                score: f.score,
+                left_eye: f.left_eye.into(),
+                right_eye: f.right_eye.into(),
+                nose: f.nose.into(),
+                mouth_left: f.mouth_left.into(),
+                mouth_right: f.mouth_right.into(),
             })
             .collect(),
     })

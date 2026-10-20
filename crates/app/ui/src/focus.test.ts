@@ -15,11 +15,15 @@ import {
   afEyeState,
   applyFaceReady,
   applySharpnessReady,
+  FACE_LABEL_HEIGHT,
   eyesOpenness,
+  faceLabel,
+  faceLabelAt,
   faceMarks,
   focusMark,
   photoTier,
   stripState,
+  uprightPoint,
 } from "./focus.js";
 import { SCAN_FACE_SVG, SCAN_SVG } from "./icons.js";
 
@@ -406,30 +410,121 @@ describe("photoTier: the folded tier", () => {
 });
 
 describe("faceMarks", () => {
-  const face = (x: number, y: number, eyeX: number, eyeY: number) => ({
+  const face = (x: number, y: number) => ({
     x,
     y,
     width: 100,
     height: 120,
-    eye: { x: eyeX, y: eyeY },
+    score: 0.934,
+    left_eye: { x: x + 30, y: y + 40 },
+    right_eye: { x: x + 70, y: y + 40 },
+    nose: { x: x + 50, y: y + 70 },
+    mouth_left: { x: x + 35, y: y + 95 },
+    mouth_right: { x: x + 65, y: y + 95 },
   });
+  const label = "0.93  100×120  eyes 40";
 
   test("a face at the preview's origin sits at the drawn image's corner", () => {
-    expect(faceMarks([face(0, 0, 50, 40)], 1600, 1080, 1600, 1080)).toEqual([
-      { rect: { x: -800, y: -540, width: 100, height: 120 }, eye: { x: -750, y: -500 } },
+    expect(faceMarks([face(0, 0)], 1600, 1080, 1600, 1080)).toEqual([
+      {
+        rect: { x: -800, y: -540, width: 100, height: 120 },
+        points: [
+          { x: -770, y: -500 },
+          { x: -730, y: -500 },
+          { x: -750, y: -470 },
+          { x: -765, y: -445 },
+          { x: -735, y: -445 },
+        ],
+        label,
+      },
     ]);
   });
 
   test("a face at the far corner ends at the drawn image's far corner", () => {
-    expect(faceMarks([face(1500, 960, 1550, 1000)], 1600, 1080, 1600, 1080)).toEqual([
-      { rect: { x: 700, y: 420, width: 100, height: 120 }, eye: { x: 750, y: 460 } },
+    expect(faceMarks([face(1500, 960)], 1600, 1080, 1600, 1080)).toEqual([
+      {
+        rect: { x: 700, y: 420, width: 100, height: 120 },
+        points: [
+          { x: 730, y: 460 },
+          { x: 770, y: 460 },
+          { x: 750, y: 490 },
+          { x: 735, y: 515 },
+          { x: 765, y: 515 },
+        ],
+        label,
+      },
     ]);
   });
 
   test("a preview drawn smaller scales the faces by the preview size", () => {
-    expect(faceMarks([face(400, 200, 450, 240)], 1600, 1080, 800, 540)).toEqual([
-      { rect: { x: -200, y: -170, width: 50, height: 60 }, eye: { x: -175, y: -150 } },
+    expect(faceMarks([face(400, 200)], 1600, 1080, 800, 540)).toEqual([
+      {
+        rect: { x: -200, y: -170, width: 50, height: 60 },
+        points: [
+          { x: -185, y: -150 },
+          { x: -165, y: -150 },
+          { x: -175, y: -135 },
+          { x: -182.5, y: -122.5 },
+          { x: -167.5, y: -122.5 },
+        ],
+        label,
+      },
     ]);
+  });
+});
+
+describe("faceLabel", () => {
+  test("gives the score, the box size and the eye distance in preview pixels", () => {
+    const face = {
+      x: 0,
+      y: 0,
+      width: 211.6,
+      height: 254.4,
+      score: 0.934,
+      left_eye: { x: 100, y: 100 },
+      right_eye: { x: 160, y: 111 },
+      nose: { x: 130, y: 140 },
+      mouth_left: { x: 110, y: 180 },
+      mouth_right: { x: 150, y: 180 },
+    };
+    expect(faceLabel(face)).toBe("0.93  212×254  eyes 61");
+    expect(faceLabel({ ...face, score: 0.6 })).toBe("0.60  212×254  eyes 61");
+  });
+});
+
+describe("uprightPoint", () => {
+  test("turns a point as draw() rotates the image", () => {
+    const p = { x: 10, y: 20 };
+    expect(uprightPoint(p, 1)).toEqual({ x: 10, y: 20 });
+    expect(uprightPoint(p, 6)).toEqual({ x: -20, y: 10 });
+    expect(uprightPoint(p, 8)).toEqual({ x: 20, y: -10 });
+    expect(uprightPoint(p, 3)).toEqual({ x: -10, y: -20 });
+  });
+});
+
+describe("faceLabelAt", () => {
+  // A 300x200 unrotated drawing: 200x300 upright on a quarter turn.
+  const rect = { x: -50, y: -40, width: 40, height: 60 };
+
+  test("sits above the upright box's top-left corner", () => {
+    const at = (orientation: number) => faceLabelAt(rect, orientation, 300, 200, 80);
+    expect(at(1)).toEqual({ x: -50, y: -40 - FACE_LABEL_HEIGHT });
+    expect(at(6)).toEqual({ x: -20, y: -50 - FACE_LABEL_HEIGHT });
+    expect(at(8)).toEqual({ x: -40, y: 10 - FACE_LABEL_HEIGHT });
+    expect(at(3)).toEqual({ x: 10, y: -20 - FACE_LABEL_HEIGHT });
+  });
+
+  test("drops inside the box when the box touches the image's top", () => {
+    const at = (r: typeof rect, orientation: number) => faceLabelAt(r, orientation, 300, 200, 80).y;
+    expect(at({ ...rect, y: -100 }, 1)).toBe(-98);
+    expect(at({ ...rect, x: -150 }, 6)).toBe(-148);
+    expect(at({ ...rect, x: 110 }, 8)).toBe(-148);
+    expect(at({ ...rect, y: 40 }, 3)).toBe(-98);
+  });
+
+  test("stays inside the image's right edge", () => {
+    expect(faceLabelAt({ ...rect, x: 100 }, 1, 300, 200, 80).x).toBe(70);
+    expect(faceLabelAt({ ...rect, y: -100 }, 6, 300, 200, 80).x).toBe(20);
   });
 });
 

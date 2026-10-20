@@ -225,14 +225,17 @@ viewer shows a prompt in its center; click it to open the folder picker.
   background gives a sharp face and a false candidate, and the back of a
   head or an upturned face finds no face and stays white. The mark also
   draws the faces Riffle detects near the AF point (anywhere on the preview
-  when there is no AF point) as a cyan box with a dot between the eyes. They
+  when there is no AF point) as a cyan box with a cyan dot on each eye, the
+  nose tip and the mouth corners, and a label beside the box with the
+  detection score, the box size and the distance between the eyes, both in
+  preview pixels (`0.93  212×254  eyes 61`). They
   appear a moment after `f`, because the detection runs when the frame is
   shown and is kept only for the session. The 1:1 view and Compare draw no
   faces. Whether the eyes of the judged face are open, and how open, shows in
   the meta pane's `Eyes` row (see **Meta pane**); that face also gets the
   outline of the face parts the judgment looked at (face oval, eyes, brows,
   nose, lips) and, when the eyes are judged open, the irises as rings with a
-  dot at each center, drawn as thin cyan lines a moment after the `Eyes` row.
+  dot at each center, drawn as thin magenta lines a moment after the `Eyes` row.
 - **1:1 focus check**: `z` shows the full-resolution image at one pixel per
   screen pixel, centered on the focus point (or the frame center without one).
   Paging while zoomed stays zoomed and moves to the next file's focus point.

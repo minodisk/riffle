@@ -5,7 +5,20 @@ import type { Faces } from "./focus.js";
 const found: Faces = {
   width: 1616,
   height: 1080,
-  faces: [{ x: 10, y: 20, width: 30, height: 40, eye: { x: 25, y: 35 } }],
+  faces: [
+    {
+      x: 10,
+      y: 20,
+      width: 30,
+      height: 40,
+      score: 0.9,
+      left_eye: { x: 18, y: 30 },
+      right_eye: { x: 32, y: 30 },
+      nose: { x: 25, y: 38 },
+      mouth_left: { x: 19, y: 48 },
+      mouth_right: { x: 31, y: 48 },
+    },
+  ],
 };
 
 describe("FaceCache", () => {

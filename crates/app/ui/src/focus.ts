@@ -239,8 +239,8 @@ export function applySharpnessReady<T extends { sharpness: number | null }>(
 }
 
 // What the `faces_of` command returns: the faces found on one file's preview,
-// in the preview's stored (unrotated) pixel coordinates, `eye` being the
-// midpoint between the eyes.
+// in the preview's stored (unrotated) pixel coordinates, each with YuNet's
+// score and its five landmarks (each pair left of the image first).
 export interface Faces {
   width: number;
   height: number;
@@ -249,13 +249,20 @@ export interface Faces {
     y: number;
     width: number;
     height: number;
-    eye: { x: number; y: number };
+    score: number;
+    left_eye: { x: number; y: number };
+    right_eye: { x: number; y: number };
+    nose: { x: number; y: number };
+    mouth_left: { x: number; y: number };
+    mouth_right: { x: number; y: number };
   }[];
 }
 
 export interface FaceMark {
   rect: { x: number; y: number; width: number; height: number };
-  eye: { x: number; y: number };
+  // The eyes, the nose tip and the mouth corners.
+  points: { x: number; y: number }[];
+  label: string;
 }
 
 // The faces scaled onto the unrotated preview drawn `drawWidth` x
@@ -278,6 +285,62 @@ export function faceMarks(
       width: face.width * sx,
       height: face.height * sy,
     },
-    eye: { x: face.eye.x * sx - drawWidth / 2, y: face.eye.y * sy - drawHeight / 2 },
+    points: [face.left_eye, face.right_eye, face.nose, face.mouth_left, face.mouth_right].map(
+      (p) => ({ x: p.x * sx - drawWidth / 2, y: p.y * sy - drawHeight / 2 }),
+    ),
+    label: faceLabel(face),
   }));
+}
+
+// The text beside a face box: YuNet's score, the box size and the distance
+// between the eyes. The sizes are in the stored preview's pixels, not the
+// drawn ones, because the scan's thresholds (`FACE_CONFIDENCE`, the face and
+// eye region floors) are measured there, so the numbers compare to them.
+export function faceLabel(face: Faces["faces"][number]): string {
+  const eyes = Math.hypot(face.right_eye.x - face.left_eye.x, face.right_eye.y - face.left_eye.y);
+  return `${face.score.toFixed(2)}  ${Math.round(face.width)}×${Math.round(face.height)}  eyes ${Math.round(eyes)}`;
+}
+
+// A point of the unrotated drawing centered on the origin, turned the way
+// `draw()` rotates the image for `orientation`.
+export function uprightPoint(
+  { x, y }: { x: number; y: number },
+  orientation: number,
+): { x: number; y: number } {
+  if (orientation === 6) {
+    return { x: -y, y: x };
+  }
+  if (orientation === 8) {
+    return { x: y, y: -x };
+  }
+  if (orientation === 3) {
+    return { x: -x, y: -y };
+  }
+  return { x, y };
+}
+
+// The height a face label takes, its 11 px text plus the halo, in CSS pixels.
+export const FACE_LABEL_HEIGHT = 14;
+
+// The top-left of a face label `labelWidth` wide, drawn without rotation in
+// the coordinates centered on the image: above the upright box's top-left
+// corner, or just inside the box when the box touches the drawn image's top,
+// and shifted left when it would run past the image's right edge.
+export function faceLabelAt(
+  rect: FaceMark["rect"],
+  orientation: number,
+  drawWidth: number,
+  drawHeight: number,
+  labelWidth: number,
+): { x: number; y: number } {
+  const a = uprightPoint(rect, orientation);
+  const b = uprightPoint({ x: rect.x + rect.width, y: rect.y + rect.height }, orientation);
+  const left = Math.min(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const quarterTurn = orientation === 6 || orientation === 8;
+  const imageWidth = quarterTurn ? drawHeight : drawWidth;
+  const imageHeight = quarterTurn ? drawWidth : drawHeight;
+  const x = Math.max(-imageWidth / 2, Math.min(left, imageWidth / 2 - labelWidth));
+  const above = top - FACE_LABEL_HEIGHT;
+  return { x, y: above < -imageHeight / 2 ? top + 2 : above };
 }

@@ -1134,6 +1134,9 @@ mod tests {
             score,
             left_eye: (18.0, 18.0),
             right_eye: (30.0, 18.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         }
     }
 

@@ -67,6 +67,10 @@ pub struct Face {
     /// The eye on the left of the image, then the one on the right.
     pub left_eye: (f32, f32),
     pub right_eye: (f32, f32),
+    pub nose: (f32, f32),
+    /// The mouth corner on the left of the image, then the one on the right.
+    pub mouth_left: (f32, f32),
+    pub mouth_right: (f32, f32),
 }
 
 type Plan = Arc<TypedRunnableModel>;
@@ -187,6 +191,9 @@ fn detect_at(rgb: &[u8], width: usize, height: usize, input: Input) -> Result<Ve
         f.height /= scale;
         f.left_eye = (f.left_eye.0 / scale, f.left_eye.1 / scale);
         f.right_eye = (f.right_eye.0 / scale, f.right_eye.1 / scale);
+        f.nose = (f.nose.0 / scale, f.nose.1 / scale);
+        f.mouth_left = (f.mouth_left.0 / scale, f.mouth_left.1 / scale);
+        f.mouth_right = (f.mouth_right.0 / scale, f.mouth_right.1 / scale);
     }
     Ok(faces)
 }
@@ -259,10 +266,11 @@ fn decode_stride(
         let b = &bbox[i * 4..i * 4 + 4];
         let (cx, cy) = ((c + b[0]) * s, (r + b[1]) * s);
         let (w, h) = (b[2].exp() * s, b[3].exp() * s);
-        let k = &kps[i * 10..i * 10 + 4];
-        let a = ((k[0] + c) * s, (k[1] + r) * s);
-        let e = ((k[2] + c) * s, (k[3] + r) * s);
-        let (left_eye, right_eye) = if a.0 <= e.0 { (a, e) } else { (e, a) };
+        let k = &kps[i * 10..i * 10 + 10];
+        let at = |j: usize| ((k[j * 2] + c) * s, (k[j * 2 + 1] + r) * s);
+        let leftmost = |a: (f32, f32), e: (f32, f32)| if a.0 <= e.0 { (a, e) } else { (e, a) };
+        let (left_eye, right_eye) = leftmost(at(0), at(1));
+        let (mouth_left, mouth_right) = leftmost(at(3), at(4));
         faces.push(Face {
             x: cx - w / 2.0,
             y: cy - h / 2.0,
@@ -271,6 +279,9 @@ fn decode_stride(
             score,
             left_eye,
             right_eye,
+            nose: at(2),
+            mouth_left,
+            mouth_right,
         });
     }
 }
@@ -312,6 +323,9 @@ pub fn to_stored(face: Face, orientation: u16, width: usize, height: usize) -> F
         score: face.score,
         left_eye: point(face.left_eye),
         right_eye: point(face.right_eye),
+        nose: point(face.nose),
+        mouth_left: point(face.mouth_left),
+        mouth_right: point(face.mouth_right),
     }
 }
 
@@ -368,6 +382,9 @@ pub fn face_to_upright(face: Face, orientation: u16, width: usize, height: usize
         score: face.score,
         left_eye: point(face.left_eye),
         right_eye: point(face.right_eye),
+        nose: point(face.nose),
+        mouth_left: point(face.mouth_left),
+        mouth_right: point(face.mouth_right),
     }
 }
 
@@ -411,6 +428,9 @@ fn translate(face: Face, dx: f32, dy: f32) -> Face {
         y: face.y + dy,
         left_eye: (face.left_eye.0 + dx, face.left_eye.1 + dy),
         right_eye: (face.right_eye.0 + dx, face.right_eye.1 + dy),
+        nose: (face.nose.0 + dx, face.nose.1 + dy),
+        mouth_left: (face.mouth_left.0 + dx, face.mouth_left.1 + dy),
+        mouth_right: (face.mouth_right.0 + dx, face.mouth_right.1 + dy),
         ..face
     }
 }
@@ -480,6 +500,9 @@ fn scaled_to_stored(
         height: face.height * ky,
         left_eye: (face.left_eye.0 * kx, face.left_eye.1 * ky),
         right_eye: (face.right_eye.0 * kx, face.right_eye.1 * ky),
+        nose: (face.nose.0 * kx, face.nose.1 * ky),
+        mouth_left: (face.mouth_left.0 * kx, face.mouth_left.1 * ky),
+        mouth_right: (face.mouth_right.0 * kx, face.mouth_right.1 * ky),
         ..face
     };
     to_stored(full, orientation, width, height)
@@ -535,6 +558,9 @@ mod tests {
             score,
             left_eye: (0.0, 0.0),
             right_eye: (0.0, 0.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         }
     }
 
@@ -547,6 +573,9 @@ mod tests {
             score: 0.9,
             left_eye: (15.0, 25.0),
             right_eye: (35.0, 26.0),
+            nose: (25.0, 35.0),
+            mouth_left: (18.0, 48.0),
+            mouth_right: (32.0, 49.0),
         }
     }
 
@@ -556,12 +585,24 @@ mod tests {
         let f = to_stored(upright(), 6, 200, 100);
         assert_eq!((f.x, f.y, f.width, f.height), (20.0, 60.0, 40.0, 30.0));
         assert_eq!((f.left_eye, f.right_eye), ((25.0, 85.0), (26.0, 65.0)));
+        assert_eq!(f.nose, (35.0, 75.0));
+        assert_eq!((f.mouth_left, f.mouth_right), ((48.0, 82.0), (49.0, 68.0)));
         let f = to_stored(upright(), 8, 200, 100);
         assert_eq!((f.x, f.y, f.width, f.height), (140.0, 10.0, 40.0, 30.0));
         assert_eq!((f.left_eye, f.right_eye), ((175.0, 15.0), (174.0, 35.0)));
+        assert_eq!(f.nose, (165.0, 25.0));
+        assert_eq!(
+            (f.mouth_left, f.mouth_right),
+            ((152.0, 18.0), (151.0, 32.0))
+        );
         let f = to_stored(upright(), 3, 200, 100);
         assert_eq!((f.x, f.y, f.width, f.height), (160.0, 40.0, 30.0, 40.0));
         assert_eq!((f.left_eye, f.right_eye), ((185.0, 75.0), (165.0, 74.0)));
+        assert_eq!(f.nose, (175.0, 65.0));
+        assert_eq!(
+            (f.mouth_left, f.mouth_right),
+            ((182.0, 52.0), (168.0, 51.0))
+        );
         assert_eq!(to_stored(upright(), 1, 200, 100), upright());
     }
 
@@ -569,9 +610,11 @@ mod tests {
     fn face_to_upright_is_the_inverse_of_to_stored() {
         for orientation in [1, 3, 6, 8] {
             let stored = to_stored(upright(), orientation, 200, 100);
+            let back = face_to_upright(stored, orientation, 200, 100);
+            assert_eq!(back, upright(), "orientation {orientation}");
             assert_eq!(
-                face_to_upright(stored, orientation, 200, 100),
-                upright(),
+                (back.nose, back.mouth_left, back.mouth_right),
+                ((25.0, 35.0), (18.0, 48.0), (32.0, 49.0)),
                 "orientation {orientation}"
             );
         }
@@ -590,6 +633,9 @@ mod tests {
                     score: 1.0,
                     left_eye: p,
                     right_eye: p,
+                    nose: p,
+                    mouth_left: p,
+                    mouth_right: p,
                 };
                 let stored = point_to_stored(p, orientation, w, h);
                 let face = to_stored(at, orientation, w, h);
@@ -625,6 +671,9 @@ mod tests {
                     score: 1.0,
                     left_eye: (0.0, 0.0),
                     right_eye: (0.0, 0.0),
+                    nose: (0.0, 0.0),
+                    mouth_left: (0.0, 0.0),
+                    mouth_right: (0.0, 0.0),
                 };
                 let back = to_stored(at, orientation, w, h);
                 assert!(
@@ -683,7 +732,8 @@ mod tests {
         cls[i] = 0.9;
         obj[i] = 0.9;
         bbox[i * 4..i * 4 + 4].copy_from_slice(&[0.5, 0.5, 2f32.ln(), 1f32.ln()]);
-        kps[i * 10..i * 10 + 4].copy_from_slice(&[0.75, 0.25, 0.25, 0.25]);
+        kps[i * 10..i * 10 + 10]
+            .copy_from_slice(&[0.75, 0.25, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 0.25, 0.75]);
         let mut faces = Vec::new();
         decode_stride(8, cols, &cls, &obj, &bbox, &kps, &mut faces);
         assert_eq!(faces.len(), 1);
@@ -695,6 +745,9 @@ mod tests {
         assert!((f.height - 8.0).abs() < 1e-4);
         assert_eq!(f.left_eye, (18.0, 10.0));
         assert_eq!(f.right_eye, (22.0, 10.0));
+        assert_eq!(f.nose, (20.0, 12.0));
+        assert_eq!(f.mouth_left, (18.0, 14.0));
+        assert_eq!(f.mouth_right, (22.0, 14.0));
     }
 
     #[test]
@@ -785,6 +838,9 @@ mod tests {
             score: 0.9,
             left_eye: (660.0, 400.0),
             right_eye: (780.0, 402.0),
+            nose: (720.0, 460.0),
+            mouth_left: (670.0, 520.0),
+            mouth_right: (770.0, 522.0),
         };
         for orientation in [1, 3, 6, 8] {
             let (sw, sh) = if matches!(orientation, 6 | 8) {
@@ -800,6 +856,9 @@ mod tests {
                 height: on_full.height * ky,
                 left_eye: (on_full.left_eye.0 * kx, on_full.left_eye.1 * ky),
                 right_eye: (on_full.right_eye.0 * kx, on_full.right_eye.1 * ky),
+                nose: (on_full.nose.0 * kx, on_full.nose.1 * ky),
+                mouth_left: (on_full.mouth_left.0 * kx, on_full.mouth_left.1 * ky),
+                mouth_right: (on_full.mouth_right.0 * kx, on_full.mouth_right.1 * ky),
                 ..on_full
             };
             let want = to_stored(on_full, orientation, stored.0, stored.1);
@@ -813,7 +872,13 @@ mod tests {
                     && close(got.left_eye.0, want.left_eye.0)
                     && close(got.left_eye.1, want.left_eye.1)
                     && close(got.right_eye.0, want.right_eye.0)
-                    && close(got.right_eye.1, want.right_eye.1),
+                    && close(got.right_eye.1, want.right_eye.1)
+                    && close(got.nose.0, want.nose.0)
+                    && close(got.nose.1, want.nose.1)
+                    && close(got.mouth_left.0, want.mouth_left.0)
+                    && close(got.mouth_left.1, want.mouth_left.1)
+                    && close(got.mouth_right.0, want.mouth_right.0)
+                    && close(got.mouth_right.1, want.mouth_right.1),
                 "orientation {orientation}: {got:?} against {want:?}"
             );
             assert_eq!(got.score, 0.9);

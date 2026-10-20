@@ -436,6 +436,9 @@ mod tests {
             score: 0.9,
             left_eye: (15.0, 25.0),
             right_eye: (35.0, 26.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         }
     }
 
@@ -460,6 +463,9 @@ mod tests {
             score,
             left_eye: (x + side / 4.0, side / 3.0),
             right_eye: (x + side * 3.0 / 4.0, side / 3.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         };
         let faces = [
             at(0.0, 100.0, 0.9),
