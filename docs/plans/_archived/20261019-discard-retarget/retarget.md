@@ -11,7 +11,7 @@ of this plan in `D:\Photos\tests\2026-10-19-discard-retarget\` were
 merged on its own, before `retargetfit.py` or `retargetread.py` exists; the
 merge commit of the PR that adds this section, without results, is the
 record, as for the archived
-[discard filter evaluation](../_archived/20261018-discard-labels/discard.md)
+[discard filter evaluation](../20261018-discard-labels/discard.md)
 before it. Nothing in this section changes after the new scores exist; a
 deviation found while implementing Steps 3–5 is recorded in `learnings.md`
 with its reason and does not touch the bars.
@@ -27,7 +27,7 @@ Which follow-up, if any, deserves its own plan?
 
 This pre-registration is **not blind** to `G0`'s reading of the same labels.
 On the same dump of 27 folders and 32,459 frames and the same 600 labels,
-the archived [discard.md](../_archived/20261018-discard-labels/discard.md)
+the archived [discard.md](../20261018-discard-labels/discard.md)
 "Results" read:
 
 - **Discardable base rate 48.45% [42.03, 55.11]** of the population's frames
