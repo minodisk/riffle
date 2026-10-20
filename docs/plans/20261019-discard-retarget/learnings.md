@@ -81,6 +81,57 @@
   reads it; the coherence check reads each new cell's own bottom bands
   (per-folder q5, 5–10%, 10–20%, above 20%).
 
+## Step 3: `retargetfit.py`
+
+- **Run**: `python -I -B retargetfit.py D:\Photos\tests\2026-10-12-rank-app
+  D:\Photos\tests\2026-10-15-folder-wide-eval
+  D:\Photos\tests\2026-10-16-reject-filter-eval
+  D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+  D:\Photos\tests\2026-10-19-discard-retarget 8` in the background; it wrote
+  `scores_retarget.tsv` (full `repr` precision, so Step 4's cuts see no rounding
+  ties) and `retargetfit.out.md` into
+  `D:\Photos\tests\2026-10-19-discard-retarget\`.
+- **No new score was read against `labels.tsv`.** The labels entered the
+  training of `D0` / `D0+B` only (target and `1/π` weights of the other
+  folders' labeled frames); no `DP`, `RR` or AUC was computed. The strict
+  sample's `manifest.tsv` was read for the population only; its `labels.tsv`
+  was not opened. `<folder-wide-eval-dir>` is accepted but not read, so the
+  command line matches Step 4's.
+- **Imports**: `badfilter` first, then `_archived/20261018-discard-labels` on
+  `sys.path` and `discardfilter` (its `QS`, `PL_BAR`, `REMOVED_BAR`), then
+  `burstfeat` from this folder for the B recomputation.
+- **Wall times (8 jobs)**: load 5 s (dump, stored `G0`, the B file and its
+  recomputation, labels), `G0+B` 32 s, `D0` 15 s, `D0+B` 16 s, the two
+  spot-fold check fits 7 s; total 75 s. Far below the plan's worry: the 27 HGB
+  fits on about 31k rows are as fast as `rejectfilter`'s `G0` (17 s).
+- **Per-fold training**: `G0+B` 27,629–32,441 frames, Kish ESS 2,224–3,018
+  (the per-folder class weights); `D0` / `D0+B` 504–597 labeled frames with
+  310–389 `discard`, Kish ESS of `1/π` **166.1–195.0**, so the heavy control
+  weights cut the effective training set to about a third of the frames.
+- **Label-free cuts** (removed % population / `PL` % full dump; the two
+  label-free bars `PL` <= 5% and removed >= 4.5%):
+
+  | Score | q5 | q10 | q20 |
+  | --- | ---: | ---: | ---: |
+  | `G0` (stored, reference) | 4.92 / 0.68 | 9.87 / 2.10 | 19.80 / 5.18 (`PL` fails) |
+  | `G0+B` | 4.91 / 0.77 | 9.87 / 2.04 | 19.83 / 4.93 |
+  | `D0` | 4.97 / 2.29 | 9.97 / 4.84 | 20.02 / 11.59 (`PL` fails) |
+  | `D0+B` | 4.96 / 2.26 | 10.00 / 5.09 (`PL` fails) | 20.02 / 11.38 (`PL` fails) |
+
+  Every cut removes >= 4.5%. So by the label-free conditions alone the
+  candidates left for Step 4 are `G0+B` q5 / q10 / q20, `D0` q5 / q10 and
+  `D0+B` q5; `D0` q20, `D0+B` q10 and `D0+B` q20 are already not usable. The
+  discard target puts about 3x more picks into the cut at q5 and about 2.2–2.5x at q10 / q20 than the pick target, as
+  expected (24.4% of the sampled picks are labeled `discard`). The stored
+  `G0` rows reproduce discard.md's removed shares and `PL` exactly.
+- **Checks, all pass**: `burst_features.tsv` equals Step 1's `features`
+  recomputed (NaN pattern and values); on the spot fold `2026-09-27-a`
+  (the largest, 4,830 frames) both `G0+B` with the B columns zeroed and a
+  `rejectfilter.g0_fold` refit match the stored `G0` to 5.0e-06 max abs (the
+  6-significant-digit rounding of `scores_reject.tsv`), so appending columns
+  does not perturb HGB; every score of the three cells finite on all 32,459
+  frames; no labeled training frame is in the strict sample.
+
 ## Deferred issues (todo candidates)
 
-- None from Step 1.
+- None from Step 1 or Step 3.
