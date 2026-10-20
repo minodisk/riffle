@@ -349,7 +349,7 @@ labels, or nothing. **No app code changes in this plan.**
       `counts`, `unweighted`, `bf.graded_cut`, `bf.aucs`, the count
       matrices. Metric-only work, seconds to run; no refit.
 
-- [ ] Step 5: The Decision
+- [x] Step 5: The Decision
   - Done when:
     - A "Decision" section in this plan, written against the Step 2 bars
       with the numbers that decided it: (1) effect A (does the discard
@@ -416,6 +416,156 @@ labels, or nothing. **No app code changes in this plan.**
   paired A / B effects with intervals, and a Decision that says whether the
   target or the features were the problem.
 
+## Decision (effects A and B, no usable discard cut, follow-up: nothing)
+
+Written 2026-10-20 at Step 5, after the Step 4 Results existed, against the
+bars pre-registered in Step 2 (the chosen looser bar: weighted `RR` <= 25%
+with its stratified 97.5% quantile <= 35%, `PL` <= 5% on the full dump,
+removed share >= 4.5% of the population's frames, `DP`'s stratified 2.5%
+quantile above the 48.45% base rate, and `DP` above `G0`'s at the same `q`
+with the paired 2.5% quantile above zero). Every number is weighted to the
+population of 31,259 frames (`1/π`) with the stratified bootstrap 95%
+interval and comes from [retarget.md](retarget.md) "Results", except the
+Kish effective sample sizes, which are Step 3's label-free readings
+(`learnings.md`, Step 3). No bar was changed after the labels were read.
+
+**1. Effect A (retarget): the discard target orders the labels better
+overall but cuts worse at the bottom.** Threshold-free, `D0` reads AUC 0.761
+[0.697, 0.827] against `G0`'s 0.710 [0.646, 0.771], effect A +0.050
+[-0.017, +0.126], an interval spanning zero (with B: +0.042 [-0.027,
++0.120]). At every cut the discard target is worse:
+
+| Cut | `D0` − `G0`, `DP` points | `D0` − `G0`, `DR` points | `RR` % `G0` / `D0` / `D0+B` | `PL` % `G0` / `D0` / `D0+B` |
+| ---: | ---: | ---: | ---: | ---: |
+| q5 | -23.2 [-48.1, +10.2] | -3.1 [-5.6, +0.1] | 17.3 / 40.5 / 32.7 | 0.68 / 2.29 / 2.26 |
+| q10 | -11.0 [-30.4, +8.9] | -4.5 [-8.8, +0.3] | 23.7 / 34.7 / 42.7 | 2.10 / 4.84 / 5.09 |
+| q20 | -5.6 [-18.6, +7.6] | -3.3 [-10.9, +4.8] | 27.9 / 33.5 / 35.3 | 5.18 / 11.59 / 11.38 |
+
+So `D0` and `D0+B` rescue 32.7–42.7% of what they remove, put 2.2–3.4 times
+more of the picks into the cut, and have the lower `DP` (and the lower `DR`
+in every `D0` − `G0` point). With B the paired `DP` effect is below zero at
+q10 (`D0+B` − `G0+B` -20.5 [-38.0, -2.2]; A+B -19.0 [-36.7, -0.8]); every
+other A interval spans zero. A higher AUC with worse bottom cuts is not a
+contradiction: the AUC reads the whole order, the bars only its bottom 5–20%
+of each folder. Likely reasons, **hypotheses that this plan did not test**:
+
+- **A small effective training set**: a `D0` fold trains on 504–597 labeled
+  frames but their `1/π` weights give a Kish ESS of only 166.1–195.0, so
+  the model effectively saw about a third of its frames, and mostly the
+  heavily weighted controls.
+- **The heavy `1/π` of the keep frames inside the cut**: the unweighted
+  `RR` of the discard cells is 13.8–18.4% against 32.7–42.7% weighted, so
+  the few keep frames they remove carry large weights (likely controls of
+  large folders, at up to 238 each; which strata they come from was not
+  read). The weighted bottom cut is thus decided by a handful of frames,
+  and its intervals are wide (`D0` q5 `RR` [6.7, 65.0]).
+- **The target does not protect picks**: 24.4% [8.6, 42.8] of the sampled
+  picks are labeled `discard` (discard-labels), so a model of `discard`
+  has no reason to keep picks out of its cut, and `PL` rises accordingly
+  (q5 2.26–2.29% against 0.68%).
+
+**2. Effect B and the interaction are near zero on `DP`.** `G0+B` − `G0`:
+`DP` -1.9 [-6.5, +2.9], +1.4 [-2.9, +5.9], +0.3 [-7.8, +6.7] at q5 / q10 /
+q20; `D0+B` − `D0`: +7.9 [-3.1, +19.6], -8.0 [-25.2, +5.6], -1.9 [-7.9,
++4.2]; the interaction +9.7 [-2.7, +22.0] (cluster [+2.3, +18.8]), -9.5
+[-26.8, +4.9], -2.2 [-11.4, +8.3]. On the discard target B raises `DR` a
+little at q10, +4.5 [+0.4, +9.4] (interaction +5.8 [+1.5, +10.9]), while
+it lowers the AUC on both targets (`G0+B` − `G0` -0.021 [-0.046, +0.002],
+`D0+B` − `D0` -0.029 [-0.052, -0.007]). The near-zero B effect fits
+Step 1's label-free table: the two sharpness columns largely restate `G0`'s
+`tech[:, 0]` (Spearman +0.694 for `sharp_z`, -0.652 for `sharp_rank`) and
+`ef_gap` partly does (+0.359, and -0.467 with log burst size), so these
+three add little beyond the base features; `nn_cos`, `ef_rank` and
+`ear_rank` are new information (|rho| <= 0.145) that did not move `DP`
+either. "Already captured" and "not useful here" cannot be told apart on
+these labels.
+
+**3. No usable discard cut exists, under the chosen bar or the rejected
+one; there is no best cut.** Per new cell (retarget.md, "The bars applied"):
+
+- `G0+B` q5 and q10 meet conditions 1–4 (`RR` 19.2 [13.1, 25.8] and 22.2
+  [16.9, 27.9], `PL` 0.77 / 2.04%, removed 4.91 / 9.87%, `DP` 2.5% quantile
+  74.2 / 72.1) and fail condition 5: their `DP` differs from `G0`'s by
+  -1.9 [-6.5, +2.9] and +1.4 [-2.9, +5.9] points. That is the nearest cut:
+  `G0+B` q10 would hide 9.87% of the frames, lose 2.04% of the picks, have
+  22.2% of what it hides rescued and miss 85.7% [83.1, 88.0] of the
+  discardable frames, which is what `G0` q10 already does (23.7%, 2.10%,
+  84.5%). `G0+B` q20 fails `RR` (27.5, quantile 35.9).
+- `D0` and `D0+B` fail `RR` at every cut (32.7–42.7%) and the base-rate
+  condition at q5 and q10 (`DP` 2.5% quantiles 35.0–46.6), and `PL` at q20
+  (11.59 / 11.38%) and for `D0+B` at q10 (5.09%).
+- Under the rejected bar (`RR` <= 15%, quantile <= 25%) no new cell comes
+  near: the lowest weighted `RR` is `G0+B` q5's 19.2%.
+
+As the pre-registration required: under the chosen bar `G0` itself meets
+conditions 1–4 at q5 and q10 (`RR` 17.3 [11.3, 24.0] and 23.7 [18.7,
+28.7]), so a pass of `G0+B` at those depths would have rested on condition
+5 alone, and its meeting conditions 1–4 is not read as an improvement.
+
+**4. Against `eye_focus` and random.** `eye_focus` (missing last) is still
+the best single score, AUC 0.777 [0.716, 0.841], above every new cell
+(`G0+B` − `eye_focus` -0.088 [-0.166, -0.020], `D0` -0.017 [-0.059,
++0.026], `D0+B` -0.046 [-0.085, -0.006]), and it keeps the lowest `RR` (q5
+16.8 [1.2, 43.3], q10 14.3 [2.9, 29.9]), but at a high `PL` (4.44 / 9.14 /
+15.59% at q5 / q10 / q20), so it is not a cut either (q5 fails the `RR`
+quantile, q10 fails `PL`). Against random, every new cell's AUC lead is
+separated from zero (`G0+B` +0.161, `D0` +0.233, `D0+B` +0.203), and under
+the base-rate form `G0+B` beats random at every `q` (`DP` 2.5% quantiles
+74.2 / 72.1 / 64.1), `D0` and `D0+B` only at q20 (53.7 / 52.3). The paired
+`DP` against the seed-0 random cut is separated from zero only for `G0+B`
+q20 (+16.4 [+2.0, +31.7]).
+
+**5. Recommendation: nothing.** By the pre-registered follow-up rule there
+is no usable cut (branch 1 does not apply), and neither effect A nor A+B is
+positive at q5 (`D0` − `G0` -23.2 [-48.1, +10.2], `D0+B` − `G0` -15.3
+[-43.9, +11.8], both points below zero and both 2.5% quantiles far below
+it), so branch 2 does not apply; **branch 3, nothing**. No later plan is
+recommended by this round, and no app change follows from it.
+
+Weighed against it:
+
+- **Selection bias** ran in the new cells' favor: the retarget and the
+  cue-like B columns were chosen after reading `G0`'s and `eye_focus`'s
+  numbers on these 600 labels, and `D0` / `D0+B` are trained on them. A
+  bias toward the new cells that still leaves them below `G0` at every cut
+  does not weaken the negative reading; what it does not cover is the
+  training variance of `D0` / `D0+B` (504–597 frames, ESS 166–195), which
+  the bootstrap holds fixed, so effect A is less certain than its intervals
+  show.
+- **Multiplicity**: about 84 paired intervals were read without correction.
+  The few that exclude zero (A and A+B in `DP` at q10, B's `DR` gain and
+  the interaction at q10 on the discard target, the AUC losses of B) are
+  lone readings at one depth and are not read as findings; none of them
+  bears on the rule's inputs, which are not near their thresholds.
+
+The recommendation would change:
+
+- to **more labels** (branch 2) only through a new pre-registered round
+  that tests the hypotheses of item 1, for example more blind controls to
+  lift the ESS and lighten the `1/π` of the keep frames, a clipped-weight
+  or a linear `D0` (named in Trade-offs, not run here), or a target that
+  protects picks; sized at about 3 s per frame (600 frames about 30 minutes,
+  1,000 about 50 minutes). This round gives no evidence that such a round
+  would pass, only a discard-target AUC above `G0`'s whose interval spans
+  zero;
+- to **an in-app discard candidates view** only if a fresh blind round put
+  a cut of a new model over every bar of the chosen option, condition 5
+  included.
+
+**Facts the user may weigh, not a recommendation.** Under the chosen looser
+bar `G0` itself meets conditions 1–4 at q5 and q10 (`RR` 17.3 [11.3, 24.0]
+and 23.7 [18.7, 28.7], folder-cluster 97.5% quantiles 25.7 and 32.8; `PL`
+0.68 and 2.10%; removed 4.92 and 9.87%; `DP` 2.5% quantiles 76.0 and 71.3).
+The only condition it was never tested on is condition 5, "beats `G0`",
+which by definition it cannot meet; `G0` was a reference, not a candidate.
+That makes a separate question possible, which this plan does not answer:
+**is the existing `G0` at q5–q10, sorted last, worth shipping as it is?**
+Answering it would need its own pre-registered question and bars, and a
+fresh blind confirmation round, because the looser bar was chosen after
+`G0`'s numbers on these labels were read and because of the automation-bias
+finding of discard-labels (the unblinded 70 of 71 against the blind `RR@5`
+17.3%). It is left to the user as a question only.
+
 ## Progress
 
 - (2026-10-19) Plan written; the four choices decided by the user (see
@@ -426,3 +576,4 @@ labels, or nothing. **No app code changes in this plan.**
 - (2026-10-20) Step 2 complete
 - (2026-10-20) Step 3 complete
 - (2026-10-20) Step 4 complete
+- (2026-10-20) Step 5 complete
