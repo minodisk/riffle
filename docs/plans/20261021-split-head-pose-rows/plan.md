@@ -88,4 +88,4 @@ compared at a glance.
 
 ## Progress
 
-- (none yet)
+- 2026-10-21: Step 1 done (meta rows split into Yaw / Pitch / Roll; poseValue removed; docs and todo.md reworded)
