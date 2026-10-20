@@ -426,8 +426,9 @@ quantile above the 48.45% base rate, and `DP` above `G0`'s at the same `q`
 with the paired 2.5% quantile above zero). Every number is weighted to the
 population of 31,259 frames (`1/π`) with the stratified bootstrap 95%
 interval and comes from [retarget.md](retarget.md) "Results", except the
-Kish effective sample sizes, which are Step 3's label-free readings
-(`learnings.md`, Step 3). No bar was changed after the labels were read.
+Kish effective sample sizes (Step 3's label-free readings, `learnings.md`,
+Step 3) and the Step 1 Spearman correlations (`learnings.md`, Step 1; most
+of them also in retarget.md's Pre-registration). No bar was changed after the labels were read.
 
 **1. Effect A (retarget): the discard target orders the labels better
 overall but cuts worse at the bottom.** Threshold-free, `D0` reads AUC 0.761
@@ -533,8 +534,10 @@ Weighed against it:
   the bootstrap holds fixed, so effect A is less certain than its intervals
   show.
 - **Multiplicity**: about 84 paired intervals were read without correction.
-  The few that exclude zero (A and A+B in `DP` at q10, B's `DR` gain and
-  the interaction at q10 on the discard target, the AUC losses of B) are
+  Among the A / B / interaction effects, the few that exclude zero (A and
+  A+B in `DP` at q10, B's `DR` gain and the interaction at q10 on the
+  discard target, B's AUC loss on the discard target) and several of the
+  reference comparisons of item 4 are
   lone readings at one depth and are not read as findings; none of them
   bears on the rule's inputs, which are not near their thresholds.
 
