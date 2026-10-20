@@ -18,7 +18,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 
 ## Purpose
 
-The archived [discard-labels](../_archived/20261018-discard-labels/plan.md)
+The archived [discard-labels](../20261018-discard-labels/plan.md)
 plan measured `G0` (gradient boosting on the `F0+ctx` columns, trained on
 **pick vs non-pick**, held out by folder) against 600 blind "OK to discard?"
 labels and found no usable "hide / sort last" cut: q5 rescue rate `RR`
