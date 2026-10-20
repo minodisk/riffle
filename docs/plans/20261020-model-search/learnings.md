@@ -122,7 +122,64 @@
 - **Tripped**: a stray `python3 -` (meant as a no-op) hung on the Git Bash
   stub as the plan warns; it was killed by PID. Use script files only.
 
+## Step 3: `searchread.py`, the exploration read
+
+- **Run**: `python -I -B searchread.py` with the seven directories and 8
+  jobs, from the scratchpad: 33 s (load 5 s, cuts and metrics 1 s, the AUC
+  bootstraps of 75 scores 26 s with `retargetread.auc_of` per draw in a
+  joblib loop over the scores); `--check-all` alone 4 s. Every reference
+  check passes digit for digit (discard.md's `G0` / `eye_focus` / random,
+  retarget.md's `D0` AUC, folderwide.out.md's `W0` / `F0+ctx`, the
+  rejectfilter `G0` frame AUC 0.670).
+- **Guard kept**: the pick task read the 18 qualifying exploration folders
+  of `scores_pick.tsv` only (a check row counts 0 lockbox folders among
+  them); `--check-all` loads no candidate file. Step 5 is the first read of
+  the lockbox folders' picks against a candidate.
+- **Winners by the rule**: discard `G0 ⊕ ef` (runner-up `All@32 / LR-L2 /
+  discard`); pick `All@32 / HGB-mono / pick` (runner-up `G0 ⊕ ef`). No
+  candidate's mean `P@10` reaches `W0`'s on the exploration folders.
+- **Choices the text left open**:
+  - `--check-all` is a separate invocation that runs only the pick task's
+    code path on the 25 qualifying folders of all 27 for the stored `W0`,
+    `F0+ctx` and `G0` and writes `searchread.check-all.out.md`; the main run
+    runs the same function and prints its rows among the reference checks.
+  - The top-`q` order is `np.lexsort((-tiebreak, -score))`, the reverse of
+    `rf.bottom` and the order `folderwide.r_precision` uses; `k = floor(q *
+    n / 100)` (>= 2 on a qualifying folder). The lift check uses
+    `folder_gate`'s `ceil(n / 10)`.
+  - "Pooled" is `folderwide.pooled`, the frame-weighted mean of the
+    per-folder values (as folderwide.out.md's "Pooled"), not a ratio of
+    sums.
+  - `eye_focus` in the pick task is missing last as `-inf` (as
+    `folderwide`'s `EYE`); in the AUC as `bf.finite_by_folder`'s folder
+    minimum minus 1.
+  - `W0` has no score in `2026-07-23` (4 sampled frames): its cuts leave the
+    folder out and its AUC is read on the other 596 labels; its paired AUC
+    differences are not printed. Every candidate covers every frame.
+  - The reading aids' "against `G0`" is the stored `G0` on both sides; on
+    the pick side it was trained with the lockbox folders, the pick-set
+    candidates without (the pick set's own `All@32 / HGB / pick` reads −1.6
+    points of `P@10` against it). The target comparison is printed as the
+    paired discard-target minus pick-target difference per design (each
+    target's difference against `G0` is in the dimension-curve tables).
+  - The two label-free combinations on the pick winner are read on both
+    tasks (pick fit set for the pick side, discard fit set for the discard
+    side), point values only.
+  - The full tables (every score and cut with cluster intervals, every
+    candidate's pick row and paired differences, every reading aid with its
+    intervals) are in `searchread.out.md` only; modelsearch.md carries the
+    selection tables, the winners beside the references and the reading
+    aids as point matrices plus the `All@32` form comparison and the
+    combinations with intervals.
+- **Facts for Step 4 to weigh** (no bar applied here): the 600 labels were
+  drawn in `G0`'s bands, and the discard winner mixes the ranks of `G0` and
+  `eye_focus`, the two scores the design was chosen after; three `LR-L1`
+  discard-target models read AUC − `eye_focus` with the stratified 2.5%
+  quantile above zero, two of them failing the q10 `PL` condition, so the
+  rule did not select them.
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1.
 - None from Step 2.
+- None from Step 3.

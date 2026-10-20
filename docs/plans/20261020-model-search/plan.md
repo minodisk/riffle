@@ -295,7 +295,7 @@ the top rather than the bottom, the text says so.
       under about an hour; if a form is much slower (L1 with `saga`), note
       it and keep going.
 
-- [ ] Step 3: `searchread.py`, the exploration read of both tasks and the winners by the pre-registered rule
+- [x] Step 3: `searchread.py`, the exploration read of both tasks and the winners by the pre-registered rule
   - Done when:
     - `searchread.py` in this plan folder (same arguments as Step 2)
       loads the dump, the stored scores, the candidate scores, the discard
@@ -462,3 +462,4 @@ the top rather than the bottom, the text says so.
   "Choices")
 - (2026-10-20) Step 1 complete
 - (2026-10-21) Step 2 complete
+- (2026-10-21) Step 3 complete
