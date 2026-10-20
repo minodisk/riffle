@@ -230,6 +230,54 @@
   the same sample as the `--no-copy` run (its tables are identical). Every
   copy check passes.
 
+## Step 5: the confirmatory read
+
+- **Labeling session**: the user labeled `sample\` and said "done"; about
+  **15 minutes** for 600 frames, about **1.5 s per frame**, half the
+  pre-registered estimate (about 3 s per frame, about 30 minutes, from the
+  discard-labels round). No odd frame was reported. The user confirmed that
+  `aiEnabled` stayed off throughout labeling. A later "more labels" round
+  sized at 3 s per frame is therefore likely to take about half its estimate.
+- **`confirmlabels.py`**: loads the archived discard-labels `labels.py` by
+  path (`importlib`, module name `discard_labels`) and reuses its `xmp_of`,
+  `dop_of`, `read` and `table`; its own `main` is that file's with `KEPT`
+  minus `strict_label` and the five strata. Runs in about a second; 600
+  labeled (248 keep / 352 discard), 248 `.dop` + `.xmp` pairs, 0
+  disagreements, **0 unexpected marks**, 0 skipped; stdout saved as
+  `confirmlabels.out.md` in the data folder.
+- **`confirmread.py`**: imports `badfilter` first, then this plan's
+  `searchread` (which brings `discardfilter`, `retargetread` and
+  `searchfit`) and reuses `pick_task`, `pdiff`, `summ`, `auc_draws`; the
+  count matrix is `discardfilter.counts` with the cell list `b05`, `b10`,
+  `b20`, `g0only`, `rest` (the `control` folder cells). It refuses to run
+  when `confirmread.out.md` exists, and every computation (cuts, AUC
+  bootstraps, the pick fits) runs before anything is printed, with the checks
+  printed before the results; it ran **once**, every check passing.
+- **Choices the text left open**:
+  - The pick winner's single fit is a local `pick_fit` replicating
+    `searchfit.fold` for `All@32 / HGB-mono / pick` but scoring every lockbox
+    frame from one model; checked by refitting it on 19 exploration folders,
+    which reproduces `scores_pick.tsv` on the spot fold exactly.
+  - "Fragile" is computed per cut as any of conditions 1, 4, 5, 6 failing on
+    the cluster interval; no cut passed, so it never applied.
+  - The follow-up's first "close" branch is read as: at q5 or q10 the `RR`
+    point <= 25% with conditions 2 and 3 holding (every other condition is
+    then a quantile or "beats" one). The pick "close" branch is read
+    literally (gain positive and interval spanning zero).
+  - Pick bar 1 uses the difference of the means, equal to the mean paired
+    difference on the same 7 folders.
+- **Wall time far above the reference**: 2,759 s in total (load 264 s
+  against 5 s in Step 3; the AUC bootstraps of 4 scores 204 s against 26 s
+  for 75; the two `HGB-mono` fits 2,286 s against about 25 s each in Step 2).
+  The machine was under heavy load from other processes during the run
+  (about a dozen other `python.exe` in the task list); the results do not
+  depend on it. The run went past a 10-minute tool call, so it continued in
+  the background and was waited on.
+- **Results**: discard winner does not pass (condition 6 fails at every cut;
+  condition 5 also at q5), follow-up (2); pick winner does not pass (all
+  three bars), follow-up (3). Numbers in modelsearch.md, "Results of the
+  confirmation".
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1.
@@ -245,3 +293,7 @@
   copies' bytes; the in-app view is not checked. Step 4's checkbox was
   ticked on the automated criteria. Basis: Step 4 of
   `docs/plans/20261020-model-search/plan.md`, `labeling.md`.
+- None from Step 5. Bearing on the Step 4 pending check: the labeled
+  sidecars hold no mark other than rating 1 and the user reported
+  `aiEnabled` off throughout; whether the sample first opened unjudged in the
+  app was not reported separately.
