@@ -170,7 +170,7 @@ mark bright green and puts the strip's face icon on a good frame, and the
 eyes' openness the meta pane shows, and
 `src/meta.ts` groups the meta pane rows by provenance (EXIF, Maker note
 and Analysis, whose rows include the AF eye in-focus probability and the
-`Eyes` judgment with its openness and `Head pose`, from the values pass 2 stored for
+`Eyes` judgment with its openness and the `Yaw`, `Pitch` and `Roll` of the head pose, from the values pass 2 stored for
 the AF face, else the `eyes_of` judgment, and, while `aiEnabled` is on, the
 personal ranking's place in the burst, reasons and confidence), `src/recommend.ts` decides from a file's
 ranking entry whether the strip marks it with the recommended icon (first

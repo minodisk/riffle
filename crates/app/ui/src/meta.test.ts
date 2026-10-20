@@ -6,7 +6,6 @@ import {
   type Metadata,
   ANALYSIS_HEADING,
   metaGroups,
-  poseValue,
   type Ranking,
 } from "./meta.js";
 import type { Eyes } from "./eyes.js";
@@ -223,15 +222,28 @@ describe("metaGroups", () => {
         heading: ANALYSIS_HEADING,
         rows: [
           { label: "Eyes", value: "Open · 100" },
-          { label: "Head pose", value: "yaw 12°, pitch -5°, roll 4°" },
+          { label: "Yaw", value: "12°" },
+          { label: "Pitch", value: "-5°" },
+          { label: "Roll", value: "4°" },
         ],
       },
     ]);
-    expect(poseValue({ yaw: -110.2, pitch: 0, roll: -1.6 })).toBe("yaw -110°, pitch 0°, roll -2°");
+    const poseRows = (judged: Eyes["pose"]) =>
+      metaGroups(null, null, judgment("open", 0.45, judged))[0]?.rows.slice(1);
+    expect(poseRows({ yaw: -110.2, pitch: 0, roll: -1.6 })).toEqual([
+      { label: "Yaw", value: "-110°" },
+      { label: "Pitch", value: "0°" },
+      { label: "Roll", value: "-2°" },
+    ]);
   });
 
   test("rounds a small negative angle to 0°", () => {
-    expect(poseValue({ yaw: -0.4, pitch: -0.2, roll: -0.49 })).toBe("yaw 0°, pitch 0°, roll 0°");
+    const judged = { yaw: -0.4, pitch: -0.2, roll: -0.49 };
+    expect(metaGroups(null, null, judgment("open", 0.45, judged))[0]?.rows.slice(1)).toEqual([
+      { label: "Yaw", value: "0°" },
+      { label: "Pitch", value: "0°" },
+      { label: "Roll", value: "0°" },
+    ]);
   });
 
   test("leaves out the head pose when it is unknown or the eyes are", () => {
@@ -256,7 +268,9 @@ describe("metaGroups", () => {
     expect(metaGroups(null, focus, undefined)[0]?.rows).toEqual([
       { label: "AF eye in focus", value: "87%" },
       { label: "Eyes", value: "Closed · 0" },
-      { label: "Head pose", value: "yaw 12°, pitch -5°, roll 4°" },
+      { label: "Yaw", value: "12°" },
+      { label: "Pitch", value: "-5°" },
+      { label: "Roll", value: "4°" },
     ]);
   });
 
@@ -265,7 +279,9 @@ describe("metaGroups", () => {
     const pose = { yaw: -20, pitch: 0, roll: 0 };
     expect(metaGroups(null, focus, judgment("open", 0.25, pose))[0]?.rows).toEqual([
       { label: "Eyes", value: "Open · 41" },
-      { label: "Head pose", value: "yaw -20°, pitch 0°, roll 0°" },
+      { label: "Yaw", value: "-20°" },
+      { label: "Pitch", value: "0°" },
+      { label: "Roll", value: "0°" },
     ]);
   });
 
@@ -280,7 +296,9 @@ describe("metaGroups", () => {
     const judged = { yaw: 40, pitch: 0, roll: 0 };
     expect(metaGroups(null, focus, judgment("closed", 0.09, judged))[0]?.rows).toEqual([
       { label: "Eyes", value: "Open · 60" },
-      { label: "Head pose", value: "yaw 1°, pitch 2°, roll 3°" },
+      { label: "Yaw", value: "1°" },
+      { label: "Pitch", value: "2°" },
+      { label: "Roll", value: "3°" },
     ]);
   });
 

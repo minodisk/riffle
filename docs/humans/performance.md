@@ -629,7 +629,7 @@ the 60 px floor the app judges: AUC 0.974, accuracy 0.955, the same precision
 and recall. The random ARW sample alone scores 0.918 (precision 0.85, recall
 0.73), the DNG faces 0.986. A downcast eye reads as closed.
 
-The head pose of the judged face (the meta pane's `Head pose` row) is a
+The head pose of the judged face (the meta pane's `Yaw`, `Pitch` and `Roll` rows) is a
 port of MediaPipe's face geometry pipeline over the points of the same model
 run (`crates/core/src/pose.rs`), so it adds no model run and no decode. The
 solve takes 8.2µs per face at the median (p95 18µs, max 26µs; the 72 judged
