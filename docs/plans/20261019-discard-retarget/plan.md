@@ -282,7 +282,7 @@ labels, or nothing. **No app code changes in this plan.**
       PR; the four choices are recorded under "Choices" here and in
       `retarget.md`.
 
-- [ ] Step 3: `retargetfit.py`, the held-out scores of `G0+B`, `D0` and `D0+B` on every dump frame, with the label-free readings only
+- [x] Step 3: `retargetfit.py`, the held-out scores of `G0+B`, `D0` and `D0+B` on every dump frame, with the label-free readings only
   - Done when:
     - `retargetfit.py` in this plan folder (`python -I -B retargetfit.py
       <app-dump-dir> <folder-wide-eval-dir> <reject-filter-eval-dir>
@@ -424,3 +424,4 @@ labels, or nothing. **No app code changes in this plan.**
   interpreter moved to D:\Photos\tests\.venv-eval after %TEMP%\embedvenv was
   wiped (see learnings.md Step 1)
 - (2026-10-20) Step 2 complete
+- (2026-10-20) Step 3 complete
