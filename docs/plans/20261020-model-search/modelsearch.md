@@ -392,3 +392,337 @@ builds the 3 combinations, both fit sets, and prints only label-free
 readings; Step 3 reads them on both tasks and applies the rules above;
 Step 4 fixes the confirmation's bars and draws the fresh sample; Step 5
 reads once; Step 6 decides.
+
+## Results of the exploration
+
+Run 2026-10-21 by `searchread.py` (`python -I -B searchread.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-19-discard-retarget
+D:\Photos\tests\2026-10-20-model-search 8`), its stdout saved as
+`searchread.out.md` in the data folder; the same command with `--check-all`
+runs only the pick task's code path on all 27 folders for the stored
+references and saves `searchread.check-all.out.md`. The discard task reads
+`scores_discard.tsv` (all 27 folders, the 600 labels: 211 `keep`, 389
+`discard`); the pick task reads `scores_pick.tsv` on the **18 qualifying
+exploration folders only** (22,818 frames, 3,107 picks, chance 13.7%); no
+lockbox folder's picks were read against a candidate. Discard intervals are
+the stratified bootstrap's 95% (1,000 draws, seed 0, one count matrix for
+every score) unless marked cluster; values weighted by `1/π`. Pick intervals
+are the 1,000-draw folder bootstrap (seed 0) of the mean paired per-folder
+difference, with the one-sided Wilcoxon p. Wall time 33 s (load 5 s; cuts
+and metrics 1 s; the AUC bootstraps of 75 scores 26 s on 8 jobs); the
+`--check-all` run 4 s. `searchread.out.md` holds every table in full (the
+discard main table for every score and cut with cluster intervals, the AUC
+table, every candidate's pick row and paired differences, and every reading
+aid with its intervals); below are the parts the selection and the readings
+rest on.
+
+### Reference checks
+
+Every check passes.
+
+| Check | Expected | This run |
+| --- | ---: | ---: |
+| `strata.tsv` rows recomputed from the dump that differ / sampled frames whose band or `π` differ / in the strict sample | 0 of 30 / 0 / 0 / 0 | the same |
+| Sum of `1/π`; discardable base rate % | 31,259.0; 48.45 [42.03, 55.11] | the same |
+| `G0` `DP` % q5 / q10 / q20 | 82.7 [76.0, 88.7] / 76.3 [71.3, 81.3] / 72.1 [67.5, 76.7] | the same |
+| `G0` `RR` % q5 / q10 / q20; `PL` %; cluster `RR` 97.5% quantile | 17.3 / 23.7 / 27.9; 0.68 / 2.10 / 5.18; 25.7 / 32.8 / 36.3 | the same |
+| `G0` / `eye_focus` / random / `D0` AUC | 0.710 [0.646, 0.771] / 0.777 [0.716, 0.841] / 0.528 [0.455, 0.604] / 0.761 [0.697, 0.827] | the same |
+| `eye_focus` `RR` % q5 / q10 / q20; `PL` % | 16.8 [1.2, 43.3] / 14.3 [2.9, 29.9] / 28.3 [15.7, 40.2]; 4.44 / 9.14 / 15.59 | the same |
+| Random `DP` % q5 / q10 / q20; `G0` q5 − random q5 | 52.0 / 61.5 / 56.0; +30.7 [-3.8, +63.9] | the same |
+| Frames left out of a cut over every candidate and `q` | 0 | 0 |
+| Pick fit set finite on the exploration frames, `nan` on the lockbox frames; lockbox folders among the pick task's folders | yes; 0 | yes; 0 |
+| `--check-all` (25 qualifying folders of the 27): `W0` frame AUC (SD) / pooled; R-precision % (SD) / pooled; lift at the top tenth | 0.666 (0.095) / 0.718; 28.6 (10.8) / 34.4; 2.32 (0.82) | the same |
+| `--check-all`: `F0+ctx` frame AUC / pooled; R-precision / pooled; lift | 0.666 (0.102) / 0.727; 27.0 (11.5) / 33.5; 2.08 (0.98) | the same |
+| `--check-all`: `G0` mean frame AUC | 0.670 | 0.670 |
+
+### Discard task: the selection rule applied
+
+43 of the 69 candidates pass the label-free conditions at q10 (`PL` <= 5%
+on the full dump, removed >= 4.5% of the population), all 69 at q5. The
+first 10 by weighted `DP@10` (ties by AUC; the q5 rank among the 69 q5
+passers by `DP@5` beside it):
+
+| Rank | Candidate | `DP@10` % | `RR@10` % | `PL@10` % | Removed q10 % | AUC | `DP@5` % | `PL@5` % | q5 rank |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | `G0 ⊕ ef` | 90.0 [86.1, 93.3] | 10.0 [6.7, 13.9] | 2.10 | 9.95 | 0.763 [0.703, 0.822] | 88.4 [82.9, 93.2] | 0.77 | 11 |
+| 2 | `All@32 / LR-L2 / discard` | 85.9 [78.0, 92.6] | 14.1 [7.4, 22.0] | 2.83 | 9.92 | 0.807 [0.755, 0.857] | 93.5 [87.4, 97.5] | 1.13 | 4 |
+| 3 | `stack` | 83.3 [71.9, 92.5] | 16.7 [7.5, 28.1] | 3.46 | 10.14 | 0.767 [0.703, 0.825] | 89.3 [83.0, 94.4] | 1.40 | 9 |
+| 4 | `All@8 / HGB-mono / pick` | 82.7 [75.0, 88.0] | 17.3 [12.0, 25.0] | 2.96 | 9.97 | 0.673 [0.602, 0.739] | 72.1 [63.0, 81.2] | 1.38 | 47 |
+| 5 | `All@32 / HGB-mono / pick` | 81.7 [76.4, 86.7] | 18.3 [13.3, 23.6] | 2.13 | 9.86 | 0.714 [0.646, 0.775] | 78.9 [72.1, 85.4] | 0.84 | 30 |
+| 6 | `All@8 / LR-L2 / discard` | 80.8 [68.2, 91.9] | 19.2 [8.1, 31.8] | 4.39 | 9.97 | 0.801 [0.743, 0.853] | 74.7 [55.6, 91.9] | 1.90 | 42 |
+| 7 | `All@32 / LR-L1 / discard` | 80.3 [68.4, 91.5] | 19.7 [8.5, 31.6] | 3.71 | 9.98 | 0.787 [0.727, 0.843] | 92.5 [85.8, 96.9] | 1.36 | 6 |
+| 8 | `All@32 / HGB-reg / pick` | 80.3 [74.0, 86.3] | 19.7 [13.7, 26.0] | 2.04 | 9.88 | 0.718 [0.648, 0.777] | 78.6 [70.1, 86.5] | 0.75 | 32 |
+| 9 | `All@8 / HGB-reg / pick` | 80.2 [71.8, 86.9] | 19.8 [13.1, 28.2] | 2.85 | 9.93 | 0.701 [0.630, 0.761] | 80.2 [68.9, 88.3] | 1.15 | 24 |
+| 10 | `G0 \| ef-rule` | 79.7 [72.9, 86.0] | 20.3 [14.0, 27.1] | 2.67 | 10.20 | 0.753 [0.688, 0.813] | 83.8 [76.9, 90.3] | 1.13 | 15 |
+
+The q5 ranking, a reading that does not change the winner (the first 5):
+`All@4 / HGB-reg / discard` 94.9 [88.8, 98.6] (`PL@5` 2.40), `T+C / HGB /
+discard` 94.1, `All@16 / HGB-reg / discard` 93.7, `All@32 / LR-L2 /
+discard` 93.5 (q10 rank 2), `T+C / LR-L1 / discard` 93.1; of these only
+`All@32 / LR-L2 / discard` passes the q10 conditions.
+
+**Discard winner: `G0 ⊕ ef`; runner-up: `All@32 / LR-L2 / discard`.**
+
+### Discard task: the winners beside the references
+
+| Score | q5 `DP` % | q5 `RR` / `PL` % | q10 `DP` % | q10 `RR` / `PL` % | q20 `DP` / `RR` / `PL` % | AUC | AUC cluster |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0 ⊕ ef` (winner) | 88.4 [82.9, 93.2] | 11.6 / 0.77 | 90.0 [86.1, 93.3] | 10.0 / 2.10 | 80.1 / 19.9 / 5.73 | 0.763 [0.703, 0.822] | [0.707, 0.813] |
+| `All@32 / LR-L2 / discard` (runner-up) | 93.5 [87.4, 97.5] | 6.5 / 1.13 | 85.9 [78.0, 92.6] | 14.1 / 2.83 | 74.9 / 25.1 / 8.42 | 0.807 [0.755, 0.857] | [0.745, 0.859] |
+| `G0` | 82.7 [76.0, 88.7] | 17.3 / 0.68 | 76.3 [71.3, 81.3] | 23.7 / 2.10 | 72.1 / 27.9 / 5.18 | 0.710 [0.646, 0.771] | [0.655, 0.759] |
+| `W0` (4 sampled frames out) | 76.9 [63.6, 88.6] | 23.1 / 1.68 | 66.6 [52.5, 80.2] | 33.4 / 4.05 | 64.1 / 35.9 / 7.34 | 0.671 [0.601, 0.737] | |
+| `eye_focus` (missing last) | 83.2 [56.7, 98.8] | 16.8 / 4.44 | 85.7 [70.1, 97.1] | 14.3 / 9.14 | 71.7 / 28.3 / 15.59 | 0.777 [0.716, 0.841] | [0.719, 0.832] |
+| Random (seed 0) | 52.0 [19.8, 85.5] | 48.0 / 4.71 | 61.5 [37.9, 84.8] | 38.5 / 9.48 | 56.0 / 44.0 / 19.26 | 0.528 [0.455, 0.604] | |
+| `D0` (stored, unclipped) | 59.5 [35.0, 93.3] | 40.5 / 2.29 | 65.3 [46.6, 85.9] | 34.7 / 4.84 | 66.5 / 33.5 / 11.59 | 0.761 [0.697, 0.827] | |
+
+Paired differences of the winner (stratified, cluster in parentheses):
+
+| Difference | q5 | q10 | q20 |
+| --- | ---: | ---: | ---: |
+| `G0 ⊕ ef` − `G0`, `DP` points | +5.7 [+0.4, +11.4] ([+0.9, +10.7]) | +13.7 [+9.8, +17.7] ([+9.7, +19.4]) | +8.0 [-1.0, +15.8] ([-0.1, +17.0]) |
+| `G0 ⊕ ef` − `eye_focus`, `DP` points | +5.2 [-11.4, +31.0] ([-11.7, +36.7]) | +4.3 [-7.0, +20.3] ([-6.8, +19.3]) | +8.4 [-4.0, +21.1] ([-2.2, +22.8]) |
+| `G0 ⊕ ef` − random, `DP` points | +36.4 [+2.7, +69.8] ([+3.9, +75.6]) | +28.5 [+4.7, +52.3] ([-2.9, +54.6]) | +24.1 [+5.9, +41.4] ([+6.5, +43.4]) |
+| `G0 ⊕ ef` − `G0`, AUC | +0.053 [+0.008, +0.099] ([+0.010, +0.091]) | | |
+| `G0 ⊕ ef` − `eye_focus`, AUC | -0.015 [-0.062, +0.030] ([-0.071, +0.040]) | | |
+
+The highest AUCs among the candidates, beside `eye_focus`'s (AUC −
+`eye_focus` paired, stratified and cluster); the `All@4` and `All@8`
+`LR-L1 / discard` rows fail the q10 `PL` condition:
+
+| Score | AUC | AUC − `G0` | AUC − `eye_focus` |
+| --- | ---: | ---: | ---: |
+| `All@16 / LR-L1 / discard` | 0.809 [0.753, 0.860] | +0.099 [+0.036, +0.169] | +0.031 [+0.006, +0.056] ([+0.003, +0.064]) |
+| `All@8 / LR-L1 / discard` | 0.808 [0.751, 0.861] | +0.098 [+0.033, +0.168] | +0.031 [+0.004, +0.057] ([+0.004, +0.063]) |
+| `All@4 / LR-L1 / discard` | 0.808 [0.750, 0.862] | +0.098 [+0.034, +0.168] | +0.031 [+0.004, +0.056] ([+0.004, +0.063]) |
+| `All@32 / LR-L2 / discard` | 0.807 [0.755, 0.857] | +0.097 [+0.039, +0.163] | +0.030 [-0.009, +0.068] ([-0.004, +0.071]) |
+| `All@8 / LR-L2 / discard` | 0.801 [0.743, 0.853] | +0.091 [+0.026, +0.157] | +0.023 [-0.015, +0.062] ([-0.008, +0.065]) |
+| `All@16 / LR-L2 / discard` | 0.800 [0.744, 0.850] | +0.089 [+0.027, +0.153] | +0.022 [-0.018, +0.060] ([-0.013, +0.061]) |
+| `All@4 / LR-L2 / discard` | 0.796 [0.737, 0.849] | +0.086 [+0.021, +0.157] | +0.018 [-0.019, +0.053] ([-0.014, +0.058]) |
+| `All@32 / LR-L1 / discard` | 0.787 [0.727, 0.843] | +0.077 [+0.012, +0.151] | +0.010 [-0.026, +0.045] ([-0.022, +0.056]) |
+| `eye_focus` (missing last) | 0.777 [0.716, 0.841] | +0.067 [-0.000, +0.141] | - |
+
+### Pick task: the selection rule applied
+
+On the 18 qualifying exploration folders: mean (per-folder SD); pooled is
+the frame-weighted mean of the per-folder values. References first, then
+the first 10 candidates by mean `P@10` (ties by mean frame AUC).
+
+| Score | `P@5` % | `P@10` % | `P@20` % | `R@10` % | R-precision % | Frame AUC | Pooled `P@10` | `P@10` − `W0`, points | p | Folders at or above `W0` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `W0` | 31.9 (16.4) | 31.2 (11.6) | 26.5 (9.6) | 22.9 (8.7) | 28.5 (11.5) | 0.669 (0.100) | 37.5 | - | - | - |
+| `G0` (stored) | 36.1 (15.2) | 30.6 (13.2) | 26.1 (10.2) | 22.2 (9.2) | 28.4 (11.3) | 0.674 (0.115) | 37.1 | -0.7 [-3.0, +2.2] | 0.8794 | 9 of 18 |
+| `F0+ctx` | 31.1 (17.4) | 27.0 (15.5) | 25.1 (8.8) | 19.9 (11.6) | 26.7 (12.3) | 0.669 (0.106) | 35.7 | -4.2 [-7.4, -1.7] | 0.9995 | 5 of 18 |
+| `D0` | 20.9 (11.9) | 19.1 (10.2) | 19.6 (7.6) | 13.7 (7.0) | 19.1 (9.7) | 0.589 (0.071) | 24.2 | | | |
+| `eye_focus` (missing last) | 18.5 (17.0) | 17.8 (7.9) | 19.5 (7.0) | 12.9 (5.5) | 19.2 (7.8) | 0.578 (0.050) | 19.3 | -13.4 [-18.8, -6.8] | 0.9987 | 2 of 18 |
+| Random (seed 0) | 13.4 (9.5) | 15.3 (8.0) | 15.4 (6.3) | 11.0 (6.2) | 15.0 (6.2) | 0.519 (0.071) | 13.4 | -16.0 [-22.9, -8.2] | 0.9997 | 5 of 18 |
+| 1. `All@32 / HGB-mono / pick` | 32.5 (17.2) | 30.4 (10.7) | 25.3 (8.8) | 22.3 (8.4) | 28.1 (9.6) | 0.671 (0.098) | 36.4 | -0.9 [-2.7, +0.5] | 0.7651 | 12 of 18 |
+| 2. `G0 ⊕ ef` | 29.2 (15.4) | 29.6 (9.8) | 25.0 (7.5) | 21.4 (7.0) | 27.1 (8.7) | 0.664 (0.070) | 32.0 | -1.7 [-5.9, +3.4] | 0.8236 | 7 of 18 |
+| 3. `All@32 / HGB / pick` | | 29.0 (12.7) | | 21.0 (9.3) | | 0.675 (0.096) | | -2.3 [-5.7, +0.4] | 0.9036 | 7 of 18 |
+| 4. `All@32 / HGB-reg / pick` | | 28.7 (11.3) | | 20.8 (8.2) | | 0.654 (0.095) | | -2.6 [-6.0, +0.3] | 0.9465 | 7 of 18 |
+| 5. `G0 \| ef-rule` | | 28.3 (12.1) | | 20.5 (8.8) | | 0.659 (0.078) | | -2.9 [-6.3, -0.2] | 0.9635 | 7 of 18 |
+| 6. `All@4 / HGB-mono / pick` | | 27.8 (8.6) | | 20.4 (6.9) | | 0.652 (0.088) | | -3.4 [-7.4, +1.5] | 0.9899 | 6 of 18 |
+| 7. `All@4 / LR-L2 / pick` | | 27.7 (10.2) | | 20.1 (7.7) | | 0.646 (0.080) | | -3.5 [-6.8, +0.8] | 0.9723 | 5 of 18 |
+| 8. `Emb@32 / HGB / pick` | | 27.7 (11.1) | | 20.3 (8.0) | | 0.637 (0.095) | | -3.5 [-5.3, -1.7] | 0.9990 | 5 of 18 |
+| 9. `Emb@32 / LR-L2 / pick` | | 27.7 (14.2) | | 20.2 (10.0) | | 0.635 (0.114) | | -3.6 [-5.5, -1.5] | 0.9960 | 5 of 18 |
+| 10. `All@16 / LR-L2 / pick` | | 27.6 (11.0) | | 20.2 (8.0) | | 0.659 (0.097) | | -3.6 [-5.5, -1.9] | 0.9999 | 5 of 18 |
+
+The pick fit set's combinations (`G0 ⊕ ef`, `G0 | ef-rule`) are built from
+its own `All@32 / HGB / pick`, not the stored `G0`. The pick winner against
+the stored `G0`: `P@10` −0.2 [-2.6, +1.9] (p 0.3934); frame AUC against
+`W0` +0.002 [-0.024, +0.021].
+
+**Pick winner: `All@32 / HGB-mono / pick`; runner-up: `G0 ⊕ ef`.**
+
+### Reading aids
+
+Paired differences against the stored `G0`, point values; the intervals of
+every cell are in `searchread.out.md`. Discard side on the discard fit set
+(600 labels); pick side on the pick fit set (18 folders). `HGB-mono` is not
+defined on `Emb@*`.
+
+`DP@10` − `G0`, points (discard task):
+
+| Form / target | `T+C` | `All@4` | `All@8` | `All@16` | `All@32` | `Emb@8` | `Emb@32` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `HGB` / `pick` | -8.9 | -7.0 | +0.3 | -0.9 | +0.0 | -20.0 | -22.0 |
+| `HGB-reg` / `pick` | -10.0 | +1.8 | +3.9 | +2.7 | +4.0 | -5.3 | +1.6 |
+| `HGB-mono` / `pick` | +2.7 | +2.6 | +6.4 | +1.7 | +5.3 | - | - |
+| `LR-L2` / `pick` | -19.5 | -6.7 | +0.6 | -2.1 | -5.6 | -4.8 | +0.3 |
+| `LR-L1` / `pick` | -23.4 | +0.2 | -1.3 | -2.1 | -7.5 | -4.7 | +0.4 |
+| `HGB` / `discard` | +14.8 | -20.3 | +1.9 | -11.6 | -7.7 | -17.9 | -19.3 |
+| `HGB-reg` / `discard` | +6.2 | +2.8 | +5.0 | +7.0 | -10.4 | -35.0 | -25.5 |
+| `HGB-mono` / `discard` | +8.5 | -4.8 | +2.6 | -3.8 | -0.2 | - | - |
+| `LR-L2` / `discard` | -1.0 | -3.9 | +4.5 | -5.1 | +9.5 | -10.6 | -1.7 |
+| `LR-L1` / `discard` | +2.7 | +5.4 | +4.7 | -2.2 | +4.0 | -9.9 | -1.1 |
+
+AUC − `G0` (discard task):
+
+| Form / target | `T+C` | `All@4` | `All@8` | `All@16` | `All@32` | `Emb@8` | `Emb@32` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `HGB` / `pick` | -0.042 | -0.050 | -0.031 | -0.050 | -0.000 | -0.119 | -0.054 |
+| `HGB-reg` / `pick` | -0.003 | -0.012 | -0.010 | -0.013 | +0.007 | -0.098 | -0.055 |
+| `HGB-mono` / `pick` | -0.019 | -0.039 | -0.038 | -0.026 | +0.003 | - | - |
+| `LR-L2` / `pick` | +0.020 | +0.029 | +0.018 | +0.015 | +0.022 | -0.074 | -0.026 |
+| `LR-L1` / `pick` | +0.021 | +0.025 | +0.013 | +0.013 | +0.022 | -0.075 | -0.028 |
+| `HGB` / `discard` | +0.006 | +0.020 | +0.004 | +0.015 | +0.046 | -0.135 | -0.009 |
+| `HGB-reg` / `discard` | +0.050 | +0.051 | +0.046 | +0.047 | +0.062 | -0.098 | +0.001 |
+| `HGB-mono` / `discard` | +0.035 | +0.046 | +0.019 | +0.042 | +0.066 | - | - |
+| `LR-L2` / `discard` | +0.068 | +0.086 | +0.091 | +0.089 | +0.097 | -0.012 | +0.046 |
+| `LR-L1` / `discard` | +0.070 | +0.098 | +0.098 | +0.099 | +0.077 | -0.021 | +0.037 |
+
+`P@10` − `G0`, points (pick task; the candidates trained without the
+lockbox, the stored `G0` with it):
+
+| Form / target | `T+C` | `All@4` | `All@8` | `All@16` | `All@32` | `Emb@8` | `Emb@32` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `HGB` / `pick` | -5.8 | -4.4 | -5.1 | -3.5 | -1.6 | -7.4 | -2.9 |
+| `HGB-reg` / `pick` | -6.2 | -6.3 | -4.7 | -4.2 | -1.9 | -8.2 | -6.0 |
+| `HGB-mono` / `pick` | -7.2 | -2.7 | -5.5 | -3.2 | -0.2 | - | - |
+| `LR-L2` / `pick` | -6.0 | -2.9 | -3.5 | -2.9 | -3.3 | -5.1 | -2.9 |
+| `LR-L1` / `pick` | -6.3 | -5.5 | -3.7 | -3.3 | -3.7 | -6.3 | -3.2 |
+| `HGB` / `discard` | -9.6 | -9.5 | -9.0 | -9.3 | -7.0 | -13.2 | -9.2 |
+| `HGB-reg` / `discard` | -11.2 | -10.6 | -10.0 | -9.3 | -10.4 | -12.0 | -9.9 |
+| `HGB-mono` / `discard` | -10.2 | -7.7 | -7.5 | -7.0 | -6.6 | - | - |
+| `LR-L2` / `discard` | -8.4 | -6.2 | -7.0 | -8.0 | -9.2 | -8.5 | -7.8 |
+| `LR-L1` / `discard` | -9.0 | -7.4 | -8.0 | -8.3 | -10.4 | -10.3 | -7.9 |
+
+The form comparison at `All@32`, with intervals (stratified, cluster in
+parentheses; pick side folder bootstrap and p):
+
+| Candidate | `DP@10` − `G0`, points | `DP@5` − `G0`, points | AUC − `G0` | `P@10` − `G0`, points |
+| --- | ---: | ---: | ---: | ---: |
+| `All@32 / HGB / pick` | +0.0 | +0.0 | -0.000 | -1.6 [-5.5, +2.3] (p 0.9091) |
+| `All@32 / HGB-reg / pick` | +4.0 [-1.7, +9.5] ([-1.9, +9.2]) | -4.1 [-12.0, +3.2] ([-12.9, +1.6]) | +0.007 [-0.021, +0.035] ([-0.025, +0.047]) | -1.9 [-5.4, +1.8] (p 0.9409) |
+| `All@32 / HGB-mono / pick` | +5.3 [+1.3, +9.1] ([+2.3, +8.7]) | -3.8 [-8.2, +0.5] ([-9.5, +1.0]) | +0.003 [-0.016, +0.023] ([-0.014, +0.026]) | -0.2 [-2.6, +1.9] (p 0.3934) |
+| `All@32 / LR-L2 / pick` | -5.6 [-18.0, +6.4] ([-19.1, +5.8]) | +0.4 [-11.8, +11.5] ([-14.6, +10.6]) | +0.022 [-0.020, +0.067] ([-0.042, +0.068]) | -3.3 [-6.5, -1.0] (p 0.9946) |
+| `All@32 / LR-L1 / pick` | -7.5 [-20.0, +4.1] ([-21.0, +4.4]) | -0.6 [-12.5, +10.8] ([-15.1, +9.9]) | +0.022 [-0.020, +0.067] ([-0.040, +0.069]) | -3.7 [-6.9, -1.4] (p 0.9983) |
+| `All@32 / HGB / discard` | -7.7 [-26.1, +10.2] ([-24.8, +11.0]) | -12.8 [-35.4, +10.0] ([-38.0, +10.8]) | +0.046 [-0.017, +0.115] ([-0.038, +0.123]) | -7.0 [-11.6, -1.5] (p 0.9913) |
+| `All@32 / HGB-reg / discard` | -10.4 [-28.2, +10.0] ([-21.9, +5.1]) | -13.5 [-38.3, +14.3] ([-35.4, +15.9]) | +0.062 [+0.002, +0.131] ([-0.023, +0.132]) | -10.4 [-14.0, -6.6] (p 0.9999) |
+| `All@32 / HGB-mono / discard` | -0.2 [-17.3, +15.0] ([-13.5, +14.3]) | -19.0 [-42.0, +7.5] ([-39.4, +6.1]) | +0.066 [+0.005, +0.135] ([-0.036, +0.152]) | -6.6 [-12.1, -0.4] (p 0.9776) |
+| `All@32 / LR-L2 / discard` | +9.5 [+1.1, +16.5] ([+0.6, +17.1]) | +10.9 [+4.0, +17.1] ([+3.3, +17.7]) | +0.097 [+0.039, +0.163] ([+0.017, +0.169]) | -9.2 [-13.3, -5.4] (p 0.9999) |
+| `All@32 / LR-L1 / discard` | +4.0 [-8.4, +15.8] ([-11.7, +15.3]) | +9.8 [+2.1, +16.4] ([+1.7, +16.5]) | +0.077 [+0.012, +0.151] ([+0.005, +0.152]) | -10.4 [-15.4, -6.1] (p 0.9997) |
+
+The target comparison, the discard target minus the pick target of the same
+design (paired, point values; intervals in `searchread.out.md`):
+
+| Design | `DP@10`, points | `DP@5`, points | AUC | `P@10`, points |
+| --- | ---: | ---: | ---: | ---: |
+| `T+C / HGB` | +23.8 | +30.3 | +0.047 | -3.8 |
+| `T+C / HGB-reg` | +16.2 | -3.5 | +0.053 | -5.0 |
+| `T+C / HGB-mono` | +5.8 | +9.6 | +0.054 | -3.0 |
+| `T+C / LR-L2` | +18.5 | +34.4 | +0.048 | -2.4 |
+| `T+C / LR-L1` | +26.0 | +49.0 | +0.049 | -2.7 |
+| `All@4 / HGB` | -13.4 | +8.7 | +0.069 | -5.2 |
+| `All@4 / HGB-reg` | +1.0 | +14.7 | +0.063 | -4.3 |
+| `All@4 / HGB-mono` | -7.5 | +10.7 | +0.085 | -4.9 |
+| `All@4 / LR-L2` | +2.8 | -4.0 | +0.057 | -3.4 |
+| `All@4 / LR-L1` | +5.2 | +1.7 | +0.073 | -1.8 |
+| `All@8 / HGB` | +1.6 | +23.7 | +0.035 | -3.9 |
+| `All@8 / HGB-reg` | +1.1 | +5.4 | +0.056 | -5.3 |
+| `All@8 / HGB-mono` | -3.8 | +16.5 | +0.057 | -2.0 |
+| `All@8 / LR-L2` | +3.9 | -8.9 | +0.073 | -3.5 |
+| `All@8 / LR-L1` | +5.9 | +0.4 | +0.084 | -4.3 |
+| `All@16 / HGB` | -10.7 | +1.2 | +0.066 | -5.8 |
+| `All@16 / HGB-reg` | +4.3 | +19.9 | +0.060 | -5.1 |
+| `All@16 / HGB-mono` | -5.5 | -4.6 | +0.069 | -3.9 |
+| `All@16 / LR-L2` | -3.0 | -1.7 | +0.075 | -5.0 |
+| `All@16 / LR-L1` | -0.1 | +3.5 | +0.086 | -5.0 |
+| `All@32 / HGB` | -7.7 | -12.8 | +0.046 | -5.4 |
+| `All@32 / HGB-reg` | -14.4 | -9.4 | +0.054 | -8.5 |
+| `All@32 / HGB-mono` | -5.6 | -15.3 | +0.063 | -6.4 |
+| `All@32 / LR-L2` | +15.1 | +10.5 | +0.075 | -5.9 |
+| `All@32 / LR-L1` | +11.5 | +10.4 | +0.055 | -6.7 |
+| `Emb@8 / HGB` | +2.1 | +9.6 | -0.016 | -5.8 |
+| `Emb@8 / HGB-reg` | -29.7 | -43.1 | +0.000 | -3.8 |
+| `Emb@8 / LR-L2` | -5.8 | -1.0 | +0.063 | -3.4 |
+| `Emb@8 / LR-L1` | -5.2 | +12.3 | +0.054 | -4.0 |
+| `Emb@32 / HGB` | +2.7 | -36.1 | +0.044 | -6.3 |
+| `Emb@32 / HGB-reg` | -27.0 | -45.1 | +0.056 | -4.0 |
+| `Emb@32 / LR-L2` | -2.0 | +5.5 | +0.072 | -4.9 |
+| `Emb@32 / LR-L1` | -1.4 | +2.0 | +0.065 | -4.7 |
+
+The combinations against `G0`, and the clip (`All@32 / HGB / discard`,
+clipped, against the stored unclipped `D0`):
+
+| Comparison | `DP@10`, points | `DP@5`, points | AUC | `P@10`, points |
+| --- | ---: | ---: | ---: | ---: |
+| `G0 ⊕ ef` − `G0` | +13.7 [+9.8, +17.7] ([+9.7, +19.4]) | +5.7 [+0.4, +11.4] ([+0.9, +10.7]) | +0.053 [+0.008, +0.099] ([+0.010, +0.091]) | -1.0 [-5.7, +4.4] (p 0.8082) |
+| `G0 \| ef-rule` − `G0` | +3.4 [-3.6, +10.7] ([-4.0, +10.4]) | +1.1 [-6.2, +8.4] ([-6.4, +8.3]) | +0.043 [-0.007, +0.090] ([-0.000, +0.097]) | -2.2 [-6.1, +1.6] (p 0.9487) |
+| `stack` − `G0` | +6.9 [-4.2, +16.4] ([-4.3, +17.9]) | +6.6 [+0.1, +12.9] ([+0.7, +14.1]) | +0.057 [+0.003, +0.114] ([+0.006, +0.115]) | -3.6 [-9.7, +2.7] (p 0.8570) |
+| `All@32 / HGB / discard` − `D0` | +3.3 [-14.1, +20.8] ([-15.9, +16.5]) | +10.4 [-3.6, +23.9] ([-3.6, +25.5]) | -0.005 [-0.028, +0.019] ([-0.030, +0.021]) | |
+
+The two label-free combinations applied to the pick winner, a reading only
+(pick side on the pick fit set, discard side on the discard fit set; point
+values):
+
+| Score | `P@10` % | `R@10` % | Frame AUC | q5 `DP` / `RR` / `PL` % | q10 `DP` / `RR` / `PL` % | AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `All@32 / HGB-mono / pick` | 30.4 (10.7) | 22.3 (8.4) | 0.671 (0.098) | 78.9 / 21.1 / 0.84 | 81.7 / 18.3 / 2.13 | 0.714 |
+| ⊕ `eye_focus` | 28.9 (10.8) | 21.0 (8.0) | 0.660 (0.070) | 88.7 / 11.3 / 0.70 | 88.4 / 11.6 / 2.08 | 0.767 |
+| \| `eye_focus` rule | 30.1 (10.8) | 22.0 (8.2) | 0.653 (0.081) | 83.7 / 16.3 / 1.13 | 82.0 / 18.0 / 2.87 | 0.754 |
+
+### The coherence check on the discard winner's bands
+
+| Score | Band | Sampled / discard | `discard` rate % | Strict frames / strict bad | Strict-bad rate % | Strict below discard |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0 ⊕ ef` | bottom 5% | 147 / 129 | 88.4 [82.9, 93.2] | 76 / 26 | 31.3 [18.4, 47.2] | yes |
+| `G0 ⊕ ef` | 5–10% | 100 / 88 | 91.6 [85.8, 95.9] | 48 / 9 | 11.9 [4.8, 22.4] | yes |
+| `G0 ⊕ ef` | 10–20% | 94 / 65 | 68.0 [50.2, 84.1] | 107 / 11 | 7.3 [2.4, 13.9] | yes |
+| `G0 ⊕ ef` | above 20% | 259 / 107 | 41.2 [33.7, 48.8] | 969 / 34 | 3.7 [2.3, 5.2] | yes |
+
+`G0`'s rows (in `searchread.out.md`) reproduce discard.md's per-band table.
+
+### Reading
+
+The stored `G0`, `eye_focus`, random and `D0` reproduce discard.md and
+retarget.md on the discard task's code path, and the pick task's code path
+reproduces folderwide.out.md's `W0` / `F0+ctx` and rejectfilter.out.md's
+`G0` on all 27 folders; the pick task read 18 exploration folders and no
+lockbox folder. **Discard**: 43 of 69 candidates pass the q10 label-free
+conditions; by the rule the winner is `G0 ⊕ ef` (`DP@10` 90.0 [86.1, 93.3],
+`RR@10` 10.0, `PL@10` 2.10%; q5 `DP` 88.4, `RR` 11.6, `PL` 0.77%; AUC 0.763
+[0.703, 0.822]) and the runner-up `All@32 / LR-L2 / discard` (`DP@10` 85.9
+[78.0, 92.6], `RR@10` 14.1, `PL@10` 2.83%; q5 `DP` 93.5, `RR` 6.5, `PL`
+1.13%; AUC 0.807 [0.755, 0.857]). The winner's `DP` exceeds `G0`'s by +13.7
+[+9.8, +17.7] points at q10 and +5.7 [+0.4, +11.4] at q5, and its AUC by
++0.053 [+0.008, +0.099]; its AUC is below `eye_focus`'s by 0.015 [-0.062,
++0.030]. The winner ranks 11th at q5; four of the five q5 leaders are
+discard-target models that fail the q10 `PL` condition. The seven highest
+candidate AUCs (0.796–0.809) are `LR-L1` and `LR-L2` discard-target models
+with embedding dims, three of them (`All@4` / `All@8` / `All@16 / LR-L1 / discard`) with AUC −
+`eye_focus` +0.031 and stratified 2.5% quantiles of +0.004 to +0.006; of
+these three only `All@16` passes the q10 conditions (`DP@10` 74.1, rank
+30). The 600 labels were drawn in `G0`'s bands, and the winner is a rank
+mix of `G0` and `eye_focus`, the two scores this plan's design was chosen
+after. The strict-bad rate is below the `discard` rate in every band of the
+winner. **Pick**: no candidate's mean `P@10` reaches `W0`'s 31.2%; the
+winner by the rule is `All@32 / HGB-mono / pick` (`P@10` 30.4, `R@10` 22.3,
+frame AUC 0.671; −0.9 [-2.7, +0.5] points against `W0`, 12 of 18 folders at
+or above, p 0.77; −0.2 [-2.6, +1.9] against the stored `G0`), the runner-up
+`G0 ⊕ ef` built on the pick fit set (`P@10` 29.6). The pick fit set's own
+`G0` recipe, trained without the lockbox, reads `P@10` 29.0 against the
+stored `G0`'s 30.6. **Dimension curve**: on the pick side, `P@10` − `G0` of
+the pick target is highest at `All@32` for every HGB form (−1.6, −1.9,
+−0.2) and between −2.9 and −3.7 for the logistic forms from `All@8` on;
+`T+C` is −5.8 to −7.2 for every pick-target form; `Emb@8` is the lowest or
+near it in every row, and on the discard side its AUC − `G0` is negative in
+every row (−0.012 to −0.135). **Forms** at `All@32`: `HGB-mono` is the only
+pick-target form whose `DP@10` − `G0` interval is above zero (+5.3 [+1.3,
++9.1]); on the discard target the logistic forms raise AUC most (+0.097,
++0.077) and are the only discard-target forms with positive `DP@5` − `G0`
+(+10.9 [+4.0, +17.1], +9.8 [+2.1, +16.4]), while the HGB forms on it lower
+`DP@5` (−12.8 to −19.0). **Targets**: the discard target raises AUC over
+the pick target in 31 of the 33 designs (`Emb@8 / HGB` −0.016, `Emb@8 /
+HGB-reg` 0.000) and lowers `P@10` in all 33 (−1.8 to −8.5 points); its
+`DP@10` effect ranges from −29.7 to +26.0. The clip changes `All@32 / HGB /
+discard` against the unclipped `D0` by +3.3 [-14.1, +20.8] points of
+`DP@10` and −0.005 [-0.028, +0.019] AUC. **Combinations**: `G0 ⊕ ef` moves
+`DP@10` most (+13.7); `stack` +6.9 [-4.2, +16.4]; `G0 | ef-rule` +3.4
+[-3.6, +10.7]; none moves `P@10` with an interval above zero. On the pick
+winner, ⊕ `eye_focus` raises its q10 `DP` from 81.7 to 88.4 and its AUC from
+0.714 to 0.767 and lowers its `P@10` from 30.4 to 28.9. These are a few of
+several hundred intervals read without correction; Step 4 fixes the bars
+and Step 5 reads the two winners once.
