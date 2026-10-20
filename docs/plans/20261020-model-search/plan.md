@@ -206,7 +206,7 @@ the top rather than the bottom, the text says so.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the exploration in `modelsearch.md`, before any new score exists
+- [x] Step 1: Pre-register the exploration in `modelsearch.md`, before any new score exists
   - Done when:
     - `modelsearch.md` in this plan folder has a "Pre-registration of the
       exploration" section merged **before `searchfit.py` exists and
@@ -460,3 +460,4 @@ the top rather than the bottom, the text says so.
 
 - (2026-10-20) Plan written; the user's choices decided (see Purpose,
   "Choices")
+- (2026-10-20) Step 1 complete
