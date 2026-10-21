@@ -161,4 +161,8 @@ switches to magenta (`#f3f`).
 
 ## Progress
 
-- (none yet)
+- Step 1 done: `Face` keeps YuNet's nose and mouth landmarks, `faces_of` carries
+  every face's score and landmarks, and the focus mark draws the values beside
+  each box (the label's size swaps width and height on a quarter turn so it
+  reads as drawn upright). The manual Windows check recorded in `learnings.md`
+  is still pending.

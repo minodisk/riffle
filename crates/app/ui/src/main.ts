@@ -2627,7 +2627,14 @@ function drawFaceLabels(drawWidth: number, drawHeight: number, orientation: numb
   if (found === undefined || found.faces.length === 0) {
     return;
   }
-  const marks = faceMarks(found.faces, found.width, found.height, drawWidth, drawHeight);
+  const marks = faceMarks(
+    found.faces,
+    found.width,
+    found.height,
+    drawWidth,
+    drawHeight,
+    orientation,
+  );
   const dpr = window.devicePixelRatio;
   context.save();
   context.translate(canvas.width / 2, canvas.height / 2);

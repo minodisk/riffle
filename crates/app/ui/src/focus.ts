@@ -275,6 +275,7 @@ export function faceMarks(
   previewHeight: number,
   drawWidth: number,
   drawHeight: number,
+  orientation = 1,
 ): FaceMark[] {
   const sx = drawWidth / previewWidth;
   const sy = drawHeight / previewHeight;
@@ -288,17 +289,21 @@ export function faceMarks(
     points: [face.left_eye, face.right_eye, face.nose, face.mouth_left, face.mouth_right].map(
       (p) => ({ x: p.x * sx - drawWidth / 2, y: p.y * sy - drawHeight / 2 }),
     ),
-    label: faceLabel(face),
+    label: faceLabel(face, orientation),
   }));
 }
 
 // The text beside a face box: YuNet's score, the box size and the distance
 // between the eyes. The sizes are in the stored preview's pixels, not the
 // drawn ones, because the scan's thresholds (`FACE_CONFIDENCE`, the face and
-// eye region floors) are measured there, so the numbers compare to them.
-export function faceLabel(face: Faces["faces"][number]): string {
+// eye region floors) are measured there, so the numbers compare to them. The
+// label is drawn upright, so on a quarter turn (orientation 6 / 8) the stored
+// width and height swap to read as the box looks on screen.
+export function faceLabel(face: Faces["faces"][number], orientation = 1): string {
   const eyes = Math.hypot(face.right_eye.x - face.left_eye.x, face.right_eye.y - face.left_eye.y);
-  return `${face.score.toFixed(2)}  ${Math.round(face.width)}×${Math.round(face.height)}  eyes ${Math.round(eyes)}`;
+  const quarter = orientation === 6 || orientation === 8;
+  const [width, height] = quarter ? [face.height, face.width] : [face.width, face.height];
+  return `${face.score.toFixed(2)}  ${Math.round(width)}×${Math.round(height)}  eyes ${Math.round(eyes)}`;
 }
 
 // A point of the unrotated drawing centered on the origin, turned the way

@@ -490,6 +490,24 @@ describe("faceLabel", () => {
     expect(faceLabel(face)).toBe("0.93  212×254  eyes 61");
     expect(faceLabel({ ...face, score: 0.6 })).toBe("0.60  212×254  eyes 61");
   });
+
+  test("swaps the box size on a quarter turn so it reads as drawn upright", () => {
+    const face = {
+      x: 0,
+      y: 0,
+      width: 211.6,
+      height: 254.4,
+      score: 0.934,
+      left_eye: { x: 100, y: 100 },
+      right_eye: { x: 160, y: 111 },
+      nose: { x: 130, y: 140 },
+      mouth_left: { x: 110, y: 180 },
+      mouth_right: { x: 150, y: 180 },
+    };
+    expect(faceLabel(face, 6)).toBe("0.93  254×212  eyes 61");
+    expect(faceLabel(face, 8)).toBe("0.93  254×212  eyes 61");
+    expect(faceLabel(face, 3)).toBe("0.93  212×254  eyes 61");
+  });
 });
 
 describe("uprightPoint", () => {
