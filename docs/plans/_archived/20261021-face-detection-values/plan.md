@@ -166,3 +166,4 @@ switches to magenta (`#f3f`).
   each box (the label's size swaps width and height on a quarter turn so it
   reads as drawn upright). The manual Windows check recorded in `learnings.md`
   is still pending.
+- (2026-10-22) Step 1 complete
