@@ -669,9 +669,9 @@ planned for a face-choice rule. No shipping change is sketched.
 
 `af-whole` (the AF-nearest face of the whole-image detection) is the only
 rule above `af` on round 2: 0.800, +0.014 [−0.018, +0.052] (cluster
-[−0.023, +0.047]). It narrowly misses both bars of the reading rule: the
+[−0.023, +0.047]). It misses both bars of the reading rule: the
 AUC difference's 2.5% quantile is −0.018 (below zero), and its `RR` at q10
-difference's 97.5% quantile is +5.5 points (above +5). It fills more
+difference's 97.5% quantile is +5.5 points (just above +5). It fills more
 frames, 4.5% of the dump missing against `af`'s 12.4%. On round 1 it reads
 below `af`, 0.749 (−0.028 [−0.065, +0.009]), with `RR` at q10 19.1 points
 above `af`'s [+1.6, +39.3]. This is recorded as a fact, not as a

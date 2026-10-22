@@ -142,7 +142,7 @@
   favor the AF face, round 1's are within noise and its `af` vs `sharpest`
   cross-tab runs the other way; only the `af` vs `largest` cross-tab points
   the same way on both rounds.
-- `af-whole` is recorded as the only near-tie (misses both bars narrowly:
+- `af-whole` is recorded as the only near-tie (misses both bars, the AUC one clearly and the `RR` one just:
   AUC difference 2.5% quantile −0.018, `RR` q10 97.5% quantile +5.5; fills
   4.5% missing against 12.4%), as a fact; it reads below `af` on round 1.
 - Added to the evaluation's limits next to the pre-registered two: every
