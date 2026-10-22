@@ -2052,7 +2052,9 @@ Files: `docs/plans/_archived/20261018-discard-labels/sample.py`, `docs/plans/_ar
 
 The `discard-retarget` feature (plan: `docs/plans/_archived/20261019-discard-retarget/plan.md`, Decision, "Facts the user may weigh") found no new model that beats `G0` and recommended nothing. Under the looser bar the user chose (`RR` <= 25% with the stratified 97.5% quantile <= 35%, `PL` <= 5%, removed share >= 4.5%, `DP` 2.5% quantile above the 48.45% base rate), the existing `G0` itself meets all of those conditions at q5 and q10: `RR` 17.3% [11.3, 24.0] and 23.7% [18.7, 28.7], `PL` 0.68% and 2.10%, removed 4.92% and 9.87%. It was only a reference there, so the "beats `G0`" condition could not apply to it. That leaves a separate question this plan did not answer: is `G0` at q5-q10, sorted last (not hidden), worth shipping as it is? A yes needs its own pre-registered question and bars, and a fresh blind confirmation round. The looser bar was chosen after `G0`'s numbers on these 600 labels were read, and `discard-labels` found automation bias (unblinded 70 of 71 against the blind `RR@5` of 17.3%). Left to the user as a question only; no app work follows from the plan.
 
-Files: `docs/plans/_archived/20261019-discard-retarget/plan.md`, `docs/plans/_archived/20261019-discard-retarget/retarget.md`, `crates/core/src/rank.rs`.
+The `model-search` feature (plan: `docs/plans/_archived/20261020-model-search/plan.md`, Decision, "Facts the user may weigh") read `G0` on its 600 fresh labels. q5 again meets conditions 1-4: `RR` 23.5 [15.7, 30.9], cluster 97.5% 34.9, `PL` 0.68%, removed 4.53%, `DP` 2.5% 69.1 above the 42.31% base rate. q10 fails `RR` (30.1 [23.7, 35.8]). The strata were cut for the model-search winner, so this is a reading, not the pre-registered confirmation round this item asks for.
+
+Files: `docs/plans/_archived/20261019-discard-retarget/plan.md`, `docs/plans/_archived/20261019-discard-retarget/retarget.md`, `docs/plans/_archived/20261020-model-search/modelsearch.md`, `crates/core/src/rank.rs`.
 
 #### TODO
 
@@ -2067,3 +2069,29 @@ Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/focus.ts`.
 #### TODO
 
 - [ ] On Windows, open a folder with faces in landscape and portrait (orientation 6 / 8) frames and, if available, a half-turned (3) one, and press `f`. Each face box has a cyan label like `0.93  212×254  eyes 61` reading upright above the box (just inside it when the box touches the image's top). There are five cyan dots on the eyes, nose tip and mouth corners, and no dot between the eyes. The face mesh outline and irises are magenta. The 1:1 view (`z`) and Compare draw no faces.
+
+### App: real-device check that the model-search sample opened with no judgment shown in Riffle
+
+#### Background
+
+The `model-search` feature copied 600 frames into `D:\Photos\tests\2026-10-20-model-search\sample` for a blind "OK to discard?" review. `confirmsample.py` checked 0 sidecars in `sample\` and the copies' bytes, and Step 5 found the labeled sidecars hold no mark other than rating 1, with `aiEnabled` off throughout. Never exercised: that the app showed the folder unjudged before the first key press. The sample is now labeled, so this can only be checked on a fresh copy of the unlabeled files. Plan: `docs/plans/_archived/20261020-model-search/plan.md`.
+
+Files: `docs/plans/_archived/20261020-model-search/confirmsample.py`, `docs/plans/_archived/20261020-model-search/labeling.md`.
+
+#### TODO
+
+- [ ] On Windows, with `aiEnabled` off, open an unlabeled copy of the sample folder (no `.xmp` / `.dop`), sort by File name and let the scan finish. Expected: 600 files `0001_...` to `0600_...`, every one without a rating, Pick / Reject flag or color label, no `.xmp` / `.dop` in the folder before the first key press, and no recommended icon or ranking rows.
+
+### Core: improve on `eye_focus` for the discard question, using face-choice rules and the 1,200 blind labels
+
+#### Background
+
+The `model-search` Decision (branch 2, discard) recommends more labels or more folders. The bar to beat is the plain `eye_focus` cue: AUC 0.785 on the fresh labels, against the winner's 0.684 (paired -0.101 [-0.159, -0.044]). Plan: `docs/plans/_archived/20261020-model-search/plan.md` ("Decision", item 5; `modelsearch.md`, "Results of the confirmation"). The next plan is `docs/plans/20261021-face-choice`, not yet written.
+
+Files: `crates/core/src/candidate.rs`, `crates/app/src/index.rs` (`run_faces_scan`), `docs/plans/_archived/20261020-model-search/modelsearch.md`.
+
+#### TODO
+
+- [ ] Write the face-choice plan. Evaluate face-choice rules for `eye_focus` on the two blind rounds (`D:\Photos\tests\2026-10-18-discard-labels` and `D:\Photos\tests\2026-10-20-model-search`). Today the cue uses the face nearest the AF point. Candidate rules: the largest face, the sharpest, the highest YuNet score, the mean over faces.
+- [ ] Then train a model on those 1,200 labels.
+- [ ] Then run one fresh blind confirmation round drawn from folders not yet sampled.
