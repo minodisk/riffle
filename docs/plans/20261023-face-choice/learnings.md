@@ -86,3 +86,51 @@
 - No per-face value was read against `labels.tsv`; the face counts and
   every rule are Step 3's.
 - `cargo` is not on Git Bash's `PATH` here; `mise exec -- cargo ...` works.
+
+## Step 3: `facechoiceread.py`, the single read
+
+- **Deviation, the argument list**: the plan's `<folder-wide-eval-dir>`
+  (the stored `W0`) is used by nothing here, while round 1's population
+  (the dump minus the strict sample) and round 2's (minus the strict sample
+  and round 1) need the strict sample's `manifest.tsv`, which no listed
+  folder holds. The script takes `<app-dump-dir> <reject-filter-eval-dir>
+  <strict-labels-dir> <discard-labels-dir> <model-search-dir> <out-dir>`;
+  only `manifest.tsv` is opened under the strict folder (an audit hook
+  checks it, as `confirmread.py` did).
+- **Deviation, the loader**: `badfilter.load` opens the strict sample's
+  `labels.tsv`, so the script runs what it runs for the dump (`gate.load`,
+  `gate.build`, `folder_gate.extend`) and nothing else of it.
+  `confirmread.py` is not imported (its round-2 cell construction is inline
+  in its `main`); the few lines that rebuild round 2's bands (`b05` / `b10`
+  / `b20` by `G0 ⊕ ef`, `g0only` by `G0`) and the strata check are
+  repeated, and the AUC draws are a local `auc_of` that returns NaN on a
+  one-class draw (the subsets need it), otherwise `retargetread.auc_of`.
+- **Order**: the label-free checks (the `af` reproduction against both
+  manifests and the whole dump, the strata, the populations, the `PL` and
+  removed references) run and are gated before any `labels.tsv` is opened
+  (the audit hook's record is a check row); then the labels, every metric
+  and bootstrap, the label checks (base rates, the `eye_focus` AUC and `RR`
+  references, from the stored column and from `af`) gated again, and only
+  then any printing. Nothing is written on a failed check.
+- **Choices the text left open**: `sharpest` picks its face by `max_by` on
+  `eye_focus` (every face of the dump has an `eye_focus`, a mesh or not, so
+  no face is missing a value); `mean` averages the faces at or above 0.8;
+  the floor comparison is in `f32` (`np.float32(score) >= np.float32(0.8)`)
+  and the box area `f32` `w * h`, as `judged_face` compares them; the
+  disagreement test's "lower `eye_focus`" has no missing case (both faces
+  exist there); the multi-face cut tables print `nan` where a whole-set
+  rule removes no sampled multi-face frame (q5).
+- **Dry run first**: the script was exercised once on synthetic random
+  labels (copies of both rounds' `manifest.tsv` / `strata.tsv` in the
+  scratchpad, a copy of the script with the label-check gate off), so the
+  real read could not crash after opening the labels. The real read then
+  ran **once**, 102 s, every check passing.
+- **Fact worth knowing**: every one of the 32,459 dump frames has a trusted
+  AF point, so the pre-registered no-AF fallback never applied; `af` is
+  `nearest_face` over the crop set on every frame.
+- **Result**: no winner. `af-whole` is the only rule above `af` on round 2
+  (+0.014 [−0.018, +0.052]); the four whole-set face choices read below it
+  on both rounds.
+- Python ran only as `-I -B` on script files; one stray `python3 -`
+  heredoc (meant as a no-op) hung on the Git Bash stub as the plan warned
+  and was killed by its PID.
