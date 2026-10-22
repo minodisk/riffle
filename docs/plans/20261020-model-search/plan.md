@@ -403,7 +403,7 @@ the top rather than the bottom, the text says so.
       own cell list. Do not re-read the exploration labels against a new
       score here.
 
-- [ ] Step 6: The Decision
+- [x] Step 6: The Decision
   - Done when:
     - A "Decision" section in this plan, written against the Step 4 bars
       with the confirmation numbers: per task, whether the winner passed,
@@ -456,6 +456,177 @@ the top rather than the bottom, the text says so.
   overfit; the Decision says whether the features, the forms or the labels
   were the limit.
 
+## Decision (neither winner passes; discard: more labels, after improving on `eye_focus`; pick: nothing, `W0` stays)
+
+Written 2026-10-23 at Step 6, against the bars and the follow-up rule
+pre-registered in Step 4 ([modelsearch.md](modelsearch.md), "Pre-registration
+of the confirmation"). The confirmation numbers come from modelsearch.md
+"Results of the confirmation", the exploration numbers from "Results of the
+exploration"; discard values are weighted by the fresh `1/π` with the
+stratified bootstrap 95% interval, pick values are means over the 7 lockbox
+folders with the folder-bootstrap 95% interval. No bar or rule was changed
+after the fresh labels or the lockbox picks were read.
+
+**1. Discard: `G0 ⊕ ef` does not pass.** Conditions 1–4 hold at q5 and q10,
+condition 6 (beats `eye_focus`-alone) fails at every cut, and condition 5
+(beats `G0`) fails at q5 as well:
+
+| Cut | Hides (fresh population) | `DP` % | `RR` % | `PL` % | `DP` − `G0`, points | AUC − `eye_focus` | Usable |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| q5 | 4.52% | 76.7 [69.2, 84.2] | 23.3 [15.8, 30.8] | 0.77 | +0.1 [-7.0, +6.9] | -0.101 [-0.159, -0.044] | no (5, 6) |
+| q10 | 9.34% | 76.2 [70.8, 81.7] | 23.8 [18.3, 29.2] | 2.10 | +6.3 [+0.9, +11.4] | (same) | no (6) |
+
+What it would have suggested: at q10, sorted last, 9.34% of a folder's
+frames, about one in four of them (`RR` 23.8%) a frame the user would rescue,
+with 2.10% of the picks among them. The condition 6 failure is not marginal:
+the whole paired interval is below zero (cluster [-0.201, -0.016]). The
+winner's AUC, 0.684 [0.610, 0.756], sits between `G0`'s 0.630 and
+`eye_focus`'s 0.785 [0.723, 0.844]; averaging `G0`'s rank into `eye_focus`'s
+lowered the threshold-free order below `eye_focus`'s while keeping `PL` low
+(`eye_focus` alone: `PL` 4.44% at q5, 9.14% at q10, so q10 fails condition 2
+for it).
+
+**2. Pick: `All@32 / HGB-mono / pick` does not pass.** Every bar fails: mean
+`P@10` 28.0% against `W0`'s 33.2%, −5.2 [-10.8, -0.7] points, 3 of 7 folders
+at or above `W0`. What it would have suggested: a folder's top 10% with 28.0%
+of them picks (`W0` 33.2%) and 20.2% of the picks found (`R@10`; `W0` 24.0%);
+frame AUC −0.001 [-0.039, +0.036]. The 7-folder lockbox makes a fail weakly
+informative in general (Trade-offs), but here the interval lies below zero,
+so the read is not merely underpowered; `W0` was trained with the other
+lockbox folders and the winner without them, which favors `W0` and is part
+of the gap. The winner's `P@5` (+5.5 [-3.7, +16.4]) and its lead on the three
+largest folders are single readings without a bar.
+
+**3. Shrinkage from the exploration to the confirmation** (modelsearch.md,
+"Exploration beside confirmation"):
+
+- Discard winner: `DP@5` 88.4 → 76.7 (−11.7 points), `DP@10` 90.0 → 76.2
+  (−13.8), `RR@5` / `RR@10` 11.6 → 23.3 / 10.0 → 23.8 (about doubled), AUC
+  0.763 → 0.684 (−0.079); its lead over `G0` at q10 +13.7 → +6.3 and at q5
+  +5.7 → +0.1; its AUC lead over `G0` held (+0.053 → +0.055); its AUC gap to
+  `eye_focus` widened from −0.015 to −0.101.
+- Part of that fall is the population, not the selection: the discardable
+  base rate fell from 48.45% to 42.31%, and the unselected references fell
+  too (`G0` `DP@10` 76.3 → 69.9, AUC 0.710 → 0.630; random `DP@10` 61.5 →
+  46.1), while `eye_focus` held (AUC 0.777 → 0.785). The part attributable
+  to the search is the lost lead over `G0` (halved at q10, gone at q5) and
+  over `eye_focus`, the comparisons the selection had favored.
+- Pick winner: `P@10` − `W0` −0.9 [-2.7, +0.5] → −5.2 [-10.8, -0.7]; its
+  `P@10` 30.4 → 28.0 while `W0`'s rose 31.2 → 33.2 on the lockbox folders.
+- Reading: the search overfit by roughly the size of every gain it reported.
+  No exploration lead over a reference survived intact except the discard
+  winner's AUC lead over `G0`, whose interval now spans zero.
+
+**4. What the search taught about the space**, as readings of the
+exploration (one selection over 69 candidates on reused labels, a few of
+several hundred intervals read without correction; none of these was
+confirmed):
+
+- **The dimension curve.** On the pick side the HGB pick-target forms do best
+  at `All@32` (`P@10` − `G0` −1.6 / −1.9 / −0.2) and every form loses at
+  `T+C` (−5.8 to −7.2), so the embedding dims carry pick information that the
+  technical and context columns do not. On the discard side the logistic
+  discard-target AUCs are flat from `All@4` to `All@32` (0.796–0.809), so the
+  discard order needs few embedding dims; the embedding alone (`Emb@8`,
+  `Emb@32`) is the weakest design on both tasks.
+- **The forms.** No form beat `W0` on the pick task. `HGB-mono` was the only
+  pick-target form whose `DP@10` − `G0` interval was above zero (+5.3 [+1.3,
+  +9.1]) and the pick winner, and it lost on the lockbox. On the discard
+  target the logistic forms raised the AUC most (+0.077 to +0.099 over `G0`)
+  and were the only discard-target forms with a positive `DP@5` − `G0`, while
+  the HGB forms on that target lowered `DP@5` (−12.8 to −19.0): on about 600
+  weighted labels the simpler form generalizes better.
+- **The targets.** The discard target raised the AUC over the pick target in
+  31 of 33 designs and lowered `P@10` in all 33 (−1.8 to −8.5 points), and
+  its `DP@10` effect ranged from −29.7 to +26.0: it reorders the whole folder
+  better but its bottom cut is unstable, `D0`'s pattern again. The weight
+  clip, one of the two hypotheses for that pattern, moved nothing (`All@32 /
+  HGB / discard` against `D0`: `DP@10` +3.3 [-14.1, +20.8], AUC −0.005).
+- **The combinations.** `G0 ⊕ ef` moved `DP@10` most (+13.7) and won the
+  discard task; `stack` (+6.9 [-4.2, +16.4]) and `G0 | ef-rule` (+3.4 [-3.6,
+  +10.7]) less; none moved `P@10`. Confirmed: mixing `G0` into `eye_focus`
+  costs order (AUC −0.101 against `eye_focus` alone) to buy a low `PL`, and
+  on fresh labels the trade no longer beats `G0` at q5.
+- **Where the limit is** (judgment). Not the forms: five forms over the same
+  columns span a narrow pick range below `W0`, and on the discard task a
+  single cue, `eye_focus`, ordered the fresh labels better than any
+  combination containing it. The features are the limit on both tasks: the
+  discard signal lives in `eye_focus`, which the models see as one column
+  and do not exceed, and the pick signal of these columns tops out near
+  `W0`. The labels limit what can be trained on the discard target (about
+  600 weighted frames, Kish ESS a third of that unclipped) and are the input
+  the follow-up adds.
+
+**5. Recommendation by the pre-registered follow-up rule.**
+
+- **Discard: branch (2), more labels or more folders.** The `RR` point meets
+  the 25% bar at q5 and q10 with `PL` and the removed share holding; the
+  only failing conditions are "beats `G0`" (q5) and "beats `eye_focus`"
+  (both cuts). Facts the recommendation rests on: on the fresh labels the
+  plain `eye_focus` cue was the strongest discard signal (AUC 0.785 against
+  the winner's 0.684, paired −0.101 [−0.159, −0.044]); in the exploration
+  three `LR-L1` discard-target models read AUC − `eye_focus` +0.031 with
+  stratified 2.5% quantiles of +0.004 to +0.006, two of them failing the q10
+  `PL` condition and none read on the fresh labels. Judgment: since the
+  winner's interval against `eye_focus` lies wholly below zero, more labels
+  alone are unlikely to flip the "beats `eye_focus`" bar for this winner. The
+  useful follow-up is to **improve on `eye_focus` itself and use the labels
+  for training** (the two blind rounds, 1,200 frames), then **confirm once
+  on a fresh blind round drawn from folders not yet sampled** (both rounds
+  so far drew from the same 27 folders), sized at about 3 s per frame as the
+  rule says (this round's labeling took about 1.5 s per frame, so 600 frames
+  about 15 minutes).
+  - **Next step**: the user asked whether `eye_focus`'s face choice (the face
+    nearest the AF point) differs from the face a human looks at. A
+    separate plan, `docs/plans/20261021-face-choice` (not yet written to the
+    repository), will evaluate face-choice rules (the largest face, the
+    sharpest, the highest detector score, the mean over faces) on the two
+    blind rounds. Reading the rules on both rounds makes them exploration
+    labels, so a winning rule still needs the fresh-folder confirmation
+    above before any app work.
+  - The surface an in-app plan would need if a later round passes:
+    discard candidates **sorted last** (not hidden) at the best cut's depth
+    with a rescue loop, as the follow-up rule's branch (1) names. Nothing is
+    built now.
+- **Pick: branch (3), nothing.** The `P@10` gain point is negative (−5.2),
+  so the "close" branch does not apply. **`W0` stays** as the shipped
+  in-burst ranking; no strip mark or sort for a folder's top 10% follows.
+
+The recommendation would change:
+
+- **discard → an in-app suggestion plan** only if a fresh blind round, from
+  folders not yet sampled, puts a cut of a new score over all six
+  conditions, "beats `eye_focus`-alone" included;
+- **discard → nothing** if the face-choice plan and a model trained on the
+  1,200 labels both fail to put an AUC − `eye_focus` point above zero on the
+  labels they explore on; a fresh round is then not worth its labeling time;
+- **pick → a new round** only with information this search did not have
+  (new features, or more folders of picks so that a lockbox is not 7
+  folders); this round gives no evidence that another form or feature set
+  over the same columns would beat `W0`.
+
+**Selection bias weighed.** The discard winner is a rank mix of `G0` and
+`eye_focus`, the two scores this plan's design was chosen after, it was
+chosen as the best of 69 on reused labels, and the fresh strata were cut by
+the winner and `G0` themselves (the `1/π` weights keep the estimates
+unbiased for the population; they do not make it a new population). Every
+one of these biases ran in the winner's favor, and the winner still failed,
+so the negative verdict is robust to them; what they do weaken is the
+exploration's positive readings (item 4) and the three `LR-L1` AUCs above
+`eye_focus`, which are leads to test, not findings. `eye_focus` was a
+reference, not selected, and its AUC held across both rounds (0.777,
+0.785). Both rounds come from one photographer's 27 folders, mostly
+basketball.
+
+**Facts the user may weigh, not a recommendation.** The open todo item
+"Core: decide whether `G0` as-is at per-folder q5-q10, sorted last, is worth
+shipping" stays open for the user. On the fresh labels `G0` at q5 again meets
+conditions 1–4: `RR` 23.5 [15.7, 30.9] (cluster 97.5% quantile 34.9, just
+under 35), `PL` 0.68%, removed 4.53%, `DP` 2.5% quantile 69.1 above the
+42.31% base rate; at q10 its `RR` is 30.1 [23.7, 35.8] and fails. This round's
+strata were cut for the winner, not drawn to test `G0`, so it is a reading,
+not the pre-registered round that item asks for.
+
 ## Progress
 
 - (2026-10-20) Plan written; the user's choices decided (see Purpose,
@@ -465,3 +636,4 @@ the top rather than the bottom, the text says so.
 - (2026-10-21) Step 3 complete
 - (2026-10-21) Step 4 complete
 - (2026-10-21) Step 5 complete
+- (2026-10-23) Step 6 complete
