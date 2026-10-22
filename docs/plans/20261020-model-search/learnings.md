@@ -278,6 +278,32 @@
   three bars), follow-up (3). Numbers in modelsearch.md, "Results of the
   confirmation".
 
+## Step 6: the Decision
+
+- **Compute time spent** (wall time of the recorded runs): the lockbox draw
+  6 s; `searchfit.py` 1,220 s; `searchread.py` 33 s plus `--check-all` 4 s;
+  `confirmsample.py` 5 s for the `--no-copy` check and 832 s for the copy and
+  its SHA-256 checks; `confirmlabels.py` about 1 s; `confirmread.py` 2,759 s
+  (inflated by other processes' load, see Step 5). **About 4,860 s, 81 minutes, in total**,
+  of which the confirmation read's slow run is more than half.
+- **Labeling time spent**: one blind round in this plan, the 600-frame
+  confirmation sample, about **15 minutes** (about 1.5 s per frame). The
+  exploration reused the 600 labels of the discard-labels round and the
+  strict labels' manifest only; no labeling for it in this plan.
+- **Decision written against the Step 4 bars, nothing moved**: discard branch
+  (2), pick branch (3), as `confirmread.py` applied them. The user's
+  conversation added the facts recorded in the Decision: `eye_focus` as the
+  strongest fresh-label discard signal, the face-choice question and its
+  separate plan `docs/plans/20261021-face-choice` (not yet written to the
+  repository), and that the `G0` as-is todo item stays open for the user.
+- **Added beyond the Done-when list**: a "Where the limit is" paragraph,
+  because Trade-offs promised the Decision would say whether the features,
+  the forms or the labels were the limit; and `G0`'s q5 / q10 conditions on
+  the fresh labels as facts for the open `G0` todo item.
+- **Tripped**: a bare `python -` heredoc used as a calculator hung on the
+  Git Bash stub again (as Step 2 recorded); it was moved to the background
+  and killed by PID. Use shell arithmetic, not Python, for sums.
+
 ## Deferred issues (todo candidates)
 
 - None from Step 1.
@@ -297,3 +323,26 @@
   sidecars hold no mark other than rating 1 and the user reported
   `aiEnabled` off throughout; whether the sample first opened unjudged in the
   app was not reported separately.
+- **Discard follow-up (Step 6, branch 2): improve on `eye_focus`, train on
+  the 1,200 blind labels, confirm on fresh folders.** The Decision recommends
+  more labels or more folders, with the plain `eye_focus` cue (AUC 0.785 on
+  the fresh labels against the winner's 0.684, paired −0.101 [−0.159,
+  −0.044]) as the bar to beat. The next step is the face-choice plan
+  `docs/plans/20261021-face-choice` (not yet written): evaluate face-choice
+  rules for `eye_focus` (the face nearest the AF point today; the largest,
+  the sharpest, the highest YuNet score, the mean over faces) on the two
+  blind rounds (`D:\Photos\tests\2026-10-18-discard-labels` and
+  `D:\Photos\tests\2026-10-20-model-search`), then a model trained on those
+  1,200 labels, then one fresh blind confirmation round drawn from folders
+  not yet sampled. Basis: plan.md "Decision", item 5; modelsearch.md
+  "Results of the confirmation". Files: `crates/core/src/candidate.rs`,
+  `crates/app/src/index.rs` (`run_faces_scan`), this plan folder.
+- **`G0` as-is todo item, a new fact to add when it is next touched.** The
+  open todo item "Core: decide whether `G0` as-is at per-folder q5-q10,
+  sorted last, is worth shipping" stays open for the user. On this plan's
+  fresh labels `G0` q5 again meets conditions 1–4 (`RR` 23.5 [15.7, 30.9],
+  cluster 97.5% 34.9; `PL` 0.68%; removed 4.53%; `DP` 2.5% 69.1 above the
+  42.31% base rate) and q10 fails `RR` (30.1 [23.7, 35.8]); the strata were
+  cut for the winner, so this is a reading, not that item's pre-registered
+  round. Basis: plan.md "Decision", "Facts the user may weigh". Files:
+  `todo.md`, `docs/plans/20261020-model-search/modelsearch.md`.
