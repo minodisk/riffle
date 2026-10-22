@@ -202,7 +202,7 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
     - Doc-only PR. Model the text on modelsearch.md's "Pre-registration of
       the confirmation" and discard.md. No script runs here.
 
-- [ ] Step 2: `riffle-cli facechoice`, the per-face dump, run on the 27 dump folders and checked against the stored `eye_focus`
+- [x] Step 2: `riffle-cli facechoice`, the per-face dump, run on the 27 dump folders and checked against the stored `eye_focus`
   - Done when:
     - A new file `crates/cli/src/facechoice.rs` (declared with one `mod`
       line and one dispatch arm plus one usage line in `main.rs`, nothing
@@ -294,3 +294,4 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
 ## Progress
 
 - (2026-10-23) Step 1 complete
+- (2026-10-23) Step 2 complete

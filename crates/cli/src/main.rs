@@ -16,6 +16,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::time::Instant;
 
+mod facechoice;
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -101,6 +103,7 @@ fn main() -> Result<()> {
             }
             check(&dirs.iter().map(PathBuf::from).collect::<Vec<_>>(), threads)
         }
+        Some("facechoice") => facechoice::run(&args[1..]),
         Some("embed") => embed_cmd(&args[1..]),
         Some("previews") => previews(&parse_previews(&args[1..])?),
         Some("embed-compare") => match &args[1..] {
@@ -108,7 +111,8 @@ fn main() -> Result<()> {
             _ => bail!("usage: {EMBED_COMPARE_USAGE}"),
         },
         _ => bail!(
-            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]\n       {EMBED_USAGE}\n       {EMBED_COMPARE_USAGE}\n       {PREVIEWS_USAGE}"
+            "usage: riffle-cli <info|focusbox|faces|bench> <file.ARW> [out.png]\n       riffle-cli crop <file.ARW> <out.png> [size]\n       riffle-cli scan <dir> [threads]\n       riffle-cli candidates <dir>... [threads]\n       riffle-cli detect <dir|file>... [threads]\n       riffle-cli eyecrops <dir|file>... <out-dir>\n       riffle-cli eyes <dir|file>...\n       riffle-cli features <dir>... [threads]\n       riffle-cli check <dir>... [threads]\n       {}\n       {EMBED_USAGE}\n       {EMBED_COMPARE_USAGE}\n       {PREVIEWS_USAGE}",
+            facechoice::USAGE
         ),
     }
 }
