@@ -64,7 +64,8 @@ burst's genre offset), and
 sharpness score of the embedded preview, taken on the Sony eye-AF frame
 when the camera tracked a face, else around the AF point, else between
 the eyes of a detected face, else from the sharpest tile), `crates/cli` (the
-benchmark CLI, including the `scan` folder-extraction benchmark), `crates/app`
+benchmark CLI, including the `scan` folder-extraction benchmark and the
+`facechoice` per-face `eye_focus` dump), `crates/app`
 (the Tauri 2 desktop app, whose `src/index.rs` is the SQLite folder index,
 which also keeps each folder's last viewed file in `folders.last_viewed`
 and the files shown in the preview in the separate `views` table (kept by
