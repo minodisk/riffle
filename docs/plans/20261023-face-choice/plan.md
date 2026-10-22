@@ -176,7 +176,7 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
 
 ## Steps
 
-- [ ] Step 1: Pre-register the evaluation in `facechoice.md`, before any per-face value exists
+- [x] Step 1: Pre-register the evaluation in `facechoice.md`, before any per-face value exists
   - Done when:
     - `facechoice.md` in this plan folder has a "Pre-registration" section
       merged **before the CLI subcommand exists and before any per-face
@@ -293,4 +293,4 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
 
 ## Progress
 
-- (none yet)
+- (2026-10-23) Step 1 complete
