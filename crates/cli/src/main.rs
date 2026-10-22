@@ -509,6 +509,9 @@ fn candidates(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
         score: 1.0,
         left_eye: (0.0, 0.0),
         right_eye: (0.0, 0.0),
+        nose: (0.0, 0.0),
+        mouth_left: (0.0, 0.0),
+        mouth_right: (0.0, 0.0),
     };
     eyes::mesh_of(&[0; 3], 1, 1, 1, &probe);
 
@@ -721,6 +724,9 @@ fn features(dirs: &[PathBuf], threads: Option<usize>) -> Result<()> {
         score: 1.0,
         left_eye: (0.0, 0.0),
         right_eye: (0.0, 0.0),
+        nose: (0.0, 0.0),
+        mouth_left: (0.0, 0.0),
+        mouth_right: (0.0, 0.0),
     };
     faces::detect(&[0; 3], 1, 1)?;
     faces::detect_whole(&[0; 3], 1, 1)?;
@@ -1624,6 +1630,9 @@ fn eyes_cmd(inputs: &[PathBuf]) -> Result<()> {
         score: 1.0,
         left_eye: (0.0, 0.0),
         right_eye: (0.0, 0.0),
+        nose: (0.0, 0.0),
+        mouth_left: (0.0, 0.0),
+        mouth_right: (0.0, 0.0),
     };
     // Build the models outside the timing.
     faces::detect(&[0; 3], 1, 1)?;
@@ -2075,6 +2084,9 @@ mod tests {
             score,
             left_eye: (0.0, 0.0),
             right_eye: (0.0, 0.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         };
         assert_eq!(
             detect_line("a.DNG", false, &[], 41.26, 15.04),
@@ -2101,6 +2113,9 @@ mod tests {
             score: 0.9,
             left_eye: (15.0, 25.0),
             right_eye: (35.0, 26.0),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         }
     }
 
@@ -2328,6 +2343,9 @@ mod tests {
             score: 0.876,
             left_eye: (30.2, 50.0),
             right_eye: (70.0, 51.6),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         };
         assert_eq!(
             eyecrops_line("a.ARW", 0, true, &face, 32, true),

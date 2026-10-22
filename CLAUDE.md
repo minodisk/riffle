@@ -13,7 +13,8 @@ sidecar bytes (rating, the tri-state pick / reject flag as `ShouldProcess`,
 and `ColorLabel`), both sharing the `Flag` enum in `src/lib.rs`, `src/i18n.rs`
 the per-language values, one JSON file per language in `crates/core/i18n/`
 (so far the Lightroom color label presets) that `build.rs` embeds at build
-time, `src/faces.rs` the YuNet face/eye detector, whose ONNX model and license
+time, `src/faces.rs` the YuNet face detector (each face's box, score and five
+landmarks: the eyes, the nose tip and the mouth corners), whose ONNX model and license
 live in `crates/core/models/`, `src/eyes.rs` the closed-eyes judgment of one
 face (the eye aspect ratio of the MediaPipe Face Landmarker v2 face mesh,
 its ONNX and `LICENSE-mediapipe` next to YuNet's; the scan runs only its
@@ -99,7 +100,7 @@ collapsed into one rerun; the shared weights and the per-genre offsets stored in
 `ranking.json` under the app's local data dir, the prior's when none fits),
 `src/commands.rs` the Tauri commands, including `set_scan_focus`, which hands
 the running scan the current file and the strip's visible range,
-`faces_of`, which detects the faces the focus mark
+`faces_of`, which detects the faces (box, score, five landmarks) the focus mark
 draws on demand through the scan's `detect_around` without touching the index,
 `genres_of`, which gives the folder's genre labels from its stored
 embeddings, and `eyes_of`, which judges with `eyes` whether the eyes of the shown file's
@@ -163,7 +164,8 @@ classes every control uses (see `docs/agents/ui-styling.md`),
 `src/context.ts` builds the items of the strip's HTML right-click menu
 (including the file's reveal item and `Copy Path` / `Copy File Name`, which
 copy every targeted file, one per line),
-`src/focus.ts` places the `f` focus mark and holds the good-photo rule
+`src/focus.ts` places the `f` focus mark and the face boxes' five landmark
+dots and labels (score, box size and eye distance in stored preview px) and holds the good-photo rule
 (`photoTier`: the AF eyes in focus, the eyes open and the face toward the
 camera, from the values pass 2 stored for the AF face), which colors the
 mark bright green and puts the strip's face icon on a good frame, and the

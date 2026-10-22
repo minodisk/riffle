@@ -209,7 +209,9 @@ chrome):
   band tint (`.cell.burst::before`'s `rgba(255, 255, 255, 0.08)`), and the
   `#000` `text-shadow` / `drop-shadow` halos.
 - In `src/*.ts`: `focus.ts`'s `FOCUS_MARK_COLORS` (and `focus.test.ts`),
-  `main.ts`'s `FACE_MARK_COLOR` and the `rgba(0, 0, 0, 0.8)` mark halo.
+  `main.ts`'s `FACE_MARK_COLOR` (`#3ff`, YuNet's boxes, dots and labels),
+  `FACE_MESH_COLOR` (`#f3f`, the face mesh) and the `rgba(0, 0, 0, 0.8)`
+  mark halo.
 
 ## Before opening a PR
 

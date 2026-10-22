@@ -2057,3 +2057,13 @@ Files: `docs/plans/_archived/20261019-discard-retarget/plan.md`, `docs/plans/_ar
 #### TODO
 
 - [ ] Ask the user: is the existing `G0` at per-folder q5-q10, sorted last (not hidden), worth shipping as it is? If no, delete this item. If yes, write a plan that pre-registers the question and its bars and starts with a fresh blind confirmation round (candidates and controls mixed and unmarked, about 3 s per frame, 600 frames about 30 minutes). Run the offline Python with `D:\Photos\tests\.venv-eval\Scripts\python.exe -I -B` (the old `%TEMP%\embedvenv` was wiped).
+
+### App: real-device check of the YuNet values and landmarks on the focus mark
+
+The `face-detection-values` plan keeps YuNet's nose and mouth landmarks in `Face`, carries every face's score and landmarks through `faces_of`, and draws a label (score, box size, eye distance in stored preview px) and five landmark dots beside each face box in cyan `#3ff`, with the face mesh drawing switched to magenta `#f3f`. Unit tests (`focus.test.ts`, `faces.test.ts`, the `faces.rs` tests) and `mise run ci` cover the label text, the upright placement on all four orientations and the coordinate mappers. Drawing on a real preview was never exercised, so the label legibility on rotated frames, the clamp inside the image and the colors are unchecked. Plan: `docs/plans/_archived/20261021-face-detection-values/plan.md`.
+
+Files: `crates/app/ui/src/main.ts`, `crates/app/ui/src/focus.ts`.
+
+#### TODO
+
+- [ ] On Windows, open a folder with faces in landscape and portrait (orientation 6 / 8) frames and, if available, a half-turned (3) one, and press `f`. Each face box has a cyan label like `0.93  212×254  eyes 61` reading upright above the box (just inside it when the box touches the image's top). There are five cyan dots on the eyes, nose tip and mouth corners, and no dot between the eyes. The face mesh outline and irises are magenta. The 1:1 view (`z`) and Compare draw no faces.

@@ -437,6 +437,9 @@ mod tests {
             score,
             left_eye: (x + side * 0.3, y + side * 0.4),
             right_eye: (x + side * 0.7, y + side * 0.4),
+            nose: (0.0, 0.0),
+            mouth_left: (0.0, 0.0),
+            mouth_right: (0.0, 0.0),
         }
     }
 

@@ -38,6 +38,7 @@ import {
   applyFaceReady,
   afEyeState,
   applySharpnessReady,
+  faceLabelAt,
   faceMarks,
   focusMark,
   photoTier,
@@ -690,8 +691,10 @@ function scheduleCropForResize(): void {
 // lines off the focus point, which is the one pixel the mark exists to show.
 const FOCUS_MARK_ARM = 8;
 const FOCUS_MARK_GAP = 4;
-// The detected faces, apart from every mark color above.
+// The detected faces, apart from every mark color above, and the judged
+// face's mesh, apart from the faces so YuNet's output and the mesh's differ.
 const FACE_MARK_COLOR = "#3ff";
+const FACE_MESH_COLOR = "#f3f";
 const FACE_MARK_EYE_RADIUS = 2.5;
 // The judged face's parts outline, lighter than the boxes so the box stays
 // the outer frame.
@@ -1463,6 +1466,7 @@ function draw(): void {
   drawFaceMarks(drawWidth, drawHeight);
   drawFaceMesh(drawWidth, drawHeight);
   context.restore();
+  drawFaceLabels(drawWidth, drawHeight, orientation);
 }
 
 // The scrolling time axis redraws on this timer too, so the graph moves
@@ -2557,8 +2561,9 @@ function drawFocusMark(drawWidth: number, drawHeight: number): void {
 }
 
 // The faces Riffle detects on the current file's preview, in the same
-// unrotated coordinates as the AF mark: a box per face and a dot between its
-// eyes. They are detected when first drawn and appear once `faces_of`
+// unrotated coordinates as the AF mark: a box per face and a dot on each of
+// its five landmarks (the eyes, the nose tip, the mouth corners). They are
+// detected when first drawn and appear once `faces_of`
 // answers; the 1:1 view and Compare do not draw them.
 function drawFaceMarks(drawWidth: number, drawHeight: number): void {
   if (!showFocus || viewOnly || files.length === 0) {
@@ -2595,14 +2600,58 @@ function drawFaceMarks(drawWidth: number, drawHeight: number): void {
   context.lineWidth = 2;
   context.stroke();
   context.beginPath();
-  for (const { eye } of marks) {
-    context.moveTo(eye.x + FACE_MARK_EYE_RADIUS, eye.y);
-    context.arc(eye.x, eye.y, FACE_MARK_EYE_RADIUS, 0, 2 * Math.PI);
+  for (const { points } of marks) {
+    for (const p of points) {
+      context.moveTo(p.x + FACE_MARK_EYE_RADIUS, p.y);
+      context.arc(p.x, p.y, FACE_MARK_EYE_RADIUS, 0, 2 * Math.PI);
+    }
   }
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.stroke();
   context.fillStyle = FACE_MARK_COLOR;
   context.fill();
+  context.restore();
+}
+
+// Each face box's label (`faceLabel`), drawn after `draw()` undoes the
+// image's rotation so the text reads upright on a turned frame, under the
+// same gates as the boxes.
+function drawFaceLabels(drawWidth: number, drawHeight: number, orientation: number): void {
+  if (!showFocus || viewOnly || files.length === 0) {
+    return;
+  }
+  if (shown === null || shown.seq !== seq) {
+    return;
+  }
+  const found = faceCache.get(files[index]);
+  if (found === undefined || found.faces.length === 0) {
+    return;
+  }
+  const marks = faceMarks(
+    found.faces,
+    found.width,
+    found.height,
+    drawWidth,
+    drawHeight,
+    orientation,
+  );
+  const dpr = window.devicePixelRatio;
+  context.save();
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.scale(dpr, dpr);
+  context.font = "11px system-ui, sans-serif";
+  context.textBaseline = "top";
+  context.textAlign = "left";
+  context.lineJoin = "round";
+  context.lineWidth = 3;
+  context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+  context.fillStyle = FACE_MARK_COLOR;
+  for (const { rect, label } of marks) {
+    const width = context.measureText(label).width;
+    const at = faceLabelAt(rect, orientation, drawWidth, drawHeight, width);
+    context.strokeText(label, at.x, at.y);
+    context.fillText(label, at.x, at.y);
+  }
   context.restore();
 }
 
@@ -2635,7 +2684,7 @@ function drawFaceMesh(drawWidth: number, drawHeight: number): void {
   context.strokeStyle = "rgba(0, 0, 0, 0.8)";
   context.lineWidth = FACE_MESH_OUTLINE_WIDTH;
   context.stroke();
-  context.strokeStyle = FACE_MARK_COLOR;
+  context.strokeStyle = FACE_MESH_COLOR;
   context.lineWidth = FACE_MESH_LINE_WIDTH;
   context.stroke();
   if (dots.length > 0) {
@@ -2647,7 +2696,7 @@ function drawFaceMesh(drawWidth: number, drawHeight: number): void {
     }
     context.strokeStyle = "rgba(0, 0, 0, 0.8)";
     context.stroke();
-    context.fillStyle = FACE_MARK_COLOR;
+    context.fillStyle = FACE_MESH_COLOR;
     context.fill();
   }
   context.restore();

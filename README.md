@@ -141,11 +141,13 @@ DxO PhotoLab.
   `Unknown`) narrows the strip by the state, its `Eyes` section (`Open` / `Closed` / `Unknown`) by the stored eye
   state (a file without one, such as a shot with no face found, is
   `Unknown`). The mark also draws the faces
-  Riffle detects near the AF point as a cyan box with a dot between the eyes,
+  Riffle detects near the AF point as a cyan box with a cyan dot on each eye,
+  the nose tip and the mouth corners and a label beside it (the detection
+  score, the box size and the distance between the eyes, in preview pixels),
   a moment after `f`, since the detection runs when the frame is shown, and
   the face the `Eyes` row judged also gets the outline of its face parts (face
   oval, eyes, brows, nose, lips) and, when the eyes are judged open, the
-  irises, a moment after that row.
+  irises, in magenta, a moment after that row.
 - **Offline face detection**: faces and eyes are found by the bundled
   [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
   model (MIT license); whether the eyes of the shown file's subject are
