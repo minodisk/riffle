@@ -238,7 +238,7 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
     - CLAUDE.md's `crates/cli` sentence may gain the new subcommand in the
       same PR; otherwise leave CLAUDE.md.
 
-- [ ] Step 3: `facechoiceread.py`, the single pre-registered read, and the Results section
+- [x] Step 3: `facechoiceread.py`, the single pre-registered read, and the Results section
   - Done when:
     - `facechoiceread.py` in this plan folder (`python -I -B
       facechoiceread.py <app-dump-dir> <folder-wide-eval-dir>
@@ -295,3 +295,4 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
 
 - (2026-10-23) Step 1 complete
 - (2026-10-23) Step 2 complete
+- (2026-10-23) Step 3 complete
