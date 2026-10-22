@@ -377,7 +377,7 @@ the top rather than the bottom, the text says so.
       allocation and copy helpers; print tables and checks before copying;
       copy in the foreground or in resumable chunks.
 
-- [ ] Step 5: The confirmatory read, once
+- [x] Step 5: The confirmatory read, once
   - Done when:
     - The user labels the sample folder (manual; the plan pauses here),
       then `confirmlabels.py` (the archived discard-labels `labels.py`
@@ -464,3 +464,4 @@ the top rather than the bottom, the text says so.
 - (2026-10-21) Step 2 complete
 - (2026-10-21) Step 3 complete
 - (2026-10-21) Step 4 complete
+- (2026-10-21) Step 5 complete

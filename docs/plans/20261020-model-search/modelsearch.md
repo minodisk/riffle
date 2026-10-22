@@ -945,3 +945,189 @@ a recommendation:
 - **Population caveat**: one photographer's 27 folders, mostly basketball;
   600 fresh labels on 30,659 frames; the pick read on 7 folders, so its
   folder bootstrap is wide and a fail is weakly informative.
+
+## Results of the confirmation
+
+Run once on 2026-10-21 by `confirmread.py` (`python -I -B confirmread.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-15-folder-wide-eval
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-18-discard-labels D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-20-model-search 8`), its stdout saved as
+`confirmread.out.md` in the data folder; the script refuses to run when that
+file exists. The labels came from `confirmlabels.py` (`python -I -B
+confirmlabels.py D:\Photos\tests\2026-10-20-model-search`, stdout saved as
+`confirmlabels.out.md` there). Discard intervals are the stratified bootstrap's
+95% (1,000 draws, seed 0, within `b05`, `b10`, `b20`, `g0only` and each
+`control` folder cell, one count matrix for every score), the folder-cluster
+interval beside it where marked; values weighted by the fresh `1/π`. Pick
+intervals are the 1,000-draw folder bootstrap (seed 0) of the mean paired
+per-folder difference. The exploration's 600 labels were not opened (an
+audit hook saw only `manifest.tsv` in each earlier round's folder).
+
+### The fresh labels
+
+600 labeled, 0 skipped, 0 copies missing, 0 other files in `sample\`; 248
+copies carry a `.dop` + `.xmp` pair, the `.dop` deciding on all, 0 `.dop` /
+XMP disagreements on rating 1; **0 unexpected marks** (no Pick, Reject,
+color label or rating other than 1). Sampled dump picks 36 (30 keep, 6
+discard), sampled explicit rejects 3 (0 keep, 3 discard).
+
+| Stratum | Sampled | Keep | Discard | `π` |
+| --- | ---: | ---: | ---: | ---: |
+| `b05` | 120 | 28 | 92 | 0.0865801 |
+| `b10` | 120 | 29 | 91 | 0.0812458 |
+| `b20` | 120 | 36 | 84 | 0.039383 |
+| `g0only` | 120 | 72 | 48 | 0.0721154 |
+| `control` | 120 | 83 | 37 | per folder |
+| Total | 600 | 248 | 352 | |
+
+**Discardable base rate 42.31% [35.85, 48.91]** (cluster [33.44, 51.61];
+unweighted 58.67%), against the exploration's 48.45% [42.03, 55.11] on its
+own population.
+
+### Checks
+
+Every check passes: the 31 `strata.tsv` rows and every label's stratum and
+`π` recompute from the dump; the sum of `1/π` is 30,659.0; no fresh label is
+in an earlier sample; the winner's and `G0`'s `PL` (0.77 / 2.10 / 5.73%,
+0.68 / 2.10 / 5.18%) and removed shares of the fresh population (4.52 /
+9.34 / 19.28%, 4.53 / 9.09 / 18.72%) reproduce Steps 3 and 4; the pick
+recipe refit on 19 exploration folders reproduces `scores_pick.tsv` on the
+spot fold `2026-09-27-a` exactly (0.00e+00); the pick fit's training
+folders hold no lockbox folder; all 7 lockbox folders qualify.
+
+### Discard: the winner on the fresh labels
+
+| Score | Cut | `DP` % | `RR` % (cluster) | `PL` % | Removed % | `DR` % | `DO` % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `G0 ⊕ ef` | q5 | 76.7 [69.2, 84.2] | 23.3 [15.8, 30.8] ([17.4, 32.3]) | 0.77 | 4.52 | 8.2 | 40.7 |
+| `G0 ⊕ ef` | q10 | 76.2 [70.8, 81.7] | 23.8 [18.3, 29.2] ([17.3, 32.9]) | 2.10 | 9.34 | 16.8 | 38.8 |
+| `G0 ⊕ ef` | q20 | 73.0 [68.1, 77.8] | 27.0 [22.2, 31.9] ([20.5, 36.0]) | 5.73 | 19.28 | 33.3 | 35.0 |
+| `G0` | q5 | 76.5 [69.1, 84.3] | 23.5 [15.7, 30.9] ([16.0, 34.9]) | 0.68 | 4.53 | 8.2 | 40.7 |
+| `G0` | q10 | 69.9 [64.2, 76.3] | 30.1 [23.7, 35.8] ([23.5, 39.2]) | 2.10 | 9.09 | 16.2 | 39.3 |
+| `G0` | q20 | 63.5 [59.0, 68.0] | 36.5 [32.0, 41.0] ([30.4, 45.2]) | 5.18 | 18.72 | 28.5 | 37.4 |
+| `eye_focus` (missing last) | q5 | 94.5 [85.5, 98.9] | 5.5 [1.1, 14.5] ([1.3, 17.7]) | 4.44 | 4.80 | 9.5 | 40.0 |
+| `eye_focus` (missing last) | q10 | 87.1 [78.2, 92.8] | 12.9 [7.2, 21.8] ([6.1, 26.5]) | 9.14 | 9.70 | 16.4 | 38.4 |
+| `eye_focus` (missing last) | q20 | 87.2 [82.1, 91.1] | 12.8 [8.9, 17.9] ([7.7, 23.3]) | 15.59 | 19.64 | 32.6 | 33.9 |
+| Random (seed 0) | q5 | 44.2 [18.7, 75.2] | 55.8 [24.8, 81.3] ([17.6, 82.4]) | 4.71 | 4.96 | 6.8 | 42.2 |
+| Random (seed 0) | q10 | 46.1 [25.9, 67.4] | 53.9 [32.6, 74.1] ([28.5, 76.4]) | 9.48 | 10.01 | 12.2 | 41.8 |
+| Random (seed 0) | q20 | 44.1 [28.9, 59.9] | 55.9 [40.1, 71.1] ([43.9, 71.3]) | 19.26 | 19.98 | 21.3 | 41.8 |
+
+Weighted discard AUC: `G0 ⊕ ef` **0.684** [0.610, 0.756] (cluster [0.605,
+0.762]); `G0` 0.630 [0.561, 0.703]; `eye_focus` **0.785** [0.723, 0.844]
+(cluster [0.693, 0.881]); random 0.536 [0.458, 0.622].
+
+Paired differences of the winner (stratified, cluster in parentheses):
+
+| Difference | q5 | q10 | q20 |
+| --- | ---: | ---: | ---: |
+| `G0 ⊕ ef` − `G0`, `DP` points | +0.1 [-7.0, +6.9] ([-6.3, +7.0]) | +6.3 [+0.9, +11.4] ([+0.9, +11.4]) | +9.6 [+5.4, +13.7] ([+4.1, +14.9]) |
+| `G0 ⊕ ef` − `eye_focus`, `DP` points | -17.8 [-25.8, -7.4] ([-27.1, -4.3]) | -10.9 [-17.6, -1.7] ([-20.8, +0.7]) | -14.2 [-19.0, -8.8] ([-19.8, -7.2]) |
+| `G0 ⊕ ef` − random, `DP` points | +32.5 [-0.2, +59.0] ([-9.6, +58.4]) | +30.2 [+8.0, +51.9] ([+1.8, +51.9]) | +28.9 [+13.6, +44.4] ([+17.0, +41.6]) |
+| `G0 ⊕ ef` − `G0`, AUC | +0.055 [-0.008, +0.116] ([-0.013, +0.127]) | | |
+| `G0 ⊕ ef` − `eye_focus`, AUC | -0.101 [-0.159, -0.044] ([-0.201, -0.016]) | | |
+| `G0 ⊕ ef` − random, AUC | +0.148 [+0.046, +0.259] ([+0.076, +0.220]) | | |
+
+### Discard: the bars applied
+
+| Cut | (1) `RR` <= 25%, 97.5% <= 35% | (2) `PL` <= 5% | (3) Removed >= 4.5% | (4) `DP` 2.5% > 42.31% | (5) `DP` − `G0` 2.5% > 0 | (6) AUC − `eye_focus` 2.5% > 0 | Verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| q5 | 23.3, 30.8: yes | 0.77: yes | 4.52: yes | 69.2: yes | -7.0: **no** | -0.159: **no** | not usable |
+| q10 | 23.8, 29.2: yes | 2.10: yes | 9.34: yes | 70.8: yes | +0.9: yes | -0.159: **no** | not usable |
+| q20 (not eligible) | 27.0, 31.9: **no** | 5.73: **no** | 19.28: yes | 68.1: yes | +5.4: yes | -0.159: **no** | not usable |
+
+**Discard verdict: `G0 ⊕ ef` does not pass** (no usable cut at q5 or q10).
+**Follow-up rule: (2), more labels or more folders**: at q5 and at q10 the
+`RR` point is <= 25% with conditions 2 and 3 holding, and every failing
+condition is a "beats" condition (q5: 5 and 6; q10: 6 only); the second
+branch also holds at q5 (`DP` − `G0` +0.1 with the interval spanning zero).
+
+### Pick: the winner on the lockbox
+
+`All@32 / HGB-mono / pick` fit once on the 20 exploration folders, scored on
+the 7 lockbox folders (9,591 frames, 1,301 picks); `W0` stored. Mean
+(per-folder SD); pooled is the frame-weighted mean.
+
+| Score | `P@5` % | `P@10` % | `P@20` % | `R@10` % | R-precision % | Frame AUC | Pooled `P@10` | Pooled frame AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `All@32 / HGB-mono / pick` | 36.3 (14.7) | 28.0 (13.1) | 24.6 (8.9) | 20.2 (9.5) | 25.7 (11.6) | 0.657 (0.103) | 37.4 | 0.732 |
+| `W0` | 30.8 (16.8) | 33.2 (10.2) | 25.2 (9.7) | 24.0 (7.6) | 28.8 (9.5) | 0.658 (0.089) | 37.2 | 0.696 |
+
+| Folder | Frames | Picks | Winner `P@10` % | `W0` `P@10` % | Winner frame AUC | `W0` frame AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `2026-07-26` | 64 | 7 | 16.7 | 33.3 | 0.569 | 0.649 |
+| `2026-07-30` | 936 | 105 | 12.9 | 15.1 | 0.577 | 0.508 |
+| `2026-07-31` | 349 | 52 | 23.5 | 38.2 | 0.607 | 0.651 |
+| `2026-08-01` | 3,401 | 463 | 35.3 | 33.2 | 0.725 | 0.670 |
+| `2026-08-02` | 150 | 28 | 20.0 | 26.7 | 0.555 | 0.605 |
+| `2026-08-29` | 3,451 | 475 | 47.5 | 46.7 | 0.788 | 0.756 |
+| `2026-09-27-b` | 1,240 | 171 | 40.3 | 39.5 | 0.779 | 0.768 |
+
+Paired against `W0` (folder bootstrap 95%, one-sided Wilcoxon p, folders at
+or above): `P@10` **−5.2 [-10.8, -0.7]** (p 0.92, 3 of 7); `R@10` −3.8
+[-8.1, -0.3] (3 of 7); `P@5` +5.5 [-3.7, +16.4] (5 of 7); `P@20` −0.6
+[-3.0, +1.8]; R-precision −3.1 [-7.9, +1.0]; frame AUC −0.001 [-0.039,
++0.036] (4 of 7).
+
+| Pick bar | Value | Holds |
+| --- | ---: | ---: |
+| (1) mean `P@10` >= `W0`'s + 2.0 points | −5.2 points | no |
+| (2) folder-bootstrap 2.5% quantile above zero | −10.8 | no |
+| (3) at least 5 of 7 folders at or above `W0` | 3 of 7 | no |
+
+**Pick verdict: `All@32 / HGB-mono / pick` does not pass. Follow-up rule:
+(3), nothing** (the `P@10` gain point is negative, so the "close" branch
+does not apply).
+
+### Exploration beside confirmation
+
+The same frozen winners and references, the exploration's numbers (Step 3,
+"Results of the exploration") beside this read's:
+
+| Reading | Exploration | Confirmation |
+| --- | ---: | ---: |
+| Discardable base rate % | 48.45 [42.03, 55.11] | 42.31 [35.85, 48.91] |
+| `G0 ⊕ ef` `DP@5` / `RR@5` % | 88.4 [82.9, 93.2] / 11.6 | 76.7 [69.2, 84.2] / 23.3 |
+| `G0 ⊕ ef` `DP@10` / `RR@10` % | 90.0 [86.1, 93.3] / 10.0 | 76.2 [70.8, 81.7] / 23.8 |
+| `G0 ⊕ ef` `DP@20` / `RR@20` % | 80.1 / 19.9 | 73.0 [68.1, 77.8] / 27.0 |
+| `G0 ⊕ ef` AUC | 0.763 [0.703, 0.822] | 0.684 [0.610, 0.756] |
+| `G0 ⊕ ef` − `G0`, `DP@5` points | +5.7 [+0.4, +11.4] | +0.1 [-7.0, +6.9] |
+| `G0 ⊕ ef` − `G0`, `DP@10` points | +13.7 [+9.8, +17.7] | +6.3 [+0.9, +11.4] |
+| `G0 ⊕ ef` − `G0`, AUC | +0.053 [+0.008, +0.099] | +0.055 [-0.008, +0.116] |
+| `G0 ⊕ ef` − `eye_focus`, AUC | -0.015 [-0.062, +0.030] | -0.101 [-0.159, -0.044] |
+| `G0` `DP@5` / `DP@10` %; AUC | 82.7 / 76.3; 0.710 | 76.5 / 69.9; 0.630 |
+| `eye_focus` `RR@5` / `RR@10` %; AUC | 16.8 / 14.3; 0.777 | 5.5 / 12.9; 0.785 |
+| Random `DP@5` / `DP@10` %; AUC | 52.0 / 61.5; 0.528 | 44.2 / 46.1; 0.536 |
+| Pick winner mean `P@10` % (18 exploration / 7 lockbox folders) | 30.4 (10.7) | 28.0 (13.1) |
+| `W0` mean `P@10` % | 31.2 (11.6) | 33.2 (10.2) |
+| Pick winner `P@10` − `W0`, points | -0.9 [-2.7, +0.5] | -5.2 [-10.8, -0.7] |
+| Pick winner folders at or above `W0` | 12 of 18 | 3 of 7 |
+| Pick winner mean `R@10` % / frame AUC | 22.3 / 0.671 | 20.2 / 0.657 |
+| `W0` mean `R@10` % / frame AUC | 22.9 / 0.669 | 24.0 / 0.658 |
+
+### Reading
+
+Every check passes, and the read ran once. On 600 fresh labels (248 keep,
+352 discard, no unexpected mark) the discardable base rate is 42.31%
+[35.85, 48.91]. **Discard**: `G0 ⊕ ef` removes 76.7% discardable frames at
+q5 (`RR` 23.3 [15.8, 30.8]) and 76.2% at q10 (`RR` 23.8 [18.3, 29.2]),
+both within the `RR` bar with `PL` 0.77 / 2.10% and the removed share 4.52 /
+9.34%; its `DP` exceeds `G0`'s by +6.3 [+0.9, +11.4] points at q10 and by
++0.1 [-7.0, +6.9] at q5; its AUC, 0.684, is below `eye_focus`'s 0.785 by
+0.101 [-0.159, -0.044], so condition 6 fails at every cut and neither
+eligible cut is usable; the follow-up rule gives (2). Against the
+exploration, its `DP` fell by 11.7 points at q5 and 13.8 at q10, its `RR`
+roughly doubled (11.6 → 23.3, 10.0 → 23.8), its AUC fell by 0.079 and its
+lead over `G0` at q10 halved (+13.7 → +6.3); its AUC lead over `G0`
+stayed (+0.053 → +0.055) while both fell; `eye_focus`'s AUC held (0.777 →
+0.785) and its gap to the winner widened from 0.015 to 0.101. The fresh
+strata were cut by the winner and `G0`, and `g0only` is 40% discard by
+count against 70–77% in the winner's bands. **Pick**: on the 7 lockbox
+folders the winner's mean `P@10` is 28.0% against `W0`'s 33.2%, −5.2
+[-10.8, -0.7] points with 3 of 7 folders at or above; every pick bar
+fails and the follow-up rule gives (3). Its `P@5` reads +5.5 [-3.7,
++16.4] and its frame AUC −0.001, and it is at or above `W0` on the three
+largest folders (`2026-08-01`, `2026-08-29`, `2026-09-27-b`) and below on
+the four smaller ones; the pooled `P@10` is 37.4 against 37.2. Its
+exploration gap to `W0` (−0.9) widened to −5.2. `W0` was trained with the
+other lockbox folders and the winner without them. Step 6 decides.
