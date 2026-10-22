@@ -19,7 +19,7 @@ lychee (`mise run lint`) resolves a relative link in `docs/plans/**` from the li
 ## Purpose
 
 On the fresh blind "OK to discard?" labels of the model-search confirmation
-([modelsearch.md, "Results of the confirmation"](../_archived/20261020-model-search/modelsearch.md)),
+([modelsearch.md, "Results of the confirmation"](../20261020-model-search/modelsearch.md)),
 the plain `eye_focus` cue was the strongest discard signal: weighted AUC
 **0.785** [0.723, 0.844], against 0.684 for the learned winner `G0 ⊕ ef`.
 Improving `eye_focus` itself is therefore the most promising lever for
