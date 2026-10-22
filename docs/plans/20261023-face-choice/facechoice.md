@@ -601,8 +601,8 @@ The facts, without a decision (Step 4 decides):
   detection) is the only rule above `af` on round 2, 0.800 (+0.014 [−0.018,
   +0.052]), with `RR` at q10 −1.3 points (97.5% quantile +5.5, just past the
   +5 bar); on round 1 it reads below, 0.749 (−0.028 [−0.065, +0.009]). It
-  leaves 4.5% of the dump missing against `af`'s 12.4%, which lowers its
-  `PL` (7.78% at q10 against 9.14%).
+  leaves 4.5% of the dump missing against `af`'s 12.4%; its `PL` at q10 is
+  7.78% against `af`'s 9.14%.
 - **On the disagreement frames the AF face carries the signal.** Where `af`
   and `largest` disagree, round 2's subset AUC is 0.833 for `af` against
   0.682 for `largest` (−0.151 [−0.289, −0.004]); a frame whose AF face has
@@ -615,7 +615,8 @@ The facts, without a decision (Step 4 decides):
 - **On multi-face frames** `af` reads 0.769 (round 2) and 0.787 (round 1),
   and no rule's AUC difference against it is positive beyond +0.006.
 - The user's hypothesis was that the face `eye_focus` judges is not the one
-  a human looks at. On these labels the AF-nearest face differs from the
-  largest or the sharpest face often, and when it does, its `eye_focus`
-  agrees with the discard label better than theirs does.
+  a human looks at. On round 2, where the AF-nearest face differs from the
+  largest or the sharpest face, its `eye_focus` agrees with the discard label
+  better than theirs does; round 1's subsets are within noise, and its `af`
+  vs `sharpest` cross-tab runs the other way.
 - Both rounds have been read before. One photographer, mostly basketball.
