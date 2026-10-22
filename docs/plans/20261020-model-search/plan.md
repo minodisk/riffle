@@ -537,8 +537,8 @@ confirmed):
 - **The forms.** No form beat `W0` on the pick task. At `All@32`, `HGB-mono`
   was the only pick-target form whose `DP@10` − `G0` interval was above zero
   (+5.3 [+1.3, +9.1]) and the pick winner, and it lost on the lockbox. On the
-  discard target at `All@32` the logistic forms raised the AUC most (+0.077
-  to +0.099 over `G0` across the dimension designs) and were the only
+  discard target at `All@32` the logistic forms raised the AUC most
+  (+0.097 for `LR-L2`, +0.077 for `LR-L1` over `G0`) and were the only
   discard-target forms with a positive `DP@5` − `G0`, while the HGB forms on
   that target lowered `DP@5` (−12.8 to −19.0); across the full `DP@10` grid
   some HGB discard-target cells are positive (`T+C / HGB / discard` +14.8).
