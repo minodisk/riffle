@@ -28,7 +28,7 @@ trial-and-error to find better-performing models for both. What exists:
   blind "OK to discard?" labels its discard AUC is 0.710; at q5 `RR` 17.3%
   [11.3, 24.0] and `PL` 0.68%; under the user's looser hide / sort-last bar
   it meets every condition except "beats `G0`", which it cannot meet
-  ([discard-retarget Decision](../_archived/20261019-discard-retarget/plan.md)).
+  ([discard-retarget Decision](../20261019-discard-retarget/plan.md)).
   Folder-wide, frame AUC 0.670 (mean over the 25 qualifying folders).
 - **`eye_focus` alone** has the best discard AUC, 0.777, but a high `PL`
   (4.44% at q5, 9.14% at q10).
@@ -38,7 +38,7 @@ trial-and-error to find better-performing models for both. What exists:
   frames. The burst-relative `B` columns moved nothing.
 - **`W0`** (the shipped in-burst model) folder-wide: frame AUC 0.666,
   R-precision 28.6% (chance 13.8%), lift at the top tenth 2.32
-  ([folder-wide-ranking-eval](../_archived/20261015-folder-wide-ranking-eval/plan.md)).
+  ([folder-wide-ranking-eval](../20261015-folder-wide-ranking-eval/plan.md)).
 
 Every round so far changed one thing at a time against a bar. This plan is
 the **exploratory** round the user asked for: a bounded search over feature

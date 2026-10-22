@@ -11,7 +11,7 @@ from each folder's frame and pick counts alone (no label, no model score).
 It is merged on its own, before `searchfit.py` or `searchread.py` exists; the
 merge commit of the PR that adds this section, without results, is the
 record, as for the archived
-[discard retarget evaluation](../_archived/20261019-discard-retarget/retarget.md)
+[discard retarget evaluation](../20261019-discard-retarget/retarget.md)
 before it. Nothing in this section changes after the new scores exist; a
 deviation found while implementing Steps 2–3 is recorded in `learnings.md`
 with its reason and does not touch the selection rules.
@@ -32,9 +32,9 @@ the same labels and picks. On the same dump of 27 folders and 32,459 frames
 (4,419 picks):
 
 - **On the 600 blind discard labels**, from the archived
-  [discard.md](../_archived/20261018-discard-labels/discard.md) "Results"
+  [discard.md](../20261018-discard-labels/discard.md) "Results"
   and reproduced digit for digit by
-  [retarget.md](../_archived/20261019-discard-retarget/retarget.md)
+  [retarget.md](../20261019-discard-retarget/retarget.md)
   "Reference checks" (weighted by `1/π`, stratified 95% interval):
   - **Discardable base rate 48.45% [42.03, 55.11]** of the population's
     frames (folder-cluster [40.74, 53.87]; unweighted 64.83%).
