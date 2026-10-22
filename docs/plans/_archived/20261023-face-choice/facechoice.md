@@ -10,8 +10,8 @@ existed, and `D:\Photos\tests\2026-10-23-face-choice\` held nothing of this
 plan. It is merged on its own, before Step 2's subcommand or Step 3's
 `facechoiceread.py` exists; the merge commit of the PR that adds this
 section, without results, is the record, as for the archived
-[model-search confirmation](../_archived/20261020-model-search/modelsearch.md)
-and [discard filter evaluation](../_archived/20261018-discard-labels/discard.md)
+[model-search confirmation](../20261020-model-search/modelsearch.md)
+and [discard filter evaluation](../20261018-discard-labels/discard.md)
 before it. Nothing in this section changes after a per-face value exists; a
 deviation found while implementing Steps 2–3 is recorded in `learnings.md`
 with its reason and does not touch the reading rule.
@@ -32,10 +32,10 @@ On the 27-folder dump (32,459 frames):
   `eye_focus` (missing last) was the strongest discard signal read there:
   weighted AUC **0.785** [0.723, 0.844], against 0.684 for the learned
   winner `G0 ⊕ ef` and 0.630 for `G0`
-  ([modelsearch.md, "Results of the confirmation"](../_archived/20261020-model-search/modelsearch.md)).
+  ([modelsearch.md, "Results of the confirmation"](../20261020-model-search/modelsearch.md)).
   That number motivated this plan.
 - On round 1's labels (discard-labels), `eye_focus` read AUC 0.777 [0.716,
-  0.841] ([discard.md, "Main table"](../_archived/20261018-discard-labels/discard.md)).
+  0.841] ([discard.md, "Main table"](../20261018-discard-labels/discard.md)).
 - Round 2 was a **confirmation sample**: its strata were cut by `G0 ⊕ ef`
   and `G0`, and its labels have been read once for that confirmation. This
   plan reuses both rounds for selection, so any winner here is selected on
@@ -248,12 +248,12 @@ Printed first by Step 3, and the ones that need no label before any
 
 | Round | Reading | Value | Source |
 | --- | --- | ---: | --- |
-| 2 | Discardable base rate | 42.31% [35.85, 48.91] (cluster [33.44, 51.61]) | [modelsearch.md, "The fresh labels"](../_archived/20261020-model-search/modelsearch.md); `confirmread.out.md` |
+| 2 | Discardable base rate | 42.31% [35.85, 48.91] (cluster [33.44, 51.61]) | [modelsearch.md, "The fresh labels"](../20261020-model-search/modelsearch.md); `confirmread.out.md` |
 | 2 | `eye_focus` (missing last) AUC | 0.785 [0.723, 0.844] (cluster [0.693, 0.881]) | modelsearch.md, "Discard: the winner on the fresh labels" |
 | 2 | `eye_focus` `RR` q5 / q10 / q20 | 5.5 [1.1, 14.5] / 12.9 [7.2, 21.8] / 12.8 [8.9, 17.9] % | same table |
 | 2 | `eye_focus` `PL` q5 / q10 / q20 (full dump) | 4.44 / 9.14 / 15.59 % | same table |
 | 2 | `eye_focus` removed q5 / q10 / q20 (round 2 population) | 4.80 / 9.70 / 19.64 % | same table |
-| 1 | Discardable base rate | 48.45% [42.03, 55.11] (cluster [40.74, 53.87]) | [discard.md, "Discardable base rate"](../_archived/20261018-discard-labels/discard.md); `discardfilter.out.md` |
+| 1 | Discardable base rate | 48.45% [42.03, 55.11] (cluster [40.74, 53.87]) | [discard.md, "Discardable base rate"](../20261018-discard-labels/discard.md); `discardfilter.out.md` |
 | 1 | `eye_focus` (missing last) AUC | 0.777 [0.716, 0.841] (unweighted 0.803) | discard.md, "Main table" |
 | 1 | `eye_focus` `RR` q5 / q10 / q20 | 16.8 [1.2, 43.3] / 14.3 [2.9, 29.9] / 28.3 [15.7, 40.2] % | same table |
 | 1 | `eye_focus` `PL` q5 / q10 / q20 (full dump) | 4.44 / 9.14 / 15.59 % | same table |

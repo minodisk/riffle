@@ -2082,16 +2082,15 @@ Files: `docs/plans/_archived/20261020-model-search/confirmsample.py`, `docs/plan
 
 - [ ] On Windows, with `aiEnabled` off, open an unlabeled copy of the sample folder (no `.xmp` / `.dop`), sort by File name and let the scan finish. Expected: 600 files `0001_...` to `0600_...`, every one without a rating, Pick / Reject flag or color label, no `.xmp` / `.dop` in the folder before the first key press, and no recommended icon or ranking rows.
 
-### Core: improve on `eye_focus` for the discard question, using face-choice rules and the 1,200 blind labels
+### Core: improve on `eye_focus` for the discard question using the 1,200 blind labels
 
 #### Background
 
-The `model-search` Decision (branch 2, discard) recommends more labels or more folders. The bar to beat is the plain `eye_focus` cue: AUC 0.785 on the fresh labels, against the winner's 0.684 (paired -0.101 [-0.159, -0.044]). Plan: `docs/plans/_archived/20261020-model-search/plan.md` ("Decision", item 5; `modelsearch.md`, "Results of the confirmation"). The next plan is `docs/plans/20261023-face-choice/plan.md`.
+The `model-search` Decision (branch 2, discard) recommends more labels or more folders. The bar to beat is the plain `eye_focus` cue: AUC 0.785 on the fresh labels, against the winner's 0.684 (paired -0.101 [-0.159, -0.044]). Plan: `docs/plans/_archived/20261020-model-search/plan.md` ("Decision", item 5; `modelsearch.md`, "Results of the confirmation"). The face-choice evaluation (`docs/plans/_archived/20261023-face-choice/plan.md`; `facechoice.md`, "Decision") found no winner: no rule (`af-whole`, `largest`, `sharpest`, `score`, `mean`) beat today's AF-nearest face on round 2. `af-whole` was the only near-tie (AUC +0.014 [-0.018, +0.052]), and the four whole-set face choices read below `af` on both rounds. Nothing changed in the app.
 
-Files: `crates/core/src/candidate.rs`, `crates/app/src/index.rs` (`run_faces_scan`), `docs/plans/_archived/20261020-model-search/modelsearch.md`.
+Files: `crates/core/src/candidate.rs`, `crates/app/src/index.rs` (`run_faces_scan`), `docs/plans/_archived/20261020-model-search/modelsearch.md`, `docs/plans/_archived/20261023-face-choice/facechoice.md`.
 
 #### TODO
 
-- [ ] Write the face-choice plan. Evaluate face-choice rules for `eye_focus` on the two blind rounds (`D:\Photos\tests\2026-10-18-discard-labels` and `D:\Photos\tests\2026-10-20-model-search`). Today the cue uses the face nearest the AF point. Candidate rules: the largest face, the sharpest, the highest YuNet score, the mean over faces.
-- [ ] Then train a model on those 1,200 labels.
+- [ ] Train a model on those 1,200 labels.
 - [ ] Then run one fresh blind confirmation round drawn from folders not yet sampled.
