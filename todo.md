@@ -2086,7 +2086,7 @@ Files: `docs/plans/_archived/20261020-model-search/confirmsample.py`, `docs/plan
 
 #### Background
 
-The `model-search` Decision (branch 2, discard) recommends more labels or more folders. The bar to beat is the plain `eye_focus` cue: AUC 0.785 on the fresh labels, against the winner's 0.684 (paired -0.101 [-0.159, -0.044]). Plan: `docs/plans/_archived/20261020-model-search/plan.md` ("Decision", item 5; `modelsearch.md`, "Results of the confirmation"). The next plan is `docs/plans/20261021-face-choice`, not yet written.
+The `model-search` Decision (branch 2, discard) recommends more labels or more folders. The bar to beat is the plain `eye_focus` cue: AUC 0.785 on the fresh labels, against the winner's 0.684 (paired -0.101 [-0.159, -0.044]). Plan: `docs/plans/_archived/20261020-model-search/plan.md` ("Decision", item 5; `modelsearch.md`, "Results of the confirmation"). The next plan is `docs/plans/20261023-face-choice/plan.md`.
 
 Files: `crates/core/src/candidate.rs`, `crates/app/src/index.rs` (`run_faces_scan`), `docs/plans/_archived/20261020-model-search/modelsearch.md`.
 
