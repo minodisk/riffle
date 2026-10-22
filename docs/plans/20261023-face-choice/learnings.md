@@ -134,3 +134,32 @@
 - Python ran only as `-I -B` on script files; one stray `python3 -`
   heredoc (meant as a no-op) hung on the Git Bash stub as the plan warned
   and was killed by its PID.
+
+## Step 4: Decision
+
+- Branch (2), no winner: nothing changes in the app. The Decision keeps
+  round 2's and round 1's readings apart: round 2's disagreement subsets
+  favor the AF face, round 1's are within noise and its `af` vs `sharpest`
+  cross-tab runs the other way; only the `af` vs `largest` cross-tab points
+  the same way on both rounds.
+- `af-whole` is recorded as the only near-tie (misses both bars, the AUC one clearly and the `RR` one just:
+  AUC difference 2.5% quantile −0.018, `RR` q10 97.5% quantile +5.5; fills
+  4.5% missing against 12.4%), as a fact; it reads below `af` on round 1.
+- Added to the evaluation's limits next to the pre-registered two: every
+  dump frame has a trusted AF point, so the no-AF fallback was never
+  exercised; and the label is a whole-frame discard judgment, not which
+  face the human looked at.
+- Doc-only step; no script ran.
+
+## Deferred issues (todo candidates)
+
+- **Update the todo item "### Core: improve on `eye_focus` for the discard
+  question, using face-choice rules and the 1,200 blind labels"** in
+  `todo.md`: tick its first TODO ("Write the face-choice plan ...") as done
+  with **no winner** (no rule beat today's AF-nearest face on round 2;
+  `af-whole` the only near-tie, +0.014 [−0.018, +0.052]); keep the remaining
+  two TODOs open (train a model on the 1,200 labels; one fresh blind
+  confirmation round from folders not yet sampled) and point its Background
+  at this plan's `facechoice.md` "Decision" (archived path after wrap-up).
+  Basis: Step 4's Decision, from Step 3's read. Files: `todo.md`,
+  `docs/plans/20261023-face-choice/facechoice.md`.

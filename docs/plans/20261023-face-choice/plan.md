@@ -267,7 +267,7 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
     - Assumes Step 2 merged and its dump complete. Reuse `discardfilter.metrics` / `counts`, `badfilter.graded_cut` / `strat_counts` / `cluster_counts` / `aucs` and `confirmread`'s round-2 cell construction; one count matrix per round shared by every rule so the differences are paired.
     - Metric-only; seconds to a minute to run.
 
-- [ ] Step 4: Decision
+- [x] Step 4: Decision
   - Done when:
     - `facechoice.md` gains a "Decision" section naming the follow-up from
       the pre-registered rule: (1) a winning rule -> a plan for a fresh
@@ -296,3 +296,4 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
 - (2026-10-23) Step 1 complete
 - (2026-10-23) Step 2 complete
 - (2026-10-23) Step 3 complete
+- (2026-10-23) Step 4 complete
