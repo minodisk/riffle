@@ -138,7 +138,10 @@ set at the detector's 0.6, as `nearest_face` does today.
    `eye_focus`** (below).
 2. **`af-whole`** (control): with an AF point, `nearest_face` over the whole
    set (0.6, the same floor as the crop set, so only the detection changes;
-   missing when the whole set is empty); without one, `af`'s fallback.
+   the distance is measured from the crop detection's stored `focus_point`
+   (`partial::focus_point(width, height, focus)`, what `nearest_face` uses
+   today and the `af_x` / `af_y` Step 2 records), since the whole set has
+   no point of its own; missing when the whole set is empty); without one, `af`'s fallback.
    It separates "which detection" from "which face".
 3. **`largest`**: the largest box area over the whole set's faces at or
    above 0.8. On a frame without an AF point it equals `af`.
@@ -232,9 +235,12 @@ Printed first by Step 3, and the ones that need no label before any
 - `af` reproduces the stored `eye_focus` of all 1,200 labeled frames (the
   two `manifest.tsv`'s `eye_focus` columns, printed to 6 significant
   digits): |difference| <= 1e-6 where both are present, and missing exactly
-  where the stored value is `nan`. Step 2 also checks the crop set's
-  `nearest` face against `scan::extract_analysis(path).cue.eye_focus` on
-  every file (exact or within 1e-9).
+  where the stored value is `nan`. Step 2 also checks the **`af` rule's**
+  value against `scan::extract_analysis(path).cue.eye_focus` on every file
+  (exact or within 1e-9): the crop set's `nearest` face with an AF point,
+  and the whole set's largest face at or above 0.8 without one (the crop
+  set is empty there, while `extract_analysis` still scores the whole-image
+  fallback).
 - Both rounds' stored `eye_focus` reference rows and base rates below
   recompute from the stored column (and from `af`).
 

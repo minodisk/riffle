@@ -219,7 +219,7 @@ fixed in Step 1 (0.8 proposed, today's no-AF floor).
       `state`, `scored` (`L` / `R` / `window`), `ear`, `yaw`, `pitch`,
       `roll`, `mesh_ms`; a frame with no face in a set gets one row with
       `face` `-`; errors go to stderr. Full `repr` precision on the floats.
-    - The rows of the **crop set's `nearest` face reproduce `scan::extract_analysis(path).cue.eye_focus`** (same code path, exact or within 1e-9), checked by the subcommand itself on every file (`--check` prints the count of mismatches) and by Step 3 against the two `manifest.tsv`'s stored `eye_focus` columns.
+    - The values of the **`af` rule (the crop set's `nearest` face with an AF point, the whole set's largest face at or above 0.8 without one) reproduce `scan::extract_analysis(path).cue.eye_focus`** (same code path, exact or within 1e-9), checked by the subcommand itself on every file (`--check` prints the count of mismatches) and by Step 3 against the two `manifest.tsv`'s stored `eye_focus` columns.
     - Unit tests cover the line formatting and the per-set `nearest` /
       no-face rows, and `cargo test -p riffle-cli` and `mise run lint` pass.
     - The dump exists under `D:\Photos\tests\2026-10-23-face-choice\faces\`
