@@ -513,9 +513,11 @@ largest folders are single readings without a bar.
   over `eye_focus`, the comparisons the selection had favored.
 - Pick winner: `P@10` − `W0` −0.9 [-2.7, +0.5] → −5.2 [-10.8, -0.7]; its
   `P@10` 30.4 → 28.0 while `W0`'s rose 31.2 → 33.2 on the lockbox folders.
-- Reading: the search overfit by roughly the size of every gain it reported.
-  No exploration lead over a reference survived intact except the discard
-  winner's AUC lead over `G0`, whose interval now spans zero.
+- Reading: the leads over `G0` at the cuts shrank by half (q10, +13.7 → +6.3
+  [+0.9, +11.4], still above zero) or vanished (q5); the near-tie with
+  `eye_focus` became a clear deficit; the pick gap to `W0` widened. What held
+  was the leads over random (`DP@10` +28.5 → +30.2, q5 +36.4 → +32.5) and the
+  AUC lead over `G0` (+0.053 → +0.055), whose interval now spans zero.
 
 **4. What the search taught about the space**, as readings of the
 exploration (one selection over 69 candidates on reused labels, a few of
@@ -526,16 +528,22 @@ confirmed):
   at `All@32` (`P@10` − `G0` −1.6 / −1.9 / −0.2) and every form loses at
   `T+C` (−5.8 to −7.2), so the embedding dims carry pick information that the
   technical and context columns do not. On the discard side the logistic
-  discard-target AUCs are flat from `All@4` to `All@32` (0.796–0.809), so the
-  discard order needs few embedding dims; the embedding alone (`Emb@8`,
-  `Emb@32`) is the weakest design on both tasks.
-- **The forms.** No form beat `W0` on the pick task. `HGB-mono` was the only
-  pick-target form whose `DP@10` − `G0` interval was above zero (+5.3 [+1.3,
-  +9.1]) and the pick winner, and it lost on the lockbox. On the discard
-  target the logistic forms raised the AUC most (+0.077 to +0.099 over `G0`)
-  and were the only discard-target forms with a positive `DP@5` − `G0`, while
-  the HGB forms on that target lowered `DP@5` (−12.8 to −19.0): on about 600
-  weighted labels the simpler form generalizes better.
+  discard-target AUCs are flat from `All@4` to `All@16` (0.796–0.809; the
+  `All@32 / LR-L1` form drops to 0.787), so the discard order needs few
+  embedding dims; `Emb@8` is the lowest or near it in every row, while
+  `Emb@32` beats `T+C` on the pick side (`P@10` − `G0` −2.9 / −6.0 / −2.9 /
+  −3.2 against −5.8 / −6.2 / −6.0 / −6.3) and `Emb@32 / LR-L2 / discard`
+  reads AUC − `G0` +0.046.
+- **The forms.** No form beat `W0` on the pick task. At `All@32`, `HGB-mono`
+  was the only pick-target form whose `DP@10` − `G0` interval was above zero
+  (+5.3 [+1.3, +9.1]) and the pick winner, and it lost on the lockbox. On the
+  discard target at `All@32` the logistic forms raised the AUC most (+0.077
+  to +0.099 over `G0` across the dimension designs) and were the only
+  discard-target forms with a positive `DP@5` − `G0`, while the HGB forms on
+  that target lowered `DP@5` (−12.8 to −19.0); across the full `DP@10` grid
+  some HGB discard-target cells are positive (`T+C / HGB / discard` +14.8).
+  On about 600 weighted labels the simpler form may generalize better; this
+  rests on the `All@32` column alone.
 - **The targets.** The discard target raised the AUC over the pick target in
   31 of 33 designs and lowered `P@10` in all 33 (−1.8 to −8.5 points), and
   its `DP@10` effect ranged from −29.7 to +26.0: it reorders the whole folder
