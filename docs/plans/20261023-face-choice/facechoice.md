@@ -620,3 +620,89 @@ The facts, without a decision (Step 4 decides):
   better than theirs does; round 1's subsets are within noise, and its `af`
   vs `sharpest` cross-tab runs the other way.
 - Both rounds have been read before. One photographer, mostly basketball.
+
+## Decision
+
+Written after the read, from the pre-registered reading rule; the judgment
+is here, the facts are in "Results".
+
+### The branch: no winner
+
+No rule beats `af` on round 2 (section 4), so this is branch (2): **nothing
+changes in the app**. The scan keeps judging `candidate::nearest_face` over
+the 480 px crop around the AF point, and no fresh confirmation round is
+planned for a face-choice rule. No shipping change is sketched.
+
+### Why, from the face-count and disagreement readings
+
+- **Not because multi-face frames are rare.** 55.0% of the dump's frames
+  hold 2+ whole faces at or above 0.8 (57.4% of round 2's population, 49.5%
+  of round 1's), 50.9% of the AF frames hold 2+ crop faces, and the AF face
+  and the largest face differ (IoU < 0.5) on 38.5% of the dump's frames, the
+  AF face being the smaller one 73.0% of the time. The rules choose different
+  faces often enough for the choice to matter; it is the other faces that
+  are the weaker signal.
+- **Where the faces differ, the AF face carries the signal on round 2.** On
+  round 2's `af` vs `largest` subset, `af` reads 0.833 against 0.682
+  (−0.151 [−0.289, −0.004]), and a frame whose AF face has the lower
+  `eye_focus` is discardable 60.7% [45.2, 75.7] of the time against 38.8%
+  [25.4, 53.5] when the largest face has it. On the `af` vs `sharpest`
+  subset `af` reads 0.784 against 0.647 (−0.137 [−0.301, +0.045]), the
+  interval reaching zero.
+- **Round 1 does not repeat the subset readings.** Its disagreement subsets
+  are within noise in both comparisons (`largest` −0.036 [−0.192, +0.126]
+  on the `af` vs `largest` subset, `sharpest` +0.025 [−0.151, +0.198] on
+  the `af` vs `sharpest` subset), and its `af` vs `sharpest` cross-tab
+  runs the other way: a frame whose `sharpest` face has the lower
+  `eye_focus` is discardable 64.9% [45.5, 83.1] of the time, against 55.0%
+  [42.7, 67.8] when the AF face has it. Only the `af` vs `largest` cross-tab
+  points the same way on both rounds (60.0% against 43.8% on round 1). On
+  all frames round 1 still reads every whole-set face choice below `af`
+  (−0.031 to −0.068), with intervals that reach zero.
+- So the user's hypothesis (the face `eye_focus` judges differs from the one
+  a human looks at, and that hurts the score) is not supported here: the
+  faces do differ often, but replacing the AF-nearest face by the largest,
+  the sharpest, the highest-scoring or the mean of the faces lowers the
+  discard AUC on round 2, and on round 1 none raises it.
+
+### The near-tie, as a fact
+
+`af-whole` (the AF-nearest face of the whole-image detection) is the only
+rule above `af` on round 2: 0.800, +0.014 [−0.018, +0.052] (cluster
+[−0.023, +0.047]). It narrowly misses both bars of the reading rule: the
+AUC difference's 2.5% quantile is −0.018 (below zero), and its `RR` at q10
+difference's 97.5% quantile is +5.5 points (above +5). It fills more
+frames, 4.5% of the dump missing against `af`'s 12.4%. On round 1 it reads
+below `af`, 0.749 (−0.028 [−0.065, +0.009]), with `RR` at q10 19.1 points
+above `af`'s [+1.6, +39.3]. This is recorded as a fact, not as a
+recommendation; it is a selection on reused labels like any other reading
+here.
+
+### What this evaluation cannot tell
+
+- **Selection on reused labels.** Round 2 confirmed the model search and
+  produced the 0.785 that motivated this plan; round 1 has been read by
+  three plans. Neither round is fresh, so a near-tie such as `af-whole`'s
+  cannot be told from noise here, and a null on these rounds does not rule
+  out a small gain on new folders.
+- **One photographer.** 27 folders of one photographer's work, mostly
+  basketball, 600 labels per round. Other subjects (group portraits,
+  weddings, street) may have a different share of frames where a human's
+  face is not the AF one.
+- **The no-AF path was never exercised.** Every one of the 32,459 dump
+  frames has a trusted AF point, so the fallback (the largest whole face at
+  or above 0.8) never applied in `af` or `af-whole`; this evaluation says
+  nothing about the face choice on bodies or files without an AF point.
+- **The label is "OK to discard?"** for the whole frame, not "which face
+  did you look at", so it measures whether a face's `eye_focus` predicts the
+  discard, not which face the photographer looked at.
+
+### Consequence for the open todo item
+
+The todo item "Core: improve on `eye_focus` for the discard question, using
+face-choice rules and the 1,200 blind labels" has its first TODO (write and
+run the face-choice plan) done, with no winner: today's AF-nearest face
+stays. Its remaining follow-ups stay open: train a model on the 1,200
+labels, then one fresh blind confirmation round drawn from folders not yet
+sampled. The wrap-up updates `todo.md` (see `learnings.md`, "Deferred
+issues").
