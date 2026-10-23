@@ -46,7 +46,7 @@ selection bias. On the 27-folder dump (32,459 frames, 4,419 picks):
 | 1 | `eye_focus` `RR` q5 / q10 / q20 | 16.8 / 14.3 / 28.3% | facechoice.md, "Reproduction checks" |
 | 1 | Discardable base rate | 48.45% [42.03, 55.11] | same |
 | 2 | `af-whole` AUC − `af` (paired) | +0.014 [−0.018, +0.052] | [facechoice.md, "Results"](../_archived/20261023-face-choice/facechoice.md) |
-| 1 | `af-whole` AUC − `af` (paired) | −0.029 [−0.071, +0.014] | facechoice.md, "Results" |
+| 1 | `af-whole` AUC − `af` (paired) | −0.028 [−0.065, +0.009] (cluster [−0.063, +0.005]) | facechoice.md, "2. The rules, round 1 (replication)", all labeled frames |
 | - | Missing share on the dump, `af` (today's) / `af-whole` | 12.4% / 4.5% | facechoice.md, "Results" (face counts) |
 
 - `eye_focus` beat every learned model so far; the face-choice evaluation
@@ -81,9 +81,11 @@ selection bias. On the 27-folder dump (32,459 frames, 4,419 picks):
   `facechoiceread.load_faces` with its 0.8 score floor. Every dump frame has
   a trusted AF point.
 - **Training weights**: each labeled frame's `1/π` from its own round's
-  `manifest.tsv`, **clipped at 5 × that round's median sampled `1/π` and
-  rescaled to mean 1 within the round**, so the two rounds carry equal total
-  weight. The clip factor is `searchfit`'s (`CAP_FACTOR` = 5); the
+  `manifest.tsv`, **clipped at 5 × that round's median sampled `1/π` (the cap
+  per round, over its 600 sampled `1/π`) and rescaled to mean 1 per round
+  over each fold's training rows of that round, with no further rescale of
+  the pooled training set**, so the two rounds carry equal total weight in
+  every fold. The clip factor is `searchfit`'s (`CAP_FACTOR` = 5); the
   per-round cap and rescale are this plan's (model-search had one round).
   The Kish ESS (`retargetfit.kish`) is printed per fold with and without
   the clip.
@@ -118,10 +120,12 @@ scan.
      `gate.tech_row`).
 - **`T` (10)**: `S` plus
   4. the indicator "no `eye_focus` after the fill";
-  5. the EAR of the judged face (`rf.load_ear`);
+  5. the EAR of the frame (`rf.load_ear`), today's frame-level value (the
+     face behind today's `eye_focus`), NaN on the frames the fill touches;
   6. |yaw| (clipped at 90), 7. |pitch| (clipped at 60), 8. |roll| (clipped
      at 60), as `gate.tech_row`;
-  9. the indicator "no pose";
+  9. the indicator "no pose", today's frame-level one (set on the frames
+     the fill touches, where today's pose is NaN too);
   10. the number of whole-set faces at or above the 0.8 floor, capped at 3.
 - **Missing values**: NaN is mean-filled on the training folders for the
   logistic forms (the mean taken on each fold's training folders) and kept
@@ -183,7 +187,15 @@ shares); the labels enter training only.
 ### The read (Step 3)
 
 Per round with its own population, `π` and strata (round 2 primary, round 1
-replication, as face-choice), discard.md's vocabulary:
+replication, as face-choice), discard.md's vocabulary. Inputs beyond the
+labels folders, as `facechoiceread.py` reads them: the strict sample's
+`manifest.tsv` only, in `D:\Photos\tests\2026-10-17-bad-labels\` (to
+exclude its 1,200 frames from round 1's population and 1,800 from round 2's;
+no `labels.tsv` is opened there); `scores_reject.tsv` (`G0`, round 1's
+bands) in `D:\Photos\tests\2026-10-16-reject-filter-eval\`; and round 2's
+`scores_discard.tsv` (`G0 ⊕ ef`, round 2's `b*` / `g0only` bands) in
+its model-search folder. Steps 2 and 3 take the reject-filter-eval and
+strict-labels folders in their argument lists.
 
 - the weighted discard AUC with the stratified (1,000 draws, seed 0) and
   folder-cluster bootstraps, and the unweighted value;

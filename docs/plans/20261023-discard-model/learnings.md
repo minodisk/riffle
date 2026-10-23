@@ -21,10 +21,10 @@
     own read.
   - `searchfit`'s clip is `np.minimum(w, CAP_FACTOR * median(w))` over one
     round, then `mean1` on each fit's training rows. The per-round cap and
-    per-round rescale to mean 1 are this plan's addition (stated so in the
+    per-round rescale to mean 1 (over each fold's training rows of that round, no further rescale) are this plan's addition (stated so in the
     pre-registration).
-- The face-choice `af-whole` read is +0.014 on round 2 but −0.029
-  [−0.071, +0.014] on round 1; the plan quoted round 2 only. Recorded in the
+- The face-choice `af-whole` read is +0.014 on round 2 but −0.028
+  [−0.065, +0.009] on round 1; the plan quoted round 2 only. Recorded in the
   "What was known" table since it bears on the stop rule (positive on both
   rounds). `ef-fill` is not the `af-whole` rule: it only fills the frames
   today leaves missing.
