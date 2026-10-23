@@ -280,7 +280,9 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       `af-whole`'s 4.5%, expected at or below it); wall time. The labels enter training only; **no score is
       read against `labels.tsv`**; an audit hook records the files opened
       under the two rounds' folders (`labels.tsv`, `manifest.tsv` and
-      `strata.tsv` only, for the training weights).
+      `strata.tsv` only, for the training weights), under the strict-labels
+      folder (`manifest.tsv` only; its `labels.tsv` is never opened) and
+      under the reject-filter-eval folder (`scores_reject.tsv` only).
     - `learnings.md` records the wall times; `mise run lint` passes.
   - Implementation approach:
     - Assumes Step 1 merged. Import `badfilter` first (for `rf`, `gate`,
@@ -291,7 +293,9 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 
 - [ ] Step 3: `discardread.py`, the exploration read of both rounds and the winner by the pre-registered rule
   - Done when:
-    - `discardread.py` in this plan folder (same arguments, without `[jobs]`) loads the dump,
+    - `discardread.py` in this plan folder (same arguments, without `[jobs]`, and
+      the same audit allow-list as Step 2 plus `scores_model.tsv` in
+      `<out-dir>`, as `facechoiceread.py`'s) loads the dump,
       both rounds' `labels.tsv` / `manifest.tsv` / `strata.tsv` and
       `scores_model.tsv`, prints Markdown tables saved as
       `discardread.out.md` in `<out-dir>` and **refuses to run when that

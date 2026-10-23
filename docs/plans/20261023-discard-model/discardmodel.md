@@ -191,9 +191,10 @@ replication, as face-choice), discard.md's vocabulary. Inputs beyond the
 labels folders, as `facechoiceread.py` reads them: the strict sample's
 `manifest.tsv` only, in `D:\Photos\tests\2026-10-17-bad-labels\` (to
 exclude its 1,200 frames from round 1's population and 1,800 from round 2's;
-no `labels.tsv` is opened there); `scores_reject.tsv` (`G0`, round 1's
-bands) in `D:\Photos\tests\2026-10-16-reject-filter-eval\`; and round 2's
-`scores_discard.tsv` (`G0 ⊕ ef`, round 2's `b*` / `g0only` bands) in
+no `labels.tsv` is opened there); `scores_reject.tsv` (`G0`: round 1's
+bands and round 2's `g0only`, `G0`'s bottom 20% minus the winner's) in
+`D:\Photos\tests\2026-10-16-reject-filter-eval\`; and round 2's
+`scores_discard.tsv` (`G0 ⊕ ef`: round 2's `b*`, with `G0` for `g0only`) in
 its model-search folder. Steps 2 and 3 take the reject-filter-eval and
 strict-labels folders in their argument lists.
 
