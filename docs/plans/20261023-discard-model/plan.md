@@ -239,7 +239,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the exploration in `discardmodel.md`, before any fit exists
+- [x] Step 1: Pre-register the exploration in `discardmodel.md`, before any fit exists
   - Done when:
     - `discardmodel.md` in this plan folder has a "Pre-registration of the
       exploration" section merged **before `discardfit.py` exists and before
@@ -462,3 +462,4 @@ Risks:
 ## Progress
 
 - (2026-10-23) Plan written
+- (2026-10-24) Step 1 complete
