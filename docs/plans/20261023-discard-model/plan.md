@@ -239,7 +239,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 
 ## Steps
 
-- [ ] Step 1: Pre-register the exploration in `discardmodel.md`, before any fit exists
+- [x] Step 1: Pre-register the exploration in `discardmodel.md`, before any fit exists
   - Done when:
     - `discardmodel.md` in this plan folder has a "Pre-registration of the
       exploration" section merged **before `discardfit.py` exists and before
@@ -263,8 +263,9 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 - [ ] Step 2: `discardfit.py`, every candidate's held-out score on every dump frame, label-free readings only
   - Done when:
     - `discardfit.py` in this plan folder (`python -I -B discardfit.py
-      <app-dump-dir> <face-choice-dir> <discard-labels-dir>
-      <model-search-dir> <out-dir> [jobs]`) builds the `S` / `T` columns
+      <app-dump-dir> <face-choice-dir> <reject-filter-eval-dir>
+      <strict-labels-dir> <discard-labels-dir> <model-search-dir> <out-dir>
+      [jobs]`) builds the `S` / `T` columns
       from the dump and the per-face dump, fits the four learned candidates
       leave-one-folder-out on the 27 folders with the pooled, per-round
       clipped weights, builds `ef-fill`, and writes `scores_model.tsv`
@@ -275,11 +276,13 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       removed share and `PL` on the full dump with the two label-free
       verdicts; per fold the training counts, the clip cap per round and
       the Kish ESS with and without the clip; the chosen `C` per fold; the
-      missing shares (today's `eye_focus` 12.4%, after the fill 4.5%,
-      reproduced); wall time. The labels enter training only; **no score is
+      missing shares (today's `eye_focus` 12.4%, after the fill printed beside
+      `af-whole`'s 4.5%, expected at or below it); wall time. The labels enter training only; **no score is
       read against `labels.tsv`**; an audit hook records the files opened
       under the two rounds' folders (`labels.tsv`, `manifest.tsv` and
-      `strata.tsv` only, for the training weights).
+      `strata.tsv` only, for the training weights), under the strict-labels
+      folder (`manifest.tsv` only; its `labels.tsv` is never opened) and
+      under the reject-filter-eval folder (`scores_reject.tsv` only).
     - `learnings.md` records the wall times; `mise run lint` passes.
   - Implementation approach:
     - Assumes Step 1 merged. Import `badfilter` first (for `rf`, `gate`,
@@ -290,9 +293,12 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 
 - [ ] Step 3: `discardread.py`, the exploration read of both rounds and the winner by the pre-registered rule
   - Done when:
-    - `discardread.py` in this plan folder (same arguments) loads the dump,
-      both rounds' `labels.tsv` / `manifest.tsv` / `strata.tsv` and
-      `scores_model.tsv`, prints Markdown tables saved as
+    - `discardread.py` in this plan folder (same arguments, without `[jobs]`, and
+      the same audit allow-list as Step 2, plus `scores_discard.tsv` under
+      the model-search folder and `scores_model.tsv` in `<out-dir>`, as
+      `facechoiceread.py`'s) loads the dump,
+      both rounds' `labels.tsv` / `manifest.tsv` / `strata.tsv`, round 2's
+      `scores_discard.tsv` and `scores_model.tsv`, prints Markdown tables saved as
       `discardread.out.md` in `<out-dir>` and **refuses to run when that
       file exists**: the checks (both rounds' `ef` rows and base rates
       reproduce; the strata recompute); per round the AUC table (every
@@ -462,3 +468,4 @@ Risks:
 ## Progress
 
 - (2026-10-23) Plan written
+- (2026-10-24) Step 1 complete
