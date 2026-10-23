@@ -399,11 +399,11 @@ def main(dump, face_dir, reject_dir, strict_dir, r1_dir, r2_dir, out_dir, jobs):
     print(
         f"Per folder on the full dump, the bottom `floor(q * n / 100)` frames by the score, a missing score last, ties by the seed-0 draw "
         f"(`bf.graded_cut`). Removed: the share of the full dump's frames inside the cut (each round's population after it, a reading). `PL`: the "
-        f"share of the dump's picks inside the cut (full dump). The label-free conditions of the selection rule, at q10: `PL` <= {df.PL_BAR:.0f}% "
+        f"share of the dump's picks inside the cut (full dump). The label-free conditions of the selection rule, at q5 or q10 (amended 2026-10-24; pre-registered at q10): `PL` <= {df.PL_BAR:.0f}% "
         f"and removed >= {df.REMOVED_BAR}%. `ef` and random (seed 0) are references, not candidates.\n"
     )
     gate.table("| Score | Cut | Frames removed | Removed % (dump) | Removed % (round 2 / round 1 population) | `PL` % | `PL` <= 5% | Removed >= 4.5% |", lrows)
-    gate.table("| Candidate | q10 passes both label-free conditions |", [[f"`{k}`", yn(all(verdict[(k, 10)]))] for k in CANDS])
+    gate.table("| Candidate | q5 passes | q10 passes | Eligible (q5 or q10) |", [[f"`{k}`", yn(all(verdict[(k, 5)])), yn(all(verdict[(k, 10)])), yn(all(verdict[(k, 5)]) or all(verdict[(k, 10)]))] for k in CANDS])
 
     print("## Checks\n")
     dump_close = (np.isnan(ef) == np.isnan(af)) & (np.isnan(ef) | (np.abs(ef - af) <= 1e-9))

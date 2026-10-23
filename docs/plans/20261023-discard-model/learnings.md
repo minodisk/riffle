@@ -79,12 +79,17 @@
   4.5% on the full dump (was q10 only), matching the confirmation bars'
   "q5 or q10". Prompted by every candidate's q10 `PL` being 6.00–6.99%
   (`ef`'s own 9.14%) while all pass at q5 (`PL` 2.47–3.91%). Rejected:
-  keeping q10 only, which would have ended the plan with no winner.
+  keeping q10 only, which would have ended the plan with no winner. At q5
+  both references pass too (`ef` `PL` 4.44%, random 4.71%) and the removed
+  share is 4.96% for every score (`floor(q * n / 100)` fixes it), so the
+  condition cannot fail at q5: the amendment in effect drops the label-free
+  eligibility filter and the selection reduces to the highest round-2 AUC.
 - Recorded as a dated "Amendment (2026-10-24)" subsection under the
   pre-registration's "Selection rule and stop rule", leaving the merged
   text as it was; it runs against the pre-registration's own "nothing
   changes after a candidate's score exists", which the Decision should
-  weigh. `plan.md`'s Selection rule bullet now says q5 or q10. Nothing was
-  re-run; `discardfit.py` and its outputs are unchanged (it reports both
-  cuts' verdicts already). Step 3's `discardread.py` must apply the amended
+  weigh. `plan.md`'s Selection rule bullet now says q5 or q10. `discardfit.py`
+  was re-run (label-free only) so its prose and eligibility table state the
+  amended rule (q5 passes, q10 passes, eligible); `scores_model.tsv` came out
+  byte-identical (md5 494ca4b9...), only `discardfit.out.md` changed. Step 3's `discardread.py` must apply the amended
   rule.

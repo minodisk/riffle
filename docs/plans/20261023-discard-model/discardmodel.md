@@ -242,7 +242,12 @@ score exists", and the Decision weighs it with the selection bias.
   q10 every candidate fails `PL` <= 5% (`ef-fill` 6.99%, `LR/S` 6.72%,
   `LR/T` 6.54%, `HGB-mono/T` 6.00%, `HGB/T` 6.79%; `ef`'s own q10 `PL` is
   9.14%, random's 9.48%), while at q5 every candidate passes both
-  conditions (`PL` 2.47–3.91%, removed 4.96%).
+  conditions (`PL` 2.47–3.91%, removed 4.96%). At q5 both references pass
+  as well (`ef` `PL` 4.44%, random 4.71%), and the removed share is 4.96%
+  for every score, because `floor(q * n / 100)` fixes it: at q5 the
+  condition cannot fail for any candidate, nor for random. The amendment
+  therefore drops the label-free eligibility filter in effect, and the
+  selection reduces to the highest round-2 AUC.
 - **Rejected**: keeping the q10-only rule, which no candidate passes and
   which would have ended the plan with no winner before any label was read
   for a candidate.
