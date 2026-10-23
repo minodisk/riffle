@@ -260,7 +260,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       documentation only (modelsearch.md has a section on it); if
       unsupported, say `HGB-mono/T` uses mean-filled columns.
 
-- [ ] Step 2: `discardfit.py`, every candidate's held-out score on every dump frame, label-free readings only
+- [x] Step 2: `discardfit.py`, every candidate's held-out score on every dump frame, label-free readings only
   - Done when:
     - `discardfit.py` in this plan folder (`python -I -B discardfit.py
       <app-dump-dir> <face-choice-dir> <reject-filter-eval-dir>
@@ -469,3 +469,4 @@ Risks:
 
 - (2026-10-23) Plan written
 - (2026-10-24) Step 1 complete
+- (2026-10-24) Step 2 complete
