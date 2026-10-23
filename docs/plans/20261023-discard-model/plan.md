@@ -294,10 +294,11 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
 - [ ] Step 3: `discardread.py`, the exploration read of both rounds and the winner by the pre-registered rule
   - Done when:
     - `discardread.py` in this plan folder (same arguments, without `[jobs]`, and
-      the same audit allow-list as Step 2 plus `scores_model.tsv` in
-      `<out-dir>`, as `facechoiceread.py`'s) loads the dump,
-      both rounds' `labels.tsv` / `manifest.tsv` / `strata.tsv` and
-      `scores_model.tsv`, prints Markdown tables saved as
+      the same audit allow-list as Step 2, plus `scores_discard.tsv` under
+      the model-search folder and `scores_model.tsv` in `<out-dir>`, as
+      `facechoiceread.py`'s) loads the dump,
+      both rounds' `labels.tsv` / `manifest.tsv` / `strata.tsv`, round 2's
+      `scores_discard.tsv` and `scores_model.tsv`, prints Markdown tables saved as
       `discardread.out.md` in `<out-dir>` and **refuses to run when that
       file exists**: the checks (both rounds' `ef` rows and base rates
       reproduce; the strata recompute); per round the AUC table (every
