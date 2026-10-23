@@ -70,3 +70,21 @@
   the 5% bar; removed 9.96% passes). Under the pre-registered selection
   rule that means no winner and the stop rule ends the plan at Step 3
   (Steps 4–6 skipped), which Step 3 has to state from its own read.
+
+## Amendment of the selection rule (2026-10-24, after Step 2)
+
+- The user amended the selection rule after seeing only Step 2's label-free
+  readings (no candidate score read against `labels.tsv`): a candidate is
+  eligible when its q5 **or** q10 cut passes `PL` <= 5% and removed >=
+  4.5% on the full dump (was q10 only), matching the confirmation bars'
+  "q5 or q10". Prompted by every candidate's q10 `PL` being 6.00–6.99%
+  (`ef`'s own 9.14%) while all pass at q5 (`PL` 2.47–3.91%). Rejected:
+  keeping q10 only, which would have ended the plan with no winner.
+- Recorded as a dated "Amendment (2026-10-24)" subsection under the
+  pre-registration's "Selection rule and stop rule", leaving the merged
+  text as it was; it runs against the pre-registration's own "nothing
+  changes after a candidate's score exists", which the Decision should
+  weigh. `plan.md`'s Selection rule bullet now says q5 or q10. Nothing was
+  re-run; `discardfit.py` and its outputs are unchanged (it reports both
+  cuts' verdicts already). Step 3's `discardread.py` must apply the amended
+  rule.
