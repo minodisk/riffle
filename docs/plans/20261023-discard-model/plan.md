@@ -346,7 +346,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       a bounded `tail -f | grep -m1`, never a sleep. A small label-free
       Python check (`gate.load` on the new dump) may print the counts.
 
-- [ ] Step 5: Pre-register the confirmation and draw the fresh blind sample
+- [x] Step 5: Pre-register the confirmation and draw the fresh blind sample
   - Done when:
     - `discardmodel.md` has a "Pre-registration of the confirmation" section
       merged **before any fresh label exists**: the frozen winner (as Step 3
@@ -476,3 +476,4 @@ Risks:
 - (2026-10-24) Selection rule amended by the user: q5 or q10 eligible (was q10 only), on label-free readings only
 - (2026-10-24) Step 3 complete
 - (2026-10-25) Step 4 complete
+- (2026-10-25) Step 5 complete

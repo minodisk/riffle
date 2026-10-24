@@ -599,3 +599,229 @@ The facts, without a decision (Step 7 decides):
   selection rule's cut was amended after Step 2's label-free readings. 5
   candidates × 2 rounds × 3 cuts plus the subsets were read without
   correction. One photographer, mostly basketball.
+
+## Pre-registration of the confirmation
+
+Written 2026-10-25, after Step 4's label-free dump of the six fresh folders
+and **before any fresh label exists**: when this section was written no
+frame of the six fresh folders had been drawn, no copy existed, no winner
+score had been computed on a fresh frame, and `freshsample.py` did not
+exist. The merge commit of the PR that adds this section is the record; its
+"As drawn" paragraph is added in the same PR after the draw and is
+label-free. Nothing in this section changes after Step 6's read; a
+deviation found while implementing Steps 5–6 is recorded in `learnings.md`
+with its reason and does not touch the bars or the follow-up rule.
+
+### The frozen winner
+
+**`LR/T`**, as Step 3's rule chose it ("The selection rule and the stop rule
+applied"): a standardized L2 logistic (`searchfit.lr("LR-L2", C)`) on the ten
+`T` columns, target `discard`, score `−decision_function` (higher keeps).
+Nothing else is read on the fresh labels as a candidate.
+
+- **Refit once on all 27 dump folders** with the Step 2 recipe: the 1,200
+  labeled frames of both rounds, each frame's own round's `1/π` clipped at 5
+  × that round's median sampled `1/π` and rescaled to mean 1 within the round
+  (over its 600 rows); the NaN of `T` mean-filled and every column
+  standardized on the 32,459 dump frames; `C` chosen by `discardfit.py`'s
+  inner `GroupKFold` (5 folds over the 27 folders, `gate.CS`, the weighted
+  discard AUC). The `C = 1.0` fallback ("no `C` wins more than half the
+  folds") is a rule over the 27 leave-one-folder-out fits, so it does not
+  apply to the one refit: the inner choice is used as it comes (the LOFO fits
+  chose 0.1 in 15 of 27 folds, no fallback). The refit's mean fills,
+  standardization and coefficients are applied unchanged to every fresh
+  frame. `freshsample.py` prints the chosen `C` and the coefficients.
+- **The `T` columns without `folder_gate.extend`.** `extend` opens the app's
+  `prior_scores.tsv`, which the fresh dump does not have; it only appends
+  columns after `gate.build`'s ten `tech` columns, so `T` is built from
+  `gate.build`'s `tech`, `rf.load_ear` and the per-face dump alone, on the
+  dump and on the fresh folders alike. Before scoring a fresh frame,
+  `freshsample.py` checks on the 27-folder dump that this path gives the same
+  `T` as Step 2's (`extend` called, the dump's stored `eye_focus`) on every
+  frame, and that one leave-one-folder-out fold of the `LR/T` recipe on it
+  (Step 2's spot folder, the largest) reproduces that folder's `LR/T` column
+  of `scores_model.tsv`.
+- **`eye_focus` on the fresh frames is the per-face dump's `af` value.**
+  Today's `riffle-cli features` prints `eye_focus` to 4 decimals (the
+  rank-app dump's TSVs carry full precision); the per-face dump's `af` face
+  value is full precision and equals `scan::extract_analysis` (`--check`, 0
+  mismatches). So on the fresh folders `ef` (the reference, missing last),
+  the fill of `ef-fill` and `T`'s first column all take the `af` value, and
+  `freshsample.py` checks that it is missing on exactly the frames the
+  features TSV leaves missing and within 5.1e-05 of it elsewhere (Step 4
+  read at most 5.0e-05). On the dump the same `af` value equals the stored
+  `eye_focus` (Step 3's check), so the choice changes nothing there. The
+  sharpness and EAR of `T` come from the features TSV as printed (4
+  decimals).
+
+### The fresh sample
+
+Drawn by `freshsample.py` in this plan folder (`confirmsample.py`'s design
+and helpers):
+
+- **Population**: every frame of the six fresh folders, **14,525 frames**
+  (`gate.load` / `gate.build` on
+  `D:\Photos\tests\2026-10-23-discard-model\dump\` with the copied
+  `genre_text.tsv`); no earlier sample to exclude. The picks (1,795) and
+  rejects (68) are `gate.load`'s, as Step 4 printed.
+- **Strata**, every frame in exactly one, with the cuts of `bf.graded_cut`
+  on the fresh folders (per folder, the bottom `floor(q · n / 100)` frames
+  by the score, ties by `numpy.random.default_rng(0).random(14525)` over the
+  frames in `gate.build`'s order, a missing score last):
+  - `b05`: the winner's bottom 5%; `b10`: its bottom 10% minus `b05`;
+    `b20`: its bottom 20% minus its bottom 10%;
+  - `efonly`: `ef`'s bottom 20% minus the winner's bottom 20%, so that
+    "beats `ef`" is read on a sample holding both cuts' frames;
+  - `control`: the rest, drawn **per folder** with `bs.allocate`'s
+    proportional allocation and a **floor of 3** (or the whole cell).
+- **Allocation**: **600 frames, 120 per stratum** (`b05`, `b10`, `b20`,
+  `efonly`, `control`); each stratum (each `control` folder cell) a simple
+  random sample without replacement; `π` the drawn count over the cell's
+  population, written to `strata.tsv`.
+- **Draw seed**: `numpy.random.default_rng(20261023)`, one generator for the
+  draws in the order `b05`, `b10`, `b20`, `efonly`, then the `control`
+  cells by folder name, then the shuffle of the 600.
+- **Files** in `D:\Photos\tests\2026-10-23-discard-model\`:
+  `scores_fresh.tsv` (`folder`, `file`, `LR/T`, `ef`, `ef-fill` on every
+  fresh frame, full `repr` precision, `nan` where missing), `manifest.tsv`,
+  `strata.tsv`, and the shuffled RAW copies named `<nnnn>_<folder>_<file>`
+  in `sample\`, with no sidecar; the script refuses to write under
+  `D:\Photos\2026`, checks every copy against its source by size and
+  SHA-256, and compares the six library folders' size / mtime listing before
+  and after the copy.
+- **Labeling**: by [labeling.md](labeling.md), the model-search guide with
+  the new path and folder count: the same "OK to discard?" question, rating
+  1 = keep, unmarked = discard, `aiEnabled` off, never Pick / Reject, every
+  frame viewed once. Nothing reads the sample's sidecars before the user
+  says "done".
+
+**As drawn** (added after the draw; label-free): `python -I -B
+freshsample.py D:\Photos\tests\2026-10-12-rank-app
+D:\Photos\tests\2026-10-23-face-choice
+D:\Photos\tests\2026-10-18-discard-labels
+D:\Photos\tests\2026-10-20-model-search
+D:\Photos\tests\2026-10-23-discard-model\dump
+D:\Photos\tests\2026-10-23-discard-model`, run first with `--no-copy` and
+then with the copy (the second run's `manifest.tsv`, `strata.tsv` and
+`scores_fresh.tsv` byte-identical to the first's), its stdout saved as
+`freshsample.out.md` in the data folder. Every check passed: on the dump the
+`T` columns built without `extend` equal Step 2's on all 32,459 frames, and
+the spot fold (`2026-09-27-a`, `C` 0.1) reproduces its `LR/T` column of
+`scores_model.tsv` exactly; the fresh `af` value is missing on exactly the
+frames the features TSV leaves missing and within 5.0e-05 of it elsewhere.
+The refit chose **`C` = 0.1**. The population is 14,525 frames and the sum
+of `1/π` over the 600 drawn frames equals it.
+
+| Stratum | Population | Drawn | `π` |
+| --- | ---: | ---: | ---: |
+| `b05` | 723 | 120 | 0.165975 |
+| `b10` | 727 | 120 | 0.165062 |
+| `b20` | 1,455 | 120 | 0.0824742 |
+| `efonly` | 667 | 120 | 0.17991 |
+| `control` (6 folder cells) | 10,953 | 120 | 0.0109559 overall; 0.0107794–0.0113544 per cell |
+
+The `control` cells draw 14 to 26 frames. `efonly` holds 185 / 122 / 360
+frames of `ef`'s `b05` / `b10` / `b20`; the winner's and `ef`'s bottom 20%
+share 2,238 of their 2,905 frames each. Label-free, on the fresh folders
+(1,795 picks):
+
+| Score | q5 removed / `PL` | q10 removed / `PL` | q20 removed / `PL` |
+| --- | ---: | ---: | ---: |
+| `LR/T` (winner) | 4.98% / **2.56%** | 9.98% / **5.91%** | 20.00% / 14.48% |
+| `ef` | 4.98% / 4.07% | 9.98% / 7.30% | 20.00% / 14.99% |
+| `ef-fill` | 4.98% / 2.84% | 9.98% / 5.96% | 20.00% / 13.09% |
+| random | 4.98% / 4.46% | 9.98% / 10.25% | 20.00% / 20.33% |
+
+So bars 2 and 3 hold for the winner at **q5** and **bar 2 fails at q10**
+(`PL` 5.91% > 5%) whatever the fresh labels say: only q5 can pass. The
+sample holds 56 of the fresh folders' picks and 9 explicit rejects. The
+copies (26.1 GB): 600 files in `sample\`, 0 whose size or SHA-256 differs
+from the source, 0 `.xmp` / `.dop`, 0 files not in the manifest, no sidecar
+opened under `sample\`, and the 26,410 library files of the six folders
+unchanged (size and mtime).
+
+### The confirmation read (Step 6)
+
+- **Labels**: `freshlabels.py` (`confirmlabels.py`'s recipe with the five
+  strata `b05`, `b10`, `b20`, `efonly`, `control`: rating 1 = `keep`,
+  reviewed and unmarked = `discard`, unexpected marks listed, not dropped).
+  **`discard` is the positive class.** Every estimate Horvitz–Thompson
+  weighted by the fresh `1/π`, the unweighted value beside it. No label of
+  rounds 1 and 2 is read.
+- **Scores read once on the fresh labels**: the winner (`LR/T`, the refit
+  above), `ef` (the `af` value, missing last; in the AUC as
+  `bf.finite_by_folder`'s folder minimum minus 1), `ef-fill` and random
+  (the seed-0 draw), each at q5 / q10 / q20 with `bf.graded_cut` on the
+  fresh folders, and the weighted discard AUC. Metrics as discard.md's
+  (`DP`, `RR`, `PL` on the fresh folders' picks, the removed share of the
+  fresh population).
+- **Intervals**: a 1,000-draw **stratified bootstrap** within `b05`, `b10`,
+  `b20`, `efonly` and each (`control`, folder) cell of the fresh
+  `strata.tsv`, seed 0, **one count matrix for every score and quantity**
+  (paired differences share draws); the 2.5% / 97.5% quantiles. A
+  **folder-cluster bootstrap** (the six folders with replacement, seed 0,
+  1,000 draws) beside it; it does not decide, and a pass whose cluster
+  interval crosses its bar is reported as **fragile**. Six clusters make it
+  coarse.
+- **Base rate**: the weighted share of `discard` over the fresh labels, its
+  point estimate the bar's value, not resampled; its interval printed
+  beside.
+
+### Bars
+
+"Sorted last" semantics: the cut's frames are suggested for discard and
+stay recoverable. A cut of the winner at **q5 or q10** is **usable** when
+all of these hold on the fresh labels:
+
+1. weighted `RR` <= **25%**, and its stratified 97.5% quantile <= **35%**;
+2. `PL` <= **5%** (the fresh folders' picks, label-free);
+3. it removes **>= 4.5%** of the fresh population (label-free);
+4. **beats the base rate**: `DP`'s stratified 2.5% quantile is above the
+   fresh base rate (point estimate);
+5. **beats `ef`**: the weighted discard AUC minus `ef`'s, paired,
+   stratified **2.5% quantile above zero** (the key bar; one value for both
+   cuts).
+
+**q20** is read and reported, not eligible. **Best cut**: the deepest
+passing one of q5 and q10. The winner **passes** when at least one of q5 /
+q10 is usable. There is no "beats `G0`" condition: `G0` is not the
+reference any more and is not computed on the fresh folders. Conditions 2
+and 3 are label-free; `freshsample.py` prints them before any label exists.
+
+### Follow-up rule
+
+Applied in this order; the Decision (Step 7) names the outcome:
+
+1. **Pass** → an **in-app suggestion plan**: discard candidates sorted last
+   at the best cut's depth, with a rescue loop.
+2. **Close** → **more labels** (another fresh round, about 1.5 s per
+   frame): at q5 or q10 the `RR` point is <= 25% with conditions 2 and 3
+   holding and only quantile or "beats" conditions failing; **or** the AUC
+   − `ef` point is above zero with the stratified interval spanning zero.
+3. **Otherwise** → **nothing, `eye_focus` stays** as the cue.
+
+### Multiplicity and population
+
+- **Multiplicity**: one frozen winner, read once, on two eligible cuts with
+  five conditions each; `ef`, `ef-fill` and random are references. The
+  selection's multiplicity (5 candidates × 2 rounds × 3 cuts, plus the
+  subsets, and the amended selection rule) is spent in the exploration; the
+  confirmation adds no selection. The Decision reads a lone marginal pass,
+  or one fragile on the cluster bootstrap, as such.
+- **Selection bias the confirmation cannot remove**: the design was chosen
+  after reading `eye_focus`'s and `af-whole`'s numbers on both rounds, and
+  the fresh strata are cut by the winner and `ef` themselves. The fresh
+  folders are new frames and new folders (other dates), not a new
+  photographer.
+- **Population caveat**: one photographer, mostly basketball; 600 fresh
+  labels on 14,525 frames in six folders.
+
+### The user's decisions (at planning time)
+
+As recorded in "The user's decisions" of the exploration's
+pre-registration: the fresh population of six folders, 14,525 frames
+(rejected: the four post-dump folders only, 9,665 frames); the five bars
+with `PL` read on the fresh folders' picks (rejected: an extra cut-level
+condition, "`RR` at the cut not above `ef`'s at q5 by more than +5 points
+(97.5% quantile)"); no `G0` reading on the fresh folders (rejected: adding
+it as a reading).
