@@ -208,3 +208,66 @@
 - `freshdump.sh` gets a shellcheck SC2012 info on the `ls Output` one-liner,
   kept as `dump.sh` has it (plan folders are not shellchecked by `mise run
   ci`). `git status` showed no `__pycache__/`.
+
+## Step 5 (pre-registration of the confirmation, `freshsample.py`, the draw)
+
+- The pre-registration was written into `discardmodel.md` before
+  `freshsample.py` existed; the "As drawn" paragraph after the run.
+- **The two open points of Step 4, resolved in the pre-registration**:
+  - The fresh `ef` (the reference, the fill and `T`'s first column) is the
+    per-face dump's full-precision `af` value, not the features TSV's
+    4-decimal `eye_focus`. Checked: missing on the same frames, largest gap
+    5.00e-05. Sharpness and EAR stay the features TSV's 4-decimal values.
+  - `T` is built from `gate.build`'s `tech`, `rf.load_ear` and the per-face
+    dump without `folder_gate.extend` (which needs `prior_scores.tsv` and
+    only appends columns). Checked on the 27-folder dump: equal to Step 2's
+    path (`extend`, stored `eye_focus`) on all 32,459 frames, and the spot
+    fold `2026-09-27-a` (`C` 0.1) reproduces `scores_model.tsv`'s `LR/T`
+    exactly (difference 0).
+- **Refit choice the plan left open**: the `C = 1.0` fallback is a rule over
+  the 27 LOFO fits, so for the single refit the inner `GroupKFold` choice (5
+  folds over the 27 folders) is used as it comes; it chose 0.1, the LOFO
+  majority. Stated in the pre-registration before the run.
+- `freshsample.py` imports `discardfit.py` by path (`fold`, `choose_c`,
+  `per_round_mean1`, `T_NAMES`) instead of repeating it, and reuses
+  `confirmsample.py`'s draw and copy pattern. Its audit hook allows only
+  `labels.tsv` / `manifest.tsv` under the two rounds' folders and records
+  any sidecar opened under `sample\` (none).
+- Runs from the scratchpad: `--no-copy` 9 s, then the copy in the background
+  349 s (copy 230 s, SHA-256 of sources and copies 109 s; 26.1 GB, not the
+  27 GB guessed). The copy run's `manifest.tsv`, `strata.tsv` and
+  `scores_fresh.tsv` were byte-identical (md5) to the `--no-copy` run's, and
+  its tables identical. The wait was a bounded `timeout 570 tail -F | grep
+  -m1 "freshsample: "` on the stderr log, the line the script prints last.
+- **Label-free outcome worth noting for Step 6/7**: on the fresh folders the
+  winner's q10 `PL` is 5.91% (> 5%), so bar 2 already fails at q10; only q5
+  (`PL` 2.56%, removed 4.98%) can pass. `ef`'s fresh `PL` is 4.07 / 7.30 /
+  14.99%, `ef-fill`'s 2.84 / 5.96 / 13.09%.
+- A first attempt to append the section with a Bash heredoc failed on the
+  shell's quote parsing (nothing written); the Edit tool was used instead.
+- No `__pycache__/` in `git status` (`-B` and `sys.dont_write_bytecode`).
+- **Deviation: the labeling question was reworded (Round 1 review, item 1).**
+  The earlier guides (`_archived/20261018-discard-labels/labeling.md`,
+  `_archived/20261020-model-search/labeling.md`) asked whether it is fine if
+  Riffle **hid** the frame from what you pick from, and whether you would
+  mind if Riffle had **hidden** it. This round's `labeling.md` asks whether it
+  is fine if Riffle suggested the frame for discard and **sorted it last**,
+  and whether you would mind if Riffle had **sorted it last**, while still
+  saying the question is "the same as in the earlier rounds". The new wording
+  follows the plan's "sorted last, not hidden" Purpose, but sorted last is the
+  milder outcome, so the fresh labels may call more frames OK to discard than
+  round 1 and round 2 did. The fresh labels are taken under the "sorted last"
+  wording, and the guide is not edited because the user may already be
+  labeling. Step 6's Reading and the Step 7 Decision must weigh this when they
+  compare the fresh `RR`, the base rate (bar 4) and the shrinkage with the
+  two exploration rounds: a lower fresh `RR` or base rate may be partly the
+  wording, not only the folders.
+- **Deviation: the pre-registration is not merged before labeling may have
+  started (Round 1 review, item 2).** At the time of the review the branch
+  `discard-model-step-5` had no upstream and no PR. The pre-label record is
+  the local commit `5e0e1209` (2026-10-25T00:48:36+09:00); the copies in
+  `sample\` were checked as sidecar-free at draw time. If labeling began
+  before the merge, the merge came after labeling started, and the section's
+  "the merge commit is the record" is then read as this commit and its
+  timestamp. The draw itself (strata, `π`, seed order, the refit recipe and
+  its checks) is consistent with the pre-registration and is not redone.

@@ -1,0 +1,83 @@
+# Labeling guide: frames that should not be discarded (the fresh round)
+
+## Purpose
+
+The sample folder holds 600 copies of frames drawn from six of your
+folders that no earlier round has drawn from (`2026-09-13-a`,
+`2026-09-27-c`, `2026-10-11`, `2026-10-12a`, `2026-10-12b`, `2026-10-17`).
+The question for each frame is the same as in the earlier rounds, **"OK to
+discard?"**: if Riffle suggested this frame for discard and sorted it last
+in what you pick from, would that be fine? It is not "is this frame bad",
+and not "would you pick it". The labels check, once, whether the discard
+suggestion chosen on the earlier rounds holds up on folders it has never
+seen.
+
+## What to mark
+
+**Mark a frame when it should not be discarded:**
+
+- you might pick it;
+- you would want to see it before deciding;
+- you would mind if Riffle had sorted it last, out of what you pick from.
+
+**Leave it unmarked when you would not miss it**, for example:
+
+- a blurred frame, or one with the eyes closed;
+- a dead frame of a burst you would never choose;
+- a duplicate you would not look at twice.
+
+When unsure, **mark it (keep)**.
+
+## What the folder holds
+
+The folder mixes frames Riffle proposes to discard with frames drawn at
+random, and nothing shows which is which: not the name, not the order, not
+the folder. Judge each frame on its own. You culled these folders already;
+judge the frame as it is, not by whether you picked it then.
+
+## Setup
+
+1. In the settings, turn **AI analysis of what each photo shows** off
+   (`aiEnabled`), so the recommended icon and the ranking rows are absent.
+2. Open the folder `D:\Photos\tests\2026-10-23-discard-model\sample`.
+3. Sort the strip by **File name**, and clear every filter.
+4. Let the scan finish before you start.
+
+The files are named `<nnnn>_<folder>_<file>` and shuffled, so the file-name
+order is a random order. No frame has a rating, a flag or a label yet (the
+copies carry no sidecar).
+
+## Keys
+
+- **`1`** (rating 1) marks the current frame as **keep**. With
+  **Auto-advance** on, it moves to the next frame; otherwise move with the
+  arrow keys. Either is fine.
+- **`0`** clears the rating, to take a mark back.
+- **Do not use**:
+  - `p` (Pick): a pick in this folder would train the personal ranking;
+  - `x` / `shift+x` (Reject): that was the strict label of an earlier round,
+    not this question;
+  - any other star rating (`2` to `5`).
+
+## How to judge
+
+- **Look at the picture.** Do not go by the `f` focus mark, the strip's
+  icons or the meta pane.
+- Spend about 1–3 seconds per frame; 600 frames take about 15–30 minutes.
+- Use as many sittings as you like. Nothing needs saving: each rating is
+  written as you press it, and Riffle reopens the folder at the last file
+  you viewed.
+- Do not compare with how you labeled the earlier rounds; judge each frame
+  as it is.
+
+## Stopping rule
+
+View **every** frame once, from `0001` to `0600`. A frame left unmarked
+counts as OK to discard, so skip none. When unsure, mark it.
+
+## When you are done
+
+Say **"done"**, plus roughly how long it took, and anything odd: frames that
+would not open, frames you could not judge, doubts about the definition, and
+whether `aiEnabled` was off throughout. Nothing reads the folder's sidecars
+before you say "done".
