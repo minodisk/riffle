@@ -321,7 +321,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       only, about two minutes. If the stop rule says "no fresh round", mark
       Steps 4–6 as skipped in this plan and go to Step 7.
 
-- [ ] Step 4: `freshdump.sh`, the dump of the fresh folders, label-free
+- [x] Step 4: `freshdump.sh`, the dump of the fresh folders, label-free
   - Done when:
     - `freshdump.sh` in this plan folder runs, per fresh folder and
       resumable (a folder whose outputs exist is skipped), a copied release
@@ -475,3 +475,4 @@ Risks:
 - (2026-10-24) Step 2 complete
 - (2026-10-24) Selection rule amended by the user: q5 or q10 eligible (was q10 only), on label-free readings only
 - (2026-10-24) Step 3 complete
+- (2026-10-25) Step 4 complete
