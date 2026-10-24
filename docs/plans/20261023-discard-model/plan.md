@@ -191,9 +191,12 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
   (one count matrix per round); the **missing-face subset** (frames without
   today's `eye_focus`) and its complement read beside, so the text can say
   whether the gain sits in the frames `eye_focus` leaves missing.
-- **Selection rule, mechanical**: among the candidates whose q10 cut passes
-  the label-free conditions on the full dump (`PL` <= 5%, removed >= 4.5%),
-  the one with the highest weighted AUC on round 2; ties by round 1's AUC.
+- **Selection rule, mechanical**: among the candidates whose q5 or q10 cut
+  passes the label-free conditions on the full dump (`PL` <= 5%, removed >=
+  4.5%), the one with the highest weighted AUC on round 2; ties by round 1's AUC
+  (amended 2026-10-24 by the user from q10 only, on Step 2's label-free
+  readings, where no candidate's q10 `PL` is <= 5%; see discardmodel.md,
+  "Amendment (2026-10-24)").
   **Stop rule**: the winner goes to the fresh round only if its AUC − `ef`
   point is above zero on **both** rounds; otherwise Steps 4–6 are skipped
   and the Decision (Step 7) is "nothing, keep `eye_focus`" (the model-search
@@ -260,7 +263,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       documentation only (modelsearch.md has a section on it); if
       unsupported, say `HGB-mono/T` uses mean-filled columns.
 
-- [ ] Step 2: `discardfit.py`, every candidate's held-out score on every dump frame, label-free readings only
+- [x] Step 2: `discardfit.py`, every candidate's held-out score on every dump frame, label-free readings only
   - Done when:
     - `discardfit.py` in this plan folder (`python -I -B discardfit.py
       <app-dump-dir> <face-choice-dir> <reject-filter-eval-dir>
@@ -469,3 +472,5 @@ Risks:
 
 - (2026-10-23) Plan written
 - (2026-10-24) Step 1 complete
+- (2026-10-24) Step 2 complete
+- (2026-10-24) Selection rule amended by the user: q5 or q10 eligible (was q10 only), on label-free readings only

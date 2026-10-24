@@ -223,6 +223,35 @@ strict-labels folders in their argument lists.
   label-free conditions at q10, there is no winner and the stop rule ends
   the plan the same way.
 
+### Amendment (2026-10-24): the selection rule's cut
+
+Decided by the user on 2026-10-24, after Step 2's `discardfit.py` had run,
+on its **label-free readings only**: no candidate score had been read
+against any `labels.tsv`, and no AUC, `DP` or `RR` of any candidate existed.
+The text above is left as merged; this note replaces its eligibility
+condition, against the section's own "nothing changes after a candidate's
+score exists", and the Decision weighs it with the selection bias.
+
+- **The amended selection rule**: a candidate is eligible when its **q5 or
+  its q10** cut passes the label-free conditions on the full dump (`PL` <=
+  5%, removed >= 4.5%), matching the confirmation bars' "q5 or q10". Among
+  the eligible, the one with the highest weighted AUC on round 2, ties by
+  round 1's AUC, as before; the stop rule is unchanged, and "no candidate
+  passes" now reads "no candidate passes at q5 or q10".
+- **The readings that prompted it** (`discardfit.out.md`, full dump): at
+  q10 every candidate fails `PL` <= 5% (`ef-fill` 6.99%, `LR/S` 6.72%,
+  `LR/T` 6.54%, `HGB-mono/T` 6.00%, `HGB/T` 6.79%; `ef`'s own q10 `PL` is
+  9.14%, random's 9.48%), while at q5 every candidate passes both
+  conditions (`PL` 2.47–3.91%, removed 4.96%). At q5 both references pass
+  as well (`ef` `PL` 4.44%, random 4.71%), and the removed share is 4.96%
+  for every score, because `floor(q * n / 100)` fixes it: at q5 the
+  condition cannot fail for any candidate, nor for random. The amendment
+  therefore drops the label-free eligibility filter in effect, and the
+  selection reduces to the highest round-2 AUC.
+- **Rejected**: keeping the q10-only rule, which no candidate passes and
+  which would have ended the plan with no winner before any label was read
+  for a candidate.
+
 ### Multiplicity and population
 
 - **Multiplicity**: 5 candidates × 2 rounds × 3 cuts (plus the
