@@ -147,3 +147,64 @@
   it hung on the Git Bash stub as the plan warns and was killed by its PID
   (and its parent shell's), not by image name. Another hung `python3 -`
   process (PID 71899, started 08:44, not from this step) was left alone.
+
+## Step 4 (`freshdump.sh`, the fresh dump)
+
+- Run once in the background (2026-10-24 23:35 to about 23:58) with a
+  frozen copy of the release `riffle-cli.exe` (built from `5b93ca61`, SHA-256
+  `841560e4...`, copied to `D:\Photos\tests\2026-10-23-discard-model\`) on 12
+  threads into `D:\Photos\tests\2026-10-23-discard-model\dump\`: every stage
+  exited 0, nothing was resumed (no stage skipped). The waits were a bounded
+  `timeout 580 tail -F wall.log | grep -m1` on the lines the script prints
+  (`tail -f` on a log that did not exist yet exits at once, hence `-F`).
+- `embed --out` overwrites, so each folder's vectors go to
+  `dump\embed\<folder>.tsv` (resumable per folder) and `dump\embed.tsv` is
+  rebuilt as their concatenation at the end of every run (14,525 lines);
+  `dump\genre_text.tsv` is byte-identical to the rank-app dump's.
+- **Library read-only**: the size / mtime listing of the six folders
+  (`find -printf '%p\t%s\t%T@'`, recursive as `bs.listing`; 26,410 files) was
+  taken before the run (`logs\listing.before.tsv`) and after it
+  (`logs\listing.after.tsv`); identical (`cmp`), "library unchanged".
+- `freshcheck.py` (this plan folder, label-free) printed the table below,
+  saved as `dump\freshcheck.out.md`. File counts: the RAW count is the `.ARW`
+  count of the before-listing; features rows, embed rows, face-dump files and
+  `gate.load` frames all equal it. Errors from the stage logs; the `--check`
+  mismatches from facechoice's own `check:` line.
+
+| Folder | RAW | errors (features / embed / facechoice) | `--check` mismatches | trusted AF | picks (from `Output\` only) | pick % | rejects | missing `eye_focus` | after the `af-whole` fill | wall (features + embed + faces) |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 2026-10-11 | 3,190 | 0 / 0 / 0 | 0 | 100% | 134 (0) | 4.20% | 23 | 10.31% | 1.76% | 61 + 75 + 154 s |
+| 2026-10-12a | 3,185 | 0 / 0 / 0 | 0 | 100% | 304 (0) | 9.54% | 20 | 5.84% | 0.75% | 108 + 70 + 131 s |
+| 2026-10-12b | 1,615 | 0 / 0 / 0 | 0 | 100% | 285 (0) | 17.65% | 22 | 6.44% | 0.68% | 34 + 36 + 93 s |
+| 2026-10-17 | 1,675 | 0 / 0 / 0 | 0 | 100% | 205 (0) | 12.24% | 0 | 6.21% | 0.72% | 34 + 39 + 69 s |
+| 2026-09-13-a | 3,045 | 0 / 0 / 0 | 0 | 100% | 620 (0) | 20.36% | 0 | 12.28% | 1.48% | 62 + 70 + 132 s |
+| 2026-09-27-c | 1,815 | 0 / 0 / 0 | 0 | 100% | 247 (0) | 13.61% | 3 | 11.57% | 1.32% | 37 + 42 + 88 s |
+| all | 14,525 | 0 / 0 / 0 | 0 | 100% | 1,795 (0) | 12.36% | 68 | 9.00% | 1.18% | 336 + 332 + 667 s = 1,335 s (22 min) |
+
+- The picks and rejects match the plan's inventory (134 / 304 / 285 / 205 /
+  620 / 247; rejects 23 / 20 / 22 / 0 / 3, and `2026-09-13-a`'s, "not
+  counted" there, is 0). None comes from `Output\` only: every `Output\`
+  name equals a dump file's stem, and `gate.load` counts `Output\` only for
+  a `_<n>` virtual-copy name whose stem is not itself a file. So two
+  exported frames of `2026-09-13-a` with an unflagged `.dop`
+  (`_DSC9344`, `_DSC9346`) are not picks under `gate.load` (as in the 27
+  dump folders, same rule); the plan's "exported in `Output\`" counts as pick
+  only in that copy sense.
+- The missing-`eye_focus` share is 9.00% on the fresh folders (12.4% on the
+  dump) and 1.18% after the fill (4.5% for `af-whole` on the dump).
+- **For Step 5**:
+  - Today's `riffle-cli features` prints `eye_focus` (and `sharpness`, EAR)
+    to 4 decimals, while the rank-app dump's `features\*.tsv` carry full
+    precision; `|features eye_focus − af|` is at most 5.0e-05 on the 13,218
+    frames with both. The per-face dump's `eye_focus` is full precision
+    (`--check` compares it to `scan::extract_analysis` exactly, 0
+    mismatches). Step 5 can take the fresh `ef` from either; the choice
+    changes logits by at most about 5e-05 / (p(1 − p)) and may break ties.
+  - `folder_gate.extend` opens `prior_scores.tsv` (the app's ranking prior),
+    which the fresh dump does not have; `freshcheck.py` stops at
+    `gate.build`. The `T` columns need only `gate.build`'s `tech`,
+    `rf.load_ear` and the per-face dump, so Step 5 can skip `extend` (or
+    write the frames' `ln sharpness` itself).
+- `freshdump.sh` gets a shellcheck SC2012 info on the `ls Output` one-liner,
+  kept as `dump.sh` has it (plan folders are not shellchecked by `mise run
+  ci`). `git status` showed no `__pycache__/`.
