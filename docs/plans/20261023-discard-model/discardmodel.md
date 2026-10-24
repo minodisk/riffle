@@ -243,11 +243,15 @@ score exists", and the Decision weighs it with the selection bias.
   `LR/T` 6.54%, `HGB-mono/T` 6.00%, `HGB/T` 6.79%; `ef`'s own q10 `PL` is
   9.14%, random's 9.48%), while at q5 every candidate passes both
   conditions (`PL` 2.47–3.91%, removed 4.96%). At q5 both references pass
-  as well (`ef` `PL` 4.44%, random 4.71%), and the removed share is 4.96%
-  for every score, because `floor(q * n / 100)` fixes it: at q5 the
-  condition cannot fail for any candidate, nor for random. The amendment
-  therefore drops the label-free eligibility filter in effect, and the
-  selection reduces to the highest round-2 AUC.
+  as well (`ef` `PL` 4.44%, random 4.71%). Only the removed-share
+  condition is fixed at q5: the removed share is 4.96% for every score,
+  because `floor(q * n / 100)` fixes it. `PL` <= 5% can still fail at q5,
+  for a score that cuts picks faster than random does (random's 4.71% is
+  close to the bar). On Step 2's readings every candidate passes it
+  (2.47–3.91%), so in this run the eligibility filter excludes no candidate
+  and the selection reduces to the highest round-2 AUC. (Corrected in Step
+  3: the amendment as first merged said the q5 condition "cannot fail",
+  which holds for the removed share only.)
 - **Rejected**: keeping the q10-only rule, which no candidate passes and
   which would have ended the plan with no winner before any label was read
   for a candidate.
@@ -321,3 +325,277 @@ usable when weighted `RR` <= 25% (stratified 97.5% quantile <= 35%), `PL`
 AUC − `ef`'s stratified 2.5% quantile above zero. Pass → an in-app
 suggestion plan; close → more labels; otherwise → nothing, `eye_focus`
 stays. Step 7 decides.
+
+## Results of the exploration
+
+Run once on 2026-10-24 by `discardread.py` (`python -I -B discardread.py
+D:\Photos\tests\2026-10-12-rank-app D:\Photos\tests\2026-10-23-face-choice
+D:\Photos\tests\2026-10-16-reject-filter-eval
+D:\Photos\tests\2026-10-17-bad-labels
+D:\Photos\tests\2026-10-18-discard-labels
+D:\Photos\tests\2026-10-20-model-search
+D:\Photos\tests\2026-10-23-discard-model`), its stdout saved as
+`discardread.out.md` in the data folder; wall time 91 s. Every interval is
+the round's stratified bootstrap 95% (1,000 draws, seed 0) unless marked
+cluster (folder-cluster, 1,000 draws, seed 0); values are weighted by the
+round's `1/π` unless marked unweighted. Differences are paired against `ef`
+on the same draws (stratified, cluster in parentheses). A missing score
+sorts last.
+
+### Checks
+
+All 29 label-free checks passed before any `labels.tsv` was opened, and all
+17 label checks after:
+
+- `scores_model.tsv` has a row for each of the 32,459 dump frames, its
+  learned columns are finite everywhere, and its `ef-fill` equals the fill
+  recomputed from the per-face dump on every frame; the per-face dump's
+  `af` reproduces the stored `eye_focus` on every frame.
+- Every score's `PL` and removed share at q5 / q10 / q20 on the full dump
+  equal Step 2's (`discardfit.out.md`).
+- Both rounds' populations (30,659 and 31,259), `strata.tsv` (31 and 30
+  cells), bands, `π` and the sums of `1/π` recompute from the dump.
+- The known numbers reproduce exactly: round 2's base rate 42.31% [35.85,
+  48.91] (cluster [33.44, 51.61]), `ef` AUC 0.785 [0.723, 0.844] (cluster
+  [0.693, 0.881], unweighted 0.764), `RR` 5.5 / 12.9 / 12.8%, removed 4.80 /
+  9.70 / 19.64%; round 1's base rate 48.45% [42.03, 55.11] (cluster [40.74,
+  53.87]), AUC 0.777 [0.716, 0.841] (unweighted 0.803), `RR` 16.8 / 14.3 /
+  28.3%, removed 4.83 / 9.78 / 19.87%.
+- The files opened stayed within the allow-list: `scores_reject.tsv` under
+  the reject-filter-eval folder, `manifest.tsv` under the strict sample's,
+  `labels.tsv` / `manifest.tsv` / `strata.tsv` (and round 2's
+  `scores_discard.tsv`) under the rounds', `scores_model.tsv` in the data
+  folder.
+
+### Data
+
+Labeled frames without `eye_focus` today (the missing-face subset): 95 in
+round 2 (18 keep, 77 discard; 8.3% of its population, weighted) and 99 in
+round 1 (14 keep, 85 discard; 11.6%). The discardable base rate on all
+labeled frames, the subset and its complement:
+
+| Round | Frames | Discardable base rate, weighted % | Stratified 95% | Folder-cluster 95% | Unweighted % |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | all | 42.31 | [35.85, 48.91] | [33.44, 51.61] | 58.67 |
+| 1 | all | 48.45 | [42.03, 55.11] | [40.74, 53.87] | 64.83 |
+| 2 | missing-face | 89.5 | [82.8, 94.4] | [77.4, 95.7] | 81.1 |
+| 2 | complement | 38.1 | [31.6, 45.2] | [29.7, 46.3] | 54.5 |
+| 1 | missing-face | 77.7 | [61.6, 93.5] | [58.1, 92.1] | 85.9 |
+| 1 | complement | 44.6 | [38.1, 51.6] | [36.1, 51.4] | 60.7 |
+
+### Where the cuts sit (label-free)
+
+Per score and cut on the full dump: the removed frames that have no
+`eye_focus` today, and the dump's picks among the removed.
+
+| Score | Cut | Removed | Removed without `eye_focus` today | Picks removed | Picks removed without `eye_focus` today |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `ef` (reference) | q5 | 1609 | 1602 (99.6%) | 196 | 196 (100.0%) |
+| `ef` (reference) | q10 | 3234 | 3001 (92.8%) | 404 | 379 (93.8%) |
+| `ef` (reference) | q20 | 6482 | 3818 (58.9%) | 689 | 469 (68.1%) |
+| `random` (reference) | q5 | 1609 | 220 (13.7%) | 208 | 23 (11.1%) |
+| `random` (reference) | q10 | 3234 | 415 (12.8%) | 419 | 49 (11.7%) |
+| `random` (reference) | q20 | 6482 | 810 (12.5%) | 851 | 97 (11.4%) |
+| `ef-fill` | q5 | 1609 | 963 (59.9%) | 173 | 104 (60.1%) |
+| `ef-fill` | q10 | 3234 | 1539 (47.6%) | 309 | 158 (51.1%) |
+| `ef-fill` | q20 | 6482 | 2350 (36.3%) | 567 | 224 (39.5%) |
+| `LR/S` | q5 | 1609 | 1261 (78.4%) | 132 | 107 (81.1%) |
+| `LR/S` | q10 | 3234 | 1991 (61.6%) | 297 | 193 (65.0%) |
+| `LR/S` | q20 | 6482 | 3096 (47.8%) | 620 | 342 (55.2%) |
+| `LR/T` | q5 | 1609 | 1074 (66.7%) | 130 | 92 (70.8%) |
+| `LR/T` | q10 | 3234 | 1803 (55.8%) | 289 | 174 (60.2%) |
+| `LR/T` | q20 | 6482 | 2833 (43.7%) | 609 | 299 (49.1%) |
+| `HGB-mono/T` | q5 | 1609 | 707 (43.9%) | 109 | 50 (45.9%) |
+| `HGB-mono/T` | q10 | 3234 | 1482 (45.8%) | 265 | 130 (49.1%) |
+| `HGB-mono/T` | q20 | 6482 | 2461 (38.0%) | 593 | 250 (42.2%) |
+| `HGB/T` | q5 | 1609 | 648 (40.3%) | 140 | 68 (48.6%) |
+| `HGB/T` | q10 | 3234 | 1313 (40.6%) | 300 | 146 (48.7%) |
+| `HGB/T` | q20 | 6482 | 2261 (34.9%) | 627 | 242 (38.6%) |
+
+### Round 2 (primary), all labeled frames
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.785 [0.723, 0.844] | [0.693, 0.881] | 0.764 |  |
+| `random` (reference) | 0.536 [0.458, 0.622] | [0.469, 0.608] | 0.513 | -0.249 [-0.349, -0.152] ([-0.335, -0.172]) |
+| `ef-fill` | 0.775 [0.714, 0.835] | [0.682, 0.875] | 0.748 | -0.010 [-0.022, -0.001] ([-0.018, -0.002]) |
+| `LR/S` | 0.773 [0.709, 0.832] | [0.682, 0.871] | 0.761 | -0.012 [-0.026, +0.000] ([-0.028, +0.002]) |
+| `LR/T` | 0.812 [0.757, 0.863] | [0.724, 0.898] | 0.778 | +0.027 [-0.020, +0.078] ([-0.031, +0.069]) |
+| `HGB-mono/T` | 0.786 [0.727, 0.840] | [0.685, 0.888] | 0.749 | +0.001 [-0.049, +0.051] ([-0.042, +0.056]) |
+| `HGB/T` | 0.772 [0.705, 0.839] | [0.679, 0.861] | 0.740 | -0.013 [-0.081, +0.051] ([-0.059, +0.041]) |
+
+| Score | Cut | Sampled removed / discard | `DP` % | `RR` % | `RR` cluster | `PL` % | Removed % | `RR` - `ef`, points |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ef` (reference) | q5 | 43 / 38 | 94.5 [85.5, 98.9] (88.4) | 5.5 [1.1, 14.5] (11.6) | [1.3, 17.7] | 4.44 | 4.80 |  |
+| `ef` (reference) | q10 | 87 / 66 | 87.1 [78.2, 92.8] (75.9) | 12.9 [7.2, 21.8] (24.1) | [6.1, 26.5] | 9.14 | 9.70 |  |
+| `ef` (reference) | q20 | 204 / 160 | 87.2 [82.1, 91.1] (78.4) | 12.8 [8.9, 17.9] (21.6) | [7.7, 23.3] | 15.59 | 19.64 |  |
+| `random` (reference) | q5 | 37 / 23 | 44.2 [18.7, 75.2] (62.2) | 55.8 [24.8, 81.3] (37.8) | [17.6, 82.4] | 4.71 | 4.96 | +50.3 [+19.0, +75.7] ([+12.6, +73.9]) |
+| `random` (reference) | q10 | 66 / 39 | 46.1 [25.9, 67.4] (59.1) | 53.9 [32.6, 74.1] (40.9) | [28.5, 76.4] | 9.48 | 10.01 | +41.0 [+18.2, +61.8] ([+18.4, +59.0]) |
+| `random` (reference) | q20 | 128 / 77 | 44.1 [28.9, 59.9] (60.2) | 55.9 [40.1, 71.1] (39.8) | [43.9, 71.3] | 19.26 | 19.98 | +43.1 [+27.3, +58.4] ([+31.6, +55.7]) |
+| `ef-fill` | q5 | 44 / 31 | 83.6 [63.0, 92.9] (70.5) | 16.4 [7.1, 37.0] (29.5) | [7.7, 37.4] | 3.91 | 4.84 | +10.9 [-0.3, +30.8] ([+0.8, +29.0]) |
+| `ef-fill` | q10 | 95 / 76 | 90.2 [82.9, 94.8] (80.0) | 9.8 [5.2, 17.1] (20.0) | [5.5, 20.8] | 6.99 | 9.77 | -3.1 [-9.6, +1.8] ([-8.9, +1.5]) |
+| `ef-fill` | q20 | 229 / 179 | 83.4 [73.6, 90.3] (78.2) | 16.6 [9.7, 26.4] (21.8) | [9.1, 28.5] | 12.83 | 19.72 | +3.8 [-3.0, +12.7] ([-2.6, +12.5]) |
+| `LR/S` | q5 | 45 / 31 | 85.1 [69.4, 93.0] (68.9) | 14.9 [7.0, 30.6] (31.1) | [5.3, 43.9] | 2.99 | 4.81 | +9.3 [+0.2, +23.6] ([+1.2, +33.7]) |
+| `LR/S` | q10 | 94 / 69 | 86.5 [78.2, 92.1] (73.4) | 13.5 [7.9, 21.8] (26.6) | [6.2, 29.3] | 6.72 | 9.73 | +0.6 [-5.2, +6.1] ([-4.1, +8.6]) |
+| `LR/S` | q20 | 221 / 173 | 87.4 [82.7, 91.1] (78.3) | 12.6 [8.9, 17.3] (21.7) | [8.0, 20.7] | 14.03 | 19.70 | -0.2 [-2.7, +1.9] ([-3.5, +1.8]) |
+| `LR/T` | q5 | 58 / 43 | 87.2 [75.3, 93.7] (74.1) | 12.8 [6.3, 24.7] (25.9) | [4.8, 32.1] | 2.94 | 4.81 | +7.2 [-1.8, +17.8] ([-0.1, +21.3]) |
+| `LR/T` | q10 | 106 / 78 | 84.7 [75.4, 90.9] (73.6) | 15.3 [9.1, 24.6] (26.4) | [7.8, 28.1] | 6.54 | 9.76 | +2.4 [-3.1, +8.2] ([-2.8, +7.5]) |
+| `LR/T` | q20 | 206 / 166 | 84.4 [74.3, 91.5] (80.6) | 15.6 [8.5, 25.7] (19.4) | [7.1, 28.8] | 13.78 | 19.69 | +2.8 [-4.3, +12.8] ([-4.3, +13.8]) |
+| `HGB-mono/T` | q5 | 66 / 50 | 80.4 [61.1, 93.6] (75.8) | 19.6 [6.4, 38.9] (24.2) | [4.9, 47.3] | 2.47 | 4.83 | +14.0 [-0.5, +33.1] ([+0.6, +34.8]) |
+| `HGB-mono/T` | q10 | 115 / 86 | 83.1 [69.7, 91.8] (74.8) | 16.9 [8.2, 30.3] (25.2) | [6.5, 36.4] | 6.00 | 9.78 | +4.0 [-6.1, +16.4] ([-5.5, +14.4]) |
+| `HGB-mono/T` | q20 | 205 / 152 | 72.3 [59.5, 83.5] (74.1) | 27.7 [16.5, 40.5] (25.9) | [9.2, 48.8] | 13.42 | 19.73 | +14.9 [+3.9, +27.7] ([-1.7, +33.3]) |
+| `HGB/T` | q5 | 58 / 45 | 87.3 [75.1, 93.5] (77.6) | 12.7 [6.5, 24.9] (22.4) | [5.7, 26.1] | 3.17 | 4.87 | +7.2 [-3.2, +20.3] ([-7.0, +20.5]) |
+| `HGB/T` | q10 | 111 / 85 | 86.4 [78.1, 91.6] (76.6) | 13.6 [8.4, 21.9] (23.4) | [7.9, 22.4] | 6.79 | 9.83 | +0.7 [-8.4, +9.4] ([-9.7, +8.5]) |
+| `HGB/T` | q20 | 201 / 155 | 83.0 [72.9, 90.0] (77.1) | 17.0 [10.0, 27.1] (22.9) | [8.9, 30.3] | 14.19 | 19.82 | +4.2 [-2.9, +14.0] ([-5.2, +15.6]) |
+
+### Round 2, the missing-face subset and its complement
+
+The cut is the full-dump cut; only the labeled frames read are restricted.
+On the missing-face subset `ef` is the folder's lowest finite value minus 1
+on every frame, so its AUC there orders folders only and its cut is the
+seed-0 draw within each folder. The subsets' cut tables are in
+`discardread.out.md`.
+
+The missing-face subset (95 labels):
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.531 [0.336, 0.726] | [0.347, 0.762] | 0.560 |  |
+| `random` (reference) | 0.636 [0.432, 0.807] | [0.521, 0.775] | 0.600 | +0.105 [-0.107, +0.309] ([-0.145, +0.287]) |
+| `ef-fill` | 0.621 [0.415, 0.805] | [0.409, 0.782] | 0.547 | +0.091 [-0.176, +0.359] ([-0.307, +0.307]) |
+| `LR/S` | 0.613 [0.389, 0.804] | [0.413, 0.784] | 0.532 | +0.082 [-0.183, +0.345] ([-0.225, +0.301]) |
+| `LR/T` | 0.576 [0.365, 0.771] | [0.389, 0.771] | 0.515 | +0.045 [-0.189, +0.286] ([-0.222, +0.242]) |
+| `HGB-mono/T` | 0.616 [0.381, 0.791] | [0.435, 0.795] | 0.536 | +0.086 [-0.193, +0.342] ([-0.227, +0.322]) |
+| `HGB/T` | 0.575 [0.384, 0.746] | [0.422, 0.736] | 0.500 | +0.045 [-0.167, +0.249] ([-0.232, +0.241]) |
+
+The complement (505 labels):
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.753 [0.681, 0.823] | [0.652, 0.860] | 0.762 |  |
+| `random` (reference) | 0.520 [0.431, 0.611] | [0.458, 0.594] | 0.500 | -0.233 [-0.343, -0.124] ([-0.329, -0.146]) |
+| `ef-fill` | 0.753 [0.681, 0.823] | [0.652, 0.860] | 0.762 | +0.000 [+0.000, +0.000] ([+0.000, +0.000]) |
+| `LR/S` | 0.737 [0.662, 0.810] | [0.638, 0.847] | 0.755 | -0.015 [-0.031, +0.000] ([-0.033, +0.001]) |
+| `LR/T` | 0.786 [0.726, 0.844] | [0.686, 0.878] | 0.779 | +0.034 [-0.022, +0.096] ([-0.036, +0.081]) |
+| `HGB-mono/T` | 0.760 [0.689, 0.820] | [0.648, 0.872] | 0.751 | +0.007 [-0.053, +0.069] ([-0.044, +0.066]) |
+| `HGB/T` | 0.745 [0.669, 0.823] | [0.644, 0.843] | 0.745 | -0.007 [-0.086, +0.072] ([-0.065, +0.051]) |
+
+### Round 1 (replication), all labeled frames
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.777 [0.716, 0.841] | [0.719, 0.832] | 0.803 |  |
+| `random` (reference) | 0.528 [0.455, 0.604] | [0.445, 0.627] | 0.502 | -0.250 [-0.341, -0.156] ([-0.362, -0.114]) |
+| `ef-fill` | 0.766 [0.699, 0.828] | [0.711, 0.821] | 0.807 | -0.011 [-0.028, +0.003] ([-0.025, +0.007]) |
+| `LR/S` | 0.782 [0.723, 0.839] | [0.723, 0.833] | 0.808 | +0.004 [-0.010, +0.019] ([-0.012, +0.019]) |
+| `LR/T` | 0.795 [0.737, 0.851] | [0.723, 0.857] | 0.796 | +0.018 [-0.018, +0.053] ([-0.014, +0.054]) |
+| `HGB-mono/T` | 0.752 [0.686, 0.817] | [0.675, 0.813] | 0.781 | -0.025 [-0.069, +0.015] ([-0.061, +0.003]) |
+| `HGB/T` | 0.725 [0.651, 0.796] | [0.673, 0.768] | 0.766 | -0.053 [-0.103, -0.007] ([-0.086, -0.006]) |
+
+| Score | Cut | Sampled removed / discard | `DP` % | `RR` % | `RR` cluster | `PL` % | Removed % | `RR` - `ef`, points |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ef` (reference) | q5 | 38 / 33 | 83.2 [56.7, 98.8] (86.8) | 16.8 [1.2, 43.3] (13.2) | [1.1, 50.8] | 4.44 | 4.83 |  |
+| `ef` (reference) | q10 | 82 / 72 | 85.7 [70.1, 97.1] (87.8) | 14.3 [2.9, 29.9] (12.2) | [3.1, 32.0] | 9.14 | 9.78 |  |
+| `ef` (reference) | q20 | 189 / 160 | 71.7 [59.8, 84.3] (84.7) | 28.3 [15.7, 40.2] (15.3) | [18.1, 42.4] | 15.59 | 19.87 |  |
+| `random` (reference) | q5 | 27 / 16 | 52.0 [19.8, 85.5] (59.3) | 48.0 [14.5, 80.2] (40.7) | [16.8, 85.1] | 4.71 | 4.95 | +31.2 [-11.3, +73.7] ([-15.7, +73.7]) |
+| `random` (reference) | q10 | 52 / 36 | 61.5 [37.9, 84.8] (69.2) | 38.5 [15.2, 62.1] (30.8) | [10.9, 62.6] | 9.48 | 9.99 | +24.2 [-2.3, +50.5] ([-15.5, +49.3]) |
+| `random` (reference) | q20 | 121 / 77 | 56.0 [40.5, 71.5] (63.6) | 44.0 [28.5, 59.5] (36.4) | [27.0, 61.9] | 19.26 | 19.98 | +15.7 [-2.9, +35.7] ([-9.4, +38.2]) |
+| `ef-fill` | q5 | 52 / 49 | 86.5 [65.6, 100.0] (94.2) | 13.5 [0.0, 34.4] (5.8) | [0.0, 33.0] | 3.91 | 4.91 | -3.3 [-16.4, +6.9] ([-23.8, +4.3]) |
+| `ef-fill` | q10 | 110 / 95 | 69.8 [52.1, 88.7] (86.4) | 30.2 [11.3, 47.9] (13.6) | [17.3, 45.8] | 6.99 | 9.93 | +16.0 [-2.5, +33.8] ([-3.9, +34.3]) |
+| `ef-fill` | q20 | 219 / 189 | 70.7 [59.2, 83.5] (86.3) | 29.3 [16.5, 40.8] (13.7) | [19.3, 40.8] | 12.83 | 20.04 | +1.0 [-4.5, +7.3] ([-5.2, +5.9]) |
+| `LR/S` | q5 | 55 / 49 | 95.7 [90.3, 99.0] (89.1) | 4.3 [1.0, 9.7] (10.9) | [1.3, 11.5] | 2.99 | 4.89 | -12.5 [-38.3, +4.0] ([-45.8, +4.9]) |
+| `LR/S` | q10 | 111 / 97 | 88.8 [75.7, 97.1] (87.4) | 11.2 [2.9, 24.3] (12.6) | [2.9, 24.5] | 6.72 | 9.90 | -3.0 [-11.0, +2.8] ([-15.0, +1.8]) |
+| `LR/S` | q20 | 204 / 176 | 75.7 [63.8, 86.7] (86.3) | 24.3 [13.3, 36.2] (13.7) | [13.5, 37.7] | 14.03 | 19.97 | -3.9 [-10.9, +2.0] ([-12.7, +2.9]) |
+| `LR/T` | q5 | 53 / 46 | 90.5 [80.4, 97.0] (86.8) | 9.5 [3.0, 19.6] (13.2) | [3.0, 25.0] | 2.94 | 4.89 | -7.3 [-34.7, +12.5] ([-36.8, +15.3]) |
+| `LR/T` | q10 | 107 / 94 | 78.3 [60.9, 94.7] (87.9) | 21.7 [5.3, 39.1] (12.1) | [7.4, 34.4] | 6.54 | 9.91 | +7.4 [-5.8, +22.4] ([-9.6, +21.2]) |
+| `LR/T` | q20 | 201 / 171 | 81.0 [70.3, 91.3] (85.1) | 19.0 [8.7, 29.7] (14.9) | [10.0, 31.1] | 13.78 | 19.96 | -9.2 [-19.1, +0.2] ([-22.8, +0.3]) |
+| `HGB-mono/T` | q5 | 54 / 45 | 84.0 [61.2, 97.6] (83.3) | 16.0 [2.4, 38.8] (16.7) | [2.2, 39.6] | 2.47 | 4.91 | -0.9 [-30.8, +27.8] ([-32.7, +29.7]) |
+| `HGB-mono/T` | q10 | 104 / 88 | 80.7 [64.7, 94.4] (84.6) | 19.3 [5.6, 35.3] (15.4) | [5.3, 35.6] | 6.00 | 9.92 | +5.1 [-14.1, +24.0] ([-18.5, +25.4]) |
+| `HGB-mono/T` | q20 | 200 / 168 | 71.6 [59.7, 83.6] (84.0) | 28.4 [16.4, 40.3] (16.0) | [17.8, 41.5] | 13.42 | 19.99 | +0.1 [-6.5, +5.7] ([-5.3, +5.4]) |
+| `HGB/T` | q5 | 52 / 47 | 97.2 [93.4, 99.4] (90.4) | 2.8 [0.6, 6.6] (9.6) | [0.6, 7.6] | 3.17 | 4.94 | -14.0 [-40.3, +2.9] ([-45.6, +1.7]) |
+| `HGB/T` | q10 | 100 / 82 | 76.2 [61.0, 89.7] (82.0) | 23.8 [10.3, 39.0] (18.0) | [7.7, 43.9] | 6.79 | 9.97 | +9.6 [-8.7, +28.0] ([-17.2, +36.9]) |
+| `HGB/T` | q20 | 194 / 157 | 71.8 [59.2, 84.1] (80.9) | 28.2 [15.9, 40.8] (19.1) | [18.1, 38.8] | 14.19 | 20.06 | -0.1 [-10.6, +10.5] ([-12.7, +10.0]) |
+
+### Round 1, the missing-face subset and its complement
+
+The missing-face subset (99 labels):
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.635 [0.367, 0.913] | [0.255, 0.915] | 0.576 |  |
+| `random` (reference) | 0.541 [0.351, 0.734] | [0.379, 0.723] | 0.493 | -0.095 [-0.450, +0.239] ([-0.419, +0.284]) |
+| `ef-fill` | 0.336 [0.155, 0.809] | [0.162, 0.704] | 0.627 | -0.300 [-0.549, +0.074] ([-0.574, +0.062]) |
+| `LR/S` | 0.808 [0.616, 0.906] | [0.660, 0.888] | 0.608 | +0.173 [-0.168, +0.469] ([-0.201, +0.549]) |
+| `LR/T` | 0.744 [0.549, 0.887] | [0.567, 0.856] | 0.618 | +0.108 [-0.251, +0.449] ([-0.202, +0.474]) |
+| `HGB-mono/T` | 0.716 [0.481, 0.888] | [0.578, 0.855] | 0.629 | +0.081 [-0.285, +0.446] ([-0.228, +0.498]) |
+| `HGB/T` | 0.655 [0.388, 0.878] | [0.495, 0.852] | 0.671 | +0.020 [-0.326, +0.397] ([-0.306, +0.438]) |
+
+The complement (501 labels):
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `ef` (reference) | 0.769 [0.699, 0.833] | [0.719, 0.822] | 0.809 |  |
+| `random` (reference) | 0.523 [0.449, 0.607] | [0.434, 0.631] | 0.500 | -0.246 [-0.349, -0.142] ([-0.355, -0.118]) |
+| `ef-fill` | 0.769 [0.699, 0.833] | [0.719, 0.822] | 0.809 | +0.000 [+0.000, +0.000] ([+0.000, +0.000]) |
+| `LR/S` | 0.768 [0.699, 0.829] | [0.707, 0.821] | 0.804 | -0.001 [-0.014, +0.014] ([-0.020, +0.013]) |
+| `LR/T` | 0.787 [0.724, 0.846] | [0.718, 0.851] | 0.792 | +0.018 [-0.023, +0.064] ([-0.018, +0.057]) |
+| `HGB-mono/T` | 0.738 [0.664, 0.811] | [0.661, 0.797] | 0.776 | -0.031 [-0.080, +0.015] ([-0.074, +0.002]) |
+| `HGB/T` | 0.709 [0.631, 0.787] | [0.651, 0.760] | 0.758 | -0.060 [-0.120, -0.008] ([-0.101, -0.011]) |
+
+### The selection rule and the stop rule applied
+
+Selection rule as amended 2026-10-24 (q5 or q10 eligible), the stop rule
+as pre-registered:
+
+| Candidate | q5 passes | q10 passes | Eligible | Round 2 AUC | Round 1 AUC | Round 2 AUC - `ef` | Round 1 AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ef-fill` | yes | no | yes | 0.775 | 0.766 | -0.010 [-0.022, -0.001] ([-0.018, -0.002]) | -0.011 [-0.028, +0.003] ([-0.025, +0.007]) |
+| `LR/S` | yes | no | yes | 0.773 | 0.782 | -0.012 [-0.026, +0.000] ([-0.028, +0.002]) | +0.004 [-0.010, +0.019] ([-0.012, +0.019]) |
+| `LR/T` | yes | no | yes | 0.812 | 0.795 | +0.027 [-0.020, +0.078] ([-0.031, +0.069]) | +0.018 [-0.018, +0.053] ([-0.014, +0.054]) |
+| `HGB-mono/T` | yes | no | yes | 0.786 | 0.752 | +0.001 [-0.049, +0.051] ([-0.042, +0.056]) | -0.025 [-0.069, +0.015] ([-0.061, +0.003]) |
+| `HGB/T` | yes | no | yes | 0.772 | 0.725 | -0.013 [-0.081, +0.051] ([-0.059, +0.041]) | -0.053 [-0.103, -0.007] ([-0.086, -0.006]) |
+
+**Winner: `LR/T`**, round 2 AUC 0.812 (no tie). **Stop rule: fresh round.**
+Its AUC − `ef` points are +0.027 on round 2 and +0.018 on round 1, both
+above zero, so the winner goes on to Steps 4–6.
+
+### Reading
+
+The facts, without a decision (Step 7 decides):
+
+- **Every candidate is eligible**: all five pass `PL` <= 5% and removed >=
+  4.5% at q5 (`PL` 2.47–3.91%) and none at q10 (`PL` 6.00–6.99%), so the
+  selection came down to round 2's AUC.
+- **`LR/T` is the only candidate above `ef` on both rounds**: round 2 0.812
+  against 0.785 (+0.027 [−0.020, +0.078], cluster [−0.031, +0.069]), round 1
+  0.795 against 0.777 (+0.018 [−0.018, +0.053], cluster [−0.014, +0.054]).
+  Both stratified intervals include zero. `HGB-mono/T` is level on round 2
+  (+0.001) and below on round 1 (−0.025); `LR/S` is −0.012 and +0.004;
+  `HGB/T` is below on both (−0.013, −0.053 [−0.103, −0.007]).
+- **The fill alone reads below `ef`**: `ef-fill` −0.010 [−0.022, −0.001]
+  on round 2 and −0.011 [−0.028, +0.003] on round 1. On the complement it
+  equals `ef` (difference 0 by construction). The missing-face frames are
+  mostly discardable (weighted 89.5% on round 2, 77.7% on round 1, against
+  38.1% and 44.6% on the complement), and sorting them last, as `ef` does,
+  ranks them below the frames that have an `eye_focus`.
+- **Where `LR/T`'s gain sits**: on the complement (frames with `eye_focus`
+  today) it is +0.034 [−0.022, +0.096] on round 2 and +0.018 [−0.023,
+  +0.064] on round 1, about its gain on all frames. On the missing-face
+  subset it is +0.045 [−0.189, +0.286] (round 2, 95 labels) and +0.108
+  [−0.251, +0.449] (round 1, 99 labels), intervals spanning about half the
+  AUC scale. There `ef`'s own subset AUC (0.531 and 0.635) orders folders
+  only. The all-frames AUC also counts the pairs across the two subsets, so
+  it is not an average of the two.
+- **`LR/T`'s cuts**: at q5 `RR` 12.8% [6.3, 24.7] on round 2 against `ef`'s
+  5.5% (+7.2 [−1.8, +17.8]) and 9.5% [3.0, 19.6] on round 1 against 16.8%
+  (−7.3 [−34.7, +12.5]); at q10 15.3% [9.1, 24.6] against 12.9% (+2.4
+  [−3.1, +8.2]) and 21.7% [5.3, 39.1] against 14.3% (+7.4 [−5.8, +22.4]).
+  Its `PL` is 2.94% at q5 and 6.54% at q10 against `ef`'s 4.44% and 9.14%.
+  Of its q5 cut, 66.7% of the frames have no `eye_focus` today (`ef`'s:
+  99.6%), and it removes 130 of the dump's picks at q5 against `ef`'s 196.
+- Both rounds have been read before (round 2 by the model-search
+  confirmation and face choice, round 1 by four plans), and this design was
+  chosen after reading `eye_focus`'s and `af-whole`'s numbers on them; the
+  selection rule's cut was amended after Step 2's label-free readings. 5
+  candidates × 2 rounds × 3 cuts plus the subsets were read without
+  correction. One photographer, mostly basketball.
