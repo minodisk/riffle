@@ -396,7 +396,9 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       the tables, the verdict and a "Reading" paragraph; the exploration
       numbers of the winner (round 2 and round 1) beside the confirmation
       numbers so the shrinkage is visible.
-    - `learnings.md` records deviations; `mise run lint` passes.
+    - `learnings.md` records deviations; `mise run lint` passes. The Reading
+      weighs the Step 5 deviation that the fresh labels were taken under the
+      "sorted last" wording, not the earlier rounds' "hid" (see `learnings.md`).
   - Implementation approach:
     - Assumes Step 5 merged and the labeling done. Reuse Step 3's functions
       and `confirmread.py`'s cell construction from `strata.tsv`. Dry-run
@@ -415,6 +417,9 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       rescue loop, and what the scan must store beyond today's columns),
       more labels, or nothing / keep `eye_focus`; the selection-bias and
       one-photographer caveats weighed; the todo item's follow-up named.
+      The "sorted last" versus "hid" labeling wording and the pre-registration
+      merging after labeling may have started (`learnings.md`, Step 5) are
+      weighed in the comparison with round 1 and round 2.
     - `learnings.md` records the compute and labeling time spent;
       `mise run lint` passes.
   - Implementation approach:

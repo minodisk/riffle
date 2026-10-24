@@ -246,3 +246,28 @@
 - A first attempt to append the section with a Bash heredoc failed on the
   shell's quote parsing (nothing written); the Edit tool was used instead.
 - No `__pycache__/` in `git status` (`-B` and `sys.dont_write_bytecode`).
+- **Deviation: the labeling question was reworded (Round 1 review, item 1).**
+  The earlier guides (`_archived/20261018-discard-labels/labeling.md`,
+  `_archived/20261020-model-search/labeling.md`) asked whether it is fine if
+  Riffle **hid** the frame from what you pick from, and whether you would
+  mind if Riffle had **hidden** it. This round's `labeling.md` asks whether it
+  is fine if Riffle suggested the frame for discard and **sorted it last**,
+  and whether you would mind if Riffle had **sorted it last**, while still
+  saying the question is "the same as in the earlier rounds". The new wording
+  follows the plan's "sorted last, not hidden" Purpose, but sorted last is the
+  milder outcome, so the fresh labels may call more frames OK to discard than
+  round 1 and round 2 did. The fresh labels are taken under the "sorted last"
+  wording, and the guide is not edited because the user may already be
+  labeling. Step 6's Reading and the Step 7 Decision must weigh this when they
+  compare the fresh `RR`, the base rate (bar 4) and the shrinkage with the
+  two exploration rounds: a lower fresh `RR` or base rate may be partly the
+  wording, not only the folders.
+- **Deviation: the pre-registration is not merged before labeling may have
+  started (Round 1 review, item 2).** At the time of the review the branch
+  `discard-model-step-5` had no upstream and no PR. The pre-label record is
+  the local commit `5e0e1209` (2026-10-25T00:48:36+09:00); the copies in
+  `sample\` were checked as sidecar-free at draw time. If labeling began
+  before the merge, the merge came after labeling started, and the section's
+  "the merge commit is the record" is then read as this commit and its
+  timestamp. The draw itself (strata, `π`, seed order, the refit recipe and
+  its checks) is consistent with the pre-registration and is not redone.
