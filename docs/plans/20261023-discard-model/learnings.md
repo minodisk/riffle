@@ -80,10 +80,14 @@
   "q5 or q10". Prompted by every candidate's q10 `PL` being 6.00–6.99%
   (`ef`'s own 9.14%) while all pass at q5 (`PL` 2.47–3.91%). Rejected:
   keeping q10 only, which would have ended the plan with no winner. At q5
-  both references pass too (`ef` `PL` 4.44%, random 4.71%) and the removed
-  share is 4.96% for every score (`floor(q * n / 100)` fixes it), so the
-  condition cannot fail at q5: the amendment in effect drops the label-free
-  eligibility filter and the selection reduces to the highest round-2 AUC.
+  both references pass too (`ef` `PL` 4.44%, random 4.71%). Only the
+  removed-share condition is fixed at q5 (4.96% for every score,
+  `floor(q * n / 100)` fixes it); `PL` <= 5% can still fail at q5 for a
+  score that cuts picks faster than random. On Step 2's readings every
+  candidate passes it, so in this run the filter excludes nobody and the
+  selection reduces to the highest round-2 AUC. (Corrected in Step 3, after
+  Step 2's review: this note and the amendment first said the q5 condition
+  "cannot fail".)
 - Recorded as a dated "Amendment (2026-10-24)" subsection under the
   pre-registration's "Selection rule and stop rule", leaving the merged
   text as it was; it runs against the pre-registration's own "nothing
@@ -93,3 +97,53 @@
   amended rule (q5 passes, q10 passes, eligible); `scores_model.tsv` came out
   byte-identical (md5 494ca4b9...), only `discardfit.out.md` changed. Step 3's `discardread.py` must apply the amended
   rule.
+
+## Step 3 (`discardread.py`)
+
+- Run once into `D:\Photos\tests\2026-10-23-discard-model\`
+  (`discardread.out.md`), 91 s in all: load 6 s, cuts, checks, metrics and
+  bootstraps 86 s (seven scores × three frame sets × two rounds of
+  stratified and cluster AUC draws). All 29 label-free checks passed before
+  any `labels.tsv` was opened and all 17 label checks after.
+- **Result**: every candidate eligible (all pass at q5, none at q10);
+  winner `LR/T` (round 2 AUC 0.812, AUC − `ef` +0.027 [−0.020, +0.078];
+  round 1 0.795, +0.018 [−0.018, +0.053]); the stop rule sends it to the
+  fresh round, so Steps 4–6 go ahead (not skipped).
+- **Dry run first**: a copy of the script in the scratchpad (its `HERE`
+  pointed at this plan folder, the label-check gate off) ran on synthetic
+  random labels (copies of both rounds' `manifest.tsv` / `strata.tsv`,
+  round 2's `scores_discard.tsv` and `scores_model.tsv`, `labels.tsv`
+  written from the manifests with seed-7 labels). After it, two
+  print-only fixes (the subset note printed under the complement too, and
+  the base-rate table's subset names), and the dry run was repeated on the
+  fixed copy; the refusal on an existing `discardread.out.md` was tested
+  there too. Then the real read ran once.
+- **Choices the text left open**:
+  - The face-choice folder argument is used for two label-free checks:
+    `ef-fill` in `scores_model.tsv` equals the fill recomputed from the
+    per-face dump on every frame, and `af` reproduces the stored
+    `eye_focus`. The audit hook gets a fifth root, `<out-dir>`, allowing
+    `scores_model.tsv` only.
+  - Step 2's `PL` and removed shares (q5 / q10 / q20, all seven scores) are
+    checked as label-free reproduction rows; the eligibility uses the
+    removed share of the full dump, as Step 2's verdicts did.
+  - The missing-face subset is "no `eye_focus` today" (`ef` NaN, 4,022
+    dump frames); its complement the rest. The subset tables use the
+    full-dump cut, restricting only the labeled frames read (as
+    face-choice's multi-face read). On the subset `ef` is constant within
+    a folder (lowest finite value minus 1), so its subset AUC orders
+    folders only; on the complement `ef-fill` equals `ef`, so its
+    difference is 0 by construction. Where `ef`'s cut holds no sampled
+    complement frame (round 1, q5) the `RR` cells print `nan`.
+  - The random reference is the seed-0 draw `tb` itself (the cut's tie
+    breaker), its AUC on the same draw.
+  - "Ties by round 1's AUC" is an exact tie of the round-2 point; there was
+    none.
+- **Fixed from Step 2's review**: the amendment in `discardmodel.md` and its
+  note above said the q5 label-free condition "cannot fail"; only the
+  removed-share condition is fixed at q5, and `PL` <= 5% can still fail.
+  Both sentences corrected, marked as corrected in Step 3.
+- **Slip**: one `python -` heredoc was run by mistake (meant as a no-op);
+  it hung on the Git Bash stub as the plan warns and was killed by its PID
+  (and its parent shell's), not by image name. Another hung `python3 -`
+  process (PID 71899, started 08:44, not from this step) was left alone.

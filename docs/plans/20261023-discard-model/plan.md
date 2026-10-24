@@ -294,7 +294,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       clip and inner-`C` recipe; joblib over folds; seconds to a few
       minutes (the training sets are at most 1,200 rows).
 
-- [ ] Step 3: `discardread.py`, the exploration read of both rounds and the winner by the pre-registered rule
+- [x] Step 3: `discardread.py`, the exploration read of both rounds and the winner by the pre-registered rule
   - Done when:
     - `discardread.py` in this plan folder (same arguments, without `[jobs]`, and
       the same audit allow-list as Step 2, plus `scores_discard.tsv` under
@@ -474,3 +474,4 @@ Risks:
 - (2026-10-24) Step 1 complete
 - (2026-10-24) Step 2 complete
 - (2026-10-24) Selection rule amended by the user: q5 or q10 eligible (was q10 only), on label-free readings only
+- (2026-10-24) Step 3 complete
