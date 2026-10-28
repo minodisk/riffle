@@ -271,3 +271,50 @@
   "the merge commit is the record" is then read as this commit and its
   timestamp. The draw itself (strata, `π`, seed order, the refit recipe and
   its checks) is consistent with the pre-registration and is not redone.
+
+## Step 6 (`freshlabels.py`, `freshread.py`, the confirmation read)
+
+- **Labeling session**: the user labeled the 600 frames in **under one
+  hour** (the guide guessed 15–30 minutes, the plan about 1.5 s per frame,
+  15 minutes) and confirmed that **`aiEnabled` stayed off for the whole
+  labeling**. Nothing else odd was reported.
+- `freshlabels.py` is `confirmlabels.py` with the five strata (`b05`, `b10`,
+  `b20`, `efonly`, `control`); run once from the scratchpad, its stdout saved
+  as `freshlabels.out.md` in the data folder. 127 keep / 473 discard. The
+  sidecar format was "both": 128 copies with a `.dop` (`<name>.dop`) and an
+  `.xmp` (`<stem>.xmp`), 0 disagreements on rating 1, 472 with no sidecar.
+  **One anomaly** (counted, not dropped): `0250_2026-10-11__DSC5031.ARW` has
+  rating 0 in both sidecars, a mark taken back with `0` (allowed by the
+  guide), so it is `discard` under the recipe (the label follows the rating-1
+  mark alone). No Pick, Reject or color label anywhere. The sample copies
+  and their sidecars were only read.
+- `freshread.py` takes `<fresh-dump-dir> <out-dir>` only: the fresh `ef` and
+  `ef-fill` come from Step 5's `scores_fresh.tsv` (checked against the
+  features TSV's `eye_focus`, as Step 5 did), so the per-face dump is not
+  reloaded. Its audit hook allows `scores_fresh.tsv`, `manifest.tsv`,
+  `strata.tsv` and `labels.tsv` in the data folder (the `dump\` subtree
+  aside) and nothing under `sample\`.
+- **Dry run first**: the script ran unchanged with `<out-dir>` a scratchpad
+  folder holding copies of `scores_fresh.tsv`, `manifest.tsv` and
+  `strata.tsv` and a synthetic `labels.tsv` (seed 7, discard with a
+  per-stratum probability); all checks passed and the tables were sane, and
+  a second run there refused on the existing `freshread.out.md`. Then the
+  real read ran **once**: 25 s, 19 label-free and 6 label checks passed.
+- **Choices the text left open**:
+  - The "close" clause "only quantile or 'beats' conditions failing" is
+    implemented as "`RR` point <= 25% with conditions 2 and 3 holding": once
+    those hold, every remaining condition (the `RR` 97.5% quantile, bar 4,
+    bar 5) is a quantile or a "beats" condition, so the clause adds nothing
+    further.
+  - Fragility: a usable cut is fragile when the cluster version of bar 1's
+    quantile, bar 4 or bar 5 fails (no cut was usable, so it did not arise).
+  - The missing-face subset and its complement are read beside (AUC only),
+    as Step 3 did, because Step 7 must say whether the gain sat in the
+    missing-face frames; this reading decides nothing and was not in the
+    confirmation's pre-registration.
+- **Result**: `LR/T` does not pass (bar 5 fails at q5 and q10, AUC − `ef`
+  −0.013 [−0.048, +0.023]; bar 2 fails at q10). The follow-up rule gives
+  **(2) more labels**, through the first "close" clause at q5 (`RR` 8.3%,
+  `PL` 2.56%, removed 4.98%). `ef`'s own q5 cut would meet the same three
+  conditions, which the Decision should weigh.
+- No `__pycache__/` (`-B` and `sys.dont_write_bytecode`).
