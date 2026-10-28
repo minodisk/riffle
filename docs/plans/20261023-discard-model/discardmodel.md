@@ -825,3 +825,176 @@ with `PL` read on the fresh folders' picks (rejected: an extra cut-level
 condition, "`RR` at the cut not above `ef`'s at q5 by more than +5 points
 (97.5% quantile)"); no `G0` reading on the fresh folders (rejected: adding
 it as a reading).
+
+## Results of the confirmation
+
+Read once on 2026-10-28, after the user said "done". The labels: `python -I
+-B freshlabels.py D:\Photos\tests\2026-10-23-discard-model` (stdout saved as
+`freshlabels.out.md` in the data folder). The read: `python -I -B
+freshread.py D:\Photos\tests\2026-10-23-discard-model\dump
+D:\Photos\tests\2026-10-23-discard-model`, its stdout saved as
+`freshread.out.md` in the data folder; wall time 25 s. A dry run on
+synthetic labels in the scratchpad came first (see `learnings.md`). Every
+interval is the fresh stratified bootstrap 95% (1,000 draws, seed 0, within
+`b05`, `b10`, `b20`, `efonly` and each `control` folder cell) unless marked
+cluster (the six folders, 1,000 draws, seed 0); values are weighted by the
+fresh `1/π` unless marked unweighted. Differences are paired against `ef` on
+the same draws (stratified, cluster in parentheses).
+
+### Labels
+
+600 labels: **127 keep, 473 discard**. 128 copies have both a `.dop` and an
+`.xmp` (the `.dop` decides; 0 disagreements on rating 1), 472 none. **One
+anomaly**, kept and not dropped: `0250_2026-10-11__DSC5031.ARW` holds rating
+0 in both sidecars (a mark taken back with `0`, which the guide allows), so
+it is `discard`. No Pick, Reject or color label on any copy, no rating other
+than 1 and 0, no missing copy, no other file in `sample\`. The sample's 56
+picks from the user's earlier culling were labeled 22 keep / 34 discard, its
+9 explicit rejects all discard. The user labeled the 600 frames in under one
+hour, with `aiEnabled` off throughout.
+
+| Stratum | Population | Sampled | Keep | Discard |
+| --- | ---: | ---: | ---: | ---: |
+| `b05` | 723 | 120 | 10 | 110 |
+| `b10` | 727 | 120 | 10 | 110 |
+| `b20` | 1,455 | 120 | 19 | 101 |
+| `efonly` | 667 | 120 | 31 | 89 |
+| `control` | 10,953 | 120 | 57 | 63 |
+
+### Checks
+
+All 19 label-free checks passed before `labels.tsv` was opened, and all 6
+label checks after: the 14,525 frames, 1,795 picks and 68 rejects of the
+fresh dump; `scores_fresh.tsv` covers every frame, the winner finite
+everywhere, its `ef` missing on exactly the frames the features TSV leaves
+missing and within 5.1e-05 elsewhere; every score's `PL` and removed share
+equal Step 5's; `strata.tsv` (10 rows), each sampled frame's stratum and `π`
+recompute from the cuts; the sum of `1/π` is 14,525; the labels match the
+manifest; the files opened in the data folder are `scores_fresh.tsv`,
+`manifest.tsv`, `strata.tsv` and `labels.tsv`, and nothing was opened under
+`sample\`.
+
+### Base rate
+
+| Frames | Discardable, weighted % | Stratified 95% | Cluster 95% | Unweighted % |
+| --- | ---: | ---: | ---: | ---: |
+| all | **60.56** | [53.81, 67.29] | [53.52, 66.79] | 78.83 |
+| missing-face (201 labels, 30 keep) | 86.5 | [81.7, 90.7] | [82.5, 89.7] | 85.1 |
+| complement (399 labels) | 58.0 | [50.5, 65.2] | [50.4, 64.4] | 75.7 |
+
+### Weighted discard AUC
+
+| Score | AUC [stratified 95%] | Cluster | Unweighted | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `LR/T` (winner) | 0.729 [0.669, 0.788] | [0.666, 0.782] | 0.764 | **-0.013 [-0.048, +0.023]** ([-0.044, +0.015]) |
+| `ef` (reference) | 0.743 [0.679, 0.800] | [0.676, 0.796] | 0.676 |  |
+| `ef-fill` (reference) | 0.744 [0.681, 0.803] | [0.672, 0.804] | 0.745 | +0.002 [-0.008, +0.012] ([-0.007, +0.012]) |
+| random (reference) | 0.521 [0.442, 0.606] | [0.463, 0.581] | 0.475 | -0.222 [-0.322, -0.115] ([-0.317, -0.125]) |
+
+`LR/T` − `ef-fill`: −0.015 [−0.053, +0.022] ([−0.048, +0.019]).
+
+The missing-face subset and its complement, a reading beside the
+pre-registered read (as Step 3's; it decides nothing):
+
+| Score | Missing-face AUC | AUC - `ef` | Complement AUC | AUC - `ef` |
+| --- | ---: | ---: | ---: | ---: |
+| `LR/T` (winner) | 0.706 [0.597, 0.812] | +0.190 [+0.035, +0.327] ([+0.133, +0.300]) | 0.708 [0.642, 0.773] | -0.021 [-0.062, +0.021] ([-0.056, +0.017]) |
+| `ef` (reference) | 0.517 [0.404, 0.643] |  | 0.729 [0.660, 0.795] |  |
+| `ef-fill` (reference) | 0.793 [0.698, 0.880] | +0.277 [+0.131, +0.407] ([+0.210, +0.410]) | 0.729 [0.660, 0.795] | +0.000 (by construction) |
+| random (reference) | 0.459 [0.348, 0.572] | -0.058 [-0.235, +0.120] | 0.528 [0.445, 0.618] | -0.201 [-0.311, -0.077] |
+
+### The cuts
+
+`PL` is on the fresh folders' 1,795 picks, removed the share of the 14,525
+fresh frames (both label-free); `RR` − `ef` in points.
+
+| Score | Cut | Sampled removed / discard | `DP` % | `RR` % | `RR` cluster | `PL` % | Removed % | `RR` - `ef` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `LR/T` (winner) | q5 | 120 / 110 | 91.7 [86.7, 96.7] (91.7) | 8.3 [3.3, 13.3] (8.3) | [4.3, 12.8] | 2.56 | 4.98 | -3.0 [-9.2, +3.1] ([-8.3, +1.2]) |
+| `LR/T` (winner) | q10 | 240 / 220 | 91.7 [88.3, 94.6] (91.7) | 8.3 [5.4, 11.7] (8.3) | [6.5, 10.3] | 5.91 | 9.98 | -6.2 [-10.7, -2.2] ([-10.7, -2.8]) |
+| `LR/T` (winner) | q20 | 360 / 321 | 87.9 [84.2, 91.7] (89.2) | 12.1 [8.3, 15.8] (10.8) | [9.6, 16.4] | 14.48 | 20.00 | -2.8 [-5.6, +0.2] ([-6.2, +0.9]) |
+| `ef` (reference) | q5 | 116 / 101 | 88.7 [82.6, 93.7] (87.1) | 11.3 [6.3, 17.4] (12.9) | [7.1, 15.9] | 4.07 | 4.98 |  |
+| `ef` (reference) | q10 | 220 / 186 | 85.4 [80.6, 89.8] (84.5) | 14.6 [10.2, 19.4] (15.5) | [12.2, 17.9] | 7.30 | 9.98 |  |
+| `ef` (reference) | q20 | 412 / 351 | 85.2 [81.5, 88.5] (85.2) | 14.8 [11.5, 18.5] (14.8) | [12.2, 17.3] | 14.99 | 20.00 |  |
+| `ef-fill` (reference) | q5 | 111 / 101 | 90.0 [83.7, 95.7] (91.0) | 10.0 [4.3, 16.3] (9.0) | [3.6, 17.6] | 2.84 | 4.98 | -1.3 [-9.1, +6.3] ([-7.8, +4.2]) |
+| `ef-fill` (reference) | q10 | 208 / 184 | 86.9 [81.5, 91.8] (88.5) | 13.1 [8.2, 18.5] (11.5) | [8.7, 16.9] | 5.96 | 9.98 | -1.5 [-7.0, +4.2] ([-6.3, +2.4]) |
+| `ef-fill` (reference) | q20 | 354 / 316 | 89.4 [85.3, 92.8] (89.3) | 10.6 [7.2, 14.7] (10.7) | [9.3, 12.6] | 13.09 | 20.00 | -4.3 [-6.5, -2.0] ([-6.7, -1.9]) |
+| random (reference) | q5 | 30 / 21 | 45.9 [23.0, 71.5] (70.0) | 54.1 [28.5, 77.0] (30.0) | [21.9, 82.0] | 4.46 | 4.98 | +42.8 [+17.5, +66.3] ([+10.3, +71.0]) |
+| random (reference) | q10 | 58 / 45 | 59.2 [40.6, 77.2] (77.6) | 40.8 [22.8, 59.4] (22.4) | [20.6, 58.4] | 10.25 | 9.98 | +26.2 [+8.1, +45.4] ([+6.6, +44.8]) |
+| random (reference) | q20 | 124 / 95 | 63.8 [49.8, 78.3] (76.6) | 36.2 [21.7, 50.2] (23.4) | [27.8, 47.4] | 20.33 | 20.00 | +21.4 [+7.1, +36.2] ([+13.2, +32.7]) |
+
+Label-free, `LR/T`'s q5 cut holds 468 of its 723 frames without
+`eye_focus` (64.7%) and 46 picks (`ef`'s: 723 of 723, 73 picks).
+
+### The bars applied
+
+| Cut | (1) `RR` <= 25%, 97.5% <= 35% | (2) `PL` <= 5% | (3) Removed >= 4.5% | (4) `DP` 2.5% > base 60.56% | (5) AUC - `ef` 2.5% > 0 | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| q5 | 8.3, 97.5% 13.3 (cluster 12.8): yes | 2.56: yes | 4.98: yes | 86.7 (cluster 87.2): yes | -0.048 (cluster -0.044): **no** | not usable |
+| q10 | 8.3, 97.5% 11.7 (cluster 10.3): yes | 5.91: **no** | 9.98: yes | 88.3 (cluster 89.7): yes | -0.048 (cluster -0.044): **no** | not usable |
+| q20 | 12.1, 97.5% 15.8: yes | 14.48: no | 20.00: yes | 84.2: yes | -0.048: no | not eligible |
+
+**Verdict: `LR/T` does not pass** (no usable cut at q5 or q10). Bar 5, the
+key bar, fails on both cuts (the AUC − `ef` point is negative), and bar 2
+fails at q10 as Step 5 printed before any label.
+
+**Follow-up rule, applied mechanically: (2) close → more labels.** The first
+"close" clause holds at q5: the `RR` point 8.3% is <= 25% with conditions 2
+(`PL` 2.56%) and 3 (removed 4.98%) holding, and the only failing condition
+is "beats `ef`". (At q10 condition 2 fails, so that cut does not count; the
+second clause, the AUC − `ef` point above zero with the interval spanning
+zero, does not hold: the point is −0.013.) Step 7 names the outcome.
+
+### Exploration and confirmation
+
+| Read | `LR/T` AUC | `ef` AUC | AUC - `ef` | `LR/T` `RR` % q5 | `LR/T` `RR` % q10 | `ef` `RR` % q5 / q10 | Base rate % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Round 2 (exploration, primary) | 0.812 [0.757, 0.863] | 0.785 [0.723, 0.844] | +0.027 [-0.020, +0.078] | 12.8 [6.3, 24.7] | 15.3 [9.1, 24.6] | 5.5 / 12.9 | 42.31 |
+| Round 1 (exploration, replication) | 0.795 [0.737, 0.851] | 0.777 [0.716, 0.841] | +0.018 [-0.018, +0.053] | 9.5 [3.0, 19.6] | 21.7 [5.3, 39.1] | 16.8 / 14.3 | 48.45 |
+| Fresh (confirmation) | 0.729 [0.669, 0.788] | 0.743 [0.679, 0.800] | -0.013 [-0.048, +0.023] | 8.3 [3.3, 13.3] | 8.3 [5.4, 11.7] | 11.3 / 14.6 | 60.56 |
+
+The gain over `ef` shrank from +0.027 (round 2) and +0.018 (round 1) to
+−0.013 on the fresh folders, a change of −0.040 and −0.031.
+
+### Reading
+
+The facts, without a decision (Step 7 decides):
+
+- **The winner does not beat `ef` on the fresh folders**: AUC 0.729 against
+  `ef`'s 0.743, −0.013 [−0.048, +0.023] (cluster [−0.044, +0.015]). The
+  exploration gains (+0.027, +0.018, both intervals spanning zero) did not
+  replicate; the point changed sign. `ef-fill` is level with `ef` (+0.002
+  [−0.008, +0.012]), and `LR/T` is below `ef-fill` (−0.015 [−0.053,
+  +0.022]).
+- **Where it sits**: on the missing-face frames (201 labels, 86.5%
+  discardable) the winner orders better than `ef`, whose subset AUC (0.517)
+  orders folders only: +0.190 [+0.035, +0.327]; but the label-free fill
+  does more there (`ef-fill` +0.277 [+0.131, +0.407]). On the complement,
+  where `eye_focus` exists, the winner is below `ef`: −0.021 [−0.062,
+  +0.021]. So the learned columns lost on the frames that have an
+  `eye_focus`, where the exploration put its gain (+0.034 and +0.018 there).
+  The all-frames AUC also counts the pairs across the two subsets.
+- **The cuts themselves are clean**: at q5 the winner's `RR` is 8.3% [3.3,
+  13.3] against `ef`'s 11.3% (−3.0 [−9.2, +3.1]), at q10 8.3% [5.4, 11.7]
+  against 14.6% (−6.2 [−10.7, −2.2]); its `DP` lower quantiles (86.7%,
+  88.3%) sit far above the base rate, and its q5 `PL` is 2.56% against
+  `ef`'s 4.07%. These bars (1, 3, 4, and 2 at q5) hold; `ef`'s own q5 cut
+  would meet the same `RR`, `PL` and removed conditions (11.3% [6.3, 17.4],
+  4.07%, 4.98%). The "close" verdict comes from that first clause, which
+  does not compare with `ef`.
+- **The fresh base rate is higher**: 60.56% [53.81, 67.29] against 42.31%
+  (round 2) and 48.45% (round 1). Part of it may be the new folders, part
+  the reworded question (Step 5 deviation, `learnings.md`): the fresh labels
+  were taken under "sorted last", not the earlier rounds' "hid", which is the
+  milder outcome and may call more frames OK to discard. This cannot be
+  separated here. It bears on the comparison of `RR`, `DP` and the base rate
+  with rounds 1 and 2; the AUC − `ef` comparison is within the fresh labels,
+  so the wording affects both scores alike, though it may change which
+  frames count as discardable.
+- Both exploration rounds had been read before the design was chosen, the
+  selection rule's cut was amended after Step 2's label-free readings, and
+  the fresh strata are cut by the winner and `ef` themselves; the fresh
+  read adds six folders (six cluster units, a coarse cluster bootstrap) of
+  the same photographer, mostly basketball. The labeling took under one
+  hour for 600 frames with `aiEnabled` off; one frame carried a rating taken
+  back to 0, read as discard.

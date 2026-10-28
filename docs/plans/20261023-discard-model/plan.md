@@ -379,7 +379,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       the winner's `T` columns on the fresh frames use the fresh per-face
       dump; mean fills and standardization come from the 27-folder fit.
 
-- [ ] Step 6: The confirmatory read, once
+- [x] Step 6: The confirmatory read, once
   - Done when:
     - After the user says "done", `freshlabels.py` (the `confirmlabels.py`
       recipe with the five strata `b05`, `b10`, `b20`, `efonly`, `control`)
