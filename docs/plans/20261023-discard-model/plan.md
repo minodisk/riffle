@@ -473,7 +473,7 @@ Risks:
 - **Selection on reused labels** is the design's bias; the mechanical rule,
   the stop rule and the one fresh read are the protections.
 
-## Decision (`LR/T` does not pass; close → more labels, which `LR/T` does not need; `eye_focus` stays)
+## Decision (`LR/T` does not pass; outcome (2) close → more labels, declined for `LR/T` as a post-hoc deviation; `eye_focus` stays)
 
 Written 2026-10-29 at Step 7, against the bars and the follow-up rule
 pre-registered in Step 5 ([discardmodel.md](discardmodel.md),
@@ -482,9 +482,11 @@ this plan's "The confirmation" since the plan merged, `284236d1`,
 2026-10-23). The numbers come from discardmodel.md "Results of the
 confirmation" (the fresh read, once, `freshread.out.md`) and "Results of
 the exploration"; values are weighted by the fresh `1/π` with the
-stratified bootstrap 95% interval unless marked cluster. No bar or rule was
-changed after the fresh labels were read, and nothing was re-read for this
-section.
+stratified bootstrap 95% interval unless marked cluster. No bar and no
+verdict rule was changed after the fresh labels were read, and nothing was
+re-read for this section. The follow-up action is the exception: declining
+the action the rule assigns to outcome (2) is a post-hoc deviation (item 2),
+recorded in `learnings.md` as "Deviation".
 
 **1. The winner `LR/T` does not pass.** Bars 1, 3 and 4 hold at q5 and q10
 and bar 2 holds at q5; bar 5, the key bar, fails on both cuts, and bar 2
@@ -504,7 +506,7 @@ would have been q5. The bar 5 failure is not marginal in the winner's favor:
 the point is negative and the interval spans zero (cluster [−0.044,
 +0.015]); `LR/T` is also below `ef-fill` (−0.015 [−0.053, +0.022]).
 
-**2. The follow-up rule, applied mechanically: (2) close → more labels.**
+**2. The follow-up rule's outcome is (2) close → more labels; its action is declined.**
 The first "close" clause holds at q5: the `RR` point 8.3% is <= 25%,
 conditions 2 (`PL` 2.56%) and 3 (removed 4.98%) hold, and the only failing
 condition is "beats `ef`". At q10 condition 2 fails, so q10 does not count;
@@ -520,8 +522,12 @@ model adds nothing over `ef` on the fresh folders**: what is "close" about
 the q5 cut is a property `eye_focus` already has, and the one condition
 that measures the model's contribution (bar 5) points the wrong way.
 
-What this means for "more labels": the rule's outcome is recorded as (2),
-but **more labels are not worth spending on `LR/T`** or on another learned
+What this means for "more labels": the named outcome stays (2), but
+declining the action the pre-registration assigns to it ("another fresh
+round") is a **post-hoc deviation from the rule's action**, decided after
+the labels were read and recorded in `learnings.md` with its reason, which
+the user should confirm explicitly. The reason: **more labels are not worth
+spending on `LR/T`** or on another learned
 form over the same columns. Another fresh round under the same bars would
 only narrow an interval whose point is below zero, and the exploration gain
 it would have to recover (+0.027, +0.018) did not replicate (item 3). The
@@ -540,8 +546,9 @@ from **+0.027** [−0.020, +0.078] (round 2) and **+0.018** [−0.018, +0.053]
 −0.040 and −0.031; the sign flipped. `LR/T`'s AUC fell 0.812 / 0.795 →
 0.729 and `ef`'s 0.785 / 0.777 → 0.743, so the reference fell too and part
 of the fall is the population (new dates, a higher base rate), not the
-selection; the part attributable to the selection is the lost lead over
-`ef`, the comparison the selection rule had favored. The exploration
+selection; the lost lead over `ef` is the comparison the selection rule had
+favored, and selection, population and wording are mixed together in it and
+cannot be separated here. The exploration
 intervals already spanned zero, so the fresh read does not contradict them;
 it resolves them toward no gain. (The model-search winner shrank by 0.079
 AUC; this one by 0.083 / 0.066 in AUC and 0.040 / 0.031 in its lead over
@@ -606,8 +613,10 @@ wording and the new folders cannot be separated,
 so the fresh `RR`, `DP` and base rate are not compared with rounds 1 and 2
 as like for like, and the low fresh `RR` is not read as an improvement. The
 verdict rests on bar 5, a paired comparison within the fresh labels, which
-the wording affects for both scores alike (it may change which frames count
-as discardable, not which score the change favors). The Step 5
+the wording affects for both scores alike, though it may change which
+frames count as discardable; so the wording can shift the paired difference,
+this round cannot measure by how much, and bar 5 fails with a negative point
+in any case. The Step 5
 pre-registration may have merged after labeling started; its pre-label
 record is the local commit `5e0e1209` (2026-10-25T00:48:36+09:00), the bars
 and the follow-up rule were already in main through this plan

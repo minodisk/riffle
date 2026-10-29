@@ -340,6 +340,15 @@
   between 5.5% and 16.8%), corrected before the commit.
 - The todo item is not edited here (the wrap-up phase does it); its
   follow-up is recorded below.
+- **Deviation: the follow-up action of outcome (2) is declined (Round 1
+  review, item 1).** The rule's outcome for the fresh read is (2) close →
+  "another fresh round". The Decision does not run another `LR/T` round and
+  names an `ef` / `ef-fill` plan instead. Reason: the "close" clause does
+  not compare with `ef`, and `ef`'s own q5 cut meets it, while bar 5 (the
+  only bar measuring the model's contribution) is negative; another round
+  would only narrow an interval whose point is below zero. This was decided
+  after the labels were read, so it is a post-hoc deviation, to be confirmed
+  by the user. The bars and the verdict were not changed.
 
 ## Deferred issues (todo candidates)
 
