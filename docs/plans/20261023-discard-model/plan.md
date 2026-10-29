@@ -405,7 +405,7 @@ the folder's lowest finite value minus 1 in the AUC), as every earlier read.
       the script once on synthetic labels in the scratchpad (as face-choice
       did) so the real read cannot crash after opening the labels.
 
-- [ ] Step 7: The Decision
+- [x] Step 7: The Decision
   - Done when:
     - A "Decision" section in this plan, written against the Step 5 bars
       (or, if the stop rule ended the plan at Step 3, against the stop rule):
@@ -472,6 +472,152 @@ Risks:
   reproduction (a spot fold of the LOFO recipe) is checked in Step 5.
 - **Selection on reused labels** is the design's bias; the mechanical rule,
   the stop rule and the one fresh read are the protections.
+
+## Decision (`LR/T` does not pass; close → more labels, which `LR/T` does not need; `eye_focus` stays)
+
+Written 2026-10-29 at Step 7, against the bars and the follow-up rule
+pre-registered in Step 5 ([discardmodel.md](discardmodel.md),
+"Pre-registration of the confirmation"; the same bars and rule have been in
+this plan's "The confirmation" since the plan merged, `284236d1`,
+2026-10-23). The numbers come from discardmodel.md "Results of the
+confirmation" (the fresh read, once, `freshread.out.md`) and "Results of
+the exploration"; values are weighted by the fresh `1/π` with the
+stratified bootstrap 95% interval unless marked cluster. No bar or rule was
+changed after the fresh labels were read, and nothing was re-read for this
+section.
+
+**1. The winner `LR/T` does not pass.** Bars 1, 3 and 4 hold at q5 and q10
+and bar 2 holds at q5; bar 5, the key bar, fails on both cuts, and bar 2
+fails at q10 (Step 5 printed that before any label):
+
+| Cut | Removed (fresh) | `DP` % | `RR` % | `PL` % | AUC − `ef` | Usable |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| q5 | 4.98% | 91.7 [86.7, 96.7] | 8.3 [3.3, 13.3] | 2.56 | −0.013 [−0.048, +0.023] | no (5) |
+| q10 | 9.98% | 91.7 [88.3, 94.6] | 8.3 [5.4, 11.7] | 5.91 | (same) | no (2, 5) |
+
+What it would have suggested, had bar 5 held: at q5, sorted last, 4.98% of
+each folder's frames, about one in twelve of them (`RR` 8.3%) a frame the
+user would rescue, with 2.56% of the picks among them (46 of 1,795); 64.7%
+of those frames (468 of 723) are frames without today's `eye_focus`. q10
+could not have been the best cut (its `PL` 5.91% fails bar 2), so the depth
+would have been q5. The bar 5 failure is not marginal in the winner's favor:
+the point is negative and the interval spans zero (cluster [−0.044,
++0.015]); `LR/T` is also below `ef-fill` (−0.015 [−0.053, +0.022]).
+
+**2. The follow-up rule, applied mechanically: (2) close → more labels.**
+The first "close" clause holds at q5: the `RR` point 8.3% is <= 25%,
+conditions 2 (`PL` 2.56%) and 3 (removed 4.98%) hold, and the only failing
+condition is "beats `ef`". At q10 condition 2 fails, so q10 does not count;
+the second clause (the AUC − `ef` point above zero with the interval
+spanning zero) does not hold, the point being −0.013.
+
+**But `ef`'s own q5 cut meets the same close clause**: `RR` 11.3% [6.3,
+17.4] (<= 25%, 97.5% quantile 17.4 <= 35%), `PL` 4.07% (<= 5%), removed
+4.98% (>= 4.5%), and its `DP` 2.5% quantile 82.6% is above the 60.56% base
+rate. The clause that made the verdict "close" does not compare with `ef`,
+so it is met by the reference the winner was meant to improve on. **The new
+model adds nothing over `ef` on the fresh folders**: what is "close" about
+the q5 cut is a property `eye_focus` already has, and the one condition
+that measures the model's contribution (bar 5) points the wrong way.
+
+What this means for "more labels": the rule's outcome is recorded as (2),
+but **more labels are not worth spending on `LR/T`** or on another learned
+form over the same columns. Another fresh round under the same bars would
+only narrow an interval whose point is below zero, and the exploration gain
+it would have to recover (+0.027, +0.018) did not replicate (item 3). The
+question a further round could still answer is a different one: whether
+`ef` itself (or `ef-fill`) at per-folder q5, sorted last, is worth shipping
+as a discard suggestion. That needs its own plan with strata cut for that
+score and its own pre-registered bars (the fresh strata here were cut for
+`LR/T`, with `ef` read beside through `efonly`), so this round's `ef` q5
+numbers are a reading, not that round. Nothing is started by this
+Decision; the todo item's follow-up (item 6) names it.
+
+**3. Shrinkage from the exploration to the confirmation**
+(discardmodel.md, "Exploration and confirmation"): `LR/T`'s AUC − `ef` went
+from **+0.027** [−0.020, +0.078] (round 2) and **+0.018** [−0.018, +0.053]
+(round 1) to **−0.013** [−0.048, +0.023] on the fresh folders, a change of
+−0.040 and −0.031; the sign flipped. `LR/T`'s AUC fell 0.812 / 0.795 →
+0.729 and `ef`'s 0.785 / 0.777 → 0.743, so the reference fell too and part
+of the fall is the population (new dates, a higher base rate), not the
+selection; the part attributable to the selection is the lost lead over
+`ef`, the comparison the selection rule had favored. The exploration
+intervals already spanned zero, so the fresh read does not contradict them;
+it resolves them toward no gain. (The model-search winner shrank by 0.079
+AUC; this one by 0.083 / 0.066 in AUC and 0.040 / 0.031 in its lead over
+`ef`.)
+
+**4. Did the gain sit in the missing-face frames?** On the complement,
+where `eye_focus` exists, `LR/T` is below `ef` (−0.021 [−0.062, +0.021]);
+the exploration had put its gain there (+0.034 and +0.018). So the learned
+columns (EAR, pose, sharpness, the face count) did not help on the frames
+that have an `eye_focus`. On the missing-face frames (201 labels, 86.5%
+discardable) `LR/T` orders better than `ef` (+0.190 [+0.035, +0.327]), but
+`ef`'s subset AUC there (0.517) only orders folders, since every such frame
+sorts last; the label-free fill does more (`ef-fill` − `ef` **+0.277**
+[+0.131, +0.407] on those 201 labels). This subset reading was **not
+pre-registered** for the confirmation (Step 6 read it beside, as Step 3
+did; it decides nothing), and on all frames `ef-fill` is level with `ef`
+(+0.002 [−0.008, +0.012]). It is a **hypothesis for a future plan, not a
+result**: that filling the missing `eye_focus` by the `af-whole` face's
+value orders the frames today sorts last, which a round whose strata
+over-sample those frames could test.
+
+**5. What the scan would need** (not built; for the record, as the rule's
+branch (1) asks a Decision to name it): an in-app suggestion would sort the
+best cut's frames last per folder, with a rescue loop. Beyond today's columns
+(`eye_focus`, `sharpness`, `eyes_ear`, `pose_*`), `LR/T` would need the
+`af-whole` face's `eye_focus` where today's is missing (a whole-preview face
+detection on those frames) and the number of whole-set faces at or above
+0.8; `ef` at q5 needs nothing new.
+
+**6. Recommendation and the todo item's follow-up.**
+
+- **`eye_focus` stays** as the discard cue in the app; **no app change**.
+- The todo item "Core: improve on `eye_focus` for the discard question
+  using the 1,200 blind labels": both TODOs are done (a model trained on the
+  1,200 labels, a fresh blind confirmation from folders not yet sampled),
+  and the outcome is that the trained model does not beat `eye_focus`. Its
+  follow-up for the wrap-up to name: (a) an optional plan testing
+  `ef` / `ef-fill` at per-folder q5, sorted last, as a shippable discard
+  suggestion on its own pre-registered fresh round; (b) the missing-face
+  fill hypothesis of item 4, folded into (a) or tested alone. Neither is
+  started here.
+
+**Selection bias weighed.** The design was chosen after reading
+`eye_focus`'s and `af-whole`'s numbers on both rounds, the winner was the
+best of five on reused labels (5 × 2 rounds × 3 cuts plus the subsets, read
+without correction), the selection rule's cut was amended after Step 2's
+label-free readings (against the pre-registration's own "nothing changes
+after a candidate's score exists"), and the fresh strata were cut by the
+winner and `ef` themselves. Every one of these ran in the winner's favor,
+and the winner still failed bar 5, so the negative verdict is robust to
+them; what they weaken is the exploration's positive readings, which the
+fresh read did not reproduce.
+
+**The labeling deviations weighed** (`learnings.md`, Step 5). The fresh
+labels were taken under "sorted last", the earlier rounds' under "hid";
+sorted last is the milder outcome and may call more frames OK to discard.
+The fresh base rate is 60.56% against 42.31% (round 2) and 48.45% (round
+1); `LR/T`'s fresh `RR` is lower than on either exploration round (q5
+8.3% against 12.8% / 9.5%, q10 8.3% against 15.3% / 21.7%) while `ef`'s is
+not (q5 11.3% against 5.5% / 16.8%, q10 14.6% against 12.9% / 14.3%); the
+wording and the new folders cannot be separated,
+so the fresh `RR`, `DP` and base rate are not compared with rounds 1 and 2
+as like for like, and the low fresh `RR` is not read as an improvement. The
+verdict rests on bar 5, a paired comparison within the fresh labels, which
+the wording affects for both scores alike (it may change which frames count
+as discardable, not which score the change favors). The Step 5
+pre-registration may have merged after labeling started; its pre-label
+record is the local commit `5e0e1209` (2026-10-25T00:48:36+09:00), the bars
+and the follow-up rule were already in main through this plan
+(`284236d1`), and no label was read before the user said "done", so this
+does not bear on the verdict.
+
+**Population caveat.** One photographer, mostly basketball; six fresh
+folders (six cluster units, a coarse cluster bootstrap), 600 labels on
+14,525 frames. The verdict says `LR/T` does not beat `eye_focus` on this
+photographer's new folders; it does not say no score could.
 
 ## Progress
 
