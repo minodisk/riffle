@@ -1088,6 +1088,36 @@ so a tier can be added back without rewriting the `filter.ts` / `strip.ts` /
 - Source: `docs/plans/_archived/20261008-burst-keep-score/learnings.md`,
   Steps 3, 5, 5b, 7.
 
+### A learned discard score over the stored technical features did not beat `eye_focus` (Hit)
+
+The plan trained scores (`LR/T`: logistic regression over `eye_focus`, sharpness,
+EAR and pose, with and without the `af-whole` fill) on the user's 1,200 blind
+"fine to sort last" labels, then confirmed the winner on 600 fresh labels
+from six unseen folders. `LR/T` won the exploration and failed the
+confirmation: AUC - `eye_focus` -0.013 [-0.048, +0.023], with the `PL <= 5%`
+bar failing at q10 and the model-contribution bar failing at q5 and q10.
+
+- `eye_focus` stays the only discard-leaning cue and no app change was made. Do
+  not retrain a model on `eye_focus`, sharpness, EAR and pose to rank frames
+  for discard. Fitting looked better than `eye_focus` in the exploration and
+  did not hold on fresh folders.
+- At a per-folder q5 cut (about 5% of a folder sorted last) `eye_focus`
+  itself keeps `PL` near 4% on the fresh labels (picks lost: 4.07%). Whether
+  that is shippable as-is is undecided. The strata were cut for `LR/T`, so it
+  is only a reading. Deciding it needs its own plan with strata cut for that
+  score and pre-registered bars.
+- Judge a sort-last or discard cue at q5. At q10 every candidate lost more
+  than 5% of the picks. The strata and bars are in the plan. A candidate's
+  bar 5 (AUC against `ef`) is the only one that measures the model's own
+  contribution. A clause that `ef` also meets (for example "close") says
+  nothing about the model.
+- Frames with no `eye_focus` (about 9-12%) are a separate case. Today they sort
+  by a constant. An `af-whole` fill was level on all frames (+0.002) and
+  showed a gain only on the 201 missing-face fresh labels (+0.277
+  [+0.131, +0.407]); that reading was not pre-registered.
+- Source: `docs/plans/_archived/20261023-discard-model/learnings.md`, Steps 6
+  and 7 (Decision); `discardmodel.md`, "Results of the confirmation".
+
 ### Writing the `Both` sidecar format: one comparator, one stat source (Hit)
 
 `sidecar::newest` is the single newest-wins comparator (larger `mtime_ns`,
@@ -2482,9 +2512,13 @@ be a stub, and a `python -` / `python3 -` heredoc hung on it twice without
 running anything (the call ended up in the background). Kill the hung process
 by its PID, not by image name. Use the venv's `python.exe` by full path on a
 script file written with the Write tool, or make a text edit with the Edit
-tool and no Python at all.
+tool and no Python at all. To wait on a log a background job has not created
+yet, use `tail -F` (not `tail -f`, which exits at once on a missing file)
+bounded by `timeout N`, for example
+`timeout 570 tail -F run.log | grep -m1 "done:"`.
 
 - Source: `docs/plans/_archived/20261017-bad-photo-labels/learnings.md`, Steps 4 and 5.
+- Source: `docs/plans/_archived/20261023-discard-model/learnings.md`, Steps 4 and 5.
 - Source: [heif-cr3-message learnings, Step 1](../plans/_archived/20260930-heif-cr3-message/learnings.md#step-1); face-detection-recall-cost learnings, Steps 2 and 3.
 
 ### On Windows, the Bash tool halves doubled backslashes, even in a quoted heredoc (Hit)

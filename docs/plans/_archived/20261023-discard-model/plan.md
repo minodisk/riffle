@@ -24,11 +24,11 @@ bar to beat is the plain `eye_focus` cue (the in-focus probability of the
 eyes of the face nearest the AF point): weighted discard AUC **0.785**
 [0.723, 0.844] on the model-search confirmation (round 2), above every
 learned model so far (`G0 ⊕ ef` 0.684, `G0` 0.630;
-[model-search Decision](../_archived/20261020-model-search/plan.md)), and
+[model-search Decision](../20261020-model-search/plan.md)), and
 0.777 on round 1. The face-choice evaluation found no better face rule
 (`af-whole` the only near-tie, +0.014 [−0.018, +0.052], filling more frames:
 4.5% missing against 12.4%;
-[facechoice.md, Decision](../_archived/20261023-face-choice/facechoice.md)).
+[facechoice.md, Decision](../20261023-face-choice/facechoice.md)).
 
 This plan does the two remaining TODOs of the todo item "Core: improve on
 `eye_focus` for the discard question using the 1,200 blind labels":
