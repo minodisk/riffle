@@ -318,3 +318,62 @@
   `PL` 2.56%, removed 4.98%). `ef`'s own q5 cut would meet the same three
   conditions, which the Decision should weigh.
 - No `__pycache__/` (`-B` and `sys.dont_write_bytecode`).
+
+## Step 7 (the Decision)
+
+- Doc-only; nothing was re-read. The Decision in `plan.md` is written from
+  discardmodel.md's "Results of the confirmation" and "Results of the
+  exploration" and from this file; no bar or rule moved.
+- **Compute time spent** (wall, from the steps above): Step 2's fits 13 s,
+  Step 3's read 91 s, Step 4's fresh dump 1,335 s (22 min), Step 5's
+  `--no-copy` run 9 s and copy run 349 s, Step 6's read 25 s: about 1,820 s
+  (30 min) in all, the dump most of it. **Labeling time**: the 600 fresh
+  frames in under one hour (the plan guessed about 15 minutes at 1.5 s per
+  frame; the rounds 1 and 2 labels were reused, no new time).
+- The mechanical outcome is (2) "more labels", but through a clause `ef`'s
+  own q5 cut also meets (`RR` 11.3%, `PL` 4.07%, removed 4.98%), so the
+  Decision records that more labels are not worth spending on `LR/T`; the
+  only question a further round could answer is whether `ef` / `ef-fill` at
+  q5 is shippable as-is, which needs its own plan and strata.
+- A first draft said every score's fresh `RR` was lower than on the
+  exploration rounds; it is true for `LR/T` only (`ef`'s q5 11.3% sits
+  between 5.5% and 16.8%), corrected before the commit.
+- The todo item is not edited here (the wrap-up phase does it); its
+  follow-up is recorded below.
+- **Deviation: the follow-up action of outcome (2) is declined (Round 1
+  review, item 1).** The rule's outcome for the fresh read is (2) close →
+  "another fresh round". The Decision does not run another `LR/T` round and
+  names an `ef` / `ef-fill` plan instead. Reason: the "close" clause does
+  not compare with `ef`, and `ef`'s own q5 cut meets it, while bar 5 (the
+  only bar measuring the model's contribution) is negative; another round
+  would only narrow an interval whose point is below zero. This was decided
+  after the labels were read, so it is a post-hoc deviation; the user
+  confirmed it on 2026-10-30. The bars and the verdict were not changed.
+
+## Deferred issues (todo candidates)
+
+- **Update the todo item "Core: improve on `eye_focus` for the discard
+  question using the 1,200 blind labels"** (`todo.md`). Basis: this plan's
+  Decision (Step 7), item 6. Both TODOs are done (train on the 1,200
+  labels: `LR/T` won the exploration; one fresh blind confirmation from six
+  folders not yet sampled: `LR/T` does not pass, AUC − `ef` −0.013
+  [−0.048, +0.023]); `eye_focus` stays, no app change. Files:
+  `docs/plans/20261023-discard-model/plan.md` ("Decision"),
+  `docs/plans/20261023-discard-model/discardmodel.md` ("Results of the
+  confirmation").
+- **Optional follow-up plan: `ef` / `ef-fill` at per-folder q5, sorted last,
+  as a shippable discard suggestion.** Basis: Decision items 2 and 6; on the
+  fresh labels `ef`'s q5 cut meets bars 1–4 (`RR` 11.3% [6.3, 17.4], `PL`
+  4.07%, removed 4.98%, `DP` 2.5% 82.6% > base 60.56%) and `ef-fill`'s q5
+  `RR` 10.0%, `PL` 2.84%, but the strata were cut for `LR/T`, so it is a
+  reading; a round with strata cut for that score and its own
+  pre-registered bars would decide. Files: `crates/core/src/candidate.rs`,
+  `crates/app/src/index.rs` (`run_faces_scan`),
+  `docs/plans/20261023-discard-model/discardmodel.md`.
+- **Hypothesis: the `af-whole` fill orders the frames today sorts last.**
+  Basis: Decision item 4, a reading not pre-registered for the
+  confirmation: `ef-fill` − `ef` +0.277 [+0.131, +0.407] on the 201
+  missing-face fresh labels (level on all frames, +0.002). Testing it needs
+  a round whose strata over-sample the frames without `eye_focus`. Files:
+  `docs/plans/20261023-discard-model/freshread.py`,
+  `docs/plans/_archived/20261023-face-choice/facechoice.md`.
