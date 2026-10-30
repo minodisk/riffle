@@ -9,8 +9,8 @@ plan existed, and `D:\Photos\tests\2026-10-23-discard-model\` held nothing of
 this plan. It is merged on its own, before `discardfit.py` or
 `discardread.py` exists; the merge commit of the PR that adds this section,
 without results, is the record, as for the archived
-[model-search exploration](../_archived/20261020-model-search/modelsearch.md)
-and [face-choice evaluation](../_archived/20261023-face-choice/facechoice.md)
+[model-search exploration](../20261020-model-search/modelsearch.md)
+and [face-choice evaluation](../20261023-face-choice/facechoice.md)
 before it. Nothing in this section changes after a candidate's score
 exists; a deviation found while implementing Steps 2–3 is recorded in
 `learnings.md` with its reason and does not touch the selection rule or the
@@ -36,16 +36,16 @@ selection bias. On the 27-folder dump (32,459 frames, 4,419 picks):
 
 | Round | Reading | Value | Source |
 | --- | --- | --- | --- |
-| 2 | `eye_focus` (missing last) weighted discard AUC | 0.785 [0.723, 0.844] (cluster [0.693, 0.881]) | [modelsearch.md, "Results of the confirmation"](../_archived/20261020-model-search/modelsearch.md); [facechoice.md, "Reproduction checks"](../_archived/20261023-face-choice/facechoice.md) |
+| 2 | `eye_focus` (missing last) weighted discard AUC | 0.785 [0.723, 0.844] (cluster [0.693, 0.881]) | [modelsearch.md, "Results of the confirmation"](../20261020-model-search/modelsearch.md); [facechoice.md, "Reproduction checks"](../20261023-face-choice/facechoice.md) |
 | 2 | `eye_focus` `RR` q5 / q10 / q20 | 5.5 / 12.9 / 12.8% | same |
 | 2 | `eye_focus` `PL` q5 / q10 / q20 (full dump) | 4.44 / 9.14 / 15.59% | same |
 | 2 | `eye_focus` removed q5 / q10 / q20 (round 2 population) | 4.80 / 9.70 / 19.64% | same |
 | 2 | Discardable base rate | 42.31% [35.85, 48.91] | same |
-| 2 | `G0 ⊕ ef` (the model-search discard winner) / `G0` AUC | 0.684 / 0.630 | [model-search Decision](../_archived/20261020-model-search/plan.md) |
-| 1 | `eye_focus` (missing last) weighted discard AUC | 0.777 [0.716, 0.841] | [discard.md, "Main table"](../_archived/20261018-discard-labels/discard.md); facechoice.md, "Reproduction checks" |
+| 2 | `G0 ⊕ ef` (the model-search discard winner) / `G0` AUC | 0.684 / 0.630 | [model-search Decision](../20261020-model-search/plan.md) |
+| 1 | `eye_focus` (missing last) weighted discard AUC | 0.777 [0.716, 0.841] | [discard.md, "Main table"](../20261018-discard-labels/discard.md); facechoice.md, "Reproduction checks" |
 | 1 | `eye_focus` `RR` q5 / q10 / q20 | 16.8 / 14.3 / 28.3% | facechoice.md, "Reproduction checks" |
 | 1 | Discardable base rate | 48.45% [42.03, 55.11] | same |
-| 2 | `af-whole` AUC − `af` (paired) | +0.014 [−0.018, +0.052] | [facechoice.md, "Results"](../_archived/20261023-face-choice/facechoice.md) |
+| 2 | `af-whole` AUC − `af` (paired) | +0.014 [−0.018, +0.052] | [facechoice.md, "Results"](../20261023-face-choice/facechoice.md) |
 | 1 | `af-whole` AUC − `af` (paired) | −0.028 [−0.065, +0.009] (cluster [−0.063, +0.005]) | facechoice.md, "2. The rules, round 1 (replication)", all labeled frames |
 | - | Missing share on the dump, `af` (today's) / `af-whole` | 12.4% / 4.5% | facechoice.md, "Results" (face counts) |
 
@@ -161,7 +161,7 @@ hyperparameter grid.
 ### `monotonic_cst` with missing values on sklearn 1.9.1
 
 Taken from the documentation only, as
-[modelsearch.md, "`monotonic_cst` with missing values on sklearn 1.9.1"](../_archived/20261020-model-search/modelsearch.md)
+[modelsearch.md, "`monotonic_cst` with missing values on sklearn 1.9.1"](../20261020-model-search/modelsearch.md)
 read it: the `HistGradientBoostingClassifier` API page and the User Guide
 state no restriction on combining `monotonic_cst` with NaN (the
 constraints hold for binary classification over the positive class's
@@ -169,7 +169,7 @@ probability; missing values are supported natively). So `HGB-mono/T` keeps
 the NaN, as `HGB/T` does, and its constraint is read as holding among
 non-missing values only. Model search's `HGB-mono` fits raised nothing on
 that combination and passed its spot check
-([model-search learnings](../_archived/20261020-model-search/learnings.md)).
+([model-search learnings](../20261020-model-search/learnings.md)).
 **Fallback**: if a Step 2 fit raises, or its scores break a constraint among
 non-missing values on a spot fold, `HGB-mono/T` uses the mean-filled
 columns in every fold, recorded in `learnings.md`.
