@@ -526,7 +526,7 @@ What this means for "more labels": the named outcome stays (2), but
 declining the action the pre-registration assigns to it ("another fresh
 round") is a **post-hoc deviation from the rule's action**, decided after
 the labels were read and recorded in `learnings.md` with its reason, which
-the user should confirm explicitly. The reason: **more labels are not worth
+the user confirmed on 2026-10-30. The reason: **more labels are not worth
 spending on `LR/T`** or on another learned
 form over the same columns. Another fresh round under the same bars would
 only narrow an interval whose point is below zero, and the exploration gain

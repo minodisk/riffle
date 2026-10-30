@@ -347,8 +347,8 @@
   not compare with `ef`, and `ef`'s own q5 cut meets it, while bar 5 (the
   only bar measuring the model's contribution) is negative; another round
   would only narrow an interval whose point is below zero. This was decided
-  after the labels were read, so it is a post-hoc deviation, to be confirmed
-  by the user. The bars and the verdict were not changed.
+  after the labels were read, so it is a post-hoc deviation; the user
+  confirmed it on 2026-10-30. The bars and the verdict were not changed.
 
 ## Deferred issues (todo candidates)
 
