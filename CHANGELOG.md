@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/minodisk/riffle/compare/v1.10.0...v1.11.0) (2026-11-07)
+
+
+### Features
+
+* **app:** pause the scan's reads while a preview read is in flight ([#927](https://github.com/minodisk/riffle/issues/927)) ([d49fa25](https://github.com/minodisk/riffle/commit/d49fa25165d518184ba62c7d176b980b9b65a8ff))
+
 ## [1.10.0](https://github.com/minodisk/riffle/compare/v1.9.0...v1.10.0) (2026-11-07)
 
 
