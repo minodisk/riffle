@@ -214,42 +214,34 @@ pub enum Button {
     Cancel,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum Phase {
+    #[default]
     Idle,
     Asking,
     Running,
 }
 
-/// What a key does while the dialog is open. Every key stops there.
+/// What a key pressed in the dialog does. Tab and Shift+Tab never get here:
+/// `Root`'s focus trap moves the focus between the buttons.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Key {
-    /// Escape, or Cancel pressed: the question closes.
+    /// Escape: the question closes.
     Dismiss,
-    /// The run button pressed.
-    Run,
-    /// Nothing, or only the focus moved.
+    /// Enter or Space, left to the focused button, which presses itself.
+    Press,
+    /// Nothing; the key stops there.
     Swallow,
 }
 
 /// One trashing or delete, from the menu item through the dialog to the
-/// run's end, and which of the two buttons has the focus. A second start
-/// while one is under way does nothing; the dialog is open while asking and
-/// while running, and a running move cannot be canceled.
+/// run's end. A second start while one is under way does nothing; the dialog
+/// is open while asking and while running, and a running move cannot be
+/// canceled.
+#[derive(Default)]
 pub struct TrashFlow {
     phase: Phase,
     target: Option<Target>,
-    focused: Button,
-}
-
-impl Default for TrashFlow {
-    fn default() -> Self {
-        Self {
-            phase: Phase::Idle,
-            target: None,
-            focused: Button::Run,
-        }
-    }
 }
 
 impl TrashFlow {
@@ -266,20 +258,20 @@ impl TrashFlow {
         self.target.as_ref()
     }
 
-    pub fn focused(&self) -> Button {
-        self.focused
+    /// The button the dialog opens on: a move on its run button, a delete
+    /// on Cancel. `None` when nothing is being asked.
+    pub fn initial_focus(&self) -> Option<Button> {
+        self.target.as_ref().map(|target| match target.mode {
+            Mode::Trash => Button::Run,
+            Mode::Delete => Button::Cancel,
+        })
     }
 
-    /// Ask about `target`; a delete opens on Cancel. False while one is
-    /// under way.
+    /// Ask about `target`. False while one is under way.
     pub fn start(&mut self, target: Target) -> bool {
         if self.busy() {
             return false;
         }
-        self.focused = match target.mode {
-            Mode::Trash => Button::Run,
-            Mode::Delete => Button::Cancel,
-        };
         self.phase = Phase::Asking;
         self.target = Some(target);
         true
@@ -309,13 +301,12 @@ impl TrashFlow {
         self.target = None;
     }
 
-    /// A key while the dialog is open, `key` as `keys::key_name` names it
+    /// A key pressed in the dialog, `key` as `keys::key_name` names it
     /// (`None` for a lone modifier) and `held` a repeat: Escape closes the
-    /// question, Tab and Shift+Tab move between the buttons, and Enter or
-    /// Space press the focused one, except in the delete dialog, which
-    /// swallows them and any repeat. While running, the buttons are
-    /// disabled and nothing happens.
-    pub fn key(&mut self, key: Option<&str>, held: bool) -> Key {
+    /// question and Enter or Space press the focused button, except in the
+    /// delete dialog, which swallows them and any repeat. While running, the
+    /// buttons are disabled and nothing happens.
+    pub fn key(&self, key: Option<&str>, held: bool) -> Key {
         let Some(key) = key else { return Key::Swallow };
         if self.phase != Phase::Asking {
             return Key::Swallow;
@@ -326,17 +317,7 @@ impl TrashFlow {
         }
         match key {
             "escape" => Key::Dismiss,
-            "tab" | "shift+tab" => {
-                self.focused = match self.focused {
-                    Button::Run => Button::Cancel,
-                    Button::Cancel => Button::Run,
-                };
-                Key::Swallow
-            }
-            "enter" | "space" => match self.focused {
-                Button::Run => Key::Run,
-                Button::Cancel => Key::Dismiss,
-            },
+            "enter" | "space" => Key::Press,
             _ => Key::Swallow,
         }
     }
@@ -772,14 +753,13 @@ mod tests {
     #[test]
     fn a_move_opens_on_its_run_button_and_enter_or_space_press_the_focused_one() {
         let mut flow = TrashFlow::default();
+        assert_eq!(flow.initial_focus(), None);
         flow.start(target(Mode::Trash));
-        assert_eq!(flow.focused(), Button::Run);
-        assert_eq!(flow.key(Some("enter"), false), Key::Run);
-        assert_eq!(flow.key(Some("tab"), false), Key::Swallow);
-        assert_eq!(flow.focused(), Button::Cancel);
-        assert_eq!(flow.key(Some("space"), false), Key::Dismiss);
-        assert_eq!(flow.key(Some("shift+tab"), false), Key::Swallow);
-        assert_eq!(flow.focused(), Button::Run);
+        assert_eq!(flow.initial_focus(), Some(Button::Run));
+        assert_eq!(flow.key(Some("enter"), false), Key::Press);
+        assert_eq!(flow.key(Some("space"), false), Key::Press);
+        assert_eq!(flow.key(Some("enter"), true), Key::Press);
+        assert_eq!(flow.key(Some("shift+enter"), false), Key::Swallow);
         assert_eq!(flow.key(Some("escape"), false), Key::Dismiss);
         assert_eq!(flow.key(Some("p"), false), Key::Swallow);
         assert_eq!(flow.key(None, false), Key::Swallow);
@@ -789,11 +769,10 @@ mod tests {
     fn a_delete_opens_on_cancel_and_takes_no_key_as_a_yes() {
         let mut flow = TrashFlow::default();
         flow.start(target(Mode::Delete));
-        assert_eq!(flow.focused(), Button::Cancel);
-        assert_eq!(flow.key(Some("tab"), false), Key::Swallow);
-        assert_eq!(flow.focused(), Button::Run);
+        assert_eq!(flow.initial_focus(), Some(Button::Cancel));
         assert_eq!(flow.key(Some("enter"), false), Key::Swallow);
         assert_eq!(flow.key(Some("space"), false), Key::Swallow);
+        assert_eq!(flow.key(Some("ctrl+enter"), false), Key::Swallow);
         assert_eq!(flow.key(Some("escape"), true), Key::Swallow);
         assert_eq!(flow.key(Some("escape"), false), Key::Dismiss);
     }

@@ -124,8 +124,8 @@ focus and starts as before) and returns `Root::new(view, window, cx)` as the
 window's root view. Nothing reads the window's root by its type:
 `on_app_quit`, the bounds saved on quit, `SettingsView`'s `Change::Closed`
 focus restore and the tree's keyboard flag hold the view, its focus handle or
-the `Window`, so they are unchanged. No dialog, notification or tooltip is
-opened yet.
+the `Window`, so they are unchanged. The trash dialog is the one component
+dialog so far (see "The trash dialog is a component `Dialog`").
 
 What `Root` adds to every frame, read at 0.9.1: its own `div` (the `Root` key
 context and the `Tab` / `TabPrev` / `Copy` handlers), gpui-base's
@@ -2236,26 +2236,76 @@ mouse listeners were the smaller change.
   rest. `Collapse All` is `Tree::collapse_all`. The watch set follows through
   `tree_changed`.
 
-### The trash dialog is a layer of the window, its focus in the model (Inferred)
+### The trash dialog is a component `Dialog`, its focus in GPUI (Inferred)
 
-The strip menu's `Move to Trash…` and `Delete Permanently…` open one dialog,
-drawn by `main.rs`'s `trash_dialog` as the settings modal is (a `deferred`,
-`occlude()`d `absolute` layer over the window's root) but without an entity
-or a focus handle of its own: `trash::TrashFlow` holds the phase (idle,
-asking, running) and which of its two buttons has the focus, and the
-window's `key_down` hands every key to it first, before the right-click
-menu's close and the tree's gate, while it is busy. The buttons take mouse
-clicks only (no `tab_index`), so `tab` and Enter are the model's.
+The strip menu's `Move to Trash…` and `Delete Permanently…` open one
+gpui-component `Dialog` in `Root`'s layer (`window.open_dialog`), drawn by
+`main.rs`'s `trash_dialog` inside `modal.rs`'s shell: the title, the line and
+a footer with a `danger()` run `Button` and a default Cancel `Button`, each
+on a focus handle the view keeps (`trash_buttons`, through `track_focus`).
+`trash::TrashFlow` holds the phase (idle, asking, running), the button the
+dialog opens on (`initial_focus`: a move's run button, a delete's Cancel) and
+what a key does (`key`); the focus itself is GPUI's.
 
-- Rule: the delete dialog opens on Cancel and takes only a single mouse click
-  on its run button as a yes. `ClickEvent::click_count` is 1 for a keyboard
-  click at the pinned rev (`interactive.rs`), so the handler passes 0 when
-  `is_keyboard()`, the DOM's `detail`; `KeyDownEvent.is_held` (set from the
-  repeat bit on Windows, `gpui_windows`' `events.rs`) is passed along with
-  the keystroke for `swallowed_by_delete`.
+- Shell (`modal::shell`): `.keyboard(false)`, since with the `Dialog` key
+  context on, `enter` is bound to `Confirm` and runs `on_ok` whichever button
+  has the focus, before any key listener; `.overlay_closable(false)`,
+  `.close_button(false)`, `.entrance(DialogEntrance::None)` (no entrance or
+  exit animation, so a close removes it in one frame) and `on_ok` /
+  `on_cancel` returning false, so no path of the component's closes it
+  behind the flow's back. `.overlay(false)` as well: the component's
+  backdrop is a `WindowControlArea::Drag` area, which on Windows answers
+  `WM_NCHITTEST` with `HTCAPTION` (`gpui_windows`' `events.rs`), so a press
+  on it would drag the window and a double-click maximize it. The view draws
+  `modal::backdrop` in its place while the flow is busy: a `deferred`
+  `theme.overlay` layer under the dialog (the dialog's host is `deferred` at
+  priority 10 and up) whose capture-phase mouse-down listener calls
+  `prevent_default`, because the dialog's host tracks its own focus handle
+  and would take the focus from the focused button on any press outside the
+  buttons (the `Button`s already prevent it on their own press). The
+  component's full-window `dialog` `div` occludes the window, so nothing
+  under it is pressed, hovered or scrolled.
+- Open and close (`modal::Modal`): the view calls `follow_trash` wherever the
+  flow changes phase (the start, a dismissal, a run held for a scan's end,
+  the run's end); it opens on the flow becoming busy and closes on it going
+  idle, through `cx.defer` and the window's `AnyWindowHandle`, so a run's end
+  reached from a background task without a `Window` takes the same path and
+  the change lands before the next frame. The builder `open_dialog` takes is
+  a render closure run on every rebuild of the dialog layer (every frame the
+  window draws: `WindowState`'s view is not cached), so it reads the flow
+  through a `WeakEntity` each time, and asking to running redraws the
+  buttons disabled with the view's own `cx.notify()`. The initial focus is
+  set on the builder's first run of each opening only (a `Cell<bool>` per
+  opening), after `open_dialog` has focused the dialog's shell.
+- Keys: a key pressed in the dialog never reaches the window's `key_down`
+  (the dialog is outside the app's view), so the settings key and every
+  other keymap key are refused there by construction; `key_down` still
+  returns at once while the flow is busy. `Tab` / `Shift+Tab` are `Root`'s,
+  walking the dialog's focus trap between the two buttons. Every other key
+  reaches the footer's `capture_key_down`, which runs before the focused
+  button's own listeners and asks `trash_key_down` (`TrashFlow::key` over
+  `keys::key_name` and `KeyDownEvent::is_held`): Escape dismisses while
+  asking; Enter and Space go on to the focused `Button`, which presses itself
+  (GPUI's keyboard click: the key down recorded, the click fired on the key
+  up with the focus unmoved, neither with a modifier); anything else, and
+  Enter, Space and any repeat in a delete, is stopped with `prevent_default`
+  and `stop_propagation`, so the button never records the key down.
+- Rule: the delete dialog takes only a single mouse click on its run button
+  as a yes. `ClickEvent::click_count` is 1 for a keyboard click at the
+  pinned rev (`interactive.rs`), so the handler passes 0 when
+  `is_keyboard()`, the DOM's `detail`, and `confirms_delete` refuses it and
+  the rest of a double-click.
 - Rule: while a run is in flight (not held) the dialog stays open with both
-  buttons disabled, so the window takes no click and no key until it comes
-  back, as the Tauri dialog's running phase.
+  buttons disabled. A disabled `Button` that has the focus keeps it (it
+  leaves the tab order only), so Escape still reaches the footer's listener
+  and does nothing; a Tab then finds no stop in the trap and `Root` focuses
+  the dialog's host, where no key does anything either.
+- Rule: a held `tab` is not swallowed in the delete dialog: `Root`'s binding
+  is dispatched before any key listener, which alone sees `is_held`. It can
+  only move the focus between the buttons; no key confirms a delete.
+- Rule: the dialog gives the focus back on close to what had it when it
+  opened, the app view's handle; the tree's keyboard is a flag in the view
+  (`tree_keys`), which the dialog never touches.
 
 ### A trash or delete goes through the gate, and nothing lists under it (Inferred)
 

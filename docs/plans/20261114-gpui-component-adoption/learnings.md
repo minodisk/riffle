@@ -286,6 +286,63 @@
   raised in the reader thread and every idle check saw no samples. Decode
   with `mbcs`.
 
+## Step 6: the trash / delete dialog as a `Dialog`
+
+- `origin/main` was at `2fcf76a5` (Step 5's #1063), as the branch.
+- The component `Dialog`'s backdrop is `window_control_area(Drag)`. On
+  Windows `handle_hit_test_msg` answers `HTCAPTION` for it whenever the
+  window is movable, title bar or not, so with the backdrop on a press
+  outside the box would drag the window and a double-click would maximize
+  it. The shell turns the component's overlay off (`.overlay(false)`, which
+  drops the backdrop element with it) and the view draws its own dimmed
+  layer (`modal::backdrop`) under the dialog's `deferred` host (priority
+  10 and up against the view's 0). The component's full-window `dialog`
+  `div` still occludes the window.
+- With no backdrop, a press outside the buttons would land on the Base
+  dialog's host, which tracks its own focus handle: GPUI's mouse-down focus
+  transfer would move the focus off the focused button and out of the
+  footer's key listener, so Escape would stop working until a Tab. The
+  hand-built layer kept the focus in the model, so a press never moved it.
+  `modal::backdrop` registers a capture-phase mouse-down listener that calls
+  `prevent_default`, which GPUI's focus transfer checks; a click's own
+  bookkeeping does not, so the buttons still click.
+- A focused `Button` presses itself on Enter and Space (gpui-pre's `div.rs`:
+  the unmodified key down records the focus generation in the bubble phase
+  unless the default is prevented, the key up fires the click), so the
+  footer's `capture_key_down` only has to stop what must not press: it runs
+  before the button's bubble listener. The delete dialog's Cancel no longer
+  being pressed by Enter needed that too: the old model swallowed Enter and
+  Space on either button.
+- A disabled `Button` keeps the focus it has (`gpui-base` `button.rs`: it
+  keeps `track_focus` while focused and leaves the tab order only), so the
+  Escape rule's listener stays on the path while running.
+- Not kept exactly, recorded rather than worked around: a `tab` held from
+  before the delete dialog opened is not swallowed. `Root`'s `Tab` /
+  `TabPrev` are dispatched as actions before any key listener, and only a
+  listener sees `KeyDownEvent::is_held`; the action types are private, so
+  no `capture_action` can stop them. A held `tab` only moves the focus
+  between the two buttons; no key confirms a delete. Keeping it would mean
+  masking `tab` in the dialog with a `NoAction` context and moving the focus
+  by hand, which drops `Root`'s trap the plan builds on.
+- Look differences, taken with the components: the buttons are `Button`'s
+  32 px Medium height (the old ones were about 34 px), with hover colors
+  (`style.css`'s `#e85c5f` on the run button, `theme.rs` now maps
+  `button_danger*`, which `Default Dark` derived at load, as Step 1 noted for
+  the other button colors) and the theme's focus ring in place of the
+  `#e5e5e5` border; while running they take `Button`'s disabled look (a
+  faint fill, muted label) instead of the old 50 % opacity; the box has the
+  component's shadow. The width (640 px), padding, 8 px gaps, the 16 px
+  semibold title and 13 px text are as before.
+- The open and the close are deferred with `cx.defer` through the window's
+  `AnyWindowHandle` (`modal::Modal`), so the run's end, reached from a
+  background task without a `Window`, takes the same path as a click. A
+  close removes the dialog at once: with `DialogEntrance::None` its
+  `exit_enabled` is false, and `close_dialog` refocuses the handle saved at
+  the open, the view's.
+- Nothing here was run on screen: the GPUI behavior above is read from the
+  sources at the pinned rev (`gpui-component` / `gpui-base` 0.9.1,
+  `gpui-pre` 0.3.12); the hand checks are below.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1, Windows, the user's). Basis: Step 1's
@@ -494,3 +551,46 @@
   - Expected: the window's edges look acceptable (record what the frame
     looks like), resizing from the edge works, and a right-click in a
     settings field opens Cut / Copy / Paste / Select All.
+- Pending manual check (Step 6, Windows, the user's). Basis: Step 6's
+  Done-when (the dialog's look and every key, click and flow path); the
+  step's checkbox was ticked on the automated criteria (`mise run ci:local`,
+  the `trash.rs` and `theme.rs` tests; the crate has no GPUI view test).
+  Related files: `crates/native/src/main.rs` (`follow_trash`,
+  `trash_dialog`, `trash_key_down`), `crates/native/src/modal.rs`,
+  `crates/native/src/trash.rs`, `crates/native/src/theme.rs`.
+  - Build: `cargo build --manifest-path crates/native/Cargo.toml` (rename a
+    locked `riffle-native.exe` aside first; do not kill it).
+  - Launch on a copy:
+    `crates/native/target/debug/riffle-native.exe --index <fresh temp>/index.sqlite --settings <test>/settings.sqlite D:\Photos\tests\20261114-gpui-component-adoption\<copy>`.
+  - Steps and expected results (a fresh copy for each destructive run):
+    - Right-click a strip file, `Move to Trash…`: the box is 640 px wide,
+      dark (`#171717`) with the title, the line, a red run button and
+      Cancel, the window dimmed behind it, no close button, no animation.
+      The run button has the focus ring.
+    - Enter moves the file to the Trash; again with Space; again with a
+      click on the run button. The dialog closes when the run ends and the
+      pane says `Moved 1 file to the Trash`.
+    - Tab, then Shift+Tab, then Tab: the focus ring goes Cancel, run,
+      Cancel; Enter on Cancel closes without moving anything.
+    - Escape closes without moving anything.
+    - A press on the dimmed backdrop (also a double-click, and near the top
+      edge): nothing happens, the window does not move or maximize, and
+      Enter still presses the focused button afterwards. A press on the
+      box's text: the same.
+    - `ctrl+,` and a paging key (arrows) while the dialog is open: nothing
+      happens; the wheel over the strip behind it does not scroll.
+    - `Delete Permanently…`: opens on Cancel. Enter, Space, `shift+enter`,
+      `ctrl+space` do nothing (with the focus on Cancel and, after Tab, on
+      the run button). Hold Enter from before the menu item's click: nothing
+      happens. Double-click the menu item so the second click lands on the
+      run button: nothing is deleted. A single click on the run button
+      deletes.
+    - Escape during a long run (select many files on a copy): nothing
+      happens; both buttons look disabled until the dialog closes.
+    - Press `Move to Trash…` during pass 1: the dialog closes, the scan
+      stops, the run happens at the scan's end without the dialog.
+    - `ctrl+z` after a move: the file comes back.
+    - Click in the tree (it takes the keyboard), then right-click a strip
+      file and `Move to Trash…`, Escape: the tree still has the keyboard
+      (arrows move the tree's cursor). The same after a run.
+    - After every close, the arrows page and `tab` toggles the side panes.

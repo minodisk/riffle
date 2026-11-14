@@ -11,6 +11,9 @@ use crate::{
 
 /// `style.css`'s `--background`, which nothing outside the components paints.
 const BACKGROUND_COLOR: u32 = 0x0a0a0a;
+/// `style.css`'s destructive button on hover, `--destructive` at 90 % over
+/// the card.
+const DESTRUCTIVE_HOVER: u32 = 0xe85c5f;
 /// The window's rem, which `Root` sets from it every frame: GPUI's default,
 /// the one the app's rem-based sizes were drawn at.
 const FONT_SIZE: Pixels = px(16.);
@@ -58,6 +61,11 @@ fn map(colors: &mut ThemeColor) {
     colors.button_hover = rgb(ACCENT_COLOR).into();
     colors.button_active = rgb(ACCENT_COLOR).into();
     colors.button_foreground = rgb(FOREGROUND_COLOR).into();
+    // `ButtonVariants::danger`, derived at load the same way.
+    colors.button_danger = rgb(ERROR_COLOR).into();
+    colors.button_danger_hover = rgb(DESTRUCTIVE_HOVER).into();
+    colors.button_danger_active = rgb(DESTRUCTIVE_HOVER).into();
+    colors.button_danger_foreground = rgb(FOREGROUND_COLOR).into();
 }
 
 #[cfg(test)]
@@ -97,5 +105,9 @@ mod tests {
         assert_eq!(colors.button_hover, hex(0x262626ff));
         assert_eq!(colors.button_active, hex(0x262626ff));
         assert_eq!(colors.button_foreground, hex(0xfafafaff));
+        assert_eq!(colors.button_danger, hex(0xff6467ff));
+        assert_eq!(colors.button_danger_hover, hex(0xe85c5fff));
+        assert_eq!(colors.button_danger_active, hex(0xe85c5fff));
+        assert_eq!(colors.button_danger_foreground, hex(0xfafafaff));
     }
 }

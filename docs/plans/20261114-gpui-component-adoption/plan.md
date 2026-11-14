@@ -549,7 +549,7 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
     - `Root::new` takes `impl Into<AnyView>`; the app's entity is created
       first and kept wherever `main.rs` needs it.
 
-- [ ] Step 6: The trash / delete dialog as a `Dialog`
+- [x] Step 6: The trash / delete dialog as a `Dialog`
   - Done when:
     - `Move to Trash…` / `Delete Permanently…` opens a gpui-component
       `Dialog` through `window.open_dialog`: the title, the line, the
