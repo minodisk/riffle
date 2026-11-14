@@ -1501,8 +1501,10 @@ it, so one tooltip on the strip's `div` would not change from cell to cell.
 Each on-screen cell's `strip::tip_regions` (the label's name over the name
 band, the scan's error over the rest of the cell, an empty text giving none)
 becomes an absolutely positioned, transparent `div` over the canvas inside the
-strip's `div` (made `relative`), with an id of the region's kind and the
-cell's index so the tooltip's state follows the file. A cell's regions never
+strip's `div` (made `relative`), with an id of the region's kind and a
+hash of the cell's file path (not its index, which a refilter, a sort change
+or a re-listing can give to another file under a still pointer) so the
+tooltip's state follows the file. A cell's regions never
 overlap: stacked hitboxes that do not occlude are all hovered, and two would
 both ask for a tooltip.
 

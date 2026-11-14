@@ -3276,7 +3276,12 @@ impl Riffle {
                     .get(key.as_ref())
                     .and_then(|state| state.label.as_deref());
                 StripCell {
-                    index,
+                    file_key: {
+                        use std::hash::{Hash, Hasher};
+                        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                        key.hash(&mut hasher);
+                        hasher.finish() as usize
+                    },
                     x: index as f32 * strip::CELL_PITCH - self.strip.offset(),
                     image: self.thumbs.image(index).cloned(),
                     name: file_name(path).into(),
@@ -4814,8 +4819,8 @@ fn context_row(at: usize, item: &context::Item, cx: &mut Context<Riffle>) -> Any
 }
 
 struct StripCell {
-    /// In the shown list.
-    index: usize,
+    /// A hash of the file's path, which the tooltip regions' ids carry.
+    file_key: usize,
     /// From the strip's left edge.
     x: f32,
     image: Option<Arc<RenderImage>>,
@@ -4839,8 +4844,9 @@ const TIP_MAX_WIDTH: f32 = 360.;
 const FACE_ICON: f32 = 12.;
 
 /// The cell's tooltip regions, transparent `div`s over the strip's canvas
-/// that take no click or wheel from the strip's own `div`. Their ids follow
-/// the cell's file, so the tooltip's state does too.
+/// that take no click or wheel from the strip's own `div`. Their ids carry a
+/// hash of the cell's file path, not its index, so a different file landing
+/// at the same index drops the old file's tooltip state.
 fn strip_tips(cell: &StripCell) -> impl Iterator<Item = AnyElement> + '_ {
     cell.tips.iter().map(|tip| {
         let text: SharedString = tip.text.clone().into();
@@ -4849,7 +4855,7 @@ fn strip_tips(cell: &StripCell) -> impl Iterator<Item = AnyElement> + '_ {
             Tip::Label => "strip-tip-label",
         };
         div()
-            .id((id, cell.index))
+            .id((id, cell.file_key))
             .absolute()
             .left(px(cell.x + tip.x))
             .top(px(strip::STRIP_PADDING + tip.y))
