@@ -59,7 +59,8 @@ keep reading them): `background` `#0a0a0a` (`theme.rs`'s own constant), `foregro
 `#e5e5e5` on `primary_foreground` `#171717`, `secondary`, `muted` and
 `accent` `#262626`, `muted_foreground` `#a1a1a1`, `danger` `#ff6467`,
 `border` and `scrollbar_thumb` white at 10 %, `input` white at 15 %, `ring`
-`#737373`, `overlay` `#00000099`, `font_size` 13 px, `radius`
+`#737373`, `overlay` `#00000099`, `font_size` 16 px (the rem `Root` sets, see
+"`Root` wraps the window's content"), `radius`
 6 px (`rounded_md`, the buttons and menus) and `radius_lg` 8 px
 (`rounded_lg`, the dialog boxes), and `Button`'s default variant: `button`
 `BUTTON_FILL` (white at 4 %), `button_hover` and `button_active` `#262626`,
@@ -72,8 +73,9 @@ components drawn are the settings modal's: `Input` (its text fields, see
 "Text is typed through gpui-component's `Input`"), `Button`, `Checkbox`,
 `Radio` and `ScrollableElement`'s scrollbar (see "The settings modal is its
 own entity"), and the tree's inline rename's `Input` (see "The tree's inline
-rename is a text input in the row"). The window's content is not wrapped in `Root`.
-The window root's own black and white stay; the theme is for components.
+rename is a text input in the row"). The window's content is wrapped in
+`Root` (see "`Root` wraps the window's content"). The app view's own black
+and white stay over `Root`'s surface; the theme is for components.
 
 None of its optional features (`tree-sitter*`, `syntect`, `speech`,
 `inspector`, `decimal`, `gpui-fast`) is on, and it does not depend on
@@ -91,7 +93,7 @@ key-down listener, so a binding that matches takes the key from
 | Context | Keys | Action |
 | --- | --- | --- |
 | none (debug builds, or the `inspector` feature) | `ctrl-shift-i` (`cmd-alt-i` on macOS) | `ToggleInspector`, a global `cx.on_action` that toggles GPUI's inspector |
-| `Root` | `tab`, `shift-tab`, `ctrl-c` (`cmd-c` on macOS) | `Tab` / `TabPrev`, which move the focus and do not propagate; `Copy`, which propagates when no text is selected |
+| `Root` | `tab`, `shift-tab`, `ctrl-c` (`cmd-c` on macOS) | `Tab` / `TabPrev`, which move the focus (inside a dialog's focus trap) and do not propagate, masked by `NoAction` in the app view's `Handpic` context; `Copy`, which propagates when no text is selected |
 | `Input` | the editing keys, `enter` / `escape`, `tab` / `shift-tab`, the arrows, Home / End, word and line movement, undo / redo, the clipboard keys | the input's own; `PressEnter`, `Escape` and the indents propagate on a single-line input |
 | `Dialog` (only with `.keyboard(true)`) | `escape`, `enter` | `dialog::Cancel`, `dialog::Confirm` |
 | `Popover`, `PopupMenu`, `Select`, `Tree`, `TextView`, ... | their own | inert until such an element is drawn |
@@ -101,10 +103,8 @@ key-down listener, so a binding that matches takes the key from
   a release build has no such binding. No default of
   `crates/backend/src/shortcuts.rs` and none of `settingsmodal::APP_KEYS`
   uses it.
-- Rule: `Root` is not mounted yet. Once it is, its `tab` / `shift-tab` would
-  take the default `toggleSides` (`tab`) and any user binding on
-  `shift+tab` before the keymap sees them; the step that mounts it decides
-  how the keymap keeps them.
+- Rule: `Root`'s `tab` / `shift-tab` are masked inside the app's view, so
+  the keymap keeps them (see "`Root` wraps the window's content").
 - Rule: a version bump of `gpui-component` re-reads the bindings: grep
   `KeyBinding::new` in both crates for a `None` context and for the `Root`
   context, and update the table.
@@ -114,6 +114,74 @@ key-down listener, so a binding that matches takes the key from
   whole-catalog `AllAssets`) for the icons the components draw, the
   `Checkbox`'s and the checked `Radio`'s `icons/check.svg` so far (see "The
   icons are Lucide SVGs served by one `AssetSource`").
+
+### `Root` wraps the window's content (Measured)
+
+`open_window`'s closure builds the app's `Riffle` entity first (it takes the
+focus and starts as before) and returns `Root::new(view, window, cx)` as the
+window's root view. Nothing reads the window's root by its type:
+`on_app_quit`, the bounds saved on quit, `SettingsView`'s `Change::Closed`
+focus restore and the tree's keyboard flag hold the view, its focus handle or
+the `Window`, so they are unchanged. No dialog, notification or tooltip is
+opened yet.
+
+What `Root` adds to every frame, read at 0.9.1: its own `div` (the `Root` key
+context and the `Tab` / `TabPrev` / `Copy` handlers), gpui-base's
+`TextSelectionLayer` (a zero-size element that paints nothing while no
+selectable text is drawn), the component layer's `WindowState` view (an
+`absolute` `inset_0` `div` holding the empty sheet, dialog and notification
+layers and the tooltip, touch-selection and native-menu fallback overlays)
+and `window_border()`, a plain `size_full` `div` unless the window has
+client-side decorations (Linux, where it draws a frame and a shadow).
+`WindowState`'s `prepare` sets the window's rem to `theme.font_size` on every
+frame, so `theme.rs` sets it to 16 px, GPUI's default, the rem the app's
+rem-based sizes were drawn at (the menus' rows, the components' `small()`
+sizes, the empty state's `0.9rem`); 13 px would have shrunk them all. Its
+`style` gives `Root`'s surface `theme.background`, `theme.foreground` and
+`.SystemUIFont`, GPUI's default font, under the app view's own black.
+
+- `tab` / `shift-tab`: the app view's root `div` sets the key context
+  `Handpic` (`KEY_CONTEXT`), and `main` binds both keys to `NoAction` in it
+  (`keymap_keys`) right after `gpui_component::init`. GPUI's keymap
+  (`keymap.rs`, `resolve_bindings_for_input`) sorts the matching bindings by
+  context depth and drops every binding ranked after a `NoAction` from a
+  source of equal or weaker precedence; `Handpic` is deeper than `Root`, so
+  with the focus anywhere in the app's view (the settings modal included: a
+  `deferred` keeps its parent dispatch node) no action is dispatched and the
+  key reaches `key_down` as before. Nothing is stopped, so no typed character
+  is lost. A component dialog is drawn in `Root`'s layer, a sibling of the
+  app's view, so its context stack has `Root` and no `Handpic`, and `Root`'s
+  `Tab` / `TabPrev` walk its focus trap. An `Input` binds the two keys deeper
+  still (`IndentInline` / `OutdentInline`), which runs first and propagates
+  on a single-line input, so the settings modal's fields move the focus as
+  before. `cx.intercept_keystrokes` was not taken: it runs before every
+  binding and would have had to tell a dialog's focus apart itself.
+- `ctrl-c` / `cmd-c`: `Root`'s `Copy` copies the text selection's text and
+  propagates when it is empty. The app draws no selectable text, so the key
+  reaches `key_down`; an `Input`'s own `Copy` binding is deeper and copies
+  its selection.
+- Measured (2026-11-14, release, Windows): a temporary `f9` arm in
+  `key_down`, not committed, opened `window.open_dialog` with three
+  `tab_index(0)` `div`s and `close_button(false)`; the keys were posted as
+  `WM_KEYDOWN` with the modifier state set through `AttachThreadInput` +
+  `SetKeyboardState` (a posted Shift or Ctrl alone is not seen: GPUI reads
+  the modifiers from the thread's key state). With no dialog, `tab` reached
+  `key_down` as `toggleSides`, and `shift+tab` and `ctrl+c` reached it with
+  no action. Inside the dialog `tab` dispatched `root::Tab` and walked A, B,
+  C, A, `shift+tab` dispatched `root::TabPrev` back to C then B, `escape`
+  closed it and gave the focus back to the app's handle, and the next `tab`
+  reached `key_down` with no action dispatched.
+- Rule: on macOS `Root::new` installs a window hit-test forwarder
+  (`install_window_hit_test_forwarder`), not yet seen on this app.
+- Rule: a version bump of `gpui-component`, `gpui-base` or `gpui-pre`
+  re-checks the `Root` context's bindings (`KeyBinding::new` with
+  `Some(CONTEXT)` in `gpui-base`'s `root.rs`), that a `NoAction` in a deeper
+  context still masks a shallower binding (`main.rs`'s
+  `tab_and_shift_tab_reach_the_keymap_only_inside_the_view` rebuilds that
+  case on GPUI's `Keymap`), that dialogs are still drawn outside the app's
+  view and a `deferred` keeps its parent dispatch node, what
+  `RootPlugin::prepare` / `style` set (the rem above all), and runs the A/B
+  gate, since the wrapper is drawn every frame.
 
 ### The license notices are due at packaging (Inferred)
 
@@ -1724,8 +1792,8 @@ subscribes to `InputEvent`:
 - Rule: a right-click opens the component's edit menu (Cut, Copy, Paste,
   Select All) as an OS-native menu on Windows and macOS (`native_menu`),
   which needs no `Root`. On Linux it is a drawn `PopupMenu` held by `Root`'s
-  overlay, and without `Root` mounted `WindowState::native_menu_overlay`
-  finds none, so nothing opens.
+  overlay (`WindowState::native_menu_overlay`), which finds one now that
+  `Root` is mounted; before, nothing opened there. Not seen on Linux.
 - What the component adds over the port it replaced (`textinput.rs`, GPUI's
   `input.rs` example): undo / redo, word movement and deletion, horizontal
   scroll of a long text, double-click word selection and the right-click
@@ -2576,6 +2644,22 @@ unlike the pane, add nothing to `present`. See
   were all negative (-2.97, -0.40, -2.35 ms) for code that does not run per
   page; RAF's changed sign. Check what the plan runs per page before reading
   a delta as a cost or a gain.
+
+### `Root` costs the pager nothing measurable (Measured)
+
+Same-session A/B, the window wrapped in gpui-component's `Root` (the
+adoption plan's Step 5) against its parent commit `2595b1bb`, three runs
+each, `--auto 60`, warm index, prefetch on (57 of 60 pages hit the ring in
+every run): median p50 `keypressToPixels` -0.60 ms on ARW and +0.16 ms on
+RAF, `frameWait` -0.76 / -0.26 ms, `paint` and `present` within 0.05 ms;
+`frameWait`'s p50 stayed in 8.8-10.4 ms in every run. See
+[the plan's learnings](../plans/20261114-gpui-component-adoption/learnings.md).
+
+- Rule: the `page` lines are printed to stdout, not to the `--log` file; a
+  measurement script reads the process's stdout.
+- Rule: `tasklist` and `typeperf` print in the console's code page (cp932 on
+  this machine); a Python sampler decodes them with `mbcs`, or its idle check
+  silently sees no samples.
 
 ### During pass 1 the preview reads what the scan already read (Measured)
 

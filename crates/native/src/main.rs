@@ -82,13 +82,13 @@ use futures::{
 };
 use gpui::{
     Anchor, AnyElement, App, Bounds, ClickEvent, ClipboardItem, ContentMask, Context, Corners,
-    Entity, ExternalPaths, FocusHandle, FontWeight, KeyDownEvent, Keystroke, MouseButton,
-    MouseDownEvent, PathPromptOptions, Pixels, Point, RenderImage, ScrollEvent, ScrollHandle,
-    ScrollStrategy, SharedString, Task, TextAlign, TitlebarOptions, UniformListScrollHandle,
-    Window, WindowBounds, WindowOptions, anchored, canvas, deferred, div, fill, outline, point,
-    prelude::*, px, relative, rgb, rgba, size, svg, uniform_list,
+    Entity, ExternalPaths, FocusHandle, FontWeight, KeyBinding, KeyDownEvent, Keystroke,
+    MouseButton, MouseDownEvent, NoAction, PathPromptOptions, Pixels, Point, RenderImage,
+    ScrollEvent, ScrollHandle, ScrollStrategy, SharedString, Task, TextAlign, TitlebarOptions,
+    UniformListScrollHandle, Window, WindowBounds, WindowOptions, anchored, canvas, deferred, div,
+    fill, outline, point, prelude::*, px, relative, rgb, rgba, size, svg, uniform_list,
 };
-use gpui_component::{ActiveTheme, Icon, IconName, Sizable, scroll::ScrollableElement};
+use gpui_component::{ActiveTheme, Icon, IconName, Root, Sizable, scroll::ScrollableElement};
 use gpui_platform::application;
 use history::{Judged, TrashEntry, Undo};
 use hold::PaintHold;
@@ -4408,6 +4408,7 @@ impl Render for Riffle {
             .flex_col()
             .bg(rgb(0x000000))
             .text_color(rgb(0xffffff))
+            .key_context(KEY_CONTEXT)
             .track_focus(&self.focus)
             .group(DROP_GROUP)
             .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| {
@@ -4555,6 +4556,20 @@ impl Render for Riffle {
 
 /// The window's group, so a drag anywhere over it lights the outline.
 const DROP_GROUP: &str = "drop";
+
+/// The key context of the app's view, inside `Root`'s.
+const KEY_CONTEXT: &str = "Handpic";
+
+/// `Root` binds `tab` / `shift-tab` to its focus moves. These mask them where
+/// the focus is inside the app's view, so the keys reach `key_down` and the
+/// keymap, while a component dialog, drawn in `Root`'s layer outside this
+/// context, keeps them for its focus trap.
+fn keymap_keys() -> [KeyBinding; 2] {
+    [
+        KeyBinding::new("tab", NoAction, Some(KEY_CONTEXT)),
+        KeyBinding::new("shift-tab", NoAction, Some(KEY_CONTEXT)),
+    ]
+}
 
 /// The Tauri `body.dragging #main` outline, laid over the main area while an
 /// OS file drag is over the window. Its own `drag_over` gives it the hitbox
@@ -5244,6 +5259,7 @@ fn main() {
         .with_assets(icons::Icons)
         .run(move |cx: &mut App| {
             gpui_component::init(cx);
+            cx.bind_keys(keymap_keys());
             theme::apply(cx);
             cx.on_window_closed(|cx, _| cx.quit()).detach();
             let (display_id, window_bounds) = window_placement(saved.as_ref(), cx);
@@ -5259,17 +5275,50 @@ fn main() {
                     ..Default::default()
                 },
                 |window, cx| {
-                    cx.new(|cx| {
+                    let view = cx.new(|cx| {
                         let focus = cx.focus_handle();
                         window.focus(&focus, cx);
                         Riffle::start(args, cx);
                         Riffle::new(
                             focus, index, settings, mcp_port, prefetch, remember, window, cx,
                         )
-                    })
+                    });
+                    cx.new(|cx| Root::new(view, window, cx))
                 },
             )
             .unwrap();
             cx.activate(true);
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{KeyContext, Keymap, actions};
+
+    actions!(test, [Focus]);
+
+    fn bound(keymap: &Keymap, key: &'static str, contexts: &[&str]) -> usize {
+        let stack: Vec<KeyContext> = contexts
+            .iter()
+            .map(|context| KeyContext::parse(context).unwrap())
+            .collect();
+        let (bindings, pending) =
+            keymap.bindings_for_input(&[Keystroke::parse(key).unwrap()], &stack);
+        assert!(!pending);
+        bindings.len()
+    }
+
+    #[test]
+    fn tab_and_shift_tab_reach_the_keymap_only_inside_the_view() {
+        let mut keymap = Keymap::new(vec![
+            KeyBinding::new("tab", Focus, Some("Root")),
+            KeyBinding::new("shift-tab", Focus, Some("Root")),
+        ]);
+        keymap.add_bindings(keymap_keys());
+        for key in ["tab", "shift-tab"] {
+            assert_eq!(bound(&keymap, key, &["Root", KEY_CONTEXT]), 0);
+            assert_eq!(bound(&keymap, key, &["Root"]), 1);
+        }
+    }
 }

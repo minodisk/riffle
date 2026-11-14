@@ -484,7 +484,7 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
       `deferred` popover scrolls by wheel and by drag and that a press on
       the scrollbar does not count as a press outside the menu.
 
-- [ ] Step 5: Mount `Root` around the window's content, with `tab` / `shift-tab` kept for the keymap
+- [x] Step 5: Mount `Root` around the window's content, with `tab` / `shift-tab` kept for the keymap
   - Done when:
     - The window's root view is `Root::new(<the app's view>, window, cx)`.
       No dialog, notification or tooltip is opened yet; the app looks and
