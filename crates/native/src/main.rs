@@ -86,9 +86,9 @@ use gpui::{
     Entity, ExternalPaths, FocusHandle, FontWeight, KeyBinding, KeyDownEvent, Keystroke,
     MouseButton, MouseDownEvent, NoAction, PathPromptOptions, Pixels, Point, RenderImage,
     ScrollEvent, ScrollHandle, ScrollStrategy, SharedString, Task, TextAlign, TitlebarOptions,
-    TransformationMatrix, UniformListScrollHandle, WeakEntity, Window, WindowBounds,
-    WindowOptions, anchored, canvas, deferred, div, fill, outline, point, prelude::*, px,
-    relative, rgb, rgba, size, svg, uniform_list,
+    TransformationMatrix, UniformListScrollHandle, WeakEntity, Window, WindowBounds, WindowOptions,
+    anchored, canvas, deferred, div, fill, outline, point, prelude::*, px, relative, rgb, rgba,
+    size, svg, uniform_list,
 };
 use gpui_component::{
     ActiveTheme, Disableable, Icon, IconName, Root, Sizable,
