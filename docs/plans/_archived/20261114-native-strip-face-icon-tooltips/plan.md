@@ -208,3 +208,5 @@ gpui-component's.
   stars do.
 
 ## Progress
+
+(2026-11-14) Step 1 complete
