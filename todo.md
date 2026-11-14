@@ -3092,3 +3092,21 @@ Files: `crates/native/build.rs`, `crates/native/src/main.rs`, `crates/native/pac
 - [ ] On macOS, run `mise run native:bundle:macos`, then open `crates/native/target/release/Handpic.app`. Expect the Handpic icon in the Dock and in Finder.
 - [ ] On Linux, on a Wayland session and on an X11 session, run `mise run native:install:linux` with `~/.local/bin` on `PATH`, then launch Handpic from the application menu. Expect the running window to show the Handpic icon in the dock / taskbar / alt-tab. If it does not, check `StartupWMClass` (X11) and the `.desktop` file's base name (Wayland) against `IDENTIFIER`.
 - [ ] Once the checks above are done (or a failure is filed as its own issue), update the "Pending manual checks" bullet under `## Packaging` in `docs/agents/native-app.md`. It lists only macOS and Linux and leaves out the Windows check. Done when the bullet matches what is still pending.
+
+### Native: real-device checks of the strip's face focus icon and cell tooltips
+
+#### Background
+
+The `native-strip-face-icon-tooltips` feature gave the GPUI native strip the Tauri strip's face focus icon (a smiling `scan-face` in bright green on a good frame, the frowning variant in gray on a low one, nothing on a neutral one, painted with `paint_svg` at the image box's bottom-left) and its hover texts (the scan's full error on a failed cell, the label's name over a labeled cell's name band). The tooltips are transparent region `div`s over the strip's canvas that build gpui-component's `Tooltip`. The tree's pending rename icon moved from the hand-drawn `Tip` to the same `Tooltip`. The unit tests of `MarkState::icon` and `strip::tip_regions`, clippy and the native tests cover the pure rules. Nobody has watched the running window: the icon's appearance during pass 2, its crispness at 100 % and 150 % scale, the dimming on a rejected cell, the tooltips' delay, wrapping and placement, and whether a region `div` leaves the strip's click, right-click and wheel input alone were never exercised. The Step 1 checkbox was ticked on the automated criteria only. Plan: `docs/plans/_archived/20261114-native-strip-face-icon-tooltips/plan.md`.
+
+Files: `crates/native/src/main.rs` (`strip_tips`, `paint_face_icon`), `crates/native/src/strip.rs` (`tip_regions`), `crates/native/src/mark.rs` (`MarkState::icon`), `crates/native/src/folderops.rs` (`tree_name`).
+
+#### TODO
+
+- [ ] On Windows, run `mise run native:dev` and open a folder with faces on a fresh index (`--index` pointing at a new file). Expect the smiling `scan-face` in bright green at the image box's bottom-left on good frames and the frowning one in gray on low frames to appear while pass 2 runs, with no other input, and nothing on neutral frames or JPEGs. Expect the 12 px icon to be crisp at 100 % and 150 % display scale.
+- [ ] On Windows, reject a good frame. Expect its icon to be dimmed with the cell.
+- [ ] On Windows, hover a cell the scan failed on (e.g. a truncated RAW). Expect the full error in a themed tooltip after about 500 ms, wrapping at 360 px and staying inside the window. Hover a labeled cell's name band and expect the label's name. On a failed and labeled cell, expect the band to show the name and the rest of the cell the error. A plain cell shows nothing.
+- [ ] On Windows, move from one cell's region to the next and expect the tooltip to swap. Scroll the strip under a still pointer and expect the tooltip of the cell that moved away to go. A cell cut by the window's left edge must still show its tooltip.
+- [ ] On Windows, over a cell with a tooltip, click, ctrl / shift click, right-click and wheel. Expect them to still select, open the menu and scroll.
+- [ ] On Windows, rename a folder during a scan and hover the tree's pending rename icon. Expect the `PENDING_TITLE` tooltip as before, now in gpui-component's style.
+- [ ] On macOS and Linux, when at hand, repeat the checks above (the learnings call for Windows first and "when at hand" for the other two).

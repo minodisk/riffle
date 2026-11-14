@@ -6,6 +6,8 @@
 use riffle_backend::{index::Focus, ondemand::FaceBox};
 use riffle_core::candidate::FocusCandidate;
 
+use crate::icons;
+
 /// The in-focus probability of the AF eyes.
 pub const GOOD_EYE_FOCUS: f64 = 0.9;
 /// The EAR of the more closed eye.
@@ -40,6 +42,16 @@ impl MarkState {
             MarkState::Good => 0x33ff33,
             MarkState::Low => 0x999999,
             MarkState::Neutral => 0xffffff,
+        }
+    }
+
+    /// The strip cell's icon, `focus.ts`'s `FOCUS_MARK_ICONS`: the smiling
+    /// face on a good photo, the frowning one on a low one, none otherwise.
+    pub fn icon(self) -> Option<&'static str> {
+        match self {
+            MarkState::Good => Some(icons::SCAN_FACE),
+            MarkState::Low => Some(icons::SCAN_FACE_FROWN),
+            MarkState::Neutral => None,
         }
     }
 }
@@ -415,6 +427,13 @@ mod tests {
         assert_eq!(MarkState::Good.color(), 0x33ff33);
         assert_eq!(MarkState::Low.color(), 0x999999);
         assert_eq!(MarkState::Neutral.color(), 0xffffff);
+    }
+
+    #[test]
+    fn icons_are_the_smiling_face_for_good_the_frowning_for_low_none_for_neutral() {
+        assert_eq!(MarkState::Good.icon(), Some(icons::SCAN_FACE));
+        assert_eq!(MarkState::Low.icon(), Some(icons::SCAN_FACE_FROWN));
+        assert_eq!(MarkState::Neutral.icon(), None);
     }
 
     #[test]

@@ -325,6 +325,60 @@ impl Strip {
     }
 }
 
+/// Which of a cell's hover texts a tooltip region shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tip {
+    Failure,
+    Label,
+}
+
+/// A part of a cell that shows a hover text, from the cell's origin.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TipRegion {
+    pub tip: Tip,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub text: String,
+}
+
+/// A cell's hover texts, `strip.ts`'s `cell.el.title` and `cell.name.title`:
+/// the label's name over the name band, the scan's error over the rest of
+/// the cell (all of it without a label). The regions never overlap, so no
+/// two tooltips are asked for at once; an empty text gives none, as an
+/// empty `title` shows nothing.
+pub fn tip_regions(failure: Option<&str>, label: Option<&str>) -> Vec<TipRegion> {
+    let label = label.filter(|label| !label.is_empty());
+    let band_top = 1. + BOX_HEIGHT;
+    let mut regions = Vec::new();
+    if let Some(failure) = failure.filter(|failure| !failure.is_empty()) {
+        regions.push(TipRegion {
+            tip: Tip::Failure,
+            x: 0.,
+            y: 0.,
+            width: CELL_WIDTH,
+            height: if label.is_some() {
+                band_top
+            } else {
+                CELL_HEIGHT
+            },
+            text: failure.to_owned(),
+        });
+    }
+    if let Some(label) = label {
+        regions.push(TipRegion {
+            tip: Tip::Label,
+            x: 0.,
+            y: band_top,
+            width: CELL_WIDTH,
+            height: NAME_HEIGHT,
+            text: label.to_owned(),
+        });
+    }
+    regions
+}
+
 /// The strip's offset after `previous` is re-listed as `next`, the Tauri
 /// strip's `carriedOffset`: the anchor is the current cell when it overlaps
 /// the viewport, else the first cell that does; the view moves by the
@@ -377,7 +431,10 @@ mod tests {
 
     use riffle_core::Flag;
 
-    use super::{Answer, CELL_PITCH, Marks, Strip, Tint, carried_indices, carried_offset};
+    use super::{
+        Answer, BOX_HEIGHT, CELL_HEIGHT, CELL_PITCH, CELL_WIDTH, Marks, NAME_HEIGHT, Strip, Tint,
+        Tip, TipRegion, carried_indices, carried_offset, tip_regions,
+    };
     use crate::{burst::BurstMark, judgment::State};
 
     fn strip(len: usize) -> Strip {
@@ -652,5 +709,52 @@ mod tests {
         assert_eq!(Tint::of("ORANGE"), Tint::Orange);
         assert_eq!(Tint::of("Rot"), Tint::Other);
         assert_eq!(Tint::of(""), Tint::Other);
+    }
+
+    fn region(tip: Tip, y: f32, height: f32, text: &str) -> TipRegion {
+        TipRegion {
+            tip,
+            x: 0.,
+            y,
+            width: CELL_WIDTH,
+            height,
+            text: text.to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_cell_neither_failed_nor_labeled_has_no_tooltip() {
+        assert_eq!(tip_regions(None, None), []);
+        assert_eq!(tip_regions(Some(""), None), []);
+        assert_eq!(tip_regions(Some(""), Some("")), []);
+    }
+
+    #[test]
+    fn a_failed_cell_shows_its_error_over_the_whole_cell() {
+        assert_eq!(
+            tip_regions(Some("truncated"), None),
+            [region(Tip::Failure, 0., CELL_HEIGHT, "truncated")]
+        );
+    }
+
+    #[test]
+    fn a_labeled_cell_shows_its_label_name_over_the_name_band() {
+        let band = region(Tip::Label, 1. + BOX_HEIGHT, NAME_HEIGHT, "Red");
+        assert_eq!(tip_regions(None, Some("Red")), std::slice::from_ref(&band));
+        assert_eq!(tip_regions(Some(""), Some("Red")), [band]);
+    }
+
+    #[test]
+    fn a_failed_labeled_cell_splits_at_the_name_band() {
+        let regions = tip_regions(Some("truncated"), Some("Client pick"));
+        assert_eq!(
+            regions,
+            [
+                region(Tip::Failure, 0., 1. + BOX_HEIGHT, "truncated"),
+                region(Tip::Label, 1. + BOX_HEIGHT, NAME_HEIGHT, "Client pick"),
+            ]
+        );
+        assert_eq!(regions[0].y + regions[0].height, regions[1].y);
+        assert_eq!(regions[1].y + regions[1].height, CELL_HEIGHT - 1.);
     }
 }

@@ -72,10 +72,12 @@ the window appearance, so a light OS setting leaves the app dark. The
 components drawn are the settings modal's: `Input` (its text fields, see
 "Text is typed through gpui-component's `Input`"), `Button`, `Checkbox`,
 `Radio` and `ScrollableElement`'s scrollbar (see "The settings modal is its
-own entity"), and the tree's inline rename's `Input` (see "The tree's inline
-rename is a text input in the row"). The window's content is wrapped in
-`Root` (see "`Root` wraps the window's content"). The app view's own black
-and white stay over `Root`'s surface; the theme is for components.
+own entity"), the tree's inline rename's `Input` (see "The tree's inline
+rename is a text input in the row") and `Tooltip`, every tooltip of the app
+(see "A strip cell's tooltips are transparent `div`s over the canvas"). The
+window's content is wrapped in `Root` (see "`Root` wraps the window's content").
+The app view's own black and white stay over `Root`'s surface; the theme is for
+components.
 
 None of its optional features (`tree-sitter*`, `syntect`, `speech`,
 `inspector`, `decimal`, `gpui-fast`) is on, and it does not depend on
@@ -1490,6 +1492,54 @@ hitbox already keeps clicks and wheels above the strip out.
 
 - Rule: a canvas that needs input sits in a `div` that owns the listeners, and
   maps the event position against where the canvas is laid out.
+
+### A strip cell's tooltips are transparent `div`s over the canvas (Inferred)
+
+GPUI's `.tooltip(..)` belongs to a stateful element's hitbox: it is
+scheduled while that hitbox is hovered and dropped when the pointer leaves
+it, so one tooltip on the strip's `div` would not change from cell to cell.
+Each on-screen cell's `strip::tip_regions` (the label's name over the name
+band, the scan's error over the rest of the cell, an empty text giving none)
+becomes an absolutely positioned, transparent `div` over the canvas inside the
+strip's `div` (made `relative`), with an id of the region's kind and a
+hash of the cell's file path (not its index, which a refilter, a sort change
+or a re-listing can give to another file under a still pointer) so the
+tooltip's state follows the file. A cell's regions never
+overlap: stacked hitboxes that do not occlude are all hovered, and two would
+both ask for a tooltip.
+
+- The region `div`s take no listener and do not `occlude()`, so their
+  hitboxes are `HitboxBehavior::Normal` and the strip `div`'s hitbox under
+  them stays hovered (`Window::hit_test` stops only at a `BlockMouse`
+  hitbox): its `on_mouse_down` (left and right) and `on_scroll` still fire.
+  A press or a wheel off the tooltip's own hitbox clears it.
+- The view is gpui-component's `Tooltip`, built in the `.tooltip(..)`
+  closure with `Tooltip::new(text).build(window, cx)` (the tree's pending
+  rename) or `Tooltip::element` around a `div` capped at `TIP_MAX_WIDTH`
+  (the strip's, so a long error wraps). Its `Render` reads only the global
+  `Theme` and needs no `Root`: `Root` is only where gpui-component's own
+  managed tooltips (`Tooltip::apply` / `ManagedTooltipExt`) keep their
+  overlay, which this app does not use. GPUI places the tooltip at the
+  pointer and flips it above or left of the pointer when it would leave the
+  window (`Window::prepaint_tooltip`), which keeps the strip's inside.
+- Not verified by hand yet: the hover itself, the swap from one cell to the
+  next, a scroll under a still pointer and the wrapping of a long error; the
+  check is pending in
+  `../plans/20261114-native-strip-face-icon-tooltips/learnings.md`.
+
+### A canvas paints an icon with `paint_svg` (Inferred)
+
+`Window::paint_svg(bounds, path, None, TransformationMatrix::unit(), color,
+cx)` renders the path through the application's `AssetSource` (`Icons`, so
+`icons::SCAN_FACE` resolves as it does for `svg().path(..)`) into a
+monochrome sprite drawn in `color`; its `Err` is logged, not unwrapped. The
+strip's face focus icon is 12 x 12 px, 2 px inside the image box's
+bottom-left, over eight black copies at `overlay::HALO`'s offsets for the
+Tauri `drop-shadow`, and painted before the rejected cell's `REJECTED_DIM`
+quad so the dimming covers it. Its state is computed in `strip_cells()` from
+`facts` as the filter's `passes` does, so it follows pass 2 with no
+bookkeeping. That the icon is crisp at 100 % and 150 % is not yet checked by
+eye.
 
 ### A Windows mouse wheel arrives in lines (Inferred)
 
