@@ -198,6 +198,94 @@
   the scroll area as before); dragging the thumb runs through the bar's own
   `window.on_mouse_event` listeners. Neither was seen on screen here.
 
+## Step 5: `Root` around the window's content
+
+- `origin/main` was at `2595b1bb` (Step 4's #1062), as the branch.
+- The mechanism is (a), a `NoAction` context: the app view's root `div`
+  sets the key context `Handpic`, and `main` binds `tab` and `shift-tab` to
+  `NoAction` in it. `keymap.rs`'s `resolve_bindings_for_input` sorts the
+  matches by context depth and drops every binding ranked after a
+  `NoAction` whose source is of equal or weaker precedence (no `meta` on
+  either, so equal); `Handpic` is one level deeper than `Root`, so `Root`'s
+  `Tab` / `TabPrev` are dropped there and nothing is dispatched. Nothing is
+  stopped, unlike (b) `intercept_keystrokes`, so no typed character can be
+  lost. `disabled_binding_matches_context` only serves
+  `bindings_for_action` (the display path), not dispatch.
+- Verified on Windows at the pinned rev with a temporary, uncommitted `f9`
+  arm in `key_down` that opened `window.open_dialog` with three
+  `tab_index(0)` `div`s (`close_button(false)`) and logged their `on_focus`
+  and every keystroke's action (`observe_keystrokes`). With no dialog:
+  `tab` -> `key_down` as `toggleSides`, `shift+tab` and `ctrl+c` ->
+  `key_down` with no action. In the dialog: `tab` x4 -> `root::Tab`, focus
+  A, B, C, A; `shift+tab` x2 -> `root::TabPrev`, C, B; `escape` ->
+  `ui::Cancel`, the dialog closed and the app's focus handle got the focus
+  back; `tab` again -> `key_down`, no action.
+- Tripped up: a posted `WM_KEYDOWN` of Shift or Ctrl before the key is not
+  seen as a modifier (GPUI reads them from the thread's key state with
+  `GetKeyState`), so the first probe logged `tab` and `c` (which ran
+  `clearall` on the probe copy). Setting the key state through
+  `AttachThreadInput` + `SetKeyboardState` around the posted key works.
+  With the dialog's default close button the walk also stopped on it,
+  which made the first probe's log look short; `close_button(false)`
+  removed the doubt.
+- Look: `Root`'s `WindowState` plugin sets the window's rem to
+  `theme.font_size` every frame, and Step 1 had set that to 13 px, which
+  would have shrunk every rem-based size the earlier steps measured at
+  16 px (the menus' 26 px rows, `Button::small()`'s 24 px, the empty
+  state's `0.9rem`). `theme.rs`'s `FONT_SIZE` is now 16 px, GPUI's default.
+  Nothing else in gpui-component 0.9.1 reads `theme.font_size` for the
+  components the app draws (only `questionnaire`, through
+  `tokens.typography.md`). The plugin's surface style (`background`,
+  `foreground`, `.SystemUIFont`) is under the view's own black and white.
+- The settings modal stays in the `Handpic` context: GPUI's `deferred`
+  keeps its parent dispatch node (`window.rs`, `DeferredDraw::parent_node`),
+  so the capture of `tab` in the Keyboard Shortcuts tab still sees the key.
+- Nothing read the window's root by its type (no `window.root::<Riffle>()`,
+  no use of the `WindowHandle`), so the startup focus, `Change::Closed`,
+  `on_app_quit` and the window bounds needed no change.
+
+- A/B gate (2026-11-14, 20:30-21:07 local, Windows, the machine of the
+  earlier gates): A = this step's tree (`2595b1bb` plus Step 5), B =
+  `2595b1bb` (Step 4, the parent), both release builds copied aside and run
+  directly; `--auto 60` on `D:\Photos\tests\20261108-gpui-compare\ARW`
+  (`--size 1616x1080`) and `...\RAF` (`--size 4416x2944`), a fresh
+  `--index` per binary and folder warmed until `scan faces: ...
+  canceled=false` (one warm run each), one fresh test `--settings` shared,
+  prefetch on (57 of 60 pages `source=prefetch` in every run), then A B A B
+  A B per folder, a run kept when no `cargo` / `rustc` / `link` / other
+  `riffle-native` ran and every load sample after the first stayed
+  <= 15 %. 2 of 14 timed attempts were discarded (ARW A3 15.4 %, RAF B3
+  17.0 %), each slot passing on its second try. Per run p50 / p95 (ms):
+
+  | Run | frameWait | paint | present | keypressToPixels |
+  | --- | --- | --- | --- | --- |
+  | ARW A1 | 9.23 / 16.41 | 0.75 / 1.12 | 0.51 / 0.96 | 10.56 / 26.65 |
+  | ARW B1 | 10.04 / 15.34 | 0.73 / 1.40 | 0.50 / 0.81 | 11.54 / 23.91 |
+  | ARW A2 | 9.28 / 17.48 | 0.77 / 1.58 | 0.53 / 1.14 | 10.94 / 18.76 |
+  | ARW B2 | 10.33 / 16.89 | 0.77 / 1.18 | 0.49 / 0.90 | 11.84 / 19.59 |
+  | ARW A3 | 9.66 / 17.49 | 0.70 / 1.00 | 0.50 / 1.15 | 11.67 / 19.01 |
+  | ARW B3 | 9.87 / 16.09 | 0.74 / 1.30 | 0.49 / 0.88 | 11.39 / 19.42 |
+  | RAF A1 | 10.06 / 16.95 | 3.63 / 5.92 | 0.44 / 0.72 | 14.17 / 65.07 |
+  | RAF B1 | 9.61 / 16.44 | 3.64 / 4.98 | 0.42 / 0.73 | 13.83 / 59.21 |
+  | RAF A2 | 9.05 / 16.34 | 3.70 / 5.89 | 0.43 / 0.71 | 13.99 / 53.06 |
+  | RAF B2 | 8.82 / 16.53 | 3.62 / 5.05 | 0.42 / 0.68 | 13.31 / 55.93 |
+  | RAF A3 | 8.82 / 16.73 | 3.69 / 5.44 | 0.45 / 0.70 | 13.25 / 53.67 |
+  | RAF B3 | 9.31 / 15.46 | 3.72 / 6.31 | 0.44 / 0.81 | 14.63 / 62.96 |
+
+  Median of the three p50s, A - B: `keypressToPixels` -0.60 ms on ARW
+  (10.94 against 11.54) and +0.16 ms on RAF (13.99 against 13.83), against
+  the +2.0 / +5.0 ms gate; `frameWait` -0.76 / -0.26, `paint` +0.01 /
+  +0.05, `present` +0.02 / +0.02. `frameWait`'s p50 stayed within
+  8.8-10.4 ms in every run. The wrapper costs the pager nothing measurable,
+  so the step goes on (Trade-off 3 does not block Steps 6-8). With the ring
+  hitting, the p50 is the frame path alone, the one a per-frame wrapper
+  would slow.
+- The measurement script tripped twice before the session: the `page`
+  lines go to stdout, not the `--log` file, and `tasklist` / `typeperf`
+  print in the console's code page (cp932 here), so reading them as UTF-8
+  raised in the reader thread and every idle check saw no samples. Decode
+  with `mbcs`.
+
 ## Deferred issues (todo candidates)
 
 - Pending manual check (Step 1, Windows, the user's). Basis: Step 1's
@@ -358,3 +446,51 @@
       back (the arrows page the photos, the cursor outline goes).
     - With a menu open, nothing takes the GPUI focus: closing it leaves the
       keys working on the window as before.
+- Pending manual check (Step 5, Windows and macOS, the user's). Basis: Step
+  5's Done-when (the app looks and behaves as before with `Root` mounted,
+  and the pending manual check it names); the step's checkbox was ticked on
+  the automated criteria (`mise run ci:local`, the keymap test in
+  `main.rs`, the posted-key probe and the A/B gate recorded above). Related
+  files: `crates/native/src/main.rs` (`KEY_CONTEXT`, `keymap_keys`, the
+  `open_window` closure), `crates/native/src/theme.rs` (`FONT_SIZE`).
+  - Build: `cargo build --manifest-path crates/native/Cargo.toml` (rename a
+    locked `riffle-native.exe` aside first; do not kill it).
+  - Launch on a copy:
+    `crates/native/target/debug/riffle-native.exe --index <fresh temp>/index.sqlite --settings <test>/settings.sqlite D:\Photos\tests\20261114-gpui-component-adoption\<copy>`.
+  - Steps and expected results:
+    - Everything looks as on `main` (Step 4's build side by side if in
+      doubt): the menus' rows, the settings modal's buttons and fields, the
+      empty state's text are the same size.
+    - `tab` toggles the side panes. Bind `shift+tab` to an action in the
+      Keyboard Shortcuts tab (e.g. `toggleStrip`): `shift+tab` acts.
+    - Settings modal: Tab / Shift+Tab walk its stops (from a field too);
+      the Keyboard Shortcuts tab's `+` then `tab` adds `tab` as a chip.
+    - Type a label name with the Japanese IME: composition and commit as
+      before.
+    - `ctrl+c` in a settings field with text selected copies it (paste
+      elsewhere); `ctrl+c` outside does what the keymap binds it to, if
+      anything.
+    - The Sort / Filter menus and the right-click menus close on an
+      outside press.
+    - The trash dialog: Tab / Shift+Tab move between its buttons, Enter
+      runs the focused one, Escape cancels.
+    - Click in the tree (it takes the keyboard), use the arrows there, press
+      `escape` or click the preview: the keyboard comes back to the
+      photos.
+    - Quit with `q`, relaunch without a folder: the last folder and the
+      window's place and size come back.
+    - macOS only (`Root::new`'s hit-test forwarder): a click on every pane
+      (tree, preview, strip, meta pane), on the status row's buttons and a
+      drag on the title bar land where they should.
+- Pending manual check (Step 5, Linux, the user's). Basis: reading
+  `window_border.rs` at 0.9.1 during Step 5: `Root`'s `decorate` wraps the
+  content in `window_border()`, which on a window with client-side
+  decorations (a Wayland compositor without server-side decorations, e.g.
+  GNOME) draws a frame, a shadow and resize hit bands, where the app drew
+  none before; and the `Input`'s right-click menu now opens on Linux as a
+  drawn `PopupMenu` (`docs/agents/native-app.md`, "Text is typed through
+  gpui-component's `Input`"). Related files: `crates/native/src/main.rs`.
+  - Launch as above on GNOME Wayland and on an X11 session.
+  - Expected: the window's edges look acceptable (record what the frame
+    looks like), resizing from the edge works, and a right-click in a
+    settings field opens Cut / Copy / Paste / Select All.

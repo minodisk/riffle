@@ -11,8 +11,9 @@ use crate::{
 
 /// `style.css`'s `--background`, which nothing outside the components paints.
 const BACKGROUND_COLOR: u32 = 0x0a0a0a;
-/// The text size of the app's controls.
-const FONT_SIZE: Pixels = px(13.);
+/// The window's rem, which `Root` sets from it every frame: GPUI's default,
+/// the one the app's rem-based sizes were drawn at.
+const FONT_SIZE: Pixels = px(16.);
 /// `rounded_md`, the buttons' and menus' radius, and `rounded_lg`, the dialog
 /// boxes'.
 const RADIUS: Pixels = px(6.);
