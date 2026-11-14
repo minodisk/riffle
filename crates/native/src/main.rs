@@ -85,10 +85,13 @@ use gpui::{
     Entity, ExternalPaths, FocusHandle, FontWeight, KeyBinding, KeyDownEvent, Keystroke,
     MouseButton, MouseDownEvent, NoAction, PathPromptOptions, Pixels, Point, RenderImage,
     ScrollEvent, ScrollHandle, ScrollStrategy, SharedString, Task, TextAlign, TitlebarOptions,
-    UniformListScrollHandle, Window, WindowBounds, WindowOptions, anchored, canvas, deferred, div,
-    fill, outline, point, prelude::*, px, relative, rgb, rgba, size, svg, uniform_list,
+    TransformationMatrix, UniformListScrollHandle, Window, WindowBounds, WindowOptions, anchored,
+    canvas, deferred, div, fill, outline, point, prelude::*, px, relative, rgb, rgba, size, svg,
+    uniform_list,
 };
-use gpui_component::{ActiveTheme, Icon, IconName, Root, Sizable, scroll::ScrollableElement};
+use gpui_component::{
+    ActiveTheme, Icon, IconName, Root, Sizable, scroll::ScrollableElement, tooltip::Tooltip,
+};
 use gpui_platform::application;
 use history::{Judged, TrashEntry, Undo};
 use hold::PaintHold;
@@ -123,7 +126,7 @@ use selection::Selection;
 use settings::Settings;
 use settingsview::{Change, SettingsView};
 use sort::{SortFacts, SortKey};
-use strip::{Answer, Marks, Strip, Tint};
+use strip::{Answer, Marks, Strip, Tint, Tip, TipRegion};
 use thumbs::{MAX_IN_FLIGHT, Read, Thumbs};
 use timing::{Page, Source, Summary};
 use tree::{Child, IGNORE_CASE, Relation, StepKey, Tree, TreeCommand, TreeKey, Typed};
@@ -3258,21 +3261,35 @@ impl Riffle {
         let current = self.pager.current();
         self.strip
             .on_screen(self.strip_width)
-            .map(|index| StripCell {
-                x: index as f32 * strip::CELL_PITCH - self.strip.offset(),
-                image: self.thumbs.image(index).cloned(),
-                name: file_name(&self.files[index]).into(),
-                failure: self.strip.is_failed(index).then(|| {
+            .map(|index| {
+                let path = &self.files[index];
+                let key = path.to_string_lossy();
+                let failure: Option<SharedString> = self.strip.is_failed(index).then(|| {
                     self.thumbs
                         .failure(index)
                         .unwrap_or_default()
                         .to_string()
                         .into()
-                }),
-                current: index == current,
-                selected: index != current && self.strip.is_selected(index),
-                marks: self.strip.marks(index),
-                burst: self.strip.burst(index),
+                });
+                let label = self
+                    .judgments
+                    .get(key.as_ref())
+                    .and_then(|state| state.label.as_deref());
+                StripCell {
+                    index,
+                    x: index as f32 * strip::CELL_PITCH - self.strip.offset(),
+                    image: self.thumbs.image(index).cloned(),
+                    name: file_name(path).into(),
+                    tips: strip::tip_regions(failure.as_deref(), label),
+                    failure,
+                    current: index == current,
+                    selected: index != current && self.strip.is_selected(index),
+                    marks: self.strip.marks(index),
+                    face: mark::af_eye_state(
+                        self.facts.get(key.as_ref()).and_then(|f| f.focus.as_ref()),
+                    ),
+                    burst: self.strip.burst(index),
+                }
             })
             .collect()
     }
@@ -4385,6 +4402,7 @@ impl Render for Riffle {
         let summary = self.summary.clone();
         let perf = self.perf.model();
         let cells = self.strip_cells();
+        let strip_tips: Vec<_> = cells.iter().flat_map(strip_tips).collect();
         let mark = self.marks.mark(self.current_path().as_deref());
         let zoom_paint = self.zoom_paint();
         let viewport = self.viewport.clone();
@@ -4515,6 +4533,7 @@ impl Render for Riffle {
             )
             .children(self.panels.strip.then(|| {
                 div()
+                    .relative()
                     .w_full()
                     .h(px(strip::STRIP_HEIGHT))
                     .on_mouse_down(
@@ -4545,6 +4564,7 @@ impl Render for Riffle {
                         )
                         .size_full(),
                     )
+                    .children(strip_tips)
             }))
             .child(self.status_row(window.viewport_size().height - px(40.), cx))
             .child(self.settings_view.clone())
@@ -4794,6 +4814,8 @@ fn context_row(at: usize, item: &context::Item, cx: &mut Context<Riffle>) -> Any
 }
 
 struct StripCell {
+    /// In the shown list.
+    index: usize,
     /// From the strip's left edge.
     x: f32,
     image: Option<Arc<RenderImage>>,
@@ -4804,7 +4826,42 @@ struct StripCell {
     /// Selected and not current.
     selected: bool,
     marks: Marks,
+    /// The face focus icon's state, `Neutral` drawing none.
+    face: mark::MarkState,
+    /// The hover texts' regions.
+    tips: Vec<TipRegion>,
     burst: Option<BurstMark>,
+}
+
+/// The widest a strip tooltip gets before its text wraps.
+const TIP_MAX_WIDTH: f32 = 360.;
+/// `.cell span.marks svg`'s size.
+const FACE_ICON: f32 = 12.;
+
+/// The cell's tooltip regions, transparent `div`s over the strip's canvas
+/// that take no click or wheel from the strip's own `div`. Their ids follow
+/// the cell's file, so the tooltip's state does too.
+fn strip_tips(cell: &StripCell) -> impl Iterator<Item = AnyElement> + '_ {
+    cell.tips.iter().map(|tip| {
+        let text: SharedString = tip.text.clone().into();
+        let id = match tip.tip {
+            Tip::Failure => "strip-tip-failure",
+            Tip::Label => "strip-tip-label",
+        };
+        div()
+            .id((id, cell.index))
+            .absolute()
+            .left(px(cell.x + tip.x))
+            .top(px(strip::STRIP_PADDING + tip.y))
+            .w(px(tip.width))
+            .h(px(tip.height))
+            .tooltip(move |window, cx| {
+                let text = text.clone();
+                Tooltip::element(move |_, _| div().max_w(px(TIP_MAX_WIDTH)).child(text.clone()))
+                    .build(window, cx)
+            })
+            .into_any_element()
+    })
 }
 
 /// In the Tauri info pane's range (`#info`, 220 px), and the folder tree's
@@ -4929,6 +4986,9 @@ fn paint_strip(cells: &[StripCell], bounds: Bounds<Pixels>, window: &mut Window,
                 if let Some(mark) = &cell.burst {
                     paint_burst_badge(mark, image_box, window, cx);
                 }
+                if let Some(icon) = cell.face.icon() {
+                    paint_face_icon(icon, cell.face.color(), image_box, window, cx);
+                }
                 let at = point(origin.x, image_box.bottom());
                 let name_color = match cell.marks.label {
                     Some(tint) => {
@@ -4999,6 +5059,39 @@ fn paint_burst_band(mark: &BurstMark, dimmed: bool, origin: Point<Pixels>, windo
         top_right: end,
         bottom_right: end,
     }));
+}
+
+/// `.cell span.marks`: the face focus icon 2 px inside the image box's
+/// bottom-left, over dark copies for the `drop-shadow` halo.
+fn paint_face_icon(
+    icon: &'static str,
+    color: u32,
+    image_box: Bounds<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let inset = px(2.);
+    let at = point(
+        image_box.origin.x + inset,
+        image_box.bottom() - inset - px(FACE_ICON),
+    );
+    let paint = |at: Point<Pixels>, color: u32, window: &mut Window| {
+        let bounds = Bounds::new(at, size(px(FACE_ICON), px(FACE_ICON)));
+        if let Err(e) = window.paint_svg(
+            bounds,
+            icon.into(),
+            None,
+            TransformationMatrix::unit(),
+            rgb(color).into(),
+            cx,
+        ) {
+            log::warn!("failed to paint {icon}: {e}");
+        }
+    };
+    for (dx, dy) in overlay::HALO {
+        paint(at + point(px(dx), px(dy)), 0x000000, window);
+    }
+    paint(at, color, window);
 }
 
 /// `.cell span.count`: the `position/size` badge at the image box's

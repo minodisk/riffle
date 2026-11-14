@@ -20,7 +20,10 @@ use gpui::{
     MouseButton, ScrollStrategy, StyledText, Subscription, Task, Window, deferred, div, prelude::*,
     px, relative, rgb, rgba, transparent_black,
 };
-use gpui_component::input::{Input, InputEvent, InputState};
+use gpui_component::{
+    input::{Input, InputEvent, InputState},
+    tooltip::Tooltip,
+};
 use riffle_backend::{
     datefolder::{self as datefolders, Kind as DateKind, Split},
     foldersidecars::{self, DeletePreview, Preview, Summary},
@@ -1380,24 +1383,6 @@ impl Riffle {
     }
 }
 
-/// The pending name's hover text.
-struct Tip(&'static str);
-
-impl Render for Tip {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .px_2()
-            .py_1()
-            .rounded_sm()
-            .border_1()
-            .border_color(rgba(BORDER_COLOR))
-            .bg(rgb(PANE_COLOR))
-            .text_size(px(12.))
-            .text_color(rgb(FOREGROUND_COLOR))
-            .child(self.0)
-    }
-}
-
 /// The tree's inline rename, a port of `folders.ts`'s editor and
 /// `main.ts`'s `renameFolder` / `holdRename`.
 impl Riffle {
@@ -1455,7 +1440,7 @@ impl Riffle {
             .when(pending.is_some(), |s| {
                 s.italic()
                     .text_color(rgb(MUTED_COLOR))
-                    .tooltip(|_, cx| cx.new(|_| Tip(PENDING_TITLE)).into())
+                    .tooltip(|window, cx| Tooltip::new(PENDING_TITLE).build(window, cx))
             })
             .child(if pending.is_some() {
                 format!("\u{25f7} {name}")

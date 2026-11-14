@@ -345,8 +345,11 @@ handler shares, which stops it within `STOP_TIMEOUT` on every quit,
 model (the cell pitch, the scroll offset, the range kept with `RANGE_MARGIN`,
 hit testing and which cell to ask for next, with `strip.ts`'s `missing` /
 `ready` / `failed` bookkeeping, and each cell's judgment `Marks`: the stars,
-the flag dot, the dimmed reject and the label's `Tint`), which the window draws along its bottom edge on
-a `canvas`, and `src/thumbs.rs` the thumbnails of the strip's range, read
+the flag dot, the dimmed reject and the label's `Tint`, and its hover texts'
+`tip_regions`: the label's name over the name band, the scan's error over the
+rest of the cell), which the window draws along its bottom edge on
+a `canvas` with each cell's face focus icon (`MarkState::icon`), under
+transparent region `div`s that show those texts as gpui-component `Tooltip`s, and `src/thumbs.rs` the thumbnails of the strip's range, read
 `MAX_IN_FLIGHT` at a time through the index's read-only connection, decoded
 and turned upright, released into the view's `retired` list when their cell
 leaves the range, `src/focus.rs` the scan's hot list (`scan_focus_paths`, a
@@ -377,7 +380,7 @@ landing where `filter::anchor_after_filter` puts it, the strip keeping the same 
 `carried_offset`) and the loaded thumbnails of files still listed
 (`carried_indices`), `src/mark.rs` the port of `focus.ts`'s good-photo rule
 (`photo_tier`, `af_eye_state`: Good / Neutral / Low, Low being Rust's
-`not_candidate`), `focus_mark`, `upright_point` and the face boxes' `face_marks`,
+`not_candidate`; `MarkState`'s `color` and the strip cell's `icon`), `focus_mark`, `upright_point` and the face boxes' `face_marks`,
 `face_label` and `face_label_at`, `src/faces.rs` the port of `faces.ts`'s
 `FaceCache` (each path detected once, kept by path, a clear dropping the
 answers issued before it), `src/eyes.rs` the port of `eyes.ts`'s `EyesCache`
