@@ -562,7 +562,10 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
       press the focused button in a Move to Trash; in a Delete Permanently
       only a single mouse click on the run button confirms: Enter and
       Space, with or without a modifier, and a key held from before the
-      dialog opened are swallowed (`swallowed_by_delete`), and a keyboard
+      dialog opened are swallowed (`swallowed_by_delete`), except a held `tab` /
+      `shift+tab`, which is `Root`'s action, dispatched before any key
+      listener, and only moves the focus (accepted exception, recorded in
+      `learnings.md`), and a keyboard
       activation or the rest of a double-click does not confirm
       (`confirms_delete`); Escape dismisses while asking and does nothing
       while running; both buttons are disabled while it runs and the
