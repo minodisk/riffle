@@ -549,7 +549,7 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
     - `Root::new` takes `impl Into<AnyView>`; the app's entity is created
       first and kept wherever `main.rs` needs it.
 
-- [ ] Step 6: The trash / delete dialog as a `Dialog`
+- [x] Step 6: The trash / delete dialog as a `Dialog`
   - Done when:
     - `Move to Trash…` / `Delete Permanently…` opens a gpui-component
       `Dialog` through `window.open_dialog`: the title, the line, the
@@ -562,7 +562,10 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
       press the focused button in a Move to Trash; in a Delete Permanently
       only a single mouse click on the run button confirms: Enter and
       Space, with or without a modifier, and a key held from before the
-      dialog opened are swallowed (`swallowed_by_delete`), and a keyboard
+      dialog opened are swallowed (`swallowed_by_delete`), except a held `tab` /
+      `shift+tab`, which is `Root`'s action, dispatched before any key
+      listener, and only moves the focus (accepted exception, recorded in
+      `learnings.md`), and a keyboard
       activation or the rest of a double-click does not confirm
       (`confirms_delete`); Escape dismisses while asking and does nothing
       while running; both buttons are disabled while it runs and the
@@ -871,3 +874,4 @@ Verified in the cargo registry sources `gpui-component-0.9.1`,
 - (2026-11-14) Step 3 complete
 - (2026-11-14) Step 4 complete
 - (2026-11-14) Step 5 complete
+- (2026-11-14) Step 6 complete

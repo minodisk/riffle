@@ -443,10 +443,14 @@ position and target), which the window draws as a `deferred` / `anchored`
 popover at the pointer, `src/trash.rs` the strip's `Move to Trash…` /
 `Delete Permanently…` (a port of `trash.ts`: `dialog_text`, the delete
 dialog's `swallowed_by_delete` and `confirms_delete`, `progress_status`,
-`trashed_status` and `TrashFlow`, idle / asking / running with the focused
-button; for the undo, `restored_status`, `restored_into`, `still_held` and
-`opens_target`), which the window draws as a `deferred`, `occlude()`d
-full-window dialog and runs through the backend's `trash::trash_listed` /
+`trashed_status` and `TrashFlow`, idle / asking / running with the button
+the dialog opens on and what a key does in it; for the undo,
+`restored_status`, `restored_into`, `still_held` and `opens_target`), which
+the window opens as a gpui-component `Dialog` in `Root`'s layer through
+`src/modal.rs` (`Modal`, the open and close that follow a flow after the
+current update, the shell with the component's own closing, backdrop and
+animations off, and `backdrop`, the dimmed window the view draws under it
+that keeps a press from moving the focus) and runs through the backend's `trash::trash_listed` /
 `trash::delete_listed` on a background task, undoing a run with
 `trash::undo_run` and redoing it with `trash::redo_run`, `src/idle.rs` the gate holding
 a confirmed run, or a run's undo or redo, for the end of the listing or scan under way (`IdleGate`, one

@@ -26,6 +26,7 @@ mod mark;
 mod mcp;
 mod menu;
 mod meta;
+mod modal;
 mod orient;
 mod overlay;
 mod pager;
@@ -85,12 +86,16 @@ use gpui::{
     Entity, ExternalPaths, FocusHandle, FontWeight, KeyBinding, KeyDownEvent, Keystroke,
     MouseButton, MouseDownEvent, NoAction, PathPromptOptions, Pixels, Point, RenderImage,
     ScrollEvent, ScrollHandle, ScrollStrategy, SharedString, Task, TextAlign, TitlebarOptions,
-    TransformationMatrix, UniformListScrollHandle, Window, WindowBounds, WindowOptions, anchored,
-    canvas, deferred, div, fill, outline, point, prelude::*, px, relative, rgb, rgba, size, svg,
-    uniform_list,
+    TransformationMatrix, UniformListScrollHandle, WeakEntity, Window, WindowBounds, WindowOptions,
+    anchored, canvas, deferred, div, fill, outline, point, prelude::*, px, relative, rgb, rgba,
+    size, svg, uniform_list,
 };
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Root, Sizable, scroll::ScrollableElement, tooltip::Tooltip,
+    ActiveTheme, Disableable, Icon, IconName, Root, Sizable,
+    button::{Button, ButtonVariants},
+    dialog::{Dialog, DialogFooter},
+    scroll::ScrollableElement,
+    tooltip::Tooltip,
 };
 use gpui_platform::application;
 use history::{Judged, TrashEntry, Undo};
@@ -429,8 +434,12 @@ struct Riffle {
     context: context::Menu,
     /// The open right-click menu's scroll, new on every open.
     context_scroll: ScrollHandle,
-    /// The strip's `Move to Trash…` / `Delete Permanently…` dialog.
+    /// The strip's `Move to Trash…` / `Delete Permanently…` flow.
     trash: trash::TrashFlow,
+    /// Its dialog in `Root`'s layer, open while the flow asks or runs.
+    trash_modal: modal::Modal,
+    /// The focus of the dialog's run and Cancel buttons.
+    trash_buttons: [FocusHandle; 2],
     /// The folder menu's operations and their dialog.
     folderops: folderops::FolderOps,
     /// A confirmed run, or a run's undo or redo, held for the listing or
@@ -757,6 +766,8 @@ impl Riffle {
             context: context::Menu::default(),
             context_scroll: ScrollHandle::new(),
             trash: trash::TrashFlow::default(),
+            trash_modal: modal::Modal::new(window.window_handle()),
+            trash_buttons: [cx.focus_handle(), cx.focus_handle()],
             folderops: folderops::FolderOps::default(),
             gate: idle::IdleGate::default(),
             runs: Arc::default(),
@@ -1221,6 +1232,7 @@ impl Riffle {
             return;
         }
         self.menus.close();
+        self.follow_trash(cx);
         cx.notify();
     }
 
@@ -1249,6 +1261,7 @@ impl Riffle {
             None => {
                 log::info!("trash: {label} held for the scan's end");
                 self.trash.end();
+                self.follow_trash(cx);
                 self.scan.cancel();
                 // The canceled scan leaves files unscanned, whatever becomes
                 // of the held run.
@@ -1262,17 +1275,48 @@ impl Riffle {
 
     fn dismiss_trash(&mut self, cx: &mut Context<Self>) {
         if self.trash.dismiss() {
+            self.follow_trash(cx);
             cx.notify();
         }
     }
 
-    /// Every key stops here while the dialog is open.
-    fn trash_key_down(&mut self, name: Option<&str>, held: bool, cx: &mut Context<Self>) {
+    /// A key pressed in the dialog; true when it goes on to the focused
+    /// button, which presses itself on Enter or Space. Every other key
+    /// stops in the dialog.
+    fn trash_key_down(&mut self, name: Option<&str>, held: bool, cx: &mut Context<Self>) -> bool {
         match self.trash.key(name, held) {
-            trash::Key::Dismiss => self.dismiss_trash(cx),
-            trash::Key::Run => self.confirm_run(0, cx),
-            trash::Key::Swallow => cx.notify(),
+            trash::Key::Dismiss => {
+                self.dismiss_trash(cx);
+                false
+            }
+            trash::Key::Press => true,
+            trash::Key::Swallow => false,
         }
+    }
+
+    /// Open the dialog when the flow starts asking and close it when the
+    /// flow goes idle, the only places it opens or closes.
+    fn follow_trash(&mut self, cx: &mut Context<Self>) {
+        if !self.trash.busy() {
+            self.trash_modal.close(cx);
+            return;
+        }
+        let Some(initial) = self.trash.initial_focus() else {
+            return;
+        };
+        let this = cx.weak_entity();
+        let buttons = self.trash_buttons.clone();
+        let first = Cell::new(true);
+        self.trash_modal.open(cx, move |dialog, window, cx| {
+            if first.replace(false) {
+                let at = match initial {
+                    trash::Button::Run => 0,
+                    trash::Button::Cancel => 1,
+                };
+                buttons[at].focus(window, cx);
+            }
+            trash_dialog(dialog, &this, &buttons, cx)
+        });
     }
 
     /// Move `target`'s files to the Trash, or delete them, on a background
@@ -1349,6 +1393,7 @@ impl Riffle {
         self.trashing = None;
         if own {
             self.trash.end();
+            self.follow_trash(cx);
         }
         match result {
             Ok(summary) => {
@@ -2595,20 +2640,15 @@ impl Riffle {
     /// logged. Nothing gets through while the settings are open. While the
     /// tree has the keyboard it takes the key first, and of the rest only
     /// `tree_gate`'s actions run.
-    fn key_down(
-        &mut self,
-        keystroke: &Keystroke,
-        held: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn key_down(&mut self, keystroke: &Keystroke, window: &mut Window, cx: &mut Context<Self>) {
         if self.settings_view.read(cx).is_open() {
             return;
         }
-        let name = keys::key_name(keystroke);
+        // The dialog in `Root`'s layer has the keys while the flow is busy.
         if self.trash.busy() {
-            return self.trash_key_down(name.as_deref(), held, cx);
+            return;
         }
+        let name = keys::key_name(keystroke);
         if self.folderops.dialog_open() {
             return self.folder_dialog_key(name.as_deref(), cx);
         }
@@ -4252,101 +4292,6 @@ impl Riffle {
         )
     }
 
-    /// The `Move to Trash…` / `Delete Permanently…` dialog while it asks or
-    /// runs: a full-window `occlude()`d layer, so no press reaches what is
-    /// under it, with the title, the line and the two buttons. The focused
-    /// button is kept in `TrashFlow` and outlined; while running both are
-    /// disabled.
-    fn trash_dialog(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let target = self.trash.target()?;
-        let text = trash::dialog_text(target.mode, target.paths.len());
-        let running = self.trash.running();
-        let focused = self.trash.focused();
-        let button = |id: &'static str, label: &'static str, which: trash::Button| {
-            let destructive = which == trash::Button::Run;
-            let button = div()
-                .id(id)
-                .px(px(12.))
-                .py(px(4.8))
-                .rounded_md()
-                .border_1()
-                .text_size(px(13.6))
-                .font_weight(FontWeight::MEDIUM)
-                .map(|d| match (!running && focused == which, destructive) {
-                    (true, _) => d.border_color(rgb(PRIMARY_COLOR)),
-                    (false, true) => d.border_color(rgba(0)),
-                    (false, false) => d.border_color(rgba(INPUT_BORDER)),
-                })
-                .bg(if destructive {
-                    rgb(ERROR_COLOR)
-                } else {
-                    rgba(BUTTON_FILL)
-                })
-                .child(label);
-            if running {
-                return button.opacity(0.5);
-            }
-            button
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, e: &ClickEvent, _, cx| match which {
-                    trash::Button::Run => {
-                        let count = if e.is_keyboard() { 0 } else { e.click_count() };
-                        this.confirm_run(count, cx);
-                    }
-                    trash::Button::Cancel => this.dismiss_trash(cx),
-                }))
-        };
-        Some(
-            deferred(
-                div()
-                    .id("trash-backdrop")
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full()
-                    .occlude()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .bg(rgba(OVERLAY_COLOR))
-                    .child(
-                        div()
-                            .id("trash-box")
-                            .occlude()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .w(px(640.))
-                            .max_w(relative(0.9))
-                            .px_4()
-                            .py_3()
-                            .bg(rgb(PANE_COLOR))
-                            .border_1()
-                            .border_color(rgba(BORDER_COLOR))
-                            .rounded_lg()
-                            .text_color(rgb(FOREGROUND_COLOR))
-                            .text_size(px(13.))
-                            .child(
-                                div()
-                                    .text_size(px(16.))
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(text.title),
-                            )
-                            .child(div().child(text.line))
-                            .child(
-                                div()
-                                    .flex()
-                                    .justify_end()
-                                    .gap_2()
-                                    .child(button("trash-run", text.run, trash::Button::Run))
-                                    .child(button("trash-cancel", "Cancel", trash::Button::Cancel)),
-                            ),
-                    ),
-            )
-            .into_any_element(),
-        )
-    }
-
     /// Answer an MCP companion tool call from the view, after moving it as
     /// the call asks.
     fn mcp_request(&mut self, request: riffle_backend::mcp::Request, cx: &mut Context<Self>) {
@@ -4438,7 +4383,7 @@ impl Render for Riffle {
                 this.drop_paths(paths, cx);
             }))
             .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                this.key_down(&e.keystroke, e.is_held, window, cx);
+                this.key_down(&e.keystroke, window, cx);
             }))
             .child(
                 div()
@@ -4574,7 +4519,7 @@ impl Render for Riffle {
             .child(self.status_row(window.viewport_size().height - px(40.), cx))
             .child(self.settings_view.clone())
             .children(self.context_popover(window.viewport_size().height - px(40.), cx))
-            .children(self.trash_dialog(cx))
+            .children(self.trash.busy().then(|| modal::backdrop(cx)))
             .children(self.folder_dialog(cx))
     }
 }
@@ -4594,6 +4539,80 @@ fn keymap_keys() -> [KeyBinding; 2] {
         KeyBinding::new("tab", NoAction, Some(KEY_CONTEXT)),
         KeyBinding::new("shift-tab", NoAction, Some(KEY_CONTEXT)),
     ]
+}
+
+/// The `Move to Trash…` / `Delete Permanently…` dialog, inside `modal`'s
+/// shell, rebuilt from the flow on every rebuild of the dialog layer: the
+/// title, the line, and the run and Cancel buttons on the focus handles
+/// `buttons` holds, both disabled while the run is under way. Its keys reach
+/// `trash_key_down` before the focused button sees them.
+fn trash_dialog(
+    dialog: Dialog,
+    this: &WeakEntity<Riffle>,
+    buttons: &[FocusHandle; 2],
+    cx: &mut App,
+) -> Dialog {
+    let Some((mode, count, running)) = this.upgrade().and_then(|view| {
+        let flow = &view.read(cx).trash;
+        flow.target()
+            .map(|target| (target.mode, target.paths.len(), flow.running()))
+    }) else {
+        return dialog;
+    };
+    let text = trash::dialog_text(mode, count);
+    let line = SharedString::from(text.line);
+    let button = |id: &'static str, label: &'static str, which: trash::Button| {
+        let this = this.clone();
+        let at = match which {
+            trash::Button::Run => 0,
+            trash::Button::Cancel => 1,
+        };
+        Button::new(id)
+            .track_focus(&buttons[at])
+            .px(px(12.))
+            .disabled(running)
+            .child(
+                div()
+                    .text_size(px(13.6))
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(label),
+            )
+            .on_click(move |e: &ClickEvent, _, cx| {
+                this.update(cx, |this, cx| match which {
+                    trash::Button::Run => {
+                        let count = if e.is_keyboard() { 0 } else { e.click_count() };
+                        this.confirm_run(count, cx);
+                    }
+                    trash::Button::Cancel => this.dismiss_trash(cx),
+                })
+                .ok();
+            })
+    };
+    let view = this.clone();
+    dialog
+        .title(text.title)
+        .content(move |content, _, _| content.child(line.clone()))
+        .footer(
+            div()
+                .capture_key_down(move |e: &KeyDownEvent, window, cx| {
+                    let name = keys::key_name(&e.keystroke);
+                    let held = e.is_held;
+                    let press = view
+                        .update(cx, |this, cx| {
+                            this.trash_key_down(name.as_deref(), held, cx)
+                        })
+                        .unwrap_or(false);
+                    if !press {
+                        window.prevent_default();
+                        cx.stop_propagation();
+                    }
+                })
+                .child(
+                    DialogFooter::new()
+                        .child(button("trash-run", text.run, trash::Button::Run).danger())
+                        .child(button("trash-cancel", "Cancel", trash::Button::Cancel)),
+                ),
+        )
 }
 
 /// The Tauri `body.dragging #main` outline, laid over the main area while an
